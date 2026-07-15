@@ -33,7 +33,9 @@ export default function JoinHouseholdScreen() {
       <View style={orbitScreen.header}>
         <Text style={orbitTypography.caption}>Join a household</Text>
         <Text style={orbitTypography.display}>Invite code</Text>
-        <Text style={orbitTypography.body}>Mock join requests enter as pending adult members until an owner approves them.</Text>
+        <Text style={orbitTypography.body}>
+          Enter an invite code. Your access stays pending until an owner or admin approves you.
+        </Text>
       </View>
 
       <GlassCard elevated style={styles.form}>

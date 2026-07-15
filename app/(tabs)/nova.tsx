@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { router } from 'expo-router';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { NovaOrb } from '@/components/orbit/nova-orb';
@@ -13,27 +14,45 @@ export default function NovaScreen() {
   const {
     askNova,
     metrics,
+    novaAskCount,
     novaBriefing,
     novaRecommendations,
     novaWeeklyBriefing,
     suggestedNovaQuestions,
   } = useOrbit();
-  const [conversation, setConversation] = useState<NovaConversationAnswer | null>(null);
+  const [thread, setThread] = useState<NovaConversationAnswer[]>([]);
+  const [draft, setDraft] = useState('');
+  const [asking, setAsking] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   const handleQuestion = async (question: string) => {
-    const answer = await askNova(question);
-    setConversation(answer);
+    const trimmed = question.trim();
+    if (!trimmed || asking) {
+      return;
+    }
+    setAsking(true);
+    try {
+      const answer = await askNova(trimmed);
+      setThread((current) => [...current, answer]);
+      setDraft('');
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    } finally {
+      setAsking(false);
+    }
   };
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={orbitScreen.container}
       contentContainerStyle={orbitScreen.content}
       contentInsetAdjustmentBehavior="automatic">
       <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Local intelligence mode</Text>
+        <Text style={orbitTypography.caption}>Household co-manager</Text>
         <Text style={orbitTypography.display}>Nova</Text>
-        <Text style={orbitTypography.body}>Briefings are generated from current household state. No OpenAI calls yet.</Text>
+        <Text style={orbitTypography.body}>
+          Calm briefings and answers grounded in today’s household state.
+        </Text>
       </View>
 
       <GlassCard elevated style={styles.hero}>
@@ -62,15 +81,11 @@ export default function NovaScreen() {
       <GlassCard>
         <View style={orbitScreen.row}>
           <Text style={orbitTypography.cardTitle}>Weekly report</Text>
-          <StatusPill label={`${novaWeeklyBriefing.momentumChange >= 0 ? '+' : ''}${novaWeeklyBriefing.momentumChange}`} tone="blue" />
+          <Pressable onPress={() => router.push('/weekly-report' as never)}>
+            <Text style={styles.linkHint}>Open</Text>
+          </Pressable>
         </View>
         <Text style={orbitTypography.caption}>{novaWeeklyBriefing.summary}</Text>
-        <View style={styles.metricGrid}>
-          <Metric label="Completed" value={novaWeeklyBriefing.tasksCompleted} />
-          <Metric label="Missed" value={novaWeeklyBriefing.tasksMissed} />
-          <Metric label="Purchased" value={novaWeeklyBriefing.groceriesPurchased} />
-          <Metric label="XP earned" value={novaWeeklyBriefing.xpEarned} />
-        </View>
         <Text style={styles.weeklyLeader}>Most active: {novaWeeklyBriefing.mostActiveMember}</Text>
       </GlassCard>
 
@@ -85,38 +100,52 @@ export default function NovaScreen() {
       </GlassCard>
 
       <GlassCard>
-        <Text style={orbitTypography.cardTitle}>Ask Nova</Text>
+        <View style={orbitScreen.row}>
+          <Text style={orbitTypography.cardTitle}>Conversation</Text>
+          <StatusPill label={`${novaAskCount} asks`} tone="blue" />
+        </View>
+
         <View style={styles.questionGrid}>
           {suggestedNovaQuestions.map((question) => (
-            <Pressable key={question} onPress={() => handleQuestion(question)} style={styles.questionChip}>
+            <Pressable
+              key={question}
+              disabled={asking}
+              onPress={() => handleQuestion(question)}
+              style={styles.questionChip}>
               <Text style={styles.questionText}>{question}</Text>
             </Pressable>
           ))}
         </View>
-        {conversation ? (
-          <View style={styles.answerBox}>
-            <Text style={styles.questionLabel}>{conversation.question}</Text>
-            <Text style={orbitTypography.body}>{conversation.answer}</Text>
-          </View>
-        ) : null}
+
+        {thread.length === 0 ? (
+          <Text style={orbitTypography.caption}>Ask a suggested question or type your own below.</Text>
+        ) : (
+          thread.map((item, index) => (
+            <View key={`${item.question}-${index}`} style={styles.threadBlock}>
+              <View style={styles.userBubble}>
+                <Text style={styles.userBubbleText}>{item.question}</Text>
+              </View>
+              <View style={styles.answerBox}>
+                <Text style={styles.questionLabel}>Nova</Text>
+                <Text style={orbitTypography.body}>{item.answer}</Text>
+              </View>
+            </View>
+          ))
+        )}
+
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="Ask Nova anything about the household…"
+          placeholderTextColor={orbitColors.textSubtle}
+          style={styles.input}
+          multiline
+        />
+        <OrbitButton disabled={asking || draft.trim().length < 2} onPress={() => handleQuestion(draft)}>
+          {asking ? 'Thinking…' : 'Send'}
+        </OrbitButton>
       </GlassCard>
-
-      <OrbitButton tone="secondary" onPress={() => setConversation({
-        question: 'Voice mode',
-        answer: 'Voice is a placeholder for now. Realtime audio will be added only when OpenAI Realtime is connected.',
-      })}>
-        Voice Button Placeholder
-      </OrbitButton>
     </ScrollView>
-  );
-}
-
-function Metric({ label, value }: { label: number | string; value: number | string }) {
-  return (
-    <View style={styles.metricTile}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-    </View>
   );
 }
 
@@ -155,29 +184,21 @@ const styles = StyleSheet.create({
     gap: orbitSpacing.sm,
     paddingLeft: orbitSpacing.md,
   },
-  metricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: orbitSpacing.sm,
-  },
-  metricLabel: {
-    color: orbitColors.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  metricTile: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: orbitRadius.sm,
-    flexBasis: '47%',
-    flexGrow: 1,
-    gap: 4,
-    padding: orbitSpacing.md,
-  },
-  metricValue: {
+  input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: orbitColors.border,
+    borderRadius: orbitRadius.md,
+    borderWidth: 1,
     color: orbitColors.text,
-    fontSize: 24,
-    fontVariant: ['tabular-nums'],
-    fontWeight: '900',
+    fontSize: 16,
+    minHeight: 56,
+    padding: orbitSpacing.md,
+    textAlignVertical: 'top',
+  },
+  linkHint: {
+    color: orbitColors.novaCyan,
+    fontSize: 13,
+    fontWeight: '700',
   },
   questionChip: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -209,6 +230,22 @@ const styles = StyleSheet.create({
     color: orbitColors.textMuted,
     fontSize: 16,
     lineHeight: 23,
+  },
+  threadBlock: {
+    gap: orbitSpacing.sm,
+  },
+  userBubble: {
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(41, 121, 255, 0.22)',
+    borderRadius: orbitRadius.md,
+    maxWidth: '88%',
+    paddingHorizontal: orbitSpacing.md,
+    paddingVertical: orbitSpacing.sm,
+  },
+  userBubbleText: {
+    color: orbitColors.text,
+    fontSize: 14,
+    fontWeight: '700',
   },
   weeklyLeader: {
     color: orbitColors.novaCyan,
