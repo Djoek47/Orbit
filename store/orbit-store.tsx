@@ -185,7 +185,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const createTask = async (input: CreateTaskInput) => {
-    const task = await taskRepository.createTask(input);
+    const task = await taskRepository.createTask(household.id, input);
     setHousehold((current) => ({
       ...current,
       tasks: [task, ...current.tasks],
@@ -199,7 +199,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    const completedTask = await taskRepository.completeTask(currentTask);
+    const completedTask = await taskRepository.completeTask(currentTask, household.id);
 
     setHousehold((current) => {
       const task = current.tasks.find((item) => item.id === taskId);
@@ -219,7 +219,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const addMissingGrocery = async (input: CreateGroceryInput) => {
-    const grocery = await groceryRepository.addGroceryItem(input);
+    const grocery = await groceryRepository.addGroceryItem(household.id, input);
     setHousehold((current) => ({
       ...current,
       groceries: [grocery, ...current.groceries],
@@ -233,7 +233,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    const purchasedItem = await groceryRepository.markGroceryPurchased(currentItem);
+    const purchasedItem = await groceryRepository.markGroceryPurchased(currentItem, household.id);
 
     setHousehold((current) => ({
       ...current,
@@ -242,7 +242,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const createEvent = async (input: CreateEventInput) => {
-    const event = await calendarRepository.createEvent(input);
+    const event = await calendarRepository.createEvent(household.id, input);
     setHousehold((current) => ({
       ...current,
       events: [event, ...current.events],
@@ -343,12 +343,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 }
 
 async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<HouseholdSnapshot> {
+  const householdId = baseHousehold.id;
   const [tasks, groceries, events, rewards, badges] = await Promise.all([
-    taskRepository.getTasks(baseHousehold.tasks),
-    groceryRepository.getGroceries(baseHousehold.groceries),
-    calendarRepository.getEvents(baseHousehold.events),
-    rewardsRepository.getRewards(baseHousehold.rewards),
-    rewardsRepository.getBadges(baseHousehold.badges),
+    taskRepository.getTasks(householdId),
+    groceryRepository.getGroceries(householdId),
+    calendarRepository.getEvents(householdId),
+    rewardsRepository.getRewards(householdId),
+    rewardsRepository.getBadges(householdId),
   ]);
   const initialHousehold = {
     ...baseHousehold,

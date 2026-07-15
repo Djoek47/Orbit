@@ -33,6 +33,7 @@ export type HouseholdMember = {
 export type HouseholdTask = {
   id: string;
   title: string;
+  description?: string;
   category: string;
   assignee: string;
   due: string;
@@ -191,4 +192,82 @@ export type HouseholdSnapshot = {
   rewards: Reward[];
   badges: Badge[];
   nova: NovaBriefing;
+};
+
+export type NotificationItem = {
+  id: string;
+  householdId: string;
+  title: string;
+  body: string;
+  category: 'tasks' | 'groceries' | 'events' | 'rewards' | 'ai' | 'general';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  isRead: boolean;
+  createdAt: string;
+  data?: Record<string, unknown>;
+};
+
+export type RewardRedemption = {
+  id: string;
+  householdId: string;
+  rewardId: string;
+  memberId: string;
+  status: 'pending' | 'approved' | 'rejected' | 'fulfilled';
+  note?: string;
+  requestedAt: string;
+  decidedAt?: string;
+};
+
+export type StoreRecommendation = {
+  id: string;
+  householdId: string;
+  title: string;
+  detail: string;
+  description?: string;
+  etaMinutes?: number;
+  itemCount: number;
+  storeId?: string;
+};
+
+export type SmartHomeDevice = {
+  id: string;
+  householdId: string;
+  externalId: string;
+  name: string;
+  room?: string;
+  deviceType: string;
+  description?: string;
+  isOnline: boolean;
+  /** Mock-friendly on/off for toggles; full platform state lives in `state`. */
+  isOn: boolean;
+  state: Record<string, unknown>;
+};
+
+export type SmartHomeScene = {
+  id: string;
+  householdId: string;
+  name: string;
+  description?: string;
+  actions: Record<string, unknown>[];
+};
+
+export type WeeklyReport = {
+  id?: string;
+  householdId: string;
+  title: string;
+  summary: string;
+  description?: string;
+  tasksCompleted: number;
+  tasksMissed: number;
+  groceriesPurchased: number;
+  mostActiveMember: string;
+  xpEarned: number;
+  momentumChange: number;
+  recommendations: string[];
+  createdAt?: string;
+};
+
+export type InviteLinks = {
+  code: string;
+  deepLink: string;
+  webLink: string;
 };
