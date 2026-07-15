@@ -33,6 +33,9 @@ export default function GroceriesScreen() {
       </View>
 
       <OrbitButton onPress={() => router.push('/add-grocery' as never)}>+ Missing Item</OrbitButton>
+      <OrbitButton tone="secondary" onPress={() => router.push('/shopping-recommendations' as never)}>
+        Store recommendations
+      </OrbitButton>
 
       <GlassCard elevated>
         <Text style={orbitTypography.cardTitle}>Missing items</Text>

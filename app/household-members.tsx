@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -6,9 +6,46 @@ import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { useOrbit } from '@/store/orbit-store';
+import type { HouseholdRole } from '@/types/orbit';
+
+const ROLE_CYCLE: HouseholdRole[] = ['adult', 'admin', 'child', 'guest'];
+
+function nextRole(current: HouseholdRole): HouseholdRole {
+  if (current === 'owner') {
+    return 'owner';
+  }
+  const index = ROLE_CYCLE.indexOf(current);
+  return ROLE_CYCLE[(index + 1) % ROLE_CYCLE.length];
+}
 
 export default function HouseholdMembersScreen() {
-  const { household, permissions } = useOrbit();
+  const { household, permissions, removeMember, updateMemberRole } = useOrbit();
+
+  const handleChangeRole = (memberId: string, currentRole: HouseholdRole) => {
+    if (currentRole === 'owner') {
+      Alert.alert('Owner role', 'The household owner role cannot be changed here.');
+      return;
+    }
+    const role = nextRole(currentRole);
+    void updateMemberRole(memberId, role);
+  };
+
+  const handleRemove = (memberId: string, name: string, role: HouseholdRole) => {
+    if (role === 'owner') {
+      Alert.alert('Cannot remove', 'The household owner cannot be removed.');
+      return;
+    }
+    Alert.alert('Remove member', `Remove ${name} from this household?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          void removeMember(memberId);
+        },
+      },
+    ]);
+  };
 
   return (
     <ScrollView
@@ -18,7 +55,7 @@ export default function HouseholdMembersScreen() {
       <View style={orbitScreen.header}>
         <Text style={orbitTypography.caption}>{household.householdName}</Text>
         <Text style={orbitTypography.display}>Members</Text>
-        <Text style={orbitTypography.body}>Roles and status are local placeholders until owner approval is backed by Supabase.</Text>
+        <Text style={orbitTypography.body}>Manage roles and membership for people in this household.</Text>
       </View>
 
       {household.members.map((member) => (
@@ -35,10 +72,16 @@ export default function HouseholdMembersScreen() {
             <StatusPill label={member.status} tone={member.status === 'active' ? 'green' : 'amber'} />
           </View>
           <View style={styles.actions}>
-            <OrbitButton disabled={!permissions.canManageHousehold} tone="secondary" onPress={() => {}}>
+            <OrbitButton
+              disabled={!permissions.canManageHousehold || member.role === 'owner'}
+              tone="secondary"
+              onPress={() => handleChangeRole(member.id, member.role)}>
               Change Role
             </OrbitButton>
-            <OrbitButton disabled={!permissions.canManageHousehold} tone="danger" onPress={() => {}}>
+            <OrbitButton
+              disabled={!permissions.canManageHousehold || member.role === 'owner'}
+              tone="danger"
+              onPress={() => handleRemove(member.id, member.name, member.role)}>
               Remove
             </OrbitButton>
           </View>

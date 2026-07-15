@@ -22,3 +22,6 @@ export async function trackAnalyticsEvent(
     user_id: context?.userId ?? null,
   });
 }
+
+/** Alias used by the Orbit store and screens. */
+export const trackAnalytics = trackAnalyticsEvent;

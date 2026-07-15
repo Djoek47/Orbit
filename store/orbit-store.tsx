@@ -1,15 +1,21 @@
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+import { dataMode } from '@/config/data-mode';
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
+import { trackAnalytics } from '@/lib/analytics';
 import { getLevel, LEVELS, MEMBER_ACCENTS, xpProgress } from '@/lib/game-levels';
+import { buildStoreRecommendations } from '@/lib/grocery/recommendations';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
+import { subscribeHouseholdRealtime } from '@/lib/realtime/household-realtime';
 import {
   authRepository,
   calendarRepository,
   groceryRepository,
   householdRepository,
+  notificationsRepository,
   novaRepository,
   rewardsRepository,
+  smartHomeRepository,
   taskRepository,
 } from '@/repositories';
 import { novaService, suggestedNovaQuestions } from '@/services/nova-service';
@@ -20,17 +26,24 @@ import type {
   CreateProfileInput,
   CreateTaskInput,
   HouseholdMember,
+  HouseholdRole,
   HouseholdSnapshot,
+  InviteLinks,
   JoinHouseholdInput,
   MemberProgress,
+  NotificationItem,
   NovaBriefing,
   NovaConversationAnswer,
   NovaRecommendation,
   NovaWeeklyBriefing,
   OrbitUser,
   OrbitMetrics,
+  RewardRedemption,
   SignInInput,
   SignUpInput,
+  SmartHomeDevice,
+  SmartHomeScene,
+  StoreRecommendation,
 } from '@/types/orbit';
 
 type OrbitContextValue = {
@@ -45,6 +58,12 @@ type OrbitContextValue = {
   novaRecommendations: NovaRecommendation[];
   novaWeeklyBriefing: NovaWeeklyBriefing;
   permissions: HouseholdPermissions;
+  notifications: NotificationItem[];
+  pendingRedemptions: RewardRedemption[];
+  smartHomeDevices: SmartHomeDevice[];
+  smartHomeScenes: SmartHomeScene[];
+  storeRecommendations: StoreRecommendation[];
+  inviteLinks: InviteLinks | null;
   askNova: (question: string) => Promise<NovaConversationAnswer>;
   createHousehold: (input: CreateHouseholdInput) => Promise<void>;
   createProfile: (input: CreateProfileInput) => Promise<void>;
@@ -59,6 +78,21 @@ type OrbitContextValue = {
   signOut: () => Promise<void>;
   signUp: (input: SignUpInput) => Promise<void>;
   suggestedNovaQuestions: readonly string[];
+  refreshNotifications: () => Promise<void>;
+  markNotificationRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  requestRewardRedemption: (rewardId: string, note?: string) => Promise<void>;
+  approveRedemption: (redemptionId: string) => Promise<void>;
+  rejectRedemption: (redemptionId: string) => Promise<void>;
+  updateMemberRole: (memberId: string, role: HouseholdRole) => Promise<void>;
+  removeMember: (memberId: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  exportUserData: () => Promise<string>;
+  toggleSmartDevice: (deviceId: string) => Promise<void>;
+  activateSmartScene: (sceneId: string) => Promise<void>;
+  refreshStoreRecommendations: () => void;
+  refreshInviteLinks: () => Promise<InviteLinks | null>;
+  refreshSmartHome: () => Promise<void>;
 };
 
 const OrbitContext = createContext<OrbitContextValue | null>(null);
@@ -67,6 +101,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [currentUser, setCurrentUser] = useState<OrbitUser | null>(null);
   const [household, setHousehold] = useState<HouseholdSnapshot>(mockHousehold);
   const [isLoading, setIsLoading] = useState(true);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [pendingRedemptions, setPendingRedemptions] = useState<RewardRedemption[]>([]);
+  const [smartHomeDevices, setSmartHomeDevices] = useState<SmartHomeDevice[]>([]);
+  const [smartHomeScenes, setSmartHomeScenes] = useState<SmartHomeScene[]>([]);
+  const [storeRecommendations, setStoreRecommendations] = useState<StoreRecommendation[]>([]);
+  const [inviteLinks, setInviteLinks] = useState<InviteLinks | null>(null);
   const initialMetrics = useMemo(() => calculateMetrics(mockHousehold), []);
   const [novaWeeklyBriefing, setNovaWeeklyBriefing] = useState<NovaWeeklyBriefing>(() =>
     novaService.generateWeeklyBriefing(mockHousehold, initialMetrics)
@@ -91,6 +131,58 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   );
   const novaBriefing = useMemo(() => household.nova, [household.nova]);
 
+  const analyticsContext = useMemo(
+    () => ({ householdId: household.id, userId: currentUser?.id ?? null }),
+    [currentUser?.id, household.id]
+  );
+
+  const refreshNotifications = useCallback(async () => {
+    const items = await notificationsRepository.list(household.id);
+    setNotifications(items);
+  }, [household.id]);
+
+  const refreshSmartHome = useCallback(async () => {
+    if (household.id) {
+      await smartHomeRepository.ensureMockSeed(household.id);
+    }
+    const [devices, scenes] = await Promise.all([
+      smartHomeRepository.listDevices(household.id),
+      smartHomeRepository.listScenes(household.id),
+    ]);
+    setSmartHomeDevices(devices);
+    setSmartHomeScenes(scenes);
+  }, [household.id]);
+
+  const refreshStoreRecommendations = useCallback(() => {
+    setStoreRecommendations(buildStoreRecommendations(household.id, household.groceries));
+  }, [household.groceries, household.id]);
+
+  const refreshInviteLinks = useCallback(async () => {
+    if (!household.id) {
+      setInviteLinks(null);
+      return null;
+    }
+    const links = await householdRepository.getInviteLink(household.id);
+    setInviteLinks(links);
+    setHousehold((current) => ({ ...current, inviteCode: links.code }));
+    return links;
+  }, [household.id]);
+
+  const reloadHouseholdDomains = useCallback(async () => {
+    const baseHousehold = await householdRepository.getHousehold();
+    const hydratedHousehold = await hydrateHousehold(baseHousehold);
+    setHousehold(hydratedHousehold);
+    await Promise.all([
+      notificationsRepository.list(hydratedHousehold.id).then(setNotifications),
+      rewardsRepository.getRedemptions(hydratedHousehold.id).then((items) =>
+        setPendingRedemptions(items.filter((item) => item.status === 'pending'))
+      ),
+      smartHomeRepository.listDevices(hydratedHousehold.id).then(setSmartHomeDevices),
+      smartHomeRepository.listScenes(hydratedHousehold.id).then(setSmartHomeScenes),
+    ]);
+    setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -98,7 +190,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const session = await authRepository.getCurrentSession();
 
       if (!session) {
-        setIsLoading(false);
+        if (isMounted) {
+          setStoreRecommendations(buildStoreRecommendations(mockHousehold.id, mockHousehold.groceries));
+          const items = await notificationsRepository.list(mockHousehold.id);
+          setNotifications(items);
+          await smartHomeRepository.ensureMockSeed(mockHousehold.id ?? 'hh-rivera');
+          const [devices, scenes] = await Promise.all([
+            smartHomeRepository.listDevices(mockHousehold.id),
+            smartHomeRepository.listScenes(mockHousehold.id),
+          ]);
+          setSmartHomeDevices(devices);
+          setSmartHomeScenes(scenes);
+          setIsLoading(false);
+        }
         return;
       }
 
@@ -108,6 +212,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (isMounted) {
         setCurrentUser(session.user);
         setHousehold(hydratedHousehold);
+        setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
+        const [items, redemptions, devices, scenes, links] = await Promise.all([
+          notificationsRepository.list(hydratedHousehold.id),
+          rewardsRepository.getRedemptions(hydratedHousehold.id),
+          smartHomeRepository.listDevices(hydratedHousehold.id),
+          smartHomeRepository.listScenes(hydratedHousehold.id),
+          hydratedHousehold.id
+            ? householdRepository.getInviteLink(hydratedHousehold.id)
+            : Promise.resolve(null),
+        ]);
+        setNotifications(items);
+        setPendingRedemptions(redemptions.filter((item) => item.status === 'pending'));
+        setSmartHomeDevices(devices);
+        setSmartHomeScenes(scenes);
+        if (links) {
+          setInviteLinks(links);
+        }
         setIsLoading(false);
       }
     }
@@ -124,6 +245,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  useEffect(() => {
+    if (dataMode !== 'supabase' || !household.id) {
+      return;
+    }
+
+    return subscribeHouseholdRealtime(household.id, () => {
+      reloadHouseholdDomains().catch((error) => {
+        console.warn('Failed to reload after realtime change', error);
+      });
+    });
+  }, [household.id, reloadHouseholdDomains]);
+
+  useEffect(() => {
+    refreshStoreRecommendations();
+  }, [refreshStoreRecommendations]);
+
   const signIn = async (input: SignInInput) => {
     const session = await authRepository.signIn(input);
     const baseHousehold = await householdRepository.getHousehold();
@@ -134,6 +271,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     setCurrentUser(session.user);
     setHousehold(hydratedHousehold);
+    await trackAnalytics('auth.sign_in', { email: input.email }, { householdId: hydratedHousehold.id, userId: session.user.id });
+    const [items, redemptions, devices, scenes] = await Promise.all([
+      notificationsRepository.list(hydratedHousehold.id),
+      rewardsRepository.getRedemptions(hydratedHousehold.id),
+      smartHomeRepository.listDevices(hydratedHousehold.id),
+      smartHomeRepository.listScenes(hydratedHousehold.id),
+    ]);
+    setNotifications(items);
+    setPendingRedemptions(redemptions.filter((item) => item.status === 'pending'));
+    setSmartHomeDevices(devices);
+    setSmartHomeScenes(scenes);
+    setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
   };
 
   const signUp = async (input: SignUpInput) => {
@@ -141,10 +290,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     setCurrentUser(session.user);
     setHousehold(createEmptyHousehold(session.user));
+    await trackAnalytics('auth.sign_up', { email: input.email }, { userId: session.user.id });
   };
 
   const forgotPassword = async (email: string) => {
     await authRepository.forgotPassword(email);
+    await trackAnalytics('auth.forgot_password', { email }, analyticsContext);
   };
 
   const createProfile = async (input: CreateProfileInput) => {
@@ -158,6 +309,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       greetingName: user.name,
     }));
+    await trackAnalytics('profile.created', { name: user.name }, { ...analyticsContext, userId: user.id });
   };
 
   const createHousehold = async (input: CreateHouseholdInput) => {
@@ -167,6 +319,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     const createdHousehold = await householdRepository.createHousehold(input, currentUser);
     setHousehold(createdHousehold);
+    if (createdHousehold.id) {
+      const links = await householdRepository.getInviteLink(createdHousehold.id);
+      setInviteLinks(links);
+    }
+    await trackAnalytics('household.created', { name: input.name }, { householdId: createdHousehold.id, userId: currentUser.id });
   };
 
   const joinHousehold = async (input: JoinHouseholdInput) => {
@@ -176,12 +333,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     const joinedHousehold = await householdRepository.joinHousehold(input, currentUser);
     setHousehold(joinedHousehold);
+    await trackAnalytics('household.joined', { inviteCode: input.inviteCode }, { householdId: joinedHousehold.id, userId: currentUser.id });
   };
 
   const signOut = async () => {
     await authRepository.signOut();
+    await trackAnalytics('auth.sign_out', {}, analyticsContext);
     setCurrentUser(null);
     setHousehold(mockHousehold);
+    setPendingRedemptions([]);
+    setInviteLinks(null);
   };
 
   const createTask = async (input: CreateTaskInput) => {
@@ -190,6 +351,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       tasks: [task, ...current.tasks],
     }));
+    await trackAnalytics('task.created', { taskId: task.id }, analyticsContext);
   };
 
   const completeTask = async (taskId: string) => {
@@ -216,6 +378,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         tasks: current.tasks.map((item) => (item.id === taskId ? completedTask : item)),
       };
     });
+    await trackAnalytics('task.completed', { taskId }, analyticsContext);
   };
 
   const addMissingGrocery = async (input: CreateGroceryInput) => {
@@ -224,6 +387,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       groceries: [grocery, ...current.groceries],
     }));
+    await trackAnalytics('grocery.added', { groceryId: grocery.id }, analyticsContext);
   };
 
   const markGroceryPurchased = async (itemId: string) => {
@@ -239,6 +403,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       groceries: current.groceries.map((item) => (item.id === itemId ? purchasedItem : item)),
     }));
+    await trackAnalytics('grocery.purchased', { groceryId: itemId }, analyticsContext);
   };
 
   const createEvent = async (input: CreateEventInput) => {
@@ -247,9 +412,108 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       events: [event, ...current.events],
     }));
+    await trackAnalytics('event.created', { eventId: event.id }, analyticsContext);
   };
 
-  const askNova = async (question: string) => novaRepository.askNova(question, household, metrics);
+  const askNova = async (question: string) => {
+    const answer = await novaRepository.askNova(question, household, metrics);
+    await trackAnalytics('nova.asked', { questionLength: question.length }, analyticsContext);
+    return answer;
+  };
+
+  const markNotificationRead = async (notificationId: string) => {
+    await notificationsRepository.markRead(notificationId);
+    setNotifications((current) =>
+      current.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item))
+    );
+    await trackAnalytics('notification.read', { notificationId }, analyticsContext);
+  };
+
+  const markAllNotificationsRead = async () => {
+    await notificationsRepository.markAllRead(household.id);
+    setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
+    await trackAnalytics('notification.read_all', {}, analyticsContext);
+  };
+
+  const requestRewardRedemption = async (rewardId: string, note?: string) => {
+    if (!household.id || !currentMember) {
+      return;
+    }
+
+    const redemption = await rewardsRepository.requestRedemption({
+      householdId: household.id,
+      rewardId,
+      memberId: currentMember.id,
+      note,
+    });
+    setPendingRedemptions((current) => [redemption, ...current.filter((item) => item.id !== redemption.id)]);
+    await trackAnalytics('reward.redemption_requested', { rewardId }, analyticsContext);
+  };
+
+  const approveRedemption = async (redemptionId: string) => {
+    const updated = await rewardsRepository.approveRedemption(redemptionId);
+    setPendingRedemptions((current) => current.filter((item) => item.id !== redemptionId));
+    await trackAnalytics('reward.redemption_approved', { redemptionId, status: updated.status }, analyticsContext);
+  };
+
+  const rejectRedemption = async (redemptionId: string) => {
+    const updated = await rewardsRepository.rejectRedemption(redemptionId);
+    setPendingRedemptions((current) => current.filter((item) => item.id !== redemptionId));
+    await trackAnalytics('reward.redemption_rejected', { redemptionId, status: updated.status }, analyticsContext);
+  };
+
+  const updateMemberRole = async (memberId: string, role: HouseholdRole) => {
+    const member = household.members.find((item) => item.id === memberId);
+    if (!member) {
+      return;
+    }
+
+    const updated = await householdRepository.updateMemberRole(member, role);
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((item) => (item.id === memberId ? updated : item)),
+    }));
+    await trackAnalytics('member.role_updated', { memberId, role }, analyticsContext);
+  };
+
+  const removeMember = async (memberId: string) => {
+    await householdRepository.removeMember(memberId);
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.filter((item) => item.id !== memberId),
+    }));
+    await trackAnalytics('member.removed', { memberId }, analyticsContext);
+  };
+
+  const deleteAccount = async () => {
+    await authRepository.deleteAccount();
+    await trackAnalytics('auth.account_deleted', {}, analyticsContext);
+    setCurrentUser(null);
+    setHousehold(mockHousehold);
+    setPendingRedemptions([]);
+    setNotifications([]);
+  };
+
+  const exportUserData = async () => {
+    const payload = await authRepository.exportUserData();
+    await trackAnalytics('auth.data_exported', {}, analyticsContext);
+    return payload;
+  };
+
+  const toggleSmartDevice = async (deviceId: string) => {
+    const updated = await smartHomeRepository.toggleDevice(deviceId);
+    if (updated) {
+      setSmartHomeDevices((current) => current.map((device) => (device.id === deviceId ? updated : device)));
+    }
+    await trackAnalytics('smart_home.device_toggled', { deviceId }, analyticsContext);
+  };
+
+  const activateSmartScene = async (sceneId: string) => {
+    await smartHomeRepository.activateScene(sceneId);
+    const devices = await smartHomeRepository.listDevices(household.id);
+    setSmartHomeDevices(devices);
+    await trackAnalytics('smart_home.scene_activated', { sceneId }, analyticsContext);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -310,6 +574,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       novaRecommendations,
       novaWeeklyBriefing,
       permissions,
+      notifications,
+      pendingRedemptions,
+      smartHomeDevices,
+      smartHomeScenes,
+      storeRecommendations,
+      inviteLinks,
       askNova,
       createHousehold,
       createProfile,
@@ -324,6 +594,21 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       signOut,
       signUp,
       suggestedNovaQuestions,
+      refreshNotifications,
+      markNotificationRead,
+      markAllNotificationsRead,
+      requestRewardRedemption,
+      approveRedemption,
+      rejectRedemption,
+      updateMemberRole,
+      removeMember,
+      deleteAccount,
+      exportUserData,
+      toggleSmartDevice,
+      activateSmartScene,
+      refreshStoreRecommendations,
+      refreshInviteLinks,
+      refreshSmartHome,
     }),
     [
       currentUser,
@@ -336,6 +621,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       novaRecommendations,
       novaWeeklyBriefing,
       permissions,
+      notifications,
+      pendingRedemptions,
+      smartHomeDevices,
+      smartHomeScenes,
+      storeRecommendations,
+      inviteLinks,
+      refreshNotifications,
+      refreshStoreRecommendations,
+      refreshInviteLinks,
+      refreshSmartHome,
     ]
   );
 

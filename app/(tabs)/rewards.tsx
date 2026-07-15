@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
+import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
+import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { ACHIEVEMENT_BADGES } from '@/lib/game-levels';
 import { useOrbit } from '@/store/orbit-store';
@@ -14,7 +16,15 @@ const PODIUM_HEIGHTS = [100, 130, 85];
 const RANK_EMOJI = ['👑', '🥈', '🥉'] as const;
 
 export default function RewardsScreen() {
-  const { household, membersWithProgress } = useOrbit();
+  const {
+    approveRedemption,
+    household,
+    membersWithProgress,
+    pendingRedemptions,
+    permissions,
+    rejectRedemption,
+    requestRewardRedemption,
+  } = useOrbit();
   const [view, setView] = useState<RankingView>('week');
 
   const sorted = useMemo(() => {
@@ -35,7 +45,7 @@ export default function RewardsScreen() {
         <Text style={orbitTypography.caption}>Leaderboard</Text>
         <Text style={orbitTypography.display}>Family Rankings</Text>
         <Text style={orbitTypography.body}>
-          Complete tasks to earn XP. Rankings update immediately in this Expo Go mock session.
+          Complete tasks to earn XP. Rankings update as household activity lands.
         </Text>
       </View>
 
@@ -152,44 +162,46 @@ export default function RewardsScreen() {
         </View>
       </GlassCard>
 
-      <GlassCard>
-        <View style={orbitScreen.row}>
-          <Text style={orbitTypography.cardTitle}>🏆 Achievements</Text>
-          <Text style={styles.earnedCount}>
-            {earnedCount}/{ACHIEVEMENT_BADGES.length}
-          </Text>
-        </View>
-        <View style={styles.badgeGrid}>
-          {ACHIEVEMENT_BADGES.map((badge) => (
-            <View key={badge.id} style={styles.badgeTile}>
-              <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
-                <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
-                {!badge.earned ? <Text style={styles.lockOverlay}>🔒</Text> : null}
+      <Pressable onPress={() => router.push('/badge-gallery' as never)}>
+        <GlassCard>
+          <View style={orbitScreen.row}>
+            <Text style={orbitTypography.cardTitle}>🏆 Achievements</Text>
+            <Text style={styles.earnedCount}>
+              {earnedCount}/{ACHIEVEMENT_BADGES.length}
+            </Text>
+          </View>
+          <View style={styles.badgeGrid}>
+            {ACHIEVEMENT_BADGES.map((badge) => (
+              <View key={badge.id} style={styles.badgeTile}>
+                <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
+                  <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
+                  {!badge.earned ? <Text style={styles.lockOverlay}>🔒</Text> : null}
+                </View>
+                <Text style={[styles.badgeLabel, !badge.earned && styles.badgeLabelMuted]}>{badge.label}</Text>
               </View>
-              <Text style={[styles.badgeLabel, !badge.earned && styles.badgeLabelMuted]}>{badge.label}</Text>
-            </View>
-          ))}
-        </View>
-        <View style={styles.collectionRow}>
-          <Text style={orbitTypography.caption}>Collection progress</Text>
-          <Text style={styles.collectionPct}>{Math.round((earnedCount / ACHIEVEMENT_BADGES.length) * 100)}%</Text>
-        </View>
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${(earnedCount / ACHIEVEMENT_BADGES.length) * 100}%`,
-                backgroundColor: '#FBBF24',
-              },
-            ]}
-          />
-        </View>
-      </GlassCard>
+            ))}
+          </View>
+          <View style={styles.collectionRow}>
+            <Text style={orbitTypography.caption}>Collection progress</Text>
+            <Text style={styles.collectionPct}>{Math.round((earnedCount / ACHIEVEMENT_BADGES.length) * 100)}%</Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${(earnedCount / ACHIEVEMENT_BADGES.length) * 100}%`,
+                  backgroundColor: '#FBBF24',
+                },
+              ]}
+            />
+          </View>
+        </GlassCard>
+      </Pressable>
 
       <Text style={orbitTypography.title}>Reward shop</Text>
       {household.rewards.map((reward) => (
-        <GlassCard key={reward.id}>
+        <GlassCard key={reward.id} style={styles.rewardCard}>
           <View style={orbitScreen.row}>
             <View style={styles.rewardCopy}>
               <Text style={orbitTypography.cardTitle}>{reward.title}</Text>
@@ -197,8 +209,44 @@ export default function RewardsScreen() {
             </View>
             <Text style={styles.approvalLabel}>{reward.approvalRequired ? 'Approval' : 'Instant'}</Text>
           </View>
+          <OrbitButton tone="secondary" onPress={() => requestRewardRedemption(reward.id)}>
+            Redeem
+          </OrbitButton>
         </GlassCard>
       ))}
+
+      {pendingRedemptions.length > 0 ? (
+        <>
+          <Text style={orbitTypography.title}>Pending redemptions</Text>
+          {pendingRedemptions.map((redemption) => {
+            const reward = household.rewards.find((item) => item.id === redemption.rewardId);
+            const member = household.members.find((item) => item.id === redemption.memberId);
+            return (
+              <GlassCard key={redemption.id} style={styles.rewardCard}>
+                <Text style={orbitTypography.cardTitle}>{reward?.title ?? 'Reward'}</Text>
+                <Text style={orbitTypography.caption}>
+                  Requested by {member?.name ?? 'member'} · {new Date(redemption.requestedAt).toLocaleString()}
+                </Text>
+                {permissions.canApproveReward ? (
+                  <View style={styles.redemptionActions}>
+                    <OrbitButton style={styles.redemptionButton} onPress={() => approveRedemption(redemption.id)}>
+                      Approve
+                    </OrbitButton>
+                    <OrbitButton
+                      style={styles.redemptionButton}
+                      tone="danger"
+                      onPress={() => rejectRedemption(redemption.id)}>
+                      Reject
+                    </OrbitButton>
+                  </View>
+                ) : (
+                  <Text style={orbitTypography.caption}>Waiting on household approval.</Text>
+                )}
+              </GlassCard>
+            );
+          })}
+        </>
+      ) : null}
     </ScrollView>
   );
 }
@@ -471,6 +519,16 @@ const styles = StyleSheet.create({
   },
   rankRowFirst: {
     backgroundColor: 'rgba(251, 191, 36, 0.04)',
+  },
+  redemptionActions: {
+    flexDirection: 'row',
+    gap: orbitSpacing.md,
+  },
+  redemptionButton: {
+    flex: 1,
+  },
+  rewardCard: {
+    gap: orbitSpacing.md,
   },
   rewardCopy: {
     flex: 1,

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -20,26 +20,28 @@ export default function CalendarScreen() {
         <Text style={orbitTypography.caption}>Family logistics</Text>
         <Text style={orbitTypography.display}>Calendar</Text>
         <Text style={orbitTypography.body}>
-          {metrics.calendarCoverage}% of events have responsible coverage in this local MVP state.
+          {metrics.calendarCoverage}% of events have a responsible person assigned.
         </Text>
       </View>
 
       <OrbitButton onPress={() => router.push('/create-event' as never)}>Create Event</OrbitButton>
 
       {household.events.map((event) => (
-        <GlassCard key={event.id}>
-          <View style={styles.eventRow}>
-            <View style={styles.timeBadge}>
-              <Text style={styles.dateText}>{event.date}</Text>
-              <Text style={styles.timeText}>{event.time}</Text>
+        <Pressable key={event.id} onPress={() => router.push(`/event/${event.id}` as never)}>
+          <GlassCard>
+            <View style={styles.eventRow}>
+              <View style={styles.timeBadge}>
+                <Text style={styles.dateText}>{event.date}</Text>
+                <Text style={styles.timeText}>{event.time}</Text>
+              </View>
+              <OrbitListItem
+                meta={`${event.location || 'No location'} • Responsible: ${event.responsible}`}
+                title={event.title}
+                trailing={<StatusPill label={event.category} tone="cyan" />}
+              />
             </View>
-            <OrbitListItem
-              meta={`${event.location || 'No location'} • Responsible: ${event.responsible}`}
-              title={event.title}
-              trailing={<StatusPill label={event.category} tone="cyan" />}
-            />
-          </View>
-        </GlassCard>
+          </GlassCard>
+        </Pressable>
       ))}
     </ScrollView>
   );

@@ -1,5 +1,5 @@
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { MomentumRing } from '@/components/orbit/momentum-ring';
@@ -11,7 +11,7 @@ import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/const
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
-  const { household, metrics, novaBriefing, permissions, signOut } = useOrbit();
+  const { household, metrics, novaBriefing, permissions } = useOrbit();
 
   return (
     <ScrollView
@@ -24,16 +24,19 @@ export default function HomeScreen() {
         <Text style={orbitTypography.body}>{novaBriefing.summary}</Text>
       </View>
 
-      <GlassCard elevated style={styles.heroCard}>
-        <View style={styles.heroText}>
-          <StatusPill label={`${metrics.taskCompletionRate}% tasks`} tone="green" />
-          <Text style={orbitTypography.title}>Household Momentum</Text>
-          <Text style={orbitTypography.caption}>
-            Calculated from task completion, grocery readiness, and calendar coverage.
-          </Text>
-        </View>
-        <MomentumRing score={metrics.momentum} />
-      </GlassCard>
+      <Pressable onPress={() => router.push('/momentum' as never)}>
+        <GlassCard elevated style={styles.heroCard}>
+          <View style={styles.heroText}>
+            <StatusPill label={`${metrics.taskCompletionRate}% tasks`} tone="green" />
+            <Text style={orbitTypography.title}>Household Momentum</Text>
+            <Text style={orbitTypography.caption}>
+              Calculated from task completion, grocery readiness, and calendar coverage.
+            </Text>
+            <Text style={styles.linkHint}>View details</Text>
+          </View>
+          <MomentumRing score={metrics.momentum} />
+        </GlassCard>
+      </Pressable>
 
       <GlassCard>
         <View style={orbitScreen.row}>
@@ -54,6 +57,18 @@ export default function HomeScreen() {
           tone="secondary"
           onPress={() => router.push('/add-grocery' as never)}>
           + Missing Item
+        </OrbitButton>
+        <OrbitButton
+          style={styles.quickButton}
+          tone="secondary"
+          onPress={() => router.push('/settings' as never)}>
+          Settings
+        </OrbitButton>
+        <OrbitButton
+          style={styles.quickButton}
+          tone="secondary"
+          onPress={() => router.push('/notifications' as never)}>
+          Notifications
         </OrbitButton>
         <OrbitButton
           disabled={!permissions.canInviteMembers}
@@ -89,50 +104,48 @@ export default function HomeScreen() {
       <GlassCard>
         <Text style={orbitTypography.cardTitle}>Today&apos;s tasks</Text>
         {household.tasks.slice(0, 3).map((task) => (
-          <OrbitListItem
-            key={task.id}
-            completed={task.status === 'Completed'}
-            meta={`${task.category} • ${task.assignee} • ${task.due}`}
-            title={task.title}
-            trailing={<StatusPill label={task.status} tone={task.status === 'Completed' ? 'green' : 'blue'} />}
-          />
+          <Pressable key={task.id} onPress={() => router.push(`/task/${task.id}` as never)}>
+            <OrbitListItem
+              completed={task.status === 'Completed'}
+              meta={`${task.category} • ${task.assignee} • ${task.due}`}
+              title={task.title}
+              trailing={<StatusPill label={task.status} tone={task.status === 'Completed' ? 'green' : 'blue'} />}
+            />
+          </Pressable>
         ))}
       </GlassCard>
 
       <GlassCard>
         <Text style={orbitTypography.cardTitle}>Upcoming events</Text>
         {household.events.slice(0, 3).map((event) => (
-          <OrbitListItem
-            key={event.id}
-            meta={`${event.date} • ${event.responsible}`}
-            title={event.title}
-            trailing={<Text style={styles.eventTime}>{event.time}</Text>}
-          />
+          <Pressable key={event.id} onPress={() => router.push(`/event/${event.id}` as never)}>
+            <OrbitListItem
+              meta={`${event.date} • ${event.responsible}`}
+              title={event.title}
+              trailing={<Text style={styles.eventTime}>{event.time}</Text>}
+            />
+          </Pressable>
         ))}
       </GlassCard>
 
-      <GlassCard>
-        <Text style={orbitTypography.cardTitle}>Household balance</Text>
-        {household.members.map((member) => (
-          <View key={member.id} style={styles.memberRow}>
-            <Text style={styles.avatar}>{member.avatar}</Text>
-            <View style={styles.memberInfo}>
-              <Text style={styles.memberName}>{member.name}</Text>
-              <View style={styles.loadTrack}>
-                <View style={[styles.loadFill, { width: `${member.loadShare}%` }]} />
+      <Pressable onPress={() => router.push('/household-balance' as never)}>
+        <GlassCard>
+          <Text style={orbitTypography.cardTitle}>Household balance</Text>
+          {household.members.map((member) => (
+            <View key={member.id} style={styles.memberRow}>
+              <Text style={styles.avatar}>{member.avatar}</Text>
+              <View style={styles.memberInfo}>
+                <Text style={styles.memberName}>{member.name}</Text>
+                <View style={styles.loadTrack}>
+                  <View style={[styles.loadFill, { width: `${member.loadShare}%` }]} />
+                </View>
               </View>
+              <Text style={styles.loadText}>{member.loadShare}%</Text>
             </View>
-            <Text style={styles.loadText}>{member.loadShare}%</Text>
-          </View>
-        ))}
-      </GlassCard>
-
-      <OrbitButton tone="secondary" onPress={async () => {
-        await signOut();
-        router.replace('/welcome' as never);
-      }}>
-        Sign Out
-      </OrbitButton>
+          ))}
+          <Text style={styles.linkHint}>Open full balance</Text>
+        </GlassCard>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -173,6 +186,11 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: orbitSpacing.sm,
     paddingRight: orbitSpacing.md,
+  },
+  linkHint: {
+    color: orbitColors.novaCyan,
+    fontSize: 13,
+    fontWeight: '700',
   },
   loadFill: {
     backgroundColor: orbitColors.novaCyan,
