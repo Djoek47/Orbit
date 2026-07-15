@@ -137,7 +137,7 @@ export const mockHousehold: HouseholdSnapshot = {
       title: 'Dentist appointment',
       category: 'Appointment',
       date: 'Tomorrow',
-      time: 'Tomorrow, 9:15 AM',
+      time: '9:15 AM',
       location: 'Bright Dental',
       responsible: 'Sarah',
     },

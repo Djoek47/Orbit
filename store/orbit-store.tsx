@@ -6,7 +6,8 @@ import { trackAnalytics } from '@/lib/analytics';
 import { getLevel, LEVELS, MEMBER_ACCENTS, xpProgress } from '@/lib/game-levels';
 import { getLocationAwareGrocerySuggestions } from '@/lib/grocery/location-suggestions';
 import { buildStoreRecommendations } from '@/lib/grocery/recommendations';
-import { registerForPushNotifications } from '@/lib/notifications/push';
+import { countUpcomingSoon } from '@/lib/calendar/event-groups';
+import { registerForPushNotifications, scheduleLocalReminder } from '@/lib/notifications/push';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
 import { subscribeHouseholdRealtime } from '@/lib/realtime/household-realtime';
 import {
@@ -28,6 +29,7 @@ import type {
   CreateHouseholdInput,
   CreateProfileInput,
   CreateTaskInput,
+  HouseholdEvent,
   HouseholdMember,
   HouseholdRole,
   HouseholdSnapshot,
@@ -62,6 +64,7 @@ type OrbitContextValue = {
   novaWeeklyBriefing: NovaWeeklyBriefing;
   permissions: HouseholdPermissions;
   notifications: NotificationItem[];
+  unreadNotificationCount: number;
   pendingRedemptions: RewardRedemption[];
   smartHomeDevices: SmartHomeDevice[];
   smartHomeScenes: SmartHomeScene[];
@@ -76,7 +79,10 @@ type OrbitContextValue = {
   addMissingGrocery: (input: CreateGroceryInput) => void;
   joinHousehold: (input: JoinHouseholdInput) => Promise<void>;
   markGroceryPurchased: (itemId: string) => void;
-  createEvent: (input: CreateEventInput) => void;
+  createEvent: (input: CreateEventInput) => Promise<void>;
+  updateEvent: (event: HouseholdEvent) => Promise<void>;
+  deleteEvent: (eventId: string) => Promise<void>;
+  remindAboutEvent: (eventId: string) => Promise<void>;
   signIn: (input: SignInInput) => Promise<void>;
   hydrateFromSession: (session: AuthSession) => Promise<void>;
   signOut: () => Promise<void>;
@@ -85,6 +91,13 @@ type OrbitContextValue = {
   refreshNotifications: () => Promise<void>;
   markNotificationRead: (notificationId: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
+  pushNotification: (input: {
+    title: string;
+    body: string;
+    category: NotificationItem['category'];
+    priority?: NotificationItem['priority'];
+    data?: Record<string, unknown>;
+  }) => Promise<NotificationItem | null>;
   requestRewardRedemption: (rewardId: string, note?: string) => Promise<void>;
   approveRedemption: (redemptionId: string) => Promise<void>;
   rejectRedemption: (redemptionId: string) => Promise<void>;
@@ -134,6 +147,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     [household.members]
   );
   const novaBriefing = useMemo(() => household.nova, [household.nova]);
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter((item) => !item.isRead).length,
+    [notifications]
+  );
 
   const analyticsContext = useMemo(
     () => ({ householdId: household.id, userId: currentUser?.id ?? null }),
@@ -408,6 +425,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       groceries: [grocery, ...current.groceries],
     }));
+    if (household.id) {
+      const item = await notificationsRepository.create({
+        householdId: household.id,
+        title: `${grocery.name} is missing`,
+        body: `${grocery.name} was added to the missing list (${grocery.category}).`,
+        category: 'groceries',
+        priority: 'medium',
+        data: { groceryId: grocery.id },
+        userId: currentUser?.id,
+      });
+      setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
+    }
     await trackAnalytics('grocery.added', { groceryId: grocery.id }, analyticsContext);
   };
 
@@ -427,13 +456,88 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('grocery.purchased', { groceryId: itemId }, analyticsContext);
   };
 
+  const pushNotification = async (input: {
+    title: string;
+    body: string;
+    category: NotificationItem['category'];
+    priority?: NotificationItem['priority'];
+    data?: Record<string, unknown>;
+  }) => {
+    if (!household.id) {
+      return null;
+    }
+
+    const item = await notificationsRepository.create({
+      householdId: household.id,
+      title: input.title,
+      body: input.body,
+      category: input.category,
+      priority: input.priority,
+      data: input.data,
+      userId: currentUser?.id,
+    });
+    setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
+    return item;
+  };
+
   const createEvent = async (input: CreateEventInput) => {
     const event = await calendarRepository.createEvent(household.id, input);
     setHousehold((current) => ({
       ...current,
-      events: [event, ...current.events],
+      events: [event, ...current.events.filter((item) => item.id !== event.id)],
     }));
+    await pushNotification({
+      title: event.title,
+      body: `${event.date} at ${event.time}${event.location ? ` · ${event.location}` : ''}. ${event.responsible} is responsible.`,
+      category: 'events',
+      priority: 'medium',
+      data: { eventId: event.id },
+    });
+    if (input.remindMe) {
+      await scheduleLocalReminder(
+        event.title,
+        `${event.time} · ${event.responsible}`,
+        20
+      ).catch((error) => console.warn('Local reminder skipped', error));
+    }
     await trackAnalytics('event.created', { eventId: event.id }, analyticsContext);
+  };
+
+  const updateEvent = async (event: HouseholdEvent) => {
+    const updated = await calendarRepository.updateEvent(event);
+    setHousehold((current) => ({
+      ...current,
+      events: current.events.map((item) => (item.id === updated.id ? updated : item)),
+    }));
+    await trackAnalytics('event.updated', { eventId: updated.id }, analyticsContext);
+  };
+
+  const deleteEvent = async (eventId: string) => {
+    await calendarRepository.deleteEvent(eventId);
+    setHousehold((current) => ({
+      ...current,
+      events: current.events.filter((item) => item.id !== eventId),
+    }));
+    await trackAnalytics('event.deleted', { eventId }, analyticsContext);
+  };
+
+  const remindAboutEvent = async (eventId: string) => {
+    const event = household.events.find((item) => item.id === eventId);
+    if (!event) {
+      return;
+    }
+
+    await pushNotification({
+      title: `Reminder: ${event.title}`,
+      body: `${event.date} at ${event.time}. Assigned to ${event.responsible}.`,
+      category: 'events',
+      priority: 'high',
+      data: { eventId: event.id },
+    });
+    await scheduleLocalReminder(event.title, `${event.time} · ${event.responsible}`, 15).catch((error) =>
+      console.warn('Local reminder skipped', error)
+    );
+    await trackAnalytics('event.reminded', { eventId }, analyticsContext);
   };
 
   const askNova = async (question: string) => {
@@ -596,6 +700,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       novaWeeklyBriefing,
       permissions,
       notifications,
+      unreadNotificationCount,
       pendingRedemptions,
       smartHomeDevices,
       smartHomeScenes,
@@ -611,6 +716,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       joinHousehold,
       markGroceryPurchased,
       createEvent,
+      updateEvent,
+      deleteEvent,
+      remindAboutEvent,
       signIn,
       hydrateFromSession,
       signOut,
@@ -619,6 +727,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       refreshNotifications,
       markNotificationRead,
       markAllNotificationsRead,
+      pushNotification,
       requestRewardRedemption,
       approveRedemption,
       rejectRedemption,
@@ -644,6 +753,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       novaWeeklyBriefing,
       permissions,
       notifications,
+      unreadNotificationCount,
       pendingRedemptions,
       smartHomeDevices,
       smartHomeScenes,
@@ -717,7 +827,7 @@ function calculateMetrics(household: HouseholdSnapshot): OrbitMetrics {
     openTasks: household.tasks.filter((task) => task.status !== 'Completed').length,
     missingGroceries: household.groceries.filter((item) => item.status === 'Missing').length,
     purchasedGroceries: household.groceries.filter((item) => item.status === 'Purchased').length,
-    upcomingEvents: household.events.length,
+    upcomingEvents: countUpcomingSoon(household.events),
   };
 }
 

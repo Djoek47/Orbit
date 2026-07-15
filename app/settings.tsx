@@ -79,6 +79,12 @@ export default function SettingsScreen() {
         <OrbitButton tone="secondary" onPress={() => router.push('/notifications' as never)}>
           Notifications
         </OrbitButton>
+        <OrbitButton tone="secondary" onPress={() => router.push('/(tabs)/calendar' as never)}>
+          Calendar
+        </OrbitButton>
+        <OrbitButton tone="secondary" onPress={() => router.push('/create-event' as never)}>
+          Create Event
+        </OrbitButton>
       </GlassCard>
 
       <GlassCard style={styles.card}>

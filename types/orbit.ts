@@ -149,6 +149,9 @@ export type CreateEventInput = {
   time: string;
   location: string;
   responsible: string;
+  category?: HouseholdEvent['category'];
+  /** When true, schedule a short Expo Go local reminder after create. */
+  remindMe?: boolean;
 };
 
 export type SignInInput = {

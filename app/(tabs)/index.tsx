@@ -11,7 +11,7 @@ import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/const
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
-  const { household, metrics, novaBriefing, permissions } = useOrbit();
+  const { household, metrics, novaBriefing, permissions, unreadNotificationCount } = useOrbit();
 
   return (
     <ScrollView
@@ -61,14 +61,26 @@ export default function HomeScreen() {
         <OrbitButton
           style={styles.quickButton}
           tone="secondary"
-          onPress={() => router.push('/settings' as never)}>
-          Settings
+          onPress={() => router.push('/create-event' as never)}>
+          Create Event
+        </OrbitButton>
+        <OrbitButton
+          style={styles.quickButton}
+          tone="secondary"
+          onPress={() => router.push('/(tabs)/calendar' as never)}>
+          Calendar
         </OrbitButton>
         <OrbitButton
           style={styles.quickButton}
           tone="secondary"
           onPress={() => router.push('/notifications' as never)}>
-          Notifications
+          {unreadNotificationCount > 0 ? `Notifications (${unreadNotificationCount})` : 'Notifications'}
+        </OrbitButton>
+        <OrbitButton
+          style={styles.quickButton}
+          tone="secondary"
+          onPress={() => router.push('/settings' as never)}>
+          Settings
         </OrbitButton>
         <OrbitButton
           disabled={!permissions.canInviteMembers}
@@ -83,22 +95,30 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.grid}>
-        <GlassCard style={styles.gridCard}>
-          <Text style={styles.metric}>{metrics.openTasks}</Text>
-          <Text style={orbitTypography.caption}>Open tasks</Text>
-        </GlassCard>
-        <GlassCard style={styles.gridCard}>
-          <Text style={styles.metric}>{metrics.missingGroceries}</Text>
-          <Text style={orbitTypography.caption}>Missing items</Text>
-        </GlassCard>
-        <GlassCard style={styles.gridCard}>
-          <Text style={styles.metric}>{metrics.upcomingEvents}</Text>
-          <Text style={orbitTypography.caption}>Events</Text>
-        </GlassCard>
-        <GlassCard style={styles.gridCard}>
-          <Text style={styles.metric}>{metrics.groceryReadiness}%</Text>
-          <Text style={orbitTypography.caption}>Grocery ready</Text>
-        </GlassCard>
+        <Pressable style={styles.gridPressable} onPress={() => router.push('/(tabs)/tasks' as never)}>
+          <GlassCard style={styles.gridCard}>
+            <Text style={styles.metric}>{metrics.openTasks}</Text>
+            <Text style={orbitTypography.caption}>Open tasks</Text>
+          </GlassCard>
+        </Pressable>
+        <Pressable style={styles.gridPressable} onPress={() => router.push('/(tabs)/groceries' as never)}>
+          <GlassCard style={styles.gridCard}>
+            <Text style={styles.metric}>{metrics.missingGroceries}</Text>
+            <Text style={orbitTypography.caption}>Missing items</Text>
+          </GlassCard>
+        </Pressable>
+        <Pressable style={styles.gridPressable} onPress={() => router.push('/(tabs)/calendar' as never)}>
+          <GlassCard style={styles.gridCard}>
+            <Text style={styles.metric}>{metrics.upcomingEvents}</Text>
+            <Text style={orbitTypography.caption}>Events</Text>
+          </GlassCard>
+        </Pressable>
+        <Pressable style={styles.gridPressable} onPress={() => router.push('/notifications' as never)}>
+          <GlassCard style={styles.gridCard}>
+            <Text style={styles.metric}>{unreadNotificationCount}</Text>
+            <Text style={orbitTypography.caption}>Unread alerts</Text>
+          </GlassCard>
+        </Pressable>
       </View>
 
       <GlassCard>
@@ -116,7 +136,12 @@ export default function HomeScreen() {
       </GlassCard>
 
       <GlassCard>
-        <Text style={orbitTypography.cardTitle}>Upcoming events</Text>
+        <View style={orbitScreen.row}>
+          <Text style={orbitTypography.cardTitle}>Upcoming events</Text>
+          <Pressable onPress={() => router.push('/(tabs)/calendar' as never)}>
+            <Text style={styles.linkHint}>Open calendar</Text>
+          </Pressable>
+        </View>
         {household.events.slice(0, 3).map((event) => (
           <Pressable key={event.id} onPress={() => router.push(`/event/${event.id}` as never)}>
             <OrbitListItem
@@ -173,9 +198,12 @@ const styles = StyleSheet.create({
     gap: orbitSpacing.md,
   },
   gridCard: {
-    flexBasis: '47%',
     flexGrow: 1,
     gap: orbitSpacing.xs,
+  },
+  gridPressable: {
+    flexBasis: '47%',
+    flexGrow: 1,
   },
   heroCard: {
     alignItems: 'center',

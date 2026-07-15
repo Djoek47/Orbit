@@ -1,6 +1,16 @@
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type { NotificationItem } from '@/types/orbit';
 
+export type CreateNotificationInput = {
+  householdId: string;
+  title: string;
+  body: string;
+  category: NotificationItem['category'];
+  priority?: NotificationItem['priority'];
+  data?: Record<string, unknown>;
+  userId?: string | null;
+};
+
 const mockNotifications: NotificationItem[] = [
   {
     id: 'n1',
@@ -10,7 +20,8 @@ const mockNotifications: NotificationItem[] = [
     category: 'tasks',
     priority: 'high',
     isRead: false,
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
+    data: { taskId: 't3' },
   },
   {
     id: 'n2',
@@ -20,17 +31,40 @@ const mockNotifications: NotificationItem[] = [
     category: 'groceries',
     priority: 'medium',
     isRead: false,
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
+    data: { groceryId: 'g1' },
   },
   {
     id: 'n3',
     householdId: 'hh-rivera',
     title: 'Emma soccer practice',
-    body: 'Starts today at 5:30 PM at Riverside Field.',
+    body: 'Starts today at 5:30 PM at Riverside Field. David is responsible.',
     category: 'events',
     priority: 'medium',
+    isRead: false,
+    createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+    data: { eventId: 'e1' },
+  },
+  {
+    id: 'n4',
+    householdId: 'hh-rivera',
+    title: 'Reward approval waiting',
+    body: 'Emma requested 30 minutes of screen time.',
+    category: 'rewards',
+    priority: 'low',
     isRead: true,
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+    data: { rewardId: 'r1' },
+  },
+  {
+    id: 'n5',
+    householdId: 'hh-rivera',
+    title: 'Nova suggestion',
+    body: 'Rebalance open tasks before school pickup at 3:00 PM.',
+    category: 'ai',
+    priority: 'medium',
+    isRead: true,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
   },
 ];
 
@@ -66,9 +100,10 @@ function mapNotificationRow(row: {
 export const notificationsRepository = {
   async list(householdId?: string | null): Promise<NotificationItem[]> {
     if (isMockMode()) {
-      return householdId
+      const items = householdId
         ? mockNotificationState.filter((item) => item.householdId === householdId)
         : clone(mockNotificationState);
+      return items.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
     }
 
     const supabase = getConfiguredSupabase('notificationsRepository.list');
@@ -127,24 +162,58 @@ export const notificationsRepository = {
     mapDbError('notificationsRepository.markAllRead', error);
   },
 
-  async createMock(notification: Omit<NotificationItem, 'id' | 'createdAt' | 'isRead'> & { id?: string }) {
-    if (!isMockMode()) {
-      throw new Error('notificationsRepository.createMock is only available in mock mode.');
+  async create(input: CreateNotificationInput): Promise<NotificationItem> {
+    if (isMockMode()) {
+      const item: NotificationItem = {
+        id: createLocalId('notification'),
+        householdId: input.householdId,
+        title: input.title,
+        body: input.body,
+        category: input.category,
+        priority: input.priority ?? 'medium',
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        data: input.data,
+      };
+      mockNotificationState = [item, ...mockNotificationState];
+      return item;
     }
 
-    const item: NotificationItem = {
-      id: notification.id ?? createLocalId('notification'),
+    const supabase = getConfiguredSupabase('notificationsRepository.create');
+    const { data: authData } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        household_id: input.householdId,
+        user_id: input.userId ?? authData.user?.id ?? null,
+        title: input.title,
+        body: input.body,
+        category: input.category,
+        priority: input.priority ?? 'medium',
+        data: (input.data ?? {}) as import('@/types/database').Json,
+        is_read: false,
+      })
+      .select('*')
+      .single();
+    mapDbError('notificationsRepository.create', error);
+
+    if (!data) {
+      throw new Error('notificationsRepository.create: Insert returned no row.');
+    }
+
+    return mapNotificationRow(data);
+  },
+
+  /** @deprecated Prefer create() — kept for older callers. */
+  async createMock(notification: Omit<NotificationItem, 'id' | 'createdAt' | 'isRead'> & { id?: string }) {
+    return this.create({
       householdId: notification.householdId,
       title: notification.title,
       body: notification.body,
       category: notification.category,
       priority: notification.priority,
-      isRead: false,
-      createdAt: new Date().toISOString(),
       data: notification.data,
-    };
-    mockNotificationState = [item, ...mockNotificationState];
-    return item;
+    });
   },
 };
 
