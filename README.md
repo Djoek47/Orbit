@@ -14,6 +14,16 @@ npm start
 
 Then open the project in **Expo Go** on your phone. Mock sign-in accepts any email/password and loads the demo household.
 
+### If the QR code does not open the app
+
+| Situation | Fix |
+|-----------|-----|
+| Metro shows `exp://172.x.x.x:8081` (or another private LAN IP) | Your phone and the Metro machine are not on the same network. From a **Cloud Agent / remote VM**, that URL will never work on your phone. Use a tunnel: `npm run start:tunnel`, then scan the new `exp://….exp.direct` QR. |
+| Tunnel prompt asks to install `@expo/ngrok` | Install it in the project (`npm i -D @expo/ngrok`) or fix global npm permissions, then run `npm run start:tunnel` again. |
+| Same Wi‑Fi as your laptop | `npm run start:lan` is enough — scan the LAN QR. |
+
+Cloud Agents should prefer **`npm run start:tunnel`**. Keep that terminal open while testing.
+
 ## Supabase mode (later)
 
 1. Create a Supabase project.
