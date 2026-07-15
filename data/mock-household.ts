@@ -56,6 +56,28 @@ export const mockHousehold: HouseholdSnapshot = {
       streak: 5,
       loadShare: 6,
     },
+    {
+      id: 'm5',
+      name: 'Jordan',
+      role: 'adult',
+      status: 'pending',
+      avatar: 'J',
+      xp: 0,
+      weekXp: 0,
+      streak: 0,
+      loadShare: 0,
+    },
+    {
+      id: 'm6',
+      name: 'Casey',
+      role: 'guest',
+      status: 'active',
+      avatar: 'C',
+      xp: 0,
+      weekXp: 0,
+      streak: 0,
+      loadShare: 0,
+    },
   ],
   tasks: [
     {

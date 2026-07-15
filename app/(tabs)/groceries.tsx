@@ -16,7 +16,7 @@ const statusTone = {
 } as const;
 
 export default function GroceriesScreen() {
-  const { household, markGroceryPurchased, metrics } = useOrbit();
+  const { household, markGroceryPurchased, metrics, permissions } = useOrbit();
   const missing = household.groceries.filter((item) => item.status === 'Missing');
   const purchased = household.groceries.filter((item) => item.status === 'Purchased');
   const available = household.groceries.filter((item) => item.status !== 'Missing' && item.status !== 'Purchased');
@@ -29,10 +29,14 @@ export default function GroceriesScreen() {
       <View style={orbitScreen.header}>
         <Text style={orbitTypography.caption}>Inventory intelligence</Text>
         <Text style={orbitTypography.display}>Groceries</Text>
-        <Text style={orbitTypography.body}>{metrics.groceryReadiness}% grocery readiness from local inventory state.</Text>
+        <Text style={orbitTypography.body}>{metrics.groceryReadiness}% grocery readiness from household inventory.</Text>
       </View>
 
-      <OrbitButton onPress={() => router.push('/add-grocery' as never)}>+ Missing Item</OrbitButton>
+      {permissions.canManageGroceries ? (
+        <OrbitButton onPress={() => router.push('/add-grocery' as never)}>+ Missing Item</OrbitButton>
+      ) : (
+        <Text style={orbitTypography.caption}>Your role can view the list, but not mark items missing.</Text>
+      )}
       <OrbitButton tone="secondary" onPress={() => router.push('/shopping-recommendations' as never)}>
         Store recommendations
       </OrbitButton>

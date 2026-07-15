@@ -1,6 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -11,7 +12,7 @@ import { useOrbit } from '@/store/orbit-store';
 import type { InviteLinks } from '@/types/orbit';
 
 export default function InviteHouseholdScreen() {
-  const { household, inviteLinks, refreshInviteLinks } = useOrbit();
+  const { household, inviteLinks, permissions, refreshInviteLinks } = useOrbit();
   const [links, setLinks] = useState<InviteLinks | null>(inviteLinks);
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,6 +42,15 @@ export default function InviteHouseholdScreen() {
   const deepLink = links?.deepLink || `orbit://join/${inviteCode}`;
   const webLink = links?.webLink || `https://orbit.app/join/${inviteCode}`;
 
+  if (!permissions.canInviteMembers) {
+    return (
+      <ScrollView style={orbitScreen.container} contentContainerStyle={orbitScreen.content}>
+        <Text style={orbitTypography.title}>Invites locked</Text>
+        <Text style={orbitTypography.body}>Only owners and admins can invite new household members.</Text>
+      </ScrollView>
+    );
+  }
+
   const handleCopyCode = async () => {
     await Clipboard.setStringAsync(inviteCode);
     setCopied('code');
@@ -54,7 +64,8 @@ export default function InviteHouseholdScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const next = (await refreshInviteLinks()) ?? (household.id ? await householdRepository.refreshInvite(household.id) : null);
+      const next =
+        (await refreshInviteLinks()) ?? (household.id ? await householdRepository.refreshInvite(household.id) : null);
       if (next) {
         setLinks(next);
       }
@@ -71,11 +82,21 @@ export default function InviteHouseholdScreen() {
       <View style={orbitScreen.header}>
         <Text style={orbitTypography.caption}>{household.householdName}</Text>
         <Text style={orbitTypography.display}>Invite members</Text>
-        <Text style={orbitTypography.body}>Share the code or link. New members join with pending approval when required.</Text>
+        <Text style={orbitTypography.body}>
+          Share the QR code or invite code. New members wait for owner/admin approval before full access.
+        </Text>
       </View>
 
       <GlassCard elevated style={styles.card}>
-        <StatusPill label="Invite code" tone="cyan" />
+        <StatusPill label="Scan to join" tone="cyan" />
+        <View style={styles.qrWrap}>
+          <QRCode value={webLink} size={180} backgroundColor="#FFFFFF" color="#070B14" />
+        </View>
+        <Text style={orbitTypography.caption}>Encodes {webLink}</Text>
+      </GlassCard>
+
+      <GlassCard style={styles.card}>
+        <StatusPill label="Invite code" tone="blue" />
         <Text selectable style={styles.code}>
           {inviteCode}
         </Text>
@@ -97,16 +118,6 @@ export default function InviteHouseholdScreen() {
           {copied === 'link' ? 'Link copied' : 'Copy web link'}
         </OrbitButton>
       </GlassCard>
-
-      <GlassCard style={styles.card}>
-        <Text style={orbitTypography.cardTitle}>QR / join code</Text>
-        <View style={styles.codeBox}>
-          <Text selectable style={styles.codeBoxText}>
-            {inviteCode}
-          </Text>
-        </View>
-        <Text style={orbitTypography.caption}>Share this code box, or scan a printed QR that encodes the web link.</Text>
-      </GlassCard>
     </ScrollView>
   );
 }
@@ -122,21 +133,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0,
   },
-  codeBox: {
+  qrWrap: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderColor: orbitColors.border,
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
     borderRadius: orbitRadius.md,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 132,
-    padding: orbitSpacing.lg,
-  },
-  codeBoxText: {
-    color: orbitColors.novaCyan,
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: 2,
-    textAlign: 'center',
+    padding: orbitSpacing.md,
   },
 });

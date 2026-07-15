@@ -56,7 +56,7 @@ export default function CreateEventScreen() {
           <Text style={orbitTypography.caption}>Family logistics</Text>
           <Text style={orbitTypography.display}>Create Event</Text>
           <Text style={orbitTypography.body}>
-            Add a calendar event, assign responsibility, and optionally schedule a local reminder in Expo Go.
+            Add a calendar event, assign responsibility, and optionally schedule a local reminder.
           </Text>
         </View>
 

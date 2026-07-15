@@ -163,34 +163,31 @@ export const householdRepository = {
     const code = input.inviteCode.trim().toUpperCase();
 
     if (isMockMode()) {
+      const pendingMember = {
+        id: createLocalId('member'),
+        name: user.name,
+        role: 'adult' as const,
+        status: 'pending' as const,
+        avatar: user.avatar || user.name.slice(0, 1).toUpperCase(),
+        xp: 0,
+        weekXp: 0,
+        streak: 0,
+        loadShare: 0,
+      };
+      // Keep the demo household so owners can approve the join on Members.
+      const existingWithoutDup = mockHousehold.members.filter(
+        (member) => member.name.toLowerCase() !== user.name.toLowerCase()
+      );
       return {
         ...mockHousehold,
-        id: createLocalId('hh-joined'),
-        householdName: 'Pending Orbit Home',
-        inviteCode: code,
+        inviteCode: code || mockHousehold.inviteCode,
         greetingName: user.name,
-        members: [
-          {
-            id: createLocalId('member'),
-            name: user.name,
-            role: 'adult',
-            status: 'pending',
-            avatar: user.avatar,
-            xp: 0,
-            weekXp: 0,
-            streak: 0,
-            loadShare: 0,
-          },
-        ],
-        tasks: [],
-        groceries: [],
-        events: [],
-        rewards: [],
-        badges: [],
+        members: [...existingWithoutDup, pendingMember],
         nova: {
           title: 'Join request sent',
-          summary: 'Your household access is pending approval. Orbit will open fully once an owner accepts you.',
-          actions: ['Check invite code', 'Message household owner'],
+          summary:
+            'Your household access is pending approval. Browse calmly — create/edit stays locked until an owner or admin accepts you.',
+          actions: ['Wait for approval', 'Ask an owner to open Members'],
         },
       };
     }

@@ -63,7 +63,7 @@ export default function SignInScreen() {
         <Text style={orbitTypography.caption}>Welcome back</Text>
         <Text style={orbitTypography.display}>Sign in</Text>
         <Text style={orbitTypography.body}>
-          Expo Go mock mode: any email/password opens the demo household. Apple Sign-In appears when the device supports it.
+          Sign in to open your household. Demo credentials are prefilled for the Rivera home.
         </Text>
       </View>
 

@@ -33,7 +33,7 @@ export default function SignUpScreen() {
       <View style={orbitScreen.header}>
         <Text style={orbitTypography.caption}>Start your Orbit</Text>
         <Text style={orbitTypography.display}>Create account</Text>
-        <Text style={orbitTypography.body}>Mock auth creates a local user only. Supabase auth can replace this later.</Text>
+        <Text style={orbitTypography.body}>Create an Orbit account, then set up or join a household.</Text>
       </View>
 
       <GlassCard elevated style={styles.form}>

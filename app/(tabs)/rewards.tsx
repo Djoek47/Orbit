@@ -5,7 +5,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
-import { ACHIEVEMENT_BADGES } from '@/lib/game-levels';
 import { useOrbit } from '@/store/orbit-store';
 import type { MemberProgress } from '@/types/orbit';
 
@@ -17,6 +16,7 @@ const RANK_EMOJI = ['👑', '🥈', '🥉'] as const;
 
 export default function RewardsScreen() {
   const {
+    achievements,
     approveRedemption,
     household,
     membersWithProgress,
@@ -28,13 +28,13 @@ export default function RewardsScreen() {
   const [view, setView] = useState<RankingView>('week');
 
   const sorted = useMemo(() => {
-    return [...membersWithProgress].sort((a, b) =>
-      view === 'week' ? b.weekXp - a.weekXp : b.xp - a.xp
-    );
+    return [...membersWithProgress]
+      .filter((member) => member.status === 'active' && member.role !== 'guest')
+      .sort((a, b) => (view === 'week' ? b.weekXp - a.weekXp : b.xp - a.xp));
   }, [membersWithProgress, view]);
 
   const top3 = sorted.slice(0, 3);
-  const earnedCount = ACHIEVEMENT_BADGES.filter((badge) => badge.earned).length;
+  const earnedCount = achievements.filter((badge) => badge.earned).length;
 
   return (
     <ScrollView
@@ -167,11 +167,11 @@ export default function RewardsScreen() {
           <View style={orbitScreen.row}>
             <Text style={orbitTypography.cardTitle}>🏆 Achievements</Text>
             <Text style={styles.earnedCount}>
-              {earnedCount}/{ACHIEVEMENT_BADGES.length}
+              {earnedCount}/{achievements.length}
             </Text>
           </View>
           <View style={styles.badgeGrid}>
-            {ACHIEVEMENT_BADGES.map((badge) => (
+            {achievements.map((badge) => (
               <View key={badge.id} style={styles.badgeTile}>
                 <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
                   <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
@@ -183,14 +183,16 @@ export default function RewardsScreen() {
           </View>
           <View style={styles.collectionRow}>
             <Text style={orbitTypography.caption}>Collection progress</Text>
-            <Text style={styles.collectionPct}>{Math.round((earnedCount / ACHIEVEMENT_BADGES.length) * 100)}%</Text>
+            <Text style={styles.collectionPct}>
+              {achievements.length ? Math.round((earnedCount / achievements.length) * 100) : 0}%
+            </Text>
           </View>
           <View style={styles.progressTrack}>
             <View
               style={[
                 styles.progressFill,
                 {
-                  width: `${(earnedCount / ACHIEVEMENT_BADGES.length) * 100}%`,
+                  width: `${achievements.length ? (earnedCount / achievements.length) * 100 : 0}%`,
                   backgroundColor: '#FBBF24',
                 },
               ]}

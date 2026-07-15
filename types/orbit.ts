@@ -136,6 +136,7 @@ export type CreateTaskInput = {
   due: string;
   xp: number;
   repeat: HouseholdTask['repeat'];
+  description?: string;
 };
 
 export type CreateGroceryInput = {

@@ -3,10 +3,12 @@ import { mapTaskRow, taskRepeatToDb, taskStatusToDb } from '@/lib/mappers/orbit-
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type { CreateTaskInput, HouseholdTask } from '@/types/orbit';
 
+let mockTasksState: HouseholdTask[] = clone(mockHousehold.tasks);
+
 export const taskRepository = {
   async getTasks(householdId: string | null | undefined): Promise<HouseholdTask[]> {
     if (isMockMode()) {
-      return clone(mockHousehold.tasks);
+      return clone(mockTasksState);
     }
 
     if (!householdId) {
@@ -28,7 +30,7 @@ export const taskRepository = {
     const task: HouseholdTask = {
       id: createLocalId('task'),
       title: input.title.trim(),
-      description: undefined,
+      description: input.description?.trim() || undefined,
       category: input.category,
       assignee: input.assignee,
       due: input.due.trim(),
@@ -38,6 +40,7 @@ export const taskRepository = {
     };
 
     if (isMockMode()) {
+      mockTasksState = [task, ...mockTasksState];
       return task;
     }
 
@@ -59,6 +62,7 @@ export const taskRepository = {
       .insert({
         household_id: householdId,
         title: task.title,
+        description: task.description ?? null,
         category: task.category,
         assignee_name: task.assignee,
         assignee_member_id: member?.id ?? null,
@@ -79,29 +83,37 @@ export const taskRepository = {
   },
 
   async updateTask(task: HouseholdTask): Promise<HouseholdTask> {
+    const next: HouseholdTask = {
+      ...task,
+      title: task.title.trim(),
+      description: task.description?.trim() || undefined,
+      due: task.due.trim(),
+    };
+
     if (isMockMode()) {
-      return task;
+      mockTasksState = mockTasksState.map((item) => (item.id === next.id ? next : item));
+      return next;
     }
 
     const supabase = getConfiguredSupabase('taskRepository.updateTask');
     const { data, error } = await supabase
       .from('tasks')
       .update({
-        title: task.title,
-        description: task.description ?? null,
-        category: task.category,
-        assignee_name: task.assignee,
-        due_label: task.due,
-        xp_value: task.xp,
-        repeat_rule: taskRepeatToDb(task.repeat),
-        status: taskStatusToDb(task.status),
+        title: next.title,
+        description: next.description ?? null,
+        category: next.category,
+        assignee_name: next.assignee,
+        due_label: next.due,
+        xp_value: next.xp,
+        repeat_rule: taskRepeatToDb(next.repeat),
+        status: taskStatusToDb(next.status),
       })
-      .eq('id', task.id)
+      .eq('id', next.id)
       .select('*')
       .single();
     mapDbError('taskRepository.updateTask', error);
 
-    return data ? mapTaskRow(data) : task;
+    return data ? mapTaskRow(data) : next;
   },
 
   async completeTask(
@@ -115,6 +127,7 @@ export const taskRepository = {
     };
 
     if (isMockMode()) {
+      mockTasksState = mockTasksState.map((item) => (item.id === completed.id ? completed : item));
       return completed;
     }
 

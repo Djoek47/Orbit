@@ -61,7 +61,7 @@ export default function NotificationsScreen() {
   const tryLocalReminder = async () => {
     try {
       await scheduleLocalReminder('Orbit check-in', 'Glance at Today’s tasks and calendar.', 15);
-      setReminderStatus('Local reminder scheduled in about 15 seconds (Expo Go).');
+      setReminderStatus('Local reminder scheduled in about 15 seconds.');
     } catch {
       setReminderStatus('Reminders need notification permission on a physical device.');
     }

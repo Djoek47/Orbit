@@ -7,22 +7,58 @@ import { NovaOrb } from '@/components/orbit/nova-orb';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitListItem } from '@/components/orbit/orbit-list-item';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
-  const { household, metrics, novaBriefing, permissions, unreadNotificationCount } = useOrbit();
+  const {
+    household,
+    metrics,
+    novaBriefing,
+    permissions,
+    unreadNotificationCount,
+    currentMember,
+  } = useOrbit();
+
+  const todayTasks = household.tasks.filter((task) => task.status !== 'Completed').slice(0, 3);
 
   return (
     <ScrollView
       style={orbitScreen.container}
       contentContainerStyle={orbitScreen.content}
       contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>{household.householdName}</Text>
-        <Text style={orbitTypography.display}>Good morning, {household.greetingName}</Text>
-        <Text style={orbitTypography.body}>{novaBriefing.summary}</Text>
+      <View style={styles.topBar}>
+        <View style={styles.topCopy}>
+          <Text style={orbitTypography.caption}>{household.householdName}</Text>
+          <Text style={orbitTypography.display}>Good morning, {household.greetingName}</Text>
+          {currentMember ? (
+            <StatusPill
+              label={currentMember.status === 'pending' ? 'pending approval' : currentMember.role}
+              tone={currentMember.status === 'pending' ? 'amber' : 'cyan'}
+            />
+          ) : null}
+        </View>
+        <View style={styles.topActions}>
+          <Pressable style={styles.iconButton} onPress={() => router.push('/notifications' as never)}>
+            <Text style={styles.iconLabel}>
+              {unreadNotificationCount > 0 ? `● ${unreadNotificationCount}` : '○'}
+            </Text>
+          </Pressable>
+          <Pressable style={styles.iconButton} onPress={() => router.push('/settings' as never)}>
+            <Text style={styles.iconLabel}>⚙</Text>
+          </Pressable>
+        </View>
       </View>
+
+      {currentMember?.status === 'pending' ? (
+        <GlassCard>
+          <StatusPill label="Waiting for approval" tone="amber" />
+          <Text style={orbitTypography.cardTitle}>Access is limited</Text>
+          <Text style={orbitTypography.caption}>
+            An owner or admin needs to approve you on Members before you can create tasks or manage groceries.
+          </Text>
+        </GlassCard>
+      ) : null}
 
       <Pressable onPress={() => router.push('/momentum' as never)}>
         <GlassCard elevated style={styles.heroCard}>
@@ -30,7 +66,7 @@ export default function HomeScreen() {
             <StatusPill label={`${metrics.taskCompletionRate}% tasks`} tone="green" />
             <Text style={orbitTypography.title}>Household Momentum</Text>
             <Text style={orbitTypography.caption}>
-              Calculated from task completion, grocery readiness, and calendar coverage.
+              {metrics.openTasks} open · {metrics.missingGroceries} missing · {metrics.upcomingEvents} upcoming
             </Text>
             <Text style={styles.linkHint}>View details</Text>
           </View>
@@ -38,114 +74,69 @@ export default function HomeScreen() {
         </GlassCard>
       </Pressable>
 
-      <GlassCard>
-        <View style={orbitScreen.row}>
-          <View style={styles.novaCopy}>
-            <Text style={orbitTypography.cardTitle}>Nova briefing</Text>
-            <Text style={orbitTypography.caption}>{novaBriefing.summary}</Text>
+      <Pressable onPress={() => router.push('/(tabs)/nova' as never)}>
+        <GlassCard>
+          <View style={orbitScreen.row}>
+            <View style={styles.novaCopy}>
+              <Text style={orbitTypography.cardTitle}>{novaBriefing.title}</Text>
+              <Text style={orbitTypography.caption}>{novaBriefing.summary}</Text>
+              <Text style={styles.linkHint}>Ask Nova</Text>
+            </View>
+            <NovaOrb />
           </View>
-          <NovaOrb />
-        </View>
-      </GlassCard>
+        </GlassCard>
+      </Pressable>
 
-      <View style={styles.quickActions}>
-        <OrbitButton style={styles.quickButton} onPress={() => router.push('/create-task' as never)}>
-          Create Task
-        </OrbitButton>
-        <OrbitButton
-          style={styles.quickButton}
-          tone="secondary"
-          onPress={() => router.push('/add-grocery' as never)}>
-          + Missing Item
-        </OrbitButton>
-        <OrbitButton
-          style={styles.quickButton}
-          tone="secondary"
-          onPress={() => router.push('/create-event' as never)}>
-          Create Event
-        </OrbitButton>
-        <OrbitButton
-          style={styles.quickButton}
-          tone="secondary"
-          onPress={() => router.push('/(tabs)/calendar' as never)}>
-          Calendar
-        </OrbitButton>
-        <OrbitButton
-          style={styles.quickButton}
-          tone="secondary"
-          onPress={() => router.push('/notifications' as never)}>
-          {unreadNotificationCount > 0 ? `Notifications (${unreadNotificationCount})` : 'Notifications'}
-        </OrbitButton>
-        <OrbitButton
-          style={styles.quickButton}
-          tone="secondary"
-          onPress={() => router.push('/settings' as never)}>
-          Settings
-        </OrbitButton>
-        <OrbitButton
-          disabled={!permissions.canInviteMembers}
-          style={styles.quickButton}
-          tone="secondary"
-          onPress={() => router.push('/invite-household' as never)}>
-          Invite
-        </OrbitButton>
-        <OrbitButton style={styles.quickButton} tone="secondary" onPress={() => router.push('/household-members' as never)}>
-          Members
-        </OrbitButton>
-      </View>
-
-      <View style={styles.grid}>
-        <Pressable style={styles.gridPressable} onPress={() => router.push('/(tabs)/tasks' as never)}>
-          <GlassCard style={styles.gridCard}>
-            <Text style={styles.metric}>{metrics.openTasks}</Text>
-            <Text style={orbitTypography.caption}>Open tasks</Text>
-          </GlassCard>
-        </Pressable>
-        <Pressable style={styles.gridPressable} onPress={() => router.push('/(tabs)/groceries' as never)}>
-          <GlassCard style={styles.gridCard}>
-            <Text style={styles.metric}>{metrics.missingGroceries}</Text>
-            <Text style={orbitTypography.caption}>Missing items</Text>
-          </GlassCard>
-        </Pressable>
-        <Pressable style={styles.gridPressable} onPress={() => router.push('/(tabs)/calendar' as never)}>
-          <GlassCard style={styles.gridCard}>
-            <Text style={styles.metric}>{metrics.upcomingEvents}</Text>
-            <Text style={orbitTypography.caption}>Events</Text>
-          </GlassCard>
-        </Pressable>
-        <Pressable style={styles.gridPressable} onPress={() => router.push('/notifications' as never)}>
-          <GlassCard style={styles.gridCard}>
-            <Text style={styles.metric}>{unreadNotificationCount}</Text>
-            <Text style={orbitTypography.caption}>Unread alerts</Text>
-          </GlassCard>
-        </Pressable>
+      <View style={styles.primaryActions}>
+        {permissions.canCreateTask ? (
+          <OrbitButton style={styles.primaryButton} onPress={() => router.push('/create-task' as never)}>
+            Create Task
+          </OrbitButton>
+        ) : null}
+        {permissions.canManageGroceries ? (
+          <OrbitButton
+            style={styles.primaryButton}
+            tone="secondary"
+            onPress={() => router.push('/add-grocery' as never)}>
+            + Missing Item
+          </OrbitButton>
+        ) : null}
       </View>
 
       <GlassCard>
-        <Text style={orbitTypography.cardTitle}>Today&apos;s tasks</Text>
-        {household.tasks.slice(0, 3).map((task) => (
-          <Pressable key={task.id} onPress={() => router.push(`/task/${task.id}` as never)}>
-            <OrbitListItem
-              completed={task.status === 'Completed'}
-              meta={`${task.category} • ${task.assignee} • ${task.due}`}
-              title={task.title}
-              trailing={<StatusPill label={task.status} tone={task.status === 'Completed' ? 'green' : 'blue'} />}
-            />
+        <View style={orbitScreen.row}>
+          <Text style={orbitTypography.cardTitle}>Today</Text>
+          <Pressable onPress={() => router.push('/(tabs)/tasks' as never)}>
+            <Text style={styles.linkHint}>All tasks</Text>
           </Pressable>
-        ))}
+        </View>
+        {todayTasks.length === 0 ? (
+          <Text style={orbitTypography.caption}>No open tasks — household is clear.</Text>
+        ) : (
+          todayTasks.map((task) => (
+            <Pressable key={task.id} onPress={() => router.push(`/task/${task.id}` as never)}>
+              <OrbitListItem
+                completed={task.status === 'Completed'}
+                meta={`${task.category} · ${task.assignee} · ${task.due}`}
+                title={task.title}
+                trailing={<StatusPill label={task.status} tone={task.status === 'Overdue' ? 'red' : 'blue'} />}
+              />
+            </Pressable>
+          ))
+        )}
       </GlassCard>
 
       <GlassCard>
         <View style={orbitScreen.row}>
-          <Text style={orbitTypography.cardTitle}>Upcoming events</Text>
+          <Text style={orbitTypography.cardTitle}>Upcoming</Text>
           <Pressable onPress={() => router.push('/(tabs)/calendar' as never)}>
-            <Text style={styles.linkHint}>Open calendar</Text>
+            <Text style={styles.linkHint}>Calendar</Text>
           </Pressable>
         </View>
         {household.events.slice(0, 3).map((event) => (
           <Pressable key={event.id} onPress={() => router.push(`/event/${event.id}` as never)}>
             <OrbitListItem
-              meta={`${event.date} • ${event.responsible}`}
+              meta={`${event.date} · ${event.responsible}`}
               title={event.title}
               trailing={<Text style={styles.eventTime}>{event.time}</Text>}
             />
@@ -156,7 +147,7 @@ export default function HomeScreen() {
       <Pressable onPress={() => router.push('/household-balance' as never)}>
         <GlassCard>
           <Text style={orbitTypography.cardTitle}>Household balance</Text>
-          {household.members.map((member) => (
+          {household.members.slice(0, 3).map((member) => (
             <View key={member.id} style={styles.memberRow}>
               <Text style={styles.avatar}>{member.avatar}</Text>
               <View style={styles.memberInfo}>
@@ -192,19 +183,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'right',
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: orbitSpacing.md,
-  },
-  gridCard: {
-    flexGrow: 1,
-    gap: orbitSpacing.xs,
-  },
-  gridPressable: {
-    flexBasis: '47%',
-    flexGrow: 1,
-  },
   heroCard: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -214,6 +192,21 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: orbitSpacing.sm,
     paddingRight: orbitSpacing.md,
+  },
+  iconButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: orbitColors.border,
+    borderRadius: orbitRadius.md,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  iconLabel: {
+    color: orbitColors.text,
+    fontSize: 16,
+    fontWeight: '800',
   },
   linkHint: {
     color: orbitColors.novaCyan,
@@ -250,23 +243,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: orbitSpacing.md,
   },
-  metric: {
-    color: orbitColors.text,
-    fontSize: 30,
-    fontWeight: '800',
-  },
   novaCopy: {
     flex: 1,
     gap: orbitSpacing.xs,
     paddingRight: orbitSpacing.md,
   },
-  quickActions: {
+  primaryActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: orbitSpacing.md,
   },
-  quickButton: {
+  primaryButton: {
     flexBasis: '47%',
     flexGrow: 1,
+  },
+  topActions: {
+    flexDirection: 'row',
+    gap: orbitSpacing.sm,
+  },
+  topBar: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: orbitSpacing.md,
+    justifyContent: 'space-between',
+  },
+  topCopy: {
+    flex: 1,
+    gap: orbitSpacing.xs,
   },
 });

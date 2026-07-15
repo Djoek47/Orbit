@@ -19,7 +19,10 @@ function nextRole(current: HouseholdRole): HouseholdRole {
 }
 
 export default function HouseholdMembersScreen() {
-  const { household, permissions, removeMember, updateMemberRole } = useOrbit();
+  const { approveMember, household, permissions, removeMember, updateMemberRole } = useOrbit();
+
+  const pending = household.members.filter((member) => member.status === 'pending');
+  const active = household.members.filter((member) => member.status !== 'pending');
 
   const handleChangeRole = (memberId: string, currentRole: HouseholdRole) => {
     if (currentRole === 'owner') {
@@ -55,16 +58,55 @@ export default function HouseholdMembersScreen() {
       <View style={orbitScreen.header}>
         <Text style={orbitTypography.caption}>{household.householdName}</Text>
         <Text style={orbitTypography.display}>Members</Text>
-        <Text style={orbitTypography.body}>Manage roles and membership for people in this household.</Text>
+        <Text style={orbitTypography.body}>
+          Approve join requests, manage roles, and keep guest access limited.
+        </Text>
       </View>
 
-      {household.members.map((member) => (
+      {pending.length > 0 ? (
+        <>
+          <Text style={orbitTypography.cardTitle}>Pending approval</Text>
+          {pending.map((member) => (
+            <GlassCard key={member.id} style={styles.card}>
+              <View style={styles.memberHeader}>
+                <Text style={styles.avatar}>{member.avatar}</Text>
+                <View style={styles.memberCopy}>
+                  <Text style={orbitTypography.cardTitle}>{member.name}</Text>
+                  <Text style={orbitTypography.caption}>Requested {formatHouseholdRole(member.role)} access</Text>
+                </View>
+              </View>
+              <View style={styles.pillRow}>
+                <StatusPill label={formatHouseholdRole(member.role)} tone="blue" />
+                <StatusPill label="pending" tone="amber" />
+              </View>
+              <View style={styles.actions}>
+                <OrbitButton
+                  disabled={!permissions.canManageHousehold}
+                  onPress={() => approveMember(member.id)}>
+                  Approve
+                </OrbitButton>
+                <OrbitButton
+                  disabled={!permissions.canManageHousehold}
+                  tone="danger"
+                  onPress={() => handleRemove(member.id, member.name, member.role)}>
+                  Decline
+                </OrbitButton>
+              </View>
+            </GlassCard>
+          ))}
+        </>
+      ) : null}
+
+      <Text style={orbitTypography.cardTitle}>Household</Text>
+      {active.map((member) => (
         <GlassCard key={member.id} style={styles.card}>
           <View style={styles.memberHeader}>
             <Text style={styles.avatar}>{member.avatar}</Text>
             <View style={styles.memberCopy}>
               <Text style={orbitTypography.cardTitle}>{member.name}</Text>
-              <Text style={orbitTypography.caption}>{member.xp} XP earned</Text>
+              <Text style={orbitTypography.caption}>
+                {member.xp} XP · week {member.weekXp ?? 0} · streak {member.streak ?? 0}
+              </Text>
             </View>
           </View>
           <View style={styles.pillRow}>

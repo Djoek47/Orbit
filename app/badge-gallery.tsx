@@ -5,12 +5,11 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
-import { ACHIEVEMENT_BADGES } from '@/lib/game-levels';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function BadgeGalleryScreen() {
-  const { household } = useOrbit();
-  const earnedAchievements = ACHIEVEMENT_BADGES.filter((badge) => badge.earned).length;
+  const { achievements, household } = useOrbit();
+  const earnedAchievements = achievements.filter((badge) => badge.earned).length;
 
   return (
     <ScrollView
@@ -39,10 +38,12 @@ export default function BadgeGalleryScreen() {
               <View style={styles.badgeCopy}>
                 <Text style={styles.badgeTitle}>{badge.title}</Text>
                 <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: `${Math.min(100, badge.progress)}%` }]} />
+                  <View
+                    style={[styles.progressFill, { width: `${Math.min(100, Math.round(badge.progress * 100))}%` }]}
+                  />
                 </View>
               </View>
-              <Text style={styles.progressLabel}>{badge.progress}%</Text>
+              <Text style={styles.progressLabel}>{Math.round(badge.progress * 100)}%</Text>
             </View>
           ))
         )}
@@ -52,11 +53,11 @@ export default function BadgeGalleryScreen() {
         <View style={orbitScreen.row}>
           <Text style={orbitTypography.cardTitle}>Achievements</Text>
           <Text style={styles.earnedCount}>
-            {earnedAchievements}/{ACHIEVEMENT_BADGES.length}
+            {earnedAchievements}/{achievements.length}
           </Text>
         </View>
         <View style={styles.badgeGrid}>
-          {ACHIEVEMENT_BADGES.map((badge) => (
+          {achievements.map((badge) => (
             <View key={badge.id} style={styles.badgeTile}>
               <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
                 <Text style={styles.badgeEmoji}>{badge.emoji}</Text>

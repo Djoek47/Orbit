@@ -14,7 +14,7 @@ export default function AnalyticsScreen() {
     return (
       <ScrollView style={orbitScreen.container} contentContainerStyle={orbitScreen.content}>
         <Text style={orbitTypography.title}>Analytics locked</Text>
-        <Text style={orbitTypography.body}>Owner or admin access is required for advanced analytics.</Text>
+        <Text style={orbitTypography.body}>Analytics requires a role with household visibility enabled.</Text>
         <OrbitButton tone="secondary" onPress={() => router.back()}>
           Back
         </OrbitButton>
