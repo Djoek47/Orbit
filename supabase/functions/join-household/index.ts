@@ -65,6 +65,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (invite.max_uses != null && invite.max_uses > 0 && (invite.uses ?? 0) >= invite.max_uses) {
+      return new Response(JSON.stringify({ error: 'Invite code has reached its use limit' }), {
+        status: 410,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { data: member, error: memberError } = await admin
       .from('household_members')
       .upsert(

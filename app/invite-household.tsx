@@ -90,9 +90,9 @@ export default function InviteHouseholdScreen() {
       <GlassCard elevated style={styles.card}>
         <StatusPill label="Scan to join" tone="cyan" />
         <View style={styles.qrWrap}>
-          <QRCode value={webLink} size={180} backgroundColor="#FFFFFF" color="#070B14" />
+          <QRCode value={deepLink} size={180} backgroundColor="#FFFFFF" color="#070B14" />
         </View>
-        <Text style={orbitTypography.caption}>Encodes {webLink}</Text>
+        <Text style={orbitTypography.caption}>Scan opens Orbit · {deepLink}</Text>
       </GlassCard>
 
       <GlassCard style={styles.card}>

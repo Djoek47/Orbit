@@ -182,13 +182,29 @@ export type AiBriefingRow = {
   updated_at: Timestamp;
 };
 
+export type AiConversationRow = {
+  id: string;
+  household_id: string;
+  user_id: string;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+};
+
+export type AiMessageRow = {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: Timestamp;
+};
+
 export type NotificationRow = {
   id: string;
   household_id: string;
   user_id: string | null;
   title: string;
   body: string;
-  category: 'tasks' | 'groceries' | 'events' | 'rewards' | 'ai' | 'general';
+  category: 'tasks' | 'groceries' | 'events' | 'rewards' | 'ai' | 'general' | 'members';
   priority: 'low' | 'medium' | 'high' | 'critical';
   is_read: boolean;
   data: Json;
@@ -350,6 +366,18 @@ export type Database = {
         Pick<AiBriefingRow, 'household_id' | 'title' | 'summary'> &
           Partial<Omit<AiBriefingRow, 'household_id' | 'title' | 'summary'>>,
         Partial<Omit<AiBriefingRow, 'id'>>
+      >;
+      ai_conversations: TableDef<
+        AiConversationRow,
+        Pick<AiConversationRow, 'household_id' | 'user_id'> &
+          Partial<Omit<AiConversationRow, 'household_id' | 'user_id'>>,
+        Partial<Omit<AiConversationRow, 'id'>>
+      >;
+      ai_messages: TableDef<
+        AiMessageRow,
+        Pick<AiMessageRow, 'conversation_id' | 'role' | 'content'> &
+          Partial<Omit<AiMessageRow, 'conversation_id' | 'role' | 'content'>>,
+        Partial<Omit<AiMessageRow, 'id'>>
       >;
       nova_briefings: TableDef<
         Omit<AiBriefingRow, 'briefing_type'>,

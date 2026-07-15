@@ -16,7 +16,7 @@ const statusTone = {
 } as const;
 
 export default function GroceriesScreen() {
-  const { household, markGroceryPurchased, metrics, permissions } = useOrbit();
+  const { household, markGroceryLow, markGroceryPurchased, metrics, permissions } = useOrbit();
   const missing = household.groceries.filter((item) => item.status === 'Missing');
   const purchased = household.groceries.filter((item) => item.status === 'Purchased');
   const available = household.groceries.filter((item) => item.status !== 'Missing' && item.status !== 'Purchased');
@@ -83,7 +83,16 @@ export default function GroceriesScreen() {
           <OrbitListItem
             meta={`${item.category} • ${item.quantity} • ${item.location}`}
             title={item.name}
-            trailing={<StatusPill label={item.status} tone={statusTone[item.status]} />}
+            trailing={
+              <View style={styles.trailingRow}>
+                <StatusPill label={item.status} tone={statusTone[item.status]} />
+                {permissions.canManageGroceries && item.status === 'Available' ? (
+                  <OrbitButton style={styles.smallButton} tone="secondary" onPress={() => markGroceryLow(item.id)}>
+                    Low
+                  </OrbitButton>
+                ) : null}
+              </View>
+            }
           />
         </GlassCard>
       ))}
@@ -98,5 +107,10 @@ const styles = StyleSheet.create({
   smallButton: {
     minHeight: 44,
     paddingHorizontal: orbitSpacing.md,
+  },
+  trailingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: orbitSpacing.sm,
   },
 });

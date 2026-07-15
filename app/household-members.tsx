@@ -19,7 +19,7 @@ function nextRole(current: HouseholdRole): HouseholdRole {
 }
 
 export default function HouseholdMembersScreen() {
-  const { approveMember, household, permissions, removeMember, updateMemberRole } = useOrbit();
+  const { approveMember, declineMember, household, permissions, removeMember, updateMemberRole } = useOrbit();
 
   const pending = household.members.filter((member) => member.status === 'pending');
   const active = household.members.filter((member) => member.status !== 'pending');
@@ -88,7 +88,7 @@ export default function HouseholdMembersScreen() {
                 <OrbitButton
                   disabled={!permissions.canManageHousehold}
                   tone="danger"
-                  onPress={() => handleRemove(member.id, member.name, member.role)}>
+                  onPress={() => void declineMember(member.id)}>
                   Decline
                 </OrbitButton>
               </View>

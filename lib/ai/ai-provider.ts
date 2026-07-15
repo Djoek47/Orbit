@@ -1,4 +1,6 @@
+import { useLiveNovaAi } from '@/config/nova-ai-mode';
 import { dataMode } from '@/config/data-mode';
+import { buildNovaHouseholdPayload } from '@/lib/ai/household-context';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { novaService } from '@/services/nova-service';
 import type {
@@ -10,11 +12,17 @@ import type {
   OrbitMetrics,
 } from '@/types/orbit';
 
+export type NovaChatMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
 export type AIProvider = {
   answerQuestion: (
     question: string,
     household: HouseholdSnapshot,
-    metrics: OrbitMetrics
+    metrics: OrbitMetrics,
+    history?: NovaChatMessage[]
   ) => Promise<NovaConversationAnswer>;
   generateDailyBriefing: (household: HouseholdSnapshot, metrics: OrbitMetrics) => Promise<NovaBriefing>;
   generateRecommendations: (
@@ -30,7 +38,7 @@ async function invokeNovaFunction<T>(
   fallback: () => Promise<T>
 ): Promise<T> {
   const supabase = getSupabaseClient();
-  if (!supabase || dataMode === 'mock') {
+  if (!supabase || !useLiveNovaAi) {
     return fallback();
   }
 
@@ -38,6 +46,9 @@ async function invokeNovaFunction<T>(
     const { data, error } = await supabase.functions.invoke(functionName, { body });
     if (error || !data) {
       return fallback();
+    }
+    if (typeof data === 'object' && data !== null && 'error' in data) {
+      throw new Error(String((data as { error: unknown }).error));
     }
     return data as T;
   } catch {
@@ -61,35 +72,64 @@ export const mockAIProvider: AIProvider = {
 };
 
 export const openAIProvider: AIProvider = {
-  async answerQuestion(question, household, metrics) {
+  async answerQuestion(question, household, metrics, history = []) {
     return invokeNovaFunction(
       'nova-chat',
-      { question, householdId: household.id, metrics },
+      {
+        question,
+        householdId: household.id,
+        metrics,
+        household: buildNovaHouseholdPayload(household, metrics),
+        history,
+      },
       () => mockAIProvider.answerQuestion(question, household, metrics)
     );
   },
   async generateDailyBriefing(household, metrics) {
     return invokeNovaFunction(
       'nova-briefing',
-      { householdId: household.id, type: 'daily', metrics, household },
+      {
+        householdId: household.id,
+        type: 'daily',
+        metrics,
+        household: buildNovaHouseholdPayload(household, metrics),
+      },
       () => mockAIProvider.generateDailyBriefing(household, metrics)
     );
   },
   async generateRecommendations(household, metrics) {
-    return invokeNovaFunction(
+    const result = await invokeNovaFunction<{ recommendations?: NovaRecommendation[] } | NovaRecommendation[]>(
       'nova-briefing',
-      { householdId: household.id, type: 'recommendations', metrics, household },
-      () => mockAIProvider.generateRecommendations(household, metrics)
+      {
+        householdId: household.id,
+        type: 'recommendations',
+        metrics,
+        household: buildNovaHouseholdPayload(household, metrics),
+      },
+      () => mockAIProvider.generateRecommendations(household, metrics).then((items) => ({ recommendations: items }))
     );
+    if (Array.isArray(result)) {
+      return result;
+    }
+    return result.recommendations ?? mockAIProvider.generateRecommendations(household, metrics);
   },
   async generateWeeklyBriefing(household, metrics) {
     return invokeNovaFunction(
       'nova-briefing',
-      { householdId: household.id, type: 'weekly', metrics, household },
+      {
+        householdId: household.id,
+        type: 'weekly',
+        metrics,
+        household: buildNovaHouseholdPayload(household, metrics),
+      },
       () => mockAIProvider.generateWeeklyBriefing(household, metrics)
     );
   },
 };
 
-/** Uses OpenAI edge functions when in supabase mode; otherwise local heuristics. */
-export const aiProvider: AIProvider = dataMode === 'supabase' ? openAIProvider : mockAIProvider;
+/** Uses OpenAI edge functions when supabase mode or EXPO_PUBLIC_NOVA_AI=openai. */
+export const aiProvider: AIProvider = useLiveNovaAi ? openAIProvider : mockAIProvider;
+
+export function isLiveNovaEnabled() {
+  return useLiveNovaAi && dataMode === 'supabase' ? Boolean(getSupabaseClient()) : useLiveNovaAi;
+}

@@ -3,6 +3,8 @@ import { mapGroceryRow } from '@/lib/mappers/orbit-mappers';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type { CreateGroceryInput, GroceryItem } from '@/types/orbit';
 
+let mockGroceriesState: GroceryItem[] = clone(mockHousehold.groceries);
+
 function resolveLocation(category: string): GroceryItem['location'] {
   if (category === 'Household') return 'Cleaning';
   if (category === 'Dairy') return 'Fridge';
@@ -13,10 +15,14 @@ function locationToDb(location: GroceryItem['location']) {
   return location.toLowerCase() as 'fridge' | 'freezer' | 'pantry' | 'bathroom' | 'cleaning';
 }
 
+function statusToDb(status: GroceryItem['status']) {
+  return status.toLowerCase() as 'available' | 'low' | 'missing' | 'purchased';
+}
+
 export const groceryRepository = {
   async getGroceries(householdId: string | null | undefined): Promise<GroceryItem[]> {
     if (isMockMode()) {
-      return clone(mockHousehold.groceries);
+      return clone(mockGroceriesState);
     }
 
     if (!householdId) {
@@ -48,6 +54,7 @@ export const groceryRepository = {
     };
 
     if (isMockMode()) {
+      mockGroceriesState = [item, ...mockGroceriesState];
       return item;
     }
 
@@ -77,40 +84,47 @@ export const groceryRepository = {
     return mapGroceryRow(data);
   },
 
-  async markGroceryPurchased(
+  async updateGroceryStatus(
     item: GroceryItem,
+    status: GroceryItem['status'],
     householdId?: string | null
   ): Promise<GroceryItem> {
-    const purchased: GroceryItem = {
-      ...item,
-      status: 'Purchased',
-    };
+    const updated: GroceryItem = { ...item, status };
 
     if (isMockMode()) {
-      return purchased;
+      mockGroceriesState = mockGroceriesState.map((row) => (row.id === item.id ? updated : row));
+      return updated;
     }
 
-    const supabase = getConfiguredSupabase('groceryRepository.markGroceryPurchased');
+    const supabase = getConfiguredSupabase('groceryRepository.updateGroceryStatus');
     const { data, error } = await supabase
       .from('grocery_items')
-      .update({ status: 'purchased' })
+      .update({ status: statusToDb(status) })
       .eq('id', item.id)
       .select('*')
       .single();
-    mapDbError('groceryRepository.markGroceryPurchased', error);
+    mapDbError('groceryRepository.updateGroceryStatus', error);
 
     const resolvedHouseholdId = householdId ?? data?.household_id;
-    if (resolvedHouseholdId) {
+    if (status === 'Purchased' && resolvedHouseholdId) {
       const { error: historyError } = await supabase.from('grocery_purchase_history').insert({
         household_id: resolvedHouseholdId,
         grocery_item_id: item.id,
         name: item.name,
         category: item.category,
       });
-      mapDbError('groceryRepository.markGroceryPurchased.history', historyError);
+      mapDbError('groceryRepository.updateGroceryStatus.history', historyError);
     }
 
-    return data ? mapGroceryRow(data) : purchased;
+    return data ? mapGroceryRow(data) : updated;
+  },
+
+  async markGroceryPurchased(item: GroceryItem, householdId?: string | null): Promise<GroceryItem> {
+    return this.updateGroceryStatus(item, 'Purchased', householdId);
+  },
+
+  async markGroceryLow(item: GroceryItem, householdId?: string | null): Promise<GroceryItem> {
+    return this.updateGroceryStatus(item, 'Low', householdId);
   },
 };
 

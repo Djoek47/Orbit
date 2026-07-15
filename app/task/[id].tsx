@@ -23,7 +23,7 @@ const repeats: HouseholdTask['repeat'][] = ['None', 'Daily', 'Weekly', 'Weekdays
 
 export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { completeTask, household, permissions, updateTask } = useOrbit();
+  const { completeTask, deleteTask, household, permissions, updateTask } = useOrbit();
   const task = household.tasks.find((item) => item.id === id);
   const memberNames = useMemo(
     () => household.members.filter((member) => member.status === 'active').map((member) => member.name),
@@ -136,6 +136,16 @@ export default function TaskDetailScreen() {
           {canEdit ? (
             <OrbitButton tone="secondary" onPress={() => setEditing(true)}>
               Edit task
+            </OrbitButton>
+          ) : null}
+          {canEdit ? (
+            <OrbitButton
+              tone="danger"
+              onPress={async () => {
+                await deleteTask(task.id);
+                router.back();
+              }}>
+              Delete task
             </OrbitButton>
           ) : null}
         </>

@@ -203,7 +203,7 @@ export type NotificationItem = {
   householdId: string;
   title: string;
   body: string;
-  category: 'tasks' | 'groceries' | 'events' | 'rewards' | 'ai' | 'general';
+  category: 'tasks' | 'groceries' | 'events' | 'rewards' | 'ai' | 'general' | 'members';
   priority: 'low' | 'medium' | 'high' | 'critical';
   isRead: boolean;
   createdAt: string;

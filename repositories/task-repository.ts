@@ -116,6 +116,17 @@ export const taskRepository = {
     return data ? mapTaskRow(data) : next;
   },
 
+  async deleteTask(taskId: string): Promise<void> {
+    if (isMockMode()) {
+      mockTasksState = mockTasksState.filter((item) => item.id !== taskId);
+      return;
+    }
+
+    const supabase = getConfiguredSupabase('taskRepository.deleteTask');
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+    mapDbError('taskRepository.deleteTask', error);
+  },
+
   async completeTask(
     task: HouseholdTask,
     householdId?: string | null

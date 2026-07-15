@@ -2,6 +2,7 @@ import { createContext, PropsWithChildren, useCallback, useContext, useEffect, u
 
 import { dataMode } from '@/config/data-mode';
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
+import type { NovaChatMessage } from '@/lib/ai/ai-provider';
 import { trackAnalytics } from '@/lib/analytics';
 import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, xpProgress } from '@/lib/game-levels';
 import { getLocationAwareGrocerySuggestions } from '@/lib/grocery/location-suggestions';
@@ -9,6 +10,7 @@ import { buildStoreRecommendations } from '@/lib/grocery/recommendations';
 import { countUpcomingSoon } from '@/lib/calendar/event-groups';
 import { registerForPushNotifications, scheduleLocalReminder } from '@/lib/notifications/push';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
+import { persistHouseholdScore } from '@/lib/momentum/score-writer';
 import { subscribeHouseholdRealtime } from '@/lib/realtime/household-realtime';
 import {
   authRepository,
@@ -58,12 +60,14 @@ type OrbitContextValue = {
   activeMemberId: string | null;
   household: HouseholdSnapshot;
   hasHousehold: boolean;
+  isPendingMember: boolean;
   isLoading: boolean;
   isSignedIn: boolean;
   metrics: OrbitMetrics;
   membersWithProgress: MemberProgress[];
   achievements: ReturnType<typeof evaluateAchievements>;
   novaAskCount: number;
+  novaConversation: NovaChatMessage[];
   novaBriefing: NovaBriefing;
   novaRecommendations: NovaRecommendation[];
   novaWeeklyBriefing: NovaWeeklyBriefing;
@@ -76,17 +80,21 @@ type OrbitContextValue = {
   storeRecommendations: StoreRecommendation[];
   inviteLinks: InviteLinks | null;
   askNova: (question: string) => Promise<NovaConversationAnswer>;
+  askNovaVoice: (audioUri: string | null) => Promise<NovaConversationAnswer>;
   switchPersona: (memberId: string) => void;
   approveMember: (memberId: string) => Promise<void>;
+  declineMember: (memberId: string) => Promise<void>;
   createHousehold: (input: CreateHouseholdInput) => Promise<void>;
   createProfile: (input: CreateProfileInput) => Promise<void>;
   createTask: (input: CreateTaskInput) => void;
   updateTask: (task: HouseholdTask) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   completeTask: (taskId: string) => void;
+  deleteTask: (taskId: string) => Promise<void>;
   addMissingGrocery: (input: CreateGroceryInput) => void;
   joinHousehold: (input: JoinHouseholdInput) => Promise<void>;
   markGroceryPurchased: (itemId: string) => void;
+  markGroceryLow: (itemId: string) => void;
   createEvent: (input: CreateEventInput) => Promise<void>;
   updateEvent: (event: HouseholdEvent) => Promise<void>;
   deleteEvent: (eventId: string) => Promise<void>;
@@ -118,6 +126,7 @@ type OrbitContextValue = {
   refreshStoreRecommendations: () => Promise<void>;
   refreshInviteLinks: () => Promise<InviteLinks | null>;
   refreshSmartHome: () => Promise<void>;
+  refreshHousehold: () => Promise<void>;
 };
 
 const OrbitContext = createContext<OrbitContextValue | null>(null);
@@ -134,6 +143,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [inviteLinks, setInviteLinks] = useState<InviteLinks | null>(null);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
   const [novaAskCount, setNovaAskCount] = useState(0);
+  const [novaConversation, setNovaConversation] = useState<NovaChatMessage[]>([]);
   const initialMetrics = useMemo(() => calculateMetrics(mockHousehold), []);
   const [novaWeeklyBriefing, setNovaWeeklyBriefing] = useState<NovaWeeklyBriefing>(() =>
     novaService.generateWeeklyBriefing(mockHousehold, initialMetrics)
@@ -149,6 +159,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return household.members.find((m) => m.name === currentUser?.name) ?? household.members[0];
   }, [activeMemberId, currentUser?.name, household.members]);
   const hasHousehold = Boolean(currentUser && household.id);
+  const isPendingMember = currentMember?.status === 'pending';
   const permissions = useMemo(() => {
     // Pending joiners wait for owner/admin approval — same surface limits as guests.
     if (currentMember?.status === 'pending') {
@@ -252,11 +263,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
 
       const baseHousehold = await householdRepository.getHousehold();
-      const hydratedHousehold = await hydrateHousehold(baseHousehold);
+      let hydratedHousehold = await hydrateHousehold(baseHousehold);
+
+      if (!hydratedHousehold.id && session.user) {
+        const pending = await householdRepository.getPendingHouseholdSnapshot(session.user);
+        if (pending) {
+          hydratedHousehold = pending;
+        }
+      }
 
       if (isMounted) {
         setCurrentUser(session.user);
         setHousehold(hydratedHousehold);
+        const history = await novaRepository.getConversationHistory(
+          hydratedHousehold.id,
+          session.user.id
+        );
+        setNovaConversation(history);
         setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
         const [items, redemptions, devices, scenes, links] = await Promise.all([
           notificationsRepository.list(hydratedHousehold.id),
@@ -397,6 +420,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (pendingSelf) {
       setActiveMemberId(pendingSelf.id);
     }
+    if (joinedHousehold.id) {
+      await pushNotification({
+        title: 'New join request',
+        body: `${currentUser.name} requested access with invite code ${input.inviteCode}.`,
+        category: 'members',
+        priority: 'high',
+        data: { memberName: currentUser.name },
+      });
+    }
     await trackAnalytics('household.joined', { inviteCode: input.inviteCode }, { householdId: joinedHousehold.id, userId: currentUser.id });
   };
 
@@ -458,7 +490,28 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         tasks: current.tasks.map((item) => (item.id === taskId ? completedTask : item)),
       };
     });
+    await pushNotification({
+      title: `Task completed: ${currentTask.title}`,
+      body: `${currentTask.assignee} earned ${currentTask.xp} XP.`,
+      category: 'tasks',
+      priority: 'medium',
+      data: { taskId },
+    });
+    const nextMetrics = calculateMetrics({
+      ...household,
+      tasks: household.tasks.map((item) => (item.id === taskId ? completedTask : item)),
+    });
+    await persistHouseholdScore(household.id, nextMetrics);
     await trackAnalytics('task.completed', { taskId }, analyticsContext);
+  };
+
+  const deleteTask = async (taskId: string) => {
+    await taskRepository.deleteTask(taskId);
+    setHousehold((current) => ({
+      ...current,
+      tasks: current.tasks.filter((item) => item.id !== taskId),
+    }));
+    await trackAnalytics('task.deleted', { taskId }, analyticsContext);
   };
 
   const addMissingGrocery = async (input: CreateGroceryInput) => {
@@ -496,6 +549,27 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       groceries: current.groceries.map((item) => (item.id === itemId ? purchasedItem : item)),
     }));
     await trackAnalytics('grocery.purchased', { groceryId: itemId }, analyticsContext);
+    const nextMetrics = calculateMetrics({
+      ...household,
+      groceries: household.groceries.map((item) =>
+        item.id === itemId ? { ...item, status: 'Purchased' as const } : item
+      ),
+    });
+    await persistHouseholdScore(household.id, nextMetrics);
+  };
+
+  const markGroceryLow = async (itemId: string) => {
+    const currentItem = household.groceries.find((item) => item.id === itemId);
+    if (!currentItem) {
+      return;
+    }
+
+    const updated = await groceryRepository.markGroceryLow(currentItem, household.id);
+    setHousehold((current) => ({
+      ...current,
+      groceries: current.groceries.map((item) => (item.id === itemId ? updated : item)),
+    }));
+    await trackAnalytics('grocery.low', { groceryId: itemId }, analyticsContext);
   };
 
   const pushNotification = async (input: {
@@ -584,8 +658,38 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const askNova = async (question: string) => {
     setNovaAskCount((count) => count + 1);
-    const answer = await novaRepository.askNova(question, household, metrics);
+    const answer = await novaRepository.askNova(
+      question,
+      household,
+      metrics,
+      novaConversation,
+      currentUser?.id
+    );
+    setNovaConversation((current) => [
+      ...current,
+      { role: 'user', content: answer.question },
+      { role: 'assistant', content: answer.answer },
+    ]);
     await trackAnalytics('nova.asked', { questionLength: question.length }, analyticsContext);
+    return answer;
+  };
+
+  const askNovaVoice = async (audioUri: string | null) => {
+    const { transcribeAndAskNova } = await import('@/lib/voice/nova-voice');
+    setNovaAskCount((count) => count + 1);
+    const answer = await transcribeAndAskNova(audioUri, household, metrics);
+    setNovaConversation((current) => [
+      ...current,
+      { role: 'user', content: answer.question },
+      { role: 'assistant', content: answer.answer },
+    ]);
+    await novaRepository.appendConversationTurn(
+      household.id,
+      currentUser?.id ?? null,
+      answer.question,
+      answer.answer
+    );
+    await trackAnalytics('nova.voice_asked', {}, analyticsContext);
     return answer;
   };
 
@@ -613,13 +717,36 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const approveMember = async (memberId: string) => {
+    const member = household.members.find((item) => item.id === memberId);
+    await householdRepository.approveMember(memberId);
+    if (dataMode === 'supabase') {
+      await reloadHouseholdDomains();
+    } else {
+      setHousehold((current) => ({
+        ...current,
+        members: current.members.map((item) =>
+          item.id === memberId ? { ...item, status: 'active' } : item
+        ),
+      }));
+      setActiveMemberId(null);
+    }
+    await pushNotification({
+      title: 'Welcome to the household',
+      body: `${member?.name ?? 'A member'} was approved and now has full access.`,
+      category: 'members',
+      priority: 'medium',
+      data: { memberId },
+    });
+    await trackAnalytics('member.approved', { memberId }, analyticsContext);
+  };
+
+  const declineMember = async (memberId: string) => {
+    await householdRepository.declineMember(memberId);
     setHousehold((current) => ({
       ...current,
-      members: current.members.map((member) =>
-        member.id === memberId ? { ...member, status: 'active' } : member
-      ),
+      members: current.members.filter((item) => item.id !== memberId),
     }));
-    await trackAnalytics('member.approved', { memberId }, analyticsContext);
+    await trackAnalytics('member.declined', { memberId }, analyticsContext);
   };
 
   const markNotificationRead = async (notificationId: string) => {
@@ -654,6 +781,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const approveRedemption = async (redemptionId: string) => {
     const updated = await rewardsRepository.approveRedemption(redemptionId);
     setPendingRedemptions((current) => current.filter((item) => item.id !== redemptionId));
+    await reloadHouseholdDomains();
+    await pushNotification({
+      title: 'Reward approved',
+      body: 'A household reward redemption was approved.',
+      category: 'rewards',
+      priority: 'medium',
+      data: { redemptionId },
+    });
     await trackAnalytics('reward.redemption_approved', { redemptionId, status: updated.status }, analyticsContext);
   };
 
@@ -769,12 +904,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         nova: novaBriefing,
       },
       hasHousehold,
+      isPendingMember,
       isLoading,
       isSignedIn: Boolean(currentUser),
       metrics,
       membersWithProgress,
       achievements,
       novaAskCount,
+      novaConversation,
       novaBriefing,
       novaRecommendations,
       novaWeeklyBriefing,
@@ -787,17 +924,21 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       storeRecommendations,
       inviteLinks,
       askNova,
+      askNovaVoice,
       switchPersona,
       approveMember,
+      declineMember,
       createHousehold,
       createProfile,
       createTask,
       updateTask,
       forgotPassword,
       completeTask,
+      deleteTask,
       addMissingGrocery,
       joinHousehold,
       markGroceryPurchased,
+      markGroceryLow,
       createEvent,
       updateEvent,
       deleteEvent,
@@ -823,6 +964,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       refreshStoreRecommendations,
       refreshInviteLinks,
       refreshSmartHome,
+      refreshHousehold: reloadHouseholdDomains,
     }),
     [
       currentUser,
@@ -830,11 +972,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       activeMemberId,
       household,
       hasHousehold,
+      isPendingMember,
       isLoading,
       metrics,
       membersWithProgress,
       achievements,
       novaAskCount,
+      novaConversation,
       novaBriefing,
       novaRecommendations,
       novaWeeklyBriefing,

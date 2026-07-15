@@ -1,29 +1,51 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { GlassCard } from '@/components/orbit/glass-card';
-import { NovaOrb } from '@/components/orbit/nova-orb';
+import { NovaOrb, type NovaOrbState } from '@/components/orbit/nova-orb';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
+import { isLiveNovaEnabled } from '@/lib/ai/ai-provider';
+import { startVoiceCapture, stopVoiceCapture, speakNova, stopSpeaking } from '@/lib/voice/nova-voice';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
-import type { NovaConversationAnswer } from '@/types/orbit';
 
 export default function NovaScreen() {
   const {
     askNova,
+    askNovaVoice,
     metrics,
     novaAskCount,
     novaBriefing,
+    novaConversation,
     novaRecommendations,
     novaWeeklyBriefing,
     suggestedNovaQuestions,
   } = useOrbit();
-  const [thread, setThread] = useState<NovaConversationAnswer[]>([]);
   const [draft, setDraft] = useState('');
   const [asking, setAsking] = useState(false);
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const [error, setError] = useState('');
   const scrollRef = useRef<ScrollView>(null);
+
+  const orbState: NovaOrbState = useMemo(() => {
+    if (voiceBusy) return 'listening';
+    if (asking) return 'thinking';
+    return 'idle';
+  }, [asking, voiceBusy]);
+
+  const thread = useMemo(() => {
+    const pairs: { question: string; answer: string }[] = [];
+    for (let i = 0; i < novaConversation.length; i += 2) {
+      const user = novaConversation[i];
+      const assistant = novaConversation[i + 1];
+      if (user?.role === 'user' && assistant?.role === 'assistant') {
+        pairs.push({ question: user.content, answer: assistant.content });
+      }
+    }
+    return pairs;
+  }, [novaConversation]);
 
   const handleQuestion = async (question: string) => {
     const trimmed = question.trim();
@@ -31,12 +53,40 @@ export default function NovaScreen() {
       return;
     }
     setAsking(true);
+    setError('');
     try {
       const answer = await askNova(trimmed);
-      setThread((current) => [...current, answer]);
       setDraft('');
+      if (answer.answer.includes('could not') && isLiveNovaEnabled()) {
+        setError('Nova had trouble reaching the AI service. Showing the best available answer.');
+      }
       requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    } catch {
+      setError('Nova could not answer right now. Try again in a moment.');
     } finally {
+      setAsking(false);
+    }
+  };
+
+  const handleVoice = async () => {
+    if (voiceBusy || asking) {
+      return;
+    }
+    setVoiceBusy(true);
+    setError('');
+    try {
+      await stopSpeaking();
+      await startVoiceCapture();
+      const uri = await stopVoiceCapture();
+      setVoiceBusy(false);
+      setAsking(true);
+      const answer = await askNovaVoice(uri);
+      await speakNova(answer.answer);
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    } catch {
+      setError('Voice capture failed. Check microphone permission and try again.');
+    } finally {
+      setVoiceBusy(false);
       setAsking(false);
     }
   };
@@ -56,8 +106,12 @@ export default function NovaScreen() {
       </View>
 
       <GlassCard elevated style={styles.hero}>
-        <NovaOrb />
+        <NovaOrb state={orbState} />
         <View style={styles.heroCopy}>
+          <StatusPill
+            label={isLiveNovaEnabled() ? 'Live GPT' : 'Demo mode'}
+            tone={isLiveNovaEnabled() ? 'green' : 'blue'}
+          />
           <StatusPill label={`${metrics.momentum}% Momentum`} tone={metrics.momentum >= 80 ? 'green' : 'amber'} />
           <Text style={orbitTypography.title}>{novaBriefing.title}</Text>
           <Text style={styles.summary}>{novaBriefing.summary}</Text>
@@ -91,12 +145,16 @@ export default function NovaScreen() {
 
       <GlassCard>
         <Text style={orbitTypography.cardTitle}>Recommendations</Text>
-        {novaRecommendations.map((recommendation) => (
-          <View key={recommendation.id} style={styles.recommendation}>
-            <StatusPill label={recommendation.title} tone={recommendation.tone} />
-            <Text style={orbitTypography.caption}>{recommendation.detail}</Text>
-          </View>
-        ))}
+        {novaRecommendations.length === 0 ? (
+          <Text style={orbitTypography.caption}>Nova will surface recommendations as activity picks up.</Text>
+        ) : (
+          novaRecommendations.map((recommendation) => (
+            <View key={recommendation.id} style={styles.recommendation}>
+              <StatusPill label={recommendation.title} tone={recommendation.tone} />
+              <Text style={orbitTypography.caption}>{recommendation.detail}</Text>
+            </View>
+          ))
+        )}
       </GlassCard>
 
       <GlassCard>
@@ -109,7 +167,7 @@ export default function NovaScreen() {
           {suggestedNovaQuestions.map((question) => (
             <Pressable
               key={question}
-              disabled={asking}
+              disabled={asking || voiceBusy}
               onPress={() => handleQuestion(question)}
               style={styles.questionChip}>
               <Text style={styles.questionText}>{question}</Text>
@@ -118,7 +176,7 @@ export default function NovaScreen() {
         </View>
 
         {thread.length === 0 ? (
-          <Text style={orbitTypography.caption}>Ask a suggested question or type your own below.</Text>
+          <Text style={orbitTypography.caption}>Ask a suggested question, type below, or talk to Nova.</Text>
         ) : (
           thread.map((item, index) => (
             <View key={`${item.question}-${index}`} style={styles.threadBlock}>
@@ -133,6 +191,8 @@ export default function NovaScreen() {
           ))
         )}
 
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
         <TextInput
           value={draft}
           onChangeText={setDraft}
@@ -141,8 +201,11 @@ export default function NovaScreen() {
           style={styles.input}
           multiline
         />
-        <OrbitButton disabled={asking || draft.trim().length < 2} onPress={() => handleQuestion(draft)}>
+        <OrbitButton disabled={asking || voiceBusy || draft.trim().length < 2} onPress={() => handleQuestion(draft)}>
           {asking ? 'Thinking…' : 'Send'}
+        </OrbitButton>
+        <OrbitButton disabled={asking || voiceBusy} tone="secondary" onPress={handleVoice}>
+          {voiceBusy ? 'Listening…' : 'Talk to Nova'}
         </OrbitButton>
       </GlassCard>
     </ScrollView>
@@ -174,6 +237,11 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     height: 8,
     width: 8,
+  },
+  error: {
+    color: orbitColors.warning,
+    fontSize: 13,
+    fontWeight: '700',
   },
   hero: {
     alignItems: 'center',

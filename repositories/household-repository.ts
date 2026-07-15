@@ -174,7 +174,6 @@ export const householdRepository = {
         streak: 0,
         loadShare: 0,
       };
-      // Keep the demo household so owners can approve the join on Members.
       const existingWithoutDup = mockHousehold.members.filter(
         (member) => member.name.toLowerCase() !== user.name.toLowerCase()
       );
@@ -193,46 +192,98 @@ export const householdRepository = {
     }
 
     const supabase = getConfiguredSupabase('householdRepository.joinHousehold');
-    const { data: invite, error: inviteError } = await supabase
-      .from('household_invites')
-      .select('*')
-      .eq('invite_code', code)
-      .maybeSingle();
-    mapDbError('householdRepository.joinHousehold.invite', inviteError);
-
-    if (!invite) {
-      throw new Error('householdRepository.joinHousehold: Invite code not found.');
-    }
-
-    if (invite.expires_at && new Date(invite.expires_at).getTime() < Date.now()) {
-      throw new Error('householdRepository.joinHousehold: Invite code has expired.');
-    }
-
-    const { error: memberError } = await supabase.from('household_members').insert({
-      household_id: invite.household_id,
-      user_id: user.id,
-      display_name: user.name,
-      role: 'adult',
-      status: 'pending',
-      avatar_symbol: user.avatar,
-      xp: 0,
-      week_xp: 0,
-      streak: 0,
-      load_share: 0,
+    const { data, error } = await supabase.functions.invoke('join-household', {
+      body: { inviteCode: code, displayName: user.name },
     });
-    mapDbError('householdRepository.joinHousehold.member', memberError);
 
-    await supabase
-      .from('household_invites')
-      .update({ uses: (invite.uses ?? 0) + 1 })
-      .eq('id', invite.id);
+    if (error) {
+      throw new Error(error.message ?? 'householdRepository.joinHousehold: Join failed.');
+    }
 
-    // Pending members are not yet active household members under RLS, so return a local pending snapshot.
+    const payload = data as { error?: string; householdId?: string; member?: { id: string } };
+    if (payload?.error) {
+      throw new Error(payload.error);
+    }
+
+    if (!payload?.householdId) {
+      throw new Error('householdRepository.joinHousehold: Missing household id from join response.');
+    }
+
+    return loadPendingJoinSnapshot(payload.householdId, user, code);
+  },
+
+  async approveMember(memberId: string): Promise<HouseholdMember> {
+    if (isMockMode()) {
+      const member = mockHousehold.members.find((item) => item.id === memberId);
+      if (!member) {
+        throw new Error('householdRepository.approveMember: Member not found.');
+      }
+      return { ...member, status: 'active' };
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.approveMember');
+    const { data, error } = await supabase
+      .from('household_members')
+      .update({ status: 'active' })
+      .eq('id', memberId)
+      .select('*')
+      .single();
+    mapDbError('householdRepository.approveMember', error);
+
+    if (!data) {
+      throw new Error('householdRepository.approveMember: Update returned no row.');
+    }
+
+    return mapMemberRow(data);
+  },
+
+  async declineMember(memberId: string): Promise<void> {
+    if (isMockMode()) {
+      return;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.declineMember');
+    const { error } = await supabase
+      .from('household_members')
+      .update({ status: 'removed' })
+      .eq('id', memberId);
+    mapDbError('householdRepository.declineMember', error);
+  },
+
+  async getPendingHouseholdSnapshot(user: OrbitUser): Promise<HouseholdSnapshot | null> {
+    if (isMockMode()) {
+      return null;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.getPendingHouseholdSnapshot');
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) {
+      return null;
+    }
+
+    const { data: membership, error } = await supabase
+      .from('household_members')
+      .select('household_id, status')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .maybeSingle();
+    mapDbError('householdRepository.getPendingHouseholdSnapshot', error);
+
+    if (!membership?.household_id) {
+      return null;
+    }
+
+    const { data: household } = await supabase
+      .from('households')
+      .select('name, id')
+      .eq('id', membership.household_id)
+      .maybeSingle();
+
     return {
       ...createEmptyHousehold(user),
-      id: invite.household_id,
-      householdName: 'Pending Orbit Home',
-      inviteCode: code,
+      id: membership.household_id,
+      householdName: household?.name ?? 'Pending household',
       greetingName: user.name,
       members: [
         {
@@ -249,8 +300,8 @@ export const householdRepository = {
       ],
       nova: {
         title: 'Join request sent',
-        summary: 'Your household access is pending approval. Orbit will open fully once an owner accepts you.',
-        actions: ['Check invite code', 'Message household owner'],
+        summary: 'Waiting for an owner or admin to approve your access on Members.',
+        actions: ['Check back soon', 'Message household owner'],
       },
     };
   },
@@ -485,5 +536,44 @@ function buildInviteLinks(code: string): InviteLinks {
     code,
     deepLink: inviteDeepLink(code),
     webLink: `https://orbit.app/join/${code}`,
+  };
+}
+
+async function loadPendingJoinSnapshot(
+  householdId: string,
+  user: OrbitUser,
+  inviteCode: string
+): Promise<HouseholdSnapshot> {
+  const supabase = getConfiguredSupabase('householdRepository.loadPendingJoinSnapshot');
+  const { data: household } = await supabase
+    .from('households')
+    .select('name')
+    .eq('id', householdId)
+    .maybeSingle();
+
+  return {
+    ...createEmptyHousehold(user),
+    id: householdId,
+    householdName: household?.name ?? 'Pending household',
+    inviteCode,
+    greetingName: user.name,
+    members: [
+      {
+        id: createLocalId('member'),
+        name: user.name,
+        role: 'adult',
+        status: 'pending',
+        avatar: user.avatar,
+        xp: 0,
+        weekXp: 0,
+        streak: 0,
+        loadShare: 0,
+      },
+    ],
+    nova: {
+      title: 'Join request sent',
+      summary: 'Waiting for an owner or admin to approve your access on Members.',
+      actions: ['Check back soon', 'Message household owner'],
+    },
   };
 }

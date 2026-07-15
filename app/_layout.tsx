@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { orbitColors } from '@/constants/orbit-theme';
+import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { OrbitProvider } from '@/store/orbit-store';
 
@@ -17,8 +18,11 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <OrbitProvider>
+        <DeepLinkBridge />
         <Stack>
           <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="join/[code]" options={{ headerShown: false }} />
+          <Stack.Screen name="pending-approval" options={{ title: 'Pending Approval' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="welcome" options={{ headerShown: false }} />
           <Stack.Screen name="sign-in" options={{ title: 'Sign In' }} />
