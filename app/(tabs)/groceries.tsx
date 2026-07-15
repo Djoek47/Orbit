@@ -16,7 +16,7 @@ const statusTone = {
 } as const;
 
 export default function GroceriesScreen() {
-  const { household, markGroceryPurchased, metrics } = useOrbit();
+  const { household, markGroceryLow, markGroceryPurchased, metrics, permissions } = useOrbit();
   const missing = household.groceries.filter((item) => item.status === 'Missing');
   const purchased = household.groceries.filter((item) => item.status === 'Purchased');
   const available = household.groceries.filter((item) => item.status !== 'Missing' && item.status !== 'Purchased');
@@ -29,10 +29,17 @@ export default function GroceriesScreen() {
       <View style={orbitScreen.header}>
         <Text style={orbitTypography.caption}>Inventory intelligence</Text>
         <Text style={orbitTypography.display}>Groceries</Text>
-        <Text style={orbitTypography.body}>{metrics.groceryReadiness}% grocery readiness from local inventory state.</Text>
+        <Text style={orbitTypography.body}>{metrics.groceryReadiness}% grocery readiness from household inventory.</Text>
       </View>
 
-      <OrbitButton onPress={() => router.push('/add-grocery' as never)}>+ Missing Item</OrbitButton>
+      {permissions.canManageGroceries ? (
+        <OrbitButton onPress={() => router.push('/add-grocery' as never)}>+ Missing Item</OrbitButton>
+      ) : (
+        <Text style={orbitTypography.caption}>Your role can view the list, but not mark items missing.</Text>
+      )}
+      <OrbitButton tone="secondary" onPress={() => router.push('/shopping-recommendations' as never)}>
+        Store recommendations
+      </OrbitButton>
 
       <GlassCard elevated>
         <Text style={orbitTypography.cardTitle}>Missing items</Text>
@@ -76,7 +83,16 @@ export default function GroceriesScreen() {
           <OrbitListItem
             meta={`${item.category} • ${item.quantity} • ${item.location}`}
             title={item.name}
-            trailing={<StatusPill label={item.status} tone={statusTone[item.status]} />}
+            trailing={
+              <View style={styles.trailingRow}>
+                <StatusPill label={item.status} tone={statusTone[item.status]} />
+                {permissions.canManageGroceries && item.status === 'Available' ? (
+                  <OrbitButton style={styles.smallButton} tone="secondary" onPress={() => markGroceryLow(item.id)}>
+                    Low
+                  </OrbitButton>
+                ) : null}
+              </View>
+            }
           />
         </GlassCard>
       ))}
@@ -91,5 +107,10 @@ const styles = StyleSheet.create({
   smallButton: {
     minHeight: 44,
     paddingHorizontal: orbitSpacing.md,
+  },
+  trailingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: orbitSpacing.sm,
   },
 });

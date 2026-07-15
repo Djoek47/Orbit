@@ -4,11 +4,12 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { orbitColors } from '@/constants/orbit-theme';
+import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { OrbitProvider } from '@/store/orbit-store';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: 'index',
 };
 
 export default function RootLayout() {
@@ -17,7 +18,11 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <OrbitProvider>
+        <DeepLinkBridge />
         <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="join/[code]" options={{ headerShown: false }} />
+          <Stack.Screen name="pending-approval" options={{ title: 'Pending Approval' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="welcome" options={{ headerShown: false }} />
           <Stack.Screen name="sign-in" options={{ title: 'Sign In' }} />
@@ -29,7 +34,17 @@ export default function RootLayout() {
           <Stack.Screen name="join-household" options={{ presentation: 'modal', title: 'Join Household' }} />
           <Stack.Screen name="invite-household" options={{ presentation: 'modal', title: 'Invite Members' }} />
           <Stack.Screen name="household-members" options={{ presentation: 'modal', title: 'Members' }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          <Stack.Screen name="settings" options={{ presentation: 'modal', title: 'Settings' }} />
+          <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+          <Stack.Screen name="momentum" options={{ title: 'Momentum' }} />
+          <Stack.Screen name="household-balance" options={{ title: 'Household Balance' }} />
+          <Stack.Screen name="weekly-report" options={{ title: 'Weekly Report' }} />
+          <Stack.Screen name="badge-gallery" options={{ title: 'Badge Gallery' }} />
+          <Stack.Screen name="shopping-recommendations" options={{ title: 'Store Recommendations' }} />
+          <Stack.Screen name="smart-home" options={{ title: 'Smart Home' }} />
+          <Stack.Screen name="analytics" options={{ title: 'Analytics' }} />
+          <Stack.Screen name="task/[id]" options={{ title: 'Task' }} />
+          <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
           <Stack.Screen name="create-task" options={{ presentation: 'modal', title: 'Create Task' }} />
           <Stack.Screen name="add-grocery" options={{ presentation: 'modal', title: 'Missing Item' }} />
           <Stack.Screen name="create-event" options={{ presentation: 'modal', title: 'Create Event' }} />

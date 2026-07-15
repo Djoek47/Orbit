@@ -24,7 +24,8 @@ export default function WelcomeScreen() {
         <Text style={styles.brand}>Orbit</Text>
         <Text style={orbitTypography.display}>A calmer command center for home.</Text>
         <Text style={orbitTypography.body}>
-          Tasks, groceries, calendar, rewards, and Nova briefings in one shared household rhythm.
+          Tasks, groceries, calendar, rewards, and Nova briefings in one shared household rhythm. Scanned an invite
+          QR? Sign in or create an account — your code will carry through to Join.
         </Text>
       </View>
 
