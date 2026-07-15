@@ -1,5 +1,7 @@
 # Orbit App Store launch checklist
 
+**Current status:** day-to-day development is **Expo Go + mock data**. Use this checklist only when graduating to EAS / TestFlight / App Store.
+
 ## Preconditions
 
 - [ ] Supabase **staging** and **production** projects created

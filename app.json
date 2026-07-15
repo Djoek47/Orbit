@@ -91,19 +91,9 @@
       "reactCompiler": true
     },
     "extra": {
-      "eas": {
-        "projectId": "replace-with-eas-project-id"
-      },
       "router": {},
       "privacyPolicyUrl": "https://orbit.app/privacy",
       "termsUrl": "https://orbit.app/terms"
-    },
-    "owner": "orbit-household",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/replace-with-eas-project-id"
     }
   }
 }

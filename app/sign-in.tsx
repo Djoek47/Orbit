@@ -12,8 +12,8 @@ import { useOrbit } from '@/store/orbit-store';
 
 export default function SignInScreen() {
   const { signIn, hydrateFromSession } = useOrbit();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('sarah@orbit.test');
+  const [password, setPassword] = useState('orbit-demo');
   const [error, setError] = useState('');
   const [appleAvailable, setAppleAvailable] = useState(false);
 
@@ -62,7 +62,9 @@ export default function SignInScreen() {
       <View style={orbitScreen.header}>
         <Text style={orbitTypography.caption}>Welcome back</Text>
         <Text style={orbitTypography.display}>Sign in</Text>
-        <Text style={orbitTypography.body}>Sign in to your Orbit household. Use email or Sign in with Apple.</Text>
+        <Text style={orbitTypography.body}>
+          Expo Go mock mode: any email/password opens the demo household. Apple Sign-In appears when the device supports it.
+        </Text>
       </View>
 
       <GlassCard elevated style={styles.form}>

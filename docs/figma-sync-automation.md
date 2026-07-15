@@ -16,8 +16,8 @@ When Figma Make (`4J6d4LW335tDyEDpqq3VD1`) changes:
 ## Preconditions
 
 - Figma MCP authenticated in the Cursor environment.
-- Prefer `EXPO_PUBLIC_DATA_MODE=supabase` against staging when verifying backend wire-up.
-- Mock mode remains allowed for pure visual Expo Go checks.
+- **Default verification is Expo Go + mock mode** (`EXPO_PUBLIC_DATA_MODE=mock`).
+- Only exercise supabase staging when the user asks to validate backend wire-up.
 
 ## Agent steps (required order)
 

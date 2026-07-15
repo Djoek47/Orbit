@@ -2,17 +2,19 @@
 
 Orbit is the AI Operating System for modern households — tasks, groceries, calendar, rankings, Momentum, and Nova.
 
-## Quick start (Expo Go)
+## Current development target: Expo Go
+
+Use **Expo Go + mock data** for day-to-day UI and Figma Make sync. Do not require EAS builds or a live Supabase project unless you are intentionally testing those paths.
 
 ```bash
 npm install
-cp .env.example .env
+cp .env.example .env   # keeps EXPO_PUBLIC_DATA_MODE=mock
 npm start
 ```
 
-Default data mode is **mock** (`EXPO_PUBLIC_DATA_MODE=mock`) for local UI work.
+Then open the project in **Expo Go** on your phone. Mock sign-in accepts any email/password and loads the demo household.
 
-## Supabase mode
+## Supabase mode (later)
 
 1. Create a Supabase project.
 2. Apply [`supabase/schema.sql`](supabase/schema.sql) (or migrations under `supabase/migrations/`).
@@ -27,16 +29,13 @@ Design source: [Design Orbit AI App](https://www.figma.com/make/4J6d4LW335tDyEDp
 - Automation prompt: [`docs/figma-sync-automation.md`](docs/figma-sync-automation.md)
 - Rule: [`.cursor/rules/figma-make-sync.mdc`](.cursor/rules/figma-make-sync.mdc)
 
-Say **“sync from Figma”** (or run a Cursor Automation) to snapshot Make → port UI → wire backend → open a PR.
+Say **“sync from Figma”** (or run a Cursor Automation) to snapshot Make → port UI → wire backend → open a PR. Verify in Expo Go.
 
-## App Store
+## App Store (deferred)
 
-See [`docs/app-store-checklist.md`](docs/app-store-checklist.md), [`eas.json`](eas.json), and legal drafts in [`docs/legal/`](docs/legal/).
+EAS/`eas.json` and legal drafts are scaffolded for when you leave Expo Go. Until then, ignore build/submit scripts.
 
-```bash
-npm run build:ios
-npm run submit:ios
-```
+See [`docs/app-store-checklist.md`](docs/app-store-checklist.md) when ready.
 
 ## Scripts
 

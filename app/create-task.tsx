@@ -47,7 +47,7 @@ export default function CreateTaskScreen() {
         <View style={orbitScreen.header}>
           <Text style={orbitTypography.caption}>Responsibilities</Text>
           <Text style={orbitTypography.display}>Create Task</Text>
-          <Text style={orbitTypography.body}>Add a local mock task. It will update Home, Tasks, Rewards, and Nova.</Text>
+          <Text style={orbitTypography.body}>Add a task. It updates Home, Tasks, Rewards, and Nova.</Text>
         </View>
 
         <GlassCard>
