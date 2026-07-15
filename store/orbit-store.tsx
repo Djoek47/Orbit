@@ -4,7 +4,9 @@ import { dataMode } from '@/config/data-mode';
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
 import { trackAnalytics } from '@/lib/analytics';
 import { getLevel, LEVELS, MEMBER_ACCENTS, xpProgress } from '@/lib/game-levels';
+import { getLocationAwareGrocerySuggestions } from '@/lib/grocery/location-suggestions';
 import { buildStoreRecommendations } from '@/lib/grocery/recommendations';
+import { registerForPushNotifications } from '@/lib/notifications/push';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
 import { subscribeHouseholdRealtime } from '@/lib/realtime/household-realtime';
 import {
@@ -20,6 +22,7 @@ import {
 } from '@/repositories';
 import { novaService, suggestedNovaQuestions } from '@/services/nova-service';
 import type {
+  AuthSession,
   CreateEventInput,
   CreateGroceryInput,
   CreateHouseholdInput,
@@ -75,6 +78,7 @@ type OrbitContextValue = {
   markGroceryPurchased: (itemId: string) => void;
   createEvent: (input: CreateEventInput) => void;
   signIn: (input: SignInInput) => Promise<void>;
+  hydrateFromSession: (session: AuthSession) => Promise<void>;
   signOut: () => Promise<void>;
   signUp: (input: SignUpInput) => Promise<void>;
   suggestedNovaQuestions: readonly string[];
@@ -90,7 +94,7 @@ type OrbitContextValue = {
   exportUserData: () => Promise<string>;
   toggleSmartDevice: (deviceId: string) => Promise<void>;
   activateSmartScene: (sceneId: string) => Promise<void>;
-  refreshStoreRecommendations: () => void;
+  refreshStoreRecommendations: () => Promise<void>;
   refreshInviteLinks: () => Promise<InviteLinks | null>;
   refreshSmartHome: () => Promise<void>;
 };
@@ -153,8 +157,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setSmartHomeScenes(scenes);
   }, [household.id]);
 
-  const refreshStoreRecommendations = useCallback(() => {
-    setStoreRecommendations(buildStoreRecommendations(household.id, household.groceries));
+  const refreshStoreRecommendations = useCallback(async () => {
+    try {
+      const { recommendations } = await getLocationAwareGrocerySuggestions(household.id, household.groceries);
+      setStoreRecommendations(recommendations);
+    } catch {
+      setStoreRecommendations(buildStoreRecommendations(household.id, household.groceries));
+    }
   }, [household.groceries, household.id]);
 
   const refreshInviteLinks = useCallback(async () => {
@@ -258,20 +267,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   }, [household.id, reloadHouseholdDomains]);
 
   useEffect(() => {
-    refreshStoreRecommendations();
+    void refreshStoreRecommendations();
   }, [refreshStoreRecommendations]);
 
-  const signIn = async (input: SignInInput) => {
-    const session = await authRepository.signIn(input);
+  const hydrateFromSession = async (session: AuthSession) => {
     const baseHousehold = await householdRepository.getHousehold();
     const hydratedHousehold = await hydrateHousehold({
       ...baseHousehold,
-      greetingName: session.user.name,
+      greetingName: session.user.name || baseHousehold.greetingName,
     });
 
     setCurrentUser(session.user);
     setHousehold(hydratedHousehold);
-    await trackAnalytics('auth.sign_in', { email: input.email }, { householdId: hydratedHousehold.id, userId: session.user.id });
+    await trackAnalytics(
+      'auth.session_hydrate',
+      { email: session.user.email },
+      { householdId: hydratedHousehold.id, userId: session.user.id }
+    );
     const [items, redemptions, devices, scenes] = await Promise.all([
       notificationsRepository.list(hydratedHousehold.id),
       rewardsRepository.getRedemptions(hydratedHousehold.id),
@@ -283,6 +295,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setSmartHomeDevices(devices);
     setSmartHomeScenes(scenes);
     setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
+    registerForPushNotifications(session.user.id).catch((error) => {
+      console.warn('Push registration skipped', error);
+    });
+  };
+
+  const signIn = async (input: SignInInput) => {
+    const session = await authRepository.signIn(input);
+    await hydrateFromSession(session);
+    await trackAnalytics('auth.sign_in', { email: input.email }, { userId: session.user.id });
   };
 
   const signUp = async (input: SignUpInput) => {
@@ -591,6 +612,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       markGroceryPurchased,
       createEvent,
       signIn,
+      hydrateFromSession,
       signOut,
       signUp,
       suggestedNovaQuestions,

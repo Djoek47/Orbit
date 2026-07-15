@@ -231,6 +231,15 @@ export type SmartHomeSceneRow = {
   updated_at: Timestamp;
 };
 
+export type PushTokenRow = {
+  id: string;
+  user_id: string;
+  token: string;
+  platform: string;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+};
+
 /** @deprecated Prefer ProfileRow */
 export type User = ProfileRow;
 /** @deprecated Prefer HouseholdRow */
@@ -393,6 +402,11 @@ export type Database = {
           event_name: string;
           properties: Json;
         }>
+      >;
+      push_tokens: TableDef<
+        PushTokenRow,
+        Pick<PushTokenRow, 'user_id' | 'token' | 'platform'> & Partial<Omit<PushTokenRow, 'user_id' | 'token' | 'platform'>>,
+        Partial<Omit<PushTokenRow, 'id'>>
       >;
     };
     Views: Record<string, never>;

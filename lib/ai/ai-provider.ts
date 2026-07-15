@@ -1,3 +1,5 @@
+import { dataMode } from '@/config/data-mode';
+import { getSupabaseClient } from '@/lib/supabase/client';
 import { novaService } from '@/services/nova-service';
 import type {
   HouseholdSnapshot,
@@ -22,6 +24,27 @@ export type AIProvider = {
   generateWeeklyBriefing: (household: HouseholdSnapshot, metrics: OrbitMetrics) => Promise<NovaWeeklyBriefing>;
 };
 
+async function invokeNovaFunction<T>(
+  functionName: string,
+  body: Record<string, unknown>,
+  fallback: () => Promise<T>
+): Promise<T> {
+  const supabase = getSupabaseClient();
+  if (!supabase || dataMode === 'mock') {
+    return fallback();
+  }
+
+  try {
+    const { data, error } = await supabase.functions.invoke(functionName, { body });
+    if (error || !data) {
+      return fallback();
+    }
+    return data as T;
+  } catch {
+    return fallback();
+  }
+}
+
 export const mockAIProvider: AIProvider = {
   async answerQuestion(question, household, metrics) {
     return novaService.answerQuestion(question, household, metrics);
@@ -38,18 +61,35 @@ export const mockAIProvider: AIProvider = {
 };
 
 export const openAIProvider: AIProvider = {
-  async answerQuestion() {
-    throw new Error('openAIProvider.answerQuestion is not implemented yet.');
+  async answerQuestion(question, household, metrics) {
+    return invokeNovaFunction(
+      'nova-chat',
+      { question, householdId: household.id, metrics },
+      () => mockAIProvider.answerQuestion(question, household, metrics)
+    );
   },
-  async generateDailyBriefing() {
-    throw new Error('openAIProvider.generateDailyBriefing is not implemented yet.');
+  async generateDailyBriefing(household, metrics) {
+    return invokeNovaFunction(
+      'nova-briefing',
+      { householdId: household.id, type: 'daily', metrics, household },
+      () => mockAIProvider.generateDailyBriefing(household, metrics)
+    );
   },
-  async generateRecommendations() {
-    throw new Error('openAIProvider.generateRecommendations is not implemented yet.');
+  async generateRecommendations(household, metrics) {
+    return invokeNovaFunction(
+      'nova-briefing',
+      { householdId: household.id, type: 'recommendations', metrics, household },
+      () => mockAIProvider.generateRecommendations(household, metrics)
+    );
   },
-  async generateWeeklyBriefing() {
-    throw new Error('openAIProvider.generateWeeklyBriefing is not implemented yet.');
+  async generateWeeklyBriefing(household, metrics) {
+    return invokeNovaFunction(
+      'nova-briefing',
+      { householdId: household.id, type: 'weekly', metrics, household },
+      () => mockAIProvider.generateWeeklyBriefing(household, metrics)
+    );
   },
 };
 
-export const aiProvider = mockAIProvider;
+/** Uses OpenAI edge functions when in supabase mode; otherwise local heuristics. */
+export const aiProvider: AIProvider = dataMode === 'supabase' ? openAIProvider : mockAIProvider;

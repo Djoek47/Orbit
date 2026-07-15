@@ -6,6 +6,7 @@ import { NovaOrb } from '@/components/orbit/nova-orb';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { speakNova, startVoiceCapture, stopVoiceCapture, transcribeVoicePrompt } from '@/lib/voice/nova-voice';
 import { useOrbit } from '@/store/orbit-store';
 import type { NovaConversationAnswer } from '@/types/orbit';
 
@@ -19,10 +20,25 @@ export default function NovaScreen() {
     suggestedNovaQuestions,
   } = useOrbit();
   const [conversation, setConversation] = useState<NovaConversationAnswer | null>(null);
+  const [listening, setListening] = useState(false);
 
   const handleQuestion = async (question: string) => {
     const answer = await askNova(question);
     setConversation(answer);
+    await speakNova(answer.answer);
+  };
+
+  const handleVoice = async () => {
+    if (listening) {
+      const uri = await stopVoiceCapture();
+      setListening(false);
+      const prompt = await transcribeVoicePrompt(uri);
+      await handleQuestion(prompt);
+      return;
+    }
+
+    await startVoiceCapture();
+    setListening(true);
   };
 
   return (
@@ -31,9 +47,12 @@ export default function NovaScreen() {
       contentContainerStyle={orbitScreen.content}
       contentInsetAdjustmentBehavior="automatic">
       <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Local intelligence mode</Text>
+        <Text style={orbitTypography.caption}>Household co-manager</Text>
         <Text style={orbitTypography.display}>Nova</Text>
-        <Text style={orbitTypography.body}>Briefings are generated from current household state. No OpenAI calls yet.</Text>
+        <Text style={orbitTypography.body}>
+          Daily briefings, recommendations, and answers grounded in your household. Voice and OpenAI activate when
+          configured.
+        </Text>
       </View>
 
       <GlassCard elevated style={styles.hero}>
@@ -101,11 +120,8 @@ export default function NovaScreen() {
         ) : null}
       </GlassCard>
 
-      <OrbitButton tone="secondary" onPress={() => setConversation({
-        question: 'Voice mode',
-        answer: 'Voice is a placeholder for now. Realtime audio will be added only when OpenAI Realtime is connected.',
-      })}>
-        Voice Button Placeholder
+      <OrbitButton tone="secondary" onPress={handleVoice}>
+        {listening ? 'Stop & Ask Nova' : 'Talk to Nova'}
       </OrbitButton>
     </ScrollView>
   );

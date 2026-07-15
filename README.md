@@ -1,50 +1,56 @@
-# Welcome to your Expo app 👋
+# Orbit
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Orbit is the AI Operating System for modern households — tasks, groceries, calendar, rankings, Momentum, and Nova.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Quick start (Expo Go)
 
 ```bash
-npm run reset-project
+npm install
+cp .env.example .env
+npm start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Default data mode is **mock** (`EXPO_PUBLIC_DATA_MODE=mock`) for local UI work.
 
-## Learn more
+## Supabase mode
 
-To learn more about developing your project with Expo, look at the following resources:
+1. Create a Supabase project.
+2. Apply [`supabase/schema.sql`](supabase/schema.sql) (or migrations under `supabase/migrations/`).
+3. Deploy edge functions in `supabase/functions/` and set `OPENAI_API_KEY`.
+4. Set `EXPO_PUBLIC_DATA_MODE=supabase` plus URL/anon key in `.env`.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Figma Make sync
 
-## Join the community
+Design source: [Design Orbit AI App](https://www.figma.com/make/4J6d4LW335tDyEDpqq3VD1/Design-Orbit-AI-App).
 
-Join our community of developers creating universal apps.
+- Registry: `design/make/`
+- Automation prompt: [`docs/figma-sync-automation.md`](docs/figma-sync-automation.md)
+- Rule: [`.cursor/rules/figma-make-sync.mdc`](.cursor/rules/figma-make-sync.mdc)
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Say **“sync from Figma”** (or run a Cursor Automation) to snapshot Make → port UI → wire backend → open a PR.
+
+## App Store
+
+See [`docs/app-store-checklist.md`](docs/app-store-checklist.md), [`eas.json`](eas.json), and legal drafts in [`docs/legal/`](docs/legal/).
+
+```bash
+npm run build:ios
+npm run submit:ios
+```
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `npm start` | Expo Go |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript |
+| `npm run figma:check` | Validate design registry |
+| `npm run build:ios` | EAS iOS production build |
+| `npm run submit:ios` | EAS Submit to App Store Connect |
+
+## Product docs
+
+- [`docs/product-context.md`](docs/product-context.md)
+- [`docs/ux-design-system.md`](docs/ux-design-system.md)
+- [`docs/technical-blueprint.md`](docs/technical-blueprint.md)
