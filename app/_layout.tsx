@@ -45,9 +45,17 @@ export default function RootLayout() {
           <Stack.Screen name="analytics" options={{ title: 'Analytics' }} />
           <Stack.Screen name="task/[id]" options={{ title: 'Task' }} />
           <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
+          <Stack.Screen name="itinerary/[id]" options={{ title: 'Itinerary' }} />
           <Stack.Screen name="create-task" options={{ presentation: 'modal', title: 'Create Task' }} />
           <Stack.Screen name="add-grocery" options={{ presentation: 'modal', title: 'Missing Item' }} />
+          <Stack.Screen name="scan-grocery" options={{ presentation: 'modal', title: 'Scan Product' }} />
           <Stack.Screen name="create-event" options={{ presentation: 'modal', title: 'Create Event' }} />
+          <Stack.Screen name="create-itinerary" options={{ presentation: 'modal', title: 'Create Itinerary' }} />
+          <Stack.Screen name="create-reward" options={{ presentation: 'modal', title: 'Mint Reward' }} />
+          <Stack.Screen
+            name="special-reward-request"
+            options={{ presentation: 'modal', title: 'Special Request' }}
+          />
         </Stack>
       </OrbitProvider>
       <StatusBar backgroundColor={orbitColors.background} style="light" />

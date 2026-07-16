@@ -48,9 +48,15 @@ export const groceryRepository = {
       id: createLocalId('grocery'),
       name: input.name.trim(),
       category: input.category,
-      quantity: '1 item',
+      quantity: input.quantity?.trim() || '1 item',
       location: resolveLocation(input.category),
       status: 'Missing',
+      barcode: input.barcode,
+      typicalPrice: input.typicalPrice,
+      salePrice: input.salePrice,
+      aisle: input.aisle,
+      storeId: input.storeId,
+      requestedBy: input.requestedBy,
     };
 
     if (isMockMode()) {
@@ -81,7 +87,15 @@ export const groceryRepository = {
       throw new Error('groceryRepository.addGroceryItem: Insert returned no row.');
     }
 
-    return mapGroceryRow(data);
+    return {
+      ...mapGroceryRow(data),
+      barcode: item.barcode,
+      typicalPrice: item.typicalPrice,
+      salePrice: item.salePrice,
+      aisle: item.aisle,
+      storeId: item.storeId,
+      requestedBy: item.requestedBy,
+    };
   },
 
   async updateGroceryStatus(

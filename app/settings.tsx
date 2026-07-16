@@ -21,8 +21,15 @@ export default function SettingsScreen() {
     permissions,
     signOut,
     switchPersona,
+    updateNotificationPrefs,
   } = useOrbit();
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const prefs = household.notificationPrefs ?? {
+    tasks: true,
+    itinerary: true,
+    groceries: true,
+    rewards: true,
+  };
 
   const handleExport = async () => {
     const payload = await exportUserData();
@@ -101,14 +108,37 @@ export default function SettingsScreen() {
           Invite
         </OrbitButton>
         <OrbitButton tone="secondary" onPress={() => router.push('/notifications' as never)}>
-          Notifications
+          Notifications inbox
         </OrbitButton>
-        <OrbitButton tone="secondary" onPress={() => router.push('/(tabs)/calendar' as never)}>
-          Calendar
+        <OrbitButton tone="secondary" onPress={() => router.push('/(tabs)/plan' as never)}>
+          Plan (Calendar + Itineraries)
+        </OrbitButton>
+        <OrbitButton tone="secondary" onPress={() => router.push('/(tabs)/groceries' as never)}>
+          Groceries
         </OrbitButton>
         <OrbitButton tone="secondary" onPress={() => router.push('/create-event' as never)}>
           Create Event
         </OrbitButton>
+      </GlassCard>
+
+      <GlassCard style={styles.card}>
+        <Text style={orbitTypography.cardTitle}>Nova notification prefs</Text>
+        <Text style={orbitTypography.caption}>Mock-persisted toggles for Nova-authored household nudges.</Text>
+        {(
+          [
+            ['tasks', 'Tasks & streaks'],
+            ['itinerary', 'Itinerary legs'],
+            ['groceries', 'Grocery & sales'],
+            ['rewards', 'Rewards'],
+          ] as const
+        ).map(([key, label]) => (
+          <OrbitButton
+            key={key}
+            tone="secondary"
+            onPress={() => updateNotificationPrefs({ [key]: !prefs[key] })}>
+            {label}: {prefs[key] ? 'On' : 'Off'}
+          </OrbitButton>
+        ))}
       </GlassCard>
 
       <GlassCard style={styles.card}>

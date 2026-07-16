@@ -3,9 +3,29 @@
   "fileName": "Design-Orbit-AI-App",
   "rootNodeId": "0:1",
   "makeUrl": "https://www.figma.com/make/4J6d4LW335tDyEDpqq3VD1/Design-Orbit-AI-App",
-  "lastSyncedAt": null,
+  "makeVersion": "v5",
+  "lastSyncedAt": "2026-07-16T17:45:00.000Z",
   "lastSyncedCommit": null,
   "lastSourceHash": null,
-  "screensMirrored": [],
-  "notes": "Updated by Cursor figma-sync agents when Make source is snapshotted into design/make/source/."
+  "screensMirrored": [
+    "App.tsx",
+    "ItineraryScreen.tsx",
+    "GroceryScreen.tsx",
+    "RankingScreen.tsx",
+    "CreateTaskSheet.tsx",
+    "AdminScreen.tsx",
+    "calendarData.ts",
+    "theme.css"
+  ],
+  "notes": "Make v5 via Figma MCP get_design_context. Tabs: Home, Tasks, Plan (Calendar|Itineraries), Ranks, Nova. GroceryScreen present but not a primary tab.",
+  "tokenAlignment": {
+    "background": "#070D1C",
+    "text": "#EEF2FF",
+    "textMuted": "#7C9CC0",
+    "primary": "#38BDF8",
+    "accent": "#06B6D4",
+    "plan": "#A78BFA",
+    "buttonHeight": 52,
+    "radiusLg": 20
+  }
 }

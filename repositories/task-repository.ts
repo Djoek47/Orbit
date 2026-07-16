@@ -35,6 +35,11 @@ export const taskRepository = {
       assignee: input.assignee,
       due: input.due.trim(),
       xp: input.xp,
+      weight: input.weight,
+      difficulty: input.difficulty,
+      proofRequired: input.proofRequired,
+      proofStatus: input.proofRequired ? 'none' : undefined,
+      dueAt: input.dueAt,
       repeat: input.repeat,
       status: 'Pending',
     };
@@ -135,6 +140,7 @@ export const taskRepository = {
       ...task,
       due: 'Completed today',
       status: 'Completed',
+      proofStatus: task.proofRequired ? task.proofStatus ?? 'submitted' : task.proofStatus,
     };
 
     if (isMockMode()) {

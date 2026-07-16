@@ -7,6 +7,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { shareInviteLinks } from '@/lib/invite/share';
 import { householdRepository } from '@/repositories';
 import { useOrbit } from '@/store/orbit-store';
 import type { InviteLinks } from '@/types/orbit';
@@ -16,6 +17,7 @@ export default function InviteHouseholdScreen() {
   const [links, setLinks] = useState<InviteLinks | null>(inviteLinks);
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -41,6 +43,7 @@ export default function InviteHouseholdScreen() {
   const inviteCode = links?.code || household.inviteCode || 'ORBIT-0000';
   const deepLink = links?.deepLink || `orbit://join/${inviteCode}`;
   const webLink = links?.webLink || `https://orbit.app/join/${inviteCode}`;
+  const resolvedLinks: InviteLinks = links ?? { code: inviteCode, deepLink, webLink };
 
   if (!permissions.canInviteMembers) {
     return (
@@ -50,6 +53,15 @@ export default function InviteHouseholdScreen() {
       </ScrollView>
     );
   }
+
+  const handleShare = async () => {
+    setSharing(true);
+    try {
+      await shareInviteLinks(resolvedLinks, household.householdName);
+    } finally {
+      setSharing(false);
+    }
+  };
 
   const handleCopyCode = async () => {
     await Clipboard.setStringAsync(inviteCode);
@@ -83,39 +95,41 @@ export default function InviteHouseholdScreen() {
         <Text style={orbitTypography.caption}>{household.householdName}</Text>
         <Text style={orbitTypography.display}>Invite members</Text>
         <Text style={orbitTypography.body}>
-          Share the QR code or invite code. New members wait for owner/admin approval before full access.
+          Share first (Messages / AirDrop), then copy, then QR — matching room-setup order.
         </Text>
       </View>
 
       <GlassCard elevated style={styles.card}>
-        <StatusPill label="Scan to join" tone="cyan" />
+        <StatusPill label="Share invite" tone="cyan" />
+        <Text style={orbitTypography.body}>
+          Send the deep link so someone can join {household.householdName || 'your household'} in Orbit.
+        </Text>
+        <OrbitButton disabled={sharing} onPress={handleShare}>
+          {sharing ? 'Opening share…' : 'Share invite'}
+        </OrbitButton>
+        <OrbitButton tone="secondary" onPress={handleCopyCode}>
+          {copied === 'code' ? 'Code copied' : 'Copy invite code'}
+        </OrbitButton>
+        <OrbitButton tone="secondary" onPress={handleCopyLink}>
+          {copied === 'link' ? 'Link copied' : 'Copy web link'}
+        </OrbitButton>
+      </GlassCard>
+
+      <GlassCard elevated style={styles.card}>
+        <StatusPill label="QR (tertiary)" tone="blue" />
         <View style={styles.qrWrap}>
-          <QRCode value={deepLink} size={180} backgroundColor="#FFFFFF" color="#070B14" />
+          <QRCode value={deepLink} size={180} backgroundColor="#FFFFFF" color="#070D1C" />
         </View>
         <Text style={orbitTypography.caption}>Scan opens Orbit · {deepLink}</Text>
       </GlassCard>
 
       <GlassCard style={styles.card}>
-        <StatusPill label="Invite code" tone="blue" />
+        <Text style={orbitTypography.cardTitle}>Invite code</Text>
         <Text selectable style={styles.code}>
           {inviteCode}
         </Text>
-        <OrbitButton onPress={handleCopyCode}>{copied === 'code' ? 'Copied' : 'Copy Invite Code'}</OrbitButton>
         <OrbitButton disabled={refreshing || !household.id} tone="secondary" onPress={handleRefresh}>
           {refreshing ? 'Refreshing…' : 'Refresh code'}
-        </OrbitButton>
-      </GlassCard>
-
-      <GlassCard style={styles.card}>
-        <Text style={orbitTypography.cardTitle}>Invite links</Text>
-        <Text selectable style={orbitTypography.caption}>
-          {webLink}
-        </Text>
-        <Text selectable style={orbitTypography.caption}>
-          {deepLink}
-        </Text>
-        <OrbitButton tone="secondary" onPress={handleCopyLink}>
-          {copied === 'link' ? 'Link copied' : 'Copy web link'}
         </OrbitButton>
       </GlassCard>
     </ScrollView>

@@ -17,10 +17,11 @@ type FilterKey = 'all' | 'unread' | NotificationItem['category'];
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'unread', label: 'Unread' },
+  { key: 'ai', label: 'Nova' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'events', label: 'Events' },
   { key: 'groceries', label: 'Groceries' },
-  { key: 'ai', label: 'Nova' },
+  { key: 'rewards', label: 'Rewards' },
 ];
 
 export default function NotificationsScreen() {
@@ -130,9 +131,6 @@ export default function NotificationsScreen() {
         ))
       )}
 
-      <OrbitButton tone="secondary" onPress={() => router.back()}>
-        Back
-      </OrbitButton>
     </ScrollView>
   );
 }

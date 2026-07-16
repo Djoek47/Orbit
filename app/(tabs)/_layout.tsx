@@ -29,7 +29,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: orbitColors.novaCyan,
+        tabBarActiveTintColor: orbitColors.orbitBlue,
         tabBarInactiveTintColor: orbitColors.textSubtle,
         headerShown: false,
         tabBarButton: HapticTab,
@@ -50,17 +50,23 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="plan"
+        options={{
+          title: 'Plan',
+          tabBarIcon: ({ color }) => <IconSymbol size={25} name="calendar" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="groceries"
         options={{
+          // Make v5: grocery intelligence lives under Plan trips + Home; keep route for deep links.
+          href: null,
           title: 'Groceries',
-          tabBarIcon: ({ color }) => <IconSymbol size={25} name="cart.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
-          // Hidden from tab bar to match Figma Make v4 (Home/Tasks/Grocery/Ranks/Nova).
-          // Route remains available for later product IA / deep links.
           href: null,
           title: 'Calendar',
         }}
@@ -85,7 +91,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: 'rgba(7, 11, 20, 0.94)',
+    backgroundColor: 'rgba(7, 13, 28, 0.94)',
     borderTopColor: orbitColors.border,
     height: 88,
     paddingBottom: 24,

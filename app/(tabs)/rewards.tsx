@@ -18,6 +18,7 @@ export default function RewardsScreen() {
   const {
     achievements,
     approveRedemption,
+    archiveReward,
     household,
     membersWithProgress,
     pendingRedemptions,
@@ -202,18 +203,34 @@ export default function RewardsScreen() {
       </Pressable>
 
       <Text style={orbitTypography.title}>Reward shop</Text>
+      {permissions.canManageHousehold || permissions.canApproveReward ? (
+        <OrbitButton onPress={() => router.push('/create-reward' as never)}>Mint reward</OrbitButton>
+      ) : null}
+      <OrbitButton tone="secondary" onPress={() => router.push('/special-reward-request' as never)}>
+        Request special reward
+      </OrbitButton>
       {household.rewards.map((reward) => (
         <GlassCard key={reward.id} style={styles.rewardCard}>
           <View style={orbitScreen.row}>
             <View style={styles.rewardCopy}>
-              <Text style={orbitTypography.cardTitle}>{reward.title}</Text>
-              <Text style={orbitTypography.caption}>{reward.cost} XP</Text>
+              <Text style={orbitTypography.cardTitle}>
+                {reward.emoji ? `${reward.emoji} ` : ''}
+                {reward.title}
+              </Text>
+              <Text style={orbitTypography.caption}>
+                {reward.cost} XP{reward.specialRequest ? ' · Special request' : ''}
+              </Text>
             </View>
             <Text style={styles.approvalLabel}>{reward.approvalRequired ? 'Approval' : 'Instant'}</Text>
           </View>
           <OrbitButton tone="secondary" onPress={() => requestRewardRedemption(reward.id)}>
             Redeem
           </OrbitButton>
+          {permissions.canManageHousehold ? (
+            <OrbitButton tone="danger" onPress={() => archiveReward(reward.id)}>
+              Archive
+            </OrbitButton>
+          ) : null}
         </GlassCard>
       ))}
 

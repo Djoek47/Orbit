@@ -8,6 +8,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { isTaskLate } from '@/lib/tasks/xp';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
 
@@ -23,7 +24,15 @@ const repeats: HouseholdTask['repeat'][] = ['None', 'Daily', 'Weekly', 'Weekdays
 
 export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { completeTask, deleteTask, household, permissions, updateTask } = useOrbit();
+  const {
+    approveTaskProof,
+    completeTask,
+    deleteTask,
+    household,
+    permissions,
+    submitTaskProof,
+    updateTask,
+  } = useOrbit();
   const task = household.tasks.find((item) => item.id === id);
   const memberNames = useMemo(
     () => household.members.filter((member) => member.status === 'active').map((member) => member.name),
@@ -39,7 +48,9 @@ export default function TaskDetailScreen() {
   const [xp, setXp] = useState(String(task?.xp ?? 15));
   const [repeat, setRepeat] = useState<HouseholdTask['repeat']>(task?.repeat ?? 'None');
   const [busy, setBusy] = useState(false);
-  const [celebrated, setCelebrated] = useState(false);
+  const [celebration, setCelebration] = useState<{ awarded: number; penalty: number; late: boolean } | null>(
+    null
+  );
 
   if (!task) {
     return (
@@ -53,10 +64,20 @@ export default function TaskDetailScreen() {
   }
 
   const canEdit = permissions.canCreateTask || permissions.canAssignTask;
+  const needsProof = Boolean(task.proofRequired);
+  const proofReady = task.proofStatus === 'submitted' || task.proofStatus === 'approved';
+  const late = isTaskLate(task);
 
   const handleComplete = async () => {
-    await completeTask(task.id);
-    setCelebrated(true);
+    const result = await completeTask(task.id);
+    if (result) {
+      setCelebration(result);
+    }
+  };
+
+  const handleAttachProof = async () => {
+    // Expo Go mock proof URI — camera capture can replace this later.
+    await submitTaskProof(task.id, `mock-proof://${task.id}/${Date.now()}.jpg`);
   };
 
   const handleSave = async () => {
@@ -89,10 +110,14 @@ export default function TaskDetailScreen() {
         <StatusPill label={task.status} tone={statusTone[task.status]} />
       </View>
 
-      {celebrated ? (
+      {celebration ? (
         <GlassCard>
           <Text style={orbitTypography.cardTitle}>Nice work</Text>
-          <Text style={orbitTypography.body}>+{task.xp} XP added. Rankings week XP and streak updated.</Text>
+          <Text style={orbitTypography.body}>
+            +{celebration.awarded} XP
+            {celebration.late ? ` (−${celebration.penalty} late penalty)` : ''}. Rankings week XP
+            {celebration.late ? ' held streak' : ' and streak'} updated.
+          </Text>
         </GlassCard>
       ) : null}
 
@@ -110,8 +135,14 @@ export default function TaskDetailScreen() {
         <GlassCard style={styles.card}>
           <DetailRow label="Assignee" value={task.assignee} />
           <DetailRow label="Due" value={task.due} />
-          <DetailRow label="XP" value={`${task.xp} XP`} />
+          <DetailRow
+            label="XP"
+            value={`${task.xp} XP${task.weight ? ` · weight ${task.weight}` : ''}${late ? ' · late' : ''}`}
+          />
           <DetailRow label="Repeat" value={task.repeat} />
+          {needsProof ? (
+            <DetailRow label="Proof" value={task.proofStatus ?? 'none'} />
+          ) : null}
           <View style={styles.block}>
             <Text style={orbitTypography.caption}>Description</Text>
             <Text style={orbitTypography.body}>{task.description || 'No additional details for this task.'}</Text>
@@ -130,8 +161,20 @@ export default function TaskDetailScreen() {
         </>
       ) : (
         <>
+          {needsProof && task.status !== 'Completed' && !proofReady ? (
+            <OrbitButton onPress={handleAttachProof}>Attach proof photo</OrbitButton>
+          ) : null}
+          {needsProof && task.proofStatus === 'submitted' && permissions.canApproveReward ? (
+            <OrbitButton tone="secondary" onPress={() => approveTaskProof(task.id)}>
+              Approve proof
+            </OrbitButton>
+          ) : null}
           {task.status !== 'Completed' ? (
-            <OrbitButton onPress={handleComplete}>Mark Complete</OrbitButton>
+            <OrbitButton
+              disabled={needsProof && !proofReady}
+              onPress={handleComplete}>
+              {needsProof && !proofReady ? 'Proof required to complete' : 'Mark Complete'}
+            </OrbitButton>
           ) : null}
           {canEdit ? (
             <OrbitButton tone="secondary" onPress={() => setEditing(true)}>
@@ -150,10 +193,6 @@ export default function TaskDetailScreen() {
           ) : null}
         </>
       )}
-
-      <OrbitButton tone="secondary" onPress={() => router.back()}>
-        Back
-      </OrbitButton>
     </ScrollView>
   );
 }

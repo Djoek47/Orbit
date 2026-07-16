@@ -1,7 +1,7 @@
 import { PropsWithChildren } from 'react';
 import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
 
-import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
+import { orbitColors, orbitControl, orbitRadius, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 
 type OrbitButtonProps = PropsWithChildren<{
   disabled?: boolean;
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderRadius: orbitRadius.md,
     justifyContent: 'center',
-    minHeight: 52,
+    minHeight: orbitControl.buttonHeight,
     paddingHorizontal: orbitSpacing.lg,
     paddingVertical: orbitSpacing.md,
   },
@@ -50,9 +50,7 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   label: {
-    color: orbitColors.text,
-    fontSize: 16,
-    fontWeight: '800',
+    ...orbitTypography.buttonLabel,
   },
   pressed: {
     opacity: 0.72,

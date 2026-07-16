@@ -15,7 +15,8 @@ alwaysApply: true
 
 ## Current Make navigation (v4+)
 
-Primary tabs in Make: Home, Tasks, Grocery, Ranking (Ranks), Nova.  
+Primary tabs in Make v5+: Home, Tasks, Plan (Calendar | Itineraries), Ranking (Ranks), Nova.
+Grocery intelligence exists in Make but is not a primary tab — keep Expo groceries reachable from Plan / Settings / Home.
 Settings/Admin and Create Task are overlays — not tabs.
 
 ## Sync workflow

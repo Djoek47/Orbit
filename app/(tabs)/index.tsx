@@ -129,8 +129,8 @@ export default function HomeScreen() {
       <GlassCard>
         <View style={orbitScreen.row}>
           <Text style={orbitTypography.cardTitle}>Upcoming</Text>
-          <Pressable onPress={() => router.push('/(tabs)/calendar' as never)}>
-            <Text style={styles.linkHint}>Calendar</Text>
+          <Pressable onPress={() => router.push('/(tabs)/plan' as never)}>
+            <Text style={styles.linkHint}>Plan</Text>
           </Pressable>
         </View>
         {household.events.slice(0, 3).map((event) => (
