@@ -12,3 +12,8 @@
 ## Earlier — Family Time OS polish (pre-auth)
 
 - Figma MCP was `needsAuth`; provisional tokens from UX docs until v5 sync.
+
+## 2026-07-16 — v5 pixel-identical Expo port
+- Custom MakeTabBar with elevated Nova tab + Settings chip
+- Home / Tasks / Plan (Calendar grid + Itinerary TripCards) / Ranks / Nova / CreateTask matched to Make layouts and tokens
+- Mock calendar + smart trips seeded from calendarData.ts

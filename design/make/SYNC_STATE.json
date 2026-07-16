@@ -4,20 +4,27 @@
   "rootNodeId": "0:1",
   "makeUrl": "https://www.figma.com/make/4J6d4LW335tDyEDpqq3VD1/Design-Orbit-AI-App",
   "makeVersion": "v5",
-  "lastSyncedAt": "2026-07-16T17:45:00.000Z",
+  "lastSyncedAt": "2026-07-16T18:30:00.000Z",
   "lastSyncedCommit": null,
   "lastSourceHash": null,
   "screensMirrored": [
     "App.tsx",
+    "HomeScreen.tsx",
+    "TasksScreen.tsx",
+    "CalendarScreen.tsx",
     "ItineraryScreen.tsx",
-    "GroceryScreen.tsx",
     "RankingScreen.tsx",
+    "NovaScreen.tsx",
     "CreateTaskSheet.tsx",
     "AdminScreen.tsx",
+    "NovaOrb.tsx",
+    "MomentumRing.tsx",
     "calendarData.ts",
-    "theme.css"
+    "gameData.ts",
+    "theme.css",
+    "fonts.css"
   ],
-  "notes": "Make v5 via Figma MCP get_design_context. Tabs: Home, Tasks, Plan (Calendar|Itineraries), Ranks, Nova. GroceryScreen present but not a primary tab.",
+  "notes": "Make v5 pixel-port pass: custom MakeTabBar (elevated Nova), Settings chip, Plan Calendar+Itineraries, Home/Tasks/Ranks/Nova/CreateTask chrome matched to Make hex/layout. No creative reinterpretation.",
   "tokenAlignment": {
     "background": "#070D1C",
     "text": "#EEF2FF",
@@ -26,6 +33,6 @@
     "accent": "#06B6D4",
     "plan": "#A78BFA",
     "buttonHeight": 52,
-    "radiusLg": 20
+    "radiusLg": 24
   }
 }

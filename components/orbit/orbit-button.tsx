@@ -1,5 +1,6 @@
 import { PropsWithChildren } from 'react';
 import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { orbitColors, orbitControl, orbitRadius, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 
@@ -10,6 +11,7 @@ type OrbitButtonProps = PropsWithChildren<{
   style?: ViewStyle;
 }>;
 
+/** Make CTA: gradient primary (#38BDF8→#0EA5E9) with ink label; secondary glass. */
 export function OrbitButton({
   children,
   disabled = false,
@@ -17,18 +19,38 @@ export function OrbitButton({
   tone = 'primary',
   style,
 }: OrbitButtonProps) {
+  if (tone === 'primary' && !disabled) {
+    return (
+      <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [pressed && styles.pressed, style]}>
+        <LinearGradient
+          colors={['#38BDF8', '#0EA5E9']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.button}>
+          <Text style={[orbitTypography.buttonLabel, styles.primaryLabel]}>{children}</Text>
+        </LinearGradient>
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        styles[tone],
+        tone === 'danger' ? styles.danger : styles.secondary,
         disabled && styles.disabled,
         pressed && !disabled && styles.pressed,
         style,
       ]}>
-      <Text style={styles.label}>{children}</Text>
+      <Text
+        style={[
+          orbitTypography.buttonLabel,
+          tone === 'secondary' ? styles.secondaryLabel : styles.primaryLabel,
+        ]}>
+        {children}
+      </Text>
     </Pressable>
   );
 }
@@ -37,11 +59,11 @@ const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.md,
+    borderRadius: orbitRadius.lg,
     justifyContent: 'center',
     minHeight: orbitControl.buttonHeight,
     paddingHorizontal: orbitSpacing.lg,
-    paddingVertical: orbitSpacing.md,
+    paddingVertical: 14,
   },
   danger: {
     backgroundColor: orbitColors.danger,
@@ -49,18 +71,18 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.45,
   },
-  label: {
-    ...orbitTypography.buttonLabel,
-  },
   pressed: {
-    opacity: 0.72,
+    opacity: 0.85,
   },
-  primary: {
-    backgroundColor: orbitColors.orbitBlue,
+  primaryLabel: {
+    color: orbitColors.ink,
   },
   secondary: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderColor: orbitColors.border,
     borderWidth: 1,
+  },
+  secondaryLabel: {
+    color: orbitColors.text,
   },
 });

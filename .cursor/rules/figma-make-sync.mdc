@@ -34,6 +34,7 @@ Automation):
 
 ## Porting rules
 
+- **No creative reinterpretation.** Layout, spacing, colors, type scale, buttons, and calendar chrome must match Make v5 source. Figma Make is the visual authority.
 - Map web Make screens to native: View/Text/Pressable/ScrollView, existing GlassCard / StatusPill / OrbitButton where possible.
 - Mock mode (`store/orbit-store.tsx`, `data/mock-household.ts`) remains for Expo Go design testing; supabase mode must work for shipping builds.
 - Rankings live on the Ranks tab (`app/(tabs)/rewards.tsx` route file may remain named `rewards` for routing stability; tab title is **Ranks**).
