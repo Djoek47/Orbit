@@ -57,6 +57,7 @@ export const groceryRepository = {
       aisle: input.aisle,
       storeId: input.storeId,
       requestedBy: input.requestedBy,
+      note: input.note?.trim() || undefined,
     };
 
     if (isMockMode()) {
@@ -78,6 +79,7 @@ export const groceryRepository = {
         quantity: item.quantity,
         location: locationToDb(item.location),
         status: 'missing',
+        note: item.note ?? null,
       })
       .select('*')
       .single();
@@ -95,6 +97,7 @@ export const groceryRepository = {
       aisle: item.aisle,
       storeId: item.storeId,
       requestedBy: item.requestedBy,
+      note: item.note,
     };
   },
 
@@ -139,6 +142,10 @@ export const groceryRepository = {
 
   async markGroceryLow(item: GroceryItem, householdId?: string | null): Promise<GroceryItem> {
     return this.updateGroceryStatus(item, 'Low', householdId);
+  },
+
+  async markGroceryMissing(item: GroceryItem, householdId?: string | null): Promise<GroceryItem> {
+    return this.updateGroceryStatus(item, 'Missing', householdId);
   },
 };
 

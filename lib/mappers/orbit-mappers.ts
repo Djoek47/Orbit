@@ -80,7 +80,21 @@ export function mapTaskRow(row: {
   repeat_rule: keyof typeof taskRepeatMap;
   status: keyof typeof taskStatusMap;
   description?: string | null;
+  room_id?: string | null;
+  weight?: number | null;
+  difficulty?: HouseholdTask['difficulty'] | null;
+  proof_required?: boolean | null;
+  proof_uri?: string | null;
+  proof_status?: 'none' | 'submitted' | 'approved' | 'rejected' | null;
 }): HouseholdTask {
+  const proofStatus =
+    row.proof_status === 'none' ||
+    row.proof_status === 'submitted' ||
+    row.proof_status === 'approved' ||
+    row.proof_status === 'rejected'
+      ? row.proof_status
+      : undefined;
+
   return {
     id: row.id,
     title: row.title,
@@ -91,6 +105,12 @@ export function mapTaskRow(row: {
     repeat: taskRepeatMap[row.repeat_rule] ?? 'None',
     status: taskStatusMap[row.status] ?? 'Pending',
     description: row.description ?? undefined,
+    roomId: row.room_id ?? undefined,
+    weight: row.weight ?? undefined,
+    difficulty: row.difficulty ?? undefined,
+    proofRequired: row.proof_required ?? undefined,
+    proofUri: row.proof_uri ?? undefined,
+    proofStatus,
   };
 }
 
@@ -130,6 +150,7 @@ export function mapGroceryRow(row: {
   quantity: string;
   location: keyof typeof groceryLocationMap;
   status: keyof typeof groceryStatusMap;
+  note?: string | null;
 }): GroceryItem {
   return {
     id: row.id,
@@ -138,6 +159,7 @@ export function mapGroceryRow(row: {
     quantity: row.quantity,
     location: groceryLocationMap[row.location] ?? 'Pantry',
     status: groceryStatusMap[row.status] ?? 'Missing',
+    note: row.note ?? undefined,
   };
 }
 

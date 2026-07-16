@@ -25,6 +25,8 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 10 | Itinerary Maps | Plan → Itineraries → open trip → Open in Maps · Arrived → next leg | ☐ |
 | 11 | Nova suggest trip | Plan → Suggest trip with Nova → itinerary created from events + groceries | ☐ |
 | 12 | Barcode grocery | Groceries (Home/Settings) → Scan barcode → mock catalog match OR Open Food Facts (ingredients/allergens/Nutri-Score) → Add to cart | ☐ |
+| 12b | Barcode online | Airplane mode off · scan unknown UPC → Open Food Facts result card (quality/allergens/ingredients) · Add to cart | ☐ |
+| 12c | Grocery uncheck | Groceries → check item Purchased → uncheck → status returns to Missing | ☐ |
 | 13 | Preferred store | Adult sets preferred store · Start store itinerary | ☐ |
 | 29a | Accent themes | Settings → pick accent theme · tab active + OrbitButton + grocery CTAs tint | ☐ |
 | 29b | Member avatars | Settings → Members → emoji picker · avatar persists on Health / Create Task | ☐ |

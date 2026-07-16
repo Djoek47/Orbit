@@ -77,6 +77,10 @@ export const taskRepository = {
         xp_value: task.xp,
         repeat_rule: taskRepeatToDb(task.repeat),
         status: 'pending',
+        weight: task.weight ?? null,
+        difficulty: task.difficulty ?? null,
+        proof_required: task.proofRequired ?? false,
+        room_id: task.roomId ?? null,
       })
       .select('*')
       .single();
@@ -86,7 +90,13 @@ export const taskRepository = {
       throw new Error('taskRepository.createTask: Insert returned no row.');
     }
 
-    return mapTaskRow(data);
+    return {
+      ...mapTaskRow(data),
+      roomId: task.roomId,
+      weight: task.weight,
+      difficulty: task.difficulty,
+      proofRequired: task.proofRequired,
+    };
   },
 
   async updateTask(task: HouseholdTask): Promise<HouseholdTask> {

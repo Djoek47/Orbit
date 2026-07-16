@@ -34,6 +34,7 @@ export default function GroceriesScreen() {
     canAddGroceryWishlist,
     household,
     markGroceryPurchased,
+    markGroceryMissing,
     metrics,
     permissions,
     preferredStore,
@@ -117,8 +118,7 @@ export default function GroceriesScreen() {
 
   const toggleItem = async (item: GroceryItem) => {
     if (item.status === 'Purchased') {
-      // Re-open as missing for shopping mode
-      // store has no unpurchase — mark low via repository path is heavier; use markGroceryLow if Available only
+      await markGroceryMissing(item.id);
       return;
     }
     await markGroceryPurchased(item.id);

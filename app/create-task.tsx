@@ -70,7 +70,7 @@ export default function CreateTaskScreen() {
     [household.members],
   );
 
-  const rooms = household.rooms ?? [];
+  const rooms = useMemo(() => household.rooms ?? [], [household.rooms]);
 
   const [mode, setMode] = useState<ScreenMode>('presets');
   const [type, setType] = useState<TaskType>('task');
@@ -83,9 +83,18 @@ export default function CreateTaskScreen() {
   const [difficulty, setDifficulty] = useState<TaskDifficulty>('medium');
   const [proofRequired, setProofRequired] = useState(false);
   const [roomId, setRoomId] = useState<string | undefined>();
+  const [presetRoomFilter, setPresetRoomFilter] = useState<string | 'all' | 'none'>('all');
   const [baseXp, setBaseXp] = useState(10);
   const [category, setCategory] = useState('General');
   const [description, setDescription] = useState<string | undefined>();
+
+  const filteredPresets = useMemo(() => {
+    if (presetRoomFilter === 'all') return TASK_PRESETS;
+    if (presetRoomFilter === 'none') return TASK_PRESETS.filter((preset) => !preset.roomKind);
+    const kind = rooms.find((room) => room.id === presetRoomFilter)?.kind;
+    if (!kind) return TASK_PRESETS;
+    return TASK_PRESETS.filter((preset) => preset.roomKind === kind);
+  }, [presetRoomFilter, rooms]);
 
   const assignee = activeMembers.find((member) => member.id === assigneeId);
   const assigneeName = permissions.canAssignTask
@@ -209,8 +218,40 @@ export default function CreateTaskScreen() {
             </Pressable>
           </View>
           <Text style={styles.presetHint}>Tap once to create · long-press to customize</Text>
+          {rooms.length ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.presetFilterRow}>
+              {(
+                [
+                  { id: 'all' as const, label: 'All' },
+                  { id: 'none' as const, label: 'No room' },
+                  ...rooms.map((room) => ({ id: room.id, label: `${room.emoji} ${room.name}` })),
+                ] as { id: string; label: string }[]
+              ).map((chip) => {
+                const active = presetRoomFilter === chip.id;
+                return (
+                  <Pressable
+                    key={chip.id}
+                    onPress={() => setPresetRoomFilter(chip.id as typeof presetRoomFilter)}
+                    style={[
+                      styles.presetFilterChip,
+                      active && {
+                        backgroundColor: `${accentTheme.primary}22`,
+                        borderColor: `${accentTheme.primary}44`,
+                      },
+                    ]}>
+                    <Text style={[styles.presetFilterText, active && { color: accentTheme.primary }]}>
+                      {chip.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
           <View style={styles.presetGrid}>
-            {TASK_PRESETS.map((preset) => {
+            {filteredPresets.map((preset) => {
               const room = rooms.find((item) => item.kind === preset.roomKind);
               const xp = computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
               return (
@@ -244,6 +285,9 @@ export default function CreateTaskScreen() {
               );
             })}
           </View>
+          {filteredPresets.length === 0 ? (
+            <Text style={styles.presetHint}>No presets for this room filter.</Text>
+          ) : null}
 
           <Pressable
             onPress={() => {
@@ -628,6 +672,23 @@ const styles = StyleSheet.create({
     color: '#7C9CC0',
     fontSize: 13,
     marginBottom: 14,
+  },
+  presetFilterRow: {
+    gap: 8,
+    marginBottom: 14,
+  },
+  presetFilterChip: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  presetFilterText: {
+    color: '#7C9CC0',
+    fontSize: 12,
+    fontWeight: '600',
   },
   presetGrid: {
     gap: 10,

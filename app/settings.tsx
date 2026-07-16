@@ -48,6 +48,8 @@ export default function SettingsScreen() {
   const [nameInput, setNameInput] = useState(household.householdName);
   const [pickingAvatarFor, setPickingAvatarFor] = useState<string | null>(null);
   const [roomDraft, setRoomDraft] = useState('');
+  const [roomEmoji, setRoomEmoji] = useState('🚪');
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const prefs = useMemo(
     () =>
       household.notificationPrefs ?? {
@@ -328,16 +330,44 @@ export default function SettingsScreen() {
                   <Text style={styles.memberName}>{room.name}</Text>
                   <Text style={styles.caption}>{room.kind}</Text>
                 </View>
+                <Pressable
+                  onPress={() => {
+                    setEditingRoomId(room.id);
+                    setRoomDraft(room.name);
+                    setRoomEmoji(room.emoji);
+                  }}
+                  style={{ marginRight: 10 }}>
+                  <MaterialIcons name="edit" size={18} color={accentTheme.primary} />
+                </Pressable>
                 <Pressable onPress={() => removeRoom(room.id)}>
                   <MaterialIcons name="delete-outline" size={18} color="#F87171" />
                 </Pressable>
               </View>
             ))}
+            <View style={styles.emojiRow}>
+              {['🚪', '🍳', '🛋️', '🚿', '🛏️', '👕', '🪴', '🧹'].map((emoji) => {
+                const active = roomEmoji === emoji;
+                return (
+                  <Pressable
+                    key={emoji}
+                    onPress={() => setRoomEmoji(emoji)}
+                    style={[
+                      styles.emojiChip,
+                      active && {
+                        borderColor: `${accentTheme.primary}88`,
+                        backgroundColor: `${accentTheme.primary}22`,
+                      },
+                    ]}>
+                    <Text style={{ fontSize: 18 }}>{emoji}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             <View style={styles.prefRow}>
               <TextInput
                 value={roomDraft}
                 onChangeText={setRoomDraft}
-                placeholder="Add room name"
+                placeholder={editingRoomId ? 'Rename room' : 'Add room name'}
                 placeholderTextColor="#4B6080"
                 style={styles.roomInput}
               />
@@ -346,18 +376,37 @@ export default function SettingsScreen() {
                 onPress={() => {
                   const name = roomDraft.trim();
                   if (!name) return;
-                  const room: HouseholdRoom = {
-                    id: createLocalId('room'),
-                    name,
-                    emoji: '🚪',
-                    kind: 'custom',
-                  };
-                  upsertRoom(room);
+                  if (editingRoomId) {
+                    const existing = rooms.find((item) => item.id === editingRoomId);
+                    if (!existing) return;
+                    upsertRoom({ ...existing, name, emoji: roomEmoji });
+                    setEditingRoomId(null);
+                  } else {
+                    const room: HouseholdRoom = {
+                      id: createLocalId('room'),
+                      name,
+                      emoji: roomEmoji,
+                      kind: 'custom',
+                    };
+                    upsertRoom(room);
+                  }
                   setRoomDraft('');
+                  setRoomEmoji('🚪');
                 }}>
-                <MaterialIcons name="add" size={18} color={accentTheme.primary} />
+                <MaterialIcons name={editingRoomId ? 'check' : 'add'} size={18} color={accentTheme.primary} />
               </Pressable>
             </View>
+            {editingRoomId ? (
+              <Pressable
+                onPress={() => {
+                  setEditingRoomId(null);
+                  setRoomDraft('');
+                  setRoomEmoji('🚪');
+                }}
+                style={styles.linkRow}>
+                <Text style={[styles.linkText, { color: accentTheme.primary }]}>Cancel edit</Text>
+              </Pressable>
+            ) : null}
           </>
         ) : null}
 
@@ -621,6 +670,12 @@ const styles = StyleSheet.create({
   memberName: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
   emojiGrid: {
     flexBasis: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  emojiRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,

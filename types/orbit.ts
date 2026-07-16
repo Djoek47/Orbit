@@ -85,6 +85,7 @@ export type GroceryItem = {
   aisle?: string;
   storeId?: string;
   requestedBy?: string;
+  note?: string;
 };
 
 export type HouseholdEvent = {

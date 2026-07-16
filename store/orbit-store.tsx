@@ -126,6 +126,7 @@ type OrbitContextValue = {
   preferredStore: PreferredStore;
   joinHousehold: (input: JoinHouseholdInput) => Promise<void>;
   markGroceryPurchased: (itemId: string) => void;
+  markGroceryMissing: (itemId: string) => void;
   markGroceryLow: (itemId: string) => void;
   createEvent: (input: CreateEventInput) => Promise<void>;
   updateEvent: (event: HouseholdEvent) => Promise<void>;
@@ -610,6 +611,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         weight: spawned.weight,
         difficulty: spawned.difficulty,
         proofRequired: spawned.proofRequired,
+        roomId: spawned.roomId,
       });
     }
 
@@ -711,6 +713,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ),
     });
     await persistHouseholdScore(household.id, nextMetrics);
+  };
+
+  const markGroceryMissing = async (itemId: string) => {
+    const currentItem = household.groceries.find((item) => item.id === itemId);
+    if (!currentItem) {
+      return;
+    }
+
+    const updated = await groceryRepository.markGroceryMissing(currentItem, household.id);
+    setHousehold((current) => ({
+      ...current,
+      groceries: current.groceries.map((item) => (item.id === itemId ? updated : item)),
+    }));
+    await trackAnalytics('grocery.missing', { groceryId: itemId }, analyticsContext);
   };
 
   const markGroceryLow = async (itemId: string) => {
@@ -1349,6 +1365,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       setPreferredStore,
       joinHousehold,
       markGroceryPurchased,
+      markGroceryMissing,
       markGroceryLow,
       createEvent,
       updateEvent,
