@@ -40,7 +40,8 @@ export default function HomeScreen() {
     <ScrollView
       style={orbitScreen.container}
       contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator={false}>
       {/* Make header */}
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
@@ -219,7 +220,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     height: 40,
     justifyContent: 'center',
-    marginRight: 88,
     width: 40,
   },
   avatarText: { color: '#070D1C', fontSize: 14, fontWeight: '700' },

@@ -120,8 +120,9 @@ export const orbitScreen = StyleSheet.create({
   },
   content: {
     gap: 16,
+    // Clear global Notifications + Settings chips (Make App overlay)
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 44,
     paddingBottom: 24,
   },
   header: {

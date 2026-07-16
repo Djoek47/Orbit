@@ -45,7 +45,8 @@ export default function RewardsScreen() {
     <ScrollView
       style={orbitScreen.container}
       contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator={false}>
       <View style={[orbitScreen.header, styles.header]}>
         <Text style={orbitTypography.caption}>Leaderboard</Text>
         <Text style={orbitTypography.display}>Family Rankings</Text>

@@ -70,7 +70,6 @@ export default function NovaScreen() {
     novaConversation,
     novaWeeklyBriefing,
     suggestedNovaQuestions,
-    unreadNotificationCount,
   } = useOrbit();
 
   const [activeTab, setActiveTab] = useState<NovaTab>('chat');
@@ -166,19 +165,7 @@ export default function NovaScreen() {
           <Text style={[styles.stateLabel, { color: cfg.color }]}>{cfg.label}</Text>
         </View>
         <Text style={styles.subtitle}>AI Household Co-manager</Text>
-
-        <Pressable style={styles.bellButton} onPress={() => setActiveTab('activity')}>
-          <MaterialIcons
-            name="notifications-none"
-            size={14}
-            color={activeTab === 'activity' ? orbitColors.orbitBlue : orbitColors.textMuted}
-          />
-          {unreadNotificationCount > 0 ? (
-            <View style={styles.bellBadge}>
-              <Text style={styles.bellBadgeText}>{Math.min(unreadNotificationCount, 9)}</Text>
-            </View>
-          ) : null}
-        </Pressable>
+        {/* Notifications + Settings live in GlobalHeaderChips on every tab */}
       </View>
 
       <View style={styles.segmentWrap}>
@@ -462,7 +449,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(14,165,233,0.10)',
     paddingBottom: 12,
-    paddingTop: 20,
+    // Clear GlobalHeaderChips (Notifications + Settings)
+    paddingTop: 52,
     position: 'relative',
   },
   headerGlow: {

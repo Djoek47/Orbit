@@ -23,10 +23,12 @@ const TAB_META: Record<
   nova: { label: 'Nova', color: orbitTabColors.nova, icon: 'sparkles' },
 };
 
-/** Make App.tsx TabBar — exact tokens, native port. */
+/**
+ * Make App.tsx TabBar tokens — native iPhone port.
+ * No fake home-indicator pill (real iOS already draws that).
+ */
 export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-
   const activeRouteName = state.routes[state.index]?.name;
 
   const visibleRoutes = TAB_ORDER.map((name) => {
@@ -87,19 +89,11 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                     styles.novaButton,
                     isFocused ? styles.novaButtonActive : styles.novaButtonInactive,
                   ]}>
-                  <IconSymbol
-                    name={icon}
-                    size={20}
-                    color={isFocused ? '#070D1C' : '#38BDF8'}
-                  />
+                  <IconSymbol name={icon} size={20} color={isFocused ? '#070D1C' : '#38BDF8'} />
                 </LinearGradient>
               ) : (
                 <View style={styles.iconColumn}>
-                  <View
-                    style={[
-                      styles.iconBox,
-                      isFocused && { backgroundColor: `${color}1A` },
-                    ]}>
+                  <View style={[styles.iconBox, isFocused && { backgroundColor: `${color}1A` }]}>
                     <IconSymbol name={icon} size={20} color={isFocused ? color : INACTIVE} />
                   </View>
                   {isFocused ? <View style={[styles.dot, { backgroundColor: color }]} /> : null}
@@ -117,9 +111,6 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           );
         })}
       </View>
-      <View style={styles.homeIndicatorRow}>
-        <View style={styles.homeIndicator} />
-      </View>
     </View>
   );
 }
@@ -131,11 +122,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   bar: {
-    flexDirection: 'row',
     alignItems: 'flex-end',
+    flexDirection: 'row',
+    paddingBottom: 4,
     paddingHorizontal: 8,
     paddingTop: 8,
-    paddingBottom: 4,
   },
   tab: {
     alignItems: 'center',
@@ -173,34 +164,23 @@ const styles = StyleSheet.create({
     width: 48,
   },
   novaButtonActive: {
+    elevation: 8,
     shadowColor: '#38BDF8',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
-    elevation: 8,
   },
   novaButtonInactive: {
+    elevation: 4,
     shadowColor: '#38BDF8',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.12,
     shadowRadius: 6,
-    elevation: 4,
   },
   label: {
     fontSize: 10,
   },
   novaLabel: {
     marginTop: 2,
-  },
-  homeIndicatorRow: {
-    alignItems: 'center',
-    paddingBottom: 8,
-    paddingTop: 4,
-  },
-  homeIndicator: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 999,
-    height: 5,
-    width: 130,
   },
 });

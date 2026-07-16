@@ -353,7 +353,8 @@ export default function PlanScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      contentInsetAdjustmentBehavior="automatic">
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator={false}>
       <View style={styles.subNav}>
         {(
           [
@@ -692,7 +693,7 @@ export default function PlanScreen() {
 
 const styles = StyleSheet.create({
   container: { backgroundColor: '#070D1C', flex: 1 },
-  content: { gap: 16, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 8 },
+  content: { gap: 16, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 44 },
   calHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 8 },
   clipboardBtn: {
     alignItems: 'center',

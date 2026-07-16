@@ -34,8 +34,8 @@ export default function RootLayout() {
           <Stack.Screen name="join-household" options={{ presentation: 'modal', title: 'Join Household' }} />
           <Stack.Screen name="invite-household" options={{ presentation: 'modal', title: 'Invite Members' }} />
           <Stack.Screen name="household-members" options={{ presentation: 'modal', title: 'Members' }} />
-          <Stack.Screen name="settings" options={{ presentation: 'modal', title: 'Settings' }} />
-          <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+          <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ title: 'Notifications', presentation: 'modal' }} />
           <Stack.Screen name="momentum" options={{ title: 'Momentum' }} />
           <Stack.Screen name="household-balance" options={{ title: 'Household Balance' }} />
           <Stack.Screen name="weekly-report" options={{ title: 'Weekly Report' }} />

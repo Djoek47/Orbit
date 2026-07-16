@@ -254,6 +254,7 @@ export default function TasksScreen() {
     <ScrollView
       style={orbitScreen.container}
       contentContainerStyle={orbitScreen.content}
+      showsVerticalScrollIndicator={false}
       contentInsetAdjustmentBehavior="automatic">
       <View style={styles.headerRow}>
         <View style={orbitScreen.header}>
