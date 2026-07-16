@@ -12,11 +12,23 @@ import { useOrbit } from '@/store/orbit-store';
 const categories = ['Dairy', 'Produce', 'Bakery', 'Pantry', 'Household'];
 
 export default function AddGroceryScreen() {
-  const { addMissingGrocery } = useOrbit();
+  const { addMissingGrocery, permissions } = useOrbit();
   const [name, setName] = useState('');
   const [category, setCategory] = useState(categories[0]);
 
   const canSave = name.trim().length > 1;
+
+  if (!permissions.canManageGroceries) {
+    return (
+      <ScrollView style={orbitScreen.container} contentContainerStyle={orbitScreen.content}>
+        <Text style={orbitTypography.title}>Groceries locked</Text>
+        <Text style={orbitTypography.body}>Your role cannot mark items missing. Ask a parent or adult.</Text>
+        <OrbitButton tone="secondary" onPress={() => router.back()}>
+          Back
+        </OrbitButton>
+      </ScrollView>
+    );
+  }
 
   const handleSave = () => {
     if (!canSave) {

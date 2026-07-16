@@ -12,10 +12,18 @@ export default function ForgotPasswordScreen() {
   const { forgotPassword } = useOrbit();
   const [email, setEmail] = useState('sarah@orbit.test');
   const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
 
   const handleReset = async () => {
-    await forgotPassword(email);
-    setMessage('Mock reset link queued. Real email delivery will come with Supabase auth.');
+    setSending(true);
+    try {
+      await forgotPassword(email);
+      setMessage('If this email is configured for Orbit, a reset link has been sent. Check your inbox.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to send reset email right now.');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -26,13 +34,15 @@ export default function ForgotPasswordScreen() {
       <View style={orbitScreen.header}>
         <Text style={orbitTypography.caption}>Account recovery</Text>
         <Text style={orbitTypography.display}>Reset password</Text>
-        <Text style={orbitTypography.body}>This placeholder keeps the auth structure ready for Supabase.</Text>
+        <Text style={orbitTypography.body}>Enter the email for your Orbit account to receive a reset link.</Text>
       </View>
 
       <GlassCard elevated style={styles.form}>
         <OrbitInput label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
         {message ? <Text style={styles.message}>{message}</Text> : null}
-        <OrbitButton onPress={handleReset}>Send Reset Link</OrbitButton>
+        <OrbitButton disabled={sending || !email.trim()} onPress={handleReset}>
+          {sending ? 'Sending…' : 'Send Reset Link'}
+        </OrbitButton>
         <OrbitButton tone="secondary" onPress={() => router.back()}>
           Back
         </OrbitButton>

@@ -1,10 +1,9 @@
 import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { orbitColors } from '@/constants/orbit-theme';
+import { GlobalHeaderChips } from '@/components/orbit/global-header-chips';
+import { MakeTabBar } from '@/components/orbit/make-tab-bar';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function TabLayout() {
@@ -27,68 +26,48 @@ export default function TabLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: orbitColors.novaCyan,
-        tabBarInactiveTintColor: orbitColors.textSubtle,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarStyle: styles.tabBar,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={25} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          title: 'Tasks',
-          tabBarIcon: ({ color }) => <IconSymbol size={25} name="checklist" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="groceries"
-        options={{
-          title: 'Groceries',
-          tabBarIcon: ({ color }) => <IconSymbol size={25} name="cart.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="calendar"
-        options={{
-          // Hidden from tab bar to match Figma Make v4 (Home/Tasks/Grocery/Ranks/Nova).
-          // Route remains available for later product IA / deep links.
-          href: null,
-          title: 'Calendar',
-        }}
-      />
-      <Tabs.Screen
-        name="rewards"
-        options={{
-          title: 'Ranks',
-          tabBarIcon: ({ color }) => <IconSymbol size={25} name="trophy.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="nova"
-        options={{
-          title: 'Nova',
-          tabBarIcon: ({ color }) => <IconSymbol size={25} name="sparkles" color={color} />,
-        }}
-      />
-    </Tabs>
+    <View style={styles.shell}>
+      <Tabs
+        tabBar={(props) => <MakeTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+          // One native tab bar — do not absolute-position (avoids double bottom chrome)
+          tabBarStyle: styles.tabBarPlaceholder,
+        }}>
+        <Tabs.Screen name="index" options={{ title: 'Home' }} />
+        <Tabs.Screen name="tasks" options={{ title: 'Tasks' }} />
+        <Tabs.Screen name="plan" options={{ title: 'Plan' }} />
+        <Tabs.Screen
+          name="groceries"
+          options={{
+            href: null,
+            title: 'Groceries',
+          }}
+        />
+        <Tabs.Screen
+          name="calendar"
+          options={{
+            href: null,
+            title: 'Calendar',
+          }}
+        />
+        <Tabs.Screen name="rewards" options={{ title: 'Ranks' }} />
+        <Tabs.Screen name="nova" options={{ title: 'Nova' }} />
+      </Tabs>
+
+      <GlobalHeaderChips />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: 'rgba(7, 11, 20, 0.94)',
-    borderTopColor: orbitColors.border,
-    height: 88,
-    paddingBottom: 24,
-    paddingTop: 10,
+  shell: {
+    backgroundColor: '#070D1C',
+    flex: 1,
+  },
+  tabBarPlaceholder: {
+    backgroundColor: 'transparent',
+    borderTopWidth: 0,
+    elevation: 0,
   },
 });

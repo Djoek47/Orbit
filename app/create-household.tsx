@@ -31,7 +31,7 @@ export default function CreateHouseholdScreen() {
 
     setError('');
     await createHousehold({ name, type });
-    router.replace('/' as never);
+    router.replace('/invite-household' as never);
   };
 
   return (
