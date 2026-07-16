@@ -14,12 +14,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MEMBER_ACCENTS } from '@/lib/game-levels';
-import { weightForDifficulty } from '@/lib/tasks/xp';
+import { TASK_PRESETS, type TaskPreset } from '@/data/task-presets';
+import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
+import { computeTaskXp, weightForDifficulty } from '@/lib/tasks/xp';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdMember, TaskDifficulty } from '@/types/orbit';
+import type { HouseholdMember, HouseholdTask, TaskDifficulty } from '@/types/orbit';
 
 type TaskType = 'task' | 'homework';
+type ScreenMode = 'presets' | 'custom';
 
 const PANEL_BG = '#0F1A30';
 
@@ -40,6 +42,8 @@ const priorities = [
   { label: 'High', color: '#FB923C', xp: 20, difficulty: 'hard' as TaskDifficulty },
 ];
 
+const repeatOptions: HouseholdTask['repeat'][] = ['None', 'Daily', 'Weekly', 'Weekdays'];
+
 const GRADIENT_BY_COLOR: Record<string, [string, string]> = {
   '#38BDF8': ['#38BDF8', '#0EA5E9'],
   '#A78BFA': ['#A78BFA', '#7C3AED'],
@@ -50,7 +54,7 @@ const GRADIENT_BY_COLOR: Record<string, [string, string]> = {
 };
 
 function memberAccent(member: HouseholdMember) {
-  return MEMBER_ACCENTS[member.name] ?? { color: '#38BDF8', emoji: member.avatar };
+  return MEMBER_ACCENTS[member.name] ?? { color: '#38BDF8', emoji: memberDisplayEmoji(member) };
 }
 
 function memberGradient(color: string): [string, string] {
@@ -59,27 +63,84 @@ function memberGradient(color: string): [string, string] {
 
 export default function CreateTaskScreen() {
   const insets = useSafeAreaInsets();
-  const { createTask, household, permissions } = useOrbit();
+  const { accentTheme, createTask, household, permissions } = useOrbit();
 
   const activeMembers = useMemo(
     () => household.members.filter((member) => member.status === 'active'),
-    [household.members]
+    [household.members],
   );
 
+  const rooms = household.rooms ?? [];
+
+  const [mode, setMode] = useState<ScreenMode>('presets');
   const [type, setType] = useState<TaskType>('task');
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState<(typeof subjects)[number]['label']>('Math');
   const [assigneeId, setAssigneeId] = useState(activeMembers[0]?.id ?? '');
   const [due, setDue] = useState<(typeof dueOptions)[number]>('Today');
   const [priority, setPriority] = useState(1);
+  const [repeat, setRepeat] = useState<HouseholdTask['repeat']>('None');
+  const [difficulty, setDifficulty] = useState<TaskDifficulty>('medium');
+  const [proofRequired, setProofRequired] = useState(false);
+  const [roomId, setRoomId] = useState<string | undefined>();
+  const [baseXp, setBaseXp] = useState(10);
+  const [category, setCategory] = useState('General');
+  const [description, setDescription] = useState<string | undefined>();
 
   const assignee = activeMembers.find((member) => member.id === assigneeId);
   const assigneeName = permissions.canAssignTask
     ? (assignee?.name ?? household.greetingName)
     : household.greetingName;
 
-  const xpPreview = type === 'homework' ? 15 : priorities[priority].xp;
+  const weight = weightForDifficulty(type === 'homework' ? 'medium' : difficulty);
+  const xpPreview =
+    type === 'homework' ? computeTaskXp(15, weightForDifficulty('medium'), 'medium') : computeTaskXp(baseXp, weight, difficulty);
   const canCreate = title.trim().length > 0;
+
+  function roomIdForKind(kind?: TaskPreset['roomKind']) {
+    if (!kind) return undefined;
+    return rooms.find((room) => room.kind === kind)?.id;
+  }
+
+  function applyPreset(preset: TaskPreset, createNow: boolean) {
+    const nextRoomId = roomIdForKind(preset.roomKind);
+    const nextXp = computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+    const nextAssignee = assigneeName;
+
+    if (createNow) {
+      createTask({
+        title: preset.title,
+        description: preset.description,
+        category: preset.category,
+        assignee: nextAssignee,
+        due: 'Today',
+        xp: nextXp,
+        repeat: preset.repeat,
+        difficulty: preset.difficulty,
+        weight: preset.weight,
+        proofRequired: preset.proofRequired,
+        roomId: nextRoomId,
+      });
+      router.back();
+      return;
+    }
+
+    setMode('custom');
+    setType(preset.category === 'Homework' ? 'homework' : 'task');
+    setTitle(preset.title);
+    setCategory(preset.category);
+    setDescription(preset.description);
+    setRepeat(preset.repeat);
+    setDifficulty(preset.difficulty);
+    setProofRequired(preset.proofRequired);
+    setBaseXp(preset.baseXp);
+    setRoomId(nextRoomId);
+    const priorityIndex = Math.max(
+      0,
+      priorities.findIndex((item) => item.difficulty === preset.difficulty),
+    );
+    setPriority(priorityIndex >= 0 ? priorityIndex : 1);
+  }
 
   if (!permissions.canCreateTask) {
     return (
@@ -95,40 +156,114 @@ export default function CreateTaskScreen() {
   }
 
   const handleCreate = () => {
-    if (!canCreate) {
-      return;
-    }
+    if (!canCreate) return;
 
     const trimmedTitle = title.trim();
-    const selectedPriority = priorities[priority];
 
     if (type === 'homework') {
       createTask({
         title: trimmedTitle,
-        description: `Subject: ${subject}`,
+        description: description ?? `Subject: ${subject}`,
         category: 'Homework',
         assignee: assigneeName,
         due,
-        xp: 15,
-        repeat: 'None',
+        xp: computeTaskXp(15, weightForDifficulty('medium'), 'medium'),
+        repeat,
         difficulty: 'medium',
         weight: weightForDifficulty('medium'),
+        proofRequired,
+        roomId,
       });
     } else {
+      const selectedPriority = priorities[priority];
       createTask({
         title: trimmedTitle,
-        category: 'General',
+        description,
+        category,
         assignee: assigneeName,
         due,
-        xp: selectedPriority.xp,
-        repeat: 'None',
-        difficulty: selectedPriority.difficulty,
-        weight: weightForDifficulty(selectedPriority.difficulty),
+        xp: computeTaskXp(baseXp || selectedPriority.xp, weight, difficulty),
+        repeat,
+        difficulty,
+        weight,
+        proofRequired,
+        roomId,
       });
     }
 
     router.back();
   };
+
+  if (mode === 'presets') {
+    return (
+      <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.handleWrap, { paddingTop: insets.top + 8 }]}>
+          <View style={styles.handle} />
+        </View>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Quick presets</Text>
+            <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
+              <MaterialIcons color="#7C9CC0" name="close" size={16} />
+            </Pressable>
+          </View>
+          <Text style={styles.presetHint}>Tap once to create · long-press to customize</Text>
+          <View style={styles.presetGrid}>
+            {TASK_PRESETS.map((preset) => {
+              const room = rooms.find((item) => item.kind === preset.roomKind);
+              const xp = computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+              return (
+                <Pressable
+                  key={preset.id}
+                  onPress={() => applyPreset(preset, true)}
+                  onLongPress={() => applyPreset(preset, false)}
+                  style={styles.presetCard}>
+                  <View style={styles.presetTop}>
+                    <Text style={styles.presetTitle}>{preset.title}</Text>
+                    <View style={[styles.xpBadge, { backgroundColor: `${accentTheme.primary}22` }]}>
+                      <Text style={[styles.xpBadgeText, { color: accentTheme.primary }]}>+{xp}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.presetMetaRow}>
+                    <View style={styles.repeatPill}>
+                      <Text style={styles.repeatText}>{preset.repeat}</Text>
+                    </View>
+                    {room ? (
+                      <Text style={styles.roomChip}>
+                        {room.emoji} {room.name}
+                      </Text>
+                    ) : (
+                      <Text style={styles.roomChip}>{preset.category}</Text>
+                    )}
+                  </View>
+                  {preset.proofRequired ? (
+                    <Text style={styles.proofHint}>Proof required</Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Pressable
+            onPress={() => {
+              setMode('custom');
+              setTitle('');
+              setCategory('General');
+              setRepeat('None');
+              setDifficulty('medium');
+              setProofRequired(false);
+              setBaseXp(10);
+              setRoomId(undefined);
+            }}
+            style={styles.customEntry}>
+            <MaterialIcons name="edit" size={16} color={accentTheme.primary} />
+            <Text style={[styles.customEntryText, { color: accentTheme.primary }]}>Custom task</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -145,7 +280,11 @@ export default function CreateTaskScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Create New</Text>
+          <Pressable onPress={() => setMode('presets')} style={styles.backChip}>
+            <MaterialIcons name="chevron-left" size={18} color="#7C9CC0" />
+            <Text style={styles.backChipText}>Presets</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>Custom task</Text>
           <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
             <MaterialIcons color="#7C9CC0" name="close" size={16} />
           </Pressable>
@@ -162,19 +301,19 @@ export default function CreateTaskScreen() {
                 style={[
                   styles.typeOption,
                   active && {
-                    backgroundColor: isHomework ? 'rgba(167,139,250,0.2)' : 'rgba(56,189,248,0.2)',
-                    borderColor: isHomework ? 'rgba(167,139,250,0.2)' : 'rgba(56,189,248,0.2)',
+                    backgroundColor: isHomework ? 'rgba(167,139,250,0.2)' : `${accentTheme.primary}33`,
+                    borderColor: isHomework ? 'rgba(167,139,250,0.2)' : `${accentTheme.primary}33`,
                   },
                 ]}>
                 <MaterialIcons
-                  color={active ? (isHomework ? '#A78BFA' : '#38BDF8') : '#4B6080'}
+                  color={active ? (isHomework ? '#A78BFA' : accentTheme.primary) : '#4B6080'}
                   name={isHomework ? 'menu-book' : 'check-box'}
                   size={15}
                 />
                 <Text
                   style={[
                     styles.typeLabel,
-                    active && { color: isHomework ? '#A78BFA' : '#38BDF8' },
+                    active && { color: isHomework ? '#A78BFA' : accentTheme.primary },
                   ]}>
                   {option}
                 </Text>
@@ -230,7 +369,11 @@ export default function CreateTaskScreen() {
                 return (
                   <Pressable
                     key={item.label}
-                    onPress={() => setPriority(index)}
+                    onPress={() => {
+                      setPriority(index);
+                      setDifficulty(item.difficulty);
+                      setBaseXp(item.xp);
+                    }}
                     style={[
                       styles.priorityChip,
                       {
@@ -247,6 +390,81 @@ export default function CreateTaskScreen() {
             </View>
           </View>
         )}
+
+        <View style={styles.field}>
+          <Text style={styles.label}>REPEAT</Text>
+          <View style={styles.subjectRow}>
+            {repeatOptions.map((option) => {
+              const active = repeat === option;
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => setRepeat(option)}
+                  style={[
+                    styles.subjectChip,
+                    active && {
+                      backgroundColor: `${accentTheme.primary}22`,
+                      borderColor: `${accentTheme.primary}44`,
+                    },
+                  ]}>
+                  <Text style={[styles.subjectText, { color: active ? accentTheme.primary : '#7C9CC0' }]}>
+                    {option}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {rooms.length ? (
+          <View style={styles.field}>
+            <Text style={styles.label}>ROOM (OPTIONAL)</Text>
+            <View style={styles.subjectRow}>
+              <Pressable
+                onPress={() => setRoomId(undefined)}
+                style={[
+                  styles.subjectChip,
+                  !roomId && {
+                    backgroundColor: `${accentTheme.primary}22`,
+                    borderColor: `${accentTheme.primary}44`,
+                  },
+                ]}>
+                <Text style={[styles.subjectText, { color: !roomId ? accentTheme.primary : '#7C9CC0' }]}>
+                  None
+                </Text>
+              </Pressable>
+              {rooms.map((room) => {
+                const active = roomId === room.id;
+                return (
+                  <Pressable
+                    key={room.id}
+                    onPress={() => setRoomId(room.id)}
+                    style={[
+                      styles.subjectChip,
+                      active && {
+                        backgroundColor: `${accentTheme.primary}22`,
+                        borderColor: `${accentTheme.primary}44`,
+                      },
+                    ]}>
+                    <Text style={styles.subjectEmoji}>{room.emoji}</Text>
+                    <Text style={[styles.subjectText, { color: active ? accentTheme.primary : '#7C9CC0' }]}>
+                      {room.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
+        <Pressable onPress={() => setProofRequired((value) => !value)} style={styles.proofToggle}>
+          <MaterialIcons
+            name={proofRequired ? 'check-box' : 'check-box-outline-blank'}
+            size={18}
+            color={proofRequired ? accentTheme.primary : '#4B6080'}
+          />
+          <Text style={styles.proofToggleText}>Require photo proof</Text>
+        </Pressable>
 
         <View style={styles.assignDueRow}>
           {permissions.canAssignTask ? (
@@ -274,11 +492,11 @@ export default function CreateTaskScreen() {
                       ]}>
                       {selected ? (
                         <LinearGradient colors={gradient} style={styles.memberInner}>
-                          <Text style={styles.memberEmoji}>{accent.emoji}</Text>
+                          <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
                         </LinearGradient>
                       ) : (
                         <View style={styles.memberInnerMuted}>
-                          <Text style={styles.memberEmoji}>{accent.emoji}</Text>
+                          <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
                         </View>
                       )}
                     </Pressable>
@@ -297,8 +515,20 @@ export default function CreateTaskScreen() {
                   <Pressable
                     key={option}
                     onPress={() => setDue(option)}
-                    style={[styles.dueChip, active && styles.dueChipActive]}>
-                    <Text style={[styles.dueChipText, active && styles.dueChipTextActive]}>{option}</Text>
+                    style={[
+                      styles.dueChip,
+                      active && {
+                        backgroundColor: `${accentTheme.primary}1F`,
+                        borderColor: `${accentTheme.primary}59`,
+                      },
+                    ]}>
+                    <Text
+                      style={[
+                        styles.dueChipText,
+                        active && { color: accentTheme.primary },
+                      ]}>
+                      {option}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -306,11 +536,11 @@ export default function CreateTaskScreen() {
           </View>
         </View>
 
-        <View style={styles.xpPreview}>
+        <View style={[styles.xpPreview, { borderColor: `${accentTheme.primary}26`, backgroundColor: `${accentTheme.primary}14` }]}>
           <Text style={styles.xpPreviewLabel}>{assigneeName} will earn</Text>
           <View style={styles.xpPreviewValue}>
             <Text style={styles.xpBolt}>⚡</Text>
-            <Text style={styles.xpAmount}>+{xpPreview}</Text>
+            <Text style={[styles.xpAmount, { color: accentTheme.primary }]}>+{xpPreview}</Text>
             <Text style={styles.xpSuffix}>XP</Text>
           </View>
         </View>
@@ -318,12 +548,17 @@ export default function CreateTaskScreen() {
         <Pressable disabled={!canCreate} onPress={handleCreate} style={styles.createPressable}>
           {canCreate ? (
             <LinearGradient
-              colors={type === 'homework' ? ['#A78BFA', '#7C3AED'] : ['#38BDF8', '#0EA5E9']}
+              colors={
+                type === 'homework'
+                  ? ['#A78BFA', '#7C3AED']
+                  : [accentTheme.primary, accentTheme.secondary]
+              }
               end={{ x: 1, y: 1 }}
               start={{ x: 0, y: 0 }}
               style={styles.createButton}>
               <Text style={styles.createButtonText}>
                 Create {type === 'homework' ? 'Homework' : 'Task'}
+                {repeat !== 'None' ? ` · ${repeat}` : ''}
               </Text>
             </LinearGradient>
           ) : (
@@ -363,7 +598,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   headerTitle: {
     color: '#EEF2FF',
@@ -377,6 +612,96 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: 'center',
     width: 32,
+  },
+  backChip: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+    minWidth: 72,
+  },
+  backChipText: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  presetHint: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    marginBottom: 14,
+  },
+  presetGrid: {
+    gap: 10,
+  },
+  presetCard: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+    padding: 14,
+  },
+  presetTop: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  presetTitle: {
+    color: '#EEF2FF',
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  xpBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  xpBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  presetMetaRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  repeatPill: {
+    backgroundColor: 'rgba(6,182,212,0.15)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  repeatText: {
+    color: '#06B6D4',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  roomChip: {
+    color: '#7C9CC0',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  proofHint: {
+    color: '#FB923C',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  customEntry: {
+    alignItems: 'center',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    marginTop: 16,
+    paddingVertical: 14,
+  },
+  customEntryText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   typeToggle: {
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -431,12 +756,14 @@ const styles = StyleSheet.create({
   },
   subjectChip: {
     alignItems: 'center',
+    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   subjectEmoji: {
     fontSize: 14,
@@ -457,6 +784,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   priorityText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  proofToggle: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  proofToggleText: {
+    color: '#C8D8F0',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -515,22 +853,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  dueChipActive: {
-    backgroundColor: 'rgba(56,189,248,0.12)',
-    borderColor: 'rgba(56,189,248,0.35)',
-  },
   dueChipText: {
     color: '#7C9CC0',
     fontSize: 12,
     fontWeight: '600',
   },
-  dueChipTextActive: {
-    color: '#38BDF8',
-  },
   xpPreview: {
     alignItems: 'center',
-    backgroundColor: 'rgba(56,189,248,0.08)',
-    borderColor: 'rgba(56,189,248,0.15)',
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
@@ -554,7 +883,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   xpAmount: {
-    color: '#38BDF8',
     fontSize: 18,
     fontWeight: '700',
   },

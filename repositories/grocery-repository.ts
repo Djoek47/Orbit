@@ -1,3 +1,4 @@
+import { locationForGroceryCategory } from '@/data/household-rooms';
 import { mockHousehold } from '@/data/mock-household';
 import { mapGroceryRow } from '@/lib/mappers/orbit-mappers';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
@@ -5,10 +6,9 @@ import type { CreateGroceryInput, GroceryItem } from '@/types/orbit';
 
 let mockGroceriesState: GroceryItem[] = clone(mockHousehold.groceries);
 
-function resolveLocation(category: string): GroceryItem['location'] {
-  if (category === 'Household') return 'Cleaning';
-  if (category === 'Dairy') return 'Fridge';
-  return 'Pantry';
+function resolveLocation(category: string, override?: GroceryItem['location']): GroceryItem['location'] {
+  if (override) return override;
+  return locationForGroceryCategory(category);
 }
 
 function locationToDb(location: GroceryItem['location']) {
@@ -49,7 +49,7 @@ export const groceryRepository = {
       name: input.name.trim(),
       category: input.category,
       quantity: input.quantity?.trim() || '1 item',
-      location: resolveLocation(input.category),
+      location: resolveLocation(input.category, input.location),
       status: 'Missing',
       barcode: input.barcode,
       typicalPrice: input.typicalPrice,

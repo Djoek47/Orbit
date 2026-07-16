@@ -23,8 +23,13 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 9 | Plan / Calendar | Plan tab → Calendar sub-nav → create event → day strip with real dates | ☐ |
 | 10 | Itinerary Maps | Plan → Itineraries → open trip → Open in Maps · Arrived → next leg | ☐ |
 | 11 | Nova suggest trip | Plan → Suggest trip with Nova → itinerary created from events + groceries | ☐ |
-| 12 | Barcode grocery | Groceries (Settings/Plan) → Scan barcode → catalog match → cart + sale badge | ☐ |
+| 12 | Barcode grocery | Groceries (Home/Settings) → Scan barcode → mock catalog match OR Open Food Facts (ingredients/allergens/Nutri-Score) → Add to cart | ☐ |
 | 13 | Preferred store | Adult sets preferred store · Start store itinerary | ☐ |
+| 29a | Accent themes | Settings → pick accent theme · tab active + OrbitButton + grocery CTAs tint | ☐ |
+| 29b | Member avatars | Settings → Members → emoji picker · avatar persists on Health / Create Task | ☐ |
+| 29c | Rooms | Settings → Rooms add/remove · Create Task presets show room · Health cleaning strip | ☐ |
+| 29d | Grocery Missing Item | Groceries → + → expanded categories + qty + storage location + note | ☐ |
+| 29e | Household Health | Home → Household Health · Energy/Water/Air · member load · cleaning by room | ☐ |
 | 14 | Share invite | Create household → Invite · Share primary · Copy · QR tertiary | ☐ |
 | 15 | Task presets | Create Task → pick preset · weight XP · optional proof · recurring spawn | ☐ |
 | 16 | Late XP | Complete overdue task · celebration shows penalty · Nova ai notification | ☐ |

@@ -41,6 +41,7 @@ export const taskRepository = {
       proofRequired: input.proofRequired,
       proofStatus: input.proofRequired ? 'none' : undefined,
       dueAt: input.dueAt,
+      roomId: input.roomId,
       repeat: input.repeat,
       status: 'Pending',
     };

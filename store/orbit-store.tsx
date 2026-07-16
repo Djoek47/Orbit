@@ -28,7 +28,15 @@ import {
   smartHomeRepository,
   taskRepository,
 } from '@/repositories';
+import {
+  DEFAULT_ACCENT_THEME_ID,
+  getAccentTheme,
+  type AccentTheme,
+  type AccentThemeId,
+} from '@/constants/accent-themes';
+import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
 import { loadNovaNotificationPrefs, saveNovaNotificationPrefs } from '@/lib/nova/prefs-store';
+import { loadAccentThemeId, saveAccentThemeId } from '@/lib/theme/accent-prefs';
 import { DEFAULT_NOVA_NOTIFICATION_PREFS, novaNotifications } from '@/services/nova-notifications';
 import { runMonitorPass } from '@/services/nova-monitor';
 import { novaService, suggestedNovaQuestions } from '@/services/nova-service';
@@ -44,6 +52,7 @@ import type {
   HouseholdEvent,
   HouseholdMember,
   HouseholdRole,
+  HouseholdRoom,
   HouseholdSnapshot,
   HouseholdTask,
   InviteLinks,
@@ -143,6 +152,11 @@ type OrbitContextValue = {
     data?: Record<string, unknown>;
   }) => Promise<NotificationItem | null>;
   updateNotificationPrefs: (prefs: Partial<NovaNotificationPrefs>) => void;
+  updateAccentTheme: (themeId: AccentThemeId) => void;
+  accentTheme: AccentTheme;
+  updateMemberAvatar: (memberId: string, avatar: string) => Promise<void>;
+  upsertRoom: (room: HouseholdRoom) => void;
+  removeRoom: (roomId: string) => void;
   runNovaMonitor: () => Promise<NovaMonitorAction[]>;
   requestRewardRedemption: (rewardId: string, note?: string) => Promise<void>;
   requestSpecialReward: (title: string, note?: string, cost?: number) => Promise<void>;
@@ -282,8 +296,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
       if (!session) {
         if (isMounted) {
-          const prefs = await loadNovaNotificationPrefs(mockHousehold.id);
-          setHousehold((current) => ({ ...current, notificationPrefs: prefs }));
+          const [prefs, themeId] = await Promise.all([
+            loadNovaNotificationPrefs(mockHousehold.id),
+            loadAccentThemeId(mockHousehold.id),
+          ]);
+          setHousehold((current) => ({
+            ...current,
+            notificationPrefs: prefs,
+            accentThemeId: themeId,
+            rooms: current.rooms?.length ? current.rooms : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
+          }));
           setStoreRecommendations(buildStoreRecommendations(mockHousehold.id, mockHousehold.groceries));
           const items = await notificationsRepository.list(mockHousehold.id);
           setNotifications(items);
@@ -310,9 +332,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
 
       if (isMounted) {
-        const prefs = await loadNovaNotificationPrefs(hydratedHousehold.id);
+        const [prefs, themeId] = await Promise.all([
+          loadNovaNotificationPrefs(hydratedHousehold.id),
+          loadAccentThemeId(hydratedHousehold.id),
+        ]);
         setCurrentUser(session.user);
-        setHousehold({ ...hydratedHousehold, notificationPrefs: prefs });
+        setHousehold({
+          ...hydratedHousehold,
+          notificationPrefs: prefs,
+          accentThemeId: themeId,
+          rooms: hydratedHousehold.rooms?.length
+            ? hydratedHousehold.rooms
+            : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
+        });
         const history = await novaRepository.getConversationHistory(
           hydratedHousehold.id,
           session.user.id
@@ -871,6 +903,51 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
   };
 
+  const accentTheme = useMemo(
+    () => getAccentTheme(household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID),
+    [household.accentThemeId]
+  );
+
+  const updateAccentTheme = (themeId: AccentThemeId) => {
+    setHousehold((current) => ({ ...current, accentThemeId: themeId }));
+    void saveAccentThemeId(household.id, themeId);
+  };
+
+  const updateMemberAvatar = async (memberId: string, avatar: string) => {
+    const member = household.members.find((item) => item.id === memberId);
+    if (!member) {
+      return;
+    }
+    const updated = await householdRepository.updateMemberAvatar(member, avatar);
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((item) => (item.id === memberId ? updated : item)),
+    }));
+    if (currentUser?.name === member.name) {
+      setCurrentUser((prev) => (prev ? { ...prev, avatar } : prev));
+    }
+  };
+
+  const upsertRoom = (room: HouseholdRoom) => {
+    setHousehold((current) => {
+      const rooms = current.rooms ?? [];
+      const exists = rooms.some((item) => item.id === room.id);
+      return {
+        ...current,
+        rooms: exists
+          ? rooms.map((item) => (item.id === room.id ? room : item))
+          : [...rooms, room],
+      };
+    });
+  };
+
+  const removeRoom = (roomId: string) => {
+    setHousehold((current) => ({
+      ...current,
+      rooms: (current.rooms ?? []).filter((item) => item.id !== roomId),
+    }));
+  };
+
   const runNovaMonitor = useCallback(async () => {
     const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
     const result = runMonitorPass(household, metrics, prefs);
@@ -1292,6 +1369,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       markAllNotificationsRead,
       pushNotification,
       updateNotificationPrefs,
+      updateAccentTheme,
+      accentTheme,
+      updateMemberAvatar,
+      upsertRoom,
+      removeRoom,
       runNovaMonitor,
       requestRewardRedemption,
       requestSpecialReward,
@@ -1340,6 +1422,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       refreshInviteLinks,
       refreshSmartHome,
       runNovaMonitor,
+      accentTheme,
+      updateAccentTheme,
+      updateMemberAvatar,
+      upsertRoom,
+      removeRoom,
     ]
   );
 
@@ -1367,6 +1454,10 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     taskTemplates: baseHousehold.taskTemplates ?? [],
     notificationPrefs: baseHousehold.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS,
     preferredStoreId: baseHousehold.preferredStoreId ?? 'store-freshmart',
+    accentThemeId: baseHousehold.accentThemeId ?? DEFAULT_ACCENT_THEME_ID,
+    rooms: baseHousehold.rooms?.length
+      ? baseHousehold.rooms
+      : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
   };
   const briefing = await novaRepository.getNovaBriefing(initialHousehold, calculateMetrics(initialHousehold));
 
@@ -1374,6 +1465,10 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     ...initialHousehold,
     nova: briefing,
   };
+}
+
+export function useOrbitOptional() {
+  return useContext(OrbitContext);
 }
 
 export function useOrbit() {

@@ -52,6 +52,24 @@ export type HouseholdTask = {
   repeat: 'None' | 'Daily' | 'Weekly' | 'Weekdays';
   status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue';
   dueAt?: string;
+  /** Optional room for cleaning attribution. */
+  roomId?: string;
+};
+
+export type HouseholdRoomKind =
+  | 'kitchen'
+  | 'living'
+  | 'bathroom'
+  | 'bedroom'
+  | 'laundry'
+  | 'outdoor'
+  | 'custom';
+
+export type HouseholdRoom = {
+  id: string;
+  name: string;
+  emoji: string;
+  kind: HouseholdRoomKind;
 };
 
 export type GroceryItem = {
@@ -119,6 +137,12 @@ export type ProductCatalogItem = {
   salePrice?: number;
   aisle?: string;
   storeId?: string;
+  imageUrl?: string;
+  ingredients?: string;
+  allergens?: string[];
+  nutriScore?: string;
+  novaGroup?: number;
+  source?: 'mock' | 'openfoodfacts';
 };
 
 export type PreferredStore = {
@@ -211,6 +235,7 @@ export type CreateTaskInput = {
   difficulty?: TaskDifficulty;
   proofRequired?: boolean;
   dueAt?: string;
+  roomId?: string;
   /** When true, also save into household custom catalog (admin mint). */
   saveAsTemplate?: boolean;
 };
@@ -225,6 +250,8 @@ export type CreateGroceryInput = {
   aisle?: string;
   storeId?: string;
   requestedBy?: string;
+  location?: GroceryItem['location'];
+  note?: string;
   /** Wishlist items for kids who met XP threshold. */
   wishlist?: boolean;
 };
@@ -330,7 +357,10 @@ export type HouseholdSnapshot = {
   groceries: GroceryItem[];
   events: HouseholdEvent[];
   itineraries: Itinerary[];
+  rooms: HouseholdRoom[];
   preferredStoreId?: string;
+  /** Make accent theme id (ocean/aurora/…). */
+  accentThemeId?: string;
   taskTemplates: TaskTemplate[];
   notificationPrefs: NovaNotificationPrefs;
   rewards: Reward[];

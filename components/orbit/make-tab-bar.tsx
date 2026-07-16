@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { orbitTabColors } from '@/constants/orbit-theme';
+import { useOrbitOptional } from '@/store/orbit-store';
 
 const INACTIVE = '#3A5070';
 
@@ -29,6 +30,9 @@ const TAB_META: Record<
  */
 export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const orbit = useOrbitOptional();
+  const accentPrimary = orbit?.accentTheme.primary ?? '#38BDF8';
+  const accentSecondary = orbit?.accentTheme.secondary ?? '#0EA5E9';
   const activeRouteName = state.routes[state.index]?.name;
 
   const visibleRoutes = TAB_ORDER.map((name) => {
@@ -46,7 +50,8 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           if (!meta) return null;
 
           const isNova = route.name === 'nova';
-          const { label, color, icon } = meta;
+          const { label, icon } = meta;
+          const color = route.name === 'index' ? accentPrimary : meta.color;
 
           const onPress = () => {
             if (process.env.EXPO_OS === 'ios') {
@@ -69,7 +74,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
             });
           };
 
-          const labelColor = isFocused ? (isNova ? '#38BDF8' : color) : INACTIVE;
+          const labelColor = isFocused ? (isNova ? accentPrimary : color) : INACTIVE;
 
           return (
             <Pressable
@@ -82,14 +87,15 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               style={[styles.tab, isNova && styles.novaTab]}>
               {isNova ? (
                 <LinearGradient
-                  colors={isFocused ? ['#38BDF8', '#0EA5E9'] : ['#0F2644', '#0A1E38']}
+                  colors={isFocused ? [accentPrimary, accentSecondary] : ['#0F2644', '#0A1E38']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={[
                     styles.novaButton,
                     isFocused ? styles.novaButtonActive : styles.novaButtonInactive,
+                    { borderColor: `${accentPrimary}66` },
                   ]}>
-                  <IconSymbol name={icon} size={20} color={isFocused ? '#070D1C' : '#38BDF8'} />
+                  <IconSymbol name={icon} size={20} color={isFocused ? '#070D1C' : accentPrimary} />
                 </LinearGradient>
               ) : (
                 <View style={styles.iconColumn}>

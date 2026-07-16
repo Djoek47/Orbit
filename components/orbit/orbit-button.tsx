@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { orbitColors, orbitControl, orbitRadius, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { useOrbitOptional } from '@/store/orbit-store';
 
 type OrbitButtonProps = PropsWithChildren<{
   disabled?: boolean;
@@ -11,7 +12,7 @@ type OrbitButtonProps = PropsWithChildren<{
   style?: ViewStyle;
 }>;
 
-/** Make CTA: gradient primary (#38BDF8→#0EA5E9) with ink label; secondary glass. */
+/** Make CTA: gradient primary with ink label; secondary glass. Uses accent theme when available. */
 export function OrbitButton({
   children,
   disabled = false,
@@ -19,11 +20,15 @@ export function OrbitButton({
   tone = 'primary',
   style,
 }: OrbitButtonProps) {
+  const orbit = useOrbitOptional();
+  const primary = orbit?.accentTheme.primary ?? '#38BDF8';
+  const secondary = orbit?.accentTheme.secondary ?? '#0EA5E9';
+
   if (tone === 'primary' && !disabled) {
     return (
       <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [pressed && styles.pressed, style]}>
         <LinearGradient
-          colors={['#38BDF8', '#0EA5E9']}
+          colors={[primary, secondary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.button}>

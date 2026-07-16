@@ -320,6 +320,23 @@ export const householdRepository = {
     return updatedMember;
   },
 
+  async updateMemberAvatar(member: HouseholdMember, avatar: string): Promise<HouseholdMember> {
+    const updatedMember = { ...member, avatar };
+
+    if (isMockMode()) {
+      return updatedMember;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.updateMemberAvatar');
+    const { error } = await supabase
+      .from('household_members')
+      .update({ avatar_symbol: avatar })
+      .eq('id', member.id);
+    mapDbError('householdRepository.updateMemberAvatar', error);
+
+    return updatedMember;
+  },
+
   async removeMember(memberId: string): Promise<void> {
     if (isMockMode()) {
       return;
@@ -509,12 +526,17 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     groceries: mappedGroceries,
     events: mappedEvents,
     itineraries: [],
+    rooms: [],
+    accentThemeId: 'ocean',
     taskTemplates: [],
     notificationPrefs: {
       tasks: true,
       itinerary: true,
       groceries: true,
       rewards: true,
+      deals: true,
+      plans: true,
+      xpFairness: true,
     },
     rewards: (rewards ?? []).map((row) => mapRewardRow(row)),
     badges: (badges ?? []).map((row) => mapBadgeRow(row)),

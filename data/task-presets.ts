@@ -10,6 +10,7 @@ export type TaskPreset = {
   repeat: HouseholdTask['repeat'];
   proofRequired: boolean;
   description?: string;
+  roomKind?: 'kitchen' | 'living' | 'bathroom' | 'bedroom' | 'laundry' | 'outdoor' | 'custom';
 };
 
 /** Catalog shown first on Create Task — custom mint is admin-only. */
@@ -23,6 +24,7 @@ export const TASK_PRESETS: TaskPreset[] = [
     weight: 1,
     repeat: 'Weekly',
     proofRequired: false,
+    roomKind: 'kitchen',
   },
   {
     id: 'preset-dishes',
@@ -33,6 +35,7 @@ export const TASK_PRESETS: TaskPreset[] = [
     weight: 1,
     repeat: 'Daily',
     proofRequired: false,
+    roomKind: 'kitchen',
   },
   {
     id: 'preset-laundry',
@@ -44,6 +47,7 @@ export const TASK_PRESETS: TaskPreset[] = [
     repeat: 'Weekly',
     proofRequired: true,
     description: 'Photo of folded stacks before complete.',
+    roomKind: 'laundry',
   },
   {
     id: 'preset-vacuum',
@@ -54,6 +58,29 @@ export const TASK_PRESETS: TaskPreset[] = [
     weight: 1.5,
     repeat: 'Weekly',
     proofRequired: false,
+    roomKind: 'living',
+  },
+  {
+    id: 'preset-bathroom-trash',
+    title: 'Empty bathroom trash',
+    category: 'Cleaning',
+    baseXp: 15,
+    difficulty: 'easy',
+    weight: 1,
+    repeat: 'Weekly',
+    proofRequired: false,
+    roomKind: 'bathroom',
+  },
+  {
+    id: 'preset-bathroom-garbage',
+    title: 'Take bathroom garbage to bin',
+    category: 'Cleaning',
+    baseXp: 15,
+    difficulty: 'easy',
+    weight: 1,
+    repeat: 'Weekly',
+    proofRequired: false,
+    roomKind: 'bathroom',
   },
   {
     id: 'preset-homework',
@@ -94,6 +121,7 @@ export const TASK_PRESETS: TaskPreset[] = [
     weight: 2,
     repeat: 'Weekly',
     proofRequired: true,
+    roomKind: 'bathroom',
   },
   {
     id: 'preset-school-bag',

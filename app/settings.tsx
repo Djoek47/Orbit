@@ -14,53 +14,57 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ACCENT_THEMES, AVATAR_EMOJIS, type AccentThemeId } from '@/constants/accent-themes';
+import { createLocalId } from '@/repositories/repository-utils';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { useOrbit } from '@/store/orbit-store';
+import type { HouseholdRoom } from '@/types/orbit';
 
 const PANEL_BG = '#0A1525';
 
-const ACCENT_THEMES = [
-  { id: 'ocean', label: 'Ocean', primary: '#38BDF8', secondary: '#0EA5E9' },
-  { id: 'aurora', label: 'Aurora', primary: '#34D399', secondary: '#059669' },
-  { id: 'cosmic', label: 'Cosmic', primary: '#A78BFA', secondary: '#7C3AED' },
-  { id: 'sunset', label: 'Sunset', primary: '#FB923C', secondary: '#EA580C' },
-  { id: 'rose', label: 'Rose', primary: '#F472B6', secondary: '#EC4899' },
-] as const;
-
-type Section = 'main' | 'members' | 'notifications';
+type Section = 'main' | 'members' | 'notifications' | 'rooms';
 
 /** Make AdminScreen.tsx — Settings sheet chrome. */
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const {
+    accentTheme,
     currentMember,
     currentUser,
     deleteAccount,
     household,
     permissions,
+    removeRoom,
     signOut,
     switchPersona,
+    updateAccentTheme,
+    updateMemberAvatar,
     updateNotificationPrefs,
+    upsertRoom,
   } = useOrbit();
 
   const [section, setSection] = useState<Section>('main');
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(household.householdName);
-  const [themeId, setThemeId] = useState('ocean');
-  const prefs = household.notificationPrefs ?? {
-    tasks: true,
-    itinerary: true,
-    groceries: true,
-    rewards: true,
-    deals: true,
-    plans: true,
-    xpFairness: true,
-  };
-
-  const enabledCount = useMemo(
-    () => Object.values(prefs).filter(Boolean).length,
-    [prefs]
+  const [pickingAvatarFor, setPickingAvatarFor] = useState<string | null>(null);
+  const [roomDraft, setRoomDraft] = useState('');
+  const prefs = useMemo(
+    () =>
+      household.notificationPrefs ?? {
+        tasks: true,
+        itinerary: true,
+        groceries: true,
+        rewards: true,
+        deals: true,
+        plans: true,
+        xpFairness: true,
+      },
+    [household.notificationPrefs]
   );
+
+  const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
+  const themeId = (household.accentThemeId ?? accentTheme.id) as AccentThemeId;
+  const rooms = household.rooms ?? [];
 
   const handleDelete = () => {
     Alert.alert('Delete account', 'This permanently removes your Orbit account.', [
@@ -92,7 +96,7 @@ export default function SettingsScreen() {
           </Pressable>
         ) : (
           <View style={styles.titleRow}>
-            <LinearGradient colors={['#38BDF8', '#0EA5E9']} style={styles.zapBox}>
+            <LinearGradient colors={[accentTheme.primary, accentTheme.secondary]} style={styles.zapBox}>
               <MaterialIcons name="bolt" size={16} color="#070D1C" />
             </LinearGradient>
             <Text style={styles.title}>Settings</Text>
@@ -153,7 +157,7 @@ export default function SettingsScreen() {
                     <Pressable
                       key={theme.id}
                       style={styles.themeItem}
-                      onPress={() => setThemeId(theme.id)}>
+                      onPress={() => updateAccentTheme(theme.id)}>
                       <LinearGradient
                         colors={[theme.primary, theme.secondary]}
                         style={[
@@ -180,8 +184,14 @@ export default function SettingsScreen() {
             <SettingsRow
               emoji="👥"
               label="Manage Members"
-              subtitle={`${household.members.length} family members`}
+              subtitle={`${household.members.length} family members · tap avatar to customize`}
               onPress={() => setSection('members')}
+            />
+            <SettingsRow
+              emoji="🚪"
+              label="Rooms"
+              subtitle={`${rooms.length} rooms for cleaning attribution`}
+              onPress={() => setSection('rooms')}
             />
             <SettingsRow
               icon="notifications-none"
@@ -241,7 +251,7 @@ export default function SettingsScreen() {
             </SectionCard>
 
             <View style={styles.brand}>
-              <LinearGradient colors={['#38BDF8', '#0EA5E9']} style={styles.brandIcon}>
+              <LinearGradient colors={[accentTheme.primary, accentTheme.secondary]} style={styles.brandIcon}>
                 <Text style={{ fontSize: 20 }}>🏠</Text>
               </LinearGradient>
               <Text style={styles.brandName}>Orbit</Text>
@@ -252,36 +262,102 @@ export default function SettingsScreen() {
 
         {section === 'members' ? (
           <>
-            <Text style={styles.sectionHint}>Tap a member to view as them (demo)</Text>
+            <Text style={styles.sectionHint}>Tap avatar to customize · tap name to view as them</Text>
             {household.members.map((member) => {
               const active = currentMember?.id === member.id;
+              const picking = pickingAvatarFor === member.id;
               return (
-                <Pressable
-                  key={member.id}
-                  style={styles.memberCard}
-                  onPress={() => switchPersona(member.id)}>
-                  <View
+                <View key={member.id} style={styles.memberCard}>
+                  <Pressable
+                    onPress={() => setPickingAvatarFor(picking ? null : member.id)}
                     style={[
                       styles.memberAvatar,
-                      { backgroundColor: `${active ? '#38BDF8' : '#4B6080'}33` },
+                      { backgroundColor: `${active ? accentTheme.primary : '#4B6080'}33` },
                     ]}>
                     <Text style={styles.memberAvatarText}>{member.avatar}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
+                    <View style={styles.avatarEditBadge}>
+                      <MaterialIcons name="edit" size={10} color="#38BDF8" />
+                    </View>
+                  </Pressable>
+                  <Pressable style={{ flex: 1 }} onPress={() => switchPersona(member.id)}>
                     <Text style={styles.memberName}>{member.name}</Text>
                     <Text style={styles.caption}>{formatHouseholdRole(member.role)}</Text>
-                    <Text style={[styles.caption, { color: '#38BDF8', fontWeight: '600' }]}>
+                    <Text style={[styles.caption, { color: accentTheme.primary, fontWeight: '600' }]}>
                       {member.xp} XP total
                     </Text>
-                  </View>
+                  </Pressable>
                   {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
-                </Pressable>
+                  {picking ? (
+                    <View style={styles.emojiGrid}>
+                      {AVATAR_EMOJIS.map((emoji) => (
+                        <Pressable
+                          key={emoji}
+                          style={[
+                            styles.emojiChip,
+                            member.avatar === emoji && {
+                              borderColor: `${accentTheme.primary}88`,
+                              backgroundColor: `${accentTheme.primary}22`,
+                            },
+                          ]}
+                          onPress={async () => {
+                            await updateMemberAvatar(member.id, emoji);
+                            setPickingAvatarFor(null);
+                          }}>
+                          <Text style={{ fontSize: 22 }}>{emoji}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
               );
             })}
             <Pressable style={styles.linkRow} onPress={() => router.push('/household-members' as never)}>
-              <Text style={styles.linkText}>Open full members screen</Text>
-              <MaterialIcons name="chevron-right" size={16} color="#38BDF8" />
+              <Text style={[styles.linkText, { color: accentTheme.primary }]}>Open full members screen</Text>
+              <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
             </Pressable>
+          </>
+        ) : null}
+
+        {section === 'rooms' ? (
+          <>
+            <Text style={styles.sectionHint}>Rooms power cleaning presets and attribution</Text>
+            {rooms.map((room) => (
+              <View key={room.id} style={styles.prefRow}>
+                <Text style={{ fontSize: 22 }}>{room.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.memberName}>{room.name}</Text>
+                  <Text style={styles.caption}>{room.kind}</Text>
+                </View>
+                <Pressable onPress={() => removeRoom(room.id)}>
+                  <MaterialIcons name="delete-outline" size={18} color="#F87171" />
+                </Pressable>
+              </View>
+            ))}
+            <View style={styles.prefRow}>
+              <TextInput
+                value={roomDraft}
+                onChangeText={setRoomDraft}
+                placeholder="Add room name"
+                placeholderTextColor="#4B6080"
+                style={styles.roomInput}
+              />
+              <Pressable
+                style={[styles.addRoomBtn, { backgroundColor: `${accentTheme.primary}22` }]}
+                onPress={() => {
+                  const name = roomDraft.trim();
+                  if (!name) return;
+                  const room: HouseholdRoom = {
+                    id: createLocalId('room'),
+                    name,
+                    emoji: '🚪',
+                    kind: 'custom',
+                  };
+                  upsertRoom(room);
+                  setRoomDraft('');
+                }}>
+                <MaterialIcons name="add" size={18} color={accentTheme.primary} />
+              </Pressable>
+            </View>
           </>
         ) : null}
 
@@ -516,6 +592,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 16,
     padding: 16,
   },
@@ -524,10 +601,55 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     height: 56,
     justifyContent: 'center',
+    position: 'relative',
     width: 56,
+  },
+  avatarEditBadge: {
+    alignItems: 'center',
+    backgroundColor: '#0A1525',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10,
+    borderWidth: 1,
+    bottom: -2,
+    height: 20,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: -2,
+    width: 20,
   },
   memberAvatarText: { fontSize: 28 },
   memberName: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
+  emojiGrid: {
+    flexBasis: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  emojiChip: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  roomInput: {
+    color: '#EEF2FF',
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    paddingVertical: 4,
+  },
+  addRoomBtn: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
   prefRow: {
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',
