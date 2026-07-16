@@ -46,7 +46,7 @@ export default function RootLayout() {
           <Stack.Screen name="task/[id]" options={{ title: 'Task' }} />
           <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
           <Stack.Screen name="itinerary/[id]" options={{ title: 'Itinerary' }} />
-          <Stack.Screen name="create-task" options={{ presentation: 'modal', title: 'Create Task' }} />
+          <Stack.Screen name="create-task" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="add-grocery" options={{ presentation: 'modal', title: 'Missing Item' }} />
           <Stack.Screen name="scan-grocery" options={{ presentation: 'modal', title: 'Scan Product' }} />
           <Stack.Screen name="create-event" options={{ presentation: 'modal', title: 'Create Event' }} />
