@@ -28,7 +28,9 @@ import {
   smartHomeRepository,
   taskRepository,
 } from '@/repositories';
+import { loadNovaNotificationPrefs, saveNovaNotificationPrefs } from '@/lib/nova/prefs-store';
 import { DEFAULT_NOVA_NOTIFICATION_PREFS, novaNotifications } from '@/services/nova-notifications';
+import { runMonitorPass } from '@/services/nova-monitor';
 import { novaService, suggestedNovaQuestions } from '@/services/nova-service';
 import type {
   AuthSession,
@@ -51,6 +53,7 @@ import type {
   NotificationItem,
   NovaBriefing,
   NovaConversationAnswer,
+  NovaMonitorAction,
   NovaNotificationPrefs,
   NovaRecommendation,
   NovaWeeklyBriefing,
@@ -84,6 +87,7 @@ type OrbitContextValue = {
   novaConversation: NovaChatMessage[];
   novaBriefing: NovaBriefing;
   novaRecommendations: NovaRecommendation[];
+  novaMonitorActions: NovaMonitorAction[];
   novaWeeklyBriefing: NovaWeeklyBriefing;
   permissions: HouseholdPermissions;
   notifications: NotificationItem[];
@@ -95,6 +99,7 @@ type OrbitContextValue = {
   inviteLinks: InviteLinks | null;
   askNova: (question: string) => Promise<NovaConversationAnswer>;
   askNovaVoice: (audioUri: string | null) => Promise<NovaConversationAnswer>;
+  appendNovaTurn: (question: string, answer: string) => void;
   switchPersona: (memberId: string) => void;
   approveMember: (memberId: string) => Promise<void>;
   declineMember: (memberId: string) => Promise<void>;
@@ -138,6 +143,7 @@ type OrbitContextValue = {
     data?: Record<string, unknown>;
   }) => Promise<NotificationItem | null>;
   updateNotificationPrefs: (prefs: Partial<NovaNotificationPrefs>) => void;
+  runNovaMonitor: () => Promise<NovaMonitorAction[]>;
   requestRewardRedemption: (rewardId: string, note?: string) => Promise<void>;
   requestSpecialReward: (title: string, note?: string, cost?: number) => Promise<void>;
   createReward: (input: CreateRewardInput) => Promise<void>;
@@ -179,6 +185,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [novaRecommendations, setNovaRecommendations] = useState<NovaRecommendation[]>(() =>
     novaService.generateRecommendations(mockHousehold, initialMetrics)
   );
+  const [novaMonitorActions, setNovaMonitorActions] = useState<NovaMonitorAction[]>([]);
 
   const currentMember = useMemo(() => {
     if (activeMemberId) {
@@ -275,6 +282,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
       if (!session) {
         if (isMounted) {
+          const prefs = await loadNovaNotificationPrefs(mockHousehold.id);
+          setHousehold((current) => ({ ...current, notificationPrefs: prefs }));
           setStoreRecommendations(buildStoreRecommendations(mockHousehold.id, mockHousehold.groceries));
           const items = await notificationsRepository.list(mockHousehold.id);
           setNotifications(items);
@@ -301,8 +310,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
 
       if (isMounted) {
+        const prefs = await loadNovaNotificationPrefs(hydratedHousehold.id);
         setCurrentUser(session.user);
-        setHousehold(hydratedHousehold);
+        setHousehold({ ...hydratedHousehold, notificationPrefs: prefs });
         const history = await novaRepository.getConversationHistory(
           hydratedHousehold.id,
           session.user.id
@@ -848,14 +858,60 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const updateNotificationPrefs = (prefs: Partial<NovaNotificationPrefs>) => {
-    setHousehold((current) => ({
-      ...current,
-      notificationPrefs: {
+    setHousehold((current) => {
+      const next = {
         ...(current.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS),
         ...prefs,
-      },
-    }));
+      };
+      void saveNovaNotificationPrefs(current.id, next);
+      return {
+        ...current,
+        notificationPrefs: next,
+      };
+    });
   };
+
+  const runNovaMonitor = useCallback(async () => {
+    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+    const result = runMonitorPass(household, metrics, prefs);
+
+    setNovaMonitorActions(result.actions);
+    setNovaRecommendations((current) => {
+      const ids = new Set(result.recommendations.map((item) => item.id));
+      return [...result.recommendations, ...current.filter((item) => !ids.has(item.id))];
+    });
+
+    const existing = await notificationsRepository.list(household.id);
+    for (const note of result.notifications) {
+      const kind = String(note.data?.kind ?? '');
+      const already = existing.some(
+        (item) =>
+          item.category === 'ai' &&
+          !item.isRead &&
+          String(item.data?.kind ?? '') === kind &&
+          (kind !== 'task_overdue' || item.data?.taskId === note.data?.taskId)
+      );
+      if (already) continue;
+      const created = await pushNotification(note);
+      if (created) {
+        existing.unshift(created);
+      }
+    }
+
+    await trackAnalytics('nova.monitor_pass', { actions: result.actions.length }, analyticsContext);
+    return result.actions;
+  }, [analyticsContext, household, metrics]);
+
+  // Initial Monitor Agent pass once household + metrics are ready (mock-first).
+  useEffect(() => {
+    if (isLoading || !household.id || novaMonitorActions.length > 0) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      void runNovaMonitor().catch((error) => console.warn('Nova monitor pass skipped', error));
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [household.id, isLoading, novaMonitorActions.length, runNovaMonitor]);
 
   const askNova = async (question: string) => {
     setNovaAskCount((count) => count + 1);
@@ -892,6 +948,21 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     );
     await trackAnalytics('nova.voice_asked', {}, analyticsContext);
     return answer;
+  };
+
+  const appendNovaTurn = (question: string, answer: string) => {
+    setNovaAskCount((count) => count + 1);
+    setNovaConversation((current) => [
+      ...current,
+      { role: 'user', content: question },
+      { role: 'assistant', content: answer },
+    ]);
+    void novaRepository.appendConversationTurn(
+      household.id,
+      currentUser?.id ?? null,
+      question,
+      answer
+    );
   };
 
   const switchPersona = (memberId: string) => {
@@ -1168,6 +1239,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       novaConversation,
       novaBriefing,
       novaRecommendations,
+      novaMonitorActions,
       novaWeeklyBriefing,
       permissions,
       notifications,
@@ -1183,6 +1255,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         (currentMember?.role === 'child' && (currentMember?.xp ?? 0) >= CHILD_GROCERY_WISHLIST_XP),
       askNova,
       askNovaVoice,
+      appendNovaTurn,
       switchPersona,
       approveMember,
       declineMember,
@@ -1219,6 +1292,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       markAllNotificationsRead,
       pushNotification,
       updateNotificationPrefs,
+      runNovaMonitor,
       requestRewardRedemption,
       requestSpecialReward,
       createReward,
@@ -1251,6 +1325,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       novaConversation,
       novaBriefing,
       novaRecommendations,
+      novaMonitorActions,
       novaWeeklyBriefing,
       permissions,
       notifications,
@@ -1264,6 +1339,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       refreshStoreRecommendations,
       refreshInviteLinks,
       refreshSmartHome,
+      runNovaMonitor,
     ]
   );
 

@@ -1,5 +1,6 @@
 import { mockHousehold } from '@/data/mock-household';
 import { mapTaskRow, taskRepeatToDb, taskStatusToDb } from '@/lib/mappers/orbit-mappers';
+import { resolveCompletionXp } from '@/lib/tasks/xp';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type { CreateTaskInput, HouseholdTask } from '@/types/orbit';
 
@@ -175,7 +176,15 @@ async function awardTaskXp(
   taskRow: { assignee_member_id: string | null; assignee_name: string; id: string } | null,
   task: HouseholdTask
 ) {
+  const { awarded, penalty, late } = resolveCompletionXp(task);
+  if (awarded <= 0) {
+    return;
+  }
+
   let memberId = taskRow?.assignee_member_id ?? null;
+  const reason = late
+    ? `Completed task (late −${penalty} XP): ${task.title}`
+    : `Completed task: ${task.title}`;
 
   if (!memberId) {
     const { data: member } = await supabase
@@ -190,8 +199,8 @@ async function awardTaskXp(
       const { error: xpError } = await supabase
         .from('household_members')
         .update({
-          xp: (member.xp ?? 0) + task.xp,
-          week_xp: (member.week_xp ?? 0) + task.xp,
+          xp: (member.xp ?? 0) + awarded,
+          week_xp: (member.week_xp ?? 0) + awarded,
         })
         .eq('id', member.id);
       mapDbError('taskRepository.completeTask.memberXp', xpError);
@@ -207,8 +216,8 @@ async function awardTaskXp(
       const { error: xpError } = await supabase
         .from('household_members')
         .update({
-          xp: (member.xp ?? 0) + task.xp,
-          week_xp: (member.week_xp ?? 0) + task.xp,
+          xp: (member.xp ?? 0) + awarded,
+          week_xp: (member.week_xp ?? 0) + awarded,
         })
         .eq('id', member.id);
       mapDbError('taskRepository.completeTask.memberXp', xpError);
@@ -220,8 +229,8 @@ async function awardTaskXp(
     household_id: householdId,
     user_id: authData.user?.id ?? null,
     member_id: memberId,
-    amount: task.xp,
-    reason: `Completed task: ${task.title}`,
+    amount: awarded,
+    reason,
     related_task_id: task.id,
   });
   mapDbError('taskRepository.completeTask.xpTransaction', txError);

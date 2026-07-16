@@ -52,6 +52,9 @@ export default function SettingsScreen() {
     itinerary: true,
     groceries: true,
     rewards: true,
+    deals: true,
+    plans: true,
+    xpFairness: true,
   };
 
   const enabledCount = useMemo(
@@ -284,12 +287,16 @@ export default function SettingsScreen() {
 
         {section === 'notifications' ? (
           <>
+            <Text style={styles.sectionHint}>Nova Monitor categories</Text>
             {(
               [
-                ['tasks', 'Task Reminders', 'Get nudged before tasks are due', '✅'],
+                ['tasks', 'Task Reminders', 'Overdue nudges and streak checks', '✅'],
                 ['itinerary', 'Itinerary legs', 'Arrived → next and trip nudges', '🗺️'],
                 ['groceries', 'Grocery & sales', 'Missing items and aisle deals', '🛒'],
                 ['rewards', 'Rewards', 'Redemptions and XP milestones', '🎁'],
+                ['deals', 'Deal alerts', 'Mock catalog: food, shoes, electronics, furniture', '🏷️'],
+                ['plans', 'Plan proposals', 'Errand loops and itinerary suggestions', '🗺️'],
+                ['xpFairness', 'XP fairness', 'Weekly balance assessments (propose only)', '⚖️'],
               ] as const
             ).map(([key, label, sub, emoji]) => (
               <View key={key} style={styles.prefRow}>
@@ -299,7 +306,7 @@ export default function SettingsScreen() {
                   <Text style={styles.caption}>{sub}</Text>
                 </View>
                 <Switch
-                  value={prefs[key]}
+                  value={Boolean(prefs[key])}
                   onValueChange={(value) => updateNotificationPrefs({ [key]: value })}
                   trackColor={{ false: 'rgba(255,255,255,0.1)', true: '#38BDF8' }}
                   thumbColor="#fff"
@@ -308,6 +315,10 @@ export default function SettingsScreen() {
             ))}
             <Pressable style={styles.linkRow} onPress={() => router.push('/notifications' as never)}>
               <Text style={styles.linkText}>Open notifications inbox</Text>
+              <MaterialIcons name="chevron-right" size={16} color="#38BDF8" />
+            </Pressable>
+            <Pressable style={styles.linkRow} onPress={() => router.push('/(tabs)/nova' as never)}>
+              <Text style={styles.linkText}>Open Nova · Run check</Text>
               <MaterialIcons name="chevron-right" size={16} color="#38BDF8" />
             </Pressable>
           </>

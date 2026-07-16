@@ -25,6 +25,7 @@ Deno.serve(async (req) => {
       return auth.error;
     }
 
+    const transcriptOnly = String(form.get('transcriptOnly') ?? '') === '1';
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiKey) {
       return jsonResponse({
@@ -61,6 +62,10 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (transcriptOnly) {
+      return jsonResponse({ transcript, answer: '', source: 'whisper' });
+    }
+
     const context = buildCompactHouseholdContext(household);
     const completion = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -74,7 +79,7 @@ Deno.serve(async (req) => {
           {
             role: 'system',
             content:
-              'You are Nova, Orbit household co-manager. Reply in 2-3 calm spoken sentences. ' +
+              'You are Nova, the calm AI majordomo for Orbit households. Reply in 2-3 calm spoken sentences. Propose consequential changes — never silently reassign, approve rewards, or spend. ' +
               `Context: ${JSON.stringify({ metrics, ...context })}`,
           },
           { role: 'user', content: transcript },

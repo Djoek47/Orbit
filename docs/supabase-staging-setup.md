@@ -24,15 +24,19 @@ npx supabase db push
 npx supabase functions deploy nova-briefing
 npx supabase functions deploy nova-chat
 npx supabase functions deploy nova-voice
+npx supabase functions deploy nova-monitor
+npx supabase functions deploy nova-realtime-session
 npx supabase functions deploy join-household
 ```
+
+Apply `20260716200000_nova_majordomo.sql` for away windows + `notification_prefs`. See [supabase/functions/README.md](../supabase/functions/README.md) for Monitor cron.
 
 ## 4. Set secrets (Dashboard → Edge Functions → Secrets, or CLI)
 
 | Secret | Purpose |
 |--------|---------|
-| `OPENAI_API_KEY` | Nova chat, briefings, voice STT |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-side joins + briefing writes |
+| `OPENAI_API_KEY` | Nova chat, briefings, voice STT, Monitor, Realtime session mint |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side joins, briefing writes, Monitor cron |
 
 `SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically for edge functions.
 

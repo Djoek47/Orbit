@@ -28,6 +28,9 @@ export type HouseholdMember = {
   /** Consecutive-day streak for Rankings. */
   streak?: number;
   loadShare: number;
+  /** ISO date YYYY-MM-DD — member away / on holiday (Nova skips nudges). */
+  awayFrom?: string;
+  awayTo?: string;
 };
 
 export type TaskDifficulty = 'easy' | 'medium' | 'hard';
@@ -260,6 +263,21 @@ export type NovaNotificationPrefs = {
   itinerary: boolean;
   groceries: boolean;
   rewards: boolean;
+  /** Monitor Agent: deal alerts (mock catalog). */
+  deals?: boolean;
+  /** Monitor Agent: plan / itinerary proposals. */
+  plans?: boolean;
+  /** Monitor Agent: XP fairness assessments. */
+  xpFairness?: boolean;
+};
+
+/** Activity feed entry from Nova Monitor Agent. */
+export type NovaMonitorAction = {
+  id: string;
+  kind: 'nudge' | 'deals' | 'plan' | 'xp_fairness' | 'holiday' | 'ask_info' | 'monitor';
+  label: string;
+  detail: string;
+  createdAt: string;
 };
 
 export type CreateEventInput = {

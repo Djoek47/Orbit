@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
             {
               role: 'system',
               content:
-                'You are Nova, a calm AI co-manager for modern households. Be concise, actionable, never guilt-inducing. Reply with JSON only.',
+                'You are Nova, the calm AI majordomo for Orbit households. Notify, ensure fair tasks/XP, surface deals, respect holidays, free the lead’s time. Propose — never silently mutate consequential changes. Be concise. Reply with JSON only.',
             },
             { role: 'user', content: prompt },
           ],

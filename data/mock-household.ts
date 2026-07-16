@@ -51,6 +51,9 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 110,
       streak: 8,
       loadShare: 34,
+      // On a short work trip — Nova Monitor skips task nudges
+      awayFrom: todayKey(0),
+      awayTo: todayKey(2),
     },
     {
       id: 'm3',

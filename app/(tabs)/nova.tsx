@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -15,8 +15,14 @@ import {
 
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
+import {
+  isNovaRealtimeEnabled,
+  NovaRealtimeSession,
+  toolCallToMonitorAction,
+  type NovaRealtimeVisualState,
+} from '@/lib/voice/nova-realtime';
 import { useOrbit } from '@/store/orbit-store';
-import type { NotificationItem } from '@/types/orbit';
+import type { NovaMonitorAction, NotificationItem } from '@/types/orbit';
 
 type NovaTab = 'chat' | 'activity';
 type NovaVisualState = 'idle' | 'listening' | 'thinking' | 'speaking';
@@ -39,6 +45,23 @@ const ACTIVITY_TYPE_CONFIG: Record<
   rewards: { icon: 'notifications-active', color: '#A78BFA', action: 'Reminder' },
   members: { icon: 'notifications', color: '#FB923C', action: 'Notification' },
   general: { icon: 'notifications', color: '#FB923C', action: 'Notification' },
+  nudge: { icon: 'campaign', color: '#FB923C', action: 'Nudge' },
+  deals: { icon: 'local-offer', color: '#34D399', action: 'Deals' },
+  plan: { icon: 'map', color: '#38BDF8', action: 'Plan' },
+  xp_fairness: { icon: 'balance', color: '#FBBF24', action: 'XP fairness' },
+  holiday: { icon: 'flight', color: '#A78BFA', action: 'Holiday' },
+  ask_info: { icon: 'help-outline', color: '#38BDF8', action: 'Asked' },
+  monitor: { icon: 'visibility', color: '#06B6D4', action: 'Monitor' },
+};
+
+const MONITOR_KIND_EMOJI: Record<NovaMonitorAction['kind'], string> = {
+  nudge: '📣',
+  deals: '🏷️',
+  plan: '🗺️',
+  xp_fairness: '⚖️',
+  holiday: '✈️',
+  ask_info: '❓',
+  monitor: '👁️',
 };
 
 function formatTime(iso?: string) {
@@ -64,22 +87,45 @@ function activityEmoji(category: NotificationItem['category']) {
 
 export default function NovaScreen() {
   const {
+    appendNovaTurn,
     askNova,
+    askNovaVoice,
     household,
+    metrics,
     notifications,
     novaConversation,
+    novaMonitorActions,
     novaWeeklyBriefing,
+    runNovaMonitor,
     suggestedNovaQuestions,
   } = useOrbit();
 
   const [activeTab, setActiveTab] = useState<NovaTab>('chat');
   const [draft, setDraft] = useState('');
   const [asking, setAsking] = useState(false);
+  const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
+  const [voiceState, setVoiceState] = useState<NovaRealtimeVisualState>('idle');
+  const [localMonitorActions, setLocalMonitorActions] = useState<NovaMonitorAction[]>([]);
   const scrollRef = useRef<ScrollView>(null);
+  const realtimeRef = useRef<NovaRealtimeSession | null>(null);
 
-  const visualState: NovaVisualState = asking ? 'thinking' : 'idle';
+  const visualState: NovaVisualState =
+    voiceState !== 'idle'
+      ? voiceState
+      : listening
+        ? 'listening'
+        : asking
+          ? 'thinking'
+          : 'idle';
   const cfg = STATE_CONFIG[visualState];
+
+  useEffect(() => {
+    return () => {
+      realtimeRef.current?.disconnect();
+      realtimeRef.current = null;
+    };
+  }, []);
 
   const messages = useMemo(() => {
     const mapped = novaConversation.map((msg, index) => ({
@@ -103,16 +149,35 @@ export default function NovaScreen() {
     return mapped;
   }, [novaConversation, novaWeeklyBriefing.summary]);
 
+  const monitorFeed = useMemo(
+    () =>
+      [...localMonitorActions, ...novaMonitorActions].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+    [localMonitorActions, novaMonitorActions]
+  );
+
   const activityItems = useMemo(() => {
-    const aiItems = notifications.filter((item) => item.category === 'ai');
+    const fromMonitor = monitorFeed.map((action) => ({
+      id: action.id,
+      title: action.label,
+      body: action.detail,
+      category: action.kind as string,
+      createdAt: action.createdAt,
+      isMonitor: true as const,
+    }));
+    const aiItems = notifications
+      .filter((item) => item.category === 'ai')
+      .map((item) => ({ ...item, isMonitor: false as const }));
     const recent = notifications
       .filter((item) => item.category !== 'ai')
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 6);
-    return [...aiItems, ...recent].sort(
+      .slice(0, 6)
+      .map((item) => ({ ...item, isMonitor: false as const }));
+    return [...fromMonitor, ...aiItems, ...recent].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [notifications]);
+  }, [monitorFeed, notifications]);
 
   const novaStats = useMemo(
     () => [
@@ -137,7 +202,7 @@ export default function NovaScreen() {
 
   const handleSend = async (text?: string) => {
     const trimmed = (text ?? draft).trim();
-    if (!trimmed || asking) return;
+    if (!trimmed || asking || listening) return;
 
     setAsking(true);
     setError('');
@@ -147,6 +212,92 @@ export default function NovaScreen() {
       requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
     } catch {
       setError('Nova could not answer right now. Try again in a moment.');
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  const ensureRealtime = async () => {
+    if (!isNovaRealtimeEnabled()) {
+      return null;
+    }
+    if (realtimeRef.current?.isConnected) {
+      return realtimeRef.current;
+    }
+    const session = new NovaRealtimeSession({
+      onStateChange: setVoiceState,
+      onTranscript: () => {
+        requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+      },
+      onToolCall: async (name, args) => {
+        setLocalMonitorActions((current) => [toolCallToMonitorAction(name, args), ...current]);
+        return { ok: true, tool: name, args };
+      },
+      onError: (message) => setError(message),
+    });
+    const ok = await session.connect(household, metrics);
+    if (!ok) {
+      session.disconnect();
+      return null;
+    }
+    realtimeRef.current = session;
+    return session;
+  };
+
+  const handleMicPressIn = async () => {
+    if (asking || listening) return;
+    setError('');
+    setListening(true);
+    try {
+      const session = await ensureRealtime();
+      if (session) {
+        await session.beginListen();
+      } else {
+        const { startVoiceCapture } = await import('@/lib/voice/nova-voice');
+        setVoiceState('listening');
+        await startVoiceCapture();
+      }
+    } catch {
+      setListening(false);
+      setVoiceState('idle');
+      setError('Could not access the microphone.');
+    }
+  };
+
+  const handleMicPressOut = async () => {
+    if (!listening) return;
+    setAsking(true);
+    try {
+      const session = realtimeRef.current;
+      if (session?.isConnected) {
+        const result = await session.endListen(household, metrics);
+        if (result.answer) {
+          appendNovaTurn(result.answer.question, result.answer.answer);
+        }
+      } else {
+        const { stopVoiceCapture } = await import('@/lib/voice/nova-voice');
+        const uri = await stopVoiceCapture();
+        setVoiceState('thinking');
+        await askNovaVoice(uri);
+        setVoiceState('idle');
+      }
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    } catch {
+      setError('Nova voice failed. Try again or type your question.');
+      setVoiceState('idle');
+    } finally {
+      setListening(false);
+      setAsking(false);
+    }
+  };
+
+  const handleRefreshMonitor = async () => {
+    setAsking(true);
+    try {
+      await runNovaMonitor();
+      setActiveTab('activity');
+    } catch {
+      setError('Monitor refresh failed.');
     } finally {
       setAsking(false);
     }
@@ -164,8 +315,11 @@ export default function NovaScreen() {
           <View style={[styles.stateDot, { backgroundColor: cfg.color }]} />
           <Text style={[styles.stateLabel, { color: cfg.color }]}>{cfg.label}</Text>
         </View>
-        <Text style={styles.subtitle}>AI Household Co-manager</Text>
-        {/* Notifications + Settings live in GlobalHeaderChips on every tab */}
+        <Text style={styles.subtitle}>Household majordomo</Text>
+        <Pressable style={styles.refreshChip} onPress={handleRefreshMonitor} disabled={asking}>
+          <MaterialIcons name="refresh" size={14} color={orbitColors.orbitBlue} />
+          <Text style={styles.refreshChipText}>Run Nova check</Text>
+        </Pressable>
       </View>
 
       <View style={styles.segmentWrap}>
@@ -263,8 +417,16 @@ export default function NovaScreen() {
                 multiline
                 editable={!asking}
               />
-              <Pressable style={styles.micButton}>
-                <MaterialIcons name="mic" size={15} color={orbitColors.orbitBlue} />
+              <Pressable
+                style={[styles.micButton, listening && styles.micButtonActive]}
+                onPressIn={handleMicPressIn}
+                onPressOut={handleMicPressOut}
+                disabled={asking && !listening}>
+                <MaterialIcons
+                  name={listening ? 'mic' : 'mic-none'}
+                  size={15}
+                  color={listening ? '#34D399' : orbitColors.orbitBlue}
+                />
               </Pressable>
               <Pressable
                 disabled={asking || draft.trim().length < 1}
@@ -286,11 +448,15 @@ export default function NovaScreen() {
       ) : (
         <ScrollView style={styles.activityScroll} contentContainerStyle={styles.activityContent}>
           <Text style={styles.activityIntro}>
-            Nova has managed {activityItems.length} actions recently
+            Monitor Agent · {monitorFeed.length} actions · {activityItems.length} feed items
           </Text>
 
           {activityItems.map((item) => {
             const config = ACTIVITY_TYPE_CONFIG[item.category] ?? ACTIVITY_TYPE_CONFIG.general;
+            const emoji =
+              'isMonitor' in item && item.isMonitor
+                ? MONITOR_KIND_EMOJI[(item.category as NovaMonitorAction['kind'])] ?? '👁️'
+                : activityEmoji(item.category as NotificationItem['category']);
             return (
               <View key={item.id} style={styles.activityCard}>
                 <View style={[styles.activityIconWrap, { backgroundColor: `${config.color}15`, borderColor: `${config.color}25` }]}>
@@ -304,7 +470,7 @@ export default function NovaScreen() {
                   </View>
                   <Text style={styles.activityDetail}>{item.body}</Text>
                 </View>
-                <Text style={styles.activityEmoji}>{activityEmoji(item.category)}</Text>
+                <Text style={styles.activityEmoji}>{emoji}</Text>
               </View>
             );
           })}
@@ -510,6 +676,28 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: 'center',
     width: 32,
+  },
+  micButtonActive: {
+    backgroundColor: 'rgba(52,211,153,0.22)',
+    borderColor: 'rgba(52,211,153,0.45)',
+    borderWidth: 1,
+  },
+  refreshChip: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(56,189,248,0.12)',
+    borderColor: 'rgba(56,189,248,0.25)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  refreshChipText: {
+    color: orbitColors.orbitBlue,
+    fontSize: 12,
+    fontWeight: '700',
   },
   novaAvatar: {
     backgroundColor: '#0EA5E9',

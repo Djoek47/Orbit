@@ -7,6 +7,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitListItem } from '@/components/orbit/orbit-list-item';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { PREFERRED_STORES } from '@/data/preferred-stores';
+import { scanDealsForHousehold } from '@/data/mock-deals';
 import { summarizeShoppingRun } from '@/lib/grocery/savings';
 import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
@@ -34,6 +35,15 @@ export default function GroceriesScreen() {
   const purchased = household.groceries.filter((item) => item.status === 'Purchased');
   const available = household.groceries.filter((item) => item.status !== 'Missing' && item.status !== 'Purchased');
   const summary = useMemo(() => summarizeShoppingRun(household.groceries), [household.groceries]);
+  const deals = useMemo(
+    () =>
+      scanDealsForHousehold({
+        groceryNames: household.groceries
+          .filter((item) => item.status === 'Missing' || item.status === 'Low')
+          .map((item) => item.name),
+      }).slice(0, 4),
+    [household.groceries]
+  );
 
   const startStoreTrip = async () => {
     const created = await suggestNovaItinerary();
@@ -66,6 +76,24 @@ export default function GroceriesScreen() {
         </Text>
         <OrbitButton onPress={startStoreTrip}>Start store itinerary</OrbitButton>
       </GlassCard>
+
+      {deals.length > 0 ? (
+        <GlassCard style={styles.card}>
+          <Text style={orbitTypography.cardTitle}>Nova deals</Text>
+          <Text style={orbitTypography.caption}>Mock catalog · food + household goods</Text>
+          {deals.map((deal) => (
+            <View key={deal.id} style={styles.dealRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.dealTitle}>{deal.title}</Text>
+                <Text style={orbitTypography.caption}>
+                  {deal.store} · {deal.category} · save ${deal.savings.toFixed(2)}
+                </Text>
+              </View>
+              <StatusPill label={`$${deal.salePrice}`} tone="green" />
+            </View>
+          ))}
+        </GlassCard>
+      ) : null}
 
       <View style={styles.actions}>
         {permissions.canManageGroceries || canAddGroceryWishlist ? (
@@ -170,6 +198,17 @@ const styles = StyleSheet.create({
   },
   card: {
     gap: orbitSpacing.sm,
+  },
+  dealRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  dealTitle: {
+    color: orbitColors.text,
+    fontSize: 15,
+    fontWeight: '600',
   },
   list: {
     gap: orbitSpacing.sm,

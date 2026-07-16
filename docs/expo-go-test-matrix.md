@@ -33,9 +33,13 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 19 | Nova notifications | Settings toggles · inbox Nova filter · deep link to task/itinerary | ☐ |
 | 20 | Rewards shop | Redeem reward → parent Approve/Reject on Ranks | ☐ |
 | 21 | Nova text | Ask 3 questions · thread persists after leaving Nova tab | ☐ |
-| 22 | Nova voice | Talk to Nova · spoken reply (needs live OpenAI on edge) | ☐ |
+| 22 | Nova voice | Hold mic on Nova · spoken reply (Whisper fallback; Realtime when `EXPO_PUBLIC_NOVA_REALTIME=1`) | ☐ |
 | 23 | Notifications | Unread badge on Home · open item · mark read | ☐ |
 | 24 | Realtime | Complete task on A · B sees update without manual refresh (supabase) | ☐ |
+| 25 | Nova Monitor | Open Nova → Activity shows nudges/deals/plans · Settings toggles deals/plans/XP fairness | ☐ |
+| 26 | Run Nova check | Nova → Run Nova check · inbox + Activity update without OpenAI (mock) | ☐ |
+| 27 | Mock deals | Groceries → Nova deals strip shows food + non-food from mock catalog | ☐ |
+| 28 | Holiday skip | Member with away dates · Monitor skips nudges for them | ☐ |
 
 ## Automated checks (CI / agent)
 
@@ -47,4 +51,6 @@ npm run lint
 ## Known Expo Go limits
 
 - Voice uses Whisper via `nova-voice` edge function when `EXPO_PUBLIC_NOVA_AI=openai` or supabase mode.
+- OpenAI Realtime (`EXPO_PUBLIC_NOVA_REALTIME=1`) uses WebSocket + Whisper STT bridge in Expo Go; PCM mic streaming needs a custom Dev Client later if native audio quality is insufficient.
+- Monitor Agent mock pass runs locally; live `nova-monitor` edge + cron needs service role + OpenAI secret.
 - Universal links (`https://orbit.app/join/*`) need hosted redirect + EAS associated domains for production; custom scheme `orbit://join/CODE` works in dev.

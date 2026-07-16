@@ -7,6 +7,9 @@ export const DEFAULT_NOVA_NOTIFICATION_PREFS: NovaNotificationPrefs = {
   itinerary: true,
   groceries: true,
   rewards: true,
+  deals: true,
+  plans: true,
+  xpFairness: true,
 };
 
 type PushFn = (input: {
