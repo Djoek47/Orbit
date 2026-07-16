@@ -12,9 +12,9 @@ import {
   orbitSpacing,
   orbitTypography,
 } from '@/constants/orbit-theme';
-import { MEMBER_ACCENTS } from '@/lib/game-levels';
+import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
+import type { HouseholdMember, HouseholdRoom, HouseholdTask } from '@/types/orbit';
 
 type TaskFilter = 'all' | 'mine' | 'kids' | 'homework';
 
@@ -41,6 +41,16 @@ const FILTER_TABS: { id: TaskFilter; label: string }[] = [
   { id: 'homework', label: 'Homework' },
 ];
 
+const GRADIENT_BY_COLOR: Record<string, [string, string]> = {
+  '#38BDF8': ['#38BDF8', '#0EA5E9'],
+  '#A78BFA': ['#A78BFA', '#7C3AED'],
+  '#34D399': ['#34D399', '#059669'],
+  '#FB923C': ['#FB923C', '#EA580C'],
+  '#F472B6': ['#F472B6', '#EC4899'],
+  '#FBBF24': ['#FBBF24', '#D97706'],
+  '#94A3B8': ['#94A3B8', '#64748B'],
+};
+
 function isHomework(task: HouseholdTask) {
   return /homework/i.test(task.category) || /homework/i.test(task.title);
 }
@@ -63,7 +73,7 @@ function getSubjectMeta(task: HouseholdTask) {
   if (!isHomework(task)) return null;
   const key =
     Object.keys(SUBJECT_COLORS).find(
-      (subject) => subject !== 'Homework' && new RegExp(subject, 'i').test(`${task.category} ${task.title}`)
+      (subject) => subject !== 'Homework' && new RegExp(subject, 'i').test(`${task.category} ${task.title} ${task.description ?? ''}`)
     ) ?? 'Homework';
   return { ...SUBJECT_COLORS[key], label: key };
 }
@@ -76,11 +86,16 @@ function getPriorityColor(task: HouseholdTask) {
   return PRIORITY_COLORS.medium;
 }
 
-function XPBadge({ xp, done }: { xp: number; done: boolean }) {
+function memberAccentColor(member?: HouseholdMember) {
+  if (!member) return orbitColors.success;
+  return MEMBER_ACCENTS[member.name]?.color ?? orbitColors.success;
+}
+
+function XPBadge({ xp, done, accent }: { xp: number; done: boolean; accent: string }) {
   return (
-    <View style={[styles.xpBadge, done && styles.xpBadgeDone]}>
+    <View style={[styles.xpBadge, done && styles.xpBadgeDone, !done && { backgroundColor: `${accent}1F` }]}>
       <Text style={styles.xpBolt}>⚡</Text>
-      <Text style={[styles.xpBadgeText, done && styles.xpBadgeTextDone]}>+{xp}</Text>
+      <Text style={[styles.xpBadgeText, done && styles.xpBadgeTextDone, !done && { color: accent }]}>+{xp}</Text>
     </View>
   );
 }
@@ -88,20 +103,25 @@ function XPBadge({ xp, done }: { xp: number; done: boolean }) {
 function TaskItem({
   task,
   member,
+  room,
+  accentPrimary,
   justCompleted,
   onToggle,
 }: {
   task: HouseholdTask;
   member?: HouseholdMember;
+  room?: HouseholdRoom;
+  accentPrimary: string;
   justCompleted: boolean;
   onToggle: () => void;
 }) {
   const done = task.status === 'Completed';
   const sub = getSubjectMeta(task);
-  const accent = member ? (MEMBER_ACCENTS[member.name]?.color ?? orbitColors.success) : orbitColors.success;
+  const accent = memberAccentColor(member);
   const borderColor = done
     ? accent
     : `${isHomework(task) ? (sub?.color ?? orbitColors.planPurple) : getPriorityColor(task)}80`;
+  const avatarGradient = GRADIENT_BY_COLOR[accent] ?? [accent, accent];
 
   return (
     <View style={[styles.taskItem, done && styles.taskItemDone]}>
@@ -133,14 +153,27 @@ function TaskItem({
         <View style={styles.metaRow}>
           <MaterialIcons name="schedule" size={10} color={orbitColors.textSubtle} />
           <Text style={styles.dueText}>{task.due}</Text>
-          {member ? (
-            <View
-              style={[
-                styles.assigneeDot,
-                { backgroundColor: `${MEMBER_ACCENTS[member.name]?.color ?? orbitColors.orbitBlue}33` },
-              ]}>
-              <Text style={styles.assigneeInitial}>{member.avatar.slice(0, 1)}</Text>
+          {task.repeat !== 'None' ? (
+            <View style={styles.metaPill}>
+              <Text style={styles.metaPillText}>{task.repeat}</Text>
             </View>
+          ) : null}
+          {room ? (
+            <View style={styles.metaPill}>
+              <Text style={styles.metaPillText}>
+                {room.emoji} {room.name}
+              </Text>
+            </View>
+          ) : null}
+          {task.proofRequired ? (
+            <View style={[styles.metaPill, { backgroundColor: 'rgba(251,146,60,0.15)' }]}>
+              <Text style={[styles.metaPillText, { color: orbitColors.warning }]}>Proof</Text>
+            </View>
+          ) : null}
+          {member ? (
+            <LinearGradient colors={avatarGradient} style={styles.assigneeDot}>
+              <Text style={styles.assigneeEmoji}>{memberDisplayEmoji(member)}</Text>
+            </LinearGradient>
           ) : null}
         </View>
       </Pressable>
@@ -148,10 +181,10 @@ function TaskItem({
       {justCompleted ? (
         <View style={styles.celebrate}>
           <Text style={styles.celebrateBolt}>⚡</Text>
-          <Text style={styles.celebrateXp}>+{task.xp}</Text>
+          <Text style={[styles.celebrateXp, { color: accentPrimary }]}>+{task.xp}</Text>
         </View>
       ) : (
-        <XPBadge xp={task.xp} done={done} />
+        <XPBadge xp={task.xp} done={done} accent={accentPrimary} />
       )}
     </View>
   );
@@ -164,6 +197,8 @@ function TaskSection({
   countLabel,
   tasks,
   members,
+  rooms,
+  accentPrimary,
   muted,
   justCompletedId,
   onToggle,
@@ -174,6 +209,8 @@ function TaskSection({
   countLabel: string;
   tasks: HouseholdTask[];
   members: HouseholdMember[];
+  rooms: HouseholdRoom[];
+  accentPrimary: string;
   muted?: boolean;
   justCompletedId: string | null;
   onToggle: (taskId: string) => void;
@@ -201,6 +238,8 @@ function TaskSection({
           <TaskItem
             task={task}
             member={getMember(members, task.assignee)}
+            room={rooms.find((item) => item.id === task.roomId)}
+            accentPrimary={accentPrimary}
             justCompleted={justCompletedId === task.id}
             onToggle={() => onToggle(task.id)}
           />
@@ -211,10 +250,13 @@ function TaskSection({
 }
 
 export default function TasksScreen() {
-  const { completeTask, currentMember, household } = useOrbit();
+  const { accentTheme, completeTask, currentMember, household, permissions } = useOrbit();
   const [filter, setFilter] = useState<TaskFilter>('all');
+  const [roomFilter, setRoomFilter] = useState<string | null>(null);
+  const [showRoomFilter, setShowRoomFilter] = useState(false);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
 
+  const rooms = household.rooms ?? [];
   const childNames = useMemo(
     () => new Set(household.members.filter((member) => member.role === 'child').map((member) => member.name)),
     [household.members]
@@ -222,13 +264,13 @@ export default function TasksScreen() {
 
   const filtered = useMemo(() => {
     return household.tasks.filter((task) => {
-      if (filter === 'all') return true;
-      if (filter === 'mine') return task.assignee === currentMember?.name;
-      if (filter === 'kids') return childNames.has(task.assignee);
-      if (filter === 'homework') return isHomework(task);
+      if (filter === 'mine' && task.assignee !== currentMember?.name) return false;
+      if (filter === 'kids' && !childNames.has(task.assignee)) return false;
+      if (filter === 'homework' && !isHomework(task)) return false;
+      if (roomFilter && task.roomId !== roomFilter) return false;
       return true;
     });
-  }, [childNames, currentMember?.name, filter, household.tasks]);
+  }, [childNames, currentMember?.name, filter, household.tasks, roomFilter]);
 
   const grouped = useMemo(
     () => ({
@@ -240,6 +282,7 @@ export default function TasksScreen() {
   );
 
   const totalXPToday = grouped.today.reduce((sum, task) => sum + task.xp, 0);
+  const empty = grouped.today.length + grouped.upcoming.length + grouped.done.length === 0;
 
   const handleToggle = async (taskId: string) => {
     const task = household.tasks.find((item) => item.id === taskId);
@@ -261,22 +304,24 @@ export default function TasksScreen() {
           <Text style={orbitTypography.caption}>Tasks & Homework</Text>
           <Text style={orbitTypography.display}>Today&apos;s Work</Text>
         </View>
-        <Pressable onPress={() => router.push('/create-task' as never)} style={styles.addButtonWrap}>
-          <LinearGradient
-            colors={['#38BDF8', '#0EA5E9']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.addButton}>
-            <MaterialIcons name="add" size={20} color={orbitColors.ink} />
-          </LinearGradient>
-        </Pressable>
+        {permissions.canCreateTask ? (
+          <Pressable onPress={() => router.push('/create-task' as never)} style={styles.addButtonWrap}>
+            <LinearGradient
+              colors={[accentTheme.primary, accentTheme.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.addButton}>
+              <MaterialIcons name="add" size={20} color={orbitColors.ink} />
+            </LinearGradient>
+          </Pressable>
+        ) : null}
       </View>
 
       <LinearGradient
-        colors={['rgba(56,189,248,0.12)', 'rgba(52,211,153,0.08)']}
+        colors={[`${accentTheme.primary}1F`, 'rgba(52,211,153,0.08)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.xpBanner}>
+        style={[styles.xpBanner, { borderColor: `${accentTheme.primary}26` }]}>
         <View style={styles.xpBannerLeft}>
           <MaterialIcons name="local-fire-department" size={16} color={orbitColors.warning} />
           <Text style={styles.xpBannerTitle}>{totalXPToday} XP available today</Text>
@@ -291,15 +336,86 @@ export default function TasksScreen() {
             <Pressable
               key={tab.id}
               onPress={() => setFilter(tab.id)}
-              style={[styles.filterChip, active && styles.filterChipActive]}>
-              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{tab.label}</Text>
+              style={[
+                styles.filterChip,
+                active && {
+                  backgroundColor: `${accentTheme.primary}2E`,
+                  borderColor: `${accentTheme.primary}4D`,
+                },
+              ]}>
+              <Text style={[styles.filterChipText, active && { color: accentTheme.primary, fontWeight: '600' }]}>
+                {tab.label}
+              </Text>
             </Pressable>
           );
         })}
-        <Pressable style={styles.filterIconButton}>
-          <MaterialIcons name="filter-list" size={14} color={orbitColors.textSubtle} />
+        <Pressable
+          style={[
+            styles.filterIconButton,
+            (showRoomFilter || roomFilter) && {
+              backgroundColor: `${accentTheme.primary}2E`,
+              borderColor: `${accentTheme.primary}4D`,
+            },
+          ]}
+          onPress={() => setShowRoomFilter((value) => !value)}>
+          <MaterialIcons
+            name="filter-list"
+            size={14}
+            color={showRoomFilter || roomFilter ? accentTheme.primary : orbitColors.textSubtle}
+          />
         </Pressable>
       </View>
+
+      {showRoomFilter ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomFilterRow}>
+          <Pressable
+            onPress={() => setRoomFilter(null)}
+            style={[
+              styles.roomChip,
+              !roomFilter && {
+                backgroundColor: `${accentTheme.primary}22`,
+                borderColor: `${accentTheme.primary}44`,
+              },
+            ]}>
+            <Text style={[styles.roomChipText, !roomFilter && { color: accentTheme.primary }]}>All rooms</Text>
+          </Pressable>
+          {rooms.map((room) => {
+            const active = roomFilter === room.id;
+            return (
+              <Pressable
+                key={room.id}
+                onPress={() => setRoomFilter(room.id)}
+                style={[
+                  styles.roomChip,
+                  active && {
+                    backgroundColor: `${accentTheme.primary}22`,
+                    borderColor: `${accentTheme.primary}44`,
+                  },
+                ]}>
+                <Text style={[styles.roomChipText, active && { color: accentTheme.primary }]}>
+                  {room.emoji} {room.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
+      {empty ? (
+        <GlassCard>
+          <Text style={styles.emptyTitle}>Nothing in this view</Text>
+          <Text style={styles.emptyBody}>
+            {permissions.canCreateTask
+              ? "Create a preset or custom task to fill Today's Work."
+              : 'Ask an adult to assign you something, or switch filters.'}
+          </Text>
+          {permissions.canCreateTask ? (
+            <Pressable onPress={() => router.push('/create-task' as never)} style={styles.emptyCta}>
+              <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Create task</Text>
+            </Pressable>
+          ) : null}
+        </GlassCard>
+      ) : null}
 
       <TaskSection
         title="Due Today"
@@ -308,16 +424,20 @@ export default function TasksScreen() {
         countLabel={`${grouped.today.length} items`}
         tasks={grouped.today}
         members={household.members}
+        rooms={rooms}
+        accentPrimary={accentTheme.primary}
         justCompletedId={justCompletedId}
         onToggle={handleToggle}
       />
 
       <TaskSection
         title="Upcoming"
-        dotColor={orbitColors.orbitBlue}
+        dotColor={accentTheme.primary}
         countLabel={`${grouped.upcoming.length} items`}
         tasks={grouped.upcoming}
         members={household.members}
+        rooms={rooms}
+        accentPrimary={accentTheme.primary}
         justCompletedId={justCompletedId}
         onToggle={handleToggle}
       />
@@ -328,6 +448,8 @@ export default function TasksScreen() {
         countLabel={`+${grouped.done.reduce((sum, task) => sum + task.xp, 0)} XP earned`}
         tasks={grouped.done}
         members={household.members}
+        rooms={rooms}
+        accentPrimary={accentTheme.primary}
         muted
         justCompletedId={justCompletedId}
         onToggle={handleToggle}
@@ -357,10 +479,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 16,
   },
-  assigneeInitial: {
-    color: orbitColors.text,
-    fontSize: 10,
-    fontWeight: '700',
+  assigneeEmoji: {
+    fontSize: 9,
   },
   celebrate: {
     alignItems: 'center',
@@ -371,7 +491,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   celebrateXp: {
-    color: orbitColors.orbitBlue,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -396,6 +515,24 @@ const styles = StyleSheet.create({
     color: orbitColors.textSubtle,
     fontSize: 12,
   },
+  emptyBody: {
+    color: orbitColors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  emptyCta: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  emptyCtaText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  emptyTitle: {
+    color: orbitColors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
   filterChip: {
     backgroundColor: orbitColors.card,
     borderColor: orbitColors.border,
@@ -404,18 +541,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  filterChipActive: {
-    backgroundColor: 'rgba(56,189,248,0.18)',
-    borderColor: 'rgba(56,189,248,0.3)',
-  },
   filterChipText: {
     color: orbitColors.textSubtle,
     fontSize: 12,
     fontWeight: '400',
-  },
-  filterChipTextActive: {
-    color: orbitColors.orbitBlue,
-    fontWeight: '600',
   },
   filterIconButton: {
     alignItems: 'center',
@@ -440,11 +569,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 4,
   },
+  metaPill: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  metaPillText: {
+    color: orbitColors.textMuted,
+    fontSize: 10,
+    fontWeight: '600',
+  },
   metaRow: {
     alignItems: 'center',
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 4,
+  },
+  roomChip: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  roomChipText: {
+    color: orbitColors.textSubtle,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  roomFilterRow: {
+    gap: 8,
+    paddingBottom: 2,
   },
   sectionCount: {
     color: orbitColors.textSubtle,
