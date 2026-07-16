@@ -1,58 +1,79 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { GlassCard } from '@/components/orbit/glass-card';
-import { NovaOrb } from '@/components/orbit/nova-orb';
-import { OrbitButton } from '@/components/orbit/orbit-button';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { AuthShell } from '@/components/orbit/auth-shell';
+import { orbitColors } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function WelcomeScreen() {
-  const { currentUser, hasHousehold, isLoading, isSignedIn } = useOrbit();
+  const { accentTheme, currentUser, hasHousehold, isLoading, isSignedIn } = useOrbit();
 
   if (!isLoading && isSignedIn && currentUser?.profileComplete && hasHousehold) {
     return <Redirect href="/" />;
   }
 
   return (
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={[orbitScreen.content, styles.content]}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={styles.hero}>
-        <NovaOrb />
-        <Text style={styles.brand}>Orbit</Text>
-        <Text style={orbitTypography.display}>A calmer command center for home.</Text>
-        <Text style={orbitTypography.body}>
-          Tasks, groceries, calendar, rewards, and Nova briefings in one shared household rhythm.
-        </Text>
+    <AuthShell
+      brandHero
+      title="A calmer command center for home"
+      subtitle="Tasks, groceries, Plan, ranks, and Nova — one shared household rhythm. Have an invite QR? Sign in and your code carries through to Join."
+      footer={
+        <View style={styles.footer}>
+          <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.ctaWrap}>
+            <LinearGradient
+              colors={[accentTheme.primary, accentTheme.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.cta}>
+              <Text style={styles.ctaText}>Sign in</Text>
+              <MaterialIcons name="arrow-forward" size={18} color="#070D1C" />
+            </LinearGradient>
+          </Pressable>
+          <Pressable onPress={() => router.push('/sign-up' as never)} style={styles.secondary}>
+            <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>Create account</Text>
+          </Pressable>
+        </View>
+      }>
+      <View style={styles.points}>
+        {[
+          { emoji: '✅', label: 'Shared tasks & homework' },
+          { emoji: '🛒', label: 'Grocery intelligence' },
+          { emoji: '✨', label: 'Nova, your household co-manager' },
+        ].map((item) => (
+          <View key={item.label} style={styles.pointRow}>
+            <Text style={styles.pointEmoji}>{item.emoji}</Text>
+            <Text style={styles.pointText}>{item.label}</Text>
+          </View>
+        ))}
       </View>
-
-      <GlassCard elevated style={styles.panel}>
-        <OrbitButton onPress={() => router.push('/sign-in' as never)}>Sign In</OrbitButton>
-        <OrbitButton tone="secondary" onPress={() => router.push('/sign-up' as never)}>
-          Create Account
-        </OrbitButton>
-      </GlassCard>
-    </ScrollView>
+    </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  brand: {
-    color: orbitColors.novaCyan,
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 0,
-  },
-  content: {
+  points: { gap: 12 },
+  pointRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  pointEmoji: { fontSize: 18 },
+  pointText: { color: orbitColors.textSoft, fontSize: 14, fontWeight: '600', flex: 1 },
+  footer: { gap: 10 },
+  ctaWrap: { borderRadius: 18, overflow: 'hidden' },
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    minHeight: '100%',
+    gap: 8,
+    paddingVertical: 16,
   },
-  hero: {
-    gap: orbitSpacing.md,
+  ctaText: { color: '#070D1C', fontSize: 15, fontWeight: '800' },
+  secondary: {
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingVertical: 15,
   },
-  panel: {
-    gap: orbitSpacing.md,
-  },
+  secondaryText: { fontSize: 15, fontWeight: '800' },
 });
