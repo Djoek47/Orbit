@@ -1,56 +1,83 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { GlassCard } from '@/components/orbit/glass-card';
-import { OrbitButton } from '@/components/orbit/orbit-button';
-import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { AuthShell } from '@/components/orbit/auth-shell';
+import { orbitColors } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function PendingApprovalScreen() {
-  const { household, refreshHousehold } = useOrbit();
+  const { accentTheme, household, refreshHousehold } = useOrbit();
+  const [busy, setBusy] = useState(false);
 
   return (
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Almost there</Text>
-        <Text style={orbitTypography.display}>Waiting for approval</Text>
-        <Text style={orbitTypography.body}>
-          Your request to join {household.householdName} is pending. An owner or admin needs to approve you on
-          Members before full access unlocks.
-        </Text>
+    <AuthShell
+      kicker="Almost there"
+      title="Waiting for approval"
+      subtitle={`Your request to join ${household.householdName} is pending. An owner or admin needs to approve you before full access unlocks.`}
+      footer={
+        <Pressable onPress={() => router.push('/settings' as never)} style={styles.secondary}>
+          <Text style={styles.secondaryText}>Open settings</Text>
+        </Pressable>
+      }>
+      <View style={styles.pill}>
+        <MaterialIcons name="hourglass-empty" size={14} color={orbitColors.warning} />
+        <Text style={styles.pillText}>Pending adult</Text>
       </View>
+      <Text style={styles.cardTitle}>Limited access is active</Text>
+      <Text style={styles.body}>
+        You can browse calmly, but creating tasks, groceries, and invites stay locked until approval lands.
+      </Text>
 
-      <GlassCard elevated style={styles.card}>
-        <StatusPill label="Pending adult" tone="amber" />
-        <Text style={orbitTypography.cardTitle}>Limited access is active</Text>
-        <Text style={orbitTypography.caption}>
-          You can browse calmly, but creating tasks, groceries, and invites stay locked until approval lands.
-        </Text>
-      </GlassCard>
-
-      <OrbitButton
+      <Pressable
         onPress={async () => {
-          await refreshHousehold();
-          router.replace('/' as never);
-        }}>
-        Check approval status
-      </OrbitButton>
-      <OrbitButton tone="secondary" onPress={() => router.push('/settings' as never)}>
-        Open settings
-      </OrbitButton>
-    </ScrollView>
+          setBusy(true);
+          try {
+            await refreshHousehold();
+            router.replace('/' as never);
+          } finally {
+            setBusy(false);
+          }
+        }}
+        style={styles.ctaWrap}>
+        <LinearGradient
+          colors={[accentTheme.primary, accentTheme.secondary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.cta}>
+          <Text style={styles.ctaText}>{busy ? 'Checking…' : 'Check approval status'}</Text>
+        </LinearGradient>
+      </Pressable>
+    </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: orbitSpacing.md,
+  pill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(251,146,60,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  note: {
-    color: orbitColors.textMuted,
+  pillText: { color: orbitColors.warning, fontSize: 12, fontWeight: '700' },
+  cardTitle: { color: orbitColors.text, fontSize: 16, fontWeight: '800' },
+  body: { color: orbitColors.textSoft, fontSize: 14, lineHeight: 20 },
+  ctaWrap: { borderRadius: 18, overflow: 'hidden', marginTop: 4 },
+  cta: { alignItems: 'center', paddingVertical: 15 },
+  ctaText: { color: '#070D1C', fontSize: 15, fontWeight: '800' },
+  secondary: {
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingVertical: 14,
   },
+  secondaryText: { color: orbitColors.textMuted, fontSize: 14, fontWeight: '700' },
 });

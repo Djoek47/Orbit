@@ -331,6 +331,8 @@ export type SignUpInput = {
 
 export type CreateProfileInput = {
   name: string;
+  /** Optional emoji avatar chosen during onboarding. */
+  avatar?: string;
 };
 
 export type CreateHouseholdInput = {
