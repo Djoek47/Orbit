@@ -10,26 +10,32 @@ alwaysApply: true
 - Design visual/layout source: Figma Make  
   https://www.figma.com/make/4J6d4LW335tDyEDpqq3VD1/Design-Orbit-AI-App
 - Product/IA source of truth for shipping product remains `docs/product-context.md`, `docs/ux-design-system.md`, and `docs/technical-blueprint.md`.
-- For **Expo Go local visual testing**, prefer matching the current Make tabs and screen layouts.
+- Saved Make mirror + sync metadata: `design/make/` (`SYNC_STATE.json`, `source/`).
+- Automation prompt for Cursor Automations / Cloud Agents: `docs/figma-sync-automation.md`.
 
 ## Current Make navigation (v4+)
 
-Primary tabs in Make: Home, Tasks, Grocery, Ranking (Ranks), Nova.  
+Primary tabs in Make v5+: Home, Tasks, Plan (Calendar | Itineraries), Ranking (Ranks), Nova.
+Grocery intelligence exists in Make but is not a primary tab — keep Expo groceries reachable from Plan / Settings / Home.
 Settings/Admin and Create Task are overlays — not tabs.
 
-## Sync workflow (not automatic)
+## Sync workflow
 
-Figma does **not** push live into Expo. After every Make change the user wants in the app:
+Figma does not push live into Expo by itself. Changes are registered via the
+design registry and applied by a Cursor agent (manual trigger, schedule, or
+Automation):
 
-1. User pastes the Make URL (or says “sync from Figma”).
+1. User pastes the Make URL, says “sync from Figma”, or Automation runs.
 2. Agent calls Figma MCP `get_design_context` with `fileKey=4J6d4LW335tDyEDpqq3VD1` and `nodeId=0:1`.
-3. Agent fetches the changed Make source files via MCP resources (`file://figma/make/source/4J6d4LW335tDyEDpqq3VD1/...`).
+3. Agent fetches Make source via MCP resources (`file://figma/make/source/4J6d4LW335tDyEDpqq3VD1/...`) into `design/make/source/` and updates `design/make/SYNC_STATE.json`.
 4. Agent ports UI into Expo Router / React Native under `app/` and `components/orbit/`, using Orbit tokens in `constants/orbit-theme.ts` — do not paste Tailwind/web DOM code directly.
-5. User verifies in Expo Go (`npx expo start`).
+5. **Backend wire-up:** if the design introduces entities or fields, extend `supabase/` schema, repository supabase paths, and `store/orbit-store.tsx`. Do not leave new screens hard-coded mock-only when `EXPO_PUBLIC_DATA_MODE=supabase`.
+6. Open a PR; user verifies in Expo Go (`npx expo start`) and staging supabase.
 
 ## Porting rules
 
+- **No creative reinterpretation.** Layout, spacing, colors, type scale, buttons, and calendar chrome must match Make v5 source. Figma Make is the visual authority.
 - Map web Make screens to native: View/Text/Pressable/ScrollView, existing GlassCard / StatusPill / OrbitButton where possible.
-- Keep mock-first data via `store/orbit-store.tsx` and `data/mock-household.ts` while testing on Expo Go.
+- Mock mode (`store/orbit-store.tsx`, `data/mock-household.ts`) remains for Expo Go design testing; supabase mode must work for shipping builds.
 - Rankings live on the Ranks tab (`app/(tabs)/rewards.tsx` route file may remain named `rewards` for routing stability; tab title is **Ranks**).
 - Calendar may stay in the codebase but hidden from the primary tab bar while Make is 5-tab; do not delete calendar flows without an explicit product decision.

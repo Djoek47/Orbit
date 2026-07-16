@@ -8,16 +8,50 @@
     "scheme": "orbit",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "linking": {
+      "prefixes": ["orbit://", "https://orbit.app"],
+      "config": {
+        "screens": {
+          "join/[code]": "join/:code"
+        }
+      }
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "app.orbit.household",
+      "buildNumber": "1",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Orbit uses the microphone so you can talk to Nova.",
+        "NSLocationWhenInUseUsageDescription": "Orbit uses your location for nearby grocery suggestions.",
+        "NSCameraUsageDescription": "Orbit can attach photos as task proof.",
+        "NSPhotoLibraryUsageDescription": "Orbit can attach photos as task proof.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ]
+      }
     },
     "android": {
+      "package": "app.orbit.household",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#070B14",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "RECORD_AUDIO",
+        "POST_NOTIFICATIONS"
+      ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
@@ -27,22 +61,53 @@
     },
     "plugins": [
       "expo-router",
+      "expo-secure-store",
+      "expo-apple-authentication",
+      [
+        "expo-notifications",
+        {
+          "color": "#2979FF"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Orbit uses your location for nearby grocery suggestions."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Orbit uses the microphone so you can talk to Nova."
+        }
+      ],
       [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#070B14",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#070B14"
           }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Orbit uses the camera to scan household invite QR codes."
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "privacyPolicyUrl": "https://orbit.app/privacy",
+      "termsUrl": "https://orbit.app/terms"
     }
   }
 }
