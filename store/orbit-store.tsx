@@ -23,7 +23,13 @@ import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissi
 import { persistHouseholdScore } from '@/lib/momentum/score-writer';
 import { subscribeHouseholdRealtime } from '@/lib/realtime/household-realtime';
 import { spawnNextOccurrence } from '@/lib/tasks/recurring';
+import { splitOpenTasksBetweenTwo } from '@/lib/tasks/split-between';
 import { resolveCompletionXp } from '@/lib/tasks/xp';
+import {
+  canPromoteToAdmin,
+  getAdminMembers,
+  resolveSplitPair,
+} from '@/lib/household/admins';
 import {
   authRepository,
   calendarRepository,
@@ -129,6 +135,8 @@ type OrbitContextValue = {
   submitTaskProof: (taskId: string, proofUri: string) => Promise<void>;
   approveTaskProof: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
+  /** Evenly reassign every open task between the two family admins (or two chosen members). */
+  splitAllTasksBetweenTwo: (nameA?: string, nameB?: string) => Promise<void>;
   addMissingGrocery: (input: CreateGroceryInput) => void;
   setPreferredStore: (storeId: string) => void;
   preferredStore: PreferredStore;
@@ -1295,6 +1303,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!member) {
       return;
     }
+    if (role === 'admin' && !canPromoteToAdmin(household, memberId)) {
+      console.warn('Family admin seats are full (max 2).');
+      return;
+    }
 
     const updated = await householdRepository.updateMemberRole(member, role);
     setHousehold((current) => ({
@@ -1302,6 +1314,40 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       members: current.members.map((item) => (item.id === memberId ? updated : item)),
     }));
     await trackAnalytics('member.role_updated', { memberId, role }, analyticsContext);
+  };
+
+  const splitAllTasksBetweenTwo = async (nameA?: string, nameB?: string) => {
+    let left = nameA?.trim();
+    let right = nameB?.trim();
+    if (!left || !right) {
+      const pair = resolveSplitPair(household.members);
+      if (!pair) {
+        return;
+      }
+      left = pair[0].name;
+      right = pair[1].name;
+    }
+    if (left === right) {
+      return;
+    }
+
+    const nextTasks = splitOpenTasksBetweenTwo(household.tasks, left, right);
+    const changed = nextTasks.filter((task, index) => task.assignee !== household.tasks[index]?.assignee);
+    for (const task of changed) {
+      await taskRepository.updateTask(task);
+    }
+    setHousehold((current) => ({
+      ...current,
+      tasks: splitOpenTasksBetweenTwo(current.tasks, left!, right!),
+    }));
+    await pushNotification({
+      title: 'Nova · Tasks split',
+      body: `Open tasks are now shared between ${left} and ${right}.`,
+      category: 'tasks',
+      priority: 'medium',
+      data: { kind: 'tasks_split', nameA: left, nameB: right },
+    });
+    await trackAnalytics('task.split_between_two', { nameA: left, nameB: right }, analyticsContext);
   };
 
   const removeMember = async (memberId: string) => {
@@ -1435,6 +1481,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       submitTaskProof,
       approveTaskProof,
       deleteTask,
+      splitAllTasksBetweenTwo,
       addMissingGrocery,
       setPreferredStore,
       joinHousehold,

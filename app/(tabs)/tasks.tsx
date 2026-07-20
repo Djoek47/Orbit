@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
@@ -14,10 +14,11 @@ import {
   orbitTypography,
 } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
+import { getAdminMembers, resolveSplitPair } from '@/lib/household/admins';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdRoom, HouseholdTask } from '@/types/orbit';
 
-type TaskFilter = 'all' | 'mine' | 'kids' | 'homework';
+type TaskFilter = 'all' | 'mine' | 'split' | 'kids' | 'homework';
 
 const SUBJECT_COLORS: Record<string, { color: string; emoji: string }> = {
   Math: { color: '#38BDF8', emoji: '🔢' },
@@ -38,6 +39,7 @@ const PRIORITY_COLORS = {
 const FILTER_TABS: { id: TaskFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'mine', label: 'Mine' },
+  { id: 'split', label: 'Two admins' },
   { id: 'kids', label: 'Kids' },
   { id: 'homework', label: 'Homework' },
 ];
@@ -257,27 +259,38 @@ function TaskSection({
 }
 
 export default function TasksScreen() {
-  const { accentTheme, completeTask, currentMember, household, permissions } = useOrbit();
+  const { accentTheme, completeTask, currentMember, household, permissions, splitAllTasksBetweenTwo } =
+    useOrbit();
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [roomFilter, setRoomFilter] = useState<string | null>(null);
   const [showRoomFilter, setShowRoomFilter] = useState(false);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
+  const [splitting, setSplitting] = useState(false);
 
   const rooms = household.rooms ?? [];
   const childNames = useMemo(
     () => new Set(household.members.filter((member) => member.role === 'child').map((member) => member.name)),
     [household.members]
   );
+  const splitPair = useMemo(() => resolveSplitPair(household.members), [household.members]);
+  const adminNames = useMemo(
+    () => new Set(getAdminMembers(household.members).map((member) => member.name)),
+    [household.members]
+  );
 
   const filtered = useMemo(() => {
     return household.tasks.filter((task) => {
       if (filter === 'mine' && task.assignee !== currentMember?.name) return false;
+      if (filter === 'split') {
+        if (!splitPair) return false;
+        return task.assignee === splitPair[0].name || task.assignee === splitPair[1].name;
+      }
       if (filter === 'kids' && !childNames.has(task.assignee)) return false;
       if (filter === 'homework' && !isHomework(task)) return false;
       if (roomFilter && task.roomId !== roomFilter) return false;
       return true;
     });
-  }, [childNames, currentMember?.name, filter, household.tasks, roomFilter]);
+  }, [childNames, currentMember?.name, filter, household.tasks, roomFilter, splitPair]);
 
   const grouped = useMemo(
     () => ({
@@ -288,8 +301,24 @@ export default function TasksScreen() {
     [filtered]
   );
 
+  const splitSections = useMemo(() => {
+    if (!splitPair || filter !== 'split') return null;
+    return [
+      {
+        member: splitPair[0],
+        tasks: filtered.filter((task) => task.assignee === splitPair[0].name && task.status !== 'Completed'),
+      },
+      {
+        member: splitPair[1],
+        tasks: filtered.filter((task) => task.assignee === splitPair[1].name && task.status !== 'Completed'),
+      },
+    ];
+  }, [filter, filtered, splitPair]);
+
   const totalXPToday = grouped.today.reduce((sum, task) => sum + task.xp, 0);
   const empty = grouped.today.length + grouped.upcoming.length + grouped.done.length === 0;
+  const canSplit =
+    permissions.canAssignTask && Boolean(splitPair) && (permissions.canManageHousehold || adminNames.has(currentMember?.name ?? ''));
 
   const handleToggle = async (taskId: string) => {
     const task = household.tasks.find((item) => item.id === taskId);
@@ -298,6 +327,29 @@ export default function TasksScreen() {
     setJustCompletedId(taskId);
     await completeTask(taskId);
     setTimeout(() => setJustCompletedId(null), 1200);
+  };
+
+  const handleSplit = () => {
+    if (!splitPair) {
+      Alert.alert('Need two people', 'Add a co-admin (or another active member) to split tasks.');
+      return;
+    }
+    Alert.alert(
+      'Split open tasks',
+      `Reassign every open task evenly between ${splitPair[0].name} and ${splitPair[1].name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Split now',
+          onPress: () => {
+            setSplitting(true);
+            void splitAllTasksBetweenTwo(splitPair[0].name, splitPair[1].name).finally(() =>
+              setSplitting(false)
+            );
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -336,6 +388,22 @@ export default function TasksScreen() {
         </View>
         <Text style={styles.xpBannerMeta}>{grouped.today.length} tasks left</Text>
       </LinearGradient>
+
+      {canSplit ? (
+        <Pressable
+          onPress={handleSplit}
+          disabled={splitting}
+          style={[styles.splitBanner, { borderColor: `${accentTheme.primary}33` }]}>
+          <MaterialIcons name="call-split" size={16} color={accentTheme.primary} />
+          <Text style={[styles.splitBannerText, { color: accentTheme.primary }]}>
+            {splitting
+              ? 'Splitting…'
+              : splitPair
+                ? `Split open tasks · ${splitPair[0].name} & ${splitPair[1].name}`
+                : 'Split open tasks'}
+          </Text>
+        </Pressable>
+      ) : null}
 
       <View style={styles.filterRow}>
         {FILTER_TABS.map((tab) => {
@@ -425,43 +493,76 @@ export default function TasksScreen() {
         </GlassCard>
       ) : null}
 
-      <TaskSection
-        title="Due Today"
-        dotColor={orbitColors.warning}
-        dotGlow
-        countLabel={`${grouped.today.length} items`}
-        tasks={grouped.today}
-        members={household.members}
-        rooms={rooms}
-        accentPrimary={accentTheme.primary}
-        justCompletedId={justCompletedId}
-        onToggle={handleToggle}
-      />
+      {splitSections ? (
+        <>
+          {splitSections.map((section) => (
+            <TaskSection
+              key={section.member.id}
+              title={section.member.name}
+              dotColor={MEMBER_ACCENTS[section.member.name]?.color ?? accentTheme.primary}
+              countLabel={`${section.tasks.length} open`}
+              tasks={section.tasks}
+              members={household.members}
+              rooms={rooms}
+              accentPrimary={accentTheme.primary}
+              justCompletedId={justCompletedId}
+              onToggle={handleToggle}
+            />
+          ))}
+          <TaskSection
+            title="Completed"
+            dotColor={orbitColors.success}
+            countLabel={`+${grouped.done.reduce((sum, task) => sum + task.xp, 0)} XP earned`}
+            tasks={grouped.done}
+            members={household.members}
+            rooms={rooms}
+            accentPrimary={accentTheme.primary}
+            muted
+            justCompletedId={justCompletedId}
+            onToggle={handleToggle}
+          />
+        </>
+      ) : (
+        <>
+          <TaskSection
+            title="Due Today"
+            dotColor={orbitColors.warning}
+            dotGlow
+            countLabel={`${grouped.today.length} items`}
+            tasks={grouped.today}
+            members={household.members}
+            rooms={rooms}
+            accentPrimary={accentTheme.primary}
+            justCompletedId={justCompletedId}
+            onToggle={handleToggle}
+          />
 
-      <TaskSection
-        title="Upcoming"
-        dotColor={accentTheme.primary}
-        countLabel={`${grouped.upcoming.length} items`}
-        tasks={grouped.upcoming}
-        members={household.members}
-        rooms={rooms}
-        accentPrimary={accentTheme.primary}
-        justCompletedId={justCompletedId}
-        onToggle={handleToggle}
-      />
+          <TaskSection
+            title="Upcoming"
+            dotColor={accentTheme.primary}
+            countLabel={`${grouped.upcoming.length} items`}
+            tasks={grouped.upcoming}
+            members={household.members}
+            rooms={rooms}
+            accentPrimary={accentTheme.primary}
+            justCompletedId={justCompletedId}
+            onToggle={handleToggle}
+          />
 
-      <TaskSection
-        title="Completed"
-        dotColor={orbitColors.success}
-        countLabel={`+${grouped.done.reduce((sum, task) => sum + task.xp, 0)} XP earned`}
-        tasks={grouped.done}
-        members={household.members}
-        rooms={rooms}
-        accentPrimary={accentTheme.primary}
-        muted
-        justCompletedId={justCompletedId}
-        onToggle={handleToggle}
-      />
+          <TaskSection
+            title="Completed"
+            dotColor={orbitColors.success}
+            countLabel={`+${grouped.done.reduce((sum, task) => sum + task.xp, 0)} XP earned`}
+            tasks={grouped.done}
+            members={household.members}
+            rooms={rooms}
+            accentPrimary={accentTheme.primary}
+            muted
+            justCompletedId={justCompletedId}
+            onToggle={handleToggle}
+          />
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -724,6 +825,21 @@ const styles = StyleSheet.create({
     color: orbitColors.text,
     fontSize: 14,
     fontWeight: '600',
+  },
+  splitBanner: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  splitBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
   },
   xpBolt: {
     fontSize: 10,

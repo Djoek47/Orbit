@@ -90,7 +90,7 @@ export default function CreateHouseholdScreen() {
       showBack
       kicker="Owner setup"
       title="Create household"
-      subtitle="Name → type → rooms. You will be owner and can invite members next.">
+      subtitle="Name → type → rooms. You will be owner — families can add a second co-parent admin after invite.">
       <OrbitInput label="Household name" value={name} onChangeText={setName} placeholder="e.g. The Millers" />
       <Text style={styles.label}>Household type</Text>
       <View style={styles.typeGrid}>
