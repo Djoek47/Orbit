@@ -87,15 +87,30 @@ export function ChoremaxxIcon({ width = 34, height = 30 }: { width?: number; hei
 }
 
 /** Compact brand badge for headers / nav. */
-export function ChoremaxxBadge({ showWordmark = true }: { showWordmark?: boolean }) {
+export function ChoremaxxBadge({
+  showWordmark = true,
+  size = 'md',
+}: {
+  showWordmark?: boolean;
+  /** `sm` for dense chips; `md` default; `lg` for home/hero headers. */
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const scale =
+    size === 'lg' ? { iconW: 22, iconH: 19, text: 16, x: 15.5, gap: 7 } : size === 'sm'
+      ? { iconW: 16, iconH: 14, text: 12.5, x: 12, gap: 5 }
+      : { iconW: 18, iconH: 16, text: 14, x: 13.5, gap: 6 };
+
   return (
-    <View style={styles.badge} accessibilityRole="image" accessibilityLabel="Choremaxx">
-      <ChoremaxxIcon width={18} height={16} />
+    <View
+      style={[styles.badge, { gap: scale.gap }]}
+      accessibilityRole="image"
+      accessibilityLabel="Choremaxx">
+      <ChoremaxxIcon width={scale.iconW} height={scale.iconH} />
       {showWordmark ? (
         <View style={styles.badgeWord}>
-          <Text style={styles.badgeChorema}>chorema</Text>
-          <Text style={styles.badgeX}>x</Text>
-          <Text style={styles.badgeXFaded}>x</Text>
+          <Text style={[styles.badgeChorema, { fontSize: scale.text }]}>chorema</Text>
+          <Text style={[styles.badgeX, { fontSize: scale.x }]}>x</Text>
+          <Text style={[styles.badgeXFaded, { fontSize: scale.x }]}>x</Text>
         </View>
       ) : null}
     </View>

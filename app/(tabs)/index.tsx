@@ -66,12 +66,15 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}>
       <View style={[styles.headerRow, { paddingRight: HEADER_CHIPS_GUTTER }]}>
         <View style={styles.headerCopy}>
-          <ChoremaxxBadge />
-          <Text style={[styles.eyebrow, { marginTop: 8 }]}>
+          <View style={styles.brandRow}>
+            <ChoremaxxBadge size="lg" />
+          </View>
+          <Text style={styles.dateLine}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </Text>
-          <Text style={styles.h1} numberOfLines={1}>
-            {greeting}, {household.greetingName}
+          <Text style={styles.greetingLine}>{greeting}</Text>
+          <Text style={styles.nameLine} numberOfLines={1}>
+            {household.greetingName}
           </Text>
         </View>
         <LinearGradient
@@ -283,14 +286,19 @@ const styles = StyleSheet.create({
   assignee: { color: '#4B6080', fontSize: 12 },
   avatar: {
     alignItems: 'center',
-    borderRadius: 20,
-    height: 40,
+    borderRadius: 22,
+    height: 44,
     justifyContent: 'center',
     overflow: 'hidden',
-    width: 40,
+    width: 44,
   },
-  avatarImage: { height: 40, width: 40 },
-  avatarText: { color: '#070D1C', fontSize: 14, fontWeight: '700' },
+  avatarImage: { height: 44, width: 44 },
+  avatarText: { color: '#070D1C', fontSize: 16, fontWeight: '700' },
+  brandRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginBottom: 2,
+  },
   check: {
     alignItems: 'center',
     borderColor: 'rgba(255,255,255,0.2)',
@@ -302,15 +310,29 @@ const styles = StyleSheet.create({
   },
   checkDone: { backgroundColor: '#34D399', borderColor: '#34D399' },
   critDot: { backgroundColor: '#F87171', borderRadius: 3, height: 6, width: 6 },
+  dateLine: {
+    color: '#6B82A3',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.4,
+    marginTop: 6,
+    textTransform: 'uppercase',
+  },
   eventBar: { borderRadius: 2, height: 28, marginTop: 2, width: 4 },
   eventRow: { flexDirection: 'row', gap: 8 },
   eventTitle: { color: '#C8D8F0', fontSize: 12, lineHeight: 16 },
   eyebrow: { color: '#4B6080', fontSize: 12 },
   fullBleed: { alignSelf: 'stretch', width: '100%' },
+  greetingLine: {
+    color: '#9BB0CC',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+    marginTop: 2,
+  },
   groceryName: { color: '#C8D8F0', flex: 1, fontSize: 12 },
   groceryRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   grid: { alignSelf: 'stretch', flexDirection: 'row', gap: 12, width: '100%' },
-  h1: { color: '#EEF2FF', fontSize: 24, fontWeight: '700', lineHeight: 29 },
   halfCard: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderColor: 'rgba(255,255,255,0.08)',
@@ -323,13 +345,29 @@ const styles = StyleSheet.create({
   },
   halfHead: { alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: 4 },
   halfTitle: { color: '#EEF2FF', fontSize: 12, fontWeight: '600' },
-  headerCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
+  headerCopy: {
+    alignItems: 'flex-start',
+    flex: 1,
+    gap: 0,
+    justifyContent: 'center',
+    minWidth: 0,
+    paddingRight: 12,
+  },
   headerRow: {
     alignItems: 'center',
     alignSelf: 'stretch',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 4,
+    minHeight: 72,
     width: '100%',
+  },
+  nameLine: {
+    color: '#F4F7FF',
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.6,
+    lineHeight: 30,
   },
   healthCol: { alignItems: 'stretch', flex: 1, gap: 6, minWidth: 0 },
   healthLabel: { color: '#7C9CC0', flexShrink: 1, fontSize: 11, fontWeight: '600' },
