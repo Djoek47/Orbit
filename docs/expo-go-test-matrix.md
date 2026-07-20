@@ -14,8 +14,8 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 |---|------|-------|------|
 | 1 | Auth | Sign up → create profile → sign out → sign in | ☐ |
 | 1b | Auth Make UI | Welcome brand hero · Sign in/up sheets · profile avatar pick · create/join household paths · pending approval | ☐ |
-| 2 | Create household | New household → invite code visible on Invite | ☐ |
-| 3 | QR invite | Device A shows QR · Device B scans → code fills join screen | ☐ |
+| 2 | Create household | New household → Manage Members → Add new member shows invite code | ☐ |
+| 3 | QR invite | Device A: Manage Members → Add new member QR · Device B scans → code fills join | ☐ |
 | 4 | Pending join | Device B joins → lands on Pending Approval · limited Home | ☐ |
 | 5 | Approve member | Device A opens Members → Approve → Device B refreshes → full tabs | ☐ |
 | 6 | Tasks | Create → edit → complete → week XP moves on Ranks | ☐ |
@@ -42,7 +42,7 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 29k | Photo / Memoji avatar | Settings → Members → Photo / Memoji · shows on Home | ☐ |
 | 29l | Household Games | Ranks → Household Games · coming-soon cards by vibe | ☐ |
 | 29m | Grocery product lookup | Groceries search milk · $/L · $/gal · Open in Maps · Add to list | ☐ |
-| 14 | Share invite | Create household → Invite · Share primary · Copy · QR tertiary | ☐ |
+| 14 | Share invite | Settings → Manage Members → Add new member · Share · Copy · QR | ☐ |
 | 15 | Task presets | Create Task → pick preset · weight XP · optional proof · recurring spawn | ☐ |
 | 15b | Attach proof | Task detail → Attach proof (camera/library) → admin gets inbox + local notify · Approve proof | ☐ |
 | 15c | Two admins + split | Members → Make co-admin (max 2) · Tasks → Split open tasks between Sarah & David · Two admins filter | ☐ |
