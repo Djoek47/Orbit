@@ -1,14 +1,36 @@
 import { Redirect, Tabs } from 'expo-router';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { orbitColors } from '@/constants/orbit-theme';
+import { loadOnboardingPrefs, type OnboardingRole } from '@/lib/onboarding-prefs';
 import { useOrbit } from '@/store/orbit-store';
 
+/** Map household role → Make v7 onboarding role for tab visibility. */
+function resolveUiRole(
+  householdRole: string | undefined,
+  onboardingRole: OnboardingRole | null,
+): OnboardingRole {
+  if (householdRole === 'child') return 'child';
+  if (onboardingRole) return onboardingRole;
+  if (householdRole === 'guest') return 'roommate';
+  return 'parent';
+}
+
 export default function TabLayout() {
-  const { currentUser, hasHousehold, isLoading, isSignedIn } = useOrbit();
+  const { currentUser, currentMember, hasHousehold, isLoading, isSignedIn } = useOrbit();
+  const [onboardingRole, setOnboardingRole] = React.useState<OnboardingRole | null>(null);
+
+  React.useEffect(() => {
+    loadOnboardingPrefs().then((prefs) => setOnboardingRole(prefs?.role ?? null));
+  }, []);
+
+  const uiRole = useMemo(
+    () => resolveUiRole(currentMember?.role, onboardingRole),
+    [currentMember?.role, onboardingRole],
+  );
 
   if (isLoading) {
     return null;
@@ -26,10 +48,13 @@ export default function TabLayout() {
     return <Redirect href={'/household-setup' as never} />;
   }
 
+  const showPlan = uiRole !== 'child';
+  const showRewards = uiRole !== 'roommate';
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: orbitColors.novaCyan,
+        tabBarActiveTintColor: orbitColors.primary,
         tabBarInactiveTintColor: orbitColors.textSubtle,
         headerShown: false,
         tabBarButton: HapticTab,
@@ -50,26 +75,28 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="groceries"
+        name="calendar"
         options={{
-          title: 'Groceries',
-          tabBarIcon: ({ color }) => <IconSymbol size={25} name="cart.fill" color={color} />,
+          // Make v7: Plan tab (Calendar + Itineraries). Route stays `calendar`.
+          href: showPlan ? undefined : null,
+          title: 'Plan',
+          tabBarIcon: ({ color }) => <IconSymbol size={25} name="calendar" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="calendar"
+        name="groceries"
         options={{
-          // Hidden from tab bar to match Figma Make v4 (Home/Tasks/Grocery/Ranks/Nova).
-          // Route remains available for later product IA / deep links.
+          // Groceries remain reachable from Home / deep links; not a primary Make v7 tab.
           href: null,
-          title: 'Calendar',
+          title: 'Groceries',
         }}
       />
       <Tabs.Screen
         name="rewards"
         options={{
-          title: 'Ranks',
-          tabBarIcon: ({ color }) => <IconSymbol size={25} name="trophy.fill" color={color} />,
+          href: showRewards ? undefined : null,
+          title: 'Rewards',
+          tabBarIcon: ({ color }) => <IconSymbol size={25} name="gift.fill" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -85,7 +112,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: 'rgba(7, 11, 20, 0.94)',
+    backgroundColor: 'rgba(7, 13, 28, 0.94)',
     borderTopColor: orbitColors.border,
     height: 88,
     paddingBottom: 24,

@@ -31,7 +31,7 @@ export default function SettingsScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete account', 'This permanently removes your Orbit account.', [
+    Alert.alert('Delete account', 'This permanently removes your Choremaxx account.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -70,7 +70,7 @@ export default function SettingsScreen() {
       <GlassCard style={styles.card}>
         <Text style={orbitTypography.cardTitle}>Switch member (demo)</Text>
         <Text style={orbitTypography.caption}>
-          Try Orbit as owner, admin, child, guest, or pending adult without signing out.
+          Try Choremaxx as owner, admin, child, guest, or pending adult without signing out.
         </Text>
         <View style={styles.personaGrid}>
           {household.members.map((member) => {
@@ -104,7 +104,10 @@ export default function SettingsScreen() {
           Notifications
         </OrbitButton>
         <OrbitButton tone="secondary" onPress={() => router.push('/(tabs)/calendar' as never)}>
-          Calendar
+          Plan
+        </OrbitButton>
+        <OrbitButton tone="secondary" onPress={() => router.push('/(tabs)/groceries' as never)}>
+          Groceries
         </OrbitButton>
         <OrbitButton tone="secondary" onPress={() => router.push('/create-event' as never)}>
           Create Event

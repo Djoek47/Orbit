@@ -1,20 +1,26 @@
 import { StyleSheet } from 'react-native';
 
+/** Choremaxx Make v7 tokens — keep export names for existing imports. */
 export const orbitColors = {
-  background: '#070B14',
-  backgroundSoft: '#0B1220',
-  card: 'rgba(19, 28, 46, 0.72)',
-  cardStrong: 'rgba(29, 41, 57, 0.84)',
-  border: 'rgba(255, 255, 255, 0.12)',
-  borderStrong: 'rgba(0, 194, 255, 0.32)',
-  text: '#FFFFFF',
-  textMuted: '#98A2B3',
-  textSubtle: '#667085',
-  orbitBlue: '#2979FF',
-  novaCyan: '#00C2FF',
-  success: '#32D583',
-  warning: '#FFB547',
-  danger: '#FF5A5F',
+  background: '#070D1C',
+  backgroundSoft: '#0F1A30',
+  card: 'rgba(255, 255, 255, 0.06)',
+  cardStrong: 'rgba(255, 255, 255, 0.08)',
+  border: 'rgba(255, 255, 255, 0.08)',
+  borderStrong: 'rgba(59, 181, 240, 0.32)',
+  text: '#EEF2FF',
+  textMuted: '#7C9CC0',
+  textSubtle: '#4B6080',
+  /** Primary brand blue (Make v7). */
+  orbitBlue: '#3BB5F0',
+  primary: '#3BB5F0',
+  accent: '#2DD4BF',
+  novaCyan: '#3BB5F0',
+  rewardsGold: '#F59E0B',
+  planPurple: '#A78BFA',
+  success: '#34D399',
+  warning: '#F59E0B',
+  danger: '#F87171',
 };
 
 export const orbitSpacing = {

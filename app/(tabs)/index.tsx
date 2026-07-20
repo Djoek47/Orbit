@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
+import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { MomentumRing } from '@/components/orbit/momentum-ring';
 import { NovaOrb } from '@/components/orbit/nova-orb';
@@ -29,6 +30,7 @@ export default function HomeScreen() {
       contentInsetAdjustmentBehavior="automatic">
       <View style={styles.topBar}>
         <View style={styles.topCopy}>
+          <ChoremaxxBadge />
           <Text style={orbitTypography.caption}>{household.householdName}</Text>
           <Text style={orbitTypography.display}>Good morning, {household.greetingName}</Text>
           {currentMember ? (

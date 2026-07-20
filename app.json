@@ -1,23 +1,23 @@
 {
   "expo": {
-    "name": "Orbit",
-    "slug": "Orbit",
+    "name": "Choremaxx",
+    "slug": "choremaxx",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "orbit",
+    "scheme": "choremaxx",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.orbit.household",
+      "bundleIdentifier": "app.choremaxx.household",
       "buildNumber": "1",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Orbit uses the microphone so you can talk to Nova.",
-        "NSLocationWhenInUseUsageDescription": "Orbit uses your location for nearby grocery suggestions.",
-        "NSCameraUsageDescription": "Orbit can attach photos as task proof.",
-        "NSPhotoLibraryUsageDescription": "Orbit can attach photos as task proof.",
+        "NSMicrophoneUsageDescription": "Choremaxx uses the microphone so you can talk to Nova.",
+        "NSLocationWhenInUseUsageDescription": "Choremaxx uses your location for nearby grocery suggestions.",
+        "NSCameraUsageDescription": "Choremaxx can attach photos as task proof.",
+        "NSPhotoLibraryUsageDescription": "Choremaxx can attach photos as task proof.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "privacyManifests": {
@@ -30,10 +30,10 @@
       }
     },
     "android": {
-      "package": "app.orbit.household",
+      "package": "app.choremaxx.household",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#070B14",
+        "backgroundColor": "#070D1C",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -58,19 +58,19 @@
       [
         "expo-notifications",
         {
-          "color": "#2979FF"
+          "color": "#3BB5F0"
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Orbit uses your location for nearby grocery suggestions."
+          "locationWhenInUsePermission": "Choremaxx uses your location for nearby grocery suggestions."
         }
       ],
       [
         "expo-av",
         {
-          "microphonePermission": "Orbit uses the microphone so you can talk to Nova."
+          "microphonePermission": "Choremaxx uses the microphone so you can talk to Nova."
         }
       ],
       [
@@ -79,9 +79,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#070B14",
+          "backgroundColor": "#070D1C",
           "dark": {
-            "backgroundColor": "#070B14"
+            "backgroundColor": "#070D1C"
           }
         }
       ]
@@ -92,8 +92,8 @@
     },
     "extra": {
       "router": {},
-      "privacyPolicyUrl": "https://orbit.app/privacy",
-      "termsUrl": "https://orbit.app/terms"
+      "privacyPolicyUrl": "https://choremaxx.app/privacy",
+      "termsUrl": "https://choremaxx.app/terms"
     }
   }
 }

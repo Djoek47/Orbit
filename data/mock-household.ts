@@ -165,9 +165,14 @@ export const mockHousehold: HouseholdSnapshot = {
     },
   ],
   rewards: [
-    { id: 'r1', title: '30 minutes screen time', cost: 120, approvalRequired: true },
-    { id: 'r2', title: 'Choose movie night', cost: 180, approvalRequired: true },
-    { id: 'r3', title: 'Stay up 20 minutes later', cost: 220, approvalRequired: true },
+    { id: 'r1', title: 'Movie Night', cost: 150, approvalRequired: true, emoji: '🎬', category: 'Experience', color: '#A78BFA' },
+    { id: 'r2', title: 'Ice Cream Trip', cost: 80, approvalRequired: true, emoji: '🍦', category: 'Treat', color: '#FB923C' },
+    { id: 'r3', title: 'Extra Screen Time', cost: 60, approvalRequired: true, emoji: '📱', category: 'Screen', color: '#38BDF8' },
+    { id: 'r4', title: 'Gaming Hour', cost: 50, approvalRequired: true, emoji: '🎮', category: 'Screen', color: '#34D399' },
+    { id: 'r5', title: '$5 Allowance', cost: 200, approvalRequired: true, emoji: '🛍️', category: 'Money', color: '#F59E0B' },
+    { id: 'r6', title: 'Choose Dinner', cost: 120, approvalRequired: true, emoji: '🚗', category: 'Experience', color: '#F472B6' },
+    { id: 'r7', title: 'Late Bedtime', cost: 90, approvalRequired: true, emoji: '😴', category: 'Privilege', color: '#2DD4BF' },
+    { id: 'r8', title: 'Mystery Box', cost: 300, approvalRequired: true, emoji: '🎁', category: 'Special', color: '#F59E0B' },
   ],
   badges: [
     { id: 'b1', title: 'Homework Hero', icon: 'school', progress: 0.72 },
@@ -201,7 +206,7 @@ export function createEmptyHousehold(user: OrbitUser): HouseholdSnapshot {
     rewards: [],
     badges: [],
     nova: {
-      title: 'Welcome to Orbit',
+      title: 'Welcome to Choremaxx',
       summary: 'Create or join a household to start building your daily rhythm.',
       actions: ['Create household', 'Join household'],
     },

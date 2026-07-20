@@ -10,8 +10,26 @@ import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } 
 import { buildWeekStrip, groupHouseholdEvents } from '@/lib/calendar/event-groups';
 import { useOrbit } from '@/store/orbit-store';
 
-export default function CalendarScreen() {
+type PlanSubTab = 'calendar' | 'itinerary';
+
+const SAMPLE_ITINERARIES = [
+  {
+    id: 'it1',
+    title: 'Saturday soccer morning',
+    when: 'Sat · 8:00 AM',
+    stops: ['Pack water bottles', 'Drive to Riverside Field', 'Snack after game'],
+  },
+  {
+    id: 'it2',
+    title: 'Sunday grocery + meal prep',
+    when: 'Sun · 10:30 AM',
+    stops: ['Shopping list sync', 'Market run', 'Prep lunches'],
+  },
+];
+
+export default function PlanScreen() {
   const { household, metrics } = useOrbit();
+  const [planTab, setPlanTab] = useState<PlanSubTab>('calendar');
   const [selectedDay, setSelectedDay] = useState(0);
   const week = useMemo(() => buildWeekStrip(), []);
   const groups = useMemo(() => groupHouseholdEvents(household.events), [household.events]);
@@ -28,60 +46,107 @@ export default function CalendarScreen() {
       contentContainerStyle={orbitScreen.content}
       contentInsetAdjustmentBehavior="automatic">
       <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Family logistics</Text>
-        <Text style={orbitTypography.display}>Calendar</Text>
+        <Text style={orbitTypography.caption}>Plan</Text>
+        <Text style={orbitTypography.display}>Family logistics</Text>
         <Text style={orbitTypography.body}>
-          {metrics.upcomingEvents} upcoming soon · {metrics.calendarCoverage}% coverage with a responsible person.
+          Calendar and itineraries in one place — {metrics.upcomingEvents} upcoming ·{' '}
+          {metrics.calendarCoverage}% coverage.
         </Text>
       </View>
 
-      <GlassCard elevated>
-        <Text style={orbitTypography.cardTitle}>This week</Text>
-        <View style={styles.weekStrip}>
-          {week.map((day, index) => {
-            const active = selectedDay === index;
-            return (
-              <Pressable
-                key={day.key}
-                onPress={() => setSelectedDay(index)}
-                style={[styles.dayChip, active && styles.dayChipActive, day.isToday && styles.dayChipToday]}>
-                <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>{day.label}</Text>
-                <Text style={[styles.dayNumber, active && styles.dayLabelActive]}>{day.dayNumber}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </GlassCard>
+      <View style={styles.subNav}>
+        {(
+          [
+            { id: 'calendar' as const, label: 'Calendar' },
+            { id: 'itinerary' as const, label: 'Itineraries' },
+          ] as const
+        ).map((tab) => {
+          const active = planTab === tab.id;
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => setPlanTab(tab.id)}
+              style={[styles.subNavButton, active && styles.subNavButtonActive]}>
+              <Text style={[styles.subNavLabel, active && styles.subNavLabelActive]}>{tab.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
-      <OrbitButton onPress={() => router.push('/create-event' as never)}>Create Event</OrbitButton>
+      {planTab === 'calendar' ? (
+        <>
+          <GlassCard elevated>
+            <Text style={orbitTypography.cardTitle}>This week</Text>
+            <View style={styles.weekStrip}>
+              {week.map((day, index) => {
+                const active = selectedDay === index;
+                return (
+                  <Pressable
+                    key={day.key}
+                    onPress={() => setSelectedDay(index)}
+                    style={[styles.dayChip, active && styles.dayChipActive, day.isToday && styles.dayChipToday]}>
+                    <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>{day.label}</Text>
+                    <Text style={[styles.dayNumber, active && styles.dayLabelActive]}>{day.dayNumber}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </GlassCard>
 
-      {household.events.length === 0 ? (
-        <GlassCard>
-          <Text style={orbitTypography.cardTitle}>No events yet</Text>
-          <Text style={orbitTypography.caption}>
-            Add school pickups, activities, and appointments so Nova can brief the household.
-          </Text>
-        </GlassCard>
-      ) : selectedDay <= 1 ? (
-        <View style={styles.section}>
-          <Text style={orbitTypography.cardTitle}>{focusLabel}</Text>
-          {focusedEvents.length === 0 ? (
+          <OrbitButton onPress={() => router.push('/create-event' as never)}>Create Event</OrbitButton>
+
+          {household.events.length === 0 ? (
             <GlassCard>
-              <Text style={orbitTypography.caption}>Nothing scheduled for {focusLabel.toLowerCase()}.</Text>
+              <Text style={orbitTypography.cardTitle}>No events yet</Text>
+              <Text style={orbitTypography.caption}>
+                Add school pickups, activities, and appointments so Nova can brief the household.
+              </Text>
             </GlassCard>
+          ) : selectedDay <= 1 ? (
+            <View style={styles.section}>
+              <Text style={orbitTypography.cardTitle}>{focusLabel}</Text>
+              {focusedEvents.length === 0 ? (
+                <GlassCard>
+                  <Text style={orbitTypography.caption}>Nothing scheduled for {focusLabel.toLowerCase()}.</Text>
+                </GlassCard>
+              ) : (
+                focusedEvents.map((event) => <EventCard key={event.id} event={event} />)
+              )}
+            </View>
           ) : (
-            focusedEvents.map((event) => <EventCard key={event.id} event={event} />)
+            groups.map((group) => (
+              <View key={group.key} style={styles.section}>
+                <Text style={orbitTypography.cardTitle}>{group.key}</Text>
+                {group.events.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </View>
+            ))
           )}
-        </View>
+        </>
       ) : (
-        groups.map((group) => (
-          <View key={group.key} style={styles.section}>
-            <Text style={orbitTypography.cardTitle}>{group.key}</Text>
-            {group.events.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </View>
-        ))
+        <>
+          <Text style={orbitTypography.cardTitle}>This weekend</Text>
+          {SAMPLE_ITINERARIES.map((item) => (
+            <GlassCard key={item.id} elevated style={styles.itineraryCard}>
+              <Text style={styles.itineraryWhen}>{item.when}</Text>
+              <Text style={orbitTypography.cardTitle}>{item.title}</Text>
+              {item.stops.map((stop, index) => (
+                <View key={stop} style={styles.stopRow}>
+                  <View style={styles.stopIndex}>
+                    <Text style={styles.stopIndexText}>{index + 1}</Text>
+                  </View>
+                  <Text style={orbitTypography.body}>{stop}</Text>
+                </View>
+              ))}
+            </GlassCard>
+          ))}
+          <GlassCard>
+            <Text style={orbitTypography.caption}>
+              Full itinerary builder ships next — groceries stay on Home for quick missing-item capture.
+            </Text>
+          </GlassCard>
+        </>
       )}
     </ScrollView>
   );
@@ -138,11 +203,11 @@ const styles = StyleSheet.create({
     paddingVertical: orbitSpacing.sm,
   },
   dayChipActive: {
-    backgroundColor: 'rgba(41, 121, 255, 0.2)',
-    borderColor: 'rgba(41, 121, 255, 0.45)',
+    backgroundColor: 'rgba(167, 139, 250, 0.18)',
+    borderColor: 'rgba(167, 139, 250, 0.45)',
   },
   dayChipToday: {
-    borderColor: 'rgba(0, 194, 255, 0.45)',
+    borderColor: 'rgba(59, 181, 240, 0.45)',
   },
   dayLabel: {
     color: orbitColors.textMuted,
@@ -161,13 +226,66 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: orbitSpacing.md,
   },
+  itineraryCard: {
+    gap: orbitSpacing.sm,
+  },
+  itineraryWhen: {
+    color: orbitColors.planPurple,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   section: {
     gap: orbitSpacing.md,
   },
+  stopIndex: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(167, 139, 250, 0.18)',
+    borderRadius: 999,
+    height: 22,
+    justifyContent: 'center',
+    width: 22,
+  },
+  stopIndexText: {
+    color: orbitColors.planPurple,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  stopRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  subNav: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: orbitRadius.lg,
+    flexDirection: 'row',
+    gap: 4,
+    padding: 4,
+  },
+  subNavButton: {
+    alignItems: 'center',
+    borderRadius: orbitRadius.md,
+    flex: 1,
+    paddingVertical: 10,
+  },
+  subNavButtonActive: {
+    backgroundColor: 'rgba(167, 139, 250, 0.18)',
+    borderColor: 'rgba(167, 139, 250, 0.3)',
+    borderWidth: 1,
+  },
+  subNavLabel: {
+    color: orbitColors.textSubtle,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  subNavLabelActive: {
+    color: orbitColors.planPurple,
+    fontWeight: '700',
+  },
   timeBadge: {
     alignItems: 'center',
-    backgroundColor: 'rgba(41, 121, 255, 0.16)',
-    borderColor: 'rgba(41, 121, 255, 0.3)',
+    backgroundColor: 'rgba(167, 139, 250, 0.16)',
+    borderColor: 'rgba(167, 139, 250, 0.3)',
     borderRadius: 18,
     borderWidth: 1,
     gap: 4,

@@ -66,6 +66,10 @@ export type Reward = {
   title: string;
   cost: number;
   approvalRequired: boolean;
+  /** Optional Make v7 shop metadata. */
+  emoji?: string;
+  category?: string;
+  color?: string;
 };
 
 export type Badge = {
@@ -116,6 +120,8 @@ export type MemberProgress = HouseholdMember & {
   streak: number;
   accentColor: string;
   avatarEmoji: string;
+  /** Completed tasks attributed to this member (Rankings · Most Tasks). */
+  tasksCompleted: number;
 };
 
 export type OrbitMetrics = {

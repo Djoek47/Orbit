@@ -1,10 +1,10 @@
 import { Redirect, router } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
-import { NovaOrb } from '@/components/orbit/nova-orb';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function WelcomeScreen() {
@@ -20,18 +20,17 @@ export default function WelcomeScreen() {
       contentContainerStyle={[orbitScreen.content, styles.content]}
       contentInsetAdjustmentBehavior="automatic">
       <View style={styles.hero}>
-        <NovaOrb />
-        <Text style={styles.brand}>Orbit</Text>
-        <Text style={orbitTypography.display}>A calmer command center for home.</Text>
+        <ChoremaxxLogo size="lg" />
+        <Text style={orbitTypography.display}>Your AI-powered household OS.</Text>
         <Text style={orbitTypography.body}>
-          Tasks, groceries, calendar, rewards, and Nova briefings in one shared household rhythm.
+          Tasks, Plan, Rewards, and Nova — one calm command center for home.
         </Text>
       </View>
 
       <GlassCard elevated style={styles.panel}>
-        <OrbitButton onPress={() => router.push('/sign-in' as never)}>Sign In</OrbitButton>
-        <OrbitButton tone="secondary" onPress={() => router.push('/sign-up' as never)}>
-          Create Account
+        <OrbitButton onPress={() => router.push('/onboarding' as never)}>Get Started</OrbitButton>
+        <OrbitButton tone="secondary" onPress={() => router.push('/sign-in' as never)}>
+          Sign In
         </OrbitButton>
       </GlassCard>
     </ScrollView>
@@ -39,12 +38,6 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  brand: {
-    color: orbitColors.novaCyan,
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 0,
-  },
   content: {
     justifyContent: 'center',
     minHeight: '100%',

@@ -158,8 +158,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   }, [currentMember?.role, currentMember?.status]);
   const metrics = useMemo(() => calculateMetrics(household), [household]);
   const membersWithProgress = useMemo(
-    () => household.members.map((member) => calculateMemberProgress(member)),
-    [household.members]
+    () => household.members.map((member) => calculateMemberProgress(member, household.tasks)),
+    [household.members, household.tasks]
   );
   const achievements = useMemo(
     () => evaluateAchievements(household, { novaAskCount, focusMemberName: currentMember?.name }),
@@ -918,13 +918,16 @@ function calculateMetrics(household: HouseholdSnapshot): OrbitMetrics {
   };
 }
 
-function calculateMemberProgress(member: HouseholdMember): MemberProgress {
+function calculateMemberProgress(member: HouseholdMember, tasks: HouseholdTask[]): MemberProgress {
   const gameLevel = getLevel(member.xp);
   const levelIndex = LEVELS.findIndex((level) => level.name === gameLevel.name);
   const level = levelIndex >= 0 ? levelIndex + 1 : 1;
   const levelProgress = xpProgress(member.xp);
   const nextLevelXp = gameLevel.maxXP + 1;
   const accent = MEMBER_ACCENTS[member.name] ?? { color: '#38BDF8', emoji: member.avatar };
+  const tasksCompleted = tasks.filter(
+    (task) => task.assignee === member.name && task.status === 'Completed',
+  ).length;
 
   return {
     ...member,
@@ -938,5 +941,6 @@ function calculateMemberProgress(member: HouseholdMember): MemberProgress {
     streak: member.streak ?? 0,
     accentColor: accent.color,
     avatarEmoji: accent.emoji,
+    tasksCompleted,
   };
 }
