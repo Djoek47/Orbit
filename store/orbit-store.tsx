@@ -7,6 +7,7 @@ import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, xpProgress } fr
 import { getLocationAwareGrocerySuggestions } from '@/lib/grocery/location-suggestions';
 import { buildStoreRecommendations } from '@/lib/grocery/recommendations';
 import { countUpcomingSoon } from '@/lib/calendar/event-groups';
+import { buildInviteLinks } from '@/lib/invites/parse-invite';
 import { registerForPushNotifications, scheduleLocalReminder } from '@/lib/notifications/push';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
 import { subscribeHouseholdRealtime } from '@/lib/realtime/household-realtime';
@@ -377,8 +378,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const createdHousehold = await householdRepository.createHousehold(input, currentUser);
     setHousehold(createdHousehold);
     if (createdHousehold.id) {
-      const links = await householdRepository.getInviteLink(createdHousehold.id);
+      const links = createdHousehold.inviteCode
+        ? buildInviteLinks(createdHousehold.inviteCode)
+        : await householdRepository.getInviteLink(createdHousehold.id);
       setInviteLinks(links);
+      if (createdHousehold.inviteCode) {
+        setHousehold((current) => ({ ...current, inviteCode: createdHousehold.inviteCode }));
+      }
     }
     await trackAnalytics('household.created', { name: input.name }, { householdId: createdHousehold.id, userId: currentUser.id });
   };

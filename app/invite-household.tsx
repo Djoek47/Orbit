@@ -1,12 +1,14 @@
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { buildInviteLinks } from '@/lib/invites/parse-invite';
+import { shareInvite } from '@/lib/invites/share-invite';
 import { householdRepository } from '@/repositories';
 import { useOrbit } from '@/store/orbit-store';
 import type { InviteLinks } from '@/types/orbit';
@@ -15,6 +17,7 @@ export default function InviteHouseholdScreen() {
   const { household, inviteLinks, permissions, refreshInviteLinks } = useOrbit();
   const [links, setLinks] = useState<InviteLinks | null>(inviteLinks);
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
+  const [shareStatus, setShareStatus] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -38,9 +41,10 @@ export default function InviteHouseholdScreen() {
     };
   }, [household.id, inviteLinks]);
 
-  const inviteCode = links?.code || household.inviteCode || 'ORBIT-0000';
-  const deepLink = links?.deepLink || `orbit://join/${inviteCode}`;
-  const webLink = links?.webLink || `https://orbit.app/join/${inviteCode}`;
+  const fallback = buildInviteLinks(links?.code || household.inviteCode || 'CMX-0000');
+  const inviteCode = links?.code || fallback.code;
+  const deepLink = links?.deepLink || fallback.deepLink;
+  const webLink = links?.webLink || fallback.webLink;
 
   if (!permissions.canInviteMembers) {
     return (
@@ -59,6 +63,27 @@ export default function InviteHouseholdScreen() {
   const handleCopyLink = async () => {
     await Clipboard.setStringAsync(webLink);
     setCopied('link');
+  };
+
+  const handleAirDropShare = async () => {
+    setShareStatus('');
+    try {
+      const result = await shareInvite({
+        householdName: household.householdName,
+        inviteCode,
+        deepLink,
+        webLink,
+      });
+      setShareStatus(
+        result === 'shared'
+          ? Platform.OS === 'ios'
+            ? 'Shared — use AirDrop, Messages, or Mail from the sheet.'
+            : 'Shared via your device share sheet.'
+          : 'Share dismissed.',
+      );
+    } catch {
+      setShareStatus('Could not open the share sheet.');
+    }
   };
 
   const handleRefresh = async () => {
@@ -83,16 +108,20 @@ export default function InviteHouseholdScreen() {
         <Text style={orbitTypography.caption}>{household.householdName}</Text>
         <Text style={orbitTypography.display}>Invite members</Text>
         <Text style={orbitTypography.body}>
-          Share the QR code or invite code. New members wait for owner/admin approval before full access.
+          AirDrop, share a link, or show the QR. New members wait for owner/admin approval before full access.
         </Text>
       </View>
 
       <GlassCard elevated style={styles.card}>
         <StatusPill label="Scan to join" tone="cyan" />
         <View style={styles.qrWrap}>
-          <QRCode value={webLink} size={180} backgroundColor="#FFFFFF" color="#070B14" />
+          <QRCode value={webLink} size={180} backgroundColor="#FFFFFF" color="#070D1C" />
         </View>
         <Text style={orbitTypography.caption}>Encodes {webLink}</Text>
+        <OrbitButton onPress={handleAirDropShare}>
+          {Platform.OS === 'ios' ? 'AirDrop / Share invite' : 'Share invite'}
+        </OrbitButton>
+        {shareStatus ? <Text style={styles.hint}>{shareStatus}</Text> : null}
       </GlassCard>
 
       <GlassCard style={styles.card}>
@@ -132,6 +161,11 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     fontWeight: '900',
     letterSpacing: 0,
+  },
+  hint: {
+    color: orbitColors.primary,
+    fontSize: 13,
+    fontWeight: '600',
   },
   qrWrap: {
     alignItems: 'center',

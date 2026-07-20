@@ -16,7 +16,7 @@
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Choremaxx uses the microphone so you can talk to Nova.",
         "NSLocationWhenInUseUsageDescription": "Choremaxx uses your location for nearby grocery suggestions.",
-        "NSCameraUsageDescription": "Choremaxx can attach photos as task proof.",
+        "NSCameraUsageDescription": "Choremaxx uses the camera to scan invite QR codes and attach task proof photos.",
         "NSPhotoLibraryUsageDescription": "Choremaxx can attach photos as task proof.",
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -41,6 +41,7 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
+        "CAMERA",
         "RECORD_AUDIO",
         "POST_NOTIFICATIONS"
       ],
@@ -71,6 +72,13 @@
         "expo-av",
         {
           "microphonePermission": "Choremaxx uses the microphone so you can talk to Nova."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Choremaxx uses the camera to scan invite QR codes and attach task proof photos.",
+          "recordAudioAndroid": false
         }
       ],
       [

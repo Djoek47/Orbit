@@ -1,9 +1,11 @@
 import { Redirect, router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import QRCode from 'react-native-qrcode-svg';
 
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
+import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitColors, orbitRadius, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
@@ -17,6 +19,8 @@ import {
   type MotivationMode,
   type OnboardingRole,
 } from '@/lib/onboarding-prefs';
+import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
+import { shareInvite } from '@/lib/invites/share-invite';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdType } from '@/types/orbit';
 
@@ -37,6 +41,8 @@ export default function WelcomeOnboardingScreen() {
     createProfile,
     currentUser,
     hasHousehold,
+    household,
+    inviteLinks,
     isLoading,
     isSignedIn,
     joinHousehold,
@@ -53,6 +59,9 @@ export default function WelcomeOnboardingScreen() {
   const [householdType, setHouseholdType] = useState<HouseholdType>('family');
   const [inviteCode, setInviteCode] = useState('');
   const [householdMode, setHouseholdMode] = useState<'create' | 'join'>('create');
+  const [createdHousehold, setCreatedHousehold] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [shareStatus, setShareStatus] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [resumed, setResumed] = useState(false);
@@ -95,6 +104,16 @@ export default function WelcomeOnboardingScreen() {
 
     setResumed(true);
   }, [isLoading, isSignedIn, hasHousehold, currentUser, resumed]);
+
+  const readyInvite = useMemo(() => {
+    const code = inviteLinks?.code || household.inviteCode;
+    if (!code) return null;
+    return {
+      code,
+      deepLink: inviteLinks?.deepLink || buildInviteLinks(code).deepLink,
+      webLink: inviteLinks?.webLink || buildInviteLinks(code).webLink,
+    };
+  }, [household.inviteCode, inviteLinks]);
 
   if (!isLoading && isSignedIn && currentUser?.profileComplete && hasHousehold) {
     return <Redirect href="/" />;
@@ -201,19 +220,46 @@ export default function WelcomeOnboardingScreen() {
           return;
         }
         await createHousehold({ name: householdName.trim(), type: householdType });
+        setCreatedHousehold(true);
       } else {
-        if (!inviteCode.trim()) {
-          setError('Enter an invite code to join.');
+        const parsed =
+          parseInvitePayload(inviteCode) ?? (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
+        if (!parsed) {
+          setError('Enter or scan a valid invite code.');
           setBusy(false);
           return;
         }
-        await joinHousehold({ inviteCode: inviteCode.trim().toUpperCase() });
+        setInviteCode(parsed);
+        await joinHousehold({ inviteCode: parsed });
+        setCreatedHousehold(false);
       }
       setStep('ready');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Household setup failed.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleAirDropInvite = async () => {
+    if (!readyInvite) return;
+    setShareStatus('');
+    try {
+      const result = await shareInvite({
+        householdName: household.householdName || householdName,
+        inviteCode: readyInvite.code,
+        deepLink: readyInvite.deepLink,
+        webLink: readyInvite.webLink,
+      });
+      setShareStatus(
+        result === 'shared'
+          ? Platform.OS === 'ios'
+            ? 'Shared — pick AirDrop or Messages in the sheet.'
+            : 'Invite shared.'
+          : 'Share dismissed.',
+      );
+    } catch {
+      setShareStatus('Could not open share sheet.');
     }
   };
 
@@ -442,12 +488,18 @@ export default function WelcomeOnboardingScreen() {
               </View>
             </>
           ) : (
-            <OrbitInput
-              autoCapitalize="characters"
-              label="Invite code"
-              value={inviteCode}
-              onChangeText={setInviteCode}
-            />
+            <>
+              <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
+              <OrbitInput
+                autoCapitalize="characters"
+                label="Invite code"
+                value={inviteCode}
+                onChangeText={setInviteCode}
+              />
+              <Text style={orbitTypography.caption}>
+                Demo code: CMX-7429 — or scan a household QR from an invite.
+              </Text>
+            </>
           )}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -458,11 +510,11 @@ export default function WelcomeOnboardingScreen() {
       ) : null}
 
       {step === 'ready' ? (
-        <View style={styles.centered}>
+        <ScrollView contentContainerStyle={[styles.scroll, styles.readyScroll]} showsVerticalScrollIndicator={false}>
           <View style={styles.readyBadge}>
             <Text style={styles.readyEmoji}>{roleMeta?.emoji ?? '🏠'}</Text>
           </View>
-          <Text style={orbitTypography.title}>You&apos;re all set!</Text>
+          <Text style={[orbitTypography.title, styles.readyTitle]}>You&apos;re all set!</Text>
           <Text style={styles.readySub}>
             Welcome to Choremaxx
             {roleMeta ? (
@@ -471,9 +523,39 @@ export default function WelcomeOnboardingScreen() {
               </>
             ) : null}
           </Text>
+
+          {createdHousehold && readyInvite ? (
+            <View style={styles.invitePanel}>
+              <Text style={orbitTypography.cardTitle}>Invite your household</Text>
+              <Text style={orbitTypography.caption}>
+                AirDrop this invite on iPhone, share the link, or let someone scan the QR.
+              </Text>
+              <View style={styles.qrWrap}>
+                <QRCode value={readyInvite.webLink} size={160} backgroundColor="#FFFFFF" color="#070D1C" />
+              </View>
+              <Text selectable style={styles.inviteCode}>
+                {readyInvite.code}
+              </Text>
+              <OrbitButton onPress={handleAirDropInvite}>
+                {Platform.OS === 'ios' ? 'AirDrop / Share invite' : 'Share invite'}
+              </OrbitButton>
+              {shareStatus ? <Text style={styles.shareHint}>{shareStatus}</Text> : null}
+            </View>
+          ) : null}
+
           <OrbitButton onPress={handleEnter}>Enter Choremaxx →</OrbitButton>
-        </View>
+        </ScrollView>
       ) : null}
+
+      <InviteQrScanner
+        visible={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScanned={(code) => {
+          setInviteCode(code);
+          setHouseholdMode('join');
+          setError('');
+        }}
+      />
     </View>
   );
 }
@@ -666,6 +748,7 @@ const styles = StyleSheet.create({
   },
   readyBadge: {
     alignItems: 'center',
+    alignSelf: 'center',
     backgroundColor: orbitColors.primary,
     borderCurve: 'continuous',
     borderRadius: orbitRadius.lg,
@@ -680,10 +763,48 @@ const styles = StyleSheet.create({
     color: orbitColors.primary,
     fontWeight: '600',
   },
+  readyScroll: {
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    paddingTop: orbitSpacing.xl,
+  },
   readySub: {
     color: orbitColors.textMuted,
     fontSize: 14,
     marginBottom: orbitSpacing.md,
+    textAlign: 'center',
+  },
+  readyTitle: {
+    textAlign: 'center',
+  },
+  inviteCode: {
+    color: orbitColors.text,
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  invitePanel: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderCurve: 'continuous',
+    borderRadius: orbitRadius.lg,
+    borderWidth: 1,
+    gap: orbitSpacing.md,
+    marginBottom: orbitSpacing.md,
+    padding: orbitSpacing.lg,
+  },
+  qrWrap: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: orbitRadius.md,
+    padding: orbitSpacing.md,
+  },
+  shareHint: {
+    color: orbitColors.primary,
+    fontSize: 13,
+    fontWeight: '600',
     textAlign: 'center',
   },
   roleBody: {

@@ -1,4 +1,5 @@
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
+import { buildInviteLinks, createInviteCode } from '@/lib/invites/parse-invite';
 import {
   mapBadgeRow,
   mapBriefingRow,
@@ -108,8 +109,8 @@ export const householdRepository = {
           },
         ],
         nova: {
-          title: 'Your Orbit is ready',
-          summary: `${input.name.trim()} is ready. Add tasks, groceries, and events when your household is set.`,
+          title: 'Your household is ready',
+          summary: `${input.name.trim()} is ready. Add tasks, Plan events, and rewards when your household is set.`,
           actions: ['Invite members', 'Create task'],
         },
       };
@@ -117,7 +118,7 @@ export const householdRepository = {
 
     const supabase = getConfiguredSupabase('householdRepository.createHousehold');
     const inviteCode = createInviteCode();
-    const deepLink = inviteDeepLink(inviteCode);
+    const deepLink = buildInviteLinks(inviteCode).deepLink;
 
     const { data: household, error: householdError } = await supabase
       .from('households')
@@ -470,20 +471,4 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function createInviteCode() {
-  return `ORBIT-${Math.floor(1000 + Math.random() * 9000)}`;
-}
-
-function inviteDeepLink(code: string) {
-  return `orbit://join/${code}`;
-}
-
-function buildInviteLinks(code: string): InviteLinks {
-  return {
-    code,
-    deepLink: inviteDeepLink(code),
-    webLink: `https://orbit.app/join/${code}`,
-  };
 }

@@ -4,7 +4,7 @@ export const mockHousehold: HouseholdSnapshot = {
   id: 'hh-rivera',
   householdName: 'The Rivera Home',
   householdType: 'family',
-  inviteCode: 'ORBIT-7429',
+  inviteCode: 'CMX-7429',
   greetingName: 'Sarah',
   momentum: 87,
   trend: 6,
