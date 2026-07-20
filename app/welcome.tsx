@@ -303,15 +303,15 @@ export default function WelcomeOnboardingScreen() {
           <View style={styles.splashTop}>
             <ChoremaxxLogo size="xl" style={styles.splashLogo} />
             <View style={styles.splashCopy}>
-              <Text style={styles.splashLead}>Your AI-powered</Text>
-              <Text style={styles.splashSub}>Household Operating System</Text>
+              <Text style={styles.splashLead}>Run your household</Text>
+              <Text style={styles.splashSub}>together — calm, clear, shared.</Text>
             </View>
           </View>
 
           <View style={styles.bullets}>
             {[
               { text: 'Zero clutter. Maximum harmony.', color: orbitColors.primary },
-              { text: 'AI that manages your home.', color: orbitColors.accent },
+              { text: 'Tasks, groceries, and plans in sync.', color: orbitColors.accent },
               { text: 'Family-first. Always.', color: orbitColors.rewardsGold },
             ].map((item) => (
               <View key={item.text} style={styles.bulletRow}>
