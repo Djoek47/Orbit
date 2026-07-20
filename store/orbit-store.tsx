@@ -27,7 +27,6 @@ import { splitOpenTasksBetweenTwo } from '@/lib/tasks/split-between';
 import { resolveCompletionXp } from '@/lib/tasks/xp';
 import {
   canPromoteToAdmin,
-  getAdminMembers,
   resolveSplitPair,
 } from '@/lib/household/admins';
 import {
