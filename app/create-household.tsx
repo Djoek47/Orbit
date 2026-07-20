@@ -7,6 +7,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitColors } from '@/constants/orbit-theme';
 import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
+import { ROOM_EMOJIS } from '@/constants/accent-themes';
 import { createLocalId } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdRoom, HouseholdType } from '@/types/orbit';
@@ -28,6 +29,7 @@ export default function CreateHouseholdScreen() {
   );
   const [customRooms, setCustomRooms] = useState<HouseholdRoom[]>([]);
   const [customName, setCustomName] = useState('');
+  const [customEmoji, setCustomEmoji] = useState('🚪');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -53,7 +55,7 @@ export default function CreateHouseholdScreen() {
     const room: HouseholdRoom = {
       id: createLocalId('room'),
       name: trimmed,
-      emoji: '🚪',
+      emoji: customEmoji,
       kind: 'custom',
     };
     setCustomRooms((current) => [...current, room]);
@@ -130,6 +132,25 @@ export default function CreateHouseholdScreen() {
               ]}>
               <Text style={styles.typeEmoji}>{room.emoji}</Text>
               <Text style={[styles.typeLabel, selected && { color: accentTheme.primary }]}>{room.name}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <View style={styles.typeGrid}>
+        {ROOM_EMOJIS.map((emoji) => {
+          const selected = customEmoji === emoji;
+          return (
+            <Pressable
+              key={emoji}
+              onPress={() => setCustomEmoji(emoji)}
+              style={[
+                styles.typeChip,
+                selected && {
+                  backgroundColor: `${accentTheme.primary}22`,
+                  borderColor: `${accentTheme.primary}55`,
+                },
+              ]}>
+              <Text style={styles.typeEmoji}>{emoji}</Text>
             </Pressable>
           );
         })}

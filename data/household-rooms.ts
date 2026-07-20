@@ -8,6 +8,8 @@ export const DEFAULT_HOUSEHOLD_ROOMS: HouseholdRoom[] = [
   { id: 'room-laundry', name: 'Laundry', emoji: '👕', kind: 'laundry' },
 ];
 
+export { ROOM_EMOJIS } from '@/constants/accent-themes';
+
 export const GROCERY_CATEGORIES = [
   'Produce',
   'Dairy & Eggs',

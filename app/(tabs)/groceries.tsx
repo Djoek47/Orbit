@@ -2,11 +2,15 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
+import { HEADER_CHIPS_GUTTER } from '@/constants/orbit-theme';
 import { scanDealsForHousehold } from '@/data/mock-deals';
 import { PREFERRED_STORES } from '@/data/preferred-stores';
-import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
+import { lookupGroceryProduct, type GroceryProductLookup } from '@/lib/grocery/product-lookup';
+import { openDirections } from '@/lib/maps/directions';
 import { summarizeShoppingRun } from '@/lib/grocery/savings';
 import { useOrbit } from '@/store/orbit-store';
 import type { GroceryItem } from '@/types/orbit';
@@ -30,8 +34,10 @@ const CATEGORY_META: Record<string, { emoji: string; color: string }> = {
 };
 
 export default function GroceriesScreen() {
+  const insets = useSafeAreaInsets();
   const {
     accentTheme,
+    addMissingGrocery,
     canAddGroceryWishlist,
     household,
     markGroceryPurchased,
@@ -45,6 +51,8 @@ export default function GroceriesScreen() {
 
   const [expandedCat, setExpandedCat] = useState<string | null>('Produce');
   const [busy, setBusy] = useState(false);
+  const [lookupQuery, setLookupQuery] = useState('');
+  const [lookup, setLookup] = useState<GroceryProductLookup | null>(null);
 
   const listItems = useMemo(
     () =>
@@ -131,10 +139,36 @@ export default function GroceriesScreen() {
     await markGroceryPurchased(item.id);
   };
 
+  const runLookup = (value: string) => {
+    setLookupQuery(value);
+    setLookup(lookupGroceryProduct(value, preferredStore.id));
+  };
+
+  const addLookupToList = async () => {
+    if (!lookup || !canAddGroceryWishlist) return;
+    await addMissingGrocery({
+      name: lookup.name,
+      category: lookup.category,
+      quantity: lookup.packSize,
+      typicalPrice: lookup.estimatedPackPrice,
+      storeId: lookup.store.id,
+      note: lookup.note,
+    });
+    setLookupQuery('');
+    setLookup(null);
+  };
+
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: Math.max(44, insets.top + 40),
+          paddingRight: 16 + HEADER_CHIPS_GUTTER,
+        },
+      ]}
+      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
@@ -149,6 +183,58 @@ export default function GroceriesScreen() {
             <MaterialIcons name="add" size={18} color={accentTheme.primary} />
           </Pressable>
         )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Find a product</Text>
+        <Text style={styles.caption}>AI-ish lookup · unit price · preferred or nearby store</Text>
+        <TextInput
+          value={lookupQuery}
+          onChangeText={runLookup}
+          placeholder="e.g. milk, olive oil, blueberries"
+          placeholderTextColor="#4B6080"
+          style={styles.lookupInput}
+        />
+        {lookup ? (
+          <View style={styles.lookupResult}>
+            <Text style={styles.lookupName}>{lookup.name}</Text>
+            <Text style={styles.caption}>
+              {lookup.packSize} · ${lookup.estimatedPackPrice.toFixed(2)} est.
+              {lookup.brand ? ` · ${lookup.brand}` : ''}
+            </Text>
+            {lookup.pricePerLiter != null ? (
+              <Text style={[styles.unitPrice, { color: accentTheme.primary }]}>
+                ${lookup.pricePerLiter.toFixed(2)}/L · ${lookup.pricePerGallon?.toFixed(2)}/gal
+              </Text>
+            ) : (
+              <Text style={styles.caption}>Pack estimate at {lookup.store.name}</Text>
+            )}
+            <Text style={styles.caption}>
+              Buy at {lookup.store.name} · {lookup.store.address}
+            </Text>
+            <View style={styles.lookupActions}>
+              <Pressable
+                onPress={() =>
+                  void openDirections(undefined, {
+                    address: lookup.store.address,
+                    placeQuery: lookup.store.placeQuery,
+                  })
+                }
+                style={[styles.lookupBtn, { borderColor: `${accentTheme.primary}55` }]}>
+                <MaterialIcons name="map" size={14} color={accentTheme.primary} />
+                <Text style={[styles.lookupBtnText, { color: accentTheme.primary }]}>Open in Maps</Text>
+              </Pressable>
+              {(permissions.canManageGroceries || canAddGroceryWishlist) && (
+                <Pressable
+                  onPress={() => void addLookupToList()}
+                  style={[styles.lookupBtn, { backgroundColor: `${accentTheme.primary}22`, borderColor: `${accentTheme.primary}55` }]}>
+                  <MaterialIcons name="add" size={14} color={accentTheme.primary} />
+                  <Text style={[styles.lookupBtnText, { color: accentTheme.primary }]}>Add to list</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.card}>
@@ -379,6 +465,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 36,
   },
+  lookupInput: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 14,
+    borderWidth: 1,
+    color: '#EEF2FF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  lookupResult: { gap: 6, marginTop: 10 },
+  lookupName: { color: '#EEF2FF', fontSize: 16, fontWeight: '700' },
+  unitPrice: { fontSize: 13, fontWeight: '700' },
+  lookupActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  lookupBtn: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  lookupBtnText: { fontSize: 12, fontWeight: '700' },
   card: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderColor: 'rgba(255,255,255,0.08)',

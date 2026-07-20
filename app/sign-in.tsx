@@ -63,7 +63,6 @@ export default function SignInScreen() {
     <AuthShell
       showBack
       brandHero
-      kicker="Welcome back"
       title="Sign in"
       subtitle="Open your household. Demo credentials are prefilled for the Rivera home."
       footer={

@@ -1,11 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -14,10 +15,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ACCENT_THEMES, AVATAR_EMOJIS, type AccentThemeId } from '@/constants/accent-themes';
+import { ACCENT_THEMES, AVATAR_EMOJIS, ROOM_EMOJIS, type AccentThemeId } from '@/constants/accent-themes';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
+import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { createLocalId } from '@/repositories/repository-utils';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdRoom } from '@/types/orbit';
@@ -85,6 +88,23 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const pickMemojiPhoto = async (memberId: string) => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Photos needed', 'Allow photo library access to use a Memoji or portrait.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    await updateMemberAvatar(memberId, result.assets[0].uri);
+    setPickingAvatarFor(null);
+  };
+
   return (
     <View style={[styles.shell, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -112,10 +132,10 @@ export default function SettingsScreen() {
         </Pressable>
       </View>
 
-      <ScrollView
+      <KeyboardScreen
+        offset={12}
         style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
+        contentContainerStyle={styles.content}>
         {section === 'main' ? (
           <>
             <SectionCard title="Household">
@@ -279,6 +299,7 @@ export default function SettingsScreen() {
             {household.members.map((member) => {
               const active = currentMember?.id === member.id;
               const picking = pickingAvatarFor === member.id;
+              const photo = isAvatarImageUri(member.avatar);
               return (
                 <View key={member.id} style={styles.memberCard}>
                   <Pressable
@@ -287,7 +308,11 @@ export default function SettingsScreen() {
                       styles.memberAvatar,
                       { backgroundColor: `${active ? accentTheme.primary : '#4B6080'}33` },
                     ]}>
-                    <Text style={styles.memberAvatarText}>{member.avatar}</Text>
+                    {photo ? (
+                      <Image source={{ uri: member.avatar }} style={styles.memberAvatarImage} />
+                    ) : (
+                      <Text style={styles.memberAvatarText}>{memberDisplayEmoji(member)}</Text>
+                    )}
                     <View style={styles.avatarEditBadge}>
                       <MaterialIcons name="edit" size={10} color="#38BDF8" />
                     </View>
@@ -302,6 +327,12 @@ export default function SettingsScreen() {
                   {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
                   {picking ? (
                     <View style={styles.emojiGrid}>
+                      <Pressable
+                        style={[styles.emojiChip, styles.photoChip, { borderColor: `${accentTheme.primary}88` }]}
+                        onPress={() => void pickMemojiPhoto(member.id)}>
+                        <MaterialIcons name="photo-camera" size={18} color={accentTheme.primary} />
+                        <Text style={[styles.photoChipText, { color: accentTheme.primary }]}>Photo / Memoji</Text>
+                      </Pressable>
                       {AVATAR_EMOJIS.map((emoji) => (
                         <Pressable
                           key={emoji}
@@ -356,7 +387,7 @@ export default function SettingsScreen() {
               </View>
             ))}
             <View style={styles.emojiRow}>
-              {['🚪', '🍳', '🛋️', '🚿', '🛏️', '👕', '🪴', '🧹'].map((emoji) => {
+              {ROOM_EMOJIS.map((emoji) => {
                 const active = roomEmoji === emoji;
                 return (
                   <Pressable
@@ -459,7 +490,7 @@ export default function SettingsScreen() {
             </Pressable>
           </>
         ) : null}
-      </ScrollView>
+      </KeyboardScreen>
     </View>
   );
 }
@@ -652,6 +683,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     height: 56,
     justifyContent: 'center',
+    overflow: 'hidden',
     position: 'relative',
     width: 56,
   },
@@ -667,8 +699,24 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -2,
     width: 20,
+    zIndex: 2,
+  },
+  memberAvatarImage: {
+    height: 56,
+    width: 56,
   },
   memberAvatarText: { fontSize: 28 },
+  photoChip: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 10,
+    width: 'auto',
+  },
+  photoChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   memberName: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
   emojiGrid: {
     flexBasis: '100%',

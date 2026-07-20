@@ -35,7 +35,12 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 29d | Grocery Missing Item | Groceries → + → expanded categories + qty + storage location + note · Save | ☐ |
 | 29e | Household Health | Home → Household Health sheet · Completion/Grocery Load/Plan Load · member load · cleaning by room | ☐ |
 | 29f | Soft budget | Groceries progress · est. total includes checked items · leftover/over vs soft budget | ☐ |
-| 29g | Unknown barcode | Scan unknown UPC · unknown result card · Add to cart still works | ☐ |
+| 29h | Auth chrome | Sign-in shows one Back · no Stack double header · logo + Sign in title | ☐ |
+| 29i | Keyboard forms | Welcome account/profile/household · auth · add-grocery · settings · CTA stays above keyboard | ☐ |
+| 29j | Header chips gutter | Home avatar + Groceries + not covered by Settings/Notifications | ☐ |
+| 29k | Photo / Memoji avatar | Settings → Members → Photo / Memoji · shows on Home | ☐ |
+| 29l | Household Games | Ranks → Household Games · coming-soon cards by vibe | ☐ |
+| 29m | Grocery product lookup | Groceries search milk · $/L · $/gal · Open in Maps · Add to list | ☐ |
 | 14 | Share invite | Create household → Invite · Share primary · Copy · QR tertiary | ☐ |
 | 15 | Task presets | Create Task → pick preset · weight XP · optional proof · recurring spawn | ☐ |
 | 16 | Late XP | Complete overdue task · celebration shows penalty · Nova ai notification | ☐ |

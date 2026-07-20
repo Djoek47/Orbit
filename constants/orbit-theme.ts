@@ -121,6 +121,9 @@ export const orbitTypography = StyleSheet.create({
   },
 });
 
+/** Right gutter reserved for absolute GlobalHeaderChips (bell + Settings). */
+export const HEADER_CHIPS_GUTTER = 132;
+
 export const orbitScreen = StyleSheet.create({
   container: {
     flex: 1,

@@ -312,6 +312,7 @@ export default function CreateTaskScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
       style={[styles.screen, { paddingBottom: insets.bottom }]}>
       <Stack.Screen options={{ headerShown: false }} />
 

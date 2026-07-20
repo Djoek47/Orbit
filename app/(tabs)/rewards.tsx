@@ -20,6 +20,7 @@ const RANK_EMOJI = ['👑', '🥈', '🥉'] as const;
 
 export default function RewardsScreen() {
   const {
+    accentTheme,
     achievements,
     approveRedemption,
     archiveReward,
@@ -53,6 +54,19 @@ export default function RewardsScreen() {
         <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Leaderboard</Text>
         <Text style={orbitTypography.display}>Family Rankings</Text>
       </View>
+
+      <Pressable
+        onPress={() => router.push('/household-games' as never)}
+        style={[styles.gamesCard, { borderColor: `${accentTheme.primary}44` }]}>
+        <Text style={styles.gamesEmoji}>🎮</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={orbitTypography.cardTitle}>Household Games</Text>
+          <Text style={orbitTypography.caption}>
+            Drinking games, Uno, guessing nights — coming soon packs.
+          </Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={18} color={accentTheme.primary} />
+      </Pressable>
 
       <View style={styles.toggleRow}>
         {(['week', 'alltime'] as const).map((option) => {
@@ -453,6 +467,18 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 4,
+  },
+  gamesCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: orbitRadius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+  },
+  gamesEmoji: {
+    fontSize: 28,
   },
   levelPill: {
     borderRadius: 999,
