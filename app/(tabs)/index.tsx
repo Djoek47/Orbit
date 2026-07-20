@@ -82,7 +82,7 @@ export default function HomeScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.hero}>
           <View style={styles.heroTop}>
-            {/* Profile badges over the Nova orb (overlays / hides the top of the circle). */}
+            {/* Profile matches Nova orb size exactly and covers it. */}
             <View style={styles.heroIdentity}>
               <NovaOrb size={56} />
               <LinearGradient
@@ -358,20 +358,20 @@ const styles = StyleSheet.create({
   },
   profileOnNova: {
     alignItems: 'center',
-    borderColor: '#0A1525',
-    borderRadius: 14,
+    borderColor: 'rgba(6,182,212,0.55)',
+    borderRadius: 28,
     borderWidth: 2,
-    height: 28,
+    height: 56,
     justifyContent: 'center',
+    left: 0,
     overflow: 'hidden',
     position: 'absolute',
-    right: -4,
-    top: -6,
-    width: 28,
+    top: 0,
+    width: 56,
     zIndex: 2,
   },
-  profileOnNovaImage: { height: 24, width: 24 },
-  profileOnNovaText: { color: '#070D1C', fontSize: 12, fontWeight: '700' },
+  profileOnNovaImage: { height: 56, width: 56 },
+  profileOnNovaText: { color: '#070D1C', fontSize: 22, fontWeight: '700' },
   healthCol: { alignItems: 'stretch', flex: 1, gap: 6, minWidth: 0 },
   healthLabel: { color: '#7C9CC0', flexShrink: 1, fontSize: 11, fontWeight: '600' },
   healthLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 4 },
