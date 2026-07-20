@@ -133,3 +133,11 @@ export const MEMBER_ACCENTS: Record<string, { color: string; emoji: string }> = 
   Jordan: { color: '#F472B6', emoji: '✨' },
   Casey: { color: '#94A3B8', emoji: '👋' },
 };
+
+/** Prefer stored member.avatar over hardcoded Make demo emoji. */
+export function memberDisplayEmoji(member: { name: string; avatar?: string }) {
+  if (member.avatar && member.avatar.length <= 4 && !/^[A-Z]$/i.test(member.avatar)) {
+    return member.avatar;
+  }
+  return MEMBER_ACCENTS[member.name]?.emoji ?? member.avatar ?? '👤';
+}

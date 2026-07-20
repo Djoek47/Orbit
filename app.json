@@ -8,6 +8,14 @@
     "scheme": "choremaxx",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "linking": {
+      "prefixes": ["orbit://", "https://orbit.app"],
+      "config": {
+        "screens": {
+          "join/[code]": "join/:code"
+        }
+      }
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.choremaxx.household",
@@ -91,6 +99,12 @@
           "dark": {
             "backgroundColor": "#070D1C"
           }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Orbit uses the camera to scan household invite QR codes."
         }
       ]
     ],

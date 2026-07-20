@@ -121,10 +121,14 @@ export const authRepository = {
 
   async createProfile(user: OrbitUser, input: CreateProfileInput): Promise<OrbitUser> {
     const trimmedName = input.name.trim();
+    const avatar =
+      input.avatar?.trim() ||
+      trimmedName.charAt(0).toUpperCase() ||
+      'O';
     const nextUser: OrbitUser = {
       ...user,
       name: trimmedName,
-      avatar: trimmedName.charAt(0).toUpperCase() || 'O',
+      avatar,
       profileComplete: true,
     };
 

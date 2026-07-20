@@ -1,7 +1,11 @@
-import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
+import { Audio } from 'expo-av';
 
-let recording: Audio.Recording | null = null;
+import { buildNovaHouseholdPayload } from '@/lib/ai/household-context';
+import { useLiveNovaAi } from '@/config/nova-ai-mode';
+import { getSupabaseClient } from '@/lib/supabase/client';
+import { novaService } from '@/services/nova-service';
+import type { HouseholdSnapshot, NovaConversationAnswer, OrbitMetrics } from '@/types/orbit';
 
 export async function speakNova(text: string) {
   Speech.stop();
@@ -15,6 +19,8 @@ export async function speakNova(text: string) {
 export async function stopSpeaking() {
   Speech.stop();
 }
+
+let recording: Audio.Recording | null = null;
 
 export async function startVoiceCapture() {
   await Audio.requestPermissionsAsync();
@@ -41,11 +47,95 @@ export async function stopVoiceCapture() {
   return uri;
 }
 
-/**
- * Converts a short voice prompt into text for Nova.
- * Production: send audio to a speech-to-text edge function.
- * Until then, returns a calm default prompt so the voice path is exercisable.
- */
-export async function transcribeVoicePrompt(_uri: string | null): Promise<string> {
-  return 'What should our household focus on right now?';
+async function invokeNovaVoice(
+  audioUri: string,
+  household: HouseholdSnapshot,
+  metrics: OrbitMetrics,
+  transcriptOnly = false
+): Promise<{ transcript: string; answer: string } | null> {
+  const supabase = getSupabaseClient();
+  const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!supabase || !baseUrl) {
+    return null;
+  }
+
+  const session = await supabase.auth.getSession();
+  const token = session.data.session?.access_token;
+  if (!token) {
+    return null;
+  }
+
+  const form = new FormData();
+  form.append('audio', {
+    uri: audioUri,
+    name: 'nova.m4a',
+    type: 'audio/m4a',
+  } as unknown as Blob);
+  form.append('householdId', household.id ?? '');
+  form.append('metrics', JSON.stringify(metrics));
+  form.append('household', JSON.stringify(buildNovaHouseholdPayload(household, metrics)));
+  if (transcriptOnly) {
+    form.append('transcriptOnly', '1');
+  }
+
+  const response = await fetch(`${baseUrl}/functions/v1/nova-voice`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: form,
+  });
+
+  const payload = await response.json();
+  if (!response.ok || payload.error) {
+    throw new Error(payload.error ?? 'Voice request failed');
+  }
+
+  return {
+    transcript: String(payload.transcript ?? ''),
+    answer: String(payload.answer ?? ''),
+  };
+}
+
+/** Whisper-only transcription for Realtime text turns (Expo Go). */
+export async function transcribeNovaAudio(
+  audioUri: string | null,
+  household: HouseholdSnapshot,
+  metrics: OrbitMetrics
+): Promise<string> {
+  const fallbackQuestion = 'What should our household focus on right now?';
+  if (!useLiveNovaAi || !audioUri) {
+    return fallbackQuestion;
+  }
+  try {
+    const payload = await invokeNovaVoice(audioUri, household, metrics, true);
+    return payload?.transcript?.trim() || fallbackQuestion;
+  } catch {
+    return fallbackQuestion;
+  }
+}
+
+export async function transcribeAndAskNova(
+  audioUri: string | null,
+  household: HouseholdSnapshot,
+  metrics: OrbitMetrics
+): Promise<NovaConversationAnswer> {
+  const fallbackQuestion = 'What should our household focus on right now?';
+
+  if (!useLiveNovaAi || !audioUri) {
+    return novaService.answerQuestion(fallbackQuestion, household, metrics);
+  }
+
+  try {
+    const payload = await invokeNovaVoice(audioUri, household, metrics, false);
+    if (!payload) {
+      return novaService.answerQuestion(fallbackQuestion, household, metrics);
+    }
+    return {
+      question: payload.transcript || fallbackQuestion,
+      answer: payload.answer || 'I could not respond just now.',
+    };
+  } catch {
+    return novaService.answerQuestion(fallbackQuestion, household, metrics);
+  }
 }

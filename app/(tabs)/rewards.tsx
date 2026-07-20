@@ -1,30 +1,27 @@
-import { useMemo, useState } from 'react';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
+import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 import type { MemberProgress } from '@/types/orbit';
 
-type RewardsTab = 'rewards' | 'allowance' | 'rankings';
-type RankCat = 'xp' | 'tasks' | 'streak';
+type RankingView = 'week' | 'alltime';
 
 const PODIUM_ORDER: [number, number, number] = [1, 0, 2];
 const PODIUM_HEIGHTS = [100, 130, 85];
+const CROWN_COLORS = ['#FBBF24', '#94A3B8', '#FB923C'];
 const RANK_EMOJI = ['👑', '🥈', '🥉'] as const;
-
-/** Mock allowance rows until payroll ships to supabase. */
-const ALLOWANCE_MOCK = [
-  { name: 'Maya', emoji: '🌟', color: '#34D399', weekly: 10, earned: 7.5, pending: 2.5, streak: 5 },
-  { name: 'Emma', emoji: '🦋', color: '#FB923C', weekly: 5, earned: 3, pending: 2, streak: 3 },
-];
 
 export default function RewardsScreen() {
   const {
     achievements,
     approveRedemption,
-    currentMember,
+    archiveReward,
     household,
     membersWithProgress,
     pendingRedemptions,
@@ -32,402 +29,301 @@ export default function RewardsScreen() {
     rejectRedemption,
     requestRewardRedemption,
   } = useOrbit();
-
-  const isParent = permissions.canApproveReward;
-  const [activeTab, setActiveTab] = useState<RewardsTab>(isParent ? 'allowance' : 'rewards');
-  const [rankCat, setRankCat] = useState<RankCat>('xp');
-
-  const myProgress = useMemo(() => {
-    if (!currentMember) return null;
-    return membersWithProgress.find((member) => member.id === currentMember.id) ?? null;
-  }, [currentMember, membersWithProgress]);
+  const [view, setView] = useState<RankingView>('week');
 
   const sorted = useMemo(() => {
-    const active = membersWithProgress.filter(
-      (member) => member.status === 'active' && member.role !== 'guest',
-    );
-    return [...active].sort((a, b) => {
-      if (rankCat === 'tasks') return (b.tasksCompleted ?? 0) - (a.tasksCompleted ?? 0);
-      if (rankCat === 'streak') return (b.streak ?? 0) - (a.streak ?? 0);
-      return b.xp - a.xp;
-    });
-  }, [membersWithProgress, rankCat]);
+    return [...membersWithProgress]
+      .filter((member) => member.status === 'active' && member.role !== 'guest')
+      .sort((a, b) => (view === 'week' ? b.weekXp - a.weekXp : b.xp - a.xp));
+  }, [membersWithProgress, view]);
 
   const top3 = sorted.slice(0, 3);
   const earnedCount = achievements.filter((badge) => badge.earned).length;
-  const tabs = (
-    [
-      { id: 'rewards' as const, label: 'Rewards', show: true },
-      { id: 'allowance' as const, label: 'Allowance', show: isParent },
-      { id: 'rankings' as const, label: 'Rankings', show: true },
-    ] as const
-  ).filter((tab) => tab.show);
-
-  const budgeted = ALLOWANCE_MOCK.reduce((sum, row) => sum + row.weekly, 0);
-  const earned = ALLOWANCE_MOCK.reduce((sum, row) => sum + row.earned, 0);
-  const pending = ALLOWANCE_MOCK.reduce((sum, row) => sum + row.pending, 0);
+  const collectionPct = achievements.length ? Math.round((earnedCount / achievements.length) * 100) : 0;
 
   return (
     <ScrollView
       style={orbitScreen.container}
       contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Rewards & Rankings</Text>
-        <Text style={orbitTypography.display}>
-          {currentMember?.role === 'child' ? 'My Rewards' : 'Rewards Center'}
-        </Text>
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator={false}>
+      <View style={[orbitScreen.header, styles.header]}>
+        <Text style={orbitTypography.caption}>Leaderboard</Text>
+        <Text style={orbitTypography.display}>Family Rankings</Text>
       </View>
 
-      {currentMember?.role === 'child' && myProgress ? (
-        <GlassCard elevated style={styles.xpCard}>
-          <View style={orbitScreen.row}>
-            <View>
-              <Text style={[styles.levelName, { color: myProgress.levelColor }]}>
-                {myProgress.levelEmoji} {myProgress.levelName}
-              </Text>
-              <Text style={orbitTypography.caption}>{myProgress.xp} XP total</Text>
-            </View>
-            <View style={styles.weekXpBlock}>
-              <Text style={styles.weekXpValue}>{myProgress.weekXp}</Text>
-              <Text style={orbitTypography.caption}>XP this week</Text>
-            </View>
-          </View>
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${myProgress.levelProgress * 100}%`,
-                  backgroundColor: myProgress.levelColor,
-                },
-              ]}
-            />
-          </View>
-        </GlassCard>
-      ) : null}
-
       <View style={styles.toggleRow}>
-        {tabs.map((tab) => {
-          const active = activeTab === tab.id;
+        {(['week', 'alltime'] as const).map((option) => {
+          const active = view === option;
           return (
             <Pressable
-              key={tab.id}
-              onPress={() => setActiveTab(tab.id)}
+              key={option}
+              onPress={() => setView(option)}
               style={[styles.toggleButton, active && styles.toggleButtonActive]}>
-              <Text style={[styles.toggleLabel, active && styles.toggleLabelActive]}>{tab.label}</Text>
+              <Text style={[styles.toggleLabel, active && styles.toggleLabelActive]}>
+                {option === 'week' ? 'This Week' : 'All Time'}
+              </Text>
             </Pressable>
           );
         })}
       </View>
 
-      {activeTab === 'rewards' ? (
-        <>
-          {pendingRedemptions.length > 0 ? (
-            <GlassCard style={styles.pendingCard}>
-              <Text style={styles.pendingTitle}>🔔 Pending Approvals</Text>
-              {pendingRedemptions.map((redemption) => {
-                const reward = household.rewards.find((item) => item.id === redemption.rewardId);
-                const member = household.members.find((item) => item.id === redemption.memberId);
-                return (
-                  <View key={redemption.id} style={styles.pendingRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.memberName}>
-                        {member?.name ?? 'Member'} wants {reward?.title ?? 'a reward'}
-                      </Text>
-                      <Text style={orbitTypography.caption}>
-                        {reward?.cost ?? 0} XP · {new Date(redemption.requestedAt).toLocaleString()}
-                      </Text>
-                    </View>
-                    {permissions.canApproveReward ? (
-                      <View style={styles.pendingActions}>
-                        <Pressable
-                          onPress={() => approveRedemption(redemption.id)}
-                          style={styles.approveChip}>
-                          <Text style={styles.approveText}>Approve</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => rejectRedemption(redemption.id)}
-                          style={styles.denyChip}>
-                          <Text style={styles.denyText}>Deny</Text>
-                        </Pressable>
-                      </View>
-                    ) : null}
-                  </View>
-                );
-              })}
-            </GlassCard>
-          ) : null}
+      <LinearGradient
+        colors={['rgba(14,165,233,0.12)', 'rgba(167,139,250,0.08)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.podiumCard}>
+        <View style={styles.podiumAmbient} pointerEvents="none" />
+        <View style={styles.podiumRow}>
+          {PODIUM_ORDER.map((rankIndex, visualIndex) => {
+            const member = top3[rankIndex];
+            if (!member) {
+              return <View key={`empty-${visualIndex}`} style={styles.podiumSlot} />;
+            }
+            const xpVal = view === 'week' ? member.weekXp : member.xp;
+            return (
+              <PodiumCard
+                key={member.id}
+                member={member}
+                rank={rankIndex}
+                xp={xpVal}
+                height={PODIUM_HEIGHTS[visualIndex]}
+                isFirst={rankIndex === 0}
+              />
+            );
+          })}
+        </View>
+      </LinearGradient>
 
-          <View style={styles.rewardGrid}>
-            {household.rewards.map((reward) => {
-              const color = reward.color ?? orbitColors.primary;
-              const canAfford = (myProgress?.xp ?? 0) >= reward.cost;
-              return (
-                <GlassCard key={reward.id} style={[styles.rewardTile, { borderColor: `${color}44` }]}>
-                  <Text style={styles.rewardEmoji}>{reward.emoji ?? '🎁'}</Text>
-                  <Text style={styles.rewardTitle}>{reward.title}</Text>
-                  <Text style={orbitTypography.caption}>{reward.category ?? 'Reward'}</Text>
-                  <View style={styles.rewardFooter}>
-                    <Text style={[styles.rewardCost, { color }]}>⚡ {reward.cost}</Text>
-                    <Pressable
-                      onPress={() => requestRewardRedemption(reward.id)}
+      <GlassCard style={styles.listCard}>
+        {sorted.map((member, index) => {
+          const xpVal = view === 'week' ? member.weekXp : member.xp;
+          const isFirst = index === 0;
+          return (
+            <View
+              key={member.id}
+              style={[styles.rankRow, index < sorted.length - 1 && styles.rankRowBorder, isFirst && styles.rankRowFirst]}>
+              <View style={styles.rankBadge}>
+                {index < 3 ? (
+                  <Text style={styles.rankEmoji}>{RANK_EMOJI[index]}</Text>
+                ) : (
+                  <Text style={styles.rankNumber}>#{index + 1}</Text>
+                )}
+              </View>
+              <View style={[styles.avatarCircle, { backgroundColor: `${member.accentColor}33` }]}>
+                <Text style={styles.avatarEmoji}>{member.avatarEmoji}</Text>
+              </View>
+              <View style={styles.rankInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.memberName}>{member.name}</Text>
+                  <View style={[styles.levelPill, { backgroundColor: `${member.levelColor}18` }]}>
+                    <Text style={[styles.levelPillText, { color: member.levelColor }]}>
+                      {member.levelEmoji} {member.levelName}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.xpBarRow}>
+                  <View style={styles.progressTrack}>
+                    <View
                       style={[
-                        styles.redeemChip,
+                        styles.progressFill,
                         {
-                          backgroundColor:
-                            currentMember?.role === 'child'
-                              ? canAfford
-                                ? `${color}25`
-                                : 'rgba(255,255,255,0.06)'
-                              : `${color}25`,
+                          width: `${member.levelProgress * 100}%`,
+                          backgroundColor: member.accentColor,
                         },
-                      ]}>
-                      <Text
-                        style={[
-                          styles.redeemText,
-                          {
-                            color:
-                              currentMember?.role === 'child'
-                                ? canAfford
-                                  ? color
-                                  : orbitColors.textSubtle
-                                : color,
-                          },
-                        ]}>
-                        {currentMember?.role === 'child' ? (canAfford ? 'Redeem' : 'Not yet') : 'Active'}
-                      </Text>
-                    </Pressable>
+                      ]}
+                    />
                   </View>
-                </GlassCard>
-              );
-            })}
-          </View>
-        </>
-      ) : null}
-
-      {activeTab === 'allowance' ? (
-        <>
-          <GlassCard style={styles.payrollCard}>
-            <Text style={styles.payrollTitle}>💵 This Week&apos;s Payroll</Text>
-            <View style={styles.payrollRow}>
-              <View>
-                <Text style={styles.payrollValue}>${budgeted.toFixed(2)}</Text>
-                <Text style={orbitTypography.caption}>Budgeted</Text>
+                  <Text style={styles.xpCaption}>{member.xp} XP</Text>
+                </View>
               </View>
-              <View>
-                <Text style={[styles.payrollValue, { color: orbitColors.success }]}>
-                  ${earned.toFixed(2)}
+              <View style={styles.xpColumn}>
+                <Text style={[styles.xpValue, { color: isFirst ? orbitColors.rankGold : orbitColors.orbitBlue }]}>
+                  ⚡ {xpVal}
                 </Text>
-                <Text style={orbitTypography.caption}>Earned</Text>
-              </View>
-              <View>
-                <Text style={[styles.payrollValue, { color: '#FB923C' }]}>${pending.toFixed(2)}</Text>
-                <Text style={orbitTypography.caption}>Pending</Text>
+                <Text style={styles.xpPeriod}>{view === 'week' ? 'this week' : 'total'}</Text>
               </View>
             </View>
-          </GlassCard>
+          );
+        })}
+      </GlassCard>
 
-          {ALLOWANCE_MOCK.map((child) => (
-            <GlassCard key={child.name} style={styles.allowanceCard}>
-              <View style={styles.allowanceHeader}>
-                <View style={[styles.avatarCircle, { backgroundColor: `${child.color}33` }]}>
-                  <Text style={styles.avatarEmoji}>{child.emoji}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.memberName}>{child.name}</Text>
-                  <Text style={orbitTypography.caption}>
-                    ${child.weekly}/week · {child.streak}-day streak
-                  </Text>
-                </View>
-                <View>
-                  <Text style={[styles.payrollValue, { color: orbitColors.success, fontSize: 18 }]}>
-                    ${child.earned.toFixed(2)}
-                  </Text>
-                  <Text style={orbitTypography.caption}>earned</Text>
-                </View>
+      <GlassCard>
+        <View style={styles.sectionHeading}>
+          <MaterialIcons name="local-fire-department" size={16} color={orbitColors.warning} />
+          <Text style={orbitTypography.cardTitle}>Current Streaks</Text>
+        </View>
+        <View style={styles.streakRow}>
+          {sorted.map((member) => (
+            <View key={`streak-${member.id}`} style={styles.streakItem}>
+              <View style={[styles.avatarCircleSmall, { backgroundColor: `${member.accentColor}33` }]}>
+                <Text style={styles.avatarEmojiSmall}>{member.avatarEmoji}</Text>
               </View>
-              <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${(child.earned / child.weekly) * 100}%`,
-                      backgroundColor: child.color,
-                    },
-                  ]}
+              <View style={styles.streakValueRow}>
+                <MaterialIcons
+                  name="local-fire-department"
+                  size={10}
+                  color={(member.streak ?? 0) >= 7 ? orbitColors.warning : orbitColors.textSubtle}
                 />
-              </View>
-              <View style={styles.allowanceActions}>
-                <Pressable style={styles.bonusChip}>
-                  <Text style={styles.bonusText}>+ Bonus</Text>
-                </Pressable>
-                <Pressable style={styles.payChip}>
-                  <Text style={styles.payText}>Pay Now</Text>
-                </Pressable>
-                <Pressable style={styles.historyChip}>
-                  <Text style={styles.historyText}>History</Text>
-                </Pressable>
-              </View>
-            </GlassCard>
-          ))}
-
-          <GlassCard>
-            <View style={orbitScreen.row}>
-              <View>
-                <Text style={orbitTypography.cardTitle}>Pay Schedule</Text>
-                <Text style={orbitTypography.caption}>Every Sunday · Auto-approve</Text>
-              </View>
-              <Text style={styles.editLink}>Edit</Text>
-            </View>
-          </GlassCard>
-        </>
-      ) : null}
-
-      {activeTab === 'rankings' ? (
-        <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rankCats}>
-            {(
-              [
-                { id: 'xp' as const, label: 'Most XP', emoji: '⚡' },
-                { id: 'tasks' as const, label: 'Most Tasks', emoji: '✅' },
-                { id: 'streak' as const, label: 'Longest Streak', emoji: '🔥' },
-              ] as const
-            ).map((cat) => {
-              const active = rankCat === cat.id;
-              return (
-                <Pressable
-                  key={cat.id}
-                  onPress={() => setRankCat(cat.id)}
-                  style={[styles.rankCatChip, active && styles.rankCatChipActive]}>
-                  <Text style={[styles.rankCatLabel, active && styles.rankCatLabelActive]}>
-                    {cat.emoji} {cat.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          <GlassCard elevated style={styles.podiumCard}>
-            <View style={styles.podiumRow}>
-              {PODIUM_ORDER.map((rankIndex, visualIndex) => {
-                const member = top3[rankIndex];
-                if (!member) return <View key={`empty-${visualIndex}`} style={styles.podiumSlot} />;
-                const value = rankValue(member, rankCat);
-                return (
-                  <PodiumCard
-                    key={member.id}
-                    member={member}
-                    rank={rankIndex}
-                    value={value}
-                    height={PODIUM_HEIGHTS[visualIndex]}
-                    isFirst={rankIndex === 0}
-                    suffix={rankCat === 'xp' ? ' XP' : rankCat === 'tasks' ? '✓' : '🔥'}
-                  />
-                );
-              })}
-            </View>
-          </GlassCard>
-
-          <GlassCard style={styles.listCard}>
-            {sorted.map((member, index) => {
-              const value = rankValue(member, rankCat);
-              const isFirst = index === 0;
-              return (
-                <View
-                  key={member.id}
+                <Text
                   style={[
-                    styles.rankRow,
-                    index < sorted.length - 1 && styles.rankRowBorder,
-                    isFirst && styles.rankRowFirst,
+                    styles.streakValue,
+                    { color: (member.streak ?? 0) >= 7 ? orbitColors.warning : orbitColors.textSoft },
                   ]}>
-                  <View style={styles.rankBadge}>
-                    {index < 3 ? (
-                      <Text style={styles.rankEmoji}>{RANK_EMOJI[index]}</Text>
-                    ) : (
-                      <Text style={styles.rankNumber}>#{index + 1}</Text>
-                    )}
-                  </View>
-                  <View style={[styles.avatarCircle, { backgroundColor: `${member.accentColor}33` }]}>
-                    <Text style={styles.avatarEmoji}>{member.avatarEmoji}</Text>
-                  </View>
-                  <View style={styles.rankInfo}>
-                    <View style={styles.nameRow}>
-                      <Text style={styles.memberName}>{member.name}</Text>
-                      <View style={[styles.levelPill, { backgroundColor: `${member.levelColor}22` }]}>
-                        <Text style={[styles.levelPillText, { color: member.levelColor }]}>
-                          {member.levelEmoji} {member.levelName}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  <View style={styles.xpColumn}>
-                    <Text style={[styles.xpValue, { color: isFirst ? '#FBBF24' : orbitColors.primary }]}>
-                      {value}
-                    </Text>
-                    <Text style={styles.xpPeriod}>
-                      {rankCat === 'xp' ? 'XP' : rankCat === 'tasks' ? 'tasks' : 'days'}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
-          </GlassCard>
-
-          <Pressable onPress={() => router.push('/badge-gallery' as never)}>
-            <GlassCard>
-              <View style={orbitScreen.row}>
-                <Text style={orbitTypography.cardTitle}>✨ Achievements</Text>
-                <Text style={styles.earnedCount}>
-                  {earnedCount}/{achievements.length}
+                  {member.streak}
                 </Text>
               </View>
-              <View style={styles.badgeGrid}>
-                {achievements.slice(0, 8).map((badge) => (
-                  <View key={badge.id} style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
-                    <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
-                  </View>
-                ))}
+              <Text style={styles.streakCaption}>day streak</Text>
+            </View>
+          ))}
+        </View>
+      </GlassCard>
+
+      <Pressable onPress={() => router.push('/badge-gallery' as never)}>
+        <GlassCard>
+          <View style={orbitScreen.row}>
+            <View style={styles.sectionHeading}>
+              <MaterialIcons name="emoji-events" size={16} color={orbitColors.rankGold} />
+              <Text style={orbitTypography.cardTitle}>Achievements</Text>
+            </View>
+            <View style={styles.earnedRow}>
+              <Text style={styles.earnedCount}>
+                {earnedCount}/{achievements.length}
+              </Text>
+              <MaterialIcons name="chevron-right" size={12} color={orbitColors.textSubtle} />
+            </View>
+          </View>
+          <View style={styles.badgeGrid}>
+            {achievements.map((badge) => (
+              <View key={badge.id} style={styles.badgeTile}>
+                <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
+                  <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
+                  {!badge.earned ? (
+                    <View style={styles.lockOverlay}>
+                      <MaterialIcons name="lock" size={12} color={orbitColors.textSubtle} />
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={[styles.badgeLabel, !badge.earned && styles.badgeLabelMuted]}>{badge.label}</Text>
               </View>
-            </GlassCard>
-          </Pressable>
+            ))}
+          </View>
+          <View style={styles.collectionRow}>
+            <Text style={styles.collectionCaption}>Collection progress</Text>
+            <Text style={styles.collectionPct}>{collectionPct}%</Text>
+          </View>
+          <View style={styles.collectionTrack}>
+            <LinearGradient
+              colors={['#FBBF24', '#FB923C']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.collectionFill, { width: `${collectionPct}%` }]}
+            />
+          </View>
+        </GlassCard>
+      </Pressable>
+
+      <View style={styles.shopHeader}>
+        <Text style={orbitTypography.display}>Reward shop</Text>
+        <Text style={orbitTypography.caption}>Mint rewards or redeem with household XP</Text>
+      </View>
+
+      {permissions.canManageHousehold || permissions.canApproveReward ? (
+        <OrbitButton onPress={() => router.push('/create-reward' as never)}>Mint reward</OrbitButton>
+      ) : null}
+      <OrbitButton tone="secondary" onPress={() => router.push('/special-reward-request' as never)}>
+        Request special reward
+      </OrbitButton>
+
+      {household.rewards.map((reward) => (
+        <GlassCard key={reward.id} style={styles.rewardCard}>
+          <View style={orbitScreen.row}>
+            <View style={styles.rewardCopy}>
+              <Text style={orbitTypography.cardTitle}>
+                {reward.emoji ? `${reward.emoji} ` : ''}
+                {reward.title}
+              </Text>
+              <Text style={orbitTypography.caption}>
+                {reward.cost} XP{reward.specialRequest ? ' · Special request' : ''}
+              </Text>
+            </View>
+            <Text style={styles.approvalLabel}>{reward.approvalRequired ? 'Approval' : 'Instant'}</Text>
+          </View>
+          <OrbitButton tone="secondary" onPress={() => requestRewardRedemption(reward.id)}>
+            Redeem
+          </OrbitButton>
+          {permissions.canManageHousehold ? (
+            <OrbitButton tone="danger" onPress={() => archiveReward(reward.id)}>
+              Archive
+            </OrbitButton>
+          ) : null}
+        </GlassCard>
+      ))}
+
+      {pendingRedemptions.length > 0 ? (
+        <>
+          <Text style={orbitTypography.cardTitle}>Pending redemptions</Text>
+          {pendingRedemptions.map((redemption) => {
+            const reward = household.rewards.find((item) => item.id === redemption.rewardId);
+            const member = household.members.find((item) => item.id === redemption.memberId);
+            return (
+              <GlassCard key={redemption.id} style={styles.rewardCard}>
+                <Text style={orbitTypography.cardTitle}>{reward?.title ?? 'Reward'}</Text>
+                <Text style={orbitTypography.caption}>
+                  Requested by {member?.name ?? 'member'} · {new Date(redemption.requestedAt).toLocaleString()}
+                </Text>
+                {permissions.canApproveReward ? (
+                  <View style={styles.redemptionActions}>
+                    <OrbitButton style={styles.redemptionButton} onPress={() => approveRedemption(redemption.id)}>
+                      Approve
+                    </OrbitButton>
+                    <OrbitButton
+                      style={styles.redemptionButton}
+                      tone="danger"
+                      onPress={() => rejectRedemption(redemption.id)}>
+                      Reject
+                    </OrbitButton>
+                  </View>
+                ) : (
+                  <Text style={orbitTypography.caption}>Waiting on household approval.</Text>
+                )}
+              </GlassCard>
+            );
+          })}
         </>
       ) : null}
     </ScrollView>
   );
 }
 
-function rankValue(member: MemberProgress, cat: RankCat) {
-  if (cat === 'tasks') return member.tasksCompleted ?? 0;
-  if (cat === 'streak') return member.streak ?? 0;
-  return member.xp;
-}
-
 function PodiumCard({
   member,
   rank,
-  value,
+  xp,
   height,
   isFirst,
-  suffix,
 }: {
   member: MemberProgress;
   rank: number;
-  value: number;
+  xp: number;
   height: number;
   isFirst: boolean;
-  suffix: string;
 }) {
   return (
     <View style={styles.podiumSlot}>
       {isFirst ? <Text style={styles.crown}>👑</Text> : <View style={styles.crownSpacer} />}
-      <View
-        style={[
-          styles.podiumAvatar,
-          isFirst && styles.podiumAvatarFirst,
-          { backgroundColor: `${member.accentColor}44` },
-        ]}>
-        <Text style={[styles.podiumEmoji, isFirst && styles.podiumEmojiFirst]}>{member.avatarEmoji}</Text>
+      <View style={styles.podiumAvatarWrap}>
+        <View
+          style={[
+            styles.podiumAvatar,
+            isFirst && styles.podiumAvatarFirst,
+            { backgroundColor: `${member.accentColor}44` },
+          ]}>
+          <Text style={[styles.podiumEmoji, isFirst && styles.podiumEmojiFirst]}>{member.avatarEmoji}</Text>
+        </View>
+        <View style={[styles.podiumRankDot, { backgroundColor: CROWN_COLORS[rank] }]}>
+          <Text style={styles.podiumRankText}>{rank + 1}</Text>
+        </View>
       </View>
       <Text style={styles.podiumName}>{member.name}</Text>
       <View
@@ -435,40 +331,19 @@ function PodiumCard({
           styles.podiumBlock,
           {
             height,
-            borderColor: `${member.accentColor}55`,
+            borderColor: `${member.accentColor}33`,
             backgroundColor: `${member.accentColor}22`,
           },
         ]}>
-        <Text style={[styles.podiumXp, { color: member.accentColor }]}>
-          {value}
-          {suffix}
-        </Text>
+        <Text style={[styles.podiumXp, { color: member.accentColor, fontSize: isFirst ? 15 : 13 }]}>⚡ {xp}</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  allowanceActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  allowanceCard: {
-    gap: orbitSpacing.md,
-  },
-  allowanceHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-  },
-  approveChip: {
-    backgroundColor: 'rgba(52,211,153,0.2)',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  approveText: {
-    color: orbitColors.success,
+  approvalLabel: {
+    color: orbitColors.warning,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -479,89 +354,107 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 40,
   },
+  avatarCircleSmall: {
+    alignItems: 'center',
+    borderRadius: 18,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
   avatarEmoji: {
     fontSize: 20,
   },
+  avatarEmojiSmall: {
+    fontSize: 18,
+  },
   badgeEmoji: {
-    fontSize: 20,
+    fontSize: 22,
   },
   badgeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 12,
   },
   badgeIconWrap: {
     alignItems: 'center',
-    backgroundColor: 'rgba(245,158,11,0.12)',
-    borderColor: 'rgba(245,158,11,0.25)',
+    backgroundColor: 'rgba(251,191,36,0.12)',
+    borderColor: 'rgba(251,191,36,0.3)',
     borderRadius: orbitRadius.md,
     borderWidth: 1,
-    height: 40,
+    height: 48,
     justifyContent: 'center',
-    width: 40,
+    position: 'relative',
+    width: 48,
   },
-  badgeLocked: {
-    opacity: 0.35,
-  },
-  bonusChip: {
-    backgroundColor: 'rgba(52,211,153,0.15)',
-    borderRadius: orbitRadius.md,
-    flex: 1,
-    paddingVertical: 10,
-  },
-  bonusText: {
-    color: orbitColors.success,
-    fontSize: 12,
-    fontWeight: '700',
+  badgeLabel: {
+    color: orbitColors.textSoft,
+    fontSize: 9,
+    fontWeight: '600',
     textAlign: 'center',
   },
+  badgeLabelMuted: {
+    color: orbitColors.textSubtle,
+    fontWeight: '400',
+  },
+  badgeLocked: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: orbitColors.border,
+    opacity: 0.4,
+  },
+  badgeTile: {
+    alignItems: 'center',
+    gap: 6,
+    width: '22%',
+  },
+  collectionCaption: {
+    color: orbitColors.textMuted,
+    fontSize: 12,
+  },
+  collectionFill: {
+    borderRadius: 999,
+    height: 6,
+  },
+  collectionPct: {
+    color: orbitColors.success,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  collectionRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  collectionTrack: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 999,
+    height: 6,
+    marginTop: 6,
+    overflow: 'hidden',
+  },
   crown: {
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 20,
+    lineHeight: 24,
   },
   crownSpacer: {
-    height: 22,
-  },
-  denyChip: {
-    backgroundColor: 'rgba(248,113,113,0.15)',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  denyText: {
-    color: orbitColors.danger,
-    fontSize: 12,
-    fontWeight: '700',
+    height: 24,
   },
   earnedCount: {
     color: orbitColors.success,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  editLink: {
-    color: orbitColors.primary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  historyChip: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: orbitRadius.md,
-    flex: 1,
-    paddingVertical: 10,
-  },
-  historyText: {
-    color: orbitColors.textMuted,
     fontSize: 12,
     fontWeight: '600',
-    textAlign: 'center',
   },
-  levelName: {
-    fontSize: 18,
-    fontWeight: '800',
+  earnedRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  header: {
+    paddingTop: 4,
   },
   levelPill: {
     borderRadius: 999,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 2,
   },
   levelPillText: {
@@ -573,10 +466,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingVertical: 0,
   },
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: orbitRadius.md,
+    justifyContent: 'center',
+  },
   memberName: {
     color: orbitColors.text,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   nameRow: {
     alignItems: 'center',
@@ -584,56 +484,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
   },
-  payChip: {
-    backgroundColor: 'rgba(59,181,240,0.12)',
-    borderRadius: orbitRadius.md,
-    flex: 1,
-    paddingVertical: 10,
-  },
-  payText: {
-    color: orbitColors.primary,
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  payrollCard: {
-    backgroundColor: 'rgba(245,158,11,0.08)',
-    borderColor: 'rgba(245,158,11,0.2)',
-    gap: orbitSpacing.md,
-  },
-  payrollRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  payrollTitle: {
-    color: orbitColors.rewardsGold,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  payrollValue: {
-    color: orbitColors.text,
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  pendingActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  pendingCard: {
-    backgroundColor: 'rgba(245,158,11,0.08)',
-    borderColor: 'rgba(245,158,11,0.2)',
-    gap: orbitSpacing.sm,
-  },
-  pendingRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    paddingVertical: 6,
-  },
-  pendingTitle: {
-    color: orbitColors.rewardsGold,
-    fontSize: 14,
-    fontWeight: '700',
+  podiumAmbient: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(251,191,36,0.06)',
   },
   podiumAvatar: {
     alignItems: 'center',
@@ -647,8 +500,12 @@ const styles = StyleSheet.create({
     height: 52,
     width: 52,
   },
+  podiumAvatarWrap: {
+    position: 'relative',
+  },
   podiumBlock: {
     alignItems: 'center',
+    borderBottomWidth: 0,
     borderCurve: 'continuous',
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
@@ -659,7 +516,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   podiumCard: {
+    borderColor: orbitColors.border,
+    borderRadius: orbitRadius.lg,
+    borderWidth: 1,
     overflow: 'hidden',
+    padding: 20,
   },
   podiumEmoji: {
     fontSize: 22,
@@ -672,10 +533,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  podiumRankDot: {
+    alignItems: 'center',
+    borderRadius: 9,
+    bottom: -2,
+    height: 18,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: -2,
+    width: 18,
+  },
+  podiumRankText: {
+    color: orbitColors.ink,
+    fontSize: 9,
+    fontWeight: '800',
+  },
   podiumRow: {
     alignItems: 'flex-end',
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     justifyContent: 'center',
   },
   podiumSlot: {
@@ -684,46 +560,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   podiumXp: {
-    fontSize: 13,
     fontWeight: '800',
   },
   progressFill: {
     borderRadius: 999,
-    height: 8,
+    height: 4,
   },
   progressTrack: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 999,
-    height: 8,
+    flex: 1,
+    height: 4,
     overflow: 'hidden',
   },
   rankBadge: {
     alignItems: 'center',
     width: 28,
-  },
-  rankCatChip: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: orbitRadius.lg,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  rankCatChipActive: {
-    backgroundColor: 'rgba(59,181,240,0.2)',
-    borderColor: 'rgba(59,181,240,0.35)',
-  },
-  rankCatLabel: {
-    color: orbitColors.textSubtle,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  rankCatLabelActive: {
-    color: orbitColors.primary,
-    fontWeight: '700',
-  },
-  rankCats: {
-    gap: 8,
   },
   rankEmoji: {
     fontSize: 18,
@@ -735,107 +587,113 @@ const styles = StyleSheet.create({
   },
   rankNumber: {
     color: orbitColors.textSubtle,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
   rankRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: orbitSpacing.lg,
+    gap: 16,
+    paddingHorizontal: orbitSpacing.md,
     paddingVertical: 14,
   },
   rankRowBorder: {
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    borderBottomColor: 'rgba(255,255,255,0.05)',
     borderBottomWidth: 1,
   },
   rankRowFirst: {
-    backgroundColor: 'rgba(251, 191, 36, 0.04)',
+    backgroundColor: 'rgba(251,191,36,0.04)',
   },
-  redeemChip: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  redemptionActions: {
+    flexDirection: 'row',
+    gap: orbitSpacing.md,
   },
-  redeemText: {
-    fontSize: 12,
-    fontWeight: '700',
+  redemptionButton: {
+    flex: 1,
   },
-  rewardCost: {
-    fontSize: 15,
-    fontWeight: '800',
+  rewardCard: {
+    gap: orbitSpacing.md,
   },
-  rewardEmoji: {
-    fontSize: 28,
+  rewardCopy: {
+    flex: 1,
+    gap: 4,
   },
-  rewardFooter: {
+  sectionHeading: {
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 8,
+  },
+  shopHeader: {
+    gap: 4,
     marginTop: 8,
   },
-  rewardGrid: {
+  streakCaption: {
+    color: orbitColors.textSubtle,
+    fontSize: 9,
+  },
+  streakItem: {
+    alignItems: 'center',
+    flex: 1,
+    gap: 4,
+  },
+  streakRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
   },
-  rewardTile: {
-    borderWidth: 1,
-    gap: 4,
-    width: '48%',
-  },
-  rewardTitle: {
-    color: orbitColors.text,
+  streakValue: {
     fontSize: 14,
     fontWeight: '700',
   },
+  streakValueRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+  },
   toggleButton: {
     alignItems: 'center',
-    borderRadius: orbitRadius.md,
+    borderColor: 'transparent',
+    borderRadius: 12,
+    borderWidth: 1,
     flex: 1,
     paddingVertical: 10,
   },
   toggleButtonActive: {
-    backgroundColor: 'rgba(59, 181, 240, 0.2)',
-    borderColor: 'rgba(59, 181, 240, 0.3)',
-    borderWidth: 1,
+    backgroundColor: 'rgba(56,189,248,0.18)',
+    borderColor: 'rgba(56,189,248,0.3)',
   },
   toggleLabel: {
     color: orbitColors.textSubtle,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   toggleLabelActive: {
-    color: orbitColors.primary,
-    fontWeight: '700',
+    color: orbitColors.orbitBlue,
+    fontWeight: '600',
   },
   toggleRow: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: orbitRadius.lg,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: orbitRadius.md,
     flexDirection: 'row',
-    gap: 4,
     padding: 4,
   },
-  weekXpBlock: {
-    alignItems: 'flex-end',
+  xpBarRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
-  weekXpValue: {
-    color: orbitColors.text,
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  xpCard: {
-    gap: orbitSpacing.md,
+  xpCaption: {
+    color: orbitColors.textSubtle,
+    fontSize: 12,
   },
   xpColumn: {
     alignItems: 'flex-end',
   },
   xpPeriod: {
     color: orbitColors.textSubtle,
-    fontSize: 11,
+    fontSize: 12,
   },
   xpValue: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 });

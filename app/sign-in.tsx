@@ -1,20 +1,22 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { GlassCard } from '@/components/orbit/glass-card';
-import { OrbitButton } from '@/components/orbit/orbit-button';
+import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors } from '@/constants/orbit-theme';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function SignInScreen() {
-  const { signIn, hydrateFromSession } = useOrbit();
+  const { accentTheme, signIn, hydrateFromSession } = useOrbit();
   const [email, setEmail] = useState('sarah@orbit.test');
   const [password, setPassword] = useState('orbit-demo');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
 
   useEffect(() => {
@@ -28,11 +30,14 @@ export default function SignInScreen() {
     }
 
     try {
+      setBusy(true);
       setError('');
       await signIn({ email, password });
       router.replace('/' as never);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed.');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -55,66 +60,88 @@ export default function SignInScreen() {
   };
 
   return (
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Welcome back</Text>
-        <Text style={orbitTypography.display}>Sign in</Text>
-        <Text style={orbitTypography.body}>
-          Sign in to open your household. New here? Create an account from the Choremaxx welcome flow.
-        </Text>
-      </View>
+    <AuthShell
+      showBack
+      kicker="Welcome back"
+      title="Sign in"
+      subtitle="Open your household. Demo credentials are prefilled for the Rivera home."
+      footer={
+        <View style={styles.footerLinks}>
+          <Pressable onPress={() => router.push('/forgot-password' as never)}>
+            <Text style={[styles.link, { color: accentTheme.primary }]}>Forgot password?</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push('/sign-up' as never)} style={styles.switchRow}>
+            <Text style={styles.switchMuted}>New here?</Text>
+            <Text style={[styles.link, { color: accentTheme.primary }]}>Create account</Text>
+          </Pressable>
+        </View>
+      }>
+      <OrbitInput
+        autoCapitalize="none"
+        label="Email"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        placeholder="you@home.com"
+      />
+      <OrbitInput
+        autoCapitalize="none"
+        label="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        placeholder="Your password"
+      />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <GlassCard elevated style={styles.form}>
-        <OrbitInput
-          autoCapitalize="none"
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-        />
-        <OrbitInput
-          autoCapitalize="none"
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <OrbitButton onPress={handleSignIn}>Sign In</OrbitButton>
-        {appleAvailable && Platform.OS === 'ios' ? (
+      <Pressable onPress={() => void handleSignIn()} disabled={busy} style={styles.ctaWrap}>
+        <LinearGradient
+          colors={[accentTheme.primary, accentTheme.secondary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.cta}>
+          <Text style={styles.ctaText}>{busy ? 'Signing in…' : 'Sign in'}</Text>
+        </LinearGradient>
+      </Pressable>
+
+      {appleAvailable && Platform.OS === 'ios' ? (
+        <>
+          <View style={styles.dividerRow}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.divider} />
+          </View>
           <AppleAuthentication.AppleAuthenticationButton
             buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
             buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
             cornerRadius={16}
             style={styles.appleButton}
-            onPress={handleApple}
+            onPress={() => void handleApple()}
           />
-        ) : null}
-        <OrbitButton tone="secondary" onPress={() => router.push('/forgot-password' as never)}>
-          Forgot Password
-        </OrbitButton>
-        <OrbitButton tone="secondary" onPress={() => router.push('/welcome' as never)}>
-          Create Account
-        </OrbitButton>
-      </GlassCard>
-    </ScrollView>
+        </>
+      ) : null}
+
+      <View style={styles.demoHint}>
+        <MaterialIcons name="info-outline" size={14} color={orbitColors.textSubtle} />
+        <Text style={styles.demoText}>Demo: sarah@orbit.test · orbit-demo</Text>
+      </View>
+    </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  appleButton: {
-    height: 48,
-    width: '100%',
-  },
-  error: {
-    color: orbitColors.danger,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  form: {
-    gap: orbitSpacing.md,
-  },
+  error: { color: orbitColors.danger, fontSize: 13, fontWeight: '700' },
+  ctaWrap: { borderRadius: 18, overflow: 'hidden', marginTop: 4 },
+  cta: { alignItems: 'center', paddingVertical: 15 },
+  ctaText: { color: '#070D1C', fontSize: 15, fontWeight: '800' },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.12)' },
+  dividerText: { color: orbitColors.textSubtle, fontSize: 12, fontWeight: '600' },
+  appleButton: { height: 48, width: '100%' },
+  demoHint: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  demoText: { color: orbitColors.textSubtle, fontSize: 12 },
+  footerLinks: { alignItems: 'center', gap: 14 },
+  link: { fontSize: 14, fontWeight: '700' },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  switchMuted: { color: orbitColors.textMuted, fontSize: 14 },
 });

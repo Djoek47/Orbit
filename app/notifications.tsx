@@ -1,53 +1,56 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, Stack } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GlassCard } from '@/components/orbit/glass-card';
-import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { getNotificationRoute } from '@/lib/notifications/navigate';
 import { useOrbit } from '@/store/orbit-store';
 import type { NotificationItem } from '@/types/orbit';
 
+const PANEL_BG = '#0A1525';
+
 type FilterKey = 'all' | 'unread' | NotificationItem['category'];
 
-const PRIMARY_FILTERS: { key: FilterKey; label: string }[] = [
+const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'unread', label: 'Unread' },
+  { key: 'ai', label: 'Nova' },
+  { key: 'tasks', label: 'Tasks' },
+  { key: 'events', label: 'Events' },
+  { key: 'groceries', label: 'Groceries' },
+  { key: 'rewards', label: 'Rewards' },
 ];
 
-const CATEGORY_FILTERS: { key: FilterKey; label: string; emoji: string }[] = [
-  { key: 'tasks', label: 'Tasks', emoji: '✅' },
-  { key: 'events', label: 'Plan', emoji: '📅' },
-  { key: 'groceries', label: 'Grocery', emoji: '🛒' },
-  { key: 'rewards', label: 'Rewards', emoji: '🎁' },
-  { key: 'ai', label: 'Nova', emoji: '✨' },
-];
-
-const CATEGORY_META: Record<
+const CATEGORY_UI: Record<
   NotificationItem['category'],
-  { emoji: string; label: string; color: string }
+  { icon: keyof typeof MaterialIcons.glyphMap; color: string; action: string; emoji: string }
 > = {
-  tasks: { emoji: '✅', label: 'Tasks', color: '#34D399' },
-  groceries: { emoji: '🛒', label: 'Grocery', color: '#FB923C' },
-  events: { emoji: '📅', label: 'Plan', color: '#A78BFA' },
-  rewards: { emoji: '🎁', label: 'Rewards', color: '#F59E0B' },
-  ai: { emoji: '✨', label: 'Nova', color: '#2DD4BF' },
-  general: { emoji: '🔔', label: 'General', color: '#3BB5F0' },
+  ai: { icon: 'auto-awesome', color: '#06B6D4', action: 'Nova', emoji: '🤖' },
+  tasks: { icon: 'check-circle', color: '#34D399', action: 'Task', emoji: '✅' },
+  events: { icon: 'event', color: '#A78BFA', action: 'Event', emoji: '📅' },
+  groceries: { icon: 'shopping-cart', color: '#FB923C', action: 'Grocery', emoji: '🛒' },
+  rewards: { icon: 'card-giftcard', color: '#FBBF24', action: 'Reward', emoji: '🎁' },
+  members: { icon: 'group', color: '#38BDF8', action: 'Member', emoji: '👥' },
+  general: { icon: 'notifications', color: '#7C9CC0', action: 'Alert', emoji: '🔔' },
 };
 
-function formatWhen(iso: string) {
+function formatRelativeTime(iso: string) {
   const date = new Date(iso);
-  const now = Date.now();
-  const diffMin = Math.round((now - date.getTime()) / 60000);
+  const diffMin = Math.round((Date.now() - date.getTime()) / 60000);
+  if (Number.isNaN(diffMin)) return 'Just now';
   if (diffMin < 1) return 'Just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffMin < 60) return `${diffMin} min ago`;
+  if (diffMin < 24 * 60) return `${Math.round(diffMin / 60)} hr ago`;
+  if (diffMin < 48 * 60) return 'Yesterday';
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+/**
+ * Make v5 notifications inbox — AdminScreen sheet chrome + Nova Activity card pattern.
+ * Looks-first port; keep existing mark-read / deep-link behavior.
+ */
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const {
@@ -80,271 +83,346 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={[
-        orbitScreen.content,
-        { paddingTop: insets.top + orbitSpacing.md },
-      ]}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={styles.topBar}>
-        <View style={styles.topCopy}>
-          <Text style={orbitTypography.caption}>Inbox</Text>
-          <Text style={orbitTypography.display}>Notifications</Text>
-          <Text style={orbitTypography.body}>
-            {unreadNotificationCount > 0
-              ? `${unreadNotificationCount} unread household alert${unreadNotificationCount === 1 ? '' : 's'}`
-              : 'You are caught up.'}
-          </Text>
+    <View style={[styles.shell, { paddingTop: insets.top }]}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={styles.handleRow}>
+        <View style={styles.handle} />
+      </View>
+
+      <View style={styles.header}>
+        <View style={styles.titleRow}>
+          <LinearGradient colors={['#38BDF8', '#0EA5E9']} style={styles.iconBox}>
+            <MaterialIcons name="notifications" size={16} color="#070D1C" />
+          </LinearGradient>
+          <View>
+            <Text style={styles.title}>Notifications</Text>
+            <Text style={styles.subtitle}>
+              {unreadNotificationCount > 0
+                ? `${unreadNotificationCount} unread`
+                : 'You are caught up'}
+            </Text>
+          </View>
         </View>
-        <Pressable style={styles.closeButton} onPress={() => router.back()}>
-          <Text style={styles.closeLabel}>Done</Text>
+        <Pressable style={styles.close} onPress={() => router.back()}>
+          <MaterialIcons name="close" size={16} color="#7C9CC0" />
         </Pressable>
       </View>
 
-      <View style={styles.toggleRow}>
-        {PRIMARY_FILTERS.map((item) => {
-          const active = filter === item.key;
-          return (
-            <Pressable
-              key={item.key}
-              onPress={() => setFilter(item.key)}
-              style={[styles.toggleButton, active && styles.toggleButtonActive]}>
-              <Text style={[styles.toggleLabel, active && styles.toggleLabelActive]}>{item.label}</Text>
-            </Pressable>
-          );
-        })}
+      <View style={styles.filterWrap}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filters}>
+          {FILTERS.map((item) => {
+            const active = filter === item.key;
+            return (
+              <Pressable
+                key={item.key}
+                onPress={() => setFilter(item.key)}
+                style={[styles.filterChip, active && styles.filterChipActive]}>
+                <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{item.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryRow}>
-        {CATEGORY_FILTERS.map((item) => {
-          const active = filter === item.key;
-          return (
-            <Pressable
-              key={item.key}
-              onPress={() => setFilter(item.key)}
-              style={[styles.categoryChip, active && styles.categoryChipActive]}>
-              <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
-                {item.emoji} {item.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
       {unreadNotificationCount > 0 ? (
-        <View style={styles.actionsRow}>
-          <Text style={orbitTypography.cardTitle}>
-            {filter === 'all' ? 'Latest' : filter === 'unread' ? 'Unread' : CATEGORY_META[filter as NotificationItem['category']]?.label ?? 'Filtered'}
-          </Text>
-          <Pressable onPress={() => markAllNotificationsRead()}>
-            <Text style={styles.linkHint}>Mark all read</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <Text style={orbitTypography.cardTitle}>Latest</Text>
-      )}
+        <Pressable style={styles.markAllRow} onPress={() => markAllNotificationsRead()}>
+          <MaterialIcons name="done-all" size={14} color="#38BDF8" />
+          <Text style={styles.markAllText}>Mark all read</Text>
+        </Pressable>
+      ) : null}
 
-      {filtered.length === 0 ? (
-        <GlassCard>
-          <Text style={orbitTypography.cardTitle}>All quiet</Text>
-          <Text style={orbitTypography.caption}>
-            No notifications in this filter. Household alerts from tasks, Plan, groceries, and Nova will land here.
-          </Text>
-        </GlassCard>
-      ) : (
-        filtered.map((item) => {
-          const meta = CATEGORY_META[item.category];
-          const canOpen = Boolean(getNotificationRoute(item));
-          return (
-            <Pressable key={item.id} onPress={() => openNotification(item)}>
-              <GlassCard
-                elevated={!item.isRead}
-                style={[styles.card, !item.isRead && styles.unreadCard]}>
-                <View style={styles.cardTop}>
-                  <View style={[styles.iconBubble, { backgroundColor: `${meta.color}22`, borderColor: `${meta.color}44` }]}>
-                    <Text style={styles.iconEmoji}>{meta.emoji}</Text>
-                  </View>
-                  <View style={styles.cardCopy}>
-                    <View style={styles.titleRow}>
-                      <Text style={[styles.title, !item.isRead && styles.titleUnread]} numberOfLines={2}>
-                        {item.title}
-                      </Text>
-                      {!item.isRead ? <View style={styles.unreadDot} /> : null}
-                    </View>
-                    <Text style={styles.body} numberOfLines={3}>
-                      {item.body}
-                    </Text>
-                    <View style={styles.metaRow}>
-                      <StatusPill label={meta.label} tone={item.isRead ? 'blue' : 'cyan'} />
-                      {(item.priority === 'high' || item.priority === 'critical') && (
-                        <StatusPill label={item.priority} tone="red" />
-                      )}
-                      <Text style={styles.when}>{formatWhen(item.createdAt)}</Text>
-                    </View>
-                    {canOpen ? <Text style={styles.linkHint}>Tap to open</Text> : null}
-                  </View>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}>
+        {filtered.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIcon}>
+              <MaterialIcons name="notifications-none" size={28} color="#4B6080" />
+            </View>
+            <Text style={styles.emptyTitle}>No notifications</Text>
+            <Text style={styles.emptyBody}>
+              {filter === 'unread'
+                ? 'Nothing unread in this inbox.'
+                : 'Nova will drop household alerts here.'}
+            </Text>
+          </View>
+        ) : (
+          filtered.map((item) => {
+            const ui = CATEGORY_UI[item.category] ?? CATEGORY_UI.general;
+            const high = item.priority === 'high' || item.priority === 'critical';
+            return (
+              <Pressable
+                key={item.id}
+                onPress={() => openNotification(item)}
+                style={[
+                  styles.card,
+                  !item.isRead && styles.cardUnread,
+                  high && !item.isRead && styles.cardUrgent,
+                ]}>
+                <View
+                  style={[
+                    styles.cardIcon,
+                    { backgroundColor: `${ui.color}15`, borderColor: `${ui.color}25` },
+                  ]}>
+                  <MaterialIcons name={ui.icon} size={16} color={ui.color} />
                 </View>
-              </GlassCard>
-            </Pressable>
-          );
-        })
-      )}
-    </ScrollView>
+                <View style={styles.cardCopy}>
+                  <View style={styles.cardMeta}>
+                    <Text style={[styles.cardAction, { color: ui.color }]}>{ui.action}</Text>
+                    <Text style={styles.cardDot}>·</Text>
+                    <Text style={styles.cardTime}>{formatRelativeTime(item.createdAt)}</Text>
+                    {!item.isRead ? <View style={styles.unreadDot} /> : null}
+                  </View>
+                  <Text style={[styles.cardTitle, !item.isRead && styles.cardTitleUnread]} numberOfLines={2}>
+                    {item.title}
+                  </Text>
+                  <Text style={styles.cardDetail} numberOfLines={3}>
+                    {item.body}
+                  </Text>
+                  {getNotificationRoute(item) ? (
+                    <Text style={styles.openHint}>Tap to open</Text>
+                  ) : null}
+                </View>
+                <Text style={styles.cardEmoji}>{ui.emoji}</Text>
+              </Pressable>
+            );
+          })
+        )}
+
+        <View style={styles.footerNote}>
+          <Text style={styles.footerText}>Household inbox · Nova Monitor + app alerts</Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  actionsRow: {
+  shell: {
+    backgroundColor: PANEL_BG,
+    flex: 1,
+  },
+  handleRow: {
+    alignItems: 'center',
+    paddingBottom: 4,
+    paddingTop: 12,
+  },
+  handle: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 999,
+    height: 4,
+    width: 40,
+  },
+  header: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
-  body: {
-    color: orbitColors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  card: {
-    gap: orbitSpacing.sm,
-  },
-  cardCopy: {
-    flex: 1,
-    gap: 8,
-    minWidth: 0,
-  },
-  cardTop: {
+  titleRow: {
+    alignItems: 'center',
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
-  categoryChip: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: orbitRadius.lg,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  iconBox: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
   },
-  categoryChipActive: {
-    backgroundColor: 'rgba(59,181,240,0.2)',
-    borderColor: 'rgba(59,181,240,0.35)',
-  },
-  categoryLabel: {
-    color: orbitColors.textSubtle,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  categoryLabelActive: {
-    color: orbitColors.primary,
+  title: {
+    color: '#EEF2FF',
+    fontSize: 18,
     fontWeight: '700',
   },
-  categoryRow: {
-    gap: 8,
-    paddingRight: orbitSpacing.md,
+  subtitle: {
+    color: '#4B6080',
+    fontSize: 12,
+    marginTop: 1,
   },
-  closeButton: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 999,
+  close: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  filterWrap: {
+    paddingBottom: 4,
+    paddingHorizontal: 16,
+  },
+  filters: {
+    gap: 8,
+    paddingRight: 8,
+  },
+  filterChip: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'transparent',
+    borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  closeLabel: {
-    color: orbitColors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
+  filterChipActive: {
+    backgroundColor: 'rgba(56,189,248,0.18)',
+    borderColor: 'rgba(56,189,248,0.3)',
   },
-  iconBubble: {
+  filterLabel: {
+    color: '#4B6080',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  filterLabelActive: {
+    color: '#38BDF8',
+    fontWeight: '600',
+  },
+  markAllRow: {
     alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: orbitRadius.md,
-    borderWidth: 1,
-    height: 44,
-    justifyContent: 'center',
-    width: 44,
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    gap: 6,
+    paddingBottom: 8,
+    paddingHorizontal: 20,
+    paddingTop: 4,
   },
-  iconEmoji: {
-    fontSize: 20,
-  },
-  linkHint: {
-    color: orbitColors.primary,
+  markAllText: {
+    color: '#38BDF8',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  metaRow: {
+  scroll: {
+    flex: 1,
+  },
+  content: {
+    gap: 10,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+  },
+  card: {
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 24,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+  },
+  cardUnread: {
+    backgroundColor: 'rgba(56,189,248,0.06)',
+    borderColor: 'rgba(56,189,248,0.22)',
+  },
+  cardUrgent: {
+    borderColor: 'rgba(248,113,113,0.35)',
+  },
+  cardIcon: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  cardCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  cardMeta: {
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
-  title: {
-    color: orbitColors.text,
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  titleRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  titleUnread: {
-    fontWeight: '800',
-  },
-  toggleButton: {
-    alignItems: 'center',
-    borderRadius: orbitRadius.md,
-    flex: 1,
-    paddingVertical: 10,
-  },
-  toggleButtonActive: {
-    backgroundColor: 'rgba(59, 181, 240, 0.2)',
-    borderColor: 'rgba(59, 181, 240, 0.3)',
-    borderWidth: 1,
-  },
-  toggleLabel: {
-    color: orbitColors.textSubtle,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  toggleLabelActive: {
-    color: orbitColors.primary,
+  cardAction: {
+    fontSize: 12,
     fontWeight: '700',
   },
-  toggleRow: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: orbitRadius.lg,
-    flexDirection: 'row',
-    gap: 4,
-    padding: 4,
+  cardDot: {
+    color: '#2A3A54',
+    fontSize: 12,
   },
-  topBar: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: orbitSpacing.md,
-    justifyContent: 'space-between',
-  },
-  topCopy: {
-    flex: 1,
-    gap: orbitSpacing.xs,
-  },
-  unreadCard: {
-    borderColor: 'rgba(59, 181, 240, 0.35)',
+  cardTime: {
+    color: '#2A3A54',
+    fontSize: 12,
   },
   unreadDot: {
-    backgroundColor: orbitColors.primary,
-    borderRadius: 999,
-    height: 8,
-    marginTop: 6,
-    width: 8,
+    backgroundColor: '#38BDF8',
+    borderRadius: 3,
+    height: 6,
+    marginLeft: 2,
+    width: 6,
   },
-  when: {
-    color: orbitColors.textSubtle,
-    fontSize: 12,
+  cardTitle: {
+    color: '#C8D8F0',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+    marginTop: 2,
+  },
+  cardTitleUnread: {
+    color: '#EEF2FF',
+    fontWeight: '700',
+  },
+  cardDetail: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  openHint: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  cardEmoji: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  emptyCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 36,
+  },
+  emptyIcon: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 20,
+    height: 56,
+    justifyContent: 'center',
+    marginBottom: 4,
+    width: 56,
+  },
+  emptyTitle: {
+    color: '#EEF2FF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  emptyBody: {
+    color: '#4B6080',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  footerNote: {
+    alignItems: 'center',
+    paddingTop: 12,
+  },
+  footerText: {
+    color: '#2A3A54',
+    fontSize: 11,
     fontWeight: '600',
   },
 });

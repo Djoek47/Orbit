@@ -64,9 +64,13 @@ export type TaskRow = {
   due_label: string;
   due_at: Timestamp | null;
   xp_value: number;
-  difficulty: 'easy' | 'medium' | 'hard';
+  difficulty: 'easy' | 'medium' | 'hard' | null;
+  weight: number | null;
   mental_load_value: number;
   proof_required: boolean;
+  proof_uri: string | null;
+  proof_status: 'none' | 'submitted' | 'approved' | 'rejected' | null;
+  room_id: string | null;
   repeat_rule: 'none' | 'daily' | 'weekly' | 'weekdays';
   status: 'pending' | 'in_progress' | 'completed' | 'overdue';
   created_by: string | null;
@@ -82,6 +86,13 @@ export type GroceryItemRow = {
   quantity: string;
   location: 'fridge' | 'freezer' | 'pantry' | 'bathroom' | 'cleaning';
   status: 'available' | 'low' | 'missing' | 'purchased';
+  note: string | null;
+  barcode: string | null;
+  typical_price: number | null;
+  sale_price: number | null;
+  aisle: string | null;
+  store_id: string | null;
+  requested_by: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -182,13 +193,29 @@ export type AiBriefingRow = {
   updated_at: Timestamp;
 };
 
+export type AiConversationRow = {
+  id: string;
+  household_id: string;
+  user_id: string;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+};
+
+export type AiMessageRow = {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: Timestamp;
+};
+
 export type NotificationRow = {
   id: string;
   household_id: string;
   user_id: string | null;
   title: string;
   body: string;
-  category: 'tasks' | 'groceries' | 'events' | 'rewards' | 'ai' | 'general';
+  category: 'tasks' | 'groceries' | 'events' | 'rewards' | 'ai' | 'general' | 'members';
   priority: 'low' | 'medium' | 'high' | 'critical';
   is_read: boolean;
   data: Json;
@@ -350,6 +377,18 @@ export type Database = {
         Pick<AiBriefingRow, 'household_id' | 'title' | 'summary'> &
           Partial<Omit<AiBriefingRow, 'household_id' | 'title' | 'summary'>>,
         Partial<Omit<AiBriefingRow, 'id'>>
+      >;
+      ai_conversations: TableDef<
+        AiConversationRow,
+        Pick<AiConversationRow, 'household_id' | 'user_id'> &
+          Partial<Omit<AiConversationRow, 'household_id' | 'user_id'>>,
+        Partial<Omit<AiConversationRow, 'id'>>
+      >;
+      ai_messages: TableDef<
+        AiMessageRow,
+        Pick<AiMessageRow, 'conversation_id' | 'role' | 'content'> &
+          Partial<Omit<AiMessageRow, 'conversation_id' | 'role' | 'content'>>,
+        Partial<Omit<AiMessageRow, 'id'>>
       >;
       nova_briefings: TableDef<
         Omit<AiBriefingRow, 'briefing_type'>,

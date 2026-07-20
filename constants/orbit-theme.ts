@@ -1,27 +1,47 @@
 import { StyleSheet } from 'react-native';
 
-/** Choremaxx Make v7 tokens — keep export names for existing imports. */
+/**
+ * Exact Make v5 tokens from Design Orbit AI App
+ * (theme.css + App.tsx / screen inline styles). Do not invent alternatives.
+ */
 export const orbitColors = {
   background: '#070D1C',
-  backgroundSoft: '#0F1A30',
-  card: 'rgba(255, 255, 255, 0.06)',
-  cardStrong: 'rgba(255, 255, 255, 0.08)',
+  backgroundSoft: '#0A1525',
+  shell: '#030810',
+  card: 'rgba(255, 255, 255, 0.05)',
+  cardStrong: 'rgba(255, 255, 255, 0.07)',
+  cardMuted: 'rgba(255, 255, 255, 0.03)',
   border: 'rgba(255, 255, 255, 0.08)',
-  borderStrong: 'rgba(59, 181, 240, 0.32)',
+  borderStrong: 'rgba(56, 189, 248, 0.3)',
   text: '#EEF2FF',
+  textSoft: '#C8D8F0',
   textMuted: '#7C9CC0',
   textSubtle: '#4B6080',
-  /** Primary brand blue (Make v7). */
-  orbitBlue: '#3BB5F0',
+  textFaint: '#2A3A54',
+  tabInactive: '#3A5070',
+  orbitBlue: '#38BDF8',
+  orbitBlueDeep: '#0EA5E9',
+  orbitBlueDark: '#0369A1',
+  /** Choremaxx / Make v7 primary alias */
   primary: '#3BB5F0',
   accent: '#2DD4BF',
-  novaCyan: '#3BB5F0',
   rewardsGold: '#F59E0B',
-  planPurple: '#A78BFA',
+  novaCyan: '#06B6D4',
   success: '#34D399',
-  warning: '#F59E0B',
+  warning: '#FB923C',
   danger: '#F87171',
+  planPurple: '#A78BFA',
+  rankGold: '#FBBF24',
+  ink: '#070D1C',
 };
+
+export const orbitTabColors = {
+  home: '#38BDF8',
+  tasks: '#34D399',
+  plan: '#A78BFA',
+  ranking: '#FBBF24',
+  nova: '#06B6D4',
+} as const;
 
 export const orbitSpacing = {
   xs: 8,
@@ -32,47 +52,68 @@ export const orbitSpacing = {
   xxl: 48,
 };
 
+/** Make: rounded-2xl≈16, rounded-3xl≈24 */
 export const orbitRadius = {
   sm: 12,
-  md: 18,
+  md: 16,
   lg: 24,
-  hero: 32,
+  hero: 24,
+  full: 999,
+};
+
+/** Make primary CTAs: py-3.5–4, fontWeight 700, dark label on blue gradient */
+export const orbitControl = {
+  buttonHeight: 52,
+  buttonLabelSize: 14,
+  buttonLabelWeight: '700' as const,
+  inputHeight: 52,
+  chipHeight: 32,
 };
 
 export const orbitTypography = StyleSheet.create({
   display: {
     color: orbitColors.text,
-    fontSize: 34,
-    fontWeight: '800',
-    letterSpacing: 0,
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 29,
   },
   title: {
     color: orbitColors.text,
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '700',
-    letterSpacing: 0,
+    lineHeight: 24,
   },
   cardTitle: {
     color: orbitColors.text,
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: 0,
+    fontSize: 14,
+    fontWeight: '600',
   },
   body: {
-    color: orbitColors.text,
-    fontSize: 16,
-    lineHeight: 22,
+    color: orbitColors.textSoft,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '400',
   },
   caption: {
-    color: orbitColors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
+    color: orbitColors.textSubtle,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '400',
+  },
+  eyebrow: {
+    color: orbitColors.textSubtle,
+    fontSize: 12,
+    fontWeight: '400',
   },
   metric: {
     color: orbitColors.text,
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: '800',
-    letterSpacing: 0,
+  },
+  buttonLabel: {
+    color: orbitColors.ink,
+    fontSize: orbitControl.buttonLabelSize,
+    fontWeight: orbitControl.buttonLabelWeight,
   },
 });
 
@@ -82,16 +123,20 @@ export const orbitScreen = StyleSheet.create({
     backgroundColor: orbitColors.background,
   },
   content: {
-    gap: orbitSpacing.lg,
-    padding: orbitSpacing.lg,
-    paddingBottom: 120,
+    gap: 16,
+    // Clear global Notifications + Settings chips (Make App overlay)
+    paddingHorizontal: 16,
+    paddingTop: 44,
+    paddingBottom: 24,
   },
   header: {
-    gap: orbitSpacing.xs,
+    gap: 2,
+    paddingTop: 4,
   },
   row: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 12,
   },
 });

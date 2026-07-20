@@ -1,4 +1,5 @@
 import { aiProvider } from '@/lib/ai/ai-provider';
+import type { NovaChatMessage } from '@/lib/ai/ai-provider';
 import { mapBriefingRow } from '@/lib/mappers/orbit-mappers';
 import { getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type {
@@ -11,7 +12,106 @@ import type {
   WeeklyReport,
 } from '@/types/orbit';
 
+const mockConversationByHousehold = new Map<string, NovaChatMessage[]>();
+
 export const novaRepository = {
+  async getConversationHistory(
+    householdId: string | null | undefined,
+    userId: string | null | undefined
+  ): Promise<NovaChatMessage[]> {
+    if (!householdId || !userId) {
+      return [];
+    }
+
+    if (isMockMode()) {
+      return [...(mockConversationByHousehold.get(`${householdId}:${userId}`) ?? [])];
+    }
+
+    const supabase = getConfiguredSupabase('novaRepository.getConversationHistory');
+    const { data: conversation, error: convError } = await supabase
+      .from('ai_conversations')
+      .select('id')
+      .eq('household_id', householdId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    mapDbError('novaRepository.getConversationHistory.conversation', convError);
+
+    if (!conversation?.id) {
+      return [];
+    }
+
+    const { data: messages, error } = await supabase
+      .from('ai_messages')
+      .select('role, content')
+      .eq('conversation_id', conversation.id)
+      .order('created_at', { ascending: true })
+      .limit(20);
+    mapDbError('novaRepository.getConversationHistory.messages', error);
+
+    return (messages ?? []).map(
+      (row) =>
+        ({
+          role: row.role,
+          content: row.content,
+        }) as NovaChatMessage
+    );
+  },
+
+  async appendConversationTurn(
+    householdId: string | null | undefined,
+    userId: string | null | undefined,
+    question: string,
+    answer: string
+  ): Promise<void> {
+    if (!householdId || !userId) {
+      return;
+    }
+
+    if (isMockMode()) {
+      const key = `${householdId}:${userId}`;
+      const current = mockConversationByHousehold.get(key) ?? [];
+      mockConversationByHousehold.set(
+        key,
+        [
+          ...current,
+          { role: 'user', content: question },
+          { role: 'assistant', content: answer },
+        ].slice(-20) as NovaChatMessage[]
+      );
+      return;
+    }
+
+    const supabase = getConfiguredSupabase('novaRepository.appendConversationTurn');
+    const { data: existing, error: existingError } = await supabase
+      .from('ai_conversations')
+      .select('id')
+      .eq('household_id', householdId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    mapDbError('novaRepository.appendConversationTurn.lookup', existingError);
+
+    let conversationId = existing?.id;
+    if (!conversationId) {
+      const { data: created, error: createError } = await supabase
+        .from('ai_conversations')
+        .insert({ household_id: householdId, user_id: userId })
+        .select('id')
+        .single();
+      mapDbError('novaRepository.appendConversationTurn.create', createError);
+      conversationId = created?.id;
+    }
+
+    if (!conversationId) {
+      return;
+    }
+
+    const { error: insertError } = await supabase.from('ai_messages').insert([
+      { conversation_id: conversationId, role: 'user', content: question },
+      { conversation_id: conversationId, role: 'assistant', content: answer },
+    ]);
+    mapDbError('novaRepository.appendConversationTurn.insert', insertError);
+  },
+
   async getNovaBriefing(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<NovaBriefing> {
     if (isMockMode()) {
       return aiProvider.generateDailyBriefing(household, metrics);
@@ -37,9 +137,7 @@ export const novaRepository = {
     }
 
     const generated = await aiProvider.generateDailyBriefing(household, metrics);
-    await this.saveBriefing(household.id, generated, 'daily', {
-      metrics,
-    });
+    await this.saveBriefing(household.id, generated, 'daily', { metrics });
     return generated;
   },
 
@@ -99,23 +197,19 @@ export const novaRepository = {
   },
 
   async getRecommendations(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<NovaRecommendation[]> {
-    if (isMockMode()) {
-      return aiProvider.generateRecommendations(household, metrics);
-    }
-
     return aiProvider.generateRecommendations(household, metrics);
   },
 
   async askNova(
     question: string,
     household: HouseholdSnapshot,
-    metrics: OrbitMetrics
+    metrics: OrbitMetrics,
+    history: NovaChatMessage[] = [],
+    userId?: string | null
   ): Promise<NovaConversationAnswer> {
-    if (isMockMode()) {
-      return aiProvider.answerQuestion(question, household, metrics);
-    }
-
-    return aiProvider.answerQuestion(question, household, metrics);
+    const answer = await aiProvider.answerQuestion(question, household, metrics, history);
+    await this.appendConversationTurn(household.id, userId ?? null, answer.question, answer.answer);
+    return answer;
   },
 
   async saveBriefing(

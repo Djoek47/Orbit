@@ -1,7 +1,10 @@
 import { mockHousehold } from '@/data/mock-household';
 import { mapBadgeRow, mapRewardRow } from '@/lib/mappers/orbit-mappers';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
-import type { Badge, Reward, RewardRedemption } from '@/types/orbit';
+import type { Badge, CreateRewardInput, Reward, RewardRedemption } from '@/types/orbit';
+
+let mockRewardsState: Reward[] = clone(mockHousehold.rewards);
+let mockRedemptionsState: RewardRedemption[] = [];
 
 function mapRedemptionRow(row: {
   id: string;
@@ -28,7 +31,7 @@ function mapRedemptionRow(row: {
 export const rewardsRepository = {
   async getRewards(householdId: string | null | undefined): Promise<Reward[]> {
     if (isMockMode()) {
-      return clone(mockHousehold.rewards);
+      return clone(mockRewardsState.filter((item) => !item.archived));
     }
 
     if (!householdId) {
@@ -60,7 +63,7 @@ export const rewardsRepository = {
 
   async getRedemptions(householdId: string | null | undefined): Promise<RewardRedemption[]> {
     if (isMockMode()) {
-      return [];
+      return clone(mockRedemptionsState.filter((item) => item.householdId === (householdId ?? mockHousehold.id)));
     }
 
     if (!householdId) {
@@ -78,6 +81,75 @@ export const rewardsRepository = {
     return (data ?? []).map((row) => mapRedemptionRow(row));
   },
 
+  async createReward(householdId: string | null | undefined, input: CreateRewardInput): Promise<Reward> {
+    const reward: Reward = {
+      id: createLocalId('reward'),
+      title: input.title.trim(),
+      cost: Math.max(1, Math.round(input.cost)),
+      approvalRequired: input.approvalRequired ?? true,
+      emoji: input.emoji,
+      specialRequest: input.specialRequest,
+      archived: false,
+    };
+
+    if (isMockMode()) {
+      mockRewardsState = [reward, ...mockRewardsState];
+      return clone(reward);
+    }
+
+    if (!householdId) {
+      throw new Error('rewardsRepository.createReward: householdId is required in Supabase mode.');
+    }
+
+    const supabase = getConfiguredSupabase('rewardsRepository.createReward');
+    const { data, error } = await supabase
+      .from('rewards')
+      .insert({
+        household_id: householdId,
+        title: reward.title,
+        cost: reward.cost,
+        approval_required: reward.approvalRequired,
+      })
+      .select('*')
+      .single();
+    mapDbError('rewardsRepository.createReward', error);
+    return data ? { ...mapRewardRow(data), emoji: reward.emoji, specialRequest: reward.specialRequest } : reward;
+  },
+
+  async updateReward(reward: Reward): Promise<Reward> {
+    if (isMockMode()) {
+      mockRewardsState = mockRewardsState.map((item) => (item.id === reward.id ? reward : item));
+      return clone(reward);
+    }
+
+    const supabase = getConfiguredSupabase('rewardsRepository.updateReward');
+    const { data, error } = await supabase
+      .from('rewards')
+      .update({
+        title: reward.title,
+        cost: reward.cost,
+        approval_required: reward.approvalRequired,
+      })
+      .eq('id', reward.id)
+      .select('*')
+      .single();
+    mapDbError('rewardsRepository.updateReward', error);
+    return data ? mapRewardRow(data) : reward;
+  },
+
+  async archiveReward(rewardId: string): Promise<void> {
+    if (isMockMode()) {
+      mockRewardsState = mockRewardsState.map((item) =>
+        item.id === rewardId ? { ...item, archived: true } : item
+      );
+      return;
+    }
+
+    const supabase = getConfiguredSupabase('rewardsRepository.archiveReward');
+    const { error } = await supabase.from('rewards').delete().eq('id', rewardId);
+    mapDbError('rewardsRepository.archiveReward', error);
+  },
+
   async requestRedemption(input: {
     householdId: string;
     rewardId: string;
@@ -85,7 +157,7 @@ export const rewardsRepository = {
     note?: string;
   }): Promise<RewardRedemption> {
     if (isMockMode()) {
-      return {
+      const redemption: RewardRedemption = {
         id: createLocalId('redemption'),
         householdId: input.householdId,
         rewardId: input.rewardId,
@@ -94,6 +166,8 @@ export const rewardsRepository = {
         note: input.note,
         requestedAt: new Date().toISOString(),
       };
+      mockRedemptionsState = [redemption, ...mockRedemptionsState];
+      return redemption;
     }
 
     const supabase = getConfiguredSupabase('rewardsRepository.requestRedemption');
@@ -131,19 +205,71 @@ async function decideRedemption(
   status: 'approved' | 'rejected'
 ): Promise<RewardRedemption> {
   if (isMockMode()) {
-    return {
-      id: redemptionId,
-      householdId: mockHousehold.id ?? 'hh-mock',
-      rewardId: mockHousehold.rewards[0]?.id ?? 'r1',
-      memberId: mockHousehold.members[0]?.id ?? 'm1',
+    const existing = mockRedemptionsState.find((item) => item.id === redemptionId);
+    const updated: RewardRedemption = {
+      ...(existing ?? {
+        id: redemptionId,
+        householdId: mockHousehold.id ?? 'hh-mock',
+        rewardId: mockHousehold.rewards[0]?.id ?? 'r1',
+        memberId: mockHousehold.members[0]?.id ?? 'm1',
+        requestedAt: new Date().toISOString(),
+      }),
       status,
-      requestedAt: new Date().toISOString(),
       decidedAt: new Date().toISOString(),
     };
+    mockRedemptionsState = mockRedemptionsState.map((item) => (item.id === redemptionId ? updated : item));
+    return updated;
   }
 
   const supabase = getConfiguredSupabase(`rewardsRepository.${status}`);
   const { data: authData } = await supabase.auth.getUser();
+
+  const { data: redemption, error: lookupError } = await supabase
+    .from('reward_redemptions')
+    .select('*')
+    .eq('id', redemptionId)
+    .single();
+  mapDbError(`rewardsRepository.${status}.lookup`, lookupError);
+
+  if (!redemption) {
+    throw new Error(`rewardsRepository.${status}: Redemption not found.`);
+  }
+
+  if (status === 'approved') {
+    const { data: reward } = await supabase
+      .from('rewards')
+      .select('cost, title')
+      .eq('id', redemption.reward_id)
+      .maybeSingle();
+
+    const cost = reward?.cost ?? 0;
+    if (cost > 0) {
+      const { data: member } = await supabase
+        .from('household_members')
+        .select('id, xp')
+        .eq('id', redemption.member_id)
+        .maybeSingle();
+
+      if (member) {
+        const nextXp = Math.max(0, (member.xp ?? 0) - cost);
+        const { error: xpError } = await supabase
+          .from('household_members')
+          .update({ xp: nextXp })
+          .eq('id', member.id);
+        mapDbError(`rewardsRepository.${status}.xp`, xpError);
+
+        const { error: txError } = await supabase.from('xp_transactions').insert({
+          household_id: redemption.household_id,
+          user_id: authData.user?.id ?? null,
+          member_id: member.id,
+          amount: -cost,
+          reason: `Reward redeemed: ${reward?.title ?? 'Reward'}`,
+        });
+        mapDbError(`rewardsRepository.${status}.xpTransaction`, txError);
+      }
+    }
+  }
+
   const { data, error } = await supabase
     .from('reward_redemptions')
     .update({

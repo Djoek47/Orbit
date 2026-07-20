@@ -1,5 +1,6 @@
 import { mockHousehold } from '@/data/mock-household';
 import { mapTaskRow, taskRepeatToDb, taskStatusToDb } from '@/lib/mappers/orbit-mappers';
+import { resolveCompletionXp } from '@/lib/tasks/xp';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type { CreateTaskInput, HouseholdTask } from '@/types/orbit';
 
@@ -35,6 +36,12 @@ export const taskRepository = {
       assignee: input.assignee,
       due: input.due.trim(),
       xp: input.xp,
+      weight: input.weight,
+      difficulty: input.difficulty,
+      proofRequired: input.proofRequired,
+      proofStatus: input.proofRequired ? 'none' : undefined,
+      dueAt: input.dueAt,
+      roomId: input.roomId,
       repeat: input.repeat,
       status: 'Pending',
     };
@@ -70,6 +77,10 @@ export const taskRepository = {
         xp_value: task.xp,
         repeat_rule: taskRepeatToDb(task.repeat),
         status: 'pending',
+        weight: task.weight ?? null,
+        difficulty: task.difficulty ?? null,
+        proof_required: task.proofRequired ?? false,
+        room_id: task.roomId ?? null,
       })
       .select('*')
       .single();
@@ -79,7 +90,13 @@ export const taskRepository = {
       throw new Error('taskRepository.createTask: Insert returned no row.');
     }
 
-    return mapTaskRow(data);
+    return {
+      ...mapTaskRow(data),
+      roomId: task.roomId,
+      weight: task.weight,
+      difficulty: task.difficulty,
+      proofRequired: task.proofRequired,
+    };
   },
 
   async updateTask(task: HouseholdTask): Promise<HouseholdTask> {
@@ -116,6 +133,17 @@ export const taskRepository = {
     return data ? mapTaskRow(data) : next;
   },
 
+  async deleteTask(taskId: string): Promise<void> {
+    if (isMockMode()) {
+      mockTasksState = mockTasksState.filter((item) => item.id !== taskId);
+      return;
+    }
+
+    const supabase = getConfiguredSupabase('taskRepository.deleteTask');
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+    mapDbError('taskRepository.deleteTask', error);
+  },
+
   async completeTask(
     task: HouseholdTask,
     householdId?: string | null
@@ -124,6 +152,7 @@ export const taskRepository = {
       ...task,
       due: 'Completed today',
       status: 'Completed',
+      proofStatus: task.proofRequired ? task.proofStatus ?? 'submitted' : task.proofStatus,
     };
 
     if (isMockMode()) {
@@ -158,7 +187,15 @@ async function awardTaskXp(
   taskRow: { assignee_member_id: string | null; assignee_name: string; id: string } | null,
   task: HouseholdTask
 ) {
+  const { awarded, penalty, late } = resolveCompletionXp(task);
+  if (awarded <= 0) {
+    return;
+  }
+
   let memberId = taskRow?.assignee_member_id ?? null;
+  const reason = late
+    ? `Completed task (late −${penalty} XP): ${task.title}`
+    : `Completed task: ${task.title}`;
 
   if (!memberId) {
     const { data: member } = await supabase
@@ -173,8 +210,8 @@ async function awardTaskXp(
       const { error: xpError } = await supabase
         .from('household_members')
         .update({
-          xp: (member.xp ?? 0) + task.xp,
-          week_xp: (member.week_xp ?? 0) + task.xp,
+          xp: (member.xp ?? 0) + awarded,
+          week_xp: (member.week_xp ?? 0) + awarded,
         })
         .eq('id', member.id);
       mapDbError('taskRepository.completeTask.memberXp', xpError);
@@ -190,8 +227,8 @@ async function awardTaskXp(
       const { error: xpError } = await supabase
         .from('household_members')
         .update({
-          xp: (member.xp ?? 0) + task.xp,
-          week_xp: (member.week_xp ?? 0) + task.xp,
+          xp: (member.xp ?? 0) + awarded,
+          week_xp: (member.week_xp ?? 0) + awarded,
         })
         .eq('id', member.id);
       mapDbError('taskRepository.completeTask.memberXp', xpError);
@@ -203,8 +240,8 @@ async function awardTaskXp(
     household_id: householdId,
     user_id: authData.user?.id ?? null,
     member_id: memberId,
-    amount: task.xp,
-    reason: `Completed task: ${task.title}`,
+    amount: awarded,
+    reason,
     related_task_id: task.id,
   });
   mapDbError('taskRepository.completeTask.xpTransaction', txError);
