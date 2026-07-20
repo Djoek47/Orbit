@@ -34,9 +34,9 @@ const permissionsByRole: Record<HouseholdRole, HouseholdPermissions> = {
     canCreateTask: true,
     canAssignTask: true,
     canApproveReward: true,
-    canInviteMembers: true,
+    canInviteMembers: false,
     canManageGroceries: true,
-    canViewAnalytics: true,
+    canViewAnalytics: false,
   },
   child: {
     canManageHousehold: false,

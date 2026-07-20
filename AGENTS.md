@@ -2,7 +2,7 @@
 
 Read the exact versioned docs at https://docs.expo.dev/versions/v54.0.0/ before writing any code.
 
-# Orbit UI Guidance
+# Orbit / Choremaxx UI Guidance
 
 Use the Expo `building-native-ui` skill for native UI work in this project.
 Prefer Expo Go first for development and only create custom native builds when
@@ -16,21 +16,22 @@ Before implementing product, UI, routing, data model, or Nova behavior, read:
 - `docs/ux-design-system.md`
 - `docs/technical-blueprint.md`
 
-Orbit is an AI Household Operating System. Keep the app calm, premium,
+**Choremaxx** (Make v7+) is an AI Household Operating System. Keep the app calm, premium,
 household-first, realtime-ready, permission-aware, and centered on Nova as a
-proactive co-manager rather than a generic chatbot.
+proactive co-manager rather than a generic chatbot. Code namespaces may still say `orbit`.
 
 # Cursor Mobile / Cloud Agents
 
-Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clone that remote.
+Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clone that remote.
 
 ## Cursor Cloud specific instructions
 
-- Default data mode is mock: `EXPO_PUBLIC_DATA_MODE=mock` (see `.env.example`).
-- After clone / on cloud VM: `npm install`, then `npx expo start` only if you need Metro; most UI work can be validated by lint/tsc and reading screens.
-- Design source: Figma Make `4J6d4LW335tDyEDpqq3VD1` — sync via Figma MCP when the user asks; do not assume Figma is available in every cloud run.
+- **Current runtime is Expo Go.** Keep `EXPO_PUBLIC_DATA_MODE=mock` unless the user explicitly asks for Supabase.
+- After clone / on cloud VM: `npm install`, `cp -n .env.example .env`, then use **`npm run start:tunnel`** for Expo Go (LAN `exp://172…` QR codes are unreachable from phones). Install `@expo/ngrok` as a project dep if tunnel install prompts fail. Most UI work can still be validated by lint/tsc without Metro.
+- Design source: Figma Make `4J6d4LW335tDyEDpqq3VD1` — sync via Figma MCP when the user asks; do not assume Figma is available in every cloud run. Verify ports in Expo Go.
 - Do not commit `.env`, `node_modules/`, or `.npm-cache/`.
-- Prefer Expo Go workflows over native `ios/` / `android/` folders unless the task requires a custom build.
+- Prefer Expo Go over EAS/native `ios/` / `android/` builds unless the user asks to leave Expo Go.
+- App Store / EAS scaffolding may exist in-repo but is deferred until Expo Go validation is done.
 
 To continue on the go:
 

@@ -1,9 +1,11 @@
+import { runMonitorPass } from '@/services/nova-monitor';
 import type {
   HouseholdMember,
   HouseholdSnapshot,
   HouseholdTask,
   NovaBriefing,
   NovaConversationAnswer,
+  NovaNotificationPrefs,
   NovaRecommendation,
   NovaWeeklyBriefing,
   OrbitMetrics,
@@ -11,10 +13,10 @@ import type {
 
 export const suggestedNovaQuestions = [
   'What needs attention today?',
-  'What groceries are missing?',
-  'Who has the most tasks?',
-  'What is our household momentum?',
-  'What should we do next?',
+  'Any deals worth grabbing?',
+  'Is XP fair this week?',
+  'Who is away / on holiday?',
+  'Propose a Thursday errand loop',
 ] as const;
 
 export const novaService = {
@@ -190,6 +192,11 @@ export const novaService = {
       question,
       answer: this.generateRecommendations(household, metrics)[0].detail,
     };
+  },
+
+  /** Mock Monitor Agent pass (same checks as edge nova-monitor without OpenAI). */
+  runMonitorPass(household: HouseholdSnapshot, metrics: OrbitMetrics, prefs: NovaNotificationPrefs) {
+    return runMonitorPass(household, metrics, prefs);
   },
 };
 
