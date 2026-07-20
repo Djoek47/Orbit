@@ -47,8 +47,10 @@ export default function InviteHouseholdScreen() {
 
   if (!permissions.canInviteMembers) {
     return (
-      <AuthShell title="Invites locked" subtitle="Only owners and admins can invite new household members.">
-        <Text style={styles.body}>Ask an owner to share a code or QR from their invite screen.</Text>
+      <AuthShell
+        title="Add member locked"
+        subtitle="Only owners and admins can add new household members.">
+        <Text style={styles.body}>Ask an owner or admin to share an invite from Manage Members.</Text>
       </AuthShell>
     );
   }
@@ -101,8 +103,8 @@ export default function InviteHouseholdScreen() {
     <AuthShell
       showBack
       kicker={household.householdName || 'Household'}
-      title="Invite members"
-      subtitle="AirDrop, share a link, or show the QR. New members wait for owner/admin approval before full access.">
+      title="Add new member"
+      subtitle="Share a code, link, or QR so they can create an account and join. New members wait for owner/admin approval before full access.">
       <View style={styles.qrWrap}>
         <QRCode value={webLink} size={160} backgroundColor="#FFFFFF" color="#070D1C" />
       </View>

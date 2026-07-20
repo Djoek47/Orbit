@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -127,6 +128,19 @@ export default function HouseholdMembersScreen() {
             : `Approve join requests and manage roles. ${adminSeats}.`}
         </Text>
       </View>
+
+      {permissions.canInviteMembers ? (
+        <GlassCard style={styles.card}>
+          <Text style={orbitTypography.cardTitle}>Add new member</Text>
+          <Text style={orbitTypography.caption}>
+            Share an invite so someone can create their account and join this household. They stay pending until you
+            approve.
+          </Text>
+          <OrbitButton onPress={() => router.push('/invite-household' as never)}>
+            Add new member
+          </OrbitButton>
+        </GlassCard>
+      ) : null}
 
       {admins.length > 0 ? (
         <GlassCard style={styles.card}>

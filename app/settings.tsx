@@ -209,7 +209,7 @@ export default function SettingsScreen() {
             <SettingsRow
               emoji="👥"
               label="Manage Members"
-              subtitle={`${household.members.length} family members · tap avatar to customize`}
+              subtitle={`${household.members.length} members · add new · customize avatars`}
               onPress={() => setSection('members')}
             />
             <SettingsRow
@@ -248,14 +248,6 @@ export default function SettingsScreen() {
                 ])
               }
             />
-            {permissions.canInviteMembers ? (
-              <SettingsRow
-                emoji="✉️"
-                label="Invite"
-                subtitle={`Code ${household.inviteCode || '—'}`}
-                onPress={() => router.push('/invite-household' as never)}
-              />
-            ) : null}
             <SettingsRow
               emoji="🛒"
               label="Groceries"
@@ -296,6 +288,14 @@ export default function SettingsScreen() {
         {section === 'members' ? (
           <>
             <Text style={styles.sectionHint}>Tap avatar to customize · tap name to view as them</Text>
+            {permissions.canInviteMembers ? (
+              <SettingsRow
+                emoji="➕"
+                label="Add new member"
+                subtitle="Create an invite so they can join this household"
+                onPress={() => router.push('/invite-household' as never)}
+              />
+            ) : null}
             {household.members.map((member) => {
               const active = currentMember?.id === member.id;
               const picking = pickingAvatarFor === member.id;

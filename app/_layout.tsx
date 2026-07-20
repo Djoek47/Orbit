@@ -41,7 +41,7 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="invite-household"
-            options={{ presentation: 'modal', headerShown: false, title: 'Invite Members' }}
+            options={{ presentation: 'modal', headerShown: false, title: 'Add New Member' }}
           />
           <Stack.Screen name="household-members" options={{ presentation: 'modal', title: 'Members' }} />
           <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
