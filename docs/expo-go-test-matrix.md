@@ -21,7 +21,8 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 6 | Tasks | Create → edit → complete → week XP moves on Ranks | ☐ |
 | 6b | Tasks Make UI | Tasks tab · filter chips · room filter · emoji assignee · complete celebration · open detail sheet | ☐ |
 | 6c | Tasks by person (admin) | As Sarah/David · Tasks All → My tasks + David/Liam/Emma sections with N of M complete | ☐ |
-| 6d | Shared tablet accounts | Settings → Members → Shared tablet shows Josh & Todd underneath · switch Josh/Todd (own XP) · Create task → Shared tablet → pick Josh → “Clean dishes - Josh” · Home chips switch accounts | ☐ |
+| 6d | Shared tablet accounts | Settings → Members → Shared tablet shows Josh & Todd underneath · switch Josh/Todd (own XP) · Create task → Shared tablet → pick Josh → “Clean dishes - Josh” · Home “Shared tablet · Name ▾” / avatar opens persona popup | ☐ |
+| 6f | Persona switch + personal themes | Home avatar or Shared tablet chip → popup → switch Josh↔Todd · accent color + greeting type weight change · Settings Your look sets personal theme · admin Household default separate · persists after reload | ☐ |
 | 6e | Split multi-assign | Create task → select Emma + Liam → Clean dishes · each attaches proof/completes for own XP · all-done bonus · admin Penalize on pending share | ☐ |
 | 7 | Task delete | Open task → Delete → removed from Tasks list | ☐ |
 | 8 | Groceries | Add missing → mark purchased · mark available item Low | ☐ |
@@ -32,7 +33,7 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 12b | Barcode online | Airplane mode off · scan unknown UPC → Open Food Facts result card (quality/allergens/ingredients) · Add to cart | ☐ |
 | 12c | Grocery uncheck | Groceries → check item Purchased → uncheck → status returns to Missing | ☐ |
 | 13 | Preferred store | Adult sets preferred store · Start store itinerary | ☐ |
-| 29a | Accent themes | Settings → pick accent theme · tab active + OrbitButton + header chips + grocery CTAs tint · persists after reload | ☐ |
+| 29a | Accent themes | Settings → Your look · pick personal theme (incl. forest/slate/amber/violet) · tab active + OrbitButton + header chips tint · type vibe label under swatch · persists after reload | ☐ |
 | 29b | Member avatars | Settings → Members → emoji picker · avatar persists on Health / Ranks / Home / Create Task | ☐ |
 | 29c | Rooms | Settings → Rooms add/remove · persists after reload · Create Task presets show room · Health cleaning strip | ☐ |
 | 29d | Grocery Missing Item | Groceries → + → expanded categories + qty + storage location + note · Save | ☐ |

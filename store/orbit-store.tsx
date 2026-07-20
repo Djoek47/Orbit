@@ -61,7 +61,12 @@ import {
 } from '@/constants/accent-themes';
 import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
 import { loadNovaNotificationPrefs, saveNovaNotificationPrefs } from '@/lib/nova/prefs-store';
-import { loadAccentThemeId, saveAccentThemeId } from '@/lib/theme/accent-prefs';
+import {
+  applyStoredMemberThemes,
+  loadAccentThemeId,
+  saveAccentThemeId,
+  saveMemberAccentThemeId,
+} from '@/lib/theme/accent-prefs';
 import { DEFAULT_NOVA_NOTIFICATION_PREFS, novaNotifications } from '@/services/nova-notifications';
 import { runMonitorPass } from '@/services/nova-monitor';
 import { novaService, suggestedNovaQuestions } from '@/services/nova-service';
@@ -190,7 +195,10 @@ type OrbitContextValue = {
     userId?: string | null;
   }) => Promise<NotificationItem | null>;
   updateNotificationPrefs: (prefs: Partial<NovaNotificationPrefs>) => void;
+  /** Updates the current member’s personal look (follows persona switches). */
   updateAccentTheme: (themeId: AccentThemeId) => void;
+  /** Owner/admin: household fallback theme for members without a personal pick. */
+  updateHouseholdAccentTheme: (themeId: AccentThemeId) => void;
   accentTheme: AccentTheme;
   updateMemberAvatar: (memberId: string, avatar: string) => Promise<void>;
   upsertRoom: (room: HouseholdRoom) => void;
@@ -348,6 +356,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             loadHouseholdRooms(mockHousehold.id),
             loadMemberAvatarOverrides(mockHousehold.id),
           ]);
+          const withAvatars = mockHousehold.members.map((member) =>
+            avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
+          );
+          const themedMembers = await applyStoredMemberThemes(mockHousehold.id, withAvatars);
           setHousehold((current) => ({
             ...current,
             notificationPrefs: prefs,
@@ -357,9 +369,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
               : current.rooms?.length
                 ? current.rooms
                 : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
-            members: current.members.map((member) =>
-              avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
-            ),
+            members: themedMembers.length ? themedMembers : current.members,
           }));
           setStoreRecommendations(buildStoreRecommendations(mockHousehold.id, mockHousehold.groceries));
           const items = await notificationsRepository.list(mockHousehold.id);
@@ -1304,11 +1314,33 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const accentTheme = useMemo(
-    () => getAccentTheme(household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID),
-    [household.accentThemeId]
+    () =>
+      getAccentTheme(
+        currentMember?.accentThemeId ?? household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID
+      ),
+    [currentMember?.accentThemeId, household.accentThemeId]
   );
 
   const updateAccentTheme = (themeId: AccentThemeId) => {
+    const memberId = currentMember?.id;
+    if (!memberId) {
+      setHousehold((current) => ({ ...current, accentThemeId: themeId }));
+      void saveAccentThemeId(household.id, themeId);
+      return;
+    }
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((member) =>
+        member.id === memberId ? { ...member, accentThemeId: themeId } : member
+      ),
+    }));
+    void saveMemberAccentThemeId(household.id, memberId, themeId);
+  };
+
+  const updateHouseholdAccentTheme = (themeId: AccentThemeId) => {
+    if (!permissions.canManageHousehold) {
+      return;
+    }
     setHousehold((current) => ({ ...current, accentThemeId: themeId }));
     void saveAccentThemeId(household.id, themeId);
   };
@@ -1868,6 +1900,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       pushNotification,
       updateNotificationPrefs,
       updateAccentTheme,
+      updateHouseholdAccentTheme,
       accentTheme,
       updateMemberAvatar,
       upsertRoom,
@@ -1924,6 +1957,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       runNovaMonitor,
       accentTheme,
       updateAccentTheme,
+      updateHouseholdAccentTheme,
       updateMemberAvatar,
       upsertRoom,
       removeRoom,
@@ -1947,9 +1981,10 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
       loadHouseholdRooms(householdId),
       loadMemberAvatarOverrides(householdId),
     ]);
-  const members = baseHousehold.members.map((member) =>
+  const withAvatars = baseHousehold.members.map((member) =>
     avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
   );
+  const members = await applyStoredMemberThemes(householdId, withAvatars);
   const initialHousehold: HouseholdSnapshot = {
     ...baseHousehold,
     members,

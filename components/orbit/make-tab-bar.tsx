@@ -33,6 +33,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   const orbit = useOrbitOptional();
   const accentPrimary = orbit?.accentTheme.primary ?? '#38BDF8';
   const accentSecondary = orbit?.accentTheme.secondary ?? '#0EA5E9';
+  const typeStyle = orbit?.accentTheme.typeStyle;
   const activeRouteName = state.routes[state.index]?.name;
 
   const visibleRoutes = TAB_ORDER.map((name) => {
@@ -111,7 +112,13 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               <Text
                 style={[
                   styles.label,
-                  { color: labelColor, fontWeight: isFocused ? '600' : '400' },
+                  {
+                    color: labelColor,
+                    fontWeight: isFocused
+                      ? (typeStyle?.captionWeight ?? '600')
+                      : '400',
+                    letterSpacing: isFocused ? (typeStyle?.letterSpacing ?? 0) : 0,
+                  },
                   isNova && styles.novaLabel,
                 ]}>
                 {label}

@@ -44,6 +44,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 95,
       streak: 12,
       loadShare: 52,
+      accentThemeId: 'ocean',
     },
     {
       id: 'm2',
@@ -55,6 +56,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 110,
       streak: 8,
       loadShare: 34,
+      accentThemeId: 'cosmic',
       // On a short work trip — Nova Monitor skips task nudges
       awayFrom: todayKey(0),
       awayTo: todayKey(2),
@@ -69,6 +71,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 45,
       streak: 3,
       loadShare: 8,
+      accentThemeId: 'rose',
     },
     {
       id: 'm4',
@@ -80,6 +83,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 80,
       streak: 5,
       loadShare: 6,
+      accentThemeId: 'sunset',
     },
     {
       id: 'm5',
@@ -91,6 +95,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 0,
       streak: 0,
       loadShare: 0,
+      accentThemeId: 'violet',
     },
     {
       id: 'm6',
@@ -102,6 +107,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 0,
       streak: 0,
       loadShare: 0,
+      accentThemeId: 'slate',
     },
     {
       id: 'm8',
@@ -113,6 +119,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 20,
       streak: 1,
       loadShare: 5,
+      accentThemeId: 'amber',
     },
     {
       id: 'm9',
@@ -124,6 +131,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 15,
       streak: 1,
       loadShare: 5,
+      accentThemeId: 'forest',
     },
     {
       id: 'm7',

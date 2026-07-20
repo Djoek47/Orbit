@@ -15,9 +15,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ACCENT_THEMES, AVATAR_EMOJIS, ROOM_EMOJIS, type AccentThemeId } from '@/constants/accent-themes';
+import {
+  ACCENT_THEMES,
+  AVATAR_EMOJIS,
+  DEFAULT_ACCENT_THEME_ID,
+  ROOM_EMOJIS,
+  type AccentThemeId,
+} from '@/constants/accent-themes';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
+import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { createLocalId } from '@/repositories/repository-utils';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
@@ -125,6 +132,7 @@ export default function SettingsScreen() {
     signOut,
     switchPersona,
     updateAccentTheme,
+    updateHouseholdAccentTheme,
     updateMemberAvatar,
     updateNotificationPrefs,
     upsertRoom,
@@ -133,6 +141,7 @@ export default function SettingsScreen() {
   const [section, setSection] = useState<Section>('main');
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(household.householdName);
+  const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [pickingAvatarFor, setPickingAvatarFor] = useState<string | null>(null);
   const [roomDraft, setRoomDraft] = useState('');
   const [roomEmoji, setRoomEmoji] = useState('🚪');
@@ -152,7 +161,8 @@ export default function SettingsScreen() {
   );
 
   const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
-  const themeId = (household.accentThemeId ?? accentTheme.id) as AccentThemeId;
+  const personalThemeId = (currentMember?.accentThemeId ?? accentTheme.id) as AccentThemeId;
+  const householdThemeId = (household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID) as AccentThemeId;
   const rooms = household.rooms ?? [];
   const nestedAccountIds = useMemo(
     () => nestedSharedAccountIds(household.members),
@@ -202,6 +212,7 @@ export default function SettingsScreen() {
   };
 
   return (
+    <>
     <View style={[styles.shell, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
@@ -270,10 +281,13 @@ export default function SettingsScreen() {
               </Text>
             </SectionCard>
 
-            <SectionCard title="App Theme">
+            <SectionCard title="Your look">
+              <Text style={styles.caption}>
+                Personal theme for {currentMember?.name ?? 'you'} · switches with your profile
+              </Text>
               <View style={styles.themeRow}>
                 {ACCENT_THEMES.map((theme) => {
-                  const active = themeId === theme.id;
+                  const active = personalThemeId === theme.id;
                   return (
                     <Pressable
                       key={theme.id}
@@ -296,11 +310,47 @@ export default function SettingsScreen() {
                       <Text style={[styles.themeLabel, active && { color: theme.primary, fontWeight: '600' }]}>
                         {theme.label}
                       </Text>
+                      <Text style={styles.themeTypeLabel}>{theme.typeStyle.label}</Text>
                     </Pressable>
                   );
                 })}
               </View>
             </SectionCard>
+
+            {permissions.canManageHousehold ? (
+              <SectionCard title="Household default">
+                <Text style={styles.caption}>Fallback look for members without a personal pick</Text>
+                <View style={styles.themeRow}>
+                  {ACCENT_THEMES.map((theme) => {
+                    const active = householdThemeId === theme.id;
+                    return (
+                      <Pressable
+                        key={theme.id}
+                        style={styles.themeItem}
+                        onPress={() => updateHouseholdAccentTheme(theme.id)}>
+                        <LinearGradient
+                          colors={[theme.primary, theme.secondary]}
+                          style={[
+                            styles.themeSwatch,
+                            active && {
+                              borderColor: theme.primary,
+                              borderWidth: 2,
+                              shadowColor: theme.primary,
+                              shadowOpacity: 0.35,
+                              shadowRadius: 8,
+                            },
+                          ]}>
+                          {active ? <MaterialIcons name="check" size={16} color="#fff" /> : null}
+                        </LinearGradient>
+                        <Text style={[styles.themeLabel, active && { color: theme.primary, fontWeight: '600' }]}>
+                          {theme.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </SectionCard>
+            ) : null}
 
             <SettingsRow
               emoji="👥"
@@ -414,6 +464,20 @@ export default function SettingsScreen() {
                         {accounts.map((person) => person.name).join(' · ') || 'no accounts linked'}
                       </Text>
                     </View>
+                    {accounts.length > 0 ? (
+                      <Pressable
+                        onPress={() => setPersonaSwitchOpen(true)}
+                        style={[
+                          styles.switchChip,
+                          {
+                            backgroundColor: `${accentTheme.primary}22`,
+                            borderColor: `${accentTheme.primary}66`,
+                          },
+                        ]}>
+                        <Text style={[styles.switchChipText, { color: accentTheme.primary }]}>Switch</Text>
+                        <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
+                      </Pressable>
+                    ) : null}
                   </View>
                   <Text style={styles.sharedDeviceHint}>
                     Switch between accounts on this tablet. Later, unlink someone to give them their own device.
@@ -636,6 +700,15 @@ export default function SettingsScreen() {
         ) : null}
       </KeyboardScreen>
     </View>
+
+    <PersonaSwitchPopup
+      visible={personaSwitchOpen}
+      onClose={() => setPersonaSwitchOpen(false)}
+      members={household.members}
+      currentMemberId={currentMember?.id ?? ''}
+      onSwitch={switchPersona}
+    />
+    </>
   );
 }
 
@@ -768,6 +841,17 @@ const styles = StyleSheet.create({
     width: 48,
   },
   themeLabel: { color: '#4B6080', fontSize: 12 },
+  themeTypeLabel: { color: '#2A3A54', fontSize: 10, fontWeight: '600' },
+  switchChip: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  switchChipText: { fontSize: 12, fontWeight: '700' },
   settingsRow: {
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',

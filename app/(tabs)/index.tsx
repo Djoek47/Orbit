@@ -1,19 +1,19 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { NovaOrb } from '@/components/orbit/nova-orb';
+import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { HEADER_CHIPS_GUTTER, orbitRadius, orbitScreen } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
   isSharedDeviceRole,
-  resolveSharedDevicePeople,
 } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -22,8 +22,11 @@ const WEEK_XP_COLORS = ['#38BDF8', '#34D399', '#A78BFA', '#FB923C', '#F472B6'];
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { accentTheme, household, metrics, novaBriefing, currentMember, switchPersona } = useOrbit();
+  const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const displayName = currentMember?.name ?? household.greetingName;
+  const typeStyle = accentTheme.typeStyle;
   const tasks = household.tasks.filter((t) => t.status !== 'Cancelled').slice(0, 4);
   const doneTasks = household.tasks.filter((t) => t.status === 'Completed').length;
   const totalTasks = Math.max(1, household.tasks.filter((t) => t.status !== 'Cancelled').length);
@@ -64,12 +67,9 @@ export default function HomeScreen() {
     : household.greetingName.slice(0, 1);
   const headerIsPhoto = isAvatarImageUri(currentMember?.avatar);
   const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
-  const deviceAccounts = useMemo(
-    () => resolveSharedDevicePeople(sharedDevice, household.members),
-    [household.members, sharedDevice]
-  );
 
   return (
+    <>
     <ScrollView
       style={orbitScreen.container}
       contentContainerStyle={[
@@ -82,48 +82,65 @@ export default function HomeScreen() {
       {/* Logo + greeting; profile badges over Nova (not stacked). */}
       <View style={[styles.brandBlock, { paddingRight: HEADER_CHIPS_GUTTER }]}>
         <ChoremaxxBadge size="xl" />
-        <Text style={styles.dateLine}>
+        <Text
+          style={[
+            styles.dateLine,
+            { fontWeight: typeStyle.captionWeight, letterSpacing: typeStyle.letterSpacing + 0.35 },
+          ]}>
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </Text>
-        <Text style={styles.greetingLine} numberOfLines={1}>
-          {greeting}, <Text style={styles.nameInline}>{household.greetingName}</Text>
+        <Text
+          style={[
+            styles.greetingLine,
+            {
+              fontWeight: typeStyle.titleWeight,
+              letterSpacing: typeStyle.letterSpacing,
+            },
+          ]}
+          numberOfLines={1}>
+          {greeting},{' '}
+          <Text
+            style={[
+              styles.nameInline,
+              { fontWeight: typeStyle.titleWeight, color: accentTheme.primary },
+            ]}>
+            {displayName}
+          </Text>
         </Text>
-        {sharedDevice && deviceAccounts.length > 0 ? (
-          <View style={styles.deviceSwitchRow}>
-            <Text style={styles.deviceSwitchLabel}>
-              {sharedDevice.avatar} {sharedDevice.name}
+        {sharedDevice ? (
+          <Pressable
+            onPress={() => setPersonaSwitchOpen(true)}
+            style={[
+              styles.deviceSwitchChip,
+              {
+                alignSelf: 'flex-start',
+                marginTop: 6,
+                backgroundColor: `${accentTheme.primary}22`,
+                borderColor: `${accentTheme.primary}66`,
+              },
+            ]}>
+            <Text style={styles.deviceSwitchEmoji}>{sharedDevice.avatar || '📱'}</Text>
+            <Text style={[styles.deviceSwitchName, { color: accentTheme.primary }]}>
+              {sharedDevice.name} · {displayName}
             </Text>
-            <View style={styles.deviceSwitchChips}>
-              {deviceAccounts.map((person) => {
-                const active = currentMember?.id === person.id;
-                const color = MEMBER_ACCENTS[person.name]?.color ?? accentTheme.primary;
-                return (
-                  <Pressable
-                    key={person.id}
-                    onPress={() => switchPersona(person.id)}
-                    style={[
-                      styles.deviceSwitchChip,
-                      active && { backgroundColor: `${color}33`, borderColor: `${color}88` },
-                    ]}>
-                    <Text style={styles.deviceSwitchEmoji}>{memberDisplayEmoji(person)}</Text>
-                    <Text style={[styles.deviceSwitchName, active && { color }]}>{person.name}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+            <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
+          </Pressable>
         ) : null}
       </View>
 
-      <Pressable onPress={() => router.push('/(tabs)/nova' as never)} style={styles.fullBleed}>
+      <View style={styles.fullBleed}>
         <LinearGradient
           colors={['rgba(14,165,233,0.18)', 'rgba(6,182,212,0.10)', 'rgba(129,140,248,0.10)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.hero}>
           <View style={styles.heroTop}>
-            {/* Profile matches Nova orb size exactly and covers it. */}
-            <View style={styles.heroIdentity}>
+            {/* Profile matches Nova orb size exactly and covers it. Tap to switch persona. */}
+            <Pressable
+              onPress={() => setPersonaSwitchOpen(true)}
+              style={styles.heroIdentity}
+              accessibilityRole="button"
+              accessibilityLabel="Switch account">
               <NovaOrb size={56} />
               <LinearGradient
                 colors={[accentTheme.primary, accentTheme.secondary]}
@@ -136,8 +153,12 @@ export default function HomeScreen() {
                   <Text style={styles.profileOnNovaText}>{headerAvatar}</Text>
                 )}
               </LinearGradient>
-            </View>
-            <View style={styles.heroCopy}>
+            </Pressable>
+            <Pressable
+              style={styles.heroCopy}
+              onPress={() => router.push('/(tabs)/nova' as never)}
+              accessibilityRole="button"
+              accessibilityLabel="Open Nova">
               <View style={styles.novaRow}>
                 <View style={styles.liveDot} />
                 <Text style={styles.novaLabel}>NOVA</Text>
@@ -145,7 +166,7 @@ export default function HomeScreen() {
               <Text style={styles.heroBody} numberOfLines={3}>
                 {novaBriefing.summary}
               </Text>
-            </View>
+            </Pressable>
           </View>
 
           <View style={styles.weekHead}>
@@ -185,7 +206,7 @@ export default function HomeScreen() {
             })}
           </View>
         </LinearGradient>
-      </Pressable>
+      </View>
 
       <GlassCard style={styles.fullBleed}>
         <View style={styles.sectionHead}>
@@ -318,6 +339,15 @@ export default function HomeScreen() {
         </GlassCard>
       </Pressable>
     </ScrollView>
+
+    <PersonaSwitchPopup
+      visible={personaSwitchOpen}
+      onClose={() => setPersonaSwitchOpen(false)}
+      members={household.members}
+      currentMemberId={currentMember?.id ?? ''}
+      onSwitch={switchPersona}
+    />
+    </>
   );
 }
 

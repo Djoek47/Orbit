@@ -28,6 +28,8 @@ export type HouseholdMember = {
   /** Consecutive-day streak for Rankings. */
   streak?: number;
   loadShare: number;
+  /** Personal accent look — follows the member when switching personas. */
+  accentThemeId?: string;
   /** ISO date YYYY-MM-DD — member away / on holiday (Nova skips nudges). */
   awayFrom?: string;
   awayTo?: string;
