@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { scanDealsForHousehold } from '@/data/mock-deals';
 import { PREFERRED_STORES } from '@/data/preferred-stores';
+import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { summarizeShoppingRun } from '@/lib/grocery/savings';
 import { useOrbit } from '@/store/orbit-store';
 import type { GroceryItem } from '@/types/orbit';
@@ -137,7 +138,8 @@ export default function GroceriesScreen() {
       showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.caption}>Grocery Intelligence</Text>
+          <ChoremaxxBadge />
+          <Text style={[styles.caption, { marginTop: 8 }]}>Grocery Intelligence</Text>
           <Text style={styles.title}>This Week&apos;s List</Text>
         </View>
         {(permissions.canManageGroceries || canAddGroceryWishlist) && (

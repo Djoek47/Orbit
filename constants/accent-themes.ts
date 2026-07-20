@@ -9,8 +9,8 @@ export type AccentTheme = {
 
 /** Make AdminScreen ACCENT_THEMES — app-wide primary tint. */
 export const ACCENT_THEMES: AccentTheme[] = [
-  { id: 'ocean', label: 'Ocean', primary: '#38BDF8', secondary: '#0EA5E9' },
-  { id: 'aurora', label: 'Aurora', primary: '#34D399', secondary: '#059669' },
+  { id: 'ocean', label: 'Ocean', primary: '#59B2E1', secondary: '#3A9BC8' },
+  { id: 'aurora', label: 'Aurora', primary: '#76C4AE', secondary: '#4FA88F' },
   { id: 'cosmic', label: 'Cosmic', primary: '#A78BFA', secondary: '#7C3AED' },
   { id: 'sunset', label: 'Sunset', primary: '#FB923C', secondary: '#EA580C' },
   { id: 'rose', label: 'Rose', primary: '#F472B6', secondary: '#EC4899' },

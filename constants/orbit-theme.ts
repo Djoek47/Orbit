@@ -1,8 +1,9 @@
 import { StyleSheet } from 'react-native';
 
+import { choremaxxBrand } from '@/constants/choremaxx-brand';
+
 /**
- * Exact Make v5 tokens from Design Orbit AI App
- * (theme.css + App.tsx / screen inline styles). Do not invent alternatives.
+ * Choremaxx Make UI tokens. Primary cyan/mint follow the official logo lockup.
  */
 export const orbitColors = {
   background: '#070D1C',
@@ -12,20 +13,21 @@ export const orbitColors = {
   cardStrong: 'rgba(255, 255, 255, 0.07)',
   cardMuted: 'rgba(255, 255, 255, 0.03)',
   border: 'rgba(255, 255, 255, 0.08)',
-  borderStrong: 'rgba(56, 189, 248, 0.3)',
+  borderStrong: 'rgba(89, 178, 225, 0.35)',
   text: '#EEF2FF',
   textSoft: '#C8D8F0',
   textMuted: '#7C9CC0',
   textSubtle: '#4B6080',
   textFaint: '#2A3A54',
   tabInactive: '#3A5070',
-  orbitBlue: '#38BDF8',
-  orbitBlueDeep: '#0EA5E9',
-  orbitBlueDark: '#0369A1',
-  /** Choremaxx / Make v7 primary alias */
-  primary: '#3BB5F0',
-  accent: '#2DD4BF',
-  rewardsGold: '#F59E0B',
+  orbitBlue: choremaxxBrand.cyan,
+  orbitBlueDeep: '#3A9BC8',
+  orbitBlueDark: '#2B6F94',
+  /** Official Choremaxx cyan */
+  primary: choremaxxBrand.cyan,
+  /** Official Choremaxx mint */
+  accent: choremaxxBrand.mint,
+  rewardsGold: choremaxxBrand.gold,
   novaCyan: '#06B6D4',
   success: '#34D399',
   warning: '#FB923C',
@@ -33,13 +35,15 @@ export const orbitColors = {
   planPurple: '#A78BFA',
   rankGold: '#FBBF24',
   ink: '#070D1C',
+  brandSlate: choremaxxBrand.slate,
+  brandFaded: choremaxxBrand.faded,
 };
 
 export const orbitTabColors = {
-  home: '#38BDF8',
-  tasks: '#34D399',
+  home: choremaxxBrand.cyan,
+  tasks: choremaxxBrand.mint,
   plan: '#A78BFA',
-  ranking: '#FBBF24',
+  ranking: choremaxxBrand.gold,
   nova: '#06B6D4',
 } as const;
 

@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 
+import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
 import {
@@ -310,6 +311,7 @@ export default function NovaScreen() {
       keyboardVerticalOffset={88}>
       <View style={styles.header}>
         <View style={styles.headerGlow} pointerEvents="none" />
+        <ChoremaxxBadge />
         <NovaOrb size={80} speaking={cfg.speaking} />
         <View style={styles.stateRow}>
           <View style={[styles.stateDot, { backgroundColor: cfg.color }]} />

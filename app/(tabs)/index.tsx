@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
+import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { MomentumRing } from '@/components/orbit/momentum-ring';
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import { orbitRadius, orbitScreen } from '@/constants/orbit-theme';
@@ -49,7 +50,8 @@ export default function HomeScreen() {
       {/* Make header */}
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.eyebrow}>
+          <ChoremaxxBadge />
+          <Text style={[styles.eyebrow, { marginTop: 8 }]}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </Text>
           <Text style={styles.h1}>

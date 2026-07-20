@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
+import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import {
   orbitColors,
   orbitRadius,
@@ -301,7 +302,8 @@ export default function TasksScreen() {
       contentInsetAdjustmentBehavior="automatic">
       <View style={styles.headerRow}>
         <View style={orbitScreen.header}>
-          <Text style={orbitTypography.caption}>Tasks & Homework</Text>
+          <ChoremaxxBadge />
+          <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Tasks & Homework</Text>
           <Text style={orbitTypography.display}>Today&apos;s Work</Text>
         </View>
         {permissions.canCreateTask ? (

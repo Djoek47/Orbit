@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, Text, UIManager, View } from 'react-native';
 
+import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import {
   TYPE_CONFIG,
@@ -375,6 +376,10 @@ export default function PlanScreen() {
         })}
       </View>
 
+      <View style={styles.brandRow}>
+        <ChoremaxxBadge />
+      </View>
+
       {subTab === 'calendar' ? (
         <>
           <View style={styles.calHeader}>
@@ -694,6 +699,7 @@ export default function PlanScreen() {
 const styles = StyleSheet.create({
   container: { backgroundColor: '#070D1C', flex: 1 },
   content: { gap: 16, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 44 },
+  brandRow: { marginBottom: -4 },
   calHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 8 },
   clipboardBtn: {
     alignItems: 'center',

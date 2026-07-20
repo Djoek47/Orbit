@@ -20,7 +20,7 @@ export default function BadgeGalleryScreen() {
         <Text style={orbitTypography.caption}>Collection</Text>
         <Text style={orbitTypography.display}>Badge gallery</Text>
         <Text style={orbitTypography.body}>
-          Household badges plus achievement milestones earned across Orbit.
+          Household badges plus achievement milestones earned across Choremaxx.
         </Text>
       </View>
 
