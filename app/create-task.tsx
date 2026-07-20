@@ -801,7 +801,7 @@ export default function CreateTaskScreen() {
             </Text>
             {sharedPeople.length === 0 ? (
               <Text style={styles.sharedPickHint}>
-                Link Emma, David, Liam (or others) to this device in Manage Members.
+                Link Josh, Todd (or others) to this device in Manage Members.
               </Text>
             ) : (
               <View style={styles.subjectRow}>
