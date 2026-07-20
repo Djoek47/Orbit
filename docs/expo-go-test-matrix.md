@@ -46,6 +46,8 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 15b | Attach proof | Task detail → Attach proof (camera/library) → admin gets inbox + local notify · Approve proof | ☐ |
 | 15c | Two admins + split | Members → Make co-admin (max 2) · Tasks → Split open tasks between Sarah & David · Two admins filter | ☐ |
 | 15d | Home week XP + layout | Home hero shows per-member week XP bars · Home/Groceries full-width (not left-locked) | ☐ |
+| 15e | Cancel task (admin) | Task detail → Cancel · this occurrence or this+future · works when overdue · not delete | ☐ |
+| 15f | App icon / splash | Cold start shows Choremaxx mark on splash + home icon | ☐ |
 | 16 | Late XP | Complete overdue task · celebration shows penalty · Nova ai notification | ☐ |
 | 17 | Rewards mint | Admin Mint reward · special request · approve/reject on Ranks | ☐ |
 | 18 | Streaks / achievements | Complete task · streak bumps · achievements grid live | ☐ |

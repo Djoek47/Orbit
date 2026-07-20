@@ -19,9 +19,9 @@ export default function HomeScreen() {
   const { accentTheme, household, metrics, novaBriefing, currentMember } = useOrbit();
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const tasks = household.tasks.slice(0, 4);
+  const tasks = household.tasks.filter((t) => t.status !== 'Cancelled').slice(0, 4);
   const doneTasks = household.tasks.filter((t) => t.status === 'Completed').length;
-  const totalTasks = Math.max(1, household.tasks.length);
+  const totalTasks = Math.max(1, household.tasks.filter((t) => t.status !== 'Cancelled').length);
   const pct = Math.round((doneTasks / totalTasks) * 100);
   const groceryEmoji: Record<string, string> = {
     Milk: '🥛',
