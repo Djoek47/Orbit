@@ -199,6 +199,19 @@ function TaskItem({
   );
 }
 
+/** Preferred household order for admin by-person breakdown (after “My tasks”). */
+const MEMBER_SECTION_ORDER = ['Sarah', 'David', 'Liam', 'Emma'];
+
+function sortTasksForMember(tasks: HouseholdTask[]) {
+  const rank = (task: HouseholdTask) => {
+    if (task.status === 'Completed') return 3;
+    if (isDueToday(task)) return 0;
+    if (task.status === 'Overdue') return 0;
+    return 1;
+  };
+  return [...tasks].sort((a, b) => rank(a) - rank(b));
+}
+
 function TaskSection({
   title,
   dotColor,
@@ -209,6 +222,9 @@ function TaskSection({
   rooms,
   accentPrimary,
   muted,
+  allowEmpty,
+  emptyLabel,
+  progress,
   justCompletedId,
   onToggle,
 }: {
@@ -221,10 +237,16 @@ function TaskSection({
   rooms: HouseholdRoom[];
   accentPrimary: string;
   muted?: boolean;
+  allowEmpty?: boolean;
+  emptyLabel?: string;
+  progress?: { done: number; total: number; color: string };
   justCompletedId: string | null;
   onToggle: (taskId: string) => void;
 }) {
-  if (tasks.length === 0) return null;
+  if (tasks.length === 0 && !allowEmpty) return null;
+
+  const progressPct =
+    progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : progress ? 0 : null;
 
   return (
     <GlassCard style={[muted && styles.completedCard]}>
@@ -241,19 +263,33 @@ function TaskSection({
         </View>
         <Text style={styles.sectionCount}>{countLabel}</Text>
       </View>
-      {tasks.map((task, index) => (
-        <View key={task.id}>
-          {index > 0 ? <View style={styles.divider} /> : null}
-          <TaskItem
-            task={task}
-            member={getMember(members, task.assignee)}
-            room={rooms.find((item) => item.id === task.roomId)}
-            accentPrimary={accentPrimary}
-            justCompleted={justCompletedId === task.id}
-            onToggle={() => onToggle(task.id)}
+      {progress && progressPct !== null ? (
+        <View style={styles.memberProgressTrack}>
+          <View
+            style={[
+              styles.memberProgressFill,
+              { width: `${progressPct}%`, backgroundColor: progress.color },
+            ]}
           />
         </View>
-      ))}
+      ) : null}
+      {tasks.length === 0 ? (
+        <Text style={styles.memberEmpty}>{emptyLabel ?? 'No tasks assigned'}</Text>
+      ) : (
+        tasks.map((task, index) => (
+          <View key={task.id}>
+            {index > 0 ? <View style={styles.divider} /> : null}
+            <TaskItem
+              task={task}
+              member={getMember(members, task.assignee)}
+              room={rooms.find((item) => item.id === task.roomId)}
+              accentPrimary={accentPrimary}
+              justCompleted={justCompletedId === task.id}
+              onToggle={() => onToggle(task.id)}
+            />
+          </View>
+        ))
+      )}
     </GlassCard>
   );
 }
@@ -315,8 +351,49 @@ export default function TasksScreen() {
     ];
   }, [filter, filtered, splitPair]);
 
+  /** Admins see All broken down by person (completion visible per member). */
+  const showByMember = permissions.canManageHousehold && filter === 'all';
+
+  const memberSections = useMemo(() => {
+    if (!showByMember) return null;
+
+    const activeMembers = household.members.filter(
+      (member) => member.status === 'active' && member.role !== 'guest'
+    );
+
+    const ordered = [...activeMembers].sort((a, b) => {
+      if (currentMember && a.id === currentMember.id) return -1;
+      if (currentMember && b.id === currentMember.id) return 1;
+      const ai = MEMBER_SECTION_ORDER.indexOf(a.name);
+      const bi = MEMBER_SECTION_ORDER.indexOf(b.name);
+      if (ai === -1 && bi === -1) return a.name.localeCompare(b.name);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+
+    return ordered.map((member) => {
+      const tasks = sortTasksForMember(
+        filtered.filter((task) => task.assignee === member.name && task.status !== 'Cancelled')
+      );
+      const done = tasks.filter((task) => task.status === 'Completed').length;
+      const total = tasks.length;
+      const isMine = currentMember?.id === member.id;
+      return {
+        member,
+        tasks,
+        done,
+        total,
+        title: isMine ? `My tasks (${member.name})` : `${member.name}'s tasks`,
+        accent: MEMBER_ACCENTS[member.name]?.color ?? accentTheme.primary,
+      };
+    });
+  }, [accentTheme.primary, currentMember, filtered, household.members, showByMember]);
+
   const totalXPToday = grouped.today.reduce((sum, task) => sum + task.xp, 0);
-  const empty = grouped.today.length + grouped.upcoming.length + grouped.done.length === 0;
+  const empty = showByMember
+    ? (memberSections?.every((section) => section.total === 0) ?? true)
+    : grouped.today.length + grouped.upcoming.length + grouped.done.length === 0;
   const canSplit =
     permissions.canAssignTask && Boolean(splitPair) && (permissions.canManageHousehold || adminNames.has(currentMember?.name ?? ''));
 
@@ -362,7 +439,9 @@ export default function TasksScreen() {
         <View style={orbitScreen.header}>
           <ChoremaxxBadge />
           <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Tasks & Homework</Text>
-          <Text style={orbitTypography.display}>Today&apos;s Work</Text>
+          <Text style={orbitTypography.display}>
+            {showByMember ? 'Household tasks' : "Today's Work"}
+          </Text>
         </View>
         {permissions.canCreateTask ? (
           <Pressable onPress={() => router.push('/create-task' as never)} style={styles.addButtonWrap}>
@@ -522,6 +601,27 @@ export default function TasksScreen() {
             onToggle={handleToggle}
           />
         </>
+      ) : memberSections ? (
+        memberSections.map((section) => (
+          <TaskSection
+            key={section.member.id}
+            title={section.title}
+            dotColor={section.accent}
+            countLabel={
+              section.total === 0 ? 'No tasks' : `${section.done} of ${section.total} complete`
+            }
+            tasks={section.tasks}
+            members={household.members}
+            rooms={rooms}
+            accentPrimary={accentTheme.primary}
+            allowEmpty
+            emptyLabel="No tasks assigned"
+            progress={{ done: section.done, total: section.total, color: section.accent }}
+            muted={section.total > 0 && section.done === section.total}
+            justCompletedId={justCompletedId}
+            onToggle={handleToggle}
+          />
+        ))
       ) : (
         <>
           <TaskSection
@@ -641,6 +741,23 @@ const styles = StyleSheet.create({
     color: orbitColors.text,
     fontSize: 15,
     fontWeight: '700',
+  },
+  memberEmpty: {
+    color: orbitColors.textSubtle,
+    fontSize: 13,
+    paddingVertical: 4,
+  },
+  memberProgressFill: {
+    borderRadius: 999,
+    height: '100%',
+  },
+  memberProgressTrack: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    height: 4,
+    marginBottom: 10,
+    overflow: 'hidden',
+    width: '100%',
   },
   filterChip: {
     backgroundColor: orbitColors.card,

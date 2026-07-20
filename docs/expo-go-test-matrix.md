@@ -20,6 +20,7 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 5 | Approve member | Device A opens Members → Approve → Device B refreshes → full tabs | ☐ |
 | 6 | Tasks | Create → edit → complete → week XP moves on Ranks | ☐ |
 | 6b | Tasks Make UI | Tasks tab · filter chips · room filter · emoji assignee · complete celebration · open detail sheet | ☐ |
+| 6c | Tasks by person (admin) | As Sarah/David · Tasks All → My tasks + David/Liam/Emma sections with N of M complete | ☐ |
 | 7 | Task delete | Open task → Delete → removed from Tasks list | ☐ |
 | 8 | Groceries | Add missing → mark purchased · mark available item Low | ☐ |
 | 9 | Plan / Calendar | Plan tab → Calendar sub-nav → create event → day strip with real dates | ☐ |
