@@ -43,6 +43,7 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 29m | Grocery product lookup | Groceries search milk · $/L · $/gal · Open in Maps · Add to list | ☐ |
 | 14 | Share invite | Create household → Invite · Share primary · Copy · QR tertiary | ☐ |
 | 15 | Task presets | Create Task → pick preset · weight XP · optional proof · recurring spawn | ☐ |
+| 15b | Attach proof | Task detail → Attach proof (camera/library) → admin gets inbox + local notify · Approve proof | ☐ |
 | 16 | Late XP | Complete overdue task · celebration shows penalty · Nova ai notification | ☐ |
 | 17 | Rewards mint | Admin Mint reward · special request · approve/reject on Ranks | ☐ |
 | 18 | Streaks / achievements | Complete task · streak bumps · achievements grid live | ☐ |

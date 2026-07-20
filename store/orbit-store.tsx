@@ -17,6 +17,7 @@ import {
 import { buildInviteLinks } from '@/lib/invites/parse-invite';
 import { suggestItineraryFromHousehold } from '@/lib/calendar/suggest-itinerary';
 import { openDirections } from '@/lib/maps/directions';
+import { isNotificationVisibleToRole, PROOF_REVIEW_ROLES } from '@/lib/notifications/audience';
 import { registerForPushNotifications, scheduleLocalReminder } from '@/lib/notifications/push';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
 import { persistHouseholdScore } from '@/lib/momentum/score-writer';
@@ -158,6 +159,8 @@ type OrbitContextValue = {
     category: NotificationItem['category'];
     priority?: NotificationItem['priority'];
     data?: Record<string, unknown>;
+    /** When set, notification is attributed to this user (e.g. admin inbox). */
+    userId?: string | null;
   }) => Promise<NotificationItem | null>;
   updateNotificationPrefs: (prefs: Partial<NovaNotificationPrefs>) => void;
   updateAccentTheme: (themeId: AccentThemeId) => void;
@@ -234,9 +237,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     [household, novaAskCount, currentMember?.name]
   );
   const novaBriefing = useMemo(() => household.nova, [household.nova]);
+  const visibleNotifications = useMemo(
+    () => notifications.filter((item) => isNotificationVisibleToRole(item, currentMember?.role)),
+    [currentMember?.role, notifications]
+  );
   const unreadNotificationCount = useMemo(
-    () => notifications.filter((item) => !item.isRead).length,
-    [notifications]
+    () => visibleNotifications.filter((item) => !item.isRead).length,
+    [visibleNotifications]
   );
 
   const analyticsContext = useMemo(
@@ -593,11 +600,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
     const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    await novaNotifications.proofSubmitted(pushNotification, prefs, {
+    // Notify owners/admins (and approving adults) — not the submitter.
+    const created = await novaNotifications.proofSubmitted(pushNotification, prefs, {
       title: currentTask.title,
       assignee: currentTask.assignee,
       taskId,
+      proofUri,
+      audienceRoles: [...PROOF_REVIEW_ROLES],
     });
+    if (created) {
+      await scheduleLocalReminder(
+        created.title,
+        created.body,
+        2
+      ).catch((error) => console.warn('Proof admin reminder skipped', error));
+    }
+    await trackAnalytics('task.proof_submitted', { taskId }, analyticsContext);
   };
 
   const approveTaskProof = async (taskId: string) => {
@@ -613,6 +631,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
+    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+    const assigneeMember = household.members.find((member) => member.name === currentTask.assignee);
+    await novaNotifications.proofApproved(pushNotification, prefs, {
+      title: currentTask.title,
+      taskId,
+      audienceRoles: assigneeMember ? [assigneeMember.role] : undefined,
+    });
+    await trackAnalytics('task.proof_approved', { taskId }, analyticsContext);
   };
 
   const completeTask = async (taskId: string) => {
@@ -780,10 +806,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     category: NotificationItem['category'];
     priority?: NotificationItem['priority'];
     data?: Record<string, unknown>;
+    userId?: string | null;
   }) => {
     if (!household.id) {
       return null;
     }
+
+    const audienceRoles = input.data?.audienceRoles;
+    const isAdminAudience =
+      Array.isArray(audienceRoles) &&
+      audienceRoles.some((role) => role === 'owner' || role === 'admin' || role === 'adult');
+
+    // Admin-targeted notes stay household-scoped (null user) so they are not
+    // attributed to the child/submitter in Supabase mode.
+    const targetUserId = input.userId !== undefined ? input.userId : isAdminAudience ? null : currentUser?.id;
 
     const item = await notificationsRepository.create({
       householdId: household.id,
@@ -792,7 +828,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       category: input.category,
       priority: input.priority,
       data: input.data,
-      userId: currentUser?.id,
+      userId: targetUserId,
     });
     setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
     return item;
@@ -1373,7 +1409,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       novaMonitorActions,
       novaWeeklyBriefing,
       permissions,
-      notifications,
+      notifications: visibleNotifications,
       unreadNotificationCount,
       pendingRedemptions,
       smartHomeDevices,
@@ -1465,7 +1501,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       novaMonitorActions,
       novaWeeklyBriefing,
       permissions,
-      notifications,
+      visibleNotifications,
       unreadNotificationCount,
       pendingRedemptions,
       smartHomeDevices,

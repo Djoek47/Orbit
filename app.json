@@ -25,7 +25,7 @@
         "NSMicrophoneUsageDescription": "Choremaxx uses the microphone so you can talk to Nova.",
         "NSLocationWhenInUseUsageDescription": "Choremaxx uses your location for nearby grocery suggestions.",
         "NSCameraUsageDescription": "Choremaxx uses the camera to scan invite QR codes and attach task proof photos.",
-        "NSPhotoLibraryUsageDescription": "Choremaxx can attach photos as task proof.",
+        "NSPhotoLibraryUsageDescription": "Choremaxx uses your photos for profile pictures and task proof attachments.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "privacyManifests": {
@@ -92,7 +92,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Choremaxx uses your photos so you can set Memoji or portrait profile pictures."
+          "photosPermission": "Choremaxx uses your photos for profile pictures and task proof attachments."
         }
       ],
       [

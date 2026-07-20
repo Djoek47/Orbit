@@ -168,7 +168,13 @@ function TaskItem({
           ) : null}
           {task.proofRequired ? (
             <View style={[styles.metaPill, { backgroundColor: 'rgba(251,146,60,0.15)' }]}>
-              <Text style={[styles.metaPillText, { color: orbitColors.warning }]}>Proof</Text>
+              <Text style={[styles.metaPillText, { color: orbitColors.warning }]}>
+                {task.proofStatus === 'submitted'
+                  ? 'Proof review'
+                  : task.proofStatus === 'approved'
+                    ? 'Proof ✓'
+                    : 'Proof'}
+              </Text>
             </View>
           ) : null}
           {member ? (

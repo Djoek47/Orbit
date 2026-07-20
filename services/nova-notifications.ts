@@ -59,14 +59,42 @@ export const novaNotifications = {
     });
   },
 
-  async proofSubmitted(push: PushFn, prefs: NovaNotificationPrefs, input: { title: string; assignee: string; taskId: string }) {
+  async proofSubmitted(
+    push: PushFn,
+    prefs: NovaNotificationPrefs,
+    input: { title: string; assignee: string; taskId: string; proofUri?: string; audienceRoles?: string[] }
+  ) {
     if (!prefs.tasks) return null;
     return push({
       title: 'Nova · Proof ready to review',
-      body: `${input.assignee} attached proof for ${input.title}.`,
-      category: 'ai',
+      body: `${input.assignee} attached proof for ${input.title}. Open the task to approve.`,
+      category: 'tasks',
+      priority: 'high',
+      data: {
+        taskId: input.taskId,
+        kind: 'proof_submitted',
+        proofUri: input.proofUri,
+        audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
+      },
+    });
+  },
+
+  async proofApproved(
+    push: PushFn,
+    prefs: NovaNotificationPrefs,
+    input: { title: string; taskId: string; audienceRoles?: string[] }
+  ) {
+    if (!prefs.tasks) return null;
+    return push({
+      title: 'Nova · Proof approved',
+      body: `Your proof for ${input.title} was approved. You can mark the task complete.`,
+      category: 'tasks',
       priority: 'medium',
-      data: { taskId: input.taskId, kind: 'proof_submitted' },
+      data: {
+        taskId: input.taskId,
+        kind: 'proof_approved',
+        audienceRoles: input.audienceRoles,
+      },
     });
   },
 

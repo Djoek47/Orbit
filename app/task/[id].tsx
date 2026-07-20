@@ -2,11 +2,12 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { orbitColors } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
+import { promptPickProofPhoto } from '@/lib/tasks/pick-proof';
 import { isTaskLate } from '@/lib/tasks/xp';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
@@ -21,6 +22,19 @@ const statusTone: Record<HouseholdTask['status'], string> = {
 const categories = ['Cleaning', 'Kitchen', 'Laundry', 'School', 'Homework', 'Groceries', 'Pets', 'Maintenance', 'General'];
 const repeats: HouseholdTask['repeat'][] = ['None', 'Daily', 'Weekly', 'Weekdays'];
 const difficulties: NonNullable<HouseholdTask['difficulty']>[] = ['easy', 'medium', 'hard'];
+
+function proofStatusLabel(status: HouseholdTask['proofStatus']) {
+  switch (status) {
+    case 'submitted':
+      return 'Submitted · waiting for admin';
+    case 'approved':
+      return 'Approved';
+    case 'rejected':
+      return 'Rejected · attach a new photo';
+    default:
+      return 'Required · not attached yet';
+  }
+}
 
 export default function TaskDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -54,6 +68,7 @@ export default function TaskDetailScreen() {
   const [difficulty, setDifficulty] = useState<HouseholdTask['difficulty']>(task?.difficulty ?? 'medium');
   const [roomId, setRoomId] = useState<string | undefined>(task?.roomId);
   const [busy, setBusy] = useState(false);
+  const [proofBusy, setProofBusy] = useState(false);
   const [celebration, setCelebration] = useState<{ awarded: number; penalty: number; late: boolean } | null>(
     null
   );
@@ -80,6 +95,7 @@ export default function TaskDetailScreen() {
   const memberColor = assigneeMember
     ? MEMBER_ACCENTS[assigneeMember.name]?.color ?? accentTheme.primary
     : accentTheme.primary;
+  const showProofPreview = Boolean(task.proofUri && (task.proofStatus === 'submitted' || task.proofStatus === 'approved'));
 
   const handleComplete = async () => {
     const result = await completeTask(task.id);
@@ -89,7 +105,25 @@ export default function TaskDetailScreen() {
   };
 
   const handleAttachProof = async () => {
-    await submitTaskProof(task.id, `mock-proof://${task.id}/${Date.now()}.jpg`);
+    const uri = await promptPickProofPhoto();
+    if (!uri) return;
+    setProofBusy(true);
+    try {
+      await submitTaskProof(task.id, uri);
+      Alert.alert('Proof sent', 'An admin was notified to review your photo.');
+    } finally {
+      setProofBusy(false);
+    }
+  };
+
+  const handleApproveProof = async () => {
+    setProofBusy(true);
+    try {
+      await approveTaskProof(task.id);
+      Alert.alert('Proof approved', `${task.assignee} can finish this task.`);
+    } finally {
+      setProofBusy(false);
+    }
   };
 
   const handleSave = async () => {
@@ -315,7 +349,13 @@ export default function TaskDetailScreen() {
             />
             <DetailRow label="Repeat" value={task.repeat} />
             {room ? <DetailRow label="Room" value={`${room.emoji} ${room.name}`} /> : null}
-            {needsProof ? <DetailRow label="Proof" value={task.proofStatus ?? 'none'} /> : null}
+            {needsProof ? <DetailRow label="Proof" value={proofStatusLabel(task.proofStatus)} /> : null}
+            {showProofPreview ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.label}>Attached photo</Text>
+                <Image source={{ uri: task.proofUri }} style={styles.proofImage} resizeMode="cover" />
+              </View>
+            ) : null}
             <View style={styles.detailRow}>
               <Text style={styles.label}>Description</Text>
               <Text style={styles.body}>{task.description || 'No additional details for this task.'}</Text>
@@ -341,20 +381,46 @@ export default function TaskDetailScreen() {
         ) : (
           <>
             {needsProof && task.status !== 'Completed' && !proofReady ? (
-              <Pressable onPress={() => void handleAttachProof()} style={styles.ctaWrap}>
+              <Pressable
+                disabled={proofBusy}
+                onPress={() => void handleAttachProof()}
+                style={[styles.ctaWrap, proofBusy && { opacity: 0.6 }]}>
                 <LinearGradient
                   colors={[accentTheme.primary, accentTheme.secondary]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.cta}>
                   <MaterialIcons name="photo-camera" size={18} color="#04101F" />
-                  <Text style={styles.ctaText}>Attach proof photo</Text>
+                  <Text style={styles.ctaText}>{proofBusy ? 'Sending proof…' : 'Attach proof photo'}</Text>
                 </LinearGradient>
               </Pressable>
             ) : null}
+            {needsProof && task.proofStatus === 'submitted' && !permissions.canApproveReward ? (
+              <View style={styles.waitCard}>
+                <MaterialIcons name="hourglass-top" size={18} color={orbitColors.warning} />
+                <Text style={styles.waitText}>Proof sent to admin for review.</Text>
+              </View>
+            ) : null}
             {needsProof && task.proofStatus === 'submitted' && permissions.canApproveReward ? (
-              <Pressable onPress={() => void approveTaskProof(task.id)} style={styles.secondaryBtn}>
-                <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>Approve proof</Text>
+              <Pressable disabled={proofBusy} onPress={() => void handleApproveProof()} style={styles.secondaryBtn}>
+                <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
+                  {proofBusy ? 'Approving…' : 'Approve proof'}
+                </Text>
+              </Pressable>
+            ) : null}
+            {needsProof && task.proofStatus === 'rejected' ? (
+              <Pressable
+                disabled={proofBusy}
+                onPress={() => void handleAttachProof()}
+                style={[styles.ctaWrap, proofBusy && { opacity: 0.6 }]}>
+                <LinearGradient
+                  colors={[accentTheme.primary, accentTheme.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.cta}>
+                  <MaterialIcons name="photo-camera" size={18} color="#04101F" />
+                  <Text style={styles.ctaText}>{proofBusy ? 'Sending proof…' : 'Re-attach proof photo'}</Text>
+                </LinearGradient>
               </Pressable>
             ) : null}
             {task.status !== 'Completed' ? (
@@ -477,6 +543,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarEmoji: { fontSize: 16 },
+  proofImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  waitCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(251,146,60,0.35)',
+    backgroundColor: 'rgba(251,146,60,0.1)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  waitText: { flex: 1, color: orbitColors.warning, fontSize: 13, fontWeight: '700' },
   input: {
     borderRadius: 16,
     borderWidth: 1,

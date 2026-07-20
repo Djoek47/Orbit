@@ -18,6 +18,9 @@ export function getNotificationRoute(item: NotificationItem): string | null {
   if ((item.category === 'tasks' || item.category === 'ai') && taskId) {
     return `/task/${taskId}`;
   }
+  if (kind === 'proof_submitted' || kind === 'proof_approved') {
+    return taskId ? `/task/${taskId}` : '/(tabs)/tasks';
+  }
   if (item.category === 'events' && eventId) {
     return `/event/${eventId}`;
   }
