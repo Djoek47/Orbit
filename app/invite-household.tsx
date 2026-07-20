@@ -1,12 +1,11 @@
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-import { GlassCard } from '@/components/orbit/glass-card';
+import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
 import { buildInviteLinks } from '@/lib/invites/parse-invite';
 import { shareInvite } from '@/lib/invites/share-invite';
 import { householdRepository } from '@/repositories';
@@ -48,10 +47,9 @@ export default function InviteHouseholdScreen() {
 
   if (!permissions.canInviteMembers) {
     return (
-      <ScrollView style={orbitScreen.container} contentContainerStyle={orbitScreen.content}>
-        <Text style={orbitTypography.title}>Invites locked</Text>
-        <Text style={orbitTypography.body}>Only owners and admins can invite new household members.</Text>
-      </ScrollView>
+      <AuthShell title="Invites locked" subtitle="Only owners and admins can invite new household members.">
+        <Text style={styles.body}>Ask an owner to share a code or QR from their invite screen.</Text>
+      </AuthShell>
     );
   }
 
@@ -100,72 +98,58 @@ export default function InviteHouseholdScreen() {
   };
 
   return (
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>{household.householdName}</Text>
-        <Text style={orbitTypography.display}>Invite members</Text>
-        <Text style={orbitTypography.body}>
-          AirDrop, share a link, or show the QR. New members wait for owner/admin approval before full access.
-        </Text>
+    <AuthShell
+      showBack
+      kicker={household.householdName || 'Household'}
+      title="Invite members"
+      subtitle="AirDrop, share a link, or show the QR. New members wait for owner/admin approval before full access.">
+      <View style={styles.qrWrap}>
+        <QRCode value={webLink} size={160} backgroundColor="#FFFFFF" color="#070D1C" />
       </View>
-
-      <GlassCard elevated style={styles.card}>
-        <StatusPill label="Scan to join" tone="cyan" />
-        <View style={styles.qrWrap}>
-          <QRCode value={webLink} size={180} backgroundColor="#FFFFFF" color="#070D1C" />
-        </View>
-        <Text style={orbitTypography.caption}>Encodes {webLink}</Text>
-        <OrbitButton onPress={handleAirDropShare}>
-          {Platform.OS === 'ios' ? 'AirDrop / Share invite' : 'Share invite'}
-        </OrbitButton>
-        {shareStatus ? <Text style={styles.hint}>{shareStatus}</Text> : null}
-      </GlassCard>
-
-      <GlassCard style={styles.card}>
-        <StatusPill label="Invite code" tone="blue" />
-        <Text selectable style={styles.code}>
-          {inviteCode}
-        </Text>
-        <OrbitButton onPress={handleCopyCode}>{copied === 'code' ? 'Copied' : 'Copy Invite Code'}</OrbitButton>
-        <OrbitButton disabled={refreshing || !household.id} tone="secondary" onPress={handleRefresh}>
-          {refreshing ? 'Refreshing…' : 'Refresh code'}
-        </OrbitButton>
-      </GlassCard>
-
-      <GlassCard style={styles.card}>
-        <Text style={orbitTypography.cardTitle}>Invite links</Text>
-        <Text selectable style={orbitTypography.caption}>
-          {webLink}
-        </Text>
-        <Text selectable style={orbitTypography.caption}>
-          {deepLink}
-        </Text>
-        <OrbitButton tone="secondary" onPress={handleCopyLink}>
-          {copied === 'link' ? 'Link copied' : 'Copy web link'}
-        </OrbitButton>
-      </GlassCard>
-    </ScrollView>
+      <Text selectable style={styles.code}>
+        {inviteCode}
+      </Text>
+      <OrbitButton onPress={handleAirDropShare}>
+        {Platform.OS === 'ios' ? 'AirDrop / Share invite' : 'Share invite'}
+      </OrbitButton>
+      {shareStatus ? <Text style={styles.hint}>{shareStatus}</Text> : null}
+      <OrbitButton onPress={handleCopyCode}>{copied === 'code' ? 'Copied' : 'Copy invite code'}</OrbitButton>
+      <OrbitButton tone="secondary" onPress={handleCopyLink}>
+        {copied === 'link' ? 'Link copied' : 'Copy web link'}
+      </OrbitButton>
+      <OrbitButton disabled={refreshing || !household.id} tone="secondary" onPress={handleRefresh}>
+        {refreshing ? 'Refreshing…' : 'Refresh code'}
+      </OrbitButton>
+      <Text selectable style={styles.linkCaption}>
+        {webLink}
+      </Text>
+    </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: orbitSpacing.md,
+  body: {
+    color: orbitColors.textSoft,
+    fontSize: 14,
+    lineHeight: 20,
   },
   code: {
     color: orbitColors.text,
-    fontSize: 34,
+    fontSize: 28,
     fontVariant: ['tabular-nums'],
     fontWeight: '900',
-    letterSpacing: 0,
+    letterSpacing: 1,
+    textAlign: 'center',
   },
   hint: {
     color: orbitColors.primary,
     fontSize: 13,
     fontWeight: '600',
+  },
+  linkCaption: {
+    color: orbitColors.textSubtle,
+    fontSize: 12,
+    lineHeight: 16,
   },
   qrWrap: {
     alignItems: 'center',

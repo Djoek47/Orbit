@@ -19,10 +19,12 @@ import {
   type MotivationMode,
   type OnboardingRole,
 } from '@/lib/onboarding-prefs';
+import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { shareInvite } from '@/lib/invites/share-invite';
+import { createLocalId } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdType } from '@/types/orbit';
+import type { HouseholdRoom, HouseholdType } from '@/types/orbit';
 
 type Step = 'splash' | 'role' | 'motivation' | 'account' | 'profile' | 'household' | 'ready';
 
@@ -57,6 +59,11 @@ export default function WelcomeOnboardingScreen() {
   const [displayName, setDisplayName] = useState('');
   const [householdName, setHouseholdName] = useState('');
   const [householdType, setHouseholdType] = useState<HouseholdType>('family');
+  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() =>
+    DEFAULT_HOUSEHOLD_ROOMS.map((room) => room.id),
+  );
+  const [customRooms, setCustomRooms] = useState<HouseholdRoom[]>([]);
+  const [customRoomName, setCustomRoomName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [householdMode, setHouseholdMode] = useState<'create' | 'join'>('create');
   const [createdHousehold, setCreatedHousehold] = useState(false);
@@ -65,6 +72,15 @@ export default function WelcomeOnboardingScreen() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [resumed, setResumed] = useState(false);
+
+  const roomCatalog = useMemo(
+    () => [...DEFAULT_HOUSEHOLD_ROOMS, ...customRooms],
+    [customRooms],
+  );
+  const selectedRooms = useMemo(
+    () => roomCatalog.filter((room) => selectedRoomIds.includes(room.id)),
+    [roomCatalog, selectedRoomIds],
+  );
 
   const roleMeta = useMemo(
     () => ONBOARDING_ROLES.find((role) => role.id === selectedRole),
@@ -219,7 +235,16 @@ export default function WelcomeOnboardingScreen() {
           setBusy(false);
           return;
         }
-        await createHousehold({ name: householdName.trim(), type: householdType });
+        if (selectedRooms.length < 1) {
+          setError('Pick at least one room.');
+          setBusy(false);
+          return;
+        }
+        await createHousehold({
+          name: householdName.trim(),
+          type: householdType,
+          rooms: selectedRooms,
+        });
         setCreatedHousehold(true);
       } else {
         const parsed =
@@ -486,6 +511,58 @@ export default function WelcomeOnboardingScreen() {
                   );
                 })}
               </View>
+              <Text style={styles.fieldLabel}>Rooms</Text>
+              <Text style={[orbitTypography.caption, styles.mb]}>
+                Pick the spaces you manage. Add custom rooms if needed.
+              </Text>
+              <View style={styles.typeGrid}>
+                {roomCatalog.map((room) => {
+                  const selected = selectedRoomIds.includes(room.id);
+                  return (
+                    <Pressable
+                      key={room.id}
+                      onPress={() =>
+                        setSelectedRoomIds((current) =>
+                          current.includes(room.id)
+                            ? current.filter((id) => id !== room.id)
+                            : [...current, room.id],
+                        )
+                      }
+                      style={[styles.typeChip, selected && styles.typeChipSelected]}>
+                      <Text style={[styles.typeLabel, selected && styles.typeLabelSelected]}>
+                        {room.emoji} {room.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <View style={styles.customRoomRow}>
+                <View style={styles.customRoomInput}>
+                  <OrbitInput
+                    label="Custom room"
+                    value={customRoomName}
+                    onChangeText={setCustomRoomName}
+                    placeholder="e.g. Garage"
+                  />
+                </View>
+                <OrbitButton
+                  tone="secondary"
+                  onPress={() => {
+                    const trimmed = customRoomName.trim();
+                    if (!trimmed) return;
+                    const room: HouseholdRoom = {
+                      id: createLocalId('room'),
+                      name: trimmed,
+                      emoji: '🚪',
+                      kind: 'custom',
+                    };
+                    setCustomRooms((current) => [...current, room]);
+                    setSelectedRoomIds((current) => [...current, room.id]);
+                    setCustomRoomName('');
+                  }}>
+                  Add
+                </OrbitButton>
+              </View>
             </>
           ) : (
             <>
@@ -606,6 +683,15 @@ const styles = StyleSheet.create({
     gap: orbitSpacing.lg,
     justifyContent: 'center',
     paddingHorizontal: orbitSpacing.lg,
+  },
+  customRoomInput: {
+    flex: 1,
+  },
+  customRoomRow: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: orbitSpacing.md,
   },
   dot: {
     backgroundColor: 'rgba(255,255,255,0.15)',

@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { NovaOrb } from '@/components/orbit/nova-orb';
+import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { orbitColors } from '@/constants/orbit-theme';
 import { useOrbitOptional } from '@/store/orbit-store';
 
@@ -15,13 +15,13 @@ type AuthShellProps = {
   kicker?: string;
   title: string;
   subtitle?: string;
-  /** Show large brand mark + orb above the title (welcome / primary entry). */
+  /** Show Choremaxx brand mark above the title (welcome / primary entry). */
   brandHero?: boolean;
   showBack?: boolean;
   footer?: ReactNode;
 };
 
-/** Shared Make-styled chrome for welcome / auth / onboarding screens. */
+/** Shared Choremaxx chrome for auth / onboarding side screens. */
 export function AuthShell({
   children,
   kicker,
@@ -33,7 +33,7 @@ export function AuthShell({
 }: AuthShellProps) {
   const insets = useSafeAreaInsets();
   const orbit = useOrbitOptional();
-  const primary = orbit?.accentTheme.primary ?? orbitColors.orbitBlue;
+  const primary = orbit?.accentTheme.primary ?? orbitColors.primary;
   const secondary = orbit?.accentTheme.secondary ?? orbitColors.orbitBlueDeep;
 
   return (
@@ -64,23 +64,17 @@ export function AuthShell({
 
         {brandHero ? (
           <View style={styles.brandBlock}>
-            <View style={styles.orbWrap}>
-              <NovaOrb size={96} />
-              <LinearGradient
-                colors={[primary, secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.brandBadge}>
-                <MaterialIcons name="bolt" size={16} color="#070D1C" />
-              </LinearGradient>
-            </View>
-            <Text style={styles.brandName}>Orbit</Text>
+            <ChoremaxxLogo size="lg" />
             <Text style={styles.brandTag}>AI Household OS</Text>
           </View>
-        ) : null}
+        ) : (
+          <View style={styles.logoRow}>
+            <ChoremaxxLogo size="sm" />
+          </View>
+        )}
 
         <View style={styles.header}>
-          {kicker ? <Text style={styles.kicker}>{kicker}</Text> : null}
+          {kicker ? <Text style={[styles.kicker, { color: secondary }]}>{kicker}</Text> : null}
           <Text style={styles.title}>{title}</Text>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
@@ -126,30 +120,8 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 4,
   },
-  orbWrap: {
-    width: 112,
-    height: 112,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandBadge: {
-    position: 'absolute',
-    right: 4,
-    bottom: 4,
-    width: 32,
-    height: 32,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#070D1C',
-  },
-  brandName: {
-    color: orbitColors.text,
-    fontSize: 34,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    marginTop: 4,
+  logoRow: {
+    alignItems: 'flex-start',
   },
   brandTag: {
     color: orbitColors.textMuted,

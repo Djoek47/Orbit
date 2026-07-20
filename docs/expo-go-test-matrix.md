@@ -33,7 +33,7 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 29b | Member avatars | Settings → Members → emoji picker · avatar persists on Health / Create Task | ☐ |
 | 29c | Rooms | Settings → Rooms add/remove · Create Task presets show room · Health cleaning strip | ☐ |
 | 29d | Grocery Missing Item | Groceries → + → expanded categories + qty + storage location + note | ☐ |
-| 29e | Household Health | Home → Household Health · Energy/Water/Air · member load · cleaning by room | ☐ |
+| 29e | Household Health | Home → Household Health · Completion/Grocery Load/Plan Load · member load · cleaning by room | ☐ |
 | 14 | Share invite | Create household → Invite · Share primary · Copy · QR tertiary | ☐ |
 | 15 | Task presets | Create Task → pick preset · weight XP · optional proof · recurring spawn | ☐ |
 | 16 | Late XP | Complete overdue task · celebration shows penalty · Nova ai notification | ☐ |

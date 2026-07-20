@@ -38,9 +38,27 @@ export default function HouseholdBalanceScreen() {
   }, [household.rooms, household.tasks]);
 
   const hero = [
-    { key: 'energy', label: 'Energy', value: `${metrics.momentum}%`, hint: 'Momentum', color: accentTheme.primary },
-    { key: 'water', label: 'Water', value: `${metrics.groceryReadiness}%`, hint: 'Grocery ready', color: orbitColors.novaCyan },
-    { key: 'air', label: 'Air', value: `${metrics.calendarCoverage}%`, hint: 'Calendar cover', color: orbitColors.planPurple },
+    {
+      key: 'completion',
+      label: 'Completion',
+      value: `${metrics.taskCompletionRate}%`,
+      hint: 'Task completion',
+      color: accentTheme.primary,
+    },
+    {
+      key: 'grocery',
+      label: 'Grocery Load',
+      value: `${metrics.groceryReadiness}%`,
+      hint: 'Stock readiness',
+      color: orbitColors.novaCyan,
+    },
+    {
+      key: 'plan',
+      label: 'Plan Load',
+      value: `${metrics.calendarCoverage}%`,
+      hint: 'Schedule coverage',
+      color: orbitColors.planPurple,
+    },
   ];
 
   return (

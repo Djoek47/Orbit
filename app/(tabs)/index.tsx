@@ -79,8 +79,8 @@ export default function HomeScreen() {
           <View style={styles.metricRow}>
             {[
               { label: 'Tasks', value: `${metrics.taskCompletionRate}%`, color: '#38BDF8' },
-              { label: 'Energy', value: `${metrics.groceryReadiness}%`, color: '#34D399' },
-              { label: 'Harmony', value: `${metrics.calendarCoverage}%`, color: '#A78BFA' },
+              { label: 'Grocery', value: `${metrics.groceryReadiness}%`, color: '#34D399' },
+              { label: 'Plan', value: `${metrics.calendarCoverage}%`, color: '#A78BFA' },
             ].map((m) => (
               <View key={m.label} style={styles.metricItem}>
                 <View style={[styles.metricDot, { backgroundColor: m.color }]} />
@@ -191,9 +191,24 @@ export default function HomeScreen() {
           </View>
           <View style={styles.healthRow}>
             {[
-              { label: 'Energy', val: metrics.momentum, color: '#34D399', icon: 'bolt' as const },
-              { label: 'Water', val: metrics.groceryReadiness, color: '#38BDF8', icon: 'water-drop' as const },
-              { label: 'Air', val: metrics.calendarCoverage, color: '#A78BFA', icon: 'air' as const },
+              {
+                label: 'Completion',
+                val: metrics.taskCompletionRate,
+                color: '#34D399',
+                icon: 'check-circle' as const,
+              },
+              {
+                label: 'Grocery Load',
+                val: metrics.groceryReadiness,
+                color: '#38BDF8',
+                icon: 'shopping-cart' as const,
+              },
+              {
+                label: 'Plan Load',
+                val: metrics.calendarCoverage,
+                color: '#A78BFA',
+                icon: 'event' as const,
+              },
             ].map((item) => (
               <View key={item.label} style={{ flex: 1 }}>
                 <View style={styles.healthLabelRow}>

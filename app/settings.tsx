@@ -69,7 +69,7 @@ export default function SettingsScreen() {
   const rooms = household.rooms ?? [];
 
   const handleDelete = () => {
-    Alert.alert('Delete account', 'This permanently removes your Orbit account.', [
+    Alert.alert('Delete account', 'This permanently removes your Choremaxx account.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -256,7 +256,7 @@ export default function SettingsScreen() {
               <LinearGradient colors={[accentTheme.primary, accentTheme.secondary]} style={styles.brandIcon}>
                 <Text style={{ fontSize: 20 }}>🏠</Text>
               </LinearGradient>
-              <Text style={styles.brandName}>Orbit</Text>
+              <Text style={styles.brandName}>Choremaxx</Text>
               <Text style={styles.brandMeta}>Version 1.0.0 · AI Household OS</Text>
             </View>
           </>

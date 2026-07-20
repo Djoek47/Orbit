@@ -1,15 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthShell } from '@/components/orbit/auth-shell';
+import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function PendingApprovalScreen() {
-  const { accentTheme, household, refreshHousehold } = useOrbit();
+  const { household, refreshHousehold } = useOrbit();
   const [busy, setBusy] = useState(false);
 
   return (
@@ -31,7 +31,8 @@ export default function PendingApprovalScreen() {
         You can browse calmly, but creating tasks, groceries, and invites stay locked until approval lands.
       </Text>
 
-      <Pressable
+      <OrbitButton
+        disabled={busy}
         onPress={async () => {
           setBusy(true);
           try {
@@ -40,16 +41,9 @@ export default function PendingApprovalScreen() {
           } finally {
             setBusy(false);
           }
-        }}
-        style={styles.ctaWrap}>
-        <LinearGradient
-          colors={[accentTheme.primary, accentTheme.secondary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.cta}>
-          <Text style={styles.ctaText}>{busy ? 'Checking…' : 'Check approval status'}</Text>
-        </LinearGradient>
-      </Pressable>
+        }}>
+        {busy ? 'Checking…' : 'Check approval status'}
+      </OrbitButton>
     </AuthShell>
   );
 }
@@ -68,9 +62,6 @@ const styles = StyleSheet.create({
   pillText: { color: orbitColors.warning, fontSize: 12, fontWeight: '700' },
   cardTitle: { color: orbitColors.text, fontSize: 16, fontWeight: '800' },
   body: { color: orbitColors.textSoft, fontSize: 14, lineHeight: 20 },
-  ctaWrap: { borderRadius: 18, overflow: 'hidden', marginTop: 4 },
-  cta: { alignItems: 'center', paddingVertical: 15 },
-  ctaText: { color: '#070D1C', fontSize: 15, fontWeight: '800' },
   secondary: {
     alignItems: 'center',
     borderRadius: 18,

@@ -470,7 +470,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     const createdHousehold = await householdRepository.createHousehold(input, currentUser);
-    setHousehold(createdHousehold);
+    setHousehold({
+      ...createdHousehold,
+      rooms:
+        input.rooms && input.rooms.length > 0
+          ? input.rooms.map((room) => ({ ...room }))
+          : createdHousehold.rooms?.length
+            ? createdHousehold.rooms
+            : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
+    });
     if (createdHousehold.id) {
       const links = createdHousehold.inviteCode
         ? buildInviteLinks(createdHousehold.inviteCode)

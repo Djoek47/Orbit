@@ -1,13 +1,12 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
-import { GlassCard } from '@/components/orbit/glass-card';
+import { AuthShell } from '@/components/orbit/auth-shell';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors } from '@/constants/orbit-theme';
 import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -40,33 +39,24 @@ export default function JoinHouseholdScreen() {
 
   return (
     <>
-      <ScrollView
-        style={orbitScreen.container}
-        contentContainerStyle={orbitScreen.content}
-        contentInsetAdjustmentBehavior="automatic">
-        <View style={orbitScreen.header}>
-          <Text style={orbitTypography.caption}>Join a household</Text>
-          <Text style={orbitTypography.display}>Invite code</Text>
-          <Text style={orbitTypography.body}>
-            Scan a QR or enter an invite code. Access stays pending until an owner or admin approves you.
-          </Text>
-        </View>
-
-        <GlassCard elevated style={styles.form}>
-          <StatusPill label="Pending role: Adult" tone="amber" />
-          <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
-          <OrbitInput
-            autoCapitalize="characters"
-            label="Invite code"
-            value={inviteCode}
-            onChangeText={setInviteCode}
-          />
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <OrbitButton disabled={busy} onPress={() => handleJoinHousehold()}>
-            {busy ? 'Joining…' : 'Join Household'}
-          </OrbitButton>
-        </GlassCard>
-      </ScrollView>
+      <AuthShell
+        showBack
+        kicker="Join a household"
+        title="Invite code"
+        subtitle="Scan a QR or enter an invite code. Access stays pending until an owner or admin approves you.">
+        <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
+        <OrbitInput
+          autoCapitalize="characters"
+          label="Invite code"
+          value={inviteCode}
+          onChangeText={setInviteCode}
+        />
+        <Text style={styles.hint}>Demo code: CMX-7429 — or scan a household QR from an invite.</Text>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <OrbitButton disabled={busy} onPress={() => void handleJoinHousehold()}>
+          {busy ? 'Joining…' : 'Join household'}
+        </OrbitButton>
+      </AuthShell>
 
       <InviteQrScanner
         visible={scannerOpen}
@@ -86,7 +76,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  form: {
-    gap: orbitSpacing.md,
+  hint: {
+    color: orbitColors.textSubtle,
+    fontSize: 12,
+    lineHeight: 16,
   },
 });

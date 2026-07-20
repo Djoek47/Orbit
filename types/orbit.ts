@@ -342,6 +342,8 @@ export type CreateProfileInput = {
 export type CreateHouseholdInput = {
   name: string;
   type: HouseholdType;
+  /** Selected during create (name → type → rooms). Defaults applied when omitted. */
+  rooms?: HouseholdRoom[];
 };
 
 export type JoinHouseholdInput = {

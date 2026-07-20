@@ -1,11 +1,11 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthShell } from '@/components/orbit/auth-shell';
+import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitColors } from '@/constants/orbit-theme';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
@@ -62,6 +62,7 @@ export default function SignInScreen() {
   return (
     <AuthShell
       showBack
+      brandHero
       kicker="Welcome back"
       title="Sign in"
       subtitle="Open your household. Demo credentials are prefilled for the Rivera home."
@@ -70,9 +71,9 @@ export default function SignInScreen() {
           <Pressable onPress={() => router.push('/forgot-password' as never)}>
             <Text style={[styles.link, { color: accentTheme.primary }]}>Forgot password?</Text>
           </Pressable>
-          <Pressable onPress={() => router.push('/sign-up' as never)} style={styles.switchRow}>
+          <Pressable onPress={() => router.push('/welcome' as never)} style={styles.switchRow}>
             <Text style={styles.switchMuted}>New here?</Text>
-            <Text style={[styles.link, { color: accentTheme.primary }]}>Create account</Text>
+            <Text style={[styles.link, { color: accentTheme.primary }]}>Get Started</Text>
           </Pressable>
         </View>
       }>
@@ -94,15 +95,9 @@ export default function SignInScreen() {
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Pressable onPress={() => void handleSignIn()} disabled={busy} style={styles.ctaWrap}>
-        <LinearGradient
-          colors={[accentTheme.primary, accentTheme.secondary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.cta}>
-          <Text style={styles.ctaText}>{busy ? 'Signing in…' : 'Sign in'}</Text>
-        </LinearGradient>
-      </Pressable>
+      <OrbitButton disabled={busy} onPress={() => void handleSignIn()}>
+        {busy ? 'Signing in…' : 'Sign in'}
+      </OrbitButton>
 
       {appleAvailable && Platform.OS === 'ios' ? (
         <>
@@ -131,9 +126,6 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   error: { color: orbitColors.danger, fontSize: 13, fontWeight: '700' },
-  ctaWrap: { borderRadius: 18, overflow: 'hidden', marginTop: 4 },
-  cta: { alignItems: 'center', paddingVertical: 15 },
-  ctaText: { color: '#070D1C', fontSize: 15, fontWeight: '800' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.12)' },
   dividerText: { color: orbitColors.textSubtle, fontSize: 12, fontWeight: '600' },

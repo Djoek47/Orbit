@@ -88,13 +88,18 @@ export const householdRepository = {
 
   async createHousehold(input: CreateHouseholdInput, user: OrbitUser): Promise<HouseholdSnapshot> {
     if (isMockMode()) {
+      const base = createEmptyHousehold(user);
       return {
-        ...createEmptyHousehold(user),
+        ...base,
         id: createLocalId('hh'),
         householdName: input.name.trim(),
         householdType: input.type,
         inviteCode: createInviteCode(),
         greetingName: user.name,
+        rooms:
+          input.rooms && input.rooms.length > 0
+            ? input.rooms.map((room) => ({ ...room }))
+            : base.rooms,
         members: [
           {
             id: createLocalId('member'),
