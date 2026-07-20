@@ -215,7 +215,7 @@ function TaskItem({
 }
 
 /** Preferred household order for admin by-person breakdown (after “My tasks”). */
-const MEMBER_SECTION_ORDER = ['Sarah', 'David', 'Liam', 'Emma'];
+const MEMBER_SECTION_ORDER = ['Sarah', 'David', 'Liam', 'Emma', 'Josh', 'Todd'];
 
 function sortTasksForMember(tasks: HouseholdTask[]) {
   const rank = (task: HouseholdTask) => {

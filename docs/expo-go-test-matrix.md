@@ -21,7 +21,7 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 6 | Tasks | Create → edit → complete → week XP moves on Ranks | ☐ |
 | 6b | Tasks Make UI | Tasks tab · filter chips · room filter · emoji assignee · complete celebration · open detail sheet | ☐ |
 | 6c | Tasks by person (admin) | As Sarah/David · Tasks All → My tasks + David/Liam/Emma sections with N of M complete | ☐ |
-| 6d | Shared device assign | Create task → assign Shared tablet → pick David → title “Clean dishes - David” · Mine on shared device shows linked people | ☐ |
+| 6d | Shared device assign | As Sarah → Create task → Shared phone → pick Josh or Todd → title “Clean dishes - Josh” · switch persona to Shared phone → Mine shows Josh/Todd tasks | ☐ |
 | 6e | Split multi-assign | Create task → select Emma + Liam → Clean dishes · each attaches proof/completes for own XP · all-done bonus · admin Penalize on pending share | ☐ |
 | 7 | Task delete | Open task → Delete → removed from Tasks list | ☐ |
 | 8 | Groceries | Add missing → mark purchased · mark available item Low | ☐ |
