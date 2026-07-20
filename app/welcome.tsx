@@ -301,7 +301,7 @@ export default function WelcomeOnboardingScreen() {
       {step === 'splash' ? (
         <View style={styles.centered}>
           <View style={styles.splashHero}>
-            <ChoremaxxLogo size="xl" />
+            <ChoremaxxLogo size="xl" style={styles.splashLogo} />
             <View style={styles.splashCopy}>
               <Text style={styles.splashLead}>Your AI-powered</Text>
               <Text style={styles.splashSub}>Household Operating System</Text>
@@ -691,15 +691,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
+    justifyContent: 'center',
   },
   bulletText: {
     color: orbitColors.textMuted,
     fontSize: 14,
+    textAlign: 'center',
   },
   bullets: {
-    alignSelf: 'stretch',
+    alignItems: 'center',
+    alignSelf: 'center',
     gap: 10,
     marginBottom: orbitSpacing.md,
+    width: '100%',
   },
   centered: {
     alignItems: 'center',
@@ -710,7 +714,12 @@ const styles = StyleSheet.create({
   },
   splashHero: {
     alignItems: 'center',
+    alignSelf: 'center',
     gap: orbitSpacing.md,
+    width: '100%',
+  },
+  splashLogo: {
+    alignSelf: 'center',
   },
   splashCtaBlock: {
     alignSelf: 'stretch',
@@ -987,22 +996,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   splashLegal: {
+    alignSelf: 'center',
     marginTop: orbitSpacing.sm,
+    width: '100%',
   },
   splashCopy: {
     alignItems: 'center',
     gap: 2,
+    width: '100%',
   },
   splashLead: {
     color: orbitColors.text,
     fontSize: 22,
     fontWeight: '700',
     letterSpacing: -0.3,
+    textAlign: 'center',
   },
   splashSub: {
     color: orbitColors.textMuted,
     fontSize: 16,
     fontWeight: '500',
+    textAlign: 'center',
   },
   topRow: {
     alignItems: 'center',
