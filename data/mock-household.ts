@@ -104,8 +104,30 @@ export const mockHousehold: HouseholdSnapshot = {
       loadShare: 0,
     },
     {
+      id: 'm8',
+      name: 'Josh',
+      role: 'adult',
+      status: 'active',
+      avatar: '🧑',
+      xp: 120,
+      weekXp: 20,
+      streak: 1,
+      loadShare: 5,
+    },
+    {
+      id: 'm9',
+      name: 'Todd',
+      role: 'adult',
+      status: 'active',
+      avatar: '🧔',
+      xp: 90,
+      weekXp: 15,
+      streak: 1,
+      loadShare: 5,
+    },
+    {
       id: 'm7',
-      name: 'Shared tablet',
+      name: 'Shared phone',
       role: 'shared-device',
       status: 'active',
       avatar: '📱',
@@ -113,8 +135,8 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 0,
       streak: 0,
       loadShare: 0,
-      // Kitchen/family tablet — David, Liam, and Emma confirm tasks here
-      sharedWithMemberIds: ['m2', 'm3', 'm4'],
+      // Sarah-managed shared device — Josh & Todd confirm tasks here
+      sharedWithMemberIds: ['m8', 'm9'],
     },
   ],
   tasks: [

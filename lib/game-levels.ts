@@ -132,6 +132,9 @@ export const MEMBER_ACCENTS: Record<string, { color: string; emoji: string }> = 
   Liam: { color: '#34D399', emoji: '🌟' },
   Jordan: { color: '#F472B6', emoji: '✨' },
   Casey: { color: '#94A3B8', emoji: '👋' },
+  Josh: { color: '#22D3EE', emoji: '🧑' },
+  Todd: { color: '#F59E0B', emoji: '🧔' },
+  'Shared phone': { color: '#06B6D4', emoji: '📱' },
   'Shared tablet': { color: '#06B6D4', emoji: '📱' },
 };
 
