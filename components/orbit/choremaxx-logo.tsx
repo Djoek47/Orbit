@@ -92,13 +92,17 @@ export function ChoremaxxBadge({
   size = 'md',
 }: {
   showWordmark?: boolean;
-  /** `sm` for dense chips; `md` default; `lg` for home/hero headers. */
-  size?: 'sm' | 'md' | 'lg';
+  /** `sm` dense · `md` default · `lg` headers · `xl` home (~27% larger than lg). */
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
   const scale =
-    size === 'lg' ? { iconW: 22, iconH: 19, text: 16, x: 15.5, gap: 7 } : size === 'sm'
-      ? { iconW: 16, iconH: 14, text: 12.5, x: 12, gap: 5 }
-      : { iconW: 18, iconH: 16, text: 14, x: 13.5, gap: 6 };
+    size === 'xl'
+      ? { iconW: 28, iconH: 24, text: 20.3, x: 19.7, gap: 9 }
+      : size === 'lg'
+        ? { iconW: 22, iconH: 19, text: 16, x: 15.5, gap: 7 }
+        : size === 'sm'
+          ? { iconW: 16, iconH: 14, text: 12.5, x: 12, gap: 5 }
+          : { iconW: 18, iconH: 16, text: 14, x: 13.5, gap: 6 };
 
   return (
     <View

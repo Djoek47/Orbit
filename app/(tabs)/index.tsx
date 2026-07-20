@@ -64,22 +64,9 @@ export default function HomeScreen() {
       ]}
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}>
-      {/* One tight header row shared with absolute chips (bell + Settings). */}
-      <View style={[styles.topBar, { paddingRight: HEADER_CHIPS_GUTTER }]}>
-        <ChoremaxxBadge size="lg" />
-        <LinearGradient
-          colors={[accentTheme.primary, accentTheme.secondary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.avatar}>
-          {headerIsPhoto && currentMember?.avatar ? (
-            <Image source={{ uri: currentMember.avatar }} style={styles.avatarImage} />
-          ) : (
-            <Text style={styles.avatarText}>{headerAvatar}</Text>
-          )}
-        </LinearGradient>
-      </View>
-      <View style={styles.greetingBlock}>
+      {/* Logo + greeting share the chip row space; profile lives above Nova. */}
+      <View style={[styles.brandBlock, { paddingRight: HEADER_CHIPS_GUTTER }]}>
+        <ChoremaxxBadge size="xl" />
         <Text style={styles.dateLine}>
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </Text>
@@ -95,7 +82,20 @@ export default function HomeScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.hero}>
           <View style={styles.heroTop}>
-            <NovaOrb size={56} />
+            <View style={styles.heroIdentity}>
+              <LinearGradient
+                colors={[accentTheme.primary, accentTheme.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.profileAboveNova}>
+                {headerIsPhoto && currentMember?.avatar ? (
+                  <Image source={{ uri: currentMember.avatar }} style={styles.profileAboveNovaImage} />
+                ) : (
+                  <Text style={styles.profileAboveNovaText}>{headerAvatar}</Text>
+                )}
+              </LinearGradient>
+              <NovaOrb size={56} />
+            </View>
             <View style={styles.heroCopy}>
               <View style={styles.novaRow}>
                 <View style={styles.liveDot} />
@@ -292,10 +292,12 @@ const styles = StyleSheet.create({
   },
   avatarImage: { height: 36, width: 36 },
   avatarText: { color: '#070D1C', fontSize: 14, fontWeight: '700' },
-  brandRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginBottom: 2,
+  brandBlock: {
+    alignItems: 'flex-start',
+    alignSelf: 'stretch',
+    gap: 6,
+    marginBottom: 4,
+    width: '100%',
   },
   check: {
     alignItems: 'center',
@@ -313,6 +315,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.35,
+    marginTop: 4,
     textTransform: 'uppercase',
   },
   eventBar: { borderRadius: 2, height: 28, marginTop: 2, width: 4 },
@@ -320,12 +323,6 @@ const styles = StyleSheet.create({
   eventTitle: { color: '#C8D8F0', fontSize: 12, lineHeight: 16 },
   eyebrow: { color: '#4B6080', fontSize: 12 },
   fullBleed: { alignSelf: 'stretch', width: '100%' },
-  greetingBlock: {
-    alignSelf: 'stretch',
-    gap: 4,
-    marginBottom: 2,
-    width: '100%',
-  },
   greetingLine: {
     color: '#C5D4E8',
     fontSize: 20,
@@ -352,15 +349,20 @@ const styles = StyleSheet.create({
     color: '#F4F7FF',
     fontWeight: '800',
   },
-  topBar: {
+  heroIdentity: {
     alignItems: 'center',
-    alignSelf: 'stretch',
-    flexDirection: 'row',
-    height: 36,
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    width: '100%',
+    gap: 8,
   },
+  profileAboveNova: {
+    alignItems: 'center',
+    borderRadius: 18,
+    height: 40,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: 40,
+  },
+  profileAboveNovaImage: { height: 40, width: 40 },
+  profileAboveNovaText: { color: '#070D1C', fontSize: 16, fontWeight: '700' },
   healthCol: { alignItems: 'stretch', flex: 1, gap: 6, minWidth: 0 },
   healthLabel: { color: '#7C9CC0', flexShrink: 1, fontSize: 11, fontWeight: '600' },
   healthLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 4 },
