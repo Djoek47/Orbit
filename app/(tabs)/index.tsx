@@ -1,17 +1,19 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { MomentumRing } from '@/components/orbit/momentum-ring';
 import { NovaOrb } from '@/components/orbit/nova-orb';
-import { orbitRadius, orbitScreen } from '@/constants/orbit-theme';
-import { memberDisplayEmoji } from '@/lib/game-levels';
+import { HEADER_CHIPS_GUTTER, orbitRadius, orbitScreen } from '@/constants/orbit-theme';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const { accentTheme, household, metrics, novaBriefing, currentMember } = useOrbit();
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -40,11 +42,15 @@ export default function HomeScreen() {
   const headerAvatar = currentMember
     ? memberDisplayEmoji(currentMember)
     : household.greetingName.slice(0, 1);
+  const headerIsPhoto = isAvatarImageUri(currentMember?.avatar);
 
   return (
     <ScrollView
       style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
+      contentContainerStyle={[
+        orbitScreen.content,
+        { paddingTop: Math.max(44, insets.top + 40), paddingRight: 16 + HEADER_CHIPS_GUTTER },
+      ]}
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}>
       {/* Make header */}
@@ -63,7 +69,11 @@ export default function HomeScreen() {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.avatar}>
-          <Text style={styles.avatarText}>{headerAvatar}</Text>
+          {headerIsPhoto && currentMember?.avatar ? (
+            <Image source={{ uri: currentMember.avatar }} style={styles.avatarImage} />
+          ) : (
+            <Text style={styles.avatarText}>{headerAvatar}</Text>
+          )}
         </LinearGradient>
       </View>
 
@@ -245,8 +255,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     height: 40,
     justifyContent: 'center',
+    overflow: 'hidden',
     width: 40,
   },
+  avatarImage: { height: 40, width: 40 },
   avatarText: { color: '#070D1C', fontSize: 14, fontWeight: '700' },
   check: {
     alignItems: 'center',

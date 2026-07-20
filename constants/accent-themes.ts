@@ -22,22 +22,60 @@ export function getAccentTheme(id?: string | null): AccentTheme {
   return ACCENT_THEMES.find((theme) => theme.id === id) ?? ACCENT_THEMES[0];
 }
 
-/** Make AdminScreen avatar emoji catalog. */
+/** Make AdminScreen avatar emoji catalog (+ expanded faces/pets/objects). */
 export const AVATAR_EMOJIS = [
   '👩',
   '👨',
+  '🧑',
+  '👧',
+  '👦',
+  '👵',
+  '👴',
   '🌟',
   '🦋',
   '🌙',
   '⭐',
   '🦊',
   '🐬',
+  '🐶',
+  '🐱',
+  '🐼',
+  '🦁',
+  '🐧',
+  '🦄',
   '🌺',
   '🎯',
   '🚀',
   '🎸',
   '🌈',
-  '🦁',
-  '🐧',
   '🎨',
+  '😎',
+  '🥳',
+  '🤩',
+  '😇',
+  '🔥',
+  '💎',
+  '🎮',
+] as const;
+
+/** Room emoji catalog for Settings + onboarding create flows. */
+export const ROOM_EMOJIS = [
+  '🚪',
+  '🍳',
+  '🛋️',
+  '🚿',
+  '🛏️',
+  '👕',
+  '🪴',
+  '🧹',
+  '🚗',
+  '💼',
+  '🧸',
+  '🌳',
+  '🏋️',
+  '🫙',
+  '🌅',
+  '📺',
+  '🧺',
+  '🛠️',
 ] as const;

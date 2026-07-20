@@ -90,6 +90,12 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choremaxx uses your photos so you can set Memoji or portrait profile pictures."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",

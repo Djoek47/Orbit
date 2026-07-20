@@ -7,6 +7,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
+import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitColors, orbitRadius, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
@@ -21,6 +22,7 @@ import {
   type OnboardingRole,
 } from '@/lib/onboarding-prefs';
 import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
+import { ROOM_EMOJIS } from '@/constants/accent-themes';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { shareInvite } from '@/lib/invites/share-invite';
 import { createLocalId } from '@/repositories/repository-utils';
@@ -65,6 +67,7 @@ export default function WelcomeOnboardingScreen() {
   );
   const [customRooms, setCustomRooms] = useState<HouseholdRoom[]>([]);
   const [customRoomName, setCustomRoomName] = useState('');
+  const [customRoomEmoji, setCustomRoomEmoji] = useState<string>('🚪');
   const [inviteCode, setInviteCode] = useState('');
   const [householdMode, setHouseholdMode] = useState<'create' | 'join'>('create');
   const [createdHousehold, setCreatedHousehold] = useState(false);
@@ -297,10 +300,12 @@ export default function WelcomeOnboardingScreen() {
     <View style={[styles.root, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}>
       {step === 'splash' ? (
         <View style={styles.centered}>
-          <ChoremaxxLogo size="xl" />
-          <View style={styles.splashCopy}>
-            <Text style={styles.splashLead}>Your AI-powered</Text>
-            <Text style={styles.splashSub}>Household Operating System</Text>
+          <View style={styles.splashHero}>
+            <ChoremaxxLogo size="xl" />
+            <View style={styles.splashCopy}>
+              <Text style={styles.splashLead}>Your AI-powered</Text>
+              <Text style={styles.splashSub}>Household Operating System</Text>
+            </View>
           </View>
           <View style={styles.bullets}>
             {[
@@ -314,16 +319,20 @@ export default function WelcomeOnboardingScreen() {
               </View>
             ))}
           </View>
-          <OrbitButton onPress={() => setStep('role')}>Get Started</OrbitButton>
-          <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
-            <Text style={styles.signInText}>Already have an account? Sign in</Text>
-          </Pressable>
+          <View style={styles.splashCtaBlock}>
+            <OrbitButton onPress={() => setStep('role')}>Get Started</OrbitButton>
+            <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
+              <Text style={styles.signInText}>
+                Already have an account? <Text style={styles.signInAccent}>Sign in</Text>
+              </Text>
+            </Pressable>
+          </View>
           <BrandLegalFooter compact showLogo={false} style={styles.splashLegal} />
         </View>
       ) : null}
 
       {step === 'role' ? (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <KeyboardScreen contentContainerStyle={styles.scroll}>
           <Header progress={progressIndex} />
           <Text style={orbitTypography.title}>Who are you?</Text>
           <Text style={[orbitTypography.caption, styles.mb]}>
@@ -374,11 +383,11 @@ export default function WelcomeOnboardingScreen() {
           <OrbitButton disabled={!selectedRole} onPress={handleRoleContinue}>
             Continue
           </OrbitButton>
-        </ScrollView>
+        </KeyboardScreen>
       ) : null}
 
       {step === 'motivation' ? (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <KeyboardScreen contentContainerStyle={styles.scroll}>
           <Header progress={progressIndex} />
           <Text style={orbitTypography.title}>How do you motivate your household?</Text>
           <Text style={[orbitTypography.caption, styles.mb]}>You can change this anytime in Settings.</Text>
@@ -411,11 +420,11 @@ export default function WelcomeOnboardingScreen() {
           <OrbitButton disabled={!selectedMotivation} onPress={handleMotivationContinue}>
             Continue
           </OrbitButton>
-        </ScrollView>
+        </KeyboardScreen>
       ) : null}
 
       {step === 'account' ? (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <KeyboardScreen contentContainerStyle={styles.scroll}>
           <Header progress={progressIndex} />
           <Text style={orbitTypography.title}>Create your account</Text>
           <Text style={[orbitTypography.caption, styles.mb]}>
@@ -442,11 +451,11 @@ export default function WelcomeOnboardingScreen() {
           <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
             <Text style={styles.signInText}>Already have an account? Sign in</Text>
           </Pressable>
-        </ScrollView>
+        </KeyboardScreen>
       ) : null}
 
       {step === 'profile' ? (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <KeyboardScreen contentContainerStyle={styles.scroll}>
           <Header progress={progressIndex} />
           <Text style={orbitTypography.title}>What should we call you?</Text>
           <Text style={[orbitTypography.caption, styles.mb]}>
@@ -457,11 +466,11 @@ export default function WelcomeOnboardingScreen() {
           <OrbitButton disabled={busy} onPress={handleProfileContinue}>
             {busy ? 'Saving…' : 'Continue'}
           </OrbitButton>
-        </ScrollView>
+        </KeyboardScreen>
       ) : null}
 
       {step === 'household' ? (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <KeyboardScreen contentContainerStyle={styles.scroll}>
           <Header progress={progressIndex} />
           <Text style={orbitTypography.title}>Set up your household</Text>
           <Text style={[orbitTypography.caption, styles.mb]}>
@@ -538,6 +547,19 @@ export default function WelcomeOnboardingScreen() {
                   );
                 })}
               </View>
+              <View style={styles.typeGrid}>
+                {ROOM_EMOJIS.map((emoji) => {
+                  const selected = customRoomEmoji === emoji;
+                  return (
+                    <Pressable
+                      key={emoji}
+                      onPress={() => setCustomRoomEmoji(emoji)}
+                      style={[styles.typeChip, selected && styles.typeChipSelected]}>
+                      <Text style={{ fontSize: 16 }}>{emoji}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
               <View style={styles.customRoomRow}>
                 <View style={styles.customRoomInput}>
                   <OrbitInput
@@ -555,7 +577,7 @@ export default function WelcomeOnboardingScreen() {
                     const room: HouseholdRoom = {
                       id: createLocalId('room'),
                       name: trimmed,
-                      emoji: '🚪',
+                      emoji: customRoomEmoji,
                       kind: 'custom',
                     };
                     setCustomRooms((current) => [...current, room]);
@@ -585,7 +607,7 @@ export default function WelcomeOnboardingScreen() {
           <OrbitButton disabled={busy} onPress={handleHouseholdContinue}>
             {busy ? 'Working…' : householdMode === 'create' ? 'Create household' : 'Join household'}
           </OrbitButton>
-        </ScrollView>
+        </KeyboardScreen>
       ) : null}
 
       {step === 'ready' ? (
@@ -682,9 +704,18 @@ const styles = StyleSheet.create({
   centered: {
     alignItems: 'center',
     flex: 1,
-    gap: orbitSpacing.lg,
+    gap: orbitSpacing.xl,
     justifyContent: 'center',
     paddingHorizontal: orbitSpacing.lg,
+  },
+  splashHero: {
+    alignItems: 'center',
+    gap: orbitSpacing.md,
+  },
+  splashCtaBlock: {
+    alignSelf: 'stretch',
+    gap: orbitSpacing.sm,
+    marginTop: orbitSpacing.sm,
   },
   customRoomInput: {
     flex: 1,
@@ -951,21 +982,27 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
+  signInAccent: {
+    color: orbitColors.primary,
+    fontWeight: '700',
+  },
   splashLegal: {
-    marginTop: orbitSpacing.md,
+    marginTop: orbitSpacing.sm,
   },
   splashCopy: {
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   splashLead: {
     color: orbitColors.text,
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
   splashSub: {
     color: orbitColors.textMuted,
-    fontSize: 18,
+    fontSize: 16,
+    fontWeight: '500',
   },
   topRow: {
     alignItems: 'center',
