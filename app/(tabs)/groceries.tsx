@@ -165,13 +165,12 @@ export default function GroceriesScreen() {
         styles.content,
         {
           paddingTop: Math.max(44, insets.top + 40),
-          paddingRight: 16 + HEADER_CHIPS_GUTTER,
         },
       ]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
+      <View style={[styles.header, { paddingRight: HEADER_CHIPS_GUTTER }]}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <ChoremaxxBadge />
           <Text style={[styles.caption, { marginTop: 8 }]}>Grocery Intelligence</Text>
           <Text style={styles.title}>This Week&apos;s List</Text>
@@ -453,8 +452,23 @@ function ActionChip({
 
 const styles = StyleSheet.create({
   container: { backgroundColor: '#070D1C', flex: 1 },
-  content: { gap: 14, paddingBottom: 32, paddingHorizontal: 16, paddingTop: 44 },
-  header: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', paddingTop: 4 },
+  content: {
+    alignItems: 'stretch',
+    alignSelf: 'stretch',
+    gap: 14,
+    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 44,
+    width: '100%',
+  },
+  header: {
+    alignItems: 'flex-start',
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 4,
+    width: '100%',
+  },
   caption: { color: '#4B6080', fontSize: 12 },
   title: { color: '#EEF2FF', fontSize: 24, fontWeight: '700', lineHeight: 29 },
   addBtn: {
@@ -476,6 +490,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    width: '100%',
   },
   lookupResult: { gap: 6, marginTop: 10 },
   lookupName: { color: '#EEF2FF', fontSize: 16, fontWeight: '700' },
@@ -492,12 +507,14 @@ const styles = StyleSheet.create({
   },
   lookupBtnText: { fontSize: 12, fontWeight: '700' },
   card: {
+    alignSelf: 'stretch',
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 24,
     borderWidth: 1,
     gap: 12,
     padding: 16,
+    width: '100%',
   },
   rowBetween: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   cardTitle: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
@@ -508,15 +525,18 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 8,
     overflow: 'hidden',
+    width: '100%',
   },
   progressFill: { borderRadius: 999, height: 8 },
   insights: {
+    alignSelf: 'stretch',
     backgroundColor: 'rgba(6,182,212,0.08)',
     borderColor: 'rgba(56,189,248,0.15)',
     borderRadius: 24,
     borderWidth: 1,
     gap: 12,
     padding: 16,
+    width: '100%',
   },
   insightsEyebrow: { color: '#06B6D4', fontSize: 12, fontWeight: '600', letterSpacing: 0.6 },
   insightRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 10 },

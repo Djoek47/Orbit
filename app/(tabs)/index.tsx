@@ -1,16 +1,18 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useMemo } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
-import { MomentumRing } from '@/components/orbit/momentum-ring';
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import { HEADER_CHIPS_GUTTER, orbitRadius, orbitScreen } from '@/constants/orbit-theme';
-import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import { MEMBER_ACCENTS, isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { useOrbit } from '@/store/orbit-store';
+
+const WEEK_XP_COLORS = ['#38BDF8', '#34D399', '#A78BFA', '#FB923C', '#F472B6'];
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -31,14 +33,22 @@ export default function HomeScreen() {
     .filter((g) => g.status === 'Missing' || g.status === 'Low')
     .slice(0, 3);
   const events = [
-    ...household.events.filter((e) => e.date === 'Today' || (e.startsAt ?? '').startsWith(new Date().toISOString().slice(0, 10))),
+    ...household.events.filter(
+      (e) => e.date === 'Today' || (e.startsAt ?? '').startsWith(new Date().toISOString().slice(0, 10))
+    ),
     ...household.events,
   ]
     .filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i)
     .slice(0, 3);
-  const tasksFrac = metrics.taskCompletionRate / 100;
-  const energyFrac = metrics.groceryReadiness / 100;
-  const harmonyFrac = metrics.calendarCoverage / 100;
+
+  const weekLeaders = useMemo(() => {
+    return household.members
+      .filter((member) => member.status === 'active' && member.role !== 'guest')
+      .slice()
+      .sort((a, b) => (b.weekXp ?? 0) - (a.weekXp ?? 0));
+  }, [household.members]);
+
+  const maxWeekXp = Math.max(1, ...weekLeaders.map((member) => member.weekXp ?? 0));
   const headerAvatar = currentMember
     ? memberDisplayEmoji(currentMember)
     : household.greetingName.slice(0, 1);
@@ -49,18 +59,18 @@ export default function HomeScreen() {
       style={orbitScreen.container}
       contentContainerStyle={[
         orbitScreen.content,
-        { paddingTop: Math.max(44, insets.top + 40), paddingRight: 16 + HEADER_CHIPS_GUTTER },
+        styles.pageContent,
+        { paddingTop: Math.max(44, insets.top + 40) },
       ]}
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}>
-      {/* Make header */}
-      <View style={styles.headerRow}>
-        <View style={{ flex: 1 }}>
+      <View style={[styles.headerRow, { paddingRight: HEADER_CHIPS_GUTTER }]}>
+        <View style={styles.headerCopy}>
           <ChoremaxxBadge />
           <Text style={[styles.eyebrow, { marginTop: 8 }]}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </Text>
-          <Text style={styles.h1}>
+          <Text style={styles.h1} numberOfLines={1}>
             {greeting}, {household.greetingName}
           </Text>
         </View>
@@ -77,46 +87,67 @@ export default function HomeScreen() {
         </LinearGradient>
       </View>
 
-      {/* Nova briefing + momentum hero — Make layout */}
-      <Pressable onPress={() => router.push('/(tabs)/nova' as never)}>
+      <Pressable onPress={() => router.push('/(tabs)/nova' as never)} style={styles.fullBleed}>
         <LinearGradient
           colors={['rgba(14,165,233,0.18)', 'rgba(6,182,212,0.10)', 'rgba(129,140,248,0.10)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.hero}>
-          <View style={styles.heroRow}>
-            <NovaOrb size={64} />
+          <View style={styles.heroTop}>
+            <NovaOrb size={56} />
             <View style={styles.heroCopy}>
               <View style={styles.novaRow}>
                 <View style={styles.liveDot} />
                 <Text style={styles.novaLabel}>NOVA</Text>
               </View>
-              <Text style={styles.heroBody}>{novaBriefing.summary}</Text>
+              <Text style={styles.heroBody} numberOfLines={3}>
+                {novaBriefing.summary}
+              </Text>
             </View>
-            {/* Make MomentumRing default ~128px */}
-            <MomentumRing tasks={tasksFrac} energy={energyFrac} harmony={harmonyFrac} />
           </View>
-          <View style={styles.metricRow}>
-            {[
-              { label: 'Tasks', value: `${metrics.taskCompletionRate}%`, color: '#38BDF8' },
-              { label: 'Grocery', value: `${metrics.groceryReadiness}%`, color: '#34D399' },
-              { label: 'Plan', value: `${metrics.calendarCoverage}%`, color: '#A78BFA' },
-            ].map((m) => (
-              <View key={m.label} style={styles.metricItem}>
-                <View style={[styles.metricDot, { backgroundColor: m.color }]} />
-                <Text style={styles.metricText}>
-                  {m.label} <Text style={{ color: m.color, fontWeight: '600' }}>{m.value}</Text>
-                </Text>
-              </View>
-            ))}
+
+          <View style={styles.weekHead}>
+            <Text style={styles.weekTitle}>Week XP</Text>
+            <Text style={styles.eyebrow}>Each household member</Text>
+          </View>
+
+          <View style={styles.weekList}>
+            {weekLeaders.map((member, index) => {
+              const xp = member.weekXp ?? 0;
+              const color =
+                MEMBER_ACCENTS[member.name]?.color ?? WEEK_XP_COLORS[index % WEEK_XP_COLORS.length];
+              const widthPct = Math.max(8, Math.round((xp / maxWeekXp) * 100));
+              const photo = isAvatarImageUri(member.avatar);
+              return (
+                <View key={member.id} style={styles.weekRow}>
+                  <View style={[styles.weekAvatar, { backgroundColor: `${color}33` }]}>
+                    {photo ? (
+                      <Image source={{ uri: member.avatar }} style={styles.weekAvatarImage} />
+                    ) : (
+                      <Text style={styles.weekAvatarEmoji}>{memberDisplayEmoji(member)}</Text>
+                    )}
+                  </View>
+                  <View style={styles.weekMeta}>
+                    <View style={styles.weekNameRow}>
+                      <Text style={styles.weekName} numberOfLines={1}>
+                        {member.name}
+                      </Text>
+                      <Text style={[styles.weekXp, { color }]}>{xp} XP</Text>
+                    </View>
+                    <View style={styles.weekTrack}>
+                      <View style={[styles.weekFill, { width: `${widthPct}%`, backgroundColor: color }]} />
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         </LinearGradient>
       </Pressable>
 
-      {/* Today's Tasks */}
-      <GlassCard>
+      <GlassCard style={styles.fullBleed}>
         <View style={styles.sectionHead}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.sectionTitle}>Today&apos;s Tasks</Text>
             <Text style={styles.eyebrow}>
               {doneTasks} of {household.tasks.length} complete
@@ -153,7 +184,6 @@ export default function HomeScreen() {
         })}
       </GlassCard>
 
-      {/* Groceries + Upcoming — 2-col Make grid */}
       <View style={styles.grid}>
         <Pressable style={styles.halfCard} onPress={() => router.push('/(tabs)/groceries' as never)}>
           <View style={styles.halfHead}>
@@ -202,8 +232,7 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
-      {/* Household Health */}
-      <Pressable onPress={() => router.push('/household-balance' as never)}>
+      <Pressable onPress={() => router.push('/household-balance' as never)} style={styles.fullBleed}>
         <GlassCard>
           <View style={styles.sectionHead}>
             <Text style={styles.sectionTitle}>Household Health</Text>
@@ -218,22 +247,24 @@ export default function HomeScreen() {
                 icon: 'check-circle' as const,
               },
               {
-                label: 'Grocery Load',
+                label: 'Grocery',
                 val: metrics.groceryReadiness,
                 color: '#38BDF8',
                 icon: 'shopping-cart' as const,
               },
               {
-                label: 'Plan Load',
+                label: 'Plan',
                 val: metrics.calendarCoverage,
                 color: '#A78BFA',
                 icon: 'event' as const,
               },
             ].map((item) => (
-              <View key={item.label} style={{ flex: 1 }}>
+              <View key={item.label} style={styles.healthCol}>
                 <View style={styles.healthLabelRow}>
-                  <MaterialIcons name={item.icon} size={11} color={item.color} />
-                  <Text style={styles.metricText}>{item.label}</Text>
+                  <MaterialIcons name={item.icon} size={12} color={item.color} />
+                  <Text style={styles.healthLabel} numberOfLines={1}>
+                    {item.label}
+                  </Text>
                 </View>
                 <View style={styles.progressTrack}>
                   <View style={[styles.progressFill, { width: `${item.val}%`, backgroundColor: item.color }]} />
@@ -275,9 +306,10 @@ const styles = StyleSheet.create({
   eventRow: { flexDirection: 'row', gap: 8 },
   eventTitle: { color: '#C8D8F0', fontSize: 12, lineHeight: 16 },
   eyebrow: { color: '#4B6080', fontSize: 12 },
+  fullBleed: { alignSelf: 'stretch', width: '100%' },
   groceryName: { color: '#C8D8F0', flex: 1, fontSize: 12 },
   groceryRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  grid: { flexDirection: 'row', gap: 12 },
+  grid: { alignSelf: 'stretch', flexDirection: 'row', gap: 12, width: '100%' },
   h1: { color: '#EEF2FF', fontSize: 24, fontWeight: '700', lineHeight: 29 },
   halfCard: {
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -286,25 +318,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flex: 1,
     gap: 8,
+    minWidth: 0,
     padding: 16,
   },
   halfHead: { alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: 4 },
   halfTitle: { color: '#EEF2FF', fontSize: 12, fontWeight: '600' },
-  headerRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  healthLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 4, marginBottom: 6 },
-  healthRow: { flexDirection: 'row', gap: 12 },
-  healthVal: { fontSize: 12, fontWeight: '600', marginTop: 4 },
+  headerCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
+  headerRow: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  healthCol: { alignItems: 'stretch', flex: 1, gap: 6, minWidth: 0 },
+  healthLabel: { color: '#7C9CC0', flexShrink: 1, fontSize: 11, fontWeight: '600' },
+  healthLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 4 },
+  healthRow: { alignSelf: 'stretch', flexDirection: 'row', gap: 10, width: '100%' },
+  healthVal: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
   hero: {
+    alignSelf: 'stretch',
     borderColor: 'rgba(56,189,248,0.18)',
     borderRadius: orbitRadius.lg,
     borderWidth: 1,
-    gap: 12,
+    gap: 14,
     overflow: 'hidden',
     padding: 16,
+    width: '100%',
   },
   heroBody: { color: '#C8D8F0', fontSize: 14, lineHeight: 20 },
   heroCopy: { flex: 1, gap: 4, minWidth: 0 },
-  heroRow: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  heroTop: { alignItems: 'center', flexDirection: 'row', gap: 12 },
   iconBox: {
     alignItems: 'center',
     borderRadius: 12,
@@ -314,12 +358,13 @@ const styles = StyleSheet.create({
   },
   linkBlue: { color: '#38BDF8', fontSize: 12, fontWeight: '600', marginTop: 4 },
   liveDot: { backgroundColor: '#34D399', borderRadius: 3, height: 6, width: 6 },
-  metricDot: { borderRadius: 4, height: 8, width: 8 },
-  metricItem: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  metricRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  metricText: { color: '#7C9CC0', fontSize: 12 },
   novaLabel: { color: '#34D399', fontSize: 12, fontWeight: '600', letterSpacing: 0.6 },
   novaRow: { alignItems: 'center', flexDirection: 'row', gap: 6 },
+  pageContent: {
+    alignItems: 'stretch',
+    alignSelf: 'stretch',
+    width: '100%',
+  },
   pctPill: {
     backgroundColor: 'rgba(52,211,153,0.12)',
     borderRadius: 999,
@@ -337,6 +382,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 6,
     overflow: 'hidden',
+    width: '100%',
   },
   sectionHead: {
     alignItems: 'center',
@@ -348,4 +394,30 @@ const styles = StyleSheet.create({
   taskDone: { color: '#4B6080', textDecorationLine: 'line-through' },
   taskRow: { alignItems: 'center', flexDirection: 'row', gap: 12, paddingVertical: 10 },
   taskText: { color: '#C8D8F0', flex: 1, fontSize: 14 },
+  weekAvatar: {
+    alignItems: 'center',
+    borderRadius: 14,
+    height: 36,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: 36,
+  },
+  weekAvatarEmoji: { fontSize: 16 },
+  weekAvatarImage: { height: 36, width: 36 },
+  weekFill: { borderRadius: 999, height: '100%' },
+  weekHead: { gap: 2 },
+  weekList: { gap: 10 },
+  weekMeta: { flex: 1, gap: 6, minWidth: 0 },
+  weekName: { color: '#EEF2FF', flex: 1, fontSize: 13, fontWeight: '600' },
+  weekNameRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  weekRow: { alignItems: 'center', flexDirection: 'row', gap: 10 },
+  weekTitle: { color: '#EEF2FF', fontSize: 14, fontWeight: '700' },
+  weekTrack: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    height: 8,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  weekXp: { fontSize: 13, fontWeight: '800' },
 });

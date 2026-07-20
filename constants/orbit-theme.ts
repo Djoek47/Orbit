@@ -121,8 +121,8 @@ export const orbitTypography = StyleSheet.create({
   },
 });
 
-/** Right gutter reserved for absolute GlobalHeaderChips (bell + Settings). */
-export const HEADER_CHIPS_GUTTER = 132;
+/** Space reserved under absolute GlobalHeaderChips — apply to header rows only, not full content. */
+export const HEADER_CHIPS_GUTTER = 108;
 
 export const orbitScreen = StyleSheet.create({
   container: {
@@ -130,11 +130,12 @@ export const orbitScreen = StyleSheet.create({
     backgroundColor: orbitColors.background,
   },
   content: {
+    alignSelf: 'stretch',
     gap: 16,
-    // Clear global Notifications + Settings chips (Make App overlay)
     paddingHorizontal: 16,
     paddingTop: 44,
     paddingBottom: 24,
+    width: '100%',
   },
   header: {
     gap: 2,

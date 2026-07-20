@@ -15,6 +15,7 @@ export function GlassCard({ children, elevated = false, style }: GlassCardProps)
 
 const styles = StyleSheet.create({
   card: {
+    alignSelf: 'stretch',
     backgroundColor: orbitColors.card,
     borderColor: orbitColors.border,
     borderCurve: 'continuous',
@@ -22,6 +23,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 12,
     padding: 16,
+    width: '100%',
   },
   elevated: {
     backgroundColor: 'rgba(14,165,233,0.08)',
