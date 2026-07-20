@@ -10,13 +10,18 @@ import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import { HEADER_CHIPS_GUTTER, orbitRadius, orbitScreen } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  findSharedDeviceForMember,
+  isSharedDeviceRole,
+  resolveSharedDevicePeople,
+} from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
 
 const WEEK_XP_COLORS = ['#38BDF8', '#34D399', '#A78BFA', '#FB923C', '#F472B6'];
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, household, metrics, novaBriefing, currentMember } = useOrbit();
+  const { accentTheme, household, metrics, novaBriefing, currentMember, switchPersona } = useOrbit();
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const tasks = household.tasks.filter((t) => t.status !== 'Cancelled').slice(0, 4);
@@ -43,7 +48,12 @@ export default function HomeScreen() {
 
   const weekLeaders = useMemo(() => {
     return household.members
-      .filter((member) => member.status === 'active' && member.role !== 'guest')
+      .filter(
+        (member) =>
+          member.status === 'active' &&
+          member.role !== 'guest' &&
+          !isSharedDeviceRole(member.role)
+      )
       .slice()
       .sort((a, b) => (b.weekXp ?? 0) - (a.weekXp ?? 0));
   }, [household.members]);
@@ -53,6 +63,11 @@ export default function HomeScreen() {
     ? memberDisplayEmoji(currentMember)
     : household.greetingName.slice(0, 1);
   const headerIsPhoto = isAvatarImageUri(currentMember?.avatar);
+  const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
+  const deviceAccounts = useMemo(
+    () => resolveSharedDevicePeople(sharedDevice, household.members),
+    [household.members, sharedDevice]
+  );
 
   return (
     <ScrollView
@@ -73,6 +88,31 @@ export default function HomeScreen() {
         <Text style={styles.greetingLine} numberOfLines={1}>
           {greeting}, <Text style={styles.nameInline}>{household.greetingName}</Text>
         </Text>
+        {sharedDevice && deviceAccounts.length > 0 ? (
+          <View style={styles.deviceSwitchRow}>
+            <Text style={styles.deviceSwitchLabel}>
+              {sharedDevice.avatar} {sharedDevice.name}
+            </Text>
+            <View style={styles.deviceSwitchChips}>
+              {deviceAccounts.map((person) => {
+                const active = currentMember?.id === person.id;
+                const color = MEMBER_ACCENTS[person.name]?.color ?? accentTheme.primary;
+                return (
+                  <Pressable
+                    key={person.id}
+                    onPress={() => switchPersona(person.id)}
+                    style={[
+                      styles.deviceSwitchChip,
+                      active && { backgroundColor: `${color}33`, borderColor: `${color}88` },
+                    ]}>
+                    <Text style={styles.deviceSwitchEmoji}>{memberDisplayEmoji(person)}</Text>
+                    <Text style={[styles.deviceSwitchName, active && { color }]}>{person.name}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
       </View>
 
       <Pressable onPress={() => router.push('/(tabs)/nova' as never)} style={styles.fullBleed}>
@@ -299,6 +339,40 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 4,
     width: '100%',
+  },
+  deviceSwitchRow: {
+    gap: 8,
+    marginTop: 6,
+    width: '100%',
+  },
+  deviceSwitchLabel: {
+    color: '#6B82A3',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  deviceSwitchChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  deviceSwitchChip: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  deviceSwitchEmoji: { fontSize: 14 },
+  deviceSwitchName: {
+    color: '#C8D8F0',
+    fontSize: 12,
+    fontWeight: '700',
   },
   check: {
     alignItems: 'center',

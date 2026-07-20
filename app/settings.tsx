@@ -21,14 +21,95 @@ import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { createLocalId } from '@/repositories/repository-utils';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  findSharedDeviceForMember,
+  listSharedDevices,
+  nestedSharedAccountIds,
+  resolveSharedDevicePeople,
+} from '@/lib/household/shared-device';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdRoom } from '@/types/orbit';
+import type { HouseholdMember, HouseholdRoom } from '@/types/orbit';
 import * as Linking from 'expo-linking';
 
 const PANEL_BG = '#0A1525';
 
 type Section = 'main' | 'members' | 'notifications' | 'rooms';
+
+function SharedAccountRow({
+  person,
+  active,
+  accent,
+  picking,
+  onSwitch,
+  onTogglePick,
+  onPickEmoji,
+  onPickPhoto,
+}: {
+  person: HouseholdMember;
+  active: boolean;
+  accent: string;
+  picking: boolean;
+  onSwitch: () => void;
+  onTogglePick: () => void;
+  onPickEmoji: (emoji: string) => void;
+  onPickPhoto: () => void;
+}) {
+  const photo = isAvatarImageUri(person.avatar);
+  return (
+    <View style={styles.sharedAccountBlock}>
+      <View style={styles.memberCardInner}>
+        <Pressable
+          onPress={onTogglePick}
+          style={[
+            styles.memberAvatar,
+            { backgroundColor: `${active ? accent : '#4B6080'}33` },
+          ]}>
+          {photo ? (
+            <Image source={{ uri: person.avatar }} style={styles.memberAvatarImage} />
+          ) : (
+            <Text style={styles.memberAvatarText}>{memberDisplayEmoji(person)}</Text>
+          )}
+          <View style={styles.avatarEditBadge}>
+            <MaterialIcons name="edit" size={10} color="#38BDF8" />
+          </View>
+        </Pressable>
+        <Pressable style={{ flex: 1 }} onPress={onSwitch}>
+          <Text style={styles.memberName}>{person.name}</Text>
+          <Text style={styles.caption}>Switchable account · own XP & redeem</Text>
+          <Text style={[styles.caption, { color: accent, fontWeight: '600' }]}>
+            {person.xp} XP · week {person.weekXp ?? 0}
+          </Text>
+        </Pressable>
+        {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
+      </View>
+      {picking ? (
+        <View style={styles.emojiGrid}>
+          <Pressable
+            style={[styles.emojiChip, styles.photoChip, { borderColor: `${accent}88` }]}
+            onPress={onPickPhoto}>
+            <MaterialIcons name="photo-camera" size={18} color={accent} />
+            <Text style={[styles.photoChipText, { color: accent }]}>Photo / Memoji</Text>
+          </Pressable>
+          {AVATAR_EMOJIS.map((emoji) => (
+            <Pressable
+              key={emoji}
+              style={[
+                styles.emojiChip,
+                person.avatar === emoji && {
+                  borderColor: `${accent}88`,
+                  backgroundColor: `${accent}22`,
+                },
+              ]}
+              onPress={() => onPickEmoji(emoji)}>
+              <Text style={{ fontSize: 22 }}>{emoji}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 /** Make AdminScreen.tsx — Settings sheet chrome. */
 export default function SettingsScreen() {
@@ -73,6 +154,21 @@ export default function SettingsScreen() {
   const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
   const themeId = (household.accentThemeId ?? accentTheme.id) as AccentThemeId;
   const rooms = household.rooms ?? [];
+  const nestedAccountIds = useMemo(
+    () => nestedSharedAccountIds(household.members),
+    [household.members]
+  );
+  const sharedDevices = useMemo(() => listSharedDevices(household.members), [household.members]);
+  /** Standalone people (not nested under a Shared tablet). */
+  const topLevelMembers = useMemo(
+    () =>
+      household.members.filter(
+        (member) =>
+          member.role !== 'shared-device' && !nestedAccountIds.has(member.id)
+      ),
+    [household.members, nestedAccountIds]
+  );
+  const activeOnDevice = findSharedDeviceForMember(currentMember?.id, household.members);
 
   const handleDelete = () => {
     Alert.alert('Delete account', 'This permanently removes your Choremaxx account.', [
@@ -287,7 +383,9 @@ export default function SettingsScreen() {
 
         {section === 'members' ? (
           <>
-            <Text style={styles.sectionHint}>Tap avatar to customize · tap name to view as them</Text>
+            <Text style={styles.sectionHint}>
+              Tap a name to switch profile · Shared tablet holds switchable accounts (each keeps XP & redeem)
+            </Text>
             {permissions.canInviteMembers ? (
               <SettingsRow
                 emoji="➕"
@@ -296,7 +394,53 @@ export default function SettingsScreen() {
                 onPress={() => router.push('/invite-household' as never)}
               />
             ) : null}
-            {household.members.map((member) => {
+
+            {sharedDevices.map((device) => {
+              const accounts = resolveSharedDevicePeople(device, household.members);
+              const deviceActive = activeOnDevice?.id === device.id;
+              return (
+                <View
+                  key={device.id}
+                  style={[
+                    styles.sharedDeviceCard,
+                    deviceActive && { borderColor: `${accentTheme.primary}55` },
+                  ]}>
+                  <View style={styles.sharedDeviceHead}>
+                    <Text style={styles.sharedDeviceEmoji}>{device.avatar || '📱'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.memberName}>{device.name}</Text>
+                      <Text style={styles.caption}>
+                        Shared device ·{' '}
+                        {accounts.map((person) => person.name).join(' · ') || 'no accounts linked'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.sharedDeviceHint}>
+                    Switch between accounts on this tablet. Later, unlink someone to give them their own device.
+                  </Text>
+                  {accounts.map((person) => (
+                    <SharedAccountRow
+                      key={person.id}
+                      person={person}
+                      active={currentMember?.id === person.id}
+                      accent={accentTheme.primary}
+                      picking={pickingAvatarFor === person.id}
+                      onSwitch={() => switchPersona(person.id)}
+                      onTogglePick={() =>
+                        setPickingAvatarFor(pickingAvatarFor === person.id ? null : person.id)
+                      }
+                      onPickEmoji={async (emoji) => {
+                        await updateMemberAvatar(person.id, emoji);
+                        setPickingAvatarFor(null);
+                      }}
+                      onPickPhoto={() => void pickMemojiPhoto(person.id)}
+                    />
+                  ))}
+                </View>
+              );
+            })}
+
+            {topLevelMembers.map((member) => {
               const active = currentMember?.id === member.id;
               const picking = pickingAvatarFor === member.id;
               const photo = isAvatarImageUri(member.avatar);
@@ -667,6 +811,36 @@ const styles = StyleSheet.create({
   accountBtnText: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
   brand: { paddingBottom: 8, paddingTop: 12 },
   sectionHint: { color: '#7C9CC0', fontSize: 14, paddingTop: 4 },
+  sharedDeviceCard: {
+    backgroundColor: 'rgba(6,182,212,0.08)',
+    borderColor: 'rgba(6,182,212,0.28)',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    padding: 14,
+  },
+  sharedDeviceHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  sharedDeviceEmoji: { fontSize: 28 },
+  sharedDeviceHint: {
+    color: '#7C9CC0',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  sharedAccountBlock: {
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+    paddingTop: 10,
+  },
+  memberCardInner: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
   memberCard: {
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',

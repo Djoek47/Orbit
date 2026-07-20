@@ -24,6 +24,46 @@ export function resolveSharedDevicePeople(
   );
 }
 
+/** All shared-device profiles in the household. */
+export function listSharedDevices(members: HouseholdMember[]): HouseholdMember[] {
+  return members.filter((member) => member.status === 'active' && isSharedDeviceRole(member.role));
+}
+
+/** Ids of people nested under any shared device (switchable accounts). */
+export function nestedSharedAccountIds(members: HouseholdMember[]): Set<string> {
+  const ids = new Set<string>();
+  for (const device of listSharedDevices(members)) {
+    for (const personId of device.sharedWithMemberIds ?? []) {
+      ids.add(personId);
+    }
+  }
+  return ids;
+}
+
+/** Shared device this person belongs to (if any). */
+export function findSharedDeviceForMember(
+  memberId: string | undefined | null,
+  members: HouseholdMember[]
+): HouseholdMember | undefined {
+  if (!memberId) return undefined;
+  return listSharedDevices(members).find((device) =>
+    (device.sharedWithMemberIds ?? []).includes(memberId)
+  );
+}
+
+/**
+ * Top-level assign targets: shared devices + people not nested under a device.
+ * Nested accounts (Josh/Todd) are chosen after picking the Shared tablet.
+ */
+export function assignTargetMembers(members: HouseholdMember[]): HouseholdMember[] {
+  const nested = nestedSharedAccountIds(members);
+  return members.filter(
+    (member) =>
+      member.status === 'active' &&
+      (isSharedDeviceRole(member.role) || (!nested.has(member.id) && member.role !== 'guest'))
+  );
+}
+
 /** Candidates an admin can attach to a shared device. */
 export function sharedDeviceLinkCandidates(members: HouseholdMember[]): HouseholdMember[] {
   return members.filter(
@@ -34,7 +74,7 @@ export function sharedDeviceLinkCandidates(members: HouseholdMember[]): Househol
   );
 }
 
-/** Title shown on the shared device: "Clean dishes - David". */
+/** Title shown on the shared device: "Clean dishes - Josh". */
 export function withSharedPersonLabel(baseTitle: string, personName: string): string {
   const trimmed = baseTitle.trim();
   const suffix = ` - ${personName.trim()}`;

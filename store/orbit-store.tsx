@@ -1452,24 +1452,36 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const switchPersona = (memberId: string) => {
     const member = household.members.find((m) => m.id === memberId);
     if (!member) return;
-    setActiveMemberId(memberId);
+
+    // Shared tablet is a device shell — land on a linked account (Josh/Todd) so XP/redeem work.
+    let target = member;
+    if (member.role === 'shared-device') {
+      const linked = (member.sharedWithMemberIds ?? [])
+        .map((id) => household.members.find((item) => item.id === id))
+        .filter((item): item is HouseholdMember => Boolean(item && item.status === 'active'));
+      if (linked[0]) {
+        target = linked[0];
+      }
+    }
+
+    setActiveMemberId(target.id);
     setCurrentUser((prev) =>
       prev
         ? {
             ...prev,
-            name: member.name,
-            avatar: member.avatar,
+            name: target.name,
+            avatar: target.avatar,
             profileComplete: true,
           }
         : {
-            id: `persona-${member.id}`,
-            email: `${member.name.toLowerCase()}@orbit.test`,
-            name: member.name,
-            avatar: member.avatar,
+            id: `persona-${target.id}`,
+            email: `${target.name.toLowerCase()}@orbit.test`,
+            name: target.name,
+            avatar: target.avatar,
             profileComplete: true,
           }
     );
-    setHousehold((current) => ({ ...current, greetingName: member.name }));
+    setHousehold((current) => ({ ...current, greetingName: target.name }));
   };
 
   const approveMember = async (memberId: string) => {

@@ -18,6 +18,7 @@ import { XpWheel } from '@/components/orbit/xp-wheel';
 import { TASK_PRESETS, type TaskPreset } from '@/data/task-presets';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import {
+  assignTargetMembers,
   isSharedDeviceMember,
   resolveSharedDevicePeople,
   withSharedPersonLabel,
@@ -131,10 +132,8 @@ export default function CreateTaskScreen() {
   const insets = useSafeAreaInsets();
   const { accentTheme, createTask, household, permissions } = useOrbit();
 
-  const activeMembers = useMemo(
-    () => household.members.filter((member) => member.status === 'active'),
-    [household.members],
-  );
+  /** Shared tablet + people not nested under a device (Josh/Todd only under Shared tablet). */
+  const activeMembers = useMemo(() => assignTargetMembers(household.members), [household.members]);
 
   const rooms = useMemo(() => household.rooms ?? [], [household.rooms]);
 
@@ -795,9 +794,9 @@ export default function CreateTaskScreen() {
 
         {needsSharedPerson ? (
           <View style={styles.sharedPickBlock}>
-            <Text style={styles.label}>WHO IS THIS FOR? · multi = split</Text>
+            <Text style={styles.label}>WHO ON THIS DEVICE? · tap name(s)</Text>
             <Text style={styles.sharedPickHint}>
-              One person → “Clean dishes - David”. Multiple → split; each proves/finishes for their own XP.
+              Accounts on this Shared tablet. One → “Clean dishes - Josh”. Two+ → split shares.
             </Text>
             {sharedPeople.length === 0 ? (
               <Text style={styles.sharedPickHint}>

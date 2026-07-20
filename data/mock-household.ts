@@ -127,7 +127,7 @@ export const mockHousehold: HouseholdSnapshot = {
     },
     {
       id: 'm7',
-      name: 'Shared phone',
+      name: 'Shared tablet',
       role: 'shared-device',
       status: 'active',
       avatar: '📱',
@@ -135,7 +135,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 0,
       streak: 0,
       loadShare: 0,
-      // Sarah-managed shared device — Josh & Todd confirm tasks here
+      // One device · two switchable accounts (Josh & Todd) with their own XP / redeem
       sharedWithMemberIds: ['m8', 'm9'],
     },
   ],
