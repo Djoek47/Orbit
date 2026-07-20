@@ -552,7 +552,7 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     nova: briefing
       ? mapBriefingRow(briefing)
       : {
-          title: 'Welcome to Orbit',
+          title: 'Welcome to Choremaxx',
           summary: 'Your household is synced. Nova will fill in guidance as activity arrives.',
           actions: ['Create task', 'Check groceries'],
         },

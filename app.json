@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "linking": {
-      "prefixes": ["orbit://", "https://orbit.app"],
+      "prefixes": ["choremaxx://", "orbit://", "https://choremaxx.app", "https://orbit.app"],
       "config": {
         "screens": {
           "join/[code]": "join/:code"
@@ -67,7 +67,7 @@
       [
         "expo-notifications",
         {
-          "color": "#3BB5F0"
+          "color": "#59B2E1"
         }
       ],
       [
@@ -99,12 +99,6 @@
           "dark": {
             "backgroundColor": "#070D1C"
           }
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Orbit uses the camera to scan household invite QR codes."
         }
       ]
     ],

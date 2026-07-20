@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
+import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
@@ -48,7 +49,8 @@ export default function RewardsScreen() {
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}>
       <View style={[orbitScreen.header, styles.header]}>
-        <Text style={orbitTypography.caption}>Leaderboard</Text>
+        <ChoremaxxBadge />
+        <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Leaderboard</Text>
         <Text style={orbitTypography.display}>Family Rankings</Text>
       </View>
 

@@ -1,17 +1,19 @@
-# Orbit Privacy Policy
+# Choremaxx Privacy Policy
 
-**Last updated:** 2026-07-15  
-**Contact:** privacy@orbit.app  
-**Public URL (host this page):** https://orbit.app/privacy
+**Last updated:** 2026-07-20  
+**Contact:** privacy@choremaxx.app  
+**Public URL (host this page):** https://choremaxx.app/privacy
 
-Orbit (“we”, “our”) is an AI household operating system. This policy explains what we collect and how we use it.
+© 2026 Choremaxx. All rights reserved.
+
+Choremaxx (“we”, “our”) is an AI household operating system. This policy explains what we collect and how we use it.
 
 ## What we collect
 
 - Account data: email, display name, authentication identifiers (including Apple Sign-In subject when used).
 - Household data: household name, memberships, roles, tasks, groceries, calendar events, rewards, XP, badges, Momentum scores.
 - Device data: push notification tokens, approximate location when you enable grocery suggestions, voice audio temporarily when you use Talk to Nova.
-- Usage analytics: feature events that help improve Orbit (task completion, Nova interactions).
+- Usage analytics: feature events that help improve Choremaxx (task completion, Nova interactions).
 
 ## How we use data
 
@@ -22,7 +24,7 @@ Orbit (“we”, “our”) is an AI household operating system. This policy exp
 
 ## Children
 
-Orbit supports a Child role under parental/admin supervision. We do not knowingly sell children’s personal information. Parents/admins control invites, rewards approvals, and access.
+Choremaxx supports a Child role under parental/admin supervision. We do not knowingly sell children’s personal information. Parents/admins control invites, rewards approvals, and access.
 
 ## Sharing
 
@@ -34,8 +36,8 @@ You may export or delete your account from Settings. Deletion removes your profi
 
 ## Your rights
 
-Depending on your region, you may request access, correction, export, or deletion by contacting privacy@orbit.app or using in-app Settings.
+Depending on your region, you may request access, correction, export, or deletion by contacting privacy@choremaxx.app or using in-app Settings.
 
 ## Contact
 
-Orbit Household OS — privacy@orbit.app
+Choremaxx — privacy@choremaxx.app

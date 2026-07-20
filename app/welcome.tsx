@@ -4,6 +4,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 
+import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -317,6 +318,7 @@ export default function WelcomeOnboardingScreen() {
           <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
             <Text style={styles.signInText}>Already have an account? Sign in</Text>
           </Pressable>
+          <BrandLegalFooter compact showLogo={false} style={styles.splashLegal} />
         </View>
       ) : null}
 
@@ -948,6 +950,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  splashLegal: {
+    marginTop: orbitSpacing.md,
   },
   splashCopy: {
     alignItems: 'center',

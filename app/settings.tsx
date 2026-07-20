@@ -15,10 +15,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ACCENT_THEMES, AVATAR_EMOJIS, type AccentThemeId } from '@/constants/accent-themes';
+import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
+import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { createLocalId } from '@/repositories/repository-utils';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdRoom } from '@/types/orbit';
+import * as Linking from 'expo-linking';
 
 const PANEL_BG = '#0A1525';
 
@@ -206,9 +209,23 @@ export default function SettingsScreen() {
               icon="shield"
               iconColor="#34D399"
               label="Privacy & Data"
-              subtitle="Manage your data"
+              subtitle="Privacy · Terms · Support"
               onPress={() =>
-                Alert.alert('Privacy', 'Export and delete live under Account below.')
+                Alert.alert('Privacy & legal', 'Open Choremaxx legal pages', [
+                  {
+                    text: 'Privacy Policy',
+                    onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
+                  },
+                  {
+                    text: 'Terms of Service',
+                    onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.termsUrl),
+                  },
+                  {
+                    text: 'Contact support',
+                    onPress: () => void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`),
+                  },
+                  { text: 'Cancel', style: 'cancel' },
+                ])
               }
             />
             {permissions.canInviteMembers ? (
@@ -252,13 +269,7 @@ export default function SettingsScreen() {
               </Pressable>
             </SectionCard>
 
-            <View style={styles.brand}>
-              <LinearGradient colors={[accentTheme.primary, accentTheme.secondary]} style={styles.brandIcon}>
-                <Text style={{ fontSize: 20 }}>🏠</Text>
-              </LinearGradient>
-              <Text style={styles.brandName}>Choremaxx</Text>
-              <Text style={styles.brandMeta}>Version 1.0.0 · AI Household OS</Text>
-            </View>
+            <BrandLegalFooter style={styles.brand} />
           </>
         ) : null}
 
@@ -623,16 +634,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   accountBtnText: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
-  brand: { alignItems: 'center', gap: 4, paddingBottom: 16, paddingTop: 8 },
-  brandIcon: {
-    alignItems: 'center',
-    borderRadius: 16,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
-  brandName: { color: '#EEF2FF', fontSize: 14, fontWeight: '700' },
-  brandMeta: { color: '#4B6080', fontSize: 12 },
+  brand: { paddingBottom: 8, paddingTop: 12 },
   sectionHint: { color: '#7C9CC0', fontSize: 14, paddingTop: 4 },
   memberCard: {
     alignItems: 'center',

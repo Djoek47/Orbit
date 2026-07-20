@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { orbitColors } from '@/constants/orbit-theme';
 import { useOrbitOptional } from '@/store/orbit-store';
@@ -19,6 +20,8 @@ type AuthShellProps = {
   brandHero?: boolean;
   showBack?: boolean;
   footer?: ReactNode;
+  /** Append © / Privacy / Terms under the card (default on). */
+  showLegal?: boolean;
 };
 
 /** Shared Choremaxx chrome for auth / onboarding side screens. */
@@ -30,6 +33,7 @@ export function AuthShell({
   brandHero = false,
   showBack = false,
   footer,
+  showLegal = true,
 }: AuthShellProps) {
   const insets = useSafeAreaInsets();
   const orbit = useOrbitOptional();
@@ -81,6 +85,7 @@ export function AuthShell({
 
         <View style={styles.card}>{children}</View>
         {footer ? <View style={styles.footer}>{footer}</View> : null}
+        {showLegal ? <BrandLegalFooter compact showLogo={false} style={styles.legal} /> : null}
       </ScrollView>
     </View>
   );
@@ -161,5 +166,9 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 'auto',
     paddingTop: 8,
+  },
+  legal: {
+    marginTop: 8,
+    paddingBottom: 4,
   },
 });
