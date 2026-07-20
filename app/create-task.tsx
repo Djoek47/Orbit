@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { XpWheel } from '@/components/orbit/xp-wheel';
 import { TASK_PRESETS, type TaskPreset } from '@/data/task-presets';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import {
@@ -65,6 +66,65 @@ function memberAccent(member: HouseholdMember) {
 
 function memberGradient(color: string): [string, string] {
   return GRADIENT_BY_COLOR[color] ?? [color, color];
+}
+
+function AssignEmojiGrid({
+  members,
+  selectedIds,
+  onToggle,
+}: {
+  members: HouseholdMember[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <View style={styles.assignEmojiGrid}>
+      {members.map((member) => {
+        const accent = memberAccent(member);
+        const selected = selectedIds.includes(member.id);
+        const gradient = memberGradient(accent.color);
+        return (
+          <Pressable
+            key={member.id}
+            accessibilityLabel={
+              isSharedDeviceMember(member) ? `${member.name} shared device` : member.name
+            }
+            onPress={() => onToggle(member.id)}
+            style={styles.assignEmojiCell}>
+            <View
+              style={[
+                styles.memberOuter,
+                selected && {
+                  borderColor: accent.color,
+                  shadowColor: accent.color,
+                  shadowOpacity: 0.35,
+                  shadowRadius: 10,
+                  shadowOffset: { width: 0, height: 0 },
+                },
+              ]}>
+              {selected ? (
+                <LinearGradient colors={gradient} style={styles.memberInner}>
+                  <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                </LinearGradient>
+              ) : (
+                <View style={styles.memberInnerMuted}>
+                  <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                </View>
+              )}
+              {selected ? (
+                <View style={[styles.splitCheck, { backgroundColor: accent.color }]}>
+                  <MaterialIcons name="check" size={10} color="#04101F" />
+                </View>
+              ) : null}
+            </View>
+            <Text style={[styles.assignEmojiName, selected && { color: accent.color }]} numberOfLines={1}>
+              {member.name}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 }
 
 export default function CreateTaskScreen() {
@@ -153,7 +213,9 @@ export default function CreateTaskScreen() {
 
   const weight = weightForDifficulty(type === 'homework' ? 'medium' : difficulty);
   const xpPreview =
-    type === 'homework' ? computeTaskXp(15, weightForDifficulty('medium'), 'medium') : computeTaskXp(baseXp, weight, difficulty);
+    type === 'homework'
+      ? computeTaskXp(baseXp || 15, weightForDifficulty('medium'), 'medium')
+      : computeTaskXp(baseXp, weight, difficulty);
   const canCreate =
     title.trim().length > 0 &&
     resolvedAssigneeNames.length > 0 &&
@@ -301,7 +363,7 @@ export default function CreateTaskScreen() {
           description: description ?? `Subject: ${subject}`,
           category: 'Homework',
           due,
-          xp: computeTaskXp(15, weightForDifficulty('medium'), 'medium'),
+          xp: computeTaskXp(baseXp || 15, weightForDifficulty('medium'), 'medium'),
           repeat,
           difficulty: 'medium',
           weight: weightForDifficulty('medium'),
@@ -347,42 +409,12 @@ export default function CreateTaskScreen() {
           <Text style={styles.presetHint}>Tap once to create · long-press to customize</Text>
           {permissions.canAssignTask ? (
             <View style={styles.presetAssignBlock}>
-              <Text style={styles.label}>ASSIGN TO · tap multiple to split</Text>
-              <View style={styles.memberRow}>
-                {activeMembers.map((member) => {
-                  const accent = memberAccent(member);
-                  const selected = selectedIds.includes(member.id);
-                  const gradient = memberGradient(accent.color);
-                  return (
-                    <Pressable
-                      key={member.id}
-                      accessibilityLabel={
-                        isSharedDeviceMember(member) ? `${member.name} shared device` : member.name
-                      }
-                      onPress={() => toggleAssignee(member.id)}
-                      style={[
-                        styles.memberOuter,
-                        selected && {
-                          borderColor: accent.color,
-                          shadowColor: accent.color,
-                          shadowOpacity: 0.25,
-                          shadowRadius: 10,
-                          shadowOffset: { width: 0, height: 0 },
-                        },
-                      ]}>
-                      {selected ? (
-                        <LinearGradient colors={gradient} style={styles.memberInner}>
-                          <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
-                        </LinearGradient>
-                      ) : (
-                        <View style={styles.memberInnerMuted}>
-                          <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
-                        </View>
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <Text style={styles.label}>ASSIGN TO · tap 2+ emojis to split</Text>
+              <AssignEmojiGrid
+                members={activeMembers}
+                selectedIds={selectedIds}
+                onToggle={toggleAssignee}
+              />
               {isSplitAssign ? (
                 <Text style={styles.sharedPickHint}>
                   Split · {resolvedAssigneeName} — each earns XP when they finish; all-done bonus if everyone
@@ -721,75 +753,43 @@ export default function CreateTaskScreen() {
           <Text style={styles.proofToggleText}>Require photo proof</Text>
         </Pressable>
 
-        <View style={styles.assignDueRow}>
-          {permissions.canAssignTask ? (
-            <View style={styles.assignColumn}>
-              <Text style={styles.label}>ASSIGN TO · multi = split</Text>
-              <View style={styles.memberRow}>
-                {activeMembers.map((member) => {
-                  const accent = memberAccent(member);
-                  const selected = selectedIds.includes(member.id);
-                  const gradient = memberGradient(accent.color);
-                  return (
-                    <Pressable
-                      key={member.id}
-                      accessibilityLabel={
-                        isSharedDeviceMember(member) ? `${member.name} shared device` : member.name
-                      }
-                      onPress={() => toggleAssignee(member.id)}
-                      style={[
-                        styles.memberOuter,
-                        selected && {
-                          borderColor: accent.color,
-                          shadowColor: accent.color,
-                          shadowOpacity: 0.25,
-                          shadowRadius: 10,
-                          shadowOffset: { width: 0, height: 0 },
-                        },
-                      ]}>
-                      {selected ? (
-                        <LinearGradient colors={gradient} style={styles.memberInner}>
-                          <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
-                        </LinearGradient>
-                      ) : (
-                        <View style={styles.memberInnerMuted}>
-                          <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
-                        </View>
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          ) : null}
+        {permissions.canAssignTask ? (
+          <View style={styles.field}>
+            <Text style={styles.label}>ASSIGN TO · tap 2+ emojis to split</Text>
+            <AssignEmojiGrid
+              members={activeMembers}
+              selectedIds={selectedIds}
+              onToggle={toggleAssignee}
+            />
+          </View>
+        ) : null}
 
-          <View style={[styles.dueColumn, !permissions.canAssignTask && styles.dueColumnFull]}>
-            <Text style={styles.label}>DUE</Text>
-            <View style={styles.dueChipWrap}>
-              {dueOptions.map((option) => {
-                const active = due === option;
-                return (
-                  <Pressable
-                    key={option}
-                    onPress={() => setDue(option)}
+        <View style={styles.field}>
+          <Text style={styles.label}>DUE</Text>
+          <View style={styles.dueChipWrap}>
+            {dueOptions.map((option) => {
+              const active = due === option;
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => setDue(option)}
+                  style={[
+                    styles.dueChip,
+                    active && {
+                      backgroundColor: `${accentTheme.primary}1F`,
+                      borderColor: `${accentTheme.primary}59`,
+                    },
+                  ]}>
+                  <Text
                     style={[
-                      styles.dueChip,
-                      active && {
-                        backgroundColor: `${accentTheme.primary}1F`,
-                        borderColor: `${accentTheme.primary}59`,
-                      },
+                      styles.dueChipText,
+                      active && { color: accentTheme.primary },
                     ]}>
-                    <Text
-                      style={[
-                        styles.dueChipText,
-                        active && { color: accentTheme.primary },
-                      ]}>
-                      {option}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+                    {option}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
@@ -844,6 +844,24 @@ export default function CreateTaskScreen() {
             </Text>
           </View>
         ) : null}
+
+        <View style={styles.field}>
+          <Text style={styles.label}>XP · slide the wheel</Text>
+          <View style={styles.xpWheelCard}>
+            <XpWheel
+              value={baseXp}
+              onChange={(next) => {
+                setBaseXp(next);
+                const match = priorities.findIndex((item) => item.xp === next);
+                if (match >= 0) {
+                  setPriority(match);
+                  setDifficulty(priorities[match].difficulty);
+                }
+              }}
+              accent={type === 'homework' ? '#A78BFA' : accentTheme.primary}
+            />
+          </View>
+        </View>
 
         <View style={[styles.xpPreview, { borderColor: `${accentTheme.primary}26`, backgroundColor: `${accentTheme.primary}14` }]}>
           <Text style={styles.xpPreviewLabel}>
@@ -1168,6 +1186,42 @@ const styles = StyleSheet.create({
   },
   dueColumnFull: {
     flex: 1,
+  },
+  assignEmojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 4,
+  },
+  assignEmojiCell: {
+    alignItems: 'center',
+    gap: 6,
+    width: 64,
+  },
+  assignEmojiName: {
+    color: '#7C9CC0',
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    width: '100%',
+  },
+  splitCheck: {
+    alignItems: 'center',
+    borderRadius: 999,
+    height: 16,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: -2,
+    top: -2,
+    width: 16,
+  },
+  xpWheelCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 8,
   },
   memberRow: {
     flexDirection: 'row',

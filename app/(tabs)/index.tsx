@@ -64,7 +64,7 @@ export default function HomeScreen() {
       ]}
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}>
-      {/* Logo + greeting share the chip row space; profile lives above Nova. */}
+      {/* Logo + greeting; profile badges over Nova (not stacked). */}
       <View style={[styles.brandBlock, { paddingRight: HEADER_CHIPS_GUTTER }]}>
         <ChoremaxxBadge size="xl" />
         <Text style={styles.dateLine}>
@@ -82,19 +82,20 @@ export default function HomeScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.hero}>
           <View style={styles.heroTop}>
+            {/* Profile badges over the Nova orb (overlays / hides the top of the circle). */}
             <View style={styles.heroIdentity}>
+              <NovaOrb size={56} />
               <LinearGradient
                 colors={[accentTheme.primary, accentTheme.secondary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.profileAboveNova}>
+                style={styles.profileOnNova}>
                 {headerIsPhoto && currentMember?.avatar ? (
-                  <Image source={{ uri: currentMember.avatar }} style={styles.profileAboveNovaImage} />
+                  <Image source={{ uri: currentMember.avatar }} style={styles.profileOnNovaImage} />
                 ) : (
-                  <Text style={styles.profileAboveNovaText}>{headerAvatar}</Text>
+                  <Text style={styles.profileOnNovaText}>{headerAvatar}</Text>
                 )}
               </LinearGradient>
-              <NovaOrb size={56} />
             </View>
             <View style={styles.heroCopy}>
               <View style={styles.novaRow}>
@@ -351,18 +352,26 @@ const styles = StyleSheet.create({
   },
   heroIdentity: {
     alignItems: 'center',
-    gap: 8,
+    height: 56,
+    justifyContent: 'center',
+    width: 56,
   },
-  profileAboveNova: {
+  profileOnNova: {
     alignItems: 'center',
-    borderRadius: 18,
-    height: 40,
+    borderColor: '#0A1525',
+    borderRadius: 14,
+    borderWidth: 2,
+    height: 28,
     justifyContent: 'center',
     overflow: 'hidden',
-    width: 40,
+    position: 'absolute',
+    right: -4,
+    top: -6,
+    width: 28,
+    zIndex: 2,
   },
-  profileAboveNovaImage: { height: 40, width: 40 },
-  profileAboveNovaText: { color: '#070D1C', fontSize: 16, fontWeight: '700' },
+  profileOnNovaImage: { height: 24, width: 24 },
+  profileOnNovaText: { color: '#070D1C', fontSize: 12, fontWeight: '700' },
   healthCol: { alignItems: 'stretch', flex: 1, gap: 6, minWidth: 0 },
   healthLabel: { color: '#7C9CC0', flexShrink: 1, fontSize: 11, fontWeight: '600' },
   healthLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 4 },

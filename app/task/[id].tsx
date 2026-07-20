@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { XpWheel } from '@/components/orbit/xp-wheel';
 import { orbitColors } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { promptPickProofPhoto } from '@/lib/tasks/pick-proof';
@@ -369,14 +370,14 @@ export default function TaskDetailScreen() {
             </View>
             <Text style={styles.label}>Due</Text>
             <TextInput value={due} onChangeText={setDue} style={styles.input} placeholderTextColor={orbitColors.textSubtle} />
-            <Text style={styles.label}>XP</Text>
-            <TextInput
-              value={xp}
-              onChangeText={setXp}
-              keyboardType="number-pad"
-              style={styles.input}
-              placeholderTextColor={orbitColors.textSubtle}
-            />
+            <Text style={styles.label}>XP · slide the wheel</Text>
+            <View style={styles.xpWheelCard}>
+              <XpWheel
+                value={Number(xp) || 15}
+                onChange={(next) => setXp(String(next))}
+                accent={accentTheme.primary}
+              />
+            </View>
             <Text style={styles.label}>Difficulty</Text>
             <View style={styles.chipWrap}>
               {difficulties.map((item) => {
@@ -676,6 +677,15 @@ const styles = StyleSheet.create({
     color: '#F87171',
     fontSize: 11,
     fontWeight: '700',
+  },
+  xpWheelCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 8,
+    paddingVertical: 8,
   },
   handle: {
     alignSelf: 'center',
