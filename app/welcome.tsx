@@ -299,14 +299,15 @@ export default function WelcomeOnboardingScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}>
       {step === 'splash' ? (
-        <View style={styles.centered}>
-          <View style={styles.splashHero}>
+        <View style={styles.splashScreen}>
+          <View style={styles.splashTop}>
             <ChoremaxxLogo size="xl" style={styles.splashLogo} />
             <View style={styles.splashCopy}>
               <Text style={styles.splashLead}>Your AI-powered</Text>
               <Text style={styles.splashSub}>Household Operating System</Text>
             </View>
           </View>
+
           <View style={styles.bullets}>
             {[
               { text: 'Zero clutter. Maximum harmony.', color: orbitColors.primary },
@@ -319,15 +320,18 @@ export default function WelcomeOnboardingScreen() {
               </View>
             ))}
           </View>
-          <View style={styles.splashCtaBlock}>
-            <OrbitButton onPress={() => setStep('role')}>Get Started</OrbitButton>
-            <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
-              <Text style={styles.signInText}>
-                Already have an account? <Text style={styles.signInAccent}>Sign in</Text>
-              </Text>
-            </Pressable>
+
+          <View style={styles.splashBottom}>
+            <View style={styles.splashCtaBlock}>
+              <OrbitButton onPress={() => setStep('role')}>Get Started</OrbitButton>
+              <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
+                <Text style={styles.signInText}>
+                  Already have an account? <Text style={styles.signInAccent}>Sign in</Text>
+                </Text>
+              </Pressable>
+            </View>
+            <BrandLegalFooter compact showLogo={false} style={styles.splashLegal} />
           </View>
-          <BrandLegalFooter compact showLogo={false} style={styles.splashLegal} />
         </View>
       ) : null}
 
@@ -684,25 +688,27 @@ function Header({ progress }: { progress: number }) {
 const styles = StyleSheet.create({
   bulletDot: {
     borderRadius: 999,
-    height: 6,
-    width: 6,
+    height: 8,
+    width: 8,
   },
   bulletRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
     justifyContent: 'center',
+    paddingVertical: 4,
   },
   bulletText: {
     color: orbitColors.textMuted,
-    fontSize: 14,
+    fontSize: 16,
+    lineHeight: 22,
     textAlign: 'center',
   },
   bullets: {
     alignItems: 'center',
     alignSelf: 'center',
-    gap: 10,
-    marginBottom: orbitSpacing.md,
+    gap: 16,
+    paddingVertical: 8,
     width: '100%',
   },
   centered: {
@@ -711,6 +717,27 @@ const styles = StyleSheet.create({
     gap: orbitSpacing.xl,
     justifyContent: 'center',
     paddingHorizontal: orbitSpacing.lg,
+  },
+  splashScreen: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: orbitSpacing.lg,
+    paddingTop: 28,
+    paddingBottom: 8,
+    width: '100%',
+  },
+  splashTop: {
+    alignItems: 'center',
+    gap: 22,
+    paddingTop: 12,
+    width: '100%',
+  },
+  splashBottom: {
+    alignItems: 'stretch',
+    gap: 20,
+    paddingBottom: 4,
+    width: '100%',
   },
   splashHero: {
     alignItems: 'center',
@@ -723,8 +750,7 @@ const styles = StyleSheet.create({
   },
   splashCtaBlock: {
     alignSelf: 'stretch',
-    gap: orbitSpacing.sm,
-    marginTop: orbitSpacing.sm,
+    gap: 14,
   },
   customRoomInput: {
     flex: 1,
@@ -997,25 +1023,27 @@ const styles = StyleSheet.create({
   },
   splashLegal: {
     alignSelf: 'center',
-    marginTop: orbitSpacing.sm,
+    marginTop: 4,
     width: '100%',
   },
   splashCopy: {
     alignItems: 'center',
-    gap: 2,
+    gap: 8,
     width: '100%',
   },
   splashLead: {
     color: orbitColors.text,
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: '700',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+    lineHeight: 32,
     textAlign: 'center',
   },
   splashSub: {
     color: orbitColors.textMuted,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '500',
+    lineHeight: 24,
     textAlign: 'center',
   },
   topRow: {
