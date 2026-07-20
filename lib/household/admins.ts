@@ -46,7 +46,10 @@ export function resolveSplitPair(members: HouseholdMember[]): [HouseholdMember, 
   if (admins.length >= 2) {
     return [admins[0], admins[1]];
   }
-  const active = members.filter((member) => member.status === 'active' && member.role !== 'guest');
+  const active = members.filter(
+    (member) =>
+      member.status === 'active' && member.role !== 'guest' && member.role !== 'shared-device'
+  );
   if (active.length >= 2) {
     if (admins.length === 1) {
       const partner = active.find((member) => member.id !== admins[0].id);

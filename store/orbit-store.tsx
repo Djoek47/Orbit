@@ -187,6 +187,10 @@ type OrbitContextValue = {
   approveRedemption: (redemptionId: string) => Promise<void>;
   rejectRedemption: (redemptionId: string) => Promise<void>;
   updateMemberRole: (memberId: string, role: HouseholdRole) => Promise<void>;
+  /** Create a shared-device profile (phone/tablet) that multiple people can use. */
+  createSharedDevice: (name?: string) => Promise<HouseholdMember | null>;
+  /** Link / unlink household people on a shared-device profile. */
+  updateSharedDeviceLinks: (deviceId: string, memberIds: string[]) => Promise<void>;
   removeMember: (memberId: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   exportUserData: () => Promise<string>;
@@ -1386,11 +1390,48 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     const updated = await householdRepository.updateMemberRole(member, role);
+    const nextMember: HouseholdMember =
+      role === 'shared-device'
+        ? { ...updated, sharedWithMemberIds: updated.sharedWithMemberIds ?? [] }
+        : { ...updated, sharedWithMemberIds: undefined };
     setHousehold((current) => ({
       ...current,
-      members: current.members.map((item) => (item.id === memberId ? updated : item)),
+      members: current.members.map((item) => (item.id === memberId ? nextMember : item)),
     }));
     await trackAnalytics('member.role_updated', { memberId, role }, analyticsContext);
+  };
+
+  const createSharedDevice = async (name?: string) => {
+    if (!permissions.canManageHousehold) {
+      return null;
+    }
+    const created = await householdRepository.createSharedDevice(
+      household.id,
+      name?.trim() || 'Shared device'
+    );
+    setHousehold((current) => ({
+      ...current,
+      members: [...current.members, created],
+    }));
+    await trackAnalytics('member.shared_device_created', { memberId: created.id }, analyticsContext);
+    return created;
+  };
+
+  const updateSharedDeviceLinks = async (deviceId: string, memberIds: string[]) => {
+    const device = household.members.find((item) => item.id === deviceId);
+    if (!device || device.role !== 'shared-device') {
+      return;
+    }
+    const updated = await householdRepository.updateSharedDeviceLinks(device, memberIds);
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((item) => (item.id === deviceId ? updated : item)),
+    }));
+    await trackAnalytics(
+      'member.shared_device_links_updated',
+      { memberId: deviceId, count: memberIds.length },
+      analyticsContext
+    );
   };
 
   const splitAllTasksBetweenTwo = async (nameA?: string, nameB?: string) => {
@@ -1598,6 +1639,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       approveRedemption,
       rejectRedemption,
       updateMemberRole,
+      createSharedDevice,
+      updateSharedDeviceLinks,
       removeMember,
       deleteAccount,
       exportUserData,

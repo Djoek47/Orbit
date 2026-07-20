@@ -42,6 +42,7 @@ export const taskRepository = {
       proofStatus: input.proofRequired ? 'none' : undefined,
       dueAt: input.dueAt,
       roomId: input.roomId,
+      sharedDeviceId: input.sharedDeviceId,
       repeat: input.repeat,
       status: 'Pending',
     };

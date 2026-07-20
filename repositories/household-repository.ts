@@ -313,17 +313,106 @@ export const householdRepository = {
   },
 
   async updateMemberRole(member: HouseholdMember, role: HouseholdRole): Promise<HouseholdMember> {
-    const updatedMember = { ...member, role };
+    const updatedMember: HouseholdMember = {
+      ...member,
+      role,
+      sharedWithMemberIds: role === 'shared-device' ? member.sharedWithMemberIds ?? [] : undefined,
+    };
 
     if (isMockMode()) {
+      mockHousehold.members = mockHousehold.members.map((item) =>
+        item.id === member.id ? updatedMember : item
+      );
       return updatedMember;
     }
 
     const supabase = getConfiguredSupabase('householdRepository.updateMemberRole');
-    const { error } = await supabase.from('household_members').update({ role }).eq('id', member.id);
+    const { error } = await supabase
+      .from('household_members')
+      .update({
+        role,
+        shared_with_member_ids: role === 'shared-device' ? updatedMember.sharedWithMemberIds ?? [] : null,
+      })
+      .eq('id', member.id);
     mapDbError('householdRepository.updateMemberRole', error);
 
     return updatedMember;
+  },
+
+  async createSharedDevice(
+    householdId: string | null | undefined,
+    name: string
+  ): Promise<HouseholdMember> {
+    const member: HouseholdMember = {
+      id: createLocalId('member'),
+      name: name.trim() || 'Shared device',
+      role: 'shared-device',
+      status: 'active',
+      avatar: '📱',
+      xp: 0,
+      weekXp: 0,
+      streak: 0,
+      loadShare: 0,
+      sharedWithMemberIds: [],
+    };
+
+    if (isMockMode()) {
+      mockHousehold.members = [...mockHousehold.members, member];
+      return member;
+    }
+
+    if (!householdId) {
+      throw new Error('householdRepository.createSharedDevice: householdId is required in Supabase mode.');
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.createSharedDevice');
+    const { data, error } = await supabase
+      .from('household_members')
+      .insert({
+        household_id: householdId,
+        display_name: member.name,
+        role: 'shared-device',
+        status: 'active',
+        avatar_symbol: member.avatar,
+        xp: 0,
+        week_xp: 0,
+        streak: 0,
+        load_share: 0,
+        shared_with_member_ids: [],
+      })
+      .select('*')
+      .single();
+    mapDbError('householdRepository.createSharedDevice', error);
+
+    return mapMemberRow(data as HouseholdMemberRow & { shared_with_member_ids?: string[] | null });
+  },
+
+  async updateSharedDeviceLinks(
+    device: HouseholdMember,
+    memberIds: string[]
+  ): Promise<HouseholdMember> {
+    const unique = [...new Set(memberIds.filter(Boolean))];
+    const updated: HouseholdMember = {
+      ...device,
+      role: 'shared-device',
+      sharedWithMemberIds: unique,
+    };
+
+    if (isMockMode()) {
+      mockHousehold.members = mockHousehold.members.map((item) =>
+        item.id === device.id ? updated : item
+      );
+      return updated;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.updateSharedDeviceLinks');
+    const { error } = await supabase
+      .from('household_members')
+      .update({ shared_with_member_ids: unique, role: 'shared-device' })
+      .eq('id', device.id);
+    mapDbError('householdRepository.updateSharedDeviceLinks', error);
+
+    return updated;
   },
 
   async updateMemberAvatar(member: HouseholdMember, avatar: string): Promise<HouseholdMember> {

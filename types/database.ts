@@ -29,13 +29,15 @@ export type HouseholdMemberRow = {
   household_id: string;
   user_id: string | null;
   display_name: string | null;
-  role: 'owner' | 'admin' | 'adult' | 'child' | 'guest';
+  role: 'owner' | 'admin' | 'adult' | 'child' | 'guest' | 'shared-device';
   status: 'invited' | 'pending' | 'active' | 'removed';
   avatar_symbol: string | null;
   xp: number;
   week_xp: number;
   streak: number;
   load_share: number;
+  /** Member ids who use this shared phone/tablet profile. */
+  shared_with_member_ids?: string[] | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

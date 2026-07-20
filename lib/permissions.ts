@@ -56,6 +56,16 @@ const permissionsByRole: Record<HouseholdRole, HouseholdPermissions> = {
     canManageGroceries: false,
     canViewAnalytics: false,
   },
+  /** Shared phone/tablet — confirm tasks for linked people; no admin powers. */
+  'shared-device': {
+    canManageHousehold: false,
+    canCreateTask: false,
+    canAssignTask: false,
+    canApproveReward: false,
+    canInviteMembers: false,
+    canManageGroceries: false,
+    canViewAnalytics: false,
+  },
 };
 
 export function getPermissionsForRole(role: HouseholdRole): HouseholdPermissions {

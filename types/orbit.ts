@@ -1,4 +1,4 @@
-export type HouseholdRole = 'owner' | 'admin' | 'adult' | 'child' | 'guest';
+export type HouseholdRole = 'owner' | 'admin' | 'adult' | 'child' | 'guest' | 'shared-device';
 
 export type HouseholdMemberStatus = 'pending' | 'active' | 'inactive';
 
@@ -31,6 +31,11 @@ export type HouseholdMember = {
   /** ISO date YYYY-MM-DD — member away / on holiday (Nova skips nudges). */
   awayFrom?: string;
   awayTo?: string;
+  /**
+   * For `shared-device` profiles: household member ids who use this phone/tablet.
+   * Tasks assigned via the device must pick one of these people.
+   */
+  sharedWithMemberIds?: string[];
 };
 
 export type TaskDifficulty = 'easy' | 'medium' | 'hard';
@@ -40,6 +45,7 @@ export type HouseholdTask = {
   title: string;
   description?: string;
   category: string;
+  /** Person responsible (for shared-device assigns, the selected user — e.g. David). */
   assignee: string;
   due: string;
   xp: number;
@@ -54,6 +60,8 @@ export type HouseholdTask = {
   dueAt?: string;
   /** Optional room for cleaning attribution. */
   roomId?: string;
+  /** When set, task was created via this shared-device profile. */
+  sharedDeviceId?: string;
 };
 
 export type CancelTaskScope = 'this' | 'future';
@@ -243,6 +251,8 @@ export type CreateTaskInput = {
   proofRequired?: boolean;
   dueAt?: string;
   roomId?: string;
+  /** Shared-device profile id when the task was routed through a shared phone/tablet. */
+  sharedDeviceId?: string;
   /** When true, also save into household custom catalog (admin mint). */
   saveAsTemplate?: boolean;
 };

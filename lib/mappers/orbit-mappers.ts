@@ -35,6 +35,7 @@ export function mapMemberRow(row: {
   week_xp?: number | null;
   streak?: number | null;
   load_share: number;
+  shared_with_member_ids?: string[] | null;
 }): HouseholdMember {
   const status =
     row.status === 'active' || row.status === 'pending' || row.status === 'inactive'
@@ -53,6 +54,12 @@ export function mapMemberRow(row: {
     weekXp: row.week_xp ?? 0,
     streak: row.streak ?? 0,
     loadShare: row.load_share,
+    sharedWithMemberIds:
+      row.role === 'shared-device'
+        ? Array.isArray(row.shared_with_member_ids)
+          ? row.shared_with_member_ids
+          : []
+        : undefined,
   };
 }
 

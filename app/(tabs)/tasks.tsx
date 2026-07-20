@@ -15,6 +15,11 @@ import {
 } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { getAdminMembers, resolveSplitPair } from '@/lib/household/admins';
+import {
+  isSharedDeviceMember,
+  isSharedDeviceRole,
+  sharedDeviceAssigneeNames,
+} from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdRoom, HouseholdTask } from '@/types/orbit';
 
@@ -314,9 +319,22 @@ export default function TasksScreen() {
     [household.members]
   );
 
+  const sharedMineNames = useMemo(
+    () => sharedDeviceAssigneeNames(currentMember, household.members),
+    [currentMember, household.members]
+  );
+
   const filtered = useMemo(() => {
     return household.tasks.filter((task) => {
-      if (filter === 'mine' && task.assignee !== currentMember?.name) return false;
+      if (filter === 'mine') {
+        if (isSharedDeviceMember(currentMember)) {
+          if (!sharedMineNames.has(task.assignee) && task.sharedDeviceId !== currentMember?.id) {
+            return false;
+          }
+        } else if (task.assignee !== currentMember?.name) {
+          return false;
+        }
+      }
       if (filter === 'split') {
         if (!splitPair) return false;
         return task.assignee === splitPair[0].name || task.assignee === splitPair[1].name;
@@ -326,7 +344,15 @@ export default function TasksScreen() {
       if (roomFilter && task.roomId !== roomFilter) return false;
       return true;
     });
-  }, [childNames, currentMember?.name, filter, household.tasks, roomFilter, splitPair]);
+  }, [
+    childNames,
+    currentMember,
+    filter,
+    household.tasks,
+    roomFilter,
+    sharedMineNames,
+    splitPair,
+  ]);
 
   const grouped = useMemo(
     () => ({
@@ -358,7 +384,10 @@ export default function TasksScreen() {
     if (!showByMember) return null;
 
     const activeMembers = household.members.filter(
-      (member) => member.status === 'active' && member.role !== 'guest'
+      (member) =>
+        member.status === 'active' &&
+        member.role !== 'guest' &&
+        !isSharedDeviceRole(member.role)
     );
 
     const ordered = [...activeMembers].sort((a, b) => {

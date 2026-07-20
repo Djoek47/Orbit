@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import {
   canPromoteToAdmin,
   familyAdminSeatsLabel,
@@ -12,11 +13,16 @@ import {
   MAX_FAMILY_ADMINS,
   usesFamilyAdminCap,
 } from '@/lib/household/admins';
+import {
+  isSharedDeviceMember,
+  resolveSharedDevicePeople,
+  sharedDeviceLinkCandidates,
+} from '@/lib/household/shared-device';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdRole } from '@/types/orbit';
 
-const ROLE_CYCLE: HouseholdRole[] = ['adult', 'admin', 'child', 'guest'];
+const ROLE_CYCLE: HouseholdRole[] = ['adult', 'admin', 'child', 'guest', 'shared-device'];
 
 function nextRole(current: HouseholdRole, canAdmin: boolean): HouseholdRole {
   if (current === 'owner') {
@@ -33,18 +39,24 @@ function nextRole(current: HouseholdRole, canAdmin: boolean): HouseholdRole {
 export default function HouseholdMembersScreen() {
   const {
     approveMember,
+    createSharedDevice,
     declineMember,
     household,
     permissions,
     removeMember,
     updateMemberRole,
+    updateSharedDeviceLinks,
   } = useOrbit();
+
+  const [sharedDeviceName, setSharedDeviceName] = useState('Shared tablet');
+  const [creatingDevice, setCreatingDevice] = useState(false);
 
   const pending = household.members.filter((member) => member.status === 'pending');
   const active = household.members.filter((member) => member.status !== 'pending');
   const adminSeats = familyAdminSeatsLabel(household.members, household.householdType);
   const admins = getAdminMembers(household.members);
   const familyCap = usesFamilyAdminCap(household.householdType);
+  const linkCandidates = sharedDeviceLinkCandidates(household.members);
 
   const handleChangeRole = (memberId: string, currentRole: HouseholdRole) => {
     if (currentRole === 'owner') {
@@ -114,6 +126,24 @@ export default function HouseholdMembersScreen() {
     ]);
   };
 
+  const handleCreateSharedDevice = () => {
+    setCreatingDevice(true);
+    void createSharedDevice(sharedDeviceName)
+      .then((created) => {
+        if (created) {
+          setSharedDeviceName('Shared tablet');
+        }
+      })
+      .finally(() => setCreatingDevice(false));
+  };
+
+  const toggleSharedLink = (deviceId: string, personId: string, linkedIds: string[]) => {
+    const next = linkedIds.includes(personId)
+      ? linkedIds.filter((id) => id !== personId)
+      : [...linkedIds, personId];
+    void updateSharedDeviceLinks(deviceId, next);
+  };
+
   return (
     <ScrollView
       style={orbitScreen.container}
@@ -138,6 +168,26 @@ export default function HouseholdMembersScreen() {
           </Text>
           <OrbitButton onPress={() => router.push('/invite-household' as never)}>
             Add new member
+          </OrbitButton>
+        </GlassCard>
+      ) : null}
+
+      {permissions.canManageHousehold ? (
+        <GlassCard style={styles.card}>
+          <Text style={orbitTypography.cardTitle}>Add shared device</Text>
+          <Text style={orbitTypography.caption}>
+            For a phone or tablet used by several people. Tasks sent here ask which person it&apos;s for (e.g. Clean
+            dishes - David).
+          </Text>
+          <TextInput
+            value={sharedDeviceName}
+            onChangeText={setSharedDeviceName}
+            placeholder="e.g. Kitchen tablet"
+            placeholderTextColor={orbitColors.textSubtle}
+            style={styles.deviceInput}
+          />
+          <OrbitButton disabled={creatingDevice || !sharedDeviceName.trim()} onPress={handleCreateSharedDevice}>
+            {creatingDevice ? 'Adding…' : 'Add shared device'}
           </OrbitButton>
         </GlassCard>
       ) : null}
@@ -212,14 +262,51 @@ export default function HouseholdMembersScreen() {
           <View style={styles.pillRow}>
             <StatusPill
               label={formatHouseholdRole(member.role)}
-              tone={member.role === 'owner' ? 'cyan' : member.role === 'admin' ? 'blue' : 'amber'}
+              tone={
+                member.role === 'owner'
+                  ? 'cyan'
+                  : member.role === 'admin'
+                    ? 'blue'
+                    : member.role === 'shared-device'
+                      ? 'green'
+                      : 'amber'
+              }
             />
             <StatusPill label={member.status} tone={member.status === 'active' ? 'green' : 'amber'} />
           </View>
+          {isSharedDeviceMember(member) ? (
+            <View style={styles.sharedBlock}>
+              <Text style={orbitTypography.caption}>People on this device</Text>
+              <Text style={styles.hint}>
+                {resolveSharedDevicePeople(member, household.members)
+                  .map((person) => person.name)
+                  .join(', ') || 'None linked yet — tap names below.'}
+              </Text>
+              <View style={styles.linkWrap}>
+                {linkCandidates.map((person) => {
+                  const linked = (member.sharedWithMemberIds ?? []).includes(person.id);
+                  return (
+                    <Pressable
+                      key={person.id}
+                      disabled={!permissions.canManageHousehold}
+                      onPress={() =>
+                        toggleSharedLink(member.id, person.id, member.sharedWithMemberIds ?? [])
+                      }
+                      style={[styles.linkChip, linked && styles.linkChipActive]}>
+                      <Text style={[styles.linkChipText, linked && styles.linkChipTextActive]}>
+                        {person.avatar} {person.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
           <View style={styles.actions}>
             {permissions.canManageHousehold &&
             member.role !== 'owner' &&
             member.role !== 'admin' &&
+            member.role !== 'shared-device' &&
             canPromoteToAdmin(household, member.id) ? (
               <OrbitButton tone="secondary" onPress={() => handleMakeCoAdmin(member.id, member.name)}>
                 Make co-admin
@@ -283,5 +370,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: orbitSpacing.sm,
+  },
+  deviceInput: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: orbitRadius.md,
+    borderWidth: 1,
+    color: orbitColors.text,
+    fontSize: 15,
+    fontWeight: '600',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  sharedBlock: {
+    gap: orbitSpacing.sm,
+  },
+  linkWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  linkChip: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  linkChipActive: {
+    backgroundColor: 'rgba(52,211,153,0.18)',
+    borderColor: 'rgba(52,211,153,0.45)',
+  },
+  linkChipText: {
+    color: orbitColors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  linkChipTextActive: {
+    color: orbitColors.success,
   },
 });

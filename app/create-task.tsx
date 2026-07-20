@@ -16,6 +16,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TASK_PRESETS, type TaskPreset } from '@/data/task-presets';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  isSharedDeviceMember,
+  resolveSharedDevicePeople,
+  withSharedPersonLabel,
+} from '@/lib/household/shared-device';
 import { computeTaskXp, weightForDifficulty } from '@/lib/tasks/xp';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask, TaskDifficulty } from '@/types/orbit';
@@ -76,7 +81,10 @@ export default function CreateTaskScreen() {
   const [type, setType] = useState<TaskType>('task');
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState<(typeof subjects)[number]['label']>('Math');
-  const [assigneeId, setAssigneeId] = useState(activeMembers[0]?.id ?? '');
+  const defaultAssigneeId =
+    activeMembers.find((member) => !isSharedDeviceMember(member))?.id ?? activeMembers[0]?.id ?? '';
+  const [assigneeId, setAssigneeId] = useState(defaultAssigneeId);
+  const [sharedPersonId, setSharedPersonId] = useState<string | null>(null);
   const [due, setDue] = useState<(typeof dueOptions)[number]>('Today');
   const [priority, setPriority] = useState(1);
   const [repeat, setRepeat] = useState<HouseholdTask['repeat']>('None');
@@ -97,39 +105,102 @@ export default function CreateTaskScreen() {
   }, [presetRoomFilter, rooms]);
 
   const assignee = activeMembers.find((member) => member.id === assigneeId);
-  const assigneeName = permissions.canAssignTask
-    ? (assignee?.name ?? household.greetingName)
-    : household.greetingName;
+  const sharedPeople = useMemo(
+    () => resolveSharedDevicePeople(assignee, household.members),
+    [assignee, household.members],
+  );
+  const needsSharedPerson = isSharedDeviceMember(assignee);
+  const sharedPerson = sharedPeople.find((member) => member.id === sharedPersonId) ?? null;
+
+  const resolvedAssigneeName = (() => {
+    if (!permissions.canAssignTask) return household.greetingName;
+    if (needsSharedPerson) return sharedPerson?.name ?? '';
+    return assignee?.name ?? household.greetingName;
+  })();
+
+  const displayTitlePreview =
+    needsSharedPerson && sharedPerson && title.trim()
+      ? withSharedPersonLabel(title.trim(), sharedPerson.name)
+      : title.trim();
 
   const weight = weightForDifficulty(type === 'homework' ? 'medium' : difficulty);
   const xpPreview =
     type === 'homework' ? computeTaskXp(15, weightForDifficulty('medium'), 'medium') : computeTaskXp(baseXp, weight, difficulty);
-  const canCreate = title.trim().length > 0;
+  const canCreate =
+    title.trim().length > 0 &&
+    Boolean(resolvedAssigneeName) &&
+    (!needsSharedPerson || Boolean(sharedPerson));
+
+  function selectAssignee(memberId: string) {
+    setAssigneeId(memberId);
+    const next = activeMembers.find((member) => member.id === memberId);
+    if (isSharedDeviceMember(next)) {
+      const people = resolveSharedDevicePeople(next, household.members);
+      setSharedPersonId(people[0]?.id ?? null);
+    } else {
+      setSharedPersonId(null);
+    }
+  }
 
   function roomIdForKind(kind?: TaskPreset['roomKind']) {
     if (!kind) return undefined;
     return rooms.find((room) => room.kind === kind)?.id;
   }
 
+  function buildTaskPayload(base: {
+    title: string;
+    description?: string;
+    category: string;
+    due: string;
+    xp: number;
+    repeat: HouseholdTask['repeat'];
+    difficulty: TaskDifficulty;
+    weight: number;
+    proofRequired: boolean;
+    roomId?: string;
+  }) {
+    const personName = resolvedAssigneeName;
+    const finalTitle =
+      needsSharedPerson && personName ? withSharedPersonLabel(base.title, personName) : base.title;
+    return {
+      ...base,
+      title: finalTitle,
+      assignee: personName,
+      sharedDeviceId: needsSharedPerson ? assignee?.id : undefined,
+    };
+  }
+
   function applyPreset(preset: TaskPreset, createNow: boolean) {
     const nextRoomId = roomIdForKind(preset.roomKind);
     const nextXp = computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
-    const nextAssignee = assigneeName;
 
     if (createNow) {
-      createTask({
-        title: preset.title,
-        description: preset.description,
-        category: preset.category,
-        assignee: nextAssignee,
-        due: 'Today',
-        xp: nextXp,
-        repeat: preset.repeat,
-        difficulty: preset.difficulty,
-        weight: preset.weight,
-        proofRequired: preset.proofRequired,
-        roomId: nextRoomId,
-      });
+      if (needsSharedPerson && !sharedPerson) {
+        setMode('custom');
+        setTitle(preset.title);
+        setCategory(preset.category);
+        setDescription(preset.description);
+        setRepeat(preset.repeat);
+        setDifficulty(preset.difficulty);
+        setProofRequired(preset.proofRequired);
+        setBaseXp(preset.baseXp);
+        setRoomId(nextRoomId);
+        return;
+      }
+      createTask(
+        buildTaskPayload({
+          title: preset.title,
+          description: preset.description,
+          category: preset.category,
+          due: 'Today',
+          xp: nextXp,
+          repeat: preset.repeat,
+          difficulty: preset.difficulty,
+          weight: preset.weight,
+          proofRequired: preset.proofRequired,
+          roomId: nextRoomId,
+        })
+      );
       router.back();
       return;
     }
@@ -170,34 +241,36 @@ export default function CreateTaskScreen() {
     const trimmedTitle = title.trim();
 
     if (type === 'homework') {
-      createTask({
-        title: trimmedTitle,
-        description: description ?? `Subject: ${subject}`,
-        category: 'Homework',
-        assignee: assigneeName,
-        due,
-        xp: computeTaskXp(15, weightForDifficulty('medium'), 'medium'),
-        repeat,
-        difficulty: 'medium',
-        weight: weightForDifficulty('medium'),
-        proofRequired,
-        roomId,
-      });
+      createTask(
+        buildTaskPayload({
+          title: trimmedTitle,
+          description: description ?? `Subject: ${subject}`,
+          category: 'Homework',
+          due,
+          xp: computeTaskXp(15, weightForDifficulty('medium'), 'medium'),
+          repeat,
+          difficulty: 'medium',
+          weight: weightForDifficulty('medium'),
+          proofRequired,
+          roomId,
+        })
+      );
     } else {
       const selectedPriority = priorities[priority];
-      createTask({
-        title: trimmedTitle,
-        description,
-        category,
-        assignee: assigneeName,
-        due,
-        xp: computeTaskXp(baseXp || selectedPriority.xp, weight, difficulty),
-        repeat,
-        difficulty,
-        weight,
-        proofRequired,
-        roomId,
-      });
+      createTask(
+        buildTaskPayload({
+          title: trimmedTitle,
+          description,
+          category,
+          due,
+          xp: computeTaskXp(baseXp || selectedPriority.xp, weight, difficulty),
+          repeat,
+          difficulty,
+          weight,
+          proofRequired,
+          roomId,
+        })
+      );
     }
 
     router.back();
@@ -218,6 +291,83 @@ export default function CreateTaskScreen() {
             </Pressable>
           </View>
           <Text style={styles.presetHint}>Tap once to create · long-press to customize</Text>
+          {permissions.canAssignTask ? (
+            <View style={styles.presetAssignBlock}>
+              <Text style={styles.label}>ASSIGN TO</Text>
+              <View style={styles.memberRow}>
+                {activeMembers.map((member) => {
+                  const accent = memberAccent(member);
+                  const selected = assigneeId === member.id;
+                  const gradient = memberGradient(accent.color);
+                  return (
+                    <Pressable
+                      key={member.id}
+                      accessibilityLabel={
+                        isSharedDeviceMember(member) ? `${member.name} shared device` : member.name
+                      }
+                      onPress={() => selectAssignee(member.id)}
+                      style={[
+                        styles.memberOuter,
+                        selected && {
+                          borderColor: accent.color,
+                          shadowColor: accent.color,
+                          shadowOpacity: 0.25,
+                          shadowRadius: 10,
+                          shadowOffset: { width: 0, height: 0 },
+                        },
+                      ]}>
+                      {selected ? (
+                        <LinearGradient colors={gradient} style={styles.memberInner}>
+                          <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                        </LinearGradient>
+                      ) : (
+                        <View style={styles.memberInnerMuted}>
+                          <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {needsSharedPerson ? (
+                <View style={styles.sharedPickBlock}>
+                  <Text style={styles.label}>WHO IS THIS FOR?</Text>
+                  <Text style={styles.sharedPickHint}>
+                    Shared device — pick who should own the task (shows as “Task - Name”).
+                  </Text>
+                  {sharedPeople.length === 0 ? (
+                    <Text style={styles.sharedPickHint}>
+                      Link people to this device under Manage Members first.
+                    </Text>
+                  ) : (
+                    <View style={styles.subjectRow}>
+                      {sharedPeople.map((person) => {
+                        const active = sharedPersonId === person.id;
+                        const accent = memberAccent(person);
+                        return (
+                          <Pressable
+                            key={person.id}
+                            onPress={() => setSharedPersonId(person.id)}
+                            style={[
+                              styles.subjectChip,
+                              active && {
+                                backgroundColor: `${accent.color}22`,
+                                borderColor: `${accent.color}55`,
+                              },
+                            ]}>
+                            <Text style={styles.subjectEmoji}>{memberDisplayEmoji(person)}</Text>
+                            <Text style={[styles.subjectText, { color: active ? accent.color : '#7C9CC0' }]}>
+                              {person.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
           {rooms.length ? (
             <ScrollView
               horizontal
@@ -523,8 +673,10 @@ export default function CreateTaskScreen() {
                   return (
                     <Pressable
                       key={member.id}
-                      accessibilityLabel={member.name}
-                      onPress={() => setAssigneeId(member.id)}
+                      accessibilityLabel={
+                        isSharedDeviceMember(member) ? `${member.name} shared device` : member.name
+                      }
+                      onPress={() => selectAssignee(member.id)}
                       style={[
                         styles.memberOuter,
                         selected && {
@@ -581,8 +733,51 @@ export default function CreateTaskScreen() {
           </View>
         </View>
 
+        {needsSharedPerson ? (
+          <View style={styles.sharedPickBlock}>
+            <Text style={styles.label}>WHO IS THIS FOR?</Text>
+            <Text style={styles.sharedPickHint}>
+              Pick the person on this shared device. Task will read like “Clean dishes - David”.
+            </Text>
+            {sharedPeople.length === 0 ? (
+              <Text style={styles.sharedPickHint}>
+                Link Emma, David, Liam (or others) to this device in Manage Members.
+              </Text>
+            ) : (
+              <View style={styles.subjectRow}>
+                {sharedPeople.map((person) => {
+                  const active = sharedPersonId === person.id;
+                  const accent = memberAccent(person);
+                  return (
+                    <Pressable
+                      key={person.id}
+                      onPress={() => setSharedPersonId(person.id)}
+                      style={[
+                        styles.subjectChip,
+                        active && {
+                          backgroundColor: `${accent.color}22`,
+                          borderColor: `${accent.color}55`,
+                        },
+                      ]}>
+                      <Text style={styles.subjectEmoji}>{memberDisplayEmoji(person)}</Text>
+                      <Text style={[styles.subjectText, { color: active ? accent.color : '#7C9CC0' }]}>
+                        {person.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+            {displayTitlePreview ? (
+              <Text style={styles.sharedTitlePreview}>Will create: {displayTitlePreview}</Text>
+            ) : null}
+          </View>
+        ) : null}
+
         <View style={[styles.xpPreview, { borderColor: `${accentTheme.primary}26`, backgroundColor: `${accentTheme.primary}14` }]}>
-          <Text style={styles.xpPreviewLabel}>{assigneeName} will earn</Text>
+          <Text style={styles.xpPreviewLabel}>
+            {resolvedAssigneeName || 'Someone'} will earn
+          </Text>
           <View style={styles.xpPreviewValue}>
             <Text style={styles.xpBolt}>⚡</Text>
             <Text style={[styles.xpAmount, { color: accentTheme.primary }]}>+{xpPreview}</Text>
@@ -673,6 +868,26 @@ const styles = StyleSheet.create({
     color: '#7C9CC0',
     fontSize: 13,
     marginBottom: 14,
+  },
+  presetAssignBlock: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  sharedPickBlock: {
+    gap: 8,
+    marginBottom: 16,
+    marginTop: 4,
+  },
+  sharedPickHint: {
+    color: '#7C9CC0',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  sharedTitlePreview: {
+    color: '#C8D8F0',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 4,
   },
   presetFilterRow: {
     gap: 8,
