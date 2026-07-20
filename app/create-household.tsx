@@ -19,7 +19,7 @@ const householdTypes: { label: string; value: HouseholdType }[] = [
 
 export default function CreateHouseholdScreen() {
   const { createHousehold } = useOrbit();
-  const [name, setName] = useState('The Orbit Home');
+  const [name, setName] = useState('The Choremaxx Home');
   const [type, setType] = useState<HouseholdType>('family');
   const [error, setError] = useState('');
 

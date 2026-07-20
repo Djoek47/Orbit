@@ -15,7 +15,7 @@ export default function SplashEntry() {
   }
 
   if (!hasHousehold) {
-    return <Redirect href="/household-setup" />;
+    return <Redirect href="/welcome" />;
   }
 
   return <Redirect href="/(tabs)" />;

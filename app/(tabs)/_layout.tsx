@@ -41,11 +41,11 @@ export default function TabLayout() {
   }
 
   if (!currentUser?.profileComplete) {
-    return <Redirect href={'/create-profile' as never} />;
+    return <Redirect href={'/welcome' as never} />;
   }
 
   if (!hasHousehold) {
-    return <Redirect href={'/household-setup' as never} />;
+    return <Redirect href={'/welcome' as never} />;
   }
 
   const showPlan = uiRole !== 'child';

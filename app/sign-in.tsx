@@ -63,7 +63,7 @@ export default function SignInScreen() {
         <Text style={orbitTypography.caption}>Welcome back</Text>
         <Text style={orbitTypography.display}>Sign in</Text>
         <Text style={orbitTypography.body}>
-          Sign in to open your household. Demo credentials are prefilled for the Rivera home.
+          Sign in to open your household. New here? Create an account from the Choremaxx welcome flow.
         </Text>
       </View>
 
@@ -96,7 +96,7 @@ export default function SignInScreen() {
         <OrbitButton tone="secondary" onPress={() => router.push('/forgot-password' as never)}>
           Forgot Password
         </OrbitButton>
-        <OrbitButton tone="secondary" onPress={() => router.push('/sign-up' as never)}>
+        <OrbitButton tone="secondary" onPress={() => router.push('/welcome' as never)}>
           Create Account
         </OrbitButton>
       </GlassCard>
