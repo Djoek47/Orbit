@@ -40,13 +40,38 @@ export type HouseholdMember = {
 
 export type TaskDifficulty = 'easy' | 'medium' | 'hard';
 
+/** Per-person progress on a split (multi-assignee) task. */
+export type TaskAssigneeShare = {
+  name: string;
+  status: 'Pending' | 'Completed' | 'Penalized';
+  proofUri?: string;
+  proofStatus?: 'none' | 'submitted' | 'approved' | 'rejected';
+  awardedXp?: number;
+  penalizedXp?: number;
+};
+
 export type HouseholdTask = {
   id: string;
   title: string;
   description?: string;
   category: string;
-  /** Person responsible (for shared-device assigns, the selected user — e.g. David). */
+  /**
+   * Display label — single name, or “Emma & Liam” for split tasks.
+   * For credit/filtering prefer `assignees` / `shares`.
+   */
   assignee: string;
+  /**
+   * When length > 1 this is a split task: each person can finish (and prove) independently.
+   * Completers earn XP; all-finish bonus; admins may penalize non-finishers.
+   */
+  assignees?: string[];
+  shares?: TaskAssigneeShare[];
+  /** XP each person earns when they complete their share (defaults to `xp`). */
+  splitXpEach?: number;
+  /** Bonus each completer gets when everyone finishes (defaults to ~25% of `xp`). */
+  splitBonusXp?: number;
+  /** XP deducted if an admin penalizes a non-finisher (defaults to ~50% of `xp`). */
+  splitPenaltyXp?: number;
   due: string;
   xp: number;
   /** Weight multiplier for XP (1 = easy, 1.5 = medium, 2 = hard). */
@@ -242,6 +267,11 @@ export type CreateTaskInput = {
   title: string;
   category: string;
   assignee: string;
+  /** Multi-person split — when 2+, each gets their own completion/proof share. */
+  assignees?: string[];
+  splitXpEach?: number;
+  splitBonusXp?: number;
+  splitPenaltyXp?: number;
   due: string;
   xp: number;
   repeat: HouseholdTask['repeat'];

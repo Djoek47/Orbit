@@ -23,9 +23,20 @@ import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissi
 import { persistHouseholdScore } from '@/lib/momentum/score-writer';
 import { subscribeHouseholdRealtime } from '@/lib/realtime/household-realtime';
 import { spawnNextOccurrence } from '@/lib/tasks/recurring';
+import {
+  allSharesCompleted,
+  allSharesSettled,
+  getShare,
+  getTaskAssignees,
+  isSplitTask,
+  splitAllDoneBonus,
+  splitPenaltyAmount,
+  splitShareXp,
+  taskMatchesAssignee,
+} from '@/lib/tasks/split-assign';
 import { splitOpenTasksBetweenTwo } from '@/lib/tasks/split-between';
 import { isOpenTask, isSameTaskSeries } from '@/lib/tasks/cancel';
-import { resolveCompletionXp } from '@/lib/tasks/xp';
+import { isTaskLate, resolveCompletionXp } from '@/lib/tasks/xp';
 import {
   canPromoteToAdmin,
   resolveSplitPair,
@@ -132,9 +143,14 @@ type OrbitContextValue = {
   createTask: (input: CreateTaskInput) => void;
   updateTask: (task: HouseholdTask) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
-  completeTask: (taskId: string) => Promise<{ awarded: number; penalty: number; late: boolean } | null>;
-  submitTaskProof: (taskId: string, proofUri: string) => Promise<void>;
-  approveTaskProof: (taskId: string) => Promise<void>;
+  completeTask: (
+    taskId: string,
+    options?: { forAssignee?: string }
+  ) => Promise<{ awarded: number; penalty: number; late: boolean; bonus?: number } | null>;
+  submitTaskProof: (taskId: string, proofUri: string, options?: { forAssignee?: string }) => Promise<void>;
+  approveTaskProof: (taskId: string, options?: { forAssignee?: string }) => Promise<void>;
+  /** Admin: dock XP from someone who did not finish their share of a split task. */
+  penalizeSplitAssignee: (taskId: string, assigneeName: string) => Promise<number | null>;
   deleteTask: (taskId: string) => Promise<void>;
   /** Admin-only soft cancel (keeps history). `future` also stops the recurring series. */
   cancelTask: (taskId: string, scope?: CancelTaskScope) => Promise<void>;
@@ -600,69 +616,229 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('task.updated', { taskId: updated.id }, analyticsContext);
   };
 
-  const submitTaskProof = async (taskId: string, proofUri: string) => {
+  const submitTaskProof = async (
+    taskId: string,
+    proofUri: string,
+    options?: { forAssignee?: string }
+  ) => {
     const currentTask = household.tasks.find((item) => item.id === taskId);
     if (!currentTask) {
       return;
     }
-    const updated = await taskRepository.updateTask({
-      ...currentTask,
-      proofUri,
-      proofStatus: 'submitted',
-    });
+
+    const forAssignee =
+      options?.forAssignee?.trim() ||
+      (isSplitTask(currentTask) ? currentMember?.name : undefined) ||
+      currentTask.assignee;
+
+    let updated: HouseholdTask;
+    if (isSplitTask(currentTask) && currentTask.shares) {
+      updated = await taskRepository.updateTask({
+        ...currentTask,
+        shares: currentTask.shares.map((share) =>
+          share.name === forAssignee
+            ? { ...share, proofUri, proofStatus: 'submitted' }
+            : share
+        ),
+        status: currentTask.status === 'Pending' ? 'In Progress' : currentTask.status,
+      });
+    } else {
+      updated = await taskRepository.updateTask({
+        ...currentTask,
+        proofUri,
+        proofStatus: 'submitted',
+      });
+    }
+
     setHousehold((current) => ({
       ...current,
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
     const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    // Notify owners/admins (and approving adults) — not the submitter.
     const created = await novaNotifications.proofSubmitted(pushNotification, prefs, {
       title: currentTask.title,
-      assignee: currentTask.assignee,
+      assignee: forAssignee,
       taskId,
       proofUri,
       audienceRoles: [...PROOF_REVIEW_ROLES],
     });
     if (created) {
-      await scheduleLocalReminder(
-        created.title,
-        created.body,
-        2
-      ).catch((error) => console.warn('Proof admin reminder skipped', error));
+      await scheduleLocalReminder(created.title, created.body, 2).catch((error) =>
+        console.warn('Proof admin reminder skipped', error)
+      );
     }
-    await trackAnalytics('task.proof_submitted', { taskId }, analyticsContext);
+    await trackAnalytics('task.proof_submitted', { taskId, forAssignee }, analyticsContext);
   };
 
-  const approveTaskProof = async (taskId: string) => {
+  const approveTaskProof = async (taskId: string, options?: { forAssignee?: string }) => {
     const currentTask = household.tasks.find((item) => item.id === taskId);
     if (!currentTask) {
       return;
     }
-    const updated = await taskRepository.updateTask({
-      ...currentTask,
-      proofStatus: 'approved',
-    });
+
+    const forAssignee =
+      options?.forAssignee?.trim() ||
+      (isSplitTask(currentTask) ? currentMember?.name : undefined) ||
+      currentTask.assignee;
+
+    let updated: HouseholdTask;
+    if (isSplitTask(currentTask) && currentTask.shares) {
+      updated = await taskRepository.updateTask({
+        ...currentTask,
+        shares: currentTask.shares.map((share) =>
+          share.name === forAssignee ? { ...share, proofStatus: 'approved' } : share
+        ),
+      });
+    } else {
+      updated = await taskRepository.updateTask({
+        ...currentTask,
+        proofStatus: 'approved',
+      });
+    }
+
     setHousehold((current) => ({
       ...current,
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
     const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    const assigneeMember = household.members.find((member) => member.name === currentTask.assignee);
+    const assigneeMember = household.members.find((member) => member.name === forAssignee);
     await novaNotifications.proofApproved(pushNotification, prefs, {
       title: currentTask.title,
       taskId,
       audienceRoles: assigneeMember ? [assigneeMember.role] : undefined,
     });
-    await trackAnalytics('task.proof_approved', { taskId }, analyticsContext);
+    await trackAnalytics('task.proof_approved', { taskId, forAssignee }, analyticsContext);
   };
 
-  const completeTask = async (taskId: string) => {
+  const completeTask = async (taskId: string, options?: { forAssignee?: string }) => {
     const currentTask = household.tasks.find((item) => item.id === taskId);
 
     if (!currentTask || currentTask.status === 'Completed' || currentTask.status === 'Cancelled') {
       return null;
     }
 
+    // --- Split task: one person's share ---
+    if (isSplitTask(currentTask) && currentTask.shares) {
+      const forAssignee = options?.forAssignee?.trim() || currentMember?.name;
+      if (!forAssignee || !taskMatchesAssignee(currentTask, forAssignee)) {
+        return null;
+      }
+      const share = getShare(currentTask, forAssignee);
+      if (!share || share.status !== 'Pending') {
+        return null;
+      }
+      if (
+        currentTask.proofRequired &&
+        share.proofStatus !== 'submitted' &&
+        share.proofStatus !== 'approved'
+      ) {
+        return null;
+      }
+
+      const late = isTaskLate(currentTask);
+      const baseShare = splitShareXp(currentTask);
+      const latePenalty = late ? Math.floor(baseShare * 0.25) : 0;
+      const awarded = Math.max(0, baseShare - latePenalty);
+
+      const nextShares = currentTask.shares.map((item) =>
+        item.name === forAssignee
+          ? { ...item, status: 'Completed' as const, awardedXp: awarded }
+          : item
+      );
+      const draft: HouseholdTask = { ...currentTask, shares: nextShares };
+      const everyoneDone = allSharesCompleted(draft);
+      const settled = allSharesSettled(draft);
+      const bonus = everyoneDone ? splitAllDoneBonus(currentTask) : 0;
+
+      let nextTask: HouseholdTask = {
+        ...draft,
+        status: settled || everyoneDone ? 'Completed' : 'In Progress',
+      };
+
+      // Apply all-finish bonus onto each completed share
+      if (everyoneDone && bonus > 0) {
+        nextTask = {
+          ...nextTask,
+          shares: nextTask.shares?.map((item) =>
+            item.status === 'Completed'
+              ? { ...item, awardedXp: (item.awardedXp ?? 0) + bonus }
+              : item
+          ),
+        };
+      }
+
+      const saved = await taskRepository.updateTask(nextTask);
+
+      let nextOccurrence: HouseholdTask | null = null;
+      if (saved.status === 'Completed') {
+        const spawned = spawnNextOccurrence(currentTask);
+        if (spawned) {
+          nextOccurrence = await taskRepository.createTask(household.id, {
+            title: spawned.title,
+            description: spawned.description,
+            category: spawned.category,
+            assignee: getTaskAssignees(spawned)[0] ?? spawned.assignee,
+            assignees: isSplitTask(spawned) ? getTaskAssignees(spawned) : undefined,
+            due: spawned.due,
+            xp: spawned.xp,
+            repeat: spawned.repeat,
+            weight: spawned.weight,
+            difficulty: spawned.difficulty,
+            proofRequired: spawned.proofRequired,
+            roomId: spawned.roomId,
+            splitXpEach: spawned.splitXpEach,
+            splitBonusXp: spawned.splitBonusXp,
+            splitPenaltyXp: spawned.splitPenaltyXp,
+          });
+        }
+      }
+
+      setHousehold((current) => {
+        const tasks = current.tasks.map((item) => (item.id === taskId ? saved : item));
+        const members = current.members.map((member) => {
+          if (member.name === forAssignee) {
+            return {
+              ...member,
+              xp: member.xp + awarded + (everyoneDone ? bonus : 0),
+              weekXp: (member.weekXp ?? 0) + awarded + (everyoneDone ? bonus : 0),
+              streak: late ? member.streak ?? 0 : (member.streak ?? 0) + 1,
+            };
+          }
+          // When the last person finishes, give bonus to earlier completers too
+          if (everyoneDone && bonus > 0 && nextShares.some((s) => s.name === member.name && s.status === 'Completed' && s.name !== forAssignee)) {
+            return {
+              ...member,
+              xp: member.xp + bonus,
+              weekXp: (member.weekXp ?? 0) + bonus,
+            };
+          }
+          return member;
+        });
+        return {
+          ...current,
+          members,
+          tasks: nextOccurrence ? [nextOccurrence, ...tasks] : tasks,
+        };
+      });
+
+      const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+      await novaNotifications.taskCompleted(pushNotification, prefs, {
+        title: currentTask.title,
+        assignee: forAssignee,
+        awardedXp: awarded + (everyoneDone ? bonus : 0),
+        penalty: latePenalty,
+        late,
+        taskId,
+      });
+      await trackAnalytics(
+        'task.share_completed',
+        { taskId, forAssignee, awarded, bonus, everyoneDone },
+        analyticsContext
+      );
+      return { awarded, penalty: latePenalty, late, bonus: everyoneDone ? bonus : 0 };
+    }
+
+    // --- Single-assignee task ---
     if (currentTask.proofRequired && currentTask.proofStatus !== 'submitted' && currentTask.proofStatus !== 'approved') {
       return null;
     }
@@ -676,7 +852,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         title: spawned.title,
         description: spawned.description,
         category: spawned.category,
-        assignee: spawned.assignee,
+        assignee: getTaskAssignees(spawned)[0] ?? spawned.assignee,
+        assignees: isSplitTask(spawned) ? getTaskAssignees(spawned) : undefined,
         due: spawned.due,
         xp: spawned.xp,
         repeat: spawned.repeat,
@@ -727,6 +904,57 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await persistHouseholdScore(household.id, nextMetrics);
     await trackAnalytics('task.completed', { taskId, awarded, late }, analyticsContext);
     return { awarded, penalty, late };
+  };
+
+  const penalizeSplitAssignee = async (taskId: string, assigneeName: string) => {
+    if (!permissions.canManageHousehold) {
+      return null;
+    }
+    const currentTask = household.tasks.find((item) => item.id === taskId);
+    if (!currentTask || !isSplitTask(currentTask) || !currentTask.shares) {
+      return null;
+    }
+    const share = getShare(currentTask, assigneeName);
+    if (!share || share.status !== 'Pending') {
+      return null;
+    }
+
+    const dock = splitPenaltyAmount(currentTask);
+    const nextShares = currentTask.shares.map((item) =>
+      item.name === assigneeName
+        ? { ...item, status: 'Penalized' as const, penalizedXp: dock }
+        : item
+    );
+    const draft: HouseholdTask = { ...currentTask, shares: nextShares };
+    const settled = allSharesSettled(draft);
+    const saved = await taskRepository.updateTask({
+      ...draft,
+      status: settled ? 'Completed' : currentTask.status === 'Pending' ? 'In Progress' : currentTask.status,
+    });
+
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((member) =>
+        member.name === assigneeName
+          ? {
+              ...member,
+              xp: Math.max(0, member.xp - dock),
+              weekXp: Math.max(0, (member.weekXp ?? 0) - dock),
+            }
+          : member
+      ),
+      tasks: current.tasks.map((item) => (item.id === taskId ? saved : item)),
+    }));
+
+    await pushNotification({
+      title: 'Split task · penalty',
+      body: `${assigneeName} was docked ${dock} XP for not finishing “${currentTask.title}”.`,
+      category: 'tasks',
+      priority: 'medium',
+      data: { kind: 'split_penalty', taskId, assigneeName, dock },
+    });
+    await trackAnalytics('task.share_penalized', { taskId, assigneeName, dock }, analyticsContext);
+    return dock;
   };
 
   const deleteTask = async (taskId: string) => {
@@ -1598,6 +1826,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       completeTask,
       submitTaskProof,
       approveTaskProof,
+      penalizeSplitAssignee,
       deleteTask,
       cancelTask,
       splitAllTasksBetweenTwo,

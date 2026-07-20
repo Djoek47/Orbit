@@ -284,6 +284,28 @@ export const mockHousehold: HouseholdSnapshot = {
       status: 'Pending',
       roomId: 'room-kitchen',
     },
+    {
+      id: 't13',
+      title: 'Clean dishes',
+      category: 'Kitchen',
+      assignee: 'Emma & Liam',
+      assignees: ['Emma', 'Liam'],
+      shares: [
+        { name: 'Emma', status: 'Pending', proofStatus: 'none' },
+        { name: 'Liam', status: 'Pending', proofStatus: 'none' },
+      ],
+      splitXpEach: 20,
+      splitBonusXp: 8,
+      splitPenaltyXp: 10,
+      due: 'Today, 8:00 PM',
+      xp: 20,
+      weight: 1,
+      difficulty: 'medium',
+      proofRequired: true,
+      repeat: 'Daily',
+      status: 'Pending',
+      roomId: 'room-kitchen',
+    },
   ],
   groceries: [
     {

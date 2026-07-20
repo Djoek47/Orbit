@@ -20,6 +20,7 @@ import {
   isSharedDeviceRole,
   sharedDeviceAssigneeNames,
 } from '@/lib/household/shared-device';
+import { isSplitTask, taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdRoom, HouseholdTask } from '@/types/orbit';
 
@@ -123,7 +124,11 @@ function TaskItem({
   justCompleted: boolean;
   onToggle: () => void;
 }) {
-  const done = task.status === 'Completed';
+  const shareDone =
+    member && isSplitTask(task)
+      ? task.shares?.find((share) => share.name === member.name)?.status === 'Completed'
+      : undefined;
+  const done = shareDone ?? task.status === 'Completed';
   const sub = getSubjectMeta(task);
   const accent = memberAccentColor(member);
   const borderColor = done
@@ -161,6 +166,11 @@ function TaskItem({
         <View style={styles.metaRow}>
           <MaterialIcons name="schedule" size={10} color={orbitColors.textSubtle} />
           <Text style={styles.dueText}>{task.due}</Text>
+          {isSplitTask(task) ? (
+            <View style={[styles.metaPill, { backgroundColor: 'rgba(167,139,250,0.18)' }]}>
+              <Text style={[styles.metaPillText, { color: '#A78BFA' }]}>Split</Text>
+            </View>
+          ) : null}
           {task.repeat !== 'None' ? (
             <View style={styles.metaPill}>
               <Text style={styles.metaPillText}>{task.repeat}</Text>
@@ -328,18 +338,23 @@ export default function TasksScreen() {
     return household.tasks.filter((task) => {
       if (filter === 'mine') {
         if (isSharedDeviceMember(currentMember)) {
-          if (!sharedMineNames.has(task.assignee) && task.sharedDeviceId !== currentMember?.id) {
-            return false;
-          }
-        } else if (task.assignee !== currentMember?.name) {
+          const onShared =
+            [...sharedMineNames].some((name) => taskMatchesAssignee(task, name)) ||
+            task.sharedDeviceId === currentMember?.id;
+          if (!onShared) return false;
+        } else if (!taskMatchesAssignee(task, currentMember?.name)) {
           return false;
         }
       }
       if (filter === 'split') {
         if (!splitPair) return false;
-        return task.assignee === splitPair[0].name || task.assignee === splitPair[1].name;
+        return (
+          taskMatchesAssignee(task, splitPair[0].name) || taskMatchesAssignee(task, splitPair[1].name)
+        );
       }
-      if (filter === 'kids' && !childNames.has(task.assignee)) return false;
+      if (filter === 'kids' && ![...childNames].some((name) => taskMatchesAssignee(task, name))) {
+        return false;
+      }
       if (filter === 'homework' && !isHomework(task)) return false;
       if (roomFilter && task.roomId !== roomFilter) return false;
       return true;
@@ -368,11 +383,15 @@ export default function TasksScreen() {
     return [
       {
         member: splitPair[0],
-        tasks: filtered.filter((task) => task.assignee === splitPair[0].name && task.status !== 'Completed'),
+        tasks: filtered.filter(
+          (task) => taskMatchesAssignee(task, splitPair[0].name) && task.status !== 'Completed'
+        ),
       },
       {
         member: splitPair[1],
-        tasks: filtered.filter((task) => task.assignee === splitPair[1].name && task.status !== 'Completed'),
+        tasks: filtered.filter(
+          (task) => taskMatchesAssignee(task, splitPair[1].name) && task.status !== 'Completed'
+        ),
       },
     ];
   }, [filter, filtered, splitPair]);
@@ -403,7 +422,7 @@ export default function TasksScreen() {
 
     return ordered.map((member) => {
       const tasks = sortTasksForMember(
-        filtered.filter((task) => task.assignee === member.name && task.status !== 'Cancelled')
+        filtered.filter((task) => taskMatchesAssignee(task, member.name) && task.status !== 'Cancelled')
       );
       const done = tasks.filter((task) => task.status === 'Completed').length;
       const total = tasks.length;
@@ -428,7 +447,25 @@ export default function TasksScreen() {
 
   const handleToggle = async (taskId: string) => {
     const task = household.tasks.find((item) => item.id === taskId);
-    if (!task || task.status === 'Completed') return;
+    if (!task || task.status === 'Completed' || task.status === 'Cancelled') return;
+
+    if (isSplitTask(task)) {
+      if (!currentMember || !taskMatchesAssignee(task, currentMember.name)) return;
+      const share = task.shares?.find((item) => item.name === currentMember.name);
+      if (!share || share.status !== 'Pending') return;
+      if (
+        task.proofRequired &&
+        share.proofStatus !== 'submitted' &&
+        share.proofStatus !== 'approved'
+      ) {
+        router.push(`/task/${task.id}` as never);
+        return;
+      }
+      setJustCompletedId(taskId);
+      await completeTask(taskId, { forAssignee: currentMember.name });
+      setTimeout(() => setJustCompletedId(null), 1200);
+      return;
+    }
 
     setJustCompletedId(taskId);
     await completeTask(taskId);

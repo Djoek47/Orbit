@@ -8,6 +8,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { orbitColors } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { promptPickProofPhoto } from '@/lib/tasks/pick-proof';
+import {
+  getShare,
+  isSplitTask,
+  splitAllDoneBonus,
+  splitPenaltyAmount,
+  splitShareXp,
+  taskMatchesAssignee,
+} from '@/lib/tasks/split-assign';
 import { isTaskLate } from '@/lib/tasks/xp';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
@@ -45,8 +53,10 @@ export default function TaskDetailScreen() {
     approveTaskProof,
     cancelTask,
     completeTask,
+    currentMember,
     deleteTask,
     household,
+    penalizeSplitAssignee,
     permissions,
     submitTaskProof,
     updateTask,
@@ -55,7 +65,10 @@ export default function TaskDetailScreen() {
   const task = household.tasks.find((item) => item.id === id);
   const rooms = household.rooms ?? [];
   const memberNames = useMemo(
-    () => household.members.filter((member) => member.status === 'active').map((member) => member.name),
+    () =>
+      household.members
+        .filter((member) => member.status === 'active' && member.role !== 'shared-device')
+        .map((member) => member.name),
     [household.members]
   );
 
@@ -71,9 +84,12 @@ export default function TaskDetailScreen() {
   const [roomId, setRoomId] = useState<string | undefined>(task?.roomId);
   const [busy, setBusy] = useState(false);
   const [proofBusy, setProofBusy] = useState(false);
-  const [celebration, setCelebration] = useState<{ awarded: number; penalty: number; late: boolean } | null>(
-    null
-  );
+  const [celebration, setCelebration] = useState<{
+    awarded: number;
+    penalty: number;
+    late: boolean;
+    bonus?: number;
+  } | null>(null);
 
   if (!task) {
     return (
@@ -87,45 +103,80 @@ export default function TaskDetailScreen() {
     );
   }
 
+  const split = isSplitTask(task);
+  const myShare = currentMember ? getShare(task, currentMember.name) : undefined;
+  const onThisSplit = taskMatchesAssignee(task, currentMember?.name);
   const assigneeMember = household.members.find((member) => member.name === task.assignee);
   const room = rooms.find((item) => item.id === (editing ? roomId : task.roomId));
   const canEdit = permissions.canCreateTask || permissions.canAssignTask;
   const needsProof = Boolean(task.proofRequired);
-  const proofReady = task.proofStatus === 'submitted' || task.proofStatus === 'approved';
+  const myProofStatus = split ? myShare?.proofStatus : task.proofStatus;
+  const proofReady = myProofStatus === 'submitted' || myProofStatus === 'approved';
   const late = isTaskLate(task);
   const statusColor = statusTone[task.status];
   const memberColor = assigneeMember
     ? MEMBER_ACCENTS[assigneeMember.name]?.color ?? accentTheme.primary
     : accentTheme.primary;
-  const showProofPreview = Boolean(task.proofUri && (task.proofStatus === 'submitted' || task.proofStatus === 'approved'));
+  const myProofUri = split ? myShare?.proofUri : task.proofUri;
+  const showProofPreview = Boolean(
+    myProofUri && (myProofStatus === 'submitted' || myProofStatus === 'approved')
+  );
+  const canCompleteMine =
+    !split ||
+    (onThisSplit && myShare?.status === 'Pending');
 
-  const handleComplete = async () => {
-    const result = await completeTask(task.id);
+  const handleComplete = async (forAssignee?: string) => {
+    const result = await completeTask(task.id, forAssignee ? { forAssignee } : undefined);
     if (result) {
       setCelebration(result);
     }
   };
 
-  const handleAttachProof = async () => {
+  const handleAttachProof = async (forAssignee?: string) => {
     const uri = await promptPickProofPhoto();
     if (!uri) return;
     setProofBusy(true);
     try {
-      await submitTaskProof(task.id, uri);
+      await submitTaskProof(task.id, uri, forAssignee ? { forAssignee } : undefined);
       Alert.alert('Proof sent', 'An admin was notified to review your photo.');
     } finally {
       setProofBusy(false);
     }
   };
 
-  const handleApproveProof = async () => {
+  const handleApproveProof = async (forAssignee?: string) => {
     setProofBusy(true);
     try {
-      await approveTaskProof(task.id);
-      Alert.alert('Proof approved', `${task.assignee} can finish this task.`);
+      await approveTaskProof(task.id, forAssignee ? { forAssignee } : undefined);
+      Alert.alert(
+        'Proof approved',
+        `${forAssignee ?? task.assignee} can finish their share.`
+      );
     } finally {
       setProofBusy(false);
     }
+  };
+
+  const handlePenalize = (name: string) => {
+    const dock = splitPenaltyAmount(task);
+    Alert.alert(
+      'Penalize for not finishing?',
+      `Dock ${name} ${dock} XP for not completing their share of “${task.title}”?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: `Dock ${dock} XP`,
+          style: 'destructive',
+          onPress: () => {
+            void penalizeSplitAssignee(task.id, name).then((amount) => {
+              if (amount != null) {
+                Alert.alert('Penalty applied', `${name} lost ${amount} XP.`);
+              }
+            });
+          },
+        },
+      ]
+    );
   };
 
   const handleSave = async () => {
@@ -267,6 +318,7 @@ export default function TaskDetailScreen() {
             <Text style={styles.cardTitle}>Nice work</Text>
             <Text style={styles.body}>
               +{celebration.awarded} XP
+              {celebration.bonus ? ` (+${celebration.bonus} all-done bonus)` : ''}
               {celebration.late ? ` (−${celebration.penalty} late penalty)` : ''}. Rankings week XP
               {celebration.late ? ' held streak' : ' and streak'} updated.
             </Text>
@@ -381,9 +433,9 @@ export default function TaskDetailScreen() {
         ) : (
           <View style={styles.card}>
             <View style={styles.detailRow}>
-              <Text style={styles.label}>Assignee</Text>
+              <Text style={styles.label}>{split ? 'Split between' : 'Assignee'}</Text>
               <View style={styles.assigneeRow}>
-                {assigneeMember ? (
+                {assigneeMember && !split ? (
                   <View style={[styles.avatar, { backgroundColor: `${memberColor}33` }]}>
                     <Text style={styles.avatarEmoji}>{memberDisplayEmoji(assigneeMember)}</Text>
                   </View>
@@ -391,6 +443,54 @@ export default function TaskDetailScreen() {
                 <Text style={styles.value}>{task.assignee}</Text>
               </View>
             </View>
+            {split && task.shares ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.label}>Shares</Text>
+                <Text style={styles.body}>
+                  Each earns {splitShareXp(task)} XP · all-done bonus {splitAllDoneBonus(task)} XP · admin
+                  penalty {splitPenaltyAmount(task)} XP
+                </Text>
+                {task.shares.map((share) => {
+                  const person = household.members.find((member) => member.name === share.name);
+                  const color = MEMBER_ACCENTS[share.name]?.color ?? accentTheme.primary;
+                  return (
+                    <View key={share.name} style={styles.shareRow}>
+                      <View style={[styles.avatar, { backgroundColor: `${color}33` }]}>
+                        <Text style={styles.avatarEmoji}>
+                          {person ? memberDisplayEmoji(person) : '👤'}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.value}>{share.name}</Text>
+                        <Text style={styles.body}>
+                          {share.status}
+                          {needsProof ? ` · ${proofStatusLabel(share.proofStatus)}` : ''}
+                          {share.awardedXp != null ? ` · +${share.awardedXp} XP` : ''}
+                          {share.penalizedXp != null ? ` · −${share.penalizedXp} XP` : ''}
+                        </Text>
+                      </View>
+                      {permissions.canManageHousehold && share.status === 'Pending' ? (
+                        <Pressable onPress={() => handlePenalize(share.name)} style={styles.penalizeChip}>
+                          <Text style={styles.penalizeText}>Penalize</Text>
+                        </Pressable>
+                      ) : null}
+                      {permissions.canApproveReward &&
+                      needsProof &&
+                      share.proofStatus === 'submitted' ? (
+                        <Pressable
+                          disabled={proofBusy}
+                          onPress={() => void handleApproveProof(share.name)}
+                          style={styles.penalizeChip}>
+                          <Text style={[styles.penalizeText, { color: accentTheme.primary }]}>
+                            Approve
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
             <DetailRow label="Due" value={task.due} />
             <DetailRow
               label="XP"
@@ -398,11 +498,13 @@ export default function TaskDetailScreen() {
             />
             <DetailRow label="Repeat" value={task.repeat} />
             {room ? <DetailRow label="Room" value={`${room.emoji} ${room.name}`} /> : null}
-            {needsProof ? <DetailRow label="Proof" value={proofStatusLabel(task.proofStatus)} /> : null}
+            {needsProof && !split ? (
+              <DetailRow label="Proof" value={proofStatusLabel(task.proofStatus)} />
+            ) : null}
             {showProofPreview ? (
               <View style={styles.detailRow}>
                 <Text style={styles.label}>Attached photo</Text>
-                <Image source={{ uri: task.proofUri }} style={styles.proofImage} resizeMode="cover" />
+                <Image source={{ uri: myProofUri }} style={styles.proofImage} resizeMode="cover" />
               </View>
             ) : null}
             <View style={styles.detailRow}>
@@ -429,10 +531,14 @@ export default function TaskDetailScreen() {
           </>
         ) : (
           <>
-            {needsProof && task.status !== 'Completed' && !proofReady ? (
+            {needsProof &&
+            task.status !== 'Completed' &&
+            task.status !== 'Cancelled' &&
+            canCompleteMine &&
+            !proofReady ? (
               <Pressable
                 disabled={proofBusy}
-                onPress={() => void handleAttachProof()}
+                onPress={() => void handleAttachProof(split ? currentMember?.name : undefined)}
                 style={[styles.ctaWrap, proofBusy && { opacity: 0.6 }]}>
                 <LinearGradient
                   colors={[accentTheme.primary, accentTheme.secondary]}
@@ -440,27 +546,39 @@ export default function TaskDetailScreen() {
                   end={{ x: 1, y: 1 }}
                   style={styles.cta}>
                   <MaterialIcons name="photo-camera" size={18} color="#04101F" />
-                  <Text style={styles.ctaText}>{proofBusy ? 'Sending proof…' : 'Attach proof photo'}</Text>
+                  <Text style={styles.ctaText}>
+                    {proofBusy
+                      ? 'Sending proof…'
+                      : split
+                        ? 'Attach my proof photo'
+                        : 'Attach proof photo'}
+                  </Text>
                 </LinearGradient>
               </Pressable>
             ) : null}
-            {needsProof && task.proofStatus === 'submitted' && !permissions.canApproveReward ? (
+            {needsProof &&
+            myProofStatus === 'submitted' &&
+            !permissions.canApproveReward &&
+            canCompleteMine ? (
               <View style={styles.waitCard}>
                 <MaterialIcons name="hourglass-top" size={18} color={orbitColors.warning} />
                 <Text style={styles.waitText}>Proof sent to admin for review.</Text>
               </View>
             ) : null}
-            {needsProof && task.proofStatus === 'submitted' && permissions.canApproveReward ? (
+            {needsProof &&
+            !split &&
+            task.proofStatus === 'submitted' &&
+            permissions.canApproveReward ? (
               <Pressable disabled={proofBusy} onPress={() => void handleApproveProof()} style={styles.secondaryBtn}>
                 <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
                   {proofBusy ? 'Approving…' : 'Approve proof'}
                 </Text>
               </Pressable>
             ) : null}
-            {needsProof && task.proofStatus === 'rejected' ? (
+            {needsProof && myProofStatus === 'rejected' && canCompleteMine ? (
               <Pressable
                 disabled={proofBusy}
-                onPress={() => void handleAttachProof()}
+                onPress={() => void handleAttachProof(split ? currentMember?.name : undefined)}
                 style={[styles.ctaWrap, proofBusy && { opacity: 0.6 }]}>
                 <LinearGradient
                   colors={[accentTheme.primary, accentTheme.secondary]}
@@ -472,10 +590,12 @@ export default function TaskDetailScreen() {
                 </LinearGradient>
               </Pressable>
             ) : null}
-            {task.status !== 'Completed' && task.status !== 'Cancelled' ? (
+            {task.status !== 'Completed' &&
+            task.status !== 'Cancelled' &&
+            canCompleteMine ? (
               <Pressable
                 disabled={needsProof && !proofReady}
-                onPress={() => void handleComplete()}
+                onPress={() => void handleComplete(split ? currentMember?.name : undefined)}
                 style={[styles.ctaWrap, needsProof && !proofReady && { opacity: 0.45 }]}>
                 <LinearGradient
                   colors={[accentTheme.primary, accentTheme.secondary]}
@@ -483,10 +603,22 @@ export default function TaskDetailScreen() {
                   end={{ x: 1, y: 1 }}
                   style={styles.cta}>
                   <Text style={styles.ctaText}>
-                    {needsProof && !proofReady ? 'Proof required to complete' : 'Mark complete'}
+                    {needsProof && !proofReady
+                      ? 'Proof required to complete'
+                      : split
+                        ? 'Mark my share complete'
+                        : 'Mark complete'}
                   </Text>
                 </LinearGradient>
               </Pressable>
+            ) : null}
+            {split && myShare?.status === 'Completed' && task.status !== 'Completed' ? (
+              <View style={styles.waitCard}>
+                <MaterialIcons name="check-circle" size={18} color={orbitColors.success} />
+                <Text style={styles.waitText}>
+                  Your share is done. Waiting on others — all-done bonus when everyone finishes.
+                </Text>
+              </View>
             ) : null}
             {permissions.canManageHousehold && task.status !== 'Completed' && task.status !== 'Cancelled' ? (
               <Pressable onPress={confirmCancel} style={styles.secondaryBtn}>
@@ -526,6 +658,25 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#0A1525' },
+  shareRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  penalizeChip: {
+    backgroundColor: 'rgba(248,113,113,0.12)',
+    borderColor: 'rgba(248,113,113,0.35)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  penalizeText: {
+    color: '#F87171',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   handle: {
     alignSelf: 'center',
     width: 40,
