@@ -72,7 +72,7 @@ export type TaskRow = {
   proof_status: 'none' | 'submitted' | 'approved' | 'rejected' | null;
   room_id: string | null;
   repeat_rule: 'none' | 'daily' | 'weekly' | 'weekdays';
-  status: 'pending' | 'in_progress' | 'completed' | 'overdue';
+  status: 'pending' | 'in_progress' | 'completed' | 'overdue' | 'cancelled';
   created_by: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;

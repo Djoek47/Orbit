@@ -17,6 +17,7 @@ const statusTone: Record<HouseholdTask['status'], string> = {
   'In Progress': '#06B6D4',
   Completed: '#34D399',
   Overdue: '#F87171',
+  Cancelled: '#94A3B8',
 };
 
 const categories = ['Cleaning', 'Kitchen', 'Laundry', 'School', 'Homework', 'Groceries', 'Pets', 'Maintenance', 'General'];
@@ -42,6 +43,7 @@ export default function TaskDetailScreen() {
   const {
     accentTheme,
     approveTaskProof,
+    cancelTask,
     completeTask,
     deleteTask,
     household,
@@ -159,6 +161,53 @@ export default function TaskDetailScreen() {
         },
       },
     ]);
+  };
+
+  const confirmCancel = () => {
+    if (!permissions.canManageHousehold) {
+      Alert.alert('Admins only', 'Only household admins can cancel tasks.');
+      return;
+    }
+    const recurring = task.repeat !== 'None';
+    const overdueNote = task.status === 'Overdue' ? ' This overdue task can still be cancelled.' : '';
+
+    if (!recurring) {
+      Alert.alert('Cancel task', `Cancel “${task.title}”?${overdueNote} This keeps a cancelled record (not a delete).`, [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Cancel task',
+          style: 'destructive',
+          onPress: async () => {
+            await cancelTask(task.id, 'this');
+            router.back();
+          },
+        },
+      ]);
+      return;
+    }
+
+    Alert.alert(
+      'Cancel recurring task',
+      `“${task.title}” repeats ${task.repeat}.${overdueNote} Cancel just this occurrence, or this and all future ones?`,
+      [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'This occurrence',
+          onPress: async () => {
+            await cancelTask(task.id, 'this');
+            router.back();
+          },
+        },
+        {
+          text: 'This + all future',
+          style: 'destructive',
+          onPress: async () => {
+            await cancelTask(task.id, 'future');
+            router.back();
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -423,7 +472,7 @@ export default function TaskDetailScreen() {
                 </LinearGradient>
               </Pressable>
             ) : null}
-            {task.status !== 'Completed' ? (
+            {task.status !== 'Completed' && task.status !== 'Cancelled' ? (
               <Pressable
                 disabled={needsProof && !proofReady}
                 onPress={() => void handleComplete()}
@@ -438,6 +487,21 @@ export default function TaskDetailScreen() {
                   </Text>
                 </LinearGradient>
               </Pressable>
+            ) : null}
+            {permissions.canManageHousehold && task.status !== 'Completed' && task.status !== 'Cancelled' ? (
+              <Pressable onPress={confirmCancel} style={styles.secondaryBtn}>
+                <Text style={[styles.secondaryText, { color: orbitColors.warning }]}>
+                  Cancel task{task.status === 'Overdue' ? ' (overdue ok)' : ''}
+                </Text>
+              </Pressable>
+            ) : null}
+            {task.status === 'Cancelled' ? (
+              <View style={styles.waitCard}>
+                <MaterialIcons name="block" size={18} color="#94A3B8" />
+                <Text style={[styles.waitText, { color: '#94A3B8' }]}>
+                  Cancelled by admin · not deleted
+                </Text>
+              </View>
             ) : null}
             {canEdit ? (
               <Pressable onPress={confirmDelete} style={styles.dangerBtn}>

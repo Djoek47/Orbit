@@ -24,6 +24,7 @@ import { persistHouseholdScore } from '@/lib/momentum/score-writer';
 import { subscribeHouseholdRealtime } from '@/lib/realtime/household-realtime';
 import { spawnNextOccurrence } from '@/lib/tasks/recurring';
 import { splitOpenTasksBetweenTwo } from '@/lib/tasks/split-between';
+import { isOpenTask, isSameTaskSeries } from '@/lib/tasks/cancel';
 import { resolveCompletionXp } from '@/lib/tasks/xp';
 import {
   canPromoteToAdmin,
@@ -55,6 +56,7 @@ import { runMonitorPass } from '@/services/nova-monitor';
 import { novaService, suggestedNovaQuestions } from '@/services/nova-service';
 import type {
   AuthSession,
+  CancelTaskScope,
   CreateEventInput,
   CreateGroceryInput,
   CreateHouseholdInput,
@@ -134,6 +136,8 @@ type OrbitContextValue = {
   submitTaskProof: (taskId: string, proofUri: string) => Promise<void>;
   approveTaskProof: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
+  /** Admin-only soft cancel (keeps history). `future` also stops the recurring series. */
+  cancelTask: (taskId: string, scope?: CancelTaskScope) => Promise<void>;
   /** Evenly reassign every open task between the two family admins (or two chosen members). */
   splitAllTasksBetweenTwo: (nameA?: string, nameB?: string) => Promise<void>;
   addMissingGrocery: (input: CreateGroceryInput) => void;
@@ -651,7 +655,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const completeTask = async (taskId: string) => {
     const currentTask = household.tasks.find((item) => item.id === taskId);
 
-    if (!currentTask || currentTask.status === 'Completed') {
+    if (!currentTask || currentTask.status === 'Completed' || currentTask.status === 'Cancelled') {
       return null;
     }
 
@@ -728,6 +732,80 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       tasks: current.tasks.filter((item) => item.id !== taskId),
     }));
     await trackAnalytics('task.deleted', { taskId }, analyticsContext);
+  };
+
+  const cancelTask = async (taskId: string, scope: CancelTaskScope = 'this') => {
+    if (!permissions.canManageHousehold) {
+      return;
+    }
+    const currentTask = household.tasks.find((item) => item.id === taskId);
+    if (!currentTask || currentTask.status === 'Completed' || currentTask.status === 'Cancelled') {
+      return;
+    }
+
+    const cancelled = await taskRepository.updateTask({
+      ...currentTask,
+      status: 'Cancelled',
+      // Stopping the series: clear repeat so nothing new spawns from this row.
+      repeat: scope === 'future' ? 'None' : currentTask.repeat,
+      due:
+        scope === 'future' && currentTask.repeat !== 'None'
+          ? 'Cancelled · series stopped'
+          : 'Cancelled',
+    });
+
+    let nextTasks = household.tasks.map((item) => (item.id === taskId ? cancelled : item));
+
+    if (scope === 'future' && currentTask.repeat !== 'None') {
+      const siblings = nextTasks.filter(
+        (item) =>
+          item.id !== taskId &&
+          isSameTaskSeries(item, currentTask) &&
+          isOpenTask(item)
+      );
+      for (const sibling of siblings) {
+        const updated = await taskRepository.updateTask({
+          ...sibling,
+          status: 'Cancelled',
+          repeat: 'None',
+          due: 'Cancelled · series stopped',
+        });
+        nextTasks = nextTasks.map((item) => (item.id === sibling.id ? updated : item));
+      }
+    }
+
+    if (scope === 'this' && currentTask.repeat !== 'None') {
+      const spawned = spawnNextOccurrence({ ...currentTask, status: 'Pending' });
+      if (spawned) {
+        const nextOccurrence = await taskRepository.createTask(household.id, {
+          title: spawned.title,
+          description: spawned.description,
+          category: spawned.category,
+          assignee: spawned.assignee,
+          due: spawned.due,
+          xp: spawned.xp,
+          weight: spawned.weight,
+          difficulty: spawned.difficulty,
+          proofRequired: spawned.proofRequired,
+          repeat: spawned.repeat,
+          roomId: spawned.roomId,
+        });
+        nextTasks = [nextOccurrence, ...nextTasks];
+      }
+    }
+
+    setHousehold((current) => ({ ...current, tasks: nextTasks }));
+    await pushNotification({
+      title: 'Nova · Task cancelled',
+      body:
+        scope === 'future' && currentTask.repeat !== 'None'
+          ? `${currentTask.title} cancelled for this and all future occurrences.`
+          : `${currentTask.title} cancelled${currentTask.status === 'Overdue' ? ' (was overdue)' : ''}.`,
+      category: 'tasks',
+      priority: 'medium',
+      data: { taskId, kind: 'task_cancelled', scope },
+    });
+    await trackAnalytics('task.cancelled', { taskId, scope }, analyticsContext);
   };
 
   const addMissingGrocery = async (input: CreateGroceryInput) => {
@@ -1480,6 +1558,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       submitTaskProof,
       approveTaskProof,
       deleteTask,
+      cancelTask,
       splitAllTasksBetweenTwo,
       addMissingGrocery,
       setPreferredStore,
@@ -1649,7 +1728,7 @@ function calculateMetrics(household: HouseholdSnapshot): OrbitMetrics {
     groceryReadiness,
     calendarCoverage,
     momentum: Math.round(taskCompletionRate * 0.45 + groceryReadiness * 0.35 + calendarCoverage * 0.2),
-    openTasks: household.tasks.filter((task) => task.status !== 'Completed').length,
+    openTasks: household.tasks.filter((task) => isOpenTask(task)).length,
     missingGroceries: household.groceries.filter((item) => item.status === 'Missing').length,
     purchasedGroceries: household.groceries.filter((item) => item.status === 'Purchased').length,
     upcomingEvents: countUpcomingSoon(household.events),

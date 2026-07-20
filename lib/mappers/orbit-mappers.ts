@@ -61,6 +61,7 @@ const taskStatusMap = {
   in_progress: 'In Progress',
   completed: 'Completed',
   overdue: 'Overdue',
+  cancelled: 'Cancelled',
 } as const;
 
 const taskRepeatMap = {
@@ -124,6 +125,7 @@ export function taskStatusToDb(status: HouseholdTask['status']) {
     'In Progress': 'in_progress',
     Completed: 'completed',
     Overdue: 'overdue',
+    Cancelled: 'cancelled',
   } as const;
   return map[status];
 }

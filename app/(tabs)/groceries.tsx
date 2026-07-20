@@ -164,14 +164,14 @@ export default function GroceriesScreen() {
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: Math.max(44, insets.top + 40),
+          paddingTop: insets.top + 10,
         },
       ]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}>
       <View style={[styles.header, { paddingRight: HEADER_CHIPS_GUTTER }]}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <ChoremaxxBadge />
+        <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
+          <ChoremaxxBadge size="lg" />
           <Text style={[styles.caption, { marginTop: 8 }]}>Grocery Intelligence</Text>
           <Text style={styles.title}>This Week&apos;s List</Text>
         </View>
@@ -462,15 +462,16 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   header: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     alignSelf: 'stretch',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 4,
+    minHeight: 36,
+    paddingTop: 0,
     width: '100%',
   },
   caption: { color: '#4B6080', fontSize: 12 },
-  title: { color: '#EEF2FF', fontSize: 24, fontWeight: '700', lineHeight: 29 },
+  title: { color: '#EEF2FF', fontSize: 22, fontWeight: '700', lineHeight: 27, marginTop: 2 },
   addBtn: {
     alignItems: 'center',
     borderRadius: 16,

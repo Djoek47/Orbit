@@ -60,23 +60,13 @@ export default function HomeScreen() {
       contentContainerStyle={[
         orbitScreen.content,
         styles.pageContent,
-        { paddingTop: Math.max(44, insets.top + 40) },
+        { paddingTop: insets.top + 10 },
       ]}
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}>
-      <View style={[styles.headerRow, { paddingRight: HEADER_CHIPS_GUTTER }]}>
-        <View style={styles.headerCopy}>
-          <View style={styles.brandRow}>
-            <ChoremaxxBadge size="lg" />
-          </View>
-          <Text style={styles.dateLine}>
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </Text>
-          <Text style={styles.greetingLine}>{greeting}</Text>
-          <Text style={styles.nameLine} numberOfLines={1}>
-            {household.greetingName}
-          </Text>
-        </View>
+      {/* One tight header row shared with absolute chips (bell + Settings). */}
+      <View style={[styles.topBar, { paddingRight: HEADER_CHIPS_GUTTER }]}>
+        <ChoremaxxBadge size="lg" />
         <LinearGradient
           colors={[accentTheme.primary, accentTheme.secondary]}
           start={{ x: 0, y: 0 }}
@@ -88,6 +78,14 @@ export default function HomeScreen() {
             <Text style={styles.avatarText}>{headerAvatar}</Text>
           )}
         </LinearGradient>
+      </View>
+      <View style={styles.greetingBlock}>
+        <Text style={styles.dateLine}>
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </Text>
+        <Text style={styles.greetingLine} numberOfLines={1}>
+          {greeting}, <Text style={styles.nameInline}>{household.greetingName}</Text>
+        </Text>
       </View>
 
       <Pressable onPress={() => router.push('/(tabs)/nova' as never)} style={styles.fullBleed}>
@@ -286,14 +284,14 @@ const styles = StyleSheet.create({
   assignee: { color: '#4B6080', fontSize: 12 },
   avatar: {
     alignItems: 'center',
-    borderRadius: 22,
-    height: 44,
+    borderRadius: 18,
+    height: 36,
     justifyContent: 'center',
     overflow: 'hidden',
-    width: 44,
+    width: 36,
   },
-  avatarImage: { height: 44, width: 44 },
-  avatarText: { color: '#070D1C', fontSize: 16, fontWeight: '700' },
+  avatarImage: { height: 36, width: 36 },
+  avatarText: { color: '#070D1C', fontSize: 14, fontWeight: '700' },
   brandRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -314,8 +312,7 @@ const styles = StyleSheet.create({
     color: '#6B82A3',
     fontSize: 11,
     fontWeight: '600',
-    letterSpacing: 0.4,
-    marginTop: 6,
+    letterSpacing: 0.35,
     textTransform: 'uppercase',
   },
   eventBar: { borderRadius: 2, height: 28, marginTop: 2, width: 4 },
@@ -323,12 +320,18 @@ const styles = StyleSheet.create({
   eventTitle: { color: '#C8D8F0', fontSize: 12, lineHeight: 16 },
   eyebrow: { color: '#4B6080', fontSize: 12 },
   fullBleed: { alignSelf: 'stretch', width: '100%' },
+  greetingBlock: {
+    alignSelf: 'stretch',
+    gap: 4,
+    marginBottom: 2,
+    width: '100%',
+  },
   greetingLine: {
-    color: '#9BB0CC',
-    fontSize: 15,
+    color: '#C5D4E8',
+    fontSize: 20,
     fontWeight: '600',
-    letterSpacing: -0.2,
-    marginTop: 2,
+    letterSpacing: -0.3,
+    lineHeight: 26,
   },
   groceryName: { color: '#C8D8F0', flex: 1, fontSize: 12 },
   groceryRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
@@ -345,29 +348,18 @@ const styles = StyleSheet.create({
   },
   halfHead: { alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: 4 },
   halfTitle: { color: '#EEF2FF', fontSize: 12, fontWeight: '600' },
-  headerCopy: {
-    alignItems: 'flex-start',
-    flex: 1,
-    gap: 0,
-    justifyContent: 'center',
-    minWidth: 0,
-    paddingRight: 12,
+  nameInline: {
+    color: '#F4F7FF',
+    fontWeight: '800',
   },
-  headerRow: {
+  topBar: {
     alignItems: 'center',
     alignSelf: 'stretch',
     flexDirection: 'row',
+    height: 36,
     justifyContent: 'space-between',
-    marginBottom: 4,
-    minHeight: 72,
+    marginBottom: 10,
     width: '100%',
-  },
-  nameLine: {
-    color: '#F4F7FF',
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: -0.6,
-    lineHeight: 30,
   },
   healthCol: { alignItems: 'stretch', flex: 1, gap: 6, minWidth: 0 },
   healthLabel: { color: '#7C9CC0', flexShrink: 1, fontSize: 11, fontWeight: '600' },

@@ -50,11 +50,13 @@ export type HouseholdTask = {
   proofUri?: string;
   proofStatus?: 'none' | 'submitted' | 'approved' | 'rejected';
   repeat: 'None' | 'Daily' | 'Weekly' | 'Weekdays';
-  status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue';
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue' | 'Cancelled';
   dueAt?: string;
   /** Optional room for cleaning attribution. */
   roomId?: string;
 };
+
+export type CancelTaskScope = 'this' | 'future';
 
 export type HouseholdRoomKind =
   | 'kitchen'

@@ -59,12 +59,12 @@ function isHomework(task: HouseholdTask) {
 }
 
 function isDueToday(task: HouseholdTask) {
-  if (task.status === 'Completed') return false;
+  if (task.status === 'Completed' || task.status === 'Cancelled') return false;
   return /today/i.test(task.due) || task.status === 'Overdue';
 }
 
 function isUpcoming(task: HouseholdTask) {
-  if (task.status === 'Completed') return false;
+  if (task.status === 'Completed' || task.status === 'Cancelled') return false;
   return !isDueToday(task);
 }
 
