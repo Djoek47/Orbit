@@ -139,7 +139,7 @@ export default function AddGroceryScreen() {
 
         <Pressable onPress={() => void onSave()} disabled={busy} style={styles.saveWrap}>
           <LinearGradient colors={[...gradient]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.saveBtn}>
-            <Text style={styles.saveText}>{busy ? 'Saving…' : 'Add to list'}</Text>
+            <Text style={styles.saveText}>{busy ? 'Saving…' : 'Save'}</Text>
           </LinearGradient>
         </Pressable>
       </ScrollView>

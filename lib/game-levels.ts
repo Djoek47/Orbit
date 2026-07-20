@@ -136,8 +136,9 @@ export const MEMBER_ACCENTS: Record<string, { color: string; emoji: string }> = 
 
 /** Prefer stored member.avatar over hardcoded Make demo emoji. */
 export function memberDisplayEmoji(member: { name: string; avatar?: string }) {
-  if (member.avatar && member.avatar.length <= 4 && !/^[A-Z]$/i.test(member.avatar)) {
-    return member.avatar;
+  const avatar = member.avatar?.trim();
+  if (avatar && !/^[A-Za-z0-9]{1,3}$/.test(avatar)) {
+    return avatar;
   }
-  return MEMBER_ACCENTS[member.name]?.emoji ?? member.avatar ?? '👤';
+  return MEMBER_ACCENTS[member.name]?.emoji ?? avatar ?? '👤';
 }

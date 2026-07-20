@@ -143,7 +143,7 @@ export type ProductCatalogItem = {
   allergens?: string[];
   nutriScore?: string;
   novaGroup?: number;
-  source?: 'mock' | 'openfoodfacts';
+  source?: 'mock' | 'openfoodfacts' | 'unknown';
 };
 
 export type PreferredStore = {

@@ -53,9 +53,15 @@ export default function GroceriesScreen() {
     [household.groceries]
   );
 
-  const summary = useMemo(() => summarizeShoppingRun(household.groceries), [household.groceries]);
-  const budget = 100;
-  const leftover = Math.max(0, budget - summary.estimatedTotal);
+  const summary = useMemo(
+    () => summarizeShoppingRun(household.groceries, { includePurchased: true }),
+    [household.groceries],
+  );
+  const softBudget = 100;
+  const leftover = softBudget - summary.estimatedTotal;
+  const leftoverLabel =
+    leftover >= 0 ? `$${leftover.toFixed(0)} left` : `$${Math.abs(leftover).toFixed(0)} over`;
+  const leftoverColor = leftover >= 0 ? '#34D399' : '#F87171';
 
   const categories = useMemo(() => {
     const map = new Map<string, GroceryItem[]>();
@@ -150,12 +156,16 @@ export default function GroceriesScreen() {
               {collected} of {listItems.length} collected
             </Text>
             <Text style={styles.caption}>
-              Est. total: ${summary.estimatedTotal.toFixed(0)} · Budget: ${budget}
+              Est. total: ${summary.estimatedTotal.toFixed(0)} · Soft budget: ${softBudget}
             </Text>
           </View>
           <View style={styles.inline}>
-            <MaterialIcons name="trending-down" size={14} color="#34D399" />
-            <Text style={styles.savings}>${leftover.toFixed(0)} left</Text>
+            <MaterialIcons
+              name={leftover >= 0 ? 'trending-down' : 'trending-up'}
+              size={14}
+              color={leftoverColor}
+            />
+            <Text style={[styles.savings, { color: leftoverColor }]}>{leftoverLabel}</Text>
           </View>
         </View>
         <View style={styles.progressTrack}>
@@ -210,6 +220,17 @@ export default function GroceriesScreen() {
           color="#A78BFA"
           onPress={() => router.push('/shopping-recommendations' as never)}
         />
+        {permissions.canManageGroceries ? (
+          <ActionChip
+            label={`Preferred: ${preferredStore.name}`}
+            color={accentTheme.secondary}
+            onPress={() => {
+              const idx = PREFERRED_STORES.findIndex((store) => store.id === preferredStore.id);
+              const next = PREFERRED_STORES[(idx + 1) % PREFERRED_STORES.length];
+              setPreferredStore(next.id);
+            }}
+          />
+        ) : null}
       </ScrollView>
 
       {permissions.canManageGroceries ? (

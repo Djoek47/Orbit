@@ -51,7 +51,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
 
           const isNova = route.name === 'nova';
           const { label, icon } = meta;
-          const color = route.name === 'index' ? accentPrimary : meta.color;
+          const color = isFocused ? accentPrimary : meta.color;
 
           const onPress = () => {
             if (process.env.EXPO_OS === 'ios') {
@@ -93,7 +93,10 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                   style={[
                     styles.novaButton,
                     isFocused ? styles.novaButtonActive : styles.novaButtonInactive,
-                    { borderColor: `${accentPrimary}66` },
+                    {
+                      borderColor: `${accentPrimary}66`,
+                      shadowColor: accentPrimary,
+                    },
                   ]}>
                   <IconSymbol name={icon} size={20} color={isFocused ? '#070D1C' : accentPrimary} />
                 </LinearGradient>

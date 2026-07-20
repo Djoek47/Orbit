@@ -67,8 +67,20 @@ export default function ScanGroceryScreen() {
 
     setScanning(false);
     setLookingUp(false);
-    setProduct(null);
-    setMessage(`No Open Food Facts match for ${code}. Search the mock catalog or add manually.`);
+    setProduct({
+      barcode: code,
+      name: `Unknown product (${code})`,
+      brand: 'Not in Open Food Facts',
+      category: 'Other',
+      typicalPrice: 0,
+      size: '1 item',
+      source: 'unknown',
+      ingredients: undefined,
+      allergens: [],
+      nutriScore: undefined,
+      novaGroup: undefined,
+    });
+    setMessage(`No Open Food Facts match for ${code}. You can still Add to cart and edit details later.`);
     setQuery(code);
   };
 
@@ -183,6 +195,8 @@ export default function ScanGroceryScreen() {
                 </Text>
                 {product.source === 'openfoodfacts' ? (
                   <Text style={styles.source}>Open Food Facts</Text>
+                ) : product.source === 'unknown' ? (
+                  <Text style={styles.source}>Unknown barcode · add anyway</Text>
                 ) : (
                   <Text style={styles.source}>Mock catalog</Text>
                 )}

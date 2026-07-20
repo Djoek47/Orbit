@@ -4,10 +4,16 @@ import { dataMode } from '@/config/data-mode';
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
 import type { NovaChatMessage } from '@/lib/ai/ai-provider';
 import { trackAnalytics } from '@/lib/analytics';
-import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, xpProgress } from '@/lib/game-levels';
+import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, memberDisplayEmoji, xpProgress } from '@/lib/game-levels';
 import { getLocationAwareGrocerySuggestions } from '@/lib/grocery/location-suggestions';
 import { buildStoreRecommendations } from '@/lib/grocery/recommendations';
 import { countUpcomingSoon } from '@/lib/calendar/event-groups';
+import {
+  loadHouseholdRooms,
+  loadMemberAvatarOverrides,
+  saveHouseholdRooms,
+  saveMemberAvatarOverride,
+} from '@/lib/household/local-prefs';
 import { buildInviteLinks } from '@/lib/invites/parse-invite';
 import { suggestItineraryFromHousehold } from '@/lib/calendar/suggest-itinerary';
 import { openDirections } from '@/lib/maps/directions';
@@ -298,15 +304,24 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
       if (!session) {
         if (isMounted) {
-          const [prefs, themeId] = await Promise.all([
+          const [prefs, themeId, savedRooms, avatarOverrides] = await Promise.all([
             loadNovaNotificationPrefs(mockHousehold.id),
             loadAccentThemeId(mockHousehold.id),
+            loadHouseholdRooms(mockHousehold.id),
+            loadMemberAvatarOverrides(mockHousehold.id),
           ]);
           setHousehold((current) => ({
             ...current,
             notificationPrefs: prefs,
             accentThemeId: themeId,
-            rooms: current.rooms?.length ? current.rooms : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
+            rooms: savedRooms?.length
+              ? savedRooms
+              : current.rooms?.length
+                ? current.rooms
+                : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
+            members: current.members.map((member) =>
+              avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
+            ),
           }));
           setStoreRecommendations(buildStoreRecommendations(mockHousehold.id, mockHousehold.groceries));
           const items = await notificationsRepository.list(mockHousehold.id);
@@ -470,15 +485,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     const createdHousehold = await householdRepository.createHousehold(input, currentUser);
+    const rooms =
+      input.rooms && input.rooms.length > 0
+        ? input.rooms.map((room) => ({ ...room }))
+        : createdHousehold.rooms?.length
+          ? createdHousehold.rooms
+          : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room }));
     setHousehold({
       ...createdHousehold,
-      rooms:
-        input.rooms && input.rooms.length > 0
-          ? input.rooms.map((room) => ({ ...room }))
-          : createdHousehold.rooms?.length
-            ? createdHousehold.rooms
-            : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
+      rooms,
     });
+    void saveHouseholdRooms(createdHousehold.id, rooms);
     if (createdHousehold.id) {
       const links = createdHousehold.inviteCode
         ? buildInviteLinks(createdHousehold.inviteCode)
@@ -953,6 +970,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       members: current.members.map((item) => (item.id === memberId ? updated : item)),
     }));
+    void saveMemberAvatarOverride(household.id, memberId, avatar);
     if (currentUser?.name === member.name) {
       setCurrentUser((prev) => (prev ? { ...prev, avatar } : prev));
     }
@@ -962,20 +980,26 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setHousehold((current) => {
       const rooms = current.rooms ?? [];
       const exists = rooms.some((item) => item.id === room.id);
+      const nextRooms = exists
+        ? rooms.map((item) => (item.id === room.id ? room : item))
+        : [...rooms, room];
+      void saveHouseholdRooms(current.id, nextRooms);
       return {
         ...current,
-        rooms: exists
-          ? rooms.map((item) => (item.id === room.id ? room : item))
-          : [...rooms, room],
+        rooms: nextRooms,
       };
     });
   };
 
   const removeRoom = (roomId: string) => {
-    setHousehold((current) => ({
-      ...current,
-      rooms: (current.rooms ?? []).filter((item) => item.id !== roomId),
-    }));
+    setHousehold((current) => {
+      const nextRooms = (current.rooms ?? []).filter((item) => item.id !== roomId);
+      void saveHouseholdRooms(current.id, nextRooms);
+      return {
+        ...current,
+        rooms: nextRooms,
+      };
+    });
   };
 
   const runNovaMonitor = useCallback(async () => {
@@ -1466,16 +1490,24 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
 async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<HouseholdSnapshot> {
   const householdId = baseHousehold.id;
-  const [tasks, groceries, events, rewards, badges, itineraries] = await Promise.all([
-    taskRepository.getTasks(householdId),
-    groceryRepository.getGroceries(householdId),
-    calendarRepository.getEvents(householdId),
-    rewardsRepository.getRewards(householdId),
-    rewardsRepository.getBadges(householdId),
-    itineraryRepository.list(householdId),
-  ]);
+  const [tasks, groceries, events, rewards, badges, itineraries, themeId, savedRooms, avatarOverrides] =
+    await Promise.all([
+      taskRepository.getTasks(householdId),
+      groceryRepository.getGroceries(householdId),
+      calendarRepository.getEvents(householdId),
+      rewardsRepository.getRewards(householdId),
+      rewardsRepository.getBadges(householdId),
+      itineraryRepository.list(householdId),
+      loadAccentThemeId(householdId),
+      loadHouseholdRooms(householdId),
+      loadMemberAvatarOverrides(householdId),
+    ]);
+  const members = baseHousehold.members.map((member) =>
+    avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
+  );
   const initialHousehold: HouseholdSnapshot = {
     ...baseHousehold,
+    members,
     badges,
     events,
     groceries,
@@ -1485,10 +1517,13 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     taskTemplates: baseHousehold.taskTemplates ?? [],
     notificationPrefs: baseHousehold.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS,
     preferredStoreId: baseHousehold.preferredStoreId ?? 'store-freshmart',
-    accentThemeId: baseHousehold.accentThemeId ?? DEFAULT_ACCENT_THEME_ID,
-    rooms: baseHousehold.rooms?.length
-      ? baseHousehold.rooms
-      : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
+    accentThemeId: themeId || baseHousehold.accentThemeId || DEFAULT_ACCENT_THEME_ID,
+    rooms:
+      savedRooms?.length
+        ? savedRooms
+        : baseHousehold.rooms?.length
+          ? baseHousehold.rooms
+          : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
   };
   const briefing = await novaRepository.getNovaBriefing(initialHousehold, calculateMetrics(initialHousehold));
 
@@ -1561,7 +1596,7 @@ function calculateMemberProgress(member: HouseholdMember, tasks: HouseholdTask[]
     weekXp: member.weekXp ?? Math.max(10, Math.round(member.xp * 0.08)),
     streak: member.streak ?? 0,
     accentColor: accent.color,
-    avatarEmoji: accent.emoji,
+    avatarEmoji: memberDisplayEmoji(member),
     tasksCompleted,
   };
 }

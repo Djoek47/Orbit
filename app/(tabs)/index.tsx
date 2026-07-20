@@ -7,10 +7,11 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { MomentumRing } from '@/components/orbit/momentum-ring';
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import { orbitRadius, orbitScreen } from '@/constants/orbit-theme';
+import { memberDisplayEmoji } from '@/lib/game-levels';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
-  const { household, metrics, novaBriefing, currentMember } = useOrbit();
+  const { accentTheme, household, metrics, novaBriefing, currentMember } = useOrbit();
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const tasks = household.tasks.slice(0, 4);
@@ -35,6 +36,9 @@ export default function HomeScreen() {
   const tasksFrac = metrics.taskCompletionRate / 100;
   const energyFrac = metrics.groceryReadiness / 100;
   const harmonyFrac = metrics.calendarCoverage / 100;
+  const headerAvatar = currentMember
+    ? memberDisplayEmoji(currentMember)
+    : household.greetingName.slice(0, 1);
 
   return (
     <ScrollView
@@ -52,8 +56,12 @@ export default function HomeScreen() {
             {greeting}, {household.greetingName}
           </Text>
         </View>
-        <LinearGradient colors={['#38BDF8', '#0EA5E9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatar}>
-          <Text style={styles.avatarText}>{(currentMember?.avatar || household.greetingName[0] || 'S').slice(0, 1)}</Text>
+        <LinearGradient
+          colors={[accentTheme.primary, accentTheme.secondary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.avatar}>
+          <Text style={styles.avatarText}>{headerAvatar}</Text>
         </LinearGradient>
       </View>
 

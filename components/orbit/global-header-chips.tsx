@@ -11,8 +11,9 @@ import { useOrbit } from '@/store/orbit-store';
  */
 export function GlobalHeaderChips() {
   const insets = useSafeAreaInsets();
-  const { unreadNotificationCount } = useOrbit();
+  const { accentTheme, unreadNotificationCount } = useOrbit();
   const badge = Math.min(unreadNotificationCount, 9);
+  const accent = accentTheme.primary;
 
   return (
     <View style={[styles.row, { top: insets.top + 8 }]} pointerEvents="box-none">
@@ -20,8 +21,8 @@ export function GlobalHeaderChips() {
         accessibilityRole="button"
         accessibilityLabel="Notifications"
         onPress={() => router.push('/notifications' as never)}
-        style={styles.bell}>
-        <MaterialIcons name="notifications-none" size={16} color="#7C9CC0" />
+        style={[styles.bell, { borderColor: `${accent}33` }]}>
+        <MaterialIcons name="notifications-none" size={16} color={accent} />
         {badge > 0 ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{badge}</Text>
@@ -33,9 +34,9 @@ export function GlobalHeaderChips() {
         accessibilityRole="button"
         accessibilityLabel="Settings"
         onPress={() => router.push('/settings' as never)}
-        style={styles.settings}>
-        <MaterialIcons name="settings" size={13} color="#7C9CC0" />
-        <Text style={styles.settingsLabel}>Settings</Text>
+        style={[styles.settings, { borderColor: `${accent}33` }]}>
+        <MaterialIcons name="settings" size={13} color={accent} />
+        <Text style={[styles.settingsLabel, { color: accent }]}>Settings</Text>
       </Pressable>
     </View>
   );

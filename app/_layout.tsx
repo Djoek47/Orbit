@@ -38,18 +38,24 @@ export default function RootLayout() {
           <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="notifications" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="momentum" options={{ title: 'Momentum' }} />
-          <Stack.Screen name="household-balance" options={{ title: 'Household Balance' }} />
+          <Stack.Screen
+            name="household-balance"
+            options={{ presentation: 'modal', headerShown: false, title: 'Household Health' }}
+          />
           <Stack.Screen name="weekly-report" options={{ title: 'Weekly Report' }} />
           <Stack.Screen name="badge-gallery" options={{ title: 'Badge Gallery' }} />
-          <Stack.Screen name="shopping-recommendations" options={{ title: 'Store Recommendations' }} />
+          <Stack.Screen
+            name="shopping-recommendations"
+            options={{ presentation: 'modal', headerShown: false, title: 'Store Recommendations' }}
+          />
           <Stack.Screen name="smart-home" options={{ title: 'Smart Home' }} />
           <Stack.Screen name="analytics" options={{ title: 'Analytics' }} />
           <Stack.Screen name="task/[id]" options={{ title: 'Task' }} />
           <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
           <Stack.Screen name="itinerary/[id]" options={{ title: 'Itinerary' }} />
           <Stack.Screen name="create-task" options={{ presentation: 'modal', headerShown: false }} />
-          <Stack.Screen name="add-grocery" options={{ presentation: 'modal', title: 'Missing Item' }} />
-          <Stack.Screen name="scan-grocery" options={{ presentation: 'modal', title: 'Scan Product' }} />
+          <Stack.Screen name="add-grocery" options={{ presentation: 'modal', headerShown: false, title: 'Missing Item' }} />
+          <Stack.Screen name="scan-grocery" options={{ presentation: 'modal', headerShown: false, title: 'Scan Product' }} />
           <Stack.Screen name="create-event" options={{ presentation: 'modal', title: 'Create Event' }} />
           <Stack.Screen name="create-itinerary" options={{ presentation: 'modal', title: 'Create Itinerary' }} />
           <Stack.Screen name="create-reward" options={{ presentation: 'modal', title: 'Mint Reward' }} />

@@ -124,6 +124,12 @@ export const taskRepository = {
         xp_value: next.xp,
         repeat_rule: taskRepeatToDb(next.repeat),
         status: taskStatusToDb(next.status),
+        room_id: next.roomId ?? null,
+        weight: next.weight ?? null,
+        difficulty: next.difficulty ?? null,
+        proof_required: next.proofRequired ?? false,
+        proof_uri: next.proofUri ?? null,
+        proof_status: next.proofStatus ?? null,
       })
       .eq('id', next.id)
       .select('*')

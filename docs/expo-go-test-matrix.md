@@ -29,11 +29,13 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 12b | Barcode online | Airplane mode off · scan unknown UPC → Open Food Facts result card (quality/allergens/ingredients) · Add to cart | ☐ |
 | 12c | Grocery uncheck | Groceries → check item Purchased → uncheck → status returns to Missing | ☐ |
 | 13 | Preferred store | Adult sets preferred store · Start store itinerary | ☐ |
-| 29a | Accent themes | Settings → pick accent theme · tab active + OrbitButton + grocery CTAs tint | ☐ |
-| 29b | Member avatars | Settings → Members → emoji picker · avatar persists on Health / Create Task | ☐ |
-| 29c | Rooms | Settings → Rooms add/remove · Create Task presets show room · Health cleaning strip | ☐ |
-| 29d | Grocery Missing Item | Groceries → + → expanded categories + qty + storage location + note | ☐ |
-| 29e | Household Health | Home → Household Health · Completion/Grocery Load/Plan Load · member load · cleaning by room | ☐ |
+| 29a | Accent themes | Settings → pick accent theme · tab active + OrbitButton + header chips + grocery CTAs tint · persists after reload | ☐ |
+| 29b | Member avatars | Settings → Members → emoji picker · avatar persists on Health / Ranks / Home / Create Task | ☐ |
+| 29c | Rooms | Settings → Rooms add/remove · persists after reload · Create Task presets show room · Health cleaning strip | ☐ |
+| 29d | Grocery Missing Item | Groceries → + → expanded categories + qty + storage location + note · Save | ☐ |
+| 29e | Household Health | Home → Household Health sheet · Completion/Grocery Load/Plan Load · member load · cleaning by room | ☐ |
+| 29f | Soft budget | Groceries progress · est. total includes checked items · leftover/over vs soft budget | ☐ |
+| 29g | Unknown barcode | Scan unknown UPC · unknown result card · Add to cart still works | ☐ |
 | 14 | Share invite | Create household → Invite · Share primary · Copy · QR tertiary | ☐ |
 | 15 | Task presets | Create Task → pick preset · weight XP · optional proof · recurring spawn | ☐ |
 | 16 | Late XP | Complete overdue task · celebration shows penalty · Nova ai notification | ☐ |

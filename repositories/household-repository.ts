@@ -330,6 +330,9 @@ export const householdRepository = {
     const updatedMember = { ...member, avatar };
 
     if (isMockMode()) {
+      mockHousehold.members = mockHousehold.members.map((item) =>
+        item.id === member.id ? updatedMember : item,
+      );
       return updatedMember;
     }
 
