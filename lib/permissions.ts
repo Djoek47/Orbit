@@ -34,9 +34,9 @@ const permissionsByRole: Record<HouseholdRole, HouseholdPermissions> = {
     canCreateTask: true,
     canAssignTask: true,
     canApproveReward: true,
-    canInviteMembers: true,
+    canInviteMembers: false,
     canManageGroceries: true,
-    canViewAnalytics: true,
+    canViewAnalytics: false,
   },
   child: {
     canManageHousehold: false,
@@ -48,6 +48,16 @@ const permissionsByRole: Record<HouseholdRole, HouseholdPermissions> = {
     canViewAnalytics: false,
   },
   guest: {
+    canManageHousehold: false,
+    canCreateTask: false,
+    canAssignTask: false,
+    canApproveReward: false,
+    canInviteMembers: false,
+    canManageGroceries: false,
+    canViewAnalytics: false,
+  },
+  /** Shared phone/tablet — confirm tasks for linked people; no admin powers. */
+  'shared-device': {
     canManageHousehold: false,
     canCreateTask: false,
     canAssignTask: false,
