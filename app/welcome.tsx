@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
+import { BrandOpening } from '@/components/orbit/brand-opening';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
@@ -76,6 +77,7 @@ export default function WelcomeOnboardingScreen() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [resumed, setResumed] = useState(false);
+  const [splashReady, setSplashReady] = useState(false);
 
   const roomCatalog = useMemo(
     () => [...DEFAULT_HOUSEHOLD_ROOMS, ...customRooms],
@@ -300,28 +302,16 @@ export default function WelcomeOnboardingScreen() {
     <View style={[styles.root, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}>
       {step === 'splash' ? (
         <View style={styles.splashScreen}>
-          <View style={styles.splashTop}>
-            <ChoremaxxLogo size="xl" style={styles.splashLogo} />
-            <View style={styles.splashCopy}>
-              <Text style={styles.splashLead}>Run your household</Text>
-              <Text style={styles.splashSub}>together — calm, clear, shared.</Text>
-            </View>
+          <View style={styles.splashCenter}>
+            <BrandOpening
+              tagline="Run the household"
+              onReady={() => setSplashReady(true)}
+            />
           </View>
 
-          <View style={styles.bullets}>
-            {[
-              { text: 'Zero clutter. Maximum harmony.', color: orbitColors.primary },
-              { text: 'Tasks, groceries, and plans in sync.', color: orbitColors.accent },
-              { text: 'Family-first. Always.', color: orbitColors.rewardsGold },
-            ].map((item) => (
-              <View key={item.text} style={styles.bulletRow}>
-                <View style={[styles.bulletDot, { backgroundColor: item.color }]} />
-                <Text style={styles.bulletText}>{item.text}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.splashBottom}>
+          <View
+            style={[styles.splashBottom, !splashReady && styles.splashBottomHidden]}
+            pointerEvents={splashReady ? 'auto' : 'none'}>
             <View style={styles.splashCtaBlock}>
               <OrbitButton onPress={() => setStep('role')}>Get Started</OrbitButton>
               <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
@@ -723,21 +713,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
     paddingHorizontal: orbitSpacing.lg,
-    paddingTop: 28,
+    paddingTop: 12,
     paddingBottom: 8,
     width: '100%',
   },
-  splashTop: {
+  splashCenter: {
     alignItems: 'center',
-    gap: 22,
-    paddingTop: 12,
+    flex: 1,
+    justifyContent: 'center',
     width: '100%',
   },
   splashBottom: {
     alignItems: 'stretch',
-    gap: 20,
+    gap: 16,
+    opacity: 1,
     paddingBottom: 4,
     width: '100%',
+  },
+  splashBottomHidden: {
+    opacity: 0,
   },
   splashHero: {
     alignItems: 'center',
