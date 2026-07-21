@@ -13,7 +13,10 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | # | Flow | Steps | Pass |
 |---|------|-------|------|
 | 1 | Auth | Sign up → create profile → sign out → sign in | ☐ |
-| 1b | Auth Make UI | Welcome opening animation (logo glow/spring) · centered “Run the household” · Get Started / Sign in · profile avatar pick · create/join household · pending approval | ☐ |
+| 1b | Auth Make UI | Welcome opening animation · centered “Run the household” · Get Started / Sign in · **sign-in success brand beat** · profile · create/join household · pending approval | ☐ |
+| 6i | Rewards shop + tally | Ranks shop grouped by category · Mint admin-only · anyone Request special · origin visible to admin · Redeem tally subpage ledger | ☐ |
+| 6j | 80 task presets + reassign | Create Task shows 80 presets · Tasks main has no Split open / Two admins · overdue task detail can Reassign (XP to new person) | ☐ |
+| 6k | Badge gallery + Home fire streak | Badge gallery Material icons + polished tiles · Home Today’s Tasks fire-edge progress · per-person chips · daily streak on full completion | ☐ |
 | 2 | Create household | New household → Manage Members → Add new member shows invite code | ☐ |
 | 3 | QR invite | Device A: Manage Members → Add new member QR · Device B scans → code fills join | ☐ |
 | 4 | Pending join | Device B joins → lands on Pending Approval · limited Home | ☐ |
