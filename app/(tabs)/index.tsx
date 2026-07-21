@@ -13,8 +13,10 @@ import { HEADER_CHIPS_GUTTER, orbitRadius, orbitScreen } from '@/constants/orbit
 import { MEMBER_ACCENTS, isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
+  isSharedDeviceAccount,
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
+import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { useOrbit } from '@/store/orbit-store';
 
 const WEEK_XP_COLORS = ['#38BDF8', '#34D399', '#A78BFA', '#FB923C', '#F472B6'];
@@ -27,9 +29,20 @@ export default function HomeScreen() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const displayName = currentMember?.name ?? household.greetingName;
   const typeStyle = accentTheme.typeStyle;
-  const tasks = household.tasks.filter((t) => t.status !== 'Cancelled').slice(0, 4);
-  const doneTasks = household.tasks.filter((t) => t.status === 'Completed').length;
-  const totalTasks = Math.max(1, household.tasks.filter((t) => t.status !== 'Cancelled').length);
+  const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
+  const sharedKidMode = isSharedDeviceAccount(currentMember, household.members);
+
+  const myOpenTasks = useMemo(() => {
+    const active = household.tasks.filter((t) => t.status !== 'Cancelled');
+    if (sharedKidMode && currentMember) {
+      return active.filter((t) => taskMatchesAssignee(t, currentMember.name));
+    }
+    return active;
+  }, [currentMember, household.tasks, sharedKidMode]);
+
+  const tasks = myOpenTasks.slice(0, sharedKidMode ? 6 : 4);
+  const doneTasks = myOpenTasks.filter((t) => t.status === 'Completed').length;
+  const totalTasks = Math.max(1, myOpenTasks.length);
   const pct = Math.round((doneTasks / totalTasks) * 100);
   const groceryEmoji: Record<string, string> = {
     Milk: '🥛',
@@ -66,7 +79,9 @@ export default function HomeScreen() {
     ? memberDisplayEmoji(currentMember)
     : household.greetingName.slice(0, 1);
   const headerIsPhoto = isAvatarImageUri(currentMember?.avatar);
-  const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
+  const personalWeekXp = currentMember?.weekXp ?? 0;
+  const personalTotalXp = currentMember?.xp ?? 0;
+  const personalStreak = currentMember?.streak ?? 0;
 
   return (
     <>
@@ -169,51 +184,79 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.weekHead}>
-            <Text style={styles.weekTitle}>Week XP</Text>
-            <Text style={styles.eyebrow}>Each household member</Text>
-          </View>
+          {sharedKidMode ? (
+            <View style={styles.personalXpRow}>
+              <View style={[styles.personalXpChip, { borderColor: `${accentTheme.primary}55` }]}>
+                <Text style={styles.personalXpLabel}>This week</Text>
+                <Text style={[styles.personalXpValue, { color: accentTheme.primary }]}>
+                  {personalWeekXp} XP
+                </Text>
+              </View>
+              <View style={[styles.personalXpChip, { borderColor: `${accentTheme.primary}55` }]}>
+                <Text style={styles.personalXpLabel}>Total</Text>
+                <Text style={[styles.personalXpValue, { color: accentTheme.primary }]}>
+                  {personalTotalXp} XP
+                </Text>
+              </View>
+              <View style={[styles.personalXpChip, { borderColor: `${accentTheme.primary}55` }]}>
+                <Text style={styles.personalXpLabel}>Streak</Text>
+                <Text style={[styles.personalXpValue, { color: accentTheme.primary }]}>
+                  {personalStreak}d
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <>
+              <View style={styles.weekHead}>
+                <Text style={styles.weekTitle}>Week XP</Text>
+                <Text style={styles.eyebrow}>Each household member</Text>
+              </View>
 
-          <View style={styles.weekList}>
-            {weekLeaders.map((member, index) => {
-              const xp = member.weekXp ?? 0;
-              const color =
-                MEMBER_ACCENTS[member.name]?.color ?? WEEK_XP_COLORS[index % WEEK_XP_COLORS.length];
-              const widthPct = Math.max(8, Math.round((xp / maxWeekXp) * 100));
-              const photo = isAvatarImageUri(member.avatar);
-              return (
-                <View key={member.id} style={styles.weekRow}>
-                  <View style={[styles.weekAvatar, { backgroundColor: `${color}33` }]}>
-                    {photo ? (
-                      <Image source={{ uri: member.avatar }} style={styles.weekAvatarImage} />
-                    ) : (
-                      <Text style={styles.weekAvatarEmoji}>{memberDisplayEmoji(member)}</Text>
-                    )}
-                  </View>
-                  <View style={styles.weekMeta}>
-                    <View style={styles.weekNameRow}>
-                      <Text style={styles.weekName} numberOfLines={1}>
-                        {member.name}
-                      </Text>
-                      <Text style={[styles.weekXp, { color }]}>{xp} XP</Text>
+              <View style={styles.weekList}>
+                {weekLeaders.map((member, index) => {
+                  const xp = member.weekXp ?? 0;
+                  const color =
+                    MEMBER_ACCENTS[member.name]?.color ?? WEEK_XP_COLORS[index % WEEK_XP_COLORS.length];
+                  const widthPct = Math.max(8, Math.round((xp / maxWeekXp) * 100));
+                  const photo = isAvatarImageUri(member.avatar);
+                  return (
+                    <View key={member.id} style={styles.weekRow}>
+                      <View style={[styles.weekAvatar, { backgroundColor: `${color}33` }]}>
+                        {photo ? (
+                          <Image source={{ uri: member.avatar }} style={styles.weekAvatarImage} />
+                        ) : (
+                          <Text style={styles.weekAvatarEmoji}>{memberDisplayEmoji(member)}</Text>
+                        )}
+                      </View>
+                      <View style={styles.weekMeta}>
+                        <View style={styles.weekNameRow}>
+                          <Text style={styles.weekName} numberOfLines={1}>
+                            {member.name}
+                          </Text>
+                          <Text style={[styles.weekXp, { color }]}>{xp} XP</Text>
+                        </View>
+                        <View style={styles.weekTrack}>
+                          <View style={[styles.weekFill, { width: `${widthPct}%`, backgroundColor: color }]} />
+                        </View>
+                      </View>
                     </View>
-                    <View style={styles.weekTrack}>
-                      <View style={[styles.weekFill, { width: `${widthPct}%`, backgroundColor: color }]} />
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+                  );
+                })}
+              </View>
+            </>
+          )}
         </LinearGradient>
       </View>
 
       <GlassCard style={styles.fullBleed}>
         <View style={styles.sectionHead}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.sectionTitle}>Today&apos;s Tasks</Text>
+            <Text style={styles.sectionTitle}>
+              {sharedKidMode ? 'My tasks' : "Today's Tasks"}
+            </Text>
             <Text style={styles.eyebrow}>
-              {doneTasks} of {household.tasks.length} complete
+              {doneTasks} of {myOpenTasks.length} complete
+              {sharedKidMode ? ` · only yours` : ''}
             </Text>
           </View>
           <View style={styles.pctPill}>
@@ -222,122 +265,139 @@ export default function HomeScreen() {
         </View>
         <View style={styles.progressTrack}>
           <LinearGradient
-            colors={['#38BDF8', '#34D399']}
+            colors={[accentTheme.primary, accentTheme.secondary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={[styles.progressFill, { width: `${pct}%` }]}
           />
         </View>
-        {tasks.map((task) => {
-          const done = task.status === 'Completed';
-          return (
-            <Pressable
-              key={task.id}
-              style={styles.taskRow}
-              onPress={() => router.push(`/task/${task.id}` as never)}>
-              <View style={[styles.check, done && styles.checkDone]}>
-                {done ? <MaterialIcons name="check" size={12} color="#070D1C" /> : null}
-              </View>
-              <Text style={[styles.taskText, done && styles.taskDone]} numberOfLines={1}>
-                {task.title}
-              </Text>
-              <Text style={styles.assignee}>{task.assignee[0]}</Text>
-            </Pressable>
-          );
-        })}
+        {tasks.length === 0 ? (
+          <Text style={styles.eyebrow}>You’re all caught up. Nice work!</Text>
+        ) : (
+          tasks.map((task) => {
+            const done = task.status === 'Completed';
+            return (
+              <Pressable
+                key={task.id}
+                style={styles.taskRow}
+                onPress={() => router.push(`/task/${task.id}` as never)}>
+                <View style={[styles.check, done && styles.checkDone]}>
+                  {done ? <MaterialIcons name="check" size={12} color="#070D1C" /> : null}
+                </View>
+                <Text style={[styles.taskText, done && styles.taskDone]} numberOfLines={1}>
+                  {task.title}
+                </Text>
+                {!sharedKidMode ? <Text style={styles.assignee}>{task.assignee[0]}</Text> : null}
+              </Pressable>
+            );
+          })
+        )}
+        {sharedKidMode ? (
+          <Pressable
+            onPress={() => router.push('/(tabs)/tasks' as never)}
+            style={{ marginTop: 4 }}>
+            <Text style={[styles.linkBlue, { color: accentTheme.primary }]}>See all my tasks →</Text>
+          </Pressable>
+        ) : null}
       </GlassCard>
 
-      <View style={styles.grid}>
-        <Pressable style={styles.halfCard} onPress={() => router.push('/(tabs)/groceries' as never)}>
-          <View style={styles.halfHead}>
-            <View style={[styles.iconBox, { backgroundColor: 'rgba(56,189,248,0.15)' }]}>
-              <MaterialIcons name="shopping-cart" size={14} color="#38BDF8" />
-            </View>
-            <Text style={styles.halfTitle}>Groceries</Text>
-          </View>
-          {groceryAlerts.length === 0 ? (
-            <Text style={styles.eyebrow}>Stocked</Text>
-          ) : (
-            groceryAlerts.map((g) => (
-              <View key={g.id} style={styles.groceryRow}>
-                <Text style={{ fontSize: 16 }}>{groceryEmoji[g.name] ?? '🛒'}</Text>
-                <Text style={styles.groceryName}>{g.name}</Text>
-                {g.status === 'Missing' ? <View style={styles.critDot} /> : null}
-              </View>
-            ))
-          )}
-          <Text style={styles.linkBlue}>{household.groceries.length} items</Text>
-        </Pressable>
-
-        <Pressable style={styles.halfCard} onPress={() => router.push('/(tabs)/plan' as never)}>
-          <View style={styles.halfHead}>
-            <View style={[styles.iconBox, { backgroundColor: 'rgba(167,139,250,0.15)' }]}>
-              <MaterialIcons name="calendar-today" size={14} color="#A78BFA" />
-            </View>
-            <Text style={styles.halfTitle}>Upcoming</Text>
-          </View>
-          {events.map((ev, i) => (
-            <View key={ev.id} style={styles.eventRow}>
-              <View
-                style={[
-                  styles.eventBar,
-                  { backgroundColor: i === 0 ? '#38BDF8' : i === 1 ? '#34D399' : '#A78BFA' },
-                ]}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.eventTitle} numberOfLines={1}>
-                  {ev.title}
-                </Text>
-                <Text style={styles.eyebrow}>{ev.time}</Text>
-              </View>
-            </View>
-          ))}
-        </Pressable>
-      </View>
-
-      <Pressable onPress={() => router.push('/household-balance' as never)} style={styles.fullBleed}>
-        <GlassCard>
-          <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>Household Health</Text>
-            <MaterialIcons name="chevron-right" size={14} color="#4B6080" />
-          </View>
-          <View style={styles.healthRow}>
-            {[
-              {
-                label: 'Completion',
-                val: metrics.taskCompletionRate,
-                color: '#34D399',
-                icon: 'check-circle' as const,
-              },
-              {
-                label: 'Grocery',
-                val: metrics.groceryReadiness,
-                color: '#38BDF8',
-                icon: 'shopping-cart' as const,
-              },
-              {
-                label: 'Plan',
-                val: metrics.calendarCoverage,
-                color: '#A78BFA',
-                icon: 'event' as const,
-              },
-            ].map((item) => (
-              <View key={item.label} style={styles.healthCol}>
-                <View style={styles.healthLabelRow}>
-                  <MaterialIcons name={item.icon} size={12} color={item.color} />
-                  <Text style={styles.healthLabel} numberOfLines={1}>
-                    {item.label}
-                  </Text>
+      {!sharedKidMode ? (
+        <>
+          <View style={styles.grid}>
+            <Pressable style={styles.halfCard} onPress={() => router.push('/(tabs)/groceries' as never)}>
+              <View style={styles.halfHead}>
+                <View style={[styles.iconBox, { backgroundColor: 'rgba(56,189,248,0.15)' }]}>
+                  <MaterialIcons name="shopping-cart" size={14} color="#38BDF8" />
                 </View>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: `${item.val}%`, backgroundColor: item.color }]} />
-                </View>
-                <Text style={[styles.healthVal, { color: item.color }]}>{item.val}%</Text>
+                <Text style={styles.halfTitle}>Groceries</Text>
               </View>
-            ))}
+              {groceryAlerts.length === 0 ? (
+                <Text style={styles.eyebrow}>Stocked</Text>
+              ) : (
+                groceryAlerts.map((g) => (
+                  <View key={g.id} style={styles.groceryRow}>
+                    <Text style={{ fontSize: 16 }}>{groceryEmoji[g.name] ?? '🛒'}</Text>
+                    <Text style={styles.groceryName}>{g.name}</Text>
+                    {g.status === 'Missing' ? <View style={styles.critDot} /> : null}
+                  </View>
+                ))
+              )}
+              <Text style={styles.linkBlue}>{household.groceries.length} items</Text>
+            </Pressable>
+
+            <Pressable style={styles.halfCard} onPress={() => router.push('/(tabs)/plan' as never)}>
+              <View style={styles.halfHead}>
+                <View style={[styles.iconBox, { backgroundColor: 'rgba(167,139,250,0.15)' }]}>
+                  <MaterialIcons name="calendar-today" size={14} color="#A78BFA" />
+                </View>
+                <Text style={styles.halfTitle}>Upcoming</Text>
+              </View>
+              {events.map((ev, i) => (
+                <View key={ev.id} style={styles.eventRow}>
+                  <View
+                    style={[
+                      styles.eventBar,
+                      { backgroundColor: i === 0 ? '#38BDF8' : i === 1 ? '#34D399' : '#A78BFA' },
+                    ]}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.eventTitle} numberOfLines={1}>
+                      {ev.title}
+                    </Text>
+                    <Text style={styles.eyebrow}>{ev.time}</Text>
+                  </View>
+                </View>
+              ))}
+            </Pressable>
           </View>
-        </GlassCard>
-      </Pressable>
+
+          <Pressable onPress={() => router.push('/household-balance' as never)} style={styles.fullBleed}>
+            <GlassCard>
+              <View style={styles.sectionHead}>
+                <Text style={styles.sectionTitle}>Household Health</Text>
+                <MaterialIcons name="chevron-right" size={14} color="#4B6080" />
+              </View>
+              <View style={styles.healthRow}>
+                {[
+                  {
+                    label: 'Completion',
+                    val: metrics.taskCompletionRate,
+                    color: '#34D399',
+                    icon: 'check-circle' as const,
+                  },
+                  {
+                    label: 'Grocery',
+                    val: metrics.groceryReadiness,
+                    color: '#38BDF8',
+                    icon: 'shopping-cart' as const,
+                  },
+                  {
+                    label: 'Plan',
+                    val: metrics.calendarCoverage,
+                    color: '#A78BFA',
+                    icon: 'event' as const,
+                  },
+                ].map((item) => (
+                  <View key={item.label} style={styles.healthCol}>
+                    <View style={styles.healthLabelRow}>
+                      <MaterialIcons name={item.icon} size={12} color={item.color} />
+                      <Text style={styles.healthLabel} numberOfLines={1}>
+                        {item.label}
+                      </Text>
+                    </View>
+                    <View style={styles.progressTrack}>
+                      <View
+                        style={[styles.progressFill, { width: `${item.val}%`, backgroundColor: item.color }]}
+                      />
+                    </View>
+                    <Text style={[styles.healthVal, { color: item.color }]}>{item.val}%</Text>
+                  </View>
+                ))}
+              </View>
+            </GlassCard>
+          </Pressable>
+        </>
+      ) : null}
     </ScrollView>
 
     <PersonaSwitchPopup
@@ -370,22 +430,30 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     width: '100%',
   },
-  deviceSwitchRow: {
-    gap: 8,
-    marginTop: 6,
-    width: '100%',
-  },
-  deviceSwitchLabel: {
-    color: '#6B82A3',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  deviceSwitchChips: {
+  personalXpRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginTop: 4,
+  },
+  personalXpChip: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    gap: 2,
+    minWidth: 88,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  personalXpLabel: {
+    color: '#6B82A3',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  personalXpValue: {
+    fontSize: 18,
+    fontWeight: '800',
   },
   deviceSwitchChip: {
     alignItems: 'center',

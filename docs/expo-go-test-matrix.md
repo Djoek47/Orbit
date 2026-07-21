@@ -23,6 +23,7 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 6c | Tasks by person (admin) | As Sarah/David · Tasks All → My tasks + David/Liam/Emma sections with N of M complete | ☐ |
 | 6d | Shared tablet accounts | Settings → Members → Shared tablet shows Josh & Todd underneath · switch Josh/Todd (own XP) · Create task → Shared tablet → pick Josh → “Clean dishes - Josh” · Home “Shared tablet · Name ▾” / avatar opens persona popup | ☐ |
 | 6f | Persona switch + personal themes | Home avatar or Shared tablet chip → popup → switch Josh↔Todd · accent color + greeting type weight change · Settings Your look sets personal theme · admin Household default separate · persists after reload | ☐ |
+| 6g | Shared tablet kid Home/Tasks | As Josh: Home hides week leaderboard / groceries / health · only My tasks · personal XP chips · Tasks shows only Josh’s chores (not Todd/Sarah) · switch chip on Tasks opens popup → Todd sees only Todd’s tasks | ☐ |
 | 6e | Split multi-assign | Create task → select Emma + Liam → Clean dishes · each attaches proof/completes for own XP · all-done bonus · admin Penalize on pending share | ☐ |
 | 7 | Task delete | Open task → Delete → removed from Tasks list | ☐ |
 | 8 | Groceries | Add missing → mark purchased · mark available item Low | ☐ |

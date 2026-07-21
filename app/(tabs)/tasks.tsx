@@ -6,6 +6,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
+import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import {
   orbitColors,
   orbitRadius,
@@ -16,9 +17,9 @@ import {
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { getAdminMembers, resolveSplitPair } from '@/lib/household/admins';
 import {
-  isSharedDeviceMember,
+  findSharedDeviceForMember,
+  isSharedDeviceAccount,
   isSharedDeviceRole,
-  sharedDeviceAssigneeNames,
 } from '@/lib/household/shared-device';
 import { isSplitTask, taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { useOrbit } from '@/store/orbit-store';
@@ -310,15 +311,25 @@ function TaskSection({
 }
 
 export default function TasksScreen() {
-  const { accentTheme, completeTask, currentMember, household, permissions, splitAllTasksBetweenTwo } =
-    useOrbit();
+  const {
+    accentTheme,
+    completeTask,
+    currentMember,
+    household,
+    permissions,
+    splitAllTasksBetweenTwo,
+    switchPersona,
+  } = useOrbit();
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [roomFilter, setRoomFilter] = useState<string | null>(null);
   const [showRoomFilter, setShowRoomFilter] = useState(false);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
   const [splitting, setSplitting] = useState(false);
+  const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
 
   const rooms = household.rooms ?? [];
+  const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
+  const sharedKidMode = isSharedDeviceAccount(currentMember, household.members);
   const childNames = useMemo(
     () => new Set(household.members.filter((member) => member.role === 'child').map((member) => member.name)),
     [household.members]
@@ -329,22 +340,16 @@ export default function TasksScreen() {
     [household.members]
   );
 
-  const sharedMineNames = useMemo(
-    () => sharedDeviceAssigneeNames(currentMember, household.members),
-    [currentMember, household.members]
-  );
-
   const filtered = useMemo(() => {
     return household.tasks.filter((task) => {
-      if (filter === 'mine') {
-        if (isSharedDeviceMember(currentMember)) {
-          const onShared =
-            [...sharedMineNames].some((name) => taskMatchesAssignee(task, name)) ||
-            task.sharedDeviceId === currentMember?.id;
-          if (!onShared) return false;
-        } else if (!taskMatchesAssignee(task, currentMember?.name)) {
-          return false;
-        }
+      // Shared-tablet accounts only ever see their own tasks (switch account to see the other person).
+      if (sharedKidMode) {
+        if (!taskMatchesAssignee(task, currentMember?.name)) return false;
+        if (roomFilter && task.roomId !== roomFilter) return false;
+        return true;
+      }
+      if (filter === 'mine' && !taskMatchesAssignee(task, currentMember?.name)) {
+        return false;
       }
       if (filter === 'split') {
         if (!splitPair) return false;
@@ -361,11 +366,11 @@ export default function TasksScreen() {
     });
   }, [
     childNames,
-    currentMember,
+    currentMember?.name,
     filter,
     household.tasks,
     roomFilter,
-    sharedMineNames,
+    sharedKidMode,
     splitPair,
   ]);
 
@@ -397,7 +402,7 @@ export default function TasksScreen() {
   }, [filter, filtered, splitPair]);
 
   /** Admins see All broken down by person (completion visible per member). */
-  const showByMember = permissions.canManageHousehold && filter === 'all';
+  const showByMember = !sharedKidMode && permissions.canManageHousehold && filter === 'all';
 
   const memberSections = useMemo(() => {
     if (!showByMember) return null;
@@ -443,7 +448,10 @@ export default function TasksScreen() {
     ? (memberSections?.every((section) => section.total === 0) ?? true)
     : grouped.today.length + grouped.upcoming.length + grouped.done.length === 0;
   const canSplit =
-    permissions.canAssignTask && Boolean(splitPair) && (permissions.canManageHousehold || adminNames.has(currentMember?.name ?? ''));
+    !sharedKidMode &&
+    permissions.canAssignTask &&
+    Boolean(splitPair) &&
+    (permissions.canManageHousehold || adminNames.has(currentMember?.name ?? ''));
 
   const handleToggle = async (taskId: string) => {
     const task = household.tasks.find((item) => item.id === taskId);
@@ -496,6 +504,7 @@ export default function TasksScreen() {
   };
 
   return (
+    <>
     <ScrollView
       style={orbitScreen.container}
       contentContainerStyle={orbitScreen.content}
@@ -504,12 +513,31 @@ export default function TasksScreen() {
       <View style={styles.headerRow}>
         <View style={orbitScreen.header}>
           <ChoremaxxBadge />
-          <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Tasks & Homework</Text>
-          <Text style={orbitTypography.display}>
-            {showByMember ? 'Household tasks' : "Today's Work"}
+          <Text style={[orbitTypography.caption, { marginTop: 8 }]}>
+            {sharedKidMode ? 'Your chores' : 'Tasks & Homework'}
           </Text>
+          <Text style={orbitTypography.display}>
+            {sharedKidMode ? 'My tasks' : showByMember ? 'Household tasks' : "Today's Work"}
+          </Text>
+          {sharedDevice ? (
+            <Pressable
+              onPress={() => setPersonaSwitchOpen(true)}
+              style={[
+                styles.deviceSwitchChip,
+                {
+                  backgroundColor: `${accentTheme.primary}22`,
+                  borderColor: `${accentTheme.primary}66`,
+                },
+              ]}>
+              <Text style={{ fontSize: 14 }}>{sharedDevice.avatar || '📱'}</Text>
+              <Text style={[styles.deviceSwitchText, { color: accentTheme.primary }]}>
+                {sharedDevice.name} · {currentMember?.name}
+              </Text>
+              <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
+            </Pressable>
+          ) : null}
         </View>
-        {permissions.canCreateTask ? (
+        {!sharedKidMode && permissions.canCreateTask ? (
           <Pressable onPress={() => router.push('/create-task' as never)} style={styles.addButtonWrap}>
             <LinearGradient
               colors={[accentTheme.primary, accentTheme.secondary]}
@@ -550,44 +578,50 @@ export default function TasksScreen() {
         </Pressable>
       ) : null}
 
-      <View style={styles.filterRow}>
-        {FILTER_TABS.map((tab) => {
-          const active = filter === tab.id;
-          return (
-            <Pressable
-              key={tab.id}
-              onPress={() => setFilter(tab.id)}
-              style={[
-                styles.filterChip,
-                active && {
-                  backgroundColor: `${accentTheme.primary}2E`,
-                  borderColor: `${accentTheme.primary}4D`,
-                },
-              ]}>
-              <Text style={[styles.filterChipText, active && { color: accentTheme.primary, fontWeight: '600' }]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-        <Pressable
-          style={[
-            styles.filterIconButton,
-            (showRoomFilter || roomFilter) && {
-              backgroundColor: `${accentTheme.primary}2E`,
-              borderColor: `${accentTheme.primary}4D`,
-            },
-          ]}
-          onPress={() => setShowRoomFilter((value) => !value)}>
-          <MaterialIcons
-            name="filter-list"
-            size={14}
-            color={showRoomFilter || roomFilter ? accentTheme.primary : orbitColors.textSubtle}
-          />
-        </Pressable>
-      </View>
+      {!sharedKidMode ? (
+        <View style={styles.filterRow}>
+          {FILTER_TABS.map((tab) => {
+            const active = filter === tab.id;
+            return (
+              <Pressable
+                key={tab.id}
+                onPress={() => setFilter(tab.id)}
+                style={[
+                  styles.filterChip,
+                  active && {
+                    backgroundColor: `${accentTheme.primary}2E`,
+                    borderColor: `${accentTheme.primary}4D`,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    active && { color: accentTheme.primary, fontWeight: '600' },
+                  ]}>
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+          <Pressable
+            style={[
+              styles.filterIconButton,
+              (showRoomFilter || roomFilter) && {
+                backgroundColor: `${accentTheme.primary}2E`,
+                borderColor: `${accentTheme.primary}4D`,
+              },
+            ]}
+            onPress={() => setShowRoomFilter((value) => !value)}>
+            <MaterialIcons
+              name="filter-list"
+              size={14}
+              color={showRoomFilter || roomFilter ? accentTheme.primary : orbitColors.textSubtle}
+            />
+          </Pressable>
+        </View>
+      ) : null}
 
-      {showRoomFilter ? (
+      {!sharedKidMode && showRoomFilter ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomFilterRow}>
           <Pressable
             onPress={() => setRoomFilter(null)}
@@ -624,13 +658,21 @@ export default function TasksScreen() {
 
       {empty ? (
         <GlassCard>
-          <Text style={styles.emptyTitle}>Nothing in this view</Text>
-          <Text style={styles.emptyBody}>
-            {permissions.canCreateTask
-              ? "Create a preset or custom task to fill Today's Work."
-              : 'Ask an adult to assign you something, or switch filters.'}
+          <Text style={styles.emptyTitle}>
+            {sharedKidMode ? 'No tasks for you right now' : 'Nothing in this view'}
           </Text>
-          {permissions.canCreateTask ? (
+          <Text style={styles.emptyBody}>
+            {sharedKidMode
+              ? 'Ask an adult to assign you something — or switch account if it’s someone else’s turn.'
+              : permissions.canCreateTask
+                ? "Create a preset or custom task to fill Today's Work."
+                : 'Ask an adult to assign you something, or switch filters.'}
+          </Text>
+          {sharedKidMode ? (
+            <Pressable onPress={() => setPersonaSwitchOpen(true)} style={styles.emptyCta}>
+              <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Switch account</Text>
+            </Pressable>
+          ) : permissions.canCreateTask ? (
             <Pressable onPress={() => router.push('/create-task' as never)} style={styles.emptyCta}>
               <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Create task</Text>
             </Pressable>
@@ -730,6 +772,15 @@ export default function TasksScreen() {
         </>
       )}
     </ScrollView>
+
+    <PersonaSwitchPopup
+      visible={personaSwitchOpen}
+      onClose={() => setPersonaSwitchOpen(false)}
+      members={household.members}
+      currentMemberId={currentMember?.id ?? ''}
+      onSwitch={switchPersona}
+    />
+    </>
   );
 }
 
@@ -746,6 +797,21 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
+  },
+  deviceSwitchChip: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  deviceSwitchText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   assigneeDot: {
     alignItems: 'center',

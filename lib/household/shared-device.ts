@@ -52,6 +52,17 @@ export function findSharedDeviceForMember(
 }
 
 /**
+ * Nested switchable account on a shared tablet (e.g. Josh / Todd).
+ * These profiles get a simplified kid-friendly Home/Tasks surface.
+ */
+export function isSharedDeviceAccount(
+  member: HouseholdMember | undefined | null,
+  members: HouseholdMember[]
+): boolean {
+  return Boolean(member && findSharedDeviceForMember(member.id, members));
+}
+
+/**
  * Top-level assign targets: shared devices + people not nested under a device.
  * Nested accounts (Josh/Todd) are chosen after picking the Shared tablet.
  */
