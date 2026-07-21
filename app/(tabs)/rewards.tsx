@@ -8,8 +8,12 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import {
+  findSharedDeviceForMember,
+  isSharedDeviceRole,
+} from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
-import type { MemberProgress } from '@/types/orbit';
+import type { HouseholdMember, MemberProgress } from '@/types/orbit';
 
 type RankingView = 'week' | 'alltime';
 
@@ -17,6 +21,17 @@ const PODIUM_ORDER: [number, number, number] = [1, 0, 2];
 const PODIUM_HEIGHTS = [100, 130, 85];
 const CROWN_COLORS = ['#FBBF24', '#94A3B8', '#FB923C'];
 const RANK_EMOJI = ['👑', '🥈', '🥉'] as const;
+
+function SharedTabletChip({ device, compact }: { device: HouseholdMember; compact?: boolean }) {
+  return (
+    <View style={[styles.deviceChip, compact && styles.deviceChipCompact]}>
+      <Text style={styles.deviceChipEmoji}>{device.avatar || '📱'}</Text>
+      <Text style={[styles.deviceChipText, compact && styles.deviceChipTextCompact]} numberOfLines={1}>
+        {device.name}
+      </Text>
+    </View>
+  );
+}
 
 export default function RewardsScreen() {
   const {
@@ -35,9 +50,24 @@ export default function RewardsScreen() {
 
   const sorted = useMemo(() => {
     return [...membersWithProgress]
-      .filter((member) => member.status === 'active' && member.role !== 'guest')
+      .filter(
+        (member) =>
+          member.status === 'active' &&
+          member.role !== 'guest' &&
+          // Shared tablet shell is not a ranked person — Josh/Todd keep their own scores.
+          !isSharedDeviceRole(member.role)
+      )
       .sort((a, b) => (view === 'week' ? b.weekXp - a.weekXp : b.xp - a.xp));
   }, [membersWithProgress, view]);
+
+  const deviceByMemberId = useMemo(() => {
+    const map = new Map<string, HouseholdMember>();
+    for (const member of sorted) {
+      const device = findSharedDeviceForMember(member.id, household.members);
+      if (device) map.set(member.id, device);
+    }
+    return map;
+  }, [household.members, sorted]);
 
   const top3 = sorted.slice(0, 3);
   const earnedCount = achievements.filter((badge) => badge.earned).length;
@@ -105,6 +135,7 @@ export default function RewardsScreen() {
                 xp={xpVal}
                 height={PODIUM_HEIGHTS[visualIndex]}
                 isFirst={rankIndex === 0}
+                sharedDevice={deviceByMemberId.get(member.id)}
               />
             );
           })}
@@ -132,6 +163,9 @@ export default function RewardsScreen() {
               <View style={styles.rankInfo}>
                 <View style={styles.nameRow}>
                   <Text style={styles.memberName}>{member.name}</Text>
+                  {deviceByMemberId.get(member.id) ? (
+                    <SharedTabletChip device={deviceByMemberId.get(member.id)!} />
+                  ) : null}
                   <View style={[styles.levelPill, { backgroundColor: `${member.levelColor}18` }]}>
                     <Text style={[styles.levelPillText, { color: member.levelColor }]}>
                       {member.levelEmoji} {member.levelName}
@@ -318,12 +352,14 @@ function PodiumCard({
   xp,
   height,
   isFirst,
+  sharedDevice,
 }: {
   member: MemberProgress;
   rank: number;
   xp: number;
   height: number;
   isFirst: boolean;
+  sharedDevice?: HouseholdMember;
 }) {
   return (
     <View style={styles.podiumSlot}>
@@ -342,6 +378,7 @@ function PodiumCard({
         </View>
       </View>
       <Text style={styles.podiumName}>{member.name}</Text>
+      {sharedDevice ? <SharedTabletChip device={sharedDevice} compact /> : null}
       <View
         style={[
           styles.podiumBlock,
@@ -511,6 +548,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+  },
+  deviceChip: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 4,
+    maxWidth: 140,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  deviceChipCompact: {
+    marginBottom: 4,
+    marginTop: 2,
+    maxWidth: 110,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  deviceChipEmoji: {
+    fontSize: 11,
+  },
+  deviceChipText: {
+    color: orbitColors.textMuted,
+    flexShrink: 1,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  deviceChipTextCompact: {
+    fontSize: 9,
   },
   podiumAmbient: {
     ...StyleSheet.absoluteFillObject,
