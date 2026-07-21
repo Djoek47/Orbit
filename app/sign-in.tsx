@@ -25,8 +25,15 @@ export default function SignInScreen() {
     isAppleAuthAvailable().then(setAppleAvailable).catch(() => setAppleAvailable(false));
   }, []);
 
-  const finishToHome = () => {
+  const finishToHome = async () => {
     setShowSuccess(false);
+    const session = await import('@/lib/device/device-session').then((m) => m.loadDeviceSession());
+    if (session.mode === 'shared' && session.profileMemberIds.length > 0) {
+      const { markNeedsProfilePick } = await import('@/lib/device/device-session');
+      await markNeedsProfilePick();
+      router.replace('/select-profile' as never);
+      return;
+    }
     router.replace('/' as never);
   };
 

@@ -597,6 +597,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setPendingRedemptions([]);
     setRedemptions([]);
     setInviteLinks(null);
+    setActiveMemberId(null);
+    void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
+      markNeedsProfilePick()
+    );
   };
 
   const createTask = async (input: CreateTaskInput) => {
@@ -1576,6 +1580,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           }
     );
     setHousehold((current) => ({ ...current, greetingName: target.name }));
+    void import('@/lib/device/device-session').then(({ loadDeviceSession, selectDeviceProfile }) =>
+      loadDeviceSession().then((session) => {
+        if (session.mode === 'shared') {
+          void selectDeviceProfile(target.id);
+        }
+      })
+    );
   };
 
   const approveMember = async (memberId: string) => {
@@ -1771,6 +1782,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const updateSharedDeviceLinks = async (deviceId: string, memberIds: string[]) => {
+    if (!permissions.canManageHousehold) {
+      return;
+    }
     const device = household.members.find((item) => item.id === deviceId);
     if (!device || device.role !== 'shared-device') {
       return;
@@ -1822,11 +1836,30 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const removeMember = async (memberId: string) => {
+    if (!permissions.canManageHousehold) {
+      return;
+    }
+    const target = household.members.find((item) => item.id === memberId);
+    if (!target || target.role === 'owner') {
+      return;
+    }
     await householdRepository.removeMember(memberId);
     setHousehold((current) => ({
       ...current,
-      members: current.members.filter((item) => item.id !== memberId),
+      members: current.members
+        .filter((item) => item.id !== memberId)
+        .map((item) =>
+          item.role === 'shared-device'
+            ? {
+                ...item,
+                sharedWithMemberIds: (item.sharedWithMemberIds ?? []).filter((id) => id !== memberId),
+              }
+            : item
+        ),
     }));
+    if (activeMemberId === memberId) {
+      setActiveMemberId(null);
+    }
     await trackAnalytics('member.removed', { memberId }, analyticsContext);
   };
 

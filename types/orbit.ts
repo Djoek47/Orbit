@@ -38,6 +38,11 @@ export type HouseholdMember = {
    * Tasks assigned via the device must pick one of these people.
    */
   sharedWithMemberIds?: string[];
+  /**
+   * Per-person invite code/QR used to host this profile on a shared/kid device
+   * (Netflix-style multi-profile tablet). Distinct from the household join code.
+   */
+  profileInviteCode?: string;
 };
 
 export type TaskDifficulty = 'easy' | 'medium' | 'hard';

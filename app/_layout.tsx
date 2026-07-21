@@ -44,6 +44,14 @@ export default function RootLayout() {
             options={{ presentation: 'modal', headerShown: false, title: 'Add New Member' }}
           />
           <Stack.Screen name="household-members" options={{ presentation: 'modal', title: 'Members' }} />
+          <Stack.Screen
+            name="select-profile"
+            options={{ headerShown: false, title: 'Who is logging in' }}
+          />
+          <Stack.Screen
+            name="setup-kid-device"
+            options={{ presentation: 'modal', headerShown: false, title: 'Shared device setup' }}
+          />
           <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="notifications" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="momentum" options={{ title: 'Momentum' }} />

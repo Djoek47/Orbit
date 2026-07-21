@@ -1,9 +1,11 @@
 import { Redirect, Tabs } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { GlobalHeaderChips } from '@/components/orbit/global-header-chips';
 import { MakeTabBar } from '@/components/orbit/make-tab-bar';
+import { loadDeviceSession } from '@/lib/device/device-session';
+import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { loadOnboardingPrefs, type OnboardingRole } from '@/lib/onboarding-prefs';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -11,24 +13,42 @@ import { useOrbit } from '@/store/orbit-store';
 function resolveUiRole(
   householdRole: string | undefined,
   onboardingRole: OnboardingRole | null,
+  sharedKid: boolean,
 ): OnboardingRole {
-  if (householdRole === 'child') return 'child';
+  if (sharedKid || householdRole === 'child') return 'child';
   if (onboardingRole) return onboardingRole;
   if (householdRole === 'guest') return 'roommate';
   return 'parent';
 }
 
 export default function TabLayout() {
-  const { currentUser, currentMember, hasHousehold, isLoading, isSignedIn } = useOrbit();
-  const [onboardingRole, setOnboardingRole] = React.useState<OnboardingRole | null>(null);
+  const { currentUser, currentMember, hasHousehold, household, isLoading, isSignedIn } = useOrbit();
+  const [onboardingRole, setOnboardingRole] = useState<OnboardingRole | null>(null);
+  const [needsPick, setNeedsPick] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadOnboardingPrefs().then((prefs) => setOnboardingRole(prefs?.role ?? null));
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    loadDeviceSession().then((session) => {
+      if (!mounted) return;
+      setNeedsPick(
+        session.mode === 'shared' &&
+          session.needsProfilePick &&
+          session.profileMemberIds.length > 0
+      );
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [currentMember?.id, isSignedIn]);
+
+  const sharedKid = isSharedDeviceAccount(currentMember, household.members);
   const uiRole = useMemo(
-    () => resolveUiRole(currentMember?.role, onboardingRole),
-    [currentMember?.role, onboardingRole],
+    () => resolveUiRole(currentMember?.role, onboardingRole, sharedKid),
+    [currentMember?.role, onboardingRole, sharedKid],
   );
 
   if (isLoading) {
@@ -45,6 +65,10 @@ export default function TabLayout() {
 
   if (!hasHousehold) {
     return <Redirect href={'/welcome' as never} />;
+  }
+
+  if (needsPick) {
+    return <Redirect href={'/select-profile' as never} />;
   }
 
   const showPlan = uiRole !== 'child';

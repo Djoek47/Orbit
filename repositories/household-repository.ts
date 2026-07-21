@@ -437,6 +437,16 @@ export const householdRepository = {
 
   async removeMember(memberId: string): Promise<void> {
     if (isMockMode()) {
+      mockHousehold.members = mockHousehold.members
+        .filter((item) => item.id !== memberId)
+        .map((item) =>
+          item.role === 'shared-device'
+            ? {
+                ...item,
+                sharedWithMemberIds: (item.sharedWithMemberIds ?? []).filter((id) => id !== memberId),
+              }
+            : item
+        );
       return;
     }
 

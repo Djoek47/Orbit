@@ -379,6 +379,13 @@ export default function WelcomeOnboardingScreen() {
                   Already have an account? <Text style={styles.signInAccent}>Sign in</Text>
                 </Text>
               </Pressable>
+              <Pressable
+                onPress={() => router.push('/setup-kid-device' as never)}
+                style={styles.signInLink}>
+                <Text style={styles.signInText}>
+                  Shared / kid tablet? <Text style={styles.signInAccent}>Set up profiles</Text>
+                </Text>
+              </Pressable>
             </View>
             <BrandLegalFooter compact showLogo={false} style={styles.splashLegal} />
           </View>

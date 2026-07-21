@@ -325,7 +325,8 @@ export default function TasksScreen() {
 
   const rooms = household.rooms ?? [];
   const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
-  const sharedKidMode = isSharedDeviceAccount(currentMember, household.members);
+  const sharedKidMode =
+    isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
   const childNames = useMemo(
     () => new Set(household.members.filter((member) => member.role === 'child').map((member) => member.name)),
     [household.members]
@@ -458,7 +459,11 @@ export default function TasksScreen() {
           </Text>
           {sharedDevice ? (
             <Pressable
-              onPress={() => setPersonaSwitchOpen(true)}
+              onPress={() => {
+                void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
+                  markNeedsProfilePick().then(() => router.push('/select-profile' as never))
+                );
+              }}
               style={[
                 styles.deviceSwitchChip,
                 {
@@ -466,11 +471,11 @@ export default function TasksScreen() {
                   borderColor: `${accentTheme.primary}66`,
                 },
               ]}>
-              <Text style={{ fontSize: 14 }}>{sharedDevice.avatar || '📱'}</Text>
+              <Text style={{ fontSize: 16 }}>{sharedDevice.avatar || '📱'}</Text>
               <Text style={[styles.deviceSwitchText, { color: accentTheme.primary }]}>
-                {sharedDevice.name} · {currentMember?.name}
+                Who&apos;s on · {currentMember?.name}
               </Text>
-              <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
+              <MaterialIcons name="expand-more" size={18} color={accentTheme.primary} />
             </Pressable>
           ) : null}
         </View>

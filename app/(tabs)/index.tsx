@@ -31,7 +31,8 @@ export default function HomeScreen() {
   const displayName = currentMember?.name ?? household.greetingName;
   const typeStyle = accentTheme.typeStyle;
   const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
-  const sharedKidMode = isSharedDeviceAccount(currentMember, household.members);
+  const sharedKidMode =
+    isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
   const groceryEmoji: Record<string, string> = {
     Milk: '🥛',
     Blueberries: '🫐',
@@ -112,7 +113,11 @@ export default function HomeScreen() {
         </Text>
         {sharedDevice ? (
           <Pressable
-            onPress={() => setPersonaSwitchOpen(true)}
+            onPress={() => {
+              void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
+                markNeedsProfilePick().then(() => router.push('/select-profile' as never))
+              );
+            }}
             style={[
               styles.deviceSwitchChip,
               {
@@ -124,9 +129,9 @@ export default function HomeScreen() {
             ]}>
             <Text style={styles.deviceSwitchEmoji}>{sharedDevice.avatar || '📱'}</Text>
             <Text style={[styles.deviceSwitchName, { color: accentTheme.primary }]}>
-              {sharedDevice.name} · {displayName}
+              Switch who&apos;s on · {displayName}
             </Text>
-            <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
+            <MaterialIcons name="expand-more" size={18} color={accentTheme.primary} />
           </Pressable>
         ) : null}
       </View>
@@ -247,6 +252,23 @@ export default function HomeScreen() {
           void awardDailyStreak();
         }}
       />
+
+      {sharedKidMode ? (
+        <Pressable
+          onPress={() => router.push('/(tabs)/rewards' as never)}
+          style={[styles.kidRewardCard, { borderColor: `${accentTheme.primary}44` }]}>
+          <View style={[styles.kidRewardIcon, { backgroundColor: `${accentTheme.primary}22` }]}>
+            <MaterialIcons name="card-giftcard" size={22} color={accentTheme.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.kidRewardTitle}>Rewards shop</Text>
+            <Text style={styles.kidRewardBody}>
+              Spend your XP on treats — you have {personalTotalXp} XP
+            </Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={20} color={accentTheme.primary} />
+        </Pressable>
+      ) : null}
 
       {!sharedKidMode ? (
         <>
@@ -393,6 +415,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
+  kidRewardCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  kidRewardIcon: {
+    alignItems: 'center',
+    borderRadius: 16,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  kidRewardTitle: {
+    color: '#EEF2FF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  kidRewardBody: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    marginTop: 2,
+  },
   personalXpLabel: {
     color: '#6B82A3',
     fontSize: 11,
@@ -410,10 +459,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  deviceSwitchEmoji: { fontSize: 14 },
+  deviceSwitchEmoji: { fontSize: 16 },
   deviceSwitchName: {
     color: '#C8D8F0',
     fontSize: 12,

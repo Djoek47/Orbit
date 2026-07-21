@@ -26,7 +26,9 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 6c | Tasks by person (admin) | As Sarah/David · Tasks All → My tasks + David/Liam/Emma sections with N of M complete | ☐ |
 | 6d | Shared tablet accounts | Settings → Members → Shared tablet shows Josh & Todd underneath · switch Josh/Todd (own XP) · Create task → Shared tablet → pick Josh → “Clean dishes - Josh” · Home “Shared tablet · Name ▾” / avatar opens persona popup | ☐ |
 | 6f | Persona switch + personal themes | Home avatar or Shared tablet chip → popup → switch Josh↔Todd · accent color + greeting type weight change · Settings Your look sets personal theme · admin Household default separate · persists after reload | ☐ |
-| 6g | Shared tablet kid Home/Tasks | As Josh: Home hides week leaderboard / groceries / health · only My tasks · personal XP chips · Tasks shows only Josh’s chores (not Todd/Sarah) · switch chip on Tasks opens popup → Todd sees only Todd’s tasks | ☐ |
+| 6g | Shared tablet kid Home/Tasks | As Josh: Home hides week leaderboard / groceries / health · only My tasks · personal XP chips · Rewards shortcut · Tasks shows only Josh’s chores · “Who’s on” opens Netflix-style profile picker | ☐ |
+| 6l | Admin remove + create shared device | Settings → Manage Members → Create shared device · link people · Remove member / Remove device · profile codes shown (CMX-JOSH) | ☐ |
+| 6m | Kid multi-profile device | Welcome or Settings → Set up profiles · enter/scan CMX-JOSH + CMX-TODD · Continue → Who’s logging in? · pick Josh → kid Home · sign out/in asks again | ☐ |
 | 6h | Ranks shared tablet people | Ranks shows Josh & Todd as separate rows with their own XP · Shared tablet chip next to each name · tablet shell itself is not a ranked person | ☐ |
 | 6e | Split multi-assign | Create task → select Emma + Liam → Clean dishes · each attaches proof/completes for own XP · all-done bonus · admin Penalize on pending share | ☐ |
 | 7 | Task delete | Open task → Delete → removed from Tasks list | ☐ |

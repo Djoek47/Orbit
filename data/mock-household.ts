@@ -72,6 +72,7 @@ export const mockHousehold: HouseholdSnapshot = {
       streak: 3,
       loadShare: 8,
       accentThemeId: 'rose',
+      profileInviteCode: 'CMX-EMMA',
     },
     {
       id: 'm4',
@@ -84,6 +85,7 @@ export const mockHousehold: HouseholdSnapshot = {
       streak: 5,
       loadShare: 6,
       accentThemeId: 'sunset',
+      profileInviteCode: 'CMX-LIAM',
     },
     {
       id: 'm5',
@@ -112,7 +114,7 @@ export const mockHousehold: HouseholdSnapshot = {
     {
       id: 'm8',
       name: 'Josh',
-      role: 'adult',
+      role: 'child',
       status: 'active',
       avatar: '🧑',
       xp: 120,
@@ -120,11 +122,12 @@ export const mockHousehold: HouseholdSnapshot = {
       streak: 1,
       loadShare: 5,
       accentThemeId: 'amber',
+      profileInviteCode: 'CMX-JOSH',
     },
     {
       id: 'm9',
       name: 'Todd',
-      role: 'adult',
+      role: 'child',
       status: 'active',
       avatar: '🧔',
       xp: 90,
@@ -132,6 +135,7 @@ export const mockHousehold: HouseholdSnapshot = {
       streak: 1,
       loadShare: 5,
       accentThemeId: 'forest',
+      profileInviteCode: 'CMX-TODD',
     },
     {
       id: 'm7',

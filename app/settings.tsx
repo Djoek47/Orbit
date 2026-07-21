@@ -33,11 +33,14 @@ import {
   listSharedDevices,
   nestedSharedAccountIds,
   resolveSharedDevicePeople,
+  sharedDeviceLinkCandidates,
 } from '@/lib/household/shared-device';
+import { ensureProfileInviteCode } from '@/lib/household/profile-codes';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdRoom } from '@/types/orbit';
 import * as Linking from 'expo-linking';
+import { markNeedsProfilePick } from '@/lib/device/device-session';
 
 const PANEL_BG = '#0A1525';
 
@@ -48,19 +51,25 @@ function SharedAccountRow({
   active,
   accent,
   picking,
+  canManage,
   onSwitch,
   onTogglePick,
   onPickEmoji,
   onPickPhoto,
+  onUnlink,
+  onRemove,
 }: {
   person: HouseholdMember;
   active: boolean;
   accent: string;
   picking: boolean;
+  canManage: boolean;
   onSwitch: () => void;
   onTogglePick: () => void;
   onPickEmoji: (emoji: string) => void;
   onPickPhoto: () => void;
+  onUnlink?: () => void;
+  onRemove?: () => void;
 }) {
   const photo = isAvatarImageUri(person.avatar);
   return (
@@ -87,9 +96,24 @@ function SharedAccountRow({
           <Text style={[styles.caption, { color: accent, fontWeight: '600' }]}>
             {person.xp} XP · week {person.weekXp ?? 0}
           </Text>
+          <Text style={styles.caption}>Code {ensureProfileInviteCode(person)}</Text>
         </Pressable>
         {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
       </View>
+      {canManage ? (
+        <View style={styles.adminActionRow}>
+          {onUnlink ? (
+            <Pressable onPress={onUnlink} style={styles.adminActionChip}>
+              <Text style={styles.adminActionText}>Unlink</Text>
+            </Pressable>
+          ) : null}
+          {onRemove ? (
+            <Pressable onPress={onRemove} style={[styles.adminActionChip, styles.adminActionDanger]}>
+              <Text style={[styles.adminActionText, { color: '#F87171' }]}>Remove</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
       {picking ? (
         <View style={styles.emojiGrid}>
           <Pressable
@@ -123,11 +147,13 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const {
     accentTheme,
+    createSharedDevice,
     currentMember,
     currentUser,
     deleteAccount,
     household,
     permissions,
+    removeMember,
     removeRoom,
     signOut,
     switchPersona,
@@ -135,6 +161,7 @@ export default function SettingsScreen() {
     updateHouseholdAccentTheme,
     updateMemberAvatar,
     updateNotificationPrefs,
+    updateSharedDeviceLinks,
     upsertRoom,
   } = useOrbit();
 
@@ -143,6 +170,8 @@ export default function SettingsScreen() {
   const [nameInput, setNameInput] = useState(household.householdName);
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [pickingAvatarFor, setPickingAvatarFor] = useState<string | null>(null);
+  const [sharedDeviceName, setSharedDeviceName] = useState('Kids tablet');
+  const [creatingDevice, setCreatingDevice] = useState(false);
   const [roomDraft, setRoomDraft] = useState('');
   const [roomEmoji, setRoomEmoji] = useState('🚪');
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
@@ -179,6 +208,57 @@ export default function SettingsScreen() {
     [household.members, nestedAccountIds]
   );
   const activeOnDevice = findSharedDeviceForMember(currentMember?.id, household.members);
+  const linkCandidates = useMemo(
+    () => sharedDeviceLinkCandidates(household.members),
+    [household.members]
+  );
+
+  const handleRemoveMember = (member: HouseholdMember) => {
+    if (member.role === 'owner') {
+      Alert.alert('Cannot remove', 'The household owner cannot be removed.');
+      return;
+    }
+    const isDevice = member.role === 'shared-device';
+    Alert.alert(
+      isDevice ? 'Remove shared device' : 'Remove member',
+      isDevice
+        ? `Remove ${member.name}? Linked profiles stay in the household but lose this device shell.`
+        : `Remove ${member.name} from this household?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            void removeMember(member.id);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCreateSharedDevice = () => {
+    if (!sharedDeviceName.trim()) return;
+    setCreatingDevice(true);
+    void createSharedDevice(sharedDeviceName.trim())
+      .then((created) => {
+        if (created) {
+          setSharedDeviceName('Kids tablet');
+          Alert.alert(
+            'Shared device added',
+            `Link people below, then set up the tablet with their profile codes (CMX-JOSH, etc.).`
+          );
+        }
+      })
+      .finally(() => setCreatingDevice(false));
+  };
+
+  const toggleSharedLink = (deviceId: string, personId: string, linkedIds: string[]) => {
+    const next = linkedIds.includes(personId)
+      ? linkedIds.filter((id) => id !== personId)
+      : [...linkedIds, personId];
+    void updateSharedDeviceLinks(deviceId, next);
+  };
 
   const handleDelete = () => {
     Alert.alert('Delete account', 'This permanently removes your Choremaxx account.', [
@@ -434,7 +514,8 @@ export default function SettingsScreen() {
         {section === 'members' ? (
           <>
             <Text style={styles.sectionHint}>
-              Tap a name to switch profile · Shared tablet holds switchable accounts (each keeps XP & redeem)
+              Tap a name to switch · Shared devices host Netflix-style profiles · Admins can remove
+              people and add tablets
             </Text>
             {permissions.canInviteMembers ? (
               <SettingsRow
@@ -445,9 +526,46 @@ export default function SettingsScreen() {
               />
             ) : null}
 
+            {permissions.canManageHousehold ? (
+              <View style={styles.createDeviceCard}>
+                <Text style={styles.memberName}>New shared device</Text>
+                <Text style={styles.caption}>
+                  Kitchen tablet, kids iPad — one device, multiple profiles with codes/QR
+                </Text>
+                <TextInput
+                  value={sharedDeviceName}
+                  onChangeText={setSharedDeviceName}
+                  placeholder="e.g. Kids tablet"
+                  placeholderTextColor="#4B6080"
+                  style={styles.deviceNameInput}
+                />
+                <Pressable
+                  style={[
+                    styles.createDeviceBtn,
+                    { backgroundColor: `${accentTheme.primary}22`, borderColor: `${accentTheme.primary}66` },
+                  ]}
+                  disabled={creatingDevice || !sharedDeviceName.trim()}
+                  onPress={handleCreateSharedDevice}>
+                  <MaterialIcons name="tablet-mac" size={16} color={accentTheme.primary} />
+                  <Text style={[styles.createDeviceBtnText, { color: accentTheme.primary }]}>
+                    {creatingDevice ? 'Adding…' : 'Create shared device'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={styles.linkRow}
+                  onPress={() => router.push('/setup-kid-device' as never)}>
+                  <Text style={[styles.linkText, { color: accentTheme.primary }]}>
+                    Set up this phone/tablet with profile codes
+                  </Text>
+                  <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
+                </Pressable>
+              </View>
+            ) : null}
+
             {sharedDevices.map((device) => {
               const accounts = resolveSharedDevicePeople(device, household.members);
               const deviceActive = activeOnDevice?.id === device.id;
+              const linkedIds = device.sharedWithMemberIds ?? [];
               return (
                 <View
                   key={device.id}
@@ -466,7 +584,11 @@ export default function SettingsScreen() {
                     </View>
                     {accounts.length > 0 ? (
                       <Pressable
-                        onPress={() => setPersonaSwitchOpen(true)}
+                        onPress={() => {
+                          void markNeedsProfilePick().then(() =>
+                            router.push('/select-profile' as never)
+                          );
+                        }}
                         style={[
                           styles.switchChip,
                           {
@@ -474,14 +596,35 @@ export default function SettingsScreen() {
                             borderColor: `${accentTheme.primary}66`,
                           },
                         ]}>
-                        <Text style={[styles.switchChipText, { color: accentTheme.primary }]}>Switch</Text>
+                        <Text style={[styles.switchChipText, { color: accentTheme.primary }]}>
+                          Who&apos;s in?
+                        </Text>
                         <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
                       </Pressable>
                     ) : null}
                   </View>
                   <Text style={styles.sharedDeviceHint}>
-                    Switch between accounts on this tablet. Later, unlink someone to give them their own device.
+                    Link people below. On the tablet, scan each profile code so kids pick who they
+                    are before opening the app.
                   </Text>
+                  {permissions.canManageHousehold ? (
+                    <View style={styles.linkWrap}>
+                      {linkCandidates.map((person) => {
+                        const linked = linkedIds.includes(person.id);
+                        return (
+                          <Pressable
+                            key={person.id}
+                            onPress={() => toggleSharedLink(device.id, person.id, linkedIds)}
+                            style={[styles.linkChip, linked && styles.linkChipActive]}>
+                            <Text
+                              style={[styles.linkChipText, linked && styles.linkChipTextActive]}>
+                              {person.avatar} {person.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
                   {accounts.map((person) => (
                     <SharedAccountRow
                       key={person.id}
@@ -489,6 +632,7 @@ export default function SettingsScreen() {
                       active={currentMember?.id === person.id}
                       accent={accentTheme.primary}
                       picking={pickingAvatarFor === person.id}
+                      canManage={permissions.canManageHousehold}
                       onSwitch={() => switchPersona(person.id)}
                       onTogglePick={() =>
                         setPickingAvatarFor(pickingAvatarFor === person.id ? null : person.id)
@@ -498,8 +642,25 @@ export default function SettingsScreen() {
                         setPickingAvatarFor(null);
                       }}
                       onPickPhoto={() => void pickMemojiPhoto(person.id)}
+                      onUnlink={() =>
+                        toggleSharedLink(
+                          device.id,
+                          person.id,
+                          linkedIds
+                        )
+                      }
+                      onRemove={() => handleRemoveMember(person)}
                     />
                   ))}
+                  {permissions.canManageHousehold ? (
+                    <Pressable
+                      onPress={() => handleRemoveMember(device)}
+                      style={[styles.adminActionChip, styles.adminActionDanger, { alignSelf: 'flex-start' }]}>
+                      <Text style={[styles.adminActionText, { color: '#F87171' }]}>
+                        Remove device
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               );
             })}
@@ -531,8 +692,21 @@ export default function SettingsScreen() {
                     <Text style={[styles.caption, { color: accentTheme.primary, fontWeight: '600' }]}>
                       {member.xp} XP total
                     </Text>
+                    {member.profileInviteCode || member.role === 'child' ? (
+                      <Text style={styles.caption}>
+                        Profile {ensureProfileInviteCode(member)}
+                      </Text>
+                    ) : null}
                   </Pressable>
                   {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
+                  {permissions.canManageHousehold && member.role !== 'owner' ? (
+                    <Pressable
+                      onPress={() => handleRemoveMember(member)}
+                      hitSlop={8}
+                      accessibilityLabel={`Remove ${member.name}`}>
+                      <MaterialIcons name="person-remove" size={20} color="#F87171" />
+                    </Pressable>
+                  ) : null}
                   {picking ? (
                     <View style={styles.emojiGrid}>
                       <Pressable
@@ -913,6 +1087,84 @@ const styles = StyleSheet.create({
     color: '#7C9CC0',
     fontSize: 12,
     lineHeight: 17,
+  },
+  createDeviceCard: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    padding: 14,
+  },
+  deviceNameInput: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    color: '#EEF2FF',
+    fontSize: 15,
+    fontWeight: '600',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  createDeviceBtn: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  createDeviceBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  linkWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  linkChip: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  linkChipActive: {
+    backgroundColor: 'rgba(52,211,153,0.18)',
+    borderColor: 'rgba(52,211,153,0.45)',
+  },
+  linkChipText: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  linkChipTextActive: {
+    color: '#34D399',
+  },
+  adminActionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  adminActionChip: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  adminActionDanger: {
+    borderColor: 'rgba(248,113,113,0.35)',
+  },
+  adminActionText: {
+    color: '#7C9CC0',
+    fontSize: 12,
+    fontWeight: '700',
   },
   sharedAccountBlock: {
     borderTopColor: 'rgba(255,255,255,0.08)',
