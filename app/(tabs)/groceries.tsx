@@ -175,14 +175,22 @@ export default function GroceriesScreen() {
           <Text style={[styles.caption, { marginTop: 8 }]}>Grocery Intelligence</Text>
           <Text style={styles.title}>This Week&apos;s List</Text>
         </View>
-        {(permissions.canManageGroceries || canAddGroceryWishlist) && (
-          <Pressable
-            style={[styles.addBtn, { backgroundColor: `${accentTheme.primary}26`, borderColor: `${accentTheme.primary}33` }]}
-            onPress={() => router.push('/add-grocery' as never)}>
-            <MaterialIcons name="add" size={18} color={accentTheme.primary} />
-          </Pressable>
-        )}
       </View>
+      {(permissions.canManageGroceries || canAddGroceryWishlist) && (
+        <Pressable
+          style={[
+            styles.addBtn,
+            {
+              backgroundColor: `${accentTheme.primary}26`,
+              borderColor: `${accentTheme.primary}33`,
+            },
+          ]}
+          onPress={() => router.push('/add-grocery' as never)}
+          accessibilityRole="button"
+          accessibilityLabel="Add grocery item">
+          <MaterialIcons name="add" size={18} color={accentTheme.primary} />
+        </Pressable>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Find a product</Text>
@@ -474,10 +482,12 @@ const styles = StyleSheet.create({
   title: { color: '#EEF2FF', fontSize: 22, fontWeight: '700', lineHeight: 27, marginTop: 2 },
   addBtn: {
     alignItems: 'center',
+    alignSelf: 'flex-start',
     borderRadius: 16,
     borderWidth: 1,
     height: 36,
     justifyContent: 'center',
+    marginTop: 2,
     width: 36,
   },
   lookupInput: {
