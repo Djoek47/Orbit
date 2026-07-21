@@ -5,8 +5,7 @@ import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
 import type { NovaChatMessage } from '@/lib/ai/ai-provider';
 import { trackAnalytics } from '@/lib/analytics';
 import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, memberDisplayEmoji, xpProgress } from '@/lib/game-levels';
-import { getLocationAwareGrocerySuggestions } from '@/lib/grocery/location-suggestions';
-import { buildStoreRecommendations } from '@/lib/grocery/recommendations';
+import { getLocationAwareGrocerySuggestions, buildStoreRecommendations } from '@/lib/grocery/location-suggestions';
 import { countUpcomingSoon } from '@/lib/calendar/event-groups';
 import {
   loadHouseholdRooms,
