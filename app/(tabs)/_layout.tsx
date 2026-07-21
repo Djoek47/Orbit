@@ -22,7 +22,8 @@ function resolveUiRole(
 }
 
 export default function TabLayout() {
-  const { currentUser, currentMember, hasHousehold, household, isLoading, isSignedIn } = useOrbit();
+  const { currentUser, currentMember, hasHousehold, household, isLoading, isSignedIn, orbitPalette } =
+    useOrbit();
   const [onboardingRole, setOnboardingRole] = useState<OnboardingRole | null>(null);
   const [needsPick, setNeedsPick] = useState(false);
 
@@ -75,7 +76,7 @@ export default function TabLayout() {
   const showRewards = uiRole !== 'roommate';
 
   return (
-    <View style={styles.shell}>
+    <View style={[styles.shell, { backgroundColor: orbitPalette.background }]}>
       <Tabs
         tabBar={(props) => <MakeTabBar {...props} />}
         screenOptions={{

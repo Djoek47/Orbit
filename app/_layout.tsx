@@ -1,10 +1,9 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
-import { orbitColors } from '@/constants/orbit-theme';
 import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
+import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { OrbitProvider } from '@/store/orbit-store';
 
@@ -19,6 +18,7 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <OrbitProvider>
         <DeepLinkBridge />
+        <OrbitChromeBridge />
         <Stack>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="join/[code]" options={{ headerShown: false }} />
@@ -85,12 +85,15 @@ export default function RootLayout() {
             options={{ presentation: 'modal', headerShown: false, title: 'Special Request' }}
           />
           <Stack.Screen
+            name="shopping-mode"
+            options={{ presentation: 'modal', headerShown: false, title: 'Shopping Mode' }}
+          />
+          <Stack.Screen
             name="reward-tally"
             options={{ presentation: 'modal', headerShown: false, title: 'Reward Tally' }}
           />
         </Stack>
       </OrbitProvider>
-      <StatusBar backgroundColor={orbitColors.background} style="light" />
     </ThemeProvider>
   );
 }

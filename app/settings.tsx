@@ -22,6 +22,10 @@ import {
   ROOM_EMOJIS,
   type AccentThemeId,
 } from '@/constants/accent-themes';
+import {
+  BACKGROUND_THEMES,
+  type BackgroundThemeId,
+} from '@/constants/background-themes';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
@@ -37,10 +41,11 @@ import {
 } from '@/lib/household/shared-device';
 import { ensureProfileInviteCode } from '@/lib/household/profile-codes';
 import { formatHouseholdRole } from '@/lib/permissions';
+import type { AppearanceMode, PreferredMapsApp } from '@/lib/theme/appearance-prefs';
+import { markNeedsProfilePick } from '@/lib/device/device-session';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdRoom } from '@/types/orbit';
 import * as Linking from 'expo-linking';
-import { markNeedsProfilePick } from '@/lib/device/device-session';
 
 const PANEL_BG = '#0A1525';
 
@@ -147,20 +152,27 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const {
     accentTheme,
+    appearanceMode,
+    backgroundThemeId,
     createSharedDevice,
     currentMember,
     currentUser,
     deleteAccount,
     household,
+    orbitPalette,
     permissions,
+    preferredMapsApp,
     removeMember,
     removeRoom,
     signOut,
     switchPersona,
     updateAccentTheme,
+    updateAppearanceMode,
+    updateBackgroundTheme,
     updateHouseholdAccentTheme,
     updateMemberAvatar,
     updateNotificationPrefs,
+    updatePreferredMapsApp,
     updateSharedDeviceLinks,
     upsertRoom,
   } = useOrbit();
@@ -172,6 +184,7 @@ export default function SettingsScreen() {
   const [pickingAvatarFor, setPickingAvatarFor] = useState<string | null>(null);
   const [sharedDeviceName, setSharedDeviceName] = useState('Kids tablet');
   const [creatingDevice, setCreatingDevice] = useState(false);
+  const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
   const [roomDraft, setRoomDraft] = useState('');
   const [roomEmoji, setRoomEmoji] = useState('🚪');
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
@@ -185,6 +198,8 @@ export default function SettingsScreen() {
         deals: true,
         plans: true,
         xpFairness: true,
+        nearShop: true,
+        missingOnTheWay: true,
       },
     [household.notificationPrefs]
   );
@@ -293,7 +308,7 @@ export default function SettingsScreen() {
 
   return (
     <>
-    <View style={[styles.shell, { paddingTop: insets.top }]}>
+    <View style={[styles.shell, { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.handleRow}>
@@ -362,8 +377,8 @@ export default function SettingsScreen() {
             </SectionCard>
 
             <SectionCard title="Your look">
-              <Text style={styles.caption}>
-                Personal theme for {currentMember?.name ?? 'you'} · switches with your profile
+              <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>
+                Personal accent for {currentMember?.name ?? 'you'} · switches with your profile
               </Text>
               <View style={styles.themeRow}>
                 {ACCENT_THEMES.map((theme) => {
@@ -395,42 +410,85 @@ export default function SettingsScreen() {
                   );
                 })}
               </View>
-            </SectionCard>
 
-            {permissions.canManageHousehold ? (
-              <SectionCard title="Household default">
-                <Text style={styles.caption}>Fallback look for members without a personal pick</Text>
-                <View style={styles.themeRow}>
-                  {ACCENT_THEMES.map((theme) => {
-                    const active = householdThemeId === theme.id;
-                    return (
-                      <Pressable
-                        key={theme.id}
-                        style={styles.themeItem}
-                        onPress={() => updateHouseholdAccentTheme(theme.id)}>
-                        <LinearGradient
-                          colors={[theme.primary, theme.secondary]}
-                          style={[
-                            styles.themeSwatch,
-                            active && {
-                              borderColor: theme.primary,
-                              borderWidth: 2,
-                              shadowColor: theme.primary,
-                              shadowOpacity: 0.35,
-                              shadowRadius: 8,
-                            },
-                          ]}>
-                          {active ? <MaterialIcons name="check" size={16} color="#fff" /> : null}
-                        </LinearGradient>
-                        <Text style={[styles.themeLabel, active && { color: theme.primary, fontWeight: '600' }]}>
-                          {theme.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+              <Text style={[styles.caption, { marginTop: 8, color: orbitPalette.textMuted }]}>
+                Background · canvas that pairs with your fonts
+              </Text>
+              <View style={styles.themeRow}>
+                {BACKGROUND_THEMES.map((theme) => {
+                  const active = backgroundThemeId === theme.id;
+                  return (
+                    <Pressable
+                      key={theme.id}
+                      style={styles.themeItem}
+                      onPress={() => updateBackgroundTheme(theme.id as BackgroundThemeId)}>
+                      <LinearGradient
+                        colors={theme.preview}
+                        style={[
+                          styles.themeSwatch,
+                          active && {
+                            borderColor: accentTheme.primary,
+                            borderWidth: 2,
+                          },
+                        ]}>
+                        {active ? (
+                          <MaterialIcons name="check" size={16} color={theme.base === 'light' ? '#111' : '#fff'} />
+                        ) : null}
+                      </LinearGradient>
+                      <Text style={[styles.themeLabel, active && { color: accentTheme.primary, fontWeight: '600' }]}>
+                        {theme.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {permissions.canManageHousehold ? (
+                <View style={styles.nestedGroup}>
+                  <Pressable
+                    style={styles.nestedHeader}
+                    onPress={() => setHouseholdDefaultOpen((value) => !value)}>
+                    <Text style={styles.nestedTitle}>Household default</Text>
+                    <MaterialIcons
+                      name={householdDefaultOpen ? 'expand-less' : 'expand-more'}
+                      size={20}
+                      color={orbitPalette.textMuted}
+                    />
+                  </Pressable>
+                  {householdDefaultOpen ? (
+                    <>
+                      <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>
+                        Fallback accent for members without a personal pick
+                      </Text>
+                      <View style={styles.themeRow}>
+                        {ACCENT_THEMES.map((theme) => {
+                          const active = householdThemeId === theme.id;
+                          return (
+                            <Pressable
+                              key={theme.id}
+                              style={styles.themeItem}
+                              onPress={() => updateHouseholdAccentTheme(theme.id)}>
+                              <LinearGradient
+                                colors={[theme.primary, theme.secondary]}
+                                style={[
+                                  styles.themeSwatchSmall,
+                                  active && {
+                                    borderColor: theme.primary,
+                                    borderWidth: 2,
+                                  },
+                                ]}>
+                                {active ? <MaterialIcons name="check" size={14} color="#fff" /> : null}
+                              </LinearGradient>
+                              <Text style={styles.themeTypeLabel}>{theme.label}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </>
+                  ) : null}
                 </View>
-              </SectionCard>
-            ) : null}
+              ) : null}
+            </SectionCard>
 
             <SettingsRow
               emoji="👥"
@@ -482,14 +540,72 @@ export default function SettingsScreen() {
             />
 
             <SectionCard title="Appearance">
-              <View style={styles.rowBetween}>
-                <View style={styles.inline}>
-                  <MaterialIcons name="dark-mode" size={16} color="#A78BFA" />
-                  <Text style={styles.rowLabel}>Dark Mode</Text>
-                </View>
-                <LinearGradient colors={['#38BDF8', '#0EA5E9']} style={styles.switchOn}>
-                  <View style={styles.switchKnob} />
-                </LinearGradient>
+              <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>Mode</Text>
+              <View style={styles.segmentRow}>
+                {(
+                  [
+                    ['dark', 'Dark'],
+                    ['light', 'Light'],
+                    ['system', 'System'],
+                  ] as const
+                ).map(([mode, label]) => {
+                  const active = appearanceMode === mode;
+                  return (
+                    <Pressable
+                      key={mode}
+                      onPress={() => updateAppearanceMode(mode as AppearanceMode)}
+                      style={[
+                        styles.segmentChip,
+                        active && {
+                          backgroundColor: `${accentTheme.primary}28`,
+                          borderColor: accentTheme.primary,
+                        },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          active && { color: accentTheme.primary, fontWeight: '700' },
+                        ]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={[styles.caption, { marginTop: 12, color: orbitPalette.textMuted }]}>
+                Preferred maps app
+              </Text>
+              <View style={styles.segmentRow}>
+                {(
+                  [
+                    ['auto', 'Auto'],
+                    ['apple', 'Apple'],
+                    ['google', 'Google'],
+                    ['waze', 'Waze'],
+                  ] as const
+                ).map(([app, label]) => {
+                  const active = preferredMapsApp === app;
+                  return (
+                    <Pressable
+                      key={app}
+                      onPress={() => updatePreferredMapsApp(app as PreferredMapsApp)}
+                      style={[
+                        styles.segmentChip,
+                        active && {
+                          backgroundColor: `${accentTheme.primary}28`,
+                          borderColor: accentTheme.primary,
+                        },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          active && { color: accentTheme.primary, fontWeight: '700' },
+                        ]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </SectionCard>
 
@@ -846,6 +962,8 @@ export default function SettingsScreen() {
                 ['deals', 'Deal alerts', 'Mock catalog: food, shoes, electronics, furniture', '🏷️'],
                 ['plans', 'Plan proposals', 'Errand loops and itinerary suggestions', '🗺️'],
                 ['xpFairness', 'XP fairness', 'Weekly balance assessments (propose only)', '⚖️'],
+                ['nearShop', 'Near shop', 'Local alert when you are close to a grocery stop', '📍'],
+                ['missingOnTheWay', 'Missing on the way', 'Nudge missing items before and during a run', '🧾'],
               ] as const
             ).map(([key, label, sub, emoji]) => (
               <View key={key} style={styles.prefRow}>
@@ -1013,6 +1131,49 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     width: 48,
+  },
+  themeSwatchSmall: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  nestedGroup: {
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+    marginTop: 12,
+    paddingTop: 12,
+  },
+  nestedHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  nestedTitle: {
+    color: '#C8D8F0',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  segmentChip: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  segmentText: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    fontWeight: '600',
   },
   themeLabel: { color: '#4B6080', fontSize: 12 },
   themeTypeLabel: { color: '#2A3A54', fontSize: 10, fontWeight: '600' },

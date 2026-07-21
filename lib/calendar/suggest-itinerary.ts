@@ -1,5 +1,6 @@
 import { getPreferredStore } from '@/data/preferred-stores';
 import { suggestItinerarySummary } from '@/lib/calendar/event-groups';
+import { shopNearStops } from '@/lib/places/nearby-stores';
 import type { CreateItineraryInput, GroceryItem, HouseholdEvent, HouseholdSnapshot } from '@/types/orbit';
 
 function todayKey() {
@@ -14,10 +15,13 @@ export function suggestItineraryFromHousehold(household: HouseholdSnapshot): Cre
 
   const store = getPreferredStore(household.preferredStoreId);
   const missing = household.groceries.filter((item) => item.status === 'Missing' || item.status === 'Low');
+  const places = household.savedPlaces ?? [];
 
   const stops: CreateItineraryInput['stops'] = [];
   let order = 0;
 
+  const schoolPlace = places.find((p) => p.kind === 'school');
+  const practicePlace = places.find((p) => p.kind === 'practice');
   const school = todayEvents.find((event) => event.category === 'School');
   const activity = todayEvents.find((event) => event.category === 'Activity' || event.category === 'Appointment');
 
@@ -34,10 +38,39 @@ export function suggestItineraryFromHousehold(household: HouseholdSnapshot): Cre
     order += 1;
   };
 
-  if (school) {
+  if (schoolPlace) {
+    stops.push({
+      label: schoolPlace.name,
+      kind: 'school',
+      address: schoolPlace.address,
+      placeQuery: schoolPlace.placeQuery ?? schoolPlace.address,
+      lat: schoolPlace.lat,
+      lng: schoolPlace.lng,
+      savedPlaceId: schoolPlace.id,
+      eventId: school?.id,
+      etaMinutes: 12,
+      sortOrder: order,
+    });
+    order += 1;
+  } else if (school) {
     pushEventStop(school, 'school');
   }
-  if (activity) {
+
+  if (practicePlace) {
+    stops.push({
+      label: practicePlace.name,
+      kind: 'practice',
+      address: practicePlace.address,
+      placeQuery: practicePlace.placeQuery ?? practicePlace.address,
+      lat: practicePlace.lat,
+      lng: practicePlace.lng,
+      savedPlaceId: practicePlace.id,
+      eventId: activity?.id,
+      etaMinutes: 18,
+      sortOrder: order,
+    });
+    order += 1;
+  } else if (activity) {
     pushEventStop(activity, 'pickup');
   }
 
@@ -49,11 +82,37 @@ export function suggestItineraryFromHousehold(household: HouseholdSnapshot): Cre
   }
 
   if (missing.length > 0) {
+    const shopPlace = places.find((p) => p.kind === 'shop');
+    const insertNear =
+      shopPlace &&
+      shopNearStops(shopPlace, stops, 2000)
+        ? shopPlace
+        : null;
+    const groceryTarget = insertNear
+      ? {
+          label: `${insertNear.name} (on the way)`,
+          address: insertNear.address,
+          placeQuery: insertNear.placeQuery ?? insertNear.address,
+          lat: insertNear.lat,
+          lng: insertNear.lng,
+          savedPlaceId: insertNear.id,
+        }
+      : {
+          label: `${store.name} groceries`,
+          address: store.address,
+          placeQuery: store.placeQuery,
+          lat: store.lat,
+          lng: store.lng,
+          savedPlaceId: undefined,
+        };
     stops.push({
-      label: `${store.name} groceries`,
+      label: groceryTarget.label,
       kind: 'grocery',
-      address: store.address,
-      placeQuery: store.placeQuery,
+      address: groceryTarget.address,
+      placeQuery: groceryTarget.placeQuery,
+      lat: groceryTarget.lat,
+      lng: groceryTarget.lng,
+      savedPlaceId: groceryTarget.savedPlaceId,
       groceryListId: 'cart-today',
       etaMinutes: Math.min(35, 10 + missing.length * 3),
       sortOrder: order,
@@ -61,10 +120,15 @@ export function suggestItineraryFromHousehold(household: HouseholdSnapshot): Cre
   }
 
   if (stops.length === 0) {
+    const home = places.find((p) => p.kind === 'home');
     stops.push({
-      label: 'Home base',
-      kind: 'custom',
-      placeQuery: household.householdName,
+      label: home?.name ?? 'Home base',
+      kind: home ? 'home' : 'custom',
+      address: home?.address,
+      placeQuery: home?.placeQuery ?? household.householdName,
+      lat: home?.lat,
+      lng: home?.lng,
+      savedPlaceId: home?.id,
       etaMinutes: 5,
       sortOrder: 0,
     });

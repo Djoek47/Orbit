@@ -41,6 +41,9 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 12c | Grocery uncheck | Groceries → check item Purchased → uncheck → status returns to Missing | ☐ |
 | 13 | Preferred store | Adult sets preferred store · Start store itinerary | ☐ |
 | 29a | Accent themes | Settings → Your look · pick personal theme (incl. forest/slate/amber/violet) · tab active + OrbitButton + header chips tint · type vibe label under swatch · persists after reload | ☐ |
+| 29n | Light/dark + background | Settings → Appearance Dark/Light/System · Background packs (Midnight/Dusk/Paper/Mist/Contrast) under Your look · Household default folded under Your look (admin) · Preferred maps Auto/Apple/Google/Waze | ☐ |
+| 29o | Multi-stop itineraries | Plan → Create itinerary · pick saved places + nearby stores · pass-by grocery hint · Open full trip in preferred maps · Save as preferred · Trip history · Run again | ☐ |
+| 29p | Shopping mode + near shop | Groceries → Shopping mode · large checkboxes only · Settings Near shop / Missing on the way · foreground near-shop local notify (Expo Go best-effort) | ☐ |
 | 29b | Member avatars | Settings → Members → emoji picker · avatar persists on Health / Ranks / Home / Create Task | ☐ |
 | 29c | Rooms | Settings → Rooms add/remove · persists after reload · Create Task presets show room · Health cleaning strip | ☐ |
 | 29d | Grocery Missing Item | Groceries → + → expanded categories + qty + storage location + note · Save | ☐ |

@@ -39,6 +39,10 @@ const STOP_EMOJI: Record<ItineraryStopKind, string> = {
   work: '💼',
   grocery: '🛒',
   pickup: '⚽',
+  practice: '🏃',
+  family: '🏠',
+  home: '🏡',
+  shop: '🛒',
   custom: '📍',
 };
 
@@ -47,6 +51,10 @@ const STOP_CATEGORY: Record<ItineraryStopKind, string> = {
   work: 'Work',
   grocery: 'Grocery',
   pickup: 'Pickup',
+  practice: 'Practice',
+  family: 'Family',
+  home: 'Home',
+  shop: 'Shop',
   custom: 'Errand',
 };
 
@@ -325,7 +333,7 @@ function TripCard({
 }
 
 export default function PlanScreen() {
-  const { household, openStopInMaps } = useOrbit();
+  const { household, openFullItineraryInMaps, rerunItinerary } = useOrbit();
   const [subTab, setSubTab] = useState<PlanSubTab>('calendar');
   const [view, setView] = useState<CalView>('month');
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -338,15 +346,12 @@ export default function PlanScreen() {
   const selectedEvents = eventsByDate[selectedKey] ?? [];
   const itineraries = household.itineraries ?? [];
   const activeTrips = itineraries.filter((t) => t.status !== 'completed');
+  const preferredTrips = itineraries.filter((t) => t.favorite);
   const completedTrips = itineraries.filter((t) => t.status === 'completed');
   const totalStopsBundled = activeTrips.reduce((n, t) => n + t.stops.length, 0);
 
   const handleStartTrip = async (trip: Itinerary) => {
-    const ordered = [...trip.stops].sort((a, b) => a.sortOrder - b.sortOrder);
-    const activeStop = ordered.find((s) => s.status === 'active') ?? ordered[0];
-    if (activeStop) {
-      await openStopInMaps(trip.id, activeStop.id);
-    }
+    await openFullItineraryInMaps(trip.id);
     router.push(`/itinerary/${trip.id}` as never);
   };
 
@@ -669,14 +674,40 @@ export default function PlanScreen() {
             ))}
           </View>
 
+          {preferredTrips.length > 0 ? (
+            <View style={styles.completedArchive}>
+              <Text style={styles.completedTitle}>Preferred trips</Text>
+              {preferredTrips.map((t, i) => (
+                <Pressable
+                  key={`fav-${t.id}`}
+                  onPress={() =>
+                    void rerunItinerary(t.id).then((created) => {
+                      if (created) router.push(`/itinerary/${created.id}` as never);
+                    })
+                  }
+                  style={[styles.completedRow, i > 0 && styles.completedRowBorder]}>
+                  <Text style={{ fontSize: 16 }}>⭐</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.completedTitleStrike}>{t.title}</Text>
+                    <Text style={styles.completedMeta}>
+                      {t.stops.length} stops · tap to run again
+                    </Text>
+                  </View>
+                  <MaterialIcons name="replay" size={18} color="#38BDF8" />
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
           <View style={styles.completedArchive}>
-            <Text style={styles.completedTitle}>Completed Trips</Text>
+            <Text style={styles.completedTitle}>Trip history</Text>
             {completedTrips.length === 0 ? (
               <Text style={styles.completedEmpty}>No completed trips yet</Text>
             ) : (
               completedTrips.map((t, i) => (
-                <View
+                <Pressable
                   key={t.id}
+                  onPress={() => router.push(`/itinerary/${t.id}` as never)}
                   style={[styles.completedRow, i > 0 && styles.completedRowBorder]}>
                   <Text style={{ fontSize: 16 }}>✅</Text>
                   <View style={{ flex: 1 }}>
@@ -686,7 +717,7 @@ export default function PlanScreen() {
                     </Text>
                   </View>
                   <Text style={styles.completedSaved}>Saved {estimateSavedTime(t.stops)}</Text>
-                </View>
+                </Pressable>
               ))
             )}
           </View>

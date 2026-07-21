@@ -142,7 +142,16 @@ export type HouseholdEvent = {
   endsAt?: string;
 };
 
-export type ItineraryStopKind = 'school' | 'work' | 'grocery' | 'pickup' | 'custom';
+export type ItineraryStopKind =
+  | 'school'
+  | 'work'
+  | 'grocery'
+  | 'pickup'
+  | 'practice'
+  | 'family'
+  | 'home'
+  | 'shop'
+  | 'custom';
 
 export type ItineraryStopStatus = 'pending' | 'active' | 'done' | 'skipped';
 
@@ -152,11 +161,14 @@ export type ItineraryStop = {
   kind: ItineraryStopKind;
   address?: string;
   placeQuery?: string;
+  lat?: number;
+  lng?: number;
   eventId?: string;
   groceryListId?: string;
   etaMinutes?: number;
   sortOrder: number;
   status: ItineraryStopStatus;
+  savedPlaceId?: string;
 };
 
 export type Itinerary = {
@@ -168,6 +180,21 @@ export type Itinerary = {
   stops: ItineraryStop[];
   suggestedByNova?: boolean;
   summary?: string;
+  /** Saved as a preferred / reusable trip template. */
+  favorite?: boolean;
+};
+
+/** Household saved places for building multi-stop itineraries. */
+export type SavedPlaceKind = 'home' | 'work' | 'school' | 'shop' | 'practice' | 'family' | 'custom';
+
+export type SavedPlace = {
+  id: string;
+  name: string;
+  kind: SavedPlaceKind;
+  address: string;
+  placeQuery?: string;
+  lat?: number;
+  lng?: number;
 };
 
 export type ProductCatalogItem = {
@@ -193,6 +220,11 @@ export type PreferredStore = {
   name: string;
   address: string;
   placeQuery: string;
+  lat?: number;
+  lng?: number;
+  /** Distance in meters when resolved from nearby search. */
+  distanceMeters?: number;
+  source?: 'curated' | 'osm' | 'saved';
 };
 
 export type RewardOrigin = 'minted' | 'special-request';
@@ -361,6 +393,10 @@ export type NovaNotificationPrefs = {
   plans?: boolean;
   /** Monitor Agent: XP fairness assessments. */
   xpFairness?: boolean;
+  /** Foreground near-shop local alerts. */
+  nearShop?: boolean;
+  /** Nudge missing items before / during a grocery run. */
+  missingOnTheWay?: boolean;
 };
 
 /** Activity feed entry from Nova Monitor Agent. */
@@ -427,6 +463,8 @@ export type HouseholdSnapshot = {
   events: HouseholdEvent[];
   itineraries: Itinerary[];
   rooms: HouseholdRoom[];
+  /** Saved locations for multi-stop trips (home, work, school, shops…). */
+  savedPlaces?: SavedPlace[];
   preferredStoreId?: string;
   /** Make accent theme id (ocean/aurora/…). */
   accentThemeId?: string;

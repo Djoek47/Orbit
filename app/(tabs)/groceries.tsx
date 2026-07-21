@@ -309,6 +309,11 @@ export default function GroceriesScreen() {
           color={accentTheme.primary}
           onPress={() => void startStoreTrip()}
         />
+        <ActionChip
+          label="Shopping mode"
+          color="#34D399"
+          onPress={() => router.push('/shopping-mode' as never)}
+        />
         <ActionChip label="Scan barcode" color="#06B6D4" onPress={() => router.push('/scan-grocery' as never)} />
         <ActionChip
           label="Store recommendations"

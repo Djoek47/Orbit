@@ -16,7 +16,6 @@ import {
 } from '@/lib/household/local-prefs';
 import { buildInviteLinks } from '@/lib/invites/parse-invite';
 import { suggestItineraryFromHousehold } from '@/lib/calendar/suggest-itinerary';
-import { openDirections } from '@/lib/maps/directions';
 import { isNotificationVisibleToRole, PROOF_REVIEW_ROLES } from '@/lib/notifications/audience';
 import { registerForPushNotifications, scheduleLocalReminder } from '@/lib/notifications/push';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
@@ -67,6 +66,23 @@ import {
   saveAccentThemeId,
   saveMemberAccentThemeId,
 } from '@/lib/theme/accent-prefs';
+import {
+  loadAppearanceMode,
+  loadBackgroundThemeId,
+  loadPreferredMapsApp,
+  resolveOrbitPalette,
+  saveAppearanceMode,
+  saveBackgroundThemeId,
+  savePreferredMapsApp,
+  type AppearanceMode,
+  type PreferredMapsApp,
+} from '@/lib/theme/appearance-prefs';
+import {
+  DEFAULT_BACKGROUND_THEME_ID,
+  type BackgroundThemeId,
+} from '@/constants/background-themes';
+import type { OrbitColorPalette } from '@/constants/orbit-theme';
+import { openDirections, openMultiStopRoute } from '@/lib/maps/directions';
 import { DEFAULT_NOVA_NOTIFICATION_PREFS, novaNotifications } from '@/services/nova-notifications';
 import { runMonitorPass } from '@/services/nova-monitor';
 import { novaService, suggestedNovaQuestions } from '@/services/nova-service';
@@ -101,6 +117,7 @@ import type {
   OrbitMetrics,
   PreferredStore,
   RewardRedemption,
+  SavedPlace,
   SignInInput,
   SignUpInput,
   SmartHomeDevice,
@@ -206,6 +223,19 @@ type OrbitContextValue = {
   /** Owner/admin: household fallback theme for members without a personal pick. */
   updateHouseholdAccentTheme: (themeId: AccentThemeId) => void;
   accentTheme: AccentTheme;
+  appearanceMode: AppearanceMode;
+  updateAppearanceMode: (mode: AppearanceMode) => void;
+  backgroundThemeId: BackgroundThemeId;
+  updateBackgroundTheme: (themeId: BackgroundThemeId) => void;
+  /** Resolved surface palette (light/dark + background pack). */
+  orbitPalette: OrbitColorPalette & { isDark: boolean };
+  preferredMapsApp: PreferredMapsApp;
+  updatePreferredMapsApp: (app: PreferredMapsApp) => void;
+  openFullItineraryInMaps: (itineraryId: string) => Promise<void>;
+  toggleItineraryFavorite: (itineraryId: string) => Promise<void>;
+  rerunItinerary: (itineraryId: string) => Promise<Itinerary | null>;
+  upsertSavedPlace: (place: SavedPlace) => void;
+  removeSavedPlace: (placeId: string) => void;
   updateMemberAvatar: (memberId: string, avatar: string) => Promise<void>;
   upsertRoom: (room: HouseholdRoom) => void;
   removeRoom: (roomId: string) => void;
@@ -249,6 +279,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
   const [novaAskCount, setNovaAskCount] = useState(0);
   const [novaConversation, setNovaConversation] = useState<NovaChatMessage[]>([]);
+  const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>('dark');
+  const [backgroundThemeId, setBackgroundThemeId] = useState<BackgroundThemeId>(
+    DEFAULT_BACKGROUND_THEME_ID
+  );
+  const [preferredMapsApp, setPreferredMapsApp] = useState<PreferredMapsApp>('auto');
   const initialMetrics = useMemo(() => calculateMetrics(mockHousehold), []);
   const [novaWeeklyBriefing, setNovaWeeklyBriefing] = useState<NovaWeeklyBriefing>(() =>
     novaService.generateWeeklyBriefing(mockHousehold, initialMetrics)
@@ -358,12 +393,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
       if (!session) {
         if (isMounted) {
-          const [prefs, themeId, savedRooms, avatarOverrides] = await Promise.all([
-            loadNovaNotificationPrefs(mockHousehold.id),
-            loadAccentThemeId(mockHousehold.id),
-            loadHouseholdRooms(mockHousehold.id),
-            loadMemberAvatarOverrides(mockHousehold.id),
-          ]);
+          const [prefs, themeId, savedRooms, avatarOverrides, appearance, bgTheme, mapsApp] =
+            await Promise.all([
+              loadNovaNotificationPrefs(mockHousehold.id),
+              loadAccentThemeId(mockHousehold.id),
+              loadHouseholdRooms(mockHousehold.id),
+              loadMemberAvatarOverrides(mockHousehold.id),
+              loadAppearanceMode(),
+              loadBackgroundThemeId(mockHousehold.id),
+              loadPreferredMapsApp(),
+            ]);
+          setAppearanceMode(appearance);
+          setBackgroundThemeId(bgTheme);
+          setPreferredMapsApp(mapsApp);
           const withAvatars = mockHousehold.members.map((member) =>
             avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
           );
@@ -405,10 +447,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
 
       if (isMounted) {
-        const [prefs, themeId] = await Promise.all([
+        const [prefs, themeId, appearance, bgTheme, mapsApp] = await Promise.all([
           loadNovaNotificationPrefs(hydratedHousehold.id),
           loadAccentThemeId(hydratedHousehold.id),
+          loadAppearanceMode(),
+          loadBackgroundThemeId(hydratedHousehold.id, session.user.id),
+          loadPreferredMapsApp(),
         ]);
+        setAppearanceMode(appearance);
+        setBackgroundThemeId(bgTheme);
+        setPreferredMapsApp(mapsApp);
         setCurrentUser(session.user);
         setHousehold({
           ...hydratedHousehold,
@@ -1329,8 +1377,21 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (nextActive) {
       const previous = ordered.find((item) => item.id === stopId);
       await openDirections(
-        previous ? { address: previous.address, placeQuery: previous.placeQuery } : undefined,
-        { address: nextActive.address, placeQuery: nextActive.placeQuery }
+        previous
+          ? {
+              address: previous.address,
+              placeQuery: previous.placeQuery,
+              lat: previous.lat,
+              lng: previous.lng,
+            }
+          : undefined,
+        {
+          address: nextActive.address,
+          placeQuery: nextActive.placeQuery,
+          lat: nextActive.lat,
+          lng: nextActive.lng,
+        },
+        preferredMapsApp
       );
     }
     await trackAnalytics('itinerary.stop_advanced', { itineraryId, stopId }, analyticsContext);
@@ -1349,8 +1410,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     const from = index > 0 ? ordered[index - 1] : undefined;
     await openDirections(
-      from ? { address: from.address, placeQuery: from.placeQuery } : undefined,
-      { address: to.address, placeQuery: to.placeQuery }
+      from
+        ? { address: from.address, placeQuery: from.placeQuery, lat: from.lat, lng: from.lng }
+        : undefined,
+      { address: to.address, placeQuery: to.placeQuery, lat: to.lat, lng: to.lng },
+      preferredMapsApp
     );
   };
 
@@ -1409,6 +1473,115 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     setHousehold((current) => ({ ...current, accentThemeId: themeId }));
     void saveAccentThemeId(household.id, themeId);
+  };
+
+  const updateAppearanceMode = (mode: AppearanceMode) => {
+    setAppearanceMode(mode);
+    void saveAppearanceMode(mode);
+  };
+
+  const updateBackgroundTheme = (themeId: BackgroundThemeId) => {
+    setBackgroundThemeId(themeId);
+    void saveBackgroundThemeId(household.id, currentMember?.id, themeId);
+  };
+
+  const updatePreferredMapsApp = (app: PreferredMapsApp) => {
+    setPreferredMapsApp(app);
+    void savePreferredMapsApp(app);
+  };
+
+  const orbitPalette = useMemo(
+    () => resolveOrbitPalette(appearanceMode, backgroundThemeId),
+    [appearanceMode, backgroundThemeId]
+  );
+
+  const upsertSavedPlace = (place: SavedPlace) => {
+    setHousehold((current) => {
+      const places = current.savedPlaces ?? [];
+      const exists = places.some((item) => item.id === place.id);
+      return {
+        ...current,
+        savedPlaces: exists
+          ? places.map((item) => (item.id === place.id ? place : item))
+          : [...places, place],
+      };
+    });
+  };
+
+  const removeSavedPlace = (placeId: string) => {
+    setHousehold((current) => ({
+      ...current,
+      savedPlaces: (current.savedPlaces ?? []).filter((item) => item.id !== placeId),
+    }));
+  };
+
+  const toggleItineraryFavorite = async (itineraryId: string) => {
+    const itinerary = household.itineraries.find((item) => item.id === itineraryId);
+    if (!itinerary) return;
+    const next = { ...itinerary, favorite: !itinerary.favorite };
+    await itineraryRepository.update(next);
+    setHousehold((current) => {
+      const itineraries = current.itineraries.map((item) =>
+        item.id === itineraryId ? next : item
+      );
+      const favoriteIds = itineraries.filter((item) => item.favorite).map((item) => item.id);
+      void import('@/lib/itinerary/favorites-store').then(({ saveFavoriteItineraryIds }) =>
+        saveFavoriteItineraryIds(current.id, favoriteIds)
+      );
+      return { ...current, itineraries };
+    });
+  };
+
+  const rerunItinerary = async (itineraryId: string) => {
+    const source = household.itineraries.find((item) => item.id === itineraryId);
+    if (!source || !household.id) return null;
+    const input: CreateItineraryInput = {
+      title: source.title,
+      date: new Date().toISOString().slice(0, 10),
+      stops: source.stops.map((stop, index) => ({
+        label: stop.label,
+        kind: stop.kind,
+        address: stop.address,
+        placeQuery: stop.placeQuery,
+        lat: stop.lat,
+        lng: stop.lng,
+        eventId: stop.eventId,
+        groceryListId: stop.groceryListId,
+        etaMinutes: stop.etaMinutes,
+        sortOrder: index,
+        savedPlaceId: stop.savedPlaceId,
+      })),
+    };
+    const created = await itineraryRepository.create(household.id, input);
+    setHousehold((current) => ({
+      ...current,
+      itineraries: [created, ...current.itineraries],
+    }));
+    return created;
+  };
+
+  const openFullItineraryInMaps = async (itineraryId: string) => {
+    const itinerary = household.itineraries.find((item) => item.id === itineraryId);
+    if (!itinerary) return;
+    const stops = itinerary.stops
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((stop) => ({
+        address: stop.address,
+        placeQuery: stop.placeQuery,
+        lat: stop.lat,
+        lng: stop.lng,
+      }));
+    const result = await openMultiStopRoute(stops, preferredMapsApp);
+    if (result.sequentialOnly && result.app === 'waze') {
+      await pushNotification({
+        title: 'Waze · one stop at a time',
+        body: 'Waze opened the first stop. Use Arrived → next in Choremaxx for the rest.',
+        category: 'events',
+        priority: 'low',
+        data: { kind: 'waze_sequential', itineraryId },
+      });
+    }
   };
 
   const updateMemberAvatar = async (memberId: string, avatar: string) => {
@@ -2020,6 +2193,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateAccentTheme,
       updateHouseholdAccentTheme,
       accentTheme,
+      appearanceMode,
+      updateAppearanceMode,
+      backgroundThemeId,
+      updateBackgroundTheme,
+      orbitPalette,
+      preferredMapsApp,
+      updatePreferredMapsApp,
+      openFullItineraryInMaps,
+      toggleItineraryFavorite,
+      rerunItinerary,
+      upsertSavedPlace,
+      removeSavedPlace,
       updateMemberAvatar,
       upsertRoom,
       removeRoom,
@@ -2077,6 +2262,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       accentTheme,
       updateAccentTheme,
       updateHouseholdAccentTheme,
+      appearanceMode,
+      updateAppearanceMode,
+      backgroundThemeId,
+      updateBackgroundTheme,
+      orbitPalette,
+      preferredMapsApp,
+      updatePreferredMapsApp,
+      openFullItineraryInMaps,
+      toggleItineraryFavorite,
+      rerunItinerary,
+      upsertSavedPlace,
+      removeSavedPlace,
       updateMemberAvatar,
       upsertRoom,
       removeRoom,

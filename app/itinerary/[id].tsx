@@ -8,18 +8,32 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
+import type { ItineraryStopKind } from '@/types/orbit';
 
-const kindTone = {
+const kindTone: Record<ItineraryStopKind, 'blue' | 'cyan' | 'amber' | 'green'> = {
   school: 'blue',
   work: 'cyan',
   grocery: 'amber',
   pickup: 'green',
+  practice: 'green',
+  family: 'blue',
+  home: 'cyan',
+  shop: 'amber',
   custom: 'blue',
-} as const;
+};
 
 export default function ItineraryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { advanceItineraryStop, household, openStopInMaps, reorderItineraryStops } = useOrbit();
+  const {
+    advanceItineraryStop,
+    household,
+    openFullItineraryInMaps,
+    openStopInMaps,
+    preferredMapsApp,
+    reorderItineraryStops,
+    rerunItinerary,
+    toggleItineraryFavorite,
+  } = useOrbit();
   const itinerary = household.itineraries?.find((item) => item.id === id);
   const ordered = useMemo(
     () => (itinerary ? [...itinerary.stops].sort((a, b) => a.sortOrder - b.sortOrder) : []),
@@ -45,7 +59,7 @@ export default function ItineraryDetailScreen() {
       return;
     }
     const swapped = [...ids];
-    [swapped[index], swapped[next]] = [swapped[next], swapped[index]];
+    [swapped[index], swapped[next]] = [swapped[next]!, swapped[index]!];
     await reorderItineraryStops(itinerary.id, swapped);
   };
 
@@ -58,17 +72,40 @@ export default function ItineraryDetailScreen() {
         <Text style={orbitTypography.caption}>{itinerary.date}</Text>
         <Text style={orbitTypography.display}>{itinerary.title}</Text>
         {itinerary.summary ? <Text style={styles.summary}>{itinerary.summary}</Text> : null}
-        <StatusPill label={itinerary.status} tone={itinerary.status === 'completed' ? 'green' : 'cyan'} />
+        <View style={styles.pillRow}>
+          <StatusPill label={itinerary.status} tone={itinerary.status === 'completed' ? 'green' : 'cyan'} />
+          {itinerary.favorite ? <StatusPill label="preferred" tone="amber" /> : null}
+        </View>
       </View>
 
-      {itinerary.suggestedByNova ? (
-        <GlassCard style={styles.novaCard}>
-          <Text style={styles.novaLabel}>Nova</Text>
-          <Text style={orbitTypography.body}>
-            Progressive Maps handoff — open directions for the active stop, then tap Arrived for the next leg.
-          </Text>
-        </GlassCard>
-      ) : null}
+      <GlassCard style={styles.novaCard}>
+        <Text style={styles.novaLabel}>Maps · {preferredMapsApp}</Text>
+        <Text style={orbitTypography.body}>
+          Open the full multi-stop trip, or hand off one leg at a time. Waze opens the first stop only —
+          use Arrived → next for the rest.
+        </Text>
+        <OrbitButton onPress={() => void openFullItineraryInMaps(itinerary.id)}>
+          Open full trip
+        </OrbitButton>
+        <View style={styles.actionRow}>
+          <OrbitButton
+            tone="secondary"
+            onPress={() => void toggleItineraryFavorite(itinerary.id)}>
+            {itinerary.favorite ? 'Unsave preferred' : 'Save as preferred'}
+          </OrbitButton>
+          {itinerary.status === 'completed' || itinerary.favorite ? (
+            <OrbitButton
+              tone="secondary"
+              onPress={() =>
+                void rerunItinerary(itinerary.id).then((created) => {
+                  if (created) router.replace(`/itinerary/${created.id}` as never);
+                })
+              }>
+              Run again
+            </OrbitButton>
+          ) : null}
+        </View>
+      </GlassCard>
 
       {ordered.map((stop, index) => {
         const isActive = stop.status === 'active';
@@ -89,28 +126,30 @@ export default function ItineraryDetailScreen() {
               </View>
             </View>
             <View style={styles.actions}>
-              <Pressable onPress={() => moveStop(stop.id, -1)} style={styles.iconBtn}>
+              <Pressable onPress={() => void moveStop(stop.id, -1)} style={styles.iconBtn}>
                 <MaterialIcons name="keyboard-arrow-up" size={22} color={orbitColors.textMuted} />
               </Pressable>
-              <Pressable onPress={() => moveStop(stop.id, 1)} style={styles.iconBtn}>
+              <Pressable onPress={() => void moveStop(stop.id, 1)} style={styles.iconBtn}>
                 <MaterialIcons name="keyboard-arrow-down" size={22} color={orbitColors.textMuted} />
               </Pressable>
               <OrbitButton
                 style={styles.flexBtn}
                 tone="secondary"
-                onPress={() => openStopInMaps(itinerary.id, stop.id)}>
+                onPress={() => void openStopInMaps(itinerary.id, stop.id)}>
                 Open in Maps
               </OrbitButton>
               {isActive && !isDone ? (
-                <OrbitButton style={styles.flexBtn} onPress={() => advanceItineraryStop(itinerary.id, stop.id)}>
+                <OrbitButton
+                  style={styles.flexBtn}
+                  onPress={() => void advanceItineraryStop(itinerary.id, stop.id)}>
                   Arrived → next
                 </OrbitButton>
               ) : null}
-              {stop.kind === 'grocery' ? (
+              {stop.kind === 'grocery' || stop.kind === 'shop' ? (
                 <OrbitButton
                   style={styles.flexBtn}
                   tone="secondary"
-                  onPress={() => router.push('/(tabs)/groceries' as never)}>
+                  onPress={() => router.push('/shopping-mode' as never)}>
                   Shopping list
                 </OrbitButton>
               ) : null}
@@ -123,6 +162,11 @@ export default function ItineraryDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  actionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: orbitSpacing.sm,
+  },
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -173,6 +217,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.6,
   },
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   stopActive: {
     borderColor: 'rgba(56,189,248,0.28)',
   },
@@ -188,8 +237,8 @@ const styles = StyleSheet.create({
     gap: orbitSpacing.md,
   },
   summary: {
-    color: orbitColors.orbitBlue,
+    color: orbitColors.textMuted,
     fontSize: 14,
-    fontWeight: '600',
+    lineHeight: 20,
   },
 });

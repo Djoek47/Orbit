@@ -4,8 +4,42 @@ import { choremaxxBrand } from '@/constants/choremaxx-brand';
 
 /**
  * Choremaxx Make UI tokens. Primary cyan/mint follow the official logo lockup.
+ * Static `orbitColors` remains the dark Midnight default for StyleSheets that
+ * have not migrated to `useOrbitTheme().colors`.
  */
-export const orbitColors = {
+export type OrbitColorPalette = {
+  background: string;
+  backgroundSoft: string;
+  shell: string;
+  card: string;
+  cardStrong: string;
+  cardMuted: string;
+  border: string;
+  borderStrong: string;
+  text: string;
+  textSoft: string;
+  textMuted: string;
+  textSubtle: string;
+  textFaint: string;
+  tabInactive: string;
+  orbitBlue: string;
+  orbitBlueDeep: string;
+  orbitBlueDark: string;
+  primary: string;
+  accent: string;
+  rewardsGold: string;
+  novaCyan: string;
+  success: string;
+  warning: string;
+  danger: string;
+  planPurple: string;
+  rankGold: string;
+  ink: string;
+  brandSlate: string;
+  brandFaded: string;
+};
+
+export const orbitColorsDark: OrbitColorPalette = {
   background: '#070D1C',
   backgroundSoft: '#0A1525',
   shell: '#030810',
@@ -23,9 +57,7 @@ export const orbitColors = {
   orbitBlue: choremaxxBrand.cyan,
   orbitBlueDeep: '#3A9BC8',
   orbitBlueDark: '#2B6F94',
-  /** Official Choremaxx cyan */
   primary: choremaxxBrand.cyan,
-  /** Official Choremaxx mint */
   accent: choremaxxBrand.mint,
   rewardsGold: choremaxxBrand.gold,
   novaCyan: '#06B6D4',
@@ -38,6 +70,41 @@ export const orbitColors = {
   brandSlate: choremaxxBrand.slate,
   brandFaded: choremaxxBrand.faded,
 };
+
+export const orbitColorsLight: OrbitColorPalette = {
+  background: '#F0F4F8',
+  backgroundSoft: '#E4EBF2',
+  shell: '#D8E2EC',
+  card: 'rgba(255, 255, 255, 0.78)',
+  cardStrong: 'rgba(255, 255, 255, 0.92)',
+  cardMuted: 'rgba(0, 0, 0, 0.03)',
+  border: 'rgba(20, 40, 60, 0.1)',
+  borderStrong: 'rgba(59, 130, 246, 0.35)',
+  text: '#0F1C2A',
+  textSoft: '#2A3A4C',
+  textMuted: '#5A6E82',
+  textSubtle: '#7A8FA3',
+  textFaint: '#A0B0C0',
+  tabInactive: '#8A9CB0',
+  orbitBlue: choremaxxBrand.cyan,
+  orbitBlueDeep: '#3A9BC8',
+  orbitBlueDark: '#2B6F94',
+  primary: choremaxxBrand.cyan,
+  accent: choremaxxBrand.mint,
+  rewardsGold: choremaxxBrand.gold,
+  novaCyan: '#06B6D4',
+  success: '#059669',
+  warning: '#EA580C',
+  danger: '#DC2626',
+  planPurple: '#7C3AED',
+  rankGold: '#D97706',
+  ink: '#0F1C2A',
+  brandSlate: choremaxxBrand.slate,
+  brandFaded: choremaxxBrand.faded,
+};
+
+/** Default static export — Midnight dark (back-compat for StyleSheets). */
+export const orbitColors = orbitColorsDark;
 
 export const orbitTabColors = {
   home: choremaxxBrand.cyan,
