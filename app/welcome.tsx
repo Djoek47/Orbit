@@ -146,10 +146,6 @@ export default function WelcomeOnboardingScreen() {
     };
   }, [household.inviteCode, inviteLinks]);
 
-  if (!isLoading && isSignedIn && currentUser?.profileComplete && hasHousehold) {
-    return <Redirect href="/" />;
-  }
-
   const progressIndex = (() => {
     switch (step) {
       case 'role':
@@ -216,6 +212,10 @@ export default function WelcomeOnboardingScreen() {
       }),
     []
   );
+
+  if (!isLoading && isSignedIn && currentUser?.profileComplete && hasHousehold) {
+    return <Redirect href="/" />;
+  }
 
   const handleRoleContinue = () => {
     if (!selectedRole) return;
