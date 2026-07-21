@@ -13,7 +13,7 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | # | Flow | Steps | Pass |
 |---|------|-------|------|
 | 1 | Auth | Sign up → create profile → sign out → sign in | ☐ |
-| 1b | Auth Make UI | Welcome brand hero · Sign in/up sheets · profile avatar pick · create/join household paths · pending approval | ☐ |
+| 1b | Auth Make UI | Welcome opening animation (logo glow/spring) · centered “Run the household” · Get Started / Sign in · profile avatar pick · create/join household · pending approval | ☐ |
 | 2 | Create household | New household → Manage Members → Add new member shows invite code | ☐ |
 | 3 | QR invite | Device A: Manage Members → Add new member QR · Device B scans → code fills join | ☐ |
 | 4 | Pending join | Device B joins → lands on Pending Approval · limited Home | ☐ |
