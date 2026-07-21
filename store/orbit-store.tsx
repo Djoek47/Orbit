@@ -133,6 +133,8 @@ type OrbitContextValue = {
   notifications: NotificationItem[];
   unreadNotificationCount: number;
   pendingRedemptions: RewardRedemption[];
+  /** Full redeem ledger (pending + decided) for the tally subpage. */
+  redemptions: RewardRedemption[];
   smartHomeDevices: SmartHomeDevice[];
   smartHomeScenes: SmartHomeScene[];
   storeRecommendations: StoreRecommendation[];
@@ -156,6 +158,10 @@ type OrbitContextValue = {
   approveTaskProof: (taskId: string, options?: { forAssignee?: string }) => Promise<void>;
   /** Admin: dock XP from someone who did not finish their share of a split task. */
   penalizeSplitAssignee: (taskId: string, assigneeName: string) => Promise<number | null>;
+  /** Reassign overdue / unfinished work — new assignee earns XP on complete. */
+  reassignTask: (taskId: string, newAssigneeName: string) => Promise<void>;
+  /** Award daily streak once when today's tasks are all done. */
+  awardDailyStreak: () => Promise<number | null>;
   deleteTask: (taskId: string) => Promise<void>;
   /** Admin-only soft cancel (keeps history). `future` also stops the recurring series. */
   cancelTask: (taskId: string, scope?: CancelTaskScope) => Promise<void>;
@@ -235,6 +241,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [pendingRedemptions, setPendingRedemptions] = useState<RewardRedemption[]>([]);
+  const [redemptions, setRedemptions] = useState<RewardRedemption[]>([]);
   const [smartHomeDevices, setSmartHomeDevices] = useState<SmartHomeDevice[]>([]);
   const [smartHomeScenes, setSmartHomeScenes] = useState<SmartHomeScene[]>([]);
   const [storeRecommendations, setStoreRecommendations] = useState<StoreRecommendation[]>([]);
@@ -333,9 +340,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setHousehold(hydratedHousehold);
     await Promise.all([
       notificationsRepository.list(hydratedHousehold.id).then(setNotifications),
-      rewardsRepository.getRedemptions(hydratedHousehold.id).then((items) =>
-        setPendingRedemptions(items.filter((item) => item.status === 'pending'))
-      ),
+      rewardsRepository.getRedemptions(hydratedHousehold.id).then((items) => {
+        setRedemptions(items);
+        setPendingRedemptions(items.filter((item) => item.status === 'pending'));
+      }),
       smartHomeRepository.listDevices(hydratedHousehold.id).then(setSmartHomeDevices),
       smartHomeRepository.listScenes(hydratedHousehold.id).then(setSmartHomeScenes),
     ]);
@@ -426,6 +434,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             : Promise.resolve(null),
         ]);
         setNotifications(items);
+        setRedemptions(redemptions);
         setPendingRedemptions(redemptions.filter((item) => item.status === 'pending'));
         setSmartHomeDevices(devices);
         setSmartHomeScenes(scenes);
@@ -485,6 +494,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       smartHomeRepository.listScenes(hydratedHousehold.id),
     ]);
     setNotifications(items);
+    setRedemptions(redemptions);
     setPendingRedemptions(redemptions.filter((item) => item.status === 'pending'));
     setSmartHomeDevices(devices);
     setSmartHomeScenes(scenes);
@@ -585,6 +595,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setCurrentUser(null);
     setHousehold(mockHousehold);
     setPendingRedemptions([]);
+    setRedemptions([]);
     setInviteLinks(null);
   };
 
@@ -811,7 +822,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
               ...member,
               xp: member.xp + awarded + (everyoneDone ? bonus : 0),
               weekXp: (member.weekXp ?? 0) + awarded + (everyoneDone ? bonus : 0),
-              streak: late ? member.streak ?? 0 : (member.streak ?? 0) + 1,
+              streak: member.streak ?? 0,
             };
           }
           // When the last person finishes, give bonus to earlier completers too
@@ -890,7 +901,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
                 ...member,
                 xp: member.xp + awarded,
                 weekXp: (member.weekXp ?? 0) + awarded,
-                streak: late ? member.streak ?? 0 : (member.streak ?? 0) + 1,
+                streak: member.streak ?? 0,
               }
             : member
         ),
@@ -965,6 +976,57 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
     await trackAnalytics('task.share_penalized', { taskId, assigneeName, dock }, analyticsContext);
     return dock;
+  };
+
+  const reassignTask = async (taskId: string, newAssigneeName: string) => {
+    const currentTask = household.tasks.find((item) => item.id === taskId);
+    if (!currentTask || currentTask.status === 'Completed' || currentTask.status === 'Cancelled') {
+      return;
+    }
+    const trimmed = newAssigneeName.trim();
+    if (!trimmed) return;
+
+    const nextTask: HouseholdTask = {
+      ...currentTask,
+      assignee: trimmed,
+      assignees: [trimmed],
+      shares: undefined,
+      splitXpEach: undefined,
+      splitBonusXp: undefined,
+      splitPenaltyXp: undefined,
+    };
+    const saved = await taskRepository.updateTask(nextTask);
+    setHousehold((current) => ({
+      ...current,
+      tasks: current.tasks.map((item) => (item.id === taskId ? saved : item)),
+    }));
+    await pushNotification({
+      title: 'Task reassigned',
+      body: `“${currentTask.title}” is now assigned to ${trimmed}. They earn the XP when finished.`,
+      category: 'tasks',
+      priority: 'medium',
+      data: { kind: 'task_reassigned', taskId, assignee: trimmed },
+    });
+    await trackAnalytics('task.reassigned', { taskId, assignee: trimmed }, analyticsContext);
+  };
+
+  const awardDailyStreak = async () => {
+    if (!currentMember || !household.id) return null;
+    const { awardDailyStreakIfNeeded } = await import('@/lib/streaks/daily-streak');
+    const result = await awardDailyStreakIfNeeded({
+      householdId: household.id,
+      memberId: currentMember.id,
+      currentStreak: currentMember.streak ?? 0,
+    });
+    if (!result.awarded) return null;
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((member) =>
+        member.id === currentMember.id ? { ...member, streak: result.streak } : member
+      ),
+    }));
+    await trackAnalytics('streak.daily_awarded', { streak: result.streak }, analyticsContext);
+    return result.streak;
   };
 
   const deleteTask = async (taskId: string) => {
@@ -1576,6 +1638,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       note,
     });
     setPendingRedemptions((current) => [redemption, ...current.filter((item) => item.id !== redemption.id)]);
+    setRedemptions((current) => [redemption, ...current.filter((item) => item.id !== redemption.id)]);
     const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
     await novaNotifications.rewardRequested(pushNotification, prefs, {
       title: reward?.title ?? 'a reward',
@@ -1595,6 +1658,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       approvalRequired: true,
       emoji: '✨',
       specialRequest: true,
+      category: 'Special',
+      origin: 'special-request',
+      createdByMemberId: currentMember.id,
+      createdByName: currentMember.name,
     });
     setHousehold((current) => ({
       ...current,
@@ -1604,7 +1671,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const createReward = async (input: CreateRewardInput) => {
-    const reward = await rewardsRepository.createReward(household.id, input);
+    if (!permissions.canManageHousehold) {
+      return;
+    }
+    const reward = await rewardsRepository.createReward(household.id, {
+      ...input,
+      origin: input.origin ?? 'minted',
+      createdByMemberId: input.createdByMemberId ?? currentMember?.id,
+      createdByName: input.createdByName ?? currentMember?.name,
+    });
     setHousehold((current) => ({
       ...current,
       rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
@@ -1626,6 +1701,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const reward = household.rewards.find((item) => item.id === pending?.rewardId);
     const updated = await rewardsRepository.approveRedemption(redemptionId);
     setPendingRedemptions((current) => current.filter((item) => item.id !== redemptionId));
+    setRedemptions((current) =>
+      current.map((item) => (item.id === redemptionId ? updated : item))
+    );
     if (pending && reward) {
       setHousehold((current) => ({
         ...current,
@@ -1648,6 +1726,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const rejectRedemption = async (redemptionId: string) => {
     const updated = await rewardsRepository.rejectRedemption(redemptionId);
     setPendingRedemptions((current) => current.filter((item) => item.id !== redemptionId));
+    setRedemptions((current) =>
+      current.map((item) => (item.id === redemptionId ? updated : item))
+    );
     await trackAnalytics('reward.redemption_rejected', { redemptionId, status: updated.status }, analyticsContext);
   };
 
@@ -1755,6 +1836,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setCurrentUser(null);
     setHousehold(mockHousehold);
     setPendingRedemptions([]);
+    setRedemptions([]);
     setNotifications([]);
   };
 
@@ -1848,6 +1930,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       notifications: visibleNotifications,
       unreadNotificationCount,
       pendingRedemptions,
+      redemptions,
       smartHomeDevices,
       smartHomeScenes,
       storeRecommendations,
@@ -1871,6 +1954,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       submitTaskProof,
       approveTaskProof,
       penalizeSplitAssignee,
+      reassignTask,
+      awardDailyStreak,
       deleteTask,
       cancelTask,
       splitAllTasksBetweenTwo,
@@ -1946,6 +2031,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       visibleNotifications,
       unreadNotificationCount,
       pendingRedemptions,
+      redemptions,
       smartHomeDevices,
       smartHomeScenes,
       storeRecommendations,

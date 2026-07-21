@@ -82,13 +82,19 @@ export const rewardsRepository = {
   },
 
   async createReward(householdId: string | null | undefined, input: CreateRewardInput): Promise<Reward> {
+    const origin = input.origin ?? (input.specialRequest ? 'special-request' : 'minted');
     const reward: Reward = {
       id: createLocalId('reward'),
       title: input.title.trim(),
       cost: Math.max(1, Math.round(input.cost)),
       approvalRequired: input.approvalRequired ?? true,
       emoji: input.emoji,
-      specialRequest: input.specialRequest,
+      category: input.category ?? (input.specialRequest ? 'Special' : 'Privilege'),
+      color: input.color,
+      specialRequest: input.specialRequest ?? origin === 'special-request',
+      origin,
+      createdByMemberId: input.createdByMemberId,
+      createdByName: input.createdByName,
       archived: false,
     };
 
@@ -113,7 +119,18 @@ export const rewardsRepository = {
       .select('*')
       .single();
     mapDbError('rewardsRepository.createReward', error);
-    return data ? { ...mapRewardRow(data), emoji: reward.emoji, specialRequest: reward.specialRequest } : reward;
+    return data
+      ? {
+          ...mapRewardRow(data),
+          emoji: reward.emoji,
+          category: reward.category,
+          color: reward.color,
+          specialRequest: reward.specialRequest,
+          origin: reward.origin,
+          createdByMemberId: reward.createdByMemberId,
+          createdByName: reward.createdByName,
+        }
+      : reward;
   },
 
   async updateReward(reward: Reward): Promise<Reward> {

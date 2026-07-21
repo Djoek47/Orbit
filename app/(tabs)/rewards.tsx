@@ -47,6 +47,7 @@ export default function RewardsScreen() {
     requestRewardRedemption,
   } = useOrbit();
   const [view, setView] = useState<RankingView>('week');
+  const [shopCategory, setShopCategory] = useState<string>('All');
 
   const sorted = useMemo(() => {
     return [...membersWithProgress]
@@ -68,6 +69,35 @@ export default function RewardsScreen() {
     }
     return map;
   }, [household.members, sorted]);
+
+  const catalogRewards = useMemo(
+    () => household.rewards.filter((reward) => !reward.archived),
+    [household.rewards]
+  );
+
+  const rewardCategories = useMemo(() => {
+    const cats = Array.from(
+      new Set(catalogRewards.map((reward) => reward.category?.trim() || 'Other'))
+    ).sort((a, b) => a.localeCompare(b));
+    return ['All', ...cats];
+  }, [catalogRewards]);
+
+  const groupedShopRewards = useMemo(() => {
+    const filtered =
+      shopCategory === 'All'
+        ? catalogRewards
+        : catalogRewards.filter((reward) => (reward.category?.trim() || 'Other') === shopCategory);
+    const groups = new Map<string, typeof filtered>();
+    for (const reward of filtered) {
+      const key = reward.category?.trim() || 'Other';
+      const list = groups.get(key) ?? [];
+      list.push(reward);
+      groups.set(key, list);
+    }
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([category, items]) => ({ category, items }));
+  }, [catalogRewards, shopCategory]);
 
   const top3 = sorted.slice(0, 3);
   const earnedCount = achievements.filter((badge) => badge.earned).length;
@@ -275,62 +305,131 @@ export default function RewardsScreen() {
 
       <View style={styles.shopHeader}>
         <Text style={orbitTypography.display}>Reward shop</Text>
-        <Text style={orbitTypography.caption}>Mint rewards or redeem with household XP</Text>
+        <Text style={orbitTypography.caption}>Browse by category · redeem with XP</Text>
       </View>
 
-      {permissions.canManageHousehold || permissions.canApproveReward ? (
-        <OrbitButton onPress={() => router.push('/create-reward' as never)}>Mint reward</OrbitButton>
-      ) : null}
-      <OrbitButton tone="secondary" onPress={() => router.push('/special-reward-request' as never)}>
-        Request special reward
-      </OrbitButton>
+      <View style={styles.shopActions}>
+        {permissions.canManageHousehold ? (
+          <OrbitButton onPress={() => router.push('/create-reward' as never)}>Mint reward</OrbitButton>
+        ) : null}
+        <OrbitButton tone="secondary" onPress={() => router.push('/special-reward-request' as never)}>
+          Request special reward
+        </OrbitButton>
+        <Pressable
+          onPress={() => router.push('/reward-tally' as never)}
+          style={[styles.tallyLink, { borderColor: `${accentTheme.primary}44` }]}>
+          <MaterialIcons name="receipt-long" size={16} color={accentTheme.primary} />
+          <Text style={[styles.tallyLinkText, { color: accentTheme.primary }]}>Redeem tally</Text>
+          <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
+        </Pressable>
+      </View>
 
-      {household.rewards.map((reward) => (
-        <GlassCard key={reward.id} style={styles.rewardCard}>
-          <View style={orbitScreen.row}>
-            <View style={styles.rewardCopy}>
-              <Text style={orbitTypography.cardTitle}>
-                {reward.emoji ? `${reward.emoji} ` : ''}
-                {reward.title}
+      <View style={styles.categoryChipRow}>
+        {rewardCategories.map((category) => {
+          const active = shopCategory === category;
+          return (
+            <Pressable
+              key={category}
+              onPress={() => setShopCategory(category)}
+              style={[
+                styles.categoryChip,
+                active && {
+                  backgroundColor: `${accentTheme.primary}2E`,
+                  borderColor: `${accentTheme.primary}55`,
+                },
+              ]}>
+              <Text style={[styles.categoryChipText, active && { color: accentTheme.primary }]}>
+                {category}
               </Text>
-              <Text style={orbitTypography.caption}>
-                {reward.cost} XP{reward.specialRequest ? ' · Special request' : ''}
-              </Text>
-            </View>
-            <Text style={styles.approvalLabel}>{reward.approvalRequired ? 'Approval' : 'Instant'}</Text>
-          </View>
-          <OrbitButton tone="secondary" onPress={() => requestRewardRedemption(reward.id)}>
-            Redeem
-          </OrbitButton>
-          {permissions.canManageHousehold ? (
-            <OrbitButton tone="danger" onPress={() => archiveReward(reward.id)}>
-              Archive
-            </OrbitButton>
-          ) : null}
-        </GlassCard>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {groupedShopRewards.map((group) => (
+        <View key={group.category} style={styles.shopSection}>
+          <Text style={styles.shopSectionTitle}>{group.category}</Text>
+          {group.items.map((reward) => {
+            const origin =
+              reward.origin ?? (reward.specialRequest ? 'special-request' : 'minted');
+            return (
+              <GlassCard key={reward.id} style={styles.rewardCard}>
+                <View style={orbitScreen.row}>
+                  <View style={styles.rewardCopy}>
+                    <Text style={orbitTypography.cardTitle}>
+                      {reward.emoji ? `${reward.emoji} ` : ''}
+                      {reward.title}
+                    </Text>
+                    <Text style={orbitTypography.caption}>
+                      {reward.cost} XP
+                      {permissions.canManageHousehold
+                        ? ` · ${origin === 'special-request' ? 'Special request' : 'Minted'}`
+                        : ''}
+                      {permissions.canManageHousehold && reward.createdByName
+                        ? ` · ${reward.createdByName}`
+                        : ''}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.approvalPill,
+                      { backgroundColor: `${reward.color ?? accentTheme.primary}22` },
+                    ]}>
+                    <Text
+                      style={[
+                        styles.approvalPillText,
+                        { color: reward.color ?? accentTheme.primary },
+                      ]}>
+                      {reward.approvalRequired ? 'Approval' : 'Instant'}
+                    </Text>
+                  </View>
+                </View>
+                <OrbitButton tone="secondary" onPress={() => void requestRewardRedemption(reward.id)}>
+                  Redeem
+                </OrbitButton>
+                {permissions.canManageHousehold ? (
+                  <OrbitButton tone="danger" onPress={() => void archiveReward(reward.id)}>
+                    Archive
+                  </OrbitButton>
+                ) : null}
+              </GlassCard>
+            );
+          })}
+        </View>
       ))}
 
       {pendingRedemptions.length > 0 ? (
         <>
-          <Text style={orbitTypography.cardTitle}>Pending redemptions</Text>
-          {pendingRedemptions.map((redemption) => {
+          <View style={styles.pendingHead}>
+            <Text style={orbitTypography.cardTitle}>Pending · {pendingRedemptions.length}</Text>
+            <Pressable onPress={() => router.push('/reward-tally' as never)}>
+              <Text style={[styles.tallyLinkText, { color: accentTheme.primary }]}>Full tally</Text>
+            </Pressable>
+          </View>
+          {pendingRedemptions.slice(0, 3).map((redemption) => {
             const reward = household.rewards.find((item) => item.id === redemption.rewardId);
             const member = household.members.find((item) => item.id === redemption.memberId);
+            const origin =
+              reward?.origin ?? (reward?.specialRequest ? 'special-request' : 'minted');
             return (
               <GlassCard key={redemption.id} style={styles.rewardCard}>
                 <Text style={orbitTypography.cardTitle}>{reward?.title ?? 'Reward'}</Text>
                 <Text style={orbitTypography.caption}>
-                  Requested by {member?.name ?? 'member'} · {new Date(redemption.requestedAt).toLocaleString()}
+                  {member?.name ?? 'member'} ·{' '}
+                  {origin === 'special-request' ? 'Special request' : 'Minted'} ·{' '}
+                  {new Date(redemption.requestedAt).toLocaleString()}
                 </Text>
                 {permissions.canApproveReward ? (
                   <View style={styles.redemptionActions}>
-                    <OrbitButton style={styles.redemptionButton} onPress={() => approveRedemption(redemption.id)}>
+                    <OrbitButton
+                      style={styles.redemptionButton}
+                      onPress={() => void approveRedemption(redemption.id)}>
                       Approve
                     </OrbitButton>
                     <OrbitButton
                       style={styles.redemptionButton}
                       tone="danger"
-                      onPress={() => rejectRedemption(redemption.id)}>
+                      onPress={() => void rejectRedemption(redemption.id)}>
                       Reject
                     </OrbitButton>
                   </View>
@@ -399,6 +498,64 @@ const styles = StyleSheet.create({
     color: orbitColors.warning,
     fontSize: 12,
     fontWeight: '700',
+  },
+  approvalPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  approvalPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  shopActions: {
+    gap: 10,
+  },
+  tallyLink: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  tallyLinkText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  categoryChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChip: {
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  categoryChipText: {
+    color: orbitColors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  shopSection: {
+    gap: 10,
+  },
+  shopSectionTitle: {
+    color: orbitColors.textSoft,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  pendingHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   avatarCircle: {
     alignItems: 'center',

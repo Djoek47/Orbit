@@ -1,28 +1,46 @@
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoiceRow } from '@/components/orbit/choice-row';
+import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { orbitScreen, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 
-const emojis = ['📱', '🎬', '🌙', '🍦', '🎮', '✨', '🚲', '🍕'];
+const EMOJIS = ['📱', '🎬', '🌙', '🍦', '🎮', '✨', '🚲', '🍕', '🎁', '💤'];
+const CATEGORIES = ['Experience', 'Treat', 'Screen', 'Money', 'Privilege', 'Special'] as const;
+const CATEGORY_COLORS: Record<string, string> = {
+  Experience: '#A78BFA',
+  Treat: '#FB923C',
+  Screen: '#38BDF8',
+  Money: '#F59E0B',
+  Privilege: '#2DD4BF',
+  Special: '#F472B6',
+};
 
 export default function CreateRewardScreen() {
-  const { createReward, permissions } = useOrbit();
+  const insets = useSafeAreaInsets();
+  const { accentTheme, createReward, currentMember, permissions } = useOrbit();
   const [title, setTitle] = useState('');
   const [cost, setCost] = useState('120');
-  const [emoji, setEmoji] = useState(emojis[0]);
+  const [emoji, setEmoji] = useState(EMOJIS[0]);
+  const [category, setCategory] = useState<string>('Privilege');
   const [approval, setApproval] = useState('Required');
+  const [busy, setBusy] = useState(false);
 
-  if (!permissions.canApproveReward && !permissions.canManageHousehold) {
+  if (!permissions.canManageHousehold) {
     return (
-      <ScrollView style={orbitScreen.container} contentContainerStyle={orbitScreen.content}>
-        <Text style={orbitTypography.title}>Minting locked</Text>
-        <Text style={orbitTypography.body}>Only owners and admins can mint shop rewards.</Text>
+      <ScrollView
+        style={orbitScreen.container}
+        contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ChoremaxxBadge />
+        <Text style={[orbitTypography.title, { marginTop: 16 }]}>Minting locked</Text>
+        <Text style={orbitTypography.body}>Only household owners and admins can mint shop rewards.</Text>
         <OrbitButton tone="secondary" onPress={() => router.back()}>
           Back
         </OrbitButton>
@@ -31,29 +49,65 @@ export default function CreateRewardScreen() {
   }
 
   const handleSave = async () => {
-    if (!title.trim() || Number(cost) <= 0) {
-      return;
+    if (!title.trim() || Number(cost) <= 0) return;
+    setBusy(true);
+    try {
+      await createReward({
+        title: title.trim(),
+        cost: Number(cost),
+        approvalRequired: approval === 'Required',
+        emoji,
+        category,
+        color: CATEGORY_COLORS[category],
+        origin: 'minted',
+        createdByMemberId: currentMember?.id,
+        createdByName: currentMember?.name,
+      });
+      router.back();
+    } finally {
+      setBusy(false);
     }
-    await createReward({
-      title: title.trim(),
-      cost: Number(cost),
-      approvalRequired: approval === 'Required',
-      emoji,
-    });
-    router.back();
   };
 
   return (
-    <ScrollView style={orbitScreen.container} contentContainerStyle={orbitScreen.content}>
+    <ScrollView
+      style={orbitScreen.container}
+      contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}
+      keyboardShouldPersistTaps="handled">
+      <Stack.Screen options={{ headerShown: false }} />
       <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Rewards shop</Text>
+        <ChoremaxxBadge />
+        <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Admin mint</Text>
         <Text style={orbitTypography.display}>Mint reward</Text>
-        <Text style={orbitTypography.body}>Admin-minted rewards appear in the Ranks shop for the household.</Text>
+        <Text style={orbitTypography.body}>
+          Catalog rewards for everyone. Origin stays “Minted” so admins can audit the shop.
+        </Text>
       </View>
-      <GlassCard>
+
+      <GlassCard style={styles.card}>
         <OrbitInput label="Title" value={title} onChangeText={setTitle} placeholder="30 minutes screen time" />
         <OrbitInput keyboardType="number-pad" label="XP cost" value={cost} onChangeText={setCost} />
-        <ChoiceRow label="Emoji" options={emojis} value={emoji} onChange={setEmoji} />
+        <Text style={styles.fieldLabel}>Category</Text>
+        <View style={styles.chipRow}>
+          {CATEGORIES.map((item) => {
+            const active = category === item;
+            return (
+              <Pressable
+                key={item}
+                onPress={() => setCategory(item)}
+                style={[
+                  styles.chip,
+                  active && {
+                    backgroundColor: `${CATEGORY_COLORS[item]}33`,
+                    borderColor: `${CATEGORY_COLORS[item]}88`,
+                  },
+                ]}>
+                <Text style={[styles.chipText, active && { color: CATEGORY_COLORS[item] }]}>{item}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <ChoiceRow label="Emoji" options={EMOJIS} value={emoji} onChange={setEmoji} />
         <ChoiceRow
           label="Approval"
           options={['Required', 'Instant']}
@@ -61,8 +115,9 @@ export default function CreateRewardScreen() {
           onChange={setApproval}
         />
       </GlassCard>
-      <OrbitButton disabled={!title.trim()} onPress={handleSave}>
-        Save reward
+
+      <OrbitButton disabled={busy || !title.trim()} onPress={() => void handleSave()}>
+        {busy ? 'Saving…' : 'Save to shop'}
       </OrbitButton>
       <OrbitButton tone="secondary" onPress={() => router.back()}>
         Cancel
@@ -70,3 +125,22 @@ export default function CreateRewardScreen() {
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  card: { gap: orbitSpacing.md },
+  fieldLabel: {
+    color: orbitColors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  chip: {
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  chipText: { color: orbitColors.textSoft, fontSize: 12, fontWeight: '600' },
+});

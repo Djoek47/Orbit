@@ -59,6 +59,7 @@ export default function TaskDetailScreen() {
     household,
     penalizeSplitAssignee,
     permissions,
+    reassignTask,
     submitTaskProof,
     updateTask,
   } = useOrbit();
@@ -444,6 +445,41 @@ export default function TaskDetailScreen() {
                 <Text style={styles.value}>{task.assignee}</Text>
               </View>
             </View>
+            {(late || task.status === 'Overdue') &&
+            task.status !== 'Completed' &&
+            task.status !== 'Cancelled' &&
+            (permissions.canAssignTask || permissions.canManageHousehold) ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.label}>Reassign (overdue)</Text>
+                <Text style={styles.body}>
+                  Hand this to someone else. They earn the XP when they finish.
+                </Text>
+                <View style={styles.chipWrap}>
+                  {memberNames
+                    .filter((name) => name !== task.assignee)
+                    .map((name) => (
+                      <Pressable
+                        key={`reassign-${name}`}
+                        onPress={() => {
+                          Alert.alert(
+                            'Reassign task',
+                            `Move “${task.title}” to ${name}? ${task.assignee} will not earn XP for it.`,
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              {
+                                text: `Give to ${name}`,
+                                onPress: () => void reassignTask(task.id, name),
+                              },
+                            ]
+                          );
+                        }}
+                        style={[styles.choiceChip, { borderColor: `${accentTheme.primary}55` }]}>
+                        <Text style={[styles.choiceText, { color: accentTheme.primary }]}>{name}</Text>
+                      </Pressable>
+                    ))}
+                </View>
+              </View>
+            ) : null}
             {split && task.shares ? (
               <View style={styles.detailRow}>
                 <Text style={styles.label}>Shares</Text>

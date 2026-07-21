@@ -9,6 +9,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
+import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
 import { HEADER_CHIPS_GUTTER, orbitRadius, orbitScreen } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
@@ -16,14 +17,14 @@ import {
   isSharedDeviceAccount,
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
-import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { useOrbit } from '@/store/orbit-store';
 
 const WEEK_XP_COLORS = ['#38BDF8', '#34D399', '#A78BFA', '#FB923C', '#F472B6'];
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, household, metrics, novaBriefing, currentMember, switchPersona } = useOrbit();
+  const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona } =
+    useOrbit();
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -31,19 +32,6 @@ export default function HomeScreen() {
   const typeStyle = accentTheme.typeStyle;
   const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
   const sharedKidMode = isSharedDeviceAccount(currentMember, household.members);
-
-  const myOpenTasks = useMemo(() => {
-    const active = household.tasks.filter((t) => t.status !== 'Cancelled');
-    if (sharedKidMode && currentMember) {
-      return active.filter((t) => taskMatchesAssignee(t, currentMember.name));
-    }
-    return active;
-  }, [currentMember, household.tasks, sharedKidMode]);
-
-  const tasks = myOpenTasks.slice(0, sharedKidMode ? 6 : 4);
-  const doneTasks = myOpenTasks.filter((t) => t.status === 'Completed').length;
-  const totalTasks = Math.max(1, myOpenTasks.length);
-  const pct = Math.round((doneTasks / totalTasks) * 100);
   const groceryEmoji: Record<string, string> = {
     Milk: '🥛',
     Blueberries: '🫐',
@@ -248,58 +236,17 @@ export default function HomeScreen() {
         </LinearGradient>
       </View>
 
-      <GlassCard style={styles.fullBleed}>
-        <View style={styles.sectionHead}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.sectionTitle}>
-              {sharedKidMode ? 'My tasks' : "Today's Tasks"}
-            </Text>
-            <Text style={styles.eyebrow}>
-              {doneTasks} of {myOpenTasks.length} complete
-              {sharedKidMode ? ` · only yours` : ''}
-            </Text>
-          </View>
-          <View style={styles.pctPill}>
-            <Text style={styles.pctPillText}>{pct}%</Text>
-          </View>
-        </View>
-        <View style={styles.progressTrack}>
-          <LinearGradient
-            colors={[accentTheme.primary, accentTheme.secondary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.progressFill, { width: `${pct}%` }]}
-          />
-        </View>
-        {tasks.length === 0 ? (
-          <Text style={styles.eyebrow}>You’re all caught up. Nice work!</Text>
-        ) : (
-          tasks.map((task) => {
-            const done = task.status === 'Completed';
-            return (
-              <Pressable
-                key={task.id}
-                style={styles.taskRow}
-                onPress={() => router.push(`/task/${task.id}` as never)}>
-                <View style={[styles.check, done && styles.checkDone]}>
-                  {done ? <MaterialIcons name="check" size={12} color="#070D1C" /> : null}
-                </View>
-                <Text style={[styles.taskText, done && styles.taskDone]} numberOfLines={1}>
-                  {task.title}
-                </Text>
-                {!sharedKidMode ? <Text style={styles.assignee}>{task.assignee[0]}</Text> : null}
-              </Pressable>
-            );
-          })
-        )}
-        {sharedKidMode ? (
-          <Pressable
-            onPress={() => router.push('/(tabs)/tasks' as never)}
-            style={{ marginTop: 4 }}>
-            <Text style={[styles.linkBlue, { color: accentTheme.primary }]}>See all my tasks →</Text>
-          </Pressable>
-        ) : null}
-      </GlassCard>
+      <TodayTasksCard
+        tasks={household.tasks}
+        members={household.members}
+        currentMember={currentMember}
+        accentTheme={accentTheme}
+        mineOnly={sharedKidMode}
+        streak={currentMember?.streak ?? 0}
+        onAwardDailyStreak={() => {
+          void awardDailyStreak();
+        }}
+      />
 
       {!sharedKidMode ? (
         <>

@@ -76,6 +76,10 @@ export default function RootLayout() {
             name="special-reward-request"
             options={{ presentation: 'modal', headerShown: false, title: 'Special Request' }}
           />
+          <Stack.Screen
+            name="reward-tally"
+            options={{ presentation: 'modal', headerShown: false, title: 'Reward Tally' }}
+          />
         </Stack>
       </OrbitProvider>
       <StatusBar backgroundColor={orbitColors.background} style="light" />

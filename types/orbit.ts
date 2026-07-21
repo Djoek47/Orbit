@@ -190,6 +190,8 @@ export type PreferredStore = {
   placeQuery: string;
 };
 
+export type RewardOrigin = 'minted' | 'special-request';
+
 export type Reward = {
   id: string;
   title: string;
@@ -200,6 +202,10 @@ export type Reward = {
   color?: string;
   archived?: boolean;
   specialRequest?: boolean;
+  /** Catalog mint vs member special ask — admin-visible. */
+  origin?: RewardOrigin;
+  createdByMemberId?: string;
+  createdByName?: string;
 };
 
 export type Badge = {
@@ -319,6 +325,11 @@ export type CreateRewardInput = {
   approvalRequired?: boolean;
   emoji?: string;
   specialRequest?: boolean;
+  category?: string;
+  color?: string;
+  origin?: RewardOrigin;
+  createdByMemberId?: string;
+  createdByName?: string;
 };
 
 export type TaskTemplate = {
