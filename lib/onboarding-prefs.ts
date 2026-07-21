@@ -52,7 +52,7 @@ export const ONBOARDING_ROLES: {
     title: 'Roommate',
     subtitle: 'Shared living, simplified',
     color: '#A78BFA',
-    perks: ['Shared chores & bills', 'Rotation schedules', 'Shared groceries', 'No parenting language'],
+    perks: ['Shared chores', 'Shared grocery list', 'Simple schedules', 'Stay in sync'],
   },
 ];
 

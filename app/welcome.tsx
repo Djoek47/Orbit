@@ -1,6 +1,15 @@
 import { Redirect, router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Platform,
+  PanResponder,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -159,6 +168,55 @@ export default function WelcomeOnboardingScreen() {
     }
   })();
 
+  const goBack = () => {
+    setError('');
+    switch (step) {
+      case 'role':
+        setStep('splash');
+        break;
+      case 'motivation':
+        setStep('role');
+        break;
+      case 'account':
+        setStep(selectedRole && skipsMotivation(selectedRole) ? 'role' : 'motivation');
+        break;
+      case 'profile':
+        setStep('account');
+        break;
+      case 'household':
+        setStep(currentUser?.profileComplete ? 'profile' : 'account');
+        break;
+      case 'ready':
+        setStep('household');
+        break;
+      default:
+        break;
+    }
+  };
+
+  const canGoBack = step !== 'splash';
+  const goBackRef = useRef(goBack);
+  goBackRef.current = goBack;
+  const canGoBackRef = useRef(canGoBack);
+  canGoBackRef.current = canGoBack;
+
+  const swipeBack = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_evt, gesture) =>
+          canGoBackRef.current &&
+          Math.abs(gesture.dx) > 18 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
+        onPanResponderRelease: (_evt, gesture) => {
+          // Slide left (finger moves left) → previous step
+          if (canGoBackRef.current && gesture.dx < -72 && Math.abs(gesture.vx) > 0.05) {
+            goBackRef.current();
+          }
+        },
+      }),
+    []
+  );
+
   const handleRoleContinue = () => {
     if (!selectedRole) return;
     setError('');
@@ -299,7 +357,9 @@ export default function WelcomeOnboardingScreen() {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}>
+    <View
+      style={[styles.root, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}
+      {...swipeBack.panHandlers}>
       {step === 'splash' ? (
         <View style={styles.splashScreen}>
           <View style={styles.splashCenter}>
@@ -327,7 +387,7 @@ export default function WelcomeOnboardingScreen() {
 
       {step === 'role' ? (
         <KeyboardScreen contentContainerStyle={styles.scroll}>
-          <Header progress={progressIndex} />
+          <Header progress={progressIndex} onBack={goBack} />
           <Text style={orbitTypography.title}>Who are you?</Text>
           <Text style={[orbitTypography.caption, styles.mb]}>
             Choremaxx adapts to your role in the household.
@@ -382,7 +442,7 @@ export default function WelcomeOnboardingScreen() {
 
       {step === 'motivation' ? (
         <KeyboardScreen contentContainerStyle={styles.scroll}>
-          <Header progress={progressIndex} />
+          <Header progress={progressIndex} onBack={goBack} />
           <Text style={orbitTypography.title}>How do you motivate your household?</Text>
           <Text style={[orbitTypography.caption, styles.mb]}>You can change this anytime in Settings.</Text>
           <View style={styles.motivationGrid}>
@@ -419,7 +479,7 @@ export default function WelcomeOnboardingScreen() {
 
       {step === 'account' ? (
         <KeyboardScreen contentContainerStyle={styles.scroll}>
-          <Header progress={progressIndex} />
+          <Header progress={progressIndex} onBack={goBack} />
           <Text style={orbitTypography.title}>Create your account</Text>
           <Text style={[orbitTypography.caption, styles.mb]}>
             One account unlocks your household — tasks, Plan, Rewards, and Nova.
@@ -450,7 +510,7 @@ export default function WelcomeOnboardingScreen() {
 
       {step === 'profile' ? (
         <KeyboardScreen contentContainerStyle={styles.scroll}>
-          <Header progress={progressIndex} />
+          <Header progress={progressIndex} onBack={goBack} />
           <Text style={orbitTypography.title}>What should we call you?</Text>
           <Text style={[orbitTypography.caption, styles.mb]}>
             This name is your identity inside the household.
@@ -465,7 +525,7 @@ export default function WelcomeOnboardingScreen() {
 
       {step === 'household' ? (
         <KeyboardScreen contentContainerStyle={styles.scroll}>
-          <Header progress={progressIndex} />
+          <Header progress={progressIndex} onBack={goBack} />
           <Text style={orbitTypography.title}>Set up your household</Text>
           <Text style={[orbitTypography.caption, styles.mb]}>
             Create a new home or join one with an invite code.
@@ -655,10 +715,21 @@ export default function WelcomeOnboardingScreen() {
   );
 }
 
-function Header({ progress }: { progress: number }) {
+function Header({ progress, onBack }: { progress: number; onBack?: () => void }) {
   return (
     <View style={styles.topRow}>
-      <ChoremaxxLogo size="sm" />
+      {onBack ? (
+        <Pressable
+          onPress={onBack}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Go back">
+          <MaterialIcons name="chevron-left" size={22} color={orbitColors.primary} />
+          <Text style={styles.backLabel}>Back</Text>
+        </Pressable>
+      ) : (
+        <ChoremaxxLogo size="sm" />
+      )}
       <View style={styles.dots}>
         {[0, 1, 2, 3, 4].map((index) => (
           <View
@@ -1045,6 +1116,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: orbitSpacing.md,
+  },
+  backBtn: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+    marginLeft: -6,
+    paddingVertical: 4,
+    paddingRight: 8,
+  },
+  backLabel: {
+    color: orbitColors.primary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   typeChip: {
     backgroundColor: 'rgba(255,255,255,0.05)',
