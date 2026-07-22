@@ -7,6 +7,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
+import { SignInSuccess } from '@/components/orbit/sign-in-success';
 import { orbitColors } from '@/constants/orbit-theme';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { useOrbit } from '@/store/orbit-store';
@@ -17,11 +18,17 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('orbit-demo');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
 
   useEffect(() => {
     isAppleAuthAvailable().then(setAppleAvailable).catch(() => setAppleAvailable(false));
   }, []);
+
+  const finishToHome = () => {
+    setShowSuccess(false);
+    router.replace('/' as never);
+  };
 
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
@@ -33,7 +40,7 @@ export default function SignInScreen() {
       setBusy(true);
       setError('');
       await signIn({ email, password });
-      router.replace('/' as never);
+      setShowSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed.');
     } finally {
@@ -50,7 +57,7 @@ export default function SignInScreen() {
       } else {
         await signIn({ email: session.user.email, password: 'apple' });
       }
-      router.replace('/' as never);
+      setShowSuccess(true);
     } catch (err) {
       if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') {
         return;
@@ -60,67 +67,71 @@ export default function SignInScreen() {
   };
 
   return (
-    <AuthShell
-      showBack
-      brandHero
-      kicker="Welcome back"
-      title="Sign in"
-      subtitle="Open your household. Demo credentials are prefilled for the Rivera home."
-      footer={
-        <View style={styles.footerLinks}>
-          <Pressable onPress={() => router.push('/forgot-password' as never)}>
-            <Text style={[styles.link, { color: accentTheme.primary }]}>Forgot password?</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push('/welcome' as never)} style={styles.switchRow}>
-            <Text style={styles.switchMuted}>New here?</Text>
-            <Text style={[styles.link, { color: accentTheme.primary }]}>Get Started</Text>
-          </Pressable>
-        </View>
-      }>
-      <OrbitInput
-        autoCapitalize="none"
-        label="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        placeholder="you@home.com"
-      />
-      <OrbitInput
-        autoCapitalize="none"
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        placeholder="Your password"
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <OrbitButton disabled={busy} onPress={() => void handleSignIn()}>
-        {busy ? 'Signing in…' : 'Sign in'}
-      </OrbitButton>
-
-      {appleAvailable && Platform.OS === 'ios' ? (
-        <>
-          <View style={styles.dividerRow}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.divider} />
+    <>
+      <AuthShell
+        showBack
+        brandHero
+        kicker="Welcome back"
+        title="Sign in"
+        subtitle="Open your household. Demo credentials are prefilled for the Rivera home."
+        footer={
+          <View style={styles.footerLinks}>
+            <Pressable onPress={() => router.push('/forgot-password' as never)}>
+              <Text style={[styles.link, { color: accentTheme.primary }]}>Forgot password?</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/welcome' as never)} style={styles.switchRow}>
+              <Text style={styles.switchMuted}>New here?</Text>
+              <Text style={[styles.link, { color: accentTheme.primary }]}>Get Started</Text>
+            </Pressable>
           </View>
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-            cornerRadius={16}
-            style={styles.appleButton}
-            onPress={() => void handleApple()}
-          />
-        </>
-      ) : null}
+        }>
+        <OrbitInput
+          autoCapitalize="none"
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          placeholder="you@home.com"
+        />
+        <OrbitInput
+          autoCapitalize="none"
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          placeholder="Your password"
+        />
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View style={styles.demoHint}>
-        <MaterialIcons name="info-outline" size={14} color={orbitColors.textSubtle} />
-        <Text style={styles.demoText}>Demo: sarah@orbit.test · orbit-demo</Text>
-      </View>
-    </AuthShell>
+        <OrbitButton disabled={busy || showSuccess} onPress={() => void handleSignIn()}>
+          {busy ? 'Signing in…' : 'Sign in'}
+        </OrbitButton>
+
+        {appleAvailable && Platform.OS === 'ios' ? (
+          <>
+            <View style={styles.dividerRow}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.divider} />
+            </View>
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+              cornerRadius={16}
+              style={styles.appleButton}
+              onPress={() => void handleApple()}
+            />
+          </>
+        ) : null}
+
+        <View style={styles.demoHint}>
+          <MaterialIcons name="info-outline" size={14} color={orbitColors.textSubtle} />
+          <Text style={styles.demoText}>Demo: sarah@orbit.test · orbit-demo</Text>
+        </View>
+      </AuthShell>
+
+      <SignInSuccess visible={showSuccess} onDone={finishToHome} />
+    </>
   );
 }
 

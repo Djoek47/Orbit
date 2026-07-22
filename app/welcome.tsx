@@ -4,6 +4,8 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 
+import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
+import { BrandOpening } from '@/components/orbit/brand-opening';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -72,6 +74,7 @@ export default function WelcomeOnboardingScreen() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [resumed, setResumed] = useState(false);
+  const [splashReady, setSplashReady] = useState(false);
 
   const roomCatalog = useMemo(
     () => [...DEFAULT_HOUSEHOLD_ROOMS, ...customRooms],
@@ -295,28 +298,24 @@ export default function WelcomeOnboardingScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}>
       {step === 'splash' ? (
-        <View style={styles.centered}>
-          <ChoremaxxLogo size="xl" />
-          <View style={styles.splashCopy}>
-            <Text style={styles.splashLead}>Your AI-powered</Text>
-            <Text style={styles.splashSub}>Household Operating System</Text>
+        <View style={styles.splashScreen}>
+          <View style={styles.splashCenter}>
+            <BrandOpening tagline="Run the household" onReady={() => setSplashReady(true)} />
           </View>
-          <View style={styles.bullets}>
-            {[
-              { text: 'Zero clutter. Maximum harmony.', color: orbitColors.primary },
-              { text: 'AI that manages your home.', color: orbitColors.accent },
-              { text: 'Family-first. Always.', color: orbitColors.rewardsGold },
-            ].map((item) => (
-              <View key={item.text} style={styles.bulletRow}>
-                <View style={[styles.bulletDot, { backgroundColor: item.color }]} />
-                <Text style={styles.bulletText}>{item.text}</Text>
-              </View>
-            ))}
+
+          <View
+            style={[styles.splashBottom, !splashReady && styles.splashBottomHidden]}
+            pointerEvents={splashReady ? 'auto' : 'none'}>
+            <View style={styles.splashCtaBlock}>
+              <OrbitButton onPress={() => setStep('role')}>Get Started</OrbitButton>
+              <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
+                <Text style={styles.signInText}>
+                  Already have an account? <Text style={styles.signInAccent}>Sign in</Text>
+                </Text>
+              </Pressable>
+            </View>
+            <BrandLegalFooter compact showLogo={false} style={styles.splashLegal} />
           </View>
-          <OrbitButton onPress={() => setStep('role')}>Get Started</OrbitButton>
-          <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
-            <Text style={styles.signInText}>Already have an account? Sign in</Text>
-          </Pressable>
         </View>
       ) : null}
 
@@ -684,6 +683,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: orbitSpacing.lg,
   },
+  splashScreen: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: orbitSpacing.lg,
+    paddingTop: 12,
+    paddingBottom: 8,
+    width: '100%',
+  },
+  splashCenter: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  splashBottom: {
+    alignItems: 'stretch',
+    gap: 16,
+    opacity: 1,
+    paddingBottom: 4,
+    width: '100%',
+  },
+  splashBottomHidden: {
+    opacity: 0,
+  },
+  splashCtaBlock: {
+    alignSelf: 'stretch',
+    gap: 14,
+  },
+  splashLegal: {
+    alignItems: 'center',
+  },
   customRoomInput: {
     flex: 1,
   },
@@ -949,18 +980,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-  splashCopy: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  splashLead: {
-    color: orbitColors.text,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  splashSub: {
-    color: orbitColors.textMuted,
-    fontSize: 18,
+  signInAccent: {
+    color: orbitColors.primary,
+    fontWeight: '700',
   },
   topRow: {
     alignItems: 'center',
