@@ -22,7 +22,11 @@ Role filters: child hides Plan; roommate hides Rewards.
 Settings/Admin and Create Task are overlays — not tabs.  
 Groceries remain in-app (Home / Settings / deep link) but are not a primary tab in v7.
 
-## Sync workflow
+## Sync workflow (only when explicitly requested)
+
+**Do not sync or port Make on your own.** Starting Metro/tunnel, fixing a bug, or
+continuing chat is **not** permission to re-port Make or switch to a Make-v7 branch.
+Only sync when the user pastes a Make URL or clearly says to sync/port from Figma.
 
 Figma does not push live into Expo by itself. Changes are registered via the
 design registry and applied by a Cursor agent (manual trigger, schedule, or

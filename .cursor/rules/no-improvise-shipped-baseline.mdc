@@ -1,0 +1,33 @@
+---
+description: Hard stop — do not improvise branches, Make syncs, or overwrite shipped work
+alwaysApply: true
+---
+
+# Do not improvise. Do only what was asked.
+
+## Shipped baseline (do not abandon)
+
+- **Shipped feature tip the user expects:** PR #15 — `cursor/themes-trips-shopping-c30d` @ `c92258a` (themes, real itineraries, shopping mode), including brand animations and prior Home/Tasks/Rewards/shared-device work on that lineage.
+- Do **not** check out, merge into, or “continue” on `cursor/choremaxx-make-v7-c30d` (or other divergent Make-only branches) unless the user **explicitly** names that branch or asks for a Make sync/port.
+- Parallel agent branches are not disposable. Never replace welcome/sign-in/Home/Tasks polish with a static Make port without an explicit merge/restore request.
+
+## Scope lock
+
+When the user asks only to **start the terminal / Metro / Expo tunnel / QR**:
+
+1. Start (or restart) `npm run start:tunnel` on the **current checked-out commit**.
+2. Report the `exp://…` URL.
+3. **Stop.** Do not switch branches, sync Figma, restore animations, merge PRs, “fix” Make v7, or otherwise change code.
+
+Same rule for any narrow ask: do that task only. Do not “helpfully” port designs, unify branches, or rewrite auth/onboarding.
+
+## Forbidden without an explicit ask
+
+- Figma Make sync / `get_design_context` / porting Make source into Expo
+- `git checkout` / `git reset` / `git merge` onto a different feature branch than the one already active (except when the user names the branch/PR)
+- Rewriting `app/welcome.tsx` or `app/sign-in.tsx` splash/auth animations
+- Dropping or reimplementing work that already exists on another open PR branch
+
+## If branches have diverged
+
+Tell the user which branch/commit Metro is on. Ask which tip to use. Do **not** pick Make v7 (or any other branch) on your own.
