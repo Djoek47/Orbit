@@ -16,7 +16,8 @@
     "build:ios": "eas build --platform ios --profile production",
     "build:android": "eas build --platform android --profile production",
     "submit:ios": "eas submit --platform ios --profile production",
-    "submit:android": "eas submit --platform android --profile production"
+    "submit:android": "eas submit --platform android --profile production",
+    "qr:expo": "node scripts/write-expo-qr.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -67,6 +68,7 @@
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "qrcode": "^1.5.4",
     "typescript": "~5.9.2"
   },
   "private": true

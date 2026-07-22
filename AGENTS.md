@@ -36,7 +36,7 @@ Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clo
 ## Hard stop — do not improvise
 
 - **Shipped baseline the user expects:** [PR #15](https://github.com/Djoek47/Orbit/pull/15) on `cursor/themes-trips-shopping-c30d` (tip includes themes, real itineraries, shopping mode, brand animations, shared-device work). Do not abandon it for Make-v7-only branches unless the user names that branch.
-- If the user only asks to **start the terminal / Metro / tunnel**: run `npm run start:tunnel` on the **current** commit, give the `exp://` URL, and **stop**. No branch switches, no Figma sync, no “restore” merges, no welcome/sign-in rewrites.
+- If the user only asks to **start the terminal / Metro / tunnel**: run `npm run start:tunnel` on the **current** commit, give the `exp://` URL **and a scannable QR PNG** (`node scripts/write-expo-qr.mjs <exp-url>` → `/opt/cursor/artifacts/expo-go-qr.png`), then **stop**. Never paste an `exp://` link alone — phones need the QR. No branch switches, no Figma sync, no “restore” merges, no welcome/sign-in rewrites.
 - Never overwrite parallel PR work by re-porting Make or checking out `cursor/choremaxx-make-v7-c30d` unprompted. See `.cursor/rules/no-improvise-shipped-baseline.mdc`.
 
 To continue on the go:

@@ -16,7 +16,9 @@ alwaysApply: true
 When the user asks only to **start the terminal / Metro / Expo tunnel / QR**:
 
 1. Start (or restart) `npm run start:tunnel` on the **current checked-out commit**.
-2. Report the `exp://…` URL.
+2. Report the `exp://…` URL **and always write a scannable QR PNG** with  
+   `node scripts/write-expo-qr.mjs <exp-url>` → `/opt/cursor/artifacts/expo-go-qr.png`  
+   (do not give a bare `exp://` link without a QR — Expo Go on iPhone needs to scan it).
 3. **Stop.** Do not switch branches, sync Figma, restore animations, merge PRs, “fix” Make v7, or otherwise change code.
 
 Same rule for any narrow ask: do that task only. Do not “helpfully” port designs, unify branches, or rewrite auth/onboarding.
