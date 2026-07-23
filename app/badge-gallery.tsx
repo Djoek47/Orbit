@@ -5,9 +5,16 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
+import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import {
+  formatXp,
+  getLevel,
+  nextXpMilestone,
+  XP_MILESTONE_TROPHIES,
+  xpProgress,
+} from '@/lib/game-levels';
 import { useOrbit } from '@/store/orbit-store';
 
 const HOUSEHOLD_ICON_MAP: Record<string, keyof typeof MaterialIcons.glyphMap> = {
@@ -30,8 +37,13 @@ function resolveHouseholdIcon(icon: string): keyof typeof MaterialIcons.glyphMap
 
 export default function BadgeGalleryScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, achievements, household } = useOrbit();
-  const earnedAchievements = achievements.filter((badge) => badge.earned).length;
+  const { accentTheme, achievements, currentMember, household } = useOrbit();
+  const habitAchievements = achievements.filter((badge) => badge.kind !== 'xp-trophy');
+  const xpTrophies = achievements.filter((badge) => badge.kind === 'xp-trophy');
+  const lifetimeXp = currentMember?.xp ?? 0;
+  const level = getLevel(lifetimeXp);
+  const levelPct = Math.round(xpProgress(lifetimeXp) * 100);
+  const nextTrophy = nextXpMilestone(lifetimeXp);
   const householdPct = useMemo(() => {
     if (!household.badges.length) return 0;
     const sum = household.badges.reduce((acc, badge) => acc + badge.progress, 0);
@@ -51,13 +63,39 @@ export default function BadgeGalleryScreen() {
       </Pressable>
 
       <View style={orbitScreen.header}>
-        <ChoremaxxBadge />
+        <ChoremaxxLogo size="md" />
         <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Collection</Text>
         <Text style={orbitTypography.display}>Badge gallery</Text>
         <Text style={orbitTypography.body}>
-          Household progress badges and personal milestones — earned through real chores.
+          Habit badges plus XP trophies all the way to Most Glorious at 1,000,000 XP.
         </Text>
       </View>
+
+      <GlassCard style={styles.summaryCard}>
+        <LinearGradient
+          colors={[`${level.color}33`, 'rgba(255,215,0,0.12)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.summaryGlow}
+        />
+        <Text style={styles.summaryTitle}>
+          {level.emoji} {level.name}
+        </Text>
+        <Text style={[styles.summaryPct, { color: level.color }]}>{formatXp(lifetimeXp)} XP</Text>
+        <View style={styles.summaryTrack}>
+          <LinearGradient
+            colors={[level.color, '#FFD700']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.summaryFill, { width: `${levelPct}%` }]}
+          />
+        </View>
+        <Text style={orbitTypography.caption}>
+          {nextTrophy
+            ? `Next trophy: ${nextTrophy.label} at ${formatXp(nextTrophy.xp)} XP`
+            : 'Most Glorious unlocked — you reached 1,000,000 XP'}
+        </Text>
+      </GlassCard>
 
       <GlassCard style={styles.summaryCard}>
         <LinearGradient
@@ -77,7 +115,7 @@ export default function BadgeGalleryScreen() {
           />
         </View>
         <Text style={orbitTypography.caption}>
-          {earnedAchievements}/{achievements.length} achievements unlocked
+          {achievements.filter((badge) => badge.earned).length}/{achievements.length} awards unlocked
         </Text>
       </GlassCard>
 
@@ -131,13 +169,49 @@ export default function BadgeGalleryScreen() {
 
       <GlassCard style={styles.card}>
         <View style={orbitScreen.row}>
-          <Text style={orbitTypography.cardTitle}>Achievements</Text>
+          <Text style={orbitTypography.cardTitle}>XP trophies</Text>
           <Text style={styles.earnedCount}>
-            {earnedAchievements}/{achievements.length}
+            {xpTrophies.filter((badge) => badge.earned).length}/{XP_MILESTONE_TROPHIES.length}
+          </Text>
+        </View>
+        <Text style={[orbitTypography.caption, { marginBottom: 8 }]}>
+          Awards unlock as lifetime XP climbs — bronze to Most Glorious at one million.
+        </Text>
+        <View style={styles.badgeGrid}>
+          {xpTrophies.map((badge) => (
+            <View
+              key={badge.id}
+              style={[styles.badgeTile, !badge.earned && styles.badgeTileLocked]}>
+              <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
+                <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
+                {!badge.earned ? (
+                  <View style={styles.lockOverlay}>
+                    <MaterialIcons name="lock" size={12} color={orbitColors.textSubtle} />
+                  </View>
+                ) : null}
+              </View>
+              <Text style={[styles.badgeLabel, !badge.earned && styles.badgeLabelMuted]}>
+                {badge.label}
+              </Text>
+              <Text style={[styles.badgeDesc, !badge.earned && styles.badgeLabelMuted]}>
+                {badge.earned
+                  ? badge.description
+                  : `Locked · ${formatXp(badge.xpRequired ?? 0)} XP`}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </GlassCard>
+
+      <GlassCard style={styles.card}>
+        <View style={orbitScreen.row}>
+          <Text style={orbitTypography.cardTitle}>Habit achievements</Text>
+          <Text style={styles.earnedCount}>
+            {habitAchievements.filter((badge) => badge.earned).length}/{habitAchievements.length}
           </Text>
         </View>
         <View style={styles.badgeGrid}>
-          {achievements.map((badge) => (
+          {habitAchievements.map((badge) => (
             <View
               key={badge.id}
               style={[styles.badgeTile, !badge.earned && styles.badgeTileLocked]}>

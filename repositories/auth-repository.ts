@@ -1,4 +1,10 @@
 import { dataMode } from '@/config/data-mode';
+import {
+  clearMockSession,
+  loadMockSession,
+  saveMockSession,
+  toAuthSession,
+} from '@/lib/auth/mock-session';
 import { mapProfileToUser } from '@/lib/mappers/orbit-mappers';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type { AuthSession, CreateProfileInput, OrbitUser, SignInInput, SignUpInput } from '@/types/orbit';
@@ -40,7 +46,8 @@ async function loadProfileUser(
 export const authRepository = {
   async getCurrentSession(): Promise<AuthSession | null> {
     if (isMockMode()) {
-      return null;
+      const stored = await loadMockSession();
+      return stored ? toAuthSession(stored.user) : null;
     }
 
     const supabase = getConfiguredSupabase('authRepository.getCurrentSession');
@@ -58,12 +65,12 @@ export const authRepository = {
 
   async signIn(input: SignInInput): Promise<AuthSession> {
     if (isMockMode()) {
-      return {
-        user: {
-          ...mockSarah,
-          email: input.email.trim() || mockSarah.email,
-        },
+      const user: OrbitUser = {
+        ...mockSarah,
+        email: input.email.trim() || mockSarah.email,
       };
+      await saveMockSession(user, 'm1');
+      return { user };
     }
 
     const supabase = getConfiguredSupabase('authRepository.signIn');
@@ -83,15 +90,15 @@ export const authRepository = {
 
   async signUp(input: SignUpInput): Promise<AuthSession> {
     if (isMockMode()) {
-      return {
-        user: {
-          id: createLocalId('user'),
-          email: input.email.trim(),
-          name: '',
-          avatar: 'O',
-          profileComplete: false,
-        },
+      const user: OrbitUser = {
+        id: createLocalId('user'),
+        email: input.email.trim(),
+        name: '',
+        avatar: 'O',
+        profileComplete: false,
       };
+      await saveMockSession(user, null);
+      return { user };
     }
 
     const supabase = getConfiguredSupabase('authRepository.signUp');
@@ -133,6 +140,7 @@ export const authRepository = {
     };
 
     if (isMockMode()) {
+      await saveMockSession(nextUser);
       return nextUser;
     }
 
@@ -146,8 +154,15 @@ export const authRepository = {
     return nextUser;
   },
 
+  /** Persist an in-memory user (kid/tablet invite, persona switch) for mock reloads. */
+  async persistLocalSession(user: OrbitUser, activeMemberId?: string | null): Promise<void> {
+    if (!isMockMode()) return;
+    await saveMockSession(user, activeMemberId);
+  },
+
   async signOut(): Promise<void> {
     if (isMockMode()) {
+      await clearMockSession();
       return;
     }
 
@@ -158,6 +173,7 @@ export const authRepository = {
 
   async deleteAccount(): Promise<void> {
     if (isMockMode()) {
+      await clearMockSession();
       return;
     }
 
@@ -168,9 +184,10 @@ export const authRepository = {
 
   async exportUserData(): Promise<string> {
     if (isMockMode()) {
+      const stored = await loadMockSession();
       return JSON.stringify(
         {
-          profile: mockSarah,
+          profile: stored?.user ?? mockSarah,
           memberships: [],
           exportedAt: new Date().toISOString(),
           mode: dataMode,

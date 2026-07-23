@@ -6,7 +6,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassCard } from '@/components/orbit/glass-card';
-import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
+import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
@@ -85,7 +85,7 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}>
       {/* Logo + greeting; profile badges over Nova (not stacked). */}
       <View style={[styles.brandBlock, { paddingRight: HEADER_CHIPS_GUTTER }]}>
-        <ChoremaxxBadge size="xl" />
+        <ChoremaxxLogo size="lg" />
         <Text
           style={[
             styles.dateLine,

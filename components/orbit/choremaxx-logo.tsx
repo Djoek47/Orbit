@@ -1,7 +1,9 @@
-import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { choremaxxBrand } from '@/constants/choremaxx-brand';
+
+const LOGO_MARK = require('@/assets/brand/choremaxx-logo-mark.png');
 
 type LogoSize = 'sm' | 'md' | 'lg' | 'xl';
 type LogoVariant = 'full' | 'icon' | 'wordmark';
@@ -17,22 +19,37 @@ type ChoremaxxLogoProps = {
   size?: LogoSize;
   variant?: LogoVariant;
   style?: ViewStyle;
+  /** Prefer PNG brand mark (default). Set false for animated SVG mark. */
+  useBrandMark?: boolean;
 };
 
 /**
- * Official Choremaxx lockup: cyan roof + mint ribbon + gold sparkle,
- * wordmark “chorema” in cyan with dual-tone “xx”.
+ * Official Choremaxx lockup: brand mark + wordmark “chorema” with dual-tone “xx”.
  */
-export function ChoremaxxLogo({ size = 'md', variant = 'full', style }: ChoremaxxLogoProps) {
+export function ChoremaxxLogo({
+  size = 'md',
+  variant = 'full',
+  style,
+  useBrandMark = true,
+}: ChoremaxxLogoProps) {
   const { iconH, textSize, gap } = SIZES[size];
   const iconW = iconH * 1.15;
 
   return (
     <View style={[styles.row, { gap }, style]} accessibilityRole="image" accessibilityLabel="Choremaxx">
-      {variant === 'full' || variant === 'icon' ? <ChoremaxxIcon width={iconW} height={iconH} /> : null}
-      {variant === 'full' || variant === 'wordmark' ? (
-        <Wordmark fontSize={textSize} />
+      {variant === 'full' || variant === 'icon' ? (
+        useBrandMark ? (
+          <Image
+            source={LOGO_MARK}
+            style={{ width: iconW, height: iconH }}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          <ChoremaxxIcon width={iconW} height={iconH} />
+        )
       ) : null}
+      {variant === 'full' || variant === 'wordmark' ? <Wordmark fontSize={textSize} /> : null}
     </View>
   );
 }
@@ -48,20 +65,12 @@ function Wordmark({ fontSize }: { fontSize: number }) {
   );
 }
 
-/** Stylized house mark: cyan chevron roof, mint ribbon base, gold sparkle. */
+/** Stylized house mark SVG (used in BrandOpening motion). */
 export function ChoremaxxIcon({ width = 34, height = 30 }: { width?: number; height?: number }) {
   return (
     <Svg width={width} height={height} viewBox="0 0 56 48" fill="none">
-      {/* Gold four-point sparkle */}
-      <Path
-        d="M14 3.5 L15.1 7.2 L14 10.9 L12.9 7.2 Z"
-        fill={choremaxxBrand.gold}
-      />
-      <Path
-        d="M10.2 7.2 L14 8.3 L17.8 7.2 L14 6.1 Z"
-        fill={choremaxxBrand.gold}
-      />
-      {/* Cyan roof chevron */}
+      <Path d="M14 3.5 L15.1 7.2 L14 10.9 L12.9 7.2 Z" fill={choremaxxBrand.gold} />
+      <Path d="M10.2 7.2 L14 8.3 L17.8 7.2 L14 6.1 Z" fill={choremaxxBrand.gold} />
       <Path
         d="M10 22 L28 6 L46 22"
         stroke={choremaxxBrand.cyan}
@@ -70,7 +79,6 @@ export function ChoremaxxIcon({ width = 34, height = 30 }: { width?: number; hei
         strokeLinejoin="round"
         fill="none"
       />
-      {/* Mint ribbon / folded base */}
       <Path
         d="M12 26 C18 22 24 22 28 26 C32 30 38 30 44 26 C42 34 38 40 28 42 C18 40 14 34 12 26 Z"
         fill={choremaxxBrand.mint}
@@ -86,7 +94,7 @@ export function ChoremaxxIcon({ width = 34, height = 30 }: { width?: number; hei
   );
 }
 
-/** Compact brand badge for headers / nav. */
+/** Compact brand badge for headers / nav — uses official PNG mark. */
 export function ChoremaxxBadge({
   showWordmark = true,
   size = 'md',
@@ -97,19 +105,24 @@ export function ChoremaxxBadge({
 }) {
   const scale =
     size === 'xl'
-      ? { iconW: 28, iconH: 24, text: 20.3, x: 19.7, gap: 9 }
+      ? { iconW: 36, iconH: 32, text: 22, x: 21, gap: 10 }
       : size === 'lg'
-        ? { iconW: 22, iconH: 19, text: 16, x: 15.5, gap: 7 }
+        ? { iconW: 28, iconH: 24, text: 17, x: 16.5, gap: 8 }
         : size === 'sm'
-          ? { iconW: 16, iconH: 14, text: 12.5, x: 12, gap: 5 }
-          : { iconW: 18, iconH: 16, text: 14, x: 13.5, gap: 6 };
+          ? { iconW: 18, iconH: 16, text: 12.5, x: 12, gap: 5 }
+          : { iconW: 22, iconH: 20, text: 14, x: 13.5, gap: 6 };
 
   return (
     <View
       style={[styles.badge, { gap: scale.gap }]}
       accessibilityRole="image"
       accessibilityLabel="Choremaxx">
-      <ChoremaxxIcon width={scale.iconW} height={scale.iconH} />
+      <Image
+        source={LOGO_MARK}
+        style={{ width: scale.iconW, height: scale.iconH }}
+        resizeMode="contain"
+        accessibilityIgnoresInvertColors
+      />
       {showWordmark ? (
         <View style={styles.badgeWord}>
           <Text style={[styles.badgeChorema, { fontSize: scale.text }]}>chorema</Text>

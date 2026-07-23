@@ -548,7 +548,7 @@ export default function WelcomeOnboardingScreen() {
                 </Text>
               </Pressable>
             </View>
-            <BrandLegalFooter compact showLogo={false} style={styles.splashLegal} />
+            <BrandLegalFooter compact showLogo style={styles.splashLegal} />
           </View>
         </View>
       ) : null}

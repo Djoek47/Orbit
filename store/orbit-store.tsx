@@ -2,6 +2,7 @@ import { createContext, PropsWithChildren, useCallback, useContext, useEffect, u
 
 import { dataMode } from '@/config/data-mode';
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
+import { loadActiveMemberId, loadMockSession, saveActiveMemberId } from '@/lib/auth/mock-session';
 import type { NovaChatMessage } from '@/lib/ai/ai-provider';
 import { trackAnalytics } from '@/lib/analytics';
 import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, memberDisplayEmoji, xpProgress } from '@/lib/game-levels';
@@ -463,25 +464,41 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
 
       if (isMounted) {
-        const [prefs, themeId, appearance, bgTheme, mapsApp] = await Promise.all([
-          loadNovaNotificationPrefs(hydratedHousehold.id),
-          loadAccentThemeId(hydratedHousehold.id),
-          loadAppearanceMode(),
-          loadBackgroundThemeId(hydratedHousehold.id, session.user.id),
-          loadPreferredMapsApp(),
-        ]);
+        const [prefs, themeId, appearance, bgTheme, mapsApp, storedMemberId, mockStored] =
+          await Promise.all([
+            loadNovaNotificationPrefs(hydratedHousehold.id),
+            loadAccentThemeId(hydratedHousehold.id),
+            loadAppearanceMode(),
+            loadBackgroundThemeId(hydratedHousehold.id, session.user.id),
+            loadPreferredMapsApp(),
+            loadActiveMemberId(),
+            dataMode === 'mock' ? loadMockSession() : Promise.resolve(null),
+          ]);
         setAppearanceMode(appearance);
         setBackgroundThemeId(bgTheme);
         setPreferredMapsApp(mapsApp);
         setCurrentUser(session.user);
         setHousehold({
           ...hydratedHousehold,
+          greetingName: session.user.name || hydratedHousehold.greetingName,
           notificationPrefs: prefs,
           accentThemeId: themeId,
           rooms: hydratedHousehold.rooms?.length
             ? hydratedHousehold.rooms
             : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
         });
+        const resumeMemberId =
+          mockStored?.activeMemberId ||
+          storedMemberId ||
+          hydratedHousehold.members.find(
+            (member) =>
+              member.status === 'active' &&
+              member.name.toLowerCase() === session.user.name.toLowerCase(),
+          )?.id ||
+          null;
+        if (resumeMemberId) {
+          setActiveMemberId(resumeMemberId);
+        }
         const history = await novaRepository.getConversationHistory(
           hydratedHousehold.id,
           session.user.id
@@ -545,6 +562,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
 
     setCurrentUser(session.user);
+    await authRepository.persistLocalSession(session.user);
     setHousehold(hydratedHousehold);
     await trackAnalytics(
       'auth.session_hydrate',
@@ -1752,6 +1770,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     setActiveMemberId(target.id);
+    const nextUser = {
+      id: currentUser?.id?.startsWith('persona-') || currentUser?.id?.startsWith('child-local-') || currentUser?.id?.startsWith('tablet-local-')
+        ? `persona-${target.id}`
+        : currentUser?.id ?? `persona-${target.id}`,
+      email:
+        currentUser?.email && !currentUser.email.includes('@kids.choremaxx.local')
+          ? currentUser.email
+          : `${target.name.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'member'}@orbit.test`,
+      name: target.name,
+      avatar: target.avatar,
+      profileComplete: true,
+    };
     setCurrentUser((prev) =>
       prev
         ? {
@@ -1760,15 +1790,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             avatar: target.avatar,
             profileComplete: true,
           }
-        : {
-            id: `persona-${target.id}`,
-            email: `${target.name.toLowerCase()}@orbit.test`,
-            name: target.name,
-            avatar: target.avatar,
-            profileComplete: true,
-          }
+        : nextUser
     );
     setHousehold((current) => ({ ...current, greetingName: target.name }));
+    void authRepository.persistLocalSession(
+      currentUser
+        ? { ...currentUser, name: target.name, avatar: target.avatar, profileComplete: true }
+        : nextUser,
+      target.id,
+    );
+    void saveActiveMemberId(target.id);
     void import('@/lib/device/device-session').then(({ loadDeviceSession, selectDeviceProfile }) =>
       loadDeviceSession().then((session) => {
         if (session.mode === 'shared') {
@@ -2112,6 +2143,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     setCurrentUser(user);
     setActiveMemberId(member.id);
+    await authRepository.persistLocalSession(user, member.id);
 
     const { setupSharedDeviceSession, selectDeviceProfile } = await import(
       '@/lib/device/device-session'
@@ -2188,6 +2220,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     };
     setCurrentUser(user);
     setActiveMemberId(primary.id);
+    await authRepository.persistLocalSession(user, primary.id);
 
     const { setupSharedDeviceSession, selectDeviceProfile } = await import(
       '@/lib/device/device-session'
