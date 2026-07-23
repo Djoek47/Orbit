@@ -39,6 +39,7 @@ function nextRole(current: HouseholdRole, canAdmin: boolean): HouseholdRole {
 export default function HouseholdMembersScreen() {
   const {
     approveMember,
+    createChildInvites,
     createSharedDevice,
     declineMember,
     household,
@@ -50,6 +51,10 @@ export default function HouseholdMembersScreen() {
 
   const [sharedDeviceName, setSharedDeviceName] = useState('Shared tablet');
   const [creatingDevice, setCreatingDevice] = useState(false);
+  const [kidNameOne, setKidNameOne] = useState('');
+  const [kidNameTwo, setKidNameTwo] = useState('');
+  const [creatingKids, setCreatingKids] = useState(false);
+  const [kidStatus, setKidStatus] = useState('');
 
   const pending = household.members.filter((member) => member.status === 'pending');
   const active = household.members.filter((member) => member.status !== 'pending');
@@ -137,6 +142,31 @@ export default function HouseholdMembersScreen() {
       .finally(() => setCreatingDevice(false));
   };
 
+  const handleCreateKidInvites = () => {
+    setCreatingKids(true);
+    setKidStatus('');
+    void createChildInvites([kidNameOne, kidNameTwo])
+      .then((created) => {
+        setKidNameOne('');
+        setKidNameTwo('');
+        setKidStatus(
+          created.length
+            ? `Saved ${created.map((m) => m.name).join(' & ')} on your admin account. Share codes from Invite or their profile QR.`
+            : '',
+        );
+        Alert.alert(
+          'Kid invites ready',
+          created
+            .map((member) => `${member.name}: ${member.profileInviteCode ?? 'code ready'}`)
+            .join('\n') + '\n\nAirDrop or share each code. Kids open Get Started → Child — no sign-in.',
+        );
+      })
+      .catch((err: unknown) => {
+        setKidStatus(err instanceof Error ? err.message : 'Could not create kid invites.');
+      })
+      .finally(() => setCreatingKids(false));
+  };
+
   const toggleSharedLink = (deviceId: string, personId: string, linkedIds: string[]) => {
     const next = linkedIds.includes(personId)
       ? linkedIds.filter((id) => id !== personId)
@@ -161,14 +191,43 @@ export default function HouseholdMembersScreen() {
 
       {permissions.canInviteMembers ? (
         <GlassCard style={styles.card}>
-          <Text style={orbitTypography.cardTitle}>Add new member</Text>
+          <Text style={orbitTypography.cardTitle}>Invite adult / roommate</Text>
           <Text style={orbitTypography.caption}>
-            Share an invite so someone can create their account and join this household. They stay pending until you
-            approve.
+            They create their own account with this invite and stay pending until you approve.
           </Text>
           <OrbitButton onPress={() => router.push('/invite-household' as never)}>
-            Add new member
+            Share household invite
           </OrbitButton>
+        </GlassCard>
+      ) : null}
+
+      {permissions.canInviteMembers || permissions.canManageHousehold ? (
+        <GlassCard style={styles.card}>
+          <Text style={orbitTypography.cardTitle}>Invite kids (no sign-in)</Text>
+          <Text style={orbitTypography.caption}>
+            Create up to two kid profiles saved on your admin account. AirDrop or send their codes —
+            young kids never need email.
+          </Text>
+          <TextInput
+            value={kidNameOne}
+            onChangeText={setKidNameOne}
+            placeholder="Kid 1 name"
+            placeholderTextColor={orbitColors.textSubtle}
+            style={styles.deviceInput}
+          />
+          <TextInput
+            value={kidNameTwo}
+            onChangeText={setKidNameTwo}
+            placeholder="Kid 2 name (optional)"
+            placeholderTextColor={orbitColors.textSubtle}
+            style={styles.deviceInput}
+          />
+          <OrbitButton
+            disabled={creatingKids || (!kidNameOne.trim() && !kidNameTwo.trim())}
+            onPress={handleCreateKidInvites}>
+            {creatingKids ? 'Saving…' : 'Create kid invites'}
+          </OrbitButton>
+          {kidStatus ? <Text style={styles.hint}>{kidStatus}</Text> : null}
         </GlassCard>
       ) : null}
 

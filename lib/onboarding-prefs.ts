@@ -42,9 +42,9 @@ export const ONBOARDING_ROLES: {
     id: 'child',
     emoji: '⭐',
     title: 'Child',
-    subtitle: 'Earn XP & rewards',
+    subtitle: 'Join with a parent invite — no sign-in',
     color: '#34D399',
-    perks: ['See my tasks clearly', 'Earn XP & level up', 'Unlock rewards', 'Build good habits'],
+    perks: ['Open an AirDrop or invite code', 'No email or password', 'See my tasks & earn XP', 'Parent keeps the household saved'],
   },
   {
     id: 'roommate',

@@ -1,5 +1,6 @@
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
-import { buildInviteLinks, createInviteCode } from '@/lib/invites/parse-invite';
+import { childInviteEmoji } from '@/lib/household/child-invites';
+import { buildInviteLinks, createInviteCode, normalizeInviteCode } from '@/lib/invites/parse-invite';
 import {
   mapBadgeRow,
   mapBriefingRow,
@@ -337,6 +338,86 @@ export const householdRepository = {
     mapDbError('householdRepository.updateMemberRole', error);
 
     return updatedMember;
+  },
+
+  /**
+   * Admin-owned child profile. Kids redeem via invite code / AirDrop — no email account.
+   * Household data stays on the admin household.
+   */
+  async createChildMember(
+    householdId: string | null | undefined,
+    name: string
+  ): Promise<HouseholdMember> {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error('householdRepository.createChildMember: name is required.');
+    }
+
+    const member: HouseholdMember = {
+      id: createLocalId('member'),
+      name: trimmed,
+      role: 'child',
+      status: 'active',
+      avatar: childInviteEmoji(trimmed),
+      xp: 0,
+      weekXp: 0,
+      streak: 0,
+      loadShare: 0,
+      profileInviteCode: undefined,
+    };
+    const fromName = trimmed
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '')
+      .slice(0, 6);
+    member.profileInviteCode = normalizeInviteCode(
+      fromName.length >= 3 ? `CMX-${fromName}` : createInviteCode(),
+    );
+    // Avoid colliding with an existing demo code in mock.
+    if (isMockMode()) {
+      const taken = new Set(
+        mockHousehold.members
+          .map((item) => item.profileInviteCode)
+          .filter((code): code is string => Boolean(code))
+          .map((code) => normalizeInviteCode(code)),
+      );
+      let attempt = member.profileInviteCode!;
+      let n = 2;
+      while (taken.has(attempt)) {
+        attempt = normalizeInviteCode(`CMX-${fromName.slice(0, 4)}${n}`);
+        n += 1;
+      }
+      member.profileInviteCode = attempt;
+      // Only mutate the shared Rivera demo when inviting into that household.
+      if (!householdId || householdId === mockHousehold.id) {
+        mockHousehold.members = [...mockHousehold.members, member];
+      }
+      return member;
+    }
+
+    if (!householdId) {
+      throw new Error('householdRepository.createChildMember: householdId is required in Supabase mode.');
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.createChildMember');
+    const { data, error } = await supabase
+      .from('household_members')
+      .insert({
+        household_id: householdId,
+        display_name: member.name,
+        role: 'child',
+        status: 'active',
+        avatar_symbol: member.avatar,
+        xp: 0,
+        week_xp: 0,
+        streak: 0,
+        load_share: 0,
+      })
+      .select('*')
+      .single();
+    mapDbError('householdRepository.createChildMember', error);
+
+    const mapped = mapMemberRow(data as HouseholdMemberRow & { shared_with_member_ids?: string[] | null });
+    return { ...mapped, profileInviteCode: member.profileInviteCode, role: 'child' };
   },
 
   async createSharedDevice(

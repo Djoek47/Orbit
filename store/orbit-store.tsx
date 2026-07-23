@@ -13,7 +13,9 @@ import {
   saveHouseholdRooms,
   saveMemberAvatarOverride,
 } from '@/lib/household/local-prefs';
-import { buildInviteLinks } from '@/lib/invites/parse-invite';
+import { saveChildInviteRecord, loadChildInviteRecord } from '@/lib/household/child-invites';
+import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
+import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { suggestItineraryFromHousehold } from '@/lib/calendar/suggest-itinerary';
 import { isNotificationVisibleToRole, PROOF_REVIEW_ROLES } from '@/lib/notifications/audience';
 import { registerForPushNotifications, scheduleLocalReminder } from '@/lib/notifications/push';
@@ -250,6 +252,13 @@ type OrbitContextValue = {
   createSharedDevice: (name?: string) => Promise<HouseholdMember | null>;
   /** Link / unlink household people on a shared-device profile. */
   updateSharedDeviceLinks: (deviceId: string, memberIds: string[]) => Promise<void>;
+  /**
+   * Admin creates 1–2 kid profiles (no child email). Invites are AirDrop/shareable.
+   * Household data stays on the admin account.
+   */
+  createChildInvites: (names: string[]) => Promise<HouseholdMember[]>;
+  /** Child device: redeem invite code / QR with no sign-up. */
+  redeemChildInvite: (rawCode: string) => Promise<HouseholdMember>;
   removeMember: (memberId: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   exportUserData: () => Promise<string>;
@@ -1973,6 +1982,146 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     );
   };
 
+  const createChildInvites = async (names: string[]) => {
+    if (!currentUser || !household.id) {
+      throw new Error('Create your household first, then invite kids.');
+    }
+    if (!permissions.canInviteMembers && !permissions.canManageHousehold) {
+      throw new Error('Only a parent/admin can create kid invites.');
+    }
+
+    const trimmed = [...new Set(names.map((name) => name.trim()).filter(Boolean))].slice(0, 2);
+    if (trimmed.length === 0) {
+      throw new Error('Add at least one kid name.');
+    }
+
+    const created: HouseholdMember[] = [];
+    for (const name of trimmed) {
+      const already = household.members.find(
+        (member) =>
+          member.role === 'child' &&
+          member.name.trim().toLowerCase() === name.toLowerCase() &&
+          member.status === 'active',
+      );
+      if (already) {
+        await saveChildInviteRecord({
+          member: already,
+          householdId: household.id,
+          householdName: household.householdName,
+          code: already.profileInviteCode,
+        });
+        created.push(already);
+        continue;
+      }
+
+      const member = await householdRepository.createChildMember(household.id, name);
+      await saveChildInviteRecord({
+        member,
+        householdId: household.id,
+        householdName: household.householdName,
+        code: member.profileInviteCode,
+      });
+      created.push(member);
+    }
+
+    setHousehold((current) => {
+      const ids = new Set(current.members.map((member) => member.id));
+      const additions = created.filter((member) => !ids.has(member.id));
+      return additions.length
+        ? { ...current, members: [...current.members, ...additions] }
+        : current;
+    });
+
+    await trackAnalytics(
+      'member.child_invites_created',
+      { count: created.length },
+      analyticsContext,
+    );
+    return created;
+  };
+
+  const redeemChildInvite = async (rawCode: string) => {
+    const code =
+      parseInvitePayload(rawCode) ?? (rawCode.trim() ? normalizeInviteCode(rawCode) : null);
+    if (!code) {
+      throw new Error('Enter or scan a valid kid invite code.');
+    }
+
+    const record = await loadChildInviteRecord(code);
+    const fromHousehold =
+      resolveMemberByProfileCode(code, household.members) ??
+      resolveMemberByProfileCode(code, mockHousehold.members);
+    const member = record?.member ?? fromHousehold;
+
+    if (!member || member.role !== 'child' || member.status !== 'active') {
+      throw new Error('Ask a parent to AirDrop or send your kid invite. No sign-in needed.');
+    }
+
+    const user: OrbitUser = {
+      id: `child-local-${member.id}`,
+      email: `${member.name.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'kid'}@kids.choremaxx.local`,
+      name: member.name,
+      avatar: member.avatar,
+      profileComplete: true,
+    };
+
+    // Prefer the admin household snapshot when we know it; otherwise keep demo Rivera data.
+    if (record?.householdId && household.id === record.householdId) {
+      setHousehold((current) => {
+        const exists = current.members.some((item) => item.id === member.id);
+        return {
+          ...current,
+          greetingName: member.name,
+          members: exists
+            ? current.members.map((item) => (item.id === member.id ? { ...item, ...member } : item))
+            : [...current.members, member],
+        };
+      });
+    } else if (mockHousehold.members.some((item) => item.id === member.id)) {
+      setHousehold({
+        ...mockHousehold,
+        greetingName: member.name,
+        members: mockHousehold.members.map((item) =>
+          item.id === member.id ? { ...item, ...member } : item,
+        ),
+      });
+    } else {
+      setHousehold((current) => {
+        const base =
+          current.id && current.members.some((item) => item.role === 'owner')
+            ? current
+            : mockHousehold;
+        const exists = base.members.some((item) => item.id === member.id);
+        return {
+          ...base,
+          greetingName: member.name,
+          members: exists
+            ? base.members.map((item) => (item.id === member.id ? { ...item, ...member } : item))
+            : [...base.members, member],
+        };
+      });
+    }
+
+    setCurrentUser(user);
+    setActiveMemberId(member.id);
+
+    const { setupSharedDeviceSession, selectDeviceProfile } = await import(
+      '@/lib/device/device-session'
+    );
+    await setupSharedDeviceSession({
+      profileMemberIds: [member.id],
+      deviceLabel: `${member.name}'s device`,
+    });
+    await selectDeviceProfile(member.id);
+
+    await trackAnalytics(
+      'member.child_invite_redeemed',
+      { memberId: member.id },
+      { householdId: record?.householdId ?? household.id, userId: user.id },
+    );
+    return member;
+  };
+
   const splitAllTasksBetweenTwo = async (nameA?: string, nameB?: string) => {
     let left = nameA?.trim();
     let right = nameB?.trim();
@@ -2217,6 +2366,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateMemberRole,
       createSharedDevice,
       updateSharedDeviceLinks,
+      createChildInvites,
+      redeemChildInvite,
       removeMember,
       deleteAccount,
       exportUserData,

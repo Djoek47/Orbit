@@ -39,7 +39,15 @@ import { createLocalId } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdRoom, HouseholdType } from '@/types/orbit';
 
-type Step = 'splash' | 'role' | 'motivation' | 'account' | 'profile' | 'household' | 'ready';
+type Step =
+  | 'splash'
+  | 'role'
+  | 'motivation'
+  | 'account'
+  | 'profile'
+  | 'household'
+  | 'child-invite'
+  | 'ready';
 
 const HOUSEHOLD_TYPES: { label: string; value: HouseholdType }[] = [
   { label: 'Family', value: 'family' },
@@ -52,6 +60,7 @@ const HOUSEHOLD_TYPES: { label: string; value: HouseholdType }[] = [
 export default function WelcomeOnboardingScreen() {
   const insets = useSafeAreaInsets();
   const {
+    createChildInvites,
     createHousehold,
     createProfile,
     currentUser,
@@ -61,6 +70,7 @@ export default function WelcomeOnboardingScreen() {
     isLoading,
     isSignedIn,
     joinHousehold,
+    redeemChildInvite,
     signUp,
   } = useOrbit();
 
@@ -87,6 +97,11 @@ export default function WelcomeOnboardingScreen() {
   const [busy, setBusy] = useState(false);
   const [resumed, setResumed] = useState(false);
   const [splashReady, setSplashReady] = useState(false);
+  const [kidNameOne, setKidNameOne] = useState('');
+  const [kidNameTwo, setKidNameTwo] = useState('');
+  const [kidInvites, setKidInvites] = useState<
+    { id: string; name: string; code: string; deepLink: string; webLink: string }[]
+  >([]);
 
   const roomCatalog = useMemo(
     () => [...DEFAULT_HOUSEHOLD_ROOMS, ...customRooms],
@@ -152,6 +167,8 @@ export default function WelcomeOnboardingScreen() {
         return 0;
       case 'motivation':
         return 1;
+      case 'child-invite':
+        return 1;
       case 'account':
       case 'profile':
         return 2;
@@ -173,6 +190,9 @@ export default function WelcomeOnboardingScreen() {
       case 'motivation':
         setStep('role');
         break;
+      case 'child-invite':
+        setStep('role');
+        break;
       case 'account':
         setStep(selectedRole && skipsMotivation(selectedRole) ? 'role' : 'motivation');
         break;
@@ -183,7 +203,7 @@ export default function WelcomeOnboardingScreen() {
         setStep(currentUser?.profileComplete ? 'profile' : 'account');
         break;
       case 'ready':
-        setStep('household');
+        setStep(selectedRole === 'child' ? 'child-invite' : 'household');
         break;
       default:
         break;
@@ -221,6 +241,13 @@ export default function WelcomeOnboardingScreen() {
     if (!selectedRole) return;
     setError('');
     setHouseholdType(onboardingRoleToHouseholdType(selectedRole));
+    // Kids never create an account — they redeem a parent AirDrop / invite.
+    if (selectedRole === 'child') {
+      setSelectedMotivation(selectedMotivation ?? 'xp');
+      setHouseholdMode('join');
+      setStep('child-invite');
+      return;
+    }
     if (selectedRole === 'roommate') {
       setHouseholdMode('create');
     }
@@ -352,9 +379,91 @@ export default function WelcomeOnboardingScreen() {
     }
   };
 
+  const handleChildInviteContinue = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await saveOnboardingPrefs({ role: 'child', motivation: selectedMotivation ?? 'xp' });
+      const parsed =
+        parseInvitePayload(inviteCode) ?? (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
+      if (!parsed) {
+        setError('Enter or scan the kid invite your parent sent.');
+        setBusy(false);
+        return;
+      }
+      setInviteCode(parsed);
+      await redeemChildInvite(parsed);
+      router.replace('/' as never);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not open kid invite.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCreateKidInvites = async () => {
+    setBusy(true);
+    setError('');
+    setShareStatus('');
+    try {
+      const created = await createChildInvites([kidNameOne, kidNameTwo]);
+      const next = created.map((member) => {
+        const links = buildInviteLinks(member.profileInviteCode || member.id);
+        return {
+          id: member.id,
+          name: member.name,
+          code: links.code,
+          deepLink: links.deepLink,
+          webLink: links.webLink,
+        };
+      });
+      setKidInvites(next);
+      setShareStatus(
+        next.length === 1
+          ? 'Kid profile saved on your admin account. AirDrop the invite below.'
+          : 'Kid profiles saved on your admin account. AirDrop each invite below.',
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create kid invites.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleShareKidInvite = async (invite: {
+    name: string;
+    code: string;
+    deepLink: string;
+    webLink: string;
+  }) => {
+    setShareStatus('');
+    try {
+      const result = await shareInvite({
+        householdName: household.householdName || householdName,
+        inviteCode: invite.code,
+        deepLink: invite.deepLink,
+        webLink: invite.webLink,
+        kind: 'kid',
+        childName: invite.name,
+      });
+      setShareStatus(
+        result === 'shared'
+          ? Platform.OS === 'ios'
+            ? `Shared ${invite.name}'s invite — pick AirDrop or Messages.`
+            : `Shared ${invite.name}'s invite.`
+          : 'Share dismissed.',
+      );
+    } catch {
+      setShareStatus('Could not open share sheet.');
+    }
+  };
+
   const handleEnter = () => {
     router.replace('/' as never);
   };
+
+  const showKidInviteBox =
+    createdHousehold && selectedRole !== 'roommate' && selectedRole !== 'child';
 
   return (
     <View
@@ -377,13 +486,6 @@ export default function WelcomeOnboardingScreen() {
               <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
                 <Text style={styles.signInText}>
                   Already have an account? <Text style={styles.signInAccent}>Sign in</Text>
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => router.push('/setup-kid-device' as never)}
-                style={styles.signInLink}>
-                <Text style={styles.signInText}>
-                  Shared / kid tablet? <Text style={styles.signInAccent}>Set up profiles</Text>
                 </Text>
               </Pressable>
             </View>
@@ -480,6 +582,32 @@ export default function WelcomeOnboardingScreen() {
           </View>
           <OrbitButton disabled={!selectedMotivation} onPress={handleMotivationContinue}>
             Continue
+          </OrbitButton>
+        </KeyboardScreen>
+      ) : null}
+
+      {step === 'child-invite' ? (
+        <KeyboardScreen contentContainerStyle={styles.scroll}>
+          <Header progress={progressIndex} onBack={goBack} />
+          <Text style={orbitTypography.title}>Got a parent invite?</Text>
+          <Text style={[orbitTypography.caption, styles.mb]}>
+            No email or password. Open the AirDrop your parent sent, scan their QR, or type your kid
+            code. Your parent&apos;s account keeps the household saved.
+          </Text>
+          <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
+          <OrbitInput
+            autoCapitalize="characters"
+            label="Kid invite code"
+            value={inviteCode}
+            onChangeText={setInviteCode}
+            placeholder="e.g. CMX-EMMA"
+          />
+          <Text style={orbitTypography.caption}>
+            Demo profiles: CMX-EMMA · CMX-LIAM · CMX-JOSH · CMX-TODD
+          </Text>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <OrbitButton disabled={busy} onPress={() => void handleChildInviteContinue()}>
+            {busy ? 'Opening…' : 'Enter Choremaxx'}
           </OrbitButton>
         </KeyboardScreen>
       ) : null}
@@ -686,11 +814,59 @@ export default function WelcomeOnboardingScreen() {
             ) : null}
           </Text>
 
+          {showKidInviteBox ? (
+            <View style={styles.kidInviteBox}>
+              <Text style={styles.kidInviteEyebrow}>Kids</Text>
+              <Text style={orbitTypography.cardTitle}>Invite kids (no sign-in)</Text>
+              <Text style={[orbitTypography.caption, styles.mb]}>
+                Create up to two kid profiles on your admin account, then AirDrop or share each
+                invite. Young kids never need email — you keep everything saved.
+              </Text>
+              <OrbitInput
+                label="Kid 1 name"
+                value={kidNameOne}
+                onChangeText={setKidNameOne}
+                placeholder="e.g. Emma"
+              />
+              <OrbitInput
+                label="Kid 2 name (optional)"
+                value={kidNameTwo}
+                onChangeText={setKidNameTwo}
+                placeholder="e.g. Liam"
+              />
+              <OrbitButton
+                disabled={busy || (!kidNameOne.trim() && !kidNameTwo.trim())}
+                onPress={() => void handleCreateKidInvites()}>
+                {busy ? 'Saving…' : 'Create kid invites'}
+              </OrbitButton>
+
+              {kidInvites.map((invite) => (
+                <View key={invite.id} style={styles.kidInviteCard}>
+                  <Text style={styles.kidInviteName}>{invite.name}</Text>
+                  <View style={styles.qrWrap}>
+                    <QRCode value={invite.webLink} size={132} backgroundColor="#FFFFFF" color="#070D1C" />
+                  </View>
+                  <Text selectable style={styles.inviteCode}>
+                    {invite.code}
+                  </Text>
+                  <OrbitButton onPress={() => void handleShareKidInvite(invite)}>
+                    {Platform.OS === 'ios'
+                      ? `AirDrop / Share ${invite.name}`
+                      : `Share ${invite.name}`}
+                  </OrbitButton>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
           {createdHousehold && readyInvite ? (
             <View style={styles.invitePanel}>
-              <Text style={orbitTypography.cardTitle}>Invite your household</Text>
+              <Text style={orbitTypography.cardTitle}>
+                {selectedRole === 'roommate' ? 'Invite roommates' : 'Invite adults'}
+              </Text>
               <Text style={orbitTypography.caption}>
-                AirDrop this invite on iPhone, share the link, or let someone scan the QR.
+                For parents, partners, or roommates who can create their own account. AirDrop,
+                share the link, or scan the QR.
               </Text>
               <View style={styles.qrWrap}>
                 <QRCode value={readyInvite.webLink} size={160} backgroundColor="#FFFFFF" color="#070D1C" />
@@ -701,9 +877,11 @@ export default function WelcomeOnboardingScreen() {
               <OrbitButton onPress={handleAirDropInvite}>
                 {Platform.OS === 'ios' ? 'AirDrop / Share invite' : 'Share invite'}
               </OrbitButton>
-              {shareStatus ? <Text style={styles.shareHint}>{shareStatus}</Text> : null}
             </View>
           ) : null}
+
+          {shareStatus ? <Text style={styles.shareHint}>{shareStatus}</Text> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <OrbitButton onPress={handleEnter}>Enter Choremaxx →</OrbitButton>
         </ScrollView>
@@ -1019,6 +1197,39 @@ const styles = StyleSheet.create({
     gap: orbitSpacing.md,
     marginBottom: orbitSpacing.md,
     padding: orbitSpacing.lg,
+  },
+  kidInviteBox: {
+    backgroundColor: 'rgba(52,211,153,0.08)',
+    borderColor: 'rgba(52,211,153,0.28)',
+    borderCurve: 'continuous',
+    borderRadius: orbitRadius.lg,
+    borderWidth: 1,
+    gap: orbitSpacing.md,
+    marginBottom: orbitSpacing.md,
+    padding: orbitSpacing.lg,
+    width: '100%',
+  },
+  kidInviteCard: {
+    backgroundColor: 'rgba(7,13,28,0.35)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderCurve: 'continuous',
+    borderRadius: orbitRadius.md,
+    borderWidth: 1,
+    gap: 12,
+    padding: orbitSpacing.md,
+  },
+  kidInviteEyebrow: {
+    color: '#34D399',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  kidInviteName: {
+    color: orbitColors.text,
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   qrWrap: {
     alignItems: 'center',
