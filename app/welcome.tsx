@@ -47,6 +47,7 @@ type Step =
   | 'profile'
   | 'household'
   | 'child-invite'
+  | 'tablet-invite'
   | 'ready';
 
 const HOUSEHOLD_TYPES: { label: string; value: HouseholdType }[] = [
@@ -60,6 +61,7 @@ const HOUSEHOLD_TYPES: { label: string; value: HouseholdType }[] = [
 export default function WelcomeOnboardingScreen() {
   const insets = useSafeAreaInsets();
   const {
+    connectSharedTabletProfiles,
     createChildInvites,
     createHousehold,
     createProfile,
@@ -102,6 +104,9 @@ export default function WelcomeOnboardingScreen() {
   const [kidInvites, setKidInvites] = useState<
     { id: string; name: string; code: string; deepLink: string; webLink: string }[]
   >([]);
+  const [tabletCodes, setTabletCodes] = useState<string[]>([]);
+  const [tabletCodeDraft, setTabletCodeDraft] = useState('');
+  const [tabletLabel, setTabletLabel] = useState('Shared tablet');
 
   const roomCatalog = useMemo(
     () => [...DEFAULT_HOUSEHOLD_ROOMS, ...customRooms],
@@ -168,6 +173,7 @@ export default function WelcomeOnboardingScreen() {
       case 'motivation':
         return 1;
       case 'child-invite':
+      case 'tablet-invite':
         return 1;
       case 'account':
       case 'profile':
@@ -191,6 +197,7 @@ export default function WelcomeOnboardingScreen() {
         setStep('role');
         break;
       case 'child-invite':
+      case 'tablet-invite':
         setStep('role');
         break;
       case 'account':
@@ -203,7 +210,13 @@ export default function WelcomeOnboardingScreen() {
         setStep(currentUser?.profileComplete ? 'profile' : 'account');
         break;
       case 'ready':
-        setStep(selectedRole === 'child' ? 'child-invite' : 'household');
+        setStep(
+          selectedRole === 'child'
+            ? 'child-invite'
+            : selectedRole === 'shared-tablet'
+              ? 'tablet-invite'
+              : 'household',
+        );
         break;
       default:
         break;
@@ -246,6 +259,13 @@ export default function WelcomeOnboardingScreen() {
       setSelectedMotivation(selectedMotivation ?? 'xp');
       setHouseholdMode('join');
       setStep('child-invite');
+      return;
+    }
+    // Shared / tablet sits under Roommate — invite codes or AirDrop, no tablet email.
+    if (selectedRole === 'shared-tablet') {
+      setSelectedMotivation(selectedMotivation ?? 'xp');
+      setHouseholdMode('join');
+      setStep('tablet-invite');
       return;
     }
     if (selectedRole === 'roommate') {
@@ -401,6 +421,42 @@ export default function WelcomeOnboardingScreen() {
     }
   };
 
+  const addTabletCode = (raw: string) => {
+    const parsed = parseInvitePayload(raw) ?? (raw.trim() ? normalizeInviteCode(raw) : null);
+    if (!parsed) {
+      setError('Enter or scan a valid profile invite code.');
+      return;
+    }
+    setError('');
+    setTabletCodes((current) => (current.includes(parsed) ? current : [...current, parsed]));
+    setTabletCodeDraft('');
+    setInviteCode(parsed);
+  };
+
+  const handleTabletInviteContinue = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await saveOnboardingPrefs({
+        role: 'shared-tablet',
+        motivation: selectedMotivation ?? 'xp',
+      });
+      const codes = tabletCodes.length
+        ? tabletCodes
+        : tabletCodeDraft.trim()
+          ? [tabletCodeDraft]
+          : inviteCode.trim()
+            ? [inviteCode]
+            : [];
+      const result = await connectSharedTabletProfiles(codes, tabletLabel);
+      router.replace((result.needsProfilePick ? '/select-profile' : '/') as never);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not set up this tablet.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleCreateKidInvites = async () => {
     setBusy(true);
     setError('');
@@ -463,7 +519,10 @@ export default function WelcomeOnboardingScreen() {
   };
 
   const showKidInviteBox =
-    createdHousehold && selectedRole !== 'roommate' && selectedRole !== 'child';
+    createdHousehold &&
+    selectedRole !== 'roommate' &&
+    selectedRole !== 'child' &&
+    selectedRole !== 'shared-tablet';
 
   return (
     <View
@@ -608,6 +667,63 @@ export default function WelcomeOnboardingScreen() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <OrbitButton disabled={busy} onPress={() => void handleChildInviteContinue()}>
             {busy ? 'Opening…' : 'Enter Choremaxx'}
+          </OrbitButton>
+        </KeyboardScreen>
+      ) : null}
+
+      {step === 'tablet-invite' ? (
+        <KeyboardScreen contentContainerStyle={styles.scroll}>
+          <Header progress={progressIndex} onBack={goBack} />
+          <Text style={orbitTypography.title}>Set up this shared tablet</Text>
+          <Text style={[orbitTypography.caption, styles.mb]}>
+            Add profiles with AirDrop or invite codes from a parent/admin. No email on the tablet —
+            the admin account keeps everything saved. Add one or two people (or more).
+          </Text>
+          <OrbitInput
+            label="Device name"
+            value={tabletLabel}
+            onChangeText={setTabletLabel}
+            placeholder="Shared tablet"
+          />
+          <OrbitButton onPress={() => setScannerOpen(true)}>Scan AirDrop / invite QR</OrbitButton>
+          <View style={styles.tabletCodeRow}>
+            <View style={styles.tabletCodeInput}>
+              <OrbitInput
+                autoCapitalize="characters"
+                label="Profile invite code"
+                value={tabletCodeDraft}
+                onChangeText={setTabletCodeDraft}
+                placeholder="e.g. CMX-JOSH"
+              />
+            </View>
+            <OrbitButton
+              tone="secondary"
+              disabled={!tabletCodeDraft.trim()}
+              onPress={() => addTabletCode(tabletCodeDraft)}>
+              Add
+            </OrbitButton>
+          </View>
+          {tabletCodes.length > 0 ? (
+            <View style={styles.tabletChipWrap}>
+              {tabletCodes.map((code) => (
+                <Pressable
+                  key={code}
+                  onPress={() => setTabletCodes((current) => current.filter((item) => item !== code))}
+                  style={styles.tabletChip}>
+                  <Text style={styles.tabletChipText}>{code} ✕</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <Text style={orbitTypography.caption}>
+              Demo: add CMX-JOSH and CMX-TODD for a two-profile tablet.
+            </Text>
+          )}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <OrbitButton
+            disabled={busy || (tabletCodes.length === 0 && !tabletCodeDraft.trim())}
+            onPress={() => void handleTabletInviteContinue()}>
+            {busy ? 'Setting up…' : 'Continue on this tablet'}
           </OrbitButton>
         </KeyboardScreen>
       ) : null}
@@ -820,7 +936,8 @@ export default function WelcomeOnboardingScreen() {
               <Text style={orbitTypography.cardTitle}>Invite kids (no sign-in)</Text>
               <Text style={[orbitTypography.caption, styles.mb]}>
                 Create up to two kid profiles on your admin account, then AirDrop or share each
-                invite. Young kids never need email — you keep everything saved.
+                invite. Young kids never need email — you keep everything saved. On a shared tablet,
+                pick Shared / tablet under Roommate and add these same codes.
               </Text>
               <OrbitInput
                 label="Kid 1 name"
@@ -891,9 +1008,13 @@ export default function WelcomeOnboardingScreen() {
         visible={scannerOpen}
         onClose={() => setScannerOpen(false)}
         onScanned={(code) => {
-          setInviteCode(code);
-          setHouseholdMode('join');
           setError('');
+          setHouseholdMode('join');
+          if (step === 'tablet-invite') {
+            addTabletCode(code);
+            return;
+          }
+          setInviteCode(code);
         }}
       />
     </View>
@@ -1230,6 +1351,32 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     textAlign: 'center',
+  },
+  tabletCodeRow: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  tabletCodeInput: {
+    flex: 1,
+  },
+  tabletChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tabletChip: {
+    backgroundColor: 'rgba(245,158,11,0.16)',
+    borderColor: 'rgba(245,158,11,0.4)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  tabletChipText: {
+    color: '#F59E0B',
+    fontSize: 13,
+    fontWeight: '700',
   },
   qrWrap: {
     alignItems: 'center',

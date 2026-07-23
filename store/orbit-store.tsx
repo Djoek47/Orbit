@@ -259,6 +259,14 @@ type OrbitContextValue = {
   createChildInvites: (names: string[]) => Promise<HouseholdMember[]>;
   /** Child device: redeem invite code / QR with no sign-up. */
   redeemChildInvite: (rawCode: string) => Promise<HouseholdMember>;
+  /**
+   * Shared / tablet onboarding: host one or more profile invite codes (AirDrop/QR)
+   * with no email on the tablet. Admin account remains the data owner.
+   */
+  connectSharedTabletProfiles: (
+    rawCodes: string[],
+    deviceLabel?: string,
+  ) => Promise<{ members: HouseholdMember[]; needsProfilePick: boolean }>;
   removeMember: (memberId: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   exportUserData: () => Promise<string>;
@@ -2122,6 +2130,87 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return member;
   };
 
+  const connectSharedTabletProfiles = async (rawCodes: string[], deviceLabel?: string) => {
+    const codes = [
+      ...new Set(
+        rawCodes
+          .map((raw) => parseInvitePayload(raw) ?? (raw.trim() ? normalizeInviteCode(raw) : null))
+          .filter((code): code is string => Boolean(code)),
+      ),
+    ];
+    if (codes.length === 0) {
+      throw new Error('Add at least one invite code or scan an AirDrop QR.');
+    }
+
+    const resolved: HouseholdMember[] = [];
+    for (const code of codes) {
+      const record = await loadChildInviteRecord(code);
+      const member =
+        record?.member ??
+        resolveMemberByProfileCode(code, household.members) ??
+        resolveMemberByProfileCode(code, mockHousehold.members);
+      if (!member || member.status !== 'active' || member.role === 'shared-device') {
+        throw new Error(`No profile for ${code}. Ask an admin to AirDrop or send that invite.`);
+      }
+      if (!resolved.some((item) => item.id === member.id)) {
+        resolved.push(member);
+      }
+    }
+
+    // Prefer Rivera/demo household when profiles live there; otherwise merge onto current.
+    const fromDemo = resolved.every((member) =>
+      mockHousehold.members.some((item) => item.id === member.id),
+    );
+    if (fromDemo) {
+      setHousehold({
+        ...mockHousehold,
+        greetingName: resolved[0]?.name ?? mockHousehold.greetingName,
+      });
+    } else {
+      setHousehold((current) => {
+        const ids = new Set(current.members.map((item) => item.id));
+        const additions = resolved.filter((member) => !ids.has(member.id));
+        return {
+          ...current,
+          greetingName: resolved[0]?.name ?? current.greetingName,
+          members: additions.length ? [...current.members, ...additions] : current.members,
+        };
+      });
+    }
+
+    const primary = resolved[0]!;
+    const user: OrbitUser = {
+      id: `tablet-local-${primary.id}`,
+      email: `tablet-${primary.id}@kids.choremaxx.local`,
+      name: primary.name,
+      avatar: primary.avatar,
+      profileComplete: true,
+    };
+    setCurrentUser(user);
+    setActiveMemberId(primary.id);
+
+    const { setupSharedDeviceSession, selectDeviceProfile } = await import(
+      '@/lib/device/device-session'
+    );
+    const session = await setupSharedDeviceSession({
+      profileMemberIds: resolved.map((member) => member.id),
+      deviceLabel: deviceLabel?.trim() || 'Shared tablet',
+    });
+
+    const needsProfilePick = resolved.length > 1;
+    if (!needsProfilePick) {
+      await selectDeviceProfile(primary.id);
+    }
+
+    await trackAnalytics(
+      'device.shared_tablet_connected',
+      { count: resolved.length },
+      { householdId: household.id, userId: user.id },
+    );
+
+    return { members: resolved, needsProfilePick: needsProfilePick || session.needsProfilePick };
+  };
+
   const splitAllTasksBetweenTwo = async (nameA?: string, nameB?: string) => {
     let left = nameA?.trim();
     let right = nameB?.trim();
@@ -2368,6 +2457,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateSharedDeviceLinks,
       createChildInvites,
       redeemChildInvite,
+      connectSharedTabletProfiles,
       removeMember,
       deleteAccount,
       exportUserData,
