@@ -309,7 +309,7 @@ function TaskSection({
 }
 
 export default function TasksScreen() {
-  const chromePad = useTabChromePaddingTop(8);
+  const chromePad = useTabChromePaddingTop(6);
   const {
     accentTheme,
     completeTask,
@@ -448,9 +448,9 @@ export default function TasksScreen() {
       style={orbitScreen.container}
       contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
       showsVerticalScrollIndicator={false}
-      contentInsetAdjustmentBehavior="automatic">
+      contentInsetAdjustmentBehavior="never">
       <View style={styles.headerRow}>
-        <View style={orbitScreen.header}>
+        <View style={[orbitScreen.header, styles.tasksHeader]}>
           <Text style={orbitTypography.caption}>
             {sharedKidMode ? 'Your chores' : 'Tasks & Homework'}
           </Text>
@@ -822,7 +822,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 4,
+  },
+  tasksHeader: {
+    flex: 1,
+    gap: 6,
+    paddingTop: 0,
   },
   metaPill: {
     backgroundColor: 'rgba(255,255,255,0.06)',
