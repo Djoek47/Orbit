@@ -1,48 +1,72 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
-import { GlassCard } from '@/components/orbit/glass-card';
+import { AuthShell } from '@/components/orbit/auth-shell';
+import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors } from '@/constants/orbit-theme';
+import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function JoinHouseholdScreen() {
   const { joinHousehold } = useOrbit();
-  const [inviteCode, setInviteCode] = useState('ORBIT-7429');
+  const [inviteCode, setInviteCode] = useState('CMX-7429');
   const [error, setError] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const handleJoinHousehold = async () => {
-    if (!inviteCode.trim()) {
-      setError('Enter an invite code to continue.');
+  const handleJoinHousehold = async (code = inviteCode) => {
+    const parsed = parseInvitePayload(code) ?? (code.trim() ? normalizeInviteCode(code) : null);
+    if (!parsed) {
+      setError('Enter or scan a valid invite code.');
       return;
     }
 
+    setBusy(true);
     setError('');
-    await joinHousehold({ inviteCode });
-    router.replace('/' as never);
+    try {
+      setInviteCode(parsed);
+      await joinHousehold({ inviteCode: parsed });
+      router.replace('/' as never);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not join household.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Join a household</Text>
-        <Text style={orbitTypography.display}>Invite code</Text>
-        <Text style={orbitTypography.body}>Mock join requests enter as pending adult members until an owner approves them.</Text>
-      </View>
-
-      <GlassCard elevated style={styles.form}>
-        <StatusPill label="Pending role: Adult" tone="amber" />
-        <OrbitInput label="Invite code" value={inviteCode} onChangeText={setInviteCode} />
+    <>
+      <AuthShell
+        showBack
+        kicker="Join a household"
+        title="Invite code"
+        subtitle="Scan a QR or enter an invite code. Access stays pending until an owner or admin approves you.">
+        <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
+        <OrbitInput
+          autoCapitalize="characters"
+          label="Invite code"
+          value={inviteCode}
+          onChangeText={setInviteCode}
+        />
+        <Text style={styles.hint}>Demo code: CMX-7429 — or scan a household QR from an invite.</Text>
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <OrbitButton onPress={handleJoinHousehold}>Join Household</OrbitButton>
-      </GlassCard>
-    </ScrollView>
+        <OrbitButton disabled={busy} onPress={() => void handleJoinHousehold()}>
+          {busy ? 'Joining…' : 'Join household'}
+        </OrbitButton>
+      </AuthShell>
+
+      <InviteQrScanner
+        visible={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScanned={(code) => {
+          setInviteCode(code);
+          void handleJoinHousehold(code);
+        }}
+      />
+    </>
   );
 }
 
@@ -52,7 +76,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  form: {
-    gap: orbitSpacing.md,
+  hint: {
+    color: orbitColors.textSubtle,
+    fontSize: 12,
+    lineHeight: 16,
   },
 });

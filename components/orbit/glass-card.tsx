@@ -1,30 +1,52 @@
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useMemo } from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
-import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
+import { orbitColors, orbitRadius } from '@/constants/orbit-theme';
+import { useOrbitOptional } from '@/store/orbit-store';
 
 type GlassCardProps = PropsWithChildren<{
   elevated?: boolean;
   style?: StyleProp<ViewStyle>;
 }>;
 
+/** Make card chrome — follows orbitPalette for light/dark + background packs. */
 export function GlassCard({ children, elevated = false, style }: GlassCardProps) {
-  return <View style={[styles.card, elevated && styles.elevated, style]}>{children}</View>;
+  const orbit = useOrbitOptional();
+  const colors = useMemo(() => {
+    const palette = orbit?.orbitPalette;
+    const accent = orbit?.accentTheme.primary ?? orbitColors.primary;
+    return {
+      card: palette?.card ?? orbitColors.card,
+      border: palette?.border ?? orbitColors.border,
+      elevatedBg: `${accent}14`,
+      elevatedBorder: `${accent}2E`,
+    };
+  }, [orbit?.orbitPalette, orbit?.accentTheme.primary]);
+
+  return (
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+        elevated && {
+          backgroundColor: colors.elevatedBg,
+          borderColor: colors.elevatedBorder,
+        },
+        style,
+      ]}>
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: orbitColors.card,
-    borderColor: orbitColors.border,
+    alignSelf: 'stretch',
     borderCurve: 'continuous',
     borderRadius: orbitRadius.lg,
     borderWidth: 1,
-    boxShadow: '0 18px 30px rgba(0, 0, 0, 0.22)',
-    gap: orbitSpacing.md,
-    padding: orbitSpacing.lg,
-  },
-  elevated: {
-    backgroundColor: orbitColors.cardStrong,
-    borderColor: orbitColors.borderStrong,
+    gap: 12,
+    padding: 16,
+    width: '100%',
   },
 });

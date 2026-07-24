@@ -1,43 +1,142 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { GlassCard } from '@/components/orbit/glass-card';
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
+import { OrbitButton } from '@/components/orbit/orbit-button';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { RewardClaimPress } from '@/components/orbit/reward-claim-press';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
-import { ACHIEVEMENT_BADGES } from '@/lib/game-levels';
+import {
+  findSharedDeviceForMember,
+  isSharedDeviceRole,
+} from '@/lib/household/shared-device';
+import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { useOrbit } from '@/store/orbit-store';
-import type { MemberProgress } from '@/types/orbit';
+import type { HouseholdMember, MemberProgress } from '@/types/orbit';
 
 type RankingView = 'week' | 'alltime';
 
-const PODIUM_ORDER: [number, number, number] = [1, 0, 2]; // visual: 2nd, 1st, 3rd
+const PODIUM_ORDER: [number, number, number] = [1, 0, 2];
 const PODIUM_HEIGHTS = [100, 130, 85];
+const CROWN_COLORS = ['#FBBF24', '#94A3B8', '#FB923C'];
 const RANK_EMOJI = ['👑', '🥈', '🥉'] as const;
 
+function SharedTabletChip({ device, compact }: { device: HouseholdMember; compact?: boolean }) {
+  return (
+    <View style={[styles.deviceChip, compact && styles.deviceChipCompact]}>
+      <Text style={styles.deviceChipEmoji}>{device.avatar || '📱'}</Text>
+      <Text style={[styles.deviceChipText, compact && styles.deviceChipTextCompact]} numberOfLines={1}>
+        {device.name}
+      </Text>
+    </View>
+  );
+}
+
 export default function RewardsScreen() {
-  const { household, membersWithProgress } = useOrbit();
+  const chromePad = useTabChromePaddingTop();
+  const {
+    accentTheme,
+    achievements,
+    approveRedemption,
+    archiveReward,
+    household,
+    membersWithProgress,
+    pendingRedemptions,
+    permissions,
+    rejectRedemption,
+    claimReward,
+    currentMember,
+  } = useOrbit();
   const [view, setView] = useState<RankingView>('week');
+  const [shopCategory, setShopCategory] = useState<string>('All');
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const caps = resolveMemberCapabilities(household);
+  const isAdmin = permissions.canManageHousehold;
+  const canRedeem = isAdmin || caps.allowRewardRedeem;
+  const canRequestSpecial = isAdmin || caps.allowSpecialRewardRequest;
 
   const sorted = useMemo(() => {
-    return [...membersWithProgress].sort((a, b) =>
-      view === 'week' ? b.weekXp - a.weekXp : b.xp - a.xp
-    );
+    return [...membersWithProgress]
+      .filter(
+        (member) =>
+          member.status === 'active' &&
+          member.role !== 'guest' &&
+          // Shared tablet shell is not a ranked person — Josh/Todd keep their own scores.
+          !isSharedDeviceRole(member.role)
+      )
+      .sort((a, b) => (view === 'week' ? b.weekXp - a.weekXp : b.xp - a.xp));
   }, [membersWithProgress, view]);
 
+  const deviceByMemberId = useMemo(() => {
+    const map = new Map<string, HouseholdMember>();
+    for (const member of sorted) {
+      const device = findSharedDeviceForMember(member.id, household.members);
+      if (device) map.set(member.id, device);
+    }
+    return map;
+  }, [household.members, sorted]);
+
+  const catalogRewards = useMemo(
+    () => household.rewards.filter((reward) => !reward.archived),
+    [household.rewards]
+  );
+
+  const rewardCategories = useMemo(() => {
+    const cats = Array.from(
+      new Set(catalogRewards.map((reward) => reward.category?.trim() || 'Other'))
+    ).sort((a, b) => a.localeCompare(b));
+    return ['All', ...cats];
+  }, [catalogRewards]);
+
+  const groupedShopRewards = useMemo(() => {
+    const filtered =
+      shopCategory === 'All'
+        ? catalogRewards
+        : catalogRewards.filter((reward) => (reward.category?.trim() || 'Other') === shopCategory);
+    const groups = new Map<string, typeof filtered>();
+    for (const reward of filtered) {
+      const key = reward.category?.trim() || 'Other';
+      const list = groups.get(key) ?? [];
+      list.push(reward);
+      groups.set(key, list);
+    }
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([category, items]) => ({ category, items }));
+  }, [catalogRewards, shopCategory]);
+
   const top3 = sorted.slice(0, 3);
-  const earnedCount = ACHIEVEMENT_BADGES.filter((badge) => badge.earned).length;
+  const earnedCount = achievements.filter((badge) => badge.earned).length;
+  const collectionPct = achievements.length ? Math.round((earnedCount / achievements.length) * 100) : 0;
 
   return (
     <ScrollView
       style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Leaderboard</Text>
+      contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
+      contentInsetAdjustmentBehavior="never"
+      showsVerticalScrollIndicator={false}>
+      <View style={[orbitScreen.header, styles.header]}>
+        <PageEyebrow>Leaderboard</PageEyebrow>
         <Text style={orbitTypography.display}>Family Rankings</Text>
-        <Text style={orbitTypography.body}>
-          Complete tasks to earn XP. Rankings update immediately in this Expo Go mock session.
-        </Text>
       </View>
+
+      <Pressable
+        onPress={() => router.push('/household-games' as never)}
+        style={[styles.gamesCard, { borderColor: `${accentTheme.primary}44` }]}>
+        <Text style={styles.gamesEmoji}>🎮</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={orbitTypography.cardTitle}>Household Games</Text>
+          <Text style={orbitTypography.caption}>
+            Drinking games, Uno, guessing nights — coming soon packs.
+          </Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={18} color={accentTheme.primary} />
+      </Pressable>
 
       <View style={styles.toggleRow}>
         {(['week', 'alltime'] as const).map((option) => {
@@ -55,7 +154,12 @@ export default function RewardsScreen() {
         })}
       </View>
 
-      <GlassCard elevated style={styles.podiumCard}>
+      <LinearGradient
+        colors={['rgba(14,165,233,0.12)', 'rgba(167,139,250,0.08)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.podiumCard}>
+        <View style={styles.podiumAmbient} pointerEvents="none" />
         <View style={styles.podiumRow}>
           {PODIUM_ORDER.map((rankIndex, visualIndex) => {
             const member = top3[rankIndex];
@@ -63,7 +167,6 @@ export default function RewardsScreen() {
               return <View key={`empty-${visualIndex}`} style={styles.podiumSlot} />;
             }
             const xpVal = view === 'week' ? member.weekXp : member.xp;
-            const isFirst = rankIndex === 0;
             return (
               <PodiumCard
                 key={member.id}
@@ -71,12 +174,13 @@ export default function RewardsScreen() {
                 rank={rankIndex}
                 xp={xpVal}
                 height={PODIUM_HEIGHTS[visualIndex]}
-                isFirst={isFirst}
+                isFirst={rankIndex === 0}
+                sharedDevice={deviceByMemberId.get(member.id)}
               />
             );
           })}
         </View>
-      </GlassCard>
+      </LinearGradient>
 
       <GlassCard style={styles.listCard}>
         {sorted.map((member, index) => {
@@ -99,7 +203,10 @@ export default function RewardsScreen() {
               <View style={styles.rankInfo}>
                 <View style={styles.nameRow}>
                   <Text style={styles.memberName}>{member.name}</Text>
-                  <View style={[styles.levelPill, { backgroundColor: `${member.levelColor}22` }]}>
+                  {deviceByMemberId.get(member.id) ? (
+                    <SharedTabletChip device={deviceByMemberId.get(member.id)!} />
+                  ) : null}
+                  <View style={[styles.levelPill, { backgroundColor: `${member.levelColor}18` }]}>
                     <Text style={[styles.levelPillText, { color: member.levelColor }]}>
                       {member.levelEmoji} {member.levelName}
                     </Text>
@@ -121,7 +228,7 @@ export default function RewardsScreen() {
                 </View>
               </View>
               <View style={styles.xpColumn}>
-                <Text style={[styles.xpValue, { color: isFirst ? '#FBBF24' : orbitColors.novaCyan }]}>
+                <Text style={[styles.xpValue, { color: isFirst ? orbitColors.rankGold : orbitColors.orbitBlue }]}>
                   ⚡ {xpVal}
                 </Text>
                 <Text style={styles.xpPeriod}>{view === 'week' ? 'this week' : 'total'}</Text>
@@ -132,73 +239,278 @@ export default function RewardsScreen() {
       </GlassCard>
 
       <GlassCard>
-        <Text style={orbitTypography.cardTitle}>🔥 Current Streaks</Text>
+        <View style={styles.sectionHeading}>
+          <MaterialIcons name="local-fire-department" size={16} color={orbitColors.warning} />
+          <Text style={orbitTypography.cardTitle}>Current Streaks</Text>
+        </View>
         <View style={styles.streakRow}>
           {sorted.map((member) => (
             <View key={`streak-${member.id}`} style={styles.streakItem}>
               <View style={[styles.avatarCircleSmall, { backgroundColor: `${member.accentColor}33` }]}>
                 <Text style={styles.avatarEmojiSmall}>{member.avatarEmoji}</Text>
               </View>
-              <Text
-                style={[
-                  styles.streakValue,
-                  { color: (member.streak ?? 0) >= 7 ? '#FB923C' : orbitColors.text },
-                ]}>
-                {member.streak}
-              </Text>
+              <View style={styles.streakValueRow}>
+                <MaterialIcons
+                  name="local-fire-department"
+                  size={10}
+                  color={(member.streak ?? 0) >= 7 ? orbitColors.warning : orbitColors.textSubtle}
+                />
+                <Text
+                  style={[
+                    styles.streakValue,
+                    { color: (member.streak ?? 0) >= 7 ? orbitColors.warning : orbitColors.textSoft },
+                  ]}>
+                  {member.streak}
+                </Text>
+              </View>
               <Text style={styles.streakCaption}>day streak</Text>
             </View>
           ))}
         </View>
       </GlassCard>
 
-      <GlassCard>
-        <View style={orbitScreen.row}>
-          <Text style={orbitTypography.cardTitle}>🏆 Achievements</Text>
-          <Text style={styles.earnedCount}>
-            {earnedCount}/{ACHIEVEMENT_BADGES.length}
-          </Text>
-        </View>
-        <View style={styles.badgeGrid}>
-          {ACHIEVEMENT_BADGES.map((badge) => (
-            <View key={badge.id} style={styles.badgeTile}>
-              <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
-                <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
-                {!badge.earned ? <Text style={styles.lockOverlay}>🔒</Text> : null}
-              </View>
-              <Text style={[styles.badgeLabel, !badge.earned && styles.badgeLabelMuted]}>{badge.label}</Text>
-            </View>
-          ))}
-        </View>
-        <View style={styles.collectionRow}>
-          <Text style={orbitTypography.caption}>Collection progress</Text>
-          <Text style={styles.collectionPct}>{Math.round((earnedCount / ACHIEVEMENT_BADGES.length) * 100)}%</Text>
-        </View>
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${(earnedCount / ACHIEVEMENT_BADGES.length) * 100}%`,
-                backgroundColor: '#FBBF24',
-              },
-            ]}
-          />
-        </View>
-      </GlassCard>
-
-      <Text style={orbitTypography.title}>Reward shop</Text>
-      {household.rewards.map((reward) => (
-        <GlassCard key={reward.id}>
+      <Pressable onPress={() => router.push('/badge-gallery' as never)}>
+        <GlassCard>
           <View style={orbitScreen.row}>
-            <View style={styles.rewardCopy}>
-              <Text style={orbitTypography.cardTitle}>{reward.title}</Text>
-              <Text style={orbitTypography.caption}>{reward.cost} XP</Text>
+            <View style={styles.sectionHeading}>
+              <MaterialIcons name="emoji-events" size={16} color={orbitColors.rankGold} />
+              <Text style={orbitTypography.cardTitle}>Achievements</Text>
             </View>
-            <Text style={styles.approvalLabel}>{reward.approvalRequired ? 'Approval' : 'Instant'}</Text>
+            <View style={styles.earnedRow}>
+              <Text style={styles.earnedCount}>
+                {earnedCount}/{achievements.length}
+              </Text>
+              <MaterialIcons name="chevron-right" size={12} color={orbitColors.textSubtle} />
+            </View>
+          </View>
+          <View style={styles.badgeGrid}>
+            {achievements.map((badge) => (
+              <View key={badge.id} style={styles.badgeTile}>
+                <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
+                  <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
+                  {!badge.earned ? (
+                    <View style={styles.lockOverlay}>
+                      <MaterialIcons name="lock" size={12} color={orbitColors.textSubtle} />
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={[styles.badgeLabel, !badge.earned && styles.badgeLabelMuted]}>{badge.label}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.collectionRow}>
+            <Text style={styles.collectionCaption}>Collection progress</Text>
+            <Text style={styles.collectionPct}>{collectionPct}%</Text>
+          </View>
+          <View style={styles.collectionTrack}>
+            <LinearGradient
+              colors={['#FBBF24', '#FB923C']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.collectionFill, { width: `${collectionPct}%` }]}
+            />
           </View>
         </GlassCard>
+      </Pressable>
+
+      <View style={styles.shopHero}>
+        <LinearGradient
+          colors={[`${accentTheme.primary}33`, 'rgba(251,191,36,0.12)', 'rgba(255,255,255,0.03)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.shopHeroGlow}
+        />
+        <Text style={styles.shopKicker}>{isAdmin ? 'ADMIN SHOP' : 'YOUR SHOP'}</Text>
+        <Text style={styles.shopTitle}>{isAdmin ? 'Reward vault' : 'Claim your wins'}</Text>
+        <Text style={styles.shopSub}>
+          {isAdmin
+            ? 'Mint prizes, approve requests, watch the household cash in.'
+            : `You have ${(currentMember?.xp ?? 0).toLocaleString()} XP · hold to claim`}
+        </Text>
+        {isAdmin ? (
+          <View style={styles.manageRail}>
+            <Pressable
+              onPress={() => router.push('/create-reward' as never)}
+              style={[styles.manageChip, { backgroundColor: accentTheme.primary }]}>
+              <MaterialIcons name="auto-awesome" size={16} color="#04101F" />
+              <Text style={styles.manageChipDark}>Mint</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/reward-tally' as never)}
+              style={[styles.manageChip, { borderColor: `${accentTheme.primary}55` }]}>
+              <MaterialIcons name="receipt-long" size={16} color={accentTheme.primary} />
+              <Text style={[styles.manageChipLight, { color: accentTheme.primary }]}>Tally</Text>
+            </Pressable>
+            {canRequestSpecial ? (
+              <Pressable
+                onPress={() => router.push('/special-reward-request' as never)}
+                style={[styles.manageChip, { borderColor: 'rgba(255,255,255,0.14)' }]}>
+                <MaterialIcons name="favorite-border" size={16} color="#C8D8F0" />
+                <Text style={styles.manageChipLight}>Special</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : canRequestSpecial ? (
+          <Pressable
+            onPress={() => router.push('/special-reward-request' as never)}
+            style={[styles.memberSpecial, { borderColor: `${accentTheme.primary}44` }]}>
+            <Text style={[styles.memberSpecialText, { color: accentTheme.primary }]}>
+              Request a special reward
+            </Text>
+            <MaterialIcons name="chevron-right" size={18} color={accentTheme.primary} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoryChipRow}>
+        {rewardCategories.map((category) => {
+          const active = shopCategory === category;
+          return (
+            <Pressable
+              key={category}
+              onPress={() => setShopCategory(category)}
+              style={[
+                styles.categoryChip,
+                active && {
+                  backgroundColor: `${accentTheme.primary}2E`,
+                  borderColor: `${accentTheme.primary}66`,
+                },
+              ]}>
+              <Text style={[styles.categoryChipText, active && { color: accentTheme.primary }]}>
+                {category}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {groupedShopRewards.map((group, groupIndex) => (
+        <View key={group.category} style={styles.shopSection}>
+          <Text style={styles.shopSectionTitle}>{group.category}</Text>
+          {group.items.map((reward, index) => {
+            const origin =
+              reward.origin ?? (reward.specialRequest ? 'special-request' : 'minted');
+            const mode = reward.approvalRequired ? 'request' : 'instant';
+            const canAfford = (currentMember?.xp ?? 0) >= reward.cost;
+            return (
+              <Animated.View
+                key={reward.id}
+                entering={FadeInDown.delay(40 + groupIndex * 30 + index * 40).springify()}
+                exiting={FadeOut.duration(320)}
+                layout={LinearTransition.duration(280)}>
+                <LinearGradient
+                  colors={[
+                    `${reward.color ?? accentTheme.primary}18`,
+                    'rgba(255,255,255,0.04)',
+                    'rgba(7,13,28,0.55)',
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[
+                    styles.vaultCard,
+                    { borderColor: `${reward.color ?? accentTheme.primary}33` },
+                  ]}>
+                  <View style={styles.vaultTop}>
+                    <View style={styles.vaultEmojiWrap}>
+                      <Text style={styles.vaultEmoji}>{reward.emoji || '🎁'}</Text>
+                    </View>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={styles.vaultTitle}>{reward.title}</Text>
+                      <View style={styles.vaultMetaRow}>
+                        <View style={styles.xpStamp}>
+                          <Text style={styles.xpStampText}>{reward.cost} XP</Text>
+                        </View>
+                        <Text style={styles.vaultMode}>
+                          {mode === 'instant' ? 'Instant' : 'Needs approval'}
+                        </Text>
+                        {isAdmin ? (
+                          <Text style={styles.vaultOrigin}>
+                            {origin === 'special-request' ? 'Request' : 'Minted'}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                    {canRedeem ? (
+                      <RewardClaimPress
+                        accent={accentTheme.primary}
+                        mode={mode}
+                        disabled={!canAfford}
+                        busy={claimingId === reward.id}
+                        onClaim={async () => {
+                          if (!canAfford) {
+                            Alert.alert('Not enough XP', `You need ${reward.cost} XP to claim this.`);
+                            return;
+                          }
+                          setClaimingId(reward.id);
+                          try {
+                            const result = await claimReward(reward.id);
+                            if (!result) {
+                              Alert.alert('Couldn’t claim', 'Try again in a moment.');
+                              return;
+                            }
+                            // Card exits via FadeOut when removed from the vault.
+                            await archiveReward(reward.id);
+                          } finally {
+                            setClaimingId(null);
+                          }
+                        }}
+                      />
+                    ) : null}
+                  </View>
+                  {isAdmin ? (
+                    <Pressable onPress={() => void archiveReward(reward.id)} style={styles.archiveLink}>
+                      <Text style={styles.archiveLinkText}>Archive</Text>
+                    </Pressable>
+                  ) : null}
+                </LinearGradient>
+              </Animated.View>
+            );
+          })}
+        </View>
       ))}
+
+      {isAdmin && pendingRedemptions.length > 0 ? (
+        <View style={styles.pendingBlock}>
+          <View style={styles.pendingHead}>
+            <Text style={styles.pendingTitle}>Pending claims · {pendingRedemptions.length}</Text>
+            <Pressable onPress={() => router.push('/reward-tally' as never)}>
+              <Text style={[styles.tallyLinkText, { color: accentTheme.primary }]}>Full tally</Text>
+            </Pressable>
+          </View>
+          {pendingRedemptions.slice(0, 3).map((redemption) => {
+            const reward = household.rewards.find((item) => item.id === redemption.rewardId);
+            const member = household.members.find((item) => item.id === redemption.memberId);
+            return (
+              <View key={redemption.id} style={styles.pendingCard}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.vaultTitle}>{reward?.title ?? 'Reward'}</Text>
+                  <Text style={styles.shopSub}>
+                    {member?.name ?? 'member'} · {new Date(redemption.requestedAt).toLocaleString()}
+                  </Text>
+                </View>
+                {permissions.canApproveReward ? (
+                  <View style={styles.redemptionActions}>
+                    <OrbitButton
+                      style={styles.redemptionButton}
+                      onPress={() => void approveRedemption(redemption.id)}>
+                      Approve
+                    </OrbitButton>
+                    <OrbitButton
+                      style={styles.redemptionButton}
+                      tone="danger"
+                      onPress={() => void rejectRedemption(redemption.id)}>
+                      Reject
+                    </OrbitButton>
+                  </View>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -209,38 +521,43 @@ function PodiumCard({
   xp,
   height,
   isFirst,
+  sharedDevice,
 }: {
   member: MemberProgress;
   rank: number;
   xp: number;
   height: number;
   isFirst: boolean;
+  sharedDevice?: HouseholdMember;
 }) {
   return (
     <View style={styles.podiumSlot}>
       {isFirst ? <Text style={styles.crown}>👑</Text> : <View style={styles.crownSpacer} />}
-      <View
-        style={[
-          styles.podiumAvatar,
-          isFirst && styles.podiumAvatarFirst,
-          { backgroundColor: `${member.accentColor}44` },
-        ]}>
-        <Text style={[styles.podiumEmoji, isFirst && styles.podiumEmojiFirst]}>{member.avatarEmoji}</Text>
-        <View style={[styles.podiumRankDot, { backgroundColor: rank === 0 ? '#FBBF24' : rank === 1 ? '#94A3B8' : '#FB923C' }]}>
+      <View style={styles.podiumAvatarWrap}>
+        <View
+          style={[
+            styles.podiumAvatar,
+            isFirst && styles.podiumAvatarFirst,
+            { backgroundColor: `${member.accentColor}44` },
+          ]}>
+          <Text style={[styles.podiumEmoji, isFirst && styles.podiumEmojiFirst]}>{member.avatarEmoji}</Text>
+        </View>
+        <View style={[styles.podiumRankDot, { backgroundColor: CROWN_COLORS[rank] }]}>
           <Text style={styles.podiumRankText}>{rank + 1}</Text>
         </View>
       </View>
       <Text style={styles.podiumName}>{member.name}</Text>
+      {sharedDevice ? <SharedTabletChip device={sharedDevice} compact /> : null}
       <View
         style={[
           styles.podiumBlock,
           {
             height,
-            borderColor: `${member.accentColor}55`,
+            borderColor: `${member.accentColor}33`,
             backgroundColor: `${member.accentColor}22`,
           },
         ]}>
-        <Text style={[styles.podiumXp, { color: member.accentColor }]}>⚡ {xp}</Text>
+        <Text style={[styles.podiumXp, { color: member.accentColor, fontSize: isFirst ? 15 : 13 }]}>⚡ {xp}</Text>
       </View>
     </View>
   );
@@ -251,6 +568,64 @@ const styles = StyleSheet.create({
     color: orbitColors.warning,
     fontSize: 12,
     fontWeight: '700',
+  },
+  approvalPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  approvalPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  shopActions: {
+    gap: 10,
+  },
+  tallyLink: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  tallyLinkText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  categoryChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChip: {
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  categoryChipText: {
+    color: orbitColors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  shopSection: {
+    gap: 10,
+  },
+  shopSectionTitle: {
+    color: orbitColors.textSoft,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  pendingHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   avatarCircle: {
     alignItems: 'center',
@@ -278,12 +653,12 @@ const styles = StyleSheet.create({
   badgeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: orbitSpacing.md,
+    gap: 12,
   },
   badgeIconWrap: {
     alignItems: 'center',
-    backgroundColor: 'rgba(251, 191, 36, 0.12)',
-    borderColor: 'rgba(251, 191, 36, 0.3)',
+    backgroundColor: 'rgba(251,191,36,0.12)',
+    borderColor: 'rgba(251,191,36,0.3)',
     borderRadius: orbitRadius.md,
     borderWidth: 1,
     height: 48,
@@ -292,8 +667,8 @@ const styles = StyleSheet.create({
     width: 48,
   },
   badgeLabel: {
-    color: orbitColors.textMuted,
-    fontSize: 10,
+    color: orbitColors.textSoft,
+    fontSize: 9,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -302,40 +677,76 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   badgeLocked: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderColor: orbitColors.border,
-    opacity: 0.55,
+    opacity: 0.4,
   },
   badgeTile: {
     alignItems: 'center',
     gap: 6,
-    width: '21%',
+    width: '22%',
+  },
+  collectionCaption: {
+    color: orbitColors.textMuted,
+    fontSize: 12,
+  },
+  collectionFill: {
+    borderRadius: 999,
+    height: 6,
   },
   collectionPct: {
     color: orbitColors.success,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   collectionRow: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  collectionTrack: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 999,
+    height: 6,
+    marginTop: 6,
+    overflow: 'hidden',
   },
   crown: {
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 20,
+    lineHeight: 24,
   },
   crownSpacer: {
-    height: 22,
+    height: 24,
   },
   earnedCount: {
     color: orbitColors.success,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  earnedRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  header: {
+    paddingTop: 0,
+  },
+  gamesCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: orbitRadius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+  },
+  gamesEmoji: {
+    fontSize: 28,
   },
   levelPill: {
     borderRadius: 999,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 2,
   },
   levelPillText: {
@@ -348,13 +759,16 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   lockOverlay: {
-    fontSize: 10,
-    position: 'absolute',
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: orbitRadius.md,
+    justifyContent: 'center',
   },
   memberName: {
     color: orbitColors.text,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   nameRow: {
     alignItems: 'center',
@@ -362,12 +776,46 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
   },
+  deviceChip: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 4,
+    maxWidth: 140,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  deviceChipCompact: {
+    marginBottom: 4,
+    marginTop: 2,
+    maxWidth: 110,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  deviceChipEmoji: {
+    fontSize: 11,
+  },
+  deviceChipText: {
+    color: orbitColors.textMuted,
+    flexShrink: 1,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  deviceChipTextCompact: {
+    fontSize: 9,
+  },
+  podiumAmbient: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(251,191,36,0.06)',
+  },
   podiumAvatar: {
     alignItems: 'center',
     borderRadius: 22,
     height: 44,
     justifyContent: 'center',
-    position: 'relative',
     width: 44,
   },
   podiumAvatarFirst: {
@@ -375,8 +823,12 @@ const styles = StyleSheet.create({
     height: 52,
     width: 52,
   },
+  podiumAvatarWrap: {
+    position: 'relative',
+  },
   podiumBlock: {
     alignItems: 'center',
+    borderBottomWidth: 0,
     borderCurve: 'continuous',
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
@@ -387,7 +839,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   podiumCard: {
+    borderColor: orbitColors.border,
+    borderRadius: orbitRadius.lg,
+    borderWidth: 1,
     overflow: 'hidden',
+    padding: 20,
   },
   podiumEmoji: {
     fontSize: 22,
@@ -411,14 +867,14 @@ const styles = StyleSheet.create({
     width: 18,
   },
   podiumRankText: {
-    color: '#070D1C',
-    fontSize: 10,
+    color: orbitColors.ink,
+    fontSize: 9,
     fontWeight: '800',
   },
   podiumRow: {
     alignItems: 'flex-end',
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     justifyContent: 'center',
   },
   podiumSlot: {
@@ -427,18 +883,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   podiumXp: {
-    fontSize: 13,
     fontWeight: '800',
   },
   progressFill: {
     borderRadius: 999,
-    height: 8,
+    height: 4,
   },
   progressTrack: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 999,
     flex: 1,
-    height: 8,
+    height: 4,
     overflow: 'hidden',
   },
   rankBadge: {
@@ -455,26 +910,45 @@ const styles = StyleSheet.create({
   },
   rankNumber: {
     color: orbitColors.textSubtle,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
   rankRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: orbitSpacing.lg,
+    gap: 16,
+    paddingHorizontal: orbitSpacing.md,
     paddingVertical: 14,
   },
   rankRowBorder: {
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    borderBottomColor: 'rgba(255,255,255,0.05)',
     borderBottomWidth: 1,
   },
   rankRowFirst: {
-    backgroundColor: 'rgba(251, 191, 36, 0.04)',
+    backgroundColor: 'rgba(251,191,36,0.04)',
+  },
+  redemptionActions: {
+    flexDirection: 'row',
+    gap: orbitSpacing.md,
+  },
+  redemptionButton: {
+    flex: 1,
+  },
+  rewardCard: {
+    gap: orbitSpacing.md,
   },
   rewardCopy: {
     flex: 1,
     gap: 4,
+  },
+  sectionHeading: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  shopHeader: {
+    gap: 4,
+    marginTop: 8,
   },
   streakCaption: {
     color: orbitColors.textSubtle,
@@ -487,57 +961,211 @@ const styles = StyleSheet.create({
   },
   streakRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   streakValue: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  streakValueRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
   },
   toggleButton: {
     alignItems: 'center',
-    borderRadius: orbitRadius.md,
+    borderColor: 'transparent',
+    borderRadius: 12,
+    borderWidth: 1,
     flex: 1,
     paddingVertical: 10,
   },
   toggleButtonActive: {
-    backgroundColor: 'rgba(0, 194, 255, 0.16)',
-    borderColor: 'rgba(0, 194, 255, 0.35)',
-    borderWidth: 1,
+    backgroundColor: 'rgba(56,189,248,0.18)',
+    borderColor: 'rgba(56,189,248,0.3)',
   },
   toggleLabel: {
     color: orbitColors.textSubtle,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   toggleLabelActive: {
-    color: orbitColors.novaCyan,
-    fontWeight: '700',
+    color: orbitColors.orbitBlue,
+    fontWeight: '600',
   },
   toggleRow: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: orbitRadius.lg,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: orbitRadius.md,
     flexDirection: 'row',
-    gap: 4,
     padding: 4,
-  },
-  xpCaption: {
-    color: orbitColors.textSubtle,
-    fontSize: 11,
   },
   xpBarRow: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
   },
+  xpCaption: {
+    color: orbitColors.textSubtle,
+    fontSize: 12,
+  },
   xpColumn: {
     alignItems: 'flex-end',
   },
   xpPeriod: {
     color: orbitColors.textSubtle,
-    fontSize: 11,
+    fontSize: 12,
   },
   xpValue: {
     fontSize: 16,
+    fontWeight: '700',
+  },
+  shopHero: {
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 8,
+    overflow: 'hidden',
+    padding: 18,
+  },
+  shopHeroGlow: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  shopKicker: {
+    color: '#FBBF24',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  shopTitle: {
+    color: '#F4F7FF',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+  shopSub: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  manageRail: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  manageChip: {
+    alignItems: 'center',
+    borderColor: 'transparent',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  manageChipDark: {
+    color: '#04101F',
+    fontSize: 13,
     fontWeight: '800',
   },
+  manageChipLight: {
+    color: '#C8D8F0',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  memberSpecial: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  memberSpecialText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  vaultCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    gap: 10,
+    padding: 16,
+  },
+  vaultTop: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  vaultEmojiWrap: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 18,
+    height: 56,
+    justifyContent: 'center',
+    width: 56,
+  },
+  vaultEmoji: { fontSize: 28 },
+  vaultTitle: {
+    color: '#EEF2FF',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  vaultMetaRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  xpStamp: {
+    backgroundColor: 'rgba(251,191,36,0.18)',
+    borderColor: 'rgba(251,191,36,0.45)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  xpStampText: {
+    color: '#FBBF24',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  vaultMode: {
+    color: '#7C9CC0',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  vaultOrigin: {
+    color: '#4B6080',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  archiveLink: {
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+  },
+  archiveLinkText: {
+    color: '#F87171',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  pendingBlock: { gap: 10 },
+  pendingTitle: {
+    color: '#EEF2FF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  pendingCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+  },
+
 });
