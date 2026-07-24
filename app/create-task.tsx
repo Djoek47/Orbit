@@ -287,6 +287,47 @@ export default function CreateTaskScreen() {
     [libraryAudience, libraryDomain, libraryQuery],
   );
 
+  const libraryByRoom = useMemo(() => {
+    const order: NonNullable<TaskPreset['roomKind']>[] = [
+      'kitchen',
+      'living',
+      'bathroom',
+      'bedroom',
+      'laundry',
+      'outdoor',
+      'custom',
+    ];
+    const labels: Record<NonNullable<TaskPreset['roomKind']>, { emoji: string; name: string }> = {
+      kitchen: { emoji: '🍳', name: 'Kitchen' },
+      living: { emoji: '🛋️', name: 'Living room' },
+      bathroom: { emoji: '🚿', name: 'Bathroom' },
+      bedroom: { emoji: '🛏️', name: 'Bedroom' },
+      laundry: { emoji: '🧺', name: 'Laundry' },
+      outdoor: { emoji: '🌿', name: 'Outdoor' },
+      custom: { emoji: '✨', name: 'General' },
+    };
+    const buckets = new Map<string, TaskPreset[]>();
+    for (const preset of libraryResults) {
+      const kind = preset.roomKind ?? 'custom';
+      const list = buckets.get(kind) ?? [];
+      list.push(preset);
+      buckets.set(kind, list);
+    }
+    return order
+      .filter((kind) => (buckets.get(kind)?.length ?? 0) > 0)
+      .map((kind) => {
+        const householdRoom = rooms.find((room) => room.kind === kind);
+        const fallback = labels[kind];
+        return {
+          kind,
+          title: householdRoom
+            ? `${householdRoom.emoji} ${householdRoom.name}`
+            : `${fallback.emoji} ${fallback.name}`,
+          items: buckets.get(kind) ?? [],
+        };
+      });
+  }, [libraryResults, rooms]);
+
   const domains = useMemo(() => libraryDomains(libraryAudience), [libraryAudience]);
 
   const selectedMembers = useMemo(
@@ -514,11 +555,6 @@ export default function CreateTaskScreen() {
                 onSelect={selectAssignee}
                 onLongPress={longPressAssignee}
               />
-              {sharedDeviceMemberIds.size > 0 ? (
-                <Text style={styles.sharedPickHint}>
-                  Tablet icon = on a shared device
-                </Text>
-              ) : null}
               {isSplitAssign ? (
                 <Text style={styles.sharedPickHint}>
                   Split · {resolvedAssigneeName} — each earns XP when they finish; all-done bonus if everyone
@@ -741,27 +777,40 @@ export default function CreateTaskScreen() {
               );
             })}
           </ScrollView>
-          <View style={styles.presetGrid}>
-            {libraryResults.map((preset) => {
-              const xp = computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
-              return (
-                <Pressable
-                  key={preset.id}
-                  onPress={() => applyPreset(preset, true)}
-                  onLongPress={() => applyPreset(preset, false)}
-                  style={styles.presetCard}>
-                  <View style={styles.presetTop}>
-                    <Text style={styles.presetTitle}>{preset.title}</Text>
-                    <View style={[styles.xpBadge, { backgroundColor: `${accentTheme.primary}22` }]}>
-                      <Text style={[styles.xpBadgeText, { color: accentTheme.primary }]}>+{xp}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.roomChip}>
-                    {preset.group ?? preset.category} · hold to customize
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View style={styles.librarySections}>
+            {libraryByRoom.map((section) => (
+              <View key={section.kind} style={styles.librarySection}>
+                <Text style={styles.librarySectionTitle}>
+                  {section.title}
+                  <Text style={styles.librarySectionCount}> · {section.items.length}</Text>
+                </Text>
+                <View style={styles.presetGrid}>
+                  {section.items.map((preset) => {
+                    const xp = computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+                    return (
+                      <Pressable
+                        key={preset.id}
+                        onPress={() => applyPreset(preset, true)}
+                        onLongPress={() => applyPreset(preset, false)}
+                        style={styles.presetCard}>
+                        <View style={styles.presetTop}>
+                          <Text style={styles.presetTitle}>{preset.title}</Text>
+                          <View style={[styles.xpBadge, { backgroundColor: `${accentTheme.primary}22` }]}>
+                            <Text style={[styles.xpBadgeText, { color: accentTheme.primary }]}>+{xp}</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.roomChip}>
+                          {preset.group ?? preset.category} · hold to customize
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+            {libraryByRoom.length === 0 ? (
+              <Text style={styles.presetHint}>No chores match this search.</Text>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -981,9 +1030,6 @@ export default function CreateTaskScreen() {
               onSelect={selectAssignee}
               onLongPress={longPressAssignee}
             />
-            {sharedDeviceMemberIds.size > 0 ? (
-              <Text style={styles.sharedPickHint}>Tablet icon = on a shared device</Text>
-            ) : null}
           </View>
         ) : null}
 
@@ -1593,6 +1639,23 @@ const styles = StyleSheet.create({
     color: '#7C9CC0',
     fontSize: 12,
     marginTop: 2,
+  },
+  librarySections: {
+    gap: 18,
+  },
+  librarySection: {
+    gap: 10,
+  },
+  librarySectionTitle: {
+    color: '#EEF2FF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  librarySectionCount: {
+    color: '#4B6080',
+    fontSize: 13,
+    fontWeight: '600',
   },
   searchInput: {
     backgroundColor: 'rgba(255,255,255,0.06)',
