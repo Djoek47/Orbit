@@ -366,8 +366,6 @@ export default function CreateTaskScreen() {
     }));
   }, [catalogChip, catalogTasks]);
 
-  const filteredPresets = catalogTasks;
-
   const libraryResults = useMemo(
     () =>
       filterLibraryTasks({
