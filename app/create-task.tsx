@@ -120,6 +120,25 @@ const priorities = [
 
 const repeatOptions: HouseholdTask['repeat'][] = ['None', 'Daily', 'Weekly', 'Weekdays'];
 
+/** Short chip labels for PDF domains (full domain used as filter id). */
+const DOMAIN_CHIP_LABELS: Record<string, string> = {
+  'Kitchen & Dining': 'Kitchen & Dining',
+  'Trash & Recycling': 'Trash & Recycling',
+  Bathroom: 'Bathroom',
+  Laundry: 'Laundry',
+  Bedroom: 'Bedroom',
+  'Living Room & Shared Spaces': 'Living Spaces',
+  'Floors & Deep Cleaning': 'Floors',
+  Pets: 'Pets',
+  Car: 'Car',
+  'Yard & Outdoors': 'Yard',
+  Hygiene: 'Hygiene',
+  'Daily Routine': 'Daily Routine',
+  'Homework & Education': 'Homework',
+  'Meals, Groceries & Errands': 'Meals & Errands',
+  'Home Maintenance & Organization': 'Home Maintenance',
+};
+
 const GRADIENT_BY_COLOR: Record<string, [string, string]> = {
   '#38BDF8': ['#38BDF8', '#0EA5E9'],
   '#A78BFA': ['#A78BFA', '#7C3AED'],
@@ -257,7 +276,6 @@ export default function CreateTaskScreen() {
   const [difficulty, setDifficulty] = useState<TaskDifficulty>('medium');
   const [proofRequired, setProofRequired] = useState(false);
   const [roomId, setRoomId] = useState<string | undefined>();
-  const [presetRoomFilter, setPresetRoomFilter] = useState<string | 'all' | 'none'>('all');
   const [presetQuery, setPresetQuery] = useState('');
   const [baseXp, setBaseXp] = useState(10);
   const [category, setCategory] = useState('General');
@@ -268,6 +286,8 @@ export default function CreateTaskScreen() {
   const [libraryQuery, setLibraryQuery] = useState('');
   const [libraryDomain, setLibraryDomain] = useState<string | null>(null);
   const [customizeQuickOpen, setCustomizeQuickOpen] = useState(false);
+  /** Create-task catalog chip: quick presets, all library, or one PDF domain. */
+  const [catalogChip, setCatalogChip] = useState<'presets' | 'all' | string>('presets');
 
   useEffect(() => {
     void loadQuickPresetConfig(household.id).then((config) => {
@@ -300,23 +320,53 @@ export default function CreateTaskScreen() {
       });
   }, [quickIds, libraryAudience, quickOverrides]);
 
-  const filteredPresets = useMemo(() => {
+  const domains = useMemo(
+    () => libraryDomains(libraryAudience, { includeChildOnly: showHygieneLibrary }),
+    [libraryAudience, showHygieneLibrary],
+  );
+
+  const catalogTasks = useMemo(() => {
     const q = presetQuery.trim().toLowerCase();
-    let list = quickPresets;
-    if (presetRoomFilter === 'none') {
-      list = list.filter((preset) => !preset.roomKind || preset.roomKind === 'custom');
-    } else if (presetRoomFilter !== 'all') {
-      const kind = rooms.find((room) => room.id === presetRoomFilter)?.kind;
-      if (kind) list = list.filter((preset) => preset.roomKind === kind);
+    if (catalogChip === 'presets') {
+      let list = quickPresets;
+      if (q) {
+        list = list.filter((preset) => {
+          const hay = `${preset.title} ${preset.category} ${preset.group ?? ''} ${preset.domain ?? ''}`.toLowerCase();
+          return hay.includes(q);
+        });
+      }
+      return list;
     }
-    if (q) {
-      list = list.filter((preset) => {
-        const hay = `${preset.title} ${preset.category} ${preset.group ?? ''} ${preset.domain ?? ''}`.toLowerCase();
-        return hay.includes(q);
-      });
+
+    const domain = catalogChip === 'all' ? null : catalogChip;
+    return filterLibraryTasks({
+      audience: libraryAudience,
+      domain,
+      query: presetQuery,
+      includeChildOnly: showHygieneLibrary,
+    }).map(libraryToPreset);
+  }, [catalogChip, quickPresets, presetQuery, libraryAudience, showHygieneLibrary]);
+
+  /** Group catalog tasks by PDF group under the active category (not for Presets). */
+  const catalogSections = useMemo(() => {
+    if (catalogChip === 'presets') {
+      return [{ key: 'presets', title: 'Your quick set', items: catalogTasks }];
     }
-    return list;
-  }, [presetRoomFilter, rooms, quickPresets, presetQuery]);
+    const buckets = new Map<string, TaskPreset[]>();
+    for (const preset of catalogTasks) {
+      const key = preset.group ?? preset.category;
+      const list = buckets.get(key) ?? [];
+      list.push(preset);
+      buckets.set(key, list);
+    }
+    return Array.from(buckets.entries()).map(([title, items]) => ({
+      key: title,
+      title,
+      items,
+    }));
+  }, [catalogChip, catalogTasks]);
+
+  const filteredPresets = catalogTasks;
 
   const libraryResults = useMemo(
     () =>
@@ -369,11 +419,6 @@ export default function CreateTaskScreen() {
         };
       });
   }, [libraryResults, rooms]);
-
-  const domains = useMemo(
-    () => libraryDomains(libraryAudience, { includeChildOnly: showHygieneLibrary }),
-    [libraryAudience, showHygieneLibrary],
-  );
 
   const isHygieneDraft = tracking === 'streak' || category === 'Hygiene';
 
@@ -667,12 +712,16 @@ export default function CreateTaskScreen() {
         </View>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Quick presets</Text>
+            <Text style={styles.headerTitle}>Create task</Text>
             <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
               <MaterialIcons color="#7C9CC0" name="close" size={16} />
             </Pressable>
           </View>
-          <Text style={styles.presetHint}>Tap once to create · long-press to customize</Text>
+          <Text style={styles.presetHint}>
+            {catalogChip === 'presets'
+              ? 'Your quick set · tap to create · long-press to customize'
+              : 'Full library · tap to create · long-press to customize'}
+          </Text>
           {permissions.canAssignTask ? (
             <View style={styles.presetAssignBlock}>
               <Text style={styles.label}>ASSIGN TO · hold to split</Text>
@@ -698,7 +747,9 @@ export default function CreateTaskScreen() {
             <TextInput
               value={presetQuery}
               onChangeText={setPresetQuery}
-              placeholder="Search quick presets…"
+              placeholder={
+                catalogChip === 'presets' ? 'Search quick presets…' : 'Search tasks…'
+              }
               placeholderTextColor="#4B6080"
               style={styles.searchField}
               autoCorrect={false}
@@ -706,89 +757,97 @@ export default function CreateTaskScreen() {
             />
           </View>
 
-          {rooms.length ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.presetFilterRow}>
-              {(
-                [
-                  { id: 'all' as const, label: 'All' },
-                  { id: 'none' as const, label: 'No room' },
-                  ...rooms.map((room) => ({ id: room.id, label: `${room.emoji} ${room.name}` })),
-                ] as { id: string; label: string }[]
-              ).map((chip) => {
-                const active = presetRoomFilter === chip.id;
-                return (
-                  <Pressable
-                    key={chip.id}
-                    onPress={() => setPresetRoomFilter(chip.id as typeof presetRoomFilter)}
-                    style={[
-                      styles.presetFilterChip,
-                      active && {
-                        backgroundColor: `${accentTheme.primary}22`,
-                        borderColor: `${accentTheme.primary}44`,
-                      },
-                    ]}>
-                    <Text style={[styles.presetFilterText, active && { color: accentTheme.primary }]}>
-                      {chip.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          ) : null}
-          <View style={styles.presetGrid}>
-            {filteredPresets.map((preset) => {
-              const room = rooms.find((item) => item.kind === preset.roomKind);
-              const xp = computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.presetFilterRow}>
+            {(
+              [
+                { id: 'presets' as const, label: 'Presets' },
+                { id: 'all' as const, label: 'All' },
+                ...domains.map((domain) => ({
+                  id: domain,
+                  label: DOMAIN_CHIP_LABELS[domain] ?? domain,
+                })),
+              ] as { id: string; label: string }[]
+            ).map((chip) => {
+              const active = catalogChip === chip.id;
               return (
                 <Pressable
-                  key={preset.id}
-                  onPress={() => applyPreset(preset, true)}
-                  onLongPress={() => applyPreset(preset, false)}
-                  style={styles.presetCard}>
-                  <View style={styles.presetTop}>
-                    <Text style={styles.presetTitle}>{preset.title}</Text>
-                    <View style={[styles.xpBadge, { backgroundColor: `${accentTheme.primary}22` }]}>
-                      <Text style={[styles.xpBadgeText, { color: accentTheme.primary }]}>+{xp}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.presetMetaRow}>
-                    {preset.repeat !== 'None' ? (
-                      <View style={styles.repeatPill}>
-                        <Text style={styles.repeatText}>{preset.repeat}</Text>
-                      </View>
-                    ) : null}
-                    {room ? (
-                      <Text style={styles.roomChip}>
-                        {room.emoji} {room.name}
-                      </Text>
-                    ) : (
-                      <Text style={styles.roomChip}>{preset.category}</Text>
-                    )}
-                  </View>
-                  {preset.proofRequired ? (
-                    <Text style={styles.proofHint}>Proof required</Text>
-                  ) : null}
+                  key={chip.id}
+                  onPress={() => setCatalogChip(chip.id)}
+                  style={[
+                    styles.presetFilterChip,
+                    active && {
+                      backgroundColor: `${accentTheme.primary}22`,
+                      borderColor: `${accentTheme.primary}44`,
+                    },
+                  ]}>
+                  <Text style={[styles.presetFilterText, active && { color: accentTheme.primary }]}>
+                    {chip.label}
+                  </Text>
                 </Pressable>
               );
             })}
-          </View>
-          {filteredPresets.length === 0 ? (
-            <Text style={styles.presetHint}>No presets for this room filter.</Text>
+          </ScrollView>
+
+          {catalogSections.map((section) => (
+            <View key={section.key} style={styles.librarySection}>
+              {catalogChip !== 'presets' || catalogSections.length > 1 ? (
+                <Text style={styles.librarySectionTitle}>
+                  {section.title}
+                  <Text style={styles.librarySectionCount}> · {section.items.length}</Text>
+                </Text>
+              ) : null}
+              <View style={styles.presetGrid}>
+                {section.items.map((preset) => {
+                  const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
+                  const xp = hygiene
+                    ? 0
+                    : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+                  return (
+                    <Pressable
+                      key={preset.id}
+                      onPress={() => applyPreset(preset, true)}
+                      onLongPress={() => applyPreset(preset, false)}
+                      style={styles.presetCard}>
+                      <View style={styles.presetTop}>
+                        <Text style={styles.presetTitle}>{preset.title}</Text>
+                        <View style={[styles.xpBadge, { backgroundColor: `${accentTheme.primary}22` }]}>
+                          <Text style={[styles.xpBadgeText, { color: accentTheme.primary }]}>
+                            {hygiene ? 'Streak' : `+${xp}`}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.presetMetaRow}>
+                        {preset.repeat !== 'None' ? (
+                          <View style={styles.repeatPill}>
+                            <Text style={styles.repeatText}>{preset.repeat}</Text>
+                          </View>
+                        ) : null}
+                        <Text style={styles.roomChip}>
+                          {preset.group ?? preset.category}
+                        </Text>
+                      </View>
+                      {preset.proofRequired ? (
+                        <Text style={styles.proofHint}>Proof required</Text>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+          {catalogTasks.length === 0 ? (
+            <Text style={styles.presetHint}>No tasks match this filter.</Text>
           ) : null}
 
-          <Pressable onPress={() => setMode('library')} style={styles.customEntry}>
-            <MaterialIcons name="menu-book" size={16} color={accentTheme.primary} />
-            <Text style={[styles.customEntryText, { color: accentTheme.primary }]}>
-              Browse library ({CHOREMAXX_TASK_LIBRARY.length})
-            </Text>
-          </Pressable>
-          <Pressable onPress={() => setCustomizeQuickOpen(true)} style={styles.customEntry}>
-            <MaterialIcons name="tune" size={16} color="#7C9CC0" />
-            <Text style={[styles.customEntryText, { color: '#7C9CC0' }]}>Customize quick set</Text>
-          </Pressable>
+          {catalogChip === 'presets' ? (
+            <Pressable onPress={() => setCustomizeQuickOpen(true)} style={styles.customEntry}>
+              <MaterialIcons name="tune" size={16} color="#7C9CC0" />
+              <Text style={[styles.customEntryText, { color: '#7C9CC0' }]}>Customize quick set</Text>
+            </Pressable>
+          ) : null}
 
           <Pressable
             onPress={() => {
@@ -799,6 +858,7 @@ export default function CreateTaskScreen() {
               setDifficulty('medium');
               setProofRequired(false);
               setBaseXp(10);
+              setTracking('xp');
               setRoomId(undefined);
             }}
             style={styles.customEntry}>
