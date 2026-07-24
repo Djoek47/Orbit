@@ -55,6 +55,7 @@ export const taskRepository = {
       xp: input.xp,
       weight: input.weight,
       difficulty: input.difficulty,
+      tracking: input.tracking,
       proofRequired: input.proofRequired,
       proofStatus: input.proofRequired && !split ? 'none' : undefined,
       dueAt: input.dueAt,

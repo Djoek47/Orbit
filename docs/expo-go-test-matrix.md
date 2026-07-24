@@ -21,7 +21,7 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 30d | Kid Plan / create event | Child events filtered to theirs · simplified create (title/when/place) when calendar create allowed | ☐ |
 | 30e | Create Task shared + library | Shared device tablet card · hold to split · Quick 12 + Browse library search/domains | ☐ |
 | 6i | Rewards shop + tally | Ranks shop · Mint admin-only · special request gated by Member permissions · Redeem tally admin · member Redeem only when allowed | ☐ |
-| 6j | Task presets + library | Create Task quick 12 + Browse library (136) · Customize quick set · overdue Reassign still works | ☐ |
+| 6j | Task presets + library | Create Task quick 12 + Browse library (150) · Hygiene kids-only (0 XP) · Customize quick set · overdue Reassign still works | ☐ |
 | 6k | Badge gallery + Home fire streak | Badge gallery Material icons + polished tiles · Home Today’s Tasks fire-edge progress · per-person chips · daily streak on full completion | ☐ |
 | 2 | Create household | New household → Manage Members → Add new member shows invite code | ☐ |
 | 3 | QR invite | Device A: Manage Members → Add new member QR · Device B scans → code fills join | ☐ |

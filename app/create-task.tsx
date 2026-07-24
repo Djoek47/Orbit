@@ -21,9 +21,11 @@ import {
   DEFAULT_QUICK_PRESET_IDS,
   filterLibraryTasks,
   inferLibraryRepeat,
+  isHygieneLibraryTask,
   libraryDomains,
   type ChoremaxxLibraryTask,
   type LibraryAudience,
+  type LibraryTracking,
 } from '@/data/choremaxx-task-library';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { loadQuickPresetConfig, saveQuickPresetConfig, type QuickPresetOverride } from '@/lib/household/local-prefs';
@@ -54,24 +56,32 @@ export type TaskPreset = {
   domain?: string;
   group?: string;
   audience?: LibraryAudience;
+  tracking?: LibraryTracking;
 };
 
 function libraryToPreset(task: ChoremaxxLibraryTask): TaskPreset {
-  const difficulty: TaskDifficulty =
-    task.baseXp >= 20 ? 'hard' : task.baseXp >= 12 ? 'medium' : 'easy';
+  const hygiene = isHygieneLibraryTask(task);
+  const difficulty: TaskDifficulty = hygiene
+    ? 'easy'
+    : task.baseXp >= 20
+      ? 'hard'
+      : task.baseXp >= 12
+        ? 'medium'
+        : 'easy';
   return {
     id: task.id,
     title: task.title,
     category: task.domain,
-    baseXp: task.baseXp,
+    baseXp: hygiene ? 0 : task.baseXp,
     difficulty,
     weight: weightForDifficulty(difficulty),
     repeat: inferLibraryRepeat(task),
-    proofRequired: task.proofDefault,
+    proofRequired: hygiene ? false : task.proofDefault,
     roomKind: task.roomKind,
     domain: task.domain,
     group: task.group,
     audience: task.audience,
+    tracking: task.tracking,
   };
 }
 
@@ -83,6 +93,10 @@ function assignablePeople(members: HouseholdMember[]): HouseholdMember[] {
       member.role !== 'guest' &&
       !isSharedDeviceRole(member.role),
   );
+}
+
+function isChildMember(member: HouseholdMember): boolean {
+  return member.role === 'child';
 }
 
 const PANEL_BG = '#0F1A30';
@@ -221,6 +235,13 @@ export default function CreateTaskScreen() {
   const rooms = useMemo(() => household.rooms ?? [], [household.rooms]);
   const libraryAudience: LibraryAudience =
     household.householdType === 'roommates' ? 'roommate' : 'family';
+  const childMembers = useMemo(
+    () => activeMembers.filter(isChildMember),
+    [activeMembers],
+  );
+  /** Hygiene is kids-only — never roommates / guests / adult-only homes. */
+  const showHygieneLibrary =
+    libraryAudience === 'family' && childMembers.length > 0;
 
   const [mode, setMode] = useState<ScreenMode>('presets');
   const [type, setType] = useState<TaskType>('task');
@@ -241,6 +262,7 @@ export default function CreateTaskScreen() {
   const [baseXp, setBaseXp] = useState(10);
   const [category, setCategory] = useState('General');
   const [description, setDescription] = useState<string | undefined>();
+  const [tracking, setTracking] = useState<LibraryTracking>('xp');
   const [quickIds, setQuickIds] = useState<string[]>([...DEFAULT_QUICK_PRESET_IDS]);
   const [quickOverrides, setQuickOverrides] = useState<Record<string, QuickPresetOverride>>({});
   const [libraryQuery, setLibraryQuery] = useState('');
@@ -259,6 +281,7 @@ export default function CreateTaskScreen() {
     return quickIds
       .map((id) => byId.get(id))
       .filter((task): task is ChoremaxxLibraryTask => Boolean(task))
+      .filter((task) => !isHygieneLibraryTask(task))
       .filter((task) => task.audience === 'both' || task.audience === libraryAudience)
       .map((task) => {
         const preset = libraryToPreset(task);
@@ -301,8 +324,9 @@ export default function CreateTaskScreen() {
         audience: libraryAudience,
         domain: libraryDomain,
         query: libraryQuery,
+        includeChildOnly: showHygieneLibrary,
       }).map(libraryToPreset),
-    [libraryAudience, libraryDomain, libraryQuery],
+    [libraryAudience, libraryDomain, libraryQuery, showHygieneLibrary],
   );
 
   const libraryByRoom = useMemo(() => {
@@ -346,11 +370,35 @@ export default function CreateTaskScreen() {
       });
   }, [libraryResults, rooms]);
 
-  const domains = useMemo(() => libraryDomains(libraryAudience), [libraryAudience]);
+  const domains = useMemo(
+    () => libraryDomains(libraryAudience, { includeChildOnly: showHygieneLibrary }),
+    [libraryAudience, showHygieneLibrary],
+  );
+
+  const isHygieneDraft = tracking === 'streak' || category === 'Hygiene';
+
+  /** Assignees available for the current draft — Hygiene locks to children. */
+  const assigneeChoices = useMemo(
+    () => (isHygieneDraft ? childMembers : activeMembers),
+    [isHygieneDraft, childMembers, activeMembers],
+  );
+
+  useEffect(() => {
+    if (!isHygieneDraft) return;
+    const childIds = new Set(childMembers.map((m) => m.id));
+    setSelectedIds((prev) => {
+      const next = prev.filter((id) => childIds.has(id));
+      if (next.length > 0) return next;
+      return childMembers[0] ? [childMembers[0].id] : [];
+    });
+    setSplitMode(false);
+    setBaseXp(0);
+    setProofRequired(false);
+  }, [isHygieneDraft, childMembers]);
 
   const selectedMembers = useMemo(
-    () => activeMembers.filter((member) => selectedIds.includes(member.id)),
-    [activeMembers, selectedIds],
+    () => assigneeChoices.filter((member) => selectedIds.includes(member.id)),
+    [assigneeChoices, selectedIds],
   );
   const linkedSharedDeviceId = useMemo(() => {
     for (const member of selectedMembers) {
@@ -379,16 +427,20 @@ export default function CreateTaskScreen() {
   })();
 
   const weight = weightForDifficulty(type === 'homework' ? 'medium' : difficulty);
-  const xpPreview =
-    type === 'homework'
+  const xpPreview = isHygieneDraft
+    ? 0
+    : type === 'homework'
       ? computeTaskXp(baseXp || 15, weightForDifficulty('medium'), 'medium')
       : computeTaskXp(baseXp, weight, difficulty);
-  const canCreate = title.trim().length > 0 && resolvedAssigneeNames.length > 0;
+  const canCreate =
+    title.trim().length > 0 &&
+    resolvedAssigneeNames.length > 0 &&
+    (!isHygieneDraft || childMembers.length > 0);
 
   function selectAssignee(memberId: string) {
-    if (!activeMembers.some((member) => member.id === memberId)) return;
+    if (!assigneeChoices.some((member) => member.id === memberId)) return;
 
-    if (splitMode) {
+    if (splitMode && !isHygieneDraft) {
       setSelectedIds((current) => {
         if (current.includes(memberId)) {
           const next = current.filter((id) => id !== memberId);
@@ -405,7 +457,11 @@ export default function CreateTaskScreen() {
   }
 
   function longPressAssignee(memberId: string) {
-    if (!activeMembers.some((member) => member.id === memberId)) return;
+    if (isHygieneDraft) {
+      selectAssignee(memberId);
+      return;
+    }
+    if (!assigneeChoices.some((member) => member.id === memberId)) return;
     setSplitMode(true);
     setSelectedIds((current) =>
       current.includes(memberId) ? current : [...current, memberId],
@@ -462,51 +518,83 @@ export default function CreateTaskScreen() {
     weight: number;
     proofRequired: boolean;
     roomId?: string;
+    tracking?: LibraryTracking;
   }) {
-    const names = resolvedAssigneeNames;
-    const singleShared = Boolean(linkedSharedDeviceId) && names.length === 1;
+    const hygiene = base.tracking === 'streak' || base.category === 'Hygiene';
+    const names = hygiene
+      ? (resolvedAssigneeNames.length
+          ? resolvedAssigneeNames
+          : childMembers.slice(0, 1).map((m) => m.name))
+      : resolvedAssigneeNames;
+    const singleShared = Boolean(linkedSharedDeviceId) && names.length === 1 && !hygiene;
     const finalTitle = singleShared ? withSharedPersonLabel(base.title, names[0]) : base.title;
     return {
       ...base,
       title: finalTitle,
+      xp: hygiene ? 0 : base.xp,
+      tracking: hygiene ? ('streak' as const) : base.tracking ?? 'xp',
+      proofRequired: hygiene ? false : base.proofRequired,
       assignee: names[0] ?? household.greetingName,
       assignees: names.length > 1 ? names : undefined,
-      sharedDeviceId: linkedSharedDeviceId,
+      sharedDeviceId: hygiene ? undefined : linkedSharedDeviceId,
     };
   }
 
   function applyPreset(preset: TaskPreset, createNow: boolean) {
     const nextRoomId = roomIdForKind(preset.roomKind);
-    const nextXp = computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+    const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
+    const nextXp = hygiene ? 0 : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+
+    if (hygiene) {
+      setTracking('streak');
+      if (childMembers[0]) {
+        setSelectedIds([childMembers[0].id]);
+        setSplitMode(false);
+      }
+    } else {
+      setTracking('xp');
+    }
 
     if (createNow) {
-      createTask(
-        buildTaskPayload({
-          title: preset.title,
-          description: preset.description,
-          category: preset.category,
-          due: 'Today',
-          xp: nextXp,
-          repeat: preset.repeat,
-          difficulty: preset.difficulty,
-          weight: preset.weight,
-          proofRequired: preset.proofRequired,
-          roomId: nextRoomId,
-        })
-      );
+      if (hygiene && childMembers.length === 0) return;
+      const childNames = childMembers.map((m) => m.name);
+      const selectedChildNames = selectedMembers
+        .filter(isChildMember)
+        .map((m) => m.name);
+      const names = hygiene
+        ? selectedChildNames.length
+          ? selectedChildNames
+          : childNames.slice(0, 1)
+        : resolvedAssigneeNames;
+      createTask({
+        title: preset.title,
+        description: preset.description,
+        category: preset.category,
+        due: 'Today',
+        xp: nextXp,
+        repeat: preset.repeat,
+        difficulty: preset.difficulty,
+        weight: preset.weight,
+        proofRequired: hygiene ? false : preset.proofRequired,
+        roomId: nextRoomId,
+        tracking: hygiene ? 'streak' : 'xp',
+        assignee: names[0] ?? household.greetingName,
+        assignees: names.length > 1 ? names : undefined,
+        sharedDeviceId: hygiene ? undefined : linkedSharedDeviceId,
+      });
       router.back();
       return;
     }
 
     setMode('custom');
-    setType(preset.category === 'Homework' ? 'homework' : 'task');
+    setType(preset.category === 'Homework' || preset.category === 'Homework & Education' ? 'homework' : 'task');
     setTitle(preset.title);
     setCategory(preset.category);
     setDescription(preset.description);
     setRepeat(preset.repeat);
     setDifficulty(preset.difficulty);
-    setProofRequired(preset.proofRequired);
-    setBaseXp(preset.baseXp);
+    setProofRequired(hygiene ? false : preset.proofRequired);
+    setBaseXp(hygiene ? 0 : preset.baseXp);
     setRoomId(nextRoomId);
     const priorityIndex = Math.max(
       0,
@@ -556,12 +644,13 @@ export default function CreateTaskScreen() {
           description,
           category,
           due,
-          xp: computeTaskXp(baseXp || selectedPriority.xp, weight, difficulty),
+          xp: isHygieneDraft ? 0 : computeTaskXp(baseXp || selectedPriority.xp, weight, difficulty),
           repeat,
-          difficulty,
-          weight,
-          proofRequired,
+          difficulty: isHygieneDraft ? 'easy' : difficulty,
+          weight: isHygieneDraft ? 1 : weight,
+          proofRequired: isHygieneDraft ? false : proofRequired,
           roomId,
+          tracking: isHygieneDraft ? 'streak' : 'xp',
         })
       );
     }
@@ -726,7 +815,11 @@ export default function CreateTaskScreen() {
                 Toggle chores · adjust XP and frequency for your quick set
               </Text>
               <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
-                {filterLibraryTasks({ audience: libraryAudience }).map((task) => {
+                {filterLibraryTasks({
+                  audience: libraryAudience,
+                  includeChildOnly: false,
+                }).map((task) => {
+                  if (isHygieneLibraryTask(task)) return null;
                   const on = quickIds.includes(task.id);
                   const xp = resolvedQuickXp(task.id, task.baseXp);
                   const freq = resolvedQuickRepeat(task.id, inferLibraryRepeat(task));
@@ -886,7 +979,8 @@ export default function CreateTaskScreen() {
                 </Text>
                 <View style={styles.presetGrid}>
                   {section.items.map((preset) => {
-                    const xp = computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+                    const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
+                    const xp = hygiene ? 0 : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
                     return (
                       <Pressable
                         key={preset.id}
@@ -896,7 +990,9 @@ export default function CreateTaskScreen() {
                         <View style={styles.presetTop}>
                           <Text style={styles.presetTitle}>{preset.title}</Text>
                           <View style={[styles.xpBadge, { backgroundColor: `${accentTheme.primary}22` }]}>
-                            <Text style={[styles.xpBadgeText, { color: accentTheme.primary }]}>+{xp}</Text>
+                            <Text style={[styles.xpBadgeText, { color: accentTheme.primary }]}>
+                              {hygiene ? 'Streak' : `+${xp}`}
+                            </Text>
                           </View>
                         </View>
                         <Text style={styles.roomChip}>
@@ -1110,20 +1206,27 @@ export default function CreateTaskScreen() {
           </View>
         ) : null}
 
-        <Pressable onPress={() => setProofRequired((value) => !value)} style={styles.proofToggle}>
-          <MaterialIcons
-            name={proofRequired ? 'check-box' : 'check-box-outline-blank'}
-            size={18}
-            color={proofRequired ? accentTheme.primary : '#4B6080'}
-          />
-          <Text style={styles.proofToggleText}>Require photo proof</Text>
-        </Pressable>
+        {!isHygieneDraft ? (
+          <Pressable onPress={() => setProofRequired((value) => !value)} style={styles.proofToggle}>
+            <MaterialIcons
+              name={proofRequired ? 'check-box' : 'check-box-outline-blank'}
+              size={18}
+              color={proofRequired ? accentTheme.primary : '#4B6080'}
+            />
+            <Text style={styles.proofToggleText}>Require photo proof</Text>
+          </Pressable>
+        ) : null}
 
         {permissions.canAssignTask ? (
           <View style={styles.field}>
-            <Text style={styles.label}>ASSIGN TO · hold to split</Text>
+            <Text style={styles.label}>
+              {isHygieneDraft ? 'ASSIGN TO · kids only' : 'ASSIGN TO · hold to split'}
+            </Text>
+            {isHygieneDraft ? (
+              <Text style={styles.presetHint}>Hygiene builds habits — no XP · children only</Text>
+            ) : null}
             <AssignEmojiGrid
-              members={activeMembers}
+              members={assigneeChoices}
               selectedIds={selectedIds}
               splitMode={splitMode}
               sharedDeviceIds={sharedDeviceMemberIds}
@@ -1173,34 +1276,49 @@ export default function CreateTaskScreen() {
           </View>
         ) : null}
 
-        <View style={styles.field}>
-          <Text style={styles.label}>XP · slide the wheel</Text>
-          <View style={styles.xpWheelCard}>
-            <XpWheel
-              value={baseXp}
-              onChange={(next) => {
-                setBaseXp(next);
-                const match = priorities.findIndex((item) => item.xp === next);
-                if (match >= 0) {
-                  setPriority(match);
-                  setDifficulty(priorities[match].difficulty);
-                }
-              }}
-              accent={type === 'homework' ? '#A78BFA' : accentTheme.primary}
-            />
+        {isHygieneDraft ? (
+          <View style={styles.field}>
+            <Text style={styles.label}>TRACKING</Text>
+            <Text style={styles.presetHint}>Kids hygiene habit · streak only · 0 XP</Text>
           </View>
-        </View>
+        ) : (
+          <View style={styles.field}>
+            <Text style={styles.label}>XP · slide the wheel</Text>
+            <View style={styles.xpWheelCard}>
+              <XpWheel
+                value={baseXp}
+                onChange={(next) => {
+                  setBaseXp(next);
+                  const match = priorities.findIndex((item) => item.xp === next);
+                  if (match >= 0) {
+                    setPriority(match);
+                    setDifficulty(priorities[match].difficulty);
+                  }
+                }}
+                accent={type === 'homework' ? '#A78BFA' : accentTheme.primary}
+              />
+            </View>
+          </View>
+        )}
 
         <View style={[styles.xpPreview, { borderColor: `${accentTheme.primary}26`, backgroundColor: `${accentTheme.primary}14` }]}>
           <Text style={styles.xpPreviewLabel}>
-            {isSplitAssign
-              ? `Each of ${resolvedAssigneeName || 'them'} earns`
-              : `${resolvedAssigneeName || 'Someone'} will earn`}
+            {isHygieneDraft
+              ? `${resolvedAssigneeName || 'Someone'} builds a habit`
+              : isSplitAssign
+                ? `Each of ${resolvedAssigneeName || 'them'} earns`
+                : `${resolvedAssigneeName || 'Someone'} will earn`}
           </Text>
           <View style={styles.xpPreviewValue}>
-            <Text style={styles.xpBolt}>⚡</Text>
-            <Text style={[styles.xpAmount, { color: accentTheme.primary }]}>+{xpPreview}</Text>
-            <Text style={styles.xpSuffix}>XP</Text>
+            {isHygieneDraft ? (
+              <Text style={[styles.xpAmount, { color: accentTheme.primary }]}>Streak</Text>
+            ) : (
+              <>
+                <Text style={styles.xpBolt}>⚡</Text>
+                <Text style={[styles.xpAmount, { color: accentTheme.primary }]}>+{xpPreview}</Text>
+                <Text style={styles.xpSuffix}>XP</Text>
+              </>
+            )}
           </View>
         </View>
 

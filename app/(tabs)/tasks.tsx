@@ -100,11 +100,23 @@ function memberAccentColor(member?: HouseholdMember) {
   return MEMBER_ACCENTS[member.name]?.color ?? orbitColors.success;
 }
 
-function XPBadge({ xp, done, accent }: { xp: number; done: boolean; accent: string }) {
+function XPBadge({
+  xp,
+  done,
+  accent,
+  hygiene,
+}: {
+  xp: number;
+  done: boolean;
+  accent: string;
+  hygiene?: boolean;
+}) {
   return (
     <View style={[styles.xpBadge, done && styles.xpBadgeDone, !done && { backgroundColor: `${accent}1F` }]}>
-      <Text style={styles.xpBolt}>⚡</Text>
-      <Text style={[styles.xpBadgeText, done && styles.xpBadgeTextDone, !done && { color: accent }]}>+{xp}</Text>
+      {!hygiene ? <Text style={styles.xpBolt}>⚡</Text> : null}
+      <Text style={[styles.xpBadgeText, done && styles.xpBadgeTextDone, !done && { color: accent }]}>
+        {hygiene ? 'Streak' : `+${xp}`}
+      </Text>
     </View>
   );
 }
@@ -135,6 +147,7 @@ function TaskItem({
     ? accent
     : `${isHomework(task) ? (sub?.color ?? orbitColors.planPurple) : getPriorityColor(task)}80`;
   const avatarGradient = GRADIENT_BY_COLOR[accent] ?? [accent, accent];
+  const hygiene = task.tracking === 'streak' || task.category === 'Hygiene';
 
   return (
     <View style={[styles.taskItem, done && styles.taskItemDone]}>
@@ -204,11 +217,13 @@ function TaskItem({
 
       {justCompleted ? (
         <View style={styles.celebrate}>
-          <Text style={styles.celebrateBolt}>⚡</Text>
-          <Text style={[styles.celebrateXp, { color: accentPrimary }]}>+{task.xp}</Text>
+          {!hygiene ? <Text style={styles.celebrateBolt}>⚡</Text> : null}
+          <Text style={[styles.celebrateXp, { color: accentPrimary }]}>
+            {hygiene ? 'Streak' : `+${task.xp}`}
+          </Text>
         </View>
       ) : (
-        <XPBadge xp={task.xp} done={done} accent={accentPrimary} />
+        <XPBadge xp={task.xp} done={done} accent={accentPrimary} hygiene={hygiene} />
       )}
     </View>
   );
@@ -412,7 +427,10 @@ export default function TasksScreen() {
     });
   }, [accentTheme.primary, currentMember, filtered, household.members, showByMember]);
 
-  const totalXPToday = grouped.today.reduce((sum, task) => sum + task.xp, 0);
+  const totalXPToday = grouped.today.reduce(
+    (sum, task) => sum + (task.tracking === 'streak' || task.category === 'Hygiene' ? 0 : task.xp),
+    0,
+  );
   const empty = showByMember
     ? (memberSections?.every((section) => section.total === 0) ?? true)
     : grouped.today.length + grouped.upcoming.length + grouped.done.length === 0;

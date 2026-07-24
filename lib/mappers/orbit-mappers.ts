@@ -91,6 +91,7 @@ export function mapTaskRow(row: {
   room_id?: string | null;
   weight?: number | null;
   difficulty?: HouseholdTask['difficulty'] | null;
+  tracking?: HouseholdTask['tracking'] | null;
   proof_required?: boolean | null;
   proof_uri?: string | null;
   proof_status?: 'none' | 'submitted' | 'approved' | 'rejected' | null;
@@ -116,6 +117,7 @@ export function mapTaskRow(row: {
     roomId: row.room_id ?? undefined,
     weight: row.weight ?? undefined,
     difficulty: row.difficulty ?? undefined,
+    tracking: row.tracking === 'streak' || row.tracking === 'xp' ? row.tracking : undefined,
     proofRequired: row.proof_required ?? undefined,
     proofUri: row.proof_uri ?? undefined,
     proofStatus,

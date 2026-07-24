@@ -903,6 +903,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             repeat: spawned.repeat,
             weight: spawned.weight,
             difficulty: spawned.difficulty,
+            tracking: spawned.tracking,
             proofRequired: spawned.proofRequired,
             roomId: spawned.roomId,
             splitXpEach: spawned.splitXpEach,
@@ -978,6 +979,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         repeat: spawned.repeat,
         weight: spawned.weight,
         difficulty: spawned.difficulty,
+        tracking: spawned.tracking,
         proofRequired: spawned.proofRequired,
         roomId: spawned.roomId,
       });

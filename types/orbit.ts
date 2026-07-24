@@ -84,6 +84,10 @@ export type HouseholdTask = {
   /** Weight multiplier for XP (1 = easy, 1.5 = medium, 2 = hard). */
   weight?: number;
   difficulty?: TaskDifficulty;
+  /**
+   * `streak` = kids Hygiene habits (0 XP). Default / omit = normal XP chore.
+   */
+  tracking?: 'xp' | 'streak';
   proofRequired?: boolean;
   proofUri?: string;
   proofStatus?: 'none' | 'submitted' | 'approved' | 'rejected';
@@ -335,6 +339,8 @@ export type CreateTaskInput = {
   description?: string;
   weight?: number;
   difficulty?: TaskDifficulty;
+  /** Kids Hygiene habits — no XP. */
+  tracking?: 'xp' | 'streak';
   proofRequired?: boolean;
   dueAt?: string;
   roomId?: string;
