@@ -5,8 +5,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
-import { HEADER_CHIPS_GUTTER } from '@/constants/orbit-theme';
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { scanDealsForHousehold } from '@/data/mock-deals';
 import { PREFERRED_STORES } from '@/data/preferred-stores';
 import { lookupGroceryProduct, type GroceryProductLookup } from '@/lib/grocery/product-lookup';
@@ -34,6 +33,7 @@ const CATEGORY_META: Record<string, { emoji: string; color: string }> = {
 };
 
 export default function GroceriesScreen() {
+  const chromePad = useTabChromePaddingTop(8);
   const insets = useSafeAreaInsets();
   const {
     accentTheme,
@@ -164,15 +164,14 @@ export default function GroceriesScreen() {
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: insets.top + 10,
+          paddingTop: chromePad,
         },
       ]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}>
-      <View style={[styles.header, { paddingRight: HEADER_CHIPS_GUTTER }]}>
+      <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
-          <ChoremaxxBadge size="lg" />
-          <Text style={[styles.caption, { marginTop: 8 }]}>Grocery Intelligence</Text>
+          <Text style={styles.caption}>Grocery Intelligence</Text>
           <Text style={styles.title}>This Week&apos;s List</Text>
         </View>
       </View>

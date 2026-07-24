@@ -188,8 +188,11 @@ export const orbitTypography = StyleSheet.create({
   },
 });
 
-/** Space reserved under absolute GlobalHeaderChips — apply to header rows only, not full content. */
-export const HEADER_CHIPS_GUTTER = 148;
+/** Legacy right-gutter when chips floated alone — chrome now owns logo+chips. */
+export const HEADER_CHIPS_GUTTER = 8;
+
+/** Sticky GlobalHeaderChips body under status bar; screens pad content with useTabChromePaddingTop. */
+export const TAB_CHROME_BODY = 52;
 
 export const orbitScreen = StyleSheet.create({
   container: {
@@ -200,7 +203,7 @@ export const orbitScreen = StyleSheet.create({
     alignSelf: 'stretch',
     gap: 16,
     paddingHorizontal: 16,
-    paddingTop: 44,
+    paddingTop: 16,
     paddingBottom: 24,
     width: '100%',
   },

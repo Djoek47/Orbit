@@ -13,9 +13,9 @@ import {
   View,
 } from 'react-native';
 
-import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { NovaOrb } from '@/components/orbit/nova-orb';
-import { orbitColors, orbitRadius, orbitSpacing, HEADER_CHIPS_GUTTER } from '@/constants/orbit-theme';
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
+import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
 import {
   isNovaRealtimeEnabled,
   NovaRealtimeSession,
@@ -87,6 +87,7 @@ function activityEmoji(category: NotificationItem['category']) {
 }
 
 export default function NovaScreen() {
+  const chromePad = useTabChromePaddingTop(4);
   const {
     appendNovaTurn,
     askNova,
@@ -309,9 +310,8 @@ export default function NovaScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={88}>
-      <View style={[styles.header, { paddingRight: HEADER_CHIPS_GUTTER }]}>
+      <View style={[styles.header, { paddingTop: chromePad }]}>
         <View style={styles.headerGlow} pointerEvents="none" />
-        <ChoremaxxBadge />
         <NovaOrb size={80} speaking={cfg.speaking} />
         <View style={styles.stateRow}>
           <View style={[styles.stateDot, { backgroundColor: cfg.color }]} />
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(14,165,233,0.10)',
     paddingBottom: 12,
     // Clear GlobalHeaderChips (Notifications + Settings)
-    paddingTop: 52,
+    paddingTop: 8,
     position: 'relative',
   },
   headerGlow: {

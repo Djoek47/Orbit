@@ -5,9 +5,8 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, Text, UIManager, View } from 'react-native';
 
-import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { NovaOrb } from '@/components/orbit/nova-orb';
-import { HEADER_CHIPS_GUTTER } from '@/constants/orbit-theme';
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import {
   TYPE_CONFIG,
   addMonths,
@@ -336,6 +335,7 @@ function TripCard({
 }
 
 export default function PlanScreen() {
+  const chromePad = useTabChromePaddingTop(8);
   const { household, openFullItineraryInMaps, rerunItinerary, currentMember, permissions } = useOrbit();
   const [subTab, setSubTab] = useState<PlanSubTab>('calendar');
   const [view, setView] = useState<CalView>('month');
@@ -374,7 +374,7 @@ export default function PlanScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: chromePad }]}
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}>
       <View style={styles.subNav}>
@@ -397,14 +397,11 @@ export default function PlanScreen() {
         })}
       </View>
 
-      <View style={[styles.brandRow, { paddingRight: HEADER_CHIPS_GUTTER }]}>
-        <ChoremaxxBadge />
-      </View>
 
       {subTab === 'calendar' ? (
         <>
           <View style={[styles.calHeader, { paddingRight: canCreateEvent ? 0 : undefined }]}>
-            <View style={{ flex: 1, paddingRight: HEADER_CHIPS_GUTTER - 48 }}>
+            <View style={{ flex: 1 }}>
               <Text style={styles.eyebrow}>
                 {sharedKidMode ? 'My calendar' : 'Household Calendar'}
               </Text>
@@ -749,7 +746,7 @@ export default function PlanScreen() {
 
 const styles = StyleSheet.create({
   container: { backgroundColor: '#070D1C', flex: 1 },
-  content: { gap: 16, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 44 },
+  content: { gap: 16, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 16 },
   brandRow: { marginBottom: -4 },
   calHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 8 },
   clipboardBtn: {

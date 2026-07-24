@@ -5,10 +5,9 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
-import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import {
-  HEADER_CHIPS_GUTTER,
   orbitColors,
   orbitRadius,
   orbitScreen,
@@ -310,6 +309,7 @@ function TaskSection({
 }
 
 export default function TasksScreen() {
+  const chromePad = useTabChromePaddingTop(8);
   const {
     accentTheme,
     completeTask,
@@ -446,13 +446,12 @@ export default function TasksScreen() {
     <>
     <ScrollView
       style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
+      contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
       showsVerticalScrollIndicator={false}
       contentInsetAdjustmentBehavior="automatic">
-      <View style={[styles.headerRow, { paddingRight: HEADER_CHIPS_GUTTER }]}>
+      <View style={styles.headerRow}>
         <View style={orbitScreen.header}>
-          <ChoremaxxBadge />
-          <Text style={[orbitTypography.caption, { marginTop: 8 }]}>
+          <Text style={orbitTypography.caption}>
             {sharedKidMode ? 'Your chores' : 'Tasks & Homework'}
           </Text>
           <Text style={orbitTypography.display}>

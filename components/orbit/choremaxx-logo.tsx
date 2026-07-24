@@ -105,12 +105,12 @@ export function ChoremaxxBadge({
 }) {
   const scale =
     size === 'xl'
-      ? { iconW: 36, iconH: 32, text: 22, x: 21, gap: 10 }
+      ? { iconW: 44, iconH: 38, text: 26, x: 25, gap: 11 }
       : size === 'lg'
-        ? { iconW: 28, iconH: 24, text: 17, x: 16.5, gap: 8 }
+        ? { iconW: 34, iconH: 30, text: 20, x: 19, gap: 9 }
         : size === 'sm'
           ? { iconW: 18, iconH: 16, text: 12.5, x: 12, gap: 5 }
-          : { iconW: 22, iconH: 20, text: 14, x: 13.5, gap: 6 };
+          : { iconW: 26, iconH: 23, text: 16, x: 15.5, gap: 7 };
 
   return (
     <View

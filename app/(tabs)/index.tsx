@@ -3,14 +3,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassCard } from '@/components/orbit/glass-card';
-import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
-import { HEADER_CHIPS_GUTTER, orbitRadius, orbitScreen } from '@/constants/orbit-theme';
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
+import { orbitRadius, orbitScreen } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   buildHomeHealthMetrics,
@@ -26,7 +25,7 @@ import { useOrbit } from '@/store/orbit-store';
 const WEEK_XP_COLORS = ['#38BDF8', '#34D399', '#A78BFA', '#FB923C', '#F472B6'];
 
 export default function HomeScreen() {
-  const insets = useSafeAreaInsets();
+  const chromePad = useTabChromePaddingTop(8);
   const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona, permissions } =
     useOrbit();
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
@@ -97,13 +96,12 @@ export default function HomeScreen() {
       contentContainerStyle={[
         orbitScreen.content,
         styles.pageContent,
-        { paddingTop: insets.top + 10 },
+        { paddingTop: chromePad },
       ]}
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}>
-      {/* Logo + greeting; profile badges over Nova (not stacked). */}
-      <View style={[styles.brandBlock, { paddingRight: HEADER_CHIPS_GUTTER }]}>
-        <ChoremaxxLogo size="lg" />
+      {/* Greeting under sticky brand chrome */}
+      <View style={styles.brandBlock}>
         <Text
           style={[
             styles.dateLine,

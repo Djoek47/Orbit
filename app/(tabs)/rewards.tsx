@@ -5,9 +5,9 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
-import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography, HEADER_CHIPS_GUTTER } from '@/constants/orbit-theme';
+import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import {
   findSharedDeviceForMember,
   isSharedDeviceRole,
@@ -35,6 +35,7 @@ function SharedTabletChip({ device, compact }: { device: HouseholdMember; compac
 }
 
 export default function RewardsScreen() {
+  const chromePad = useTabChromePaddingTop(8);
   const {
     accentTheme,
     achievements,
@@ -111,12 +112,11 @@ export default function RewardsScreen() {
   return (
     <ScrollView
       style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
+      contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}>
-      <View style={[orbitScreen.header, styles.header, { paddingRight: HEADER_CHIPS_GUTTER }]}>
-        <ChoremaxxBadge />
-        <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Leaderboard</Text>
+      <View style={[orbitScreen.header, styles.header]}>
+        <Text style={orbitTypography.caption}>Leaderboard</Text>
         <Text style={orbitTypography.display}>Family Rankings</Text>
       </View>
 
