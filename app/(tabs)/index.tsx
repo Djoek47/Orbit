@@ -23,7 +23,7 @@ import {
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
-  const chromePad = useTabChromePaddingTop(8);
+  const chromePad = useTabChromePaddingTop(2);
   const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona, permissions } =
     useOrbit();
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
@@ -78,7 +78,6 @@ export default function HomeScreen() {
       .sort((a, b) => (b.weekXp ?? 0) - (a.weekXp ?? 0));
   }, [household.members]);
 
-  const maxWeekXp = Math.max(1, ...weekLeaders.map((member) => member.weekXp ?? 0));
   const headerAvatar = currentMember
     ? memberDisplayEmoji(currentMember)
     : household.greetingName.slice(0, 1);
@@ -96,9 +95,9 @@ export default function HomeScreen() {
         styles.pageContent,
         { paddingTop: chromePad },
       ]}
-      contentInsetAdjustmentBehavior="automatic"
+      contentInsetAdjustmentBehavior="never"
       showsVerticalScrollIndicator={false}>
-      {/* Greeting under sticky brand chrome */}
+      {/* Greeting tucked under sticky chrome */}
       <View style={styles.brandBlock}>
         <Text
           style={[
@@ -157,13 +156,15 @@ export default function HomeScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.hero}>
           <View style={styles.heroTop}>
-            {/* Profile matches Nova orb size exactly and covers it. Tap to switch persona. */}
+            {/* Profile head fills the circle; thin Nova ring peeks behind. */}
             <Pressable
               onPress={() => setPersonaSwitchOpen(true)}
               style={styles.heroIdentity}
               accessibilityRole="button"
               accessibilityLabel="Switch account">
-              <NovaOrb size={56} />
+              <View style={styles.novaRing}>
+                <NovaOrb size={78} />
+              </View>
               <LinearGradient
                 colors={[accentTheme.primary, accentTheme.secondary]}
                 start={{ x: 0, y: 0 }}
@@ -220,52 +221,107 @@ export default function HomeScreen() {
                   <Text style={[styles.weekLink, { color: accentTheme.primary }]}>Ranks</Text>
                 </Pressable>
               </View>
-              <View style={styles.weekList}>
-                {weekLeaders.slice(0, 5).map((member, index) => {
+
+              <View style={styles.pyramidRow}>
+                {[1, 0, 2].map((rankIndex) => {
+                  const member = weekLeaders[rankIndex];
+                  if (!member) {
+                    return <View key={`empty-${rankIndex}`} style={styles.pyramidSlot} />;
+                  }
                   const xp = member.weekXp ?? 0;
-                  const widthPct = Math.max(6, Math.round((xp / maxWeekXp) * 100));
                   const photo = isAvatarImageUri(member.avatar);
-                  const lead = index === 0;
+                  const first = rankIndex === 0;
+                  const heights = [118, 96, 84];
+                  const avatarSizes = [56, 48, 44];
+                  const pillarH = heights[rankIndex];
+                  const avatar = avatarSizes[rankIndex];
+                  const emojiSize = Math.round(avatar * 0.62);
                   return (
-                    <View key={member.id} style={[styles.weekRow, lead && styles.weekRowLead]}>
-                      <Text style={[styles.weekRank, lead && { color: accentTheme.primary }]}>
-                        {index + 1}
-                      </Text>
+                    <Pressable
+                      key={member.id}
+                      style={styles.pyramidSlot}
+                      onPress={() => router.push('/(tabs)/rewards' as never)}>
                       <View
                         style={[
-                          styles.weekAvatar,
-                          lead && { borderColor: `${accentTheme.primary}66`, borderWidth: 1.5 },
+                          styles.pyramidAvatar,
+                          {
+                            width: avatar,
+                            height: avatar,
+                            borderRadius: avatar / 2,
+                            borderColor: first ? `${accentTheme.primary}99` : 'rgba(255,255,255,0.18)',
+                            borderWidth: first ? 2 : 1,
+                          },
                         ]}>
                         {photo ? (
-                          <Image source={{ uri: member.avatar }} style={styles.weekAvatarImage} />
+                          <Image
+                            source={{ uri: member.avatar }}
+                            style={{ width: avatar, height: avatar }}
+                          />
                         ) : (
-                          <Text style={styles.weekAvatarEmoji}>{memberDisplayEmoji(member)}</Text>
+                          <Text style={{ fontSize: emojiSize, lineHeight: avatar * 0.9 }}>
+                            {memberDisplayEmoji(member)}
+                          </Text>
                         )}
                       </View>
-                      <View style={styles.weekMeta}>
-                        <Text style={[styles.weekName, lead && styles.weekNameLead]} numberOfLines={1}>
-                          {member.name}
-                        </Text>
-                        <View style={styles.weekTrack}>
-                          <View
-                            style={[
-                              styles.weekFill,
-                              {
-                                width: `${widthPct}%`,
-                                backgroundColor: lead ? accentTheme.primary : 'rgba(255,255,255,0.28)',
-                              },
-                            ]}
-                          />
-                        </View>
-                      </View>
-                      <Text style={[styles.weekXp, lead && { color: accentTheme.primary }]}>
-                        {xp}
-                        <Text style={styles.weekXpUnit}> XP</Text>
+                      <Text style={[styles.pyramidName, first && styles.pyramidNameLead]} numberOfLines={1}>
+                        {member.name}
                       </Text>
-                    </View>
+                      <Text style={[styles.pyramidXp, first && { color: accentTheme.primary }]}>
+                        {xp} XP
+                      </Text>
+                      <LinearGradient
+                        colors={
+                          first
+                            ? [`${accentTheme.primary}55`, `${accentTheme.primary}14`, 'rgba(255,255,255,0.04)']
+                            : ['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']
+                        }
+                        start={{ x: 0.5, y: 0 }}
+                        end={{ x: 0.5, y: 1 }}
+                        style={[
+                          styles.pyramidPillar,
+                          {
+                            height: pillarH,
+                            borderColor: first ? `${accentTheme.primary}44` : 'rgba(255,255,255,0.1)',
+                          },
+                        ]}>
+                        <Text style={[styles.pyramidRank, first && { color: accentTheme.primary }]}>
+                          {rankIndex + 1}
+                        </Text>
+                      </LinearGradient>
+                    </Pressable>
                   );
                 })}
               </View>
+
+              {weekLeaders.length > 3 ? (
+                <View style={styles.pyramidRest}>
+                  {weekLeaders.slice(3, 5).map((member, i) => {
+                    const index = i + 3;
+                    const xp = member.weekXp ?? 0;
+                    const photo = isAvatarImageUri(member.avatar);
+                    return (
+                      <View key={member.id} style={styles.weekRow}>
+                        <Text style={styles.weekRank}>{index + 1}</Text>
+                        <View style={styles.weekAvatar}>
+                          {photo ? (
+                            <Image source={{ uri: member.avatar }} style={styles.weekAvatarImage} />
+                          ) : (
+                            <Text style={styles.weekAvatarEmoji}>{memberDisplayEmoji(member)}</Text>
+                          )}
+                        </View>
+                        <Text style={styles.weekName} numberOfLines={1}>
+                          {member.name}
+                        </Text>
+                        <Text style={styles.weekXp}>
+                          {xp}
+                          <Text style={styles.weekXpUnit}> XP</Text>
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+
               {weekLeaders.length > 5 ? (
                 <Text style={styles.weekMore}>+{weekLeaders.length - 5} more on Ranks</Text>
               ) : null}
@@ -443,8 +499,8 @@ const styles = StyleSheet.create({
   brandBlock: {
     alignItems: 'flex-start',
     alignSelf: 'stretch',
-    gap: 6,
-    marginBottom: 4,
+    gap: 2,
+    marginBottom: 0,
     width: '100%',
   },
   personalXpRow: {
@@ -532,7 +588,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.35,
-    marginTop: 4,
     textTransform: 'uppercase',
   },
   eventBar: { borderRadius: 2, height: 28, marginTop: 2, width: 4 },
@@ -568,26 +623,39 @@ const styles = StyleSheet.create({
   },
   heroIdentity: {
     alignItems: 'center',
-    height: 56,
+    height: 72,
     justifyContent: 'center',
-    width: 56,
+    width: 72,
+  },
+  novaRing: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.55,
+    transform: [{ scale: 1.08 }],
   },
   profileOnNova: {
     alignItems: 'center',
     borderColor: 'rgba(6,182,212,0.55)',
-    borderRadius: 28,
-    borderWidth: 2,
-    height: 56,
+    borderRadius: 34,
+    borderWidth: 2.5,
+    height: 68,
     justifyContent: 'center',
-    left: 0,
+    left: 2,
     overflow: 'hidden',
     position: 'absolute',
-    top: 0,
-    width: 56,
+    top: 2,
+    width: 68,
     zIndex: 2,
   },
-  profileOnNovaImage: { height: 56, width: 56 },
-  profileOnNovaText: { color: '#070D1C', fontSize: 22, fontWeight: '700' },
+  profileOnNovaImage: { height: 68, width: 68 },
+  profileOnNovaText: {
+    color: '#070D1C',
+    fontSize: 34,
+    fontWeight: '700',
+    lineHeight: 40,
+    textAlign: 'center',
+  },
   healthCol: { alignItems: 'stretch', flex: 1, gap: 6, minWidth: 0 },
   healthLabel: { color: '#7C9CC0', flexShrink: 1, fontSize: 11, fontWeight: '600' },
   healthLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 4 },
@@ -651,28 +719,86 @@ const styles = StyleSheet.create({
   taskDone: { color: '#4B6080', textDecorationLine: 'line-through' },
   taskRow: { alignItems: 'center', flexDirection: 'row', gap: 12, paddingVertical: 10 },
   taskText: { color: '#C8D8F0', flex: 1, fontSize: 14 },
+  pyramidRow: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    paddingTop: 4,
+  },
+  pyramidSlot: {
+    alignItems: 'center',
+    flex: 1,
+    gap: 6,
+    minWidth: 0,
+  },
+  pyramidAvatar: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  pyramidName: {
+    color: '#C8D8F0',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+    maxWidth: '100%',
+    textAlign: 'center',
+  },
+  pyramidNameLead: {
+    color: '#F4F7FF',
+    fontWeight: '700',
+  },
+  pyramidXp: {
+    color: '#7C9CC0',
+    fontSize: 11,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+  },
+  pyramidPillar: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+    paddingBottom: 12,
+  },
+  pyramidRank: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  pyramidRest: {
+    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+    marginTop: 4,
+    paddingTop: 10,
+  },
   weekAvatar: {
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderColor: 'transparent',
-    borderRadius: 16,
-    height: 32,
+    borderRadius: 18,
+    height: 36,
     justifyContent: 'center',
     overflow: 'hidden',
-    width: 32,
+    width: 36,
   },
-  weekAvatarEmoji: { fontSize: 14 },
-  weekAvatarImage: { height: 32, width: 32 },
+  weekAvatarEmoji: { fontSize: 22, lineHeight: 28 },
+  weekAvatarImage: { height: 36, width: 36 },
   weekBoard: {
     backgroundColor: 'rgba(255,255,255,0.035)',
     borderColor: 'rgba(255,255,255,0.07)',
     borderRadius: 20,
     borderWidth: 1,
     gap: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 14,
   },
-  weekFill: { borderRadius: 999, height: '100%' },
   weekHead: {
     alignItems: 'baseline',
     flexDirection: 'row',
@@ -683,8 +809,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: -0.1,
   },
-  weekList: { gap: 8 },
-  weekMeta: { flex: 1, gap: 5, minWidth: 0 },
   weekMore: {
     color: '#4B6080',
     fontSize: 12,
@@ -693,13 +817,10 @@ const styles = StyleSheet.create({
   },
   weekName: {
     color: '#C8D8F0',
+    flex: 1,
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: -0.15,
-  },
-  weekNameLead: {
-    color: '#F4F7FF',
-    fontWeight: '700',
   },
   weekRank: {
     color: '#4B6080',
@@ -715,25 +836,11 @@ const styles = StyleSheet.create({
     gap: 10,
     minHeight: 36,
   },
-  weekRowLead: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 14,
-    marginHorizontal: -6,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
   weekTitle: {
     color: '#EEF2FF',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: -0.3,
-  },
-  weekTrack: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 999,
-    height: 3,
-    overflow: 'hidden',
-    width: '100%',
   },
   weekXp: {
     color: '#7C9CC0',
