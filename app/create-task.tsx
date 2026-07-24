@@ -120,23 +120,25 @@ const priorities = [
 
 const repeatOptions: HouseholdTask['repeat'][] = ['None', 'Daily', 'Weekly', 'Weekdays'];
 
-/** Short chip labels for PDF domains (full domain used as filter id). */
-const DOMAIN_CHIP_LABELS: Record<string, string> = {
-  'Kitchen & Dining': 'Kitchen & Dining',
-  'Trash & Recycling': 'Trash & Recycling',
-  Bathroom: 'Bathroom',
-  Laundry: 'Laundry',
-  Bedroom: 'Bedroom',
-  'Living Room & Shared Spaces': 'Living Spaces',
-  'Floors & Deep Cleaning': 'Floors',
-  Pets: 'Pets',
-  Car: 'Car',
-  'Yard & Outdoors': 'Yard',
-  Hygiene: 'Hygiene',
-  'Daily Routine': 'Daily Routine',
-  'Homework & Education': 'Homework',
-  'Meals, Groceries & Errands': 'Meals & Errands',
-  'Home Maintenance & Organization': 'Home Maintenance',
+/** Catalog chips — emoji + short label (filter id stays the full domain). */
+const CATALOG_CHIP_META: Record<string, { emoji: string; label: string }> = {
+  presets: { emoji: '⚡', label: 'Presets' },
+  all: { emoji: '✨', label: 'All' },
+  'Kitchen & Dining': { emoji: '🍽️', label: 'Kitchen' },
+  'Trash & Recycling': { emoji: '♻️', label: 'Trash' },
+  Bathroom: { emoji: '🚿', label: 'Bathroom' },
+  Laundry: { emoji: '🧺', label: 'Laundry' },
+  Bedroom: { emoji: '🛏️', label: 'Bedroom' },
+  'Living Room & Shared Spaces': { emoji: '🛋️', label: 'Living' },
+  'Floors & Deep Cleaning': { emoji: '🧹', label: 'Floors' },
+  Pets: { emoji: '🐾', label: 'Pets' },
+  Car: { emoji: '🚗', label: 'Car' },
+  'Yard & Outdoors': { emoji: '🌿', label: 'Yard' },
+  Hygiene: { emoji: '🪥', label: 'Hygiene' },
+  'Daily Routine': { emoji: '🌅', label: 'Routine' },
+  'Homework & Education': { emoji: '📚', label: 'Homework' },
+  'Meals, Groceries & Errands': { emoji: '🛒', label: 'Meals' },
+  'Home Maintenance & Organization': { emoji: '🧰', label: 'Home' },
 };
 
 const GRADIENT_BY_COLOR: Record<string, [string, string]> = {
@@ -710,15 +712,18 @@ export default function CreateTaskScreen() {
         </View>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Create task</Text>
+            <View style={styles.headerCopy}>
+              <Text style={styles.headerEyebrow}>NEW TASK</Text>
+              <Text style={styles.headerTitle}>Pick something to do</Text>
+            </View>
             <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
               <MaterialIcons color="#7C9CC0" name="close" size={16} />
             </Pressable>
           </View>
           <Text style={styles.presetHint}>
             {catalogChip === 'presets'
-              ? 'Your quick set · tap to create · long-press to customize'
-              : 'Full library · tap to create · long-press to customize'}
+              ? 'Quick set · tap to create · hold to edit'
+              : 'Library · tap to create · hold to edit'}
           </Text>
           {permissions.canAssignTask ? (
             <View style={styles.presetAssignBlock}>
@@ -741,13 +746,11 @@ export default function CreateTaskScreen() {
           ) : null}
 
           <View style={styles.searchWrap}>
-            <MaterialIcons name="search" size={18} color="#7C9CC0" />
+            <MaterialIcons name="search" size={18} color="#6B82A3" />
             <TextInput
               value={presetQuery}
               onChangeText={setPresetQuery}
-              placeholder={
-                catalogChip === 'presets' ? 'Search quick presets…' : 'Search tasks…'
-              }
+              placeholder={catalogChip === 'presets' ? 'Search presets…' : 'Search the library…'}
               placeholderTextColor="#4B6080"
               style={styles.searchField}
               autoCorrect={false}
@@ -758,87 +761,128 @@ export default function CreateTaskScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.presetFilterRow}>
+            contentContainerStyle={styles.catalogChipRow}>
             {(
               [
-                { id: 'presets' as const, label: 'Presets' },
-                { id: 'all' as const, label: 'All' },
-                ...domains.map((domain) => ({
-                  id: domain,
-                  label: DOMAIN_CHIP_LABELS[domain] ?? domain,
-                })),
-              ] as { id: string; label: string }[]
+                { id: 'presets' as const },
+                { id: 'all' as const },
+                ...domains.map((domain) => ({ id: domain })),
+              ] as { id: string }[]
             ).map((chip) => {
+              const meta = CATALOG_CHIP_META[chip.id] ?? {
+                emoji: '•',
+                label: chip.id,
+              };
               const active = catalogChip === chip.id;
               return (
                 <Pressable
                   key={chip.id}
                   onPress={() => setCatalogChip(chip.id)}
                   style={[
-                    styles.presetFilterChip,
+                    styles.catalogChip,
                     active && {
-                      backgroundColor: `${accentTheme.primary}22`,
-                      borderColor: `${accentTheme.primary}44`,
+                      backgroundColor: `${accentTheme.primary}1A`,
+                      borderColor: `${accentTheme.primary}66`,
                     },
                   ]}>
-                  <Text style={[styles.presetFilterText, active && { color: accentTheme.primary }]}>
-                    {chip.label}
+                  <Text style={styles.catalogChipEmoji}>{meta.emoji}</Text>
+                  <Text
+                    style={[
+                      styles.catalogChipLabel,
+                      active && { color: accentTheme.primary },
+                    ]}>
+                    {meta.label}
                   </Text>
                 </Pressable>
               );
             })}
           </ScrollView>
 
-          {catalogSections.map((section) => (
-            <View key={section.key} style={styles.librarySection}>
-              {catalogChip !== 'presets' || catalogSections.length > 1 ? (
-                <Text style={styles.librarySectionTitle}>
-                  {section.title}
-                  <Text style={styles.librarySectionCount}> · {section.items.length}</Text>
-                </Text>
-              ) : null}
-              <View style={styles.presetGrid}>
-                {section.items.map((preset) => {
-                  const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
-                  const xp = hygiene
-                    ? 0
-                    : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
-                  return (
-                    <Pressable
-                      key={preset.id}
-                      onPress={() => applyPreset(preset, true)}
-                      onLongPress={() => applyPreset(preset, false)}
-                      style={styles.presetCard}>
-                      <View style={styles.presetTop}>
-                        <Text style={styles.presetTitle}>{preset.title}</Text>
-                        <View style={[styles.xpBadge, { backgroundColor: `${accentTheme.primary}22` }]}>
-                          <Text style={[styles.xpBadgeText, { color: accentTheme.primary }]}>
-                            {hygiene ? 'Streak' : `+${xp}`}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={styles.presetMetaRow}>
-                        {preset.repeat !== 'None' ? (
-                          <View style={styles.repeatPill}>
-                            <Text style={styles.repeatText}>{preset.repeat}</Text>
-                          </View>
-                        ) : null}
-                        <Text style={styles.roomChip}>
-                          {preset.group ?? preset.category}
-                        </Text>
-                      </View>
-                      {preset.proofRequired ? (
-                        <Text style={styles.proofHint}>Proof required</Text>
+          <View style={styles.catalogBody}>
+            {catalogSections.map((section) => {
+              const sectionEmoji =
+                catalogChip !== 'presets' && catalogChip !== 'all'
+                  ? CATALOG_CHIP_META[catalogChip]?.emoji
+                  : catalogChip === 'presets'
+                    ? '⚡'
+                    : undefined;
+              return (
+                <View key={section.key} style={styles.catalogSection}>
+                  {catalogChip !== 'presets' ? (
+                    <View style={styles.catalogSectionHead}>
+                      {sectionEmoji && catalogChip !== 'all' ? (
+                        <Text style={styles.catalogSectionEmoji}>{sectionEmoji}</Text>
                       ) : null}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          ))}
-          {catalogTasks.length === 0 ? (
-            <Text style={styles.presetHint}>No tasks match this filter.</Text>
-          ) : null}
+                      <Text style={styles.catalogSectionTitle}>{section.title}</Text>
+                      <Text style={styles.catalogSectionCount}>{section.items.length}</Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.presetGrid}>
+                    {section.items.map((preset) => {
+                      const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
+                      const xp = hygiene
+                        ? 0
+                        : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+                      const domainEmoji =
+                        CATALOG_CHIP_META[preset.category ?? '']?.emoji ??
+                        CATALOG_CHIP_META[preset.domain ?? '']?.emoji;
+                      return (
+                        <Pressable
+                          key={preset.id}
+                          onPress={() => applyPreset(preset, true)}
+                          onLongPress={() => applyPreset(preset, false)}
+                          style={styles.presetCard}>
+                          <View style={styles.presetTop}>
+                            <View style={styles.presetTitleBlock}>
+                              {domainEmoji ? (
+                                <Text style={styles.presetDomainEmoji}>{domainEmoji}</Text>
+                              ) : null}
+                              <Text style={styles.presetTitle} numberOfLines={2}>
+                                {preset.title}
+                              </Text>
+                            </View>
+                            <View
+                              style={[
+                                styles.xpBadge,
+                                {
+                                  backgroundColor: hygiene
+                                    ? 'rgba(52,211,153,0.14)'
+                                    : `${accentTheme.primary}18`,
+                                },
+                              ]}>
+                              <Text
+                                style={[
+                                  styles.xpBadgeText,
+                                  { color: hygiene ? '#34D399' : accentTheme.primary },
+                                ]}>
+                                {hygiene ? 'Streak' : `+${xp}`}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.presetMetaRow}>
+                            {preset.repeat !== 'None' ? (
+                              <View style={styles.repeatPill}>
+                                <Text style={styles.repeatText}>{preset.repeat}</Text>
+                              </View>
+                            ) : null}
+                            <Text style={styles.presetMetaMuted} numberOfLines={1}>
+                              {preset.group ?? preset.category}
+                            </Text>
+                          </View>
+                          {preset.proofRequired ? (
+                            <Text style={styles.proofHint}>Photo proof</Text>
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })}
+            {catalogTasks.length === 0 ? (
+              <Text style={styles.presetHint}>Nothing matches — try another category.</Text>
+            ) : null}
+          </View>
 
           {catalogChip === 'presets' ? (
             <Pressable onPress={() => setCustomizeQuickOpen(true)} style={styles.customEntry}>
@@ -1430,15 +1474,28 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   header: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  headerCopy: {
+    flex: 1,
+    gap: 4,
+    paddingRight: 12,
+  },
+  headerEyebrow: {
+    color: '#6B82A3',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.8,
   },
   headerTitle: {
     color: '#EEF2FF',
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
+    letterSpacing: -0.4,
+    lineHeight: 28,
   },
   closeButton: {
     alignItems: 'center',
@@ -1446,6 +1503,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 32,
     justifyContent: 'center',
+    marginTop: 4,
     width: 32,
   },
   backChip: {
@@ -1460,13 +1518,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   presetHint: {
-    color: '#7C9CC0',
+    color: '#6B82A3',
     fontSize: 13,
-    marginBottom: 14,
+    lineHeight: 18,
+    marginBottom: 16,
   },
   presetAssignBlock: {
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 18,
   },
   sharedPickBlock: {
     gap: 8,
@@ -1491,6 +1550,64 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 12,
   },
+  catalogChipRow: {
+    gap: 8,
+    marginBottom: 18,
+    marginTop: 12,
+    paddingRight: 8,
+  },
+  catalogChip: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  catalogChipEmoji: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  catalogChipLabel: {
+    color: '#9BB0CC',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+  },
+  catalogBody: {
+    gap: 22,
+  },
+  catalogSection: {
+    gap: 10,
+  },
+  catalogSectionHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 2,
+    paddingHorizontal: 2,
+  },
+  catalogSectionEmoji: {
+    fontSize: 15,
+    lineHeight: 18,
+  },
+  catalogSectionTitle: {
+    color: '#C8D8F0',
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.35,
+    textTransform: 'uppercase',
+  },
+  catalogSectionCount: {
+    color: '#4B6080',
+    fontSize: 12,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
   presetFilterRow: {
     gap: 8,
     marginBottom: 14,
@@ -1498,7 +1615,7 @@ const styles = StyleSheet.create({
   presetFilterChip: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 999,
+    borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 7,
@@ -1512,12 +1629,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   presetCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.045)',
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 18,
     borderWidth: 1,
     gap: 8,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
   },
   presetTop: {
     alignItems: 'flex-start',
@@ -1525,20 +1643,35 @@ const styles = StyleSheet.create({
     gap: 10,
     justifyContent: 'space-between',
   },
+  presetTitleBlock: {
+    alignItems: 'flex-start',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    minWidth: 0,
+  },
+  presetDomainEmoji: {
+    fontSize: 15,
+    lineHeight: 20,
+    marginTop: 1,
+  },
   presetTitle: {
     color: '#EEF2FF',
     flex: 1,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
+    letterSpacing: -0.2,
+    lineHeight: 20,
   },
   xpBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
+    borderRadius: 10,
+    paddingHorizontal: 9,
     paddingVertical: 4,
   },
   xpBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
+    letterSpacing: 0.2,
   },
   presetMetaRow: {
     alignItems: 'center',
@@ -1546,26 +1679,32 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  presetMetaMuted: {
+    color: '#5A7190',
+    flexShrink: 1,
+    fontSize: 12,
+    fontWeight: '500',
+  },
   repeatPill: {
-    backgroundColor: 'rgba(6,182,212,0.15)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(6,182,212,0.12)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   repeatText: {
-    color: '#06B6D4',
+    color: '#38BDF8',
     fontSize: 11,
     fontWeight: '700',
   },
   roomChip: {
-    color: '#7C9CC0',
+    color: '#5A7190',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   proofHint: {
-    color: '#FB923C',
+    color: '#7C9CC0',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   customEntry: {
     alignItems: 'center',
@@ -1995,13 +2134,13 @@ const styles = StyleSheet.create({
   },
   searchWrap: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 4,
+    marginBottom: 0,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
