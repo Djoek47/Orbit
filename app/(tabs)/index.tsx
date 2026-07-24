@@ -23,7 +23,7 @@ import {
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
-  const chromePad = useTabChromePaddingTop(2);
+  const chromePad = useTabChromePaddingTop(6);
   const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona, permissions } =
     useOrbit();
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
@@ -231,11 +231,11 @@ export default function HomeScreen() {
                   const xp = member.weekXp ?? 0;
                   const photo = isAvatarImageUri(member.avatar);
                   const first = rankIndex === 0;
-                  const heights = [118, 96, 84];
-                  const avatarSizes = [56, 48, 44];
+                  const heights = [72, 58, 50];
+                  const avatarSizes = [42, 36, 34];
                   const pillarH = heights[rankIndex];
                   const avatar = avatarSizes[rankIndex];
-                  const emojiSize = Math.round(avatar * 0.62);
+                  const emojiSize = Math.round(avatar * 0.64);
                   return (
                     <Pressable
                       key={member.id}
@@ -499,8 +499,8 @@ const styles = StyleSheet.create({
   brandBlock: {
     alignItems: 'flex-start',
     alignSelf: 'stretch',
-    gap: 2,
-    marginBottom: 0,
+    gap: 6,
+    marginBottom: 4,
     width: '100%',
   },
   personalXpRow: {
@@ -666,9 +666,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(56,189,248,0.18)',
     borderRadius: orbitRadius.lg,
     borderWidth: 1,
-    gap: 14,
+    gap: 10,
     overflow: 'hidden',
-    padding: 16,
+    padding: 14,
     width: '100%',
   },
   heroBody: { color: '#C8D8F0', fontSize: 14, lineHeight: 20 },
@@ -722,14 +722,14 @@ const styles = StyleSheet.create({
   pyramidRow: {
     alignItems: 'flex-end',
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     justifyContent: 'center',
-    paddingTop: 4,
+    paddingTop: 2,
   },
   pyramidSlot: {
     alignItems: 'center',
     flex: 1,
-    gap: 6,
+    gap: 4,
     minWidth: 0,
   },
   pyramidAvatar: {
@@ -740,7 +740,7 @@ const styles = StyleSheet.create({
   },
   pyramidName: {
     color: '#C8D8F0',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     letterSpacing: -0.1,
     maxWidth: '100%',
@@ -752,52 +752,52 @@ const styles = StyleSheet.create({
   },
   pyramidXp: {
     color: '#7C9CC0',
-    fontSize: 11,
+    fontSize: 10,
     fontVariant: ['tabular-nums'],
     fontWeight: '700',
   },
   pyramidPillar: {
     alignItems: 'center',
     alignSelf: 'stretch',
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     justifyContent: 'flex-end',
     overflow: 'hidden',
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
   pyramidRank: {
     color: 'rgba(255,255,255,0.55)',
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
   pyramidRest: {
     borderTopColor: 'rgba(255,255,255,0.06)',
     borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 8,
-    marginTop: 4,
-    paddingTop: 10,
+    gap: 6,
+    marginTop: 2,
+    paddingTop: 8,
   },
   weekAvatar: {
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderColor: 'transparent',
-    borderRadius: 18,
-    height: 36,
+    borderRadius: 14,
+    height: 28,
     justifyContent: 'center',
     overflow: 'hidden',
-    width: 36,
+    width: 28,
   },
-  weekAvatarEmoji: { fontSize: 22, lineHeight: 28 },
-  weekAvatarImage: { height: 36, width: 36 },
+  weekAvatarEmoji: { fontSize: 16, lineHeight: 20 },
+  weekAvatarImage: { height: 28, width: 28 },
   weekBoard: {
     backgroundColor: 'rgba(255,255,255,0.035)',
     borderColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 14,
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
   },
   weekHead: {
     alignItems: 'baseline',
