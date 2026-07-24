@@ -554,50 +554,62 @@ export default function WelcomeOnboardingScreen() {
       ) : null}
 
       {step === 'role' ? (
-        <KeyboardScreen contentContainerStyle={styles.scroll}>
+        <KeyboardScreen contentContainerStyle={[styles.scroll, styles.roleScroll]}>
           <Header progress={progressIndex} onBack={goBack} />
-          <Text style={orbitTypography.title}>Who are you?</Text>
-          <Text style={[orbitTypography.caption, styles.mb]}>
-            Choremaxx adapts to your role in the household.
-          </Text>
-          {ONBOARDING_ROLES.map((role) => {
-            const active = selectedRole === role.id;
-            return (
-              <Pressable
-                key={role.id}
-                onPress={() => setSelectedRole(role.id)}
-                style={[
-                  styles.roleCard,
-                  active && { backgroundColor: `${role.color}22`, borderColor: `${role.color}55` },
-                ]}>
-                <View
+          <View style={styles.roleIntro}>
+            <Text style={[orbitTypography.title, styles.roleHeading]}>Who are you?</Text>
+            <Text style={styles.roleCaption}>Choremaxx adapts to your role in the household.</Text>
+          </View>
+          <View style={styles.roleList}>
+            {ONBOARDING_ROLES.map((role) => {
+              const active = selectedRole === role.id;
+              return (
+                <Pressable
+                  key={role.id}
+                  onPress={() => setSelectedRole(role.id)}
                   style={[
-                    styles.roleEmoji,
-                    { backgroundColor: `${role.color}18`, borderColor: `${role.color}33` },
+                    styles.roleCard,
+                    active && {
+                      backgroundColor: `${role.color}14`,
+                      borderColor: `${role.color}66`,
+                    },
                   ]}>
-                  <Text style={styles.emoji}>{role.emoji}</Text>
-                </View>
-                <View style={styles.roleBody}>
-                  <View style={styles.roleTitleRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.roleTitle}>{role.title}</Text>
-                      <Text style={[styles.roleSubtitle, { color: role.color }]}>{role.subtitle}</Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.radio,
-                        active && { backgroundColor: role.color, borderColor: role.color },
-                      ]}>
-                      {active ? <Text style={styles.radioCheck}>✓</Text> : null}
-                    </View>
+                  <View
+                    style={[
+                      styles.roleEmoji,
+                      {
+                        backgroundColor: active ? `${role.color}22` : 'rgba(255,255,255,0.05)',
+                        borderColor: active ? `${role.color}40` : 'rgba(255,255,255,0.08)',
+                      },
+                    ]}>
+                    <Text style={styles.emoji}>{role.emoji}</Text>
                   </View>
-                </View>
-              </Pressable>
-            );
-          })}
-          <OrbitButton disabled={!selectedRole} onPress={handleRoleContinue}>
-            Continue
-          </OrbitButton>
+                  <View style={styles.roleBody}>
+                    <Text style={styles.roleTitle}>{role.title}</Text>
+                    <Text
+                      style={[
+                        styles.roleSubtitle,
+                        active ? { color: role.color } : null,
+                      ]}>
+                      {role.subtitle}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.radio,
+                      active && { backgroundColor: role.color, borderColor: role.color },
+                    ]}>
+                    {active ? <Text style={styles.radioCheck}>✓</Text> : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+          <View style={styles.roleFooter}>
+            <OrbitButton disabled={!selectedRole} onPress={handleRoleContinue}>
+              Continue
+            </OrbitButton>
+          </View>
         </KeyboardScreen>
       ) : null}
 
@@ -1252,12 +1264,13 @@ const styles = StyleSheet.create({
   },
   radio: {
     alignItems: 'center',
-    borderColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'center',
+    borderColor: 'rgba(255,255,255,0.18)',
     borderRadius: 999,
     borderWidth: 2,
-    height: 20,
+    height: 22,
     justifyContent: 'center',
-    width: 20,
+    width: 22,
   },
   radioCheck: {
     color: orbitColors.background,
@@ -1386,40 +1399,78 @@ const styles = StyleSheet.create({
   },
   roleBody: {
     flex: 1,
+    gap: 3,
+    justifyContent: 'center',
+    minWidth: 0,
+    paddingRight: 4,
+  },
+  roleCaption: {
+    color: orbitColors.textMuted,
+    fontSize: 15,
+    fontWeight: '500',
+    lineHeight: 22,
   },
   roleCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.09)',
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.lg,
-    borderWidth: 2,
+    borderRadius: 20,
+    borderWidth: 1.5,
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 10,
+    gap: 14,
     overflow: 'hidden',
-    paddingHorizontal: orbitSpacing.md,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   roleEmoji: {
     alignItems: 'center',
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.md,
+    borderRadius: 16,
     borderWidth: 1,
-    height: 48,
+    height: 52,
     justifyContent: 'center',
-    width: 48,
+    width: 52,
+  },
+  roleFooter: {
+    marginTop: 'auto',
+    paddingBottom: 8,
+    paddingTop: 28,
+  },
+  roleHeading: {
+    letterSpacing: -0.4,
+    marginBottom: 0,
+  },
+  roleIntro: {
+    gap: 10,
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  roleList: {
+    flexGrow: 1,
+    gap: 12,
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  roleScroll: {
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+    minHeight: '100%',
   },
   roleSubtitle: {
-    fontSize: 12,
+    color: orbitColors.textMuted,
+    fontSize: 13,
     fontWeight: '500',
+    lineHeight: 18,
   },
   roleTitle: {
     color: orbitColors.text,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
   roleTitleRow: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
   },
