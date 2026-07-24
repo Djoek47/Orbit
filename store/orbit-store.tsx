@@ -44,7 +44,6 @@ import {
 } from '@/lib/household/admins';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import {
-  DEFAULT_MEMBER_CAPABILITIES,
   resolveMemberCapabilities,
 } from '@/lib/member-capabilities';
 import {
