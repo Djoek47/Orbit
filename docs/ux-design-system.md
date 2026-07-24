@@ -1,10 +1,12 @@
-# Orbit UX And Design System Notes
+# Choremaxx UX And Design System Notes
+
+> **Brand (Make v7+):** Product name is **Choremaxx**. Code tokens may still use `orbit*` prefixes.
 
 Use these notes with the Expo `building-native-ui` skill and SDK 54 docs.
 
 ## Visual Direction
 
-Orbit should feel like Apple Home + Apple Health + Apple Fitness + a premium AI assistant. It should be calm, premium, organized, emotionally supportive, and Apple-quality.
+Choremaxx should feel like Apple Home + Apple Health + Apple Fitness + a premium AI assistant. It should be calm, premium, organized, emotionally supportive, and Apple-quality.
 
 Design references:
 
@@ -18,26 +20,31 @@ Avoid Trello, Notion, Monday, generic family organizers, childlike chore apps, a
 
 ## Brand
 
-- Product name: Orbit.
+- Product name: Choremaxx (formerly Orbit).
 - AI co-manager: Nova.
 - Brand personality: calm, organized, trustworthy, intelligent, family-friendly.
 - Nova personality: thoughtful family co-manager, not chatbot.
-- Logo metaphor: home at the center, orbital ring, small satellite node.
+- Logo metaphor: layered teal house + gold sparkle (`components/orbit/choremaxx-logo.tsx`).
 - Reference assets:
-  - `assets/brand/orbit-logo-mark.png`
-  - `assets/brand/orbit-logo-lockup-dark.png`
+  - `assets/brand/orbit-logo-mark.png` (legacy)
+  - `assets/brand/orbit-logo-lockup-dark.png` (legacy)
 
 ## Color Tokens
 
-- `orbit.blue.500`: `#2979FF`
-- `nova.cyan.500`: `#00C2FF`
-- `success.green.500`: `#32D583`
-- `warning.amber.500`: `#FFB547`
-- `error.red.500`: `#FF5A5F`
-- Light background: `#F7F9FC`
-- Light card: `#FFFFFF`
-- Light primary text: `#101828`
-- Light secondary text: `#667085`
+- `primary` / Make `--primary`: `#3BB5F0`
+- `accent` / Make `--accent`: `#2DD4BF`
+- `rewards.gold`: `#F59E0B`
+- `plan.purple`: `#A78BFA`
+- `success.green`: `#34D399`
+- `warning.amber`: `#F59E0B`
+- `error.red`: `#F87171`
+- Dark background: `#070D1C`
+- Dark card: `rgba(255,255,255,0.06)`
+- Dark primary text: `#EEF2FF`
+- Dark secondary text: `#7C9CC0`
+- Legacy (pre-v7):
+  - `orbit.blue.500`: `#2979FF`
+  - `nova.cyan.500`: `#00C2FF`
 - Dark background: `#0B1220`
 - Dark card: `#131C2E`
 - Dark elevated: `#1D2939`
@@ -80,17 +87,19 @@ Motion communicates state, never decoration.
 
 ## Navigation
 
-**Figma Make v4+ (visual source for Expo Go testing)** uses five primary tabs:
+**Figma Make v7 (visual source for Expo Go testing)** uses five primary tabs:
 
 - Home
 - Tasks
-- Grocery
-- Ranking / Ranks
+- Plan (Calendar + Itineraries)
+- Rewards (Rewards + Allowance + Rankings)
 - Nova
 
-Calendar stays in the codebase but is hidden from the primary tab bar while Make drives local visual testing. Settings/Admin and Create Task are overlays in Make.
+Role filters: child hides Plan; roommate hides Rewards.  
+Groceries stay reachable from Home / Settings / deep links but are not a primary tab in v7.  
+Settings/Admin and Create Task are overlays in Make.
 
-Longer-term product IA in the MVP docs still includes Calendar and a full Rewards shop. When those diverge from Make, sync via the Figma MCP workflow in `.cursor/rules/figma-make-sync.mdc`, then reconcile against this document.
+When Make and product docs diverge, sync via the Figma MCP workflow in `.cursor/rules/figma-make-sync.mdc`, then reconcile against this document.
 
 ## MVP Screens
 
