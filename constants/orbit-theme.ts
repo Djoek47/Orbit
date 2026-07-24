@@ -189,7 +189,7 @@ export const orbitTypography = StyleSheet.create({
 });
 
 /** Space reserved under absolute GlobalHeaderChips — apply to header rows only, not full content. */
-export const HEADER_CHIPS_GUTTER = 100;
+export const HEADER_CHIPS_GUTTER = 148;
 
 export const orbitScreen = StyleSheet.create({
   container: {

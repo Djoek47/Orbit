@@ -28,23 +28,20 @@ export const ONBOARDING_ROLES: {
   title: string;
   subtitle: string;
   color: string;
-  perks: string[];
 }[] = [
   {
     id: 'parent',
     emoji: '👑',
     title: 'Parent',
-    subtitle: 'Full household admin',
+    subtitle: 'Run the household',
     color: '#3BB5F0',
-    perks: ['Assign & approve tasks', 'Manage allowance & rewards', 'See all analytics', 'Invite members'],
   },
   {
     id: 'child',
     emoji: '⭐',
     title: 'Child',
-    subtitle: 'Join with a parent invite — no sign-in',
+    subtitle: 'Join with a parent invite',
     color: '#34D399',
-    perks: ['Open an AirDrop or invite code', 'No email or password', 'See my tasks & earn XP', 'Parent keeps the household saved'],
   },
   {
     id: 'roommate',
@@ -52,20 +49,13 @@ export const ONBOARDING_ROLES: {
     title: 'Roommate',
     subtitle: 'Shared living, simplified',
     color: '#A78BFA',
-    perks: ['Shared chores', 'Shared grocery list', 'Simple schedules', 'Stay in sync'],
   },
   {
     id: 'shared-tablet',
     emoji: '📱',
     title: 'Shared / tablet',
-    subtitle: 'One device, several profiles — invite or AirDrop',
+    subtitle: 'One device · several profiles',
     color: '#F59E0B',
-    perks: [
-      'Host kids or roommates on one tablet',
-      'Add profiles via invite code or AirDrop QR',
-      'No email on the tablet itself',
-      'Admin account keeps household data saved',
-    ],
   },
 ];
 

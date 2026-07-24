@@ -13,6 +13,10 @@ import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
 import { HEADER_CHIPS_GUTTER, orbitRadius, orbitScreen } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
+  buildHomeHealthMetrics,
+  resolveHomeHealthRole,
+} from '@/lib/home-health-metrics';
+import {
   findSharedDeviceForMember,
   isSharedDeviceAccount,
   isSharedDeviceRole,
@@ -23,7 +27,7 @@ const WEEK_XP_COLORS = ['#38BDF8', '#34D399', '#A78BFA', '#FB923C', '#F472B6'];
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona } =
+  const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona, permissions } =
     useOrbit();
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const hour = new Date().getHours();
@@ -33,6 +37,20 @@ export default function HomeScreen() {
   const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
+  const healthRole = resolveHomeHealthRole(currentMember, {
+    householdType: household.householdType,
+    isAdmin: permissions.canManageHousehold,
+  });
+  const healthItems = useMemo(
+    () =>
+      buildHomeHealthMetrics({
+        role: healthRole,
+        metrics,
+        household,
+        currentMember,
+      }),
+    [healthRole, metrics, household, currentMember],
+  );
   const groceryEmoji: Record<string, string> = {
     Milk: '🥛',
     Blueberries: '🫐',
@@ -254,20 +272,51 @@ export default function HomeScreen() {
       />
 
       {sharedKidMode ? (
-        <Pressable
-          onPress={() => router.push('/(tabs)/rewards' as never)}
-          style={[styles.kidRewardCard, { borderColor: `${accentTheme.primary}44` }]}>
-          <View style={[styles.kidRewardIcon, { backgroundColor: `${accentTheme.primary}22` }]}>
-            <MaterialIcons name="card-giftcard" size={22} color={accentTheme.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.kidRewardTitle}>Rewards shop</Text>
-            <Text style={styles.kidRewardBody}>
-              Spend your XP on treats — you have {personalTotalXp} XP
-            </Text>
-          </View>
-          <MaterialIcons name="chevron-right" size={20} color={accentTheme.primary} />
-        </Pressable>
+        <>
+          <Pressable onPress={() => router.push('/household-balance' as never)} style={styles.fullBleed}>
+            <GlassCard>
+              <View style={styles.sectionHead}>
+                <Text style={styles.sectionTitle}>My progress</Text>
+                <MaterialIcons name="chevron-right" size={14} color="#4B6080" />
+              </View>
+              <View style={styles.healthRow}>
+                {healthItems.map((item) => (
+                  <View key={item.key} style={styles.healthCol}>
+                    <View style={styles.healthLabelRow}>
+                      <MaterialIcons name={item.icon} size={12} color={item.color} />
+                      <Text style={styles.healthLabel} numberOfLines={1}>
+                        {item.label}
+                      </Text>
+                    </View>
+                    <View style={styles.progressTrack}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          { width: `${Math.max(4, Math.min(100, item.val))}%`, backgroundColor: item.color },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.healthVal, { color: item.color }]}>{item.valueLabel}</Text>
+                  </View>
+                ))}
+              </View>
+            </GlassCard>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/(tabs)/rewards' as never)}
+            style={[styles.kidRewardCard, { borderColor: `${accentTheme.primary}44` }]}>
+            <View style={[styles.kidRewardIcon, { backgroundColor: `${accentTheme.primary}22` }]}>
+              <MaterialIcons name="card-giftcard" size={22} color={accentTheme.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.kidRewardTitle}>Rewards shop</Text>
+              <Text style={styles.kidRewardBody}>
+                Spend your XP on treats — you have {personalTotalXp} XP
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color={accentTheme.primary} />
+          </Pressable>
+        </>
       ) : null}
 
       {!sharedKidMode ? (
@@ -327,27 +376,8 @@ export default function HomeScreen() {
                 <MaterialIcons name="chevron-right" size={14} color="#4B6080" />
               </View>
               <View style={styles.healthRow}>
-                {[
-                  {
-                    label: 'Completion',
-                    val: metrics.taskCompletionRate,
-                    color: '#34D399',
-                    icon: 'check-circle' as const,
-                  },
-                  {
-                    label: 'Grocery',
-                    val: metrics.groceryReadiness,
-                    color: '#38BDF8',
-                    icon: 'shopping-cart' as const,
-                  },
-                  {
-                    label: 'Plan',
-                    val: metrics.calendarCoverage,
-                    color: '#A78BFA',
-                    icon: 'event' as const,
-                  },
-                ].map((item) => (
-                  <View key={item.label} style={styles.healthCol}>
+                {healthItems.map((item) => (
+                  <View key={item.key} style={styles.healthCol}>
                     <View style={styles.healthLabelRow}>
                       <MaterialIcons name={item.icon} size={12} color={item.color} />
                       <Text style={styles.healthLabel} numberOfLines={1}>
@@ -356,10 +386,13 @@ export default function HomeScreen() {
                     </View>
                     <View style={styles.progressTrack}>
                       <View
-                        style={[styles.progressFill, { width: `${item.val}%`, backgroundColor: item.color }]}
+                        style={[
+                          styles.progressFill,
+                          { width: `${Math.max(4, Math.min(100, item.val))}%`, backgroundColor: item.color },
+                        ]}
                       />
                     </View>
-                    <Text style={[styles.healthVal, { color: item.color }]}>{item.val}%</Text>
+                    <Text style={[styles.healthVal, { color: item.color }]}>{item.valueLabel}</Text>
                   </View>
                 ))}
               </View>

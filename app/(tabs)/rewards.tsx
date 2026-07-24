@@ -7,11 +7,12 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography, HEADER_CHIPS_GUTTER } from '@/constants/orbit-theme';
 import {
   findSharedDeviceForMember,
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
+import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, MemberProgress } from '@/types/orbit';
 
@@ -48,6 +49,10 @@ export default function RewardsScreen() {
   } = useOrbit();
   const [view, setView] = useState<RankingView>('week');
   const [shopCategory, setShopCategory] = useState<string>('All');
+  const caps = resolveMemberCapabilities(household);
+  const isAdmin = permissions.canManageHousehold;
+  const canRedeem = isAdmin || caps.allowRewardRedeem;
+  const canRequestSpecial = isAdmin || caps.allowSpecialRewardRequest;
 
   const sorted = useMemo(() => {
     return [...membersWithProgress]
@@ -109,7 +114,7 @@ export default function RewardsScreen() {
       contentContainerStyle={orbitScreen.content}
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}>
-      <View style={[orbitScreen.header, styles.header]}>
+      <View style={[orbitScreen.header, styles.header, { paddingRight: HEADER_CHIPS_GUTTER }]}>
         <ChoremaxxBadge />
         <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Leaderboard</Text>
         <Text style={orbitTypography.display}>Family Rankings</Text>
@@ -304,24 +309,30 @@ export default function RewardsScreen() {
       </Pressable>
 
       <View style={styles.shopHeader}>
-        <Text style={orbitTypography.display}>Reward shop</Text>
-        <Text style={orbitTypography.caption}>Browse by category · redeem with XP</Text>
+        <Text style={orbitTypography.display}>{isAdmin ? 'Reward shop' : 'Rewards'}</Text>
+        <Text style={orbitTypography.caption}>
+          {isAdmin ? 'Browse by category · redeem with XP' : 'Browse & redeem with your XP'}
+        </Text>
       </View>
 
       <View style={styles.shopActions}>
-        {permissions.canManageHousehold ? (
+        {isAdmin ? (
           <OrbitButton onPress={() => router.push('/create-reward' as never)}>Mint reward</OrbitButton>
         ) : null}
-        <OrbitButton tone="secondary" onPress={() => router.push('/special-reward-request' as never)}>
-          Request special reward
-        </OrbitButton>
-        <Pressable
-          onPress={() => router.push('/reward-tally' as never)}
-          style={[styles.tallyLink, { borderColor: `${accentTheme.primary}44` }]}>
-          <MaterialIcons name="receipt-long" size={16} color={accentTheme.primary} />
-          <Text style={[styles.tallyLinkText, { color: accentTheme.primary }]}>Redeem tally</Text>
-          <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
-        </Pressable>
+        {canRequestSpecial ? (
+          <OrbitButton tone="secondary" onPress={() => router.push('/special-reward-request' as never)}>
+            Request special reward
+          </OrbitButton>
+        ) : null}
+        {isAdmin ? (
+          <Pressable
+            onPress={() => router.push('/reward-tally' as never)}
+            style={[styles.tallyLink, { borderColor: `${accentTheme.primary}44` }]}>
+            <MaterialIcons name="receipt-long" size={16} color={accentTheme.primary} />
+            <Text style={[styles.tallyLinkText, { color: accentTheme.primary }]}>Redeem tally</Text>
+            <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.categoryChipRow}>
@@ -384,10 +395,12 @@ export default function RewardsScreen() {
                     </Text>
                   </View>
                 </View>
-                <OrbitButton tone="secondary" onPress={() => void requestRewardRedemption(reward.id)}>
-                  Redeem
-                </OrbitButton>
-                {permissions.canManageHousehold ? (
+                {canRedeem ? (
+                  <OrbitButton tone="secondary" onPress={() => void requestRewardRedemption(reward.id)}>
+                    Redeem
+                  </OrbitButton>
+                ) : null}
+                {isAdmin ? (
                   <OrbitButton tone="danger" onPress={() => void archiveReward(reward.id)}>
                     Archive
                   </OrbitButton>
@@ -398,7 +411,7 @@ export default function RewardsScreen() {
         </View>
       ))}
 
-      {pendingRedemptions.length > 0 ? (
+      {isAdmin && pendingRedemptions.length > 0 ? (
         <>
           <View style={styles.pendingHead}>
             <Text style={orbitTypography.cardTitle}>Pending · {pendingRedemptions.length}</Text>

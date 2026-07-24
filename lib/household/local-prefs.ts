@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { DEFAULT_QUICK_PRESET_IDS } from '@/data/choremaxx-task-library';
 import type { HouseholdRoom } from '@/types/orbit';
 
 const ROOMS_KEY = '@orbit/household_rooms';
 const AVATARS_KEY = '@orbit/member_avatars';
+const QUICK_PRESETS_KEY = '@orbit/quick_preset_ids';
 
 export async function loadHouseholdRooms(
   householdId: string | null | undefined,
@@ -57,5 +59,31 @@ export async function saveMemberAvatarOverride(
     await AsyncStorage.setItem(`${AVATARS_KEY}:${householdId}`, JSON.stringify(current));
   } catch (error) {
     console.warn('saveMemberAvatarOverride failed', error);
+  }
+}
+
+export async function loadQuickPresetIds(
+  householdId: string | null | undefined,
+): Promise<string[]> {
+  if (!householdId) return [...DEFAULT_QUICK_PRESET_IDS];
+  try {
+    const raw = await AsyncStorage.getItem(`${QUICK_PRESETS_KEY}:${householdId}`);
+    if (!raw) return [...DEFAULT_QUICK_PRESET_IDS];
+    const parsed = JSON.parse(raw) as string[];
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [...DEFAULT_QUICK_PRESET_IDS];
+  } catch {
+    return [...DEFAULT_QUICK_PRESET_IDS];
+  }
+}
+
+export async function saveQuickPresetIds(
+  householdId: string | null | undefined,
+  ids: string[],
+) {
+  if (!householdId) return;
+  try {
+    await AsyncStorage.setItem(`${QUICK_PRESETS_KEY}:${householdId}`, JSON.stringify(ids));
+  } catch (error) {
+    console.warn('saveQuickPresetIds failed', error);
   }
 }

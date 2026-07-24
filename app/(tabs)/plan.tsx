@@ -7,6 +7,7 @@ import { LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, Text, UIM
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { NovaOrb } from '@/components/orbit/nova-orb';
+import { HEADER_CHIPS_GUTTER } from '@/constants/orbit-theme';
 import {
   TYPE_CONFIG,
   addMonths,
@@ -21,6 +22,8 @@ import {
   subMonths,
   weekStripDays,
 } from '@/lib/calendar/make-calendar';
+import { resolveMemberCapabilities } from '@/lib/member-capabilities';
+import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import type { Itinerary, ItineraryStop, ItineraryStopKind } from '@/types/orbit';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -333,13 +336,26 @@ function TripCard({
 }
 
 export default function PlanScreen() {
-  const { household, openFullItineraryInMaps, rerunItinerary } = useOrbit();
+  const { household, openFullItineraryInMaps, rerunItinerary, currentMember, permissions } = useOrbit();
   const [subTab, setSubTab] = useState<PlanSubTab>('calendar');
   const [view, setView] = useState<CalView>('month');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const eventsByDate = useMemo(() => groupEventsByDate(household.events), [household.events]);
+  const sharedKidMode =
+    isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
+  const caps = resolveMemberCapabilities(household);
+  const canCreateEvent = permissions.canManageHousehold || caps.allowCalendarCreate;
+
+  const visibleEvents = useMemo(() => {
+    if (!sharedKidMode || !currentMember) return household.events;
+    const name = currentMember.name;
+    return household.events.filter(
+      (event) => event.responsible === name || event.responsible.includes(name),
+    );
+  }, [sharedKidMode, currentMember, household.events]);
+
+  const eventsByDate = useMemo(() => groupEventsByDate(visibleEvents), [visibleEvents]);
   const calendarDays = useMemo(() => monthGridDays(currentMonth), [currentMonth]);
   const weekDays = useMemo(() => weekStripDays(), []);
   const selectedKey = format(selectedDate, 'yyyy-MM-dd');
@@ -381,15 +397,17 @@ export default function PlanScreen() {
         })}
       </View>
 
-      <View style={styles.brandRow}>
+      <View style={[styles.brandRow, { paddingRight: HEADER_CHIPS_GUTTER }]}>
         <ChoremaxxBadge />
       </View>
 
       {subTab === 'calendar' ? (
         <>
-          <View style={styles.calHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.eyebrow}>Household Calendar</Text>
+          <View style={[styles.calHeader, { paddingRight: canCreateEvent ? 0 : undefined }]}>
+            <View style={{ flex: 1, paddingRight: HEADER_CHIPS_GUTTER - 48 }}>
+              <Text style={styles.eyebrow}>
+                {sharedKidMode ? 'My calendar' : 'Household Calendar'}
+              </Text>
               <Text style={styles.h1}>{format(currentMonth, 'MMMM yyyy')}</Text>
             </View>
             <View style={styles.viewToggle}>
@@ -402,9 +420,11 @@ export default function PlanScreen() {
                 </Pressable>
               ))}
             </View>
-            <Pressable style={styles.plusBtn} onPress={() => router.push('/create-event' as never)}>
-              <MaterialIcons name="add" size={16} color="#38BDF8" />
-            </Pressable>
+            {canCreateEvent ? (
+              <Pressable style={styles.plusBtn} onPress={() => router.push('/create-event' as never)}>
+                <MaterialIcons name="add" size={16} color="#38BDF8" />
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.legend}>

@@ -15,7 +15,7 @@ import {
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { NovaOrb } from '@/components/orbit/nova-orb';
-import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
+import { orbitColors, orbitRadius, orbitSpacing, HEADER_CHIPS_GUTTER } from '@/constants/orbit-theme';
 import {
   isNovaRealtimeEnabled,
   NovaRealtimeSession,
@@ -309,7 +309,7 @@ export default function NovaScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={88}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingRight: HEADER_CHIPS_GUTTER }]}>
         <View style={styles.headerGlow} pointerEvents="none" />
         <ChoremaxxBadge />
         <NovaOrb size={80} speaking={cfg.speaking} />

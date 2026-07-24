@@ -8,6 +8,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import {
+  HEADER_CHIPS_GUTTER,
   orbitColors,
   orbitRadius,
   orbitScreen,
@@ -448,7 +449,7 @@ export default function TasksScreen() {
       contentContainerStyle={orbitScreen.content}
       showsVerticalScrollIndicator={false}
       contentInsetAdjustmentBehavior="automatic">
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, { paddingRight: HEADER_CHIPS_GUTTER }]}>
         <View style={orbitScreen.header}>
           <ChoremaxxBadge />
           <Text style={[orbitTypography.caption, { marginTop: 8 }]}>

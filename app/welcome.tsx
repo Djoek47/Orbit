@@ -591,13 +591,6 @@ export default function WelcomeOnboardingScreen() {
                       {active ? <Text style={styles.radioCheck}>✓</Text> : null}
                     </View>
                   </View>
-                  <View style={styles.perkWrap}>
-                    {role.perks.map((perk) => (
-                      <View key={perk} style={styles.perk}>
-                        <Text style={styles.perkText}>{perk}</Text>
-                      </View>
-                    ))}
-                  </View>
                 </View>
               </Pressable>
             );
@@ -1402,9 +1395,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 10,
     overflow: 'hidden',
-    padding: orbitSpacing.md,
+    paddingHorizontal: orbitSpacing.md,
+    paddingVertical: 12,
   },
   roleEmoji: {
     alignItems: 'center',

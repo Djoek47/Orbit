@@ -30,6 +30,12 @@ export const mockHousehold: HouseholdSnapshot = {
   upcomingEvents: 3,
   preferredStoreId: 'store-freshmart',
   accentThemeId: DEFAULT_ACCENT_THEME_ID,
+  memberCapabilities: {
+    allowRewardRedeem: true,
+    allowSpecialRewardRequest: false,
+    allowGroceryAdd: false,
+    allowCalendarCreate: false,
+  },
   rooms: DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
   savedPlaces: [
     {
@@ -861,6 +867,12 @@ export function createEmptyHousehold(user: OrbitUser): HouseholdSnapshot {
     upcomingEvents: 0,
     preferredStoreId: 'store-freshmart',
     accentThemeId: DEFAULT_ACCENT_THEME_ID,
+    memberCapabilities: {
+      allowRewardRedeem: true,
+      allowSpecialRewardRequest: false,
+      allowGroceryAdd: false,
+      allowCalendarCreate: false,
+    },
     rooms: DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
     savedPlaces: [],
     notificationPrefs: { ...DEFAULT_NOVA_NOTIFICATION_PREFS },

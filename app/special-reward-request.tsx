@@ -8,18 +8,22 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function SpecialRewardRequestScreen() {
   const insets = useSafeAreaInsets();
-  const { requestSpecialReward } = useOrbit();
+  const { household, permissions, requestSpecialReward } = useOrbit();
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [cost, setCost] = useState('150');
   const [busy, setBusy] = useState(false);
 
+  const caps = resolveMemberCapabilities(household);
+  const allowed = permissions.canManageHousehold || caps.allowSpecialRewardRequest;
+
   const handleSubmit = async () => {
-    if (!title.trim()) return;
+    if (!title.trim() || !allowed) return;
     setBusy(true);
     try {
       await requestSpecialReward(title.trim(), note.trim() || undefined, Number(cost) || 150);
@@ -29,6 +33,25 @@ export default function SpecialRewardRequestScreen() {
     }
   };
 
+  if (!allowed) {
+    return (
+      <ScrollView
+        style={orbitScreen.container}
+        contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={orbitScreen.header}>
+          <ChoremaxxBadge />
+          <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Rewards</Text>
+          <Text style={orbitTypography.display}>Special requests off</Text>
+          <Text style={orbitTypography.body}>
+            An admin needs to enable special reward requests in Settings → Member permissions.
+          </Text>
+        </View>
+        <OrbitButton onPress={() => router.back()}>Go back</OrbitButton>
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView
       style={orbitScreen.container}
@@ -37,7 +60,7 @@ export default function SpecialRewardRequestScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={orbitScreen.header}>
         <ChoremaxxBadge />
-        <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Anyone can ask</Text>
+        <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Ask the household</Text>
         <Text style={orbitTypography.display}>Special reward</Text>
         <Text style={orbitTypography.body}>
           Send a one-off ask. Admins see it as a special-request origin in the redeem tally.
@@ -49,27 +72,24 @@ export default function SpecialRewardRequestScreen() {
           label="What do you want?"
           value={title}
           onChangeText={setTitle}
-          placeholder="Ice cream after dinner"
+          placeholder="Extra screen time"
         />
         <OrbitInput
-          label="Note for admins"
+          label="Note (optional)"
           value={note}
           onChangeText={setNote}
-          placeholder="I finished laundry early"
+          placeholder="Why this matters"
         />
         <OrbitInput
-          keyboardType="number-pad"
           label="Suggested XP cost"
           value={cost}
           onChangeText={setCost}
+          keyboardType="number-pad"
         />
       </GlassCard>
 
-      <OrbitButton disabled={busy || !title.trim()} onPress={() => void handleSubmit()}>
+      <OrbitButton disabled={!title.trim() || busy} onPress={() => void handleSubmit()}>
         {busy ? 'Sending…' : 'Send request'}
-      </OrbitButton>
-      <OrbitButton tone="secondary" onPress={() => router.back()}>
-        Cancel
       </OrbitButton>
     </ScrollView>
   );

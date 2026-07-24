@@ -42,6 +42,11 @@ import {
   canPromoteToAdmin,
   resolveSplitPair,
 } from '@/lib/household/admins';
+import { isSharedDeviceRole } from '@/lib/household/shared-device';
+import {
+  DEFAULT_MEMBER_CAPABILITIES,
+  resolveMemberCapabilities,
+} from '@/lib/member-capabilities';
 import {
   authRepository,
   calendarRepository,
@@ -107,6 +112,7 @@ import type {
   InviteLinks,
   Itinerary,
   JoinHouseholdInput,
+  MemberCapabilities,
   MemberProgress,
   NotificationItem,
   NovaBriefing,
@@ -220,6 +226,7 @@ type OrbitContextValue = {
     userId?: string | null;
   }) => Promise<NotificationItem | null>;
   updateNotificationPrefs: (prefs: Partial<NovaNotificationPrefs>) => void;
+  updateMemberCapabilities: (prefs: Partial<MemberCapabilities>) => void;
   /** Updates the current member’s personal look (follows persona switches). */
   updateAccentTheme: (themeId: AccentThemeId) => void;
   /** Owner/admin: household fallback theme for members without a personal pick. */
@@ -1199,6 +1206,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const addMissingGrocery = async (input: CreateGroceryInput) => {
+    const caps = resolveMemberCapabilities(household);
+    const canAdd =
+      permissions.canManageGroceries ||
+      caps.allowGroceryAdd ||
+      (currentMember?.role === 'child' && (currentMember?.xp ?? 0) >= CHILD_GROCERY_WISHLIST_XP);
+    if (!canAdd) {
+      return;
+    }
     const grocery = await groceryRepository.addGroceryItem(household.id, {
       ...input,
       storeId: input.storeId ?? household.preferredStoreId,
@@ -1310,6 +1325,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const createEvent = async (input: CreateEventInput) => {
+    const caps = resolveMemberCapabilities(household);
+    if (!permissions.canManageHousehold && !caps.allowCalendarCreate) {
+      return;
+    }
     const event = await calendarRepository.createEvent(household.id, input);
     setHousehold((current) => ({
       ...current,
@@ -1475,6 +1494,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         notificationPrefs: next,
       };
     });
+  };
+
+  const updateMemberCapabilities = (prefs: Partial<MemberCapabilities>) => {
+    if (!permissions.canManageHousehold) {
+      return;
+    }
+    setHousehold((current) => ({
+      ...current,
+      memberCapabilities: {
+        ...resolveMemberCapabilities(current),
+        ...prefs,
+      },
+    }));
   };
 
   const accentTheme = useMemo(
@@ -1860,6 +1892,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!household.id || !currentMember) {
       return;
     }
+    const caps = resolveMemberCapabilities(household);
+    if (!permissions.canManageHousehold && !caps.allowRewardRedeem) {
+      return;
+    }
 
     const reward = household.rewards.find((item) => item.id === rewardId);
     const redemption = await rewardsRepository.requestRedemption({
@@ -1881,6 +1917,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const requestSpecialReward = async (title: string, note?: string, cost = 150) => {
     if (!household.id || !currentMember) {
+      return;
+    }
+    const caps = resolveMemberCapabilities(household);
+    if (!permissions.canManageHousehold && !caps.allowSpecialRewardRequest) {
       return;
     }
     const reward = await rewardsRepository.createReward(household.id, {
@@ -2414,6 +2454,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       preferredStore: getPreferredStore(household.preferredStoreId),
       canAddGroceryWishlist:
         permissions.canManageGroceries ||
+        resolveMemberCapabilities(household).allowGroceryAdd ||
         (currentMember?.role === 'child' && (currentMember?.xp ?? 0) >= CHILD_GROCERY_WISHLIST_XP),
       askNova,
       askNovaVoice,
@@ -2460,6 +2501,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       markAllNotificationsRead,
       pushNotification,
       updateNotificationPrefs,
+      updateMemberCapabilities,
       updateAccentTheme,
       updateHouseholdAccentTheme,
       accentTheme,
@@ -2550,6 +2592,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateMemberAvatar,
       upsertRoom,
       removeRoom,
+      updateMemberCapabilities,
     ]
   );
 
@@ -2631,6 +2674,23 @@ function calculateMetrics(household: HouseholdSnapshot): OrbitMetrics {
   const calendarCoverage =
     household.events.length > 0 ? Math.round((coveredEvents / household.events.length) * 100) : 100;
 
+  const activeMembers = household.members.filter(
+    (member) => member.status === 'active' && member.role !== 'guest' && !isSharedDeviceRole(member.role),
+  );
+  let fairnessScore = 100;
+  if (activeMembers.length >= 2) {
+    const xp = activeMembers.map((member) => member.weekXp ?? 0);
+    const total = xp.reduce((a, b) => a + b, 0);
+    if (total > 0) {
+      const ideal = total / xp.length;
+      const variance = xp.reduce((sum, v) => sum + Math.abs(v - ideal), 0) / (ideal * xp.length || 1);
+      fairnessScore = Math.max(0, Math.min(100, Math.round(100 - variance * 50)));
+    }
+  }
+  const householdStreak = activeMembers.length
+    ? Math.max(...activeMembers.map((member) => member.streak ?? 0))
+    : 0;
+
   return {
     taskCompletionRate,
     groceryReadiness,
@@ -2640,6 +2700,8 @@ function calculateMetrics(household: HouseholdSnapshot): OrbitMetrics {
     missingGroceries: household.groceries.filter((item) => item.status === 'Missing').length,
     purchasedGroceries: household.groceries.filter((item) => item.status === 'Purchased').length,
     upcomingEvents: countUpcomingSoon(household.events),
+    fairnessScore,
+    householdStreak,
   };
 }
 

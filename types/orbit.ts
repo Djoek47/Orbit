@@ -306,6 +306,18 @@ export type OrbitMetrics = {
   missingGroceries: number;
   purchasedGroceries: number;
   upcomingEvents: number;
+  /** Week XP spread fairness 0–100 (admin health). */
+  fairnessScore?: number;
+  /** Best active-member streak days (admin health). */
+  householdStreak?: number;
+};
+
+/** Admin toggles for what non-admin members may do. */
+export type MemberCapabilities = {
+  allowRewardRedeem: boolean;
+  allowSpecialRewardRequest: boolean;
+  allowGroceryAdd: boolean;
+  allowCalendarCreate: boolean;
 };
 
 export type CreateTaskInput = {
@@ -470,6 +482,8 @@ export type HouseholdSnapshot = {
   accentThemeId?: string;
   taskTemplates: TaskTemplate[];
   notificationPrefs: NovaNotificationPrefs;
+  /** What non-admin members may do (admin-controlled). */
+  memberCapabilities?: MemberCapabilities;
   rewards: Reward[];
   badges: Badge[];
   nova: NovaBriefing;

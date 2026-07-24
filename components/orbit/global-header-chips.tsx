@@ -49,7 +49,8 @@ const styles = StyleSheet.create({
     gap: 8,
     position: 'absolute',
     right: 16,
-    zIndex: 40,
+    zIndex: 80,
+    elevation: 8,
   },
   bell: {
     alignItems: 'center',

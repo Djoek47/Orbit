@@ -14,8 +14,14 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 |---|------|-------|------|
 | 1 | Auth | Sign up → create profile → sign out → sign in | ☐ |
 | 1b | Auth Make UI | Welcome opening animation · centered “Run the household” · Get Started / Sign in · **sign-in success brand beat** · profile · create/join household · pending approval | ☐ |
-| 6i | Rewards shop + tally | Ranks shop grouped by category · Mint admin-only · anyone Request special · origin visible to admin · Redeem tally subpage ledger | ☐ |
-| 6j | 80 task presets + reassign | Create Task shows 80 presets · Tasks main has no Split open / Two admins · overdue task detail can Reassign (XP to new person) | ☐ |
+
+| 30a | Slim onboarding roles | Who are you? title + one-line subtitle only (no perk chips) · Shared/tablet “One device · several profiles” · Child “Join with a parent invite” | ☐ |
+| 30b | Member permissions | Settings (admin) → Member permissions: redeem · special request · grocery add · calendar create | ☐ |
+| 30c | Rewards member shop | As child: Redeem only · no Mint/Archive/tally · Request special only when toggle on | ☐ |
+| 30d | Kid Plan / create event | Child events filtered to theirs · simplified create (title/when/place) when calendar create allowed | ☐ |
+| 30e | Create Task shared + library | Shared device tablet card · hold to split · Quick 12 + Browse library search/domains | ☐ |
+| 6i | Rewards shop + tally | Ranks shop · Mint admin-only · special request gated by Member permissions · Redeem tally admin · member Redeem only when allowed | ☐ |
+| 6j | Task presets + library | Create Task quick 12 + Browse library (136) · Customize quick set · overdue Reassign still works | ☐ |
 | 6k | Badge gallery + Home fire streak | Badge gallery Material icons + polished tiles · Home Today’s Tasks fire-edge progress · per-person chips · daily streak on full completion | ☐ |
 | 2 | Create household | New household → Manage Members → Add new member shows invite code | ☐ |
 | 3 | QR invite | Device A: Manage Members → Add new member QR · Device B scans → code fills join | ☐ |
@@ -26,11 +32,11 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 6c | Tasks by person (admin) | As Sarah/David · Tasks All → My tasks + David/Liam/Emma sections with N of M complete | ☐ |
 | 6d | Shared tablet accounts | Settings → Members → Shared tablet shows Josh & Todd underneath · switch Josh/Todd (own XP) · Create task → Shared tablet → pick Josh → “Clean dishes - Josh” · Home “Shared tablet · Name ▾” / avatar opens persona popup | ☐ |
 | 6f | Persona switch + personal themes | Home avatar or Shared tablet chip → popup → switch Josh↔Todd · accent color + greeting type weight change · Settings Your look sets personal theme · admin Household default separate · persists after reload | ☐ |
-| 6g | Shared tablet kid Home/Tasks | As Josh: Home hides week leaderboard / groceries / health · only My tasks · personal XP chips · Rewards shortcut · Tasks shows only Josh’s chores · “Who’s on” opens Netflix-style profile picker | ☐ |
+| 6g | Shared tablet kid Home/Tasks | As Josh: Home hides week leaderboard / groceries · My progress (tasks/streak/trophy) · personal XP · Rewards shortcut · Tasks mine-only · “Who’s on” profile picker | ☐ |
 | 6l | Admin remove + create shared device | Settings → Manage Members → Create shared device · link people · Remove member / Remove device · profile codes shown (CMX-JOSH) | ☐ |
 | 6m | Kid multi-profile device | Welcome or Settings → Set up profiles · enter/scan CMX-JOSH + CMX-TODD · Continue → Who’s logging in? · pick Josh → kid Home · sign out/in asks again | ☐ |
 | 6h | Ranks shared tablet people | Ranks shows Josh & Todd as separate rows with their own XP · Shared tablet chip next to each name · tablet shell itself is not a ranked person | ☐ |
-| 6e | Split multi-assign | Create task → select Emma + Liam → Clean dishes · each attaches proof/completes for own XP · all-done bonus · admin Penalize on pending share | ☐ |
+| 6e | Split multi-assign | Create task → long-press Emma then tap Liam → split · each finishes for own XP · all-done bonus · admin Penalize on pending share | ☐ |
 | 7 | Task delete | Open task → Delete → removed from Tasks list | ☐ |
 | 8 | Groceries | Add missing → mark purchased · mark available item Low | ☐ |
 | 9 | Plan / Calendar | Plan tab → Calendar sub-nav → create event → day strip with real dates | ☐ |
@@ -47,11 +53,11 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 29b | Member avatars | Settings → Members → emoji picker · avatar persists on Health / Ranks / Home / Create Task | ☐ |
 | 29c | Rooms | Settings → Rooms add/remove · persists after reload · Create Task presets show room · Health cleaning strip | ☐ |
 | 29d | Grocery Missing Item | Groceries → + → expanded categories + qty + storage location + note · Save | ☐ |
-| 29e | Household Health | Home → Household Health sheet · Completion/Grocery Load/Plan Load · member load · cleaning by room | ☐ |
+| 29e | Household Health | Role metrics: Admin Completion/Fairness/Streak · Kid My tasks/Streak/Next trophy · Roommate Completion/Open chores/Grocery · no Grocery/Plan bars on admin card | ☐ |
 | 29f | Soft budget | Groceries progress · est. total includes checked items · leftover/over vs soft budget | ☐ |
 | 29h | Auth chrome | Sign-in shows one Back · no Stack double header · logo + Sign in title | ☐ |
 | 29i | Keyboard forms | Welcome account/profile/household · auth · add-grocery · settings · CTA stays above keyboard | ☐ |
-| 29j | Header chips gutter | Home avatar + Groceries + not covered by Settings/Notifications | ☐ |
+| 29j | Header chips gutter | Home/Tasks/Plan/Ranks/Nova/Groceries titles never under Settings/Notifications (gutter 148) | ☐ |
 | 29k | Photo / Memoji avatar | Settings → Members → Photo / Memoji · shows on Home | ☐ |
 | 29l | Household Games | Ranks → Household Games · coming-soon cards by vibe | ☐ |
 | 29m | Grocery product lookup | Groceries search milk · $/L · $/gal · Open in Maps · Add to list | ☐ |

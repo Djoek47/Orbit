@@ -1,9 +1,10 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -15,8 +16,16 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { XpWheel } from '@/components/orbit/xp-wheel';
-import { TASK_PRESETS, type TaskPreset } from '@/data/task-presets';
+import {
+  CHOREMAXX_TASK_LIBRARY,
+  DEFAULT_QUICK_PRESET_IDS,
+  filterLibraryTasks,
+  libraryDomains,
+  type ChoremaxxLibraryTask,
+  type LibraryAudience,
+} from '@/data/choremaxx-task-library';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
+import { loadQuickPresetIds, saveQuickPresetIds } from '@/lib/household/local-prefs';
 import {
   assignTargetMembers,
   isSharedDeviceMember,
@@ -29,7 +38,42 @@ import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask, TaskDifficulty } from '@/types/orbit';
 
 type TaskType = 'task' | 'homework';
-type ScreenMode = 'presets' | 'custom';
+type ScreenMode = 'presets' | 'custom' | 'library';
+
+export type TaskPreset = {
+  id: string;
+  title: string;
+  category: string;
+  baseXp: number;
+  difficulty: TaskDifficulty;
+  weight: number;
+  repeat: HouseholdTask['repeat'];
+  proofRequired: boolean;
+  description?: string;
+  roomKind?: 'kitchen' | 'living' | 'bathroom' | 'bedroom' | 'laundry' | 'outdoor' | 'custom';
+  domain?: string;
+  group?: string;
+  audience?: LibraryAudience;
+};
+
+function libraryToPreset(task: ChoremaxxLibraryTask): TaskPreset {
+  const difficulty: TaskDifficulty =
+    task.baseXp >= 20 ? 'hard' : task.baseXp >= 12 ? 'medium' : 'easy';
+  return {
+    id: task.id,
+    title: task.title,
+    category: task.domain,
+    baseXp: task.baseXp,
+    difficulty,
+    weight: weightForDifficulty(difficulty),
+    repeat: 'None',
+    proofRequired: task.proofDefault,
+    roomKind: task.roomKind,
+    domain: task.domain,
+    group: task.group,
+    audience: task.audience,
+  };
+}
 
 const PANEL_BG = '#0F1A30';
 
@@ -72,11 +116,15 @@ function memberGradient(color: string): [string, string] {
 function AssignEmojiGrid({
   members,
   selectedIds,
-  onToggle,
+  splitMode,
+  onSelect,
+  onLongPress,
 }: {
   members: HouseholdMember[];
   selectedIds: string[];
-  onToggle: (id: string) => void;
+  splitMode: boolean;
+  onSelect: (id: string) => void;
+  onLongPress: (id: string) => void;
 }) {
   return (
     <View style={styles.assignEmojiGrid}>
@@ -84,46 +132,86 @@ function AssignEmojiGrid({
         const accent = memberAccent(member);
         const selected = selectedIds.includes(member.id);
         const gradient = memberGradient(accent.color);
+        const isDevice = isSharedDeviceMember(member);
         return (
           <Pressable
             key={member.id}
             accessibilityLabel={
-              isSharedDeviceMember(member) ? `${member.name} shared device` : member.name
+              isDevice ? `${member.name} shared device` : member.name
             }
-            onPress={() => onToggle(member.id)}
-            style={styles.assignEmojiCell}>
-            <View
-              style={[
-                styles.memberOuter,
-                selected && {
-                  borderColor: accent.color,
-                  shadowColor: accent.color,
-                  shadowOpacity: 0.35,
-                  shadowRadius: 10,
-                  shadowOffset: { width: 0, height: 0 },
-                },
-              ]}>
-              {selected ? (
-                <LinearGradient colors={gradient} style={styles.memberInner}>
-                  <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
-                </LinearGradient>
-              ) : (
-                <View style={styles.memberInnerMuted}>
-                  <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+            onPress={() => onSelect(member.id)}
+            onLongPress={() => {
+              if (!isDevice) onLongPress(member.id);
+            }}
+            delayLongPress={280}
+            style={[styles.assignEmojiCell, isDevice && styles.assignDeviceCell]}>
+            {isDevice ? (
+              <View
+                style={[
+                  styles.deviceCard,
+                  selected && {
+                    borderColor: accent.color,
+                    backgroundColor: `${accent.color}18`,
+                  },
+                ]}>
+                <MaterialIcons
+                  name="tablet-mac"
+                  size={22}
+                  color={selected ? accent.color : '#7C9CC0'}
+                />
+                <Text style={[styles.deviceCardLabel, selected && { color: accent.color }]}>
+                  Shared device
+                </Text>
+                <Text style={styles.deviceCardName} numberOfLines={1}>
+                  {member.name}
+                </Text>
+                {selected ? (
+                  <View style={[styles.splitCheck, { backgroundColor: accent.color }]}>
+                    <MaterialIcons name="check" size={10} color="#04101F" />
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <>
+                <View
+                  style={[
+                    styles.memberOuter,
+                    selected && {
+                      borderColor: accent.color,
+                      shadowColor: accent.color,
+                      shadowOpacity: 0.35,
+                      shadowRadius: 10,
+                      shadowOffset: { width: 0, height: 0 },
+                    },
+                  ]}>
+                  {selected ? (
+                    <LinearGradient colors={gradient} style={styles.memberInner}>
+                      <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                    </LinearGradient>
+                  ) : (
+                    <View style={styles.memberInnerMuted}>
+                      <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                    </View>
+                  )}
+                  {selected ? (
+                    <View style={[styles.splitCheck, { backgroundColor: accent.color }]}>
+                      <MaterialIcons name="check" size={10} color="#04101F" />
+                    </View>
+                  ) : null}
                 </View>
-              )}
-              {selected ? (
-                <View style={[styles.splitCheck, { backgroundColor: accent.color }]}>
-                  <MaterialIcons name="check" size={10} color="#04101F" />
-                </View>
-              ) : null}
-            </View>
-            <Text style={[styles.assignEmojiName, selected && { color: accent.color }]} numberOfLines={1}>
-              {member.name}
-            </Text>
+                <Text
+                  style={[styles.assignEmojiName, selected && { color: accent.color }]}
+                  numberOfLines={1}>
+                  {member.name}
+                </Text>
+              </>
+            )}
           </Pressable>
         );
       })}
+      {splitMode ? (
+        <Text style={styles.splitModeHint}>Split mode · tap more people</Text>
+      ) : null}
     </View>
   );
 }
@@ -136,6 +224,8 @@ export default function CreateTaskScreen() {
   const activeMembers = useMemo(() => assignTargetMembers(household.members), [household.members]);
 
   const rooms = useMemo(() => household.rooms ?? [], [household.rooms]);
+  const libraryAudience: LibraryAudience =
+    household.householdType === 'roommates' ? 'roommate' : 'family';
 
   const [mode, setMode] = useState<ScreenMode>('presets');
   const [type, setType] = useState<TaskType>('task');
@@ -143,10 +233,12 @@ export default function CreateTaskScreen() {
   const [subject, setSubject] = useState<(typeof subjects)[number]['label']>('Math');
   const defaultAssigneeId =
     activeMembers.find((member) => !isSharedDeviceMember(member))?.id ?? activeMembers[0]?.id ?? '';
-  /** Selected assign targets — member ids. Tap again to multi-select (split). */
+  /** Selected assign targets — member ids. Tap = single; long-press = split. */
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultAssigneeId ? [defaultAssigneeId] : []);
+  const [splitMode, setSplitMode] = useState(false);
   /** When a shared device is selected, these person ids are who the task/split is for. */
   const [sharedPersonIds, setSharedPersonIds] = useState<string[]>([]);
+  const [sharedSplitMode, setSharedSplitMode] = useState(false);
   const [due, setDue] = useState<(typeof dueOptions)[number]>('Today');
   const [priority, setPriority] = useState(1);
   const [repeat, setRepeat] = useState<HouseholdTask['repeat']>('None');
@@ -157,14 +249,43 @@ export default function CreateTaskScreen() {
   const [baseXp, setBaseXp] = useState(10);
   const [category, setCategory] = useState('General');
   const [description, setDescription] = useState<string | undefined>();
+  const [quickIds, setQuickIds] = useState<string[]>([...DEFAULT_QUICK_PRESET_IDS]);
+  const [libraryQuery, setLibraryQuery] = useState('');
+  const [libraryDomain, setLibraryDomain] = useState<string | null>(null);
+  const [customizeQuickOpen, setCustomizeQuickOpen] = useState(false);
+
+  useEffect(() => {
+    void loadQuickPresetIds(household.id).then(setQuickIds);
+  }, [household.id]);
+
+  const quickPresets = useMemo(() => {
+    const byId = new Map(CHOREMAXX_TASK_LIBRARY.map((task) => [task.id, task]));
+    return quickIds
+      .map((id) => byId.get(id))
+      .filter((task): task is ChoremaxxLibraryTask => Boolean(task))
+      .filter((task) => task.audience === 'both' || task.audience === libraryAudience)
+      .map(libraryToPreset);
+  }, [quickIds, libraryAudience]);
 
   const filteredPresets = useMemo(() => {
-    if (presetRoomFilter === 'all') return TASK_PRESETS;
-    if (presetRoomFilter === 'none') return TASK_PRESETS.filter((preset) => !preset.roomKind);
+    if (presetRoomFilter === 'all') return quickPresets;
+    if (presetRoomFilter === 'none') return quickPresets.filter((preset) => !preset.roomKind);
     const kind = rooms.find((room) => room.id === presetRoomFilter)?.kind;
-    if (!kind) return TASK_PRESETS;
-    return TASK_PRESETS.filter((preset) => preset.roomKind === kind);
-  }, [presetRoomFilter, rooms]);
+    if (!kind) return quickPresets;
+    return quickPresets.filter((preset) => preset.roomKind === kind);
+  }, [presetRoomFilter, rooms, quickPresets]);
+
+  const libraryResults = useMemo(
+    () =>
+      filterLibraryTasks({
+        audience: libraryAudience,
+        domain: libraryDomain,
+        query: libraryQuery,
+      }).map(libraryToPreset),
+    [libraryAudience, libraryDomain, libraryQuery],
+  );
+
+  const domains = useMemo(() => libraryDomains(libraryAudience), [libraryAudience]);
 
   const selectedMembers = useMemo(
     () => activeMembers.filter((member) => selectedIds.includes(member.id)),
@@ -220,45 +341,94 @@ export default function CreateTaskScreen() {
     resolvedAssigneeNames.length > 0 &&
     (!needsSharedPerson || sharedSelectedPeople.length > 0);
 
-  function toggleAssignee(memberId: string) {
+  function selectAssignee(memberId: string) {
     const nextMember = activeMembers.find((member) => member.id === memberId);
     if (!nextMember) return;
 
     if (isSharedDeviceMember(nextMember)) {
-      // Shared device is exclusive — selecting it clears other people.
+      setSplitMode(false);
       setSelectedIds([memberId]);
       const people = resolveSharedDevicePeople(nextMember, household.members);
       setSharedPersonIds(people[0] ? [people[0].id] : []);
+      setSharedSplitMode(false);
       return;
     }
 
+    if (splitMode) {
+      setSelectedIds((current) => {
+        const withoutDevices = current.filter((id) => {
+          const member = activeMembers.find((item) => item.id === id);
+          return member && !isSharedDeviceMember(member);
+        });
+        if (withoutDevices.includes(memberId)) {
+          const next = withoutDevices.filter((id) => id !== memberId);
+          if (next.length <= 1) setSplitMode(false);
+          return next.length ? next : [memberId];
+        }
+        return [...withoutDevices, memberId];
+      });
+      setSharedPersonIds([]);
+      return;
+    }
+
+    // Tap = single select (replace)
+    setSelectedIds([memberId]);
+    setSharedPersonIds([]);
+    setSplitMode(false);
+  }
+
+  function longPressAssignee(memberId: string) {
+    const nextMember = activeMembers.find((member) => member.id === memberId);
+    if (!nextMember || isSharedDeviceMember(nextMember)) return;
+    setSplitMode(true);
     setSelectedIds((current) => {
       const withoutDevices = current.filter((id) => {
         const member = activeMembers.find((item) => item.id === id);
         return member && !isSharedDeviceMember(member);
       });
-      if (withoutDevices.includes(memberId)) {
-        const next = withoutDevices.filter((id) => id !== memberId);
-        return next.length ? next : [memberId];
-      }
+      if (withoutDevices.includes(memberId)) return withoutDevices;
       return [...withoutDevices, memberId];
     });
     setSharedPersonIds([]);
   }
 
-  function toggleSharedPerson(personId: string) {
-    setSharedPersonIds((current) => {
-      if (current.includes(personId)) {
-        const next = current.filter((id) => id !== personId);
-        return next.length ? next : [personId];
-      }
-      return [...current, personId];
-    });
+  function selectSharedPerson(personId: string) {
+    if (sharedSplitMode) {
+      setSharedPersonIds((current) => {
+        if (current.includes(personId)) {
+          const next = current.filter((id) => id !== personId);
+          if (next.length <= 1) setSharedSplitMode(false);
+          return next.length ? next : [personId];
+        }
+        return [...current, personId];
+      });
+      return;
+    }
+    setSharedPersonIds([personId]);
+  }
+
+  function longPressSharedPerson(personId: string) {
+    setSharedSplitMode(true);
+    setSharedPersonIds((current) =>
+      current.includes(personId) ? current : [...current, personId],
+    );
   }
 
   function roomIdForKind(kind?: TaskPreset['roomKind']) {
     if (!kind) return undefined;
     return rooms.find((room) => room.kind === kind)?.id;
+  }
+
+  async function persistQuickIds(next: string[]) {
+    setQuickIds(next);
+    await saveQuickPresetIds(household.id, next);
+  }
+
+  function toggleQuickId(id: string) {
+    const next = quickIds.includes(id)
+      ? quickIds.filter((item) => item !== id)
+      : [...quickIds, id];
+    void persistQuickIds(next.length ? next : [...DEFAULT_QUICK_PRESET_IDS]);
   }
 
   function buildTaskPayload(base: {
@@ -408,11 +578,13 @@ export default function CreateTaskScreen() {
           <Text style={styles.presetHint}>Tap once to create · long-press to customize</Text>
           {permissions.canAssignTask ? (
             <View style={styles.presetAssignBlock}>
-              <Text style={styles.label}>ASSIGN TO · tap 2+ emojis to split</Text>
+              <Text style={styles.label}>ASSIGN TO · hold to split</Text>
               <AssignEmojiGrid
                 members={activeMembers}
                 selectedIds={selectedIds}
-                onToggle={toggleAssignee}
+                splitMode={splitMode}
+                onSelect={selectAssignee}
+                onLongPress={longPressAssignee}
               />
               {isSplitAssign ? (
                 <Text style={styles.sharedPickHint}>
@@ -422,9 +594,9 @@ export default function CreateTaskScreen() {
               ) : null}
               {needsSharedPerson ? (
                 <View style={styles.sharedPickBlock}>
-                  <Text style={styles.label}>WHO IS THIS FOR? · tap multiple to split</Text>
+                  <Text style={styles.label}>WHO ON THIS DEVICE? · hold to split</Text>
                   <Text style={styles.sharedPickHint}>
-                    Shared device — pick one or more people. One person → “Task - Name”. Multiple → split shares.
+                    People on this shared tablet. Tap one · hold another to split.
                   </Text>
                   {sharedPeople.length === 0 ? (
                     <Text style={styles.sharedPickHint}>
@@ -438,7 +610,9 @@ export default function CreateTaskScreen() {
                         return (
                           <Pressable
                             key={person.id}
-                            onPress={() => toggleSharedPerson(person.id)}
+                            onPress={() => selectSharedPerson(person.id)}
+                            onLongPress={() => longPressSharedPerson(person.id)}
+                            delayLongPress={280}
                             style={[
                               styles.subjectChip,
                               active && {
@@ -530,6 +704,17 @@ export default function CreateTaskScreen() {
             <Text style={styles.presetHint}>No presets for this room filter.</Text>
           ) : null}
 
+          <Pressable onPress={() => setMode('library')} style={styles.customEntry}>
+            <MaterialIcons name="menu-book" size={16} color={accentTheme.primary} />
+            <Text style={[styles.customEntryText, { color: accentTheme.primary }]}>
+              Browse library ({CHOREMAXX_TASK_LIBRARY.length})
+            </Text>
+          </Pressable>
+          <Pressable onPress={() => setCustomizeQuickOpen(true)} style={styles.customEntry}>
+            <MaterialIcons name="tune" size={16} color="#7C9CC0" />
+            <Text style={[styles.customEntryText, { color: '#7C9CC0' }]}>Customize quick set</Text>
+          </Pressable>
+
           <Pressable
             onPress={() => {
               setMode('custom');
@@ -545,6 +730,129 @@ export default function CreateTaskScreen() {
             <MaterialIcons name="edit" size={16} color={accentTheme.primary} />
             <Text style={[styles.customEntryText, { color: accentTheme.primary }]}>Custom task</Text>
           </Pressable>
+        </ScrollView>
+
+        <Modal visible={customizeQuickOpen} animationType="slide" transparent onRequestClose={() => setCustomizeQuickOpen(false)}>
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
+              <Text style={styles.headerTitle}>Quick presets</Text>
+              <Text style={styles.presetHint}>Toggle which library tasks appear in Quick presets</Text>
+              <ScrollView style={{ maxHeight: 420 }}>
+                {filterLibraryTasks({ audience: libraryAudience }).map((task) => {
+                  const on = quickIds.includes(task.id);
+                  return (
+                    <Pressable
+                      key={task.id}
+                      onPress={() => toggleQuickId(task.id)}
+                      style={styles.libraryRow}>
+                      <MaterialIcons
+                        name={on ? 'check-box' : 'check-box-outline-blank'}
+                        size={18}
+                        color={on ? accentTheme.primary : '#4B6080'}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.libraryTitle}>{task.title}</Text>
+                        <Text style={styles.libraryMeta}>
+                          {task.domain} · {task.baseXp} XP
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <Pressable
+                onPress={() => setCustomizeQuickOpen(false)}
+                style={[styles.doneBtn, { backgroundColor: accentTheme.primary }]}>
+                <Text style={styles.doneBtnText}>Done</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    );
+  }
+
+  if (mode === 'library') {
+    return (
+      <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.handleWrap, { paddingTop: insets.top + 8 }]}>
+          <View style={styles.handle} />
+        </View>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <Pressable onPress={() => setMode('presets')} style={styles.backChip}>
+              <MaterialIcons name="chevron-left" size={18} color="#7C9CC0" />
+              <Text style={styles.backChipText}>Quick</Text>
+            </Pressable>
+            <Text style={styles.headerTitle}>Task library</Text>
+            <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
+              <MaterialIcons color="#7C9CC0" name="close" size={16} />
+            </Pressable>
+          </View>
+          <TextInput
+            value={libraryQuery}
+            onChangeText={setLibraryQuery}
+            placeholder="Search chores…"
+            placeholderTextColor="#4B6080"
+            style={styles.searchInput}
+          />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetFilterRow}>
+            <Pressable
+              onPress={() => setLibraryDomain(null)}
+              style={[
+                styles.presetFilterChip,
+                !libraryDomain && {
+                  backgroundColor: `${accentTheme.primary}22`,
+                  borderColor: `${accentTheme.primary}44`,
+                },
+              ]}>
+              <Text style={[styles.presetFilterText, !libraryDomain && { color: accentTheme.primary }]}>
+                All
+              </Text>
+            </Pressable>
+            {domains.map((domain) => {
+              const active = libraryDomain === domain;
+              return (
+                <Pressable
+                  key={domain}
+                  onPress={() => setLibraryDomain(domain)}
+                  style={[
+                    styles.presetFilterChip,
+                    active && {
+                      backgroundColor: `${accentTheme.primary}22`,
+                      borderColor: `${accentTheme.primary}44`,
+                    },
+                  ]}>
+                  <Text style={[styles.presetFilterText, active && { color: accentTheme.primary }]}>
+                    {domain}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          <View style={styles.presetGrid}>
+            {libraryResults.map((preset) => {
+              const xp = computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+              return (
+                <Pressable
+                  key={preset.id}
+                  onPress={() => applyPreset(preset, true)}
+                  onLongPress={() => applyPreset(preset, false)}
+                  style={styles.presetCard}>
+                  <View style={styles.presetTop}>
+                    <Text style={styles.presetTitle}>{preset.title}</Text>
+                    <View style={[styles.xpBadge, { backgroundColor: `${accentTheme.primary}22` }]}>
+                      <Text style={[styles.xpBadgeText, { color: accentTheme.primary }]}>+{xp}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.roomChip}>
+                    {preset.group ?? preset.category} · hold to customize
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </ScrollView>
       </View>
     );
@@ -754,11 +1062,13 @@ export default function CreateTaskScreen() {
 
         {permissions.canAssignTask ? (
           <View style={styles.field}>
-            <Text style={styles.label}>ASSIGN TO · tap 2+ emojis to split</Text>
+            <Text style={styles.label}>ASSIGN TO · hold to split</Text>
             <AssignEmojiGrid
               members={activeMembers}
               selectedIds={selectedIds}
-              onToggle={toggleAssignee}
+              splitMode={splitMode}
+              onSelect={selectAssignee}
+              onLongPress={longPressAssignee}
             />
           </View>
         ) : null}
@@ -794,9 +1104,9 @@ export default function CreateTaskScreen() {
 
         {needsSharedPerson ? (
           <View style={styles.sharedPickBlock}>
-            <Text style={styles.label}>WHO ON THIS DEVICE? · tap name(s)</Text>
+            <Text style={styles.label}>WHO ON THIS DEVICE? · hold to split</Text>
             <Text style={styles.sharedPickHint}>
-              Accounts on this Shared tablet. One → “Clean dishes - Josh”. Two+ → split shares.
+              People on this shared tablet. Tap one · hold another to split.
             </Text>
             {sharedPeople.length === 0 ? (
               <Text style={styles.sharedPickHint}>
@@ -810,7 +1120,9 @@ export default function CreateTaskScreen() {
                   return (
                     <Pressable
                       key={person.id}
-                      onPress={() => toggleSharedPerson(person.id)}
+                      onPress={() => selectSharedPerson(person.id)}
+                      onLongPress={() => longPressSharedPerson(person.id)}
+                      delayLongPress={280}
                       style={[
                         styles.subjectChip,
                         active && {
@@ -1344,5 +1656,93 @@ const styles = StyleSheet.create({
     color: '#38BDF8',
     fontSize: 14,
     fontWeight: '600',
+  },
+  assignDeviceCell: {
+    minWidth: 96,
+  },
+  deviceCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    gap: 4,
+    minWidth: 92,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    position: 'relative',
+  },
+  deviceCardLabel: {
+    color: '#7C9CC0',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  deviceCardName: {
+    color: '#C8D8F0',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  splitModeHint: {
+    color: '#FB923C',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+    width: '100%',
+  },
+  modalBackdrop: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: PANEL_BG,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    gap: 10,
+    maxHeight: '85%',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  libraryRow: {
+    alignItems: 'center',
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    paddingVertical: 12,
+  },
+  libraryTitle: {
+    color: '#EEF2FF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  libraryMeta: {
+    color: '#7C9CC0',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  searchInput: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 14,
+    borderWidth: 1,
+    color: '#EEF2FF',
+    fontSize: 15,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  doneBtn: {
+    alignItems: 'center',
+    borderRadius: 16,
+    marginTop: 8,
+    paddingVertical: 14,
+  },
+  doneBtnText: {
+    color: '#04101F',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

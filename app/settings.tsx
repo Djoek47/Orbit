@@ -41,6 +41,7 @@ import {
 } from '@/lib/household/shared-device';
 import { ensureProfileInviteCode } from '@/lib/household/profile-codes';
 import { formatHouseholdRole } from '@/lib/permissions';
+import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import type { AppearanceMode, PreferredMapsApp } from '@/lib/theme/appearance-prefs';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
 import { useOrbit } from '@/store/orbit-store';
@@ -172,6 +173,7 @@ export default function SettingsScreen() {
     updateHouseholdAccentTheme,
     updateMemberAvatar,
     updateNotificationPrefs,
+    updateMemberCapabilities,
     updatePreferredMapsApp,
     updateSharedDeviceLinks,
     upsertRoom,
@@ -502,6 +504,37 @@ export default function SettingsScreen() {
               subtitle={`${rooms.length} rooms for cleaning attribution`}
               onPress={() => setSection('rooms')}
             />
+            {permissions.canManageHousehold ? (
+              <SectionCard title="Member permissions">
+                <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 8 }]}>
+                  What kids and non-admin members can do
+                </Text>
+                {(
+                  [
+                    ['allowRewardRedeem', 'Allow redeem XP rewards', 'Members can spend XP in the shop'],
+                    ['allowSpecialRewardRequest', 'Allow special reward requests', 'Kids/adults can ask for one-offs'],
+                    ['allowGroceryAdd', 'Allow grocery list adds', 'Non-admins can add items'],
+                    ['allowCalendarCreate', 'Allow calendar event creates', 'Simplified create when enabled'],
+                  ] as const
+                ).map(([key, label, sub]) => {
+                  const caps = resolveMemberCapabilities(household);
+                  return (
+                    <View key={key} style={styles.prefRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.memberName}>{label}</Text>
+                        <Text style={styles.caption}>{sub}</Text>
+                      </View>
+                      <Switch
+                        value={caps[key]}
+                        onValueChange={(value) => updateMemberCapabilities({ [key]: value })}
+                        trackColor={{ false: 'rgba(255,255,255,0.1)', true: accentTheme.primary }}
+                        thumbColor="#fff"
+                      />
+                    </View>
+                  );
+                })}
+              </SectionCard>
+            ) : null}
             <SettingsRow
               icon="notifications-none"
               iconColor="#A78BFA"
