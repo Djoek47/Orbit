@@ -17,10 +17,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
+import { StatusPill } from '@/components/orbit/status-pill';
 import { XpWheel } from '@/components/orbit/xp-wheel';
 import {
   orbitColors,
   orbitRadius,
+  orbitScreen,
+  orbitSpacing,
+  orbitTypography,
 } from '@/constants/orbit-theme';
 import {
   CHOREMAXX_TASK_LIBRARY,
@@ -104,8 +108,6 @@ function assignablePeople(members: HouseholdMember[]): HouseholdMember[] {
 function isChildMember(member: HouseholdMember): boolean {
   return member.role === 'child';
 }
-
-const PANEL_BG = '#0F1A30';
 
 const subjects = [
   { label: 'Math', emoji: '🔢', color: '#38BDF8' },
@@ -717,36 +719,52 @@ export default function CreateTaskScreen() {
         : catalogChip === 'all'
           ? 'Full library'
           : activeMeta?.label ?? 'Library';
+    const pageSummary =
+      catalogChip === 'presets'
+        ? 'Your household favorites — tap Add to create now.'
+        : `${catalogTasks.length} chores · tap Add, or Customize to edit first.`;
 
     return (
-      <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
+      <View style={[orbitScreen.container, { paddingBottom: insets.bottom }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.handleWrap, { paddingTop: insets.top + 8 }]}>
           <View style={styles.handle} />
         </View>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.tripHeader}>
-            <View style={styles.tripHeaderCopy}>
-              <Text style={styles.tripCaption}>Create task</Text>
-              <Text style={styles.tripTitle}>
-                {activeMeta?.emoji ? `${activeMeta.emoji}  ` : ''}
-                {pageTitle}
-              </Text>
-              <Text style={styles.tripSummary}>Tap to create · hold to customize</Text>
+        <ScrollView
+          style={orbitScreen.container}
+          contentContainerStyle={styles.tripContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
+          <View style={orbitScreen.header}>
+            <View style={styles.tripNavRow}>
+              <Pressable onPress={() => router.back()} style={styles.backPill} hitSlop={8}>
+                <MaterialIcons name="chevron-left" size={20} color={orbitColors.text} />
+                <Text style={styles.backPillText}>Close</Text>
+              </Pressable>
             </View>
-            <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
-              <MaterialIcons color={orbitColors.textSubtle} name="close" size={18} />
-            </Pressable>
+            <Text style={orbitTypography.caption}>Create task</Text>
+            <Text style={orbitTypography.display}>{pageTitle}</Text>
+            <Text style={styles.summary}>{pageSummary}</Text>
+            <View style={styles.pillRow}>
+              <StatusPill
+                label={catalogChip === 'presets' ? 'presets' : catalogChip === 'all' ? 'library' : 'category'}
+                tone="cyan"
+              />
+              {catalogChip === 'Hygiene' ? <StatusPill label="kids only" tone="green" /> : null}
+              {resolvedAssigneeName ? (
+                <StatusPill label={resolvedAssigneeName} tone="blue" />
+              ) : null}
+            </View>
           </View>
 
           {permissions.canAssignTask ? (
-            <GlassCard style={styles.assignCard}>
-              <Text style={styles.novaLabel}>ASSIGN TO</Text>
-              <Text style={styles.cardBody}>
-                Hold a profile to split the chore — each person finishes their share.
+            <GlassCard style={styles.heroCard}>
+              <Text style={styles.novaLabel}>WHO&apos;S DOING IT</Text>
+              <Text style={orbitTypography.body}>
+                Pick one person, or hold a second profile to split the chore.
               </Text>
               <AssignEmojiGrid
-                members={activeMembers}
+                members={assigneeChoices}
                 selectedIds={selectedIds}
                 splitMode={splitMode}
                 sharedDeviceIds={sharedDeviceMemberIds}
@@ -754,166 +772,167 @@ export default function CreateTaskScreen() {
                 onLongPress={longPressAssignee}
               />
               {isSplitAssign ? (
-                <Text style={styles.cardMeta}>
-                  Split · {resolvedAssigneeName} — XP when each finishes · all-done bonus
+                <Text style={orbitTypography.caption}>
+                  Split · {resolvedAssigneeName} — each earns XP when they finish.
                 </Text>
               ) : null}
             </GlassCard>
           ) : null}
 
-          <GlassCard style={styles.searchCard}>
-            <View style={styles.searchInner}>
+          <GlassCard style={styles.heroCard}>
+            <Text style={styles.novaLabel}>BROWSE</Text>
+            <Text style={orbitTypography.body}>
+              Presets, the full library, or a room category from the Choremaxx catalog.
+            </Text>
+            <View style={styles.searchFieldWrap}>
               <MaterialIcons name="search" size={18} color={orbitColors.textSubtle} />
               <TextInput
                 value={presetQuery}
                 onChangeText={setPresetQuery}
-                placeholder={catalogChip === 'presets' ? 'Search presets…' : 'Search library…'}
+                placeholder="Search chores…"
                 placeholderTextColor={orbitColors.textFaint}
                 style={styles.searchField}
                 autoCorrect={false}
                 clearButtonMode="while-editing"
               />
             </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.pillRow}>
+              {(
+                [
+                  { id: 'presets' as const },
+                  { id: 'all' as const },
+                  ...domains.map((domain) => ({ id: domain })),
+                ] as { id: string }[]
+              ).map((chip) => {
+                const meta = CATALOG_CHIP_META[chip.id] ?? { emoji: '•', label: chip.id };
+                const active = catalogChip === chip.id;
+                return (
+                  <Pressable
+                    key={chip.id}
+                    onPress={() => setCatalogChip(chip.id)}
+                    style={[
+                      styles.filterPill,
+                      active && {
+                        borderColor: `${accentTheme.primary}88`,
+                        backgroundColor: `${accentTheme.primary}22`,
+                      },
+                    ]}>
+                    <Text style={styles.filterPillEmoji}>{meta.emoji}</Text>
+                    <Text
+                      style={[
+                        styles.filterPillLabel,
+                        active && { color: accentTheme.primary },
+                      ]}>
+                      {meta.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <View style={styles.actionRow}>
+              {catalogChip === 'presets' ? (
+                <OrbitButton tone="secondary" style={styles.flexBtn} onPress={() => setCustomizeQuickOpen(true)}>
+                  Customize quick set
+                </OrbitButton>
+              ) : null}
+              <OrbitButton
+                style={styles.flexBtn}
+                onPress={() => {
+                  setMode('custom');
+                  setTitle('');
+                  setCategory('General');
+                  setRepeat('None');
+                  setDifficulty('medium');
+                  setProofRequired(false);
+                  setBaseXp(10);
+                  setTracking('xp');
+                  setRoomId(undefined);
+                }}>
+                Custom task
+              </OrbitButton>
+            </View>
           </GlassCard>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.catalogChipRow}>
-            {(
-              [
-                { id: 'presets' as const },
-                { id: 'all' as const },
-                ...domains.map((domain) => ({ id: domain })),
-              ] as { id: string }[]
-            ).map((chip) => {
-              const meta = CATALOG_CHIP_META[chip.id] ?? { emoji: '•', label: chip.id };
-              const active = catalogChip === chip.id;
-              const tone = active ? accentTheme.primary : orbitColors.novaCyan;
-              return (
-                <Pressable
-                  key={chip.id}
-                  onPress={() => setCatalogChip(chip.id)}
-                  style={[
-                    styles.catalogPill,
-                    {
-                      borderColor: active ? `${tone}88` : `${orbitColors.novaCyan}44`,
-                      backgroundColor: active ? `${tone}22` : `${orbitColors.novaCyan}12`,
-                    },
-                  ]}>
-                  <Text style={styles.catalogPillEmoji}>{meta.emoji}</Text>
-                  <Text style={[styles.catalogPillLabel, { color: active ? tone : orbitColors.novaCyan }]}>
-                    {meta.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          <View style={styles.catalogBody}>
-            {catalogSections.map((section) => (
-              <View key={section.key} style={styles.catalogSection}>
-                {catalogChip !== 'presets' ? (
-                  <View style={styles.catalogSectionHead}>
-                    <Text style={styles.tripCaption}>{section.title}</Text>
-                    <Text style={styles.catalogSectionCount}>{section.items.length}</Text>
-                  </View>
-                ) : null}
-                <View style={styles.presetGrid}>
-                  {section.items.map((preset) => {
-                    const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
-                    const xp = hygiene
-                      ? 0
-                      : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
-                    const domainEmoji =
-                      CATALOG_CHIP_META[preset.category ?? '']?.emoji ??
-                      CATALOG_CHIP_META[preset.domain ?? '']?.emoji;
-                    return (
+          {catalogSections.map((section) => (
+            <View key={section.key} style={styles.sectionBlock}>
+              {catalogChip !== 'presets' ? (
+                <Text style={styles.sectionLabel}>
+                  {section.title}
+                  <Text style={styles.sectionCount}> · {section.items.length}</Text>
+                </Text>
+              ) : null}
+              {section.items.map((preset) => {
+                const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
+                const xp = hygiene
+                  ? 0
+                  : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+                const domainEmoji =
+                  CATALOG_CHIP_META[preset.category ?? '']?.emoji ??
+                  CATALOG_CHIP_META[preset.domain ?? '']?.emoji ??
+                  '✓';
+                const metaLine = [
+                  preset.group ?? preset.category,
+                  preset.repeat !== 'None' ? preset.repeat : null,
+                  preset.proofRequired ? 'Proof' : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+                return (
+                  <GlassCard key={preset.id} style={styles.stopCard}>
+                    <View style={styles.stopRow}>
+                      <View style={styles.dot}>
+                        <Text style={styles.dotEmoji}>{domainEmoji}</Text>
+                      </View>
+                      <View style={styles.stopBody}>
+                        <Text style={orbitTypography.cardTitle}>{preset.title}</Text>
+                        <Text style={orbitTypography.caption}>{metaLine}</Text>
+                        <View style={styles.pillRow}>
+                          <StatusPill
+                            label={hygiene ? 'streak' : `+${xp} xp`}
+                            tone={hygiene ? 'green' : 'cyan'}
+                          />
+                          {preset.repeat !== 'None' ? (
+                            <StatusPill label={preset.repeat.toLowerCase()} tone="blue" />
+                          ) : null}
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.actions}>
                       <Pressable
-                        key={preset.id}
-                        onPress={() => applyPreset(preset, true)}
-                        onLongPress={() => applyPreset(preset, false)}>
-                        <GlassCard style={styles.taskCard}>
-                          <View style={styles.taskCardTop}>
-                            <View style={styles.taskCardTitleRow}>
-                              {domainEmoji ? (
-                                <Text style={styles.presetDomainEmoji}>{domainEmoji}</Text>
-                              ) : null}
-                              <Text style={styles.taskCardTitle} numberOfLines={2}>
-                                {preset.title}
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.metaPill,
-                                {
-                                  borderColor: hygiene
-                                    ? `${orbitColors.success}66`
-                                    : `${accentTheme.primary}66`,
-                                  backgroundColor: hygiene
-                                    ? `${orbitColors.success}1F`
-                                    : `${accentTheme.primary}1F`,
-                                },
-                              ]}>
-                              <Text
-                                style={[
-                                  styles.metaPillText,
-                                  { color: hygiene ? orbitColors.success : accentTheme.primary },
-                                ]}>
-                                {hygiene ? 'streak' : `+${xp} xp`}
-                              </Text>
-                            </View>
-                          </View>
-                          <Text style={styles.cardMeta} numberOfLines={1}>
-                            {[preset.group ?? preset.category, preset.repeat !== 'None' ? preset.repeat : null]
-                              .filter(Boolean)
-                              .join(' · ')}
-                            {preset.proofRequired ? ' · proof' : ''}
-                          </Text>
-                        </GlassCard>
+                        onPress={() => applyPreset(preset, false)}
+                        style={styles.iconBtn}
+                        accessibilityLabel="Customize before creating">
+                        <MaterialIcons name="tune" size={20} color={orbitColors.textMuted} />
                       </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
-            {catalogTasks.length === 0 ? (
-              <GlassCard>
-                <Text style={styles.cardBody}>Nothing matches — try another category.</Text>
-              </GlassCard>
-            ) : null}
-          </View>
+                      <OrbitButton style={styles.flexBtn} onPress={() => applyPreset(preset, true)}>
+                        Add task
+                      </OrbitButton>
+                    </View>
+                  </GlassCard>
+                );
+              })}
+            </View>
+          ))}
 
-          <View style={styles.footerActions}>
-            {catalogChip === 'presets' ? (
-              <OrbitButton tone="secondary" onPress={() => setCustomizeQuickOpen(true)}>
-                Customize quick set
-              </OrbitButton>
-            ) : null}
-            <OrbitButton
-              onPress={() => {
-                setMode('custom');
-                setTitle('');
-                setCategory('General');
-                setRepeat('None');
-                setDifficulty('medium');
-                setProofRequired(false);
-                setBaseXp(10);
-                setTracking('xp');
-                setRoomId(undefined);
-              }}>
-              Custom task
-            </OrbitButton>
-          </View>
+          {catalogTasks.length === 0 ? (
+            <GlassCard>
+              <Text style={orbitTypography.body}>Nothing matches — try another category.</Text>
+            </GlassCard>
+          ) : null}
         </ScrollView>
 
-        <Modal visible={customizeQuickOpen} animationType="slide" transparent onRequestClose={() => setCustomizeQuickOpen(false)}>
+        <Modal
+          visible={customizeQuickOpen}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setCustomizeQuickOpen(false)}>
           <View style={styles.modalBackdrop}>
             <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
-              <Text style={styles.tripTitle}>Quick presets</Text>
-              <Text style={styles.tripSummary}>
-                Toggle chores · adjust XP and frequency for your quick set
-              </Text>
+              <Text style={orbitTypography.display}>Quick presets</Text>
+              <Text style={styles.summary}>Toggle chores · adjust XP and frequency</Text>
               <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
                 {filterLibraryTasks({
                   audience: libraryAudience,
@@ -1015,7 +1034,7 @@ export default function CreateTaskScreen() {
         <View style={[styles.handleWrap, { paddingTop: insets.top + 8 }]}>
           <View style={styles.handle} />
         </View>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.tripContent} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <Pressable onPress={() => setMode('presets')} style={styles.backChip}>
               <MaterialIcons name="chevron-left" size={18} color="#7C9CC0" />
@@ -1122,7 +1141,7 @@ export default function CreateTaskScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.tripContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
@@ -1463,50 +1482,45 @@ const styles = StyleSheet.create({
     height: 4,
     width: 40,
   },
-  scrollContent: {
-    gap: 14,
+  tripContent: {
+    gap: orbitSpacing.md,
     paddingBottom: 40,
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 4,
   },
-  tripHeader: {
-    alignItems: 'flex-start',
+  tripNavRow: {
+    alignItems: 'center',
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  tripHeaderCopy: {
-    flex: 1,
-    gap: 4,
+  backPill: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: orbitColors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 2,
+    paddingLeft: 4,
+    paddingRight: 12,
+    paddingVertical: 6,
   },
-  tripCaption: {
-    color: orbitColors.textSubtle,
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
-  tripTitle: {
+  backPillText: {
     color: orbitColors.text,
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    lineHeight: 32,
+    fontSize: 15,
+    fontWeight: '600',
   },
-  tripSummary: {
+  summary: {
     color: orbitColors.textMuted,
     fontSize: 14,
     lineHeight: 20,
-    marginTop: 2,
   },
-  assignCard: {
-    gap: 10,
-  },
-  searchCard: {
-    paddingVertical: 10,
-  },
-  searchInner: {
-    alignItems: 'center',
+  pillRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  heroCard: {
     gap: 10,
   },
   novaLabel: {
@@ -1515,22 +1529,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.6,
   },
-  cardBody: {
-    color: orbitColors.textSoft,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  cardMeta: {
-    color: orbitColors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  catalogChipRow: {
-    gap: 8,
-    paddingRight: 4,
-  },
-  catalogPill: {
+  searchFieldWrap: {
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: orbitColors.border,
+    borderRadius: orbitRadius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchField: {
+    color: orbitColors.text,
+    flex: 1,
+    fontSize: 15,
+    padding: 0,
+  },
+  filterPill: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(6,182,212,0.10)',
+    borderColor: 'rgba(6,182,212,0.35)',
     borderRadius: orbitRadius.sm,
     borderWidth: 1,
     flexDirection: 'row',
@@ -1538,69 +1557,78 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  catalogPillEmoji: {
+  filterPillEmoji: {
     fontSize: 13,
     lineHeight: 16,
   },
-  catalogPillLabel: {
+  filterPillLabel: {
+    color: orbitColors.novaCyan,
     fontSize: 12,
     fontWeight: '700',
   },
-  catalogBody: {
-    gap: 18,
-  },
-  catalogSection: {
-    gap: 10,
-  },
-  catalogSectionHead: {
-    alignItems: 'center',
+  actionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: orbitSpacing.sm,
+  },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: orbitSpacing.sm,
+    marginTop: 4,
+  },
+  flexBtn: {
+    flexGrow: 1,
+    minWidth: 120,
+  },
+  iconBtn: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: orbitRadius.sm,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  sectionBlock: {
+    gap: 12,
+  },
+  sectionLabel: {
+    color: orbitColors.textSubtle,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
     paddingHorizontal: 2,
   },
-  catalogSectionCount: {
+  sectionCount: {
     color: orbitColors.textFaint,
-    fontSize: 12,
     fontWeight: '600',
   },
-  taskCard: {
-    gap: 8,
+  stopCard: {
+    gap: orbitSpacing.sm,
   },
-  taskCardTop: {
-    alignItems: 'flex-start',
+  stopRow: {
     flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'space-between',
+    gap: orbitSpacing.md,
   },
-  taskCardTitleRow: {
-    alignItems: 'flex-start',
+  stopBody: {
     flex: 1,
-    flexDirection: 'row',
-    gap: 8,
-    minWidth: 0,
+    gap: 6,
   },
-  taskCardTitle: {
-    color: orbitColors.text,
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-    lineHeight: 22,
+  dot: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: orbitColors.border,
+    borderRadius: 14,
+    borderWidth: 2,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
   },
-  metaPill: {
-    borderRadius: orbitRadius.sm,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  dotEmoji: {
+    fontSize: 15,
+    lineHeight: 18,
   },
-  metaPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  footerActions: {
-    gap: 10,
-    marginTop: 8,
-  },
+
   header: {
     alignItems: 'flex-start',
     flexDirection: 'row',
@@ -2213,12 +2241,6 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     paddingHorizontal: 14,
     paddingVertical: 12,
-  },
-  searchField: {
-    color: '#EEF2FF',
-    flex: 1,
-    fontSize: 15,
-    padding: 0,
   },
   sharedDeviceBadge: {
     alignItems: 'center',
