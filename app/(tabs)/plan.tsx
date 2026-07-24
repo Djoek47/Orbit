@@ -45,7 +45,7 @@ function locationShort(location: string): string | null {
 }
 
 export default function PlanScreen() {
-  const chromePad = useTabChromePaddingTop(8);
+  const chromePad = useTabChromePaddingTop(6);
   const { household, suggestNovaItinerary, currentMember, permissions, accentTheme } = useOrbit();
   const [buildingTrip, setBuildingTrip] = useState(false);
   const [subTab, setSubTab] = useState<PlanSubTab>('calendar');
@@ -101,7 +101,7 @@ export default function PlanScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingTop: chromePad }]}
-      contentInsetAdjustmentBehavior="automatic"
+      contentInsetAdjustmentBehavior="never"
       showsVerticalScrollIndicator={false}>
       <View style={styles.subNav}>
         {(
