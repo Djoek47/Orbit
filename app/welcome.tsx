@@ -1455,7 +1455,6 @@ const styles = StyleSheet.create({
   roleScroll: {
     flexGrow: 1,
     justifyContent: 'flex-start',
-    minHeight: '100%',
   },
   roleSubtitle: {
     color: orbitColors.textMuted,

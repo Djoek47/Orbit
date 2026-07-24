@@ -177,7 +177,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 10,
     proofDefault: false,
     audience: "both",
-    roomKind: "kitchen",
+    roomKind: "outdoor",
     aliases: "trash;garbage;rubbish;bin;waste;poubelle",
   },
   {
@@ -188,7 +188,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 10,
     proofDefault: false,
     audience: "both",
-    roomKind: "kitchen",
+    roomKind: "outdoor",
     aliases: "recycling;recycle;blue bin;bottles;cans",
   },
   {
@@ -199,7 +199,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 10,
     proofDefault: false,
     audience: "both",
-    roomKind: "kitchen",
+    roomKind: "outdoor",
     aliases: "compost;green bin;food waste;organics",
   },
   {
@@ -210,7 +210,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 5,
     proofDefault: false,
     audience: "both",
-    roomKind: "kitchen",
+    roomKind: "bathroom",
     aliases: "trash;bathroom bin;wastebasket",
   },
   {
@@ -221,7 +221,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 5,
     proofDefault: false,
     audience: "both",
-    roomKind: "kitchen",
+    roomKind: "bedroom",
     aliases: "trash;bedroom bin;wastebasket",
   },
   {
@@ -232,7 +232,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 10,
     proofDefault: false,
     audience: "both",
-    roomKind: "kitchen",
+    roomKind: "outdoor",
     aliases: "curb;kerb;bins out;garbage day;trash day",
   },
   {
@@ -243,7 +243,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 5,
     proofDefault: false,
     audience: "both",
-    roomKind: "kitchen",
+    roomKind: "outdoor",
     aliases: "curb;bins in;bring in bins",
   },
   {
@@ -760,7 +760,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 5,
     proofDefault: false,
     audience: "both",
-    roomKind: "outdoor",
+    roomKind: "living",
     aliases: "pet;feed dog;feed cat;pet food;dinner",
   },
   {
@@ -771,7 +771,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 5,
     proofDefault: false,
     audience: "both",
-    roomKind: "outdoor",
+    roomKind: "living",
     aliases: "pet;water bowl;dog water;cat water",
   },
   {
@@ -782,7 +782,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 15,
     proofDefault: false,
     audience: "both",
-    roomKind: "outdoor",
+    roomKind: "living",
     aliases: "dog;walk;leash;dog walk",
   },
   {
@@ -793,7 +793,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 10,
     proofDefault: false,
     audience: "both",
-    roomKind: "outdoor",
+    roomKind: "living",
     aliases: "pet bowls;dog bowl;cat bowl;wash bowls",
   },
   {
@@ -804,7 +804,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 15,
     proofDefault: false,
     audience: "both",
-    roomKind: "outdoor",
+    roomKind: "living",
     aliases: "litter;litter box;cat box;scoop",
   },
   {
@@ -815,7 +815,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 20,
     proofDefault: true,
     audience: "both",
-    roomKind: "outdoor",
+    roomKind: "living",
     aliases: "litter;litter box;fresh litter",
   },
   {
@@ -826,7 +826,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 25,
     proofDefault: true,
     audience: "both",
-    roomKind: "outdoor",
+    roomKind: "living",
     aliases: "cage;tank;aquarium;coop;hutch;terrarium",
   },
   {
@@ -837,7 +837,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 20,
     proofDefault: true,
     audience: "both",
-    roomKind: "outdoor",
+    roomKind: "living",
     aliases: "dog poop;yard;pooper scooper;dog waste",
   },
   {
@@ -848,7 +848,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 10,
     proofDefault: false,
     audience: "both",
-    roomKind: "outdoor",
+    roomKind: "living",
     aliases: "brush;groom;fur;shedding",
   },
   {
@@ -859,7 +859,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 25,
     proofDefault: true,
     audience: "both",
-    roomKind: "outdoor",
+    roomKind: "living",
     aliases: "bath;wash dog;wash cat;groom",
   },
   {
@@ -1299,7 +1299,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 20,
     proofDefault: true,
     audience: "both",
-    roomKind: "custom",
+    roomKind: "kitchen",
     aliases: "cook;dinner;help cook;supper;kitchen help",
   },
   {
@@ -1310,7 +1310,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 15,
     proofDefault: false,
     audience: "both",
-    roomKind: "custom",
+    roomKind: "kitchen",
     aliases: "prep;chop;veggies;vegetables;cutting",
   },
   {
@@ -1321,7 +1321,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 15,
     proofDefault: false,
     audience: "both",
-    roomKind: "custom",
+    roomKind: "kitchen",
     aliases: "lunch;lunchbox;pack lunch",
   },
   {
@@ -1332,7 +1332,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 20,
     proofDefault: true,
     audience: "both",
-    roomKind: "custom",
+    roomKind: "kitchen",
     aliases: "meal plan;menu;weekly meals",
   },
   {
@@ -1343,7 +1343,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 5,
     proofDefault: false,
     audience: "both",
-    roomKind: "custom",
+    roomKind: "kitchen",
     aliases: "grocery list;shopping list;add items",
   },
   {
@@ -1354,7 +1354,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 25,
     proofDefault: true,
     audience: "both",
-    roomKind: "custom",
+    roomKind: "kitchen",
     aliases: "groceries;shopping;supermarket;food shop;epicerie",
   },
   {
@@ -1365,7 +1365,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 15,
     proofDefault: false,
     audience: "both",
-    roomKind: "custom",
+    roomKind: "kitchen",
     aliases: "groceries;unpack groceries;put away food",
   },
   {
@@ -1376,7 +1376,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 10,
     proofDefault: false,
     audience: "both",
-    roomKind: "custom",
+    roomKind: "kitchen",
     aliases: "library;books;return books",
   },
   {
@@ -1387,7 +1387,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 15,
     proofDefault: false,
     audience: "both",
-    roomKind: "custom",
+    roomKind: "kitchen",
     aliases: "donations;goodwill;charity;drop off",
   },
   {
@@ -1398,7 +1398,7 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
     baseXp: 10,
     proofDefault: false,
     audience: "both",
-    roomKind: "custom",
+    roomKind: "kitchen",
     aliases: "pickup;pharmacy;prescription;package",
   },
   {
@@ -1515,11 +1515,39 @@ export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
 
 export const DEFAULT_QUICK_PRESET_IDS: readonly string[] = ["T001", "T002", "T006", "T015", "T022", "T032", "T035", "T042", "T049", "T061", "T122", "T016"] as const;
 
-export function libraryDomains(audience: LibraryAudience | "all" = "all"): string[] {
+/** Sensible recurrence for quick presets + common chores (not "None"). */
+export const LIBRARY_REPEAT_BY_ID: Record<string, 'Daily' | 'Weekly' | 'Weekdays' | 'None'> = {
+  T001: 'Daily',
+  T002: 'Daily',
+  T006: 'Daily',
+  T015: 'Weekly',
+  T016: 'Weekly',
+  T022: 'Weekly',
+  T032: 'Weekly',
+  T035: 'Weekly',
+  T042: 'Daily',
+  T049: 'Daily',
+  T061: 'Weekly',
+  T122: 'Weekly',
+};
+
+export function inferLibraryRepeat(
+  task: Pick<ChoremaxxLibraryTask, 'id' | 'title' | 'group' | 'domain'>,
+): 'Daily' | 'Weekly' | 'Weekdays' | 'None' {
+  const mapped = LIBRARY_REPEAT_BY_ID[task.id];
+  if (mapped) return mapped;
+  const hay = `${task.title} ${task.group} ${task.domain}`.toLowerCase();
+  if (/(daily|make the bed|brush|teeth|dishwasher|counters|tidy)/.test(hay)) return 'Daily';
+  if (/(week|vacuum|laundry|toilet|trash|garbage|recycling|grocery|sheets|deep)/.test(hay)) return 'Weekly';
+  if (/(weekday|homework)/.test(hay)) return 'Weekdays';
+  return 'Weekly';
+}
+
+export function libraryDomains(audience: LibraryAudience | 'all' = 'all'): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const task of CHOREMAXX_TASK_LIBRARY) {
-    if (audience !== "all" && task.audience !== "both" && task.audience !== audience) continue;
+    if (audience !== 'all' && task.audience !== 'both' && task.audience !== audience) continue;
     if (!seen.has(task.domain)) {
       seen.add(task.domain);
       out.push(task.domain);
@@ -1529,17 +1557,17 @@ export function libraryDomains(audience: LibraryAudience | "all" = "all"): strin
 }
 
 export function filterLibraryTasks(opts: {
-  audience?: LibraryAudience | "all";
+  audience?: LibraryAudience | 'all';
   domain?: string | null;
   query?: string;
 }): ChoremaxxLibraryTask[] {
-  const audience = opts.audience ?? "all";
-  const q = (opts.query ?? "").trim().toLowerCase();
+  const audience = opts.audience ?? 'all';
+  const q = (opts.query ?? '').trim().toLowerCase();
   return CHOREMAXX_TASK_LIBRARY.filter((task) => {
-    if (audience !== "all" && task.audience !== "both" && task.audience !== audience) return false;
+    if (audience !== 'all' && task.audience !== 'both' && task.audience !== audience) return false;
     if (opts.domain && task.domain !== opts.domain) return false;
     if (!q) return true;
-    const hay = `${task.title} ${task.group} ${task.domain} ${task.aliases ?? ""}`.toLowerCase();
+    const hay = `${task.title} ${task.group} ${task.domain} ${task.aliases ?? ''}`.toLowerCase();
     return hay.includes(q);
   });
 }

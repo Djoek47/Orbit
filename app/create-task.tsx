@@ -20,6 +20,7 @@ import {
   CHOREMAXX_TASK_LIBRARY,
   DEFAULT_QUICK_PRESET_IDS,
   filterLibraryTasks,
+  inferLibraryRepeat,
   libraryDomains,
   type ChoremaxxLibraryTask,
   type LibraryAudience,
@@ -27,9 +28,8 @@ import {
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { loadQuickPresetIds, saveQuickPresetIds } from '@/lib/household/local-prefs';
 import {
-  assignTargetMembers,
-  isSharedDeviceMember,
-  resolveSharedDevicePeople,
+  findSharedDeviceForMember,
+  isSharedDeviceRole,
   withSharedPersonLabel,
 } from '@/lib/household/shared-device';
 import { formatAssigneeLabel } from '@/lib/tasks/split-assign';
@@ -66,13 +66,23 @@ function libraryToPreset(task: ChoremaxxLibraryTask): TaskPreset {
     baseXp: task.baseXp,
     difficulty,
     weight: weightForDifficulty(difficulty),
-    repeat: 'None',
+    repeat: inferLibraryRepeat(task),
     proofRequired: task.proofDefault,
     roomKind: task.roomKind,
     domain: task.domain,
     group: task.group,
     audience: task.audience,
   };
+}
+
+/** People you can assign to — real profiles only (shared tablet shells hidden). */
+function assignablePeople(members: HouseholdMember[]): HouseholdMember[] {
+  return members.filter(
+    (member) =>
+      member.status === 'active' &&
+      member.role !== 'guest' &&
+      !isSharedDeviceRole(member.role),
+  );
 }
 
 const PANEL_BG = '#0F1A30';
@@ -117,12 +127,15 @@ function AssignEmojiGrid({
   members,
   selectedIds,
   splitMode,
+  sharedDeviceIds,
   onSelect,
   onLongPress,
 }: {
   members: HouseholdMember[];
   selectedIds: string[];
   splitMode: boolean;
+  /** Member ids that live on a shared tablet — show a small badge. */
+  sharedDeviceIds: Set<string>;
   onSelect: (id: string) => void;
   onLongPress: (id: string) => void;
 }) {
@@ -132,80 +145,53 @@ function AssignEmojiGrid({
         const accent = memberAccent(member);
         const selected = selectedIds.includes(member.id);
         const gradient = memberGradient(accent.color);
-        const isDevice = isSharedDeviceMember(member);
+        const onShared = sharedDeviceIds.has(member.id);
         return (
           <Pressable
             key={member.id}
             accessibilityLabel={
-              isDevice ? `${member.name} shared device` : member.name
+              onShared ? `${member.name} on shared device` : member.name
             }
             onPress={() => onSelect(member.id)}
-            onLongPress={() => {
-              if (!isDevice) onLongPress(member.id);
-            }}
+            onLongPress={() => onLongPress(member.id)}
             delayLongPress={280}
-            style={[styles.assignEmojiCell, isDevice && styles.assignDeviceCell]}>
-            {isDevice ? (
-              <View
-                style={[
-                  styles.deviceCard,
-                  selected && {
-                    borderColor: accent.color,
-                    backgroundColor: `${accent.color}18`,
-                  },
-                ]}>
-                <MaterialIcons
-                  name="tablet-mac"
-                  size={22}
-                  color={selected ? accent.color : '#7C9CC0'}
-                />
-                <Text style={[styles.deviceCardLabel, selected && { color: accent.color }]}>
-                  Shared device
-                </Text>
-                <Text style={styles.deviceCardName} numberOfLines={1}>
-                  {member.name}
-                </Text>
-                {selected ? (
-                  <View style={[styles.splitCheck, { backgroundColor: accent.color }]}>
-                    <MaterialIcons name="check" size={10} color="#04101F" />
-                  </View>
-                ) : null}
-              </View>
-            ) : (
-              <>
-                <View
-                  style={[
-                    styles.memberOuter,
-                    selected && {
-                      borderColor: accent.color,
-                      shadowColor: accent.color,
-                      shadowOpacity: 0.35,
-                      shadowRadius: 10,
-                      shadowOffset: { width: 0, height: 0 },
-                    },
-                  ]}>
-                  {selected ? (
-                    <LinearGradient colors={gradient} style={styles.memberInner}>
-                      <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
-                    </LinearGradient>
-                  ) : (
-                    <View style={styles.memberInnerMuted}>
-                      <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
-                    </View>
-                  )}
-                  {selected ? (
-                    <View style={[styles.splitCheck, { backgroundColor: accent.color }]}>
-                      <MaterialIcons name="check" size={10} color="#04101F" />
-                    </View>
-                  ) : null}
+            style={styles.assignEmojiCell}>
+            <View
+              style={[
+                styles.memberOuter,
+                selected && {
+                  borderColor: accent.color,
+                  shadowColor: accent.color,
+                  shadowOpacity: 0.35,
+                  shadowRadius: 10,
+                  shadowOffset: { width: 0, height: 0 },
+                },
+              ]}>
+              {selected ? (
+                <LinearGradient colors={gradient} style={styles.memberInner}>
+                  <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                </LinearGradient>
+              ) : (
+                <View style={styles.memberInnerMuted}>
+                  <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
                 </View>
-                <Text
-                  style={[styles.assignEmojiName, selected && { color: accent.color }]}
-                  numberOfLines={1}>
-                  {member.name}
-                </Text>
-              </>
-            )}
+              )}
+              {onShared ? (
+                <View style={styles.sharedDeviceBadge}>
+                  <MaterialIcons name="tablet-mac" size={9} color="#EEF2FF" />
+                </View>
+              ) : null}
+              {selected ? (
+                <View style={[styles.splitCheck, { backgroundColor: accent.color }]}>
+                  <MaterialIcons name="check" size={10} color="#04101F" />
+                </View>
+              ) : null}
+            </View>
+            <Text
+              style={[styles.assignEmojiName, selected && { color: accent.color }]}
+              numberOfLines={1}>
+              {member.name}
+            </Text>
           </Pressable>
         );
       })}
@@ -220,8 +206,17 @@ export default function CreateTaskScreen() {
   const insets = useSafeAreaInsets();
   const { accentTheme, createTask, household, permissions } = useOrbit();
 
-  /** Shared tablet + people not nested under a device (Josh/Todd only under Shared tablet). */
-  const activeMembers = useMemo(() => assignTargetMembers(household.members), [household.members]);
+  /** Real people only — shared tablet shells are not assign chips. */
+  const activeMembers = useMemo(() => assignablePeople(household.members), [household.members]);
+  const sharedDeviceMemberIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const member of activeMembers) {
+      if (findSharedDeviceForMember(member.id, household.members)) {
+        ids.add(member.id);
+      }
+    }
+    return ids;
+  }, [activeMembers, household.members]);
 
   const rooms = useMemo(() => household.rooms ?? [], [household.rooms]);
   const libraryAudience: LibraryAudience =
@@ -231,14 +226,10 @@ export default function CreateTaskScreen() {
   const [type, setType] = useState<TaskType>('task');
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState<(typeof subjects)[number]['label']>('Math');
-  const defaultAssigneeId =
-    activeMembers.find((member) => !isSharedDeviceMember(member))?.id ?? activeMembers[0]?.id ?? '';
+  const defaultAssigneeId = activeMembers[0]?.id ?? '';
   /** Selected assign targets — member ids. Tap = single; long-press = split. */
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultAssigneeId ? [defaultAssigneeId] : []);
   const [splitMode, setSplitMode] = useState(false);
-  /** When a shared device is selected, these person ids are who the task/split is for. */
-  const [sharedPersonIds, setSharedPersonIds] = useState<string[]>([]);
-  const [sharedSplitMode, setSharedSplitMode] = useState(false);
   const [due, setDue] = useState<(typeof dueOptions)[number]>('Today');
   const [priority, setPriority] = useState(1);
   const [repeat, setRepeat] = useState<HouseholdTask['repeat']>('None');
@@ -246,6 +237,7 @@ export default function CreateTaskScreen() {
   const [proofRequired, setProofRequired] = useState(false);
   const [roomId, setRoomId] = useState<string | undefined>();
   const [presetRoomFilter, setPresetRoomFilter] = useState<string | 'all' | 'none'>('all');
+  const [presetQuery, setPresetQuery] = useState('');
   const [baseXp, setBaseXp] = useState(10);
   const [category, setCategory] = useState('General');
   const [description, setDescription] = useState<string | undefined>();
@@ -268,12 +260,22 @@ export default function CreateTaskScreen() {
   }, [quickIds, libraryAudience]);
 
   const filteredPresets = useMemo(() => {
-    if (presetRoomFilter === 'all') return quickPresets;
-    if (presetRoomFilter === 'none') return quickPresets.filter((preset) => !preset.roomKind);
-    const kind = rooms.find((room) => room.id === presetRoomFilter)?.kind;
-    if (!kind) return quickPresets;
-    return quickPresets.filter((preset) => preset.roomKind === kind);
-  }, [presetRoomFilter, rooms, quickPresets]);
+    const q = presetQuery.trim().toLowerCase();
+    let list = quickPresets;
+    if (presetRoomFilter === 'none') {
+      list = list.filter((preset) => !preset.roomKind || preset.roomKind === 'custom');
+    } else if (presetRoomFilter !== 'all') {
+      const kind = rooms.find((room) => room.id === presetRoomFilter)?.kind;
+      if (kind) list = list.filter((preset) => preset.roomKind === kind);
+    }
+    if (q) {
+      list = list.filter((preset) => {
+        const hay = `${preset.title} ${preset.category} ${preset.group ?? ''} ${preset.domain ?? ''}`.toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    return list;
+  }, [presetRoomFilter, rooms, quickPresets, presetQuery]);
 
   const libraryResults = useMemo(
     () =>
@@ -291,41 +293,27 @@ export default function CreateTaskScreen() {
     () => activeMembers.filter((member) => selectedIds.includes(member.id)),
     [activeMembers, selectedIds],
   );
-  const sharedDevice = selectedMembers.find((member) => isSharedDeviceMember(member));
-  const needsSharedPerson = Boolean(sharedDevice);
-  const sharedPeople = useMemo(
-    () => resolveSharedDevicePeople(sharedDevice, household.members),
-    [household.members, sharedDevice],
-  );
-  const sharedSelectedPeople = useMemo(
-    () => sharedPeople.filter((member) => sharedPersonIds.includes(member.id)),
-    [sharedPeople, sharedPersonIds],
-  );
+  const linkedSharedDeviceId = useMemo(() => {
+    for (const member of selectedMembers) {
+      const device = findSharedDeviceForMember(member.id, household.members);
+      if (device) return device.id;
+    }
+    return undefined;
+  }, [selectedMembers, household.members]);
 
   const resolvedAssigneeNames = useMemo(() => {
     if (!permissions.canAssignTask) {
       return household.greetingName ? [household.greetingName] : [];
     }
-    if (needsSharedPerson) {
-      return sharedSelectedPeople.map((member) => member.name);
-    }
-    return selectedMembers
-      .filter((member) => !isSharedDeviceMember(member))
-      .map((member) => member.name);
-  }, [
-    household.greetingName,
-    needsSharedPerson,
-    permissions.canAssignTask,
-    selectedMembers,
-    sharedSelectedPeople,
-  ]);
+    return selectedMembers.map((member) => member.name);
+  }, [household.greetingName, permissions.canAssignTask, selectedMembers]);
 
   const isSplitAssign = resolvedAssigneeNames.length > 1;
   const resolvedAssigneeName = formatAssigneeLabel(resolvedAssigneeNames);
 
   const displayTitlePreview = (() => {
     if (!title.trim()) return '';
-    if (needsSharedPerson && resolvedAssigneeNames.length === 1) {
+    if (linkedSharedDeviceId && resolvedAssigneeNames.length === 1) {
       return withSharedPersonLabel(title.trim(), resolvedAssigneeNames[0]);
     }
     return title.trim();
@@ -336,85 +324,36 @@ export default function CreateTaskScreen() {
     type === 'homework'
       ? computeTaskXp(baseXp || 15, weightForDifficulty('medium'), 'medium')
       : computeTaskXp(baseXp, weight, difficulty);
-  const canCreate =
-    title.trim().length > 0 &&
-    resolvedAssigneeNames.length > 0 &&
-    (!needsSharedPerson || sharedSelectedPeople.length > 0);
+  const canCreate = title.trim().length > 0 && resolvedAssigneeNames.length > 0;
 
   function selectAssignee(memberId: string) {
-    const nextMember = activeMembers.find((member) => member.id === memberId);
-    if (!nextMember) return;
-
-    if (isSharedDeviceMember(nextMember)) {
-      setSplitMode(false);
-      setSelectedIds([memberId]);
-      const people = resolveSharedDevicePeople(nextMember, household.members);
-      setSharedPersonIds(people[0] ? [people[0].id] : []);
-      setSharedSplitMode(false);
-      return;
-    }
+    if (!activeMembers.some((member) => member.id === memberId)) return;
 
     if (splitMode) {
       setSelectedIds((current) => {
-        const withoutDevices = current.filter((id) => {
-          const member = activeMembers.find((item) => item.id === id);
-          return member && !isSharedDeviceMember(member);
-        });
-        if (withoutDevices.includes(memberId)) {
-          const next = withoutDevices.filter((id) => id !== memberId);
+        if (current.includes(memberId)) {
+          const next = current.filter((id) => id !== memberId);
           if (next.length <= 1) setSplitMode(false);
           return next.length ? next : [memberId];
         }
-        return [...withoutDevices, memberId];
+        return [...current, memberId];
       });
-      setSharedPersonIds([]);
       return;
     }
 
-    // Tap = single select (replace)
     setSelectedIds([memberId]);
-    setSharedPersonIds([]);
     setSplitMode(false);
   }
 
   function longPressAssignee(memberId: string) {
-    const nextMember = activeMembers.find((member) => member.id === memberId);
-    if (!nextMember || isSharedDeviceMember(nextMember)) return;
+    if (!activeMembers.some((member) => member.id === memberId)) return;
     setSplitMode(true);
-    setSelectedIds((current) => {
-      const withoutDevices = current.filter((id) => {
-        const member = activeMembers.find((item) => item.id === id);
-        return member && !isSharedDeviceMember(member);
-      });
-      if (withoutDevices.includes(memberId)) return withoutDevices;
-      return [...withoutDevices, memberId];
-    });
-    setSharedPersonIds([]);
-  }
-
-  function selectSharedPerson(personId: string) {
-    if (sharedSplitMode) {
-      setSharedPersonIds((current) => {
-        if (current.includes(personId)) {
-          const next = current.filter((id) => id !== personId);
-          if (next.length <= 1) setSharedSplitMode(false);
-          return next.length ? next : [personId];
-        }
-        return [...current, personId];
-      });
-      return;
-    }
-    setSharedPersonIds([personId]);
-  }
-
-  function longPressSharedPerson(personId: string) {
-    setSharedSplitMode(true);
-    setSharedPersonIds((current) =>
-      current.includes(personId) ? current : [...current, personId],
+    setSelectedIds((current) =>
+      current.includes(memberId) ? current : [...current, memberId],
     );
   }
 
-  function roomIdForKind(kind?: TaskPreset['roomKind']) {
+    function roomIdForKind(kind?: TaskPreset['roomKind']) {
     if (!kind) return undefined;
     return rooms.find((room) => room.kind === kind)?.id;
   }
@@ -444,14 +383,14 @@ export default function CreateTaskScreen() {
     roomId?: string;
   }) {
     const names = resolvedAssigneeNames;
-    const singleShared = needsSharedPerson && names.length === 1;
+    const singleShared = Boolean(linkedSharedDeviceId) && names.length === 1;
     const finalTitle = singleShared ? withSharedPersonLabel(base.title, names[0]) : base.title;
     return {
       ...base,
       title: finalTitle,
       assignee: names[0] ?? household.greetingName,
       assignees: names.length > 1 ? names : undefined,
-      sharedDeviceId: needsSharedPerson ? sharedDevice?.id : undefined,
+      sharedDeviceId: linkedSharedDeviceId,
     };
   }
 
@@ -460,18 +399,6 @@ export default function CreateTaskScreen() {
     const nextXp = computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
 
     if (createNow) {
-      if (needsSharedPerson && sharedSelectedPeople.length === 0) {
-        setMode('custom');
-        setTitle(preset.title);
-        setCategory(preset.category);
-        setDescription(preset.description);
-        setRepeat(preset.repeat);
-        setDifficulty(preset.difficulty);
-        setProofRequired(preset.proofRequired);
-        setBaseXp(preset.baseXp);
-        setRoomId(nextRoomId);
-        return;
-      }
       createTask(
         buildTaskPayload({
           title: preset.title,
@@ -583,56 +510,37 @@ export default function CreateTaskScreen() {
                 members={activeMembers}
                 selectedIds={selectedIds}
                 splitMode={splitMode}
+                sharedDeviceIds={sharedDeviceMemberIds}
                 onSelect={selectAssignee}
                 onLongPress={longPressAssignee}
               />
+              {sharedDeviceMemberIds.size > 0 ? (
+                <Text style={styles.sharedPickHint}>
+                  Tablet icon = on a shared device
+                </Text>
+              ) : null}
               {isSplitAssign ? (
                 <Text style={styles.sharedPickHint}>
                   Split · {resolvedAssigneeName} — each earns XP when they finish; all-done bonus if everyone
                   completes.
                 </Text>
               ) : null}
-              {needsSharedPerson ? (
-                <View style={styles.sharedPickBlock}>
-                  <Text style={styles.label}>WHO ON THIS DEVICE? · hold to split</Text>
-                  <Text style={styles.sharedPickHint}>
-                    People on this shared tablet. Tap one · hold another to split.
-                  </Text>
-                  {sharedPeople.length === 0 ? (
-                    <Text style={styles.sharedPickHint}>
-                      Link people to this device under Manage Members first.
-                    </Text>
-                  ) : (
-                    <View style={styles.subjectRow}>
-                      {sharedPeople.map((person) => {
-                        const active = sharedPersonIds.includes(person.id);
-                        const accent = memberAccent(person);
-                        return (
-                          <Pressable
-                            key={person.id}
-                            onPress={() => selectSharedPerson(person.id)}
-                            onLongPress={() => longPressSharedPerson(person.id)}
-                            delayLongPress={280}
-                            style={[
-                              styles.subjectChip,
-                              active && {
-                                backgroundColor: `${accent.color}22`,
-                                borderColor: `${accent.color}55`,
-                              },
-                            ]}>
-                            <Text style={styles.subjectEmoji}>{memberDisplayEmoji(person)}</Text>
-                            <Text style={[styles.subjectText, { color: active ? accent.color : '#7C9CC0' }]}>
-                              {person.name}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              ) : null}
             </View>
           ) : null}
+
+          <View style={styles.searchWrap}>
+            <MaterialIcons name="search" size={18} color="#7C9CC0" />
+            <TextInput
+              value={presetQuery}
+              onChangeText={setPresetQuery}
+              placeholder="Search quick presets…"
+              placeholderTextColor="#4B6080"
+              style={styles.searchField}
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+            />
+          </View>
+
           {rooms.length ? (
             <ScrollView
               horizontal
@@ -682,9 +590,11 @@ export default function CreateTaskScreen() {
                     </View>
                   </View>
                   <View style={styles.presetMetaRow}>
-                    <View style={styles.repeatPill}>
-                      <Text style={styles.repeatText}>{preset.repeat}</Text>
-                    </View>
+                    {preset.repeat !== 'None' ? (
+                      <View style={styles.repeatPill}>
+                        <Text style={styles.repeatText}>{preset.repeat}</Text>
+                      </View>
+                    ) : null}
                     {room ? (
                       <Text style={styles.roomChip}>
                         {room.emoji} {room.name}
@@ -1067,9 +977,13 @@ export default function CreateTaskScreen() {
               members={activeMembers}
               selectedIds={selectedIds}
               splitMode={splitMode}
+              sharedDeviceIds={sharedDeviceMemberIds}
               onSelect={selectAssignee}
               onLongPress={longPressAssignee}
             />
+            {sharedDeviceMemberIds.size > 0 ? (
+              <Text style={styles.sharedPickHint}>Tablet icon = on a shared device</Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -1101,49 +1015,6 @@ export default function CreateTaskScreen() {
             })}
           </View>
         </View>
-
-        {needsSharedPerson ? (
-          <View style={styles.sharedPickBlock}>
-            <Text style={styles.label}>WHO ON THIS DEVICE? · hold to split</Text>
-            <Text style={styles.sharedPickHint}>
-              People on this shared tablet. Tap one · hold another to split.
-            </Text>
-            {sharedPeople.length === 0 ? (
-              <Text style={styles.sharedPickHint}>
-                Link Josh, Todd (or others) to this device in Manage Members.
-              </Text>
-            ) : (
-              <View style={styles.subjectRow}>
-                {sharedPeople.map((person) => {
-                  const active = sharedPersonIds.includes(person.id);
-                  const accent = memberAccent(person);
-                  return (
-                    <Pressable
-                      key={person.id}
-                      onPress={() => selectSharedPerson(person.id)}
-                      onLongPress={() => longPressSharedPerson(person.id)}
-                      delayLongPress={280}
-                      style={[
-                        styles.subjectChip,
-                        active && {
-                          backgroundColor: `${accent.color}22`,
-                          borderColor: `${accent.color}55`,
-                        },
-                      ]}>
-                      <Text style={styles.subjectEmoji}>{memberDisplayEmoji(person)}</Text>
-                      <Text style={[styles.subjectText, { color: active ? accent.color : '#7C9CC0' }]}>
-                        {person.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-            {displayTitlePreview && !isSplitAssign ? (
-              <Text style={styles.sharedTitlePreview}>Will create: {displayTitlePreview}</Text>
-            ) : null}
-          </View>
-        ) : null}
 
         {isSplitAssign ? (
           <View style={[styles.sharedPickBlock, styles.splitBanner]}>
@@ -1733,6 +1604,37 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  searchWrap: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  searchField: {
+    color: '#EEF2FF',
+    flex: 1,
+    fontSize: 15,
+    padding: 0,
+  },
+  sharedDeviceBadge: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(14,165,233,0.95)',
+    borderColor: '#0A1525',
+    borderRadius: 8,
+    borderWidth: 1.5,
+    bottom: -2,
+    height: 16,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: -2,
+    width: 16,
   },
   doneBtn: {
     alignItems: 'center',

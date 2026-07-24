@@ -6,6 +6,7 @@ export const DEFAULT_HOUSEHOLD_ROOMS: HouseholdRoom[] = [
   { id: 'room-bathroom', name: 'Bathroom', emoji: '🚿', kind: 'bathroom' },
   { id: 'room-bedroom', name: 'Bedrooms', emoji: '🛏️', kind: 'bedroom' },
   { id: 'room-laundry', name: 'Laundry', emoji: '👕', kind: 'laundry' },
+  { id: 'room-outdoor', name: 'Outdoor', emoji: '🌳', kind: 'outdoor' },
 ];
 
 export { ROOM_EMOJIS } from '@/constants/accent-themes';
