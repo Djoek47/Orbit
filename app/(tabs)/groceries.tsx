@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { scanDealsForHousehold } from '@/data/mock-deals';
 import { PREFERRED_STORES } from '@/data/preferred-stores';
 import { lookupGroceryProduct, type GroceryProductLookup } from '@/lib/grocery/product-lookup';
@@ -172,7 +173,7 @@ export default function GroceriesScreen() {
       showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
-          <Text style={styles.caption}>Grocery Intelligence</Text>
+          <PageEyebrow>Grocery Intelligence</PageEyebrow>
           <Text style={styles.title}>This Week&apos;s List</Text>
         </View>
       </View>

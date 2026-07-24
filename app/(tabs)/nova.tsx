@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { NovaOrb } from '@/components/orbit/nova-orb';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
 import {
@@ -317,7 +318,7 @@ export default function NovaScreen() {
           <View style={[styles.stateDot, { backgroundColor: cfg.color }]} />
           <Text style={[styles.stateLabel, { color: cfg.color }]}>{cfg.label}</Text>
         </View>
-        <Text style={styles.subtitle}>Household majordomo</Text>
+        <PageEyebrow>Household majordomo</PageEyebrow>
         <Pressable style={styles.refreshChip} onPress={handleRefreshMonitor} disabled={asking}>
           <MaterialIcons name="refresh" size={14} color={orbitColors.orbitBlue} />
           <Text style={styles.refreshChipText}>Run Nova check</Text>

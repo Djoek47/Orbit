@@ -171,6 +171,15 @@ export const orbitTypography = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '400',
   },
+  /** Under-chrome page label — matches Home date line. */
+  pageEyebrow: {
+    color: '#6B82A3',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.35,
+    lineHeight: 14,
+    textTransform: 'uppercase',
+  },
   eyebrow: {
     color: orbitColors.textSubtle,
     fontSize: 12,

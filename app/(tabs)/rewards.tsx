@@ -8,6 +8,7 @@ import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-re
 import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { OrbitButton } from '@/components/orbit/orbit-button';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RewardClaimPress } from '@/components/orbit/reward-claim-press';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import {
@@ -120,7 +121,7 @@ export default function RewardsScreen() {
       contentInsetAdjustmentBehavior="never"
       showsVerticalScrollIndicator={false}>
       <View style={[orbitScreen.header, styles.header]}>
-        <Text style={orbitTypography.caption}>Leaderboard</Text>
+        <PageEyebrow>Leaderboard</PageEyebrow>
         <Text style={orbitTypography.display}>Family Rankings</Text>
       </View>
 

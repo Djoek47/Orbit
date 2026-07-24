@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import {
   TYPE_CONFIG,
@@ -128,9 +129,9 @@ export default function PlanScreen() {
         <>
           <View style={[styles.calHeader, { paddingRight: canCreateEvent ? 0 : undefined }]}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.eyebrow}>
+              <PageEyebrow>
                 {sharedKidMode ? 'My calendar' : 'Household Calendar'}
-              </Text>
+              </PageEyebrow>
               <Text style={styles.h1}>{format(currentMonth, 'MMMM yyyy')}</Text>
             </View>
             <View style={styles.viewToggle}>

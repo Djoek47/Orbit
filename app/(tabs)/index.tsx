@@ -6,6 +6,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { NovaOrb } from '@/components/orbit/nova-orb';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
@@ -99,13 +100,9 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}>
       {/* Greeting tucked under sticky chrome */}
       <View style={styles.brandBlock}>
-        <Text
-          style={[
-            styles.dateLine,
-            { fontWeight: typeStyle.captionWeight, letterSpacing: typeStyle.letterSpacing + 0.35 },
-          ]}>
+        <PageEyebrow>
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </Text>
+        </PageEyebrow>
         <Text
           style={[
             styles.greetingLine,
@@ -583,13 +580,6 @@ const styles = StyleSheet.create({
   },
   checkDone: { backgroundColor: '#34D399', borderColor: '#34D399' },
   critDot: { backgroundColor: '#F87171', borderRadius: 3, height: 6, width: 6 },
-  dateLine: {
-    color: '#6B82A3',
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.35,
-    textTransform: 'uppercase',
-  },
   eventBar: { borderRadius: 2, height: 28, marginTop: 2, width: 4 },
   eventRow: { flexDirection: 'row', gap: 8 },
   eventTitle: { color: '#C8D8F0', fontSize: 12, lineHeight: 16 },

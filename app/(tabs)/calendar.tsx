@@ -6,6 +6,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitListItem } from '@/components/orbit/orbit-list-item';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { buildWeekStrip, groupHouseholdEvents } from '@/lib/calendar/event-groups';
@@ -48,7 +49,7 @@ export default function PlanScreen() {
       contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
       contentInsetAdjustmentBehavior="never">
       <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Plan</Text>
+        <PageEyebrow>Plan</PageEyebrow>
         <Text style={orbitTypography.display}>Family logistics</Text>
         <Text style={orbitTypography.body}>
           Calendar and itineraries in one place — {metrics.upcomingEvents} upcoming ·{' '}

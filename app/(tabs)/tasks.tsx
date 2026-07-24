@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import {
   orbitColors,
@@ -451,9 +452,9 @@ export default function TasksScreen() {
       contentInsetAdjustmentBehavior="never">
       <View style={styles.headerRow}>
         <View style={[orbitScreen.header, styles.tasksHeader]}>
-          <Text style={orbitTypography.caption}>
+          <PageEyebrow>
             {sharedKidMode ? 'Your chores' : 'Tasks & Homework'}
-          </Text>
+          </PageEyebrow>
           <Text style={orbitTypography.display}>
             {sharedKidMode ? 'My tasks' : showByMember ? 'Household tasks' : "Today's Work"}
           </Text>

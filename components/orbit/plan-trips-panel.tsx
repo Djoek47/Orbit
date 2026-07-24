@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import { NovaOrb } from '@/components/orbit/nova-orb';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { useOrbit } from '@/store/orbit-store';
 import type { Itinerary, ItineraryStop, ItineraryStopKind } from '@/types/orbit';
 
@@ -350,7 +351,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
   return (
     <View style={styles.wrap}>
       <View style={styles.itinHeader}>
-        <Text style={styles.eyebrow}>Nova Smart Trips</Text>
+        <PageEyebrow>Nova Smart Trips</PageEyebrow>
         <Text style={styles.h1}>Itineraries</Text>
       </View>
 
