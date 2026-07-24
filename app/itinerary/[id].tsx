@@ -3,9 +3,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 import type { ItineraryStopKind } from '@/types/orbit';
@@ -56,6 +58,7 @@ function mapsLabel(app: string): string {
 }
 
 export default function ItineraryDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const {
     advanceItineraryStop,
@@ -78,13 +81,24 @@ export default function ItineraryDetailScreen() {
   const canRun = itinerary?.status === 'active' || itinerary?.status === 'draft';
   const tripColor = accentTheme.primary;
 
+  const themedBack = (
+    <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+      <MaterialIcons name="chevron-left" size={22} color={tripColor} />
+      <Text style={[styles.backLabel, { color: tripColor }]}>Plan</Text>
+    </Pressable>
+  );
+
   if (!itinerary) {
     return (
-      <ScrollView style={orbitScreen.container} contentContainerStyle={orbitScreen.content}>
-        <Stack.Screen options={{ title: 'Trip', headerBackTitle: 'Plan' }} />
+      <ScrollView
+        style={orbitScreen.container}
+        contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}
+        showsVerticalScrollIndicator={false}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {themedBack}
         <Text style={orbitTypography.title}>Trip not found</Text>
         <OrbitButton tone="secondary" onPress={() => router.back()}>
-          Back
+          Back to Plan
         </OrbitButton>
       </ScrollView>
     );
@@ -103,19 +117,14 @@ export default function ItineraryDetailScreen() {
   return (
     <ScrollView
       style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}
       showsVerticalScrollIndicator={false}>
-      <Stack.Screen
-        options={{
-          title: 'Trip',
-          headerBackTitle: 'Plan',
-          headerTintColor: tripColor,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {themedBack}
 
       <View style={styles.header}>
-        <Text style={[styles.dayLabel, { color: tripColor }]}>{formatTripDate(itinerary.date)}</Text>
+        <PageEyebrow>{formatTripDate(itinerary.date)}</PageEyebrow>
         <Text style={orbitTypography.display}>{itinerary.title}</Text>
         {itinerary.summary ? <Text style={styles.summary}>{itinerary.summary}</Text> : null}
         <View style={styles.metaRow}>
@@ -326,6 +335,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
   },
+  backBtn: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: 2,
+    marginBottom: 8,
+    marginLeft: -4,
+  },
+  backLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
   catPill: {
     borderRadius: 8,
     paddingHorizontal: 8,
@@ -345,12 +366,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     height: 3,
     width: 3,
-  },
-  dayLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
   },
   doneText: {
     color: orbitColors.textSubtle,
