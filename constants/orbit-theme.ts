@@ -194,6 +194,9 @@ export const HEADER_CHIPS_GUTTER = 8;
 /** Sticky GlobalHeaderChips body under status bar; screens pad content with useTabChromePaddingTop. */
 export const TAB_CHROME_BODY = 52;
 
+/** Must match `TAB_CHROME_CONTENT_GAP` in global-header-chips — do not invent per-screen gaps. */
+export const TAB_CHROME_CONTENT_GAP = 14;
+
 export const orbitScreen = StyleSheet.create({
   container: {
     flex: 1,
@@ -209,7 +212,7 @@ export const orbitScreen = StyleSheet.create({
   },
   header: {
     gap: 2,
-    paddingTop: 4,
+    paddingTop: 0,
   },
   row: {
     alignItems: 'center',

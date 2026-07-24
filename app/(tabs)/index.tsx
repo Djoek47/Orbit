@@ -23,7 +23,7 @@ import {
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
-  const chromePad = useTabChromePaddingTop(6);
+  const chromePad = useTabChromePaddingTop();
   const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona, permissions } =
     useOrbit();
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);

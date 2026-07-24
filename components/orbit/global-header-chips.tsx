@@ -12,6 +12,12 @@ import { useOrbit } from '@/store/orbit-store';
 export const TAB_CHROME_BODY = 52;
 
 /**
+ * Shared breathing room between the sticky chrome hairline and first page content
+ * (Home date, Tasks title, Plan chips, etc.). Keep identical on every chrome tab.
+ */
+export const TAB_CHROME_CONTENT_GAP = 14;
+
+/**
  * Sticky tab chrome: larger Choremaxx mark + Notifications/Settings.
  * Apple-style frosted glass tinted with the active accent theme.
  */
@@ -103,8 +109,11 @@ export function GlobalHeaderChips() {
   );
 }
 
-/** Total sticky offset for ScrollView content under GlobalHeaderChips. */
-export function useTabChromePaddingTop(extra = 12) {
+/**
+ * Total sticky offset for ScrollView / header content under GlobalHeaderChips.
+ * Always use the default so Home, Tasks, Plan, Rewards, Nova, Groceries share one gap.
+ */
+export function useTabChromePaddingTop(extra = TAB_CHROME_CONTENT_GAP) {
   const insets = useSafeAreaInsets();
   return insets.top + 6 + TAB_CHROME_BODY + extra;
 }

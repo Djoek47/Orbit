@@ -37,7 +37,7 @@ function SharedTabletChip({ device, compact }: { device: HouseholdMember; compac
 }
 
 export default function RewardsScreen() {
-  const chromePad = useTabChromePaddingTop(8);
+  const chromePad = useTabChromePaddingTop();
   const {
     accentTheme,
     achievements,
@@ -117,7 +117,7 @@ export default function RewardsScreen() {
     <ScrollView
       style={orbitScreen.container}
       contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
-      contentInsetAdjustmentBehavior="automatic"
+      contentInsetAdjustmentBehavior="never"
       showsVerticalScrollIndicator={false}>
       <View style={[orbitScreen.header, styles.header]}>
         <Text style={orbitTypography.caption}>Leaderboard</Text>
@@ -724,7 +724,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   header: {
-    paddingTop: 4,
+    paddingTop: 0,
   },
   gamesCard: {
     alignItems: 'center',

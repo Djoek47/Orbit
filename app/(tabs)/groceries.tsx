@@ -33,7 +33,7 @@ const CATEGORY_META: Record<string, { emoji: string; color: string }> = {
 };
 
 export default function GroceriesScreen() {
-  const chromePad = useTabChromePaddingTop(8);
+  const chromePad = useTabChromePaddingTop();
   const insets = useSafeAreaInsets();
   const {
     accentTheme,
@@ -168,6 +168,7 @@ export default function GroceriesScreen() {
         },
       ]}
       keyboardShouldPersistTaps="handled"
+      contentInsetAdjustmentBehavior="never"
       showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>

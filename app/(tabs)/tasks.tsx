@@ -309,7 +309,7 @@ function TaskSection({
 }
 
 export default function TasksScreen() {
-  const chromePad = useTabChromePaddingTop(6);
+  const chromePad = useTabChromePaddingTop();
   const {
     accentTheme,
     completeTask,

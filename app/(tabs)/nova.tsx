@@ -87,7 +87,7 @@ function activityEmoji(category: NotificationItem['category']) {
 }
 
 export default function NovaScreen() {
-  const chromePad = useTabChromePaddingTop(4);
+  const chromePad = useTabChromePaddingTop();
   const {
     appendNovaTurn,
     askNova,
@@ -617,8 +617,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(14,165,233,0.10)',
     paddingBottom: 12,
-    // Clear GlobalHeaderChips (Notifications + Settings)
-    paddingTop: 8,
+    paddingTop: 0,
     position: 'relative',
   },
   headerGlow: {

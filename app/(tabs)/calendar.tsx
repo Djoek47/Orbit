@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { GlassCard } from '@/components/orbit/glass-card';
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitListItem } from '@/components/orbit/orbit-list-item';
 import { StatusPill } from '@/components/orbit/status-pill';
@@ -28,6 +29,7 @@ const SAMPLE_ITINERARIES = [
 ];
 
 export default function PlanScreen() {
+  const chromePad = useTabChromePaddingTop();
   const { household, metrics } = useOrbit();
   const [planTab, setPlanTab] = useState<PlanSubTab>('calendar');
   const [selectedDay, setSelectedDay] = useState(0);
@@ -43,8 +45,8 @@ export default function PlanScreen() {
   return (
     <ScrollView
       style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
+      contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
+      contentInsetAdjustmentBehavior="never">
       <View style={orbitScreen.header}>
         <Text style={orbitTypography.caption}>Plan</Text>
         <Text style={orbitTypography.display}>Family logistics</Text>

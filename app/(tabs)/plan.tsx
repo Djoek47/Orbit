@@ -45,7 +45,7 @@ function locationShort(location: string): string | null {
 }
 
 export default function PlanScreen() {
-  const chromePad = useTabChromePaddingTop(6);
+  const chromePad = useTabChromePaddingTop();
   const { household, suggestNovaItinerary, currentMember, permissions, accentTheme } = useOrbit();
   const [buildingTrip, setBuildingTrip] = useState(false);
   const [subTab, setSubTab] = useState<PlanSubTab>('calendar');
