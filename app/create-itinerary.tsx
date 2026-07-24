@@ -8,9 +8,10 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { getPreferredStore } from '@/data/preferred-stores';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { optimizeDraftStops } from '@/lib/calendar/suggest-itinerary';
 import { shopNearStops, findNearbyStores } from '@/lib/places/nearby-stores';
 import { useOrbit } from '@/store/orbit-store';
-import type { ItineraryStopKind, PreferredStore, SavedPlace } from '@/types/orbit';
+import type { HouseholdEvent, ItineraryStopKind, PreferredStore, SavedPlace } from '@/types/orbit';
 
 type DraftStop = {
   key: string;
@@ -22,6 +23,7 @@ type DraftStop = {
   lng?: number;
   groceryListId?: string;
   savedPlaceId?: string;
+  eventId?: string;
 };
 
 function placeToStop(place: SavedPlace): DraftStop {
@@ -60,6 +62,25 @@ function storeToStop(store: PreferredStore): DraftStop {
   };
 }
 
+function eventToStop(event: HouseholdEvent): DraftStop {
+  const kind: ItineraryStopKind =
+    event.category === 'School'
+      ? 'school'
+      : event.category === 'Activity'
+        ? 'practice'
+        : event.category === 'Appointment'
+          ? 'pickup'
+          : 'custom';
+  return {
+    key: `event-${event.id}`,
+    label: event.title,
+    kind,
+    address: event.location,
+    placeQuery: event.location,
+    eventId: event.id,
+  };
+}
+
 export default function CreateItineraryScreen() {
   const { createItinerary, household, preferredStore, accentTheme } = useOrbit();
   const [title, setTitle] = useState('Family run');
@@ -74,6 +95,12 @@ export default function CreateItineraryScreen() {
     (g) => g.status === 'Missing' || g.status === 'Low'
   ).length;
   const store = getPreferredStore(household.preferredStoreId);
+
+  const todayEvents = useMemo(() => {
+    return household.events.filter(
+      (event) => /today/i.test(event.date) || event.startsAt?.startsWith(date)
+    );
+  }, [household.events, date]);
 
   useEffect(() => {
     let mounted = true;
@@ -118,12 +145,60 @@ export default function CreateItineraryScreen() {
     });
   };
 
+  const moveStop = (key: string, direction: -1 | 1) => {
+    setSelected((current) => {
+      const index = current.findIndex((s) => s.key === key);
+      const next = index + direction;
+      if (index < 0 || next < 0 || next >= current.length) return current;
+      const copy = [...current];
+      [copy[index], copy[next]] = [copy[next]!, copy[index]!];
+      return copy;
+    });
+  };
+
   const addPassByShop = () => {
     const shop =
       nearby.find((s) => shopNearStops(s, selected, 1500)) ??
       (shopNearStops(store, selected, 1500) ? store : preferredStore);
     toggleStop(storeToStop(shop));
     setPassByHint(null);
+  };
+
+  const handleOptimize = () => {
+    const optimized = optimizeDraftStops(
+      selected.map((stop, index) => ({
+        label: stop.label,
+        kind: stop.kind,
+        address: stop.address,
+        placeQuery: stop.placeQuery,
+        lat: stop.lat,
+        lng: stop.lng,
+        groceryListId: stop.groceryListId,
+        savedPlaceId: stop.savedPlaceId,
+        eventId: stop.eventId,
+        etaMinutes: 12 + index * 8,
+        sortOrder: index,
+      })),
+      'efficient'
+    );
+    setSelected(
+      optimized.map((stop, index) => ({
+        key: stop.eventId
+          ? `event-${stop.eventId}`
+          : stop.savedPlaceId
+            ? `place-${stop.savedPlaceId}`
+            : `opt-${index}-${stop.label}`,
+        label: stop.label,
+        kind: stop.kind,
+        address: stop.address,
+        placeQuery: stop.placeQuery,
+        lat: stop.lat,
+        lng: stop.lng,
+        groceryListId: stop.groceryListId,
+        savedPlaceId: stop.savedPlaceId,
+        eventId: stop.eventId,
+      }))
+    );
   };
 
   const handleCreate = async () => {
@@ -133,7 +208,7 @@ export default function CreateItineraryScreen() {
       const created = await createItinerary({
         title,
         date,
-        summary: `${selected.length} stops · Maps multi-stop ready`,
+        summary: `${selected.length} stops`,
         stops: selected.map((stop, index) => ({
           label: stop.label,
           kind: stop.kind,
@@ -143,6 +218,7 @@ export default function CreateItineraryScreen() {
           lng: stop.lng,
           groceryListId: stop.groceryListId,
           savedPlaceId: stop.savedPlaceId,
+          eventId: stop.eventId,
           etaMinutes: 12 + index * 8,
           sortOrder: index,
         })),
@@ -158,12 +234,16 @@ export default function CreateItineraryScreen() {
   };
 
   return (
-    <ScrollView style={orbitScreen.container} contentContainerStyle={orbitScreen.content}>
+    <ScrollView
+      style={orbitScreen.container}
+      contentContainerStyle={orbitScreen.content}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}>
       <View style={orbitScreen.header}>
         <Text style={orbitTypography.caption}>Plan</Text>
-        <Text style={orbitTypography.display}>Create itinerary</Text>
+        <Text style={orbitTypography.display}>New trip</Text>
         <Text style={orbitTypography.body}>
-          Pick saved places and nearby stores. Open the full trip in your preferred maps app.
+          Add stops from places, today’s calendar, or nearby stores.
         </Text>
       </View>
 
@@ -181,6 +261,31 @@ export default function CreateItineraryScreen() {
         </Pressable>
       ) : null}
 
+      {todayEvents.length > 0 ? (
+        <>
+          <Text style={styles.sectionLabel}>Today’s calendar</Text>
+          <View style={styles.chipWrap}>
+            {todayEvents.map((event) => {
+              const stop = eventToStop(event);
+              const on = selected.some((s) => s.key === stop.key);
+              return (
+                <Pressable
+                  key={event.id}
+                  onPress={() => toggleStop(stop)}
+                  style={[
+                    styles.chip,
+                    on && { backgroundColor: `${accentTheme.primary}28`, borderColor: accentTheme.primary },
+                  ]}>
+                  <Text style={[styles.chipText, on && { color: accentTheme.primary }]}>
+                    {event.title}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      ) : null}
+
       <Text style={styles.sectionLabel}>Saved places</Text>
       <View style={styles.chipWrap}>
         {places.map((place) => {
@@ -190,10 +295,11 @@ export default function CreateItineraryScreen() {
             <Pressable
               key={place.id}
               onPress={() => toggleStop(stop)}
-              style={[styles.chip, on && { backgroundColor: `${accentTheme.primary}28`, borderColor: accentTheme.primary }]}>
-              <Text style={[styles.chipText, on && { color: accentTheme.primary }]}>
-                {place.name}
-              </Text>
+              style={[
+                styles.chip,
+                on && { backgroundColor: `${accentTheme.primary}28`, borderColor: accentTheme.primary },
+              ]}>
+              <Text style={[styles.chipText, on && { color: accentTheme.primary }]}>{place.name}</Text>
             </Pressable>
           );
         })}
@@ -210,10 +316,15 @@ export default function CreateItineraryScreen() {
             <Pressable
               key={item.id}
               onPress={() => toggleStop(stop)}
-              style={[styles.chip, on && { backgroundColor: `${accentTheme.primary}28`, borderColor: accentTheme.primary }]}>
+              style={[
+                styles.chip,
+                on && { backgroundColor: `${accentTheme.primary}28`, borderColor: accentTheme.primary },
+              ]}>
               <Text style={[styles.chipText, on && { color: accentTheme.primary }]}>
                 {item.name}
-                {item.distanceMeters != null ? ` · ${Math.round(item.distanceMeters / 100) / 10}km` : ''}
+                {item.distanceMeters != null
+                  ? ` · ${Math.round(item.distanceMeters / 100) / 10}km`
+                  : ''}
               </Text>
             </Pressable>
           );
@@ -222,11 +333,24 @@ export default function CreateItineraryScreen() {
 
       {selected.length > 0 ? (
         <GlassCard>
-          <Text style={orbitTypography.cardTitle}>Stop order</Text>
+          <View style={styles.orderHead}>
+            <Text style={orbitTypography.cardTitle}>Stop order</Text>
+            <Pressable onPress={handleOptimize} hitSlop={8}>
+              <Text style={[styles.optimizeLink, { color: accentTheme.primary }]}>
+                Optimize with Nova
+              </Text>
+            </Pressable>
+          </View>
           {selected.map((stop, index) => (
             <View key={stop.key} style={styles.orderRow}>
               <Text style={styles.orderIndex}>{index + 1}</Text>
               <Text style={styles.orderLabel}>{stop.label}</Text>
+              <Pressable onPress={() => moveStop(stop.key, -1)} hitSlop={6}>
+                <MaterialIcons name="keyboard-arrow-up" size={20} color={orbitColors.textMuted} />
+              </Pressable>
+              <Pressable onPress={() => moveStop(stop.key, 1)} hitSlop={6}>
+                <MaterialIcons name="keyboard-arrow-down" size={20} color={orbitColors.textMuted} />
+              </Pressable>
               <Pressable onPress={() => toggleStop(stop)}>
                 <MaterialIcons name="close" size={18} color={orbitColors.danger} />
               </Pressable>
@@ -235,8 +359,10 @@ export default function CreateItineraryScreen() {
         </GlassCard>
       ) : null}
 
-      <OrbitButton disabled={busy || !title.trim() || selected.length === 0} onPress={() => void handleCreate()}>
-        {busy ? 'Saving…' : 'Save itinerary'}
+      <OrbitButton
+        disabled={busy || !title.trim() || selected.length === 0}
+        onPress={() => void handleCreate()}>
+        {busy ? 'Saving…' : 'Create trip'}
       </OrbitButton>
       <OrbitButton tone="secondary" onPress={() => router.back()}>
         Cancel
@@ -271,10 +397,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  orderHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  optimizeLink: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   orderRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: orbitSpacing.sm,
+    gap: orbitSpacing.xs,
   },
   orderIndex: {
     color: orbitColors.textMuted,

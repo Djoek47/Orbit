@@ -203,7 +203,11 @@ type OrbitContextValue = {
   deleteEvent: (eventId: string) => Promise<void>;
   remindAboutEvent: (eventId: string) => Promise<void>;
   createItinerary: (input: CreateItineraryInput) => Promise<Itinerary | null>;
-  suggestNovaItinerary: () => Promise<Itinerary | null>;
+  suggestNovaItinerary: (options?: {
+    date?: string;
+    mode?: 'efficient' | 'spread';
+    eventIds?: string[];
+  }) => Promise<Itinerary | null>;
   advanceItineraryStop: (itineraryId: string, stopId: string) => Promise<void>;
   openStopInMaps: (itineraryId: string, stopId: string) => Promise<void>;
   reorderItineraryStops: (itineraryId: string, stopIds: string[]) => Promise<void>;
@@ -1402,8 +1406,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return itinerary;
   };
 
-  const suggestNovaItinerary = async () => {
-    const suggestion = suggestItineraryFromHousehold(household);
+  const suggestNovaItinerary = async (options?: {
+    date?: string;
+    mode?: 'efficient' | 'spread';
+    eventIds?: string[];
+  }) => {
+    const suggestion = suggestItineraryFromHousehold(household, options);
     return createItinerary(suggestion);
   };
 

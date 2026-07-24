@@ -39,16 +39,18 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 6e | Split multi-assign | Create task → long-press Emma then tap Liam → split · each finishes for own XP · all-done bonus · admin Penalize on pending share | ☐ |
 | 7 | Task delete | Open task → Delete → removed from Tasks list | ☐ |
 | 8 | Groceries | Add missing → mark purchased · mark available item Low | ☐ |
-| 9 | Plan / Calendar | Plan tab → Calendar sub-nav → create event → day strip with real dates | ☐ |
-| 10 | Itinerary Maps | Plan → Itineraries → open trip → Open in Maps · Arrived → next leg | ☐ |
-| 11 | Nova suggest trip | Plan → Suggest trip with Nova → itinerary created from events + groceries | ☐ |
+| 9 | Plan / Calendar | Plan tab → Calendar → create event · **Build trip for this day** when day has stops | ☐ |
+| 10 | Itinerary Maps | Plan → Itineraries → open trip → Open full trip · Arrived → next on active stop | ☐ |
+| 11 | Nova suggest trip | Plan → Itineraries → Ask Nova (Efficient/Spread) → trip from events + groceries | ☐ |
+| 11b | Create trip | Plan → New → calendar chips + places + reorder · Optimize with Nova · Create trip | ☐ |
+| 11c | Preferred routines | Save preferred on trip detail · Preferred section → Run again | ☐ |
 | 12 | Barcode grocery | Groceries (Home/Settings) → Scan barcode → mock catalog match OR Open Food Facts (ingredients/allergens/Nutri-Score) → Add to cart | ☐ |
 | 12b | Barcode online | Airplane mode off · scan unknown UPC → Open Food Facts result card (quality/allergens/ingredients) · Add to cart | ☐ |
 | 12c | Grocery uncheck | Groceries → check item Purchased → uncheck → status returns to Missing | ☐ |
 | 13 | Preferred store | Adult sets preferred store · Start store itinerary | ☐ |
 | 29a | Accent themes | Settings → Your look · pick personal theme (incl. forest/slate/amber/violet) · tab active + OrbitButton + header chips tint · type vibe label under swatch · persists after reload | ☐ |
 | 29n | Light/dark + background | Settings → Appearance Dark/Light/System · Background packs (Midnight/Dusk/Paper/Mist/Contrast) under Your look · Household default folded under Your look (admin) · Preferred maps Auto/Apple/Google/Waze | ☐ |
-| 29o | Multi-stop itineraries | Plan → Create itinerary · pick saved places + nearby stores · pass-by grocery hint · Open full trip in preferred maps · Save as preferred · Trip history · Run again | ☐ |
+| 29o | Multi-stop itineraries | Plan → New trip · places + today events + nearby · pass-by hint · Open full trip · Preferred · Recent · Run again | ☐ |
 | 29p | Shopping mode + near shop | Groceries → Shopping mode · large checkboxes only · Settings Near shop / Missing on the way · foreground near-shop local notify (Expo Go best-effort) | ☐ |
 | 29b | Member avatars | Settings → Members → emoji picker · avatar persists on Health / Ranks / Home / Create Task | ☐ |
 | 29c | Rooms | Settings → Rooms add/remove · persists after reload · Create Task presets show room · Health cleaning strip | ☐ |

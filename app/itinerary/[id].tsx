@@ -1,12 +1,12 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 import type { ItineraryStopKind } from '@/types/orbit';
 
@@ -26,6 +26,7 @@ export default function ItineraryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const {
     advanceItineraryStop,
+    accentTheme,
     household,
     openFullItineraryInMaps,
     openStopInMaps,
@@ -40,9 +41,13 @@ export default function ItineraryDetailScreen() {
     [itinerary]
   );
 
+  const doneCount = ordered.filter((s) => s.status === 'done').length;
+  const canRun = itinerary?.status === 'active' || itinerary?.status === 'draft';
+
   if (!itinerary) {
     return (
       <ScrollView style={orbitScreen.container} contentContainerStyle={orbitScreen.content}>
+        <Stack.Screen options={{ title: 'Trip', headerBackTitle: 'Plan' }} />
         <Text style={orbitTypography.title}>Trip not found</Text>
         <OrbitButton tone="secondary" onPress={() => router.back()}>
           Back
@@ -55,9 +60,7 @@ export default function ItineraryDetailScreen() {
     const ids = ordered.map((stop) => stop.id);
     const index = ids.indexOf(stopId);
     const next = index + direction;
-    if (index < 0 || next < 0 || next >= ids.length) {
-      return;
-    }
+    if (index < 0 || next < 0 || next >= ids.length) return;
     const swapped = [...ids];
     [swapped[index], swapped[next]] = [swapped[next]!, swapped[index]!];
     await reorderItineraryStops(itinerary.id, swapped);
@@ -67,121 +70,160 @@ export default function ItineraryDetailScreen() {
     <ScrollView
       style={orbitScreen.container}
       contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator={false}>
+      <Stack.Screen
+        options={{
+          title: 'Trip',
+          headerBackTitle: 'Plan',
+          headerTintColor: accentTheme.primary,
+        }}
+      />
+
       <View style={orbitScreen.header}>
         <Text style={orbitTypography.caption}>{itinerary.date}</Text>
         <Text style={orbitTypography.display}>{itinerary.title}</Text>
         {itinerary.summary ? <Text style={styles.summary}>{itinerary.summary}</Text> : null}
         <View style={styles.pillRow}>
-          <StatusPill label={itinerary.status} tone={itinerary.status === 'completed' ? 'green' : 'cyan'} />
+          <StatusPill
+            label={itinerary.status}
+            tone={itinerary.status === 'completed' ? 'green' : 'cyan'}
+          />
           {itinerary.favorite ? <StatusPill label="preferred" tone="amber" /> : null}
+          {itinerary.suggestedByNova ? <StatusPill label="Nova" tone="blue" /> : null}
+          <Text style={styles.progress}>
+            {doneCount} of {ordered.length}
+          </Text>
         </View>
       </View>
 
-      <GlassCard style={styles.novaCard}>
-        <Text style={styles.novaLabel}>Maps · {preferredMapsApp}</Text>
-        <Text style={orbitTypography.body}>
-          Open the full multi-stop trip, or hand off one leg at a time. Waze opens the first stop only —
-          use Arrived → next for the rest.
-        </Text>
-        <OrbitButton onPress={() => void openFullItineraryInMaps(itinerary.id)}>
-          Open full trip
-        </OrbitButton>
-        <View style={styles.actionRow}>
-          <OrbitButton
-            tone="secondary"
-            onPress={() => void toggleItineraryFavorite(itinerary.id)}>
-            {itinerary.favorite ? 'Unsave preferred' : 'Save as preferred'}
+      {canRun ? (
+        <View style={styles.primaryBlock}>
+          <OrbitButton onPress={() => void openFullItineraryInMaps(itinerary.id)}>
+            Open full trip
           </OrbitButton>
-          {itinerary.status === 'completed' || itinerary.favorite ? (
-            <OrbitButton
-              tone="secondary"
-              onPress={() =>
-                void rerunItinerary(itinerary.id).then((created) => {
-                  if (created) router.replace(`/itinerary/${created.id}` as never);
-                })
-              }>
-              Run again
-            </OrbitButton>
-          ) : null}
+          <Text style={styles.mapsCaption}>Opens in {preferredMapsApp}</Text>
         </View>
-      </GlassCard>
+      ) : null}
 
-      {ordered.map((stop, index) => {
-        const isActive = stop.status === 'active';
-        const isDone = stop.status === 'done';
-        return (
-          <GlassCard key={stop.id} elevated={isActive} style={[styles.stopCard, isActive && styles.stopActive]}>
-            <View style={styles.stopRow}>
-              <View style={[styles.dot, isActive && styles.dotActive, isDone && styles.dotDone]}>
-                <Text style={styles.dotText}>{isDone ? '✓' : index + 1}</Text>
+      <View style={styles.stopList}>
+        {ordered.map((stop, index) => {
+          const isActive = stop.status === 'active';
+          const isDone = stop.status === 'done';
+          const row = (
+            <View style={styles.stopInner}>
+              <View style={styles.stopRow}>
+                <View style={[styles.dot, isActive && styles.dotActive, isDone && styles.dotDone]}>
+                  <Text style={styles.dotText}>{isDone ? '✓' : index + 1}</Text>
+                </View>
+                <View style={styles.stopBody}>
+                  <Text style={[orbitTypography.cardTitle, isDone && styles.doneText]}>
+                    {stop.label}
+                  </Text>
+                  <Text style={orbitTypography.caption} numberOfLines={1}>
+                    {stop.address || stop.placeQuery || 'No address'}
+                    {stop.etaMinutes ? ` · ~${stop.etaMinutes}m` : ''}
+                  </Text>
+                  <StatusPill label={stop.kind} tone={kindTone[stop.kind]} />
+                </View>
+                {!isDone ? (
+                  <View style={styles.reorderCol}>
+                    <Pressable onPress={() => void moveStop(stop.id, -1)} hitSlop={8}>
+                      <MaterialIcons name="keyboard-arrow-up" size={20} color={orbitColors.textSubtle} />
+                    </Pressable>
+                    <Pressable onPress={() => void moveStop(stop.id, 1)} hitSlop={8}>
+                      <MaterialIcons name="keyboard-arrow-down" size={20} color={orbitColors.textSubtle} />
+                    </Pressable>
+                  </View>
+                ) : null}
               </View>
-              <View style={styles.stopBody}>
-                <Text style={orbitTypography.cardTitle}>{stop.label}</Text>
-                <Text style={orbitTypography.caption}>
-                  {stop.address || stop.placeQuery || 'No address'}
-                  {stop.etaMinutes ? ` · ~${stop.etaMinutes}m` : ''}
-                </Text>
-                <StatusPill label={stop.kind} tone={kindTone[stop.kind]} />
-              </View>
-            </View>
-            <View style={styles.actions}>
-              <Pressable onPress={() => void moveStop(stop.id, -1)} style={styles.iconBtn}>
-                <MaterialIcons name="keyboard-arrow-up" size={22} color={orbitColors.textMuted} />
-              </Pressable>
-              <Pressable onPress={() => void moveStop(stop.id, 1)} style={styles.iconBtn}>
-                <MaterialIcons name="keyboard-arrow-down" size={22} color={orbitColors.textMuted} />
-              </Pressable>
-              <OrbitButton
-                style={styles.flexBtn}
-                tone="secondary"
-                onPress={() => void openStopInMaps(itinerary.id, stop.id)}>
-                Open in Maps
-              </OrbitButton>
+
               {isActive && !isDone ? (
-                <OrbitButton
-                  style={styles.flexBtn}
-                  onPress={() => void advanceItineraryStop(itinerary.id, stop.id)}>
-                  Arrived → next
-                </OrbitButton>
-              ) : null}
-              {stop.kind === 'grocery' || stop.kind === 'shop' ? (
-                <OrbitButton
-                  style={styles.flexBtn}
-                  tone="secondary"
-                  onPress={() => router.push('/shopping-mode' as never)}>
-                  Shopping list
-                </OrbitButton>
+                <View style={styles.activeActions}>
+                  <OrbitButton onPress={() => void advanceItineraryStop(itinerary.id, stop.id)}>
+                    Arrived → next
+                  </OrbitButton>
+                  <Pressable
+                    onPress={() => void openStopInMaps(itinerary.id, stop.id)}
+                    style={styles.textLink}>
+                    <Text style={[styles.textLinkLabel, { color: accentTheme.primary }]}>
+                      Open this stop
+                    </Text>
+                  </Pressable>
+                  {stop.kind === 'grocery' || stop.kind === 'shop' ? (
+                    <Pressable
+                      onPress={() => router.push('/shopping-mode' as never)}
+                      style={styles.textLink}>
+                      <Text style={[styles.textLinkLabel, { color: accentTheme.primary }]}>
+                        Shopping list
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               ) : null}
             </View>
-          </GlassCard>
-        );
-      })}
+          );
+
+          return isActive ? (
+            <GlassCard key={stop.id} elevated style={styles.stopActive}>
+              {row}
+            </GlassCard>
+          ) : (
+            <View key={stop.id} style={styles.stopQuiet}>
+              {row}
+            </View>
+          );
+        })}
+      </View>
+
+      <View style={styles.secondaryRow}>
+        <Pressable
+          onPress={() => void toggleItineraryFavorite(itinerary.id)}
+          style={styles.secondaryChip}>
+          <MaterialIcons
+            name={itinerary.favorite ? 'star' : 'star-border'}
+            size={16}
+            color={orbitColors.rankGold}
+          />
+          <Text style={styles.secondaryLabel}>
+            {itinerary.favorite ? 'Preferred' : 'Save preferred'}
+          </Text>
+        </Pressable>
+        {itinerary.status === 'completed' || itinerary.favorite ? (
+          <Pressable
+            onPress={() =>
+              void rerunItinerary(itinerary.id).then((created) => {
+                if (created) router.replace(`/itinerary/${created.id}` as never);
+              })
+            }
+            style={styles.secondaryChip}>
+            <MaterialIcons name="replay" size={16} color={accentTheme.primary} />
+            <Text style={[styles.secondaryLabel, { color: accentTheme.primary }]}>Run again</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  actionRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  activeActions: {
     gap: orbitSpacing.sm,
+    marginTop: orbitSpacing.md,
   },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: orbitSpacing.sm,
-    marginTop: orbitSpacing.sm,
+  doneText: {
+    color: orbitColors.textSubtle,
+    textDecorationLine: 'line-through',
   },
   dot: {
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderColor: orbitColors.border,
     borderRadius: 14,
-    borderWidth: 2,
-    height: 36,
+    borderWidth: 1.5,
+    height: 32,
     justifyContent: 'center',
-    width: 36,
+    width: 32,
   },
   dotActive: {
     backgroundColor: 'rgba(56,189,248,0.2)',
@@ -193,52 +235,91 @@ const styles = StyleSheet.create({
   },
   dotText: {
     color: orbitColors.text,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  flexBtn: {
-    flexGrow: 1,
-    minWidth: 120,
-  },
-  iconBtn: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: orbitRadius.sm,
-    height: 44,
-    justifyContent: 'center',
-    width: 44,
-  },
-  novaCard: {
-    gap: 6,
-  },
-  novaLabel: {
-    color: orbitColors.novaCyan,
     fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 0.6,
+  },
+  mapsCaption: {
+    color: orbitColors.textSubtle,
+    fontSize: 12,
+    textAlign: 'center',
   },
   pillRow: {
+    alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
+  primaryBlock: {
+    gap: 6,
+  },
+  progress: {
+    color: orbitColors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 'auto',
+  },
+  reorderCol: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryChip: {
+    alignItems: 'center',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  secondaryLabel: {
+    color: orbitColors.textSoft,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  secondaryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
   stopActive: {
-    borderColor: 'rgba(56,189,248,0.28)',
+    borderColor: 'rgba(56,189,248,0.35)',
   },
   stopBody: {
     flex: 1,
     gap: 4,
+    minWidth: 0,
   },
-  stopCard: {
-    gap: orbitSpacing.sm,
+  stopInner: {
+    gap: 0,
+  },
+  stopList: {
+    gap: 10,
+  },
+  stopQuiet: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
   },
   stopRow: {
+    alignItems: 'center',
     flexDirection: 'row',
-    gap: orbitSpacing.md,
+    gap: 12,
   },
   summary: {
     color: orbitColors.textMuted,
     fontSize: 14,
     lineHeight: 20,
+  },
+  textLink: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  textLinkLabel: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
