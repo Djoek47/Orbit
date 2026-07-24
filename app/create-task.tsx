@@ -26,7 +26,7 @@ import {
   type LibraryAudience,
 } from '@/data/choremaxx-task-library';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
-import { loadQuickPresetIds, saveQuickPresetIds } from '@/lib/household/local-prefs';
+import { loadQuickPresetConfig, saveQuickPresetConfig, type QuickPresetOverride } from '@/lib/household/local-prefs';
 import {
   findSharedDeviceForMember,
   isSharedDeviceRole,
@@ -242,12 +242,16 @@ export default function CreateTaskScreen() {
   const [category, setCategory] = useState('General');
   const [description, setDescription] = useState<string | undefined>();
   const [quickIds, setQuickIds] = useState<string[]>([...DEFAULT_QUICK_PRESET_IDS]);
+  const [quickOverrides, setQuickOverrides] = useState<Record<string, QuickPresetOverride>>({});
   const [libraryQuery, setLibraryQuery] = useState('');
   const [libraryDomain, setLibraryDomain] = useState<string | null>(null);
   const [customizeQuickOpen, setCustomizeQuickOpen] = useState(false);
 
   useEffect(() => {
-    void loadQuickPresetIds(household.id).then(setQuickIds);
+    void loadQuickPresetConfig(household.id).then((config) => {
+      setQuickIds(config.ids);
+      setQuickOverrides(config.overrides);
+    });
   }, [household.id]);
 
   const quickPresets = useMemo(() => {
@@ -256,8 +260,22 @@ export default function CreateTaskScreen() {
       .map((id) => byId.get(id))
       .filter((task): task is ChoremaxxLibraryTask => Boolean(task))
       .filter((task) => task.audience === 'both' || task.audience === libraryAudience)
-      .map(libraryToPreset);
-  }, [quickIds, libraryAudience]);
+      .map((task) => {
+        const preset = libraryToPreset(task);
+        const override = quickOverrides[task.id];
+        if (!override) return preset;
+        const baseXp = override.baseXp ?? preset.baseXp;
+        const difficulty: TaskDifficulty =
+          baseXp >= 20 ? 'hard' : baseXp >= 12 ? 'medium' : 'easy';
+        return {
+          ...preset,
+          baseXp,
+          repeat: override.repeat ?? preset.repeat,
+          difficulty,
+          weight: weightForDifficulty(difficulty),
+        };
+      });
+  }, [quickIds, libraryAudience, quickOverrides]);
 
   const filteredPresets = useMemo(() => {
     const q = presetQuery.trim().toLowerCase();
@@ -399,16 +417,38 @@ export default function CreateTaskScreen() {
     return rooms.find((room) => room.kind === kind)?.id;
   }
 
-  async function persistQuickIds(next: string[]) {
-    setQuickIds(next);
-    await saveQuickPresetIds(household.id, next);
+  async function persistQuickConfig(nextIds: string[], nextOverrides: Record<string, QuickPresetOverride>) {
+    setQuickIds(nextIds);
+    setQuickOverrides(nextOverrides);
+    await saveQuickPresetConfig(household.id, { ids: nextIds, overrides: nextOverrides });
   }
 
   function toggleQuickId(id: string) {
     const next = quickIds.includes(id)
       ? quickIds.filter((item) => item !== id)
       : [...quickIds, id];
-    void persistQuickIds(next.length ? next : [...DEFAULT_QUICK_PRESET_IDS]);
+    const ids = next.length ? next : [...DEFAULT_QUICK_PRESET_IDS];
+    const overrides = { ...quickOverrides };
+    if (!ids.includes(id)) {
+      delete overrides[id];
+    }
+    void persistQuickConfig(ids, overrides);
+  }
+
+  function updateQuickOverride(id: string, patch: QuickPresetOverride) {
+    const next = {
+      ...quickOverrides,
+      [id]: { ...quickOverrides[id], ...patch },
+    };
+    void persistQuickConfig(quickIds, next);
+  }
+
+  function resolvedQuickXp(taskId: string, fallback: number) {
+    return quickOverrides[taskId]?.baseXp ?? fallback;
+  }
+
+  function resolvedQuickRepeat(taskId: string, fallback: HouseholdTask['repeat']) {
+    return quickOverrides[taskId]?.repeat ?? fallback;
   }
 
   function buildTaskPayload(base: {
@@ -682,27 +722,87 @@ export default function CreateTaskScreen() {
           <View style={styles.modalBackdrop}>
             <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
               <Text style={styles.headerTitle}>Quick presets</Text>
-              <Text style={styles.presetHint}>Toggle which library tasks appear in Quick presets</Text>
-              <ScrollView style={{ maxHeight: 420 }}>
+              <Text style={styles.presetHint}>
+                Toggle chores · adjust XP and frequency for your quick set
+              </Text>
+              <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
                 {filterLibraryTasks({ audience: libraryAudience }).map((task) => {
                   const on = quickIds.includes(task.id);
+                  const xp = resolvedQuickXp(task.id, task.baseXp);
+                  const freq = resolvedQuickRepeat(task.id, inferLibraryRepeat(task));
                   return (
-                    <Pressable
-                      key={task.id}
-                      onPress={() => toggleQuickId(task.id)}
-                      style={styles.libraryRow}>
-                      <MaterialIcons
-                        name={on ? 'check-box' : 'check-box-outline-blank'}
-                        size={18}
-                        color={on ? accentTheme.primary : '#4B6080'}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.libraryTitle}>{task.title}</Text>
-                        <Text style={styles.libraryMeta}>
-                          {task.domain} · {task.baseXp} XP
-                        </Text>
+                    <View key={task.id} style={styles.libraryRow}>
+                      <Pressable onPress={() => toggleQuickId(task.id)} hitSlop={6}>
+                        <MaterialIcons
+                          name={on ? 'check-box' : 'check-box-outline-blank'}
+                          size={18}
+                          color={on ? accentTheme.primary : '#4B6080'}
+                        />
+                      </Pressable>
+                      <View style={{ flex: 1, gap: 8 }}>
+                        <Pressable onPress={() => toggleQuickId(task.id)}>
+                          <Text style={styles.libraryTitle}>{task.title}</Text>
+                          <Text style={styles.libraryMeta}>{task.domain}</Text>
+                        </Pressable>
+                        {on ? (
+                          <View style={styles.quickTuneBlock}>
+                            <View style={styles.quickXpRow}>
+                              <Text style={styles.quickTuneLabel}>XP</Text>
+                              <Pressable
+                                onPress={() =>
+                                  updateQuickOverride(task.id, {
+                                    baseXp: Math.max(5, xp - 5),
+                                  })
+                                }
+                                style={styles.quickStepBtn}>
+                                <MaterialIcons name="remove" size={16} color="#C8D8F0" />
+                              </Pressable>
+                              <Text style={[styles.quickXpValue, { color: accentTheme.primary }]}>
+                                {xp}
+                              </Text>
+                              <Pressable
+                                onPress={() =>
+                                  updateQuickOverride(task.id, {
+                                    baseXp: Math.min(100, xp + 5),
+                                  })
+                                }
+                                style={styles.quickStepBtn}>
+                                <MaterialIcons name="add" size={16} color="#C8D8F0" />
+                              </Pressable>
+                            </View>
+                            <View style={styles.quickFreqRow}>
+                              {(['None', 'Daily', 'Weekly', 'Weekdays'] as const).map((option) => {
+                                const active = freq === option;
+                                return (
+                                  <Pressable
+                                    key={option}
+                                    onPress={() => updateQuickOverride(task.id, { repeat: option })}
+                                    style={[
+                                      styles.quickFreqChip,
+                                      active && {
+                                        backgroundColor: `${accentTheme.primary}28`,
+                                        borderColor: `${accentTheme.primary}66`,
+                                      },
+                                    ]}>
+                                    <Text
+                                      style={[
+                                        styles.quickFreqText,
+                                        active && { color: accentTheme.primary },
+                                      ]}>
+                                      {option === 'None' ? 'Once' : option}
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })}
+                            </View>
+                          </View>
+                        ) : (
+                          <Text style={styles.libraryMeta}>
+                            {task.baseXp} XP · {inferLibraryRepeat(task) === 'None' ? 'Once' : inferLibraryRepeat(task)}
+                          </Text>
+                        )}
                       </View>
-                    </Pressable>
+                    </View>
                   );
                 })}
               </ScrollView>
@@ -1639,6 +1739,55 @@ const styles = StyleSheet.create({
     color: '#7C9CC0',
     fontSize: 12,
     marginTop: 2,
+  },
+  quickTuneBlock: {
+    gap: 8,
+  },
+  quickXpRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  quickTuneLabel: {
+    color: '#4B6080',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    width: 28,
+  },
+  quickStepBtn: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 30,
+    justifyContent: 'center',
+    width: 30,
+  },
+  quickXpValue: {
+    fontSize: 15,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '800',
+    minWidth: 28,
+    textAlign: 'center',
+  },
+  quickFreqRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  quickFreqChip: {
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  quickFreqText: {
+    color: '#7C9CC0',
+    fontSize: 11,
+    fontWeight: '700',
   },
   librarySections: {
     gap: 18,
