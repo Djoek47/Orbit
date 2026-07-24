@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
@@ -397,7 +397,9 @@ export default function RewardsScreen() {
             return (
               <Animated.View
                 key={reward.id}
-                entering={FadeInDown.delay(40 + groupIndex * 30 + index * 40).springify()}>
+                entering={FadeInDown.delay(40 + groupIndex * 30 + index * 40).springify()}
+                exiting={FadeOut.duration(320)}
+                layout={LinearTransition.duration(280)}>
                 <LinearGradient
                   colors={[
                     `${reward.color ?? accentTheme.primary}18`,
@@ -446,7 +448,10 @@ export default function RewardsScreen() {
                             const result = await claimReward(reward.id);
                             if (!result) {
                               Alert.alert('Couldn’t claim', 'Try again in a moment.');
+                              return;
                             }
+                            // Card exits via FadeOut when removed from the vault.
+                            await archiveReward(reward.id);
                           } finally {
                             setClaimingId(null);
                           }

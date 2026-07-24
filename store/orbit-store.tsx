@@ -2024,7 +2024,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await rewardsRepository.archiveReward(rewardId);
     setHousehold((current) => ({
       ...current,
-      rewards: current.rewards.filter((item) => item.id !== rewardId),
+      rewards: current.rewards.map((item) =>
+        item.id === rewardId ? { ...item, archived: true } : item
+      ),
     }));
     await trackAnalytics('reward.archived', { rewardId }, analyticsContext);
   };
