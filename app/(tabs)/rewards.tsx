@@ -2,11 +2,13 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { OrbitButton } from '@/components/orbit/orbit-button';
+import { RewardClaimPress } from '@/components/orbit/reward-claim-press';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
 import {
   findSharedDeviceForMember,
@@ -46,10 +48,12 @@ export default function RewardsScreen() {
     pendingRedemptions,
     permissions,
     rejectRedemption,
-    requestRewardRedemption,
+    claimReward,
+    currentMember,
   } = useOrbit();
   const [view, setView] = useState<RankingView>('week');
   const [shopCategory, setShopCategory] = useState<string>('All');
+  const [claimingId, setClaimingId] = useState<string | null>(null);
   const caps = resolveMemberCapabilities(household);
   const isAdmin = permissions.canManageHousehold;
   const canRedeem = isAdmin || caps.allowRewardRedeem;
@@ -308,34 +312,59 @@ export default function RewardsScreen() {
         </GlassCard>
       </Pressable>
 
-      <View style={styles.shopHeader}>
-        <Text style={orbitTypography.display}>{isAdmin ? 'Reward shop' : 'Rewards'}</Text>
-        <Text style={orbitTypography.caption}>
-          {isAdmin ? 'Browse by category · redeem with XP' : 'Browse & redeem with your XP'}
+      <View style={styles.shopHero}>
+        <LinearGradient
+          colors={[`${accentTheme.primary}33`, 'rgba(251,191,36,0.12)', 'rgba(255,255,255,0.03)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.shopHeroGlow}
+        />
+        <Text style={styles.shopKicker}>{isAdmin ? 'ADMIN SHOP' : 'YOUR SHOP'}</Text>
+        <Text style={styles.shopTitle}>{isAdmin ? 'Reward vault' : 'Claim your wins'}</Text>
+        <Text style={styles.shopSub}>
+          {isAdmin
+            ? 'Mint prizes, approve requests, watch the household cash in.'
+            : `You have ${(currentMember?.xp ?? 0).toLocaleString()} XP · hold to claim`}
         </Text>
-      </View>
-
-      <View style={styles.shopActions}>
         {isAdmin ? (
-          <OrbitButton onPress={() => router.push('/create-reward' as never)}>Mint reward</OrbitButton>
-        ) : null}
-        {canRequestSpecial ? (
-          <OrbitButton tone="secondary" onPress={() => router.push('/special-reward-request' as never)}>
-            Request special reward
-          </OrbitButton>
-        ) : null}
-        {isAdmin ? (
+          <View style={styles.manageRail}>
+            <Pressable
+              onPress={() => router.push('/create-reward' as never)}
+              style={[styles.manageChip, { backgroundColor: accentTheme.primary }]}>
+              <MaterialIcons name="auto-awesome" size={16} color="#04101F" />
+              <Text style={styles.manageChipDark}>Mint</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/reward-tally' as never)}
+              style={[styles.manageChip, { borderColor: `${accentTheme.primary}55` }]}>
+              <MaterialIcons name="receipt-long" size={16} color={accentTheme.primary} />
+              <Text style={[styles.manageChipLight, { color: accentTheme.primary }]}>Tally</Text>
+            </Pressable>
+            {canRequestSpecial ? (
+              <Pressable
+                onPress={() => router.push('/special-reward-request' as never)}
+                style={[styles.manageChip, { borderColor: 'rgba(255,255,255,0.14)' }]}>
+                <MaterialIcons name="favorite-border" size={16} color="#C8D8F0" />
+                <Text style={styles.manageChipLight}>Special</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : canRequestSpecial ? (
           <Pressable
-            onPress={() => router.push('/reward-tally' as never)}
-            style={[styles.tallyLink, { borderColor: `${accentTheme.primary}44` }]}>
-            <MaterialIcons name="receipt-long" size={16} color={accentTheme.primary} />
-            <Text style={[styles.tallyLinkText, { color: accentTheme.primary }]}>Redeem tally</Text>
-            <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
+            onPress={() => router.push('/special-reward-request' as never)}
+            style={[styles.memberSpecial, { borderColor: `${accentTheme.primary}44` }]}>
+            <Text style={[styles.memberSpecialText, { color: accentTheme.primary }]}>
+              Request a special reward
+            </Text>
+            <MaterialIcons name="chevron-right" size={18} color={accentTheme.primary} />
           </Pressable>
         ) : null}
       </View>
 
-      <View style={styles.categoryChipRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoryChipRow}>
         {rewardCategories.map((category) => {
           const active = shopCategory === category;
           return (
@@ -346,7 +375,7 @@ export default function RewardsScreen() {
                 styles.categoryChip,
                 active && {
                   backgroundColor: `${accentTheme.primary}2E`,
-                  borderColor: `${accentTheme.primary}55`,
+                  borderColor: `${accentTheme.primary}66`,
                 },
               ]}>
               <Text style={[styles.categoryChipText, active && { color: accentTheme.primary }]}>
@@ -355,66 +384,92 @@ export default function RewardsScreen() {
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
-      {groupedShopRewards.map((group) => (
+      {groupedShopRewards.map((group, groupIndex) => (
         <View key={group.category} style={styles.shopSection}>
           <Text style={styles.shopSectionTitle}>{group.category}</Text>
-          {group.items.map((reward) => {
+          {group.items.map((reward, index) => {
             const origin =
               reward.origin ?? (reward.specialRequest ? 'special-request' : 'minted');
+            const mode = reward.approvalRequired ? 'request' : 'instant';
+            const canAfford = (currentMember?.xp ?? 0) >= reward.cost;
             return (
-              <GlassCard key={reward.id} style={styles.rewardCard}>
-                <View style={orbitScreen.row}>
-                  <View style={styles.rewardCopy}>
-                    <Text style={orbitTypography.cardTitle}>
-                      {reward.emoji ? `${reward.emoji} ` : ''}
-                      {reward.title}
-                    </Text>
-                    <Text style={orbitTypography.caption}>
-                      {reward.cost} XP
-                      {permissions.canManageHousehold
-                        ? ` · ${origin === 'special-request' ? 'Special request' : 'Minted'}`
-                        : ''}
-                      {permissions.canManageHousehold && reward.createdByName
-                        ? ` · ${reward.createdByName}`
-                        : ''}
-                    </Text>
+              <Animated.View
+                key={reward.id}
+                entering={FadeInDown.delay(40 + groupIndex * 30 + index * 40).springify()}>
+                <LinearGradient
+                  colors={[
+                    `${reward.color ?? accentTheme.primary}18`,
+                    'rgba(255,255,255,0.04)',
+                    'rgba(7,13,28,0.55)',
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[
+                    styles.vaultCard,
+                    { borderColor: `${reward.color ?? accentTheme.primary}33` },
+                  ]}>
+                  <View style={styles.vaultTop}>
+                    <View style={styles.vaultEmojiWrap}>
+                      <Text style={styles.vaultEmoji}>{reward.emoji || '🎁'}</Text>
+                    </View>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={styles.vaultTitle}>{reward.title}</Text>
+                      <View style={styles.vaultMetaRow}>
+                        <View style={styles.xpStamp}>
+                          <Text style={styles.xpStampText}>{reward.cost} XP</Text>
+                        </View>
+                        <Text style={styles.vaultMode}>
+                          {mode === 'instant' ? 'Instant' : 'Needs approval'}
+                        </Text>
+                        {isAdmin ? (
+                          <Text style={styles.vaultOrigin}>
+                            {origin === 'special-request' ? 'Request' : 'Minted'}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                    {canRedeem ? (
+                      <RewardClaimPress
+                        accent={accentTheme.primary}
+                        mode={mode}
+                        disabled={!canAfford}
+                        busy={claimingId === reward.id}
+                        onClaim={async () => {
+                          if (!canAfford) {
+                            Alert.alert('Not enough XP', `You need ${reward.cost} XP to claim this.`);
+                            return;
+                          }
+                          setClaimingId(reward.id);
+                          try {
+                            const result = await claimReward(reward.id);
+                            if (!result) {
+                              Alert.alert('Couldn’t claim', 'Try again in a moment.');
+                            }
+                          } finally {
+                            setClaimingId(null);
+                          }
+                        }}
+                      />
+                    ) : null}
                   </View>
-                  <View
-                    style={[
-                      styles.approvalPill,
-                      { backgroundColor: `${reward.color ?? accentTheme.primary}22` },
-                    ]}>
-                    <Text
-                      style={[
-                        styles.approvalPillText,
-                        { color: reward.color ?? accentTheme.primary },
-                      ]}>
-                      {reward.approvalRequired ? 'Approval' : 'Instant'}
-                    </Text>
-                  </View>
-                </View>
-                {canRedeem ? (
-                  <OrbitButton tone="secondary" onPress={() => void requestRewardRedemption(reward.id)}>
-                    Redeem
-                  </OrbitButton>
-                ) : null}
-                {isAdmin ? (
-                  <OrbitButton tone="danger" onPress={() => void archiveReward(reward.id)}>
-                    Archive
-                  </OrbitButton>
-                ) : null}
-              </GlassCard>
+                  {isAdmin ? (
+                    <Pressable onPress={() => void archiveReward(reward.id)} style={styles.archiveLink}>
+                      <Text style={styles.archiveLinkText}>Archive</Text>
+                    </Pressable>
+                  ) : null}
+                </LinearGradient>
+              </Animated.View>
             );
           })}
         </View>
       ))}
 
       {isAdmin && pendingRedemptions.length > 0 ? (
-        <>
+        <View style={styles.pendingBlock}>
           <View style={styles.pendingHead}>
-            <Text style={orbitTypography.cardTitle}>Pending · {pendingRedemptions.length}</Text>
+            <Text style={styles.pendingTitle}>Pending claims · {pendingRedemptions.length}</Text>
             <Pressable onPress={() => router.push('/reward-tally' as never)}>
               <Text style={[styles.tallyLinkText, { color: accentTheme.primary }]}>Full tally</Text>
             </Pressable>
@@ -422,16 +477,14 @@ export default function RewardsScreen() {
           {pendingRedemptions.slice(0, 3).map((redemption) => {
             const reward = household.rewards.find((item) => item.id === redemption.rewardId);
             const member = household.members.find((item) => item.id === redemption.memberId);
-            const origin =
-              reward?.origin ?? (reward?.specialRequest ? 'special-request' : 'minted');
             return (
-              <GlassCard key={redemption.id} style={styles.rewardCard}>
-                <Text style={orbitTypography.cardTitle}>{reward?.title ?? 'Reward'}</Text>
-                <Text style={orbitTypography.caption}>
-                  {member?.name ?? 'member'} ·{' '}
-                  {origin === 'special-request' ? 'Special request' : 'Minted'} ·{' '}
-                  {new Date(redemption.requestedAt).toLocaleString()}
-                </Text>
+              <View key={redemption.id} style={styles.pendingCard}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.vaultTitle}>{reward?.title ?? 'Reward'}</Text>
+                  <Text style={styles.shopSub}>
+                    {member?.name ?? 'member'} · {new Date(redemption.requestedAt).toLocaleString()}
+                  </Text>
+                </View>
                 {permissions.canApproveReward ? (
                   <View style={styles.redemptionActions}>
                     <OrbitButton
@@ -446,13 +499,11 @@ export default function RewardsScreen() {
                       Reject
                     </OrbitButton>
                   </View>
-                ) : (
-                  <Text style={orbitTypography.caption}>Waiting on household approval.</Text>
-                )}
-              </GlassCard>
+                ) : null}
+              </View>
             );
           })}
-        </>
+        </View>
       ) : null}
     </ScrollView>
   );
@@ -962,4 +1013,153 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  shopHero: {
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 8,
+    overflow: 'hidden',
+    padding: 18,
+  },
+  shopHeroGlow: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  shopKicker: {
+    color: '#FBBF24',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  shopTitle: {
+    color: '#F4F7FF',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+  shopSub: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  manageRail: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  manageChip: {
+    alignItems: 'center',
+    borderColor: 'transparent',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  manageChipDark: {
+    color: '#04101F',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  manageChipLight: {
+    color: '#C8D8F0',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  memberSpecial: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  memberSpecialText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  vaultCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    gap: 10,
+    padding: 16,
+  },
+  vaultTop: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  vaultEmojiWrap: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 18,
+    height: 56,
+    justifyContent: 'center',
+    width: 56,
+  },
+  vaultEmoji: { fontSize: 28 },
+  vaultTitle: {
+    color: '#EEF2FF',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  vaultMetaRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  xpStamp: {
+    backgroundColor: 'rgba(251,191,36,0.18)',
+    borderColor: 'rgba(251,191,36,0.45)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  xpStampText: {
+    color: '#FBBF24',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  vaultMode: {
+    color: '#7C9CC0',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  vaultOrigin: {
+    color: '#4B6080',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  archiveLink: {
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+  },
+  archiveLinkText: {
+    color: '#F87171',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  pendingBlock: { gap: 10 },
+  pendingTitle: {
+    color: '#EEF2FF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  pendingCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+  },
+
 });

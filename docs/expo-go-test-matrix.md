@@ -65,14 +65,15 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 15 | Task presets | Create Task → pick preset · weight XP · optional proof · recurring spawn | ☐ |
 | 15b | Attach proof | Task detail → Attach proof (camera/library) → admin gets inbox + local notify · Approve proof | ☐ |
 | 15c | Two admins + split | Members → Make co-admin (max 2) · Tasks → Split open tasks between Sarah & David · Two admins filter | ☐ |
-| 15d | Home week XP + layout | Home hero shows per-member week XP bars · Home/Groceries full-width (not left-locked) | ☐ |
+| 15d | Home week XP + layout | Home “This week” lean board (top 5 · slim bars · Ranks link) · full-width Home/Groceries | ☐ |
 | 15e | Cancel task (admin) | Task detail → Cancel · this occurrence or this+future · works when overdue · not delete | ☐ |
 | 15f | App icon / splash | Cold start shows Choremaxx mark on splash + home icon | ☐ |
+| 15g | Header logo mark | Sticky chrome uses transparent house mark (no dark plate) on frosted glass | ☐ |
 | 16 | Late XP | Complete overdue task · celebration shows penalty · Nova ai notification | ☐ |
 | 17 | Rewards mint | Admin Mint reward · special request · approve/reject on Ranks | ☐ |
 | 18 | Streaks / achievements | Complete task · streak bumps · achievements grid live | ☐ |
 | 19 | Nova notifications | Settings toggles · inbox Nova filter · deep link to task/itinerary | ☐ |
-| 20 | Rewards shop | Redeem reward → parent Approve/Reject on Ranks | ☐ |
+| 20 | Rewards shop | Hold-to-claim Instant (auto-spend XP + notify) · Approval queues request · admin Approve/Reject | ☐ |
 | 21 | Nova text | Ask 3 questions · thread persists after leaving Nova tab | ☐ |
 | 22 | Nova voice | Hold mic on Nova · spoken reply (Whisper fallback; Realtime when `EXPO_PUBLIC_NOVA_REALTIME=1`) | ☐ |
 | 23 | Notifications | Unread badge on Home · open item · mark read | ☐ |

@@ -136,9 +136,20 @@ export const novaNotifications = {
     return push({
       title: 'Nova · Reward request',
       body: `${input.memberName} requested ${input.title}. Approve when it feels fair.`,
-      category: 'ai',
+      category: 'rewards',
       priority: 'medium',
       data: { redemptionId: input.redemptionId, kind: 'reward_requested' },
+    });
+  },
+
+  async rewardClaimed(push: PushFn, prefs: NovaNotificationPrefs, input: { title: string; memberName: string; cost: number; redemptionId: string }) {
+    if (!prefs.rewards) return null;
+    return push({
+      title: 'Nova · Reward claimed',
+      body: `${input.memberName} claimed ${input.title} for ${input.cost} XP.`,
+      category: 'rewards',
+      priority: 'medium',
+      data: { redemptionId: input.redemptionId, kind: 'reward_claimed' },
     });
   },
 
@@ -147,7 +158,7 @@ export const novaNotifications = {
     return push({
       title: 'Nova · Reward approved',
       body: `${input.title} is good to go. Enjoy it.`,
-      category: 'ai',
+      category: 'rewards',
       priority: 'medium',
       data: { redemptionId: input.redemptionId, kind: 'reward_approved' },
     });

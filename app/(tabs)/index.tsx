@@ -10,7 +10,7 @@ import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { orbitRadius, orbitScreen } from '@/constants/orbit-theme';
-import { MEMBER_ACCENTS, isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   buildHomeHealthMetrics,
   resolveHomeHealthRole,
@@ -21,8 +21,6 @@ import {
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
-
-const WEEK_XP_COLORS = ['#38BDF8', '#34D399', '#A78BFA', '#FB923C', '#F472B6'];
 
 export default function HomeScreen() {
   const chromePad = useTabChromePaddingTop(8);
@@ -215,22 +213,29 @@ export default function HomeScreen() {
               </View>
             </View>
           ) : (
-            <>
+            <View style={styles.weekBoard}>
               <View style={styles.weekHead}>
-                <Text style={styles.weekTitle}>Week XP</Text>
-                <Text style={styles.eyebrow}>Each household member</Text>
+                <Text style={styles.weekTitle}>This week</Text>
+                <Pressable onPress={() => router.push('/(tabs)/rewards' as never)} hitSlop={8}>
+                  <Text style={[styles.weekLink, { color: accentTheme.primary }]}>Ranks</Text>
+                </Pressable>
               </View>
-
               <View style={styles.weekList}>
-                {weekLeaders.map((member, index) => {
+                {weekLeaders.slice(0, 5).map((member, index) => {
                   const xp = member.weekXp ?? 0;
-                  const color =
-                    MEMBER_ACCENTS[member.name]?.color ?? WEEK_XP_COLORS[index % WEEK_XP_COLORS.length];
-                  const widthPct = Math.max(8, Math.round((xp / maxWeekXp) * 100));
+                  const widthPct = Math.max(6, Math.round((xp / maxWeekXp) * 100));
                   const photo = isAvatarImageUri(member.avatar);
+                  const lead = index === 0;
                   return (
-                    <View key={member.id} style={styles.weekRow}>
-                      <View style={[styles.weekAvatar, { backgroundColor: `${color}33` }]}>
+                    <View key={member.id} style={[styles.weekRow, lead && styles.weekRowLead]}>
+                      <Text style={[styles.weekRank, lead && { color: accentTheme.primary }]}>
+                        {index + 1}
+                      </Text>
+                      <View
+                        style={[
+                          styles.weekAvatar,
+                          lead && { borderColor: `${accentTheme.primary}66`, borderWidth: 1.5 },
+                        ]}>
                         {photo ? (
                           <Image source={{ uri: member.avatar }} style={styles.weekAvatarImage} />
                         ) : (
@@ -238,21 +243,33 @@ export default function HomeScreen() {
                         )}
                       </View>
                       <View style={styles.weekMeta}>
-                        <View style={styles.weekNameRow}>
-                          <Text style={styles.weekName} numberOfLines={1}>
-                            {member.name}
-                          </Text>
-                          <Text style={[styles.weekXp, { color }]}>{xp} XP</Text>
-                        </View>
+                        <Text style={[styles.weekName, lead && styles.weekNameLead]} numberOfLines={1}>
+                          {member.name}
+                        </Text>
                         <View style={styles.weekTrack}>
-                          <View style={[styles.weekFill, { width: `${widthPct}%`, backgroundColor: color }]} />
+                          <View
+                            style={[
+                              styles.weekFill,
+                              {
+                                width: `${widthPct}%`,
+                                backgroundColor: lead ? accentTheme.primary : 'rgba(255,255,255,0.28)',
+                              },
+                            ]}
+                          />
                         </View>
                       </View>
+                      <Text style={[styles.weekXp, lead && { color: accentTheme.primary }]}>
+                        {xp}
+                        <Text style={styles.weekXpUnit}> XP</Text>
+                      </Text>
                     </View>
                   );
                 })}
               </View>
-            </>
+              {weekLeaders.length > 5 ? (
+                <Text style={styles.weekMore}>+{weekLeaders.length - 5} more on Ranks</Text>
+              ) : null}
+            </View>
           )}
         </LinearGradient>
       </View>
@@ -636,28 +653,100 @@ const styles = StyleSheet.create({
   taskText: { color: '#C8D8F0', flex: 1, fontSize: 14 },
   weekAvatar: {
     alignItems: 'center',
-    borderRadius: 14,
-    height: 36,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'transparent',
+    borderRadius: 16,
+    height: 32,
     justifyContent: 'center',
     overflow: 'hidden',
-    width: 36,
+    width: 32,
   },
-  weekAvatarEmoji: { fontSize: 16 },
-  weekAvatarImage: { height: 36, width: 36 },
+  weekAvatarEmoji: { fontSize: 14 },
+  weekAvatarImage: { height: 32, width: 32 },
+  weekBoard: {
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
   weekFill: { borderRadius: 999, height: '100%' },
-  weekHead: { gap: 2 },
-  weekList: { gap: 10 },
-  weekMeta: { flex: 1, gap: 6, minWidth: 0 },
-  weekName: { color: '#EEF2FF', flex: 1, fontSize: 13, fontWeight: '600' },
-  weekNameRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  weekRow: { alignItems: 'center', flexDirection: 'row', gap: 10 },
-  weekTitle: { color: '#EEF2FF', fontSize: 14, fontWeight: '700' },
+  weekHead: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  weekLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+  },
+  weekList: { gap: 8 },
+  weekMeta: { flex: 1, gap: 5, minWidth: 0 },
+  weekMore: {
+    color: '#4B6080',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: -2,
+  },
+  weekName: {
+    color: '#C8D8F0',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.15,
+  },
+  weekNameLead: {
+    color: '#F4F7FF',
+    fontWeight: '700',
+  },
+  weekRank: {
+    color: '#4B6080',
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+    textAlign: 'center',
+    width: 16,
+  },
+  weekRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 36,
+  },
+  weekRowLead: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 14,
+    marginHorizontal: -6,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  weekTitle: {
+    color: '#EEF2FF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
   weekTrack: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 999,
-    height: 8,
+    height: 3,
     overflow: 'hidden',
     width: '100%',
   },
-  weekXp: { fontSize: 13, fontWeight: '800' },
+  weekXp: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    minWidth: 44,
+    textAlign: 'right',
+  },
+  weekXpUnit: {
+    color: '#4B6080',
+    fontSize: 10,
+    fontWeight: '600',
+  },
 });

@@ -249,6 +249,8 @@ type OrbitContextValue = {
   removeRoom: (roomId: string) => void;
   runNovaMonitor: () => Promise<NovaMonitorAction[]>;
   requestRewardRedemption: (rewardId: string, note?: string) => Promise<void>;
+  /** Hold-to-claim: Instant spends XP now; Approval submits a pending request. */
+  claimReward: (rewardId: string) => Promise<'claimed' | 'requested' | null>;
   requestSpecialReward: (title: string, note?: string, cost?: number) => Promise<void>;
   createReward: (input: CreateRewardInput) => Promise<void>;
   archiveReward: (rewardId: string) => Promise<void>;
@@ -1914,6 +1916,59 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('reward.redemption_requested', { rewardId }, analyticsContext);
   };
 
+  const claimReward = async (rewardId: string): Promise<'claimed' | 'requested' | null> => {
+    if (!household.id || !currentMember) {
+      return null;
+    }
+    const caps = resolveMemberCapabilities(household);
+    if (!permissions.canManageHousehold && !caps.allowRewardRedeem) {
+      return null;
+    }
+    const reward = household.rewards.find((item) => item.id === rewardId && !item.archived);
+    if (!reward) {
+      return null;
+    }
+    if ((currentMember.xp ?? 0) < reward.cost) {
+      return null;
+    }
+
+    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+
+    if (reward.approvalRequired) {
+      await requestRewardRedemption(rewardId);
+      return 'requested';
+    }
+
+    const redemption = await rewardsRepository.requestRedemption({
+      householdId: household.id,
+      rewardId,
+      memberId: currentMember.id,
+      note: 'Instant claim',
+    });
+    const updated = await rewardsRepository.approveRedemption(redemption.id);
+    setPendingRedemptions((current) => current.filter((item) => item.id !== redemption.id));
+    setRedemptions((current) => [
+      updated,
+      ...current.filter((item) => item.id !== redemption.id),
+    ]);
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((member) =>
+        member.id === currentMember.id
+          ? { ...member, xp: Math.max(0, member.xp - reward.cost) }
+          : member,
+      ),
+    }));
+    await novaNotifications.rewardClaimed(pushNotification, prefs, {
+      title: reward.title,
+      memberName: currentMember.name,
+      cost: reward.cost,
+      redemptionId: redemption.id,
+    });
+    await trackAnalytics('reward.claimed_instant', { rewardId }, analyticsContext);
+    return 'claimed';
+  };
+
   const requestSpecialReward = async (title: string, note?: string, cost = 150) => {
     if (!household.id || !currentMember) {
       return;
@@ -2521,6 +2576,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       removeRoom,
       runNovaMonitor,
       requestRewardRedemption,
+      claimReward,
       requestSpecialReward,
       createReward,
       archiveReward,
