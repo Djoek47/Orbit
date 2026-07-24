@@ -15,7 +15,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { GlassCard } from '@/components/orbit/glass-card';
+import { OrbitButton } from '@/components/orbit/orbit-button';
 import { XpWheel } from '@/components/orbit/xp-wheel';
+import {
+  orbitColors,
+  orbitRadius,
+} from '@/constants/orbit-theme';
 import {
   CHOREMAXX_TASK_LIBRARY,
   DEFAULT_QUICK_PRESET_IDS,
@@ -704,6 +710,14 @@ export default function CreateTaskScreen() {
   };
 
   if (mode === 'presets') {
+    const activeMeta = CATALOG_CHIP_META[catalogChip];
+    const pageTitle =
+      catalogChip === 'presets'
+        ? 'Quick set'
+        : catalogChip === 'all'
+          ? 'Full library'
+          : activeMeta?.label ?? 'Library';
+
     return (
       <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -711,23 +725,26 @@ export default function CreateTaskScreen() {
           <View style={styles.handle} />
         </View>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <View style={styles.headerCopy}>
-              <Text style={styles.headerEyebrow}>NEW TASK</Text>
-              <Text style={styles.headerTitle}>Pick something to do</Text>
+          <View style={styles.tripHeader}>
+            <View style={styles.tripHeaderCopy}>
+              <Text style={styles.tripCaption}>Create task</Text>
+              <Text style={styles.tripTitle}>
+                {activeMeta?.emoji ? `${activeMeta.emoji}  ` : ''}
+                {pageTitle}
+              </Text>
+              <Text style={styles.tripSummary}>Tap to create · hold to customize</Text>
             </View>
             <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
-              <MaterialIcons color="#7C9CC0" name="close" size={16} />
+              <MaterialIcons color={orbitColors.textSubtle} name="close" size={18} />
             </Pressable>
           </View>
-          <Text style={styles.presetHint}>
-            {catalogChip === 'presets'
-              ? 'Quick set · tap to create · hold to edit'
-              : 'Library · tap to create · hold to edit'}
-          </Text>
+
           {permissions.canAssignTask ? (
-            <View style={styles.presetAssignBlock}>
-              <Text style={styles.label}>ASSIGN TO · hold to split</Text>
+            <GlassCard style={styles.assignCard}>
+              <Text style={styles.novaLabel}>ASSIGN TO</Text>
+              <Text style={styles.cardBody}>
+                Hold a profile to split the chore — each person finishes their share.
+              </Text>
               <AssignEmojiGrid
                 members={activeMembers}
                 selectedIds={selectedIds}
@@ -737,26 +754,27 @@ export default function CreateTaskScreen() {
                 onLongPress={longPressAssignee}
               />
               {isSplitAssign ? (
-                <Text style={styles.sharedPickHint}>
-                  Split · {resolvedAssigneeName} — each earns XP when they finish; all-done bonus if everyone
-                  completes.
+                <Text style={styles.cardMeta}>
+                  Split · {resolvedAssigneeName} — XP when each finishes · all-done bonus
                 </Text>
               ) : null}
-            </View>
+            </GlassCard>
           ) : null}
 
-          <View style={styles.searchWrap}>
-            <MaterialIcons name="search" size={18} color="#6B82A3" />
-            <TextInput
-              value={presetQuery}
-              onChangeText={setPresetQuery}
-              placeholder={catalogChip === 'presets' ? 'Search presets…' : 'Search the library…'}
-              placeholderTextColor="#4B6080"
-              style={styles.searchField}
-              autoCorrect={false}
-              clearButtonMode="while-editing"
-            />
-          </View>
+          <GlassCard style={styles.searchCard}>
+            <View style={styles.searchInner}>
+              <MaterialIcons name="search" size={18} color={orbitColors.textSubtle} />
+              <TextInput
+                value={presetQuery}
+                onChangeText={setPresetQuery}
+                placeholder={catalogChip === 'presets' ? 'Search presets…' : 'Search library…'}
+                placeholderTextColor={orbitColors.textFaint}
+                style={styles.searchField}
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+              />
+            </View>
+          </GlassCard>
 
           <ScrollView
             horizontal
@@ -769,28 +787,22 @@ export default function CreateTaskScreen() {
                 ...domains.map((domain) => ({ id: domain })),
               ] as { id: string }[]
             ).map((chip) => {
-              const meta = CATALOG_CHIP_META[chip.id] ?? {
-                emoji: '•',
-                label: chip.id,
-              };
+              const meta = CATALOG_CHIP_META[chip.id] ?? { emoji: '•', label: chip.id };
               const active = catalogChip === chip.id;
+              const tone = active ? accentTheme.primary : orbitColors.novaCyan;
               return (
                 <Pressable
                   key={chip.id}
                   onPress={() => setCatalogChip(chip.id)}
                   style={[
-                    styles.catalogChip,
-                    active && {
-                      backgroundColor: `${accentTheme.primary}1A`,
-                      borderColor: `${accentTheme.primary}66`,
+                    styles.catalogPill,
+                    {
+                      borderColor: active ? `${tone}88` : `${orbitColors.novaCyan}44`,
+                      backgroundColor: active ? `${tone}22` : `${orbitColors.novaCyan}12`,
                     },
                   ]}>
-                  <Text style={styles.catalogChipEmoji}>{meta.emoji}</Text>
-                  <Text
-                    style={[
-                      styles.catalogChipLabel,
-                      active && { color: accentTheme.primary },
-                    ]}>
+                  <Text style={styles.catalogPillEmoji}>{meta.emoji}</Text>
+                  <Text style={[styles.catalogPillLabel, { color: active ? tone : orbitColors.novaCyan }]}>
                     {meta.label}
                   </Text>
                 </Pressable>
@@ -799,121 +811,107 @@ export default function CreateTaskScreen() {
           </ScrollView>
 
           <View style={styles.catalogBody}>
-            {catalogSections.map((section) => {
-              const sectionEmoji =
-                catalogChip !== 'presets' && catalogChip !== 'all'
-                  ? CATALOG_CHIP_META[catalogChip]?.emoji
-                  : catalogChip === 'presets'
-                    ? '⚡'
-                    : undefined;
-              return (
-                <View key={section.key} style={styles.catalogSection}>
-                  {catalogChip !== 'presets' ? (
-                    <View style={styles.catalogSectionHead}>
-                      {sectionEmoji && catalogChip !== 'all' ? (
-                        <Text style={styles.catalogSectionEmoji}>{sectionEmoji}</Text>
-                      ) : null}
-                      <Text style={styles.catalogSectionTitle}>{section.title}</Text>
-                      <Text style={styles.catalogSectionCount}>{section.items.length}</Text>
-                    </View>
-                  ) : null}
-                  <View style={styles.presetGrid}>
-                    {section.items.map((preset) => {
-                      const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
-                      const xp = hygiene
-                        ? 0
-                        : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
-                      const domainEmoji =
-                        CATALOG_CHIP_META[preset.category ?? '']?.emoji ??
-                        CATALOG_CHIP_META[preset.domain ?? '']?.emoji;
-                      return (
-                        <Pressable
-                          key={preset.id}
-                          onPress={() => applyPreset(preset, true)}
-                          onLongPress={() => applyPreset(preset, false)}
-                          style={styles.presetCard}>
-                          <View style={styles.presetTop}>
-                            <View style={styles.presetTitleBlock}>
+            {catalogSections.map((section) => (
+              <View key={section.key} style={styles.catalogSection}>
+                {catalogChip !== 'presets' ? (
+                  <View style={styles.catalogSectionHead}>
+                    <Text style={styles.tripCaption}>{section.title}</Text>
+                    <Text style={styles.catalogSectionCount}>{section.items.length}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.presetGrid}>
+                  {section.items.map((preset) => {
+                    const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
+                    const xp = hygiene
+                      ? 0
+                      : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+                    const domainEmoji =
+                      CATALOG_CHIP_META[preset.category ?? '']?.emoji ??
+                      CATALOG_CHIP_META[preset.domain ?? '']?.emoji;
+                    return (
+                      <Pressable
+                        key={preset.id}
+                        onPress={() => applyPreset(preset, true)}
+                        onLongPress={() => applyPreset(preset, false)}>
+                        <GlassCard style={styles.taskCard}>
+                          <View style={styles.taskCardTop}>
+                            <View style={styles.taskCardTitleRow}>
                               {domainEmoji ? (
                                 <Text style={styles.presetDomainEmoji}>{domainEmoji}</Text>
                               ) : null}
-                              <Text style={styles.presetTitle} numberOfLines={2}>
+                              <Text style={styles.taskCardTitle} numberOfLines={2}>
                                 {preset.title}
                               </Text>
                             </View>
                             <View
                               style={[
-                                styles.xpBadge,
+                                styles.metaPill,
                                 {
+                                  borderColor: hygiene
+                                    ? `${orbitColors.success}66`
+                                    : `${accentTheme.primary}66`,
                                   backgroundColor: hygiene
-                                    ? 'rgba(52,211,153,0.14)'
-                                    : `${accentTheme.primary}18`,
+                                    ? `${orbitColors.success}1F`
+                                    : `${accentTheme.primary}1F`,
                                 },
                               ]}>
                               <Text
                                 style={[
-                                  styles.xpBadgeText,
-                                  { color: hygiene ? '#34D399' : accentTheme.primary },
+                                  styles.metaPillText,
+                                  { color: hygiene ? orbitColors.success : accentTheme.primary },
                                 ]}>
-                                {hygiene ? 'Streak' : `+${xp}`}
+                                {hygiene ? 'streak' : `+${xp} xp`}
                               </Text>
                             </View>
                           </View>
-                          <View style={styles.presetMetaRow}>
-                            {preset.repeat !== 'None' ? (
-                              <View style={styles.repeatPill}>
-                                <Text style={styles.repeatText}>{preset.repeat}</Text>
-                              </View>
-                            ) : null}
-                            <Text style={styles.presetMetaMuted} numberOfLines={1}>
-                              {preset.group ?? preset.category}
-                            </Text>
-                          </View>
-                          {preset.proofRequired ? (
-                            <Text style={styles.proofHint}>Photo proof</Text>
-                          ) : null}
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                          <Text style={styles.cardMeta} numberOfLines={1}>
+                            {[preset.group ?? preset.category, preset.repeat !== 'None' ? preset.repeat : null]
+                              .filter(Boolean)
+                              .join(' · ')}
+                            {preset.proofRequired ? ' · proof' : ''}
+                          </Text>
+                        </GlassCard>
+                      </Pressable>
+                    );
+                  })}
                 </View>
-              );
-            })}
+              </View>
+            ))}
             {catalogTasks.length === 0 ? (
-              <Text style={styles.presetHint}>Nothing matches — try another category.</Text>
+              <GlassCard>
+                <Text style={styles.cardBody}>Nothing matches — try another category.</Text>
+              </GlassCard>
             ) : null}
           </View>
 
-          {catalogChip === 'presets' ? (
-            <Pressable onPress={() => setCustomizeQuickOpen(true)} style={styles.customEntry}>
-              <MaterialIcons name="tune" size={16} color="#7C9CC0" />
-              <Text style={[styles.customEntryText, { color: '#7C9CC0' }]}>Customize quick set</Text>
-            </Pressable>
-          ) : null}
-
-          <Pressable
-            onPress={() => {
-              setMode('custom');
-              setTitle('');
-              setCategory('General');
-              setRepeat('None');
-              setDifficulty('medium');
-              setProofRequired(false);
-              setBaseXp(10);
-              setTracking('xp');
-              setRoomId(undefined);
-            }}
-            style={styles.customEntry}>
-            <MaterialIcons name="edit" size={16} color={accentTheme.primary} />
-            <Text style={[styles.customEntryText, { color: accentTheme.primary }]}>Custom task</Text>
-          </Pressable>
+          <View style={styles.footerActions}>
+            {catalogChip === 'presets' ? (
+              <OrbitButton tone="secondary" onPress={() => setCustomizeQuickOpen(true)}>
+                Customize quick set
+              </OrbitButton>
+            ) : null}
+            <OrbitButton
+              onPress={() => {
+                setMode('custom');
+                setTitle('');
+                setCategory('General');
+                setRepeat('None');
+                setDifficulty('medium');
+                setProofRequired(false);
+                setBaseXp(10);
+                setTracking('xp');
+                setRoomId(undefined);
+              }}>
+              Custom task
+            </OrbitButton>
+          </View>
         </ScrollView>
 
         <Modal visible={customizeQuickOpen} animationType="slide" transparent onRequestClose={() => setCustomizeQuickOpen(false)}>
           <View style={styles.modalBackdrop}>
             <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
-              <Text style={styles.headerTitle}>Quick presets</Text>
-              <Text style={styles.presetHint}>
+              <Text style={styles.tripTitle}>Quick presets</Text>
+              <Text style={styles.tripSummary}>
                 Toggle chores · adjust XP and frequency for your quick set
               </Text>
               <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
@@ -931,7 +929,7 @@ export default function CreateTaskScreen() {
                         <MaterialIcons
                           name={on ? 'check-box' : 'check-box-outline-blank'}
                           size={18}
-                          color={on ? accentTheme.primary : '#4B6080'}
+                          color={on ? accentTheme.primary : orbitColors.textFaint}
                         />
                       </Pressable>
                       <View style={{ flex: 1, gap: 8 }}>
@@ -950,7 +948,7 @@ export default function CreateTaskScreen() {
                                   })
                                 }
                                 style={styles.quickStepBtn}>
-                                <MaterialIcons name="remove" size={16} color="#C8D8F0" />
+                                <MaterialIcons name="remove" size={16} color={orbitColors.textSoft} />
                               </Pressable>
                               <Text style={[styles.quickXpValue, { color: accentTheme.primary }]}>
                                 {xp}
@@ -962,7 +960,7 @@ export default function CreateTaskScreen() {
                                   })
                                 }
                                 style={styles.quickStepBtn}>
-                                <MaterialIcons name="add" size={16} color="#C8D8F0" />
+                                <MaterialIcons name="add" size={16} color={orbitColors.textSoft} />
                               </Pressable>
                             </View>
                             <View style={styles.quickFreqRow}>
@@ -993,7 +991,8 @@ export default function CreateTaskScreen() {
                           </View>
                         ) : (
                           <Text style={styles.libraryMeta}>
-                            {task.baseXp} XP · {inferLibraryRepeat(task) === 'None' ? 'Once' : inferLibraryRepeat(task)}
+                            {task.baseXp} XP ·{' '}
+                            {inferLibraryRepeat(task) === 'None' ? 'Once' : inferLibraryRepeat(task)}
                           </Text>
                         )}
                       </View>
@@ -1001,11 +1000,7 @@ export default function CreateTaskScreen() {
                   );
                 })}
               </ScrollView>
-              <Pressable
-                onPress={() => setCustomizeQuickOpen(false)}
-                style={[styles.doneBtn, { backgroundColor: accentTheme.primary }]}>
-                <Text style={styles.doneBtnText}>Done</Text>
-              </Pressable>
+              <OrbitButton onPress={() => setCustomizeQuickOpen(false)}>Done</OrbitButton>
             </View>
           </View>
         </Modal>
@@ -1455,7 +1450,7 @@ export default function CreateTaskScreen() {
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: PANEL_BG,
+    backgroundColor: orbitColors.background,
     flex: 1,
   },
   handleWrap: {
@@ -1469,9 +1464,142 @@ const styles = StyleSheet.create({
     width: 40,
   },
   scrollContent: {
-    paddingBottom: 32,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    gap: 14,
+    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  tripHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 4,
+  },
+  tripHeaderCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  tripCaption: {
+    color: orbitColors.textSubtle,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  tripTitle: {
+    color: orbitColors.text,
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    lineHeight: 32,
+  },
+  tripSummary: {
+    color: orbitColors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 2,
+  },
+  assignCard: {
+    gap: 10,
+  },
+  searchCard: {
+    paddingVertical: 10,
+  },
+  searchInner: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  novaLabel: {
+    color: orbitColors.novaCyan,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+  },
+  cardBody: {
+    color: orbitColors.textSoft,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  cardMeta: {
+    color: orbitColors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  catalogChipRow: {
+    gap: 8,
+    paddingRight: 4,
+  },
+  catalogPill: {
+    alignItems: 'center',
+    borderRadius: orbitRadius.sm,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  catalogPillEmoji: {
+    fontSize: 13,
+    lineHeight: 16,
+  },
+  catalogPillLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  catalogBody: {
+    gap: 18,
+  },
+  catalogSection: {
+    gap: 10,
+  },
+  catalogSectionHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  catalogSectionCount: {
+    color: orbitColors.textFaint,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  taskCard: {
+    gap: 8,
+  },
+  taskCardTop: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  taskCardTitleRow: {
+    alignItems: 'flex-start',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    minWidth: 0,
+  },
+  taskCardTitle: {
+    color: orbitColors.text,
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    lineHeight: 22,
+  },
+  metaPill: {
+    borderRadius: orbitRadius.sm,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  metaPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  footerActions: {
+    gap: 10,
+    marginTop: 8,
   },
   header: {
     alignItems: 'flex-start',
@@ -1549,64 +1677,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     padding: 12,
-  },
-  catalogChipRow: {
-    gap: 8,
-    marginBottom: 18,
-    marginTop: 12,
-    paddingRight: 8,
-  },
-  catalogChip: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  catalogChipEmoji: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  catalogChipLabel: {
-    color: '#9BB0CC',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: -0.1,
-  },
-  catalogBody: {
-    gap: 22,
-  },
-  catalogSection: {
-    gap: 10,
-  },
-  catalogSectionHead: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 2,
-    paddingHorizontal: 2,
-  },
-  catalogSectionEmoji: {
-    fontSize: 15,
-    lineHeight: 18,
-  },
-  catalogSectionTitle: {
-    color: '#C8D8F0',
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.35,
-    textTransform: 'uppercase',
-  },
-  catalogSectionCount: {
-    color: '#4B6080',
-    fontSize: 12,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
   },
   presetFilterRow: {
     gap: 8,
@@ -2029,9 +2099,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: PANEL_BG,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: orbitColors.backgroundSoft,
+    borderTopLeftRadius: orbitRadius.lg,
+    borderTopRightRadius: orbitRadius.lg,
     gap: 10,
     maxHeight: '85%',
     paddingHorizontal: 20,
