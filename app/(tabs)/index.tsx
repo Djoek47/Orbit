@@ -332,6 +332,7 @@ export default function HomeScreen() {
         members={household.members}
         currentMember={currentMember}
         accentTheme={accentTheme}
+        canFocusMembers={permissions.canManageHousehold}
         mineOnly={sharedKidMode}
         streak={currentMember?.streak ?? 0}
         onAwardDailyStreak={() => {

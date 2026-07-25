@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -326,6 +326,7 @@ function TaskSection({
 
 export default function TasksScreen() {
   const chromePad = useTabChromePaddingTop();
+  const params = useLocalSearchParams<{ member?: string | string[] }>();
   const {
     accentTheme,
     completeTask,
@@ -335,10 +336,26 @@ export default function TasksScreen() {
     switchPersona,
   } = useOrbit();
   const [filter, setFilter] = useState<TaskFilter>('all');
+  const [focusMember, setFocusMember] = useState<string | null>(null);
   const [roomFilter, setRoomFilter] = useState<string | null>(null);
   const [showRoomFilter, setShowRoomFilter] = useState(false);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
+
+  const memberParam = Array.isArray(params.member) ? params.member[0] : params.member;
+
+  useEffect(() => {
+    // undefined = opened via tab bar with no deep-link; leave local focus alone.
+    if (memberParam === undefined) return;
+    const next = memberParam.trim();
+    setFocusMember(next || null);
+    if (next) setFilter('all');
+  }, [memberParam]);
+
+  const clearFocusMember = () => {
+    setFocusMember(null);
+    router.setParams({ member: '' } as never);
+  };
 
   const rooms = household.rooms ?? [];
   const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
@@ -357,6 +374,9 @@ export default function TasksScreen() {
         if (roomFilter && task.roomId !== roomFilter) return false;
         return true;
       }
+      if (focusMember && !taskMatchesAssignee(task, focusMember)) {
+        return false;
+      }
       if (filter === 'mine' && !taskMatchesAssignee(task, currentMember?.name)) {
         return false;
       }
@@ -371,6 +391,7 @@ export default function TasksScreen() {
     childNames,
     currentMember?.name,
     filter,
+    focusMember,
     household.tasks,
     roomFilter,
     sharedKidMode,
@@ -398,16 +419,18 @@ export default function TasksScreen() {
         !isSharedDeviceRole(member.role)
     );
 
-    const ordered = [...activeMembers].sort((a, b) => {
-      if (currentMember && a.id === currentMember.id) return -1;
-      if (currentMember && b.id === currentMember.id) return 1;
-      const ai = MEMBER_SECTION_ORDER.indexOf(a.name);
-      const bi = MEMBER_SECTION_ORDER.indexOf(b.name);
-      if (ai === -1 && bi === -1) return a.name.localeCompare(b.name);
-      if (ai === -1) return 1;
-      if (bi === -1) return -1;
-      return ai - bi;
-    });
+    const ordered = [...activeMembers]
+      .filter((member) => !focusMember || member.name === focusMember)
+      .sort((a, b) => {
+        if (currentMember && a.id === currentMember.id) return -1;
+        if (currentMember && b.id === currentMember.id) return 1;
+        const ai = MEMBER_SECTION_ORDER.indexOf(a.name);
+        const bi = MEMBER_SECTION_ORDER.indexOf(b.name);
+        if (ai === -1 && bi === -1) return a.name.localeCompare(b.name);
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
 
     return ordered.map((member) => {
       const tasks = sortTasksForMember(
@@ -425,7 +448,18 @@ export default function TasksScreen() {
         accent: MEMBER_ACCENTS[member.name]?.color ?? accentTheme.primary,
       };
     });
-  }, [accentTheme.primary, currentMember, filtered, household.members, showByMember]);
+  }, [accentTheme.primary, currentMember, filtered, focusMember, household.members, showByMember]);
+
+  const focusedMemberRecord = useMemo(
+    () =>
+      focusMember
+        ? household.members.find((member) => member.name === focusMember) ?? null
+        : null,
+    [focusMember, household.members]
+  );
+  const focusedAccent = focusedMemberRecord
+    ? MEMBER_ACCENTS[focusedMemberRecord.name]?.color ?? accentTheme.primary
+    : accentTheme.primary;
 
   const totalXPToday = grouped.today.reduce(
     (sum, task) => sum + (task.tracking === 'streak' || task.category === 'Hygiene' ? 0 : task.xp),
@@ -471,10 +505,20 @@ export default function TasksScreen() {
       <View style={styles.headerRow}>
         <View style={[orbitScreen.header, styles.tasksHeader]}>
           <PageEyebrow>
-            {sharedKidMode ? 'Your chores' : 'Tasks & Homework'}
+            {sharedKidMode
+              ? 'Your chores'
+              : focusMember
+                ? `${focusMember}'s chores`
+                : 'Tasks & Homework'}
           </PageEyebrow>
           <Text style={orbitTypography.display}>
-            {sharedKidMode ? 'My tasks' : showByMember ? 'Household tasks' : "Today's Work"}
+            {sharedKidMode
+              ? 'My tasks'
+              : focusMember
+                ? `${focusMember}'s tasks`
+                : showByMember
+                  ? 'Household tasks'
+                  : "Today's Work"}
           </Text>
           {sharedDevice ? (
             <Pressable
@@ -526,11 +570,14 @@ export default function TasksScreen() {
       {!sharedKidMode ? (
         <View style={styles.filterRow}>
           {FILTER_TABS.map((tab) => {
-            const active = filter === tab.id;
+            const active = filter === tab.id && !focusMember;
             return (
               <Pressable
                 key={tab.id}
-                onPress={() => setFilter(tab.id)}
+                onPress={() => {
+                  clearFocusMember();
+                  setFilter(tab.id);
+                }}
                 style={[
                   styles.filterChip,
                   active && {
@@ -564,6 +611,23 @@ export default function TasksScreen() {
             />
           </Pressable>
         </View>
+      ) : null}
+
+      {focusMember && !sharedKidMode ? (
+        <Pressable
+          onPress={clearFocusMember}
+          style={[
+            styles.focusChip,
+            { backgroundColor: `${focusedAccent}22`, borderColor: `${focusedAccent}66` },
+          ]}>
+          <Text style={{ fontSize: 14 }}>
+            {focusedMemberRecord ? memberDisplayEmoji(focusedMemberRecord) : '👤'}
+          </Text>
+          <Text style={[styles.focusChipText, { color: focusedAccent }]}>
+            Viewing {focusMember}
+          </Text>
+          <MaterialIcons name="close" size={16} color={focusedAccent} />
+        </Pressable>
       ) : null}
 
       {!sharedKidMode && showRoomFilter ? (
@@ -819,6 +883,20 @@ const styles = StyleSheet.create({
     color: orbitColors.textSubtle,
     fontSize: 12,
     fontWeight: '400',
+  },
+  focusChip: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  focusChipText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   filterIconButton: {
     alignItems: 'center',
