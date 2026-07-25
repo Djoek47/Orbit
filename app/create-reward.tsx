@@ -1,5 +1,5 @@
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,9 +9,11 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { memberDisplayEmoji } from '@/lib/game-levels';
+import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
 
-const EMOJIS = ['📱', '🎬', '🌙', '🍦', '🎮', '✨', '🚲', '🍕', '🎁', '💤'];
+const EMOJIS = ['📱', '🎬', '🌙', '🍦', '🎮', '✨', '🚲', '🍕', '🎁', '💤', '💵'];
 const CATEGORIES = ['Experience', 'Treat', 'Screen', 'Money', 'Privilege', 'Special'] as const;
 const CATEGORY_COLORS: Record<string, string> = {
   Experience: '#A78BFA',
@@ -24,13 +26,25 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function CreateRewardScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, createReward, currentMember, permissions } = useOrbit();
+  const { accentTheme, createReward, currentMember, household, permissions } = useOrbit();
   const [title, setTitle] = useState('');
   const [cost, setCost] = useState('120');
   const [emoji, setEmoji] = useState(EMOJIS[0]);
   const [category, setCategory] = useState<string>('Privilege');
   const [approval, setApproval] = useState('Required');
+  const [assignMemberId, setAssignMemberId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const assignableMembers = useMemo(
+    () =>
+      household.members.filter(
+        (member) =>
+          member.status === 'active' &&
+          member.role !== 'guest' &&
+          !isSharedDeviceRole(member.role)
+      ),
+    [household.members]
+  );
 
   if (!permissions.canManageHousehold) {
     return (
@@ -52,6 +66,7 @@ export default function CreateRewardScreen() {
     if (!title.trim() || Number(cost) <= 0) return;
     setBusy(true);
     try {
+      const assigned = assignableMembers.find((member) => member.id === assignMemberId);
       await createReward({
         title: title.trim(),
         cost: Number(cost),
@@ -62,6 +77,8 @@ export default function CreateRewardScreen() {
         origin: 'minted',
         createdByMemberId: currentMember?.id,
         createdByName: currentMember?.name,
+        assignedMemberId: assigned?.id,
+        assignedMemberName: assigned?.name,
       });
       router.back();
     } finally {
@@ -80,7 +97,7 @@ export default function CreateRewardScreen() {
         <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Admin mint</Text>
         <Text style={orbitTypography.display}>Mint reward</Text>
         <Text style={orbitTypography.body}>
-          Catalog rewards for everyone. Origin stays “Minted” so admins can audit the shop.
+          Add to the vault for everyone, or assign to one person when you mint.
         </Text>
       </View>
 
@@ -114,10 +131,46 @@ export default function CreateRewardScreen() {
           value={approval}
           onChange={setApproval}
         />
+        <Text style={styles.fieldLabel}>Assign to</Text>
+        <View style={styles.chipRow}>
+          <Pressable
+            onPress={() => setAssignMemberId(null)}
+            style={[
+              styles.chip,
+              !assignMemberId && {
+                backgroundColor: `${accentTheme.primary}33`,
+                borderColor: `${accentTheme.primary}88`,
+              },
+            ]}>
+            <Text style={[styles.chipText, !assignMemberId && { color: accentTheme.primary }]}>
+              Everyone
+            </Text>
+          </Pressable>
+          {assignableMembers.map((member) => {
+            const active = assignMemberId === member.id;
+            return (
+              <Pressable
+                key={member.id}
+                onPress={() => setAssignMemberId(member.id)}
+                style={[
+                  styles.chip,
+                  active && {
+                    backgroundColor: `${accentTheme.primary}33`,
+                    borderColor: `${accentTheme.primary}88`,
+                  },
+                ]}>
+                <Text style={styles.chipEmoji}>{memberDisplayEmoji(member)}</Text>
+                <Text style={[styles.chipText, active && { color: accentTheme.primary }]}>
+                  {member.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </GlassCard>
 
       <OrbitButton disabled={busy || !title.trim()} onPress={() => void handleSave()}>
-        {busy ? 'Saving…' : 'Save to shop'}
+        {busy ? 'Saving…' : assignMemberId ? 'Mint & assign' : 'Save to shop'}
       </OrbitButton>
       <OrbitButton tone="secondary" onPress={() => router.back()}>
         Cancel
@@ -136,11 +189,15 @@ const styles = StyleSheet.create({
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   chip: {
+    alignItems: 'center',
     borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 999,
     borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
+  chipEmoji: { fontSize: 14 },
   chipText: { color: orbitColors.textSoft, fontSize: 12, fontWeight: '600' },
 });

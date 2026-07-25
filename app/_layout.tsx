@@ -81,6 +81,10 @@ export default function RootLayout() {
           <Stack.Screen name="create-itinerary" options={{ presentation: 'modal', headerShown: false, title: 'Create Itinerary' }} />
           <Stack.Screen name="create-reward" options={{ presentation: 'modal', headerShown: false, title: 'Mint Reward' }} />
           <Stack.Screen
+            name="grant-allowance"
+            options={{ presentation: 'modal', headerShown: false, title: 'Grant Allowance' }}
+          />
+          <Stack.Screen
             name="special-reward-request"
             options={{ presentation: 'modal', headerShown: false, title: 'Special Request' }}
           />

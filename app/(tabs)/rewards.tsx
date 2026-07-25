@@ -11,6 +11,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RewardClaimPress } from '@/components/orbit/reward-claim-press';
 import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { memberDisplayEmoji } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
   isSharedDeviceRole,
@@ -49,24 +50,42 @@ export default function RewardsScreen() {
   const {
     accentTheme,
     achievements,
+    approveAllowance,
     approveRedemption,
     archiveReward,
     household,
     membersWithProgress,
+    pendingAllowances,
     pendingRedemptions,
     permissions,
+    rejectAllowance,
     rejectRedemption,
     claimReward,
     currentMember,
+    requestAllowance,
   } = useOrbit();
   const [surface, setSurface] = useState<Surface>(() => resolveSurface(params.surface));
   const [view, setView] = useState<RankingView>('week');
   const [shopCategory, setShopCategory] = useState<string>('All');
+  const [memberFilter, setMemberFilter] = useState<string | 'all'>('all');
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [allowanceBusy, setAllowanceBusy] = useState(false);
   const caps = resolveMemberCapabilities(household);
   const isAdmin = permissions.canManageHousehold;
   const canRedeem = isAdmin || caps.allowRewardRedeem;
   const canRequestSpecial = isAdmin || caps.allowSpecialRewardRequest;
+  const canApprove = isAdmin || permissions.canApproveReward;
+
+  const vaultMembers = useMemo(
+    () =>
+      household.members.filter(
+        (member) =>
+          member.status === 'active' &&
+          member.role !== 'guest' &&
+          !isSharedDeviceRole(member.role)
+      ),
+    [household.members]
+  );
 
   useEffect(() => {
     if (params.surface === undefined) return;
@@ -99,10 +118,22 @@ export default function RewardsScreen() {
     return map;
   }, [household.members, sorted]);
 
-  const catalogRewards = useMemo(
-    () => household.rewards.filter((reward) => !reward.archived),
-    [household.rewards]
-  );
+  const catalogRewards = useMemo(() => {
+    return household.rewards.filter((reward) => {
+      if (reward.archived) return false;
+      // Non-admins only see open catalog + rewards assigned to them.
+      if (
+        !isAdmin &&
+        reward.assignedMemberId &&
+        reward.assignedMemberId !== currentMember?.id
+      ) {
+        return false;
+      }
+      if (memberFilter === 'all') return true;
+      // Person chip: their assigned prizes + shared catalog.
+      return !reward.assignedMemberId || reward.assignedMemberId === memberFilter;
+    });
+  }, [currentMember?.id, household.rewards, isAdmin, memberFilter]);
 
   const rewardCategories = useMemo(() => {
     const cats = Array.from(
@@ -382,8 +413,8 @@ export default function RewardsScreen() {
         <Text style={styles.shopTitle}>{isAdmin ? 'Reward vault' : 'Claim your wins'}</Text>
         <Text style={styles.shopSub}>
           {isAdmin
-            ? 'Mint prizes, approve requests, watch the household cash in.'
-            : `You have ${(currentMember?.xp ?? 0).toLocaleString()} XP · hold to claim`}
+            ? 'Mint or assign prizes, grant allowances, approve requests.'
+            : `You have ${(currentMember?.xp ?? 0).toLocaleString()} XP · hold to claim or request`}
         </Text>
         {isAdmin ? (
           <View style={styles.manageRail}>
@@ -392,6 +423,12 @@ export default function RewardsScreen() {
               style={[styles.manageChip, { backgroundColor: accentTheme.primary }]}>
               <MaterialIcons name="auto-awesome" size={16} color="#04101F" />
               <Text style={styles.manageChipDark}>Mint</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/grant-allowance' as never)}
+              style={[styles.manageChip, { borderColor: `${accentTheme.primary}55` }]}>
+              <MaterialIcons name="payments" size={16} color={accentTheme.primary} />
+              <Text style={[styles.manageChipLight, { color: accentTheme.primary }]}>Allowance</Text>
             </Pressable>
             <Pressable
               onPress={() => router.push('/reward-tally' as never)}
@@ -407,18 +444,105 @@ export default function RewardsScreen() {
                 <Text style={styles.manageChipLight}>Special</Text>
               </Pressable>
             ) : null}
+            {/* Admin can also request for end-to-end testing. */}
+            <Pressable
+              disabled={allowanceBusy}
+              onPress={() => {
+                setAllowanceBusy(true);
+                void requestAllowance({ amountLabel: '$5', note: 'Admin test allowance ask' })
+                  .then((grant) => {
+                    if (grant) {
+                      Alert.alert('Allowance requested', 'Reviewers were notified to approve.');
+                    }
+                  })
+                  .finally(() => setAllowanceBusy(false));
+              }}
+              style={[styles.manageChip, { borderColor: 'rgba(255,255,255,0.14)' }]}>
+              <MaterialIcons name="payments" size={16} color="#C8D8F0" />
+              <Text style={styles.manageChipLight}>
+                {allowanceBusy ? 'Sending…' : 'Ask'}
+              </Text>
+            </Pressable>
           </View>
-        ) : canRequestSpecial ? (
-          <Pressable
-            onPress={() => router.push('/special-reward-request' as never)}
-            style={[styles.memberSpecial, { borderColor: `${accentTheme.primary}44` }]}>
-            <Text style={[styles.memberSpecialText, { color: accentTheme.primary }]}>
-              Request a special reward
-            </Text>
-            <MaterialIcons name="chevron-right" size={18} color={accentTheme.primary} />
-          </Pressable>
-        ) : null}
+        ) : (
+          <View style={styles.manageRail}>
+            {canRequestSpecial ? (
+              <Pressable
+                onPress={() => router.push('/special-reward-request' as never)}
+                style={[styles.manageChip, { borderColor: `${accentTheme.primary}55` }]}>
+                <MaterialIcons name="favorite-border" size={16} color={accentTheme.primary} />
+                <Text style={[styles.manageChipLight, { color: accentTheme.primary }]}>Special</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              disabled={allowanceBusy}
+              onPress={() => {
+                setAllowanceBusy(true);
+                void requestAllowance({ amountLabel: '$5', note: 'Weekly allowance ask' })
+                  .then((grant) => {
+                    if (grant) {
+                      Alert.alert('Allowance requested', 'An admin was notified to approve.');
+                    }
+                  })
+                  .finally(() => setAllowanceBusy(false));
+              }}
+              style={[styles.manageChip, { borderColor: 'rgba(255,255,255,0.14)' }]}>
+              <MaterialIcons name="payments" size={16} color="#C8D8F0" />
+              <Text style={styles.manageChipLight}>
+                {allowanceBusy ? 'Sending…' : 'Ask allowance'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoryChipRow}>
+        <Pressable
+          onPress={() => setMemberFilter('all')}
+          style={[
+            styles.categoryChip,
+            memberFilter === 'all' && {
+              backgroundColor: `${accentTheme.primary}2E`,
+              borderColor: `${accentTheme.primary}66`,
+            },
+          ]}>
+          <Text
+            style={[
+              styles.categoryChipText,
+              memberFilter === 'all' && { color: accentTheme.primary },
+            ]}>
+            All people
+          </Text>
+        </Pressable>
+        {vaultMembers.map((member) => {
+          const active = memberFilter === member.id;
+          const assignedCount = household.rewards.filter(
+            (reward) => !reward.archived && reward.assignedMemberId === member.id
+          ).length;
+          return (
+            <Pressable
+              key={member.id}
+              onPress={() => setMemberFilter(member.id)}
+              style={[
+                styles.categoryChip,
+                active && {
+                  backgroundColor: `${accentTheme.primary}2E`,
+                  borderColor: `${accentTheme.primary}66`,
+                },
+              ]}>
+              <Text style={{ fontSize: 13 }}>{memberDisplayEmoji(member)}</Text>
+              <Text
+                style={[styles.categoryChipText, active && { color: accentTheme.primary }]}>
+                {member.name}
+                {assignedCount > 0 ? ` · ${assignedCount}` : ''}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
 
       <ScrollView
         horizontal
@@ -477,6 +601,9 @@ export default function RewardsScreen() {
                     </View>
                     <View style={{ flex: 1, gap: 4 }}>
                       <Text style={styles.vaultTitle}>{reward.title}</Text>
+                      {reward.assignedMemberName ? (
+                        <Text style={styles.shopSub}>For {reward.assignedMemberName}</Text>
+                      ) : null}
                       <View style={styles.vaultMetaRow}>
                         <View style={styles.xpStamp}>
                           <Text style={styles.xpStampText}>{reward.cost} XP</Text>
@@ -509,8 +636,12 @@ export default function RewardsScreen() {
                               Alert.alert('Couldn’t claim', 'Try again in a moment.');
                               return;
                             }
-                            // Card exits via FadeOut when removed from the vault.
-                            await archiveReward(reward.id);
+                            if (result === 'requested') {
+                              Alert.alert(
+                                'Request sent',
+                                'An admin was notified. You’ll hear back when it’s approved.'
+                              );
+                            }
                           } finally {
                             setClaimingId(null);
                           }
@@ -530,7 +661,7 @@ export default function RewardsScreen() {
         </View>
       ))}
 
-      {isAdmin && pendingRedemptions.length > 0 ? (
+      {canApprove && pendingRedemptions.length > 0 ? (
         <View style={styles.pendingBlock}>
           <View style={styles.pendingHead}>
             <Text style={styles.pendingTitle}>Pending claims · {pendingRedemptions.length}</Text>
@@ -549,24 +680,57 @@ export default function RewardsScreen() {
                     {member?.name ?? 'member'} · {new Date(redemption.requestedAt).toLocaleString()}
                   </Text>
                 </View>
-                {permissions.canApproveReward ? (
-                  <View style={styles.redemptionActions}>
-                    <OrbitButton
-                      style={styles.redemptionButton}
-                      onPress={() => void approveRedemption(redemption.id)}>
-                      Approve
-                    </OrbitButton>
-                    <OrbitButton
-                      style={styles.redemptionButton}
-                      tone="danger"
-                      onPress={() => void rejectRedemption(redemption.id)}>
-                      Reject
-                    </OrbitButton>
-                  </View>
-                ) : null}
+                <View style={styles.redemptionActions}>
+                  <OrbitButton
+                    style={styles.redemptionButton}
+                    onPress={() => void approveRedemption(redemption.id)}>
+                    Approve
+                  </OrbitButton>
+                  <OrbitButton
+                    style={styles.redemptionButton}
+                    tone="danger"
+                    onPress={() => void rejectRedemption(redemption.id)}>
+                    Reject
+                  </OrbitButton>
+                </View>
               </View>
             );
           })}
+        </View>
+      ) : null}
+
+      {canApprove && pendingAllowances.length > 0 ? (
+        <View style={styles.pendingBlock}>
+          <View style={styles.pendingHead}>
+            <Text style={styles.pendingTitle}>
+              Pending allowances · {pendingAllowances.length}
+            </Text>
+          </View>
+          {pendingAllowances.slice(0, 3).map((grant) => (
+            <View key={grant.id} style={styles.pendingCard}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.vaultTitle}>{grant.amountLabel}</Text>
+                <Text style={styles.shopSub}>
+                  {grant.memberName}
+                  {grant.note ? ` · ${grant.note}` : ''} ·{' '}
+                  {new Date(grant.requestedAt).toLocaleString()}
+                </Text>
+              </View>
+              <View style={styles.redemptionActions}>
+                <OrbitButton
+                  style={styles.redemptionButton}
+                  onPress={() => void approveAllowance(grant.id)}>
+                  Approve
+                </OrbitButton>
+                <OrbitButton
+                  style={styles.redemptionButton}
+                  tone="danger"
+                  onPress={() => void rejectAllowance(grant.id)}>
+                  Reject
+                </OrbitButton>
+              </View>
+            </View>
+          ))}
         </View>
       ) : null}
         </>
