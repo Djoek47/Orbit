@@ -6,6 +6,7 @@
     "start": "npx expo start --go",
     "start:lan": "npx expo start --go --lan",
     "start:tunnel": "npx expo start --tunnel --go",
+    "start:persistent": "bash ./scripts/expo-persistent.sh",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "npx expo start --android",
     "ios": "npx expo start --ios",

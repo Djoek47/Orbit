@@ -1,4 +1,9 @@
 {
   "install": "npm install",
-  "terminals": []
+  "terminals": [
+    {
+      "name": "Expo tunnel (persistent)",
+      "command": "npm run start:persistent"
+    }
+  ]
 }

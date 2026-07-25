@@ -111,7 +111,7 @@ export default function TabLayout() {
           name="rewards"
           options={{
             href: showRewards ? undefined : null,
-            title: 'Rewards',
+            title: 'Ranks',
           }}
         />
         <Tabs.Screen name="nova" options={{ title: 'Nova' }} />

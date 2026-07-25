@@ -45,7 +45,7 @@ export const TASK_PRESETS: TaskPreset[] = [
     weight: 1.5,
     repeat: 'Weekly',
     proofRequired: true,
-    description: 'Photo proof before complete.',
+    description: 'Photo proof after complete.',
     roomKind: 'laundry',
   },
   {
@@ -90,7 +90,7 @@ export const TASK_PRESETS: TaskPreset[] = [
     weight: 1.5,
     repeat: 'Weekdays',
     proofRequired: true,
-    description: 'Photo proof before complete.',
+    description: 'Photo proof after complete.',
   },
   {
     id: 'preset-pets',
@@ -144,7 +144,7 @@ export const TASK_PRESETS: TaskPreset[] = [
     weight: 2,
     repeat: 'Weekly',
     proofRequired: true,
-    description: 'Photo proof before complete.',
+    description: 'Photo proof after complete.',
     roomKind: 'bathroom',
   },
   {
@@ -329,7 +329,7 @@ export const TASK_PRESETS: TaskPreset[] = [
     weight: 2,
     repeat: 'Weekly',
     proofRequired: true,
-    description: 'Photo proof before complete.',
+    description: 'Photo proof after complete.',
     roomKind: 'living',
   },
   {
@@ -363,7 +363,7 @@ export const TASK_PRESETS: TaskPreset[] = [
     weight: 1.5,
     repeat: 'Weekly',
     proofRequired: true,
-    description: 'Photo proof before complete.',
+    description: 'Photo proof after complete.',
     roomKind: 'bathroom',
   },
   {
@@ -550,7 +550,7 @@ export const TASK_PRESETS: TaskPreset[] = [
     weight: 1.5,
     repeat: 'Daily',
     proofRequired: true,
-    description: 'Photo proof before complete.',
+    description: 'Photo proof after complete.',
   },
   {
     id: 'preset-pet-brush',

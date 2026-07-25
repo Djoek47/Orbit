@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
@@ -20,11 +20,17 @@ import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, MemberProgress } from '@/types/orbit';
 
 type RankingView = 'week' | 'alltime';
+type Surface = 'ranks' | 'rewards';
 
 const PODIUM_ORDER: [number, number, number] = [1, 0, 2];
 const PODIUM_HEIGHTS = [100, 130, 85];
 const CROWN_COLORS = ['#FBBF24', '#94A3B8', '#FB923C'];
 const RANK_EMOJI = ['👑', '🥈', '🥉'] as const;
+
+function resolveSurface(raw?: string | string[]): Surface {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return value === 'rewards' || value === 'shop' ? 'rewards' : 'ranks';
+}
 
 function SharedTabletChip({ device, compact }: { device: HouseholdMember; compact?: boolean }) {
   return (
@@ -39,6 +45,7 @@ function SharedTabletChip({ device, compact }: { device: HouseholdMember; compac
 
 export default function RewardsScreen() {
   const chromePad = useTabChromePaddingTop();
+  const params = useLocalSearchParams<{ surface?: string | string[] }>();
   const {
     accentTheme,
     achievements,
@@ -52,6 +59,7 @@ export default function RewardsScreen() {
     claimReward,
     currentMember,
   } = useOrbit();
+  const [surface, setSurface] = useState<Surface>(() => resolveSurface(params.surface));
   const [view, setView] = useState<RankingView>('week');
   const [shopCategory, setShopCategory] = useState<string>('All');
   const [claimingId, setClaimingId] = useState<string | null>(null);
@@ -59,6 +67,16 @@ export default function RewardsScreen() {
   const isAdmin = permissions.canManageHousehold;
   const canRedeem = isAdmin || caps.allowRewardRedeem;
   const canRequestSpecial = isAdmin || caps.allowSpecialRewardRequest;
+
+  useEffect(() => {
+    if (params.surface === undefined) return;
+    setSurface(resolveSurface(params.surface));
+  }, [params.surface]);
+
+  const selectSurface = (next: Surface) => {
+    setSurface(next);
+    router.setParams({ surface: next } as never);
+  };
 
   const sorted = useMemo(() => {
     return [...membersWithProgress]
@@ -121,10 +139,48 @@ export default function RewardsScreen() {
       contentInsetAdjustmentBehavior="never"
       showsVerticalScrollIndicator={false}>
       <View style={[orbitScreen.header, styles.header]}>
-        <PageEyebrow>Leaderboard</PageEyebrow>
-        <Text style={orbitTypography.display}>Family Rankings</Text>
+        <PageEyebrow>{surface === 'ranks' ? 'Leaderboard' : 'Shop'}</PageEyebrow>
+        <Text style={orbitTypography.display}>
+          {surface === 'ranks' ? 'Family Rankings' : 'Rewards'}
+        </Text>
       </View>
 
+      <View style={styles.surfaceRow}>
+        {([
+          { id: 'ranks' as const, label: 'Ranks', icon: 'emoji-events' as const },
+          { id: 'rewards' as const, label: 'Rewards', icon: 'card-giftcard' as const },
+        ]).map((tab) => {
+          const active = surface === tab.id;
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => selectSurface(tab.id)}
+              style={[
+                styles.surfaceChip,
+                active && {
+                  backgroundColor: `${accentTheme.primary}2E`,
+                  borderColor: `${accentTheme.primary}66`,
+                },
+              ]}>
+              <MaterialIcons
+                name={tab.icon}
+                size={16}
+                color={active ? accentTheme.primary : orbitColors.textSubtle}
+              />
+              <Text
+                style={[
+                  styles.surfaceChipText,
+                  active && { color: accentTheme.primary, fontWeight: '700' },
+                ]}>
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {surface === 'ranks' ? (
+        <>
       <Pressable
         onPress={() => router.push('/household-games' as never)}
         style={[styles.gamesCard, { borderColor: `${accentTheme.primary}44` }]}>
@@ -312,7 +368,9 @@ export default function RewardsScreen() {
           </View>
         </GlassCard>
       </Pressable>
-
+        </>
+      ) : (
+        <>
       <View style={styles.shopHero}>
         <LinearGradient
           colors={[`${accentTheme.primary}33`, 'rgba(251,191,36,0.12)', 'rgba(255,255,255,0.03)']}
@@ -511,6 +569,8 @@ export default function RewardsScreen() {
           })}
         </View>
       ) : null}
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -731,6 +791,28 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 0,
+  },
+  surfaceRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  surfaceChip: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'center',
+    minHeight: 40,
+    paddingHorizontal: 12,
+  },
+  surfaceChipText: {
+    color: orbitColors.textSubtle,
+    fontSize: 14,
+    fontWeight: '600',
   },
   gamesCard: {
     alignItems: 'center',
