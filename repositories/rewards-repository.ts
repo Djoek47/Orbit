@@ -1,10 +1,18 @@
 import { mockHousehold } from '@/data/mock-household';
 import { mapBadgeRow, mapRewardRow } from '@/lib/mappers/orbit-mappers';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
-import type { Badge, CreateRewardInput, Reward, RewardRedemption } from '@/types/orbit';
+import type {
+  AllowanceGrant,
+  Badge,
+  CreateAllowanceInput,
+  CreateRewardInput,
+  Reward,
+  RewardRedemption,
+} from '@/types/orbit';
 
 let mockRewardsState: Reward[] = clone(mockHousehold.rewards);
 let mockRedemptionsState: RewardRedemption[] = [];
+let mockAllowancesState: AllowanceGrant[] = [];
 
 function mapRedemptionRow(row: {
   id: string;
@@ -95,6 +103,8 @@ export const rewardsRepository = {
       origin,
       createdByMemberId: input.createdByMemberId,
       createdByName: input.createdByName,
+      assignedMemberId: input.assignedMemberId,
+      assignedMemberName: input.assignedMemberName,
       archived: false,
     };
 
@@ -129,8 +139,57 @@ export const rewardsRepository = {
           origin: reward.origin,
           createdByMemberId: reward.createdByMemberId,
           createdByName: reward.createdByName,
+          assignedMemberId: reward.assignedMemberId,
+          assignedMemberName: reward.assignedMemberName,
         }
       : reward;
+  },
+
+  async getAllowances(householdId: string | null | undefined): Promise<AllowanceGrant[]> {
+    if (isMockMode()) {
+      return clone(
+        mockAllowancesState.filter((item) => item.householdId === (householdId ?? mockHousehold.id))
+      );
+    }
+    // Allowance is mock-first until a Supabase table ships.
+    return [];
+  },
+
+  async createAllowance(
+    householdId: string | null | undefined,
+    input: CreateAllowanceInput
+  ): Promise<AllowanceGrant> {
+    const grant: AllowanceGrant = {
+      id: createLocalId('allowance'),
+      householdId: householdId ?? mockHousehold.id ?? 'hh-mock',
+      memberId: input.memberId,
+      memberName: input.memberName,
+      amountLabel: input.amountLabel.trim(),
+      amountXp: input.amountXp,
+      status: input.kind === 'admin-grant' ? 'approved' : 'pending',
+      kind: input.kind,
+      note: input.note,
+      requestedAt: new Date().toISOString(),
+      decidedAt: input.kind === 'admin-grant' ? new Date().toISOString() : undefined,
+      createdByMemberId: input.createdByMemberId,
+      createdByName: input.createdByName,
+    };
+
+    if (isMockMode()) {
+      mockAllowancesState = [grant, ...mockAllowancesState];
+      return clone(grant);
+    }
+
+    mockAllowancesState = [grant, ...mockAllowancesState];
+    return clone(grant);
+  },
+
+  async approveAllowance(allowanceId: string): Promise<AllowanceGrant> {
+    return decideAllowance(allowanceId, 'approved');
+  },
+
+  async rejectAllowance(allowanceId: string): Promise<AllowanceGrant> {
+    return decideAllowance(allowanceId, 'rejected');
   },
 
   async updateReward(reward: Reward): Promise<Reward> {
@@ -306,6 +365,38 @@ async function decideRedemption(
   return mapRedemptionRow(data);
 }
 
+async function decideAllowance(
+  allowanceId: string,
+  status: 'approved' | 'rejected'
+): Promise<AllowanceGrant> {
+  const existing = mockAllowancesState.find((item) => item.id === allowanceId);
+  const updated: AllowanceGrant = {
+    ...(existing ?? {
+      id: allowanceId,
+      householdId: mockHousehold.id ?? 'hh-mock',
+      memberId: mockHousehold.members[0]?.id ?? 'm1',
+      memberName: mockHousehold.members[0]?.name ?? 'Member',
+      amountLabel: '$5',
+      status: 'pending' as const,
+      kind: 'member-request' as const,
+      requestedAt: new Date().toISOString(),
+    }),
+    status,
+    decidedAt: new Date().toISOString(),
+  };
+  mockAllowancesState = mockAllowancesState.map((item) =>
+    item.id === allowanceId ? updated : item
+  );
+  return clone(updated);
+}
+
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+/** Test helper — reset module mock state between scripted flows. */
+export function __resetRewardsMockStateForTests() {
+  mockRewardsState = clone(mockHousehold.rewards);
+  mockRedemptionsState = [];
+  mockAllowancesState = [];
 }

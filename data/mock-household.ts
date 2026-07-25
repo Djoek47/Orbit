@@ -32,7 +32,7 @@ export const mockHousehold: HouseholdSnapshot = {
   accentThemeId: DEFAULT_ACCENT_THEME_ID,
   memberCapabilities: {
     allowRewardRedeem: true,
-    allowSpecialRewardRequest: false,
+    allowSpecialRewardRequest: true,
     allowGroceryAdd: false,
     allowCalendarCreate: false,
   },
@@ -869,6 +869,18 @@ export const mockHousehold: HouseholdSnapshot = {
     { id: 'r6', title: 'Choose Dinner', cost: 120, approvalRequired: true, emoji: '🚗', category: 'Experience', color: '#F472B6', origin: 'minted' },
     { id: 'r7', title: 'Late Bedtime', cost: 90, approvalRequired: true, emoji: '😴', category: 'Privilege', color: '#2DD4BF', origin: 'minted' },
     { id: 'r8', title: 'Mystery Box', cost: 300, approvalRequired: true, emoji: '🎁', category: 'Special', color: '#F59E0B', origin: 'minted' },
+    {
+      id: 'r9',
+      title: 'Liam gaming bonus',
+      cost: 40,
+      approvalRequired: true,
+      emoji: '🕹️',
+      category: 'Screen',
+      color: '#34D399',
+      origin: 'minted',
+      assignedMemberId: 'm4',
+      assignedMemberName: 'Liam',
+    },
   ],
   badges: [
     { id: 'b1', title: 'Homework Hero', icon: 'school', progress: 0.72 },

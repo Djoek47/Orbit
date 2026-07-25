@@ -247,6 +247,28 @@ export type Reward = {
   origin?: RewardOrigin;
   createdByMemberId?: string;
   createdByName?: string;
+  /** When set, only this member (and admins) see the reward in the vault. */
+  assignedMemberId?: string;
+  assignedMemberName?: string;
+};
+
+/** Cash / privilege allowance — admin grants or member requests, admin approves. */
+export type AllowanceGrant = {
+  id: string;
+  householdId: string;
+  memberId: string;
+  memberName: string;
+  /** Display amount, e.g. "$5" or "Extra screen". */
+  amountLabel: string;
+  /** Optional XP tied to the allowance ask (informational / cost). */
+  amountXp?: number;
+  status: 'pending' | 'approved' | 'rejected';
+  kind: 'admin-grant' | 'member-request';
+  note?: string;
+  requestedAt: string;
+  decidedAt?: string;
+  createdByMemberId?: string;
+  createdByName?: string;
 };
 
 export type Badge = {
@@ -383,6 +405,20 @@ export type CreateRewardInput = {
   category?: string;
   color?: string;
   origin?: RewardOrigin;
+  createdByMemberId?: string;
+  createdByName?: string;
+  assignedMemberId?: string;
+  assignedMemberName?: string;
+};
+
+export type CreateAllowanceInput = {
+  memberId: string;
+  memberName: string;
+  amountLabel: string;
+  amountXp?: number;
+  note?: string;
+  /** Admin instant grant vs member-pending request. */
+  kind: 'admin-grant' | 'member-request';
   createdByMemberId?: string;
   createdByName?: string;
 };

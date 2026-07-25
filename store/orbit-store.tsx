@@ -18,7 +18,11 @@ import { saveChildInviteRecord, loadChildInviteRecord } from '@/lib/household/ch
 import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { suggestItineraryFromHousehold } from '@/lib/calendar/suggest-itinerary';
-import { isNotificationVisibleToRole, PROOF_REVIEW_ROLES } from '@/lib/notifications/audience';
+import {
+  isNotificationVisibleToMember,
+  PROOF_REVIEW_ROLES,
+  REWARD_REVIEW_ROLES,
+} from '@/lib/notifications/audience';
 import { registerForPushNotifications, scheduleLocalReminder } from '@/lib/notifications/push';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
 import { persistHouseholdScore } from '@/lib/momentum/score-writer';
@@ -100,6 +104,8 @@ import type {
   CreateHouseholdInput,
   CreateItineraryInput,
   CreateProfileInput,
+  AllowanceGrant,
+  CreateAllowanceInput,
   CreateRewardInput,
   CreateTaskInput,
   HouseholdEvent,
@@ -159,6 +165,8 @@ type OrbitContextValue = {
   pendingRedemptions: RewardRedemption[];
   /** Full redeem ledger (pending + decided) for the tally subpage. */
   redemptions: RewardRedemption[];
+  allowances: AllowanceGrant[];
+  pendingAllowances: AllowanceGrant[];
   smartHomeDevices: SmartHomeDevice[];
   smartHomeScenes: SmartHomeScene[];
   storeRecommendations: StoreRecommendation[];
@@ -267,6 +275,12 @@ type OrbitContextValue = {
   archiveReward: (rewardId: string) => Promise<void>;
   approveRedemption: (redemptionId: string) => Promise<void>;
   rejectRedemption: (redemptionId: string) => Promise<void>;
+  /** Admin: grant allowance to a member instantly. */
+  grantAllowance: (input: Omit<CreateAllowanceInput, 'kind'>) => Promise<AllowanceGrant | null>;
+  /** Member (or admin testing): request an allowance for approval. */
+  requestAllowance: (input: Omit<CreateAllowanceInput, 'kind' | 'memberId' | 'memberName'>) => Promise<AllowanceGrant | null>;
+  approveAllowance: (allowanceId: string) => Promise<void>;
+  rejectAllowance: (allowanceId: string) => Promise<void>;
   updateMemberRole: (memberId: string, role: HouseholdRole) => Promise<void>;
   /** Create a shared-device profile (phone/tablet) that multiple people can use. */
   createSharedDevice: (name?: string) => Promise<HouseholdMember | null>;
@@ -308,6 +322,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [pendingRedemptions, setPendingRedemptions] = useState<RewardRedemption[]>([]);
   const [redemptions, setRedemptions] = useState<RewardRedemption[]>([]);
+  const [allowances, setAllowances] = useState<AllowanceGrant[]>([]);
+  const pendingAllowances = useMemo(
+    () => allowances.filter((item) => item.status === 'pending'),
+    [allowances]
+  );
   const [smartHomeDevices, setSmartHomeDevices] = useState<SmartHomeDevice[]>([]);
   const [smartHomeScenes, setSmartHomeScenes] = useState<SmartHomeScene[]>([]);
   const [storeRecommendations, setStoreRecommendations] = useState<StoreRecommendation[]>([]);
@@ -355,8 +374,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   );
   const novaBriefing = useMemo(() => household.nova, [household.nova]);
   const visibleNotifications = useMemo(
-    () => notifications.filter((item) => isNotificationVisibleToRole(item, currentMember?.role)),
-    [currentMember?.role, notifications]
+    () =>
+      notifications.filter((item) =>
+        isNotificationVisibleToMember(
+          item,
+          currentMember ? { id: currentMember.id, role: currentMember.role } : null
+        )
+      ),
+    [currentMember?.id, currentMember?.role, notifications]
   );
   const unreadNotificationCount = useMemo(
     () => visibleNotifications.filter((item) => !item.isRead).length,
@@ -415,6 +440,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         setRedemptions(items);
         setPendingRedemptions(items.filter((item) => item.status === 'pending'));
       }),
+      rewardsRepository.getAllowances(hydratedHousehold.id).then(setAllowances),
       smartHomeRepository.listDevices(hydratedHousehold.id).then(setSmartHomeDevices),
       smartHomeRepository.listScenes(hydratedHousehold.id).then(setSmartHomeScenes),
     ]);
@@ -524,9 +550,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         );
         setNovaConversation(history);
         setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
-        const [items, redemptions, devices, scenes, links] = await Promise.all([
+        const [items, redemptions, allowanceItems, devices, scenes, links] = await Promise.all([
           notificationsRepository.list(hydratedHousehold.id),
           rewardsRepository.getRedemptions(hydratedHousehold.id),
+          rewardsRepository.getAllowances(hydratedHousehold.id),
           smartHomeRepository.listDevices(hydratedHousehold.id),
           smartHomeRepository.listScenes(hydratedHousehold.id),
           hydratedHousehold.id
@@ -536,6 +563,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         setNotifications(items);
         setRedemptions(redemptions);
         setPendingRedemptions(redemptions.filter((item) => item.status === 'pending'));
+        setAllowances(allowanceItems);
         setSmartHomeDevices(devices);
         setSmartHomeScenes(scenes);
         if (links) {
@@ -588,15 +616,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       { email: session.user.email },
       { householdId: hydratedHousehold.id, userId: session.user.id }
     );
-    const [items, redemptions, devices, scenes] = await Promise.all([
+    const [items, redemptions, allowanceItems, devices, scenes] = await Promise.all([
       notificationsRepository.list(hydratedHousehold.id),
       rewardsRepository.getRedemptions(hydratedHousehold.id),
+      rewardsRepository.getAllowances(hydratedHousehold.id),
       smartHomeRepository.listDevices(hydratedHousehold.id),
       smartHomeRepository.listScenes(hydratedHousehold.id),
     ]);
     setNotifications(items);
     setRedemptions(redemptions);
     setPendingRedemptions(redemptions.filter((item) => item.status === 'pending'));
+    setAllowances(allowanceItems);
     setSmartHomeDevices(devices);
     setSmartHomeScenes(scenes);
     setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
@@ -1920,6 +1950,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return;
     }
     const caps = resolveMemberCapabilities(household);
+    // Users redeem; admins may also redeem for testing.
     if (!permissions.canManageHousehold && !caps.allowRewardRedeem) {
       return;
     }
@@ -1934,11 +1965,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setPendingRedemptions((current) => [redemption, ...current.filter((item) => item.id !== redemption.id)]);
     setRedemptions((current) => [redemption, ...current.filter((item) => item.id !== redemption.id)]);
     const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    await novaNotifications.rewardRequested(pushNotification, prefs, {
+    const created = await novaNotifications.rewardRequested(pushNotification, prefs, {
       title: reward?.title ?? 'a reward',
       memberName: currentMember.name,
       redemptionId: redemption.id,
+      audienceRoles: [...REWARD_REVIEW_ROLES],
     });
+    if (created) {
+      await scheduleLocalReminder(created.title, created.body, 2).catch((error) =>
+        console.warn('Reward request reminder skipped', error)
+      );
+    }
     await trackAnalytics('reward.redemption_requested', { rewardId }, analyticsContext);
   };
 
@@ -1952,6 +1989,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     const reward = household.rewards.find((item) => item.id === rewardId && !item.archived);
     if (!reward) {
+      return null;
+    }
+    if (
+      reward.assignedMemberId &&
+      reward.assignedMemberId !== currentMember.id &&
+      !permissions.canManageHousehold
+    ) {
       return null;
     }
     if ((currentMember.xp ?? 0) < reward.cost) {
@@ -1985,11 +2029,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           : member,
       ),
     }));
+    // Assigned one-shots leave the catalog after instant claim; shared catalog stays.
+    if (reward.assignedMemberId) {
+      await archiveReward(rewardId);
+    }
     await novaNotifications.rewardClaimed(pushNotification, prefs, {
       title: reward.title,
       memberName: currentMember.name,
       cost: reward.cost,
       redemptionId: redemption.id,
+      audienceRoles: [...REWARD_REVIEW_ROLES],
     });
     await trackAnalytics('reward.claimed_instant', { rewardId }, analyticsContext);
     return 'claimed';
@@ -2035,6 +2084,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
     }));
+    if (reward.assignedMemberId && reward.assignedMemberId !== currentMember?.id) {
+      const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+      await novaNotifications.rewardAssigned(pushNotification, prefs, {
+        title: reward.title,
+        cost: reward.cost,
+        rewardId: reward.id,
+        assignedByName: currentMember?.name ?? 'Admin',
+        audienceMemberIds: [reward.assignedMemberId],
+      });
+    }
     await trackAnalytics('reward.created', { rewardId: reward.id }, analyticsContext);
   };
 
@@ -2050,7 +2109,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const approveRedemption = async (redemptionId: string) => {
-    const pending = pendingRedemptions.find((item) => item.id === redemptionId);
+    const pending =
+      pendingRedemptions.find((item) => item.id === redemptionId) ??
+      redemptions.find((item) => item.id === redemptionId);
     const reward = household.rewards.find((item) => item.id === pending?.rewardId);
     const updated = await rewardsRepository.approveRedemption(redemptionId);
     setPendingRedemptions((current) => current.filter((item) => item.id !== redemptionId));
@@ -2066,12 +2127,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             : member
         ),
       }));
+      if (reward.assignedMemberId) {
+        await archiveReward(reward.id);
+      }
     }
     await reloadHouseholdDomains();
     const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
     await novaNotifications.rewardApproved(pushNotification, prefs, {
       title: reward?.title ?? 'Reward',
       redemptionId,
+      audienceMemberIds: pending?.memberId ? [pending.memberId] : undefined,
     });
     await trackAnalytics('reward.redemption_approved', { redemptionId, status: updated.status }, analyticsContext);
   };
@@ -2083,6 +2148,87 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       current.map((item) => (item.id === redemptionId ? updated : item))
     );
     await trackAnalytics('reward.redemption_rejected', { redemptionId, status: updated.status }, analyticsContext);
+  };
+
+  const grantAllowance = async (input: Omit<CreateAllowanceInput, 'kind'>) => {
+    if (!permissions.canManageHousehold || !household.id) {
+      return null;
+    }
+    const grant = await rewardsRepository.createAllowance(household.id, {
+      ...input,
+      kind: 'admin-grant',
+      createdByMemberId: currentMember?.id,
+      createdByName: currentMember?.name,
+    });
+    setAllowances((current) => [grant, ...current.filter((item) => item.id !== grant.id)]);
+    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+    await novaNotifications.allowanceGranted(pushNotification, prefs, {
+      amountLabel: grant.amountLabel,
+      allowanceId: grant.id,
+      audienceMemberIds: [grant.memberId],
+    });
+    await trackAnalytics('allowance.granted', { allowanceId: grant.id }, analyticsContext);
+    return grant;
+  };
+
+  const requestAllowance = async (
+    input: Omit<CreateAllowanceInput, 'kind' | 'memberId' | 'memberName'>
+  ) => {
+    if (!household.id || !currentMember) {
+      return null;
+    }
+    // Members request; admins may also request for testing.
+    const grant = await rewardsRepository.createAllowance(household.id, {
+      ...input,
+      memberId: currentMember.id,
+      memberName: currentMember.name,
+      kind: 'member-request',
+      createdByMemberId: currentMember.id,
+      createdByName: currentMember.name,
+    });
+    setAllowances((current) => [grant, ...current.filter((item) => item.id !== grant.id)]);
+    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+    const created = await novaNotifications.allowanceRequested(pushNotification, prefs, {
+      amountLabel: grant.amountLabel,
+      memberName: currentMember.name,
+      allowanceId: grant.id,
+    });
+    if (created) {
+      await scheduleLocalReminder(created.title, created.body, 2).catch((error) =>
+        console.warn('Allowance request reminder skipped', error)
+      );
+    }
+    await trackAnalytics('allowance.requested', { allowanceId: grant.id }, analyticsContext);
+    return grant;
+  };
+
+  const approveAllowance = async (allowanceId: string) => {
+    if (!permissions.canApproveReward && !permissions.canManageHousehold) {
+      return;
+    }
+    const pending = allowances.find((item) => item.id === allowanceId);
+    const updated = await rewardsRepository.approveAllowance(allowanceId);
+    setAllowances((current) =>
+      current.map((item) => (item.id === allowanceId ? updated : item))
+    );
+    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+    await novaNotifications.allowanceApproved(pushNotification, prefs, {
+      amountLabel: updated.amountLabel,
+      allowanceId,
+      audienceMemberIds: pending?.memberId ? [pending.memberId] : [updated.memberId],
+    });
+    await trackAnalytics('allowance.approved', { allowanceId }, analyticsContext);
+  };
+
+  const rejectAllowance = async (allowanceId: string) => {
+    if (!permissions.canApproveReward && !permissions.canManageHousehold) {
+      return;
+    }
+    const updated = await rewardsRepository.rejectAllowance(allowanceId);
+    setAllowances((current) =>
+      current.map((item) => (item.id === allowanceId ? updated : item))
+    );
+    await trackAnalytics('allowance.rejected', { allowanceId }, analyticsContext);
   };
 
   const updateMemberRole = async (memberId: string, role: HouseholdRole) => {
@@ -2529,6 +2675,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       unreadNotificationCount,
       pendingRedemptions,
       redemptions,
+      allowances,
+      pendingAllowances,
       smartHomeDevices,
       smartHomeScenes,
       storeRecommendations,
@@ -2610,6 +2758,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       archiveReward,
       approveRedemption,
       rejectRedemption,
+      grantAllowance,
+      requestAllowance,
+      approveAllowance,
+      rejectAllowance,
       updateMemberRole,
       createSharedDevice,
       updateSharedDeviceLinks,
@@ -2648,6 +2800,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       unreadNotificationCount,
       pendingRedemptions,
       redemptions,
+      allowances,
+      pendingAllowances,
       smartHomeDevices,
       smartHomeScenes,
       storeRecommendations,
