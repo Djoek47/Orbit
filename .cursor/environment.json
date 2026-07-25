@@ -1,8 +1,8 @@
 {
-  "install": "npm install",
+  "install": "npm install && cp -n .env.example .env || true",
   "terminals": [
     {
-      "name": "Expo tunnel (persistent)",
+      "name": "Expo keep-alive",
       "command": "npm run start:persistent"
     }
   ]

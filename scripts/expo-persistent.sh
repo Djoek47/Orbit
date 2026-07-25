@@ -86,6 +86,7 @@ public_tunnel_up() {
     rm -f "$body"
     # Keep URL file in sync with the live edge.
     write_qr_if_possible "exp://${host}"
+    printf '%s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >"$LOG_DIR/last-public-ok.txt"
     return 0
   fi
   if grep -q 'ERR_NGROK_3200\|endpoint .* is offline' "$body" 2>/dev/null; then
@@ -100,6 +101,10 @@ public_tunnel_up() {
 write_qr_if_possible() {
   local url="$1"
   [[ -z "$url" ]] && return 0
+  # Skip rewrite when URL unchanged (health loop runs often).
+  if [[ -f "$URL_FILE" ]] && [[ "$(tr -d '[:space:]' <"$URL_FILE")" == "$url" ]]; then
+    return 0
+  fi
   printf '%s\n' "$url" >"$URL_FILE"
   printf '%s\n' "$url" >/opt/cursor/artifacts/expo-go-qr.txt 2>/dev/null || true
   if command -v node >/dev/null 2>&1; then
