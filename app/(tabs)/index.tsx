@@ -214,7 +214,11 @@ export default function HomeScreen() {
             <View style={styles.weekBoard}>
               <View style={styles.weekHead}>
                 <Text style={styles.weekTitle}>This week</Text>
-                <Pressable onPress={() => router.push('/(tabs)/rewards' as never)} hitSlop={8}>
+                <Pressable
+                  onPress={() =>
+                    router.push({ pathname: '/rewards', params: { surface: 'ranks' } } as never)
+                  }
+                  hitSlop={8}>
                   <Text style={[styles.weekLink, { color: accentTheme.primary }]}>Ranks</Text>
                 </Pressable>
               </View>
@@ -237,7 +241,9 @@ export default function HomeScreen() {
                     <Pressable
                       key={member.id}
                       style={styles.pyramidSlot}
-                      onPress={() => router.push('/(tabs)/rewards' as never)}>
+                      onPress={() =>
+                        router.push({ pathname: '/rewards', params: { surface: 'ranks' } } as never)
+                      }>
                       <View
                         style={[
                           styles.pyramidAvatar,
@@ -372,7 +378,9 @@ export default function HomeScreen() {
             </GlassCard>
           </Pressable>
           <Pressable
-            onPress={() => router.push('/(tabs)/rewards' as never)}
+            onPress={() =>
+              router.push({ pathname: '/rewards', params: { surface: 'rewards' } } as never)
+            }
             style={[styles.kidRewardCard, { borderColor: `${accentTheme.primary}44` }]}>
             <View style={[styles.kidRewardIcon, { backgroundColor: `${accentTheme.primary}22` }]}>
               <MaterialIcons name="card-giftcard" size={22} color={accentTheme.primary} />

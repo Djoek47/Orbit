@@ -20,7 +20,7 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 30c | Rewards member shop | As child: Redeem only · no Mint/Archive/tally · Request special only when toggle on | ☐ |
 | 30d | Kid Plan / create event | Child events filtered to theirs · simplified create (title/when/place) when calendar create allowed | ☐ |
 | 30e | Create Task shared + library | Shared device tablet card · hold to split · Quick 12 + Browse library search/domains | ☐ |
-| 6i | Rewards shop + tally | Ranks shop · Mint admin-only · special request gated by Member permissions · Redeem tally admin · member Redeem only when allowed | ☐ |
+| 6i | Rewards shop + tally | Ranks tab → **Ranks \| Rewards** segment · Mint admin-only · special request gated by Member permissions · Redeem tally admin · member Redeem only when allowed | ☐ |
 | 6j | Task presets + library | Create Task: Presets · All · PDF categories (150) · Hygiene kids-only · Customize quick set | ☐ |
 | 6k | Badge gallery + Home fire streak | Badge gallery Material icons + polished tiles · Home Today’s Tasks fire-edge progress · per-person chips · daily streak on full completion | ☐ |
 | 2 | Create household | New household → Manage Members → Add new member shows invite code | ☐ |
@@ -65,7 +65,7 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 29m | Grocery product lookup | Groceries search milk · $/L · $/gal · Open in Maps · Add to list | ☐ |
 | 14 | Share invite | Settings → Manage Members → Add new member · Share · Copy · QR | ☐ |
 | 15 | Task presets | Create Task → pick preset · weight XP · optional proof · recurring spawn | ☐ |
-| 15b | Attach proof | Task detail → Attach proof (camera/library) → admin gets inbox + local notify · Approve proof | ☐ |
+| 15b | Attach proof | Complete task first → proof requested after (preset/create flag) · camera/library → admin notify · Approve proof | ☐ |
 | 15c | Two admins + split | Members → Make co-admin (max 2) · Tasks → Split open tasks between Sarah & David · Two admins filter | ☐ |
 | 15d | Home week XP + layout | Home “This week” lean board (top 5 · slim bars · Ranks link) · full-width Home/Groceries | ☐ |
 | 15e | Cancel task (admin) | Task detail → Cancel · this occurrence or this+future · works when overdue · not delete | ☐ |

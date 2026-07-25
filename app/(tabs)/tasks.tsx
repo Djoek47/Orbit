@@ -476,23 +476,21 @@ export default function TasksScreen() {
       if (!currentMember || !taskMatchesAssignee(task, currentMember.name)) return;
       const share = task.shares?.find((item) => item.name === currentMember.name);
       if (!share || share.status !== 'Pending') return;
-      if (
-        task.proofRequired &&
-        share.proofStatus !== 'submitted' &&
-        share.proofStatus !== 'approved'
-      ) {
-        router.push(`/task/${task.id}` as never);
-        return;
-      }
       setJustCompletedId(taskId);
-      await completeTask(taskId, { forAssignee: currentMember.name });
+      const result = await completeTask(taskId, { forAssignee: currentMember.name });
       setTimeout(() => setJustCompletedId(null), 1200);
+      if (result?.needsProof) {
+        router.push(`/task/${task.id}` as never);
+      }
       return;
     }
 
     setJustCompletedId(taskId);
-    await completeTask(taskId);
+    const result = await completeTask(taskId);
     setTimeout(() => setJustCompletedId(null), 1200);
+    if (result?.needsProof) {
+      router.push(`/task/${task.id}` as never);
+    }
   };
 
   return (

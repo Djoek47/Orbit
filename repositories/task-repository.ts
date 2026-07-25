@@ -177,7 +177,8 @@ export const taskRepository = {
       ...task,
       due: 'Completed today',
       status: 'Completed',
-      proofStatus: task.proofRequired ? task.proofStatus ?? 'submitted' : task.proofStatus,
+      // Keep prior proof status (usually 'none') — attach happens after complete.
+      proofStatus: task.proofStatus,
     };
 
     if (isMockMode()) {

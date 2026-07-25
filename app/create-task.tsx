@@ -1329,7 +1329,7 @@ export default function CreateTaskScreen() {
               size={18}
               color={proofRequired ? accentTheme.primary : '#4B6080'}
             />
-            <Text style={styles.proofToggleText}>Require photo proof</Text>
+            <Text style={styles.proofToggleText}>Require photo proof after complete</Text>
           </Pressable>
         ) : null}
 
@@ -1386,8 +1386,8 @@ export default function CreateTaskScreen() {
             <Text style={styles.sharedTitlePreview}>Split · {resolvedAssigneeName}</Text>
             <Text style={styles.sharedPickHint}>
               Each person earns +{xpPreview} XP when they finish
-              {proofRequired ? ' (with proof)' : ''}. If everyone finishes, each gets a bonus. Admins can
-              penalize anyone who doesn’t.
+              {proofRequired ? ' (proof requested after)' : ''}. If everyone finishes, each gets a bonus.
+              Admins can penalize anyone who doesn’t.
             </Text>
           </View>
         ) : null}

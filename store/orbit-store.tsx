@@ -177,7 +177,14 @@ type OrbitContextValue = {
   completeTask: (
     taskId: string,
     options?: { forAssignee?: string }
-  ) => Promise<{ awarded: number; penalty: number; late: boolean; bonus?: number } | null>;
+  ) => Promise<{
+    awarded: number;
+    penalty: number;
+    late: boolean;
+    bonus?: number;
+    /** Proof should be attached after this completion (preset / create flag). */
+    needsProof?: boolean;
+  } | null>;
   submitTaskProof: (taskId: string, proofUri: string, options?: { forAssignee?: string }) => Promise<void>;
   approveTaskProof: (taskId: string, options?: { forAssignee?: string }) => Promise<void>;
   /** Admin: dock XP from someone who did not finish their share of a split task. */
@@ -846,13 +853,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (!share || share.status !== 'Pending') {
         return null;
       }
-      if (
-        currentTask.proofRequired &&
+      const needsProof =
+        Boolean(currentTask.proofRequired) &&
         share.proofStatus !== 'submitted' &&
-        share.proofStatus !== 'approved'
-      ) {
-        return null;
-      }
+        share.proofStatus !== 'approved';
 
       const late = isTaskLate(currentTask);
       const baseShare = splitShareXp(currentTask);
@@ -952,16 +956,24 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       });
       await trackAnalytics(
         'task.share_completed',
-        { taskId, forAssignee, awarded, bonus, everyoneDone },
+        { taskId, forAssignee, awarded, bonus, everyoneDone, needsProof },
         analyticsContext
       );
-      return { awarded, penalty: latePenalty, late, bonus: everyoneDone ? bonus : 0 };
+      return {
+        awarded,
+        penalty: latePenalty,
+        late,
+        bonus: everyoneDone ? bonus : 0,
+        needsProof,
+      };
     }
 
     // --- Single-assignee task ---
-    if (currentTask.proofRequired && currentTask.proofStatus !== 'submitted' && currentTask.proofStatus !== 'approved') {
-      return null;
-    }
+    // Proof is requested after complete when the create/preset flag is set — never a pre-gate.
+    const needsProof =
+      Boolean(currentTask.proofRequired) &&
+      currentTask.proofStatus !== 'submitted' &&
+      currentTask.proofStatus !== 'approved';
 
     const { awarded, penalty, late } = resolveCompletionXp(currentTask);
     const completedTask = await taskRepository.completeTask(currentTask, household.id);
@@ -1023,8 +1035,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       tasks: household.tasks.map((item) => (item.id === taskId ? completedTask : item)),
     });
     await persistHouseholdScore(household.id, nextMetrics);
-    await trackAnalytics('task.completed', { taskId, awarded, late }, analyticsContext);
-    return { awarded, penalty, late };
+    await trackAnalytics(
+      'task.completed',
+      { taskId, awarded, late, needsProof },
+      analyticsContext
+    );
+    return { awarded, penalty, late, needsProof };
   };
 
   const penalizeSplitAssignee = async (taskId: string, assigneeName: string) => {

@@ -89,7 +89,7 @@ export const novaNotifications = {
     if (!prefs.tasks) return null;
     return push({
       title: 'Nova · Proof approved',
-      body: `Your proof for ${input.title} was approved. You can mark the task complete.`,
+      body: `Your proof for ${input.title} was approved. Nice verification.`,
       category: 'tasks',
       priority: 'medium',
       data: {

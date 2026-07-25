@@ -33,7 +33,7 @@ const categories = ['Cleaning', 'Kitchen', 'Laundry', 'School', 'Homework', 'Gro
 const repeats: HouseholdTask['repeat'][] = ['None', 'Daily', 'Weekly', 'Weekdays'];
 const difficulties: NonNullable<HouseholdTask['difficulty']>[] = ['easy', 'medium', 'hard'];
 
-function proofStatusLabel(status: HouseholdTask['proofStatus']) {
+function proofStatusLabel(status: HouseholdTask['proofStatus'], completed: boolean) {
   switch (status) {
     case 'submitted':
       return 'Submitted · waiting for admin';
@@ -42,7 +42,9 @@ function proofStatusLabel(status: HouseholdTask['proofStatus']) {
     case 'rejected':
       return 'Rejected · attach a new photo';
     default:
-      return 'Required · not attached yet';
+      return completed
+        ? 'Needed after complete · not attached yet'
+        : 'Will request after you mark complete';
   }
 }
 
@@ -127,13 +129,6 @@ export default function TaskDetailScreen() {
     !split ||
     (onThisSplit && myShare?.status === 'Pending');
 
-  const handleComplete = async (forAssignee?: string) => {
-    const result = await completeTask(task.id, forAssignee ? { forAssignee } : undefined);
-    if (result) {
-      setCelebration(result);
-    }
-  };
-
   const handleAttachProof = async (forAssignee?: string) => {
     const uri = await promptPickProofPhoto();
     if (!uri) return;
@@ -146,14 +141,22 @@ export default function TaskDetailScreen() {
     }
   };
 
+  const handleComplete = async (forAssignee?: string) => {
+    const result = await completeTask(task.id, forAssignee ? { forAssignee } : undefined);
+    if (result) {
+      setCelebration(result);
+      if (result.needsProof) {
+        // Request proof once after the task (or share) is completed.
+        void handleAttachProof(forAssignee);
+      }
+    }
+  };
+
   const handleApproveProof = async (forAssignee?: string) => {
     setProofBusy(true);
     try {
       await approveTaskProof(task.id, forAssignee ? { forAssignee } : undefined);
-      Alert.alert(
-        'Proof approved',
-        `${forAssignee ?? task.assignee} can finish their share.`
-      );
+      Alert.alert('Proof approved', 'Verification saved for this completion.');
     } finally {
       setProofBusy(false);
     }
@@ -501,7 +504,9 @@ export default function TaskDetailScreen() {
                         <Text style={styles.value}>{share.name}</Text>
                         <Text style={styles.body}>
                           {share.status}
-                          {needsProof ? ` · ${proofStatusLabel(share.proofStatus)}` : ''}
+                          {needsProof
+                            ? ` · ${proofStatusLabel(share.proofStatus, share.status === 'Completed')}`
+                            : ''}
                           {share.awardedXp != null ? ` · +${share.awardedXp} XP` : ''}
                           {share.penalizedXp != null ? ` · −${share.penalizedXp} XP` : ''}
                         </Text>
@@ -536,7 +541,10 @@ export default function TaskDetailScreen() {
             <DetailRow label="Repeat" value={task.repeat} />
             {room ? <DetailRow label="Room" value={`${room.emoji} ${room.name}`} /> : null}
             {needsProof && !split ? (
-              <DetailRow label="Proof" value={proofStatusLabel(task.proofStatus)} />
+              <DetailRow
+                label="Proof"
+                value={proofStatusLabel(task.proofStatus, task.status === 'Completed')}
+              />
             ) : null}
             {showProofPreview ? (
               <View style={styles.detailRow}>
@@ -568,11 +576,27 @@ export default function TaskDetailScreen() {
           </>
         ) : (
           <>
-            {needsProof &&
-            task.status !== 'Completed' &&
+            {task.status !== 'Completed' &&
             task.status !== 'Cancelled' &&
+            canCompleteMine ? (
+              <Pressable
+                onPress={() => void handleComplete(split ? currentMember?.name : undefined)}
+                style={styles.ctaWrap}>
+                <LinearGradient
+                  colors={[accentTheme.primary, accentTheme.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.cta}>
+                  <Text style={styles.ctaText}>
+                    {split ? 'Mark my share complete' : 'Mark complete'}
+                  </Text>
+                </LinearGradient>
+              </Pressable>
+            ) : null}
+            {needsProof &&
+            !proofReady &&
             canCompleteMine &&
-            !proofReady ? (
+            (task.status === 'Completed' || (split && myShare?.status === 'Completed')) ? (
               <Pressable
                 disabled={proofBusy}
                 onPress={() => void handleAttachProof(split ? currentMember?.name : undefined)}
@@ -586,9 +610,11 @@ export default function TaskDetailScreen() {
                   <Text style={styles.ctaText}>
                     {proofBusy
                       ? 'Sending proof…'
-                      : split
-                        ? 'Attach my proof photo'
-                        : 'Attach proof photo'}
+                      : myProofStatus === 'rejected'
+                        ? 'Re-attach proof photo'
+                        : split
+                          ? 'Attach my proof photo'
+                          : 'Attach proof photo'}
                   </Text>
                 </LinearGradient>
               </Pressable>
@@ -610,43 +636,6 @@ export default function TaskDetailScreen() {
                 <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
                   {proofBusy ? 'Approving…' : 'Approve proof'}
                 </Text>
-              </Pressable>
-            ) : null}
-            {needsProof && myProofStatus === 'rejected' && canCompleteMine ? (
-              <Pressable
-                disabled={proofBusy}
-                onPress={() => void handleAttachProof(split ? currentMember?.name : undefined)}
-                style={[styles.ctaWrap, proofBusy && { opacity: 0.6 }]}>
-                <LinearGradient
-                  colors={[accentTheme.primary, accentTheme.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cta}>
-                  <MaterialIcons name="photo-camera" size={18} color="#04101F" />
-                  <Text style={styles.ctaText}>{proofBusy ? 'Sending proof…' : 'Re-attach proof photo'}</Text>
-                </LinearGradient>
-              </Pressable>
-            ) : null}
-            {task.status !== 'Completed' &&
-            task.status !== 'Cancelled' &&
-            canCompleteMine ? (
-              <Pressable
-                disabled={needsProof && !proofReady}
-                onPress={() => void handleComplete(split ? currentMember?.name : undefined)}
-                style={[styles.ctaWrap, needsProof && !proofReady && { opacity: 0.45 }]}>
-                <LinearGradient
-                  colors={[accentTheme.primary, accentTheme.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cta}>
-                  <Text style={styles.ctaText}>
-                    {needsProof && !proofReady
-                      ? 'Proof required to complete'
-                      : split
-                        ? 'Mark my share complete'
-                        : 'Mark complete'}
-                  </Text>
-                </LinearGradient>
               </Pressable>
             ) : null}
             {split && myShare?.status === 'Completed' && task.status !== 'Completed' ? (

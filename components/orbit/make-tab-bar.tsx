@@ -20,7 +20,7 @@ const TAB_META: Record<
   index: { label: 'Home', color: orbitTabColors.home, icon: 'house.fill' },
   tasks: { label: 'Tasks', color: orbitTabColors.tasks, icon: 'checklist' },
   plan: { label: 'Plan', color: orbitTabColors.plan, icon: 'calendar' },
-  rewards: { label: 'Rewards', color: orbitTabColors.ranking, icon: 'trophy.fill' },
+  rewards: { label: 'Ranks', color: orbitTabColors.ranking, icon: 'trophy.fill' },
   nova: { label: 'Nova', color: orbitTabColors.nova, icon: 'sparkles' },
 };
 
