@@ -19,10 +19,20 @@ type TodayTasksCardProps = {
   members: HouseholdMember[];
   currentMember?: HouseholdMember | null;
   accentTheme: AccentTheme;
+  /** Admin / household managers can open a member’s Tasks view from the chips. */
+  canFocusMembers?: boolean;
   mineOnly?: boolean;
   streak: number;
   onAwardDailyStreak?: () => void;
 };
+
+function openTasksTab(memberName?: string) {
+  // Always pass `member` so a prior person focus does not stick on the Tasks tab.
+  router.push({
+    pathname: '/tasks',
+    params: { member: memberName ?? '' },
+  } as never);
+}
 
 function isTodayTask(task: HouseholdTask) {
   if (task.status === 'Cancelled') return false;
@@ -40,6 +50,7 @@ export function TodayTasksCard({
   members,
   currentMember,
   accentTheme,
+  canFocusMembers = false,
   mineOnly = false,
   streak,
   onAwardDailyStreak,
@@ -146,20 +157,42 @@ export function TodayTasksCard({
 
           {!mineOnly && perPerson.length > 0 ? (
             <View style={styles.personRow}>
-              {perPerson.map((row, index) => (
-                <Animated.View
-                  key={row.member.id}
-                  entering={FadeInDown.delay(index * 60).springify()}
-                  style={[styles.personChip, { borderColor: `${row.color}55` }]}>
-                  <Text style={styles.personEmoji}>{memberDisplayEmoji(row.member)}</Text>
-                  <Text style={[styles.personName, { color: row.color }]} numberOfLines={1}>
-                    {row.member.name}
-                  </Text>
-                  <Text style={styles.personCount}>
-                    {row.done}/{row.total}
-                  </Text>
-                </Animated.View>
-              ))}
+              {perPerson.map((row, index) => {
+                const chip = (
+                  <>
+                    <Text style={styles.personEmoji}>{memberDisplayEmoji(row.member)}</Text>
+                    <Text style={[styles.personName, { color: row.color }]} numberOfLines={1}>
+                      {row.member.name}
+                    </Text>
+                    <Text style={styles.personCount}>
+                      {row.done}/{row.total}
+                    </Text>
+                  </>
+                );
+                return (
+                  <Animated.View
+                    key={row.member.id}
+                    entering={FadeInDown.delay(index * 60).springify()}>
+                    {canFocusMembers ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Open ${row.member.name}'s tasks`}
+                        onPress={() => openTasksTab(row.member.name)}
+                        style={[
+                          styles.personChip,
+                          styles.personChipPressable,
+                          { borderColor: `${row.color}88`, backgroundColor: `${row.color}18` },
+                        ]}>
+                        {chip}
+                      </Pressable>
+                    ) : (
+                      <View style={[styles.personChip, { borderColor: `${row.color}55` }]}>
+                        {chip}
+                      </View>
+                    )}
+                  </Animated.View>
+                );
+              })}
             </View>
           ) : null}
 
@@ -188,8 +221,14 @@ export function TodayTasksCard({
             })
           )}
 
-          <Pressable onPress={() => router.push('/(tabs)/tasks' as never)}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open tasks"
+            hitSlop={12}
+            onPress={() => openTasksTab()}
+            style={styles.linkBtn}>
             <Text style={[styles.link, { color: accentTheme.primary }]}>Open tasks →</Text>
+            <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
           </Pressable>
         </GlassCard>
       </FireEdgeProgress>
@@ -265,6 +304,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
+  personChipPressable: {
+    minHeight: 32,
+  },
   personEmoji: { fontSize: 14 },
   personName: { fontSize: 12, fontWeight: '700', maxWidth: 72 },
   personCount: { color: orbitColors.textMuted, fontSize: 11, fontWeight: '700' },
@@ -287,5 +329,13 @@ const styles = StyleSheet.create({
   taskText: { color: orbitColors.textSoft, flex: 1, fontSize: 14, fontWeight: '600' },
   taskDone: { color: orbitColors.textSubtle, textDecorationLine: 'line-through' },
   assignee: { color: orbitColors.textSubtle, fontSize: 12, fontWeight: '700' },
-  link: { fontSize: 13, fontWeight: '700', marginTop: 2 },
+  linkBtn: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: 2,
+    marginTop: 2,
+    paddingVertical: 4,
+  },
+  link: { fontSize: 13, fontWeight: '700' },
 });
