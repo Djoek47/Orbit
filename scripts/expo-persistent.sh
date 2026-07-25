@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Keep Expo Go tunnel up across ngrok drops, agent reconnects, and Metro exits.
-# Safe to re-run: a second instance exits without killing a healthy packager.
+# Health is based on the PUBLIC edge (not only local ngrok API) so ERR_NGROK_3200
+# triggers a restart. Safe to re-run: second instances exit without bouncing Metro.
 set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -16,11 +17,11 @@ LOCK_FILE="$LOG_DIR/watchdog.lock"
 STATUS_FILE="$LOG_DIR/status.txt"
 
 BACKOFF_SECS="${EXPO_RESTART_BACKOFF_SECS:-4}"
-MAX_BACKOFF_SECS="${EXPO_RESTART_MAX_BACKOFF_SECS:-60}"
-TUNNEL_FAIL_LIMIT="${EXPO_TUNNEL_FAIL_LIMIT:-3}"
+MAX_BACKOFF_SECS="${EXPO_RESTART_MAX_BACKOFF_SECS:-45}"
+PUBLIC_FAIL_LIMIT="${EXPO_PUBLIC_FAIL_LIMIT:-2}"
 backoff="$BACKOFF_SECS"
 
-# Survive agent shell hangups / closed stdin. Do not kill Expo on our own exit.
+# Survive agent shell hangups. Detach without killing Expo.
 trap '' HUP
 trap 'log "Watchdog detaching (Expo left running)"; write_status "detached"; exit 0' INT TERM
 
@@ -38,25 +39,6 @@ write_status() {
 
 packager_up() {
   curl -fsS --max-time 2 "http://127.0.0.1:8081/status" 2>/dev/null | grep -q 'packager-status:running'
-}
-
-tunnel_up() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    return 1
-  fi
-  python3 - <<'PY' 2>/dev/null
-import json, urllib.request, sys
-try:
-    with urllib.request.urlopen("http://127.0.0.1:4040/api/tunnels", timeout=2) as res:
-        data = json.load(res)
-    for tunnel in data.get("tunnels", []):
-        url = tunnel.get("public_url") or ""
-        if "exp.direct" in url or "ngrok" in url:
-            sys.exit(0)
-    sys.exit(1)
-except Exception:
-    sys.exit(1)
-PY
 }
 
 extract_url() {
@@ -83,16 +65,43 @@ PY
       return 0
     fi
   fi
-
   if [[ -f "$LOG_FILE" ]]; then
-    rg -o 'exp://[A-Za-z0-9._:-]+' "$LOG_FILE" 2>/dev/null | tail -1 || true
+    rg -o 'exp://[A-Za-z0-9._:-]+\.exp\.direct' "$LOG_FILE" 2>/dev/null | tail -1 || true
   fi
+}
+
+# True only when the phone-facing edge serves Metro (catches ERR_NGROK_3200 zombies).
+public_tunnel_up() {
+  local url host body code
+  url="$(extract_url)"
+  if [[ -z "$url" && -f "$URL_FILE" ]]; then
+    url="$(cat "$URL_FILE")"
+  fi
+  [[ -z "$url" ]] && return 1
+  host="${url#exp://}"
+  host="${host%%:*}"
+  body="$(mktemp)"
+  code="$(curl -sS -o "$body" -w '%{http_code}' --max-time 10 "https://${host}/status" 2>/dev/null || echo 000)"
+  if [[ "$code" == "200" ]] && grep -q 'packager-status:running' "$body"; then
+    rm -f "$body"
+    # Keep URL file in sync with the live edge.
+    write_qr_if_possible "exp://${host}"
+    return 0
+  fi
+  if grep -q 'ERR_NGROK_3200\|endpoint .* is offline' "$body" 2>/dev/null; then
+    log "Public edge reports offline (HTTP $code, ERR_NGROK_3200)"
+  else
+    log "Public edge probe failed (HTTP $code)"
+  fi
+  rm -f "$body"
+  return 1
 }
 
 write_qr_if_possible() {
   local url="$1"
   [[ -z "$url" ]] && return 0
   printf '%s\n' "$url" >"$URL_FILE"
+  printf '%s\n' "$url" >/opt/cursor/artifacts/expo-go-qr.txt 2>/dev/null || true
   if command -v node >/dev/null 2>&1; then
     node "$ROOT/scripts/write-expo-qr.mjs" "$url" /opt/cursor/artifacts/expo-go-qr.png \
       >>"$LOG_FILE" 2>&1 || true
@@ -100,7 +109,6 @@ write_qr_if_possible() {
 }
 
 find_expo_pid() {
-  # Prefer the real node packager. Never match agent shells that merely mention expo in argv.
   ps -eo pid=,cmd= | while read -r pid cmd; do
     case "$cmd" in
       node\ */node_modules/.bin/expo\ start*|node\ */@expo/cli/*)
@@ -110,60 +118,40 @@ find_expo_pid() {
   done
 }
 
-stop_expo_tree() {
-  # Only used when Metro/tunnel is unhealthy and we must restart.
-  if [[ -f "$PID_FILE" ]]; then
-    local old
-    old="$(cat "$PID_FILE" 2>/dev/null || true)"
-    if [[ -n "${old:-}" ]] && kill -0 "$old" 2>/dev/null; then
-      log "Stopping unhealthy Expo pid $old"
-      kill "$old" 2>/dev/null || true
-      sleep 1
-      kill -9 "$old" 2>/dev/null || true
-    fi
-    rm -f "$PID_FILE"
+stop_pid() {
+  local pid="$1"
+  [[ -z "${pid:-}" ]] && return 0
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    sleep 1
+    kill -9 "$pid" 2>/dev/null || true
   fi
+}
+
+stop_expo_tree() {
+  local old
+  old="$(cat "$PID_FILE" 2>/dev/null || true)"
+  stop_pid "$old"
   ps -eo pid=,cmd= | while read -r pid cmd; do
     case "$cmd" in
-      node\ */node_modules/.bin/expo\ start*|node\ */@expo/cli/*|npm\ exec\ expo\ start*|*/ngrok-bin-linux-x64/ngrok\ *)
-        kill "$pid" 2>/dev/null || true
+      node\ */node_modules/.bin/expo\ start*|node\ */@expo/cli/*|npm\ exec\ expo\ start*|*/ngrok-bin-linux-x64/ngrok\ *|*/bin/cloudflared\ tunnel*)
+        stop_pid "$pid"
         ;;
     esac
   done
+  rm -f "$PID_FILE"
   sleep 1
 }
 
-adopt_or_refresh_url() {
-  local url
-  url="$(extract_url)"
-  if [[ -z "$url" && -f "$URL_FILE" ]]; then
-    url="$(cat "$URL_FILE")"
-  fi
-  if [[ -n "$url" ]]; then
-    write_qr_if_possible "$url"
-    log "Healthy packager; tunnel URL $url"
-    write_status "healthy"
-    return 0
-  fi
-  write_status "packager-up-no-url"
-  return 1
-}
-
-# Exclusive lock — extra agent reconnects must not kill a live tunnel.
+# Exclusive lock — reconnects must not kill a live tunnel.
 exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
-  if packager_up; then
-    adopt_or_refresh_url || true
-    log "Another watchdog already owns Expo; exiting without restart"
+  if packager_up && public_tunnel_up; then
+    log "Another watchdog already owns a healthy Expo; exiting"
+    write_status "healthy"
     exit 0
   fi
-  log "Lock busy and packager down — waiting briefly for peer watchdog"
-  sleep 8
-  if packager_up; then
-    adopt_or_refresh_url || true
-    exit 0
-  fi
-  log "Peer did not recover packager; giving up (avoid double-kill)"
+  log "Lock busy; leaving peer watchdog in charge"
   exit 0
 fi
 
@@ -171,91 +159,85 @@ echo $$ >"$WATCHDOG_PID_FILE"
 log "Persistent Expo watchdog starting in $ROOT (pid $$)"
 write_status "starting"
 
-# Adopt a healthy existing Metro instead of bouncing it on every agent boot.
-if packager_up; then
+# Adopt only when the PUBLIC edge is actually serving.
+if packager_up && public_tunnel_up; then
   existing="$(find_expo_pid | head -1 || true)"
   if [[ -n "${existing:-}" ]]; then
     echo "$existing" >"$PID_FILE"
-    log "Adopting existing Expo pid $existing"
-    adopt_or_refresh_url || true
+    log "Adopting healthy Expo pid $existing ($(cat "$URL_FILE"))"
   fi
+  write_status "healthy"
 fi
 
 while true; do
-  # If already healthy, monitor — do not stop/restart.
-  if packager_up; then
+  if packager_up && public_tunnel_up; then
     existing="$(find_expo_pid | head -1 || true)"
     if [[ -n "${existing:-}" ]]; then
       echo "$existing" >"$PID_FILE"
     fi
-    adopt_or_refresh_url || true
-    tunnel_fail=0
+    write_status "healthy"
+    backoff="$BACKOFF_SECS"
+    public_fail=0
     while packager_up; do
-      if tunnel_up; then
-        tunnel_fail=0
-        url="$(extract_url)"
-        if [[ -n "$url" ]]; then
-          # Refresh QR if URL changed or file missing.
-          if [[ ! -f "$URL_FILE" ]] || [[ "$(cat "$URL_FILE" 2>/dev/null)" != "$url" ]]; then
-            write_qr_if_possible "$url"
-            log "Tunnel ready: $url"
-          fi
-        fi
+      if public_tunnel_up; then
+        public_fail=0
         write_status "healthy"
-        backoff="$BACKOFF_SECS"
       else
-        tunnel_fail=$((tunnel_fail + 1))
-        log "Tunnel unhealthy ($tunnel_fail/$TUNNEL_FAIL_LIMIT) while Metro still up"
+        public_fail=$((public_fail + 1))
         write_status "tunnel-flapping"
-        if (( tunnel_fail >= TUNNEL_FAIL_LIMIT )); then
-          log "Tunnel down too long — restarting Expo to rebind ngrok"
+        log "Public tunnel unhealthy ($public_fail/$PUBLIC_FAIL_LIMIT)"
+        if (( public_fail >= PUBLIC_FAIL_LIMIT )); then
+          log "Restarting Expo to rebind ngrok tunnel"
           break
         fi
       fi
-      sleep 8
+      sleep 6
     done
-    if packager_up && (( tunnel_fail < TUNNEL_FAIL_LIMIT )); then
-      # Metro died between checks; fall through to restart path.
-      :
-    fi
   fi
 
   stop_expo_tree
+  # Drop stale URL so we never hand out a dead exp.direct host.
+  rm -f "$URL_FILE"
   log "Starting Expo tunnel (backoff=${backoff}s on next failure)"
   write_status "starting-expo"
 
-  # --go keeps Expo Go mode; no --clear so restarts stay fast.
-  # Do NOT set CI=1 — that disables Metro reloads.
-  # Keep a real stdin (tmux pty). Redirecting </dev/null makes Expo exit immediately.
   export EXPO_NO_TELEMETRY=1
+  # Keep a real stdin (tmux pty). Do NOT set CI=1 (disables reload).
   npx expo start --tunnel --go >>"$LOG_FILE" 2>&1 &
   expo_pid=$!
   echo "$expo_pid" >"$PID_FILE"
   log "Expo pid $expo_pid"
 
-  # Give Metro a moment to bind before entering the health loop.
-  for _ in 1 2 3 4 5 6; do
-    if packager_up || ! kill -0 "$expo_pid" 2>/dev/null; then
+  # Wait for packager + public edge.
+  ready=0
+  for _ in $(seq 1 40); do
+    if ! kill -0 "$expo_pid" 2>/dev/null && ! packager_up; then
       break
     fi
-    sleep 2
+    if packager_up && public_tunnel_up; then
+      ready=1
+      log "Tunnel publicly reachable: $(cat "$URL_FILE")"
+      write_status "healthy"
+      backoff="$BACKOFF_SECS"
+      break
+    fi
+    sleep 3
   done
 
-  if ! kill -0 "$expo_pid" 2>/dev/null; then
-    wait "$expo_pid" || true
-    exit_code=$?
-    rm -f "$PID_FILE"
-    log "Expo exited early (code=$exit_code). Restarting in ${backoff}s…"
-    write_status "restarting"
-    sleep "$backoff"
-    if (( backoff < MAX_BACKOFF_SECS )); then
-      backoff=$((backoff * 2))
-      if (( backoff > MAX_BACKOFF_SECS )); then
-        backoff=$MAX_BACKOFF_SECS
-      fi
-    fi
+  if [[ "$ready" -eq 1 ]]; then
     continue
   fi
 
-  # Hand off to the monitor loop at top (packager_up path).
+  wait "$expo_pid" 2>/dev/null || true
+  exit_code=$?
+  rm -f "$PID_FILE"
+  log "Expo not publicly healthy (code=$exit_code). Restarting in ${backoff}s…"
+  write_status "restarting"
+  sleep "$backoff"
+  if (( backoff < MAX_BACKOFF_SECS )); then
+    backoff=$((backoff * 2))
+    if (( backoff > MAX_BACKOFF_SECS )); then
+      backoff=$MAX_BACKOFF_SECS
+    fi
+  fi
 done
