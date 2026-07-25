@@ -96,12 +96,10 @@ while true; do
   log "Starting Expo tunnel (backoff=${backoff}s on next failure)"
 
   # --go keeps Expo Go mode; no --clear so restarts stay fast.
-  # Do NOT set CI=1 — that disables Metro reloads and hides the exp:// URL.
-  (
-    export EXPO_NO_TELEMETRY=1
-    # Non-interactive stdin so Expo does not wait on keypress menus in tmux.
-    npx expo start --tunnel --go </dev/null
-  ) >>"$LOG_FILE" 2>&1 &
+  # Do NOT set CI=1 — that disables Metro reloads.
+  # Keep a real stdin (tmux pty). Redirecting </dev/null makes Expo exit immediately.
+  export EXPO_NO_TELEMETRY=1
+  npx expo start --tunnel --go >>"$LOG_FILE" 2>&1 &
   expo_pid=$!
   echo "$expo_pid" >"$PID_FILE"
   log "Expo pid $expo_pid"
