@@ -20,8 +20,9 @@ FAIL_FILE="$LOG_DIR/public-fail-count"
 
 TMUX_CONF="/exec-daemon/tmux.portal.conf"
 SESSION="${EXPO_TMUX_SESSION:-orbit-expo}"
-HEALTH_EVERY_SECS="${EXPO_HEALTH_EVERY_SECS:-10}"
-FAIL_LIMIT="${EXPO_SUPERVISOR_FAIL_LIMIT:-3}"
+HEALTH_EVERY_SECS="${EXPO_HEALTH_EVERY_SECS:-8}"
+# Instant heal on ERR_NGROK_3200; allow 2 soft failures for transient blips.
+FAIL_LIMIT="${EXPO_SUPERVISOR_FAIL_LIMIT:-2}"
 ARTIFACT_URL="/opt/cursor/artifacts/expo-go-qr.txt"
 ARTIFACT_QR="/opt/cursor/artifacts/expo-go-qr.png"
 
@@ -102,10 +103,18 @@ refresh_qr() {
   local url=""
   [[ -f "$URL_FILE" ]] && url="$(tr -d '[:space:]' <"$URL_FILE")"
   [[ -z "$url" ]] && return 0
+  # Avoid rewriting the same QR every health tick (was flooding logs).
+  if [[ -f "$ARTIFACT_URL" ]] && [[ "$(tr -d '[:space:]' <"$ARTIFACT_URL")" == "$url" ]]; then
+    return 0
+  fi
   if command -v node >/dev/null 2>&1; then
     node "$ROOT/scripts/write-expo-qr.mjs" "$url" "$ARTIFACT_QR" >>"$LOG_FILE" 2>&1 || true
   fi
   printf '%s\n' "$url" >"$ARTIFACT_URL" 2>/dev/null || true
+}
+
+health_reason() {
+  bash "$ROOT/scripts/expo-healthcheck.sh" --json 2>/dev/null | python3 -c 'import sys,json; print(json.load(sys.stdin).get("reason",""))' 2>/dev/null || true
 }
 
 # Singleton supervisor — second boots exit if we are already healthy.
@@ -154,16 +163,26 @@ while true; do
     refresh_qr
     write_supervisor_status "healthy"
   else
+    reason="$(health_reason)"
     fails="$(cat "$FAIL_FILE" 2>/dev/null || echo 0)"
     fails=$((fails + 1))
     printf '%s\n' "$fails" >"$FAIL_FILE"
     write_supervisor_status "unhealthy"
-    log "Healthcheck failed ($fails/$FAIL_LIMIT)"
+    log "Healthcheck failed ($fails/$FAIL_LIMIT) reason=$reason"
     bash "$ROOT/scripts/expo-healthcheck.sh" --json >>"$LOG_FILE" 2>&1 || true
-    if (( fails >= FAIL_LIMIT )); then
+    # Phone-visible offline: rebind immediately instead of waiting out flaps.
+    if [[ "$reason" == "ngrok_3200_offline" ]] || (( fails >= FAIL_LIMIT )); then
       force_tunnel_restart
       # Allow recovery time before counting failures again.
-      sleep 20
+      for _ in $(seq 1 24); do
+        if bash "$ROOT/scripts/expo-healthcheck.sh"; then
+          refresh_qr
+          write_supervisor_status "healthy"
+          log "Recovered after force restart: $(tr -d '[:space:]' <"$URL_FILE" 2>/dev/null || true)"
+          break
+        fi
+        sleep 5
+      done
       continue
     fi
   fi
