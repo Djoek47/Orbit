@@ -10,6 +10,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOG_DIR="${EXPO_PERSISTENT_LOG_DIR:-/tmp/orbit-expo}"
 URL_FILE="$LOG_DIR/tunnel-url.txt"
 STATUS_FILE="$LOG_DIR/status.txt"
+PORT_FILE="$LOG_DIR/metro-port.txt"
 VERBOSE=0
 JSON=0
 
@@ -26,6 +27,12 @@ say() {
   fi
 }
 
+metro_port="${EXPO_METRO_PORT:-}"
+if [[ -z "$metro_port" && -f "$PORT_FILE" ]]; then
+  metro_port="$(tr -d '[:space:]' <"$PORT_FILE")"
+fi
+metro_port="${metro_port:-8081}"
+
 packager_code=000
 public_code=000
 url=""
@@ -34,14 +41,14 @@ packager_ok=0
 public_ok=0
 reason="unknown"
 
-if curl -fsS --max-time 2 "http://127.0.0.1:8081/status" 2>/dev/null | grep -q 'packager-status:running'; then
+if curl -fsS --max-time 2 "http://127.0.0.1:${metro_port}/status" 2>/dev/null | grep -q 'packager-status:running'; then
   packager_ok=1
   packager_code=200
-  say "packager: ok"
+  say "packager: ok (port $metro_port)"
 else
-  packager_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:8081/status" 2>/dev/null || echo 000)"
+  packager_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:${metro_port}/status" 2>/dev/null || echo 000)"
   reason="packager_down"
-  say "packager: down (HTTP $packager_code)"
+  say "packager: down (HTTP $packager_code, port $metro_port)"
 fi
 
 if [[ -f "$URL_FILE" ]]; then

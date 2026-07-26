@@ -15,11 +15,19 @@ PID_FILE="$LOG_DIR/expo.pid"
 WATCHDOG_PID_FILE="$LOG_DIR/watchdog.pid"
 LOCK_FILE="$LOG_DIR/watchdog.lock"
 STATUS_FILE="$LOG_DIR/status.txt"
+PORT_FILE="$LOG_DIR/metro-port.txt"
 
 BACKOFF_SECS="${EXPO_RESTART_BACKOFF_SECS:-4}"
 MAX_BACKOFF_SECS="${EXPO_RESTART_MAX_BACKOFF_SECS:-45}"
 PUBLIC_FAIL_LIMIT="${EXPO_PUBLIC_FAIL_LIMIT:-1}"
 backoff="$BACKOFF_SECS"
+
+metro_port="${EXPO_METRO_PORT:-}"
+if [[ -z "$metro_port" && -f "$PORT_FILE" ]]; then
+  metro_port="$(tr -d '[:space:]' <"$PORT_FILE")"
+fi
+metro_port="${metro_port:-8081}"
+printf '%s\n' "$metro_port" >"$PORT_FILE"
 
 # Survive agent shell hangups. Detach without killing Expo.
 trap '' HUP
@@ -38,7 +46,7 @@ write_status() {
 }
 
 packager_up() {
-  curl -fsS --max-time 2 "http://127.0.0.1:8081/status" 2>/dev/null | grep -q 'packager-status:running'
+  curl -fsS --max-time 2 "http://127.0.0.1:${metro_port}/status" 2>/dev/null | grep -q 'packager-status:running'
 }
 
 extract_url() {
@@ -208,10 +216,11 @@ while true; do
 
   export EXPO_NO_TELEMETRY=1
   # Keep a real stdin (tmux pty). Do NOT set CI=1 (disables reload).
-  npx expo start --tunnel --go >>"$LOG_FILE" 2>&1 &
+  # Port is sticky via /tmp/orbit-expo/metro-port.txt so we can mint a new *.exp.direct host.
+  npx expo start --tunnel --go --port "$metro_port" >>"$LOG_FILE" 2>&1 &
   expo_pid=$!
   echo "$expo_pid" >"$PID_FILE"
-  log "Expo pid $expo_pid"
+  log "Expo pid $expo_pid (port $metro_port)"
 
   # Wait for packager + public edge.
   ready=0
