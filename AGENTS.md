@@ -27,7 +27,14 @@ Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clo
 ## Cursor Cloud specific instructions
 
 - **Current runtime is Expo Go.** Keep `EXPO_PUBLIC_DATA_MODE=mock` unless the user explicitly asks for Supabase.
-- After clone / on cloud VM: `npm install`, `cp -n .env.example .env`, then use **`npm run start:tunnel`** for Expo Go (LAN `exp://172…` QR codes are unreachable from phones). Install `@expo/ngrok` as a project dep if tunnel install prompts fail. Most UI work can still be validated by lint/tsc without Metro.
+- After clone / on cloud VM: `npm install`, `cp -n .env.example .env`, then use **`npm run start:persistent`** (keep-alive supervisor). Do **not** use bare `expo start` / LAN URLs — phones cannot reach `exp://172…`. The pipeline is:
+  1. `scripts/expo-keep-alive.sh` — outer supervisor (tmux + heal loop)
+  2. `scripts/expo-persistent.sh` — Metro + Expo tunnel watchdog
+  3. `scripts/expo-healthcheck.sh` — probes **public** `https://…exp.direct/status` (catches `ERR_NGROK_3200`)
+  - Health: `npm run expo:health` / `npm run expo:health:json`
+  - Offline self-test: `npm run expo:keep-alive:test`
+  - QR + URL always written to `/opt/cursor/artifacts/expo-go-qr.png` and `expo-go-qr.txt`
+  - Safe to re-run: singleton locks adopt a healthy tunnel instead of killing Metro
 - Design source: Figma Make `4J6d4LW335tDyEDpqq3VD1` — sync via Figma MCP **only** when the user asks; do not assume Figma is available in every cloud run. Verify ports in Expo Go.
 - Do not commit `.env`, `node_modules/`, or `.npm-cache/`.
 - Prefer Expo Go over EAS/native `ios/` / `android/` builds unless the user asks to leave Expo Go.
@@ -36,7 +43,7 @@ Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clo
 ## Hard stop — do not improvise
 
 - **Shipped baseline the user expects:** [PR #15](https://github.com/Djoek47/Orbit/pull/15) on `cursor/themes-trips-shopping-c30d` (tip includes themes, real itineraries, shopping mode, brand animations, shared-device work). Do not abandon it for Make-v7-only branches unless the user names that branch.
-- If the user only asks to **start the terminal / Metro / tunnel**: run `npm run start:tunnel` on the **current** commit, give the `exp://` URL **and a scannable QR PNG** (`node scripts/write-expo-qr.mjs <exp-url>` → `/opt/cursor/artifacts/expo-go-qr.png`), then **stop**. Never paste an `exp://` link alone — phones need the QR. No branch switches, no Figma sync, no “restore” merges, no welcome/sign-in rewrites.
+- If the user only asks to **start the terminal / Metro / tunnel**: run **`npm run start:persistent`** on the **current** commit, wait until `npm run expo:health` passes, give the `exp://` URL **and** `/opt/cursor/artifacts/expo-go-qr.png`, then **stop**. Never paste an `exp://` link alone — phones need the QR. No branch switches, no Figma sync, no “restore” merges, no welcome/sign-in rewrites.
 - Never overwrite parallel PR work by re-porting Make or checking out `cursor/choremaxx-make-v7-c30d` unprompted. See `.cursor/rules/no-improvise-shipped-baseline.mdc`.
 
 To continue on the go:
