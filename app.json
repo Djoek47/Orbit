@@ -3,13 +3,14 @@
     "name": "Choremaxx",
     "slug": "choremaxx",
     "version": "1.0.0",
+    "description": "Choremaxx is an AI household operating system — tasks, rewards, groceries, and Nova your calm co-manager.",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "choremaxx",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "linking": {
-      "prefixes": ["orbit://", "https://orbit.app"],
+      "prefixes": ["choremaxx://", "https://choremaxx.app", "orbit://", "https://orbit.app"],
       "config": {
         "screens": {
           "join/[code]": "join/:code"
@@ -21,12 +22,17 @@
       "bundleIdentifier": "app.choremaxx.household",
       "buildNumber": "1",
       "usesAppleSignIn": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Choremaxx uses the microphone so you can talk to Nova.",
         "NSLocationWhenInUseUsageDescription": "Choremaxx uses your location for nearby grocery suggestions.",
         "NSCameraUsageDescription": "Choremaxx uses the camera to scan invite QR codes and attach task proof photos.",
         "NSPhotoLibraryUsageDescription": "Choremaxx can attach photos as task proof.",
-        "ITSAppUsesNonExemptEncryption": false
+        "NSPhotoLibraryAddUsageDescription": "Choremaxx can save task proof photos to your library when you choose.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification"]
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
@@ -100,12 +106,6 @@
             "backgroundColor": "#070D1C"
           }
         }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Orbit uses the camera to scan household invite QR codes."
-        }
       ]
     ],
     "experiments": {
@@ -115,7 +115,10 @@
     "extra": {
       "router": {},
       "privacyPolicyUrl": "https://choremaxx.app/privacy",
-      "termsUrl": "https://choremaxx.app/terms"
+      "termsUrl": "https://choremaxx.app/terms",
+      "eas": {
+        "projectId": "REPLACE_EAS_PROJECT_ID"
+      }
     }
   }
 }

@@ -1,16 +1,16 @@
-/** Parse orbit://join/CODE or https://orbit.app/join/CODE URLs. */
+/** Parse choremaxx://join/CODE, orbit://join/CODE, or https://…/join/CODE URLs. */
 export function parseInviteCodeFromUrl(url: string): string | null {
   if (!url) return null;
 
   try {
     const trimmed = url.trim();
 
-    const orbitMatch = trimmed.match(/orbit:\/\/join\/([^/?#]+)/i);
-    if (orbitMatch?.[1]) {
-      return decodeURIComponent(orbitMatch[1]).trim().toUpperCase();
+    const schemeMatch = trimmed.match(/(?:choremaxx|orbit):\/\/join\/([^/?#]+)/i);
+    if (schemeMatch?.[1]) {
+      return decodeURIComponent(schemeMatch[1]).trim().toUpperCase();
     }
 
-    const webMatch = trimmed.match(/orbit\.app\/join\/([^/?#]+)/i);
+    const webMatch = trimmed.match(/(?:choremaxx|orbit)\.app\/join\/([^/?#]+)/i);
     if (webMatch?.[1]) {
       return decodeURIComponent(webMatch[1]).trim().toUpperCase();
     }
@@ -27,9 +27,14 @@ export function parseInviteCodeFromUrl(url: string): string | null {
 }
 
 export function inviteDeepLink(code: string) {
-  return `orbit://join/${code}`;
+  return `choremaxx://join/${code}`;
 }
 
 export function inviteWebLink(code: string) {
-  return `https://orbit.app/join/${code}`;
+  return `https://choremaxx.app/join/${code}`;
+}
+
+/** Legacy Orbit links — still parseable via parseInviteCodeFromUrl. */
+export function inviteDeepLinkLegacy(code: string) {
+  return `orbit://join/${code}`;
 }

@@ -14,9 +14,12 @@
     "typecheck": "npx tsc --noEmit",
     "figma:check": "node ./scripts/figma-sync-check.js",
     "build:ios": "eas build --platform ios --profile production",
+    "build:ios:testflight": "eas build --platform ios --profile testflight",
     "build:android": "eas build --platform android --profile production",
-    "submit:ios": "eas submit --platform ios --profile production",
-    "submit:android": "eas submit --platform android --profile production"
+    "submit:ios": "eas submit --platform ios --profile production --latest",
+    "submit:ios:testflight": "eas submit --platform ios --profile testflight --latest",
+    "submit:android": "eas submit --platform android --profile production",
+    "testflight:preflight": "bash ./scripts/testflight-preflight.sh"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -63,6 +66,7 @@
   },
   "devDependencies": {
     "@expo/ngrok": "^4.1.3",
+    "eas-cli": "^16.0.0",
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",

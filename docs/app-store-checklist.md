@@ -1,42 +1,48 @@
-# Orbit App Store launch checklist
+# Orbit App Store / TestFlight checklist
 
-**Current status:** day-to-day development is **Expo Go + mock data**. Use this checklist only when graduating to EAS / TestFlight / App Store.
+**Day-to-day dev:** Expo Go + mock (`EXPO_PUBLIC_DATA_MODE=mock`).  
+**TestFlight / App Store:** EAS native builds + Supabase — see **`docs/testflight-setup.md`**.
 
 ## Preconditions
 
-- [ ] Supabase **staging** and **production** projects created
-- [ ] `supabase/schema.sql` (or migrations) applied with RLS
-- [ ] Edge functions deployed: `nova-briefing`, `nova-chat`, `join-household`
-- [ ] `OPENAI_API_KEY` set as a Supabase secret
 - [ ] Apple Developer Program membership active
-- [ ] Privacy Policy + Terms hosted (`docs/legal/*` copies)
-- [ ] EAS project created; replace `extra.eas.projectId` in `app.json`
-- [ ] ASC App ID / Apple Team ID filled in `eas.json`
+- [ ] Expo account + `eas login` + `eas init` (writes `extra.eas.projectId` in `app.json`)
+- [ ] App Store Connect app created for `app.choremaxx.household`
+- [ ] `REPLACE_ASC_APP_ID` in `eas.json` → numeric App Store Connect App ID
+- [ ] Supabase staging/production + RLS + edge functions deployed
+- [ ] `OPENAI_API_KEY` in Supabase secrets (Nova)
+- [ ] EAS project secrets: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- [ ] Privacy + Terms hosted at URLs in `app.json` (`docs/legal/*` source)
+- [ ] `npm run testflight:preflight` passes
 
 ## Build / submit
 
 ```bash
-npm i -g eas-cli
-eas login
-eas build:configure   # if needed
-eas build --platform ios --profile production
-eas submit --platform ios --profile production
+npm run testflight:preflight
+npm run build:ios:testflight
+npm run submit:ios:testflight
+# or: eas build --platform ios --profile testflight --auto-submit
 ```
 
 ## App Review notes (suggested)
 
-- Demo account email/password for a staged household with Child + Adult roles
+- Demo admin account for a staged household with Child + Adult roles
 - Explain Child role is parental-gated
-- Point reviewers to Settings → Delete account / Export data
-- Note microphone and location permission rationale
+- Settings → Delete account / Export data
+- Microphone (Nova voice) and location (optional groceries) rationale
+- Sign in with Apple enabled on native builds
 
 ## Age rating / kids
 
-- Answer questionnaire for family utility with optional child users under guardian accounts
-- Do not include unrestricted social chat or public UGC feeds
+- Family utility with optional child users under guardian accounts
+- No unrestricted public social chat or UGC feeds
 
 ## Post-submit
 
-- TestFlight internal + external groups
-- Monitor crash/push delivery
-- Enable production Cursor Automation for Figma sync (`docs/figma-sync-automation.md`)
+- TestFlight internal group (your Apple ID) — instant
+- External testers — Beta App Review + demo account
+- Monitor crashes (EAS / ASC) and push delivery on device builds
+
+## CI
+
+- GitHub: `.github/workflows/ios-testflight.yml` (manual) — requires `EXPO_TOKEN` secret
