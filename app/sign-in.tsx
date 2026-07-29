@@ -1,18 +1,34 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { GlassCard } from '@/components/orbit/glass-card';
+import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { SignInSuccess } from '@/components/orbit/sign-in-success';
+import { orbitColors } from '@/constants/orbit-theme';
+import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function SignInScreen() {
-  const { signIn } = useOrbit();
+  const { accentTheme, signIn, hydrateFromSession } = useOrbit();
   const [email, setEmail] = useState('sarah@orbit.test');
   const [password, setPassword] = useState('orbit-demo');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+
+  useEffect(() => {
+    isAppleAuthAvailable().then(setAppleAvailable).catch(() => setAppleAvailable(false));
+  }, []);
+
+  const finishToHome = () => {
+    setShowSuccess(false);
+    router.replace('/' as never);
+  };
 
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
@@ -20,42 +36,115 @@ export default function SignInScreen() {
       return;
     }
 
-    setError('');
-    await signIn({ email, password });
-    router.replace('/' as never);
+    try {
+      setBusy(true);
+      setError('');
+      await signIn({ email, password });
+      setShowSuccess(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign in failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleApple = async () => {
+    try {
+      setError('');
+      const session = await signInWithApple();
+      if (hydrateFromSession) {
+        await hydrateFromSession(session);
+      } else {
+        await signIn({ email: session.user.email, password: 'apple' });
+      }
+      setShowSuccess(true);
+    } catch (err) {
+      if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') {
+        return;
+      }
+      setError(err instanceof Error ? err.message : 'Apple Sign-In failed.');
+    }
   };
 
   return (
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Welcome back</Text>
-        <Text style={orbitTypography.display}>Sign in</Text>
-        <Text style={orbitTypography.body}>Use the mock account to open the Rivera household demo.</Text>
-      </View>
-
-      <GlassCard elevated style={styles.form}>
-        <OrbitInput label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
-        <OrbitInput label="Password" value={password} onChangeText={setPassword} />
+    <>
+      <AuthShell
+        showBack
+        brandHero
+        kicker="Welcome back"
+        title="Sign in"
+        subtitle="Open your household. Demo credentials are prefilled for the Rivera home."
+        footer={
+          <View style={styles.footerLinks}>
+            <Pressable onPress={() => router.push('/forgot-password' as never)}>
+              <Text style={[styles.link, { color: accentTheme.primary }]}>Forgot password?</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/welcome' as never)} style={styles.switchRow}>
+              <Text style={styles.switchMuted}>New here?</Text>
+              <Text style={[styles.link, { color: accentTheme.primary }]}>Get Started</Text>
+            </Pressable>
+          </View>
+        }>
+        <OrbitInput
+          autoCapitalize="none"
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          placeholder="you@home.com"
+        />
+        <OrbitInput
+          autoCapitalize="none"
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          placeholder="Your password"
+        />
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <OrbitButton onPress={handleSignIn}>Sign In</OrbitButton>
-        <OrbitButton tone="secondary" onPress={() => router.push('/forgot-password' as never)}>
-          Forgot Password
+
+        <OrbitButton disabled={busy || showSuccess} onPress={() => void handleSignIn()}>
+          {busy ? 'Signing in…' : 'Sign in'}
         </OrbitButton>
-      </GlassCard>
-    </ScrollView>
+
+        {appleAvailable && Platform.OS === 'ios' ? (
+          <>
+            <View style={styles.dividerRow}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.divider} />
+            </View>
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+              cornerRadius={16}
+              style={styles.appleButton}
+              onPress={() => void handleApple()}
+            />
+          </>
+        ) : null}
+
+        <View style={styles.demoHint}>
+          <MaterialIcons name="info-outline" size={14} color={orbitColors.textSubtle} />
+          <Text style={styles.demoText}>Demo: sarah@orbit.test · orbit-demo</Text>
+        </View>
+      </AuthShell>
+
+      <SignInSuccess visible={showSuccess} onDone={finishToHome} />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  error: {
-    color: orbitColors.danger,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  form: {
-    gap: orbitSpacing.md,
-  },
+  error: { color: orbitColors.danger, fontSize: 13, fontWeight: '700' },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.12)' },
+  dividerText: { color: orbitColors.textSubtle, fontSize: 12, fontWeight: '600' },
+  appleButton: { height: 48, width: '100%' },
+  demoHint: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  demoText: { color: orbitColors.textSubtle, fontSize: 12 },
+  footerLinks: { alignItems: 'center', gap: 14 },
+  link: { fontSize: 14, fontWeight: '700' },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  switchMuted: { color: orbitColors.textMuted, fontSize: 14 },
 });

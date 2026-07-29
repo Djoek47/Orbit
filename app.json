@@ -1,23 +1,64 @@
 {
   "expo": {
-    "name": "Orbit",
-    "slug": "Orbit",
+    "name": "Choremaxx",
+    "slug": "choremaxx",
     "version": "1.0.0",
+    "description": "Choremaxx is an AI household operating system — tasks, rewards, groceries, and Nova your calm co-manager.",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "orbit",
+    "scheme": "choremaxx",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "linking": {
+      "prefixes": ["choremaxx://", "https://choremaxx.app", "orbit://", "https://orbit.app"],
+      "config": {
+        "screens": {
+          "join/[code]": "join/:code"
+        }
+      }
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "app.choremaxx.household",
+      "buildNumber": "1",
+      "usesAppleSignIn": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Choremaxx uses the microphone so you can talk to Nova.",
+        "NSLocationWhenInUseUsageDescription": "Choremaxx uses your location for nearby grocery suggestions.",
+        "NSCameraUsageDescription": "Choremaxx uses the camera to scan invite QR codes and attach task proof photos.",
+        "NSPhotoLibraryUsageDescription": "Choremaxx can attach photos as task proof.",
+        "NSPhotoLibraryAddUsageDescription": "Choremaxx can save task proof photos to your library when you choose.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification"]
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ]
+      }
     },
     "android": {
+      "package": "app.choremaxx.household",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#070D1C",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "POST_NOTIFICATIONS"
+      ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
@@ -27,15 +68,42 @@
     },
     "plugins": [
       "expo-router",
+      "expo-secure-store",
+      "expo-apple-authentication",
+      [
+        "expo-notifications",
+        {
+          "color": "#3BB5F0"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Choremaxx uses your location for nearby grocery suggestions."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Choremaxx uses the microphone so you can talk to Nova."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Choremaxx uses the camera to scan invite QR codes and attach task proof photos.",
+          "recordAudioAndroid": false
+        }
+      ],
       [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#070D1C",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#070D1C"
           }
         }
       ]
@@ -43,6 +111,14 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "privacyPolicyUrl": "https://choremaxx.app/privacy",
+      "termsUrl": "https://choremaxx.app/terms",
+      "eas": {
+        "projectId": "REPLACE_EAS_PROJECT_ID"
+      }
     }
   }
 }
