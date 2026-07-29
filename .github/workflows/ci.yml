@@ -17,5 +17,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/figma-sync-check.js
+      - run: npm run testflight:preflight
       - run: npx tsc --noEmit
       - run: npm run lint
