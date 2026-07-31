@@ -10,12 +10,17 @@ import { OrbitInput } from '@/components/orbit/orbit-input';
 import { SignInSuccess } from '@/components/orbit/sign-in-success';
 import { orbitColors } from '@/constants/orbit-theme';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
+import { isMockMode } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
+
+const MOCK_DEMO_EMAIL = 'sarah@orbit.test';
+const MOCK_DEMO_PASSWORD = 'orbit-demo';
 
 export default function SignInScreen() {
   const { accentTheme, signIn, hydrateFromSession } = useOrbit();
-  const [email, setEmail] = useState('sarah@orbit.test');
-  const [password, setPassword] = useState('orbit-demo');
+  const mock = isMockMode();
+  const [email, setEmail] = useState(mock ? MOCK_DEMO_EMAIL : '');
+  const [password, setPassword] = useState(mock ? MOCK_DEMO_PASSWORD : '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -80,7 +85,11 @@ export default function SignInScreen() {
         brandHero
         kicker="Welcome back"
         title="Sign in"
-        subtitle="Open your household. Demo credentials are prefilled for the Rivera home."
+        subtitle={
+          mock
+            ? 'Open your household. Demo credentials are prefilled for the Rivera home.'
+            : 'Sign in with the account you created, or tap Get Started to make a household.'
+        }
         footer={
           <View style={styles.footerLinks}>
             <Pressable onPress={() => router.push('/forgot-password' as never)}>
@@ -131,10 +140,21 @@ export default function SignInScreen() {
           </>
         ) : null}
 
-        <View style={styles.demoHint}>
-          <MaterialIcons name="info-outline" size={14} color={orbitColors.textSubtle} />
-          <Text style={styles.demoText}>Demo: sarah@orbit.test · orbit-demo</Text>
-        </View>
+        {mock ? (
+          <View style={styles.demoHint}>
+            <MaterialIcons name="info-outline" size={14} color={orbitColors.textSubtle} />
+            <Text style={styles.demoText}>
+              Demo: {MOCK_DEMO_EMAIL} · {MOCK_DEMO_PASSWORD}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.demoHint}>
+            <MaterialIcons name="info-outline" size={14} color={orbitColors.textSubtle} />
+            <Text style={styles.demoText}>
+              Live account required. Use Get Started if you don’t have one yet.
+            </Text>
+          </View>
+        )}
       </AuthShell>
 
       <SignInSuccess visible={showSuccess} onDone={finishToHome} />
@@ -149,7 +169,7 @@ const styles = StyleSheet.create({
   dividerText: { color: orbitColors.textSubtle, fontSize: 12, fontWeight: '600' },
   appleButton: { height: 48, width: '100%' },
   demoHint: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  demoText: { color: orbitColors.textSubtle, fontSize: 12 },
+  demoText: { color: orbitColors.textSubtle, fontSize: 12, flex: 1 },
   footerLinks: { alignItems: 'center', gap: 14 },
   link: { fontSize: 14, fontWeight: '700' },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

@@ -46,7 +46,13 @@ export async function signInWithApple(): Promise<AuthSession> {
     token: credential.identityToken,
   });
   if (error || !data.user) {
-    throw error ?? new Error('Apple Sign-In failed.');
+    const msg = (error?.message ?? '').toLowerCase();
+    if (msg.includes('not enabled') || msg.includes('provider')) {
+      throw new Error(
+        'Sign in with Apple is not enabled on the server yet. Use email and password, or ask the admin to enable Apple in Supabase Auth.'
+      );
+    }
+    throw new Error(error?.message ?? 'Apple Sign-In failed.');
   }
 
   const displayName = [credential.fullName?.givenName, credential.fullName?.familyName]

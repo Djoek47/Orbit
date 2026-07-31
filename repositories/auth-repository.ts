@@ -78,10 +78,19 @@ export const authRepository = {
       email: input.email.trim(),
       password: input.password,
     });
-    mapDbError('authRepository.signIn', error);
+    if (error) {
+      const msg = (error.message ?? '').toLowerCase();
+      if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+        throw new Error('Email or password is incorrect. Create an account with Get Started, or use the TestFlight demo user from your admin.');
+      }
+      if (msg.includes('email not confirmed')) {
+        throw new Error('Confirm your email before signing in.');
+      }
+      throw new Error(error.message || 'Sign in failed. Try again.');
+    }
 
     if (!data.user) {
-      throw new Error('authRepository.signIn: No user returned from Supabase.');
+      throw new Error('Sign in failed. Try again.');
     }
 
     const user = await loadProfileUser(supabase, data.user.id, data.user.email ?? input.email.trim());
