@@ -13,6 +13,46 @@ begin
 end;
 $$;
 
+-- Core tables first — helper functions below reference household_members.
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  display_name text,
+  avatar_url text,
+  phone text,
+  apple_sub text unique,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.households (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  household_type text not null default 'family',
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  timezone text not null default 'America/Montreal',
+  country text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.household_members (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  user_id uuid references public.profiles(id) on delete set null,
+  display_name text,
+  role text not null check (role in ('owner', 'admin', 'adult', 'child', 'guest')),
+  status text not null default 'active' check (status in ('invited', 'pending', 'active', 'removed')),
+  avatar_symbol text,
+  xp integer not null default 0,
+  week_xp integer not null default 0,
+  streak integer not null default 0,
+  load_share integer not null default 0 check (load_share >= 0 and load_share <= 100),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (household_id, user_id)
+);
+
 create or replace function public.is_household_member(target_household uuid)
 returns boolean
 language sql
@@ -53,45 +93,6 @@ set search_path = public
 as $$
   select public.household_role(target_household) in ('owner', 'admin');
 $$;
-
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text not null,
-  display_name text,
-  avatar_url text,
-  phone text,
-  apple_sub text unique,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table if not exists public.households (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  household_type text not null default 'family',
-  owner_id uuid not null references public.profiles(id) on delete cascade,
-  timezone text not null default 'America/Montreal',
-  country text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table if not exists public.household_members (
-  id uuid primary key default gen_random_uuid(),
-  household_id uuid not null references public.households(id) on delete cascade,
-  user_id uuid references public.profiles(id) on delete set null,
-  display_name text,
-  role text not null check (role in ('owner', 'admin', 'adult', 'child', 'guest')),
-  status text not null default 'active' check (status in ('invited', 'pending', 'active', 'removed')),
-  avatar_symbol text,
-  xp integer not null default 0,
-  week_xp integer not null default 0,
-  streak integer not null default 0,
-  load_share integer not null default 0 check (load_share >= 0 and load_share <= 100),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (household_id, user_id)
-);
 
 create table if not exists public.household_invites (
   id uuid primary key default gen_random_uuid(),

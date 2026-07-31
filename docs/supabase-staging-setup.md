@@ -7,15 +7,25 @@ Use this when moving from Expo Go mock mode to live household sync + Nova GPT.
 1. Create a Supabase project at [supabase.com](https://supabase.com).
 2. Copy **Project URL** and **anon public** key.
 
-## 2. Apply schema
+## 2. Apply schema (order matters)
+
+**Use the SQL Editor. Run one file at a time, in this order:**
+
+1. `supabase/schema.sql` ← **start here** (creates `household_members` then helper functions)
+2. `supabase/migrations/20260716000000_ai_conversations.sql`
+3. `supabase/migrations/20260716180000_family_time_os.sql`
+4. `supabase/migrations/20260716200000_nova_majordomo.sql`
+5. `supabase/migrations/20260716210000_rooms_and_grocery_notes.sql`
+6. `supabase/migrations/20260720230000_shared_device_role.sql`
+
+Do **not** run a later migration first — you’ll get `relation "public.household_members" does not exist`.
+
+If a previous run failed halfway: open **Table Editor** and check whether `household_members` exists. If not, re-run the fixed `schema.sql` from a clean New query (tables use `IF NOT EXISTS`, so re-running is safe).
 
 ```bash
-# Option A: SQL editor — paste supabase/schema.sql
-# Option B: CLI
+# Option B: CLI (applies migrations in dated order)
 npx supabase link --project-ref YOUR_REF
 npx supabase db push
-# Then apply conversation migration:
-# supabase/migrations/20260716000000_ai_conversations.sql
 ```
 
 ## 3. Deploy edge functions
