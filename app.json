@@ -10,7 +10,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "linking": {
-      "prefixes": ["choremaxx://", "https://choremaxx.app", "orbit://", "https://orbit.app"],
+      "prefixes": [
+        "choremaxx://",
+        "https://choremaxx.app",
+        "orbit://",
+        "https://orbit.app"
+      ],
       "config": {
         "screens": {
           "join/[code]": "join/:code"
@@ -32,13 +37,17 @@
         "NSPhotoLibraryUsageDescription": "Choremaxx uses your photos for profile pictures and task proof attachments.",
         "NSPhotoLibraryAddUsageDescription": "Choremaxx can save task proof photos to your library when you choose.",
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
-            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
           }
         ]
       }
@@ -53,11 +62,12 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "CAMERA",
-        "RECORD_AUDIO",
-        "POST_NOTIFICATIONS"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
@@ -123,8 +133,9 @@
       "privacyPolicyUrl": "https://choremaxx.app/privacy",
       "termsUrl": "https://choremaxx.app/terms",
       "eas": {
-        "projectId": "REPLACE_EAS_PROJECT_ID"
+        "projectId": "01af7128-865e-4d2e-b0b1-836f03105fc8"
       }
-    }
+    },
+    "owner": "djoek47"
   }
 }
