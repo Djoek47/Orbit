@@ -52,12 +52,12 @@
   "submit": {
     "testflight": {
       "ios": {
-        "ascAppId": "REPLACE_ASC_APP_ID"
+        "ascAppId": "6796850110"
       }
     },
     "production": {
       "ios": {
-        "ascAppId": "REPLACE_ASC_APP_ID"
+        "ascAppId": "6796850110"
       }
     }
   }
