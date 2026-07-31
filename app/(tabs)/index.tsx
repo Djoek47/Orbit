@@ -1,22 +1,54 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
-import { MomentumRing } from '@/components/orbit/momentum-ring';
 import { NovaOrb } from '@/components/orbit/nova-orb';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
+import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { orbitRadius, orbitScreen } from '@/constants/orbit-theme';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  buildHomeHealthMetrics,
+  resolveHomeHealthRole,
+} from '@/lib/home-health-metrics';
+import {
+  findSharedDeviceForMember,
+  isSharedDeviceAccount,
+  isSharedDeviceRole,
+} from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
-  const { household, metrics, novaBriefing, currentMember } = useOrbit();
+  const chromePad = useTabChromePaddingTop();
+  const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona, permissions } =
+    useOrbit();
+  const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const tasks = household.tasks.slice(0, 4);
-  const doneTasks = household.tasks.filter((t) => t.status === 'Completed').length;
-  const totalTasks = Math.max(1, household.tasks.length);
-  const pct = Math.round((doneTasks / totalTasks) * 100);
+  const displayName = currentMember?.name ?? household.greetingName;
+  const typeStyle = accentTheme.typeStyle;
+  const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
+  const sharedKidMode =
+    isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
+  const healthRole = resolveHomeHealthRole(currentMember, {
+    householdType: household.householdType,
+    isAdmin: permissions.canManageHousehold,
+  });
+  const healthItems = useMemo(
+    () =>
+      buildHomeHealthMetrics({
+        role: healthRole,
+        metrics,
+        household,
+        currentMember,
+      }),
+    [healthRole, metrics, household, currentMember],
+  );
   const groceryEmoji: Record<string, string> = {
     Milk: '🥛',
     Blueberries: '🫐',
@@ -27,204 +59,434 @@ export default function HomeScreen() {
     .filter((g) => g.status === 'Missing' || g.status === 'Low')
     .slice(0, 3);
   const events = [
-    ...household.events.filter((e) => e.date === 'Today' || (e.startsAt ?? '').startsWith(new Date().toISOString().slice(0, 10))),
+    ...household.events.filter(
+      (e) => e.date === 'Today' || (e.startsAt ?? '').startsWith(new Date().toISOString().slice(0, 10))
+    ),
     ...household.events,
   ]
     .filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i)
     .slice(0, 3);
-  const tasksFrac = metrics.taskCompletionRate / 100;
-  const energyFrac = metrics.groceryReadiness / 100;
-  const harmonyFrac = metrics.calendarCoverage / 100;
+
+  const weekLeaders = useMemo(() => {
+    return household.members
+      .filter(
+        (member) =>
+          member.status === 'active' &&
+          member.role !== 'guest' &&
+          !isSharedDeviceRole(member.role)
+      )
+      .slice()
+      .sort((a, b) => (b.weekXp ?? 0) - (a.weekXp ?? 0));
+  }, [household.members]);
+
+  const headerAvatar = currentMember
+    ? memberDisplayEmoji(currentMember)
+    : household.greetingName.slice(0, 1);
+  const headerIsPhoto = isAvatarImageUri(currentMember?.avatar);
+  const personalWeekXp = currentMember?.weekXp ?? 0;
+  const personalTotalXp = currentMember?.xp ?? 0;
+  const personalStreak = currentMember?.streak ?? 0;
 
   return (
+    <>
     <ScrollView
       style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={[
+        orbitScreen.content,
+        styles.pageContent,
+        { paddingTop: chromePad },
+      ]}
+      contentInsetAdjustmentBehavior="never"
       showsVerticalScrollIndicator={false}>
-      {/* Make header */}
-      <View style={styles.headerRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.eyebrow}>
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+      {/* Greeting tucked under sticky chrome */}
+      <View style={styles.brandBlock}>
+        <PageEyebrow>
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </PageEyebrow>
+        <Text
+          style={[
+            styles.greetingLine,
+            {
+              fontWeight: typeStyle.titleWeight,
+              letterSpacing: typeStyle.letterSpacing,
+            },
+          ]}
+          numberOfLines={1}>
+          {greeting},{' '}
+          <Text
+            style={[
+              styles.nameInline,
+              { fontWeight: typeStyle.titleWeight, color: accentTheme.primary },
+            ]}>
+            {displayName}
           </Text>
-          <Text style={styles.h1}>
-            {greeting}, {household.greetingName}
-          </Text>
-        </View>
-        <LinearGradient colors={['#38BDF8', '#0EA5E9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatar}>
-          <Text style={styles.avatarText}>{(currentMember?.avatar || household.greetingName[0] || 'S').slice(0, 1)}</Text>
-        </LinearGradient>
+        </Text>
+        {sharedDevice ? (
+          <Pressable
+            onPress={() => {
+              void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
+                markNeedsProfilePick().then(() => router.push('/select-profile' as never))
+              );
+            }}
+            style={[
+              styles.deviceSwitchChip,
+              {
+                alignSelf: 'flex-start',
+                marginTop: 6,
+                backgroundColor: `${accentTheme.primary}22`,
+                borderColor: `${accentTheme.primary}66`,
+              },
+            ]}>
+            <Text style={styles.deviceSwitchEmoji}>{sharedDevice.avatar || '📱'}</Text>
+            <Text style={[styles.deviceSwitchName, { color: accentTheme.primary }]}>
+              Switch who&apos;s on · {displayName}
+            </Text>
+            <MaterialIcons name="expand-more" size={18} color={accentTheme.primary} />
+          </Pressable>
+        ) : null}
       </View>
 
-      {/* Nova briefing + momentum hero — Make layout */}
-      <Pressable onPress={() => router.push('/(tabs)/nova' as never)}>
+      <View style={styles.fullBleed}>
         <LinearGradient
           colors={['rgba(14,165,233,0.18)', 'rgba(6,182,212,0.10)', 'rgba(129,140,248,0.10)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.hero}>
-          <View style={styles.heroRow}>
-            <NovaOrb size={64} />
-            <View style={styles.heroCopy}>
+          <View style={styles.heroTop}>
+            {/* Profile head fills the circle; thin Nova ring peeks behind. */}
+            <Pressable
+              onPress={() => setPersonaSwitchOpen(true)}
+              style={styles.heroIdentity}
+              accessibilityRole="button"
+              accessibilityLabel="Switch account">
+              <View style={styles.novaRing}>
+                <NovaOrb size={78} />
+              </View>
+              <LinearGradient
+                colors={[accentTheme.primary, accentTheme.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.profileOnNova}>
+                {headerIsPhoto && currentMember?.avatar ? (
+                  <Image source={{ uri: currentMember.avatar }} style={styles.profileOnNovaImage} />
+                ) : (
+                  <Text style={styles.profileOnNovaText}>{headerAvatar}</Text>
+                )}
+              </LinearGradient>
+            </Pressable>
+            <Pressable
+              style={styles.heroCopy}
+              onPress={() => router.push('/(tabs)/nova' as never)}
+              accessibilityRole="button"
+              accessibilityLabel="Open Nova">
               <View style={styles.novaRow}>
                 <View style={styles.liveDot} />
                 <Text style={styles.novaLabel}>NOVA</Text>
               </View>
-              <Text style={styles.heroBody}>{novaBriefing.summary}</Text>
-            </View>
-            {/* Make MomentumRing default ~128px */}
-            <MomentumRing tasks={tasksFrac} energy={energyFrac} harmony={harmonyFrac} />
-          </View>
-          <View style={styles.metricRow}>
-            {[
-              { label: 'Tasks', value: `${metrics.taskCompletionRate}%`, color: '#38BDF8' },
-              { label: 'Grocery', value: `${metrics.groceryReadiness}%`, color: '#34D399' },
-              { label: 'Plan', value: `${metrics.calendarCoverage}%`, color: '#A78BFA' },
-            ].map((m) => (
-              <View key={m.label} style={styles.metricItem}>
-                <View style={[styles.metricDot, { backgroundColor: m.color }]} />
-                <Text style={styles.metricText}>
-                  {m.label} <Text style={{ color: m.color, fontWeight: '600' }}>{m.value}</Text>
-                </Text>
-              </View>
-            ))}
-          </View>
-        </LinearGradient>
-      </Pressable>
-
-      {/* Today's Tasks */}
-      <GlassCard>
-        <View style={styles.sectionHead}>
-          <View>
-            <Text style={styles.sectionTitle}>Today&apos;s Tasks</Text>
-            <Text style={styles.eyebrow}>
-              {doneTasks} of {household.tasks.length} complete
-            </Text>
-          </View>
-          <View style={styles.pctPill}>
-            <Text style={styles.pctPillText}>{pct}%</Text>
-          </View>
-        </View>
-        <View style={styles.progressTrack}>
-          <LinearGradient
-            colors={['#38BDF8', '#34D399']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.progressFill, { width: `${pct}%` }]}
-          />
-        </View>
-        {tasks.map((task) => {
-          const done = task.status === 'Completed';
-          return (
-            <Pressable
-              key={task.id}
-              style={styles.taskRow}
-              onPress={() => router.push(`/task/${task.id}` as never)}>
-              <View style={[styles.check, done && styles.checkDone]}>
-                {done ? <MaterialIcons name="check" size={12} color="#070D1C" /> : null}
-              </View>
-              <Text style={[styles.taskText, done && styles.taskDone]} numberOfLines={1}>
-                {task.title}
+              <Text style={styles.heroBody} numberOfLines={3}>
+                {novaBriefing.summary}
               </Text>
-              <Text style={styles.assignee}>{task.assignee[0]}</Text>
             </Pressable>
-          );
-        })}
-      </GlassCard>
-
-      {/* Groceries + Upcoming — 2-col Make grid */}
-      <View style={styles.grid}>
-        <Pressable style={styles.halfCard} onPress={() => router.push('/(tabs)/groceries' as never)}>
-          <View style={styles.halfHead}>
-            <View style={[styles.iconBox, { backgroundColor: 'rgba(56,189,248,0.15)' }]}>
-              <MaterialIcons name="shopping-cart" size={14} color="#38BDF8" />
-            </View>
-            <Text style={styles.halfTitle}>Groceries</Text>
           </View>
-          {groceryAlerts.length === 0 ? (
-            <Text style={styles.eyebrow}>Stocked</Text>
-          ) : (
-            groceryAlerts.map((g) => (
-              <View key={g.id} style={styles.groceryRow}>
-                <Text style={{ fontSize: 16 }}>{groceryEmoji[g.name] ?? '🛒'}</Text>
-                <Text style={styles.groceryName}>{g.name}</Text>
-                {g.status === 'Missing' ? <View style={styles.critDot} /> : null}
-              </View>
-            ))
-          )}
-          <Text style={styles.linkBlue}>{household.groceries.length} items</Text>
-        </Pressable>
 
-        <Pressable style={styles.halfCard} onPress={() => router.push('/(tabs)/plan' as never)}>
-          <View style={styles.halfHead}>
-            <View style={[styles.iconBox, { backgroundColor: 'rgba(167,139,250,0.15)' }]}>
-              <MaterialIcons name="calendar-today" size={14} color="#A78BFA" />
-            </View>
-            <Text style={styles.halfTitle}>Upcoming</Text>
-          </View>
-          {events.map((ev, i) => (
-            <View key={ev.id} style={styles.eventRow}>
-              <View
-                style={[
-                  styles.eventBar,
-                  { backgroundColor: i === 0 ? '#38BDF8' : i === 1 ? '#34D399' : '#A78BFA' },
-                ]}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.eventTitle} numberOfLines={1}>
-                  {ev.title}
+          {sharedKidMode ? (
+            <View style={styles.personalXpRow}>
+              <View style={[styles.personalXpChip, { borderColor: `${accentTheme.primary}55` }]}>
+                <Text style={styles.personalXpLabel}>This week</Text>
+                <Text style={[styles.personalXpValue, { color: accentTheme.primary }]}>
+                  {personalWeekXp} XP
                 </Text>
-                <Text style={styles.eyebrow}>{ev.time}</Text>
+              </View>
+              <View style={[styles.personalXpChip, { borderColor: `${accentTheme.primary}55` }]}>
+                <Text style={styles.personalXpLabel}>Total</Text>
+                <Text style={[styles.personalXpValue, { color: accentTheme.primary }]}>
+                  {personalTotalXp} XP
+                </Text>
+              </View>
+              <View style={[styles.personalXpChip, { borderColor: `${accentTheme.primary}55` }]}>
+                <Text style={styles.personalXpLabel}>Streak</Text>
+                <Text style={[styles.personalXpValue, { color: accentTheme.primary }]}>
+                  {personalStreak}d
+                </Text>
               </View>
             </View>
-          ))}
-        </Pressable>
+          ) : (
+            <View style={styles.weekBoard}>
+              <View style={styles.weekHead}>
+                <Text style={styles.weekTitle}>This week</Text>
+                <Pressable
+                  onPress={() =>
+                    router.push({ pathname: '/rewards', params: { surface: 'ranks' } } as never)
+                  }
+                  hitSlop={8}>
+                  <Text style={[styles.weekLink, { color: accentTheme.primary }]}>Ranks</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.pyramidRow}>
+                {[1, 0, 2].map((rankIndex) => {
+                  const member = weekLeaders[rankIndex];
+                  if (!member) {
+                    return <View key={`empty-${rankIndex}`} style={styles.pyramidSlot} />;
+                  }
+                  const xp = member.weekXp ?? 0;
+                  const photo = isAvatarImageUri(member.avatar);
+                  const first = rankIndex === 0;
+                  const heights = [72, 58, 50];
+                  const avatarSizes = [42, 36, 34];
+                  const pillarH = heights[rankIndex];
+                  const avatar = avatarSizes[rankIndex];
+                  const emojiSize = Math.round(avatar * 0.64);
+                  return (
+                    <Pressable
+                      key={member.id}
+                      style={styles.pyramidSlot}
+                      onPress={() =>
+                        router.push({ pathname: '/rewards', params: { surface: 'ranks' } } as never)
+                      }>
+                      <View
+                        style={[
+                          styles.pyramidAvatar,
+                          {
+                            width: avatar,
+                            height: avatar,
+                            borderRadius: avatar / 2,
+                            borderColor: first ? `${accentTheme.primary}99` : 'rgba(255,255,255,0.18)',
+                            borderWidth: first ? 2 : 1,
+                          },
+                        ]}>
+                        {photo ? (
+                          <Image
+                            source={{ uri: member.avatar }}
+                            style={{ width: avatar, height: avatar }}
+                          />
+                        ) : (
+                          <Text style={{ fontSize: emojiSize, lineHeight: avatar * 0.9 }}>
+                            {memberDisplayEmoji(member)}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={[styles.pyramidName, first && styles.pyramidNameLead]} numberOfLines={1}>
+                        {member.name}
+                      </Text>
+                      <Text style={[styles.pyramidXp, first && { color: accentTheme.primary }]}>
+                        {xp} XP
+                      </Text>
+                      <LinearGradient
+                        colors={
+                          first
+                            ? [`${accentTheme.primary}55`, `${accentTheme.primary}14`, 'rgba(255,255,255,0.04)']
+                            : ['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']
+                        }
+                        start={{ x: 0.5, y: 0 }}
+                        end={{ x: 0.5, y: 1 }}
+                        style={[
+                          styles.pyramidPillar,
+                          {
+                            height: pillarH,
+                            borderColor: first ? `${accentTheme.primary}44` : 'rgba(255,255,255,0.1)',
+                          },
+                        ]}>
+                        <Text style={[styles.pyramidRank, first && { color: accentTheme.primary }]}>
+                          {rankIndex + 1}
+                        </Text>
+                      </LinearGradient>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {weekLeaders.length > 3 ? (
+                <View style={styles.pyramidRest}>
+                  {weekLeaders.slice(3, 5).map((member, i) => {
+                    const index = i + 3;
+                    const xp = member.weekXp ?? 0;
+                    const photo = isAvatarImageUri(member.avatar);
+                    return (
+                      <View key={member.id} style={styles.weekRow}>
+                        <Text style={styles.weekRank}>{index + 1}</Text>
+                        <View style={styles.weekAvatar}>
+                          {photo ? (
+                            <Image source={{ uri: member.avatar }} style={styles.weekAvatarImage} />
+                          ) : (
+                            <Text style={styles.weekAvatarEmoji}>{memberDisplayEmoji(member)}</Text>
+                          )}
+                        </View>
+                        <Text style={styles.weekName} numberOfLines={1}>
+                          {member.name}
+                        </Text>
+                        <Text style={styles.weekXp}>
+                          {xp}
+                          <Text style={styles.weekXpUnit}> XP</Text>
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+
+              {weekLeaders.length > 5 ? (
+                <Text style={styles.weekMore}>+{weekLeaders.length - 5} more on Ranks</Text>
+              ) : null}
+            </View>
+          )}
+        </LinearGradient>
       </View>
 
-      {/* Household Health */}
-      <Pressable onPress={() => router.push('/household-balance' as never)}>
-        <GlassCard>
-          <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>Household Health</Text>
-            <MaterialIcons name="chevron-right" size={14} color="#4B6080" />
-          </View>
-          <View style={styles.healthRow}>
-            {[
-              {
-                label: 'Completion',
-                val: metrics.taskCompletionRate,
-                color: '#34D399',
-                icon: 'check-circle' as const,
-              },
-              {
-                label: 'Grocery Load',
-                val: metrics.groceryReadiness,
-                color: '#38BDF8',
-                icon: 'shopping-cart' as const,
-              },
-              {
-                label: 'Plan Load',
-                val: metrics.calendarCoverage,
-                color: '#A78BFA',
-                icon: 'event' as const,
-              },
-            ].map((item) => (
-              <View key={item.label} style={{ flex: 1 }}>
-                <View style={styles.healthLabelRow}>
-                  <MaterialIcons name={item.icon} size={11} color={item.color} />
-                  <Text style={styles.metricText}>{item.label}</Text>
-                </View>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: `${item.val}%`, backgroundColor: item.color }]} />
-                </View>
-                <Text style={[styles.healthVal, { color: item.color }]}>{item.val}%</Text>
+      <TodayTasksCard
+        tasks={household.tasks}
+        members={household.members}
+        currentMember={currentMember}
+        accentTheme={accentTheme}
+        canFocusMembers={permissions.canManageHousehold}
+        mineOnly={sharedKidMode}
+        streak={currentMember?.streak ?? 0}
+        onAwardDailyStreak={() => {
+          void awardDailyStreak();
+        }}
+      />
+
+      {sharedKidMode ? (
+        <>
+          <Pressable onPress={() => router.push('/household-balance' as never)} style={styles.fullBleed}>
+            <GlassCard>
+              <View style={styles.sectionHead}>
+                <Text style={styles.sectionTitle}>My progress</Text>
+                <MaterialIcons name="chevron-right" size={14} color="#4B6080" />
               </View>
-            ))}
+              <View style={styles.healthRow}>
+                {healthItems.map((item) => (
+                  <View key={item.key} style={styles.healthCol}>
+                    <View style={styles.healthLabelRow}>
+                      <MaterialIcons name={item.icon} size={12} color={item.color} />
+                      <Text style={styles.healthLabel} numberOfLines={1}>
+                        {item.label}
+                      </Text>
+                    </View>
+                    <View style={styles.progressTrack}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          { width: `${Math.max(4, Math.min(100, item.val))}%`, backgroundColor: item.color },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.healthVal, { color: item.color }]}>{item.valueLabel}</Text>
+                  </View>
+                ))}
+              </View>
+            </GlassCard>
+          </Pressable>
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/rewards', params: { surface: 'rewards' } } as never)
+            }
+            style={[styles.kidRewardCard, { borderColor: `${accentTheme.primary}44` }]}>
+            <View style={[styles.kidRewardIcon, { backgroundColor: `${accentTheme.primary}22` }]}>
+              <MaterialIcons name="card-giftcard" size={22} color={accentTheme.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.kidRewardTitle}>Rewards shop</Text>
+              <Text style={styles.kidRewardBody}>
+                Spend your XP on treats — you have {personalTotalXp} XP
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color={accentTheme.primary} />
+          </Pressable>
+        </>
+      ) : null}
+
+      {!sharedKidMode ? (
+        <>
+          <View style={styles.grid}>
+            <Pressable style={styles.halfCard} onPress={() => router.push('/(tabs)/groceries' as never)}>
+              <View style={styles.halfHead}>
+                <View style={[styles.iconBox, { backgroundColor: 'rgba(56,189,248,0.15)' }]}>
+                  <MaterialIcons name="shopping-cart" size={14} color="#38BDF8" />
+                </View>
+                <Text style={styles.halfTitle}>Groceries</Text>
+              </View>
+              {groceryAlerts.length === 0 ? (
+                <Text style={styles.eyebrow}>Stocked</Text>
+              ) : (
+                groceryAlerts.map((g) => (
+                  <View key={g.id} style={styles.groceryRow}>
+                    <Text style={{ fontSize: 16 }}>{groceryEmoji[g.name] ?? '🛒'}</Text>
+                    <Text style={styles.groceryName}>{g.name}</Text>
+                    {g.status === 'Missing' ? <View style={styles.critDot} /> : null}
+                  </View>
+                ))
+              )}
+              <Text style={styles.linkBlue}>{household.groceries.length} items</Text>
+            </Pressable>
+
+            <Pressable style={styles.halfCard} onPress={() => router.push('/(tabs)/plan' as never)}>
+              <View style={styles.halfHead}>
+                <View style={[styles.iconBox, { backgroundColor: 'rgba(167,139,250,0.15)' }]}>
+                  <MaterialIcons name="calendar-today" size={14} color="#A78BFA" />
+                </View>
+                <Text style={styles.halfTitle}>Upcoming</Text>
+              </View>
+              {events.map((ev, i) => (
+                <View key={ev.id} style={styles.eventRow}>
+                  <View
+                    style={[
+                      styles.eventBar,
+                      { backgroundColor: i === 0 ? '#38BDF8' : i === 1 ? '#34D399' : '#A78BFA' },
+                    ]}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.eventTitle} numberOfLines={1}>
+                      {ev.title}
+                    </Text>
+                    <Text style={styles.eyebrow}>{ev.time}</Text>
+                  </View>
+                </View>
+              ))}
+            </Pressable>
           </View>
-        </GlassCard>
-      </Pressable>
+
+          <Pressable onPress={() => router.push('/household-balance' as never)} style={styles.fullBleed}>
+            <GlassCard>
+              <View style={styles.sectionHead}>
+                <Text style={styles.sectionTitle}>Household Health</Text>
+                <MaterialIcons name="chevron-right" size={14} color="#4B6080" />
+              </View>
+              <View style={styles.healthRow}>
+                {healthItems.map((item) => (
+                  <View key={item.key} style={styles.healthCol}>
+                    <View style={styles.healthLabelRow}>
+                      <MaterialIcons name={item.icon} size={12} color={item.color} />
+                      <Text style={styles.healthLabel} numberOfLines={1}>
+                        {item.label}
+                      </Text>
+                    </View>
+                    <View style={styles.progressTrack}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          { width: `${Math.max(4, Math.min(100, item.val))}%`, backgroundColor: item.color },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.healthVal, { color: item.color }]}>{item.valueLabel}</Text>
+                  </View>
+                ))}
+              </View>
+            </GlassCard>
+          </Pressable>
+        </>
+      ) : null}
     </ScrollView>
+
+    <PersonaSwitchPopup
+      visible={personaSwitchOpen}
+      onClose={() => setPersonaSwitchOpen(false)}
+      members={household.members}
+      currentMemberId={currentMember?.id ?? ''}
+      onSwitch={switchPersona}
+    />
+    </>
   );
 }
 
@@ -232,12 +494,90 @@ const styles = StyleSheet.create({
   assignee: { color: '#4B6080', fontSize: 12 },
   avatar: {
     alignItems: 'center',
-    borderRadius: 20,
-    height: 40,
+    borderRadius: 18,
+    height: 36,
     justifyContent: 'center',
-    width: 40,
+    overflow: 'hidden',
+    width: 36,
   },
+  avatarImage: { height: 36, width: 36 },
   avatarText: { color: '#070D1C', fontSize: 14, fontWeight: '700' },
+  brandBlock: {
+    alignItems: 'flex-start',
+    alignSelf: 'stretch',
+    gap: 6,
+    marginBottom: 4,
+    width: '100%',
+  },
+  personalXpRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  personalXpChip: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    gap: 2,
+    minWidth: 88,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  kidRewardCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  kidRewardIcon: {
+    alignItems: 'center',
+    borderRadius: 16,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  kidRewardTitle: {
+    color: '#EEF2FF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  kidRewardBody: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  personalXpLabel: {
+    color: '#6B82A3',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  personalXpValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  deviceSwitchChip: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  deviceSwitchEmoji: { fontSize: 16 },
+  deviceSwitchName: {
+    color: '#C8D8F0',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   check: {
     alignItems: 'center',
     borderColor: 'rgba(255,255,255,0.2)',
@@ -253,10 +593,17 @@ const styles = StyleSheet.create({
   eventRow: { flexDirection: 'row', gap: 8 },
   eventTitle: { color: '#C8D8F0', fontSize: 12, lineHeight: 16 },
   eyebrow: { color: '#4B6080', fontSize: 12 },
+  fullBleed: { alignSelf: 'stretch', width: '100%' },
+  greetingLine: {
+    color: '#C5D4E8',
+    fontSize: 20,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+    lineHeight: 26,
+  },
   groceryName: { color: '#C8D8F0', flex: 1, fontSize: 12 },
   groceryRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  grid: { flexDirection: 'row', gap: 12 },
-  h1: { color: '#EEF2FF', fontSize: 24, fontWeight: '700', lineHeight: 29 },
+  grid: { alignSelf: 'stretch', flexDirection: 'row', gap: 12, width: '100%' },
   halfCard: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderColor: 'rgba(255,255,255,0.08)',
@@ -264,25 +611,68 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flex: 1,
     gap: 8,
+    minWidth: 0,
     padding: 16,
   },
   halfHead: { alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: 4 },
   halfTitle: { color: '#EEF2FF', fontSize: 12, fontWeight: '600' },
-  headerRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  healthLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 4, marginBottom: 6 },
-  healthRow: { flexDirection: 'row', gap: 12 },
-  healthVal: { fontSize: 12, fontWeight: '600', marginTop: 4 },
+  nameInline: {
+    color: '#F4F7FF',
+    fontWeight: '800',
+  },
+  heroIdentity: {
+    alignItems: 'center',
+    height: 72,
+    justifyContent: 'center',
+    width: 72,
+  },
+  novaRing: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.55,
+    transform: [{ scale: 1.08 }],
+  },
+  profileOnNova: {
+    alignItems: 'center',
+    borderColor: 'rgba(6,182,212,0.55)',
+    borderRadius: 34,
+    borderWidth: 2.5,
+    height: 68,
+    justifyContent: 'center',
+    left: 2,
+    overflow: 'hidden',
+    position: 'absolute',
+    top: 2,
+    width: 68,
+    zIndex: 2,
+  },
+  profileOnNovaImage: { height: 68, width: 68 },
+  profileOnNovaText: {
+    color: '#070D1C',
+    fontSize: 34,
+    fontWeight: '700',
+    lineHeight: 40,
+    textAlign: 'center',
+  },
+  healthCol: { alignItems: 'stretch', flex: 1, gap: 6, minWidth: 0 },
+  healthLabel: { color: '#7C9CC0', flexShrink: 1, fontSize: 11, fontWeight: '600' },
+  healthLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 4 },
+  healthRow: { alignSelf: 'stretch', flexDirection: 'row', gap: 10, width: '100%' },
+  healthVal: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
   hero: {
+    alignSelf: 'stretch',
     borderColor: 'rgba(56,189,248,0.18)',
     borderRadius: orbitRadius.lg,
     borderWidth: 1,
-    gap: 12,
+    gap: 10,
     overflow: 'hidden',
-    padding: 16,
+    padding: 14,
+    width: '100%',
   },
   heroBody: { color: '#C8D8F0', fontSize: 14, lineHeight: 20 },
   heroCopy: { flex: 1, gap: 4, minWidth: 0 },
-  heroRow: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  heroTop: { alignItems: 'center', flexDirection: 'row', gap: 12 },
   iconBox: {
     alignItems: 'center',
     borderRadius: 12,
@@ -292,12 +682,13 @@ const styles = StyleSheet.create({
   },
   linkBlue: { color: '#38BDF8', fontSize: 12, fontWeight: '600', marginTop: 4 },
   liveDot: { backgroundColor: '#34D399', borderRadius: 3, height: 6, width: 6 },
-  metricDot: { borderRadius: 4, height: 8, width: 8 },
-  metricItem: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  metricRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  metricText: { color: '#7C9CC0', fontSize: 12 },
   novaLabel: { color: '#34D399', fontSize: 12, fontWeight: '600', letterSpacing: 0.6 },
   novaRow: { alignItems: 'center', flexDirection: 'row', gap: 6 },
+  pageContent: {
+    alignItems: 'stretch',
+    alignSelf: 'stretch',
+    width: '100%',
+  },
   pctPill: {
     backgroundColor: 'rgba(52,211,153,0.12)',
     borderRadius: 999,
@@ -315,6 +706,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 6,
     overflow: 'hidden',
+    width: '100%',
   },
   sectionHead: {
     alignItems: 'center',
@@ -326,4 +718,141 @@ const styles = StyleSheet.create({
   taskDone: { color: '#4B6080', textDecorationLine: 'line-through' },
   taskRow: { alignItems: 'center', flexDirection: 'row', gap: 12, paddingVertical: 10 },
   taskText: { color: '#C8D8F0', flex: 1, fontSize: 14 },
+  pyramidRow: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'center',
+    paddingTop: 2,
+  },
+  pyramidSlot: {
+    alignItems: 'center',
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
+  },
+  pyramidAvatar: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  pyramidName: {
+    color: '#C8D8F0',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+    maxWidth: '100%',
+    textAlign: 'center',
+  },
+  pyramidNameLead: {
+    color: '#F4F7FF',
+    fontWeight: '700',
+  },
+  pyramidXp: {
+    color: '#7C9CC0',
+    fontSize: 10,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+  },
+  pyramidPillar: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    borderRadius: 12,
+    borderWidth: 1,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+    paddingBottom: 8,
+  },
+  pyramidRank: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+  pyramidRest: {
+    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+    marginTop: 2,
+    paddingTop: 8,
+  },
+  weekAvatar: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'transparent',
+    borderRadius: 14,
+    height: 28,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: 28,
+  },
+  weekAvatarEmoji: { fontSize: 16, lineHeight: 20 },
+  weekAvatarImage: { height: 28, width: 28 },
+  weekBoard: {
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  weekHead: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  weekLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+  },
+  weekMore: {
+    color: '#4B6080',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: -2,
+  },
+  weekName: {
+    color: '#C8D8F0',
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.15,
+  },
+  weekRank: {
+    color: '#4B6080',
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+    textAlign: 'center',
+    width: 16,
+  },
+  weekRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 36,
+  },
+  weekTitle: {
+    color: '#EEF2FF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  weekXp: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    minWidth: 44,
+    textAlign: 'right',
+  },
+  weekXpUnit: {
+    color: '#4B6080',
+    fontSize: 10,
+    fontWeight: '600',
+  },
 });

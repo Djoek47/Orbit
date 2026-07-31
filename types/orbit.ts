@@ -1,4 +1,4 @@
-export type HouseholdRole = 'owner' | 'admin' | 'adult' | 'child' | 'guest';
+export type HouseholdRole = 'owner' | 'admin' | 'adult' | 'child' | 'guest' | 'shared-device';
 
 export type HouseholdMemberStatus = 'pending' | 'active' | 'inactive';
 
@@ -28,33 +28,79 @@ export type HouseholdMember = {
   /** Consecutive-day streak for Rankings. */
   streak?: number;
   loadShare: number;
+  /** Personal accent look — follows the member when switching personas. */
+  accentThemeId?: string;
   /** ISO date YYYY-MM-DD — member away / on holiday (Nova skips nudges). */
   awayFrom?: string;
   awayTo?: string;
+  /**
+   * For `shared-device` profiles: household member ids who use this phone/tablet.
+   * Tasks assigned via the device must pick one of these people.
+   */
+  sharedWithMemberIds?: string[];
+  /**
+   * Per-person invite code/QR used to host this profile on a shared/kid device
+   * (Netflix-style multi-profile tablet). Distinct from the household join code.
+   */
+  profileInviteCode?: string;
 };
 
 export type TaskDifficulty = 'easy' | 'medium' | 'hard';
+
+/** Per-person progress on a split (multi-assignee) task. */
+export type TaskAssigneeShare = {
+  name: string;
+  status: 'Pending' | 'Completed' | 'Penalized';
+  proofUri?: string;
+  proofStatus?: 'none' | 'submitted' | 'approved' | 'rejected';
+  awardedXp?: number;
+  penalizedXp?: number;
+};
 
 export type HouseholdTask = {
   id: string;
   title: string;
   description?: string;
   category: string;
+  /**
+   * Display label — single name, or “Emma & Liam” for split tasks.
+   * For credit/filtering prefer `assignees` / `shares`.
+   */
   assignee: string;
+  /**
+   * When length > 1 this is a split task: each person can finish (and prove) independently.
+   * Completers earn XP; all-finish bonus; admins may penalize non-finishers.
+   */
+  assignees?: string[];
+  shares?: TaskAssigneeShare[];
+  /** XP each person earns when they complete their share (defaults to `xp`). */
+  splitXpEach?: number;
+  /** Bonus each completer gets when everyone finishes (defaults to ~25% of `xp`). */
+  splitBonusXp?: number;
+  /** XP deducted if an admin penalizes a non-finisher (defaults to ~50% of `xp`). */
+  splitPenaltyXp?: number;
   due: string;
   xp: number;
   /** Weight multiplier for XP (1 = easy, 1.5 = medium, 2 = hard). */
   weight?: number;
   difficulty?: TaskDifficulty;
+  /**
+   * `streak` = kids Hygiene habits (0 XP). Default / omit = normal XP chore.
+   */
+  tracking?: 'xp' | 'streak';
   proofRequired?: boolean;
   proofUri?: string;
   proofStatus?: 'none' | 'submitted' | 'approved' | 'rejected';
   repeat: 'None' | 'Daily' | 'Weekly' | 'Weekdays';
-  status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue';
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue' | 'Cancelled';
   dueAt?: string;
   /** Optional room for cleaning attribution. */
   roomId?: string;
+  /** When set, task was created via this shared-device profile. */
+  sharedDeviceId?: string;
 };
+
+export type CancelTaskScope = 'this' | 'future';
 
 export type HouseholdRoomKind =
   | 'kitchen'
@@ -100,7 +146,16 @@ export type HouseholdEvent = {
   endsAt?: string;
 };
 
-export type ItineraryStopKind = 'school' | 'work' | 'grocery' | 'pickup' | 'custom';
+export type ItineraryStopKind =
+  | 'school'
+  | 'work'
+  | 'grocery'
+  | 'pickup'
+  | 'practice'
+  | 'family'
+  | 'home'
+  | 'shop'
+  | 'custom';
 
 export type ItineraryStopStatus = 'pending' | 'active' | 'done' | 'skipped';
 
@@ -110,11 +165,14 @@ export type ItineraryStop = {
   kind: ItineraryStopKind;
   address?: string;
   placeQuery?: string;
+  lat?: number;
+  lng?: number;
   eventId?: string;
   groceryListId?: string;
   etaMinutes?: number;
   sortOrder: number;
   status: ItineraryStopStatus;
+  savedPlaceId?: string;
 };
 
 export type Itinerary = {
@@ -126,6 +184,21 @@ export type Itinerary = {
   stops: ItineraryStop[];
   suggestedByNova?: boolean;
   summary?: string;
+  /** Saved as a preferred / reusable trip template. */
+  favorite?: boolean;
+};
+
+/** Household saved places for building multi-stop itineraries. */
+export type SavedPlaceKind = 'home' | 'work' | 'school' | 'shop' | 'practice' | 'family' | 'custom';
+
+export type SavedPlace = {
+  id: string;
+  name: string;
+  kind: SavedPlaceKind;
+  address: string;
+  placeQuery?: string;
+  lat?: number;
+  lng?: number;
 };
 
 export type ProductCatalogItem = {
@@ -143,7 +216,7 @@ export type ProductCatalogItem = {
   allergens?: string[];
   nutriScore?: string;
   novaGroup?: number;
-  source?: 'mock' | 'openfoodfacts';
+  source?: 'mock' | 'openfoodfacts' | 'unknown';
 };
 
 export type PreferredStore = {
@@ -151,7 +224,14 @@ export type PreferredStore = {
   name: string;
   address: string;
   placeQuery: string;
+  lat?: number;
+  lng?: number;
+  /** Distance in meters when resolved from nearby search. */
+  distanceMeters?: number;
+  source?: 'curated' | 'osm' | 'saved';
 };
+
+export type RewardOrigin = 'minted' | 'special-request';
 
 export type Reward = {
   id: string;
@@ -163,6 +243,32 @@ export type Reward = {
   color?: string;
   archived?: boolean;
   specialRequest?: boolean;
+  /** Catalog mint vs member special ask — admin-visible. */
+  origin?: RewardOrigin;
+  createdByMemberId?: string;
+  createdByName?: string;
+  /** When set, only this member (and admins) see the reward in the vault. */
+  assignedMemberId?: string;
+  assignedMemberName?: string;
+};
+
+/** Cash / privilege allowance — admin grants or member requests, admin approves. */
+export type AllowanceGrant = {
+  id: string;
+  householdId: string;
+  memberId: string;
+  memberName: string;
+  /** Display amount, e.g. "$5" or "Extra screen". */
+  amountLabel: string;
+  /** Optional XP tied to the allowance ask (informational / cost). */
+  amountXp?: number;
+  status: 'pending' | 'approved' | 'rejected';
+  kind: 'admin-grant' | 'member-request';
+  note?: string;
+  requestedAt: string;
+  decidedAt?: string;
+  createdByMemberId?: string;
+  createdByName?: string;
 };
 
 export type Badge = {
@@ -226,21 +332,42 @@ export type OrbitMetrics = {
   missingGroceries: number;
   purchasedGroceries: number;
   upcomingEvents: number;
+  /** Week XP spread fairness 0–100 (admin health). */
+  fairnessScore?: number;
+  /** Best active-member streak days (admin health). */
+  householdStreak?: number;
+};
+
+/** Admin toggles for what non-admin members may do. */
+export type MemberCapabilities = {
+  allowRewardRedeem: boolean;
+  allowSpecialRewardRequest: boolean;
+  allowGroceryAdd: boolean;
+  allowCalendarCreate: boolean;
 };
 
 export type CreateTaskInput = {
   title: string;
   category: string;
   assignee: string;
+  /** Multi-person split — when 2+, each gets their own completion/proof share. */
+  assignees?: string[];
+  splitXpEach?: number;
+  splitBonusXp?: number;
+  splitPenaltyXp?: number;
   due: string;
   xp: number;
   repeat: HouseholdTask['repeat'];
   description?: string;
   weight?: number;
   difficulty?: TaskDifficulty;
+  /** Kids Hygiene habits — no XP. */
+  tracking?: 'xp' | 'streak';
   proofRequired?: boolean;
   dueAt?: string;
   roomId?: string;
+  /** Shared-device profile id when the task was routed through a shared phone/tablet. */
+  sharedDeviceId?: string;
   /** When true, also save into household custom catalog (admin mint). */
   saveAsTemplate?: boolean;
 };
@@ -275,6 +402,25 @@ export type CreateRewardInput = {
   approvalRequired?: boolean;
   emoji?: string;
   specialRequest?: boolean;
+  category?: string;
+  color?: string;
+  origin?: RewardOrigin;
+  createdByMemberId?: string;
+  createdByName?: string;
+  assignedMemberId?: string;
+  assignedMemberName?: string;
+};
+
+export type CreateAllowanceInput = {
+  memberId: string;
+  memberName: string;
+  amountLabel: string;
+  amountXp?: number;
+  note?: string;
+  /** Admin instant grant vs member-pending request. */
+  kind: 'admin-grant' | 'member-request';
+  createdByMemberId?: string;
+  createdByName?: string;
 };
 
 export type TaskTemplate = {
@@ -301,6 +447,10 @@ export type NovaNotificationPrefs = {
   plans?: boolean;
   /** Monitor Agent: XP fairness assessments. */
   xpFairness?: boolean;
+  /** Foreground near-shop local alerts. */
+  nearShop?: boolean;
+  /** Nudge missing items before / during a grocery run. */
+  missingOnTheWay?: boolean;
 };
 
 /** Activity feed entry from Nova Monitor Agent. */
@@ -367,11 +517,15 @@ export type HouseholdSnapshot = {
   events: HouseholdEvent[];
   itineraries: Itinerary[];
   rooms: HouseholdRoom[];
+  /** Saved locations for multi-stop trips (home, work, school, shops…). */
+  savedPlaces?: SavedPlace[];
   preferredStoreId?: string;
   /** Make accent theme id (ocean/aurora/…). */
   accentThemeId?: string;
   taskTemplates: TaskTemplate[];
   notificationPrefs: NovaNotificationPrefs;
+  /** What non-admin members may do (admin-controlled). */
+  memberCapabilities?: MemberCapabilities;
   rewards: Reward[];
   badges: Badge[];
   nova: NovaBriefing;

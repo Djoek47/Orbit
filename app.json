@@ -29,7 +29,7 @@
         "NSMicrophoneUsageDescription": "Choremaxx uses the microphone so you can talk to Nova.",
         "NSLocationWhenInUseUsageDescription": "Choremaxx uses your location for nearby grocery suggestions.",
         "NSCameraUsageDescription": "Choremaxx uses the camera to scan invite QR codes and attach task proof photos.",
-        "NSPhotoLibraryUsageDescription": "Choremaxx can attach photos as task proof.",
+        "NSPhotoLibraryUsageDescription": "Choremaxx uses your photos for profile pictures and task proof attachments.",
         "NSPhotoLibraryAddUsageDescription": "Choremaxx can save task proof photos to your library when you choose.",
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": ["remote-notification"]
@@ -73,7 +73,7 @@
       [
         "expo-notifications",
         {
-          "color": "#3BB5F0"
+          "color": "#59B2E1"
         }
       ],
       [
@@ -96,10 +96,16 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choremaxx uses your photos for profile pictures and task proof attachments."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 220,
           "resizeMode": "contain",
           "backgroundColor": "#070D1C",
           "dark": {

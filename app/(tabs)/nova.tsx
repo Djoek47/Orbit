@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 
 import { NovaOrb } from '@/components/orbit/nova-orb';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
 import {
   isNovaRealtimeEnabled,
@@ -86,6 +88,7 @@ function activityEmoji(category: NotificationItem['category']) {
 }
 
 export default function NovaScreen() {
+  const chromePad = useTabChromePaddingTop();
   const {
     appendNovaTurn,
     askNova,
@@ -308,14 +311,14 @@ export default function NovaScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={88}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: chromePad }]}>
         <View style={styles.headerGlow} pointerEvents="none" />
         <NovaOrb size={80} speaking={cfg.speaking} />
         <View style={styles.stateRow}>
           <View style={[styles.stateDot, { backgroundColor: cfg.color }]} />
           <Text style={[styles.stateLabel, { color: cfg.color }]}>{cfg.label}</Text>
         </View>
-        <Text style={styles.subtitle}>Household majordomo</Text>
+        <PageEyebrow>Household majordomo</PageEyebrow>
         <Pressable style={styles.refreshChip} onPress={handleRefreshMonitor} disabled={asking}>
           <MaterialIcons name="refresh" size={14} color={orbitColors.orbitBlue} />
           <Text style={styles.refreshChipText}>Run Nova check</Text>
@@ -615,8 +618,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(14,165,233,0.10)',
     paddingBottom: 12,
-    // Clear GlobalHeaderChips (Notifications + Settings)
-    paddingTop: 52,
+    paddingTop: 0,
     position: 'relative',
   },
   headerGlow: {

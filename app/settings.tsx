@@ -1,11 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -14,39 +15,178 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ACCENT_THEMES, AVATAR_EMOJIS, type AccentThemeId } from '@/constants/accent-themes';
+import {
+  ACCENT_THEMES,
+  AVATAR_EMOJIS,
+  DEFAULT_ACCENT_THEME_ID,
+  ROOM_EMOJIS,
+  type AccentThemeId,
+} from '@/constants/accent-themes';
+import {
+  BACKGROUND_THEMES,
+  type BackgroundThemeId,
+} from '@/constants/background-themes';
+import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
+import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
+import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
+import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { createLocalId } from '@/repositories/repository-utils';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  findSharedDeviceForMember,
+  listSharedDevices,
+  nestedSharedAccountIds,
+  resolveSharedDevicePeople,
+  sharedDeviceLinkCandidates,
+} from '@/lib/household/shared-device';
+import { ensureProfileInviteCode } from '@/lib/household/profile-codes';
 import { formatHouseholdRole } from '@/lib/permissions';
+import { resolveMemberCapabilities } from '@/lib/member-capabilities';
+import type { AppearanceMode, PreferredMapsApp } from '@/lib/theme/appearance-prefs';
+import { markNeedsProfilePick } from '@/lib/device/device-session';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdRoom } from '@/types/orbit';
+import type { HouseholdMember, HouseholdRoom } from '@/types/orbit';
+import * as Linking from 'expo-linking';
 
 const PANEL_BG = '#0A1525';
 
 type Section = 'main' | 'members' | 'notifications' | 'rooms';
+
+function SharedAccountRow({
+  person,
+  active,
+  accent,
+  picking,
+  canManage,
+  onSwitch,
+  onTogglePick,
+  onPickEmoji,
+  onPickPhoto,
+  onUnlink,
+  onRemove,
+}: {
+  person: HouseholdMember;
+  active: boolean;
+  accent: string;
+  picking: boolean;
+  canManage: boolean;
+  onSwitch: () => void;
+  onTogglePick: () => void;
+  onPickEmoji: (emoji: string) => void;
+  onPickPhoto: () => void;
+  onUnlink?: () => void;
+  onRemove?: () => void;
+}) {
+  const photo = isAvatarImageUri(person.avatar);
+  return (
+    <View style={styles.sharedAccountBlock}>
+      <View style={styles.memberCardInner}>
+        <Pressable
+          onPress={onTogglePick}
+          style={[
+            styles.memberAvatar,
+            { backgroundColor: `${active ? accent : '#4B6080'}33` },
+          ]}>
+          {photo ? (
+            <Image source={{ uri: person.avatar }} style={styles.memberAvatarImage} />
+          ) : (
+            <Text style={styles.memberAvatarText}>{memberDisplayEmoji(person)}</Text>
+          )}
+          <View style={styles.avatarEditBadge}>
+            <MaterialIcons name="edit" size={10} color="#38BDF8" />
+          </View>
+        </Pressable>
+        <Pressable style={{ flex: 1 }} onPress={onSwitch}>
+          <Text style={styles.memberName}>{person.name}</Text>
+          <Text style={styles.caption}>Switchable account · own XP & redeem</Text>
+          <Text style={[styles.caption, { color: accent, fontWeight: '600' }]}>
+            {person.xp} XP · week {person.weekXp ?? 0}
+          </Text>
+          <Text style={styles.caption}>Code {ensureProfileInviteCode(person)}</Text>
+        </Pressable>
+        {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
+      </View>
+      {canManage ? (
+        <View style={styles.adminActionRow}>
+          {onUnlink ? (
+            <Pressable onPress={onUnlink} style={styles.adminActionChip}>
+              <Text style={styles.adminActionText}>Unlink</Text>
+            </Pressable>
+          ) : null}
+          {onRemove ? (
+            <Pressable onPress={onRemove} style={[styles.adminActionChip, styles.adminActionDanger]}>
+              <Text style={[styles.adminActionText, { color: '#F87171' }]}>Remove</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      {picking ? (
+        <View style={styles.emojiGrid}>
+          <Pressable
+            style={[styles.emojiChip, styles.photoChip, { borderColor: `${accent}88` }]}
+            onPress={onPickPhoto}>
+            <MaterialIcons name="photo-camera" size={18} color={accent} />
+            <Text style={[styles.photoChipText, { color: accent }]}>Photo / Memoji</Text>
+          </Pressable>
+          {AVATAR_EMOJIS.map((emoji) => (
+            <Pressable
+              key={emoji}
+              style={[
+                styles.emojiChip,
+                person.avatar === emoji && {
+                  borderColor: `${accent}88`,
+                  backgroundColor: `${accent}22`,
+                },
+              ]}
+              onPress={() => onPickEmoji(emoji)}>
+              <Text style={{ fontSize: 22 }}>{emoji}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 /** Make AdminScreen.tsx — Settings sheet chrome. */
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const {
     accentTheme,
+    appearanceMode,
+    backgroundThemeId,
+    createSharedDevice,
     currentMember,
     currentUser,
     deleteAccount,
     household,
+    orbitPalette,
     permissions,
+    preferredMapsApp,
+    removeMember,
     removeRoom,
     signOut,
     switchPersona,
     updateAccentTheme,
+    updateAppearanceMode,
+    updateBackgroundTheme,
+    updateHouseholdAccentTheme,
     updateMemberAvatar,
     updateNotificationPrefs,
+    updateMemberCapabilities,
+    updatePreferredMapsApp,
+    updateSharedDeviceLinks,
     upsertRoom,
   } = useOrbit();
 
   const [section, setSection] = useState<Section>('main');
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(household.householdName);
+  const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [pickingAvatarFor, setPickingAvatarFor] = useState<string | null>(null);
+  const [sharedDeviceName, setSharedDeviceName] = useState('Kids tablet');
+  const [creatingDevice, setCreatingDevice] = useState(false);
+  const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
   const [roomDraft, setRoomDraft] = useState('');
   const [roomEmoji, setRoomEmoji] = useState('🚪');
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
@@ -60,13 +200,82 @@ export default function SettingsScreen() {
         deals: true,
         plans: true,
         xpFairness: true,
+        nearShop: true,
+        missingOnTheWay: true,
       },
     [household.notificationPrefs]
   );
 
   const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
-  const themeId = (household.accentThemeId ?? accentTheme.id) as AccentThemeId;
+  const personalThemeId = (currentMember?.accentThemeId ?? accentTheme.id) as AccentThemeId;
+  const householdThemeId = (household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID) as AccentThemeId;
   const rooms = household.rooms ?? [];
+  const nestedAccountIds = useMemo(
+    () => nestedSharedAccountIds(household.members),
+    [household.members]
+  );
+  const sharedDevices = useMemo(() => listSharedDevices(household.members), [household.members]);
+  /** Standalone people (not nested under a Shared tablet). */
+  const topLevelMembers = useMemo(
+    () =>
+      household.members.filter(
+        (member) =>
+          member.role !== 'shared-device' && !nestedAccountIds.has(member.id)
+      ),
+    [household.members, nestedAccountIds]
+  );
+  const activeOnDevice = findSharedDeviceForMember(currentMember?.id, household.members);
+  const linkCandidates = useMemo(
+    () => sharedDeviceLinkCandidates(household.members),
+    [household.members]
+  );
+
+  const handleRemoveMember = (member: HouseholdMember) => {
+    if (member.role === 'owner') {
+      Alert.alert('Cannot remove', 'The household owner cannot be removed.');
+      return;
+    }
+    const isDevice = member.role === 'shared-device';
+    Alert.alert(
+      isDevice ? 'Remove shared device' : 'Remove member',
+      isDevice
+        ? `Remove ${member.name}? Linked profiles stay in the household but lose this device shell.`
+        : `Remove ${member.name} from this household?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            void removeMember(member.id);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCreateSharedDevice = () => {
+    if (!sharedDeviceName.trim()) return;
+    setCreatingDevice(true);
+    void createSharedDevice(sharedDeviceName.trim())
+      .then((created) => {
+        if (created) {
+          setSharedDeviceName('Kids tablet');
+          Alert.alert(
+            'Shared device added',
+            `Link people below, then set up the tablet with their profile codes (CMX-JOSH, etc.).`
+          );
+        }
+      })
+      .finally(() => setCreatingDevice(false));
+  };
+
+  const toggleSharedLink = (deviceId: string, personId: string, linkedIds: string[]) => {
+    const next = linkedIds.includes(personId)
+      ? linkedIds.filter((id) => id !== personId)
+      : [...linkedIds, personId];
+    void updateSharedDeviceLinks(deviceId, next);
+  };
 
   const handleDelete = () => {
     Alert.alert('Delete account', 'This permanently removes your Choremaxx account.', [
@@ -82,8 +291,26 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const pickMemojiPhoto = async (memberId: string) => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Photos needed', 'Allow photo library access to use a Memoji or portrait.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    await updateMemberAvatar(memberId, result.assets[0].uri);
+    setPickingAvatarFor(null);
+  };
+
   return (
-    <View style={[styles.shell, { paddingTop: insets.top }]}>
+    <>
+    <View style={[styles.shell, { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.handleRow}>
@@ -109,10 +336,10 @@ export default function SettingsScreen() {
         </Pressable>
       </View>
 
-      <ScrollView
+      <KeyboardScreen
+        offset={12}
         style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
+        contentContainerStyle={styles.content}>
         {section === 'main' ? (
           <>
             <SectionCard title="Household">
@@ -151,10 +378,13 @@ export default function SettingsScreen() {
               </Text>
             </SectionCard>
 
-            <SectionCard title="App Theme">
+            <SectionCard title="Your look">
+              <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>
+                Personal accent for {currentMember?.name ?? 'you'} · switches with your profile
+              </Text>
               <View style={styles.themeRow}>
                 {ACCENT_THEMES.map((theme) => {
-                  const active = themeId === theme.id;
+                  const active = personalThemeId === theme.id;
                   return (
                     <Pressable
                       key={theme.id}
@@ -177,16 +407,95 @@ export default function SettingsScreen() {
                       <Text style={[styles.themeLabel, active && { color: theme.primary, fontWeight: '600' }]}>
                         {theme.label}
                       </Text>
+                      <Text style={styles.themeTypeLabel}>{theme.typeStyle.label}</Text>
                     </Pressable>
                   );
                 })}
               </View>
+
+              <Text style={[styles.caption, { marginTop: 8, color: orbitPalette.textMuted }]}>
+                Background · canvas that pairs with your fonts
+              </Text>
+              <View style={styles.themeRow}>
+                {BACKGROUND_THEMES.map((theme) => {
+                  const active = backgroundThemeId === theme.id;
+                  return (
+                    <Pressable
+                      key={theme.id}
+                      style={styles.themeItem}
+                      onPress={() => updateBackgroundTheme(theme.id as BackgroundThemeId)}>
+                      <LinearGradient
+                        colors={theme.preview}
+                        style={[
+                          styles.themeSwatch,
+                          active && {
+                            borderColor: accentTheme.primary,
+                            borderWidth: 2,
+                          },
+                        ]}>
+                        {active ? (
+                          <MaterialIcons name="check" size={16} color={theme.base === 'light' ? '#111' : '#fff'} />
+                        ) : null}
+                      </LinearGradient>
+                      <Text style={[styles.themeLabel, active && { color: accentTheme.primary, fontWeight: '600' }]}>
+                        {theme.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {permissions.canManageHousehold ? (
+                <View style={styles.nestedGroup}>
+                  <Pressable
+                    style={styles.nestedHeader}
+                    onPress={() => setHouseholdDefaultOpen((value) => !value)}>
+                    <Text style={styles.nestedTitle}>Household default</Text>
+                    <MaterialIcons
+                      name={householdDefaultOpen ? 'expand-less' : 'expand-more'}
+                      size={20}
+                      color={orbitPalette.textMuted}
+                    />
+                  </Pressable>
+                  {householdDefaultOpen ? (
+                    <>
+                      <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>
+                        Fallback accent for members without a personal pick
+                      </Text>
+                      <View style={styles.themeRow}>
+                        {ACCENT_THEMES.map((theme) => {
+                          const active = householdThemeId === theme.id;
+                          return (
+                            <Pressable
+                              key={theme.id}
+                              style={styles.themeItem}
+                              onPress={() => updateHouseholdAccentTheme(theme.id)}>
+                              <LinearGradient
+                                colors={[theme.primary, theme.secondary]}
+                                style={[
+                                  styles.themeSwatchSmall,
+                                  active && {
+                                    borderColor: theme.primary,
+                                    borderWidth: 2,
+                                  },
+                                ]}>
+                                {active ? <MaterialIcons name="check" size={14} color="#fff" /> : null}
+                              </LinearGradient>
+                              <Text style={styles.themeTypeLabel}>{theme.label}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </>
+                  ) : null}
+                </View>
+              ) : null}
             </SectionCard>
 
             <SettingsRow
               emoji="👥"
               label="Manage Members"
-              subtitle={`${household.members.length} family members · tap avatar to customize`}
+              subtitle={`${household.members.length} members · add new · customize avatars`}
               onPress={() => setSection('members')}
             />
             <SettingsRow
@@ -195,6 +504,37 @@ export default function SettingsScreen() {
               subtitle={`${rooms.length} rooms for cleaning attribution`}
               onPress={() => setSection('rooms')}
             />
+            {permissions.canManageHousehold ? (
+              <SectionCard title="Member permissions">
+                <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 8 }]}>
+                  What kids and non-admin members can do
+                </Text>
+                {(
+                  [
+                    ['allowRewardRedeem', 'Allow redeem XP rewards', 'Members can spend XP in the shop'],
+                    ['allowSpecialRewardRequest', 'Allow special reward requests', 'Kids/adults can ask for one-offs'],
+                    ['allowGroceryAdd', 'Allow grocery list adds', 'Non-admins can add items'],
+                    ['allowCalendarCreate', 'Allow calendar event creates', 'Simplified create when enabled'],
+                  ] as const
+                ).map(([key, label, sub]) => {
+                  const caps = resolveMemberCapabilities(household);
+                  return (
+                    <View key={key} style={styles.prefRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.memberName}>{label}</Text>
+                        <Text style={styles.caption}>{sub}</Text>
+                      </View>
+                      <Switch
+                        value={caps[key]}
+                        onValueChange={(value) => updateMemberCapabilities({ [key]: value })}
+                        trackColor={{ false: 'rgba(255,255,255,0.1)', true: accentTheme.primary }}
+                        thumbColor="#fff"
+                      />
+                    </View>
+                  );
+                })}
+              </SectionCard>
+            ) : null}
             <SettingsRow
               icon="notifications-none"
               iconColor="#A78BFA"
@@ -206,19 +546,25 @@ export default function SettingsScreen() {
               icon="shield"
               iconColor="#34D399"
               label="Privacy & Data"
-              subtitle="Manage your data"
+              subtitle="Privacy · Terms · Support"
               onPress={() =>
-                Alert.alert('Privacy', 'Export and delete live under Account below.')
+                Alert.alert('Privacy & legal', 'Open Choremaxx legal pages', [
+                  {
+                    text: 'Privacy Policy',
+                    onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
+                  },
+                  {
+                    text: 'Terms of Service',
+                    onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.termsUrl),
+                  },
+                  {
+                    text: 'Contact support',
+                    onPress: () => void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`),
+                  },
+                  { text: 'Cancel', style: 'cancel' },
+                ])
               }
             />
-            {permissions.canInviteMembers ? (
-              <SettingsRow
-                emoji="✉️"
-                label="Invite"
-                subtitle={`Code ${household.inviteCode || '—'}`}
-                onPress={() => router.push('/invite-household' as never)}
-              />
-            ) : null}
             <SettingsRow
               emoji="🛒"
               label="Groceries"
@@ -227,14 +573,72 @@ export default function SettingsScreen() {
             />
 
             <SectionCard title="Appearance">
-              <View style={styles.rowBetween}>
-                <View style={styles.inline}>
-                  <MaterialIcons name="dark-mode" size={16} color="#A78BFA" />
-                  <Text style={styles.rowLabel}>Dark Mode</Text>
-                </View>
-                <LinearGradient colors={['#38BDF8', '#0EA5E9']} style={styles.switchOn}>
-                  <View style={styles.switchKnob} />
-                </LinearGradient>
+              <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>Mode</Text>
+              <View style={styles.segmentRow}>
+                {(
+                  [
+                    ['dark', 'Dark'],
+                    ['light', 'Light'],
+                    ['system', 'System'],
+                  ] as const
+                ).map(([mode, label]) => {
+                  const active = appearanceMode === mode;
+                  return (
+                    <Pressable
+                      key={mode}
+                      onPress={() => updateAppearanceMode(mode as AppearanceMode)}
+                      style={[
+                        styles.segmentChip,
+                        active && {
+                          backgroundColor: `${accentTheme.primary}28`,
+                          borderColor: accentTheme.primary,
+                        },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          active && { color: accentTheme.primary, fontWeight: '700' },
+                        ]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={[styles.caption, { marginTop: 12, color: orbitPalette.textMuted }]}>
+                Preferred maps app
+              </Text>
+              <View style={styles.segmentRow}>
+                {(
+                  [
+                    ['auto', 'Auto'],
+                    ['apple', 'Apple'],
+                    ['google', 'Google'],
+                    ['waze', 'Waze'],
+                  ] as const
+                ).map(([app, label]) => {
+                  const active = preferredMapsApp === app;
+                  return (
+                    <Pressable
+                      key={app}
+                      onPress={() => updatePreferredMapsApp(app as PreferredMapsApp)}
+                      style={[
+                        styles.segmentChip,
+                        active && {
+                          backgroundColor: `${accentTheme.primary}28`,
+                          borderColor: accentTheme.primary,
+                        },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          active && { color: accentTheme.primary, fontWeight: '700' },
+                        ]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </SectionCard>
 
@@ -252,22 +656,168 @@ export default function SettingsScreen() {
               </Pressable>
             </SectionCard>
 
-            <View style={styles.brand}>
-              <LinearGradient colors={[accentTheme.primary, accentTheme.secondary]} style={styles.brandIcon}>
-                <Text style={{ fontSize: 20 }}>🏠</Text>
-              </LinearGradient>
-              <Text style={styles.brandName}>Choremaxx</Text>
-              <Text style={styles.brandMeta}>Version 1.0.0 · AI Household OS</Text>
-            </View>
+            <BrandLegalFooter style={styles.brand} />
           </>
         ) : null}
 
         {section === 'members' ? (
           <>
-            <Text style={styles.sectionHint}>Tap avatar to customize · tap name to view as them</Text>
-            {household.members.map((member) => {
+            <Text style={styles.sectionHint}>
+              Tap a name to switch · Shared devices host Netflix-style profiles · Admins can remove
+              people and add tablets
+            </Text>
+            {permissions.canInviteMembers ? (
+              <SettingsRow
+                emoji="➕"
+                label="Add new member"
+                subtitle="Create an invite so they can join this household"
+                onPress={() => router.push('/invite-household' as never)}
+              />
+            ) : null}
+
+            {permissions.canManageHousehold ? (
+              <View style={styles.createDeviceCard}>
+                <Text style={styles.memberName}>New shared device</Text>
+                <Text style={styles.caption}>
+                  Kitchen tablet, kids iPad — one device, multiple profiles with codes/QR
+                </Text>
+                <TextInput
+                  value={sharedDeviceName}
+                  onChangeText={setSharedDeviceName}
+                  placeholder="e.g. Kids tablet"
+                  placeholderTextColor="#4B6080"
+                  style={styles.deviceNameInput}
+                />
+                <Pressable
+                  style={[
+                    styles.createDeviceBtn,
+                    { backgroundColor: `${accentTheme.primary}22`, borderColor: `${accentTheme.primary}66` },
+                  ]}
+                  disabled={creatingDevice || !sharedDeviceName.trim()}
+                  onPress={handleCreateSharedDevice}>
+                  <MaterialIcons name="tablet-mac" size={16} color={accentTheme.primary} />
+                  <Text style={[styles.createDeviceBtnText, { color: accentTheme.primary }]}>
+                    {creatingDevice ? 'Adding…' : 'Create shared device'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={styles.linkRow}
+                  onPress={() => router.push('/setup-kid-device' as never)}>
+                  <Text style={[styles.linkText, { color: accentTheme.primary }]}>
+                    Set up this phone/tablet with profile codes
+                  </Text>
+                  <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
+                </Pressable>
+              </View>
+            ) : null}
+
+            {sharedDevices.map((device) => {
+              const accounts = resolveSharedDevicePeople(device, household.members);
+              const deviceActive = activeOnDevice?.id === device.id;
+              const linkedIds = device.sharedWithMemberIds ?? [];
+              return (
+                <View
+                  key={device.id}
+                  style={[
+                    styles.sharedDeviceCard,
+                    deviceActive && { borderColor: `${accentTheme.primary}55` },
+                  ]}>
+                  <View style={styles.sharedDeviceHead}>
+                    <Text style={styles.sharedDeviceEmoji}>{device.avatar || '📱'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.memberName}>{device.name}</Text>
+                      <Text style={styles.caption}>
+                        Shared device ·{' '}
+                        {accounts.map((person) => person.name).join(' · ') || 'no accounts linked'}
+                      </Text>
+                    </View>
+                    {accounts.length > 0 ? (
+                      <Pressable
+                        onPress={() => {
+                          void markNeedsProfilePick().then(() =>
+                            router.push('/select-profile' as never)
+                          );
+                        }}
+                        style={[
+                          styles.switchChip,
+                          {
+                            backgroundColor: `${accentTheme.primary}22`,
+                            borderColor: `${accentTheme.primary}66`,
+                          },
+                        ]}>
+                        <Text style={[styles.switchChipText, { color: accentTheme.primary }]}>
+                          Who&apos;s in?
+                        </Text>
+                        <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  <Text style={styles.sharedDeviceHint}>
+                    Link people below. On the tablet, scan each profile code so kids pick who they
+                    are before opening the app.
+                  </Text>
+                  {permissions.canManageHousehold ? (
+                    <View style={styles.linkWrap}>
+                      {linkCandidates.map((person) => {
+                        const linked = linkedIds.includes(person.id);
+                        return (
+                          <Pressable
+                            key={person.id}
+                            onPress={() => toggleSharedLink(device.id, person.id, linkedIds)}
+                            style={[styles.linkChip, linked && styles.linkChipActive]}>
+                            <Text
+                              style={[styles.linkChipText, linked && styles.linkChipTextActive]}>
+                              {person.avatar} {person.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                  {accounts.map((person) => (
+                    <SharedAccountRow
+                      key={person.id}
+                      person={person}
+                      active={currentMember?.id === person.id}
+                      accent={accentTheme.primary}
+                      picking={pickingAvatarFor === person.id}
+                      canManage={permissions.canManageHousehold}
+                      onSwitch={() => switchPersona(person.id)}
+                      onTogglePick={() =>
+                        setPickingAvatarFor(pickingAvatarFor === person.id ? null : person.id)
+                      }
+                      onPickEmoji={async (emoji) => {
+                        await updateMemberAvatar(person.id, emoji);
+                        setPickingAvatarFor(null);
+                      }}
+                      onPickPhoto={() => void pickMemojiPhoto(person.id)}
+                      onUnlink={() =>
+                        toggleSharedLink(
+                          device.id,
+                          person.id,
+                          linkedIds
+                        )
+                      }
+                      onRemove={() => handleRemoveMember(person)}
+                    />
+                  ))}
+                  {permissions.canManageHousehold ? (
+                    <Pressable
+                      onPress={() => handleRemoveMember(device)}
+                      style={[styles.adminActionChip, styles.adminActionDanger, { alignSelf: 'flex-start' }]}>
+                      <Text style={[styles.adminActionText, { color: '#F87171' }]}>
+                        Remove device
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              );
+            })}
+
+            {topLevelMembers.map((member) => {
               const active = currentMember?.id === member.id;
               const picking = pickingAvatarFor === member.id;
+              const photo = isAvatarImageUri(member.avatar);
               return (
                 <View key={member.id} style={styles.memberCard}>
                   <Pressable
@@ -276,7 +826,11 @@ export default function SettingsScreen() {
                       styles.memberAvatar,
                       { backgroundColor: `${active ? accentTheme.primary : '#4B6080'}33` },
                     ]}>
-                    <Text style={styles.memberAvatarText}>{member.avatar}</Text>
+                    {photo ? (
+                      <Image source={{ uri: member.avatar }} style={styles.memberAvatarImage} />
+                    ) : (
+                      <Text style={styles.memberAvatarText}>{memberDisplayEmoji(member)}</Text>
+                    )}
                     <View style={styles.avatarEditBadge}>
                       <MaterialIcons name="edit" size={10} color="#38BDF8" />
                     </View>
@@ -287,10 +841,29 @@ export default function SettingsScreen() {
                     <Text style={[styles.caption, { color: accentTheme.primary, fontWeight: '600' }]}>
                       {member.xp} XP total
                     </Text>
+                    {member.profileInviteCode || member.role === 'child' ? (
+                      <Text style={styles.caption}>
+                        Profile {ensureProfileInviteCode(member)}
+                      </Text>
+                    ) : null}
                   </Pressable>
                   {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
+                  {permissions.canManageHousehold && member.role !== 'owner' ? (
+                    <Pressable
+                      onPress={() => handleRemoveMember(member)}
+                      hitSlop={8}
+                      accessibilityLabel={`Remove ${member.name}`}>
+                      <MaterialIcons name="person-remove" size={20} color="#F87171" />
+                    </Pressable>
+                  ) : null}
                   {picking ? (
                     <View style={styles.emojiGrid}>
+                      <Pressable
+                        style={[styles.emojiChip, styles.photoChip, { borderColor: `${accentTheme.primary}88` }]}
+                        onPress={() => void pickMemojiPhoto(member.id)}>
+                        <MaterialIcons name="photo-camera" size={18} color={accentTheme.primary} />
+                        <Text style={[styles.photoChipText, { color: accentTheme.primary }]}>Photo / Memoji</Text>
+                      </Pressable>
                       {AVATAR_EMOJIS.map((emoji) => (
                         <Pressable
                           key={emoji}
@@ -345,7 +918,7 @@ export default function SettingsScreen() {
               </View>
             ))}
             <View style={styles.emojiRow}>
-              {['🚪', '🍳', '🛋️', '🚿', '🛏️', '👕', '🪴', '🧹'].map((emoji) => {
+              {ROOM_EMOJIS.map((emoji) => {
                 const active = roomEmoji === emoji;
                 return (
                   <Pressable
@@ -422,6 +995,8 @@ export default function SettingsScreen() {
                 ['deals', 'Deal alerts', 'Mock catalog: food, shoes, electronics, furniture', '🏷️'],
                 ['plans', 'Plan proposals', 'Errand loops and itinerary suggestions', '🗺️'],
                 ['xpFairness', 'XP fairness', 'Weekly balance assessments (propose only)', '⚖️'],
+                ['nearShop', 'Near shop', 'Local alert when you are close to a grocery stop', '📍'],
+                ['missingOnTheWay', 'Missing on the way', 'Nudge missing items before and during a run', '🧾'],
               ] as const
             ).map(([key, label, sub, emoji]) => (
               <View key={key} style={styles.prefRow}>
@@ -448,8 +1023,17 @@ export default function SettingsScreen() {
             </Pressable>
           </>
         ) : null}
-      </ScrollView>
+      </KeyboardScreen>
     </View>
+
+    <PersonaSwitchPopup
+      visible={personaSwitchOpen}
+      onClose={() => setPersonaSwitchOpen(false)}
+      members={household.members}
+      currentMemberId={currentMember?.id ?? ''}
+      onSwitch={switchPersona}
+    />
+    </>
   );
 }
 
@@ -581,7 +1165,61 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 48,
   },
+  themeSwatchSmall: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  nestedGroup: {
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+    marginTop: 12,
+    paddingTop: 12,
+  },
+  nestedHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  nestedTitle: {
+    color: '#C8D8F0',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  segmentChip: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  segmentText: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   themeLabel: { color: '#4B6080', fontSize: 12 },
+  themeTypeLabel: { color: '#2A3A54', fontSize: 10, fontWeight: '600' },
+  switchChip: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  switchChipText: { fontSize: 12, fontWeight: '700' },
   settingsRow: {
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -623,17 +1261,116 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   accountBtnText: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
-  brand: { alignItems: 'center', gap: 4, paddingBottom: 16, paddingTop: 8 },
-  brandIcon: {
-    alignItems: 'center',
-    borderRadius: 16,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
-  brandName: { color: '#EEF2FF', fontSize: 14, fontWeight: '700' },
-  brandMeta: { color: '#4B6080', fontSize: 12 },
+  brand: { paddingBottom: 8, paddingTop: 12 },
   sectionHint: { color: '#7C9CC0', fontSize: 14, paddingTop: 4 },
+  sharedDeviceCard: {
+    backgroundColor: 'rgba(6,182,212,0.08)',
+    borderColor: 'rgba(6,182,212,0.28)',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    padding: 14,
+  },
+  sharedDeviceHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  sharedDeviceEmoji: { fontSize: 28 },
+  sharedDeviceHint: {
+    color: '#7C9CC0',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  createDeviceCard: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    padding: 14,
+  },
+  deviceNameInput: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    color: '#EEF2FF',
+    fontSize: 15,
+    fontWeight: '600',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  createDeviceBtn: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  createDeviceBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  linkWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  linkChip: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  linkChipActive: {
+    backgroundColor: 'rgba(52,211,153,0.18)',
+    borderColor: 'rgba(52,211,153,0.45)',
+  },
+  linkChipText: {
+    color: '#7C9CC0',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  linkChipTextActive: {
+    color: '#34D399',
+  },
+  adminActionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  adminActionChip: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  adminActionDanger: {
+    borderColor: 'rgba(248,113,113,0.35)',
+  },
+  adminActionText: {
+    color: '#7C9CC0',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  sharedAccountBlock: {
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+    paddingTop: 10,
+  },
+  memberCardInner: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
   memberCard: {
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -650,6 +1387,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     height: 56,
     justifyContent: 'center',
+    overflow: 'hidden',
     position: 'relative',
     width: 56,
   },
@@ -665,8 +1403,24 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -2,
     width: 20,
+    zIndex: 2,
+  },
+  memberAvatarImage: {
+    height: 56,
+    width: 56,
   },
   memberAvatarText: { fontSize: 28 },
+  photoChip: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 10,
+    width: 'auto',
+  },
+  photoChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   memberName: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
   emojiGrid: {
     flexBasis: '100%',

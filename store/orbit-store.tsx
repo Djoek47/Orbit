@@ -2,21 +2,54 @@ import { createContext, PropsWithChildren, useCallback, useContext, useEffect, u
 
 import { dataMode } from '@/config/data-mode';
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
+import { loadActiveMemberId, loadMockSession, saveActiveMemberId } from '@/lib/auth/mock-session';
 import type { NovaChatMessage } from '@/lib/ai/ai-provider';
 import { trackAnalytics } from '@/lib/analytics';
-import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, xpProgress } from '@/lib/game-levels';
-import { getLocationAwareGrocerySuggestions } from '@/lib/grocery/location-suggestions';
-import { buildStoreRecommendations } from '@/lib/grocery/recommendations';
+import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, memberDisplayEmoji, xpProgress } from '@/lib/game-levels';
+import { getLocationAwareGrocerySuggestions, buildStoreRecommendations } from '@/lib/grocery/location-suggestions';
 import { countUpcomingSoon } from '@/lib/calendar/event-groups';
-import { buildInviteLinks } from '@/lib/invites/parse-invite';
+import {
+  loadHouseholdRooms,
+  loadMemberAvatarOverrides,
+  saveHouseholdRooms,
+  saveMemberAvatarOverride,
+} from '@/lib/household/local-prefs';
+import { saveChildInviteRecord, loadChildInviteRecord } from '@/lib/household/child-invites';
+import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
+import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { suggestItineraryFromHousehold } from '@/lib/calendar/suggest-itinerary';
-import { openDirections } from '@/lib/maps/directions';
+import {
+  isNotificationVisibleToMember,
+  PROOF_REVIEW_ROLES,
+  REWARD_REVIEW_ROLES,
+} from '@/lib/notifications/audience';
 import { registerForPushNotifications, scheduleLocalReminder } from '@/lib/notifications/push';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
 import { persistHouseholdScore } from '@/lib/momentum/score-writer';
 import { subscribeHouseholdRealtime } from '@/lib/realtime/household-realtime';
 import { spawnNextOccurrence } from '@/lib/tasks/recurring';
-import { resolveCompletionXp } from '@/lib/tasks/xp';
+import {
+  allSharesCompleted,
+  allSharesSettled,
+  getShare,
+  getTaskAssignees,
+  isSplitTask,
+  splitAllDoneBonus,
+  splitPenaltyAmount,
+  splitShareXp,
+  taskMatchesAssignee,
+} from '@/lib/tasks/split-assign';
+import { splitOpenTasksBetweenTwo } from '@/lib/tasks/split-between';
+import { isOpenTask, isSameTaskSeries } from '@/lib/tasks/cancel';
+import { isTaskLate, resolveCompletionXp } from '@/lib/tasks/xp';
+import {
+  canPromoteToAdmin,
+  resolveSplitPair,
+} from '@/lib/household/admins';
+import { isSharedDeviceRole } from '@/lib/household/shared-device';
+import {
+  resolveMemberCapabilities,
+} from '@/lib/member-capabilities';
 import {
   authRepository,
   calendarRepository,
@@ -37,17 +70,42 @@ import {
 } from '@/constants/accent-themes';
 import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
 import { loadNovaNotificationPrefs, saveNovaNotificationPrefs } from '@/lib/nova/prefs-store';
-import { loadAccentThemeId, saveAccentThemeId } from '@/lib/theme/accent-prefs';
+import {
+  applyStoredMemberThemes,
+  loadAccentThemeId,
+  saveAccentThemeId,
+  saveMemberAccentThemeId,
+} from '@/lib/theme/accent-prefs';
+import {
+  loadAppearanceMode,
+  loadBackgroundThemeId,
+  loadPreferredMapsApp,
+  resolveOrbitPalette,
+  saveAppearanceMode,
+  saveBackgroundThemeId,
+  savePreferredMapsApp,
+  type AppearanceMode,
+  type PreferredMapsApp,
+} from '@/lib/theme/appearance-prefs';
+import {
+  DEFAULT_BACKGROUND_THEME_ID,
+  type BackgroundThemeId,
+} from '@/constants/background-themes';
+import type { OrbitColorPalette } from '@/constants/orbit-theme';
+import { openDirections, openMultiStopRoute } from '@/lib/maps/directions';
 import { DEFAULT_NOVA_NOTIFICATION_PREFS, novaNotifications } from '@/services/nova-notifications';
 import { runMonitorPass } from '@/services/nova-monitor';
 import { novaService, suggestedNovaQuestions } from '@/services/nova-service';
 import type {
   AuthSession,
+  CancelTaskScope,
   CreateEventInput,
   CreateGroceryInput,
   CreateHouseholdInput,
   CreateItineraryInput,
   CreateProfileInput,
+  AllowanceGrant,
+  CreateAllowanceInput,
   CreateRewardInput,
   CreateTaskInput,
   HouseholdEvent,
@@ -59,6 +117,7 @@ import type {
   InviteLinks,
   Itinerary,
   JoinHouseholdInput,
+  MemberCapabilities,
   MemberProgress,
   NotificationItem,
   NovaBriefing,
@@ -71,6 +130,7 @@ import type {
   OrbitMetrics,
   PreferredStore,
   RewardRedemption,
+  SavedPlace,
   SignInInput,
   SignUpInput,
   SmartHomeDevice,
@@ -103,6 +163,10 @@ type OrbitContextValue = {
   notifications: NotificationItem[];
   unreadNotificationCount: number;
   pendingRedemptions: RewardRedemption[];
+  /** Full redeem ledger (pending + decided) for the tally subpage. */
+  redemptions: RewardRedemption[];
+  allowances: AllowanceGrant[];
+  pendingAllowances: AllowanceGrant[];
   smartHomeDevices: SmartHomeDevice[];
   smartHomeScenes: SmartHomeScene[];
   storeRecommendations: StoreRecommendation[];
@@ -118,10 +182,30 @@ type OrbitContextValue = {
   createTask: (input: CreateTaskInput) => void;
   updateTask: (task: HouseholdTask) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
-  completeTask: (taskId: string) => Promise<{ awarded: number; penalty: number; late: boolean } | null>;
-  submitTaskProof: (taskId: string, proofUri: string) => Promise<void>;
-  approveTaskProof: (taskId: string) => Promise<void>;
+  completeTask: (
+    taskId: string,
+    options?: { forAssignee?: string }
+  ) => Promise<{
+    awarded: number;
+    penalty: number;
+    late: boolean;
+    bonus?: number;
+    /** Proof should be attached after this completion (preset / create flag). */
+    needsProof?: boolean;
+  } | null>;
+  submitTaskProof: (taskId: string, proofUri: string, options?: { forAssignee?: string }) => Promise<void>;
+  approveTaskProof: (taskId: string, options?: { forAssignee?: string }) => Promise<void>;
+  /** Admin: dock XP from someone who did not finish their share of a split task. */
+  penalizeSplitAssignee: (taskId: string, assigneeName: string) => Promise<number | null>;
+  /** Reassign overdue / unfinished work — new assignee earns XP on complete. */
+  reassignTask: (taskId: string, newAssigneeName: string) => Promise<void>;
+  /** Award daily streak once when today's tasks are all done. */
+  awardDailyStreak: () => Promise<number | null>;
   deleteTask: (taskId: string) => Promise<void>;
+  /** Admin-only soft cancel (keeps history). `future` also stops the recurring series. */
+  cancelTask: (taskId: string, scope?: CancelTaskScope) => Promise<void>;
+  /** Evenly reassign every open task between the two family admins (or two chosen members). */
+  splitAllTasksBetweenTwo: (nameA?: string, nameB?: string) => Promise<void>;
   addMissingGrocery: (input: CreateGroceryInput) => void;
   setPreferredStore: (storeId: string) => void;
   preferredStore: PreferredStore;
@@ -134,7 +218,11 @@ type OrbitContextValue = {
   deleteEvent: (eventId: string) => Promise<void>;
   remindAboutEvent: (eventId: string) => Promise<void>;
   createItinerary: (input: CreateItineraryInput) => Promise<Itinerary | null>;
-  suggestNovaItinerary: () => Promise<Itinerary | null>;
+  suggestNovaItinerary: (options?: {
+    date?: string;
+    mode?: 'efficient' | 'spread';
+    eventIds?: string[];
+  }) => Promise<Itinerary | null>;
   advanceItineraryStop: (itineraryId: string, stopId: string) => Promise<void>;
   openStopInMaps: (itineraryId: string, stopId: string) => Promise<void>;
   reorderItineraryStops: (itineraryId: string, stopIds: string[]) => Promise<void>;
@@ -152,21 +240,67 @@ type OrbitContextValue = {
     category: NotificationItem['category'];
     priority?: NotificationItem['priority'];
     data?: Record<string, unknown>;
+    /** When set, notification is attributed to this user (e.g. admin inbox). */
+    userId?: string | null;
   }) => Promise<NotificationItem | null>;
   updateNotificationPrefs: (prefs: Partial<NovaNotificationPrefs>) => void;
+  updateMemberCapabilities: (prefs: Partial<MemberCapabilities>) => void;
+  /** Updates the current member’s personal look (follows persona switches). */
   updateAccentTheme: (themeId: AccentThemeId) => void;
+  /** Owner/admin: household fallback theme for members without a personal pick. */
+  updateHouseholdAccentTheme: (themeId: AccentThemeId) => void;
   accentTheme: AccentTheme;
+  appearanceMode: AppearanceMode;
+  updateAppearanceMode: (mode: AppearanceMode) => void;
+  backgroundThemeId: BackgroundThemeId;
+  updateBackgroundTheme: (themeId: BackgroundThemeId) => void;
+  /** Resolved surface palette (light/dark + background pack). */
+  orbitPalette: OrbitColorPalette & { isDark: boolean };
+  preferredMapsApp: PreferredMapsApp;
+  updatePreferredMapsApp: (app: PreferredMapsApp) => void;
+  openFullItineraryInMaps: (itineraryId: string) => Promise<void>;
+  toggleItineraryFavorite: (itineraryId: string) => Promise<void>;
+  rerunItinerary: (itineraryId: string) => Promise<Itinerary | null>;
+  upsertSavedPlace: (place: SavedPlace) => void;
+  removeSavedPlace: (placeId: string) => void;
   updateMemberAvatar: (memberId: string, avatar: string) => Promise<void>;
   upsertRoom: (room: HouseholdRoom) => void;
   removeRoom: (roomId: string) => void;
   runNovaMonitor: () => Promise<NovaMonitorAction[]>;
   requestRewardRedemption: (rewardId: string, note?: string) => Promise<void>;
+  /** Hold-to-claim: Instant spends XP now; Approval submits a pending request. */
+  claimReward: (rewardId: string) => Promise<'claimed' | 'requested' | null>;
   requestSpecialReward: (title: string, note?: string, cost?: number) => Promise<void>;
   createReward: (input: CreateRewardInput) => Promise<void>;
   archiveReward: (rewardId: string) => Promise<void>;
   approveRedemption: (redemptionId: string) => Promise<void>;
   rejectRedemption: (redemptionId: string) => Promise<void>;
+  /** Admin: grant allowance to a member instantly. */
+  grantAllowance: (input: Omit<CreateAllowanceInput, 'kind'>) => Promise<AllowanceGrant | null>;
+  /** Member (or admin testing): request an allowance for approval. */
+  requestAllowance: (input: Omit<CreateAllowanceInput, 'kind' | 'memberId' | 'memberName'>) => Promise<AllowanceGrant | null>;
+  approveAllowance: (allowanceId: string) => Promise<void>;
+  rejectAllowance: (allowanceId: string) => Promise<void>;
   updateMemberRole: (memberId: string, role: HouseholdRole) => Promise<void>;
+  /** Create a shared-device profile (phone/tablet) that multiple people can use. */
+  createSharedDevice: (name?: string) => Promise<HouseholdMember | null>;
+  /** Link / unlink household people on a shared-device profile. */
+  updateSharedDeviceLinks: (deviceId: string, memberIds: string[]) => Promise<void>;
+  /**
+   * Admin creates 1–2 kid profiles (no child email). Invites are AirDrop/shareable.
+   * Household data stays on the admin account.
+   */
+  createChildInvites: (names: string[]) => Promise<HouseholdMember[]>;
+  /** Child device: redeem invite code / QR with no sign-up. */
+  redeemChildInvite: (rawCode: string) => Promise<HouseholdMember>;
+  /**
+   * Shared / tablet onboarding: host one or more profile invite codes (AirDrop/QR)
+   * with no email on the tablet. Admin account remains the data owner.
+   */
+  connectSharedTabletProfiles: (
+    rawCodes: string[],
+    deviceLabel?: string,
+  ) => Promise<{ members: HouseholdMember[]; needsProfilePick: boolean }>;
   removeMember: (memberId: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   exportUserData: () => Promise<string>;
@@ -187,6 +321,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [pendingRedemptions, setPendingRedemptions] = useState<RewardRedemption[]>([]);
+  const [redemptions, setRedemptions] = useState<RewardRedemption[]>([]);
+  const [allowances, setAllowances] = useState<AllowanceGrant[]>([]);
+  const pendingAllowances = useMemo(
+    () => allowances.filter((item) => item.status === 'pending'),
+    [allowances]
+  );
   const [smartHomeDevices, setSmartHomeDevices] = useState<SmartHomeDevice[]>([]);
   const [smartHomeScenes, setSmartHomeScenes] = useState<SmartHomeScene[]>([]);
   const [storeRecommendations, setStoreRecommendations] = useState<StoreRecommendation[]>([]);
@@ -194,6 +334,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
   const [novaAskCount, setNovaAskCount] = useState(0);
   const [novaConversation, setNovaConversation] = useState<NovaChatMessage[]>([]);
+  const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>('dark');
+  const [backgroundThemeId, setBackgroundThemeId] = useState<BackgroundThemeId>(
+    DEFAULT_BACKGROUND_THEME_ID
+  );
+  const [preferredMapsApp, setPreferredMapsApp] = useState<PreferredMapsApp>('auto');
   const initialMetrics = useMemo(() => calculateMetrics(mockHousehold), []);
   const [novaWeeklyBriefing, setNovaWeeklyBriefing] = useState<NovaWeeklyBriefing>(() =>
     novaService.generateWeeklyBriefing(mockHousehold, initialMetrics)
@@ -228,9 +373,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     [household, novaAskCount, currentMember?.name]
   );
   const novaBriefing = useMemo(() => household.nova, [household.nova]);
+  const visibleNotifications = useMemo(
+    () =>
+      notifications.filter((item) =>
+        isNotificationVisibleToMember(
+          item,
+          currentMember ? { id: currentMember.id, role: currentMember.role } : null
+        )
+      ),
+    [currentMember?.id, currentMember?.role, notifications]
+  );
   const unreadNotificationCount = useMemo(
-    () => notifications.filter((item) => !item.isRead).length,
-    [notifications]
+    () => visibleNotifications.filter((item) => !item.isRead).length,
+    [visibleNotifications]
   );
 
   const analyticsContext = useMemo(
@@ -281,9 +436,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setHousehold(hydratedHousehold);
     await Promise.all([
       notificationsRepository.list(hydratedHousehold.id).then(setNotifications),
-      rewardsRepository.getRedemptions(hydratedHousehold.id).then((items) =>
-        setPendingRedemptions(items.filter((item) => item.status === 'pending'))
-      ),
+      rewardsRepository.getRedemptions(hydratedHousehold.id).then((items) => {
+        setRedemptions(items);
+        setPendingRedemptions(items.filter((item) => item.status === 'pending'));
+      }),
+      rewardsRepository.getAllowances(hydratedHousehold.id).then(setAllowances),
       smartHomeRepository.listDevices(hydratedHousehold.id).then(setSmartHomeDevices),
       smartHomeRepository.listScenes(hydratedHousehold.id).then(setSmartHomeScenes),
     ]);
@@ -298,15 +455,33 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
       if (!session) {
         if (isMounted) {
-          const [prefs, themeId] = await Promise.all([
-            loadNovaNotificationPrefs(mockHousehold.id),
-            loadAccentThemeId(mockHousehold.id),
-          ]);
+          const [prefs, themeId, savedRooms, avatarOverrides, appearance, bgTheme, mapsApp] =
+            await Promise.all([
+              loadNovaNotificationPrefs(mockHousehold.id),
+              loadAccentThemeId(mockHousehold.id),
+              loadHouseholdRooms(mockHousehold.id),
+              loadMemberAvatarOverrides(mockHousehold.id),
+              loadAppearanceMode(),
+              loadBackgroundThemeId(mockHousehold.id),
+              loadPreferredMapsApp(),
+            ]);
+          setAppearanceMode(appearance);
+          setBackgroundThemeId(bgTheme);
+          setPreferredMapsApp(mapsApp);
+          const withAvatars = mockHousehold.members.map((member) =>
+            avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
+          );
+          const themedMembers = await applyStoredMemberThemes(mockHousehold.id, withAvatars);
           setHousehold((current) => ({
             ...current,
             notificationPrefs: prefs,
             accentThemeId: themeId,
-            rooms: current.rooms?.length ? current.rooms : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
+            rooms: savedRooms?.length
+              ? savedRooms
+              : current.rooms?.length
+                ? current.rooms
+                : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
+            members: themedMembers.length ? themedMembers : current.members,
           }));
           setStoreRecommendations(buildStoreRecommendations(mockHousehold.id, mockHousehold.groceries));
           const items = await notificationsRepository.list(mockHousehold.id);
@@ -334,28 +509,51 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
 
       if (isMounted) {
-        const [prefs, themeId] = await Promise.all([
-          loadNovaNotificationPrefs(hydratedHousehold.id),
-          loadAccentThemeId(hydratedHousehold.id),
-        ]);
+        const [prefs, themeId, appearance, bgTheme, mapsApp, storedMemberId, mockStored] =
+          await Promise.all([
+            loadNovaNotificationPrefs(hydratedHousehold.id),
+            loadAccentThemeId(hydratedHousehold.id),
+            loadAppearanceMode(),
+            loadBackgroundThemeId(hydratedHousehold.id, session.user.id),
+            loadPreferredMapsApp(),
+            loadActiveMemberId(),
+            dataMode === 'mock' ? loadMockSession() : Promise.resolve(null),
+          ]);
+        setAppearanceMode(appearance);
+        setBackgroundThemeId(bgTheme);
+        setPreferredMapsApp(mapsApp);
         setCurrentUser(session.user);
         setHousehold({
           ...hydratedHousehold,
+          greetingName: session.user.name || hydratedHousehold.greetingName,
           notificationPrefs: prefs,
           accentThemeId: themeId,
           rooms: hydratedHousehold.rooms?.length
             ? hydratedHousehold.rooms
             : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
         });
+        const resumeMemberId =
+          mockStored?.activeMemberId ||
+          storedMemberId ||
+          hydratedHousehold.members.find(
+            (member) =>
+              member.status === 'active' &&
+              member.name.toLowerCase() === session.user.name.toLowerCase(),
+          )?.id ||
+          null;
+        if (resumeMemberId) {
+          setActiveMemberId(resumeMemberId);
+        }
         const history = await novaRepository.getConversationHistory(
           hydratedHousehold.id,
           session.user.id
         );
         setNovaConversation(history);
         setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
-        const [items, redemptions, devices, scenes, links] = await Promise.all([
+        const [items, redemptions, allowanceItems, devices, scenes, links] = await Promise.all([
           notificationsRepository.list(hydratedHousehold.id),
           rewardsRepository.getRedemptions(hydratedHousehold.id),
+          rewardsRepository.getAllowances(hydratedHousehold.id),
           smartHomeRepository.listDevices(hydratedHousehold.id),
           smartHomeRepository.listScenes(hydratedHousehold.id),
           hydratedHousehold.id
@@ -363,7 +561,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             : Promise.resolve(null),
         ]);
         setNotifications(items);
+        setRedemptions(redemptions);
         setPendingRedemptions(redemptions.filter((item) => item.status === 'pending'));
+        setAllowances(allowanceItems);
         setSmartHomeDevices(devices);
         setSmartHomeScenes(scenes);
         if (links) {
@@ -409,20 +609,24 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
 
     setCurrentUser(session.user);
+    await authRepository.persistLocalSession(session.user);
     setHousehold(hydratedHousehold);
     await trackAnalytics(
       'auth.session_hydrate',
       { email: session.user.email },
       { householdId: hydratedHousehold.id, userId: session.user.id }
     );
-    const [items, redemptions, devices, scenes] = await Promise.all([
+    const [items, redemptions, allowanceItems, devices, scenes] = await Promise.all([
       notificationsRepository.list(hydratedHousehold.id),
       rewardsRepository.getRedemptions(hydratedHousehold.id),
+      rewardsRepository.getAllowances(hydratedHousehold.id),
       smartHomeRepository.listDevices(hydratedHousehold.id),
       smartHomeRepository.listScenes(hydratedHousehold.id),
     ]);
     setNotifications(items);
+    setRedemptions(redemptions);
     setPendingRedemptions(redemptions.filter((item) => item.status === 'pending'));
+    setAllowances(allowanceItems);
     setSmartHomeDevices(devices);
     setSmartHomeScenes(scenes);
     setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
@@ -470,15 +674,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     const createdHousehold = await householdRepository.createHousehold(input, currentUser);
+    const rooms =
+      input.rooms && input.rooms.length > 0
+        ? input.rooms.map((room) => ({ ...room }))
+        : createdHousehold.rooms?.length
+          ? createdHousehold.rooms
+          : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room }));
     setHousehold({
       ...createdHousehold,
-      rooms:
-        input.rooms && input.rooms.length > 0
-          ? input.rooms.map((room) => ({ ...room }))
-          : createdHousehold.rooms?.length
-            ? createdHousehold.rooms
-            : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
+      rooms,
     });
+    void saveHouseholdRooms(createdHousehold.id, rooms);
     if (createdHousehold.id) {
       const links = createdHousehold.inviteCode
         ? buildInviteLinks(createdHousehold.inviteCode)
@@ -520,7 +726,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setCurrentUser(null);
     setHousehold(mockHousehold);
     setPendingRedemptions([]);
+    setRedemptions([]);
     setInviteLinks(null);
+    setActiveMemberId(null);
+    void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
+      markNeedsProfilePick()
+    );
   };
 
   const createTask = async (input: CreateTaskInput) => {
@@ -561,53 +772,238 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('task.updated', { taskId: updated.id }, analyticsContext);
   };
 
-  const submitTaskProof = async (taskId: string, proofUri: string) => {
+  const submitTaskProof = async (
+    taskId: string,
+    proofUri: string,
+    options?: { forAssignee?: string }
+  ) => {
     const currentTask = household.tasks.find((item) => item.id === taskId);
     if (!currentTask) {
       return;
     }
-    const updated = await taskRepository.updateTask({
-      ...currentTask,
-      proofUri,
-      proofStatus: 'submitted',
-    });
+
+    const forAssignee =
+      options?.forAssignee?.trim() ||
+      (isSplitTask(currentTask) ? currentMember?.name : undefined) ||
+      currentTask.assignee;
+
+    let updated: HouseholdTask;
+    if (isSplitTask(currentTask) && currentTask.shares) {
+      updated = await taskRepository.updateTask({
+        ...currentTask,
+        shares: currentTask.shares.map((share) =>
+          share.name === forAssignee
+            ? { ...share, proofUri, proofStatus: 'submitted' }
+            : share
+        ),
+        status: currentTask.status === 'Pending' ? 'In Progress' : currentTask.status,
+      });
+    } else {
+      updated = await taskRepository.updateTask({
+        ...currentTask,
+        proofUri,
+        proofStatus: 'submitted',
+      });
+    }
+
     setHousehold((current) => ({
       ...current,
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
     const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    await novaNotifications.proofSubmitted(pushNotification, prefs, {
+    const created = await novaNotifications.proofSubmitted(pushNotification, prefs, {
       title: currentTask.title,
-      assignee: currentTask.assignee,
+      assignee: forAssignee,
       taskId,
+      proofUri,
+      audienceRoles: [...PROOF_REVIEW_ROLES],
     });
+    if (created) {
+      await scheduleLocalReminder(created.title, created.body, 2).catch((error) =>
+        console.warn('Proof admin reminder skipped', error)
+      );
+    }
+    await trackAnalytics('task.proof_submitted', { taskId, forAssignee }, analyticsContext);
   };
 
-  const approveTaskProof = async (taskId: string) => {
+  const approveTaskProof = async (taskId: string, options?: { forAssignee?: string }) => {
     const currentTask = household.tasks.find((item) => item.id === taskId);
     if (!currentTask) {
       return;
     }
-    const updated = await taskRepository.updateTask({
-      ...currentTask,
-      proofStatus: 'approved',
-    });
+
+    const forAssignee =
+      options?.forAssignee?.trim() ||
+      (isSplitTask(currentTask) ? currentMember?.name : undefined) ||
+      currentTask.assignee;
+
+    let updated: HouseholdTask;
+    if (isSplitTask(currentTask) && currentTask.shares) {
+      updated = await taskRepository.updateTask({
+        ...currentTask,
+        shares: currentTask.shares.map((share) =>
+          share.name === forAssignee ? { ...share, proofStatus: 'approved' } : share
+        ),
+      });
+    } else {
+      updated = await taskRepository.updateTask({
+        ...currentTask,
+        proofStatus: 'approved',
+      });
+    }
+
     setHousehold((current) => ({
       ...current,
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
+    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+    const assigneeMember = household.members.find((member) => member.name === forAssignee);
+    await novaNotifications.proofApproved(pushNotification, prefs, {
+      title: currentTask.title,
+      taskId,
+      audienceRoles: assigneeMember ? [assigneeMember.role] : undefined,
+    });
+    await trackAnalytics('task.proof_approved', { taskId, forAssignee }, analyticsContext);
   };
 
-  const completeTask = async (taskId: string) => {
+  const completeTask = async (taskId: string, options?: { forAssignee?: string }) => {
     const currentTask = household.tasks.find((item) => item.id === taskId);
 
-    if (!currentTask || currentTask.status === 'Completed') {
+    if (!currentTask || currentTask.status === 'Completed' || currentTask.status === 'Cancelled') {
       return null;
     }
 
-    if (currentTask.proofRequired && currentTask.proofStatus !== 'submitted' && currentTask.proofStatus !== 'approved') {
-      return null;
+    // --- Split task: one person's share ---
+    if (isSplitTask(currentTask) && currentTask.shares) {
+      const forAssignee = options?.forAssignee?.trim() || currentMember?.name;
+      if (!forAssignee || !taskMatchesAssignee(currentTask, forAssignee)) {
+        return null;
+      }
+      const share = getShare(currentTask, forAssignee);
+      if (!share || share.status !== 'Pending') {
+        return null;
+      }
+      const needsProof =
+        Boolean(currentTask.proofRequired) &&
+        share.proofStatus !== 'submitted' &&
+        share.proofStatus !== 'approved';
+
+      const late = isTaskLate(currentTask);
+      const baseShare = splitShareXp(currentTask);
+      const latePenalty = late ? Math.floor(baseShare * 0.25) : 0;
+      const awarded = Math.max(0, baseShare - latePenalty);
+
+      const nextShares = currentTask.shares.map((item) =>
+        item.name === forAssignee
+          ? { ...item, status: 'Completed' as const, awardedXp: awarded }
+          : item
+      );
+      const draft: HouseholdTask = { ...currentTask, shares: nextShares };
+      const everyoneDone = allSharesCompleted(draft);
+      const settled = allSharesSettled(draft);
+      const bonus = everyoneDone ? splitAllDoneBonus(currentTask) : 0;
+
+      let nextTask: HouseholdTask = {
+        ...draft,
+        status: settled || everyoneDone ? 'Completed' : 'In Progress',
+      };
+
+      // Apply all-finish bonus onto each completed share
+      if (everyoneDone && bonus > 0) {
+        nextTask = {
+          ...nextTask,
+          shares: nextTask.shares?.map((item) =>
+            item.status === 'Completed'
+              ? { ...item, awardedXp: (item.awardedXp ?? 0) + bonus }
+              : item
+          ),
+        };
+      }
+
+      const saved = await taskRepository.updateTask(nextTask);
+
+      let nextOccurrence: HouseholdTask | null = null;
+      if (saved.status === 'Completed') {
+        const spawned = spawnNextOccurrence(currentTask);
+        if (spawned) {
+          nextOccurrence = await taskRepository.createTask(household.id, {
+            title: spawned.title,
+            description: spawned.description,
+            category: spawned.category,
+            assignee: getTaskAssignees(spawned)[0] ?? spawned.assignee,
+            assignees: isSplitTask(spawned) ? getTaskAssignees(spawned) : undefined,
+            due: spawned.due,
+            xp: spawned.xp,
+            repeat: spawned.repeat,
+            weight: spawned.weight,
+            difficulty: spawned.difficulty,
+            tracking: spawned.tracking,
+            proofRequired: spawned.proofRequired,
+            roomId: spawned.roomId,
+            splitXpEach: spawned.splitXpEach,
+            splitBonusXp: spawned.splitBonusXp,
+            splitPenaltyXp: spawned.splitPenaltyXp,
+          });
+        }
+      }
+
+      setHousehold((current) => {
+        const tasks = current.tasks.map((item) => (item.id === taskId ? saved : item));
+        const members = current.members.map((member) => {
+          if (member.name === forAssignee) {
+            return {
+              ...member,
+              xp: member.xp + awarded + (everyoneDone ? bonus : 0),
+              weekXp: (member.weekXp ?? 0) + awarded + (everyoneDone ? bonus : 0),
+              streak: member.streak ?? 0,
+            };
+          }
+          // When the last person finishes, give bonus to earlier completers too
+          if (everyoneDone && bonus > 0 && nextShares.some((s) => s.name === member.name && s.status === 'Completed' && s.name !== forAssignee)) {
+            return {
+              ...member,
+              xp: member.xp + bonus,
+              weekXp: (member.weekXp ?? 0) + bonus,
+            };
+          }
+          return member;
+        });
+        return {
+          ...current,
+          members,
+          tasks: nextOccurrence ? [nextOccurrence, ...tasks] : tasks,
+        };
+      });
+
+      const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+      await novaNotifications.taskCompleted(pushNotification, prefs, {
+        title: currentTask.title,
+        assignee: forAssignee,
+        awardedXp: awarded + (everyoneDone ? bonus : 0),
+        penalty: latePenalty,
+        late,
+        taskId,
+      });
+      await trackAnalytics(
+        'task.share_completed',
+        { taskId, forAssignee, awarded, bonus, everyoneDone, needsProof },
+        analyticsContext
+      );
+      return {
+        awarded,
+        penalty: latePenalty,
+        late,
+        bonus: everyoneDone ? bonus : 0,
+        needsProof,
+      };
     }
+
+    // --- Single-assignee task ---
+    // Proof is requested after complete when the create/preset flag is set — never a pre-gate.
+    const needsProof =
+      Boolean(currentTask.proofRequired) &&
+      currentTask.proofStatus !== 'submitted' &&
+      currentTask.proofStatus !== 'approved';
 
     const { awarded, penalty, late } = resolveCompletionXp(currentTask);
     const completedTask = await taskRepository.completeTask(currentTask, household.id);
@@ -618,12 +1014,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         title: spawned.title,
         description: spawned.description,
         category: spawned.category,
-        assignee: spawned.assignee,
+        assignee: getTaskAssignees(spawned)[0] ?? spawned.assignee,
+        assignees: isSplitTask(spawned) ? getTaskAssignees(spawned) : undefined,
         due: spawned.due,
         xp: spawned.xp,
         repeat: spawned.repeat,
         weight: spawned.weight,
         difficulty: spawned.difficulty,
+        tracking: spawned.tracking,
         proofRequired: spawned.proofRequired,
         roomId: spawned.roomId,
       });
@@ -645,7 +1043,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
                 ...member,
                 xp: member.xp + awarded,
                 weekXp: (member.weekXp ?? 0) + awarded,
-                streak: late ? member.streak ?? 0 : (member.streak ?? 0) + 1,
+                streak: member.streak ?? 0,
               }
             : member
         ),
@@ -667,8 +1065,114 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       tasks: household.tasks.map((item) => (item.id === taskId ? completedTask : item)),
     });
     await persistHouseholdScore(household.id, nextMetrics);
-    await trackAnalytics('task.completed', { taskId, awarded, late }, analyticsContext);
-    return { awarded, penalty, late };
+    await trackAnalytics(
+      'task.completed',
+      { taskId, awarded, late, needsProof },
+      analyticsContext
+    );
+    return { awarded, penalty, late, needsProof };
+  };
+
+  const penalizeSplitAssignee = async (taskId: string, assigneeName: string) => {
+    if (!permissions.canManageHousehold) {
+      return null;
+    }
+    const currentTask = household.tasks.find((item) => item.id === taskId);
+    if (!currentTask || !isSplitTask(currentTask) || !currentTask.shares) {
+      return null;
+    }
+    const share = getShare(currentTask, assigneeName);
+    if (!share || share.status !== 'Pending') {
+      return null;
+    }
+
+    const dock = splitPenaltyAmount(currentTask);
+    const nextShares = currentTask.shares.map((item) =>
+      item.name === assigneeName
+        ? { ...item, status: 'Penalized' as const, penalizedXp: dock }
+        : item
+    );
+    const draft: HouseholdTask = { ...currentTask, shares: nextShares };
+    const settled = allSharesSettled(draft);
+    const saved = await taskRepository.updateTask({
+      ...draft,
+      status: settled ? 'Completed' : currentTask.status === 'Pending' ? 'In Progress' : currentTask.status,
+    });
+
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((member) =>
+        member.name === assigneeName
+          ? {
+              ...member,
+              xp: Math.max(0, member.xp - dock),
+              weekXp: Math.max(0, (member.weekXp ?? 0) - dock),
+            }
+          : member
+      ),
+      tasks: current.tasks.map((item) => (item.id === taskId ? saved : item)),
+    }));
+
+    await pushNotification({
+      title: 'Split task · penalty',
+      body: `${assigneeName} was docked ${dock} XP for not finishing “${currentTask.title}”.`,
+      category: 'tasks',
+      priority: 'medium',
+      data: { kind: 'split_penalty', taskId, assigneeName, dock },
+    });
+    await trackAnalytics('task.share_penalized', { taskId, assigneeName, dock }, analyticsContext);
+    return dock;
+  };
+
+  const reassignTask = async (taskId: string, newAssigneeName: string) => {
+    const currentTask = household.tasks.find((item) => item.id === taskId);
+    if (!currentTask || currentTask.status === 'Completed' || currentTask.status === 'Cancelled') {
+      return;
+    }
+    const trimmed = newAssigneeName.trim();
+    if (!trimmed) return;
+
+    const nextTask: HouseholdTask = {
+      ...currentTask,
+      assignee: trimmed,
+      assignees: [trimmed],
+      shares: undefined,
+      splitXpEach: undefined,
+      splitBonusXp: undefined,
+      splitPenaltyXp: undefined,
+    };
+    const saved = await taskRepository.updateTask(nextTask);
+    setHousehold((current) => ({
+      ...current,
+      tasks: current.tasks.map((item) => (item.id === taskId ? saved : item)),
+    }));
+    await pushNotification({
+      title: 'Task reassigned',
+      body: `“${currentTask.title}” is now assigned to ${trimmed}. They earn the XP when finished.`,
+      category: 'tasks',
+      priority: 'medium',
+      data: { kind: 'task_reassigned', taskId, assignee: trimmed },
+    });
+    await trackAnalytics('task.reassigned', { taskId, assignee: trimmed }, analyticsContext);
+  };
+
+  const awardDailyStreak = async () => {
+    if (!currentMember || !household.id) return null;
+    const { awardDailyStreakIfNeeded } = await import('@/lib/streaks/daily-streak');
+    const result = await awardDailyStreakIfNeeded({
+      householdId: household.id,
+      memberId: currentMember.id,
+      currentStreak: currentMember.streak ?? 0,
+    });
+    if (!result.awarded) return null;
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((member) =>
+        member.id === currentMember.id ? { ...member, streak: result.streak } : member
+      ),
+    }));
+    await trackAnalytics('streak.daily_awarded', { streak: result.streak }, analyticsContext);
+    return result.streak;
   };
 
   const deleteTask = async (taskId: string) => {
@@ -680,7 +1184,89 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('task.deleted', { taskId }, analyticsContext);
   };
 
+  const cancelTask = async (taskId: string, scope: CancelTaskScope = 'this') => {
+    if (!permissions.canManageHousehold) {
+      return;
+    }
+    const currentTask = household.tasks.find((item) => item.id === taskId);
+    if (!currentTask || currentTask.status === 'Completed' || currentTask.status === 'Cancelled') {
+      return;
+    }
+
+    const cancelled = await taskRepository.updateTask({
+      ...currentTask,
+      status: 'Cancelled',
+      // Stopping the series: clear repeat so nothing new spawns from this row.
+      repeat: scope === 'future' ? 'None' : currentTask.repeat,
+      due:
+        scope === 'future' && currentTask.repeat !== 'None'
+          ? 'Cancelled · series stopped'
+          : 'Cancelled',
+    });
+
+    let nextTasks = household.tasks.map((item) => (item.id === taskId ? cancelled : item));
+
+    if (scope === 'future' && currentTask.repeat !== 'None') {
+      const siblings = nextTasks.filter(
+        (item) =>
+          item.id !== taskId &&
+          isSameTaskSeries(item, currentTask) &&
+          isOpenTask(item)
+      );
+      for (const sibling of siblings) {
+        const updated = await taskRepository.updateTask({
+          ...sibling,
+          status: 'Cancelled',
+          repeat: 'None',
+          due: 'Cancelled · series stopped',
+        });
+        nextTasks = nextTasks.map((item) => (item.id === sibling.id ? updated : item));
+      }
+    }
+
+    if (scope === 'this' && currentTask.repeat !== 'None') {
+      const spawned = spawnNextOccurrence({ ...currentTask, status: 'Pending' });
+      if (spawned) {
+        const nextOccurrence = await taskRepository.createTask(household.id, {
+          title: spawned.title,
+          description: spawned.description,
+          category: spawned.category,
+          assignee: spawned.assignee,
+          due: spawned.due,
+          xp: spawned.xp,
+          weight: spawned.weight,
+          difficulty: spawned.difficulty,
+          proofRequired: spawned.proofRequired,
+          repeat: spawned.repeat,
+          roomId: spawned.roomId,
+        });
+        nextTasks = [nextOccurrence, ...nextTasks];
+      }
+    }
+
+    setHousehold((current) => ({ ...current, tasks: nextTasks }));
+    await pushNotification({
+      title: 'Nova · Task cancelled',
+      body:
+        scope === 'future' && currentTask.repeat !== 'None'
+          ? `${currentTask.title} cancelled for this and all future occurrences.`
+          : `${currentTask.title} cancelled${currentTask.status === 'Overdue' ? ' (was overdue)' : ''}.`,
+      category: 'tasks',
+      priority: 'medium',
+      data: { taskId, kind: 'task_cancelled', scope },
+    });
+    await trackAnalytics('task.cancelled', { taskId, scope }, analyticsContext);
+  };
+
   const addMissingGrocery = async (input: CreateGroceryInput) => {
+    const caps = resolveMemberCapabilities(household);
+    const canAdd =
+      permissions.canManageGroceries ||
+      caps.allowGroceryAdd ||
+      (currentMember?.role === 'child' && (currentMember?.xp ?? 0) >= CHILD_GROCERY_WISHLIST_XP);
+    if (!canAdd) {
+      return;
+    }
     const grocery = await groceryRepository.addGroceryItem(household.id, {
       ...input,
       storeId: input.storeId ?? household.preferredStoreId,
@@ -763,10 +1349,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     category: NotificationItem['category'];
     priority?: NotificationItem['priority'];
     data?: Record<string, unknown>;
+    userId?: string | null;
   }) => {
     if (!household.id) {
       return null;
     }
+
+    const audienceRoles = input.data?.audienceRoles;
+    const isAdminAudience =
+      Array.isArray(audienceRoles) &&
+      audienceRoles.some((role) => role === 'owner' || role === 'admin' || role === 'adult');
+
+    // Admin-targeted notes stay household-scoped (null user) so they are not
+    // attributed to the child/submitter in Supabase mode.
+    const targetUserId = input.userId !== undefined ? input.userId : isAdminAudience ? null : currentUser?.id;
 
     const item = await notificationsRepository.create({
       householdId: household.id,
@@ -775,13 +1371,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       category: input.category,
       priority: input.priority,
       data: input.data,
-      userId: currentUser?.id,
+      userId: targetUserId,
     });
     setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
     return item;
   };
 
   const createEvent = async (input: CreateEventInput) => {
+    const caps = resolveMemberCapabilities(household);
+    if (!permissions.canManageHousehold && !caps.allowCalendarCreate) {
+      return;
+    }
     const event = await calendarRepository.createEvent(household.id, input);
     setHousehold((current) => ({
       ...current,
@@ -854,8 +1454,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return itinerary;
   };
 
-  const suggestNovaItinerary = async () => {
-    const suggestion = suggestItineraryFromHousehold(household);
+  const suggestNovaItinerary = async (options?: {
+    date?: string;
+    mode?: 'efficient' | 'spread';
+    eventIds?: string[];
+  }) => {
+    const suggestion = suggestItineraryFromHousehold(household, options);
     return createItinerary(suggestion);
   };
 
@@ -883,8 +1487,21 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (nextActive) {
       const previous = ordered.find((item) => item.id === stopId);
       await openDirections(
-        previous ? { address: previous.address, placeQuery: previous.placeQuery } : undefined,
-        { address: nextActive.address, placeQuery: nextActive.placeQuery }
+        previous
+          ? {
+              address: previous.address,
+              placeQuery: previous.placeQuery,
+              lat: previous.lat,
+              lng: previous.lng,
+            }
+          : undefined,
+        {
+          address: nextActive.address,
+          placeQuery: nextActive.placeQuery,
+          lat: nextActive.lat,
+          lng: nextActive.lng,
+        },
+        preferredMapsApp
       );
     }
     await trackAnalytics('itinerary.stop_advanced', { itineraryId, stopId }, analyticsContext);
@@ -903,8 +1520,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     const from = index > 0 ? ordered[index - 1] : undefined;
     await openDirections(
-      from ? { address: from.address, placeQuery: from.placeQuery } : undefined,
-      { address: to.address, placeQuery: to.placeQuery }
+      from
+        ? { address: from.address, placeQuery: from.placeQuery, lat: from.lat, lng: from.lng }
+        : undefined,
+      { address: to.address, placeQuery: to.placeQuery, lat: to.lat, lng: to.lng },
+      preferredMapsApp
     );
   };
 
@@ -933,14 +1553,158 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
   };
 
+  const updateMemberCapabilities = (prefs: Partial<MemberCapabilities>) => {
+    if (!permissions.canManageHousehold) {
+      return;
+    }
+    setHousehold((current) => ({
+      ...current,
+      memberCapabilities: {
+        ...resolveMemberCapabilities(current),
+        ...prefs,
+      },
+    }));
+  };
+
   const accentTheme = useMemo(
-    () => getAccentTheme(household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID),
-    [household.accentThemeId]
+    () =>
+      getAccentTheme(
+        currentMember?.accentThemeId ?? household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID
+      ),
+    [currentMember?.accentThemeId, household.accentThemeId]
   );
 
   const updateAccentTheme = (themeId: AccentThemeId) => {
+    const memberId = currentMember?.id;
+    if (!memberId) {
+      setHousehold((current) => ({ ...current, accentThemeId: themeId }));
+      void saveAccentThemeId(household.id, themeId);
+      return;
+    }
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((member) =>
+        member.id === memberId ? { ...member, accentThemeId: themeId } : member
+      ),
+    }));
+    void saveMemberAccentThemeId(household.id, memberId, themeId);
+  };
+
+  const updateHouseholdAccentTheme = (themeId: AccentThemeId) => {
+    if (!permissions.canManageHousehold) {
+      return;
+    }
     setHousehold((current) => ({ ...current, accentThemeId: themeId }));
     void saveAccentThemeId(household.id, themeId);
+  };
+
+  const updateAppearanceMode = (mode: AppearanceMode) => {
+    setAppearanceMode(mode);
+    void saveAppearanceMode(mode);
+  };
+
+  const updateBackgroundTheme = (themeId: BackgroundThemeId) => {
+    setBackgroundThemeId(themeId);
+    void saveBackgroundThemeId(household.id, currentMember?.id, themeId);
+  };
+
+  const updatePreferredMapsApp = (app: PreferredMapsApp) => {
+    setPreferredMapsApp(app);
+    void savePreferredMapsApp(app);
+  };
+
+  const orbitPalette = useMemo(
+    () => resolveOrbitPalette(appearanceMode, backgroundThemeId),
+    [appearanceMode, backgroundThemeId]
+  );
+
+  const upsertSavedPlace = (place: SavedPlace) => {
+    setHousehold((current) => {
+      const places = current.savedPlaces ?? [];
+      const exists = places.some((item) => item.id === place.id);
+      return {
+        ...current,
+        savedPlaces: exists
+          ? places.map((item) => (item.id === place.id ? place : item))
+          : [...places, place],
+      };
+    });
+  };
+
+  const removeSavedPlace = (placeId: string) => {
+    setHousehold((current) => ({
+      ...current,
+      savedPlaces: (current.savedPlaces ?? []).filter((item) => item.id !== placeId),
+    }));
+  };
+
+  const toggleItineraryFavorite = async (itineraryId: string) => {
+    const itinerary = household.itineraries.find((item) => item.id === itineraryId);
+    if (!itinerary) return;
+    const next = { ...itinerary, favorite: !itinerary.favorite };
+    await itineraryRepository.update(next);
+    setHousehold((current) => {
+      const itineraries = current.itineraries.map((item) =>
+        item.id === itineraryId ? next : item
+      );
+      const favoriteIds = itineraries.filter((item) => item.favorite).map((item) => item.id);
+      void import('@/lib/itinerary/favorites-store').then(({ saveFavoriteItineraryIds }) =>
+        saveFavoriteItineraryIds(current.id, favoriteIds)
+      );
+      return { ...current, itineraries };
+    });
+  };
+
+  const rerunItinerary = async (itineraryId: string) => {
+    const source = household.itineraries.find((item) => item.id === itineraryId);
+    if (!source || !household.id) return null;
+    const input: CreateItineraryInput = {
+      title: source.title,
+      date: new Date().toISOString().slice(0, 10),
+      stops: source.stops.map((stop, index) => ({
+        label: stop.label,
+        kind: stop.kind,
+        address: stop.address,
+        placeQuery: stop.placeQuery,
+        lat: stop.lat,
+        lng: stop.lng,
+        eventId: stop.eventId,
+        groceryListId: stop.groceryListId,
+        etaMinutes: stop.etaMinutes,
+        sortOrder: index,
+        savedPlaceId: stop.savedPlaceId,
+      })),
+    };
+    const created = await itineraryRepository.create(household.id, input);
+    setHousehold((current) => ({
+      ...current,
+      itineraries: [created, ...current.itineraries],
+    }));
+    return created;
+  };
+
+  const openFullItineraryInMaps = async (itineraryId: string) => {
+    const itinerary = household.itineraries.find((item) => item.id === itineraryId);
+    if (!itinerary) return;
+    const stops = itinerary.stops
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((stop) => ({
+        address: stop.address,
+        placeQuery: stop.placeQuery,
+        lat: stop.lat,
+        lng: stop.lng,
+      }));
+    const result = await openMultiStopRoute(stops, preferredMapsApp);
+    if (result.sequentialOnly && result.app === 'waze') {
+      await pushNotification({
+        title: 'Waze · one stop at a time',
+        body: 'Waze opened the first stop. Use Arrived → next in Choremaxx for the rest.',
+        category: 'events',
+        priority: 'low',
+        data: { kind: 'waze_sequential', itineraryId },
+      });
+    }
   };
 
   const updateMemberAvatar = async (memberId: string, avatar: string) => {
@@ -953,6 +1717,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       members: current.members.map((item) => (item.id === memberId ? updated : item)),
     }));
+    void saveMemberAvatarOverride(household.id, memberId, avatar);
     if (currentUser?.name === member.name) {
       setCurrentUser((prev) => (prev ? { ...prev, avatar } : prev));
     }
@@ -962,20 +1727,26 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setHousehold((current) => {
       const rooms = current.rooms ?? [];
       const exists = rooms.some((item) => item.id === room.id);
+      const nextRooms = exists
+        ? rooms.map((item) => (item.id === room.id ? room : item))
+        : [...rooms, room];
+      void saveHouseholdRooms(current.id, nextRooms);
       return {
         ...current,
-        rooms: exists
-          ? rooms.map((item) => (item.id === room.id ? room : item))
-          : [...rooms, room],
+        rooms: nextRooms,
       };
     });
   };
 
   const removeRoom = (roomId: string) => {
-    setHousehold((current) => ({
-      ...current,
-      rooms: (current.rooms ?? []).filter((item) => item.id !== roomId),
-    }));
+    setHousehold((current) => {
+      const nextRooms = (current.rooms ?? []).filter((item) => item.id !== roomId);
+      void saveHouseholdRooms(current.id, nextRooms);
+      return {
+        ...current,
+        rooms: nextRooms,
+      };
+    });
   };
 
   const runNovaMonitor = useCallback(async () => {
@@ -1075,24 +1846,56 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const switchPersona = (memberId: string) => {
     const member = household.members.find((m) => m.id === memberId);
     if (!member) return;
-    setActiveMemberId(memberId);
+
+    // Shared tablet is a device shell — land on a linked account (Josh/Todd) so XP/redeem work.
+    let target = member;
+    if (member.role === 'shared-device') {
+      const linked = (member.sharedWithMemberIds ?? [])
+        .map((id) => household.members.find((item) => item.id === id))
+        .filter((item): item is HouseholdMember => Boolean(item && item.status === 'active'));
+      if (linked[0]) {
+        target = linked[0];
+      }
+    }
+
+    setActiveMemberId(target.id);
+    const nextUser = {
+      id: currentUser?.id?.startsWith('persona-') || currentUser?.id?.startsWith('child-local-') || currentUser?.id?.startsWith('tablet-local-')
+        ? `persona-${target.id}`
+        : currentUser?.id ?? `persona-${target.id}`,
+      email:
+        currentUser?.email && !currentUser.email.includes('@kids.choremaxx.local')
+          ? currentUser.email
+          : `${target.name.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'member'}@orbit.test`,
+      name: target.name,
+      avatar: target.avatar,
+      profileComplete: true,
+    };
     setCurrentUser((prev) =>
       prev
         ? {
             ...prev,
-            name: member.name,
-            avatar: member.avatar,
+            name: target.name,
+            avatar: target.avatar,
             profileComplete: true,
           }
-        : {
-            id: `persona-${member.id}`,
-            email: `${member.name.toLowerCase()}@orbit.test`,
-            name: member.name,
-            avatar: member.avatar,
-            profileComplete: true,
-          }
+        : nextUser
     );
-    setHousehold((current) => ({ ...current, greetingName: member.name }));
+    setHousehold((current) => ({ ...current, greetingName: target.name }));
+    void authRepository.persistLocalSession(
+      currentUser
+        ? { ...currentUser, name: target.name, avatar: target.avatar, profileComplete: true }
+        : nextUser,
+      target.id,
+    );
+    void saveActiveMemberId(target.id);
+    void import('@/lib/device/device-session').then(({ loadDeviceSession, selectDeviceProfile }) =>
+      loadDeviceSession().then((session) => {
+        if (session.mode === 'shared') {
+          void selectDeviceProfile(target.id);
+        }
+      })
+    );
   };
 
   const approveMember = async (memberId: string) => {
@@ -1146,6 +1949,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!household.id || !currentMember) {
       return;
     }
+    const caps = resolveMemberCapabilities(household);
+    // Users redeem; admins may also redeem for testing.
+    if (!permissions.canManageHousehold && !caps.allowRewardRedeem) {
+      return;
+    }
 
     const reward = household.rewards.find((item) => item.id === rewardId);
     const redemption = await rewardsRepository.requestRedemption({
@@ -1155,17 +1963,93 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       note,
     });
     setPendingRedemptions((current) => [redemption, ...current.filter((item) => item.id !== redemption.id)]);
+    setRedemptions((current) => [redemption, ...current.filter((item) => item.id !== redemption.id)]);
     const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    await novaNotifications.rewardRequested(pushNotification, prefs, {
+    const created = await novaNotifications.rewardRequested(pushNotification, prefs, {
       title: reward?.title ?? 'a reward',
       memberName: currentMember.name,
       redemptionId: redemption.id,
+      audienceRoles: [...REWARD_REVIEW_ROLES],
     });
+    if (created) {
+      await scheduleLocalReminder(created.title, created.body, 2).catch((error) =>
+        console.warn('Reward request reminder skipped', error)
+      );
+    }
     await trackAnalytics('reward.redemption_requested', { rewardId }, analyticsContext);
+  };
+
+  const claimReward = async (rewardId: string): Promise<'claimed' | 'requested' | null> => {
+    if (!household.id || !currentMember) {
+      return null;
+    }
+    const caps = resolveMemberCapabilities(household);
+    if (!permissions.canManageHousehold && !caps.allowRewardRedeem) {
+      return null;
+    }
+    const reward = household.rewards.find((item) => item.id === rewardId && !item.archived);
+    if (!reward) {
+      return null;
+    }
+    if (
+      reward.assignedMemberId &&
+      reward.assignedMemberId !== currentMember.id &&
+      !permissions.canManageHousehold
+    ) {
+      return null;
+    }
+    if ((currentMember.xp ?? 0) < reward.cost) {
+      return null;
+    }
+
+    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+
+    if (reward.approvalRequired) {
+      await requestRewardRedemption(rewardId);
+      return 'requested';
+    }
+
+    const redemption = await rewardsRepository.requestRedemption({
+      householdId: household.id,
+      rewardId,
+      memberId: currentMember.id,
+      note: 'Instant claim',
+    });
+    const updated = await rewardsRepository.approveRedemption(redemption.id);
+    setPendingRedemptions((current) => current.filter((item) => item.id !== redemption.id));
+    setRedemptions((current) => [
+      updated,
+      ...current.filter((item) => item.id !== redemption.id),
+    ]);
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((member) =>
+        member.id === currentMember.id
+          ? { ...member, xp: Math.max(0, member.xp - reward.cost) }
+          : member,
+      ),
+    }));
+    // Assigned one-shots leave the catalog after instant claim; shared catalog stays.
+    if (reward.assignedMemberId) {
+      await archiveReward(rewardId);
+    }
+    await novaNotifications.rewardClaimed(pushNotification, prefs, {
+      title: reward.title,
+      memberName: currentMember.name,
+      cost: reward.cost,
+      redemptionId: redemption.id,
+      audienceRoles: [...REWARD_REVIEW_ROLES],
+    });
+    await trackAnalytics('reward.claimed_instant', { rewardId }, analyticsContext);
+    return 'claimed';
   };
 
   const requestSpecialReward = async (title: string, note?: string, cost = 150) => {
     if (!household.id || !currentMember) {
+      return;
+    }
+    const caps = resolveMemberCapabilities(household);
+    if (!permissions.canManageHousehold && !caps.allowSpecialRewardRequest) {
       return;
     }
     const reward = await rewardsRepository.createReward(household.id, {
@@ -1174,6 +2058,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       approvalRequired: true,
       emoji: '✨',
       specialRequest: true,
+      category: 'Special',
+      origin: 'special-request',
+      createdByMemberId: currentMember.id,
+      createdByName: currentMember.name,
     });
     setHousehold((current) => ({
       ...current,
@@ -1183,11 +2071,29 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const createReward = async (input: CreateRewardInput) => {
-    const reward = await rewardsRepository.createReward(household.id, input);
+    if (!permissions.canManageHousehold) {
+      return;
+    }
+    const reward = await rewardsRepository.createReward(household.id, {
+      ...input,
+      origin: input.origin ?? 'minted',
+      createdByMemberId: input.createdByMemberId ?? currentMember?.id,
+      createdByName: input.createdByName ?? currentMember?.name,
+    });
     setHousehold((current) => ({
       ...current,
       rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
     }));
+    if (reward.assignedMemberId && reward.assignedMemberId !== currentMember?.id) {
+      const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+      await novaNotifications.rewardAssigned(pushNotification, prefs, {
+        title: reward.title,
+        cost: reward.cost,
+        rewardId: reward.id,
+        assignedByName: currentMember?.name ?? 'Admin',
+        audienceMemberIds: [reward.assignedMemberId],
+      });
+    }
     await trackAnalytics('reward.created', { rewardId: reward.id }, analyticsContext);
   };
 
@@ -1195,16 +2101,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await rewardsRepository.archiveReward(rewardId);
     setHousehold((current) => ({
       ...current,
-      rewards: current.rewards.filter((item) => item.id !== rewardId),
+      rewards: current.rewards.map((item) =>
+        item.id === rewardId ? { ...item, archived: true } : item
+      ),
     }));
     await trackAnalytics('reward.archived', { rewardId }, analyticsContext);
   };
 
   const approveRedemption = async (redemptionId: string) => {
-    const pending = pendingRedemptions.find((item) => item.id === redemptionId);
+    const pending =
+      pendingRedemptions.find((item) => item.id === redemptionId) ??
+      redemptions.find((item) => item.id === redemptionId);
     const reward = household.rewards.find((item) => item.id === pending?.rewardId);
     const updated = await rewardsRepository.approveRedemption(redemptionId);
     setPendingRedemptions((current) => current.filter((item) => item.id !== redemptionId));
+    setRedemptions((current) =>
+      current.map((item) => (item.id === redemptionId ? updated : item))
+    );
     if (pending && reward) {
       setHousehold((current) => ({
         ...current,
@@ -1214,12 +2127,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             : member
         ),
       }));
+      if (reward.assignedMemberId) {
+        await archiveReward(reward.id);
+      }
     }
     await reloadHouseholdDomains();
     const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
     await novaNotifications.rewardApproved(pushNotification, prefs, {
       title: reward?.title ?? 'Reward',
       redemptionId,
+      audienceMemberIds: pending?.memberId ? [pending.memberId] : undefined,
     });
     await trackAnalytics('reward.redemption_approved', { redemptionId, status: updated.status }, analyticsContext);
   };
@@ -1227,7 +2144,91 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const rejectRedemption = async (redemptionId: string) => {
     const updated = await rewardsRepository.rejectRedemption(redemptionId);
     setPendingRedemptions((current) => current.filter((item) => item.id !== redemptionId));
+    setRedemptions((current) =>
+      current.map((item) => (item.id === redemptionId ? updated : item))
+    );
     await trackAnalytics('reward.redemption_rejected', { redemptionId, status: updated.status }, analyticsContext);
+  };
+
+  const grantAllowance = async (input: Omit<CreateAllowanceInput, 'kind'>) => {
+    if (!permissions.canManageHousehold || !household.id) {
+      return null;
+    }
+    const grant = await rewardsRepository.createAllowance(household.id, {
+      ...input,
+      kind: 'admin-grant',
+      createdByMemberId: currentMember?.id,
+      createdByName: currentMember?.name,
+    });
+    setAllowances((current) => [grant, ...current.filter((item) => item.id !== grant.id)]);
+    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+    await novaNotifications.allowanceGranted(pushNotification, prefs, {
+      amountLabel: grant.amountLabel,
+      allowanceId: grant.id,
+      audienceMemberIds: [grant.memberId],
+    });
+    await trackAnalytics('allowance.granted', { allowanceId: grant.id }, analyticsContext);
+    return grant;
+  };
+
+  const requestAllowance = async (
+    input: Omit<CreateAllowanceInput, 'kind' | 'memberId' | 'memberName'>
+  ) => {
+    if (!household.id || !currentMember) {
+      return null;
+    }
+    // Members request; admins may also request for testing.
+    const grant = await rewardsRepository.createAllowance(household.id, {
+      ...input,
+      memberId: currentMember.id,
+      memberName: currentMember.name,
+      kind: 'member-request',
+      createdByMemberId: currentMember.id,
+      createdByName: currentMember.name,
+    });
+    setAllowances((current) => [grant, ...current.filter((item) => item.id !== grant.id)]);
+    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+    const created = await novaNotifications.allowanceRequested(pushNotification, prefs, {
+      amountLabel: grant.amountLabel,
+      memberName: currentMember.name,
+      allowanceId: grant.id,
+    });
+    if (created) {
+      await scheduleLocalReminder(created.title, created.body, 2).catch((error) =>
+        console.warn('Allowance request reminder skipped', error)
+      );
+    }
+    await trackAnalytics('allowance.requested', { allowanceId: grant.id }, analyticsContext);
+    return grant;
+  };
+
+  const approveAllowance = async (allowanceId: string) => {
+    if (!permissions.canApproveReward && !permissions.canManageHousehold) {
+      return;
+    }
+    const pending = allowances.find((item) => item.id === allowanceId);
+    const updated = await rewardsRepository.approveAllowance(allowanceId);
+    setAllowances((current) =>
+      current.map((item) => (item.id === allowanceId ? updated : item))
+    );
+    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+    await novaNotifications.allowanceApproved(pushNotification, prefs, {
+      amountLabel: updated.amountLabel,
+      allowanceId,
+      audienceMemberIds: pending?.memberId ? [pending.memberId] : [updated.memberId],
+    });
+    await trackAnalytics('allowance.approved', { allowanceId }, analyticsContext);
+  };
+
+  const rejectAllowance = async (allowanceId: string) => {
+    if (!permissions.canApproveReward && !permissions.canManageHousehold) {
+      return;
+    }
+    const updated = await rewardsRepository.rejectAllowance(allowanceId);
+    setAllowances((current) =>
+      current.map((item) => (item.id === allowanceId ? updated : item))
+    );
+    await trackAnalytics('allowance.rejected', { allowanceId }, analyticsContext);
   };
 
   const updateMemberRole = async (memberId: string, role: HouseholdRole) => {
@@ -1235,21 +2236,341 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!member) {
       return;
     }
+    if (role === 'admin' && !canPromoteToAdmin(household, memberId)) {
+      console.warn('Family admin seats are full (max 2).');
+      return;
+    }
 
     const updated = await householdRepository.updateMemberRole(member, role);
+    const nextMember: HouseholdMember =
+      role === 'shared-device'
+        ? { ...updated, sharedWithMemberIds: updated.sharedWithMemberIds ?? [] }
+        : { ...updated, sharedWithMemberIds: undefined };
     setHousehold((current) => ({
       ...current,
-      members: current.members.map((item) => (item.id === memberId ? updated : item)),
+      members: current.members.map((item) => (item.id === memberId ? nextMember : item)),
     }));
     await trackAnalytics('member.role_updated', { memberId, role }, analyticsContext);
   };
 
+  const createSharedDevice = async (name?: string) => {
+    if (!permissions.canManageHousehold) {
+      return null;
+    }
+    const created = await householdRepository.createSharedDevice(
+      household.id,
+      name?.trim() || 'Shared device'
+    );
+    setHousehold((current) => ({
+      ...current,
+      members: [...current.members, created],
+    }));
+    await trackAnalytics('member.shared_device_created', { memberId: created.id }, analyticsContext);
+    return created;
+  };
+
+  const updateSharedDeviceLinks = async (deviceId: string, memberIds: string[]) => {
+    if (!permissions.canManageHousehold) {
+      return;
+    }
+    const device = household.members.find((item) => item.id === deviceId);
+    if (!device || device.role !== 'shared-device') {
+      return;
+    }
+    const updated = await householdRepository.updateSharedDeviceLinks(device, memberIds);
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((item) => (item.id === deviceId ? updated : item)),
+    }));
+    await trackAnalytics(
+      'member.shared_device_links_updated',
+      { memberId: deviceId, count: memberIds.length },
+      analyticsContext
+    );
+  };
+
+  const createChildInvites = async (names: string[]) => {
+    if (!currentUser || !household.id) {
+      throw new Error('Create your household first, then invite kids.');
+    }
+    if (!permissions.canInviteMembers && !permissions.canManageHousehold) {
+      throw new Error('Only a parent/admin can create kid invites.');
+    }
+
+    const trimmed = [...new Set(names.map((name) => name.trim()).filter(Boolean))].slice(0, 2);
+    if (trimmed.length === 0) {
+      throw new Error('Add at least one kid name.');
+    }
+
+    const created: HouseholdMember[] = [];
+    for (const name of trimmed) {
+      const already = household.members.find(
+        (member) =>
+          member.role === 'child' &&
+          member.name.trim().toLowerCase() === name.toLowerCase() &&
+          member.status === 'active',
+      );
+      if (already) {
+        await saveChildInviteRecord({
+          member: already,
+          householdId: household.id,
+          householdName: household.householdName,
+          code: already.profileInviteCode,
+        });
+        created.push(already);
+        continue;
+      }
+
+      const member = await householdRepository.createChildMember(household.id, name);
+      await saveChildInviteRecord({
+        member,
+        householdId: household.id,
+        householdName: household.householdName,
+        code: member.profileInviteCode,
+      });
+      created.push(member);
+    }
+
+    setHousehold((current) => {
+      const ids = new Set(current.members.map((member) => member.id));
+      const additions = created.filter((member) => !ids.has(member.id));
+      return additions.length
+        ? { ...current, members: [...current.members, ...additions] }
+        : current;
+    });
+
+    await trackAnalytics(
+      'member.child_invites_created',
+      { count: created.length },
+      analyticsContext,
+    );
+    return created;
+  };
+
+  const redeemChildInvite = async (rawCode: string) => {
+    const code =
+      parseInvitePayload(rawCode) ?? (rawCode.trim() ? normalizeInviteCode(rawCode) : null);
+    if (!code) {
+      throw new Error('Enter or scan a valid kid invite code.');
+    }
+
+    const record = await loadChildInviteRecord(code);
+    const fromHousehold =
+      resolveMemberByProfileCode(code, household.members) ??
+      resolveMemberByProfileCode(code, mockHousehold.members);
+    const member = record?.member ?? fromHousehold;
+
+    if (!member || member.role !== 'child' || member.status !== 'active') {
+      throw new Error('Ask a parent to AirDrop or send your kid invite. No sign-in needed.');
+    }
+
+    const user: OrbitUser = {
+      id: `child-local-${member.id}`,
+      email: `${member.name.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'kid'}@kids.choremaxx.local`,
+      name: member.name,
+      avatar: member.avatar,
+      profileComplete: true,
+    };
+
+    // Prefer the admin household snapshot when we know it; otherwise keep demo Rivera data.
+    if (record?.householdId && household.id === record.householdId) {
+      setHousehold((current) => {
+        const exists = current.members.some((item) => item.id === member.id);
+        return {
+          ...current,
+          greetingName: member.name,
+          members: exists
+            ? current.members.map((item) => (item.id === member.id ? { ...item, ...member } : item))
+            : [...current.members, member],
+        };
+      });
+    } else if (mockHousehold.members.some((item) => item.id === member.id)) {
+      setHousehold({
+        ...mockHousehold,
+        greetingName: member.name,
+        members: mockHousehold.members.map((item) =>
+          item.id === member.id ? { ...item, ...member } : item,
+        ),
+      });
+    } else {
+      setHousehold((current) => {
+        const base =
+          current.id && current.members.some((item) => item.role === 'owner')
+            ? current
+            : mockHousehold;
+        const exists = base.members.some((item) => item.id === member.id);
+        return {
+          ...base,
+          greetingName: member.name,
+          members: exists
+            ? base.members.map((item) => (item.id === member.id ? { ...item, ...member } : item))
+            : [...base.members, member],
+        };
+      });
+    }
+
+    setCurrentUser(user);
+    setActiveMemberId(member.id);
+    await authRepository.persistLocalSession(user, member.id);
+
+    const { setupSharedDeviceSession, selectDeviceProfile } = await import(
+      '@/lib/device/device-session'
+    );
+    await setupSharedDeviceSession({
+      profileMemberIds: [member.id],
+      deviceLabel: `${member.name}'s device`,
+    });
+    await selectDeviceProfile(member.id);
+
+    await trackAnalytics(
+      'member.child_invite_redeemed',
+      { memberId: member.id },
+      { householdId: record?.householdId ?? household.id, userId: user.id },
+    );
+    return member;
+  };
+
+  const connectSharedTabletProfiles = async (rawCodes: string[], deviceLabel?: string) => {
+    const codes = [
+      ...new Set(
+        rawCodes
+          .map((raw) => parseInvitePayload(raw) ?? (raw.trim() ? normalizeInviteCode(raw) : null))
+          .filter((code): code is string => Boolean(code)),
+      ),
+    ];
+    if (codes.length === 0) {
+      throw new Error('Add at least one invite code or scan an AirDrop QR.');
+    }
+
+    const resolved: HouseholdMember[] = [];
+    for (const code of codes) {
+      const record = await loadChildInviteRecord(code);
+      const member =
+        record?.member ??
+        resolveMemberByProfileCode(code, household.members) ??
+        resolveMemberByProfileCode(code, mockHousehold.members);
+      if (!member || member.status !== 'active' || member.role === 'shared-device') {
+        throw new Error(`No profile for ${code}. Ask an admin to AirDrop or send that invite.`);
+      }
+      if (!resolved.some((item) => item.id === member.id)) {
+        resolved.push(member);
+      }
+    }
+
+    // Prefer Rivera/demo household when profiles live there; otherwise merge onto current.
+    const fromDemo = resolved.every((member) =>
+      mockHousehold.members.some((item) => item.id === member.id),
+    );
+    if (fromDemo) {
+      setHousehold({
+        ...mockHousehold,
+        greetingName: resolved[0]?.name ?? mockHousehold.greetingName,
+      });
+    } else {
+      setHousehold((current) => {
+        const ids = new Set(current.members.map((item) => item.id));
+        const additions = resolved.filter((member) => !ids.has(member.id));
+        return {
+          ...current,
+          greetingName: resolved[0]?.name ?? current.greetingName,
+          members: additions.length ? [...current.members, ...additions] : current.members,
+        };
+      });
+    }
+
+    const primary = resolved[0]!;
+    const user: OrbitUser = {
+      id: `tablet-local-${primary.id}`,
+      email: `tablet-${primary.id}@kids.choremaxx.local`,
+      name: primary.name,
+      avatar: primary.avatar,
+      profileComplete: true,
+    };
+    setCurrentUser(user);
+    setActiveMemberId(primary.id);
+    await authRepository.persistLocalSession(user, primary.id);
+
+    const { setupSharedDeviceSession, selectDeviceProfile } = await import(
+      '@/lib/device/device-session'
+    );
+    const session = await setupSharedDeviceSession({
+      profileMemberIds: resolved.map((member) => member.id),
+      deviceLabel: deviceLabel?.trim() || 'Shared tablet',
+    });
+
+    const needsProfilePick = resolved.length > 1;
+    if (!needsProfilePick) {
+      await selectDeviceProfile(primary.id);
+    }
+
+    await trackAnalytics(
+      'device.shared_tablet_connected',
+      { count: resolved.length },
+      { householdId: household.id, userId: user.id },
+    );
+
+    return { members: resolved, needsProfilePick: needsProfilePick || session.needsProfilePick };
+  };
+
+  const splitAllTasksBetweenTwo = async (nameA?: string, nameB?: string) => {
+    let left = nameA?.trim();
+    let right = nameB?.trim();
+    if (!left || !right) {
+      const pair = resolveSplitPair(household.members);
+      if (!pair) {
+        return;
+      }
+      left = pair[0].name;
+      right = pair[1].name;
+    }
+    if (left === right) {
+      return;
+    }
+
+    const nextTasks = splitOpenTasksBetweenTwo(household.tasks, left, right);
+    const changed = nextTasks.filter((task, index) => task.assignee !== household.tasks[index]?.assignee);
+    for (const task of changed) {
+      await taskRepository.updateTask(task);
+    }
+    setHousehold((current) => ({
+      ...current,
+      tasks: splitOpenTasksBetweenTwo(current.tasks, left!, right!),
+    }));
+    await pushNotification({
+      title: 'Nova · Tasks split',
+      body: `Open tasks are now shared between ${left} and ${right}.`,
+      category: 'tasks',
+      priority: 'medium',
+      data: { kind: 'tasks_split', nameA: left, nameB: right },
+    });
+    await trackAnalytics('task.split_between_two', { nameA: left, nameB: right }, analyticsContext);
+  };
+
   const removeMember = async (memberId: string) => {
+    if (!permissions.canManageHousehold) {
+      return;
+    }
+    const target = household.members.find((item) => item.id === memberId);
+    if (!target || target.role === 'owner') {
+      return;
+    }
     await householdRepository.removeMember(memberId);
     setHousehold((current) => ({
       ...current,
-      members: current.members.filter((item) => item.id !== memberId),
+      members: current.members
+        .filter((item) => item.id !== memberId)
+        .map((item) =>
+          item.role === 'shared-device'
+            ? {
+                ...item,
+                sharedWithMemberIds: (item.sharedWithMemberIds ?? []).filter((id) => id !== memberId),
+              }
+            : item
+        ),
     }));
+    if (activeMemberId === memberId) {
+      setActiveMemberId(null);
+    }
     await trackAnalytics('member.removed', { memberId }, analyticsContext);
   };
 
@@ -1259,6 +2580,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setCurrentUser(null);
     setHousehold(mockHousehold);
     setPendingRedemptions([]);
+    setRedemptions([]);
     setNotifications([]);
   };
 
@@ -1349,9 +2671,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       novaMonitorActions,
       novaWeeklyBriefing,
       permissions,
-      notifications,
+      notifications: visibleNotifications,
       unreadNotificationCount,
       pendingRedemptions,
+      redemptions,
+      allowances,
+      pendingAllowances,
       smartHomeDevices,
       smartHomeScenes,
       storeRecommendations,
@@ -1359,6 +2684,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       preferredStore: getPreferredStore(household.preferredStoreId),
       canAddGroceryWishlist:
         permissions.canManageGroceries ||
+        resolveMemberCapabilities(household).allowGroceryAdd ||
         (currentMember?.role === 'child' && (currentMember?.xp ?? 0) >= CHILD_GROCERY_WISHLIST_XP),
       askNova,
       askNovaVoice,
@@ -1374,7 +2700,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       completeTask,
       submitTaskProof,
       approveTaskProof,
+      penalizeSplitAssignee,
+      reassignTask,
+      awardDailyStreak,
       deleteTask,
+      cancelTask,
+      splitAllTasksBetweenTwo,
       addMissingGrocery,
       setPreferredStore,
       joinHousehold,
@@ -1400,19 +2731,43 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       markAllNotificationsRead,
       pushNotification,
       updateNotificationPrefs,
+      updateMemberCapabilities,
       updateAccentTheme,
+      updateHouseholdAccentTheme,
       accentTheme,
+      appearanceMode,
+      updateAppearanceMode,
+      backgroundThemeId,
+      updateBackgroundTheme,
+      orbitPalette,
+      preferredMapsApp,
+      updatePreferredMapsApp,
+      openFullItineraryInMaps,
+      toggleItineraryFavorite,
+      rerunItinerary,
+      upsertSavedPlace,
+      removeSavedPlace,
       updateMemberAvatar,
       upsertRoom,
       removeRoom,
       runNovaMonitor,
       requestRewardRedemption,
+      claimReward,
       requestSpecialReward,
       createReward,
       archiveReward,
       approveRedemption,
       rejectRedemption,
+      grantAllowance,
+      requestAllowance,
+      approveAllowance,
+      rejectAllowance,
       updateMemberRole,
+      createSharedDevice,
+      updateSharedDeviceLinks,
+      createChildInvites,
+      redeemChildInvite,
+      connectSharedTabletProfiles,
       removeMember,
       deleteAccount,
       exportUserData,
@@ -1441,9 +2796,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       novaMonitorActions,
       novaWeeklyBriefing,
       permissions,
-      notifications,
+      visibleNotifications,
       unreadNotificationCount,
       pendingRedemptions,
+      redemptions,
+      allowances,
+      pendingAllowances,
       smartHomeDevices,
       smartHomeScenes,
       storeRecommendations,
@@ -1455,9 +2813,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       runNovaMonitor,
       accentTheme,
       updateAccentTheme,
+      updateHouseholdAccentTheme,
+      appearanceMode,
+      updateAppearanceMode,
+      backgroundThemeId,
+      updateBackgroundTheme,
+      orbitPalette,
+      preferredMapsApp,
+      updatePreferredMapsApp,
+      openFullItineraryInMaps,
+      toggleItineraryFavorite,
+      rerunItinerary,
+      upsertSavedPlace,
+      removeSavedPlace,
       updateMemberAvatar,
       upsertRoom,
       removeRoom,
+      updateMemberCapabilities,
     ]
   );
 
@@ -1466,16 +2838,25 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
 async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<HouseholdSnapshot> {
   const householdId = baseHousehold.id;
-  const [tasks, groceries, events, rewards, badges, itineraries] = await Promise.all([
-    taskRepository.getTasks(householdId),
-    groceryRepository.getGroceries(householdId),
-    calendarRepository.getEvents(householdId),
-    rewardsRepository.getRewards(householdId),
-    rewardsRepository.getBadges(householdId),
-    itineraryRepository.list(householdId),
-  ]);
+  const [tasks, groceries, events, rewards, badges, itineraries, themeId, savedRooms, avatarOverrides] =
+    await Promise.all([
+      taskRepository.getTasks(householdId),
+      groceryRepository.getGroceries(householdId),
+      calendarRepository.getEvents(householdId),
+      rewardsRepository.getRewards(householdId),
+      rewardsRepository.getBadges(householdId),
+      itineraryRepository.list(householdId),
+      loadAccentThemeId(householdId),
+      loadHouseholdRooms(householdId),
+      loadMemberAvatarOverrides(householdId),
+    ]);
+  const withAvatars = baseHousehold.members.map((member) =>
+    avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
+  );
+  const members = await applyStoredMemberThemes(householdId, withAvatars);
   const initialHousehold: HouseholdSnapshot = {
     ...baseHousehold,
+    members,
     badges,
     events,
     groceries,
@@ -1485,10 +2866,13 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     taskTemplates: baseHousehold.taskTemplates ?? [],
     notificationPrefs: baseHousehold.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS,
     preferredStoreId: baseHousehold.preferredStoreId ?? 'store-freshmart',
-    accentThemeId: baseHousehold.accentThemeId ?? DEFAULT_ACCENT_THEME_ID,
-    rooms: baseHousehold.rooms?.length
-      ? baseHousehold.rooms
-      : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
+    accentThemeId: themeId || baseHousehold.accentThemeId || DEFAULT_ACCENT_THEME_ID,
+    rooms:
+      savedRooms?.length
+        ? savedRooms
+        : baseHousehold.rooms?.length
+          ? baseHousehold.rooms
+          : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
   };
   const briefing = await novaRepository.getNovaBriefing(initialHousehold, calculateMetrics(initialHousehold));
 
@@ -1527,15 +2911,34 @@ function calculateMetrics(household: HouseholdSnapshot): OrbitMetrics {
   const calendarCoverage =
     household.events.length > 0 ? Math.round((coveredEvents / household.events.length) * 100) : 100;
 
+  const activeMembers = household.members.filter(
+    (member) => member.status === 'active' && member.role !== 'guest' && !isSharedDeviceRole(member.role),
+  );
+  let fairnessScore = 100;
+  if (activeMembers.length >= 2) {
+    const xp = activeMembers.map((member) => member.weekXp ?? 0);
+    const total = xp.reduce((a, b) => a + b, 0);
+    if (total > 0) {
+      const ideal = total / xp.length;
+      const variance = xp.reduce((sum, v) => sum + Math.abs(v - ideal), 0) / (ideal * xp.length || 1);
+      fairnessScore = Math.max(0, Math.min(100, Math.round(100 - variance * 50)));
+    }
+  }
+  const householdStreak = activeMembers.length
+    ? Math.max(...activeMembers.map((member) => member.streak ?? 0))
+    : 0;
+
   return {
     taskCompletionRate,
     groceryReadiness,
     calendarCoverage,
     momentum: Math.round(taskCompletionRate * 0.45 + groceryReadiness * 0.35 + calendarCoverage * 0.2),
-    openTasks: household.tasks.filter((task) => task.status !== 'Completed').length,
+    openTasks: household.tasks.filter((task) => isOpenTask(task)).length,
     missingGroceries: household.groceries.filter((item) => item.status === 'Missing').length,
     purchasedGroceries: household.groceries.filter((item) => item.status === 'Purchased').length,
     upcomingEvents: countUpcomingSoon(household.events),
+    fairnessScore,
+    householdStreak,
   };
 }
 
@@ -1561,7 +2964,7 @@ function calculateMemberProgress(member: HouseholdMember, tasks: HouseholdTask[]
     weekXp: member.weekXp ?? Math.max(10, Math.round(member.xp * 0.08)),
     streak: member.streak ?? 0,
     accentColor: accent.color,
-    avatarEmoji: accent.emoji,
+    avatarEmoji: memberDisplayEmoji(member),
     tasksCompleted,
   };
 }

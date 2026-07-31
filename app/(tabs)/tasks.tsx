@@ -1,10 +1,13 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import {
   orbitColors,
   orbitRadius,
@@ -13,6 +16,12 @@ import {
   orbitTypography,
 } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  findSharedDeviceForMember,
+  isSharedDeviceAccount,
+  isSharedDeviceRole,
+} from '@/lib/household/shared-device';
+import { isSplitTask, taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdRoom, HouseholdTask } from '@/types/orbit';
 
@@ -56,12 +65,12 @@ function isHomework(task: HouseholdTask) {
 }
 
 function isDueToday(task: HouseholdTask) {
-  if (task.status === 'Completed') return false;
+  if (task.status === 'Completed' || task.status === 'Cancelled') return false;
   return /today/i.test(task.due) || task.status === 'Overdue';
 }
 
 function isUpcoming(task: HouseholdTask) {
-  if (task.status === 'Completed') return false;
+  if (task.status === 'Completed' || task.status === 'Cancelled') return false;
   return !isDueToday(task);
 }
 
@@ -91,11 +100,23 @@ function memberAccentColor(member?: HouseholdMember) {
   return MEMBER_ACCENTS[member.name]?.color ?? orbitColors.success;
 }
 
-function XPBadge({ xp, done, accent }: { xp: number; done: boolean; accent: string }) {
+function XPBadge({
+  xp,
+  done,
+  accent,
+  hygiene,
+}: {
+  xp: number;
+  done: boolean;
+  accent: string;
+  hygiene?: boolean;
+}) {
   return (
     <View style={[styles.xpBadge, done && styles.xpBadgeDone, !done && { backgroundColor: `${accent}1F` }]}>
-      <Text style={styles.xpBolt}>⚡</Text>
-      <Text style={[styles.xpBadgeText, done && styles.xpBadgeTextDone, !done && { color: accent }]}>+{xp}</Text>
+      {!hygiene ? <Text style={styles.xpBolt}>⚡</Text> : null}
+      <Text style={[styles.xpBadgeText, done && styles.xpBadgeTextDone, !done && { color: accent }]}>
+        {hygiene ? 'Streak' : `+${xp}`}
+      </Text>
     </View>
   );
 }
@@ -115,13 +136,18 @@ function TaskItem({
   justCompleted: boolean;
   onToggle: () => void;
 }) {
-  const done = task.status === 'Completed';
+  const shareDone =
+    member && isSplitTask(task)
+      ? task.shares?.find((share) => share.name === member.name)?.status === 'Completed'
+      : undefined;
+  const done = shareDone ?? task.status === 'Completed';
   const sub = getSubjectMeta(task);
   const accent = memberAccentColor(member);
   const borderColor = done
     ? accent
     : `${isHomework(task) ? (sub?.color ?? orbitColors.planPurple) : getPriorityColor(task)}80`;
   const avatarGradient = GRADIENT_BY_COLOR[accent] ?? [accent, accent];
+  const hygiene = task.tracking === 'streak' || task.category === 'Hygiene';
 
   return (
     <View style={[styles.taskItem, done && styles.taskItemDone]}>
@@ -153,6 +179,11 @@ function TaskItem({
         <View style={styles.metaRow}>
           <MaterialIcons name="schedule" size={10} color={orbitColors.textSubtle} />
           <Text style={styles.dueText}>{task.due}</Text>
+          {isSplitTask(task) ? (
+            <View style={[styles.metaPill, { backgroundColor: 'rgba(167,139,250,0.18)' }]}>
+              <Text style={[styles.metaPillText, { color: '#A78BFA' }]}>Split</Text>
+            </View>
+          ) : null}
           {task.repeat !== 'None' ? (
             <View style={styles.metaPill}>
               <Text style={styles.metaPillText}>{task.repeat}</Text>
@@ -167,7 +198,13 @@ function TaskItem({
           ) : null}
           {task.proofRequired ? (
             <View style={[styles.metaPill, { backgroundColor: 'rgba(251,146,60,0.15)' }]}>
-              <Text style={[styles.metaPillText, { color: orbitColors.warning }]}>Proof</Text>
+              <Text style={[styles.metaPillText, { color: orbitColors.warning }]}>
+                {task.proofStatus === 'submitted'
+                  ? 'Proof review'
+                  : task.proofStatus === 'approved'
+                    ? 'Proof ✓'
+                    : 'Proof'}
+              </Text>
             </View>
           ) : null}
           {member ? (
@@ -180,14 +217,29 @@ function TaskItem({
 
       {justCompleted ? (
         <View style={styles.celebrate}>
-          <Text style={styles.celebrateBolt}>⚡</Text>
-          <Text style={[styles.celebrateXp, { color: accentPrimary }]}>+{task.xp}</Text>
+          {!hygiene ? <Text style={styles.celebrateBolt}>⚡</Text> : null}
+          <Text style={[styles.celebrateXp, { color: accentPrimary }]}>
+            {hygiene ? 'Streak' : `+${task.xp}`}
+          </Text>
         </View>
       ) : (
-        <XPBadge xp={task.xp} done={done} accent={accentPrimary} />
+        <XPBadge xp={task.xp} done={done} accent={accentPrimary} hygiene={hygiene} />
       )}
     </View>
   );
+}
+
+/** Preferred household order for admin by-person breakdown (after “My tasks”). */
+const MEMBER_SECTION_ORDER = ['Sarah', 'David', 'Liam', 'Emma', 'Josh', 'Todd'];
+
+function sortTasksForMember(tasks: HouseholdTask[]) {
+  const rank = (task: HouseholdTask) => {
+    if (task.status === 'Completed') return 3;
+    if (isDueToday(task)) return 0;
+    if (task.status === 'Overdue') return 0;
+    return 1;
+  };
+  return [...tasks].sort((a, b) => rank(a) - rank(b));
 }
 
 function TaskSection({
@@ -200,6 +252,9 @@ function TaskSection({
   rooms,
   accentPrimary,
   muted,
+  allowEmpty,
+  emptyLabel,
+  progress,
   justCompletedId,
   onToggle,
 }: {
@@ -212,10 +267,16 @@ function TaskSection({
   rooms: HouseholdRoom[];
   accentPrimary: string;
   muted?: boolean;
+  allowEmpty?: boolean;
+  emptyLabel?: string;
+  progress?: { done: number; total: number; color: string };
   justCompletedId: string | null;
   onToggle: (taskId: string) => void;
 }) {
-  if (tasks.length === 0) return null;
+  if (tasks.length === 0 && !allowEmpty) return null;
+
+  const progressPct =
+    progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : progress ? 0 : null;
 
   return (
     <GlassCard style={[muted && styles.completedCard]}>
@@ -232,31 +293,74 @@ function TaskSection({
         </View>
         <Text style={styles.sectionCount}>{countLabel}</Text>
       </View>
-      {tasks.map((task, index) => (
-        <View key={task.id}>
-          {index > 0 ? <View style={styles.divider} /> : null}
-          <TaskItem
-            task={task}
-            member={getMember(members, task.assignee)}
-            room={rooms.find((item) => item.id === task.roomId)}
-            accentPrimary={accentPrimary}
-            justCompleted={justCompletedId === task.id}
-            onToggle={() => onToggle(task.id)}
+      {progress && progressPct !== null ? (
+        <View style={styles.memberProgressTrack}>
+          <View
+            style={[
+              styles.memberProgressFill,
+              { width: `${progressPct}%`, backgroundColor: progress.color },
+            ]}
           />
         </View>
-      ))}
+      ) : null}
+      {tasks.length === 0 ? (
+        <Text style={styles.memberEmpty}>{emptyLabel ?? 'No tasks assigned'}</Text>
+      ) : (
+        tasks.map((task, index) => (
+          <View key={task.id}>
+            {index > 0 ? <View style={styles.divider} /> : null}
+            <TaskItem
+              task={task}
+              member={getMember(members, task.assignee)}
+              room={rooms.find((item) => item.id === task.roomId)}
+              accentPrimary={accentPrimary}
+              justCompleted={justCompletedId === task.id}
+              onToggle={() => onToggle(task.id)}
+            />
+          </View>
+        ))
+      )}
     </GlassCard>
   );
 }
 
 export default function TasksScreen() {
-  const { accentTheme, completeTask, currentMember, household, permissions } = useOrbit();
+  const chromePad = useTabChromePaddingTop();
+  const params = useLocalSearchParams<{ member?: string | string[] }>();
+  const {
+    accentTheme,
+    completeTask,
+    currentMember,
+    household,
+    permissions,
+    switchPersona,
+  } = useOrbit();
   const [filter, setFilter] = useState<TaskFilter>('all');
+  const [focusMember, setFocusMember] = useState<string | null>(null);
   const [roomFilter, setRoomFilter] = useState<string | null>(null);
   const [showRoomFilter, setShowRoomFilter] = useState(false);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
+  const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
+
+  const memberParam = Array.isArray(params.member) ? params.member[0] : params.member;
+
+  useEffect(() => {
+    // undefined = opened via tab bar with no deep-link; leave local focus alone.
+    if (memberParam === undefined) return;
+    const next = memberParam.trim();
+    setFocusMember(next || null);
+    if (next) setFilter('all');
+  }, [memberParam]);
+
+  const clearFocusMember = () => {
+    setFocusMember(null);
+    router.setParams({ member: '' } as never);
+  };
 
   const rooms = household.rooms ?? [];
+  const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
+  const sharedKidMode =
+    isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
   const childNames = useMemo(
     () => new Set(household.members.filter((member) => member.role === 'child').map((member) => member.name)),
     [household.members]
@@ -264,13 +368,34 @@ export default function TasksScreen() {
 
   const filtered = useMemo(() => {
     return household.tasks.filter((task) => {
-      if (filter === 'mine' && task.assignee !== currentMember?.name) return false;
-      if (filter === 'kids' && !childNames.has(task.assignee)) return false;
+      // Shared-tablet accounts only ever see their own tasks (switch account to see the other person).
+      if (sharedKidMode) {
+        if (!taskMatchesAssignee(task, currentMember?.name)) return false;
+        if (roomFilter && task.roomId !== roomFilter) return false;
+        return true;
+      }
+      if (focusMember && !taskMatchesAssignee(task, focusMember)) {
+        return false;
+      }
+      if (filter === 'mine' && !taskMatchesAssignee(task, currentMember?.name)) {
+        return false;
+      }
+      if (filter === 'kids' && ![...childNames].some((name) => taskMatchesAssignee(task, name))) {
+        return false;
+      }
       if (filter === 'homework' && !isHomework(task)) return false;
       if (roomFilter && task.roomId !== roomFilter) return false;
       return true;
     });
-  }, [childNames, currentMember?.name, filter, household.tasks, roomFilter]);
+  }, [
+    childNames,
+    currentMember?.name,
+    filter,
+    focusMember,
+    household.tasks,
+    roomFilter,
+    sharedKidMode,
+  ]);
 
   const grouped = useMemo(
     () => ({
@@ -281,30 +406,141 @@ export default function TasksScreen() {
     [filtered]
   );
 
-  const totalXPToday = grouped.today.reduce((sum, task) => sum + task.xp, 0);
-  const empty = grouped.today.length + grouped.upcoming.length + grouped.done.length === 0;
+  /** Admins see All broken down by person (completion visible per member). */
+  const showByMember = !sharedKidMode && permissions.canManageHousehold && filter === 'all';
 
+  const memberSections = useMemo(() => {
+    if (!showByMember) return null;
+
+    const activeMembers = household.members.filter(
+      (member) =>
+        member.status === 'active' &&
+        member.role !== 'guest' &&
+        !isSharedDeviceRole(member.role)
+    );
+
+    const ordered = [...activeMembers]
+      .filter((member) => !focusMember || member.name === focusMember)
+      .sort((a, b) => {
+        if (currentMember && a.id === currentMember.id) return -1;
+        if (currentMember && b.id === currentMember.id) return 1;
+        const ai = MEMBER_SECTION_ORDER.indexOf(a.name);
+        const bi = MEMBER_SECTION_ORDER.indexOf(b.name);
+        if (ai === -1 && bi === -1) return a.name.localeCompare(b.name);
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
+
+    return ordered.map((member) => {
+      const tasks = sortTasksForMember(
+        filtered.filter((task) => taskMatchesAssignee(task, member.name) && task.status !== 'Cancelled')
+      );
+      const done = tasks.filter((task) => task.status === 'Completed').length;
+      const total = tasks.length;
+      const isMine = currentMember?.id === member.id;
+      return {
+        member,
+        tasks,
+        done,
+        total,
+        title: isMine ? `My tasks (${member.name})` : `${member.name}'s tasks`,
+        accent: MEMBER_ACCENTS[member.name]?.color ?? accentTheme.primary,
+      };
+    });
+  }, [accentTheme.primary, currentMember, filtered, focusMember, household.members, showByMember]);
+
+  const focusedMemberRecord = useMemo(
+    () =>
+      focusMember
+        ? household.members.find((member) => member.name === focusMember) ?? null
+        : null,
+    [focusMember, household.members]
+  );
+  const focusedAccent = focusedMemberRecord
+    ? MEMBER_ACCENTS[focusedMemberRecord.name]?.color ?? accentTheme.primary
+    : accentTheme.primary;
+
+  const totalXPToday = grouped.today.reduce(
+    (sum, task) => sum + (task.tracking === 'streak' || task.category === 'Hygiene' ? 0 : task.xp),
+    0,
+  );
+  const empty = showByMember
+    ? (memberSections?.every((section) => section.total === 0) ?? true)
+    : grouped.today.length + grouped.upcoming.length + grouped.done.length === 0;
   const handleToggle = async (taskId: string) => {
     const task = household.tasks.find((item) => item.id === taskId);
-    if (!task || task.status === 'Completed') return;
+    if (!task || task.status === 'Completed' || task.status === 'Cancelled') return;
+
+    if (isSplitTask(task)) {
+      if (!currentMember || !taskMatchesAssignee(task, currentMember.name)) return;
+      const share = task.shares?.find((item) => item.name === currentMember.name);
+      if (!share || share.status !== 'Pending') return;
+      setJustCompletedId(taskId);
+      const result = await completeTask(taskId, { forAssignee: currentMember.name });
+      setTimeout(() => setJustCompletedId(null), 1200);
+      if (result?.needsProof) {
+        router.push(`/task/${task.id}` as never);
+      }
+      return;
+    }
 
     setJustCompletedId(taskId);
-    await completeTask(taskId);
+    const result = await completeTask(taskId);
     setTimeout(() => setJustCompletedId(null), 1200);
+    if (result?.needsProof) {
+      router.push(`/task/${task.id}` as never);
+    }
   };
 
   return (
+    <>
     <ScrollView
       style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
+      contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
       showsVerticalScrollIndicator={false}
-      contentInsetAdjustmentBehavior="automatic">
+      contentInsetAdjustmentBehavior="never">
       <View style={styles.headerRow}>
-        <View style={orbitScreen.header}>
-          <Text style={orbitTypography.caption}>Tasks & Homework</Text>
-          <Text style={orbitTypography.display}>Today&apos;s Work</Text>
+        <View style={[orbitScreen.header, styles.tasksHeader]}>
+          <PageEyebrow>
+            {sharedKidMode
+              ? 'Your chores'
+              : focusMember
+                ? `${focusMember}'s chores`
+                : 'Tasks & Homework'}
+          </PageEyebrow>
+          <Text style={orbitTypography.display}>
+            {sharedKidMode
+              ? 'My tasks'
+              : focusMember
+                ? `${focusMember}'s tasks`
+                : showByMember
+                  ? 'Household tasks'
+                  : "Today's Work"}
+          </Text>
+          {sharedDevice ? (
+            <Pressable
+              onPress={() => {
+                void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
+                  markNeedsProfilePick().then(() => router.push('/select-profile' as never))
+                );
+              }}
+              style={[
+                styles.deviceSwitchChip,
+                {
+                  backgroundColor: `${accentTheme.primary}22`,
+                  borderColor: `${accentTheme.primary}66`,
+                },
+              ]}>
+              <Text style={{ fontSize: 16 }}>{sharedDevice.avatar || '📱'}</Text>
+              <Text style={[styles.deviceSwitchText, { color: accentTheme.primary }]}>
+                Who&apos;s on · {currentMember?.name}
+              </Text>
+              <MaterialIcons name="expand-more" size={18} color={accentTheme.primary} />
+            </Pressable>
+          ) : null}
         </View>
-        {permissions.canCreateTask ? (
+        {!sharedKidMode && permissions.canCreateTask ? (
           <Pressable onPress={() => router.push('/create-task' as never)} style={styles.addButtonWrap}>
             <LinearGradient
               colors={[accentTheme.primary, accentTheme.secondary]}
@@ -329,44 +565,70 @@ export default function TasksScreen() {
         <Text style={styles.xpBannerMeta}>{grouped.today.length} tasks left</Text>
       </LinearGradient>
 
-      <View style={styles.filterRow}>
-        {FILTER_TABS.map((tab) => {
-          const active = filter === tab.id;
-          return (
-            <Pressable
-              key={tab.id}
-              onPress={() => setFilter(tab.id)}
-              style={[
-                styles.filterChip,
-                active && {
-                  backgroundColor: `${accentTheme.primary}2E`,
-                  borderColor: `${accentTheme.primary}4D`,
-                },
-              ]}>
-              <Text style={[styles.filterChipText, active && { color: accentTheme.primary, fontWeight: '600' }]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-        <Pressable
-          style={[
-            styles.filterIconButton,
-            (showRoomFilter || roomFilter) && {
-              backgroundColor: `${accentTheme.primary}2E`,
-              borderColor: `${accentTheme.primary}4D`,
-            },
-          ]}
-          onPress={() => setShowRoomFilter((value) => !value)}>
-          <MaterialIcons
-            name="filter-list"
-            size={14}
-            color={showRoomFilter || roomFilter ? accentTheme.primary : orbitColors.textSubtle}
-          />
-        </Pressable>
-      </View>
+      {!sharedKidMode ? (
+        <View style={styles.filterRow}>
+          {FILTER_TABS.map((tab) => {
+            const active = filter === tab.id && !focusMember;
+            return (
+              <Pressable
+                key={tab.id}
+                onPress={() => {
+                  clearFocusMember();
+                  setFilter(tab.id);
+                }}
+                style={[
+                  styles.filterChip,
+                  active && {
+                    backgroundColor: `${accentTheme.primary}2E`,
+                    borderColor: `${accentTheme.primary}4D`,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    active && { color: accentTheme.primary, fontWeight: '600' },
+                  ]}>
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+          <Pressable
+            style={[
+              styles.filterIconButton,
+              (showRoomFilter || roomFilter) && {
+                backgroundColor: `${accentTheme.primary}2E`,
+                borderColor: `${accentTheme.primary}4D`,
+              },
+            ]}
+            onPress={() => setShowRoomFilter((value) => !value)}>
+            <MaterialIcons
+              name="filter-list"
+              size={14}
+              color={showRoomFilter || roomFilter ? accentTheme.primary : orbitColors.textSubtle}
+            />
+          </Pressable>
+        </View>
+      ) : null}
 
-      {showRoomFilter ? (
+      {focusMember && !sharedKidMode ? (
+        <Pressable
+          onPress={clearFocusMember}
+          style={[
+            styles.focusChip,
+            { backgroundColor: `${focusedAccent}22`, borderColor: `${focusedAccent}66` },
+          ]}>
+          <Text style={{ fontSize: 14 }}>
+            {focusedMemberRecord ? memberDisplayEmoji(focusedMemberRecord) : '👤'}
+          </Text>
+          <Text style={[styles.focusChipText, { color: focusedAccent }]}>
+            Viewing {focusMember}
+          </Text>
+          <MaterialIcons name="close" size={16} color={focusedAccent} />
+        </Pressable>
+      ) : null}
+
+      {!sharedKidMode && showRoomFilter ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomFilterRow}>
           <Pressable
             onPress={() => setRoomFilter(null)}
@@ -403,13 +665,21 @@ export default function TasksScreen() {
 
       {empty ? (
         <GlassCard>
-          <Text style={styles.emptyTitle}>Nothing in this view</Text>
-          <Text style={styles.emptyBody}>
-            {permissions.canCreateTask
-              ? "Create a preset or custom task to fill Today's Work."
-              : 'Ask an adult to assign you something, or switch filters.'}
+          <Text style={styles.emptyTitle}>
+            {sharedKidMode ? 'No tasks for you right now' : 'Nothing in this view'}
           </Text>
-          {permissions.canCreateTask ? (
+          <Text style={styles.emptyBody}>
+            {sharedKidMode
+              ? 'Ask an adult to assign you something — or switch account if it’s someone else’s turn.'
+              : permissions.canCreateTask
+                ? "Create a preset or custom task to fill Today's Work."
+                : 'Ask an adult to assign you something, or switch filters.'}
+          </Text>
+          {sharedKidMode ? (
+            <Pressable onPress={() => setPersonaSwitchOpen(true)} style={styles.emptyCta}>
+              <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Switch account</Text>
+            </Pressable>
+          ) : permissions.canCreateTask ? (
             <Pressable onPress={() => router.push('/create-task' as never)} style={styles.emptyCta}>
               <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Create task</Text>
             </Pressable>
@@ -417,44 +687,78 @@ export default function TasksScreen() {
         </GlassCard>
       ) : null}
 
-      <TaskSection
-        title="Due Today"
-        dotColor={orbitColors.warning}
-        dotGlow
-        countLabel={`${grouped.today.length} items`}
-        tasks={grouped.today}
-        members={household.members}
-        rooms={rooms}
-        accentPrimary={accentTheme.primary}
-        justCompletedId={justCompletedId}
-        onToggle={handleToggle}
-      />
+      {memberSections ? (
+        memberSections.map((section) => (
+          <TaskSection
+            key={section.member.id}
+            title={section.title}
+            dotColor={section.accent}
+            countLabel={
+              section.total === 0 ? 'No tasks' : `${section.done} of ${section.total} complete`
+            }
+            tasks={section.tasks}
+            members={household.members}
+            rooms={rooms}
+            accentPrimary={accentTheme.primary}
+            allowEmpty
+            emptyLabel="No tasks assigned"
+            progress={{ done: section.done, total: section.total, color: section.accent }}
+            muted={section.total > 0 && section.done === section.total}
+            justCompletedId={justCompletedId}
+            onToggle={handleToggle}
+          />
+        ))
+      ) : (
+        <>
+          <TaskSection
+            title="Due Today"
+            dotColor={orbitColors.warning}
+            dotGlow
+            countLabel={`${grouped.today.length} items`}
+            tasks={grouped.today}
+            members={household.members}
+            rooms={rooms}
+            accentPrimary={accentTheme.primary}
+            justCompletedId={justCompletedId}
+            onToggle={handleToggle}
+          />
 
-      <TaskSection
-        title="Upcoming"
-        dotColor={accentTheme.primary}
-        countLabel={`${grouped.upcoming.length} items`}
-        tasks={grouped.upcoming}
-        members={household.members}
-        rooms={rooms}
-        accentPrimary={accentTheme.primary}
-        justCompletedId={justCompletedId}
-        onToggle={handleToggle}
-      />
+          <TaskSection
+            title="Upcoming"
+            dotColor={accentTheme.primary}
+            countLabel={`${grouped.upcoming.length} items`}
+            tasks={grouped.upcoming}
+            members={household.members}
+            rooms={rooms}
+            accentPrimary={accentTheme.primary}
+            justCompletedId={justCompletedId}
+            onToggle={handleToggle}
+          />
 
-      <TaskSection
-        title="Completed"
-        dotColor={orbitColors.success}
-        countLabel={`+${grouped.done.reduce((sum, task) => sum + task.xp, 0)} XP earned`}
-        tasks={grouped.done}
-        members={household.members}
-        rooms={rooms}
-        accentPrimary={accentTheme.primary}
-        muted
-        justCompletedId={justCompletedId}
-        onToggle={handleToggle}
-      />
+          <TaskSection
+            title="Completed"
+            dotColor={orbitColors.success}
+            countLabel={`+${grouped.done.reduce((sum, task) => sum + task.xp, 0)} XP earned`}
+            tasks={grouped.done}
+            members={household.members}
+            rooms={rooms}
+            accentPrimary={accentTheme.primary}
+            muted
+            justCompletedId={justCompletedId}
+            onToggle={handleToggle}
+          />
+        </>
+      )}
     </ScrollView>
+
+    <PersonaSwitchPopup
+      visible={personaSwitchOpen}
+      onClose={() => setPersonaSwitchOpen(false)}
+      members={household.members}
+      currentMemberId={currentMember?.id ?? ''}
+      onSwitch={switchPersona}
+    />
+    </>
   );
 }
 
@@ -471,6 +775,21 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
+  },
+  deviceSwitchChip: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  deviceSwitchText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   assigneeDot: {
     alignItems: 'center',
@@ -533,6 +852,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  memberEmpty: {
+    color: orbitColors.textSubtle,
+    fontSize: 13,
+    paddingVertical: 4,
+  },
+  memberProgressFill: {
+    borderRadius: 999,
+    height: '100%',
+  },
+  memberProgressTrack: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    height: 4,
+    marginBottom: 10,
+    overflow: 'hidden',
+    width: '100%',
+  },
   filterChip: {
     backgroundColor: orbitColors.card,
     borderColor: orbitColors.border,
@@ -545,6 +881,20 @@ const styles = StyleSheet.create({
     color: orbitColors.textSubtle,
     fontSize: 12,
     fontWeight: '400',
+  },
+  focusChip: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  focusChipText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   filterIconButton: {
     alignItems: 'center',
@@ -567,7 +917,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 4,
+  },
+  tasksHeader: {
+    flex: 1,
+    gap: 6,
+    paddingTop: 0,
   },
   metaPill: {
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -716,6 +1070,21 @@ const styles = StyleSheet.create({
     color: orbitColors.text,
     fontSize: 14,
     fontWeight: '600',
+  },
+  splitBanner: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  splitBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
   },
   xpBolt: {
     fontSize: 10,

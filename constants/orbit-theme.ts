@@ -1,10 +1,45 @@
 import { StyleSheet } from 'react-native';
 
+import { choremaxxBrand } from '@/constants/choremaxx-brand';
+
 /**
- * Exact Make v5 tokens from Design Orbit AI App
- * (theme.css + App.tsx / screen inline styles). Do not invent alternatives.
+ * Choremaxx Make UI tokens. Primary cyan/mint follow the official logo lockup.
+ * Static `orbitColors` remains the dark Midnight default for StyleSheets that
+ * have not migrated to `useOrbitTheme().colors`.
  */
-export const orbitColors = {
+export type OrbitColorPalette = {
+  background: string;
+  backgroundSoft: string;
+  shell: string;
+  card: string;
+  cardStrong: string;
+  cardMuted: string;
+  border: string;
+  borderStrong: string;
+  text: string;
+  textSoft: string;
+  textMuted: string;
+  textSubtle: string;
+  textFaint: string;
+  tabInactive: string;
+  orbitBlue: string;
+  orbitBlueDeep: string;
+  orbitBlueDark: string;
+  primary: string;
+  accent: string;
+  rewardsGold: string;
+  novaCyan: string;
+  success: string;
+  warning: string;
+  danger: string;
+  planPurple: string;
+  rankGold: string;
+  ink: string;
+  brandSlate: string;
+  brandFaded: string;
+};
+
+export const orbitColorsDark: OrbitColorPalette = {
   background: '#070D1C',
   backgroundSoft: '#0A1525',
   shell: '#030810',
@@ -12,20 +47,19 @@ export const orbitColors = {
   cardStrong: 'rgba(255, 255, 255, 0.07)',
   cardMuted: 'rgba(255, 255, 255, 0.03)',
   border: 'rgba(255, 255, 255, 0.08)',
-  borderStrong: 'rgba(56, 189, 248, 0.3)',
+  borderStrong: 'rgba(89, 178, 225, 0.35)',
   text: '#EEF2FF',
   textSoft: '#C8D8F0',
   textMuted: '#7C9CC0',
   textSubtle: '#4B6080',
   textFaint: '#2A3A54',
   tabInactive: '#3A5070',
-  orbitBlue: '#38BDF8',
-  orbitBlueDeep: '#0EA5E9',
-  orbitBlueDark: '#0369A1',
-  /** Choremaxx / Make v7 primary alias */
-  primary: '#3BB5F0',
-  accent: '#2DD4BF',
-  rewardsGold: '#F59E0B',
+  orbitBlue: choremaxxBrand.cyan,
+  orbitBlueDeep: '#3A9BC8',
+  orbitBlueDark: '#2B6F94',
+  primary: choremaxxBrand.cyan,
+  accent: choremaxxBrand.mint,
+  rewardsGold: choremaxxBrand.gold,
   novaCyan: '#06B6D4',
   success: '#34D399',
   warning: '#FB923C',
@@ -33,13 +67,50 @@ export const orbitColors = {
   planPurple: '#A78BFA',
   rankGold: '#FBBF24',
   ink: '#070D1C',
+  brandSlate: choremaxxBrand.slate,
+  brandFaded: choremaxxBrand.faded,
 };
 
+export const orbitColorsLight: OrbitColorPalette = {
+  background: '#F0F4F8',
+  backgroundSoft: '#E4EBF2',
+  shell: '#D8E2EC',
+  card: 'rgba(255, 255, 255, 0.78)',
+  cardStrong: 'rgba(255, 255, 255, 0.92)',
+  cardMuted: 'rgba(0, 0, 0, 0.03)',
+  border: 'rgba(20, 40, 60, 0.1)',
+  borderStrong: 'rgba(59, 130, 246, 0.35)',
+  text: '#0F1C2A',
+  textSoft: '#2A3A4C',
+  textMuted: '#5A6E82',
+  textSubtle: '#7A8FA3',
+  textFaint: '#A0B0C0',
+  tabInactive: '#8A9CB0',
+  orbitBlue: choremaxxBrand.cyan,
+  orbitBlueDeep: '#3A9BC8',
+  orbitBlueDark: '#2B6F94',
+  primary: choremaxxBrand.cyan,
+  accent: choremaxxBrand.mint,
+  rewardsGold: choremaxxBrand.gold,
+  novaCyan: '#06B6D4',
+  success: '#059669',
+  warning: '#EA580C',
+  danger: '#DC2626',
+  planPurple: '#7C3AED',
+  rankGold: '#D97706',
+  ink: '#0F1C2A',
+  brandSlate: choremaxxBrand.slate,
+  brandFaded: choremaxxBrand.faded,
+};
+
+/** Default static export — Midnight dark (back-compat for StyleSheets). */
+export const orbitColors = orbitColorsDark;
+
 export const orbitTabColors = {
-  home: '#38BDF8',
-  tasks: '#34D399',
+  home: choremaxxBrand.cyan,
+  tasks: choremaxxBrand.mint,
   plan: '#A78BFA',
-  ranking: '#FBBF24',
+  ranking: choremaxxBrand.gold,
   nova: '#06B6D4',
 } as const;
 
@@ -100,6 +171,15 @@ export const orbitTypography = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '400',
   },
+  /** Under-chrome page label — matches Home date line. */
+  pageEyebrow: {
+    color: '#6B82A3',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.35,
+    lineHeight: 14,
+    textTransform: 'uppercase',
+  },
   eyebrow: {
     color: orbitColors.textSubtle,
     fontSize: 12,
@@ -117,21 +197,31 @@ export const orbitTypography = StyleSheet.create({
   },
 });
 
+/** Legacy right-gutter when chips floated alone — chrome now owns logo+chips. */
+export const HEADER_CHIPS_GUTTER = 8;
+
+/** Sticky GlobalHeaderChips body under status bar; screens pad content with useTabChromePaddingTop. */
+export const TAB_CHROME_BODY = 52;
+
+/** Must match `TAB_CHROME_CONTENT_GAP` in global-header-chips — do not invent per-screen gaps. */
+export const TAB_CHROME_CONTENT_GAP = 14;
+
 export const orbitScreen = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: orbitColors.background,
   },
   content: {
+    alignSelf: 'stretch',
     gap: 16,
-    // Clear global Notifications + Settings chips (Make App overlay)
     paddingHorizontal: 16,
-    paddingTop: 44,
+    paddingTop: 16,
     paddingBottom: 24,
+    width: '100%',
   },
   header: {
     gap: 2,
-    paddingTop: 4,
+    paddingTop: 0,
   },
   row: {
     alignItems: 'center',

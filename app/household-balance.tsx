@@ -6,14 +6,36 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { orbitColors } from '@/constants/orbit-theme';
 import { memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  buildHomeHealthMetrics,
+  resolveHomeHealthRole,
+} from '@/lib/home-health-metrics';
+import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HouseholdBalanceScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, household, metrics } = useOrbit();
+  const { accentTheme, household, metrics, currentMember, permissions } = useOrbit();
   const sorted = useMemo(
     () => [...household.members].sort((a, b) => b.loadShare - a.loadShare),
     [household.members],
+  );
+
+  const sharedKidMode =
+    isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
+  const healthRole = resolveHomeHealthRole(currentMember, {
+    householdType: household.householdType,
+    isAdmin: permissions.canManageHousehold,
+  });
+  const healthItems = useMemo(
+    () =>
+      buildHomeHealthMetrics({
+        role: healthRole,
+        metrics,
+        household,
+        currentMember,
+      }),
+    [healthRole, metrics, household, currentMember],
   );
 
   const cleaningByRoom = useMemo(() => {
@@ -37,29 +59,20 @@ export default function HouseholdBalanceScreen() {
     });
   }, [household.rooms, household.tasks]);
 
-  const hero = [
-    {
-      key: 'completion',
-      label: 'Completion',
-      value: `${metrics.taskCompletionRate}%`,
-      hint: 'Task completion',
-      color: accentTheme.primary,
-    },
-    {
-      key: 'grocery',
-      label: 'Grocery Load',
-      value: `${metrics.groceryReadiness}%`,
-      hint: 'Stock readiness',
-      color: orbitColors.novaCyan,
-    },
-    {
-      key: 'plan',
-      label: 'Plan Load',
-      value: `${metrics.calendarCoverage}%`,
-      hint: 'Schedule coverage',
-      color: orbitColors.planPurple,
-    },
-  ];
+  const hero = healthItems.map((item) => ({
+    key: item.key,
+    label: item.label,
+    value: item.valueLabel,
+    hint:
+      item.kind === 'pct'
+        ? 'Score'
+        : item.kind === 'streak'
+          ? 'Days in a row'
+          : item.kind === 'trophy'
+            ? 'Toward next trophy'
+            : 'Count',
+    color: item.color,
+  }));
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -70,8 +83,8 @@ export default function HouseholdBalanceScreen() {
           <MaterialIcons name="close" size={18} color={orbitColors.textMuted} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>Household</Text>
-          <Text style={styles.title}>Household Health</Text>
+          <Text style={styles.kicker}>{sharedKidMode ? 'You' : 'Household'}</Text>
+          <Text style={styles.title}>{sharedKidMode ? 'My progress' : 'Household Health'}</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -89,48 +102,52 @@ export default function HouseholdBalanceScreen() {
           ))}
         </View>
 
-        <Text style={styles.section}>Member load</Text>
-        {sorted.map((member) => (
-          <View key={member.id} style={styles.memberCard}>
-            <View style={[styles.avatar, { backgroundColor: `${accentTheme.primary}22` }]}>
-              <Text style={styles.avatarEmoji}>{memberDisplayEmoji(member)}</Text>
-            </View>
-            <View style={styles.memberInfo}>
-              <Text style={styles.memberName}>{member.name}</Text>
-              <Text style={styles.memberMeta}>
-                {member.role} · {member.xp} XP
-              </Text>
-              <View style={styles.loadTrack}>
-                <View
-                  style={[
-                    styles.loadFill,
-                    {
-                      width: `${Math.min(100, member.loadShare)}%`,
-                      backgroundColor: accentTheme.primary,
-                    },
-                  ]}
-                />
+        {!sharedKidMode ? (
+          <>
+            <Text style={styles.section}>Member load</Text>
+            {sorted.map((member) => (
+              <View key={member.id} style={styles.memberCard}>
+                <View style={[styles.avatar, { backgroundColor: `${accentTheme.primary}22` }]}>
+                  <Text style={styles.avatarEmoji}>{memberDisplayEmoji(member)}</Text>
+                </View>
+                <View style={styles.memberInfo}>
+                  <Text style={styles.memberName}>{member.name}</Text>
+                  <Text style={styles.memberMeta}>
+                    {member.role} · {member.xp} XP
+                  </Text>
+                  <View style={styles.loadTrack}>
+                    <View
+                      style={[
+                        styles.loadFill,
+                        {
+                          width: `${Math.min(100, member.loadShare)}%`,
+                          backgroundColor: accentTheme.primary,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+                <Text style={[styles.loadText, { color: accentTheme.primary }]}>{member.loadShare}%</Text>
               </View>
-            </View>
-            <Text style={[styles.loadText, { color: accentTheme.primary }]}>{member.loadShare}%</Text>
-          </View>
-        ))}
+            ))}
 
-        <Text style={styles.section}>Cleaning by room</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomStrip}>
-          {cleaningByRoom.map(({ room, overdue, completed, lastTitle }) => (
-            <View key={room.id} style={styles.roomCard}>
-              <Text style={styles.roomEmoji}>{room.emoji}</Text>
-              <Text style={styles.roomName}>{room.name}</Text>
-              <Text style={styles.roomMeta}>
-                {completed} done · {overdue} open
-              </Text>
-              <Text style={styles.roomLast} numberOfLines={2}>
-                {lastTitle ? `Last: ${lastTitle}` : 'No completed cleans yet'}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
+            <Text style={styles.section}>Cleaning by room</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomStrip}>
+              {cleaningByRoom.map(({ room, overdue, completed, lastTitle }) => (
+                <View key={room.id} style={styles.roomCard}>
+                  <Text style={styles.roomEmoji}>{room.emoji}</Text>
+                  <Text style={styles.roomName}>{room.name}</Text>
+                  <Text style={styles.roomMeta}>
+                    {completed} done · {overdue} open
+                  </Text>
+                  <Text style={styles.roomLast} numberOfLines={2}>
+                    {lastTitle ? `Last: ${lastTitle}` : 'No completed cleans yet'}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -148,92 +165,91 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   header: {
+    alignItems: 'center',
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    paddingVertical: 8,
   },
+  headerCopy: { alignItems: 'center', flex: 1 },
   iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 20,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
   },
-  headerCopy: { flex: 1, alignItems: 'center' },
   kicker: {
-    color: orbitColors.textMuted,
+    color: '#7C9CC0',
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.6,
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
-  title: { color: orbitColors.text, fontSize: 18, fontWeight: '800', marginTop: 2 },
-  content: { padding: 16, gap: 12 },
+  title: { color: '#EEF2FF', fontSize: 18, fontWeight: '800' },
+  content: { gap: 12, paddingHorizontal: 16, paddingTop: 8 },
   heroRow: { flexDirection: 'row', gap: 10 },
   heroCard: {
-    flex: 1,
-    borderRadius: 20,
-    borderWidth: 1,
     backgroundColor: 'rgba(255,255,255,0.05)',
-    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    flex: 1,
     gap: 4,
+    padding: 12,
   },
-  heroLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
-  heroValue: { color: orbitColors.text, fontSize: 22, fontWeight: '800' },
-  heroHint: { color: orbitColors.textSubtle, fontSize: 11 },
+  heroLabel: { fontSize: 11, fontWeight: '700' },
+  heroValue: { color: '#EEF2FF', fontSize: 22, fontWeight: '800' },
+  heroHint: { color: '#4B6080', fontSize: 11 },
   section: {
-    color: orbitColors.textMuted,
+    color: '#7C9CC0',
     fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+    letterSpacing: 0.4,
     marginTop: 8,
+    textTransform: 'uppercase',
   },
   memberCard: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
     backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
     padding: 14,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
     alignItems: 'center',
+    borderRadius: 20,
+    height: 40,
     justifyContent: 'center',
+    width: 40,
   },
-  avatarEmoji: { fontSize: 22 },
-  memberInfo: { flex: 1, gap: 6 },
-  memberName: { color: orbitColors.text, fontSize: 15, fontWeight: '700' },
-  memberMeta: { color: orbitColors.textMuted, fontSize: 12 },
+  avatarEmoji: { fontSize: 18 },
+  memberInfo: { flex: 1, gap: 4 },
+  memberName: { color: '#EEF2FF', fontSize: 15, fontWeight: '700' },
+  memberMeta: { color: '#7C9CC0', fontSize: 12 },
   loadTrack: {
-    height: 8,
-    borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    height: 6,
     overflow: 'hidden',
   },
-  loadFill: { height: 8, borderRadius: 999 },
-  loadText: { fontSize: 14, fontWeight: '800' },
-  roomStrip: { gap: 10, paddingVertical: 2 },
+  loadFill: { borderRadius: 999, height: 6 },
+  loadText: { fontSize: 13, fontWeight: '800' },
+  roomStrip: { gap: 10, paddingVertical: 4 },
   roomCard: {
-    width: 148,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
     backgroundColor: 'rgba(255,255,255,0.05)',
-    padding: 14,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    borderWidth: 1,
     gap: 4,
+    padding: 14,
+    width: 140,
   },
   roomEmoji: { fontSize: 22 },
-  roomName: { color: orbitColors.text, fontSize: 14, fontWeight: '700' },
-  roomMeta: { color: orbitColors.novaCyan, fontSize: 11, fontWeight: '700' },
-  roomLast: { color: orbitColors.textSubtle, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  roomName: { color: '#EEF2FF', fontSize: 14, fontWeight: '700' },
+  roomMeta: { color: '#7C9CC0', fontSize: 11 },
+  roomLast: { color: '#4B6080', fontSize: 11 },
 });

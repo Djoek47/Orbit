@@ -2,10 +2,12 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
+import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { orbitColors } from '@/constants/orbit-theme';
 import { useOrbitOptional } from '@/store/orbit-store';
 
@@ -19,6 +21,8 @@ type AuthShellProps = {
   brandHero?: boolean;
   showBack?: boolean;
   footer?: ReactNode;
+  /** Append © / Privacy / Terms under the card (default on). */
+  showLegal?: boolean;
 };
 
 /** Shared Choremaxx chrome for auth / onboarding side screens. */
@@ -30,6 +34,7 @@ export function AuthShell({
   brandHero = false,
   showBack = false,
   footer,
+  showLegal = true,
 }: AuthShellProps) {
   const insets = useSafeAreaInsets();
   const orbit = useOrbitOptional();
@@ -45,16 +50,15 @@ export function AuthShell({
         style={styles.ambient}
         pointerEvents="none"
       />
-      <ScrollView
+      <KeyboardScreen
+        offset={showBack ? 8 : 0}
         contentContainerStyle={[
           styles.content,
           {
             paddingTop: insets.top + (showBack ? 8 : 28),
             paddingBottom: insets.bottom + 28,
           },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
+        ]}>
         {showBack ? (
           <Pressable onPress={() => router.back()} style={styles.backRow} hitSlop={8}>
             <MaterialIcons name="chevron-left" size={20} color={primary} />
@@ -81,7 +85,8 @@ export function AuthShell({
 
         <View style={styles.card}>{children}</View>
         {footer ? <View style={styles.footer}>{footer}</View> : null}
-      </ScrollView>
+        {showLegal ? <BrandLegalFooter compact showLogo={false} style={styles.legal} /> : null}
+      </KeyboardScreen>
     </View>
   );
 }
@@ -161,5 +166,9 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 'auto',
     paddingTop: 8,
+  },
+  legal: {
+    marginTop: 8,
+    paddingBottom: 4,
   },
 });

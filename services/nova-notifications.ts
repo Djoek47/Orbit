@@ -10,6 +10,8 @@ export const DEFAULT_NOVA_NOTIFICATION_PREFS: NovaNotificationPrefs = {
   deals: true,
   plans: true,
   xpFairness: true,
+  nearShop: true,
+  missingOnTheWay: true,
 };
 
 type PushFn = (input: {
@@ -59,14 +61,42 @@ export const novaNotifications = {
     });
   },
 
-  async proofSubmitted(push: PushFn, prefs: NovaNotificationPrefs, input: { title: string; assignee: string; taskId: string }) {
+  async proofSubmitted(
+    push: PushFn,
+    prefs: NovaNotificationPrefs,
+    input: { title: string; assignee: string; taskId: string; proofUri?: string; audienceRoles?: string[] }
+  ) {
     if (!prefs.tasks) return null;
     return push({
       title: 'Nova · Proof ready to review',
-      body: `${input.assignee} attached proof for ${input.title}.`,
-      category: 'ai',
+      body: `${input.assignee} attached proof for ${input.title}. Open the task to approve.`,
+      category: 'tasks',
+      priority: 'high',
+      data: {
+        taskId: input.taskId,
+        kind: 'proof_submitted',
+        proofUri: input.proofUri,
+        audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
+      },
+    });
+  },
+
+  async proofApproved(
+    push: PushFn,
+    prefs: NovaNotificationPrefs,
+    input: { title: string; taskId: string; audienceRoles?: string[] }
+  ) {
+    if (!prefs.tasks) return null;
+    return push({
+      title: 'Nova · Proof approved',
+      body: `Your proof for ${input.title} was approved. Nice verification.`,
+      category: 'tasks',
       priority: 'medium',
-      data: { taskId: input.taskId, kind: 'proof_submitted' },
+      data: {
+        taskId: input.taskId,
+        kind: 'proof_approved',
+        audienceRoles: input.audienceRoles,
+      },
     });
   },
 
@@ -101,25 +131,142 @@ export const novaNotifications = {
     });
   },
 
-  async rewardRequested(push: PushFn, prefs: NovaNotificationPrefs, input: { title: string; memberName: string; redemptionId: string }) {
+  async rewardRequested(
+    push: PushFn,
+    prefs: NovaNotificationPrefs,
+    input: { title: string; memberName: string; redemptionId: string; audienceRoles?: string[] }
+  ) {
     if (!prefs.rewards) return null;
     return push({
       title: 'Nova · Reward request',
       body: `${input.memberName} requested ${input.title}. Approve when it feels fair.`,
-      category: 'ai',
+      category: 'rewards',
       priority: 'medium',
-      data: { redemptionId: input.redemptionId, kind: 'reward_requested' },
+      data: {
+        redemptionId: input.redemptionId,
+        kind: 'reward_requested',
+        audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
+      },
     });
   },
 
-  async rewardApproved(push: PushFn, prefs: NovaNotificationPrefs, input: { title: string; redemptionId: string }) {
+  async rewardClaimed(
+    push: PushFn,
+    prefs: NovaNotificationPrefs,
+    input: { title: string; memberName: string; cost: number; redemptionId: string; audienceRoles?: string[] }
+  ) {
+    if (!prefs.rewards) return null;
+    return push({
+      title: 'Nova · Reward claimed',
+      body: `${input.memberName} claimed ${input.title} for ${input.cost} XP.`,
+      category: 'rewards',
+      priority: 'medium',
+      data: {
+        redemptionId: input.redemptionId,
+        kind: 'reward_claimed',
+        audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
+      },
+    });
+  },
+
+  async rewardApproved(
+    push: PushFn,
+    prefs: NovaNotificationPrefs,
+    input: { title: string; redemptionId: string; audienceMemberIds?: string[] }
+  ) {
     if (!prefs.rewards) return null;
     return push({
       title: 'Nova · Reward approved',
       body: `${input.title} is good to go. Enjoy it.`,
-      category: 'ai',
+      category: 'rewards',
       priority: 'medium',
-      data: { redemptionId: input.redemptionId, kind: 'reward_approved' },
+      data: {
+        redemptionId: input.redemptionId,
+        kind: 'reward_approved',
+        audienceMemberIds: input.audienceMemberIds,
+      },
+    });
+  },
+
+  async rewardAssigned(
+    push: PushFn,
+    prefs: NovaNotificationPrefs,
+    input: {
+      title: string;
+      cost: number;
+      rewardId: string;
+      assignedByName: string;
+      audienceMemberIds: string[];
+    }
+  ) {
+    if (!prefs.rewards) return null;
+    return push({
+      title: 'Nova · Reward assigned',
+      body: `${input.assignedByName} minted "${input.title}" for you (${input.cost} XP). Open Ranks → Rewards when ready.`,
+      category: 'rewards',
+      priority: 'medium',
+      data: {
+        rewardId: input.rewardId,
+        kind: 'reward_assigned',
+        audienceMemberIds: input.audienceMemberIds,
+      },
+    });
+  },
+
+  async allowanceRequested(
+    push: PushFn,
+    prefs: NovaNotificationPrefs,
+    input: { amountLabel: string; memberName: string; allowanceId: string }
+  ) {
+    if (!prefs.rewards) return null;
+    return push({
+      title: 'Nova · Allowance request',
+      body: `${input.memberName} asked for ${input.amountLabel}. Approve when it feels fair.`,
+      category: 'rewards',
+      priority: 'medium',
+      data: {
+        allowanceId: input.allowanceId,
+        kind: 'allowance_requested',
+        audienceRoles: ['owner', 'admin', 'adult'],
+      },
+    });
+  },
+
+  async allowanceApproved(
+    push: PushFn,
+    prefs: NovaNotificationPrefs,
+    input: { amountLabel: string; allowanceId: string; audienceMemberIds?: string[] }
+  ) {
+    if (!prefs.rewards) return null;
+    return push({
+      title: 'Nova · Allowance approved',
+      body: `${input.amountLabel} is approved. Enjoy it.`,
+      category: 'rewards',
+      priority: 'medium',
+      data: {
+        allowanceId: input.allowanceId,
+        kind: 'allowance_approved',
+        audienceMemberIds: input.audienceMemberIds,
+      },
+    });
+  },
+
+  async allowanceGranted(
+    push: PushFn,
+    prefs: NovaNotificationPrefs,
+    input: { amountLabel: string; allowanceId: string; audienceMemberIds?: string[] }
+  ) {
+    if (!prefs.rewards) return null;
+    return push({
+      title: 'Nova · Allowance granted',
+      body: `You received ${input.amountLabel} from an admin.`,
+      category: 'rewards',
+      priority: 'medium',
+      data: {
+        allowanceId: input.allowanceId,
+        kind: 'allowance_granted',
+        audienceMemberIds: input.audienceMemberIds,
+      },
     });
   },
 

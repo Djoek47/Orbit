@@ -20,7 +20,7 @@ const TAB_META: Record<
   index: { label: 'Home', color: orbitTabColors.home, icon: 'house.fill' },
   tasks: { label: 'Tasks', color: orbitTabColors.tasks, icon: 'checklist' },
   plan: { label: 'Plan', color: orbitTabColors.plan, icon: 'calendar' },
-  rewards: { label: 'Rewards', color: orbitTabColors.ranking, icon: 'trophy.fill' },
+  rewards: { label: 'Ranks', color: orbitTabColors.ranking, icon: 'trophy.fill' },
   nova: { label: 'Nova', color: orbitTabColors.nova, icon: 'sparkles' },
 };
 
@@ -33,6 +33,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   const orbit = useOrbitOptional();
   const accentPrimary = orbit?.accentTheme.primary ?? '#38BDF8';
   const accentSecondary = orbit?.accentTheme.secondary ?? '#0EA5E9';
+  const typeStyle = orbit?.accentTheme.typeStyle;
   const activeRouteName = state.routes[state.index]?.name;
 
   const visibleRoutes = TAB_ORDER.map((name) => {
@@ -51,7 +52,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
 
           const isNova = route.name === 'nova';
           const { label, icon } = meta;
-          const color = route.name === 'index' ? accentPrimary : meta.color;
+          const color = isFocused ? accentPrimary : meta.color;
 
           const onPress = () => {
             if (process.env.EXPO_OS === 'ios') {
@@ -93,7 +94,10 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                   style={[
                     styles.novaButton,
                     isFocused ? styles.novaButtonActive : styles.novaButtonInactive,
-                    { borderColor: `${accentPrimary}66` },
+                    {
+                      borderColor: `${accentPrimary}66`,
+                      shadowColor: accentPrimary,
+                    },
                   ]}>
                   <IconSymbol name={icon} size={20} color={isFocused ? '#070D1C' : accentPrimary} />
                 </LinearGradient>
@@ -108,7 +112,13 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               <Text
                 style={[
                   styles.label,
-                  { color: labelColor, fontWeight: isFocused ? '600' : '400' },
+                  {
+                    color: labelColor,
+                    fontWeight: isFocused
+                      ? (typeStyle?.captionWeight ?? '600')
+                      : '400',
+                    letterSpacing: isFocused ? (typeStyle?.letterSpacing ?? 0) : 0,
+                  },
                   isNova && styles.novaLabel,
                 ]}>
                 {label}

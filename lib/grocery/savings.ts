@@ -9,8 +9,15 @@ export type ShoppingSavingsSummary = {
 };
 
 /** Sale / aisle summary for the shopping run tied to a grocery itinerary stop. */
-export function summarizeShoppingRun(items: GroceryItem[]): ShoppingSavingsSummary {
-  const cart = items.filter((item) => item.status === 'Missing' || item.status === 'Low');
+export function summarizeShoppingRun(
+  items: GroceryItem[],
+  options?: { includePurchased?: boolean },
+): ShoppingSavingsSummary {
+  const cart = items.filter((item) =>
+    item.status === 'Missing' ||
+    item.status === 'Low' ||
+    (options?.includePurchased && item.status === 'Purchased'),
+  );
   let estimatedSavings = 0;
   let estimatedTotal = 0;
   let onSaleCount = 0;

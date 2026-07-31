@@ -1,5 +1,11 @@
 import { mockHousehold } from '@/data/mock-household';
 import { mapTaskRow, taskRepeatToDb, taskStatusToDb } from '@/lib/mappers/orbit-mappers';
+import {
+  buildShares,
+  formatAssigneeLabel,
+  getTaskAssignees,
+  isSplitTask,
+} from '@/lib/tasks/split-assign';
 import { resolveCompletionXp } from '@/lib/tasks/xp';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type { CreateTaskInput, HouseholdTask } from '@/types/orbit';
@@ -28,20 +34,33 @@ export const taskRepository = {
   },
 
   async createTask(householdId: string | null | undefined, input: CreateTaskInput): Promise<HouseholdTask> {
+    const assigneeNames = (input.assignees?.length ? input.assignees : [input.assignee])
+      .map((name) => name.trim())
+      .filter(Boolean);
+    const uniqueNames = [...new Set(assigneeNames)];
+    const split = uniqueNames.length > 1;
+
     const task: HouseholdTask = {
       id: createLocalId('task'),
       title: input.title.trim(),
       description: input.description?.trim() || undefined,
       category: input.category,
-      assignee: input.assignee,
+      assignee: split ? formatAssigneeLabel(uniqueNames) : uniqueNames[0] ?? input.assignee,
+      assignees: split ? uniqueNames : undefined,
+      shares: split ? buildShares(uniqueNames, input.proofRequired) : undefined,
+      splitXpEach: split ? input.splitXpEach ?? input.xp : undefined,
+      splitBonusXp: split ? input.splitBonusXp : undefined,
+      splitPenaltyXp: split ? input.splitPenaltyXp : undefined,
       due: input.due.trim(),
       xp: input.xp,
       weight: input.weight,
       difficulty: input.difficulty,
+      tracking: input.tracking,
       proofRequired: input.proofRequired,
-      proofStatus: input.proofRequired ? 'none' : undefined,
+      proofStatus: input.proofRequired && !split ? 'none' : undefined,
       dueAt: input.dueAt,
       roomId: input.roomId,
+      sharedDeviceId: input.sharedDeviceId,
       repeat: input.repeat,
       status: 'Pending',
     };
@@ -124,6 +143,12 @@ export const taskRepository = {
         xp_value: next.xp,
         repeat_rule: taskRepeatToDb(next.repeat),
         status: taskStatusToDb(next.status),
+        room_id: next.roomId ?? null,
+        weight: next.weight ?? null,
+        difficulty: next.difficulty ?? null,
+        proof_required: next.proofRequired ?? false,
+        proof_uri: next.proofUri ?? null,
+        proof_status: next.proofStatus ?? null,
       })
       .eq('id', next.id)
       .select('*')
@@ -152,7 +177,8 @@ export const taskRepository = {
       ...task,
       due: 'Completed today',
       status: 'Completed',
-      proofStatus: task.proofRequired ? task.proofStatus ?? 'submitted' : task.proofStatus,
+      // Keep prior proof status (usually 'none') — attach happens after complete.
+      proofStatus: task.proofStatus,
     };
 
     if (isMockMode()) {

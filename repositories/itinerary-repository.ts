@@ -28,10 +28,13 @@ export const itineraryRepository = {
       kind: stop.kind,
       address: stop.address,
       placeQuery: stop.placeQuery ?? stop.address ?? stop.label,
+      lat: stop.lat,
+      lng: stop.lng,
       eventId: stop.eventId,
       groceryListId: stop.groceryListId,
       etaMinutes: stop.etaMinutes,
       sortOrder: stop.sortOrder ?? index,
+      savedPlaceId: stop.savedPlaceId,
       status: index === 0 ? 'active' : 'pending',
     }));
 
@@ -44,6 +47,7 @@ export const itineraryRepository = {
       stops,
       suggestedByNova: input.suggestedByNova,
       summary: input.summary,
+      favorite: false,
     };
 
     if (isMockMode()) {

@@ -2,10 +2,15 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { scanDealsForHousehold } from '@/data/mock-deals';
 import { PREFERRED_STORES } from '@/data/preferred-stores';
+import { lookupGroceryProduct, type GroceryProductLookup } from '@/lib/grocery/product-lookup';
+import { openDirections } from '@/lib/maps/directions';
 import { summarizeShoppingRun } from '@/lib/grocery/savings';
 import { useOrbit } from '@/store/orbit-store';
 import type { GroceryItem } from '@/types/orbit';
@@ -29,8 +34,11 @@ const CATEGORY_META: Record<string, { emoji: string; color: string }> = {
 };
 
 export default function GroceriesScreen() {
+  const chromePad = useTabChromePaddingTop();
+  const insets = useSafeAreaInsets();
   const {
     accentTheme,
+    addMissingGrocery,
     canAddGroceryWishlist,
     household,
     markGroceryPurchased,
@@ -44,6 +52,8 @@ export default function GroceriesScreen() {
 
   const [expandedCat, setExpandedCat] = useState<string | null>('Produce');
   const [busy, setBusy] = useState(false);
+  const [lookupQuery, setLookupQuery] = useState('');
+  const [lookup, setLookup] = useState<GroceryProductLookup | null>(null);
 
   const listItems = useMemo(
     () =>
@@ -53,9 +63,15 @@ export default function GroceriesScreen() {
     [household.groceries]
   );
 
-  const summary = useMemo(() => summarizeShoppingRun(household.groceries), [household.groceries]);
-  const budget = 100;
-  const leftover = Math.max(0, budget - summary.estimatedTotal);
+  const summary = useMemo(
+    () => summarizeShoppingRun(household.groceries, { includePurchased: true }),
+    [household.groceries],
+  );
+  const softBudget = 100;
+  const leftover = softBudget - summary.estimatedTotal;
+  const leftoverLabel =
+    leftover >= 0 ? `$${leftover.toFixed(0)} left` : `$${Math.abs(leftover).toFixed(0)} over`;
+  const leftoverColor = leftover >= 0 ? '#34D399' : '#F87171';
 
   const categories = useMemo(() => {
     const map = new Map<string, GroceryItem[]>();
@@ -124,23 +140,109 @@ export default function GroceriesScreen() {
     await markGroceryPurchased(item.id);
   };
 
+  const runLookup = (value: string) => {
+    setLookupQuery(value);
+    setLookup(lookupGroceryProduct(value, preferredStore.id));
+  };
+
+  const addLookupToList = async () => {
+    if (!lookup || !canAddGroceryWishlist) return;
+    await addMissingGrocery({
+      name: lookup.name,
+      category: lookup.category,
+      quantity: lookup.packSize,
+      typicalPrice: lookup.estimatedPackPrice,
+      storeId: lookup.store.id,
+      note: lookup.note,
+    });
+    setLookupQuery('');
+    setLookup(null);
+  };
+
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: chromePad,
+        },
+      ]}
+      keyboardShouldPersistTaps="handled"
+      contentInsetAdjustmentBehavior="never"
       showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.caption}>Grocery Intelligence</Text>
+        <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
+          <PageEyebrow>Grocery Intelligence</PageEyebrow>
           <Text style={styles.title}>This Week&apos;s List</Text>
         </View>
-        {(permissions.canManageGroceries || canAddGroceryWishlist) && (
-          <Pressable
-            style={[styles.addBtn, { backgroundColor: `${accentTheme.primary}26`, borderColor: `${accentTheme.primary}33` }]}
-            onPress={() => router.push('/add-grocery' as never)}>
-            <MaterialIcons name="add" size={18} color={accentTheme.primary} />
-          </Pressable>
-        )}
+      </View>
+      {(permissions.canManageGroceries || canAddGroceryWishlist) && (
+        <Pressable
+          style={[
+            styles.addBtn,
+            {
+              backgroundColor: `${accentTheme.primary}26`,
+              borderColor: `${accentTheme.primary}33`,
+            },
+          ]}
+          onPress={() => router.push('/add-grocery' as never)}
+          accessibilityRole="button"
+          accessibilityLabel="Add grocery item">
+          <MaterialIcons name="add" size={18} color={accentTheme.primary} />
+        </Pressable>
+      )}
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Find a product</Text>
+        <Text style={styles.caption}>AI-ish lookup · unit price · preferred or nearby store</Text>
+        <TextInput
+          value={lookupQuery}
+          onChangeText={runLookup}
+          placeholder="e.g. milk, olive oil, blueberries"
+          placeholderTextColor="#4B6080"
+          style={styles.lookupInput}
+        />
+        {lookup ? (
+          <View style={styles.lookupResult}>
+            <Text style={styles.lookupName}>{lookup.name}</Text>
+            <Text style={styles.caption}>
+              {lookup.packSize} · ${lookup.estimatedPackPrice.toFixed(2)} est.
+              {lookup.brand ? ` · ${lookup.brand}` : ''}
+            </Text>
+            {lookup.pricePerLiter != null ? (
+              <Text style={[styles.unitPrice, { color: accentTheme.primary }]}>
+                ${lookup.pricePerLiter.toFixed(2)}/L · ${lookup.pricePerGallon?.toFixed(2)}/gal
+              </Text>
+            ) : (
+              <Text style={styles.caption}>Pack estimate at {lookup.store.name}</Text>
+            )}
+            <Text style={styles.caption}>
+              Buy at {lookup.store.name} · {lookup.store.address}
+            </Text>
+            <View style={styles.lookupActions}>
+              <Pressable
+                onPress={() =>
+                  void openDirections(undefined, {
+                    address: lookup.store.address,
+                    placeQuery: lookup.store.placeQuery,
+                  })
+                }
+                style={[styles.lookupBtn, { borderColor: `${accentTheme.primary}55` }]}>
+                <MaterialIcons name="map" size={14} color={accentTheme.primary} />
+                <Text style={[styles.lookupBtnText, { color: accentTheme.primary }]}>Open in Maps</Text>
+              </Pressable>
+              {(permissions.canManageGroceries || canAddGroceryWishlist) && (
+                <Pressable
+                  onPress={() => void addLookupToList()}
+                  style={[styles.lookupBtn, { backgroundColor: `${accentTheme.primary}22`, borderColor: `${accentTheme.primary}55` }]}>
+                  <MaterialIcons name="add" size={14} color={accentTheme.primary} />
+                  <Text style={[styles.lookupBtnText, { color: accentTheme.primary }]}>Add to list</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.card}>
@@ -150,12 +252,16 @@ export default function GroceriesScreen() {
               {collected} of {listItems.length} collected
             </Text>
             <Text style={styles.caption}>
-              Est. total: ${summary.estimatedTotal.toFixed(0)} · Budget: ${budget}
+              Est. total: ${summary.estimatedTotal.toFixed(0)} · Soft budget: ${softBudget}
             </Text>
           </View>
           <View style={styles.inline}>
-            <MaterialIcons name="trending-down" size={14} color="#34D399" />
-            <Text style={styles.savings}>${leftover.toFixed(0)} left</Text>
+            <MaterialIcons
+              name={leftover >= 0 ? 'trending-down' : 'trending-up'}
+              size={14}
+              color={leftoverColor}
+            />
+            <Text style={[styles.savings, { color: leftoverColor }]}>{leftoverLabel}</Text>
           </View>
         </View>
         <View style={styles.progressTrack}>
@@ -204,12 +310,28 @@ export default function GroceriesScreen() {
           color={accentTheme.primary}
           onPress={() => void startStoreTrip()}
         />
+        <ActionChip
+          label="Shopping mode"
+          color="#34D399"
+          onPress={() => router.push('/shopping-mode' as never)}
+        />
         <ActionChip label="Scan barcode" color="#06B6D4" onPress={() => router.push('/scan-grocery' as never)} />
         <ActionChip
           label="Store recommendations"
           color="#A78BFA"
           onPress={() => router.push('/shopping-recommendations' as never)}
         />
+        {permissions.canManageGroceries ? (
+          <ActionChip
+            label={`Preferred: ${preferredStore.name}`}
+            color={accentTheme.secondary}
+            onPress={() => {
+              const idx = PREFERRED_STORES.findIndex((store) => store.id === preferredStore.id);
+              const next = PREFERRED_STORES[(idx + 1) % PREFERRED_STORES.length];
+              setPreferredStore(next.id);
+            }}
+          />
+        ) : null}
       </ScrollView>
 
       {permissions.canManageGroceries ? (
@@ -344,25 +466,72 @@ function ActionChip({
 
 const styles = StyleSheet.create({
   container: { backgroundColor: '#070D1C', flex: 1 },
-  content: { gap: 14, paddingBottom: 32, paddingHorizontal: 16, paddingTop: 44 },
-  header: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', paddingTop: 4 },
+  content: {
+    alignItems: 'stretch',
+    alignSelf: 'stretch',
+    gap: 14,
+    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 44,
+    width: '100%',
+  },
+  header: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 36,
+    paddingTop: 0,
+    width: '100%',
+  },
   caption: { color: '#4B6080', fontSize: 12 },
-  title: { color: '#EEF2FF', fontSize: 24, fontWeight: '700', lineHeight: 29 },
+  title: { color: '#EEF2FF', fontSize: 22, fontWeight: '700', lineHeight: 27, marginTop: 2 },
   addBtn: {
     alignItems: 'center',
+    alignSelf: 'flex-start',
     borderRadius: 16,
     borderWidth: 1,
     height: 36,
     justifyContent: 'center',
+    marginTop: 2,
     width: 36,
   },
+  lookupInput: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 14,
+    borderWidth: 1,
+    color: '#EEF2FF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    width: '100%',
+  },
+  lookupResult: { gap: 6, marginTop: 10 },
+  lookupName: { color: '#EEF2FF', fontSize: 16, fontWeight: '700' },
+  unitPrice: { fontSize: 13, fontWeight: '700' },
+  lookupActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  lookupBtn: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  lookupBtnText: { fontSize: 12, fontWeight: '700' },
   card: {
+    alignSelf: 'stretch',
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 24,
     borderWidth: 1,
     gap: 12,
     padding: 16,
+    width: '100%',
   },
   rowBetween: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   cardTitle: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
@@ -373,15 +542,18 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 8,
     overflow: 'hidden',
+    width: '100%',
   },
   progressFill: { borderRadius: 999, height: 8 },
   insights: {
+    alignSelf: 'stretch',
     backgroundColor: 'rgba(6,182,212,0.08)',
     borderColor: 'rgba(56,189,248,0.15)',
     borderRadius: 24,
     borderWidth: 1,
     gap: 12,
     padding: 16,
+    width: '100%',
   },
   insightsEyebrow: { color: '#06B6D4', fontSize: 12, fontWeight: '600', letterSpacing: 0.6 },
   insightRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 10 },

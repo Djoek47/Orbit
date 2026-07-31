@@ -35,6 +35,7 @@ export function mapMemberRow(row: {
   week_xp?: number | null;
   streak?: number | null;
   load_share: number;
+  shared_with_member_ids?: string[] | null;
 }): HouseholdMember {
   const status =
     row.status === 'active' || row.status === 'pending' || row.status === 'inactive'
@@ -53,6 +54,12 @@ export function mapMemberRow(row: {
     weekXp: row.week_xp ?? 0,
     streak: row.streak ?? 0,
     loadShare: row.load_share,
+    sharedWithMemberIds:
+      row.role === 'shared-device'
+        ? Array.isArray(row.shared_with_member_ids)
+          ? row.shared_with_member_ids
+          : []
+        : undefined,
   };
 }
 
@@ -61,6 +68,7 @@ const taskStatusMap = {
   in_progress: 'In Progress',
   completed: 'Completed',
   overdue: 'Overdue',
+  cancelled: 'Cancelled',
 } as const;
 
 const taskRepeatMap = {
@@ -83,6 +91,7 @@ export function mapTaskRow(row: {
   room_id?: string | null;
   weight?: number | null;
   difficulty?: HouseholdTask['difficulty'] | null;
+  tracking?: HouseholdTask['tracking'] | null;
   proof_required?: boolean | null;
   proof_uri?: string | null;
   proof_status?: 'none' | 'submitted' | 'approved' | 'rejected' | null;
@@ -108,6 +117,7 @@ export function mapTaskRow(row: {
     roomId: row.room_id ?? undefined,
     weight: row.weight ?? undefined,
     difficulty: row.difficulty ?? undefined,
+    tracking: row.tracking === 'streak' || row.tracking === 'xp' ? row.tracking : undefined,
     proofRequired: row.proof_required ?? undefined,
     proofUri: row.proof_uri ?? undefined,
     proofStatus,
@@ -124,6 +134,7 @@ export function taskStatusToDb(status: HouseholdTask['status']) {
     'In Progress': 'in_progress',
     Completed: 'completed',
     Overdue: 'overdue',
+    Cancelled: 'cancelled',
   } as const;
   return map[status];
 }
