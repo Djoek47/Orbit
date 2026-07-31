@@ -37,17 +37,13 @@
         "NSPhotoLibraryUsageDescription": "Choremaxx uses your photos for profile pictures and task proof attachments.",
         "NSPhotoLibraryAddUsageDescription": "Choremaxx can save task proof photos to your library when you choose.",
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": [
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["remote-notification"]
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
-            "NSPrivacyAccessedAPITypeReasons": [
-              "CA92.1"
-            ]
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
           }
         ]
       }
@@ -136,6 +132,12 @@
         "projectId": "01af7128-865e-4d2e-b0b1-836f03105fc8"
       }
     },
-    "owner": "djoek47"
+    "owner": "djoek47",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/01af7128-865e-4d2e-b0b1-836f03105fc8"
+    }
   }
 }
