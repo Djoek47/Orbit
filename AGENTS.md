@@ -24,10 +24,19 @@ proactive co-manager rather than a generic chatbot. Code namespaces may still sa
 
 Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clone that remote.
 
+## Single shipping branch (mandatory)
+
+**Canonical branch:** `cursor/choremaxx-make-v7-c30d` → PR into `main`.
+
+- Checkout and push **only** this branch for product, Supabase, TestFlight, and UI work.
+- **Do not** create a new `cursor/<feature>-c30d` branch per task or agent run — that is how work gets lost.
+- Rule file: `.cursor/rules/single-shipping-branch.mdc`
+- Older stacked PRs are historical; do not open new stack bases unless the user asks.
+
 ## Cursor Cloud specific instructions
 
 - **Current runtime is Expo Go.** Keep `EXPO_PUBLIC_DATA_MODE=mock` unless the user explicitly asks for Supabase.
-- After clone / on cloud VM: `npm install`, `cp -n .env.example .env`, then use **`npm run start:tunnel`** for Expo Go (LAN `exp://172…` QR codes are unreachable from phones). Install `@expo/ngrok` as a project dep if tunnel install prompts fail. Most UI work can still be validated by lint/tsc without Metro.
+- After clone / on cloud VM: `git checkout cursor/choremaxx-make-v7-c30d && git pull`, then `npm install`, `cp -n .env.example .env`, then use **`npm run start:tunnel`** for Expo Go (LAN `exp://172…` QR codes are unreachable from phones). Install `@expo/ngrok` as a project dep if tunnel install prompts fail. Most UI work can still be validated by lint/tsc without Metro.
 - Design source: Figma Make `4J6d4LW335tDyEDpqq3VD1` — sync via Figma MCP when the user asks; do not assume Figma is available in every cloud run. Verify ports in Expo Go.
 - Do not commit `.env`, `node_modules/`, or `.npm-cache/`.
 - Prefer Expo Go over EAS/native `ios/` / `android/` builds unless the user asks to leave Expo Go.
