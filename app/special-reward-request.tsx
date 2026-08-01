@@ -7,7 +7,7 @@ import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -41,9 +41,9 @@ export default function SpecialRewardRequestScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <View style={orbitScreen.header}>
           <ChoremaxxBadge />
-          <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Rewards</Text>
-          <Text style={orbitTypography.display}>Special requests off</Text>
-          <Text style={orbitTypography.body}>
+          <Text style={[typography.footnote, { marginTop: 8 }]}>Rewards</Text>
+          <Text style={typography.title1}>Special requests off</Text>
+          <Text style={typography.body}>
             An admin needs to enable special reward requests in Settings → Member permissions.
           </Text>
         </View>
@@ -60,9 +60,9 @@ export default function SpecialRewardRequestScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={orbitScreen.header}>
         <ChoremaxxBadge />
-        <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Ask the household</Text>
-        <Text style={orbitTypography.display}>Special reward</Text>
-        <Text style={orbitTypography.body}>
+        <Text style={[typography.footnote, { marginTop: 8 }]}>Ask the household</Text>
+        <Text style={typography.title1}>Special reward</Text>
+        <Text style={typography.body}>
           Send a one-off ask. Admins see it as a special-request origin in the redeem tally.
         </Text>
       </View>
@@ -96,5 +96,5 @@ export default function SpecialRewardRequestScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: { gap: orbitSpacing.md },
+  card: { gap: space.md },
 });

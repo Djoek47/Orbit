@@ -8,7 +8,7 @@ import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
@@ -53,8 +53,8 @@ export default function CreateRewardScreen() {
         contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <ChoremaxxBadge />
-        <Text style={[orbitTypography.title, { marginTop: 16 }]}>Minting locked</Text>
-        <Text style={orbitTypography.body}>Only household owners and admins can mint shop rewards.</Text>
+        <Text style={[typography.title2, { marginTop: 16 }]}>Minting locked</Text>
+        <Text style={typography.body}>Only household owners and admins can mint shop rewards.</Text>
         <OrbitButton tone="secondary" onPress={() => router.back()}>
           Back
         </OrbitButton>
@@ -94,9 +94,9 @@ export default function CreateRewardScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={orbitScreen.header}>
         <ChoremaxxBadge />
-        <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Admin mint</Text>
-        <Text style={orbitTypography.display}>Mint reward</Text>
-        <Text style={orbitTypography.body}>
+        <Text style={[typography.footnote, { marginTop: 8 }]}>Admin mint</Text>
+        <Text style={typography.title1}>Mint reward</Text>
+        <Text style={typography.body}>
           Add to the vault for everyone, or assign to one person when you mint.
         </Text>
       </View>
@@ -180,7 +180,7 @@ export default function CreateRewardScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: { gap: orbitSpacing.md },
+  card: { gap: space.md },
   fieldLabel: {
     color: orbitColors.textMuted,
     fontSize: 12,

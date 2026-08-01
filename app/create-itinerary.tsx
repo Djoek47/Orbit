@@ -7,7 +7,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { getPreferredStore } from '@/data/preferred-stores';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { optimizeDraftStops } from '@/lib/calendar/suggest-itinerary';
 import { shopNearStops, findNearbyStores } from '@/lib/places/nearby-stores';
 import { useOrbit } from '@/store/orbit-store';
@@ -240,9 +240,9 @@ export default function CreateItineraryScreen() {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}>
       <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Plan</Text>
-        <Text style={orbitTypography.display}>New trip</Text>
-        <Text style={orbitTypography.body}>
+        <Text style={typography.footnote}>Plan</Text>
+        <Text style={typography.title1}>New trip</Text>
+        <Text style={typography.body}>
           Add stops from places, today’s calendar, or nearby stores.
         </Text>
       </View>
@@ -346,7 +346,7 @@ export default function CreateItineraryScreen() {
       {selected.length > 0 ? (
         <GlassCard>
           <View style={styles.orderHead}>
-            <Text style={orbitTypography.cardTitle}>Stop order</Text>
+            <Text style={typography.headline}>Stop order</Text>
             <Pressable onPress={handleOptimize} hitSlop={8}>
               <Text style={[styles.optimizeLink, { color: accentTheme.primary }]}>
                 Optimize with Nova
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
   chip: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: orbitRadius.full,
+    borderRadius: radius.full,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   orderRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: orbitSpacing.xs,
+    gap: space.xs,
   },
   orderIndex: {
     color: orbitColors.textMuted,

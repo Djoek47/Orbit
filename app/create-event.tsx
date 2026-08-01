@@ -6,7 +6,7 @@ import { ChoiceRow } from '@/components/orbit/choice-row';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { orbitScreen, orbitTypography } from '@/constants/orbit-theme';
+import { orbitScreen, typography } from '@/constants/orbit-theme';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { useOrbit } from '@/store/orbit-store';
@@ -65,9 +65,9 @@ export default function CreateEventScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={orbitScreen.container}>
         <ScrollView contentContainerStyle={orbitScreen.content}>
           <View style={orbitScreen.header}>
-            <Text style={orbitTypography.caption}>Plan</Text>
-            <Text style={orbitTypography.display}>Create event locked</Text>
-            <Text style={orbitTypography.body}>
+            <Text style={typography.footnote}>Plan</Text>
+            <Text style={typography.title1}>Create event locked</Text>
+            <Text style={typography.body}>
               An admin can enable calendar creates in Settings → Member permissions.
             </Text>
           </View>
@@ -81,9 +81,9 @@ export default function CreateEventScreen() {
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={orbitScreen.container}>
       <ScrollView contentContainerStyle={orbitScreen.content} contentInsetAdjustmentBehavior="automatic">
         <View style={orbitScreen.header}>
-          <Text style={orbitTypography.caption}>{simplified ? 'My event' : 'Family logistics'}</Text>
-          <Text style={orbitTypography.display}>Create Event</Text>
-          <Text style={orbitTypography.body}>
+          <Text style={typography.footnote}>{simplified ? 'My event' : 'Family logistics'}</Text>
+          <Text style={typography.title1}>Create Event</Text>
+          <Text style={typography.body}>
             {simplified
               ? 'Title, when, and optional place — keep it simple.'
               : 'Add a calendar event, assign responsibility, and optionally schedule a local reminder.'}

@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
+import { radius, space } from '@/constants/orbit-theme';
 import { DEFAULT_NOVA_NOTIFICATION_PREFS } from '@/services/nova-notifications';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -140,13 +140,13 @@ export default function ShoppingModeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    gap: orbitSpacing.md,
-    paddingHorizontal: orbitSpacing.lg,
+    gap: space.md,
+    paddingHorizontal: space.xl,
   },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   back: {
     alignItems: 'center',
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   },
   row: {
     alignItems: 'center',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 12,

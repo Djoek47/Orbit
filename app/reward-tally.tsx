@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, radius, typography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function RewardTallyScreen() {
@@ -46,9 +46,9 @@ export default function RewardTallyScreen() {
 
       <View style={orbitScreen.header}>
         <ChoremaxxBadge />
-        <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Redeem ledger</Text>
-        <Text style={orbitTypography.display}>Reward tally</Text>
-        <Text style={orbitTypography.body}>
+        <Text style={[typography.footnote, { marginTop: 8 }]}>Redeem ledger</Text>
+        <Text style={typography.title1}>Reward tally</Text>
+        <Text style={typography.body}>
           Pending, approved, and rejected asks — with origin so admins know mint vs special request.
         </Text>
       </View>
@@ -70,8 +70,8 @@ export default function RewardTallyScreen() {
 
       {sorted.length === 0 ? (
         <GlassCard>
-          <Text style={orbitTypography.cardTitle}>No redemptions yet</Text>
-          <Text style={orbitTypography.caption}>Redeem from the shop or send a special request.</Text>
+          <Text style={typography.headline}>No redemptions yet</Text>
+          <Text style={typography.footnote}>Redeem from the shop or send a special request.</Text>
         </GlassCard>
       ) : (
         sorted.map((redemption) => {
@@ -83,7 +83,7 @@ export default function RewardTallyScreen() {
           return (
             <GlassCard key={redemption.id} style={styles.card}>
               <View style={styles.cardHead}>
-                <Text style={orbitTypography.cardTitle}>
+                <Text style={typography.headline}>
                   {reward?.emoji ? `${reward.emoji} ` : ''}
                   {reward?.title ?? 'Reward'}
                 </Text>
@@ -97,7 +97,7 @@ export default function RewardTallyScreen() {
                   <Text style={styles.statusText}>{redemption.status}</Text>
                 </View>
               </View>
-              <Text style={orbitTypography.caption}>
+              <Text style={typography.footnote}>
                 {member?.name ?? 'Member'} · {reward?.cost ?? '—'} XP · {originLabel}
                 {reward?.createdByName ? ` · by ${reward.createdByName}` : ''}
               </Text>
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', gap: 10 },
   statChip: {
     backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     flex: 1,
     gap: 2,

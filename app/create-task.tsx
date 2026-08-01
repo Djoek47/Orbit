@@ -19,13 +19,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { XpWheel } from '@/components/orbit/xp-wheel';
-import {
-  orbitColors,
-  orbitRadius,
-  orbitScreen,
-  orbitSpacing,
-  orbitTypography,
-} from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import {
   CHOREMAXX_TASK_LIBRARY,
   DEFAULT_QUICK_PRESET_IDS,
@@ -742,8 +736,8 @@ export default function CreateTaskScreen() {
                 <Text style={styles.backPillText}>Close</Text>
               </Pressable>
             </View>
-            <Text style={orbitTypography.caption}>Create task</Text>
-            <Text style={orbitTypography.display}>{pageTitle}</Text>
+            <Text style={typography.footnote}>Create task</Text>
+            <Text style={typography.title1}>{pageTitle}</Text>
             <Text style={styles.summary}>{pageSummary}</Text>
             <View style={styles.pillRow}>
               <StatusPill
@@ -760,7 +754,7 @@ export default function CreateTaskScreen() {
           {permissions.canAssignTask ? (
             <GlassCard style={styles.heroCard}>
               <Text style={styles.novaLabel}>WHO&apos;S DOING IT</Text>
-              <Text style={orbitTypography.body}>
+              <Text style={typography.body}>
                 Pick one person, or hold a second profile to split the chore.
               </Text>
               <AssignEmojiGrid
@@ -772,7 +766,7 @@ export default function CreateTaskScreen() {
                 onLongPress={longPressAssignee}
               />
               {isSplitAssign ? (
-                <Text style={orbitTypography.caption}>
+                <Text style={typography.footnote}>
                   Split · {resolvedAssigneeName} — each earns XP when they finish.
                 </Text>
               ) : null}
@@ -781,7 +775,7 @@ export default function CreateTaskScreen() {
 
           <GlassCard style={styles.heroCard}>
             <Text style={styles.novaLabel}>BROWSE</Text>
-            <Text style={orbitTypography.body}>
+            <Text style={typography.body}>
               Presets, the full library, or a room category from the Choremaxx catalog.
             </Text>
             <View style={styles.searchFieldWrap}>
@@ -887,8 +881,8 @@ export default function CreateTaskScreen() {
                         <Text style={styles.dotEmoji}>{domainEmoji}</Text>
                       </View>
                       <View style={styles.stopBody}>
-                        <Text style={orbitTypography.cardTitle}>{preset.title}</Text>
-                        <Text style={orbitTypography.caption}>{metaLine}</Text>
+                        <Text style={typography.headline}>{preset.title}</Text>
+                        <Text style={typography.footnote}>{metaLine}</Text>
                         <View style={styles.pillRow}>
                           <StatusPill
                             label={hygiene ? 'streak' : `+${xp} xp`}
@@ -919,7 +913,7 @@ export default function CreateTaskScreen() {
 
           {catalogTasks.length === 0 ? (
             <GlassCard>
-              <Text style={orbitTypography.body}>Nothing matches — try another category.</Text>
+              <Text style={typography.body}>Nothing matches — try another category.</Text>
             </GlassCard>
           ) : null}
         </ScrollView>
@@ -931,7 +925,7 @@ export default function CreateTaskScreen() {
           onRequestClose={() => setCustomizeQuickOpen(false)}>
           <View style={styles.modalBackdrop}>
             <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
-              <Text style={orbitTypography.display}>Quick presets</Text>
+              <Text style={typography.title1}>Quick presets</Text>
               <Text style={styles.summary}>Toggle chores · adjust XP and frequency</Text>
               <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
                 {filterLibraryTasks({
@@ -1483,7 +1477,7 @@ const styles = StyleSheet.create({
     width: 40,
   },
   tripContent: {
-    gap: orbitSpacing.md,
+    gap: space.md,
     paddingBottom: 40,
     paddingHorizontal: 16,
     paddingTop: 4,
@@ -1533,7 +1527,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderColor: orbitColors.border,
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 10,
@@ -1550,7 +1544,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(6,182,212,0.10)',
     borderColor: 'rgba(6,182,212,0.35)',
-    borderRadius: orbitRadius.sm,
+    borderRadius: radius.control,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
@@ -1569,12 +1563,12 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: orbitSpacing.sm,
+    gap: space.sm,
   },
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: orbitSpacing.sm,
+    gap: space.sm,
     marginTop: 4,
   },
   flexBtn: {
@@ -1584,7 +1578,7 @@ const styles = StyleSheet.create({
   iconBtn: {
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: orbitRadius.sm,
+    borderRadius: radius.control,
     height: 44,
     justifyContent: 'center',
     width: 44,
@@ -1604,11 +1598,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   stopCard: {
-    gap: orbitSpacing.sm,
+    gap: space.sm,
   },
   stopRow: {
     flexDirection: 'row',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   stopBody: {
     flex: 1,
@@ -2128,8 +2122,8 @@ const styles = StyleSheet.create({
   },
   modalSheet: {
     backgroundColor: orbitColors.backgroundSoft,
-    borderTopLeftRadius: orbitRadius.lg,
-    borderTopRightRadius: orbitRadius.lg,
+    borderTopLeftRadius: radius.cardLarge,
+    borderTopRightRadius: radius.cardLarge,
     gap: 10,
     maxHeight: '85%',
     paddingHorizontal: 20,
