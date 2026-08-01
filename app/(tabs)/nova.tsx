@@ -13,10 +13,11 @@ import {
   View,
 } from 'react-native';
 
+import { NovaCard } from '@/components/orbit/nova-card';
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
-import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
+import { orbitColors, orbitRadius, orbitSpacing, space, typography } from '@/constants/orbit-theme';
 import {
   isNovaRealtimeEnabled,
   NovaRealtimeSession,
@@ -26,7 +27,9 @@ import {
 import { useOrbit } from '@/store/orbit-store';
 import type { NovaMonitorAction, NotificationItem } from '@/types/orbit';
 
-type NovaTab = 'chat' | 'activity';
+// Apple-Intelligence-style reframe (design-system/07-nova-experience.md §3):
+// briefing feed is the default landing view; chat is the "Ask Nova" fallback.
+type NovaTab = 'briefing' | 'chat';
 type NovaVisualState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
 const STATE_CONFIG: Record<NovaVisualState, { label: string; color: string; speaking: boolean }> = {
@@ -103,7 +106,8 @@ export default function NovaScreen() {
     suggestedNovaQuestions,
   } = useOrbit();
 
-  const [activeTab, setActiveTab] = useState<NovaTab>('chat');
+  const [activeTab, setActiveTab] = useState<NovaTab>('briefing');
+  const [showHistory, setShowHistory] = useState(false);
   const [draft, setDraft] = useState('');
   const [asking, setAsking] = useState(false);
   const [listening, setListening] = useState(false);
@@ -298,7 +302,8 @@ export default function NovaScreen() {
     setAsking(true);
     try {
       await runNovaMonitor();
-      setActiveTab('activity');
+      setActiveTab('briefing');
+      setShowHistory(true);
     } catch {
       setError('Monitor refresh failed.');
     } finally {
@@ -325,31 +330,12 @@ export default function NovaScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.segmentWrap}>
-        <View style={styles.segment}>
-          {(['chat', 'activity'] as const).map((tab) => {
-            const active = activeTab === tab;
-            return (
-              <Pressable
-                key={tab}
-                onPress={() => setActiveTab(tab)}
-                style={[styles.segmentButton, active && styles.segmentButtonActive]}>
-                <MaterialIcons
-                  name={tab === 'chat' ? 'auto-awesome' : 'insights'}
-                  size={13}
-                  color={active ? orbitColors.orbitBlue : orbitColors.textSubtle}
-                />
-                <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]}>
-                  {tab === 'chat' ? 'Chat' : 'Activity'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
       {activeTab === 'chat' ? (
         <View style={styles.chatPane}>
+          <Pressable style={styles.backRow} onPress={() => setActiveTab('briefing')} hitSlop={8}>
+            <MaterialIcons name="chevron-left" size={18} color={orbitColors.textMuted} />
+            <Text style={styles.backText}>Briefing</Text>
+          </Pressable>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -450,33 +436,20 @@ export default function NovaScreen() {
         </View>
       ) : (
         <ScrollView style={styles.activityScroll} contentContainerStyle={styles.activityContent}>
-          <Text style={styles.activityIntro}>
-            Monitor Agent · {monitorFeed.length} actions · {activityItems.length} feed items
-          </Text>
+          <NovaCard
+            kind="morningBrief"
+            message={novaWeeklyBriefing.summary}
+            actions={[{ label: 'Ask a follow-up', onPress: () => setActiveTab('chat') }]}
+          />
 
-          {activityItems.map((item) => {
-            const config = ACTIVITY_TYPE_CONFIG[item.category] ?? ACTIVITY_TYPE_CONFIG.general;
-            const emoji =
-              'isMonitor' in item && item.isMonitor
-                ? MONITOR_KIND_EMOJI[(item.category as NovaMonitorAction['kind'])] ?? '👁️'
-                : activityEmoji(item.category as NotificationItem['category']);
-            return (
-              <View key={item.id} style={styles.activityCard}>
-                <View style={[styles.activityIconWrap, { backgroundColor: `${config.color}15`, borderColor: `${config.color}25` }]}>
-                  <MaterialIcons name={config.icon} size={16} color={config.color} />
-                </View>
-                <View style={styles.activityCopy}>
-                  <View style={styles.activityMeta}>
-                    <Text style={[styles.activityAction, { color: config.color }]}>{item.title || config.action}</Text>
-                    <Text style={styles.activityDot}>·</Text>
-                    <Text style={styles.activityTime}>{formatTime(item.createdAt)}</Text>
-                  </View>
-                  <Text style={styles.activityDetail}>{item.body}</Text>
-                </View>
-                <Text style={styles.activityEmoji}>{emoji}</Text>
-              </View>
-            );
-          })}
+          {monitorFeed.slice(0, 3).map((action) => (
+            <NovaCard key={action.id} kind="recommendation" message={action.detail || action.label} />
+          ))}
+
+          <Pressable style={styles.askRow} onPress={() => setActiveTab('chat')}>
+            <MaterialIcons name="auto-awesome" size={16} color={orbitColors.orbitBlue} />
+            <Text style={styles.askRowText}>Ask Nova anything…</Text>
+          </Pressable>
 
           <LinearGradient
             colors={['rgba(6,182,212,0.10)', 'rgba(56,189,248,0.06)']}
@@ -494,6 +467,43 @@ export default function NovaScreen() {
               ))}
             </View>
           </LinearGradient>
+
+          <Pressable style={styles.historyToggle} onPress={() => setShowHistory((v) => !v)}>
+            <Text style={styles.historyToggleText}>
+              History · {monitorFeed.length} actions · {activityItems.length} items
+            </Text>
+            <MaterialIcons
+              name={showHistory ? 'expand-less' : 'expand-more'}
+              size={18}
+              color={orbitColors.textMuted}
+            />
+          </Pressable>
+
+          {showHistory
+            ? activityItems.map((item) => {
+                const config = ACTIVITY_TYPE_CONFIG[item.category] ?? ACTIVITY_TYPE_CONFIG.general;
+                const emoji =
+                  'isMonitor' in item && item.isMonitor
+                    ? MONITOR_KIND_EMOJI[(item.category as NovaMonitorAction['kind'])] ?? '👁️'
+                    : activityEmoji(item.category as NotificationItem['category']);
+                return (
+                  <View key={item.id} style={styles.activityCard}>
+                    <View style={[styles.activityIconWrap, { backgroundColor: `${config.color}15`, borderColor: `${config.color}25` }]}>
+                      <MaterialIcons name={config.icon} size={16} color={config.color} />
+                    </View>
+                    <View style={styles.activityCopy}>
+                      <View style={styles.activityMeta}>
+                        <Text style={[styles.activityAction, { color: config.color }]}>{item.title || config.action}</Text>
+                        <Text style={styles.activityDot}>·</Text>
+                        <Text style={styles.activityTime}>{formatTime(item.createdAt)}</Text>
+                      </View>
+                      <Text style={styles.activityDetail}>{item.body}</Text>
+                    </View>
+                    <Text style={styles.activityEmoji}>{emoji}</Text>
+                  </View>
+                );
+              })
+            : null}
 
           <Pressable onPress={() => router.push('/notifications' as never)}>
             <Text style={styles.viewAll}>View all notifications</Text>
@@ -565,6 +575,41 @@ const styles = StyleSheet.create({
   activityTime: {
     color: orbitColors.textFaint,
     fontSize: 12,
+  },
+  backRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    paddingBottom: 4,
+    paddingHorizontal: space.md,
+  },
+  backText: {
+    color: orbitColors.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  askRow: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(56,189,248,0.08)',
+    borderColor: 'rgba(56,189,248,0.18)',
+    borderRadius: orbitRadius.full,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: space.md,
+    paddingVertical: 12,
+  },
+  askRowText: {
+    color: orbitColors.textMuted,
+    fontSize: 15,
+  },
+  historyToggle: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  historyToggleText: {
+    ...typography.footnote,
   },
   bellBadge: {
     alignItems: 'center',
@@ -734,40 +779,6 @@ const styles = StyleSheet.create({
     color: orbitColors.orbitBlue,
     fontSize: 12,
     fontWeight: '500',
-  },
-  segment: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: orbitRadius.md,
-    flexDirection: 'row',
-    padding: 4,
-  },
-  segmentButton: {
-    alignItems: 'center',
-    borderColor: 'transparent',
-    borderRadius: 12,
-    borderWidth: 1,
-    flex: 1,
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-    paddingVertical: 8,
-  },
-  segmentButtonActive: {
-    backgroundColor: 'rgba(56,189,248,0.18)',
-    borderColor: 'rgba(56,189,248,0.3)',
-  },
-  segmentLabel: {
-    color: orbitColors.textSubtle,
-    fontSize: 14,
-    fontWeight: '400',
-  },
-  segmentLabelActive: {
-    color: orbitColors.orbitBlue,
-    fontWeight: '600',
-  },
-  segmentWrap: {
-    paddingBottom: 8,
-    paddingHorizontal: orbitSpacing.md,
   },
   sendButton: {
     alignItems: 'center',

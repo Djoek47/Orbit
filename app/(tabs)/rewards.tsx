@@ -7,10 +7,11 @@ import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-re
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
+import { Leaderboard, type LeaderboardEntry } from '@/components/orbit/leaderboard';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RewardClaimPress } from '@/components/orbit/reward-claim-press';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { memberDisplayEmoji } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
@@ -18,14 +19,11 @@ import {
 } from '@/lib/household/shared-device';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdMember, MemberProgress } from '@/types/orbit';
+import type { HouseholdMember } from '@/types/orbit';
 
 type RankingView = 'week' | 'alltime';
 type Surface = 'ranks' | 'rewards';
 
-const PODIUM_ORDER: [number, number, number] = [1, 0, 2];
-const PODIUM_HEIGHTS = [100, 130, 85];
-const CROWN_COLORS = ['#FBBF24', '#94A3B8', '#FB923C'];
 const RANK_EMOJI = ['👑', '🥈', '🥉'] as const;
 
 function resolveSurface(raw?: string | string[]): Surface {
@@ -160,6 +158,16 @@ export default function RewardsScreen() {
   }, [catalogRewards, shopCategory]);
 
   const top3 = sorted.slice(0, 3);
+  const podiumEntries = useMemo<LeaderboardEntry[]>(
+    () =>
+      top3.map((member) => ({
+        id: member.id,
+        name: member.name,
+        avatarEmoji: member.avatarEmoji,
+        xp: view === 'week' ? member.weekXp : member.xp,
+      })),
+    [top3, view]
+  );
   const earnedCount = achievements.filter((badge) => badge.earned).length;
   const collectionPct = achievements.length ? Math.round((earnedCount / achievements.length) * 100) : 0;
 
@@ -171,7 +179,7 @@ export default function RewardsScreen() {
       showsVerticalScrollIndicator={false}>
       <View style={[orbitScreen.header, styles.header]}>
         <PageEyebrow>{surface === 'ranks' ? 'Leaderboard' : 'Shop'}</PageEyebrow>
-        <Text style={orbitTypography.display}>
+        <Text style={typography.title1}>
           {surface === 'ranks' ? 'Family Rankings' : 'Rewards'}
         </Text>
       </View>
@@ -217,8 +225,8 @@ export default function RewardsScreen() {
         style={[styles.gamesCard, { borderColor: `${accentTheme.primary}44` }]}>
         <Text style={styles.gamesEmoji}>🎮</Text>
         <View style={{ flex: 1 }}>
-          <Text style={orbitTypography.cardTitle}>Household Games</Text>
-          <Text style={orbitTypography.caption}>
+          <Text style={typography.headline}>Household Games</Text>
+          <Text style={typography.footnote}>
             Drinking games, Uno, guessing nights — coming soon packs.
           </Text>
         </View>
@@ -247,26 +255,7 @@ export default function RewardsScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.podiumCard}>
         <View style={styles.podiumAmbient} pointerEvents="none" />
-        <View style={styles.podiumRow}>
-          {PODIUM_ORDER.map((rankIndex, visualIndex) => {
-            const member = top3[rankIndex];
-            if (!member) {
-              return <View key={`empty-${visualIndex}`} style={styles.podiumSlot} />;
-            }
-            const xpVal = view === 'week' ? member.weekXp : member.xp;
-            return (
-              <PodiumCard
-                key={member.id}
-                member={member}
-                rank={rankIndex}
-                xp={xpVal}
-                height={PODIUM_HEIGHTS[visualIndex]}
-                isFirst={rankIndex === 0}
-                sharedDevice={deviceByMemberId.get(member.id)}
-              />
-            );
-          })}
-        </View>
+        <Leaderboard entries={podiumEntries} variant="podium" />
       </LinearGradient>
 
       <GlassCard style={styles.listCard}>
@@ -328,7 +317,7 @@ export default function RewardsScreen() {
       <GlassCard>
         <View style={styles.sectionHeading}>
           <MaterialIcons name="local-fire-department" size={16} color={orbitColors.warning} />
-          <Text style={orbitTypography.cardTitle}>Current Streaks</Text>
+          <Text style={typography.headline}>Current Streaks</Text>
         </View>
         <View style={styles.streakRow}>
           {sorted.map((member) => (
@@ -361,7 +350,7 @@ export default function RewardsScreen() {
           <View style={orbitScreen.row}>
             <View style={styles.sectionHeading}>
               <MaterialIcons name="emoji-events" size={16} color={orbitColors.rankGold} />
-              <Text style={orbitTypography.cardTitle}>Achievements</Text>
+              <Text style={typography.headline}>Achievements</Text>
             </View>
             <View style={styles.earnedRow}>
               <Text style={styles.earnedCount}>
@@ -739,54 +728,6 @@ export default function RewardsScreen() {
   );
 }
 
-function PodiumCard({
-  member,
-  rank,
-  xp,
-  height,
-  isFirst,
-  sharedDevice,
-}: {
-  member: MemberProgress;
-  rank: number;
-  xp: number;
-  height: number;
-  isFirst: boolean;
-  sharedDevice?: HouseholdMember;
-}) {
-  return (
-    <View style={styles.podiumSlot}>
-      {isFirst ? <Text style={styles.crown}>👑</Text> : <View style={styles.crownSpacer} />}
-      <View style={styles.podiumAvatarWrap}>
-        <View
-          style={[
-            styles.podiumAvatar,
-            isFirst && styles.podiumAvatarFirst,
-            { backgroundColor: `${member.accentColor}44` },
-          ]}>
-          <Text style={[styles.podiumEmoji, isFirst && styles.podiumEmojiFirst]}>{member.avatarEmoji}</Text>
-        </View>
-        <View style={[styles.podiumRankDot, { backgroundColor: CROWN_COLORS[rank] }]}>
-          <Text style={styles.podiumRankText}>{rank + 1}</Text>
-        </View>
-      </View>
-      <Text style={styles.podiumName}>{member.name}</Text>
-      {sharedDevice ? <SharedTabletChip device={sharedDevice} compact /> : null}
-      <View
-        style={[
-          styles.podiumBlock,
-          {
-            height,
-            borderColor: `${member.accentColor}33`,
-            backgroundColor: `${member.accentColor}22`,
-          },
-        ]}>
-        <Text style={[styles.podiumXp, { color: member.accentColor, fontSize: isFirst ? 15 : 13 }]}>⚡ {xp}</Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   approvalLabel: {
     color: orbitColors.warning,
@@ -883,7 +824,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(251,191,36,0.12)',
     borderColor: 'rgba(251,191,36,0.3)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.control,
     borderWidth: 1,
     height: 48,
     justifyContent: 'center',
@@ -981,7 +922,7 @@ const styles = StyleSheet.create({
   gamesCard: {
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.card,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 12,
@@ -1008,7 +949,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.control,
     justifyContent: 'center',
   },
   memberName: {
@@ -1086,7 +1027,7 @@ const styles = StyleSheet.create({
   },
   podiumCard: {
     borderColor: orbitColors.border,
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.card,
     borderWidth: 1,
     overflow: 'hidden',
     padding: 20,
@@ -1163,7 +1104,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 16,
-    paddingHorizontal: orbitSpacing.md,
+    paddingHorizontal: space.md,
     paddingVertical: 14,
   },
   rankRowBorder: {
@@ -1175,13 +1116,13 @@ const styles = StyleSheet.create({
   },
   redemptionActions: {
     flexDirection: 'row',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   redemptionButton: {
     flex: 1,
   },
   rewardCard: {
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   rewardCopy: {
     flex: 1,
@@ -1241,7 +1182,7 @@ const styles = StyleSheet.create({
   },
   toggleRow: {
     backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.control,
     flexDirection: 'row',
     padding: 4,
   },

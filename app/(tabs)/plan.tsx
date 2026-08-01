@@ -3,9 +3,11 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { NovaCard } from '@/components/orbit/nova-card';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
+import { radius } from '@/constants/orbit-theme';
 import {
   TYPE_CONFIG,
   addMonths,
@@ -82,6 +84,7 @@ export default function PlanScreen() {
     selectedEvents.filter((e) => e.category === 'School' || e.category === 'Activity').length >= 1;
 
   const handleBuildTrip = async () => {
+    if (buildingTrip) return;
     setBuildingTrip(true);
     try {
       const created = await suggestNovaItinerary({
@@ -187,22 +190,23 @@ export default function PlanScreen() {
                   const today = isToday(day);
                   const dots = [...new Set(events.slice(0, 4).map((e) => eventColor(e.category)))].slice(0, 3);
                   return (
-                    <Pressable
-                      key={ds}
-                      onPress={() => setSelectedDate(day)}
-                      style={[
-                        styles.dayCell,
-                        today && styles.dayToday,
-                        selected && styles.daySelected,
-                      ]}>
-                      <Text
+                    <Pressable key={ds} onPress={() => setSelectedDate(day)} style={styles.dayCell}>
+                      <View
                         style={[
-                          styles.dayNum,
-                          !inMonth && styles.dayOut,
-                          (selected || today) && styles.dayNumActive,
+                          styles.dayCircle,
+                          selected && { backgroundColor: accentTheme.primary },
+                          !selected && today && { borderWidth: 1.5, borderColor: accentTheme.primary },
                         ]}>
-                        {format(day, 'd')}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.dayNum,
+                            !inMonth && styles.dayOut,
+                            selected && styles.dayNumSelected,
+                            !selected && today && { color: accentTheme.primary, fontWeight: '700' },
+                          ]}>
+                          {format(day, 'd')}
+                        </Text>
+                      </View>
                       {inMonth && dots.length > 0 ? (
                         <View style={styles.dots}>
                           {dots.map((c, i) => (
@@ -223,14 +227,23 @@ export default function PlanScreen() {
                 const selected = isSameDay(day, selectedDate);
                 const today = isToday(day);
                 return (
-                  <Pressable
-                    key={ds}
-                    onPress={() => setSelectedDate(day)}
-                    style={[styles.weekCell, today && styles.dayToday, selected && styles.daySelected]}>
+                  <Pressable key={ds} onPress={() => setSelectedDate(day)} style={styles.weekCell}>
                     <Text style={styles.eyebrow}>{format(day, 'EEE')}</Text>
-                    <Text style={[styles.weekNum, (selected || today) && styles.dayNumActive]}>
-                      {format(day, 'd')}
-                    </Text>
+                    <View
+                      style={[
+                        styles.weekDayCircle,
+                        selected && { backgroundColor: accentTheme.primary },
+                        !selected && today && { borderWidth: 1.5, borderColor: accentTheme.primary },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.weekNum,
+                          selected && styles.dayNumSelected,
+                          !selected && today && { color: accentTheme.primary },
+                        ]}>
+                        {format(day, 'd')}
+                      </Text>
+                    </View>
                     {events.length > 0 ? (
                       <View style={styles.dots}>
                         {[...new Set(events.slice(0, 3).map((e) => eventColor(e.category)))].map((c, i) => (
@@ -254,19 +267,17 @@ export default function PlanScreen() {
           </View>
 
           {canBuildTrip ? (
-            <Pressable
-              onPress={() => void handleBuildTrip()}
-              disabled={buildingTrip}
-              style={[styles.buildTripRow, { borderColor: `${accentTheme.primary}44` }]}>
-              <MaterialIcons name="route" size={18} color={accentTheme.primary} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.buildTripTitle, { color: accentTheme.primary }]}>
-                  {buildingTrip ? 'Building trip…' : 'Build trip for this day'}
-                </Text>
-                <Text style={styles.buildTripSub}>Nova orders stops · grocery only if it fits</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={18} color={accentTheme.primary} />
-            </Pressable>
+            <NovaCard
+              kind="recommendation"
+              message={
+                missingGroceries > 0 && locationEvents.length >= 1
+                  ? `A trip today could cover ${locationEvents.length === 1 ? 'this stop' : `these ${locationEvents.length} stops`} and pick up ${missingGroceries} missing item${missingGroceries === 1 ? '' : 's'} on the way.`
+                  : `${locationEvents.length >= 2 ? 'These stops line up' : 'This looks like a good day'} for one efficient trip.`
+              }
+              actions={[
+                { label: buildingTrip ? 'Building…' : 'Build trip', onPress: () => void handleBuildTrip() },
+              ]}
+            />
           ) : null}
 
           {selectedEvents.length === 0 ? (
@@ -392,21 +403,21 @@ const styles = StyleSheet.create({
   calHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 8 },
   dayCell: {
     alignItems: 'center',
-    borderColor: 'transparent',
-    borderRadius: 16,
-    borderWidth: 1,
+    gap: 2,
     paddingBottom: 6,
     paddingTop: 4,
     width: `${100 / 7}%`,
   },
-  dayNum: { color: '#C8D8F0', fontSize: 14 },
-  dayNumActive: { color: '#38BDF8', fontWeight: '700' },
-  dayOut: { color: '#2A3A54' },
-  daySelected: {
-    backgroundColor: 'rgba(56,189,248,0.2)',
-    borderColor: 'rgba(56,189,248,0.4)',
+  dayCircle: {
+    alignItems: 'center',
+    borderRadius: radius.full,
+    height: 30,
+    justifyContent: 'center',
+    width: 30,
   },
-  dayToday: { backgroundColor: 'rgba(56,189,248,0.08)' },
+  dayNum: { color: '#C8D8F0', fontSize: 14 },
+  dayNumSelected: { color: '#070D1C', fontWeight: '700' },
+  dayOut: { color: '#2A3A54' },
   dot: { borderRadius: 2, height: 4, width: 4 },
   dotLg: { borderRadius: 3, height: 6, width: 6 },
   dots: { flexDirection: 'row', gap: 2, marginTop: 2 },
@@ -507,18 +518,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  buildTripRow: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  buildTripTitle: { fontSize: 14, fontWeight: '700' },
-  buildTripSub: { color: '#4B6080', fontSize: 12, marginTop: 2 },
   subChip: {
     alignItems: 'center',
     borderColor: 'transparent',
@@ -564,8 +563,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     flex: 1,
-    gap: 4,
+    gap: 6,
     paddingVertical: 12,
+  },
+  weekDayCircle: {
+    alignItems: 'center',
+    borderRadius: radius.full,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
   },
   weekHead: { flexDirection: 'row', marginBottom: 4 },
   weekHeadCell: {
