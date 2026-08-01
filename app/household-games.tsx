@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { GAME_VIBE_LABEL, HOUSEHOLD_GAMES } from '@/data/household-games';
-import { orbitColors } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 
 const NEED_LABEL: Record<string, string> = {
@@ -19,19 +18,23 @@ const NEED_LABEL: Record<string, string> = {
 
 export default function HouseholdGamesScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme } = useOrbit();
+  const { accentTheme, orbitPalette } = useOrbit();
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.root,
+        { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
+      ]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.handle} />
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
-          <MaterialIcons name="close" size={18} color={orbitColors.textMuted} />
+          <MaterialIcons name="close" size={18} color={orbitPalette.textMuted} />
         </Pressable>
         <View style={styles.headerCopy}>
           <ChoremaxxBadge />
-          <Text style={styles.title}>Household Games</Text>
+          <Text style={[styles.title, { color: orbitPalette.text }]}>Household Games</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -39,7 +42,7 @@ export default function HouseholdGamesScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         showsVerticalScrollIndicator={false}>
-        <Text style={styles.lead}>
+        <Text style={[styles.lead, { color: orbitPalette.textSoft }]}>
           Roomate nights, family Uno, guessing games — playable packs land later. Browse what is coming.
         </Text>
 
@@ -48,7 +51,7 @@ export default function HouseholdGamesScreen() {
             <View style={styles.cardTop}>
               <Text style={styles.emoji}>{game.emoji}</Text>
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.cardTitle}>{game.title}</Text>
+                <Text style={[styles.cardTitle, { color: orbitPalette.text }]}>{game.title}</Text>
                 <Text style={[styles.vibe, { color: accentTheme.primary }]}>
                   {GAME_VIBE_LABEL[game.vibe]}
                 </Text>
@@ -57,11 +60,13 @@ export default function HouseholdGamesScreen() {
                 <Text style={[styles.soonText, { color: accentTheme.primary }]}>Soon</Text>
               </View>
             </View>
-            <Text style={styles.blurb}>{game.blurb}</Text>
+            <Text style={[styles.blurb, { color: orbitPalette.textMuted }]}>{game.blurb}</Text>
             <View style={styles.needs}>
               {game.needs.map((need) => (
                 <View key={need} style={styles.needChip}>
-                  <Text style={styles.needText}>{NEED_LABEL[need] ?? need}</Text>
+                  <Text style={[styles.needText, { color: orbitPalette.textSubtle }]}>
+                    {NEED_LABEL[need] ?? need}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -73,7 +78,7 @@ export default function HouseholdGamesScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { backgroundColor: '#0A1525', flex: 1 },
+  root: { flex: 1 },
   handle: {
     alignSelf: 'center',
     backgroundColor: 'rgba(255,255,255,0.18)',
@@ -100,9 +105,9 @@ const styles = StyleSheet.create({
     width: 40,
   },
   headerCopy: { alignItems: 'center', flex: 1, gap: 6 },
-  title: { color: orbitColors.text, fontSize: 18, fontWeight: '800' },
+  title: { fontSize: 18, fontWeight: '800' },
   content: { gap: 12, padding: 16 },
-  lead: { color: orbitColors.textSoft, fontSize: 14, lineHeight: 20, marginBottom: 4 },
+  lead: { fontSize: 14, lineHeight: 20, marginBottom: 4 },
   card: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderColor: 'rgba(255,255,255,0.08)',
@@ -113,11 +118,11 @@ const styles = StyleSheet.create({
   },
   cardTop: { alignItems: 'center', flexDirection: 'row', gap: 10 },
   emoji: { fontSize: 28 },
-  cardTitle: { color: orbitColors.text, fontSize: 16, fontWeight: '700' },
+  cardTitle: { fontSize: 16, fontWeight: '700' },
   vibe: { fontSize: 12, fontWeight: '700' },
   soonPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   soonText: { fontSize: 11, fontWeight: '800' },
-  blurb: { color: orbitColors.textMuted, fontSize: 13, lineHeight: 18 },
+  blurb: { fontSize: 13, lineHeight: 18 },
   needs: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   needChip: {
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -125,5 +130,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  needText: { color: orbitColors.textSubtle, fontSize: 11, fontWeight: '700' },
+  needText: { fontSize: 11, fontWeight: '700' },
 });

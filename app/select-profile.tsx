@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { getAccentTheme } from '@/constants/accent-themes';
-import { orbitColors, space } from '@/constants/orbit-theme';
+import { space } from '@/constants/orbit-theme';
 import {
   loadDeviceSession,
   selectDeviceProfile,
@@ -43,7 +43,7 @@ function profilesForSession(
 /** Netflix-style “Who’s logging in?” before the main app on shared/kid devices. */
 export default function SelectProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { household, isLoading, isSignedIn, switchPersona } = useOrbit();
+  const { household, isLoading, isSignedIn, orbitPalette, switchPersona } = useOrbit();
   const [session, setSession] = useState<DeviceSession | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -90,12 +90,20 @@ export default function SelectProfileScreen() {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+    <View
+      style={[
+        styles.root,
+        {
+          paddingTop: insets.top + 24,
+          paddingBottom: insets.bottom + 24,
+          backgroundColor: orbitPalette.background,
+        },
+      ]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ChoremaxxBadge size="lg" />
-        <Text style={styles.eyebrow}>{deviceLabel}</Text>
-        <Text style={styles.title}>Who&apos;s logging in?</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.eyebrow, { color: orbitPalette.textMuted }]}>{deviceLabel}</Text>
+        <Text style={[styles.title, { color: orbitPalette.text }]}>Who&apos;s logging in?</Text>
+        <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
           Pick your profile on this shared device. You can switch anytime from Home.
         </Text>
 
@@ -115,7 +123,11 @@ export default function SelectProfileScreen() {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.avatarRing}>
-                  <View style={styles.avatarInner}>
+                  <View
+                    style={[
+                      styles.avatarInner,
+                      { backgroundColor: orbitPalette.backgroundSoft },
+                    ]}>
                     {photo ? (
                       <Image source={{ uri: member.avatar }} style={styles.avatarImage} />
                     ) : (
@@ -123,7 +135,7 @@ export default function SelectProfileScreen() {
                     )}
                   </View>
                 </LinearGradient>
-                <Text style={styles.name} numberOfLines={1}>
+                <Text style={[styles.name, { color: orbitPalette.text }]} numberOfLines={1}>
                   {member.name}
                 </Text>
                 <Text style={[styles.xp, { color: theme.primary }]}>{member.xp} XP</Text>
@@ -135,8 +147,10 @@ export default function SelectProfileScreen() {
         <Pressable
           style={styles.manageRow}
           onPress={() => router.push('/setup-kid-device' as never)}>
-          <MaterialIcons name="add-circle-outline" size={20} color={orbitColors.textMuted} />
-          <Text style={styles.manageText}>Add another profile with a code or QR</Text>
+          <MaterialIcons name="add-circle-outline" size={20} color={orbitPalette.textMuted} />
+          <Text style={[styles.manageText, { color: orbitPalette.textMuted }]}>
+            Add another profile with a code or QR
+          </Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -145,7 +159,6 @@ export default function SelectProfileScreen() {
 
 const styles = StyleSheet.create({
   root: {
-    backgroundColor: orbitColors.background,
     flex: 1,
   },
   content: {
@@ -155,7 +168,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   eyebrow: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.4,
@@ -163,13 +175,11 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   title: {
-    color: orbitColors.text,
     fontSize: 28,
     fontWeight: '800',
     textAlign: 'center',
   },
   subtitle: {
-    color: orbitColors.textMuted,
     fontSize: 15,
     lineHeight: 22,
     maxWidth: 340,
@@ -198,7 +208,6 @@ const styles = StyleSheet.create({
   },
   avatarInner: {
     alignItems: 'center',
-    backgroundColor: '#0A1525',
     borderRadius: 45,
     height: 90,
     justifyContent: 'center',
@@ -213,7 +222,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   name: {
-    color: orbitColors.text,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -229,7 +237,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   manageText: {
-    color: orbitColors.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },

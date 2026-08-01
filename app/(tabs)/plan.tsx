@@ -24,6 +24,7 @@ import {
 } from '@/lib/calendar/make-calendar';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 type PlanSubTab = 'calendar' | 'itinerary';
@@ -49,7 +50,8 @@ function locationShort(location: string): string | null {
 
 export default function PlanScreen() {
   const chromePad = useTabChromePaddingTop();
-  const { household, suggestNovaItinerary, currentMember, permissions, accentTheme } = useOrbit();
+  const { household, suggestNovaItinerary, currentMember, permissions, accentTheme, orbitPalette } = useOrbit();
+  const { c, glass, glassBorder } = useOrbitColors();
   const [buildingTrip, setBuildingTrip] = useState(false);
   const [subTab, setSubTab] = useState<PlanSubTab>('calendar');
   const [view, setView] = useState<CalView>('month');
@@ -103,11 +105,11 @@ export default function PlanScreen() {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: orbitPalette.background }]}
       contentContainerStyle={[styles.content, { paddingTop: chromePad }]}
       contentInsetAdjustmentBehavior="never"
       showsVerticalScrollIndicator={false}>
-      <View style={styles.subNav}>
+      <View style={[styles.subNav, { backgroundColor: glass(0.06) }]}>
         {(
           [
             { id: 'calendar' as const, label: 'Calendar', icon: 'calendar-today' as const },
@@ -120,8 +122,15 @@ export default function PlanScreen() {
               key={item.id}
               onPress={() => setSubTab(item.id)}
               style={[styles.subChip, active && styles.subChipActive]}>
-              <MaterialIcons name={item.icon} size={14} color={active ? '#A78BFA' : '#4B6080'} />
-              <Text style={[styles.subLabel, active && styles.subLabelActive]}>{item.label}</Text>
+              <MaterialIcons name={item.icon} size={14} color={active ? '#A78BFA' : c.textMuted} />
+              <Text
+                style={[
+                  styles.subLabel,
+                  { color: c.textMuted },
+                  active && styles.subLabelActive,
+                ]}>
+                {item.label}
+              </Text>
             </Pressable>
           );
         })}
@@ -135,15 +144,26 @@ export default function PlanScreen() {
               <PageEyebrow>
                 {sharedKidMode ? 'My calendar' : 'Household Calendar'}
               </PageEyebrow>
-              <Text style={styles.h1}>{format(currentMonth, 'MMMM yyyy')}</Text>
+              <Text style={[styles.h1, { color: c.text }]}>{format(currentMonth, 'MMMM yyyy')}</Text>
             </View>
-            <View style={styles.viewToggle}>
+            <View
+              style={[
+                styles.viewToggle,
+                { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) },
+              ]}>
               {(['month', 'week'] as const).map((v) => (
                 <Pressable
                   key={v}
                   onPress={() => setView(v)}
                   style={[styles.viewChip, view === v && styles.viewChipActive]}>
-                  <Text style={[styles.viewLabel, view === v && styles.viewLabelActive]}>{v}</Text>
+                  <Text
+                    style={[
+                      styles.viewLabel,
+                      { color: c.textSubtle },
+                      view === v && styles.viewLabelActive,
+                    ]}>
+                    {v}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -158,7 +178,7 @@ export default function PlanScreen() {
             {Object.entries(TYPE_CONFIG).map(([key, cfg]) => (
               <View key={key} style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: cfg.color }]} />
-                <Text style={styles.legendLabel}>{cfg.label}</Text>
+                <Text style={[styles.legendLabel, { color: c.textSubtle }]}>{cfg.label}</Text>
               </View>
             ))}
           </View>
@@ -166,17 +186,23 @@ export default function PlanScreen() {
           {view === 'month' ? (
             <View>
               <View style={styles.monthNav}>
-                <Pressable style={styles.navBtn} onPress={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-                  <MaterialIcons name="chevron-left" size={16} color="#7C9CC0" />
+                <Pressable
+                  style={[styles.navBtn, { backgroundColor: glass(0.06) }]}
+                  onPress={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                  <MaterialIcons name="chevron-left" size={16} color={c.textMuted} />
                 </Pressable>
-                <Text style={styles.monthTitle}>{format(currentMonth, 'MMMM yyyy')}</Text>
-                <Pressable style={styles.navBtn} onPress={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                  <MaterialIcons name="chevron-right" size={16} color="#7C9CC0" />
+                <Text style={[styles.monthTitle, { color: c.text }]}>
+                  {format(currentMonth, 'MMMM yyyy')}
+                </Text>
+                <Pressable
+                  style={[styles.navBtn, { backgroundColor: glass(0.06) }]}
+                  onPress={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                  <MaterialIcons name="chevron-right" size={16} color={c.textMuted} />
                 </Pressable>
               </View>
               <View style={styles.weekHead}>
                 {WEEKDAYS.map((d) => (
-                  <Text key={d} style={styles.weekHeadCell}>
+                  <Text key={d} style={[styles.weekHeadCell, { color: c.textSubtle }]}>
                     {d}
                   </Text>
                 ))}
@@ -200,8 +226,9 @@ export default function PlanScreen() {
                         <Text
                           style={[
                             styles.dayNum,
-                            !inMonth && styles.dayOut,
-                            selected && styles.dayNumSelected,
+                            { color: c.textSoft },
+                            !inMonth && { color: c.textFaint },
+                            selected && { color: c.ink, fontWeight: '700' },
                             !selected && today && { color: accentTheme.primary, fontWeight: '700' },
                           ]}>
                           {format(day, 'd')}
@@ -227,8 +254,14 @@ export default function PlanScreen() {
                 const selected = isSameDay(day, selectedDate);
                 const today = isToday(day);
                 return (
-                  <Pressable key={ds} onPress={() => setSelectedDate(day)} style={styles.weekCell}>
-                    <Text style={styles.eyebrow}>{format(day, 'EEE')}</Text>
+                  <Pressable
+                    key={ds}
+                    onPress={() => setSelectedDate(day)}
+                    style={[
+                      styles.weekCell,
+                      { backgroundColor: glass(0.04), borderColor: glassBorder(0.06) },
+                    ]}>
+                    <Text style={[styles.eyebrow, { color: c.textSubtle }]}>{format(day, 'EEE')}</Text>
                     <View
                       style={[
                         styles.weekDayCircle,
@@ -238,7 +271,8 @@ export default function PlanScreen() {
                       <Text
                         style={[
                           styles.weekNum,
-                          selected && styles.dayNumSelected,
+                          { color: c.text },
+                          selected && { color: c.ink, fontWeight: '700' },
                           !selected && today && { color: accentTheme.primary },
                         ]}>
                         {format(day, 'd')}
@@ -258,10 +292,10 @@ export default function PlanScreen() {
           )}
 
           <View style={styles.selectedHead}>
-            <Text style={styles.sectionTitle}>
+            <Text style={[styles.sectionTitle, { color: c.text }]}>
               {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEE, MMMM d')}
             </Text>
-            <Text style={styles.eyebrow}>
+            <Text style={[styles.eyebrow, { color: c.textSubtle }]}>
               {selectedEvents.length} {selectedEvents.length === 1 ? 'item' : 'items'}
             </Text>
           </View>
@@ -281,9 +315,15 @@ export default function PlanScreen() {
           ) : null}
 
           {selectedEvents.length === 0 ? (
-            <View style={styles.emptyDay}>
+            <View
+              style={[
+                styles.emptyDay,
+                { backgroundColor: glass(0.03), borderColor: glassBorder(0.06) },
+              ]}>
               <Text style={{ fontSize: 32 }}>✨</Text>
-              <Text style={styles.eyebrow}>Nothing scheduled — a free day!</Text>
+              <Text style={[styles.eyebrow, { color: c.textSubtle }]}>
+                Nothing scheduled — a free day!
+              </Text>
             </View>
           ) : (
             selectedEvents.map((ev) => {
@@ -303,12 +343,12 @@ export default function PlanScreen() {
                           </Text>
                         </View>
                       </View>
-                      <Text style={styles.eventTitle}>{ev.title}</Text>
+                      <Text style={[styles.eventTitle, { color: c.text }]}>{ev.title}</Text>
                       <View style={styles.eventMetaRow}>
                         {ev.time ? (
                           <View style={styles.eventMetaItem}>
-                            <MaterialIcons name="schedule" size={11} color="#4B6080" />
-                            <Text style={styles.meta}>
+                            <MaterialIcons name="schedule" size={11} color={c.textSubtle} />
+                            <Text style={[styles.meta, { color: c.textMuted }]}>
                               {ev.time}
                               {endTime ? ` – ${endTime}` : ''}
                             </Text>
@@ -322,15 +362,17 @@ export default function PlanScreen() {
                         ) : null}
                         {ev.responsible ? (
                           <View style={styles.eventMetaItem}>
-                            <MaterialIcons name="person" size={11} color="#4B6080" />
-                            <Text style={styles.meta}>{ev.responsible}</Text>
+                            <MaterialIcons name="person" size={11} color={c.textSubtle} />
+                            <Text style={[styles.meta, { color: c.textMuted }]}>{ev.responsible}</Text>
                           </View>
                         ) : null}
                       </View>
                       {ev.location ? (
                         <View style={styles.eventLocationBox}>
-                          <MaterialIcons name="place" size={11} color="#4B6080" />
-                          <Text style={styles.eventLocationText}>{ev.location}</Text>
+                          <MaterialIcons name="place" size={11} color={c.textSubtle} />
+                          <Text style={[styles.eventLocationText, { color: c.textSubtle }]}>
+                            {ev.location}
+                          </Text>
                         </View>
                       ) : null}
                     </View>
@@ -340,8 +382,12 @@ export default function PlanScreen() {
             })
           )}
 
-          <View style={styles.next7Card}>
-            <Text style={styles.next7Title}>Next 7 Days</Text>
+          <View
+            style={[
+              styles.next7Card,
+              { backgroundColor: glass(0.05), borderColor: glassBorder(0.08) },
+            ]}>
+            <Text style={[styles.next7Title, { color: c.text }]}>Next 7 Days</Text>
             <View style={{ gap: 8 }}>
               {weekDays.slice(0, 5).map((day) => {
                 const ds = format(day, 'yyyy-MM-dd');
@@ -359,6 +405,7 @@ export default function PlanScreen() {
                       <Text
                         style={[
                           styles.next7DayLabel,
+                          { color: c.textMuted },
                           isToday(day) && { color: '#38BDF8', fontWeight: '700' },
                         ]}>
                         {isToday(day) ? 'Today' : format(day, 'EEE')}
@@ -379,7 +426,9 @@ export default function PlanScreen() {
                         );
                       })}
                       {events.length > 3 ? (
-                        <Text style={styles.next7More}>+{events.length - 3} more</Text>
+                        <Text style={[styles.next7More, { color: c.textSubtle }]}>
+                          +{events.length - 3} more
+                        </Text>
                       ) : null}
                     </View>
                   </Pressable>
@@ -398,7 +447,7 @@ export default function PlanScreen() {
 
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#070D1C', flex: 1 },
+  container: { flex: 1 },
   content: { gap: 16, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 16 },
   calHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 8 },
   dayCell: {
@@ -415,16 +464,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 30,
   },
-  dayNum: { color: '#C8D8F0', fontSize: 14 },
-  dayNumSelected: { color: '#070D1C', fontWeight: '700' },
-  dayOut: { color: '#2A3A54' },
+  dayNum: { fontSize: 14 },
   dot: { borderRadius: 2, height: 4, width: 4 },
   dotLg: { borderRadius: 3, height: 6, width: 6 },
   dots: { flexDirection: 'row', gap: 2, marginTop: 2 },
   emptyDay: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderColor: 'rgba(255,255,255,0.06)',
     borderRadius: 24,
     borderWidth: 1,
     gap: 8,
@@ -450,17 +495,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  eventLocationText: { color: '#4B6080', flex: 1, fontSize: 12 },
+  eventLocationText: { flex: 1, fontSize: 12 },
   eventMetaItem: { alignItems: 'center', flexDirection: 'row', gap: 4 },
   eventMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 6 },
-  eventTitle: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
-  eyebrow: { color: '#4B6080', fontSize: 12 },
-  h1: { color: '#EEF2FF', fontSize: 24, fontWeight: '700', lineHeight: 29 },
+  eventTitle: { fontSize: 14, fontWeight: '600' },
+  eyebrow: { fontSize: 12 },
+  h1: { fontSize: 24, fontWeight: '700', lineHeight: 29 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   legendDot: { borderRadius: 4, height: 8, width: 8 },
   legendItem: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  legendLabel: { color: '#4B6080', fontSize: 12 },
-  meta: { color: '#7C9CC0', fontSize: 12 },
+  legendLabel: { fontSize: 12 },
+  meta: { fontSize: 12 },
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   monthNav: {
     alignItems: 'center',
@@ -468,26 +513,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  monthTitle: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
+  monthTitle: { fontSize: 14, fontWeight: '600' },
   navBtn: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 12,
     height: 32,
     justifyContent: 'center',
     width: 32,
   },
   next7Card: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 24,
     borderWidth: 1,
     padding: 16,
   },
   next7DayCol: { flexShrink: 0, width: 48 },
-  next7DayLabel: { color: '#7C9CC0', fontSize: 12, textAlign: 'right' },
+  next7DayLabel: { fontSize: 12, textAlign: 'right' },
   next7Dot: { borderRadius: 3, height: 6, width: 6 },
-  next7More: { color: '#4B6080', fontSize: 12 },
+  next7More: { fontSize: 12 },
   next7Pill: {
     alignItems: 'center',
     borderRadius: 999,
@@ -501,7 +543,7 @@ const styles = StyleSheet.create({
   next7Pills: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   next7PillText: { fontSize: 10, maxWidth: 80 },
   next7Row: { alignItems: 'center', flexDirection: 'row', gap: 12 },
-  next7Title: { color: '#EEF2FF', fontSize: 14, fontWeight: '600', marginBottom: 12 },
+  next7Title: { fontSize: 14, fontWeight: '600', marginBottom: 12 },
   plusBtn: {
     alignItems: 'center',
     backgroundColor: 'rgba(56,189,248,0.15)',
@@ -512,7 +554,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 32,
   },
-  sectionTitle: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
+  sectionTitle: { fontSize: 14, fontWeight: '600' },
   selectedHead: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -533,10 +575,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(167,139,250,0.18)',
     borderColor: 'rgba(167,139,250,0.3)',
   },
-  subLabel: { color: '#4B6080', fontSize: 14 },
+  subLabel: { fontSize: 14 },
   subLabelActive: { color: '#A78BFA', fontWeight: '600' },
   subNav: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 16,
     flexDirection: 'row',
     gap: 4,
@@ -546,11 +587,9 @@ const styles = StyleSheet.create({
   typePillText: { fontSize: 10, fontWeight: '700' },
   viewChip: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   viewChipActive: { backgroundColor: 'rgba(56,189,248,0.2)' },
-  viewLabel: { color: '#4B6080', fontSize: 12, textTransform: 'capitalize' },
+  viewLabel: { fontSize: 12, textTransform: 'capitalize' },
   viewLabelActive: { color: '#38BDF8', fontWeight: '600' },
   viewToggle: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
     borderWidth: 1,
     flexDirection: 'row',
@@ -558,8 +597,6 @@ const styles = StyleSheet.create({
   },
   weekCell: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(255,255,255,0.06)',
     borderRadius: 16,
     borderWidth: 1,
     flex: 1,
@@ -575,13 +612,12 @@ const styles = StyleSheet.create({
   },
   weekHead: { flexDirection: 'row', marginBottom: 4 },
   weekHeadCell: {
-    color: '#4B6080',
     flex: 1,
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
   },
-  weekNum: { color: '#EEF2FF', fontSize: 16, fontWeight: '700' },
+  weekNum: { fontSize: 16, fontWeight: '700' },
   weekRow: { flexDirection: 'row', gap: 6 },
 });
 

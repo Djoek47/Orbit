@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { orbitColors } from '@/constants/orbit-theme';
 import { memberDisplayEmoji } from '@/lib/game-levels';
 import {
   buildHomeHealthMetrics,
@@ -15,7 +14,7 @@ import { useOrbit } from '@/store/orbit-store';
 
 export default function HouseholdBalanceScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, household, metrics, currentMember, permissions } = useOrbit();
+  const { accentTheme, household, metrics, currentMember, permissions, orbitPalette } = useOrbit();
   const sorted = useMemo(
     () => [...household.members].sort((a, b) => b.loadShare - a.loadShare),
     [household.members],
@@ -75,16 +74,24 @@ export default function HouseholdBalanceScreen() {
   }));
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.root,
+        { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
+      ]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.handle} />
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
-          <MaterialIcons name="close" size={18} color={orbitColors.textMuted} />
+          <MaterialIcons name="close" size={18} color={orbitPalette.textMuted} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>{sharedKidMode ? 'You' : 'Household'}</Text>
-          <Text style={styles.title}>{sharedKidMode ? 'My progress' : 'Household Health'}</Text>
+          <Text style={[styles.kicker, { color: orbitPalette.textMuted }]}>
+            {sharedKidMode ? 'You' : 'Household'}
+          </Text>
+          <Text style={[styles.title, { color: orbitPalette.text }]}>
+            {sharedKidMode ? 'My progress' : 'Household Health'}
+          </Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -96,23 +103,23 @@ export default function HouseholdBalanceScreen() {
           {hero.map((item) => (
             <View key={item.key} style={[styles.heroCard, { borderColor: `${item.color}33` }]}>
               <Text style={[styles.heroLabel, { color: item.color }]}>{item.label}</Text>
-              <Text style={styles.heroValue}>{item.value}</Text>
-              <Text style={styles.heroHint}>{item.hint}</Text>
+              <Text style={[styles.heroValue, { color: orbitPalette.text }]}>{item.value}</Text>
+              <Text style={[styles.heroHint, { color: orbitPalette.textSubtle }]}>{item.hint}</Text>
             </View>
           ))}
         </View>
 
         {!sharedKidMode ? (
           <>
-            <Text style={styles.section}>Member load</Text>
+            <Text style={[styles.section, { color: orbitPalette.textMuted }]}>Member load</Text>
             {sorted.map((member) => (
               <View key={member.id} style={styles.memberCard}>
                 <View style={[styles.avatar, { backgroundColor: `${accentTheme.primary}22` }]}>
                   <Text style={styles.avatarEmoji}>{memberDisplayEmoji(member)}</Text>
                 </View>
                 <View style={styles.memberInfo}>
-                  <Text style={styles.memberName}>{member.name}</Text>
-                  <Text style={styles.memberMeta}>
+                  <Text style={[styles.memberName, { color: orbitPalette.text }]}>{member.name}</Text>
+                  <Text style={[styles.memberMeta, { color: orbitPalette.textMuted }]}>
                     {member.role} · {member.xp} XP
                   </Text>
                   <View style={styles.loadTrack}>
@@ -131,16 +138,16 @@ export default function HouseholdBalanceScreen() {
               </View>
             ))}
 
-            <Text style={styles.section}>Cleaning by room</Text>
+            <Text style={[styles.section, { color: orbitPalette.textMuted }]}>Cleaning by room</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomStrip}>
               {cleaningByRoom.map(({ room, overdue, completed, lastTitle }) => (
                 <View key={room.id} style={styles.roomCard}>
                   <Text style={styles.roomEmoji}>{room.emoji}</Text>
-                  <Text style={styles.roomName}>{room.name}</Text>
-                  <Text style={styles.roomMeta}>
+                  <Text style={[styles.roomName, { color: orbitPalette.text }]}>{room.name}</Text>
+                  <Text style={[styles.roomMeta, { color: orbitPalette.textMuted }]}>
                     {completed} done · {overdue} open
                   </Text>
-                  <Text style={styles.roomLast} numberOfLines={2}>
+                  <Text style={[styles.roomLast, { color: orbitPalette.textSubtle }]} numberOfLines={2}>
                     {lastTitle ? `Last: ${lastTitle}` : 'No completed cleans yet'}
                   </Text>
                 </View>
@@ -154,7 +161,7 @@ export default function HouseholdBalanceScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0A1525' },
+  root: { flex: 1 },
   handle: {
     alignSelf: 'center',
     width: 40,
@@ -181,13 +188,12 @@ const styles = StyleSheet.create({
     width: 40,
   },
   kicker: {
-    color: '#7C9CC0',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
-  title: { color: '#EEF2FF', fontSize: 18, fontWeight: '800' },
+  title: { fontSize: 18, fontWeight: '800' },
   content: { gap: 12, paddingHorizontal: 16, paddingTop: 8 },
   heroRow: { flexDirection: 'row', gap: 10 },
   heroCard: {
@@ -199,10 +205,9 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   heroLabel: { fontSize: 11, fontWeight: '700' },
-  heroValue: { color: '#EEF2FF', fontSize: 22, fontWeight: '800' },
-  heroHint: { color: '#4B6080', fontSize: 11 },
+  heroValue: { fontSize: 22, fontWeight: '800' },
+  heroHint: { fontSize: 11 },
   section: {
-    color: '#7C9CC0',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.4,
@@ -228,8 +233,8 @@ const styles = StyleSheet.create({
   },
   avatarEmoji: { fontSize: 18 },
   memberInfo: { flex: 1, gap: 4 },
-  memberName: { color: '#EEF2FF', fontSize: 15, fontWeight: '700' },
-  memberMeta: { color: '#7C9CC0', fontSize: 12 },
+  memberName: { fontSize: 15, fontWeight: '700' },
+  memberMeta: { fontSize: 12 },
   loadTrack: {
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 999,
@@ -249,7 +254,7 @@ const styles = StyleSheet.create({
     width: 140,
   },
   roomEmoji: { fontSize: 22 },
-  roomName: { color: '#EEF2FF', fontSize: 14, fontWeight: '700' },
-  roomMeta: { color: '#7C9CC0', fontSize: 11 },
-  roomLast: { color: '#4B6080', fontSize: 11 },
+  roomName: { fontSize: 14, fontWeight: '700' },
+  roomMeta: { fontSize: 11 },
+  roomLast: { fontSize: 11 },
 });

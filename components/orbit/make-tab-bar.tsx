@@ -8,9 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { orbitTabColors, radius, shadow, space } from '@/constants/orbit-theme';
+import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
-
-const INACTIVE = '#3A5070';
 
 const TAB_ORDER = ['index', 'tasks', 'plan', 'rewards', 'nova'] as const;
 type TabRoute = (typeof TAB_ORDER)[number];
@@ -27,9 +26,8 @@ const TAB_META: Record<
 };
 
 /**
- * Floating Liquid Glass tab bar — see docs/design-system/08-liquid-glass-guidelines.md
- * "Concrete before/after": inset rounded-rect glass, not a full-bleed opaque bar.
- * Reuses global-header-chips.tsx's proven BlurView + gradient-wash recipe.
+ * Floating Liquid Glass tab bar — Day uses colored light glass; Night keeps
+ * deep accent wash. See docs/design-system/08-liquid-glass-guidelines.md.
  */
 export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -37,7 +35,10 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   const accentPrimary = orbit?.accentTheme.primary ?? '#38BDF8';
   const accentSecondary = orbit?.accentTheme.secondary ?? '#0EA5E9';
   const typeStyle = orbit?.accentTheme.typeStyle;
-  const isDark = orbit?.orbitPalette.isDark ?? true;
+  const palette = orbit?.orbitPalette;
+  const isDark = palette?.isDark ?? true;
+  const inactive = palette?.tabInactive ?? '#3A5070';
+  const ink = palette?.ink ?? '#070D1C';
   const activeRouteName = state.routes[state.index]?.name;
 
   const visibleRoutes = TAB_ORDER.map((name) => {
@@ -46,11 +47,23 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
     return { route };
   }).filter((item): item is NonNullable<typeof item> => item !== null);
 
+  const novaIdleColors = isDark
+    ? (['#0F2644', '#0A1E38'] as const)
+    : ([`${accentPrimary}33`, `${accentSecondary}28`] as const);
+
   return (
     <View
       pointerEvents="box-none"
       style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom - 4, space.xs) }]}>
-      <View style={[styles.bar, isDark ? shadow.floating.dark : shadow.floating.light]}>
+      <View
+        style={[
+          styles.bar,
+          isDark ? shadow.floating.dark : shadow.floating.light,
+          {
+            borderColor: glassBorder(isDark, isDark ? 0.12 : 0.14),
+            backgroundColor: isDark ? 'transparent' : glassFill(false, 0.04),
+          },
+        ]}>
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <BlurView
             intensity={Platform.OS === 'ios' ? material.liquidGlass.intensity : material.liquidGlass.androidIntensity}
@@ -59,15 +72,23 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
             style={StyleSheet.absoluteFill}
           />
           <LinearGradient
-            colors={[
-              `${accentPrimary}${isDark ? '26' : '30'}`,
-              `${accentSecondary}${isDark ? '14' : '1A'}`,
-              'transparent',
-            ]}
+            colors={
+              isDark
+                ? [`${accentPrimary}33`, `${accentSecondary}1A`, 'transparent']
+                : [`${accentPrimary}40`, `${accentSecondary}28`, 'rgba(255,255,255,0.55)']
+            }
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
+          {!isDark ? (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: 'rgba(255,255,255,0.35)' },
+              ]}
+            />
+          ) : null}
         </View>
         {visibleRoutes.map(({ route }) => {
           const isFocused = activeRouteName === route.name;
@@ -99,7 +120,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
             });
           };
 
-          const labelColor = isFocused ? (isNova ? accentPrimary : color) : INACTIVE;
+          const labelColor = isFocused ? (isNova ? accentPrimary : color) : inactive;
 
           return (
             <Pressable
@@ -112,7 +133,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               style={[styles.tab, isNova && styles.novaTab]}>
               {isNova ? (
                 <LinearGradient
-                  colors={isFocused ? [accentPrimary, accentSecondary] : ['#0F2644', '#0A1E38']}
+                  colors={isFocused ? [accentPrimary, accentSecondary] : [...novaIdleColors]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={[
@@ -123,12 +144,16 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                       shadowColor: accentPrimary,
                     },
                   ]}>
-                  <IconSymbol name={icon} size={20} color={isFocused ? '#070D1C' : accentPrimary} />
+                  <IconSymbol
+                    name={icon}
+                    size={20}
+                    color={isFocused ? ink : accentPrimary}
+                  />
                 </LinearGradient>
               ) : (
                 <View style={styles.iconColumn}>
                   <View style={[styles.iconBox, isFocused && { backgroundColor: `${color}1A` }]}>
-                    <IconSymbol name={icon} size={20} color={isFocused ? color : INACTIVE} />
+                    <IconSymbol name={icon} size={20} color={isFocused ? color : inactive} />
                   </View>
                   {isFocused ? <View style={[styles.dot, { backgroundColor: color }]} /> : null}
                 </View>
@@ -138,9 +163,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                   styles.label,
                   {
                     color: labelColor,
-                    fontWeight: isFocused
-                      ? (typeStyle?.captionWeight ?? '600')
-                      : '400',
+                    fontWeight: isFocused ? (typeStyle?.captionWeight ?? '600') : '400',
                     letterSpacing: isFocused ? (typeStyle?.letterSpacing ?? 0) : 0,
                   },
                   isNova && styles.novaLabel,
@@ -165,7 +188,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     borderCurve: 'continuous',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     flexDirection: 'row',
     overflow: 'hidden',
     paddingBottom: 6,

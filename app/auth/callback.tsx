@@ -13,7 +13,7 @@ import { useOrbit } from '@/store/orbit-store';
 /** Handles choremaxx://auth/callback after Supabase email confirmation. */
 export default function AuthCallbackScreen() {
   const insets = useSafeAreaInsets();
-  const { hydrateFromSession } = useOrbit();
+  const { hydrateFromSession, orbitPalette } = useOrbit();
   const [message, setMessage] = useState('Confirming your email…');
   const handled = useRef<string | null>(null);
   const url = Linking.useURL();
@@ -66,10 +66,14 @@ export default function AuthCallbackScreen() {
   }, [hydrateFromSession, url]);
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 40 }]}>
+    <View
+      style={[
+        styles.root,
+        { paddingTop: insets.top + 40, backgroundColor: orbitPalette.background },
+      ]}>
       <ChoremaxxLogo size="lg" />
       <ActivityIndicator color={orbitColors.primary} style={{ marginTop: 28 }} />
-      <Text style={styles.message}>{message}</Text>
+      <Text style={[styles.message, { color: orbitPalette.textMuted }]}>{message}</Text>
     </View>
   );
 }
@@ -77,13 +81,11 @@ export default function AuthCallbackScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#070D1C',
     alignItems: 'center',
     paddingHorizontal: 28,
     gap: 16,
   },
   message: {
-    color: orbitColors.textMuted,
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,

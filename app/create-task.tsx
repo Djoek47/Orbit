@@ -176,6 +176,7 @@ function AssignEmojiGrid({
   onSelect: (id: string) => void;
   onLongPress: (id: string) => void;
 }) {
+  const { orbitPalette } = useOrbit();
   return (
     <View style={styles.assignEmojiGrid}>
       {members.map((member) => {
@@ -214,18 +215,26 @@ function AssignEmojiGrid({
                 </View>
               )}
               {onShared ? (
-                <View style={styles.sharedDeviceBadge}>
-                  <MaterialIcons name="tablet-mac" size={9} color="#EEF2FF" />
+                <View
+                  style={[
+                    styles.sharedDeviceBadge,
+                    { borderColor: orbitPalette.backgroundSoft },
+                  ]}>
+                  <MaterialIcons name="tablet-mac" size={9} color={orbitPalette.text} />
                 </View>
               ) : null}
               {selected ? (
                 <View style={[styles.splitCheck, { backgroundColor: accent.color }]}>
-                  <MaterialIcons name="check" size={10} color="#04101F" />
+                  <MaterialIcons name="check" size={10} color={orbitPalette.ink} />
                 </View>
               ) : null}
             </View>
             <Text
-              style={[styles.assignEmojiName, selected && { color: accent.color }]}
+              style={[
+                styles.assignEmojiName,
+                { color: orbitPalette.textMuted },
+                selected && { color: accent.color },
+              ]}
               numberOfLines={1}>
               {member.name}
             </Text>
@@ -241,7 +250,7 @@ function AssignEmojiGrid({
 
 export default function CreateTaskScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, createTask, household, permissions } = useOrbit();
+  const { accentTheme, createTask, household, orbitPalette, permissions } = useOrbit();
 
   /** Real people only — shared tablet shells are not assign chips. */
   const activeMembers = useMemo(() => assignablePeople(household.members), [household.members]);
@@ -652,10 +661,22 @@ export default function CreateTaskScreen() {
 
   if (!permissions.canCreateTask) {
     return (
-      <View style={[styles.screen, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+      <View
+        style={[
+          styles.screen,
+          {
+            paddingTop: insets.top + 16,
+            paddingBottom: insets.bottom + 16,
+            backgroundColor: orbitPalette.background,
+          },
+        ]}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Text style={styles.lockedTitle}>Creating tasks is locked</Text>
-        <Text style={styles.lockedBody}>Your role can complete assigned work, but not create new tasks.</Text>
+        <Text style={[styles.lockedTitle, { color: orbitPalette.text }]}>
+          Creating tasks is locked
+        </Text>
+        <Text style={[styles.lockedBody, { color: orbitPalette.textMuted }]}>
+          Your role can complete assigned work, but not create new tasks.
+        </Text>
         <Pressable onPress={() => router.back()} style={styles.closeOnly}>
           <Text style={styles.closeOnlyText}>Go back</Text>
         </Pressable>
@@ -719,7 +740,11 @@ export default function CreateTaskScreen() {
         : `${catalogTasks.length} chores · tap Add, or Customize to edit first.`;
 
     return (
-      <View style={[orbitScreen.container, { paddingBottom: insets.bottom }]}>
+      <View
+        style={[
+          orbitScreen.container,
+          { paddingBottom: insets.bottom, backgroundColor: orbitPalette.background },
+        ]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.handleWrap, { paddingTop: insets.top + 8 }]}>
           <View style={styles.handle} />
@@ -732,13 +757,13 @@ export default function CreateTaskScreen() {
           <View style={orbitScreen.header}>
             <View style={styles.tripNavRow}>
               <Pressable onPress={() => router.back()} style={styles.backPill} hitSlop={8}>
-                <MaterialIcons name="chevron-left" size={20} color={orbitColors.text} />
-                <Text style={styles.backPillText}>Close</Text>
+                <MaterialIcons name="chevron-left" size={20} color={orbitPalette.text} />
+                <Text style={[styles.backPillText, { color: orbitPalette.text }]}>Close</Text>
               </Pressable>
             </View>
-            <Text style={typography.footnote}>Create task</Text>
-            <Text style={typography.title1}>{pageTitle}</Text>
-            <Text style={styles.summary}>{pageSummary}</Text>
+            <Text style={[typography.footnote, { color: orbitPalette.textMuted }]}>Create task</Text>
+            <Text style={[typography.title1, { color: orbitPalette.text }]}>{pageTitle}</Text>
+            <Text style={[styles.summary, { color: orbitPalette.textMuted }]}>{pageSummary}</Text>
             <View style={styles.pillRow}>
               <StatusPill
                 label={catalogChip === 'presets' ? 'presets' : catalogChip === 'all' ? 'library' : 'category'}
@@ -754,7 +779,7 @@ export default function CreateTaskScreen() {
           {permissions.canAssignTask ? (
             <GlassCard style={styles.heroCard}>
               <Text style={styles.novaLabel}>WHO&apos;S DOING IT</Text>
-              <Text style={typography.body}>
+              <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
                 Pick one person, or hold a second profile to split the chore.
               </Text>
               <AssignEmojiGrid
@@ -766,7 +791,7 @@ export default function CreateTaskScreen() {
                 onLongPress={longPressAssignee}
               />
               {isSplitAssign ? (
-                <Text style={typography.footnote}>
+                <Text style={[typography.footnote, { color: orbitPalette.textMuted }]}>
                   Split · {resolvedAssigneeName} — each earns XP when they finish.
                 </Text>
               ) : null}
@@ -775,17 +800,17 @@ export default function CreateTaskScreen() {
 
           <GlassCard style={styles.heroCard}>
             <Text style={styles.novaLabel}>BROWSE</Text>
-            <Text style={typography.body}>
+            <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
               Presets, the full library, or a room category from the Choremaxx catalog.
             </Text>
             <View style={styles.searchFieldWrap}>
-              <MaterialIcons name="search" size={18} color={orbitColors.textSubtle} />
+              <MaterialIcons name="search" size={18} color={orbitPalette.textSubtle} />
               <TextInput
                 value={presetQuery}
                 onChangeText={setPresetQuery}
                 placeholder="Search chores…"
-                placeholderTextColor={orbitColors.textFaint}
-                style={styles.searchField}
+                placeholderTextColor={orbitPalette.textFaint}
+                style={[styles.searchField, { color: orbitPalette.text }]}
                 autoCorrect={false}
                 clearButtonMode="while-editing"
               />
@@ -853,9 +878,12 @@ export default function CreateTaskScreen() {
           {catalogSections.map((section) => (
             <View key={section.key} style={styles.sectionBlock}>
               {catalogChip !== 'presets' ? (
-                <Text style={styles.sectionLabel}>
+                <Text style={[styles.sectionLabel, { color: orbitPalette.textSubtle }]}>
                   {section.title}
-                  <Text style={styles.sectionCount}> · {section.items.length}</Text>
+                  <Text style={[styles.sectionCount, { color: orbitPalette.textFaint }]}>
+                    {' '}
+                    · {section.items.length}
+                  </Text>
                 </Text>
               ) : null}
               {section.items.map((preset) => {
@@ -881,8 +909,12 @@ export default function CreateTaskScreen() {
                         <Text style={styles.dotEmoji}>{domainEmoji}</Text>
                       </View>
                       <View style={styles.stopBody}>
-                        <Text style={typography.headline}>{preset.title}</Text>
-                        <Text style={typography.footnote}>{metaLine}</Text>
+                        <Text style={[typography.headline, { color: orbitPalette.text }]}>
+                          {preset.title}
+                        </Text>
+                        <Text style={[typography.footnote, { color: orbitPalette.textMuted }]}>
+                          {metaLine}
+                        </Text>
                         <View style={styles.pillRow}>
                           <StatusPill
                             label={hygiene ? 'streak' : `+${xp} xp`}
@@ -913,7 +945,9 @@ export default function CreateTaskScreen() {
 
           {catalogTasks.length === 0 ? (
             <GlassCard>
-              <Text style={typography.body}>Nothing matches — try another category.</Text>
+              <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
+                Nothing matches — try another category.
+              </Text>
             </GlassCard>
           ) : null}
         </ScrollView>
@@ -924,9 +958,18 @@ export default function CreateTaskScreen() {
           transparent
           onRequestClose={() => setCustomizeQuickOpen(false)}>
           <View style={styles.modalBackdrop}>
-            <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
-              <Text style={typography.title1}>Quick presets</Text>
-              <Text style={styles.summary}>Toggle chores · adjust XP and frequency</Text>
+            <View
+              style={[
+                styles.modalSheet,
+                {
+                  paddingBottom: insets.bottom + 16,
+                  backgroundColor: orbitPalette.backgroundSoft,
+                },
+              ]}>
+              <Text style={[typography.title1, { color: orbitPalette.text }]}>Quick presets</Text>
+              <Text style={[styles.summary, { color: orbitPalette.textMuted }]}>
+                Toggle chores · adjust XP and frequency
+              </Text>
               <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
                 {filterLibraryTasks({
                   audience: libraryAudience,
@@ -947,8 +990,12 @@ export default function CreateTaskScreen() {
                       </Pressable>
                       <View style={{ flex: 1, gap: 8 }}>
                         <Pressable onPress={() => toggleQuickId(task.id)}>
-                          <Text style={styles.libraryTitle}>{task.title}</Text>
-                          <Text style={styles.libraryMeta}>{task.domain}</Text>
+                          <Text style={[styles.libraryTitle, { color: orbitPalette.text }]}>
+                            {task.title}
+                          </Text>
+                          <Text style={[styles.libraryMeta, { color: orbitPalette.textMuted }]}>
+                            {task.domain}
+                          </Text>
                         </Pressable>
                         {on ? (
                           <View style={styles.quickTuneBlock}>
@@ -1023,7 +1070,11 @@ export default function CreateTaskScreen() {
 
   if (mode === 'library') {
     return (
-      <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
+      <View
+        style={[
+          styles.screen,
+          { paddingBottom: insets.bottom, backgroundColor: orbitPalette.background },
+        ]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.handleWrap, { paddingTop: insets.top + 8 }]}>
           <View style={styles.handle} />
@@ -1031,20 +1082,20 @@ export default function CreateTaskScreen() {
         <ScrollView contentContainerStyle={styles.tripContent} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <Pressable onPress={() => setMode('presets')} style={styles.backChip}>
-              <MaterialIcons name="chevron-left" size={18} color="#7C9CC0" />
-              <Text style={styles.backChipText}>Quick</Text>
+              <MaterialIcons name="chevron-left" size={18} color={orbitPalette.textMuted} />
+              <Text style={[styles.backChipText, { color: orbitPalette.textMuted }]}>Quick</Text>
             </Pressable>
-            <Text style={styles.headerTitle}>Task library</Text>
+            <Text style={[styles.headerTitle, { color: orbitPalette.text }]}>Task library</Text>
             <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
-              <MaterialIcons color="#7C9CC0" name="close" size={16} />
+              <MaterialIcons color={orbitPalette.textMuted} name="close" size={16} />
             </Pressable>
           </View>
           <TextInput
             value={libraryQuery}
             onChangeText={setLibraryQuery}
             placeholder="Search chores…"
-            placeholderTextColor="#4B6080"
-            style={styles.searchInput}
+            placeholderTextColor={orbitPalette.textSubtle}
+            style={[styles.searchInput, { color: orbitPalette.text }]}
           />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetFilterRow}>
             <Pressable
@@ -1083,9 +1134,12 @@ export default function CreateTaskScreen() {
           <View style={styles.librarySections}>
             {libraryByRoom.map((section) => (
               <View key={section.kind} style={styles.librarySection}>
-                <Text style={styles.librarySectionTitle}>
+                <Text style={[styles.librarySectionTitle, { color: orbitPalette.text }]}>
                   {section.title}
-                  <Text style={styles.librarySectionCount}> · {section.items.length}</Text>
+                  <Text style={[styles.librarySectionCount, { color: orbitPalette.textSubtle }]}>
+                    {' '}
+                    · {section.items.length}
+                  </Text>
                 </Text>
                 <View style={styles.presetGrid}>
                   {section.items.map((preset) => {
@@ -1098,7 +1152,9 @@ export default function CreateTaskScreen() {
                         onLongPress={() => applyPreset(preset, false)}
                         style={styles.presetCard}>
                         <View style={styles.presetTop}>
-                          <Text style={styles.presetTitle}>{preset.title}</Text>
+                          <Text style={[styles.presetTitle, { color: orbitPalette.text }]}>
+                            {preset.title}
+                          </Text>
                           <View style={[styles.xpBadge, { backgroundColor: `${accentTheme.primary}22` }]}>
                             <Text style={[styles.xpBadgeText, { color: accentTheme.primary }]}>
                               {hygiene ? 'Streak' : `+${xp}`}
@@ -1127,7 +1183,10 @@ export default function CreateTaskScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
-      style={[styles.screen, { paddingBottom: insets.bottom }]}>
+      style={[
+        styles.screen,
+        { paddingBottom: insets.bottom, backgroundColor: orbitPalette.background },
+      ]}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={[styles.handleWrap, { paddingTop: insets.top + 8 }]}>
@@ -1140,12 +1199,12 @@ export default function CreateTaskScreen() {
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable onPress={() => setMode('presets')} style={styles.backChip}>
-            <MaterialIcons name="chevron-left" size={18} color="#7C9CC0" />
-            <Text style={styles.backChipText}>Presets</Text>
+            <MaterialIcons name="chevron-left" size={18} color={orbitPalette.textMuted} />
+            <Text style={[styles.backChipText, { color: orbitPalette.textMuted }]}>Presets</Text>
           </Pressable>
-          <Text style={styles.headerTitle}>Custom task</Text>
+          <Text style={[styles.headerTitle, { color: orbitPalette.text }]}>Custom task</Text>
           <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
-            <MaterialIcons color="#7C9CC0" name="close" size={16} />
+            <MaterialIcons color={orbitPalette.textMuted} name="close" size={16} />
           </Pressable>
         </View>
 
@@ -1187,8 +1246,8 @@ export default function CreateTaskScreen() {
             autoFocus
             onChangeText={setTitle}
             placeholder={type === 'homework' ? 'e.g. Chapter 5 worksheet' : 'e.g. Call plumber about sink'}
-            placeholderTextColor="#4B6080"
-            style={styles.titleInput}
+            placeholderTextColor={orbitPalette.textSubtle}
+            style={[styles.titleInput, { color: orbitPalette.text }]}
             value={title}
           />
         </View>
@@ -1463,7 +1522,6 @@ export default function CreateTaskScreen() {
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: orbitColors.background,
     flex: 1,
   },
   handleWrap: {
@@ -1500,12 +1558,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   backPillText: {
-    color: orbitColors.text,
     fontSize: 15,
     fontWeight: '600',
   },
   summary: {
-    color: orbitColors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -1535,7 +1591,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   searchField: {
-    color: orbitColors.text,
     flex: 1,
     fontSize: 15,
     padding: 0,
@@ -1641,7 +1696,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   headerTitle: {
-    color: '#EEF2FF',
     fontSize: 22,
     fontWeight: '700',
     letterSpacing: -0.4,
@@ -1748,7 +1802,6 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   presetTitle: {
-    color: '#EEF2FF',
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
@@ -1854,7 +1907,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 16,
     borderWidth: 1,
-    color: '#EEF2FF',
     fontSize: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -1934,7 +1986,6 @@ const styles = StyleSheet.create({
     width: 64,
   },
   assignEmojiName: {
-    color: '#7C9CC0',
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
@@ -2060,14 +2111,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   lockedTitle: {
-    color: '#EEF2FF',
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 8,
     paddingHorizontal: 20,
   },
   lockedBody: {
-    color: '#7C9CC0',
     fontSize: 14,
     marginBottom: 20,
     paddingHorizontal: 20,
@@ -2121,7 +2170,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: orbitColors.backgroundSoft,
     borderTopLeftRadius: radius.cardLarge,
     borderTopRightRadius: radius.cardLarge,
     gap: 10,
@@ -2138,12 +2186,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   libraryTitle: {
-    color: '#EEF2FF',
     fontSize: 14,
     fontWeight: '600',
   },
   libraryMeta: {
-    color: '#7C9CC0',
     fontSize: 12,
     marginTop: 2,
   },
@@ -2203,13 +2249,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   librarySectionTitle: {
-    color: '#EEF2FF',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
   librarySectionCount: {
-    color: '#4B6080',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -2218,7 +2262,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 14,
     borderWidth: 1,
-    color: '#EEF2FF',
     fontSize: 15,
     marginBottom: 8,
     paddingHorizontal: 14,
@@ -2239,7 +2282,6 @@ const styles = StyleSheet.create({
   sharedDeviceBadge: {
     alignItems: 'center',
     backgroundColor: 'rgba(14,165,233,0.95)',
-    borderColor: '#0A1525',
     borderRadius: 8,
     borderWidth: 1.5,
     bottom: -2,

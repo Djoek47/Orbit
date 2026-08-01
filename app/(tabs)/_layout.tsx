@@ -124,7 +124,6 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   shell: {
-    backgroundColor: '#070D1C',
     flex: 1,
   },
   tabBarPlaceholder: {

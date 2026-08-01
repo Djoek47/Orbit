@@ -14,6 +14,7 @@ export default function ShoppingRecommendationsScreen() {
     accentTheme,
     household,
     metrics,
+    orbitPalette,
     preferredStore,
     refreshStoreRecommendations,
     setPreferredStore,
@@ -41,7 +42,11 @@ export default function ShoppingRecommendationsScreen() {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.root,
+        { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
+      ]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.handle} />
       <View style={styles.header}>
@@ -125,7 +130,7 @@ export default function ShoppingRecommendationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0A1525' },
+  root: { flex: 1 },
   handle: {
     alignSelf: 'center',
     width: 40,

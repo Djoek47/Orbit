@@ -19,6 +19,7 @@ import { NovaOrb } from '@/components/orbit/nova-orb';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RouteSteps, type RouteStepItem } from '@/components/orbit/route-steps';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { Itinerary, ItineraryStop, ItineraryStopKind } from '@/types/orbit';
 
@@ -54,10 +55,6 @@ const STOP_CATEGORY: Record<ItineraryStopKind, string> = {
   shop: 'Shop',
   custom: 'Errand',
 };
-
-function glass(alpha = 0.07) {
-  return `rgba(255,255,255,${alpha})`;
-}
 
 function formatDayLabel(dateKey: string): string {
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -128,6 +125,7 @@ function TripCard({
   index: number;
   onStartTrip: (trip: Itinerary) => void;
 }) {
+  const { c, glass, glassBorder } = useOrbitColors();
   const [expanded, setExpanded] = useState(index === 0);
   const [activated, setActivated] = useState(false);
   const color = TRIP_COLORS[index % TRIP_COLORS.length];
@@ -155,7 +153,7 @@ function TripCard({
         styles.tripCard,
         {
           backgroundColor: expanded ? `${color}14` : glass(0.05),
-          borderColor: expanded ? `${color}30` : 'rgba(255,255,255,0.09)',
+          borderColor: expanded ? `${color}30` : glassBorder(0.09),
         },
       ]}>
       <View
@@ -178,13 +176,13 @@ function TripCard({
             <MaterialIcons name="route" size={18} color={color} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.tripTitle}>{trip.title}</Text>
+            <Text style={[styles.tripTitle, { color: c.text }]}>{trip.title}</Text>
             <Text style={[styles.tripDayLabel, { color }]}>{formatDayLabel(trip.date)}</Text>
           </View>
           <MaterialIcons
             name="chevron-right"
             size={16}
-            color="#4B6080"
+            color={c.textSubtle}
             style={{ transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}
           />
         </View>
@@ -200,10 +198,17 @@ function TripCard({
             },
           ].map((s) => (
             <View key={s.label} style={styles.tripStat}>
-              <MaterialIcons name={s.icon} size={12} color={s.accent ? '#34D399' : '#4B6080'} />
+              <MaterialIcons name={s.icon} size={12} color={s.accent ? '#34D399' : c.textSubtle} />
               <View>
-                <Text style={[styles.tripStatVal, s.accent && { color: '#34D399' }]}>{s.val}</Text>
-                <Text style={styles.tripStatLabel}>{s.label}</Text>
+                <Text
+                  style={[
+                    styles.tripStatVal,
+                    { color: c.text },
+                    s.accent && { color: '#34D399' },
+                  ]}>
+                  {s.val}
+                </Text>
+                <Text style={[styles.tripStatLabel, { color: c.textSubtle }]}>{s.label}</Text>
               </View>
             </View>
           ))}
@@ -217,7 +222,7 @@ function TripCard({
         <View style={styles.tripExpanded}>
           <View style={styles.novaReason}>
             <MaterialIcons name="auto-awesome" size={13} color="#06B6D4" />
-            <Text style={styles.heroBody}>
+            <Text style={[styles.heroBody, { color: c.textSoft }]}>
               <Text style={{ color: '#06B6D4', fontWeight: '700' }}>Nova: </Text>
               {novaReasonForTrip(trip)}
             </Text>
@@ -236,17 +241,25 @@ function TripCard({
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.tripStartBtn}>
-                  <MaterialIcons name="navigation" size={16} color="#070D1C" />
-                  <Text style={styles.tripStartText}>Start Trip in Maps</Text>
+                  <MaterialIcons name="navigation" size={16} color={c.ink} />
+                  <Text style={[styles.tripStartText, { color: c.ink }]}>Start Trip in Maps</Text>
                 </LinearGradient>
               )}
             </Pressable>
             <Pressable
               onPress={() => router.push(`/itinerary/${trip.id}` as never)}
-              style={styles.detailBtn}>
-              <MaterialIcons name="open-in-new" size={18} color="#C8D8F0" />
+              style={[
+                styles.detailBtn,
+                { backgroundColor: glass(0.07), borderColor: glassBorder(0.1) },
+              ]}>
+              <MaterialIcons name="open-in-new" size={18} color={c.textSoft} />
             </Pressable>
-            <Pressable onPress={handleCopy} style={styles.clipboardBtn}>
+            <Pressable
+              onPress={handleCopy}
+              style={[
+                styles.clipboardBtn,
+                { backgroundColor: glass(0.07), borderColor: glassBorder(0.1) },
+              ]}>
               <Text style={{ fontSize: 16 }}>📋</Text>
             </Pressable>
           </View>
@@ -264,10 +277,10 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
     accentTheme,
     household,
     openFullItineraryInMaps,
-    orbitPalette,
     rerunItinerary,
     suggestNovaItinerary,
   } = useOrbit();
+  const { c, glass, glassBorder } = useOrbitColors();
   const [section, setSection] = useState<TripsSection>('trips');
   const [mode, setMode] = useState<SuggestMode>('efficient');
   const [busy, setBusy] = useState(false);
@@ -311,7 +324,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
     <View style={styles.wrap}>
       <View style={styles.itinHeader}>
         <PageEyebrow>Nova Smart Trips</PageEyebrow>
-        <Text style={[styles.h1, { color: orbitPalette.text }]}>Itineraries</Text>
+        <Text style={[styles.h1, { color: c.text }]}>Itineraries</Text>
       </View>
 
       {/* Smart Trips | My Places */}
@@ -320,7 +333,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
           styles.segment,
           {
             backgroundColor: glass(0.05),
-            borderColor: orbitPalette.border,
+            borderColor: glassBorder(0.1),
           },
         ]}>
         {(
@@ -330,6 +343,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
           ] as const
         ).map((tab) => {
           const active = section === tab.id;
+          const inactiveColor = c.textMuted;
           return (
             <Pressable
               key={tab.id}
@@ -347,12 +361,12 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
               <MaterialIcons
                 name={tab.icon}
                 size={13}
-                color={active ? tab.color : orbitPalette.textSubtle}
+                color={active ? tab.color : inactiveColor}
               />
               <Text
                 style={[
                   styles.segmentLabel,
-                  { color: active ? tab.color : orbitPalette.textSubtle, fontWeight: active ? '700' : '500' },
+                  { color: active ? tab.color : inactiveColor, fontWeight: active ? '700' : '600' },
                 ]}>
                 {tab.label}
               </Text>
@@ -383,7 +397,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
                   <View style={styles.liveDot} />
                   <Text style={styles.novaLiveText}>NOVA SMART ROUTING</Text>
                 </View>
-                <Text style={styles.heroBodyLg}>
+                <Text style={[styles.heroBodyLg, { color: c.textSoft }]}>
                   I&apos;ve analysed your calendar and errands. I&apos;ve bundled{' '}
                   <Text style={{ color: '#38BDF8', fontWeight: '700' }}>
                     {Math.max(activeTrips.length, 1)} optimised trip
@@ -413,7 +427,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
               ].map((s) => (
                 <View key={s.label} style={styles.stat}>
                   <Text style={[styles.statVal, { color: s.color }]}>{s.val}</Text>
-                  <Text style={styles.statLabel}>{s.label}</Text>
+                  <Text style={[styles.statLabel, { color: c.textSubtle }]}>{s.label}</Text>
                 </View>
               ))}
             </View>
@@ -428,12 +442,21 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
                   onPress={() => setMode(option)}
                   style={[
                     styles.modeChip,
+                    {
+                      borderColor: glassBorder(0.12),
+                      backgroundColor: glass(0.04),
+                    },
                     active && {
                       backgroundColor: `${accentTheme.primary}28`,
                       borderColor: `${accentTheme.primary}66`,
                     },
                   ]}>
-                  <Text style={[styles.modeLabel, active && { color: accentTheme.primary }]}>
+                  <Text
+                    style={[
+                      styles.modeLabel,
+                      { color: c.textMuted },
+                      active && { color: accentTheme.primary },
+                    ]}>
                     {option === 'efficient' ? 'Efficient' : 'Spread'}
                   </Text>
                 </Pressable>
@@ -474,9 +497,13 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
 
           <View style={{ gap: 12 }}>
             {activeTrips.length === 0 ? (
-              <View style={styles.emptyTrips}>
-                <Text style={styles.emptyTripsTitle}>No active trips yet</Text>
-                <Text style={styles.emptyTripsBody}>
+              <View
+                style={[
+                  styles.emptyTrips,
+                  { backgroundColor: glass(0.04), borderColor: glassBorder(0.08) },
+                ]}>
+                <Text style={[styles.emptyTripsTitle, { color: c.text }]}>No active trips yet</Text>
+                <Text style={[styles.emptyTripsBody, { color: c.textMuted }]}>
                   Ask Nova to bundle today, or build one from your calendar.
                 </Text>
               </View>
@@ -488,11 +515,17 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
           </View>
 
           <View
-            style={[styles.completedArchive, highlightPreferred && styles.preferredHighlight]}
+            style={[
+              styles.completedArchive,
+              { backgroundColor: glass(0.04), borderColor: glassBorder(0.07) },
+              highlightPreferred && styles.preferredHighlight,
+            ]}
             collapsable={false}>
-            <Text style={styles.completedTitle}>Preferred trips</Text>
+            <Text style={[styles.completedTitle, { color: c.textMuted }]}>Preferred trips</Text>
             {preferredTrips.length === 0 ? (
-              <Text style={styles.completedEmpty}>Save a trip as preferred to reuse it.</Text>
+              <Text style={[styles.completedEmpty, { color: c.textSubtle }]}>
+                Save a trip as preferred to reuse it.
+              </Text>
             ) : (
               preferredTrips.map((t, i) => (
                 <Pressable
@@ -502,11 +535,16 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
                       if (created) router.push(`/itinerary/${created.id}` as never);
                     })
                   }
-                  style={[styles.completedRow, i > 0 && styles.completedRowBorder]}>
+                  style={[
+                    styles.completedRow,
+                    i > 0 && { borderTopColor: glassBorder(0.04), borderTopWidth: 1 },
+                  ]}>
                   <Text style={{ fontSize: 16 }}>⭐</Text>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.completedName}>{t.title}</Text>
-                    <Text style={styles.completedMeta}>{t.stops.length} stops · tap to run again</Text>
+                    <Text style={[styles.completedName, { color: c.textSoft }]}>{t.title}</Text>
+                    <Text style={[styles.completedMeta, { color: c.textSubtle }]}>
+                      {t.stops.length} stops · tap to run again
+                    </Text>
                   </View>
                   <MaterialIcons name="replay" size={18} color="#38BDF8" />
                 </Pressable>
@@ -514,24 +552,35 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
             )}
           </View>
 
-          <View style={styles.completedArchive}>
-            <Text style={styles.completedTitle}>Trip history</Text>
+          <View
+            style={[
+              styles.completedArchive,
+              { backgroundColor: glass(0.04), borderColor: glassBorder(0.07) },
+            ]}>
+            <Text style={[styles.completedTitle, { color: c.textMuted }]}>Trip history</Text>
             {completedTrips.length === 0 ? (
-              <Text style={styles.completedEmpty}>No completed trips yet</Text>
+              <Text style={[styles.completedEmpty, { color: c.textSubtle }]}>
+                No completed trips yet
+              </Text>
             ) : (
               completedTrips.map((t, i) => (
                 <Pressable
                   key={t.id}
                   onPress={() => router.push(`/itinerary/${t.id}` as never)}
-                  style={[styles.completedRow, i > 0 && styles.completedRowBorder]}>
+                  style={[
+                    styles.completedRow,
+                    i > 0 && { borderTopColor: glassBorder(0.04), borderTopWidth: 1 },
+                  ]}>
                   <Text style={{ fontSize: 16 }}>✅</Text>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.completedName}>{t.title}</Text>
-                    <Text style={styles.completedMeta}>
+                    <Text style={[styles.completedName, { color: c.textSoft }]}>{t.title}</Text>
+                    <Text style={[styles.completedMeta, { color: c.textSubtle }]}>
                       {formatDayLabel(t.date)} · {t.stops.length} stops
                     </Text>
                   </View>
-                  <Text style={styles.completedSaved}>Saved {estimateSavedTime(t.stops)}</Text>
+                  <Text style={[styles.completedSaved, { color: c.textFaint }]}>
+                    Saved {estimateSavedTime(t.stops)}
+                  </Text>
                 </Pressable>
               ))
             )}
@@ -555,13 +604,17 @@ function ComposeChip({
   accent: string;
   busy?: boolean;
 }) {
+  const { glass } = useOrbitColors();
   return (
     <Pressable
       onPress={onPress}
       disabled={busy}
       style={({ pressed }) => [
         styles.composeChip,
-        { borderColor: `${accent}44` },
+        {
+          backgroundColor: glass(0.04),
+          borderColor: `${accent}44`,
+        },
         pressed && { opacity: 0.85 },
       ]}>
       {busy ? (
@@ -629,8 +682,8 @@ const styles = StyleSheet.create({
   novaLive: { alignItems: 'center', flexDirection: 'row', gap: 6 },
   novaLiveText: { color: '#34D399', fontSize: 12, fontWeight: '700', letterSpacing: 0.6 },
   liveDot: { backgroundColor: '#34D399', borderRadius: 3, height: 6, width: 6 },
-  heroBody: { color: '#C8D8F0', flex: 1, fontSize: 12, lineHeight: 18 },
-  heroBodyLg: { color: '#C8D8F0', fontSize: 14, lineHeight: 21 },
+  heroBody: { flex: 1, fontSize: 12, lineHeight: 18 },
+  heroBodyLg: { fontSize: 14, lineHeight: 21 },
   statRow: { flexDirection: 'row', gap: 12 },
   stat: {
     alignItems: 'center',
@@ -640,21 +693,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 10,
   },
-  statLabel: { color: '#4B6080', fontSize: 9, marginTop: 2 },
+  statLabel: { fontSize: 9, marginTop: 2 },
   statVal: { fontSize: 16, fontWeight: '800', lineHeight: 16 },
   modeRow: { flexDirection: 'row', gap: 8 },
   modeChip: {
-    borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  modeLabel: { color: '#7C9CC0', fontSize: 13, fontWeight: '700' },
+  modeLabel: { fontSize: 13, fontWeight: '700' },
   composeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   composeChip: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 14,
     borderWidth: 1,
     flexDirection: 'row',
@@ -664,15 +715,13 @@ const styles = StyleSheet.create({
   },
   composeLabel: { fontSize: 13, fontWeight: '700' },
   emptyTrips: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 20,
     borderWidth: 1,
     gap: 6,
     padding: 20,
   },
-  emptyTripsTitle: { color: '#EEF2FF', fontSize: 15, fontWeight: '700' },
-  emptyTripsBody: { color: '#7C9CC0', fontSize: 13, lineHeight: 18 },
+  emptyTripsTitle: { fontSize: 15, fontWeight: '700' },
+  emptyTripsBody: { fontSize: 13, lineHeight: 18 },
   tripCard: {
     borderRadius: 24,
     borderWidth: 1,
@@ -689,12 +738,12 @@ const styles = StyleSheet.create({
   },
   tripCardHead: { paddingBottom: 12, paddingHorizontal: 16, paddingTop: 16 },
   tripHeadRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
-  tripTitle: { color: '#EEF2FF', fontSize: 14, fontWeight: '700' },
+  tripTitle: { fontSize: 14, fontWeight: '700' },
   tripDayLabel: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   tripStatsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
   tripStat: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  tripStatLabel: { color: '#4B6080', fontSize: 9 },
-  tripStatVal: { color: '#EEF2FF', fontSize: 12, fontWeight: '700', lineHeight: 12 },
+  tripStatLabel: { fontSize: 9 },
+  tripStatVal: { fontSize: 12, fontWeight: '700', lineHeight: 12 },
   stopCountPill: {
     alignSelf: 'center',
     backgroundColor: 'rgba(52,211,153,0.12)',
@@ -724,7 +773,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 14,
   },
-  tripStartText: { color: '#070D1C', fontSize: 14, fontWeight: '700' },
+  tripStartText: { fontSize: 14, fontWeight: '700' },
   tripActivatedBtn: {
     alignItems: 'center',
     backgroundColor: 'rgba(52,211,153,0.14)',
@@ -739,8 +788,6 @@ const styles = StyleSheet.create({
   tripActivatedText: { color: '#34D399', fontSize: 14, fontWeight: '700' },
   clipboardBtn: {
     alignItems: 'center',
-    backgroundColor: glass(0.07),
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 16,
     borderWidth: 1,
     height: 48,
@@ -749,8 +796,6 @@ const styles = StyleSheet.create({
   },
   detailBtn: {
     alignItems: 'center',
-    backgroundColor: glass(0.07),
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 16,
     borderWidth: 1,
     height: 48,
@@ -766,8 +811,6 @@ const styles = StyleSheet.create({
     width: 40,
   },
   completedArchive: {
-    backgroundColor: glass(0.04),
-    borderColor: 'rgba(255,255,255,0.07)',
     borderRadius: 24,
     borderWidth: 1,
     padding: 16,
@@ -776,11 +819,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(251,191,36,0.08)',
     borderColor: 'rgba(251,191,36,0.28)',
   },
-  completedTitle: { color: '#7C9CC0', fontSize: 14, fontWeight: '600', marginBottom: 4 },
-  completedEmpty: { color: '#4B6080', fontSize: 12, marginTop: 4 },
+  completedTitle: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
+  completedEmpty: { fontSize: 12, marginTop: 4 },
   completedRow: { alignItems: 'center', flexDirection: 'row', gap: 12, paddingVertical: 10 },
-  completedRowBorder: { borderTopColor: 'rgba(255,255,255,0.04)', borderTopWidth: 1 },
-  completedName: { color: '#C8D8F0', fontSize: 14, fontWeight: '600' },
-  completedMeta: { color: '#4B6080', fontSize: 12 },
-  completedSaved: { color: '#2A3A54', fontSize: 12 },
+  completedName: { fontSize: 14, fontWeight: '600' },
+  completedMeta: { fontSize: 12 },
+  completedSaved: { fontSize: 12 },
 });

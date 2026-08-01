@@ -12,6 +12,7 @@ import { PREFERRED_STORES } from '@/data/preferred-stores';
 import { lookupGroceryProduct, type GroceryProductLookup } from '@/lib/grocery/product-lookup';
 import { openDirections } from '@/lib/maps/directions';
 import { summarizeShoppingRun } from '@/lib/grocery/savings';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { GroceryItem } from '@/types/orbit';
 
@@ -49,6 +50,7 @@ export default function GroceriesScreen() {
     setPreferredStore,
     suggestNovaItinerary,
   } = useOrbit();
+  const { c, glass, glassBorder } = useOrbitColors();
 
   const [expandedCat, setExpandedCat] = useState<string | null>('Produce');
   const [busy, setBusy] = useState(false);
@@ -161,7 +163,7 @@ export default function GroceriesScreen() {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: c.background }]}
       contentContainerStyle={[
         styles.content,
         {
@@ -174,7 +176,7 @@ export default function GroceriesScreen() {
       <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
           <PageEyebrow>Grocery Intelligence</PageEyebrow>
-          <Text style={styles.title}>This Week&apos;s List</Text>
+          <Text style={[styles.title, { color: c.text }]}>This Week&apos;s List</Text>
         </View>
       </View>
       {(permissions.canManageGroceries || canAddGroceryWishlist) && (
@@ -194,19 +196,19 @@ export default function GroceriesScreen() {
       )}
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Find a product</Text>
-        <Text style={styles.caption}>AI-ish lookup · unit price · preferred or nearby store</Text>
+        <Text style={[styles.cardTitle, { color: c.text }]}>Find a product</Text>
+        <Text style={[styles.caption, { color: c.textSubtle }]}>AI-ish lookup · unit price · preferred or nearby store</Text>
         <TextInput
           value={lookupQuery}
           onChangeText={runLookup}
           placeholder="e.g. milk, olive oil, blueberries"
-          placeholderTextColor="#4B6080"
-          style={styles.lookupInput}
+          placeholderTextColor={c.textSubtle}
+          style={[styles.lookupInput, { backgroundColor: glass(0.05), borderColor: glassBorder(0.1), color: c.text }]}
         />
         {lookup ? (
           <View style={styles.lookupResult}>
-            <Text style={styles.lookupName}>{lookup.name}</Text>
-            <Text style={styles.caption}>
+            <Text style={[styles.lookupName, { color: c.text }]}>{lookup.name}</Text>
+            <Text style={[styles.caption, { color: c.textSubtle }]}>
               {lookup.packSize} · ${lookup.estimatedPackPrice.toFixed(2)} est.
               {lookup.brand ? ` · ${lookup.brand}` : ''}
             </Text>
@@ -215,9 +217,9 @@ export default function GroceriesScreen() {
                 ${lookup.pricePerLiter.toFixed(2)}/L · ${lookup.pricePerGallon?.toFixed(2)}/gal
               </Text>
             ) : (
-              <Text style={styles.caption}>Pack estimate at {lookup.store.name}</Text>
+              <Text style={[styles.caption, { color: c.textSubtle }]}>Pack estimate at {lookup.store.name}</Text>
             )}
-            <Text style={styles.caption}>
+            <Text style={[styles.caption, { color: c.textSubtle }]}>
               Buy at {lookup.store.name} · {lookup.store.address}
             </Text>
             <View style={styles.lookupActions}>
@@ -248,10 +250,10 @@ export default function GroceriesScreen() {
       <View style={styles.card}>
         <View style={styles.rowBetween}>
           <View>
-            <Text style={styles.cardTitle}>
+            <Text style={[styles.cardTitle, { color: c.text }]}>
               {collected} of {listItems.length} collected
             </Text>
-            <Text style={styles.caption}>
+            <Text style={[styles.caption, { color: c.textSubtle }]}>
               Est. total: ${summary.estimatedTotal.toFixed(0)} · Soft budget: ${softBudget}
             </Text>
           </View>
@@ -281,7 +283,7 @@ export default function GroceriesScreen() {
         </View>
         {insights.map((insight) => (
           <View key={insight.text} style={styles.insightRow}>
-            <Text style={styles.insightText}>{insight.text}</Text>
+            <Text style={[styles.insightText, { color: c.textSoft }]}>{insight.text}</Text>
             {insight.action ? (
               <Pressable
                 onPress={() => {
@@ -336,7 +338,7 @@ export default function GroceriesScreen() {
 
       {permissions.canManageGroceries ? (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Preferred store</Text>
+          <Text style={[styles.cardTitle, { color: c.text }]}>Preferred store</Text>
           <View style={styles.storeRow}>
             {PREFERRED_STORES.map((store) => {
               const active = store.id === preferredStore.id;
@@ -374,8 +376,8 @@ export default function GroceriesScreen() {
             <Pressable style={styles.catHeader} onPress={() => setExpandedCat(isExpanded ? null : cat.name)}>
               <Text style={{ fontSize: 20 }}>{cat.emoji}</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>{cat.name}</Text>
-                <Text style={styles.caption}>
+                <Text style={[styles.cardTitle, { color: c.text }]}>{cat.name}</Text>
+                <Text style={[styles.caption, { color: c.textSubtle }]}>
                   {catChecked}/{cat.items.length} items
                 </Text>
               </View>
@@ -408,11 +410,18 @@ export default function GroceriesScreen() {
                           styles.check,
                           checked && { backgroundColor: cat.color, borderColor: cat.color },
                         ]}>
-                        {checked ? <MaterialIcons name="check" size={12} color="#070D1C" /> : null}
+                        {checked ? <MaterialIcons name="check" size={12} color={c.ink} /> : null}
                       </View>
                       <View style={{ flex: 1 }}>
                         <View style={styles.inline}>
-                          <Text style={[styles.itemName, checked && styles.itemNameDone]}>{item.name}</Text>
+                          <Text
+                            style={[
+                              styles.itemName,
+                              { color: checked ? c.textSubtle : c.text },
+                              checked && styles.itemNameDone,
+                            ]}>
+                            {item.name}
+                          </Text>
                           {urgent && !checked ? (
                             <View style={styles.lowPill}>
                               <Text style={styles.lowPillText}>{item.status === 'Missing' ? 'NEED' : 'LOW'}</Text>
@@ -420,10 +429,10 @@ export default function GroceriesScreen() {
                           ) : null}
                         </View>
                         {item.salePrice != null && !checked ? (
-                          <Text style={styles.caption}>On sale · aisle {item.aisle ?? '—'}</Text>
+                          <Text style={[styles.caption, { color: c.textSubtle }]}>On sale · aisle {item.aisle ?? '—'}</Text>
                         ) : null}
                       </View>
-                      <Text style={styles.qty}>{item.quantity}</Text>
+                      <Text style={[styles.qty, { color: c.textSubtle }]}>{item.quantity}</Text>
                     </Pressable>
                   );
                 })}
@@ -439,7 +448,7 @@ export default function GroceriesScreen() {
         );
       })}
 
-      <Text style={[styles.caption, { textAlign: 'center', marginTop: 8 }]}>
+      <Text style={[styles.caption, { color: c.textSubtle, textAlign: 'center', marginTop: 8 }]}>
         Readiness {metrics.groceryReadiness}% · {preferredStore.name}
       </Text>
     </ScrollView>
@@ -465,7 +474,7 @@ function ActionChip({
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#070D1C', flex: 1 },
+  container: { flex: 1 },
   content: {
     alignItems: 'stretch',
     alignSelf: 'stretch',
@@ -484,8 +493,8 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     width: '100%',
   },
-  caption: { color: '#4B6080', fontSize: 12 },
-  title: { color: '#EEF2FF', fontSize: 22, fontWeight: '700', lineHeight: 27, marginTop: 2 },
+  caption: { fontSize: 12 },
+  title: { fontSize: 22, fontWeight: '700', lineHeight: 27, marginTop: 2 },
   addBtn: {
     alignItems: 'center',
     alignSelf: 'flex-start',
@@ -497,11 +506,8 @@ const styles = StyleSheet.create({
     width: 36,
   },
   lookupInput: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 14,
     borderWidth: 1,
-    color: '#EEF2FF',
     fontSize: 14,
     fontWeight: '600',
     marginTop: 8,
@@ -510,7 +516,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   lookupResult: { gap: 6, marginTop: 10 },
-  lookupName: { color: '#EEF2FF', fontSize: 16, fontWeight: '700' },
+  lookupName: { fontSize: 16, fontWeight: '700' },
   unitPrice: { fontSize: 13, fontWeight: '700' },
   lookupActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   lookupBtn: {
@@ -534,7 +540,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   rowBetween: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  cardTitle: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
+  cardTitle: { fontSize: 14, fontWeight: '600' },
   inline: { alignItems: 'center', flexDirection: 'row', gap: 6 },
   savings: { color: '#34D399', fontSize: 12, fontWeight: '600' },
   progressTrack: {
@@ -557,7 +563,7 @@ const styles = StyleSheet.create({
   },
   insightsEyebrow: { color: '#06B6D4', fontSize: 12, fontWeight: '600', letterSpacing: 0.6 },
   insightRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 10 },
-  insightText: { color: '#C8D8F0', flex: 1, fontSize: 12, lineHeight: 18 },
+  insightText: { flex: 1, fontSize: 12, lineHeight: 18 },
   insightChip: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   insightChipText: { fontSize: 11, fontWeight: '600' },
   actionsRow: { gap: 8, paddingVertical: 2 },
@@ -607,8 +613,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 24,
   },
-  itemName: { color: '#EEF2FF', fontSize: 14 },
-  itemNameDone: { color: '#4B6080', textDecorationLine: 'line-through' },
+  itemName: { fontSize: 14 },
+  itemNameDone: { textDecorationLine: 'line-through' },
   lowPill: {
     backgroundColor: 'rgba(248,113,113,0.15)',
     borderRadius: 999,
@@ -616,7 +622,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   lowPillText: { color: '#F87171', fontSize: 9, fontWeight: '700' },
-  qty: { color: '#4B6080', fontSize: 12 },
+  qty: { fontSize: 12 },
   addInCat: {
     alignItems: 'center',
     borderTopColor: 'rgba(255,255,255,0.06)',

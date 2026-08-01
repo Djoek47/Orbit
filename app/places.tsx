@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { radius, space } from '@/constants/orbit-theme';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { getCurrentCoords } from '@/lib/places/nearby-stores';
 import { createLocalId } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
@@ -50,10 +51,6 @@ type EditorState = {
   lng?: number;
   isNew: boolean;
 };
-
-function glass(alpha = 0.07) {
-  return `rgba(255,255,255,${alpha})`;
-}
 
 function kindMeta(kind: SavedPlaceKind) {
   return KIND_OPTIONS.find((k) => k.id === kind) ?? KIND_OPTIONS[KIND_OPTIONS.length - 1]!;
@@ -102,6 +99,7 @@ export default function PlacesScreen() {
     suggestNovaItinerary,
     upsertSavedPlace,
   } = useOrbit();
+  const { glass } = useOrbitColors();
   const places = useMemo(() => household.savedPlaces ?? [], [household.savedPlaces]);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [locating, setLocating] = useState(false);
@@ -561,7 +559,10 @@ export default function PlacesScreen() {
               <Pressable
                 onPress={() => void handlePickupCta()}
                 disabled={suggestBusy}
-                style={[styles.summaryCta, { borderColor: `${accentTheme.primary}44` }]}>
+                style={[
+                  styles.summaryCta,
+                  { borderColor: `${accentTheme.primary}44`, backgroundColor: glass(0.04) },
+                ]}>
                 <MaterialIcons name="route" size={16} color={accentTheme.primary} />
                 <Text style={[styles.summaryCtaText, { color: accentTheme.primary }]}>
                   {suggestBusy
@@ -602,6 +603,7 @@ function PlaceRow({
   onPress: () => void;
   onClear?: () => void;
 }) {
+  const { glass } = useOrbitColors();
   return (
     <Pressable
       style={[styles.row, { backgroundColor: glass(0.05), borderColor: palette.border }]}
@@ -843,7 +845,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: radius.card,
     borderWidth: 1,
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   summaryCtaText: { fontSize: 13, fontWeight: '700' },
 });

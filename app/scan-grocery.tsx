@@ -31,7 +31,7 @@ function nutriTone(score?: string) {
 
 export default function ScanGroceryScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, addMissingGrocery, canAddGroceryWishlist, preferredStore } = useOrbit();
+  const { accentTheme, addMissingGrocery, canAddGroceryWishlist, preferredStore, orbitPalette } = useOrbit();
   const [scanning, setScanning] = useState(true);
   const [lookingUp, setLookingUp] = useState(false);
   const [query, setQuery] = useState('');
@@ -110,7 +110,11 @@ export default function ScanGroceryScreen() {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.root,
+        { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
+      ]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.handle} />
       <View style={styles.header}>
@@ -252,7 +256,7 @@ export default function ScanGroceryScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0A1525' },
+  root: { flex: 1 },
   handle: {
     alignSelf: 'center',
     width: 40,

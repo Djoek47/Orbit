@@ -13,7 +13,7 @@ import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
-import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { memberDisplayEmoji } from '@/lib/game-levels';
 import {
   buildHomeHealthMetrics,
@@ -24,12 +24,14 @@ import {
   isSharedDeviceAccount,
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
   const chromePad = useTabChromePaddingTop();
-  const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona, permissions } =
+  const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona, permissions, orbitPalette } =
     useOrbit();
+  const { c, glass } = useOrbitColors();
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const scrollY = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler((event) => {
@@ -86,7 +88,7 @@ export default function HomeScreen() {
   return (
     <>
       <Animated.ScrollView
-        style={orbitScreen.container}
+        style={[orbitScreen.container, { backgroundColor: orbitPalette.background }]}
         contentContainerStyle={[
           orbitScreen.content,
           styles.pageContent,
@@ -143,7 +145,7 @@ export default function HomeScreen() {
 
         {/* Today — unified typography-led section (tasks + grocery/event stats together). */}
         <View style={styles.todaySection}>
-          <Text style={typography.title2}>Today</Text>
+          <Text style={[typography.title2, { color: orbitPalette.text }]}>Today</Text>
           <TodayTasksCard
             tasks={household.tasks}
             members={household.members}
@@ -161,15 +163,15 @@ export default function HomeScreen() {
               <MaterialIcons
                 name="shopping-cart"
                 size={16}
-                color={groceryAlerts.length > 0 ? orbitColors.warning : orbitColors.textMuted}
+                color={groceryAlerts.length > 0 ? c.warning : c.textMuted}
               />
-              <Text style={typography.subheadline}>
+              <Text style={[typography.subheadline, { color: orbitPalette.textSoft }]}>
                 {groceryAlerts.length > 0 ? `${groceryAlerts.length} low or missing` : 'Groceries stocked'}
               </Text>
             </Pressable>
             <Pressable style={styles.statItem} onPress={() => router.push('/(tabs)/plan' as never)}>
-              <MaterialIcons name="calendar-today" size={16} color={orbitColors.textMuted} />
-              <Text style={typography.subheadline} numberOfLines={1}>
+              <MaterialIcons name="calendar-today" size={16} color={c.textMuted} />
+              <Text style={[typography.subheadline, { color: orbitPalette.textSoft }]} numberOfLines={1}>
                 {nextEvent ? `${nextEvent.title} · ${nextEvent.time}` : 'Nothing on the calendar'}
               </Text>
             </Pressable>
@@ -179,7 +181,7 @@ export default function HomeScreen() {
         {/* This week — demoted preview, not competing with Today. */}
         <View style={styles.weekSection}>
           <View style={styles.sectionHead}>
-            <Text style={typography.title3}>This week</Text>
+            <Text style={[typography.title3, { color: orbitPalette.text }]}>This week</Text>
             <Pressable
               onPress={() => router.push({ pathname: '/rewards', params: { surface: 'ranks' } } as never)}
               hitSlop={8}>
@@ -190,14 +192,34 @@ export default function HomeScreen() {
           </View>
           {sharedKidMode ? (
             <View style={styles.personalXpRow}>
-              <PersonalStat label="This week" value={`${personalWeekXp} XP`} accent={accentTheme.primary} />
-              <PersonalStat label="Total" value={`${personalTotalXp} XP`} accent={accentTheme.primary} />
-              <PersonalStat label="Streak" value={`${personalStreak}d`} accent={accentTheme.primary} />
+              <PersonalStat
+                label="This week"
+                value={`${personalWeekXp} XP`}
+                accent={accentTheme.primary}
+                glassBg={glass(0.05)}
+                labelColor={orbitPalette.textSoft}
+              />
+              <PersonalStat
+                label="Total"
+                value={`${personalTotalXp} XP`}
+                accent={accentTheme.primary}
+                glassBg={glass(0.05)}
+                labelColor={orbitPalette.textSoft}
+              />
+              <PersonalStat
+                label="Streak"
+                value={`${personalStreak}d`}
+                accent={accentTheme.primary}
+                glassBg={glass(0.05)}
+                labelColor={orbitPalette.textSoft}
+              />
             </View>
           ) : weekLeaders.length > 0 ? (
             <Leaderboard entries={weekLeaders.slice(0, 3)} variant="podium" />
           ) : (
-            <Text style={typography.subheadline}>No XP yet this week.</Text>
+            <Text style={[typography.subheadline, { color: orbitPalette.textSoft }]}>
+              No XP yet this week.
+            </Text>
           )}
         </View>
 
@@ -206,13 +228,19 @@ export default function HomeScreen() {
             onPress={() =>
               router.push({ pathname: '/rewards', params: { surface: 'rewards' } } as never)
             }
-            style={[styles.kidRewardCard, { borderColor: `${accentTheme.primary}44` }]}>
+            style={[
+              styles.kidRewardCard,
+              {
+                borderColor: `${accentTheme.primary}44`,
+                backgroundColor: glass(0.05),
+              },
+            ]}>
             <View style={[styles.kidRewardIcon, { backgroundColor: `${accentTheme.primary}22` }]}>
               <MaterialIcons name="card-giftcard" size={22} color={accentTheme.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={typography.headline}>Rewards shop</Text>
-              <Text style={typography.subheadline}>
+              <Text style={[typography.headline, { color: orbitPalette.text }]}>Rewards shop</Text>
+              <Text style={[typography.subheadline, { color: orbitPalette.textSoft }]}>
                 Spend your XP on treats — you have {personalTotalXp} XP
               </Text>
             </View>
@@ -223,19 +251,21 @@ export default function HomeScreen() {
         <Pressable onPress={() => router.push('/household-balance' as never)} style={styles.fullBleed}>
           <GlassCard>
             <View style={styles.sectionHead}>
-              <Text style={typography.headline}>Household Health</Text>
-              <MaterialIcons name="chevron-right" size={16} color={orbitColors.textSubtle} />
+              <Text style={[typography.headline, { color: orbitPalette.text }]}>Household Health</Text>
+              <MaterialIcons name="chevron-right" size={16} color={c.textSubtle} />
             </View>
             <View style={styles.healthRow}>
               {healthItems.map((item) => (
                 <View key={item.key} style={styles.healthCol}>
                   <View style={styles.healthLabelRow}>
                     <MaterialIcons name={item.icon} size={12} color={item.color} />
-                    <Text style={[typography.caption1, styles.healthLabel]} numberOfLines={1}>
+                    <Text
+                      style={[typography.caption1, styles.healthLabel, { color: orbitPalette.textSoft }]}
+                      numberOfLines={1}>
                       {item.label}
                     </Text>
                   </View>
-                  <View style={styles.progressTrack}>
+                  <View style={[styles.progressTrack, { backgroundColor: glass(0.06) }]}>
                     <View
                       style={[
                         styles.progressFill,
@@ -269,10 +299,22 @@ function greetingWord() {
   return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 }
 
-function PersonalStat({ label, value, accent }: { label: string; value: string; accent: string }) {
+function PersonalStat({
+  label,
+  value,
+  accent,
+  glassBg,
+  labelColor,
+}: {
+  label: string;
+  value: string;
+  accent: string;
+  glassBg: string;
+  labelColor: string;
+}) {
   return (
-    <View style={[styles.personalXpChip, { borderColor: `${accent}55` }]}>
-      <Text style={typography.caption1}>{label}</Text>
+    <View style={[styles.personalXpChip, { borderColor: `${accent}55`, backgroundColor: glassBg }]}>
+      <Text style={[typography.caption1, { color: labelColor }]}>{label}</Text>
       <Text style={[typography.metricSmall, { color: accent }]}>{value}</Text>
     </View>
   );
@@ -338,7 +380,6 @@ const styles = StyleSheet.create({
     gap: space.xs,
   },
   personalXpChip: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: radius.control,
     borderCurve: 'continuous',
     borderWidth: 1,
@@ -350,7 +391,6 @@ const styles = StyleSheet.create({
   },
   kidRewardCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: 1,
@@ -377,7 +417,6 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   progressTrack: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: radius.full,
     height: 6,
     overflow: 'hidden',

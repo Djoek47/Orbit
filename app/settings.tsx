@@ -40,11 +40,10 @@ import { ensureProfileInviteCode } from '@/lib/household/profile-codes';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
+import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdRoom } from '@/types/orbit';
 import * as Linking from 'expo-linking';
-
-const PANEL_BG = '#0A1525';
 
 type Section = 'main' | 'members' | 'notifications' | 'rooms';
 
@@ -73,40 +72,43 @@ function SharedAccountRow({
   onUnlink?: () => void;
   onRemove?: () => void;
 }) {
+  const { c, glass, glassBorder } = useOrbitColors();
   const photo = isAvatarImageUri(person.avatar);
   return (
-    <View style={styles.sharedAccountBlock}>
+    <View style={[styles.sharedAccountBlock, { borderTopColor: glassBorder(0.08) }]}>
       <View style={styles.memberCardInner}>
         <Pressable
           onPress={onTogglePick}
           style={[
             styles.memberAvatar,
-            { backgroundColor: `${active ? accent : '#4B6080'}33` },
+            { backgroundColor: `${active ? accent : c.textSubtle}33` },
           ]}>
           {photo ? (
             <Image source={{ uri: person.avatar }} style={styles.memberAvatarImage} />
           ) : (
             <Text style={styles.memberAvatarText}>{memberDisplayEmoji(person)}</Text>
           )}
-          <View style={styles.avatarEditBadge}>
+          <View style={[styles.avatarEditBadge, { backgroundColor: c.backgroundSoft, borderColor: glassBorder(0.1) }]}>
             <MaterialIcons name="edit" size={10} color="#38BDF8" />
           </View>
         </Pressable>
         <Pressable style={{ flex: 1 }} onPress={onSwitch}>
-          <Text style={styles.memberName}>{person.name}</Text>
-          <Text style={styles.caption}>Switchable account · own XP & redeem</Text>
+          <Text style={[styles.memberName, { color: c.text }]}>{person.name}</Text>
+          <Text style={[styles.caption, { color: c.textSubtle }]}>Switchable account · own XP & redeem</Text>
           <Text style={[styles.caption, { color: accent, fontWeight: '600' }]}>
             {person.xp} XP · week {person.weekXp ?? 0}
           </Text>
-          <Text style={styles.caption}>Code {ensureProfileInviteCode(person)}</Text>
+          <Text style={[styles.caption, { color: c.textSubtle }]}>Code {ensureProfileInviteCode(person)}</Text>
         </Pressable>
         {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
       </View>
       {canManage ? (
         <View style={styles.adminActionRow}>
           {onUnlink ? (
-            <Pressable onPress={onUnlink} style={styles.adminActionChip}>
-              <Text style={styles.adminActionText}>Unlink</Text>
+            <Pressable
+              onPress={onUnlink}
+              style={[styles.adminActionChip, { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) }]}>
+              <Text style={[styles.adminActionText, { color: c.textMuted }]}>Unlink</Text>
             </Pressable>
           ) : null}
           {onRemove ? (
@@ -119,7 +121,7 @@ function SharedAccountRow({
       {picking ? (
         <View style={styles.emojiGrid}>
           <Pressable
-            style={[styles.emojiChip, styles.photoChip, { borderColor: `${accent}88` }]}
+            style={[styles.emojiChip, styles.photoChip, { borderColor: `${accent}88`, backgroundColor: glass(0.06) }]}
             onPress={onPickPhoto}>
             <MaterialIcons name="photo-camera" size={18} color={accent} />
             <Text style={[styles.photoChipText, { color: accent }]}>Photo / Memoji</Text>
@@ -129,6 +131,7 @@ function SharedAccountRow({
               key={emoji}
               style={[
                 styles.emojiChip,
+                { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) },
                 person.avatar === emoji && {
                   borderColor: `${accent}88`,
                   backgroundColor: `${accent}22`,
@@ -173,6 +176,7 @@ export default function SettingsScreen() {
     updateSharedDeviceLinks,
     upsertRoom,
   } = useOrbit();
+  const { isDark, glass, glassBorder } = useOrbitColors();
 
   const [section, setSection] = useState<Section>('main');
   const [editingName, setEditingName] = useState(false);
@@ -308,7 +312,7 @@ export default function SettingsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.handleRow}>
-        <View style={styles.handle} />
+        <View style={[styles.handle, { backgroundColor: glassBorder(0.2) }]} />
       </View>
 
       <View style={styles.header}>
@@ -320,13 +324,13 @@ export default function SettingsScreen() {
         ) : (
           <View style={styles.titleRow}>
             <LinearGradient colors={[accentTheme.primary, accentTheme.secondary]} style={styles.zapBox}>
-              <MaterialIcons name="bolt" size={16} color="#070D1C" />
+              <MaterialIcons name="bolt" size={16} color={orbitPalette.ink} />
             </LinearGradient>
-            <Text style={styles.title}>Settings</Text>
+            <Text style={[styles.title, { color: orbitPalette.text }]}>Settings</Text>
           </View>
         )}
-        <Pressable style={styles.close} onPress={() => router.back()}>
-          <MaterialIcons name="close" size={16} color="#7C9CC0" />
+        <Pressable style={[styles.close, { backgroundColor: glass(0.08) }]} onPress={() => router.back()}>
+          <MaterialIcons name="close" size={16} color={orbitPalette.textMuted} />
         </Pressable>
       </View>
 
@@ -342,12 +346,12 @@ export default function SettingsScreen() {
                   <TextInput
                     value={nameInput}
                     onChangeText={setNameInput}
-                    style={styles.nameInput}
+                    style={[styles.nameInput, { color: orbitPalette.text }]}
                     autoFocus
                     onSubmitEditing={() => setEditingName(false)}
                   />
                 ) : (
-                  <Text style={styles.nameText}>{household.householdName}</Text>
+                  <Text style={[styles.nameText, { color: orbitPalette.text }]}>{household.householdName}</Text>
                 )}
                 <Pressable
                   style={styles.iconBtn}
@@ -366,7 +370,7 @@ export default function SettingsScreen() {
                   />
                 </Pressable>
               </View>
-              <Text style={styles.caption}>
+              <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
                 Viewing as {currentMember?.name ?? currentUser?.email ?? household.greetingName}
                 {currentMember ? ` · ${formatHouseholdRole(currentMember.role)}` : ''}
               </Text>
@@ -395,7 +399,7 @@ export default function SettingsScreen() {
                   <Pressable
                     style={styles.nestedHeader}
                     onPress={() => setHouseholdDefaultOpen((value) => !value)}>
-                    <Text style={styles.nestedTitle}>Household default</Text>
+                    <Text style={[styles.nestedTitle, { color: orbitPalette.textSoft }]}>Household default</Text>
                     <MaterialIcons
                       name={householdDefaultOpen ? 'expand-less' : 'expand-more'}
                       size={20}
@@ -446,15 +450,23 @@ export default function SettingsScreen() {
                 ).map(([key, label, sub]) => {
                   const caps = resolveMemberCapabilities(household);
                   return (
-                    <View key={key} style={styles.prefRow}>
+                    <View
+                      key={key}
+                      style={[
+                        styles.prefRow,
+                        {
+                          backgroundColor: glassFill(isDark),
+                          borderColor: glassBorder(0.08),
+                        },
+                      ]}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.memberName}>{label}</Text>
-                        <Text style={styles.caption}>{sub}</Text>
+                        <Text style={[styles.memberName, { color: orbitPalette.text }]}>{label}</Text>
+                        <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>{sub}</Text>
                       </View>
                       <Switch
                         value={caps[key]}
                         onValueChange={(value) => updateMemberCapabilities({ [key]: value })}
-                        trackColor={{ false: 'rgba(255,255,255,0.1)', true: accentTheme.primary }}
+                        trackColor={{ false: glassBorder(0.1), true: accentTheme.primary }}
                         thumbColor="#fff"
                       />
                     </View>
@@ -522,14 +534,14 @@ export default function SettingsScreen() {
 
             <SectionCard title="Account">
               <Pressable
-                style={styles.accountBtn}
+                style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
                 onPress={async () => {
                   await signOut();
                   router.replace('/welcome' as never);
                 }}>
-                <Text style={styles.accountBtnText}>Sign out</Text>
+                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>Sign out</Text>
               </Pressable>
-              <Pressable style={styles.accountBtn} onPress={handleDelete}>
+              <Pressable style={[styles.accountBtn, { backgroundColor: glass(0.06) }]} onPress={handleDelete}>
                 <Text style={[styles.accountBtnText, { color: '#F87171' }]}>Delete account</Text>
               </Pressable>
             </SectionCard>
@@ -540,7 +552,7 @@ export default function SettingsScreen() {
 
         {section === 'members' ? (
           <>
-            <Text style={styles.sectionHint}>
+            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>
               Tap a name to switch · Shared devices host Netflix-style profiles · Admins can remove
               people and add tablets
             </Text>
@@ -554,17 +566,31 @@ export default function SettingsScreen() {
             ) : null}
 
             {permissions.canManageHousehold ? (
-              <View style={styles.createDeviceCard}>
-                <Text style={styles.memberName}>New shared device</Text>
-                <Text style={styles.caption}>
+              <View
+                style={[
+                  styles.createDeviceCard,
+                  {
+                    backgroundColor: glassFill(isDark),
+                    borderColor: glassBorder(0.1),
+                  },
+                ]}>
+                <Text style={[styles.memberName, { color: orbitPalette.text }]}>New shared device</Text>
+                <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
                   Kitchen tablet, kids iPad — one device, multiple profiles with codes/QR
                 </Text>
                 <TextInput
                   value={sharedDeviceName}
                   onChangeText={setSharedDeviceName}
                   placeholder="e.g. Kids tablet"
-                  placeholderTextColor="#4B6080"
-                  style={styles.deviceNameInput}
+                  placeholderTextColor={orbitPalette.textSubtle}
+                  style={[
+                    styles.deviceNameInput,
+                    {
+                      color: orbitPalette.text,
+                      backgroundColor: glass(0.06),
+                      borderColor: glassBorder(0.1),
+                    },
+                  ]}
                 />
                 <Pressable
                   style={[
@@ -603,8 +629,8 @@ export default function SettingsScreen() {
                   <View style={styles.sharedDeviceHead}>
                     <Text style={styles.sharedDeviceEmoji}>{device.avatar || '📱'}</Text>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.memberName}>{device.name}</Text>
-                      <Text style={styles.caption}>
+                      <Text style={[styles.memberName, { color: orbitPalette.text }]}>{device.name}</Text>
+                      <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
                         Shared device ·{' '}
                         {accounts.map((person) => person.name).join(' · ') || 'no accounts linked'}
                       </Text>
@@ -630,7 +656,7 @@ export default function SettingsScreen() {
                       </Pressable>
                     ) : null}
                   </View>
-                  <Text style={styles.sharedDeviceHint}>
+                  <Text style={[styles.sharedDeviceHint, { color: orbitPalette.textMuted }]}>
                     Link people below. On the tablet, scan each profile code so kids pick who they
                     are before opening the app.
                   </Text>
@@ -642,9 +668,20 @@ export default function SettingsScreen() {
                           <Pressable
                             key={person.id}
                             onPress={() => toggleSharedLink(device.id, person.id, linkedIds)}
-                            style={[styles.linkChip, linked && styles.linkChipActive]}>
+                            style={[
+                              styles.linkChip,
+                              {
+                                backgroundColor: glass(0.06),
+                                borderColor: glassBorder(0.1),
+                              },
+                              linked && styles.linkChipActive,
+                            ]}>
                             <Text
-                              style={[styles.linkChipText, linked && styles.linkChipTextActive]}>
+                              style={[
+                                styles.linkChipText,
+                                { color: orbitPalette.textMuted },
+                                linked && styles.linkChipTextActive,
+                              ]}>
                               {person.avatar} {person.name}
                             </Text>
                           </Pressable>
@@ -697,30 +734,44 @@ export default function SettingsScreen() {
               const picking = pickingAvatarFor === member.id;
               const photo = isAvatarImageUri(member.avatar);
               return (
-                <View key={member.id} style={styles.memberCard}>
+                <View
+                  key={member.id}
+                  style={[
+                    styles.memberCard,
+                    {
+                      backgroundColor: glassFill(isDark),
+                      borderColor: glassBorder(0.08),
+                    },
+                  ]}>
                   <Pressable
                     onPress={() => setPickingAvatarFor(picking ? null : member.id)}
                     style={[
                       styles.memberAvatar,
-                      { backgroundColor: `${active ? accentTheme.primary : '#4B6080'}33` },
+                      { backgroundColor: `${active ? accentTheme.primary : orbitPalette.textSubtle}33` },
                     ]}>
                     {photo ? (
                       <Image source={{ uri: member.avatar }} style={styles.memberAvatarImage} />
                     ) : (
                       <Text style={styles.memberAvatarText}>{memberDisplayEmoji(member)}</Text>
                     )}
-                    <View style={styles.avatarEditBadge}>
+                    <View
+                      style={[
+                        styles.avatarEditBadge,
+                        { backgroundColor: orbitPalette.backgroundSoft, borderColor: glassBorder(0.1) },
+                      ]}>
                       <MaterialIcons name="edit" size={10} color="#38BDF8" />
                     </View>
                   </Pressable>
                   <Pressable style={{ flex: 1 }} onPress={() => switchPersona(member.id)}>
-                    <Text style={styles.memberName}>{member.name}</Text>
-                    <Text style={styles.caption}>{formatHouseholdRole(member.role)}</Text>
+                    <Text style={[styles.memberName, { color: orbitPalette.text }]}>{member.name}</Text>
+                    <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
+                      {formatHouseholdRole(member.role)}
+                    </Text>
                     <Text style={[styles.caption, { color: accentTheme.primary, fontWeight: '600' }]}>
                       {member.xp} XP total
                     </Text>
                     {member.profileInviteCode || member.role === 'child' ? (
-                      <Text style={styles.caption}>
+                      <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
                         Profile {ensureProfileInviteCode(member)}
                       </Text>
                     ) : null}
@@ -737,7 +788,14 @@ export default function SettingsScreen() {
                   {picking ? (
                     <View style={styles.emojiGrid}>
                       <Pressable
-                        style={[styles.emojiChip, styles.photoChip, { borderColor: `${accentTheme.primary}88` }]}
+                        style={[
+                          styles.emojiChip,
+                          styles.photoChip,
+                          {
+                            borderColor: `${accentTheme.primary}88`,
+                            backgroundColor: glass(0.06),
+                          },
+                        ]}
                         onPress={() => void pickMemojiPhoto(member.id)}>
                         <MaterialIcons name="photo-camera" size={18} color={accentTheme.primary} />
                         <Text style={[styles.photoChipText, { color: accentTheme.primary }]}>Photo / Memoji</Text>
@@ -747,6 +805,7 @@ export default function SettingsScreen() {
                           key={emoji}
                           style={[
                             styles.emojiChip,
+                            { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) },
                             member.avatar === emoji && {
                               borderColor: `${accentTheme.primary}88`,
                               backgroundColor: `${accentTheme.primary}22`,
@@ -773,13 +832,23 @@ export default function SettingsScreen() {
 
         {section === 'rooms' ? (
           <>
-            <Text style={styles.sectionHint}>Rooms power cleaning presets and attribution</Text>
+            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>
+              Rooms power cleaning presets and attribution
+            </Text>
             {rooms.map((room) => (
-              <View key={room.id} style={styles.prefRow}>
+              <View
+                key={room.id}
+                style={[
+                  styles.prefRow,
+                  {
+                    backgroundColor: glassFill(isDark),
+                    borderColor: glassBorder(0.08),
+                  },
+                ]}>
                 <Text style={{ fontSize: 22 }}>{room.emoji}</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.memberName}>{room.name}</Text>
-                  <Text style={styles.caption}>{room.kind}</Text>
+                  <Text style={[styles.memberName, { color: orbitPalette.text }]}>{room.name}</Text>
+                  <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>{room.kind}</Text>
                 </View>
                 <Pressable
                   onPress={() => {
@@ -804,6 +873,7 @@ export default function SettingsScreen() {
                     onPress={() => setRoomEmoji(emoji)}
                     style={[
                       styles.emojiChip,
+                      { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) },
                       active && {
                         borderColor: `${accentTheme.primary}88`,
                         backgroundColor: `${accentTheme.primary}22`,
@@ -814,13 +884,20 @@ export default function SettingsScreen() {
                 );
               })}
             </View>
-            <View style={styles.prefRow}>
+            <View
+              style={[
+                styles.prefRow,
+                {
+                  backgroundColor: glassFill(isDark),
+                  borderColor: glassBorder(0.08),
+                },
+              ]}>
               <TextInput
                 value={roomDraft}
                 onChangeText={setRoomDraft}
                 placeholder={editingRoomId ? 'Rename room' : 'Add room name'}
-                placeholderTextColor="#4B6080"
-                style={styles.roomInput}
+                placeholderTextColor={orbitPalette.textSubtle}
+                style={[styles.roomInput, { color: orbitPalette.text }]}
               />
               <Pressable
                 style={[styles.addRoomBtn, { backgroundColor: `${accentTheme.primary}22` }]}
@@ -863,7 +940,7 @@ export default function SettingsScreen() {
 
         {section === 'notifications' ? (
           <>
-            <Text style={styles.sectionHint}>Nova Monitor categories</Text>
+            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>Nova Monitor categories</Text>
             {(
               [
                 ['tasks', 'Task Reminders', 'Overdue nudges and streak checks', '✅'],
@@ -877,16 +954,24 @@ export default function SettingsScreen() {
                 ['missingOnTheWay', 'Missing on the way', 'Nudge missing items before and during a run', '🧾'],
               ] as const
             ).map(([key, label, sub, emoji]) => (
-              <View key={key} style={styles.prefRow}>
+              <View
+                key={key}
+                style={[
+                  styles.prefRow,
+                  {
+                    backgroundColor: glassFill(isDark),
+                    borderColor: glassBorder(0.08),
+                  },
+                ]}>
                 <Text style={{ fontSize: 22 }}>{emoji}</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.memberName}>{label}</Text>
-                  <Text style={styles.caption}>{sub}</Text>
+                  <Text style={[styles.memberName, { color: orbitPalette.text }]}>{label}</Text>
+                  <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>{sub}</Text>
                 </View>
                 <Switch
                   value={Boolean(prefs[key])}
                   onValueChange={(value) => updateNotificationPrefs({ [key]: value })}
-                  trackColor={{ false: 'rgba(255,255,255,0.1)', true: '#38BDF8' }}
+                  trackColor={{ false: glassBorder(0.1), true: '#38BDF8' }}
                   thumbColor="#fff"
                 />
               </View>
@@ -916,9 +1001,17 @@ export default function SettingsScreen() {
 }
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  const { c, isDark, glassBorder } = useOrbitColors();
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardEyebrow}>{title.toUpperCase()}</Text>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: glassFill(isDark),
+          borderColor: glassBorder(0.08),
+        },
+      ]}>
+      <Text style={[styles.cardEyebrow, { color: c.textMuted }]}>{title.toUpperCase()}</Text>
       {children}
     </View>
   );
@@ -939,32 +1032,39 @@ function SettingsRow({
   subtitle: string;
   onPress: () => void;
 }) {
+  const { c, isDark, glass, glassBorder } = useOrbitColors();
   return (
-    <Pressable style={styles.settingsRow} onPress={onPress}>
-      <View style={styles.settingsIcon}>
+    <Pressable
+      style={[
+        styles.settingsRow,
+        {
+          backgroundColor: glassFill(isDark),
+          borderColor: glassBorder(0.08),
+        },
+      ]}
+      onPress={onPress}>
+      <View style={[styles.settingsIcon, { backgroundColor: glass(0.06) }]}>
         {emoji ? (
           <Text style={{ fontSize: 18 }}>{emoji}</Text>
         ) : (
-          <MaterialIcons name={icon!} size={16} color={iconColor ?? '#7C9CC0'} />
+          <MaterialIcons name={icon!} size={16} color={iconColor ?? c.textMuted} />
         )}
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.memberName}>{label}</Text>
-        <Text style={styles.caption}>{subtitle}</Text>
+        <Text style={[styles.memberName, { color: c.text }]}>{label}</Text>
+        <Text style={[styles.caption, { color: c.textSubtle }]}>{subtitle}</Text>
       </View>
-      <MaterialIcons name="chevron-right" size={16} color="#4B6080" />
+      <MaterialIcons name="chevron-right" size={16} color={c.textSubtle} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   shell: {
-    backgroundColor: PANEL_BG,
     flex: 1,
   },
   handleRow: { alignItems: 'center', paddingBottom: 4, paddingTop: 12 },
   handle: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 999,
     height: 4,
     width: 40,
@@ -984,10 +1084,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 32,
   },
-  title: { color: '#EEF2FF', fontSize: 18, fontWeight: '700' },
+  title: { fontSize: 18, fontWeight: '700' },
   close: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
     height: 32,
     justifyContent: 'center',
@@ -999,26 +1098,22 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { gap: 12, paddingBottom: 40, paddingHorizontal: 20 },
   card: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 24,
     borderWidth: 1,
     gap: 10,
     padding: 16,
   },
   cardEyebrow: {
-    color: '#7C9CC0',
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.6,
     marginBottom: 4,
   },
   rowBetween: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  nameText: { color: '#EEF2FF', flex: 1, fontSize: 16, fontWeight: '600' },
+  nameText: { flex: 1, fontSize: 16, fontWeight: '600' },
   nameInput: {
     borderBottomColor: 'rgba(56,189,248,0.4)',
     borderBottomWidth: 1,
-    color: '#EEF2FF',
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
@@ -1033,7 +1128,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 32,
   },
-  caption: { color: '#4B6080', fontSize: 12 },
+  caption: { fontSize: 12 },
   themeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   themeItem: { alignItems: 'center', gap: 6 },
   themeSwatch: {
@@ -1063,12 +1158,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   nestedTitle: {
-    color: '#C8D8F0',
     fontSize: 14,
     fontWeight: '600',
   },
-  themeLabel: { color: '#4B6080', fontSize: 12 },
-  themeTypeLabel: { color: '#2A3A54', fontSize: 10, fontWeight: '600' },
+  themeLabel: { fontSize: 12 },
+  themeTypeLabel: { fontSize: 10, fontWeight: '600' },
   switchChip: {
     alignItems: 'center',
     borderRadius: 999,
@@ -1081,8 +1175,6 @@ const styles = StyleSheet.create({
   switchChipText: { fontSize: 12, fontWeight: '700' },
   settingsRow: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 24,
     borderWidth: 1,
     flexDirection: 'row',
@@ -1091,14 +1183,13 @@ const styles = StyleSheet.create({
   },
   settingsIcon: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 16,
     height: 36,
     justifyContent: 'center',
     width: 36,
   },
   inline: { alignItems: 'center', flexDirection: 'row', gap: 12 },
-  rowLabel: { color: '#EEF2FF', fontSize: 14 },
+  rowLabel: { fontSize: 14 },
   switchOn: {
     borderRadius: 999,
     height: 28,
@@ -1114,14 +1205,13 @@ const styles = StyleSheet.create({
     width: 20,
   },
   accountBtn: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  accountBtnText: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
+  accountBtnText: { fontSize: 14, fontWeight: '600' },
   brand: { paddingBottom: 8, paddingTop: 12 },
-  sectionHint: { color: '#7C9CC0', fontSize: 14, paddingTop: 4 },
+  sectionHint: { fontSize: 14, paddingTop: 4 },
   sharedDeviceCard: {
     backgroundColor: 'rgba(6,182,212,0.08)',
     borderColor: 'rgba(6,182,212,0.28)',
@@ -1137,24 +1227,18 @@ const styles = StyleSheet.create({
   },
   sharedDeviceEmoji: { fontSize: 28 },
   sharedDeviceHint: {
-    color: '#7C9CC0',
     fontSize: 12,
     lineHeight: 17,
   },
   createDeviceCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 16,
     borderWidth: 1,
     gap: 10,
     padding: 14,
   },
   deviceNameInput: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 12,
     borderWidth: 1,
-    color: '#EEF2FF',
     fontSize: 15,
     fontWeight: '600',
     paddingHorizontal: 12,
@@ -1179,8 +1263,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   linkChip: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 12,
@@ -1191,7 +1273,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(52,211,153,0.45)',
   },
   linkChipText: {
-    color: '#7C9CC0',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -1204,8 +1285,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   adminActionChip: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 12,
@@ -1215,12 +1294,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(248,113,113,0.35)',
   },
   adminActionText: {
-    color: '#7C9CC0',
     fontSize: 12,
     fontWeight: '700',
   },
   sharedAccountBlock: {
-    borderTopColor: 'rgba(255,255,255,0.08)',
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: 8,
     paddingTop: 10,
@@ -1232,8 +1309,6 @@ const styles = StyleSheet.create({
   },
   memberCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 24,
     borderWidth: 1,
     flexDirection: 'row',
@@ -1252,8 +1327,6 @@ const styles = StyleSheet.create({
   },
   avatarEditBadge: {
     alignItems: 'center',
-    backgroundColor: '#0A1525',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 10,
     borderWidth: 1,
     bottom: -2,
@@ -1280,7 +1353,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  memberName: { color: '#EEF2FF', fontSize: 14, fontWeight: '600' },
+  memberName: { fontSize: 14, fontWeight: '600' },
   emojiGrid: {
     flexBasis: '100%',
     flexDirection: 'row',
@@ -1296,8 +1369,6 @@ const styles = StyleSheet.create({
   },
   emojiChip: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
     borderWidth: 1,
     height: 40,
@@ -1305,7 +1376,6 @@ const styles = StyleSheet.create({
     width: 40,
   },
   roomInput: {
-    color: '#EEF2FF',
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
@@ -1320,8 +1390,6 @@ const styles = StyleSheet.create({
   },
   prefRow: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 24,
     borderWidth: 1,
     flexDirection: 'row',

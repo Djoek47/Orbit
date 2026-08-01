@@ -16,6 +16,7 @@ import {
 
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { SavedPlace, SavedPlaceKind } from '@/types/orbit';
 
@@ -42,10 +43,6 @@ const KIND_META: Record<SavedPlaceKind, { label: string; emoji: string; color: s
   custom: { label: 'Other', emoji: '📍', color: '#7C9CC0' },
 };
 
-function glass(alpha = 0.07) {
-  return `rgba(255,255,255,${alpha})`;
-}
-
 type MyPlacesPanelProps = {
   /** Compact embed inside Plan trips; hides FAB when false and uses addPlaceHref. */
   compact?: boolean;
@@ -61,11 +58,11 @@ export function MyPlacesPanel({
   const {
     accentTheme,
     household,
-    orbitPalette,
     removeSavedPlace,
     suggestNovaItinerary,
     upsertSavedPlace,
   } = useOrbit();
+  const { c, glass } = useOrbitColors();
   const places = useMemo(() => household.savedPlaces ?? [], [household.savedPlaces]);
   const [filterKind, setFilterKind] = useState<SavedPlaceKind | 'all'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -147,8 +144,8 @@ export function MyPlacesPanel({
               <MaterialIcons name="auto-awesome" size={18} color="#A78BFA" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.trainTitle, { color: orbitPalette.text }]}>Train Nova</Text>
-              <Text style={[styles.trainBody, { color: orbitPalette.textMuted }]}>
+              <Text style={[styles.trainTitle, { color: c.text }]}>Train Nova</Text>
+              <Text style={[styles.trainBody, { color: c.textMuted }]}>
                 Add stores, schools & activities so Nova can plan optimised routes and pickup
                 reminders.
               </Text>
@@ -173,14 +170,14 @@ export function MyPlacesPanel({
                 styles.chip,
                 {
                   backgroundColor: active ? `${chip.color}1E` : glass(0.05),
-                  borderColor: active ? `${chip.color}55` : orbitPalette.border,
+                  borderColor: active ? `${chip.color}55` : c.border,
                 },
               ]}>
               {chip.emoji ? <Text style={styles.chipEmoji}>{chip.emoji}</Text> : null}
               <Text
                 style={[
                   styles.chipLabel,
-                  { color: active ? chip.color : orbitPalette.textSubtle, fontWeight: active ? '700' : '500' },
+                  { color: active ? chip.color : c.textMuted, fontWeight: active ? '700' : '600' },
                 ]}>
                 {chip.label} ({count})
               </Text>
@@ -207,8 +204,8 @@ export function MyPlacesPanel({
         {filtered.length === 0 ? (
           <View style={styles.empty}>
             <Text style={{ fontSize: 32, marginBottom: 8 }}>📍</Text>
-            <Text style={[styles.emptyTitle, { color: orbitPalette.textSubtle }]}>No places yet</Text>
-            <Text style={[styles.emptyBody, { color: orbitPalette.textFaint }]}>
+            <Text style={[styles.emptyTitle, { color: c.textSubtle }]}>No places yet</Text>
+            <Text style={[styles.emptyBody, { color: c.textFaint }]}>
               Tap + Add Place to get started
             </Text>
           </View>
@@ -240,7 +237,7 @@ export function MyPlacesPanel({
               ]}>
               <View style={styles.summaryPlaceRow}>
                 <Text style={{ fontSize: 13 }}>{group.emoji ?? '📍'}</Text>
-                <Text style={[styles.summaryPlaceName, { color: orbitPalette.text }]}>
+                <Text style={[styles.summaryPlaceName, { color: c.text }]}>
                   {group.placeName}
                 </Text>
                 {group.groceryLinked ? (
@@ -261,7 +258,10 @@ export function MyPlacesPanel({
           <Pressable
             onPress={() => void handlePickupCta()}
             disabled={suggestBusy}
-            style={[styles.summaryCta, { borderColor: `${accentTheme.primary}44` }]}>
+            style={[
+              styles.summaryCta,
+              { borderColor: `${accentTheme.primary}44`, backgroundColor: glass(0.04) },
+            ]}>
             <MaterialIcons name="route" size={16} color={accentTheme.primary} />
             <Text style={[styles.summaryCtaText, { color: accentTheme.primary }]}>
               {suggestBusy
@@ -311,7 +311,7 @@ function PlaceCard({
   onAddItem: () => void;
   onEdit: () => void;
 }) {
-  const { orbitPalette } = useOrbit();
+  const { c, glass } = useOrbitColors();
   const meta = KIND_META[place.kind];
   const pickups = place.pickupItemNames ?? [];
   const emoji = place.emoji ?? meta.emoji;
@@ -322,7 +322,7 @@ function PlaceCard({
         styles.placeCard,
         {
           backgroundColor: glass(expanded ? 0.07 : 0.05),
-          borderColor: expanded ? `${meta.color}40` : orbitPalette.border,
+          borderColor: expanded ? `${meta.color}40` : c.border,
         },
       ]}>
       <Pressable onPress={onToggleExpand} style={styles.placeHead}>
@@ -330,12 +330,12 @@ function PlaceCard({
           <Text style={{ fontSize: 18 }}>{emoji}</Text>
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[styles.placeName, { color: orbitPalette.text }]} numberOfLines={1}>
+          <Text style={[styles.placeName, { color: c.text }]} numberOfLines={1}>
             {place.name}
           </Text>
           <View style={styles.addrRow}>
-            <MaterialIcons name="place" size={10} color={orbitPalette.textSubtle} />
-            <Text style={[styles.addr, { color: orbitPalette.textSubtle }]} numberOfLines={1}>
+            <MaterialIcons name="place" size={10} color={c.textSubtle} />
+            <Text style={[styles.addr, { color: c.textSubtle }]} numberOfLines={1}>
               {place.address}
             </Text>
           </View>
@@ -354,13 +354,13 @@ function PlaceCard({
             <MaterialIcons
               name={place.isFavorite ? 'star' : 'star-border'}
               size={16}
-              color={place.isFavorite ? '#F59E0B' : orbitPalette.textSubtle}
+              color={place.isFavorite ? '#F59E0B' : c.textSubtle}
             />
           </Pressable>
           <MaterialIcons
             name="expand-more"
             size={18}
-            color={orbitPalette.textSubtle}
+            color={c.textSubtle}
             style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
           />
         </View>
@@ -368,15 +368,17 @@ function PlaceCard({
 
       {expanded ? (
         <View style={styles.placeBody}>
-          <View style={[styles.divider, { backgroundColor: orbitPalette.border }]} />
+          <View style={[styles.divider, { backgroundColor: c.border }]} />
           <View style={styles.placeMetaRow}>
             <Text style={[styles.kindLabel, { color: meta.color }]}>
               {meta.emoji} {meta.label}
             </Text>
             <View style={styles.placeMetaActions}>
-              <Pressable onPress={onEdit} style={styles.miniAction}>
-                <MaterialIcons name="edit" size={12} color={orbitPalette.textMuted} />
-                <Text style={[styles.miniActionText, { color: orbitPalette.textMuted }]}>Edit</Text>
+              <Pressable
+                onPress={onEdit}
+                style={[styles.miniAction, { backgroundColor: glass(0.06) }]}>
+                <MaterialIcons name="edit" size={12} color={c.textMuted} />
+                <Text style={[styles.miniActionText, { color: c.textMuted }]}>Edit</Text>
               </Pressable>
               {place.kind !== 'home' && place.kind !== 'work' ? (
                 <Pressable onPress={onDelete} style={[styles.miniAction, styles.removeAction]}>
@@ -387,7 +389,7 @@ function PlaceCard({
             </View>
           </View>
 
-          <Text style={[styles.pickupLabel, { color: orbitPalette.textSubtle }]}>PICKUP LIST</Text>
+          <Text style={[styles.pickupLabel, { color: c.textSubtle }]}>PICKUP LIST</Text>
           {pickups.length > 0 ? (
             <View style={styles.pickupWrap}>
               {pickups.map((item) => (
@@ -397,7 +399,7 @@ function PlaceCard({
               ))}
             </View>
           ) : (
-            <Text style={[styles.pickupEmpty, { color: orbitPalette.textFaint }]}>
+            <Text style={[styles.pickupEmpty, { color: c.textFaint }]}>
               No items yet — Nova will remind you when passing by.
             </Text>
           )}
@@ -407,14 +409,14 @@ function PlaceCard({
               value={itemDraft}
               onChangeText={onChangeDraft}
               placeholder="Add item to pick up…"
-              placeholderTextColor={orbitPalette.textFaint}
+              placeholderTextColor={c.textFaint}
               onSubmitEditing={onAddItem}
               style={[
                 styles.addInput,
                 {
                   backgroundColor: glass(0.05),
-                  borderColor: orbitPalette.border,
-                  color: orbitPalette.text,
+                  borderColor: c.border,
+                  color: c.text,
                 },
               ]}
               returnKeyType="done"
@@ -519,7 +521,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: radius.full,
-    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   removeAction: {
     backgroundColor: 'rgba(239,68,68,0.12)',
@@ -606,7 +607,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: radius.card,
     borderWidth: 1,
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   summaryCtaText: { fontSize: 13, fontWeight: '700' },
   fab: {

@@ -6,6 +6,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
+import { SpinningLogoGlow } from '@/components/orbit/spinning-logo-glow';
 import { useOrbit } from '@/store/orbit-store';
 
 /** Fixed chrome row height below the status bar (logo + chips). */
@@ -65,7 +66,10 @@ export function GlobalHeaderChips() {
       </View>
 
       <View style={styles.row}>
-        <ChoremaxxBadge size="xl" />
+        <View style={styles.logoWrap}>
+          <SpinningLogoGlow size={56} style={styles.logoGlow} />
+          <ChoremaxxBadge size="xl" />
+        </View>
         <View style={styles.actions}>
           <Pressable
             accessibilityRole="button"
@@ -136,6 +140,15 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     paddingHorizontal: 16,
     zIndex: 1,
+  },
+  logoWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoGlow: {
+    left: -8,
+    position: 'absolute',
+    top: -14,
   },
   actions: {
     alignItems: 'center',

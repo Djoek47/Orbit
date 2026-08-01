@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, type StyleProp, type TextStyle } from 'react-native';
 
 import { typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 type PageEyebrowProps = {
@@ -15,6 +16,7 @@ type PageEyebrowProps = {
  */
 export function PageEyebrow({ children, style }: PageEyebrowProps) {
   const { accentTheme } = useOrbit();
+  const { c } = useOrbitColors();
   const typeStyle = accentTheme.typeStyle;
 
   return (
@@ -22,6 +24,7 @@ export function PageEyebrow({ children, style }: PageEyebrowProps) {
       style={[
         typography.eyebrow,
         {
+          color: c.textSubtle,
           fontWeight: typeStyle.captionWeight,
           letterSpacing: typeStyle.letterSpacing + 0.35,
         },

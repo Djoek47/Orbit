@@ -13,7 +13,7 @@ import { useOrbit } from '@/store/orbit-store';
 import type { InviteLinks } from '@/types/orbit';
 
 export default function InviteHouseholdScreen() {
-  const { household, inviteLinks, permissions, refreshInviteLinks } = useOrbit();
+  const { household, inviteLinks, orbitPalette, permissions, refreshInviteLinks } = useOrbit();
   const [links, setLinks] = useState<InviteLinks | null>(inviteLinks);
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [shareStatus, setShareStatus] = useState('');
@@ -106,7 +106,7 @@ export default function InviteHouseholdScreen() {
       title="Add new member"
       subtitle="Share a code, link, or QR so they can create an account and join. New members wait for owner/admin approval before full access.">
       <View style={styles.qrWrap}>
-        <QRCode value={webLink} size={160} backgroundColor="#FFFFFF" color="#070D1C" />
+        <QRCode value={webLink} size={160} backgroundColor="#FFFFFF" color={orbitPalette.ink} />
       </View>
       <Text selectable style={styles.code}>
         {inviteCode}

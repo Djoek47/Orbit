@@ -1,13 +1,19 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { FireEdgeProgress } from '@/components/orbit/fire-edge-progress';
 import { GlassCard } from '@/components/orbit/glass-card';
-import { orbitColors } from '@/constants/orbit-theme';
+import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
@@ -45,6 +51,23 @@ function isTodayTask(task: HouseholdTask) {
   );
 }
 
+function PersonChipEnter({ index, children }: { index: number; children: ReactNode }) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(8);
+
+  useEffect(() => {
+    opacity.value = withDelay(index * 70, withSpring(1, { damping: 18, stiffness: 160 }));
+    translateY.value = withDelay(index * 70, withSpring(0, { damping: 18, stiffness: 160 }));
+  }, [index, opacity, translateY]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return <Animated.View style={style}>{children}</Animated.View>;
+}
+
 export function TodayTasksCard({
   tasks,
   members,
@@ -55,6 +78,7 @@ export function TodayTasksCard({
   streak,
   onAwardDailyStreak,
 }: TodayTasksCardProps) {
+  const { c, isDark, glass, glassBorder } = useOrbitColors();
   const [size, setSize] = useState({ width: 0, height: 0 });
 
   const scoped = useMemo(() => {
@@ -123,10 +147,10 @@ export function TodayTasksCard({
         <GlassCard style={styles.card}>
           <View style={styles.sectionHead}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>
+              <Text style={[styles.sectionTitle, { color: c.text }]}>
                 {mineOnly ? 'My tasks today' : "Today's Tasks"}
               </Text>
-              <Text style={styles.eyebrow}>
+              <Text style={[styles.eyebrow, { color: c.textSubtle }]}>
                 {done} of {scoped.length} complete
                 {complete ? ' · daily streak ready' : ''}
               </Text>
@@ -136,17 +160,23 @@ export function TodayTasksCard({
                 <MaterialIcons
                   name="local-fire-department"
                   size={14}
-                  color={complete ? '#FB923C' : orbitColors.warning}
+                  color={complete ? '#FB923C' : c.warning}
                 />
-                <Text style={[styles.streakText, complete && { color: '#FB923C' }]}>{streak}d</Text>
+                <Text style={[styles.streakText, { color: complete ? '#FB923C' : c.warning }]}>
+                  {streak}d
+                </Text>
               </View>
-              <View style={styles.pctPill}>
-                <Text style={styles.pctPillText}>{pct}%</Text>
+              <View
+                style={[
+                  styles.pctPill,
+                  { backgroundColor: glass(0.08) },
+                ]}>
+                <Text style={[styles.pctPillText, { color: c.textSoft }]}>{pct}%</Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.progressTrack}>
+          <View style={[styles.progressTrack, { backgroundColor: glass(0.08) }]}>
             <LinearGradient
               colors={complete ? ['#FB923C', '#FBBF24'] : [accentTheme.primary, accentTheme.secondary]}
               start={{ x: 0, y: 0 }}
@@ -164,15 +194,13 @@ export function TodayTasksCard({
                     <Text style={[styles.personName, { color: row.color }]} numberOfLines={1}>
                       {row.member.name}
                     </Text>
-                    <Text style={styles.personCount}>
+                    <Text style={[styles.personCount, { color: c.textMuted }]}>
                       {row.done}/{row.total}
                     </Text>
                   </>
                 );
                 return (
-                  <Animated.View
-                    key={row.member.id}
-                    entering={FadeInDown.delay(index * 60).springify()}>
+                  <PersonChipEnter key={row.member.id} index={index}>
                     {canFocusMembers ? (
                       <Pressable
                         accessibilityRole="button"
@@ -181,23 +209,33 @@ export function TodayTasksCard({
                         style={[
                           styles.personChip,
                           styles.personChipPressable,
-                          { borderColor: `${row.color}88`, backgroundColor: `${row.color}18` },
+                          {
+                            borderColor: `${row.color}88`,
+                            backgroundColor: `${row.color}18`,
+                          },
                         ]}>
                         {chip}
                       </Pressable>
                     ) : (
-                      <View style={[styles.personChip, { borderColor: `${row.color}55` }]}>
+                      <View
+                        style={[
+                          styles.personChip,
+                          {
+                            borderColor: `${row.color}55`,
+                            backgroundColor: glassFill(isDark, 0.04),
+                          },
+                        ]}>
                         {chip}
                       </View>
                     )}
-                  </Animated.View>
+                  </PersonChipEnter>
                 );
               })}
             </View>
           ) : null}
 
           {preview.length === 0 ? (
-            <Text style={styles.eyebrow}>All clear for today.</Text>
+            <Text style={[styles.eyebrow, { color: c.textSubtle }]}>All clear for today.</Text>
           ) : (
             preview.map((task, index) => {
               const finished = task.status === 'Completed';
@@ -206,14 +244,27 @@ export function TodayTasksCard({
                   <Pressable
                     style={styles.taskRow}
                     onPress={() => router.push(`/task/${task.id}` as never)}>
-                    <View style={[styles.check, finished && styles.checkDone]}>
-                      {finished ? <MaterialIcons name="check" size={12} color="#070D1C" /> : null}
+                    <View
+                      style={[
+                        styles.check,
+                        { borderColor: glassBorder(0.2) },
+                        finished && styles.checkDone,
+                      ]}>
+                      {finished ? <MaterialIcons name="check" size={12} color={c.ink} /> : null}
                     </View>
-                    <Text style={[styles.taskText, finished && styles.taskDone]} numberOfLines={1}>
+                    <Text
+                      style={[
+                        styles.taskText,
+                        { color: finished ? c.textSubtle : c.text },
+                        finished && styles.taskDone,
+                      ]}
+                      numberOfLines={1}>
                       {task.title}
                     </Text>
                     {!mineOnly ? (
-                      <Text style={styles.assignee}>{task.assignee?.[0] ?? '?'}</Text>
+                      <Text style={[styles.assignee, { color: c.textSubtle }]}>
+                        {task.assignee?.[0] ?? '?'}
+                      </Text>
                     ) : null}
                   </Pressable>
                 </Animated.View>
@@ -227,7 +278,9 @@ export function TodayTasksCard({
             hitSlop={12}
             onPress={() => openTasksTab()}
             style={styles.linkBtn}>
-            <Text style={[styles.link, { color: accentTheme.primary }]}>Open tasks →</Text>
+            <Text style={[styles.link, { color: accentTheme.primary, textAlign: 'center' }]}>
+              Open tasks →
+            </Text>
             <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
           </Pressable>
         </GlassCard>
@@ -245,11 +298,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionTitle: {
-    color: orbitColors.text,
     fontSize: 16,
     fontWeight: '700',
   },
-  eyebrow: { color: orbitColors.textSubtle, fontSize: 12 },
+  eyebrow: { fontSize: 12 },
   rightMeta: { alignItems: 'flex-end', gap: 6 },
   streakChip: {
     alignItems: 'center',
@@ -264,23 +316,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(251,146,60,0.28)',
   },
   streakText: {
-    color: orbitColors.warning,
     fontSize: 12,
     fontWeight: '800',
   },
   pctPill: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   pctPillText: {
-    color: orbitColors.textSoft,
     fontSize: 12,
     fontWeight: '700',
   },
   progressTrack: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 999,
     height: 8,
     overflow: 'hidden',
@@ -296,7 +344,6 @@ const styles = StyleSheet.create({
   },
   personChip: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 999,
     borderWidth: 1,
     flexDirection: 'row',
@@ -309,7 +356,7 @@ const styles = StyleSheet.create({
   },
   personEmoji: { fontSize: 14 },
   personName: { fontSize: 12, fontWeight: '700', maxWidth: 72 },
-  personCount: { color: orbitColors.textMuted, fontSize: 11, fontWeight: '700' },
+  personCount: { fontSize: 11, fontWeight: '700' },
   taskRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -318,7 +365,6 @@ const styles = StyleSheet.create({
   },
   check: {
     alignItems: 'center',
-    borderColor: 'rgba(255,255,255,0.2)',
     borderRadius: 12,
     borderWidth: 2,
     height: 24,
@@ -326,14 +372,15 @@ const styles = StyleSheet.create({
     width: 24,
   },
   checkDone: { backgroundColor: '#34D399', borderColor: '#34D399' },
-  taskText: { color: orbitColors.textSoft, flex: 1, fontSize: 14, fontWeight: '600' },
-  taskDone: { color: orbitColors.textSubtle, textDecorationLine: 'line-through' },
-  assignee: { color: orbitColors.textSubtle, fontSize: 12, fontWeight: '700' },
+  taskText: { flex: 1, fontSize: 14, fontWeight: '600' },
+  taskDone: { textDecorationLine: 'line-through' },
+  assignee: { fontSize: 12, fontWeight: '700' },
   linkBtn: {
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
     flexDirection: 'row',
     gap: 2,
+    justifyContent: 'center',
     marginTop: 2,
     paddingVertical: 4,
   },

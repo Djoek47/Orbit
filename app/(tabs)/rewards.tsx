@@ -18,6 +18,7 @@ import {
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
+import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
 
@@ -32,10 +33,18 @@ function resolveSurface(raw?: string | string[]): Surface {
 }
 
 function SharedTabletChip({ device, compact }: { device: HouseholdMember; compact?: boolean }) {
+  const { c, glass, glassBorder } = useOrbitColors();
   return (
-    <View style={[styles.deviceChip, compact && styles.deviceChipCompact]}>
+    <View
+      style={[
+        styles.deviceChip,
+        { backgroundColor: glass(0.06), borderColor: glassBorder(0.12) },
+        compact && styles.deviceChipCompact,
+      ]}>
       <Text style={styles.deviceChipEmoji}>{device.avatar || '📱'}</Text>
-      <Text style={[styles.deviceChipText, compact && styles.deviceChipTextCompact]} numberOfLines={1}>
+      <Text
+        style={[styles.deviceChipText, { color: c.textMuted }, compact && styles.deviceChipTextCompact]}
+        numberOfLines={1}>
         {device.name}
       </Text>
     </View>
@@ -53,6 +62,7 @@ export default function RewardsScreen() {
     archiveReward,
     household,
     membersWithProgress,
+    orbitPalette,
     pendingAllowances,
     pendingRedemptions,
     permissions,
@@ -62,6 +72,7 @@ export default function RewardsScreen() {
     currentMember,
     requestAllowance,
   } = useOrbit();
+  const { c, isDark, glass, glassBorder } = useOrbitColors();
   const [surface, setSurface] = useState<Surface>(() => resolveSurface(params.surface));
   const [view, setView] = useState<RankingView>('week');
   const [shopCategory, setShopCategory] = useState<string>('All');
@@ -173,13 +184,13 @@ export default function RewardsScreen() {
 
   return (
     <ScrollView
-      style={orbitScreen.container}
+      style={[orbitScreen.container, { backgroundColor: orbitPalette.background }]}
       contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
       contentInsetAdjustmentBehavior="never"
       showsVerticalScrollIndicator={false}>
       <View style={[orbitScreen.header, styles.header]}>
         <PageEyebrow>{surface === 'ranks' ? 'Leaderboard' : 'Shop'}</PageEyebrow>
-        <Text style={typography.title1}>
+        <Text style={[typography.title1, { color: orbitPalette.text }]}>
           {surface === 'ranks' ? 'Family Rankings' : 'Rewards'}
         </Text>
       </View>
@@ -196,6 +207,10 @@ export default function RewardsScreen() {
               onPress={() => selectSurface(tab.id)}
               style={[
                 styles.surfaceChip,
+                {
+                  backgroundColor: glass(0.04),
+                  borderColor: glassBorder(0.1),
+                },
                 active && {
                   backgroundColor: `${accentTheme.primary}2E`,
                   borderColor: `${accentTheme.primary}66`,
@@ -204,11 +219,12 @@ export default function RewardsScreen() {
               <MaterialIcons
                 name={tab.icon}
                 size={16}
-                color={active ? accentTheme.primary : orbitColors.textSubtle}
+                color={active ? accentTheme.primary : c.textSubtle}
               />
               <Text
                 style={[
                   styles.surfaceChipText,
+                  { color: c.textSubtle },
                   active && { color: accentTheme.primary, fontWeight: '700' },
                 ]}>
                 {tab.label}
@@ -222,18 +238,24 @@ export default function RewardsScreen() {
         <>
       <Pressable
         onPress={() => router.push('/household-games' as never)}
-        style={[styles.gamesCard, { borderColor: `${accentTheme.primary}44` }]}>
+        style={[
+          styles.gamesCard,
+          {
+            borderColor: `${accentTheme.primary}44`,
+            backgroundColor: glassFill(isDark),
+          },
+        ]}>
         <Text style={styles.gamesEmoji}>🎮</Text>
         <View style={{ flex: 1 }}>
-          <Text style={typography.headline}>Household Games</Text>
-          <Text style={typography.footnote}>
+          <Text style={[typography.headline, { color: orbitPalette.text }]}>Household Games</Text>
+          <Text style={[typography.footnote, { color: orbitPalette.textSoft }]}>
             Drinking games, Uno, guessing nights — coming soon packs.
           </Text>
         </View>
         <MaterialIcons name="chevron-right" size={18} color={accentTheme.primary} />
       </Pressable>
 
-      <View style={styles.toggleRow}>
+      <View style={[styles.toggleRow, { backgroundColor: glass(0.06) }]}>
         {(['week', 'alltime'] as const).map((option) => {
           const active = view === option;
           return (
@@ -241,7 +263,12 @@ export default function RewardsScreen() {
               key={option}
               onPress={() => setView(option)}
               style={[styles.toggleButton, active && styles.toggleButtonActive]}>
-              <Text style={[styles.toggleLabel, active && styles.toggleLabelActive]}>
+              <Text
+                style={[
+                  styles.toggleLabel,
+                  { color: c.textSubtle },
+                  active && styles.toggleLabelActive,
+                ]}>
                 {option === 'week' ? 'This Week' : 'All Time'}
               </Text>
             </Pressable>
@@ -249,14 +276,16 @@ export default function RewardsScreen() {
         })}
       </View>
 
-      <LinearGradient
-        colors={['rgba(14,165,233,0.12)', 'rgba(167,139,250,0.08)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.podiumCard}>
-        <View style={styles.podiumAmbient} pointerEvents="none" />
+      <View
+        style={[
+          styles.podiumCard,
+          {
+            backgroundColor: glassFill(isDark, 0.04),
+            borderColor: orbitPalette.border,
+          },
+        ]}>
         <Leaderboard entries={podiumEntries} variant="podium" />
-      </LinearGradient>
+      </View>
 
       <GlassCard style={styles.listCard}>
         {sorted.map((member, index) => {
@@ -265,12 +294,19 @@ export default function RewardsScreen() {
           return (
             <View
               key={member.id}
-              style={[styles.rankRow, index < sorted.length - 1 && styles.rankRowBorder, isFirst && styles.rankRowFirst]}>
+              style={[
+                styles.rankRow,
+                index < sorted.length - 1 && {
+                  borderBottomColor: glassBorder(0.05),
+                  borderBottomWidth: 1,
+                },
+                isFirst && styles.rankRowFirst,
+              ]}>
               <View style={styles.rankBadge}>
                 {index < 3 ? (
                   <Text style={styles.rankEmoji}>{RANK_EMOJI[index]}</Text>
                 ) : (
-                  <Text style={styles.rankNumber}>#{index + 1}</Text>
+                  <Text style={[styles.rankNumber, { color: c.textSubtle }]}>#{index + 1}</Text>
                 )}
               </View>
               <View style={[styles.avatarCircle, { backgroundColor: `${member.accentColor}33` }]}>
@@ -278,7 +314,7 @@ export default function RewardsScreen() {
               </View>
               <View style={styles.rankInfo}>
                 <View style={styles.nameRow}>
-                  <Text style={styles.memberName}>{member.name}</Text>
+                  <Text style={[styles.memberName, { color: orbitPalette.text }]}>{member.name}</Text>
                   {deviceByMemberId.get(member.id) ? (
                     <SharedTabletChip device={deviceByMemberId.get(member.id)!} />
                   ) : null}
@@ -289,7 +325,7 @@ export default function RewardsScreen() {
                   </View>
                 </View>
                 <View style={styles.xpBarRow}>
-                  <View style={styles.progressTrack}>
+                  <View style={[styles.progressTrack, { backgroundColor: glass(0.08) }]}>
                     <View
                       style={[
                         styles.progressFill,
@@ -300,14 +336,16 @@ export default function RewardsScreen() {
                       ]}
                     />
                   </View>
-                  <Text style={styles.xpCaption}>{member.xp} XP</Text>
+                  <Text style={[styles.xpCaption, { color: c.textSubtle }]}>{member.xp} XP</Text>
                 </View>
               </View>
               <View style={styles.xpColumn}>
-                <Text style={[styles.xpValue, { color: isFirst ? orbitColors.rankGold : orbitColors.orbitBlue }]}>
+                <Text style={[styles.xpValue, { color: isFirst ? c.rankGold : c.orbitBlue }]}>
                   ⚡ {xpVal}
                 </Text>
-                <Text style={styles.xpPeriod}>{view === 'week' ? 'this week' : 'total'}</Text>
+                <Text style={[styles.xpPeriod, { color: c.textSubtle }]}>
+                  {view === 'week' ? 'this week' : 'total'}
+                </Text>
               </View>
             </View>
           );
@@ -316,8 +354,8 @@ export default function RewardsScreen() {
 
       <GlassCard>
         <View style={styles.sectionHeading}>
-          <MaterialIcons name="local-fire-department" size={16} color={orbitColors.warning} />
-          <Text style={typography.headline}>Current Streaks</Text>
+          <MaterialIcons name="local-fire-department" size={16} color={c.warning} />
+          <Text style={[typography.headline, { color: orbitPalette.text }]}>Current Streaks</Text>
         </View>
         <View style={styles.streakRow}>
           {sorted.map((member) => (
@@ -329,17 +367,17 @@ export default function RewardsScreen() {
                 <MaterialIcons
                   name="local-fire-department"
                   size={10}
-                  color={(member.streak ?? 0) >= 7 ? orbitColors.warning : orbitColors.textSubtle}
+                  color={(member.streak ?? 0) >= 7 ? c.warning : c.textSubtle}
                 />
                 <Text
                   style={[
                     styles.streakValue,
-                    { color: (member.streak ?? 0) >= 7 ? orbitColors.warning : orbitColors.textSoft },
+                    { color: (member.streak ?? 0) >= 7 ? c.warning : c.textSoft },
                   ]}>
                   {member.streak}
                 </Text>
               </View>
-              <Text style={styles.streakCaption}>day streak</Text>
+              <Text style={[styles.streakCaption, { color: c.textSubtle }]}>day streak</Text>
             </View>
           ))}
         </View>
@@ -349,36 +387,51 @@ export default function RewardsScreen() {
         <GlassCard>
           <View style={orbitScreen.row}>
             <View style={styles.sectionHeading}>
-              <MaterialIcons name="emoji-events" size={16} color={orbitColors.rankGold} />
-              <Text style={typography.headline}>Achievements</Text>
+              <MaterialIcons name="emoji-events" size={16} color={c.rankGold} />
+              <Text style={[typography.headline, { color: orbitPalette.text }]}>Achievements</Text>
             </View>
             <View style={styles.earnedRow}>
-              <Text style={styles.earnedCount}>
+              <Text style={[styles.earnedCount, { color: c.success }]}>
                 {earnedCount}/{achievements.length}
               </Text>
-              <MaterialIcons name="chevron-right" size={12} color={orbitColors.textSubtle} />
+              <MaterialIcons name="chevron-right" size={12} color={c.textSubtle} />
             </View>
           </View>
           <View style={styles.badgeGrid}>
             {achievements.map((badge) => (
               <View key={badge.id} style={styles.badgeTile}>
-                <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
+                <View
+                  style={[
+                    styles.badgeIconWrap,
+                    !badge.earned && {
+                      backgroundColor: glass(0.04),
+                      borderColor: orbitPalette.border,
+                      opacity: 0.4,
+                    },
+                  ]}>
                   <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
                   {!badge.earned ? (
                     <View style={styles.lockOverlay}>
-                      <MaterialIcons name="lock" size={12} color={orbitColors.textSubtle} />
+                      <MaterialIcons name="lock" size={12} color={c.textSubtle} />
                     </View>
                   ) : null}
                 </View>
-                <Text style={[styles.badgeLabel, !badge.earned && styles.badgeLabelMuted]}>{badge.label}</Text>
+                <Text
+                  style={[
+                    styles.badgeLabel,
+                    { color: badge.earned ? c.textSoft : c.textSubtle },
+                    !badge.earned && styles.badgeLabelMuted,
+                  ]}>
+                  {badge.label}
+                </Text>
               </View>
             ))}
           </View>
           <View style={styles.collectionRow}>
-            <Text style={styles.collectionCaption}>Collection progress</Text>
-            <Text style={styles.collectionPct}>{collectionPct}%</Text>
+            <Text style={[styles.collectionCaption, { color: c.textMuted }]}>Collection progress</Text>
+            <Text style={[styles.collectionPct, { color: c.success }]}>{collectionPct}%</Text>
           </View>
-          <View style={styles.collectionTrack}>
+          <View style={[styles.collectionTrack, { backgroundColor: glass(0.06) }]}>
             <LinearGradient
               colors={['#FBBF24', '#FB923C']}
               start={{ x: 0, y: 0 }}
@@ -391,16 +444,18 @@ export default function RewardsScreen() {
         </>
       ) : (
         <>
-      <View style={styles.shopHero}>
+      <View style={[styles.shopHero, { borderColor: glassBorder(0.08) }]}>
         <LinearGradient
-          colors={[`${accentTheme.primary}33`, 'rgba(251,191,36,0.12)', 'rgba(255,255,255,0.03)']}
+          colors={[`${accentTheme.primary}33`, 'rgba(251,191,36,0.12)', glass(0.03)]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.shopHeroGlow}
         />
         <Text style={styles.shopKicker}>{isAdmin ? 'ADMIN SHOP' : 'YOUR SHOP'}</Text>
-        <Text style={styles.shopTitle}>{isAdmin ? 'Reward vault' : 'Claim your wins'}</Text>
-        <Text style={styles.shopSub}>
+        <Text style={[styles.shopTitle, { color: orbitPalette.text }]}>
+          {isAdmin ? 'Reward vault' : 'Claim your wins'}
+        </Text>
+        <Text style={[styles.shopSub, { color: orbitPalette.textMuted }]}>
           {isAdmin
             ? 'Mint or assign prizes, grant allowances, approve requests.'
             : `You have ${(currentMember?.xp ?? 0).toLocaleString()} XP · hold to claim or request`}
@@ -428,9 +483,9 @@ export default function RewardsScreen() {
             {canRequestSpecial ? (
               <Pressable
                 onPress={() => router.push('/special-reward-request' as never)}
-                style={[styles.manageChip, { borderColor: 'rgba(255,255,255,0.14)' }]}>
-                <MaterialIcons name="favorite-border" size={16} color="#C8D8F0" />
-                <Text style={styles.manageChipLight}>Special</Text>
+                style={[styles.manageChip, { borderColor: glassBorder(0.14) }]}>
+                <MaterialIcons name="favorite-border" size={16} color={c.textSoft} />
+                <Text style={[styles.manageChipLight, { color: c.textSoft }]}>Special</Text>
               </Pressable>
             ) : null}
             {/* Admin can also request for end-to-end testing. */}
@@ -446,9 +501,9 @@ export default function RewardsScreen() {
                   })
                   .finally(() => setAllowanceBusy(false));
               }}
-              style={[styles.manageChip, { borderColor: 'rgba(255,255,255,0.14)' }]}>
-              <MaterialIcons name="payments" size={16} color="#C8D8F0" />
-              <Text style={styles.manageChipLight}>
+              style={[styles.manageChip, { borderColor: glassBorder(0.14) }]}>
+              <MaterialIcons name="payments" size={16} color={c.textSoft} />
+              <Text style={[styles.manageChipLight, { color: c.textSoft }]}>
                 {allowanceBusy ? 'Sending…' : 'Ask'}
               </Text>
             </Pressable>
@@ -475,9 +530,9 @@ export default function RewardsScreen() {
                   })
                   .finally(() => setAllowanceBusy(false));
               }}
-              style={[styles.manageChip, { borderColor: 'rgba(255,255,255,0.14)' }]}>
-              <MaterialIcons name="payments" size={16} color="#C8D8F0" />
-              <Text style={styles.manageChipLight}>
+              style={[styles.manageChip, { borderColor: glassBorder(0.14) }]}>
+              <MaterialIcons name="payments" size={16} color={c.textSoft} />
+              <Text style={[styles.manageChipLight, { color: c.textSoft }]}>
                 {allowanceBusy ? 'Sending…' : 'Ask allowance'}
               </Text>
             </Pressable>
@@ -493,6 +548,7 @@ export default function RewardsScreen() {
           onPress={() => setMemberFilter('all')}
           style={[
             styles.categoryChip,
+            { borderColor: glassBorder(0.12) },
             memberFilter === 'all' && {
               backgroundColor: `${accentTheme.primary}2E`,
               borderColor: `${accentTheme.primary}66`,
@@ -501,6 +557,7 @@ export default function RewardsScreen() {
           <Text
             style={[
               styles.categoryChipText,
+              { color: c.textMuted },
               memberFilter === 'all' && { color: accentTheme.primary },
             ]}>
             All people
@@ -517,6 +574,7 @@ export default function RewardsScreen() {
               onPress={() => setMemberFilter(member.id)}
               style={[
                 styles.categoryChip,
+                { borderColor: glassBorder(0.12) },
                 active && {
                   backgroundColor: `${accentTheme.primary}2E`,
                   borderColor: `${accentTheme.primary}66`,
@@ -524,7 +582,11 @@ export default function RewardsScreen() {
               ]}>
               <Text style={{ fontSize: 13 }}>{memberDisplayEmoji(member)}</Text>
               <Text
-                style={[styles.categoryChipText, active && { color: accentTheme.primary }]}>
+                style={[
+                  styles.categoryChipText,
+                  { color: c.textMuted },
+                  active && { color: accentTheme.primary },
+                ]}>
                 {member.name}
                 {assignedCount > 0 ? ` · ${assignedCount}` : ''}
               </Text>
@@ -545,12 +607,18 @@ export default function RewardsScreen() {
               onPress={() => setShopCategory(category)}
               style={[
                 styles.categoryChip,
+                { borderColor: glassBorder(0.12) },
                 active && {
                   backgroundColor: `${accentTheme.primary}2E`,
                   borderColor: `${accentTheme.primary}66`,
                 },
               ]}>
-              <Text style={[styles.categoryChipText, active && { color: accentTheme.primary }]}>
+              <Text
+                style={[
+                  styles.categoryChipText,
+                  { color: c.textMuted },
+                  active && { color: accentTheme.primary },
+                ]}>
                 {category}
               </Text>
             </Pressable>
@@ -560,7 +628,9 @@ export default function RewardsScreen() {
 
       {groupedShopRewards.map((group, groupIndex) => (
         <View key={group.category} style={styles.shopSection}>
-          <Text style={styles.shopSectionTitle}>{group.category}</Text>
+          <Text style={[styles.shopSectionTitle, { color: orbitPalette.textSoft }]}>
+            {group.category}
+          </Text>
           {group.items.map((reward, index) => {
             const origin =
               reward.origin ?? (reward.specialRequest ? 'special-request' : 'minted');
@@ -575,8 +645,8 @@ export default function RewardsScreen() {
                 <LinearGradient
                   colors={[
                     `${reward.color ?? accentTheme.primary}18`,
-                    'rgba(255,255,255,0.04)',
-                    'rgba(7,13,28,0.55)',
+                    glass(0.04),
+                    glassFill(isDark, 0.03),
                   ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -585,23 +655,27 @@ export default function RewardsScreen() {
                     { borderColor: `${reward.color ?? accentTheme.primary}33` },
                   ]}>
                   <View style={styles.vaultTop}>
-                    <View style={styles.vaultEmojiWrap}>
+                    <View style={[styles.vaultEmojiWrap, { backgroundColor: glass(0.06) }]}>
                       <Text style={styles.vaultEmoji}>{reward.emoji || '🎁'}</Text>
                     </View>
                     <View style={{ flex: 1, gap: 4 }}>
-                      <Text style={styles.vaultTitle}>{reward.title}</Text>
+                      <Text style={[styles.vaultTitle, { color: orbitPalette.text }]}>
+                        {reward.title}
+                      </Text>
                       {reward.assignedMemberName ? (
-                        <Text style={styles.shopSub}>For {reward.assignedMemberName}</Text>
+                        <Text style={[styles.shopSub, { color: orbitPalette.textMuted }]}>
+                          For {reward.assignedMemberName}
+                        </Text>
                       ) : null}
                       <View style={styles.vaultMetaRow}>
                         <View style={styles.xpStamp}>
                           <Text style={styles.xpStampText}>{reward.cost} XP</Text>
                         </View>
-                        <Text style={styles.vaultMode}>
+                        <Text style={[styles.vaultMode, { color: c.textMuted }]}>
                           {mode === 'instant' ? 'Instant' : 'Needs approval'}
                         </Text>
                         {isAdmin ? (
-                          <Text style={styles.vaultOrigin}>
+                          <Text style={[styles.vaultOrigin, { color: c.textSubtle }]}>
                             {origin === 'special-request' ? 'Request' : 'Minted'}
                           </Text>
                         ) : null}
@@ -653,7 +727,9 @@ export default function RewardsScreen() {
       {canApprove && pendingRedemptions.length > 0 ? (
         <View style={styles.pendingBlock}>
           <View style={styles.pendingHead}>
-            <Text style={styles.pendingTitle}>Pending claims · {pendingRedemptions.length}</Text>
+            <Text style={[styles.pendingTitle, { color: orbitPalette.text }]}>
+              Pending claims · {pendingRedemptions.length}
+            </Text>
             <Pressable onPress={() => router.push('/reward-tally' as never)}>
               <Text style={[styles.tallyLinkText, { color: accentTheme.primary }]}>Full tally</Text>
             </Pressable>
@@ -662,10 +738,20 @@ export default function RewardsScreen() {
             const reward = household.rewards.find((item) => item.id === redemption.rewardId);
             const member = household.members.find((item) => item.id === redemption.memberId);
             return (
-              <View key={redemption.id} style={styles.pendingCard}>
+              <View
+                key={redemption.id}
+                style={[
+                  styles.pendingCard,
+                  {
+                    backgroundColor: glassFill(isDark),
+                    borderColor: glassBorder(0.08),
+                  },
+                ]}>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.vaultTitle}>{reward?.title ?? 'Reward'}</Text>
-                  <Text style={styles.shopSub}>
+                  <Text style={[styles.vaultTitle, { color: orbitPalette.text }]}>
+                    {reward?.title ?? 'Reward'}
+                  </Text>
+                  <Text style={[styles.shopSub, { color: orbitPalette.textMuted }]}>
                     {member?.name ?? 'member'} · {new Date(redemption.requestedAt).toLocaleString()}
                   </Text>
                 </View>
@@ -691,15 +777,23 @@ export default function RewardsScreen() {
       {canApprove && pendingAllowances.length > 0 ? (
         <View style={styles.pendingBlock}>
           <View style={styles.pendingHead}>
-            <Text style={styles.pendingTitle}>
+            <Text style={[styles.pendingTitle, { color: orbitPalette.text }]}>
               Pending allowances · {pendingAllowances.length}
             </Text>
           </View>
           {pendingAllowances.slice(0, 3).map((grant) => (
-            <View key={grant.id} style={styles.pendingCard}>
+            <View
+              key={grant.id}
+              style={[
+                styles.pendingCard,
+                {
+                  backgroundColor: glassFill(isDark),
+                  borderColor: glassBorder(0.08),
+                },
+              ]}>
               <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.vaultTitle}>{grant.amountLabel}</Text>
-                <Text style={styles.shopSub}>
+                <Text style={[styles.vaultTitle, { color: orbitPalette.text }]}>{grant.amountLabel}</Text>
+                <Text style={[styles.shopSub, { color: orbitPalette.textMuted }]}>
                   {grant.memberName}
                   {grant.note ? ` · ${grant.note}` : ''} ·{' '}
                   {new Date(grant.requestedAt).toLocaleString()}
@@ -1224,13 +1318,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
   },
   shopTitle: {
-    color: '#F4F7FF',
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.6,
   },
   shopSub: {
-    color: '#7C9CC0',
     fontSize: 13,
     lineHeight: 18,
   },
@@ -1295,7 +1387,6 @@ const styles = StyleSheet.create({
   },
   vaultEmoji: { fontSize: 28 },
   vaultTitle: {
-    color: '#EEF2FF',
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.2,
@@ -1320,12 +1411,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   vaultMode: {
-    color: '#7C9CC0',
     fontSize: 11,
     fontWeight: '600',
   },
   vaultOrigin: {
-    color: '#4B6080',
     fontSize: 11,
     fontWeight: '600',
   },
@@ -1340,14 +1429,11 @@ const styles = StyleSheet.create({
   },
   pendingBlock: { gap: 10 },
   pendingTitle: {
-    color: '#EEF2FF',
     fontSize: 16,
     fontWeight: '700',
   },
   pendingCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 18,
     borderWidth: 1,
     flexDirection: 'row',

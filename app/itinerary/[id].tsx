@@ -187,8 +187,10 @@ export default function ItineraryDetailScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.startBtn}>
-            <MaterialIcons name="navigation" size={18} color="#070D1C" />
-            <Text style={styles.startBtnText}>Start trip in {mapsLabel(preferredMapsApp)}</Text>
+            <MaterialIcons name="navigation" size={18} color={orbitPalette.ink} />
+            <Text style={[styles.startBtnText, { color: orbitPalette.ink }]}>
+              Start trip in {mapsLabel(preferredMapsApp)}
+            </Text>
           </LinearGradient>
         </Pressable>
       ) : null}
@@ -400,7 +402,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.xl,
   },
   startBtnText: {
-    color: '#070D1C',
     fontSize: 16,
     fontWeight: '800',
   },

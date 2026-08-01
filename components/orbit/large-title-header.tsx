@@ -6,6 +6,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 /** Distance (px) the large title collapses over — matches iOS nav-bar feel. */
 export const LARGE_TITLE_COLLAPSE_DISTANCE = 80;
@@ -21,6 +22,8 @@ export const LARGE_TITLE_COLLAPSE_DISTANCE = 80;
  * `LARGE_TITLE_COLLAPSE_DISTANCE`.
  */
 export function LargeTitleHeader({ title, scrollY }: { title: string; scrollY: SharedValue<number> }) {
+  const { c } = useOrbitColors();
+
   const animatedStyle = useAnimatedStyle(() => {
     const progress = interpolate(scrollY.value, [0, LARGE_TITLE_COLLAPSE_DISTANCE], [0, 1], 'clamp');
     const fontSize = interpolate(progress, [0, 1], [34, 20]);
@@ -33,7 +36,9 @@ export function LargeTitleHeader({ title, scrollY }: { title: string; scrollY: S
 
   return (
     <View style={styles.root}>
-      <Animated.Text style={[typography.largeTitle, styles.title, animatedStyle]} numberOfLines={1}>
+      <Animated.Text
+        style={[typography.largeTitle, styles.title, { color: c.text }, animatedStyle]}
+        numberOfLines={1}>
         {title}
       </Animated.Text>
     </View>

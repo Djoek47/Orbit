@@ -5,6 +5,7 @@ import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { Avatar } from '@/components/orbit/avatar';
 import { motion } from '@/constants/motion-tokens';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
+import { useOrbitOptional } from '@/store/orbit-store';
 
 type TaskRowVariant = 'compact' | 'full';
 
@@ -36,6 +37,8 @@ export function TaskRow({
   onToggleComplete,
   onPress,
 }: TaskRowProps) {
+  const orbit = useOrbitOptional();
+  const ink = orbit?.orbitPalette.ink ?? orbitColors.ink;
   const checkScale = useAnimatedStyle(() => ({
     transform: [{ scale: withSpring(completed ? 1 : 0.001, motion.snappy) }],
   }));
@@ -54,7 +57,7 @@ export function TaskRow({
         accessibilityState={{ checked: completed }}
         accessibilityLabel="Mark complete">
         <Animated.View style={[styles.checkFill, checkScale]}>
-          <MaterialIcons name="check" size={14} color="#070D1C" />
+          <MaterialIcons name="check" size={14} color={ink} />
         </Animated.View>
       </Pressable>
 

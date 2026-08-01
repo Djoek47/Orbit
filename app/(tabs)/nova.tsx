@@ -104,6 +104,7 @@ export default function NovaScreen() {
     novaWeeklyBriefing,
     runNovaMonitor,
     suggestedNovaQuestions,
+    orbitPalette,
   } = useOrbit();
 
   const [activeTab, setActiveTab] = useState<NovaTab>('briefing');
@@ -313,7 +314,7 @@ export default function NovaScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: orbitPalette.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={88}>
       <View style={[styles.header, { paddingTop: chromePad }]}>
@@ -650,7 +651,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    backgroundColor: orbitColors.background,
     flex: 1,
   },
   error: {

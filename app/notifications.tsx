@@ -9,8 +9,6 @@ import { getNotificationRoute } from '@/lib/notifications/navigate';
 import { useOrbit } from '@/store/orbit-store';
 import type { NotificationItem } from '@/types/orbit';
 
-const PANEL_BG = '#0A1525';
-
 type FilterKey = 'all' | 'unread' | NotificationItem['category'];
 
 const FILTERS: { key: FilterKey; label: string }[] = [
@@ -57,6 +55,7 @@ export default function NotificationsScreen() {
     markAllNotificationsRead,
     markNotificationRead,
     notifications,
+    orbitPalette,
     refreshNotifications,
     unreadNotificationCount,
   } = useOrbit();
@@ -83,7 +82,11 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <View style={[styles.shell, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.shell,
+        { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
+      ]}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.handleRow}>
@@ -93,11 +96,11 @@ export default function NotificationsScreen() {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <LinearGradient colors={['#38BDF8', '#0EA5E9']} style={styles.iconBox}>
-            <MaterialIcons name="notifications" size={16} color="#070D1C" />
+            <MaterialIcons name="notifications" size={16} color={orbitPalette.ink} />
           </LinearGradient>
           <View>
-            <Text style={styles.title}>Notifications</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, { color: orbitPalette.text }]}>Notifications</Text>
+            <Text style={[styles.subtitle, { color: orbitPalette.textSubtle }]}>
               {unreadNotificationCount > 0
                 ? `${unreadNotificationCount} unread`
                 : 'You are caught up'}
@@ -105,7 +108,7 @@ export default function NotificationsScreen() {
           </View>
         </View>
         <Pressable style={styles.close} onPress={() => router.back()}>
-          <MaterialIcons name="close" size={16} color="#7C9CC0" />
+          <MaterialIcons name="close" size={16} color={orbitPalette.textMuted} />
         </Pressable>
       </View>
 
@@ -144,8 +147,8 @@ export default function NotificationsScreen() {
             <View style={styles.emptyIcon}>
               <MaterialIcons name="notifications-none" size={28} color="#4B6080" />
             </View>
-            <Text style={styles.emptyTitle}>No notifications</Text>
-            <Text style={styles.emptyBody}>
+            <Text style={[styles.emptyTitle, { color: orbitPalette.text }]}>No notifications</Text>
+            <Text style={[styles.emptyBody, { color: orbitPalette.textSubtle }]}>
               {filter === 'unread'
                 ? 'Nothing unread in this inbox.'
                 : 'Nova will drop household alerts here.'}
@@ -178,7 +181,13 @@ export default function NotificationsScreen() {
                     <Text style={styles.cardTime}>{formatRelativeTime(item.createdAt)}</Text>
                     {!item.isRead ? <View style={styles.unreadDot} /> : null}
                   </View>
-                  <Text style={[styles.cardTitle, !item.isRead && styles.cardTitleUnread]} numberOfLines={2}>
+                  <Text
+                    style={[
+                      styles.cardTitle,
+                      { color: orbitPalette.textSoft },
+                      !item.isRead && [styles.cardTitleUnread, { color: orbitPalette.text }],
+                    ]}
+                    numberOfLines={2}>
                     {item.title}
                   </Text>
                   <Text style={styles.cardDetail} numberOfLines={3}>
@@ -204,7 +213,6 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   shell: {
-    backgroundColor: PANEL_BG,
     flex: 1,
   },
   handleRow: {
@@ -238,12 +246,10 @@ const styles = StyleSheet.create({
     width: 32,
   },
   title: {
-    color: '#EEF2FF',
     fontSize: 18,
     fontWeight: '700',
   },
   subtitle: {
-    color: '#4B6080',
     fontSize: 12,
     marginTop: 1,
   },
@@ -361,14 +367,12 @@ const styles = StyleSheet.create({
     width: 6,
   },
   cardTitle: {
-    color: '#C8D8F0',
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 20,
     marginTop: 2,
   },
   cardTitleUnread: {
-    color: '#EEF2FF',
     fontWeight: '700',
   },
   cardDetail: {
@@ -407,12 +411,10 @@ const styles = StyleSheet.create({
     width: 56,
   },
   emptyTitle: {
-    color: '#EEF2FF',
     fontSize: 16,
     fontWeight: '700',
   },
   emptyBody: {
-    color: '#4B6080',
     fontSize: 13,
     textAlign: 'center',
   },

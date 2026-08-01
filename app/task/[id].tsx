@@ -59,6 +59,7 @@ export default function TaskDetailScreen() {
     currentMember,
     deleteTask,
     household,
+    orbitPalette,
     penalizeSplitAssignee,
     permissions,
     reassignTask,
@@ -97,7 +98,15 @@ export default function TaskDetailScreen() {
 
   if (!task) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+      <View
+        style={[
+          styles.root,
+          {
+            paddingTop: insets.top + 16,
+            paddingBottom: insets.bottom + 16,
+            backgroundColor: orbitPalette.backgroundSoft,
+          },
+        ]}>
         <Stack.Screen options={{ headerShown: false }} />
         <Text style={styles.missingTitle}>Task not found</Text>
         <Pressable onPress={() => router.back()} style={styles.secondaryBtn}>
@@ -267,7 +276,11 @@ export default function TaskDetailScreen() {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.root,
+        { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
+      ]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.handle} />
       <View style={styles.header}>
@@ -683,7 +696,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0A1525' },
+  root: { flex: 1 },
   shareRow: {
     alignItems: 'center',
     flexDirection: 'row',

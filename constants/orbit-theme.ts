@@ -220,39 +220,37 @@ export const orbitControl = {
  * §2.4's migration map for the 1:1 replacement of each key below. Kept only so
  * screens not yet migrated in the iOS 27 rebuild keep compiling.
  */
+/**
+ * Size/weight only — set `color` from `orbitPalette` (or `useOrbitColors().type`).
+ * Baked night hexes were removed so Day mode text can resolve correctly.
+ */
 export const orbitTypography = StyleSheet.create({
   display: {
-    color: orbitColors.text,
     fontSize: 24,
     fontWeight: '700',
     lineHeight: 29,
   },
   title: {
-    color: orbitColors.text,
     fontSize: 18,
     fontWeight: '700',
     lineHeight: 24,
   },
   cardTitle: {
-    color: orbitColors.text,
     fontSize: 14,
     fontWeight: '600',
   },
   body: {
-    color: orbitColors.textSoft,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '400',
   },
   caption: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '400',
   },
   /** Under-chrome page label — matches Home date line. */
   pageEyebrow: {
-    color: '#6B82A3',
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.35,
@@ -260,17 +258,14 @@ export const orbitTypography = StyleSheet.create({
     textTransform: 'uppercase',
   },
   eyebrow: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
     fontWeight: '400',
   },
   metric: {
-    color: orbitColors.text,
     fontSize: 28,
     fontWeight: '800',
   },
   buttonLabel: {
-    color: orbitColors.ink,
     fontSize: orbitControl.buttonLabelSize,
     fontWeight: orbitControl.buttonLabelWeight,
   },
@@ -278,32 +273,31 @@ export const orbitTypography = StyleSheet.create({
 
 /**
  * The Apple-style type scale — see `docs/design-system/02-design-language.md` §2.2.
- * SF Pro resolves automatically on iOS via the unset system `fontFamily`; do not
- * set a custom font family on these styles.
+ * Size/weight only — pair with `orbitPalette.text*` or `useOrbitColors().type`.
+ * SF Pro resolves automatically on iOS via the unset system `fontFamily`.
  */
 export const typography = StyleSheet.create({
-  largeTitle: { color: orbitColors.text, fontSize: 34, fontWeight: '700', lineHeight: 41 },
-  title1: { color: orbitColors.text, fontSize: 28, fontWeight: '700', lineHeight: 34 },
-  title2: { color: orbitColors.text, fontSize: 22, fontWeight: '700', lineHeight: 28 },
-  title3: { color: orbitColors.text, fontSize: 20, fontWeight: '600', lineHeight: 25 },
-  headline: { color: orbitColors.text, fontSize: 17, fontWeight: '600', lineHeight: 22 },
-  body: { color: orbitColors.textSoft, fontSize: 17, fontWeight: '400', lineHeight: 22 },
-  callout: { color: orbitColors.textSoft, fontSize: 16, fontWeight: '400', lineHeight: 21 },
-  subheadline: { color: orbitColors.textMuted, fontSize: 15, fontWeight: '400', lineHeight: 20 },
-  footnote: { color: orbitColors.textMuted, fontSize: 13, fontWeight: '400', lineHeight: 18 },
-  caption1: { color: orbitColors.textSubtle, fontSize: 12, fontWeight: '400', lineHeight: 16 },
-  caption2: { color: orbitColors.textSubtle, fontSize: 11, fontWeight: '500', lineHeight: 13 },
+  largeTitle: { fontSize: 34, fontWeight: '700', lineHeight: 41 },
+  title1: { fontSize: 28, fontWeight: '700', lineHeight: 34 },
+  title2: { fontSize: 22, fontWeight: '700', lineHeight: 28 },
+  title3: { fontSize: 20, fontWeight: '600', lineHeight: 25 },
+  headline: { fontSize: 17, fontWeight: '600', lineHeight: 22 },
+  body: { fontSize: 17, fontWeight: '400', lineHeight: 22 },
+  callout: { fontSize: 16, fontWeight: '400', lineHeight: 21 },
+  subheadline: { fontSize: 15, fontWeight: '400', lineHeight: 20 },
+  footnote: { fontSize: 13, fontWeight: '400', lineHeight: 18 },
+  caption1: { fontSize: 12, fontWeight: '400', lineHeight: 16 },
+  caption2: { fontSize: 11, fontWeight: '500', lineHeight: 13 },
   eyebrow: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.4,
     lineHeight: 16,
     textTransform: 'uppercase',
   },
-  metricLarge: { color: orbitColors.text, fontSize: 34, fontWeight: '800' },
-  metricSmall: { color: orbitColors.text, fontSize: 22, fontWeight: '700' },
-  buttonLabel: { color: orbitColors.ink, fontSize: 17, fontWeight: '600' },
+  metricLarge: { fontSize: 34, fontWeight: '800' },
+  metricSmall: { fontSize: 22, fontWeight: '700' },
+  buttonLabel: { fontSize: 17, fontWeight: '600' },
 });
 
 /** Legacy right-gutter when chips floated alone — chrome now owns logo+chips. */
@@ -315,10 +309,13 @@ export const TAB_CHROME_BODY = 52;
 /** Must match `TAB_CHROME_CONTENT_GAP` in global-header-chips — do not invent per-screen gaps. */
 export const TAB_CHROME_CONTENT_GAP = 14;
 
+/**
+ * Layout-only screen chrome. Always set `backgroundColor: orbitPalette.background`
+ * on the root (static Midnight was removed for Day/Night).
+ */
 export const orbitScreen = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: orbitColors.background,
   },
   content: {
     alignSelf: 'stretch',

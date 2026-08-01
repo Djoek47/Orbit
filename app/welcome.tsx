@@ -25,11 +25,11 @@ import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OnboardingProgress } from '@/components/orbit/onboarding-progress';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
+import { SplashHooks } from '@/components/orbit/splash-hooks';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import {
   ONBOARDING_MOTIVATIONS,
   ONBOARDING_ROLES,
-  ONBOARDING_SPLASH_HOOKS,
   loadOnboardingPrefs,
   onboardingRoleToHouseholdType,
   saveOnboardingPrefs,
@@ -611,18 +611,7 @@ export default function WelcomeOnboardingScreen() {
               tagline="Your household, quietly run."
               onReady={() => setSplashReady(true)}
             />
-            <View
-              style={[styles.splashHooks, !splashReady && styles.splashBottomHidden]}
-              pointerEvents="none">
-              {ONBOARDING_SPLASH_HOOKS.map((hook) => (
-                <View key={hook.text} style={styles.hookRow}>
-                  <View style={[styles.hookDot, { backgroundColor: hook.color }]} />
-                  <Text style={[styles.hookText, { color: orbitPalette.textMuted }]}>
-                    {hook.text}
-                  </Text>
-                </View>
-              ))}
-            </View>
+            <SplashHooks visible={splashReady} />
           </View>
 
           <View
@@ -1331,7 +1320,6 @@ function Header({
 
 const styles = StyleSheet.create({
   root: {
-    backgroundColor: orbitColors.background,
     flex: 1,
   },
   ambient: {

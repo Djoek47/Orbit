@@ -14,8 +14,9 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ChoremaxxIcon } from '@/components/orbit/choremaxx-logo';
+import { SpinningLogoGlow } from '@/components/orbit/spinning-logo-glow';
 import { choremaxxBrand } from '@/constants/choremaxx-brand';
-import { orbitColors } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type BrandOpeningProps = {
   /** Called once the intro settle finishes (CTAs can appear). */
@@ -34,7 +35,9 @@ export function BrandOpening({
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
 
+  const { c } = useOrbitColors();
   const glow = useSharedValue(0);
+  const glowSpin = useSharedValue(0);
   const iconScale = useSharedValue(0.28);
   const iconOpacity = useSharedValue(0);
   const wordOpacity = useSharedValue(0);
@@ -46,6 +49,11 @@ export function BrandOpening({
 
   useEffect(() => {
     glow.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
+    glowSpin.value = withRepeat(
+      withTiming(360, { duration: 16000, easing: Easing.linear }),
+      -1,
+      false
+    );
     iconOpacity.value = withTiming(1, { duration: 420 });
     iconScale.value = withSpring(1, { damping: 12, stiffness: 140, mass: 0.85 });
 
@@ -85,7 +93,7 @@ export function BrandOpening({
 
   const glowStyle = useAnimatedStyle(() => ({
     opacity: interpolate(glow.value, [0, 1], [0, 0.9]),
-    transform: [{ scale: breath.value }],
+    transform: [{ scale: breath.value }, { rotate: `${glowSpin.value}deg` }],
   }));
 
   const iconStyle = useAnimatedStyle(() => ({
@@ -112,11 +120,14 @@ export function BrandOpening({
     <View style={styles.root} accessibilityRole="image" accessibilityLabel="Choremaxx">
       <Animated.View style={[styles.glowWrap, glowStyle]} pointerEvents="none">
         <LinearGradient
-          colors={['rgba(89,178,225,0.35)', 'rgba(118,196,174,0.18)', 'transparent']}
+          colors={[`${c.primary}59`, `${c.accent}2E`, 'transparent']}
           style={styles.glow}
-          start={{ x: 0.5, y: 0.35 }}
-          end={{ x: 0.5, y: 1 }}
+          start={{ x: 0.15, y: 0.1 }}
+          end={{ x: 0.9, y: 0.95 }}
         />
+        <View style={styles.glowSpinOverlay} pointerEvents="none">
+          <SpinningLogoGlow size={260} />
+        </View>
       </Animated.View>
 
       <View style={styles.lockup}>
@@ -133,7 +144,7 @@ export function BrandOpening({
       </View>
 
       <Animated.View style={tagStyle}>
-        <Text style={styles.tagline}>{tagline}</Text>
+        <Text style={[styles.tagline, { color: c.textSoft }]}>{tagline}</Text>
       </Animated.View>
     </View>
   );
@@ -155,6 +166,11 @@ const styles = StyleSheet.create({
     borderRadius: 200,
     height: 280,
     width: 280,
+  },
+  glowSpinOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   lockup: {
     alignItems: 'center',
@@ -202,7 +218,6 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   tagline: {
-    color: orbitColors.textSoft,
     fontSize: 20,
     fontWeight: '600',
     letterSpacing: -0.2,

@@ -1,7 +1,8 @@
 import { PropsWithChildren, useMemo } from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
-import { orbitColors, radius } from '@/constants/orbit-theme';
+import { radius } from '@/constants/orbit-theme';
+import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type GlassCardProps = PropsWithChildren<{
@@ -9,15 +10,16 @@ type GlassCardProps = PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
 }>;
 
-/** Make card chrome — follows orbitPalette for light/dark + background packs. */
+/** Make card chrome — Day/Night glass via orbitPalette. */
 export function GlassCard({ children, elevated = false, style }: GlassCardProps) {
   const orbit = useOrbitOptional();
   const colors = useMemo(() => {
     const palette = orbit?.orbitPalette;
-    const accent = orbit?.accentTheme.primary ?? orbitColors.primary;
+    const isDark = palette?.isDark ?? true;
+    const accent = orbit?.accentTheme.primary ?? '#59B2E1';
     return {
-      card: palette?.card ?? orbitColors.card,
-      border: palette?.border ?? orbitColors.border,
+      card: palette?.card ?? glassFill(isDark, 0.05),
+      border: palette?.border ?? glassBorder(isDark, 0.1),
       elevatedBg: `${accent}14`,
       elevatedBorder: `${accent}2E`,
     };

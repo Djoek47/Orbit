@@ -30,6 +30,7 @@ type AvatarProps = {
 export function Avatar({ name, emoji, size = 'm', statusColor, style }: AvatarProps) {
   const orbit = useOrbitOptional();
   const accent = orbit?.accentTheme.primary ?? '#38BDF8';
+  const shell = orbit?.orbitPalette.background ?? '#070D1C';
   const dimension = SIZES[size];
   const glyph = emoji || name.trim().charAt(0).toUpperCase() || '?';
 
@@ -53,6 +54,7 @@ export function Avatar({ name, emoji, size = 'm', statusColor, style }: AvatarPr
             styles.statusDot,
             {
               backgroundColor: statusColor,
+              borderColor: shell,
               width: dimension * 0.28,
               height: dimension * 0.28,
               borderRadius: radius.full,
@@ -71,7 +73,6 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   statusDot: {
-    borderColor: '#070D1C',
     borderWidth: 2,
     bottom: -2,
     position: 'absolute',

@@ -18,7 +18,7 @@ type GroceryLocation = GroceryItem['location'];
 
 export default function AddGroceryScreen() {
   const insets = useSafeAreaInsets();
-  const { addMissingGrocery, accentTheme, preferredStore } = useOrbit();
+  const { addMissingGrocery, accentTheme, preferredStore, orbitPalette } = useOrbit();
   const [name, setName] = useState('');
   const [category, setCategory] = useState<GroceryCategory>('Produce');
   const [quantity, setQuantity] = useState('1');
@@ -67,7 +67,11 @@ export default function AddGroceryScreen() {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.root,
+        { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
+      ]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.handle} />
       <View style={styles.header}>
@@ -193,7 +197,7 @@ export default function AddGroceryScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { backgroundColor: '#0A1525', flex: 1 },
+  root: { flex: 1 },
   handle: {
     alignSelf: 'center',
     backgroundColor: 'rgba(255,255,255,0.18)',
