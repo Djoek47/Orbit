@@ -1,9 +1,8 @@
-import { Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import Svg, { Path, Rect } from 'react-native-svg';
 
-import { choremaxxBrand } from '@/constants/choremaxx-brand';
-
-const LOGO_MARK = require('@/assets/brand/choremaxx-logo-mark.png');
+import { resolveBrandLockup, type BrandLockupColors } from '@/constants/brand-lockup';
+import { useOrbitOptional } from '@/store/orbit-store';
 
 type LogoSize = 'sm' | 'md' | 'lg' | 'xl';
 type LogoVariant = 'full' | 'icon' | 'wordmark';
@@ -19,80 +18,102 @@ type ChoremaxxLogoProps = {
   size?: LogoSize;
   variant?: LogoVariant;
   style?: ViewStyle;
-  /** Prefer PNG brand mark (default). Set false for animated SVG mark. */
+  /** @deprecated SVG mark is always used for theme recolor. Kept for API compat. */
   useBrandMark?: boolean;
 };
 
+function useBrandLockup(): BrandLockupColors {
+  const orbit = useOrbitOptional();
+  return resolveBrandLockup(orbit?.accentTheme.id, orbit?.orbitPalette.isDark ?? false);
+}
+
 /**
- * Official Choremaxx lockup: brand mark + wordmark “chore” (brown) + “maxx” (coral).
+ * Official Choremaxx lockup: theme mark + wordmark “chore” + “maxx”
+ * (maxx matches active palette primary — logo directions blue-arrow rule).
  */
 export function ChoremaxxLogo({
   size = 'md',
   variant = 'full',
   style,
-  useBrandMark = true,
 }: ChoremaxxLogoProps) {
+  const lockup = useBrandLockup();
   const { iconH, textSize, gap } = SIZES[size];
-  const iconW = iconH * 1.15;
+  const iconW = iconH;
 
   return (
     <View style={[styles.row, { gap }, style]} accessibilityRole="image" accessibilityLabel="Choremaxx">
       {variant === 'full' || variant === 'icon' ? (
-        useBrandMark ? (
-          <Image
-            source={LOGO_MARK}
-            style={{ width: iconW, height: iconH }}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-          />
-        ) : (
-          <ChoremaxxIcon width={iconW} height={iconH} />
-        )
+        <ChoremaxxMark width={iconW} height={iconH} colors={lockup} />
       ) : null}
-      {variant === 'full' || variant === 'wordmark' ? <Wordmark fontSize={textSize} /> : null}
+      {variant === 'full' || variant === 'wordmark' ? (
+        <Wordmark fontSize={textSize} chore={lockup.chore} maxx={lockup.maxx} />
+      ) : null}
     </View>
   );
 }
 
-function Wordmark({ fontSize }: { fontSize: number }) {
+function Wordmark({
+  fontSize,
+  chore,
+  maxx,
+}: {
+  fontSize: number;
+  chore: string;
+  maxx: string;
+}) {
   return (
     <View style={styles.wordRow}>
-      <Text style={[styles.chore, { fontSize, lineHeight: fontSize * 1.1 }]}>chore</Text>
-      <Text style={[styles.maxx, { fontSize, lineHeight: fontSize * 1.1 }]}>maxx</Text>
+      <Text style={[styles.wordPart, { fontSize, lineHeight: fontSize * 1.1, color: chore }]}>
+        chore
+      </Text>
+      <Text style={[styles.wordPart, { fontSize, lineHeight: fontSize * 1.1, color: maxx }]}>
+        maxx
+      </Text>
     </View>
   );
 }
 
-/** Stylized house mark SVG (used in BrandOpening motion). */
-export function ChoremaxxIcon({ width = 34, height = 30 }: { width?: number; height?: number }) {
+type MarkProps = {
+  width?: number;
+  height?: number;
+  colors?: BrandLockupColors;
+};
+
+/**
+ * Uniform Choremaxx mark — rounded square, checkmark, rising bars.
+ * Pass `colors` or inherit from the active palette.
+ */
+export function ChoremaxxMark({ width = 34, height = 34, colors }: MarkProps) {
+  const live = useBrandLockup();
+  const c = colors ?? live;
+
   return (
-    <Svg width={width} height={height} viewBox="0 0 56 48" fill="none">
-      <Path d="M14 3.5 L15.1 7.2 L14 10.9 L12.9 7.2 Z" fill={choremaxxBrand.gold} />
-      <Path d="M10.2 7.2 L14 8.3 L17.8 7.2 L14 6.1 Z" fill={choremaxxBrand.gold} />
+    <Svg width={width} height={height} viewBox="0 0 64 64" fill="none">
+      <Rect x="0" y="0" width="64" height="64" rx="14" fill={c.markBg} />
+      {/* Checkmark */}
       <Path
-        d="M10 22 L28 6 L46 22"
-        stroke={choremaxxBrand.cyan}
-        strokeWidth={5}
+        d="M18 31.5 L27.5 41 L46.5 20.5"
+        stroke={c.check}
+        strokeWidth={5.5}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
       />
-      <Path
-        d="M12 26 C18 22 24 22 28 26 C32 30 38 30 44 26 C42 34 38 40 28 42 C18 40 14 34 12 26 Z"
-        fill={choremaxxBrand.mint}
-      />
-      <Path
-        d="M16 28 C22 25 26 26 28 29 C30 32 34 33 40 30"
-        stroke="rgba(7,13,28,0.18)"
-        strokeWidth={2}
-        strokeLinecap="round"
-        fill="none"
-      />
+      {/* Rising bars */}
+      <Rect x="18" y="46" width="7" height="10" rx="2" fill={c.bars} />
+      <Rect x="28.5" y="41" width="7" height="15" rx="2" fill={c.bars} />
+      <Rect x="39" y="35" width="7" height="21" rx="2" fill={c.bars} />
     </Svg>
   );
 }
 
-/** Compact brand badge for headers / nav — uses official PNG mark. */
+/** @deprecated Prefer ChoremaxxMark — kept so BrandOpening / success screens compile. */
+export function ChoremaxxIcon({ width = 34, height = 30, colors }: MarkProps) {
+  const size = Math.max(width, height);
+  return <ChoremaxxMark width={size} height={size} colors={colors} />;
+}
+
+/** Compact brand badge for headers / nav — theme mark + chore/maxx. */
 export function ChoremaxxBadge({
   showWordmark = true,
   size = 'md',
@@ -101,31 +122,24 @@ export function ChoremaxxBadge({
   /** `sm` dense · `md` default · `lg` headers · `xl` home (~27% larger than lg). */
   size?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
+  const lockup = useBrandLockup();
   const scale =
     size === 'xl'
-      ? { iconW: 44, iconH: 38, text: 26, x: 25, gap: 11 }
+      ? { icon: 40, text: 26, gap: 11 }
       : size === 'lg'
-        ? { iconW: 34, iconH: 30, text: 20, x: 19, gap: 9 }
+        ? { icon: 32, text: 20, gap: 9 }
         : size === 'sm'
-          ? { iconW: 18, iconH: 16, text: 12.5, x: 12, gap: 5 }
-          : { iconW: 26, iconH: 23, text: 16, x: 15.5, gap: 7 };
+          ? { icon: 18, text: 12.5, gap: 5 }
+          : { icon: 26, text: 16, gap: 7 };
 
   return (
     <View
       style={[styles.badge, { gap: scale.gap }]}
       accessibilityRole="image"
       accessibilityLabel="Choremaxx">
-      <Image
-        source={LOGO_MARK}
-        style={{ width: scale.iconW, height: scale.iconH }}
-        resizeMode="contain"
-        accessibilityIgnoresInvertColors
-      />
+      <ChoremaxxMark width={scale.icon} height={scale.icon} colors={lockup} />
       {showWordmark ? (
-        <View style={styles.badgeWord}>
-          <Text style={[styles.badgeChore, { fontSize: scale.text }]}>chore</Text>
-          <Text style={[styles.badgeMaxx, { fontSize: scale.text }]}>maxx</Text>
-        </View>
+        <Wordmark fontSize={scale.text} chore={lockup.chore} maxx={lockup.maxx} />
       ) : null}
     </View>
   );
@@ -137,31 +151,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
   },
-  badgeChore: {
-    color: choremaxxBrand.brown,
-    fontSize: 14,
+  wordPart: {
     fontWeight: '700',
-    letterSpacing: -0.35,
-  },
-  badgeMaxx: {
-    color: choremaxxBrand.coral,
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: -0.35,
-  },
-  badgeWord: {
-    alignItems: 'baseline',
-    flexDirection: 'row',
-  },
-  chore: {
-    color: choremaxxBrand.brown,
-    fontWeight: '700',
-    letterSpacing: -0.6,
-  },
-  maxx: {
-    color: choremaxxBrand.coral,
-    fontWeight: '700',
-    letterSpacing: -0.6,
+    letterSpacing: -0.45,
   },
   row: {
     alignItems: 'center',

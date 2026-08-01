@@ -10,9 +10,10 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { ChoremaxxIcon } from '@/components/orbit/choremaxx-logo';
-import { choremaxxBrand } from '@/constants/choremaxx-brand';
-import { orbitColors } from '@/constants/orbit-theme';
+import { ChoremaxxLogo, ChoremaxxMark } from '@/components/orbit/choremaxx-logo';
+import { resolveBrandLockup } from '@/constants/brand-lockup';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useOrbitOptional } from '@/store/orbit-store';
 
 type SignInSuccessProps = {
   visible: boolean;
@@ -23,6 +24,10 @@ type SignInSuccessProps = {
 export function SignInSuccess({ visible, onDone }: SignInSuccessProps) {
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
+
+  const { c } = useOrbitColors();
+  const orbit = useOrbitOptional();
+  const lockup = resolveBrandLockup(orbit?.accentTheme.id, c.isDark ?? false);
 
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.7);
@@ -56,23 +61,21 @@ export function SignInSuccess({ visible, onDone }: SignInSuccessProps) {
 
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
-      <Animated.View style={[styles.root, shellStyle]}>
+      <Animated.View style={[styles.root, { backgroundColor: c.background }, shellStyle]}>
         <Animated.View style={[styles.glowWrap, glowStyle]} pointerEvents="none">
           <LinearGradient
-            colors={['rgba(89,178,225,0.4)', 'rgba(118,196,174,0.2)', 'transparent']}
+            colors={[`${lockup.markBg}66`, `${lockup.bars}33`, 'transparent']}
             style={styles.glow}
           />
         </Animated.View>
         <Animated.View style={iconStyle}>
-          <ChoremaxxIcon width={64} height={55} />
-        </Animated.View>
-        <Animated.View style={[styles.wordRow, wordStyle]}>
-          <Text style={styles.chorema}>chorema</Text>
-          <Text style={styles.xPrimary}>x</Text>
-          <Text style={styles.xFaded}>x</Text>
+          <ChoremaxxMark width={72} height={72} colors={lockup} />
         </Animated.View>
         <Animated.View style={wordStyle}>
-          <Text style={styles.welcome}>Welcome back</Text>
+          <ChoremaxxLogo variant="wordmark" size="md" />
+        </Animated.View>
+        <Animated.View style={wordStyle}>
+          <Text style={[styles.welcome, { color: c.textSoft }]}>Welcome back</Text>
         </Animated.View>
       </Animated.View>
     </Modal>
@@ -82,7 +85,6 @@ export function SignInSuccess({ visible, onDone }: SignInSuccessProps) {
 const styles = StyleSheet.create({
   root: {
     alignItems: 'center',
-    backgroundColor: orbitColors.background,
     flex: 1,
     gap: 18,
     justifyContent: 'center',
@@ -97,31 +99,7 @@ const styles = StyleSheet.create({
     height: 240,
     width: 240,
   },
-  wordRow: {
-    alignItems: 'baseline',
-    flexDirection: 'row',
-  },
-  chorema: {
-    color: choremaxxBrand.cyan,
-    fontSize: 34,
-    fontWeight: '700',
-    letterSpacing: -0.9,
-  },
-  xPrimary: {
-    color: choremaxxBrand.slate,
-    fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: -1.2,
-  },
-  xFaded: {
-    color: choremaxxBrand.faded,
-    fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: -1.2,
-    opacity: 0.9,
-  },
   welcome: {
-    color: orbitColors.textSoft,
     fontSize: 16,
     fontWeight: '600',
     marginTop: 4,

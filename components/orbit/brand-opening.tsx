@@ -13,10 +13,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { ChoremaxxIcon } from '@/components/orbit/choremaxx-logo';
+import { ChoremaxxLogo, ChoremaxxMark } from '@/components/orbit/choremaxx-logo';
 import { SpinningLogoGlow } from '@/components/orbit/spinning-logo-glow';
-import { choremaxxBrand } from '@/constants/choremaxx-brand';
+import { resolveBrandLockup } from '@/constants/brand-lockup';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useOrbitOptional } from '@/store/orbit-store';
 
 type BrandOpeningProps = {
   /** Called once the intro settle finishes (CTAs can appear). */
@@ -25,7 +26,7 @@ type BrandOpeningProps = {
 };
 
 /**
- * Full-bleed brand opening: glow → icon spring → wordmark → tagline.
+ * Full-bleed brand opening: glow → theme mark → chore/maxx wordmark → tagline.
  * Keeps breathing after settle so the splash still feels alive.
  */
 export function BrandOpening({
@@ -36,6 +37,9 @@ export function BrandOpening({
   onReadyRef.current = onReady;
 
   const { c } = useOrbitColors();
+  const orbit = useOrbitOptional();
+  const lockup = resolveBrandLockup(orbit?.accentTheme.id, c.isDark ?? false);
+
   const glow = useSharedValue(0);
   const glowSpin = useSharedValue(0);
   const iconScale = useSharedValue(0.28);
@@ -120,7 +124,7 @@ export function BrandOpening({
     <View style={styles.root} accessibilityRole="image" accessibilityLabel="Choremaxx">
       <Animated.View style={[styles.glowWrap, glowStyle]} pointerEvents="none">
         <LinearGradient
-          colors={[`${c.primary}59`, `${c.accent}2E`, 'transparent']}
+          colors={[`${c.primary}59`, `${lockup.markBg}2E`, 'transparent']}
           style={styles.glow}
           start={{ x: 0.15, y: 0.1 }}
           end={{ x: 0.9, y: 0.95 }}
@@ -132,14 +136,14 @@ export function BrandOpening({
 
       <View style={styles.lockup}>
         <Animated.View style={[styles.iconWrap, iconStyle]}>
-          <Animated.View style={[styles.sparkleHalo, sparkleStyle]} />
-          <ChoremaxxIcon width={72} height={62} />
+          <Animated.View
+            style={[styles.sparkleHalo, sparkleStyle, { backgroundColor: `${lockup.bars}33` }]}
+          />
+          <ChoremaxxMark width={84} height={84} colors={lockup} />
         </Animated.View>
 
-        <Animated.View style={[styles.wordRow, wordStyle]}>
-          <Text style={styles.chorema}>chorema</Text>
-          <Text style={styles.xPrimary}>x</Text>
-          <Text style={styles.xFaded}>x</Text>
+        <Animated.View style={wordStyle}>
+          <ChoremaxxLogo variant="wordmark" size="lg" />
         </Animated.View>
       </View>
 
@@ -178,44 +182,17 @@ const styles = StyleSheet.create({
   },
   iconWrap: {
     alignItems: 'center',
-    height: 72,
+    height: 84,
     justifyContent: 'center',
     width: 84,
   },
   sparkleHalo: {
-    backgroundColor: 'rgba(255,215,0,0.18)',
     borderRadius: 28,
     height: 56,
-    left: 4,
+    left: 14,
     position: 'absolute',
-    top: -6,
+    top: -4,
     width: 56,
-  },
-  wordRow: {
-    alignItems: 'baseline',
-    flexDirection: 'row',
-  },
-  chorema: {
-    color: choremaxxBrand.cyan,
-    fontSize: 42,
-    fontWeight: '700',
-    letterSpacing: -1.1,
-    lineHeight: 46,
-  },
-  xPrimary: {
-    color: choremaxxBrand.slate,
-    fontSize: 40,
-    fontWeight: '700',
-    letterSpacing: -1.4,
-    lineHeight: 46,
-  },
-  xFaded: {
-    color: choremaxxBrand.faded,
-    fontSize: 40,
-    fontWeight: '700',
-    letterSpacing: -1.4,
-    lineHeight: 46,
-    opacity: 0.9,
   },
   tagline: {
     fontSize: 20,
