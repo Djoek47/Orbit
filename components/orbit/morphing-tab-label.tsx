@@ -127,12 +127,32 @@ function MorphGlyph({
     letterSpacing,
   } as const;
 
+  const empty = !from && !to;
+  const widthStyle = useAnimatedStyle(() => {
+    // Collapse padded / trailing empties so shorter labels (Ranks) stay centered.
+    if (empty) return { width: 0, minWidth: 0, opacity: 0 };
+    if (!to && from) {
+      return {
+        width: interpolate(progress.value, [0, 0.55, 1], [6.2, 3, 0], 'clamp'),
+        minWidth: 0,
+        overflow: 'hidden' as const,
+      };
+    }
+    if (!from && to) {
+      return {
+        width: interpolate(progress.value, [0, 0.45, 1], [0, 4, 6.2], 'clamp'),
+        minWidth: 0,
+      };
+    }
+    return { minWidth: 6.2 };
+  });
+
   return (
-    <View style={styles.glyph}>
+    <Animated.View style={[styles.glyph, widthStyle]}>
       <Animated.Text style={[styles.absolute, textStyle, outgoingStyle]}>{from || ' '}</Animated.Text>
       <Animated.Text style={[styles.absolute, textStyle, midStyle]}>{midGlyph}</Animated.Text>
       <Animated.Text style={[textStyle, incomingStyle]}>{to || ' '}</Animated.Text>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -160,9 +180,12 @@ export function MorphingTabLabel({
 
   const slots = useMemo(() => {
     const len = Math.max(from.length, to.length, 1);
+    // Center-pad the shorter word so morph slots stay balanced under the icon.
+    const fromPad = Math.floor((len - from.length) / 2);
+    const toPad = Math.floor((len - to.length) / 2);
     return Array.from({ length: len }, (_, i) => ({
-      from: from[i] ?? '',
-      to: to[i] ?? '',
+      from: from[i - fromPad] ?? '',
+      to: to[i - toPad] ?? '',
       key: `${generation}-${i}`,
     }));
   }, [from, generation, to]);
@@ -189,16 +212,17 @@ export function MorphingTabLabel({
 const styles = StyleSheet.create({
   row: {
     alignItems: 'center',
+    alignSelf: 'center',
     flexDirection: 'row',
     height: 13,
     justifyContent: 'center',
     overflow: 'visible',
+    width: '100%',
   },
   glyph: {
     alignItems: 'center',
     height: 13,
     justifyContent: 'center',
-    minWidth: 6.2,
     overflow: 'visible',
   },
   absolute: {

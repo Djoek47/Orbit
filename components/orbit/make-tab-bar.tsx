@@ -252,13 +252,15 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                 </View>
               )}
               {isRewards ? (
-                <MorphingTabLabel
-                  text={label}
-                  color={labelColor}
-                  fontWeight={isFocused ? (typeStyle?.captionWeight ?? '600') : '400'}
-                  letterSpacing={isFocused ? (typeStyle?.letterSpacing ?? 0) : 0}
-                  energetic={canAffordRedeem || rewardsLabel === 'Redeem'}
-                />
+                <View style={styles.rewardsLabelSlot}>
+                  <MorphingTabLabel
+                    text={label}
+                    color={labelColor}
+                    fontWeight={isFocused ? (typeStyle?.captionWeight ?? '600') : '400'}
+                    letterSpacing={isFocused ? (typeStyle?.letterSpacing ?? 0) : 0}
+                    energetic={canAffordRedeem || rewardsLabel === 'Redeem'}
+                  />
+                </View>
               ) : (
                 <Text
                   style={[
@@ -348,8 +350,17 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 10,
+    textAlign: 'center',
+  },
+  rewardsLabelSlot: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    minHeight: 13,
+    width: '100%',
   },
   novaLabel: {
     marginTop: 2,
+    textAlign: 'center',
   },
 });
