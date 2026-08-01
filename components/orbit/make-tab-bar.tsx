@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AnimatedTrophyTab } from '@/components/orbit/animated-trophy-tab';
+import { MorphingTabLabel } from '@/components/orbit/morphing-tab-label';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { orbitTabColors, radius, shadow, space } from '@/constants/orbit-theme';
@@ -27,12 +29,14 @@ const TAB_META: Record<
   nova: { label: 'Nova', color: orbitTabColors.nova, icon: 'sparkles' },
 };
 
-const LABEL_CYCLE_MS = 2600;
+/** Hold each word long enough for the morph (~720ms) to feel magical. */
+const LABEL_CYCLE_MS = 3400;
 
 /**
  * Floating Liquid Glass tab bar — Day uses colored light glass; Night keeps
- * deep accent wash. Rewards tab label cycles by role:
+ * deep accent wash. Rewards tab label morphs by role:
  * admin/parent → Rewards ↔ Ranks · child → Ranks ↔ Redeem.
+ * Trophy + letters animate harder when the member can afford a redeem.
  */
 export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -53,19 +57,33 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
     return member.role === 'child' || isSharedDeviceAccount(member, members);
   }, [orbit?.currentMember, orbit?.household.members]);
 
-  const rewardsCycle = useMemo(
-    () => (isChildMode ? (['Ranks', 'Redeem'] as const) : (['Rewards', 'Ranks'] as const)),
-    [isChildMode]
-  );
+  const canAffordRedeem = useMemo(() => {
+    const xp = orbit?.currentMember?.xp ?? 0;
+    const rewards = orbit?.household.rewards ?? [];
+    return rewards.some((reward) => !reward.archived && reward.cost > 0 && xp >= reward.cost);
+  }, [orbit?.currentMember?.xp, orbit?.household.rewards]);
+
+  const rewardsCycle = useMemo(() => {
+    if (isChildMode) {
+      // Prefer Redeem in the cycle when they can actually claim something.
+      return canAffordRedeem
+        ? (['Redeem', 'Ranks'] as const)
+        : (['Ranks', 'Redeem'] as const);
+    }
+    return (['Rewards', 'Ranks'] as const);
+  }, [canAffordRedeem, isChildMode]);
+
   const [cycleIndex, setCycleIndex] = useState(0);
 
   useEffect(() => {
     setCycleIndex(0);
+    // Slightly snappier cycle when redeem XP is ready so Redeem shows more often.
+    const period = canAffordRedeem ? LABEL_CYCLE_MS - 400 : LABEL_CYCLE_MS;
     const id = setInterval(() => {
       setCycleIndex((i) => (i + 1) % rewardsCycle.length);
-    }, LABEL_CYCLE_MS);
+    }, period);
     return () => clearInterval(id);
-  }, [rewardsCycle]);
+  }, [canAffordRedeem, rewardsCycle]);
 
   const rewardsLabel = rewardsCycle[cycleIndex] ?? rewardsCycle[0];
 
@@ -128,7 +146,11 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           const isNova = route.name === 'nova';
           const isRewards = route.name === 'rewards';
           const label = isRewards ? rewardsLabel : meta.label;
-          const color = isFocused ? accentPrimary : meta.color;
+          const color = isFocused
+            ? accentPrimary
+            : isRewards && canAffordRedeem
+              ? orbitTabColors.ranking
+              : meta.color;
           const { icon } = meta;
 
           const onPress = () => {
@@ -141,7 +163,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               canPreventDefault: true,
             });
             if (!isFocused && !event.defaultPrevented) {
-              if (isRewards && isChildMode && rewardsLabel === 'Redeem') {
+              if (isRewards && rewardsLabel === 'Redeem') {
                 navigation.navigate(route.name, { surface: 'rewards' });
               } else if (isRewards && rewardsLabel === 'Ranks') {
                 navigation.navigate(route.name, { surface: 'ranks' });
@@ -151,7 +173,6 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                 navigation.navigate(route.name, route.params);
               }
             } else if (isFocused && isRewards) {
-              // Already on tab — jump to the surface matching the cycling label.
               if (rewardsLabel === 'Redeem' || rewardsLabel === 'Rewards') {
                 navigation.navigate(route.name, { surface: 'rewards' });
               } else {
@@ -167,7 +188,13 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
             });
           };
 
-          const labelColor = isFocused ? (isNova ? accentPrimary : color) : inactive;
+          const labelColor = isFocused
+            ? isNova
+              ? accentPrimary
+              : color
+            : isRewards && canAffordRedeem && rewardsLabel === 'Redeem'
+              ? accentPrimary
+              : inactive;
 
           return (
             <Pressable
@@ -197,6 +224,25 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                     color={isFocused ? ink : accentPrimary}
                   />
                 </LinearGradient>
+              ) : isRewards ? (
+                <View style={styles.iconColumn}>
+                  <View
+                    style={[
+                      styles.iconBox,
+                      (isFocused || canAffordRedeem) && {
+                        backgroundColor: `${color}${canAffordRedeem ? '28' : '1A'}`,
+                      },
+                    ]}>
+                    <AnimatedTrophyTab
+                      color={isFocused || canAffordRedeem ? color : inactive}
+                      focused={isFocused}
+                      morphKey={`${rewardsLabel}-${cycleIndex}`}
+                      canRedeem={canAffordRedeem}
+                      label={rewardsLabel}
+                    />
+                  </View>
+                  {isFocused ? <View style={[styles.dot, { backgroundColor: color }]} /> : null}
+                </View>
               ) : (
                 <View style={styles.iconColumn}>
                   <View style={[styles.iconBox, isFocused && { backgroundColor: `${color}1A` }]}>
@@ -205,18 +251,28 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                   {isFocused ? <View style={[styles.dot, { backgroundColor: color }]} /> : null}
                 </View>
               )}
-              <Text
-                style={[
-                  styles.label,
-                  {
-                    color: labelColor,
-                    fontWeight: isFocused ? (typeStyle?.captionWeight ?? '600') : '400',
-                    letterSpacing: isFocused ? (typeStyle?.letterSpacing ?? 0) : 0,
-                  },
-                  isNova && styles.novaLabel,
-                ]}>
-                {label}
-              </Text>
+              {isRewards ? (
+                <MorphingTabLabel
+                  text={label}
+                  color={labelColor}
+                  fontWeight={isFocused ? (typeStyle?.captionWeight ?? '600') : '400'}
+                  letterSpacing={isFocused ? (typeStyle?.letterSpacing ?? 0) : 0}
+                  energetic={canAffordRedeem || rewardsLabel === 'Redeem'}
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.label,
+                    {
+                      color: labelColor,
+                      fontWeight: isFocused ? (typeStyle?.captionWeight ?? '600') : '400',
+                      letterSpacing: isFocused ? (typeStyle?.letterSpacing ?? 0) : 0,
+                    },
+                    isNova && styles.novaLabel,
+                  ]}>
+                  {label}
+                </Text>
+              )}
             </Pressable>
           );
         })}
