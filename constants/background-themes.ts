@@ -1,4 +1,9 @@
-/** Curated background packs — readable text contrast, pairs with accent tints. */
+/**
+ * Curated background packs — readable text contrast, pairs with accent tints.
+ * Each pack supplies its own base/elevated/recessed triad per
+ * `docs/design-system/02-design-language.md` §1.1; this is the contract those
+ * three background/backgroundSoft/shell fields must satisfy.
+ */
 
 export type BackgroundThemeId = 'midnight' | 'dusk' | 'paper' | 'mist' | 'contrast';
 
