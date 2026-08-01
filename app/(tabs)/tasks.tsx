@@ -110,10 +110,16 @@ function XPBadge({
   accent: string;
   hygiene?: boolean;
 }) {
+  const { c, glass } = useOrbitColors();
   return (
-    <View style={[styles.xpBadge, done && styles.xpBadgeDone, !done && { backgroundColor: `${accent}1F` }]}>
+    <View
+      style={[
+        styles.xpBadge,
+        done && { backgroundColor: glass(0.1), opacity: 0.55 },
+        !done && { backgroundColor: `${accent}1F` },
+      ]}>
       {!hygiene ? <Text style={styles.xpBolt}>⚡</Text> : null}
-      <Text style={[styles.xpBadgeText, done && styles.xpBadgeTextDone, !done && { color: accent }]}>
+      <Text style={[styles.xpBadgeText, { color: done ? c.textSubtle : accent }]}>
         {hygiene ? 'Streak' : `+${xp}`}
       </Text>
     </View>
@@ -308,13 +314,20 @@ function TaskSection({
   onToggle: (taskId: string) => void;
   onDelete: (taskId: string) => void;
 }) {
+  const { c, glass } = useOrbitColors();
   if (tasks.length === 0 && !allowEmpty) return null;
 
   const progressPct =
     progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : progress ? 0 : null;
 
   return (
-    <GlassCard style={[muted && styles.completedCard]}>
+    <GlassCard
+      style={[
+        muted && {
+          backgroundColor: glass(0.03),
+          borderColor: glass(0.08),
+        },
+      ]}>
       <View style={styles.sectionHeader}>
         <View style={styles.sectionTitleRow}>
           <View
@@ -324,12 +337,12 @@ function TaskSection({
               dotGlow && { shadowColor: dotColor, shadowOpacity: 0.55, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
             ]}
           />
-          <Text style={[styles.sectionTitle, muted && styles.sectionTitleMuted]}>{title}</Text>
+          <Text style={[styles.sectionTitle, { color: muted ? c.textMuted : c.text }]}>{title}</Text>
         </View>
-        <Text style={styles.sectionCount}>{countLabel}</Text>
+        <Text style={[styles.sectionCount, { color: c.textSubtle }]}>{countLabel}</Text>
       </View>
       {progress && progressPct !== null ? (
-        <View style={styles.memberProgressTrack}>
+        <View style={[styles.memberProgressTrack, { backgroundColor: glass(0.1) }]}>
           <View
             style={[
               styles.memberProgressFill,
@@ -339,11 +352,13 @@ function TaskSection({
         </View>
       ) : null}
       {tasks.length === 0 ? (
-        <Text style={styles.memberEmpty}>{emptyLabel ?? 'No tasks assigned'}</Text>
+        <Text style={[styles.memberEmpty, { color: c.textSubtle }]}>
+          {emptyLabel ?? 'No tasks assigned'}
+        </Text>
       ) : (
         tasks.map((task, index) => (
           <View key={task.id}>
-            {index > 0 ? <View style={styles.divider} /> : null}
+            {index > 0 ? <View style={[styles.divider, { backgroundColor: glass(0.08) }]} /> : null}
             <TaskItem
               task={task}
               member={getMember(members, task.assignee)}
@@ -606,10 +621,14 @@ export default function TasksScreen() {
         end={{ x: 1, y: 1 }}
         style={[styles.xpBanner, { borderColor: `${accentTheme.primary}26` }]}>
         <View style={styles.xpBannerLeft}>
-          <MaterialIcons name="local-fire-department" size={16} color={orbitColors.warning} />
-          <Text style={styles.xpBannerTitle}>{totalXPToday} XP available today</Text>
+          <MaterialIcons name="local-fire-department" size={16} color={c.warning} />
+          <Text style={[styles.xpBannerTitle, { color: c.text }]}>
+            {totalXPToday} XP available today
+          </Text>
         </View>
-        <Text style={styles.xpBannerMeta}>{grouped.today.length} tasks left</Text>
+        <Text style={[styles.xpBannerMeta, { color: c.textSubtle }]}>
+          {grouped.today.length} tasks left
+        </Text>
       </LinearGradient>
 
       {!sharedKidMode ? (
@@ -877,20 +896,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
     width: 24,
   },
-  completedCard: {
-    backgroundColor: orbitColors.cardMuted,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
   divider: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
     height: 1,
   },
   dueText: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
   },
   emptyBody: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     lineHeight: 19,
   },
@@ -903,12 +915,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   emptyTitle: {
-    color: orbitColors.text,
     fontSize: 15,
     fontWeight: '700',
   },
   memberEmpty: {
-    color: orbitColors.textSubtle,
     fontSize: 13,
     paddingVertical: 4,
   },
@@ -917,7 +927,6 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   memberProgressTrack: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 999,
     height: 4,
     marginBottom: 10,
@@ -1008,7 +1017,6 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   sectionCount: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
   },
   sectionDot: {
@@ -1023,12 +1031,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sectionTitle: {
-    color: orbitColors.text,
     fontSize: 14,
     fontWeight: '600',
-  },
-  sectionTitleMuted: {
-    color: orbitColors.textMuted,
   },
   sectionTitleRow: {
     alignItems: 'center',
@@ -1077,28 +1081,18 @@ const styles = StyleSheet.create({
   },
   xpBadge: {
     alignItems: 'center',
-    backgroundColor: 'rgba(56,189,248,0.12)',
     borderRadius: 999,
     flexDirection: 'row',
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  xpBadgeDone: {
-    backgroundColor: 'rgba(75,96,128,0.2)',
-    opacity: 0.5,
-  },
   xpBadgeText: {
-    color: orbitColors.orbitBlue,
     fontSize: 12,
     fontWeight: '700',
   },
-  xpBadgeTextDone: {
-    color: orbitColors.textSubtle,
-  },
   xpBanner: {
     alignItems: 'center',
-    borderColor: 'rgba(56,189,248,0.15)',
     borderRadius: radius.control,
     borderWidth: 1,
     flexDirection: 'row',
@@ -1112,11 +1106,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   xpBannerMeta: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
   },
   xpBannerTitle: {
-    color: orbitColors.text,
     fontSize: 14,
     fontWeight: '600',
   },
