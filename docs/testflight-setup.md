@@ -138,15 +138,15 @@ TestFlight builds use **Supabase** (`EXPO_PUBLIC_DATA_MODE=supabase`). They do *
 | Real email + password created in Supabase Auth (or via Get Started) | TestFlight / production |
 | Sign in with Apple | Device builds **after** Apple is enabled in Supabase Auth → Providers |
 
-### Turn off email confirmation (staging / TestFlight)
+### Email confirmation (supported)
 
-Choremaxx does not ship a confirmation-email deep link yet. If **Confirm email** stays on, Get Started creates a user with **no session**, and Sign in fails with “email not confirmed” / invalid credentials.
+Get Started → email/password sends a Supabase confirmation email when **Confirm email** is on. The app opens `confirm-email`, and the mail link should redirect to `choremaxx://auth/callback`.
 
-1. Supabase → **Authentication** → **Providers** → **Email**
-2. Disable **Confirm email**
-3. Save
+In Supabase → **Authentication** → **URL configuration**, allow:
 
-For production later you can re-enable confirmation once you wire a magic-link / deep-link handler.
+- `choremaxx://auth/callback`
+
+Optional: disable Confirm email for faster internal testing, or use **Add user** + **Auto Confirm**.
 
 ### Create a demo user (Dashboard)
 
@@ -203,8 +203,8 @@ Trigger manually: **Actions → iOS TestFlight → Run workflow**
 | Push not working on TestFlight | Ensure Push Notifications capability + APNs key in EAS credentials |
 | Sign in with Apple fails (`Provider apple not installed` / issuer not enabled) | Enable **Apple** under Supabase Auth → Providers (Services ID, Team ID, Key ID, `.p8`). App ID capability alone is not enough. |
 | `Invalid login credentials` / `sarah@orbit.test` | Mock-only email. Create a Supabase Auth user or use Get Started on device. |
-| Sign-up stuck / “email confirmation is required” | Supabase → Auth → Providers → Email → **disable Confirm email** (staging). Or Add user with **Auto Confirm**. |
-| `Email not confirmed` on sign-in | Same as above; confirm the user in Dashboard → Authentication → Users. |
+| Sign-up lands on Confirm email | Expected when Confirm email is on — open the mail link (redirect `choremaxx://auth/callback`) or Resend. Allow that URL in Supabase Auth → URL configuration. |
+| `Email not confirmed` on sign-in | App should open Confirm email. Or confirm the user in Dashboard → Authentication → Users. |
 | Raw `authRepository.signIn: …` error text | Fixed in shipping branch after Build 2 — ship a new TestFlight build |
 | Build uses mock data | Check `eas.json` `testflight.env.EXPO_PUBLIC_DATA_MODE=supabase` |
 

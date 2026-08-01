@@ -28,6 +28,14 @@ export default function RootLayout() {
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="sign-in" options={{ headerShown: false, title: 'Sign In' }} />
           <Stack.Screen name="sign-up" options={{ headerShown: false, title: 'Create Account' }} />
+          <Stack.Screen
+            name="confirm-email"
+            options={{ headerShown: false, title: 'Confirm Email' }}
+          />
+          <Stack.Screen
+            name="auth/callback"
+            options={{ headerShown: false, title: 'Confirming' }}
+          />
           <Stack.Screen name="forgot-password" options={{ headerShown: false, title: 'Reset Password' }} />
           <Stack.Screen name="create-profile" options={{ headerShown: false, title: 'Create Profile' }} />
           <Stack.Screen name="household-setup" options={{ headerShown: false, title: 'Household' }} />

@@ -9,6 +9,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { SignInSuccess } from '@/components/orbit/sign-in-success';
 import { orbitColors } from '@/constants/orbit-theme';
+import { isEmailNotConfirmedError } from '@/lib/auth/auth-errors';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { isMockMode } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
@@ -71,6 +72,13 @@ export default function SignInScreen() {
       await signIn({ email, password });
       setShowSuccess(true);
     } catch (err) {
+      if (isEmailNotConfirmedError(err)) {
+        router.push({
+          pathname: '/confirm-email',
+          params: { email: err.email || email.trim() },
+        } as never);
+        return;
+      }
       setError(toUserFacingAuthError(err, 'Sign in failed. Check your email and password.'));
     } finally {
       setBusy(false);

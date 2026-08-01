@@ -229,7 +229,7 @@ type OrbitContextValue = {
   signIn: (input: SignInInput) => Promise<void>;
   hydrateFromSession: (session: AuthSession) => Promise<void>;
   signOut: () => Promise<void>;
-  signUp: (input: SignUpInput) => Promise<void>;
+  signUp: (input: SignUpInput) => Promise<{ needsConfirmation: boolean; email: string }>;
   suggestedNovaQuestions: readonly string[];
   refreshNotifications: () => Promise<void>;
   markNotificationRead: (notificationId: string) => Promise<void>;
@@ -642,11 +642,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const signUp = async (input: SignUpInput) => {
-    const session = await authRepository.signUp(input);
+    const outcome = await authRepository.signUp(input);
+    if (outcome.status === 'needs_confirmation') {
+      await trackAnalytics('auth.sign_up_pending_confirm', { email: outcome.email });
+      return { needsConfirmation: true, email: outcome.email };
+    }
 
-    setCurrentUser(session.user);
-    setHousehold(createEmptyHousehold(session.user));
-    await trackAnalytics('auth.sign_up', { email: input.email }, { userId: session.user.id });
+    setCurrentUser(outcome.session.user);
+    setHousehold(createEmptyHousehold(outcome.session.user));
+    await trackAnalytics('auth.sign_up', { email: input.email }, { userId: outcome.session.user.id });
+    return { needsConfirmation: false, email: outcome.session.user.email };
   };
 
   const forgotPassword = async (email: string) => {

@@ -1,3 +1,4 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -33,6 +34,7 @@ import {
 } from '@/lib/onboarding-prefs';
 import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
 import { ROOM_EMOJIS } from '@/constants/accent-themes';
+import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { shareInvite } from '@/lib/invites/share-invite';
 import { createLocalId } from '@/repositories/repository-utils';
@@ -71,12 +73,14 @@ export default function WelcomeOnboardingScreen() {
     inviteLinks,
     isLoading,
     isSignedIn,
+    hydrateFromSession,
     joinHousehold,
     redeemChildInvite,
     signUp,
   } = useOrbit();
 
   const [step, setStep] = useState<Step>('splash');
+  const [appleAvailable, setAppleAvailable] = useState(false);
   const [selectedRole, setSelectedRole] = useState<OnboardingRole | null>(null);
   const [selectedMotivation, setSelectedMotivation] = useState<MotivationMode | null>(null);
   const [email, setEmail] = useState('');
@@ -292,6 +296,11 @@ export default function WelcomeOnboardingScreen() {
     });
   };
 
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    isAppleAuthAvailable().then(setAppleAvailable).catch(() => setAppleAvailable(false));
+  }, []);
+
   const handleAccountContinue = async () => {
     if (!email.trim() || !password.trim()) {
       setError('Enter an email and password to continue.');
@@ -301,12 +310,41 @@ export default function WelcomeOnboardingScreen() {
     setError('');
     try {
       await persistPrefs();
-      await signUp({ email: email.trim(), password });
+      const outcome = await signUp({ email: email.trim(), password });
+      if (outcome.needsConfirmation) {
+        router.push({
+          pathname: '/confirm-email',
+          params: { email: outcome.email },
+        } as never);
+        return;
+      }
       const guessedName = email.split('@')[0]?.replace(/[._]/g, ' ') || '';
       setDisplayName((current) => current || guessedName);
       setStep('profile');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create account.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleAppleContinue = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await persistPrefs();
+      const session = await signInWithApple();
+      await hydrateFromSession(session);
+      if (session.user.name) {
+        setDisplayName(session.user.name);
+      }
+      setStep(session.user.profileComplete ? 'household' : 'profile');
+    } catch (err) {
+      if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') {
+        return;
+      }
+      const msg = err instanceof Error ? err.message : 'Apple Sign-In failed.';
+      setError(msg);
     } finally {
       setBusy(false);
     }
@@ -735,8 +773,25 @@ export default function WelcomeOnboardingScreen() {
           <Header progress={progressIndex} onBack={goBack} />
           <Text style={orbitTypography.title}>Create your account</Text>
           <Text style={[orbitTypography.caption, styles.mb]}>
-            One account unlocks your household — tasks, Plan, Rewards, and Nova.
+            One account unlocks your household — tasks, Plan, Rewards, and Nova. We’ll email a
+            confirmation link when needed.
           </Text>
+          {appleAvailable && Platform.OS === 'ios' ? (
+            <>
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                cornerRadius={16}
+                style={styles.appleButton}
+                onPress={() => void handleAppleContinue()}
+              />
+              <View style={styles.dividerRow}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>or use email</Text>
+                <View style={styles.divider} />
+              </View>
+            </>
+          ) : null}
           <OrbitInput
             autoCapitalize="none"
             keyboardType="email-address"
@@ -752,7 +807,7 @@ export default function WelcomeOnboardingScreen() {
             onChangeText={setPassword}
           />
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <OrbitButton disabled={busy} onPress={handleAccountContinue}>
+          <OrbitButton disabled={busy} onPress={() => void handleAccountContinue()}>
             {busy ? 'Creating…' : 'Continue'}
           </OrbitButton>
           <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
@@ -1484,6 +1539,26 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingBottom: orbitSpacing.xl,
     paddingHorizontal: orbitSpacing.lg,
+  },
+  appleButton: {
+    height: 48,
+    width: '100%',
+  },
+  dividerRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    marginVertical: 4,
+  },
+  divider: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  dividerText: {
+    color: orbitColors.textSubtle,
+    fontSize: 12,
+    fontWeight: '600',
   },
   signInLink: {
     paddingVertical: 8,

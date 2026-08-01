@@ -18,7 +18,9 @@
       ],
       "config": {
         "screens": {
-          "join/[code]": "join/:code"
+          "join/[code]": "join/:code",
+          "auth/callback": "auth/callback",
+          "confirm-email": "confirm-email"
         }
       }
     },

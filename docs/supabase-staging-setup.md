@@ -79,7 +79,12 @@ See [expo-go-test-matrix.md](./expo-go-test-matrix.md) for the full manual check
 
 Enable **Email** auth in Supabase → Authentication → Providers.
 
-**Disable Confirm email for staging/TestFlight.** The app has no confirmation-mail deep link yet. With confirmation on, `signUp` returns a user but no session, so Get Started / Sign in break. Path: Authentication → Providers → Email → turn off **Confirm email**. Dashboard **Add user** + **Auto Confirm User** also works for demo accounts.
+**Confirm email** can stay **on**. The app has `confirm-email` + `choremaxx://auth/callback` deep link handling. In Supabase → Authentication → URL configuration, add redirect allow-list entries:
+
+- `choremaxx://auth/callback`
+- `exp://127.0.0.1:8081/--/auth/callback` (Expo Go local, if needed)
+
+Site URL can remain your web origin; confirmation emails use `emailRedirectTo` from the app.
 
 For **Sign in with Apple** (required for TestFlight Apple button):
 
