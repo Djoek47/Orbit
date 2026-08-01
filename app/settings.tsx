@@ -571,6 +571,13 @@ export default function SettingsScreen() {
               subtitle="List, scan, preferred store"
               onPress={() => router.push('/(tabs)/groceries' as never)}
             />
+            <SettingsRow
+              icon="place"
+              iconColor="#38BDF8"
+              label="Places"
+              subtitle="Home, work, and stops for trips"
+              onPress={() => router.push('/places' as never)}
+            />
 
             <SectionCard title="Appearance">
               <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>Mode</Text>

@@ -53,6 +53,10 @@ export default function RootLayout() {
             options={{ presentation: 'modal', headerShown: false, title: 'Shared device setup' }}
           />
           <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
+          <Stack.Screen
+            name="places"
+            options={{ presentation: 'modal', headerShown: false, title: 'Places' }}
+          />
           <Stack.Screen name="notifications" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="momentum" options={{ title: 'Momentum' }} />
           <Stack.Screen

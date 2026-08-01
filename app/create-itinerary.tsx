@@ -286,8 +286,20 @@ export default function CreateItineraryScreen() {
         </>
       ) : null}
 
-      <Text style={styles.sectionLabel}>Saved places</Text>
+      <View style={styles.sectionRow}>
+        <Text style={styles.sectionLabel}>Saved places</Text>
+        <Pressable onPress={() => router.push('/places' as never)} hitSlop={8}>
+          <Text style={[styles.manageLink, { color: accentTheme.primary }]}>Manage</Text>
+        </Pressable>
+      </View>
       <View style={styles.chipWrap}>
+        {places.length === 0 ? (
+          <Pressable
+            onPress={() => router.push('/places' as never)}
+            style={[styles.chip, { borderColor: `${accentTheme.primary}55` }]}>
+            <Text style={[styles.chipText, { color: accentTheme.primary }]}>Add home / work…</Text>
+          </Pressable>
+        ) : null}
         {places.map((place) => {
           const stop = placeToStop(place);
           const on = selected.some((s) => s.key === stop.key);
@@ -372,12 +384,21 @@ export default function CreateItineraryScreen() {
 }
 
 const styles = StyleSheet.create({
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   sectionLabel: {
     color: orbitColors.textMuted,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
+  },
+  manageLink: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   chipWrap: {
     flexDirection: 'row',
