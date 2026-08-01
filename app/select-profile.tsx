@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { getAccentTheme } from '@/constants/accent-themes';
-import { orbitColors, orbitSpacing } from '@/constants/orbit-theme';
+import { orbitColors, space } from '@/constants/orbit-theme';
 import {
   loadDeviceSession,
   selectDeviceProfile,
@@ -150,8 +150,8 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
-    gap: orbitSpacing.md,
-    paddingHorizontal: orbitSpacing.lg,
+    gap: space.md,
+    paddingHorizontal: space.xl,
     paddingBottom: 40,
   },
   eyebrow: {
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.4,
-    marginTop: orbitSpacing.lg,
+    marginTop: space.xl,
     textTransform: 'uppercase',
   },
   title: {
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 20,
     justifyContent: 'center',
-    marginTop: orbitSpacing.xl,
+    marginTop: space.xxl,
     width: '100%',
   },
   tile: {
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginTop: orbitSpacing.xl,
+    marginTop: space.xxl,
     paddingVertical: 12,
   },
   manageText: {

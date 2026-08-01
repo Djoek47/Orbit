@@ -21,7 +21,7 @@ import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { orbitColors, orbitRadius, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import {
   ONBOARDING_MOTIVATIONS,
   ONBOARDING_ROLES,
@@ -250,6 +250,11 @@ export default function WelcomeOnboardingScreen() {
     []
   );
 
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    isAppleAuthAvailable().then(setAppleAvailable).catch(() => setAppleAvailable(false));
+  }, []);
+
   if (!isLoading && isSignedIn && currentUser?.profileComplete && hasHousehold) {
     return <Redirect href="/" />;
   }
@@ -295,11 +300,6 @@ export default function WelcomeOnboardingScreen() {
       motivation: selectedMotivation ?? 'xp',
     });
   };
-
-  useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-    isAppleAuthAvailable().then(setAppleAvailable).catch(() => setAppleAvailable(false));
-  }, []);
 
   const handleAccountContinue = async () => {
     if (!email.trim() || !password.trim()) {
@@ -592,7 +592,7 @@ export default function WelcomeOnboardingScreen() {
         <KeyboardScreen contentContainerStyle={[styles.scroll, styles.roleScroll]}>
           <Header progress={progressIndex} onBack={goBack} />
           <View style={styles.roleIntro}>
-            <Text style={[orbitTypography.title, styles.roleHeading]}>Who are you?</Text>
+            <Text style={[typography.title2, styles.roleHeading]}>Who are you?</Text>
             <Text style={styles.roleCaption}>Choremaxx adapts to your role in the household.</Text>
           </View>
           <View style={styles.roleList}>
@@ -651,8 +651,8 @@ export default function WelcomeOnboardingScreen() {
       {step === 'motivation' ? (
         <KeyboardScreen contentContainerStyle={styles.scroll}>
           <Header progress={progressIndex} onBack={goBack} />
-          <Text style={orbitTypography.title}>How do you motivate your household?</Text>
-          <Text style={[orbitTypography.caption, styles.mb]}>You can change this anytime in Settings.</Text>
+          <Text style={typography.title2}>How do you motivate your household?</Text>
+          <Text style={[typography.footnote, styles.mb]}>You can change this anytime in Settings.</Text>
           <View style={styles.motivationGrid}>
             {ONBOARDING_MOTIVATIONS.map((opt) => {
               const active = selectedMotivation === opt.id;
@@ -688,8 +688,8 @@ export default function WelcomeOnboardingScreen() {
       {step === 'child-invite' ? (
         <KeyboardScreen contentContainerStyle={styles.scroll}>
           <Header progress={progressIndex} onBack={goBack} />
-          <Text style={orbitTypography.title}>Got a parent invite?</Text>
-          <Text style={[orbitTypography.caption, styles.mb]}>
+          <Text style={typography.title2}>Got a parent invite?</Text>
+          <Text style={[typography.footnote, styles.mb]}>
             No email or password. Open the AirDrop your parent sent, scan their QR, or type your kid
             code. Your parent&apos;s account keeps the household saved.
           </Text>
@@ -701,7 +701,7 @@ export default function WelcomeOnboardingScreen() {
             onChangeText={setInviteCode}
             placeholder="e.g. CMX-EMMA"
           />
-          <Text style={orbitTypography.caption}>
+          <Text style={typography.footnote}>
             Demo profiles: CMX-EMMA · CMX-LIAM · CMX-JOSH · CMX-TODD
           </Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -714,8 +714,8 @@ export default function WelcomeOnboardingScreen() {
       {step === 'tablet-invite' ? (
         <KeyboardScreen contentContainerStyle={styles.scroll}>
           <Header progress={progressIndex} onBack={goBack} />
-          <Text style={orbitTypography.title}>Set up this shared tablet</Text>
-          <Text style={[orbitTypography.caption, styles.mb]}>
+          <Text style={typography.title2}>Set up this shared tablet</Text>
+          <Text style={[typography.footnote, styles.mb]}>
             Add profiles with AirDrop or invite codes from a parent/admin. No email on the tablet —
             the admin account keeps everything saved. Add one or two people (or more).
           </Text>
@@ -755,7 +755,7 @@ export default function WelcomeOnboardingScreen() {
               ))}
             </View>
           ) : (
-            <Text style={orbitTypography.caption}>
+            <Text style={typography.footnote}>
               Demo: add CMX-JOSH and CMX-TODD for a two-profile tablet.
             </Text>
           )}
@@ -771,8 +771,8 @@ export default function WelcomeOnboardingScreen() {
       {step === 'account' ? (
         <KeyboardScreen contentContainerStyle={styles.scroll}>
           <Header progress={progressIndex} onBack={goBack} />
-          <Text style={orbitTypography.title}>Create your account</Text>
-          <Text style={[orbitTypography.caption, styles.mb]}>
+          <Text style={typography.title2}>Create your account</Text>
+          <Text style={[typography.footnote, styles.mb]}>
             One account unlocks your household — tasks, Plan, Rewards, and Nova. We’ll email a
             confirmation link when needed.
           </Text>
@@ -819,8 +819,8 @@ export default function WelcomeOnboardingScreen() {
       {step === 'profile' ? (
         <KeyboardScreen contentContainerStyle={styles.scroll}>
           <Header progress={progressIndex} onBack={goBack} />
-          <Text style={orbitTypography.title}>What should we call you?</Text>
-          <Text style={[orbitTypography.caption, styles.mb]}>
+          <Text style={typography.title2}>What should we call you?</Text>
+          <Text style={[typography.footnote, styles.mb]}>
             This name is your identity inside the household.
           </Text>
           <OrbitInput label="Display name" value={displayName} onChangeText={setDisplayName} />
@@ -834,8 +834,8 @@ export default function WelcomeOnboardingScreen() {
       {step === 'household' ? (
         <KeyboardScreen contentContainerStyle={styles.scroll}>
           <Header progress={progressIndex} onBack={goBack} />
-          <Text style={orbitTypography.title}>Set up your household</Text>
-          <Text style={[orbitTypography.caption, styles.mb]}>
+          <Text style={typography.title2}>Set up your household</Text>
+          <Text style={[typography.footnote, styles.mb]}>
             Create a new home or join one with an invite code.
           </Text>
 
@@ -885,7 +885,7 @@ export default function WelcomeOnboardingScreen() {
                 })}
               </View>
               <Text style={styles.fieldLabel}>Rooms</Text>
-              <Text style={[orbitTypography.caption, styles.mb]}>
+              <Text style={[typography.footnote, styles.mb]}>
                 Pick the spaces you manage. Add custom rooms if needed.
               </Text>
               <View style={styles.typeGrid}>
@@ -959,7 +959,7 @@ export default function WelcomeOnboardingScreen() {
                 value={inviteCode}
                 onChangeText={setInviteCode}
               />
-              <Text style={orbitTypography.caption}>
+              <Text style={typography.footnote}>
                 Demo code: CMX-7429 — or scan a household QR from an invite.
               </Text>
             </>
@@ -977,7 +977,7 @@ export default function WelcomeOnboardingScreen() {
           <View style={styles.readyBadge}>
             <Text style={styles.readyEmoji}>{roleMeta?.emoji ?? '🏠'}</Text>
           </View>
-          <Text style={[orbitTypography.title, styles.readyTitle]}>You&apos;re all set!</Text>
+          <Text style={[typography.title2, styles.readyTitle]}>You&apos;re all set!</Text>
           <Text style={styles.readySub}>
             Welcome to Choremaxx
             {roleMeta ? (
@@ -990,8 +990,8 @@ export default function WelcomeOnboardingScreen() {
           {showKidInviteBox ? (
             <View style={styles.kidInviteBox}>
               <Text style={styles.kidInviteEyebrow}>Kids</Text>
-              <Text style={orbitTypography.cardTitle}>Invite kids (no sign-in)</Text>
-              <Text style={[orbitTypography.caption, styles.mb]}>
+              <Text style={typography.headline}>Invite kids (no sign-in)</Text>
+              <Text style={[typography.footnote, styles.mb]}>
                 Create up to two kid profiles on your admin account, then AirDrop or share each
                 invite. Young kids never need email — you keep everything saved. On a shared tablet,
                 pick Shared / tablet under Roommate and add these same codes.
@@ -1035,10 +1035,10 @@ export default function WelcomeOnboardingScreen() {
 
           {createdHousehold && readyInvite ? (
             <View style={styles.invitePanel}>
-              <Text style={orbitTypography.cardTitle}>
+              <Text style={typography.headline}>
                 {selectedRole === 'roommate' ? 'Invite roommates' : 'Invite adults'}
               </Text>
-              <Text style={orbitTypography.caption}>
+              <Text style={typography.footnote}>
                 For parents, partners, or roommates who can create their own account. AirDrop,
                 share the link, or scan the QR.
               </Text>
@@ -1138,15 +1138,15 @@ const styles = StyleSheet.create({
   centered: {
     alignItems: 'center',
     flex: 1,
-    gap: orbitSpacing.xl,
+    gap: space.xxl,
     justifyContent: 'center',
-    paddingHorizontal: orbitSpacing.lg,
+    paddingHorizontal: space.xl,
   },
   splashScreen: {
     alignItems: 'center',
     flex: 1,
     justifyContent: 'space-between',
-    paddingHorizontal: orbitSpacing.lg,
+    paddingHorizontal: space.xl,
     paddingTop: 12,
     paddingBottom: 8,
     width: '100%',
@@ -1170,7 +1170,7 @@ const styles = StyleSheet.create({
   splashHero: {
     alignItems: 'center',
     alignSelf: 'center',
-    gap: orbitSpacing.md,
+    gap: space.md,
     width: '100%',
   },
   splashLogo: {
@@ -1193,7 +1193,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     flexDirection: 'row',
     gap: 10,
-    marginBottom: orbitSpacing.md,
+    marginBottom: space.md,
   },
   dot: {
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -1229,7 +1229,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   mb: {
-    marginBottom: orbitSpacing.md,
+    marginBottom: space.md,
   },
   miniCheck: {
     alignItems: 'center',
@@ -1241,7 +1241,7 @@ const styles = StyleSheet.create({
   },
   modeChip: {
     alignItems: 'center',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     flex: 1,
     paddingVertical: 10,
   },
@@ -1261,10 +1261,10 @@ const styles = StyleSheet.create({
   },
   modeRow: {
     backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     flexDirection: 'row',
     gap: 4,
-    marginBottom: orbitSpacing.md,
+    marginBottom: space.md,
     padding: 4,
   },
   motivationActive: {
@@ -1275,10 +1275,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderColor: 'rgba(255,255,255,0.08)',
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     borderWidth: 2,
     gap: 4,
-    padding: orbitSpacing.md,
+    padding: space.md,
     width: '48%',
   },
   motivationDesc: {
@@ -1289,7 +1289,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginBottom: orbitSpacing.md,
+    marginBottom: space.md,
   },
   motivationLabel: {
     color: orbitColors.text,
@@ -1340,7 +1340,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     backgroundColor: orbitColors.primary,
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     height: 96,
     justifyContent: 'center',
     width: 96,
@@ -1355,12 +1355,12 @@ const styles = StyleSheet.create({
   readyScroll: {
     alignItems: 'stretch',
     justifyContent: 'center',
-    paddingTop: orbitSpacing.xl,
+    paddingTop: space.xxl,
   },
   readySub: {
     color: orbitColors.textMuted,
     fontSize: 14,
-    marginBottom: orbitSpacing.md,
+    marginBottom: space.md,
     textAlign: 'center',
   },
   readyTitle: {
@@ -1377,31 +1377,31 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderColor: 'rgba(255,255,255,0.08)',
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     borderWidth: 1,
-    gap: orbitSpacing.md,
-    marginBottom: orbitSpacing.md,
-    padding: orbitSpacing.lg,
+    gap: space.md,
+    marginBottom: space.md,
+    padding: space.xl,
   },
   kidInviteBox: {
     backgroundColor: 'rgba(52,211,153,0.08)',
     borderColor: 'rgba(52,211,153,0.28)',
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     borderWidth: 1,
-    gap: orbitSpacing.md,
-    marginBottom: orbitSpacing.md,
-    padding: orbitSpacing.lg,
+    gap: space.md,
+    marginBottom: space.md,
+    padding: space.xl,
     width: '100%',
   },
   kidInviteCard: {
     backgroundColor: 'rgba(7,13,28,0.35)',
     borderColor: 'rgba(255,255,255,0.08)',
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     gap: 12,
-    padding: orbitSpacing.md,
+    padding: space.md,
   },
   kidInviteEyebrow: {
     color: '#34D399',
@@ -1446,8 +1446,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: orbitRadius.md,
-    padding: orbitSpacing.md,
+    borderRadius: radius.card,
+    padding: space.md,
   },
   shareHint: {
     color: orbitColors.primary,
@@ -1537,8 +1537,8 @@ const styles = StyleSheet.create({
   },
   scroll: {
     gap: 4,
-    paddingBottom: orbitSpacing.xl,
-    paddingHorizontal: orbitSpacing.lg,
+    paddingBottom: space.xxl,
+    paddingHorizontal: space.xl,
   },
   appleButton: {
     height: 48,
@@ -1597,7 +1597,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: orbitSpacing.md,
+    marginBottom: space.md,
   },
   backBtn: {
     alignItems: 'center',
@@ -1615,7 +1615,7 @@ const styles = StyleSheet.create({
   typeChip: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderColor: orbitColors.border,
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -1628,7 +1628,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: orbitSpacing.md,
+    marginBottom: space.md,
   },
   typeLabel: {
     color: orbitColors.textMuted,
