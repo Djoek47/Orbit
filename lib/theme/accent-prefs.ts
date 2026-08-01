@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   DEFAULT_ACCENT_THEME_ID,
-  isAccentThemeId,
+  isResolvableAccentThemeId,
+  migrateAccentThemeId,
   type AccentThemeId,
 } from '@/constants/accent-themes';
 
@@ -17,8 +18,12 @@ export async function loadAccentThemeId(
   }
   try {
     const raw = await AsyncStorage.getItem(`${HOUSEHOLD_KEY}:${householdId}`);
-    if (isAccentThemeId(raw)) {
-      return raw;
+    if (isResolvableAccentThemeId(raw)) {
+      const migrated = migrateAccentThemeId(raw);
+      if (migrated !== raw) {
+        await AsyncStorage.setItem(`${HOUSEHOLD_KEY}:${householdId}`, migrated);
+      }
+      return migrated;
     }
     return DEFAULT_ACCENT_THEME_ID;
   } catch {
@@ -49,7 +54,12 @@ export async function loadMemberAccentThemeId(
   }
   try {
     const raw = await AsyncStorage.getItem(`${MEMBER_KEY}:${householdId}:${memberId}`);
-    return isAccentThemeId(raw) ? raw : null;
+    if (!isResolvableAccentThemeId(raw)) return null;
+    const migrated = migrateAccentThemeId(raw);
+    if (migrated !== raw) {
+      await AsyncStorage.setItem(`${MEMBER_KEY}:${householdId}:${memberId}`, migrated);
+    }
+    return migrated;
   } catch {
     return null;
   }
@@ -82,7 +92,10 @@ export async function applyStoredMemberThemes<T extends { id: string; accentThem
     members.map(async (member) => {
       const stored = await loadMemberAccentThemeId(householdId, member.id);
       if (!stored) {
-        return member;
+        return {
+          ...member,
+          accentThemeId: migrateAccentThemeId(member.accentThemeId),
+        };
       }
       return { ...member, accentThemeId: stored };
     })

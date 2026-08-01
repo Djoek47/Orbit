@@ -1,11 +1,16 @@
 /**
  * Unified personalization: one palette id owns day + night surface/font/accent
- * pairs. Replaces separate accent packs + background packs as the user-facing
- * personalization model (Design 8).
+ * pairs. Logo directions: Sky, Citrus, Coral, Berry.
  */
 
 import type { AccentTheme, AccentThemeId, AccentTypeStyle } from '@/constants/accent-themes';
-import { ACCENT_THEMES, DEFAULT_ACCENT_THEME_ID, getAccentTheme } from '@/constants/accent-themes';
+import {
+  ACCENT_THEMES,
+  DEFAULT_ACCENT_THEME_ID,
+  getAccentTheme,
+  LEGACY_ACCENT_TO_PALETTE,
+  migrateAccentThemeId,
+} from '@/constants/accent-themes';
 import type { OrbitColorPalette } from '@/constants/orbit-theme';
 import { choremaxxBrand } from '@/constants/choremaxx-brand';
 
@@ -83,7 +88,7 @@ function tintNight(base: ColorPaletteSlice, tint: string, borderAccent: string):
     background: tint,
     backgroundSoft: base.backgroundSoft,
     border: borderAccent,
-    borderStrong: `${borderAccent.replace('0.18', '0.35').replace('0.12', '0.35')}`,
+    borderStrong: `${borderAccent.replace('0.18', '0.35').replace('0.12', '0.35').replace('0.2', '0.4')}`,
   };
 }
 
@@ -103,45 +108,66 @@ const TYPE_BY_ID = Object.fromEntries(ACCENT_THEMES.map((t) => [t.id, t.typeStyl
 /** Curated palettes — each color has day + night surface/font pairs. */
 export const COLOR_PALETTES: ColorPalette[] = [
   {
-    id: 'ocean',
-    label: 'Ocean',
-    swatch: { primary: '#59B2E1', secondary: '#3A9BC8' },
-    typeStyle: TYPE_BY_ID.ocean,
-    nightTint: '#070D1C',
-    night: { ...MIDNIGHT, borderStrong: 'rgba(89, 178, 225, 0.4)' },
-    day: tintDay(MIST, '#EDF5FA'),
+    id: 'sky',
+    label: 'Sky',
+    swatch: { primary: '#378ADD', secondary: '#FAC775' },
+    typeStyle: TYPE_BY_ID.sky,
+    nightTint: '#07121F',
+    night: tintNight(MIDNIGHT, '#07121F', 'rgba(55, 138, 221, 0.2)'),
+    day: {
+      ...tintDay(MIST, '#EAF3FB'),
+      borderStrong: 'rgba(55, 138, 221, 0.35)',
+    },
   },
   {
-    id: 'aurora',
-    label: 'Aurora',
-    swatch: { primary: '#76C4AE', secondary: '#4FA88F' },
-    typeStyle: TYPE_BY_ID.aurora,
-    nightTint: '#071A0F',
-    night: tintNight(MIDNIGHT, '#071A0F', 'rgba(52, 211, 153, 0.18)'),
-    day: tintDay(MIST, '#EAF7F2'),
+    id: 'citrus',
+    label: 'Citrus',
+    swatch: { primary: '#EF9F27', secondary: '#712B13' },
+    typeStyle: TYPE_BY_ID.citrus,
+    nightTint: '#1A1208',
+    night: tintNight(MIDNIGHT, '#1A1208', 'rgba(239, 159, 39, 0.22)'),
+    day: {
+      ...tintDay(MIST, '#FBF4E8'),
+      text: '#712B13',
+      textSoft: '#8A4A28',
+      textMuted: '#9A6A48',
+      borderStrong: 'rgba(239, 159, 39, 0.4)',
+    },
   },
   {
-    id: 'cosmic',
-    label: 'Cosmic',
-    swatch: { primary: '#A78BFA', secondary: '#7C3AED' },
-    typeStyle: TYPE_BY_ID.cosmic,
-    nightTint: '#0D0A1C',
+    id: 'coral',
+    label: 'Coral',
+    swatch: { primary: '#D85A30', secondary: '#FAC775' },
+    typeStyle: TYPE_BY_ID.coral,
+    nightTint: '#1A0C08',
+    night: tintNight(MIDNIGHT, '#1A0C08', 'rgba(216, 90, 48, 0.22)'),
+    day: {
+      ...tintDay(MIST, '#FAF0EB'),
+      borderStrong: 'rgba(216, 90, 48, 0.35)',
+    },
+  },
+  {
+    id: 'berry',
+    label: 'Berry',
+    swatch: { primary: '#7F77DD', secondary: '#F4C0D1' },
+    typeStyle: TYPE_BY_ID.berry,
+    nightTint: '#100A1C',
     night: {
-      background: '#0D0A1C',
+      background: '#100A1C',
       backgroundSoft: '#1A1628',
       shell: '#0C0A12',
       card: 'rgba(255, 255, 255, 0.06)',
       cardStrong: 'rgba(255, 255, 255, 0.09)',
       cardMuted: 'rgba(255, 255, 255, 0.03)',
-      border: 'rgba(167, 139, 250, 0.18)',
-      borderStrong: 'rgba(167, 139, 250, 0.4)',
+      border: 'rgba(127, 119, 221, 0.2)',
+      borderStrong: 'rgba(127, 119, 221, 0.4)',
       text: '#F5F0FF',
       textSoft: '#D4CBE8',
       textMuted: '#9B8FBF',
       textSubtle: '#6B6288',
       textFaint: '#3D3654',
       tabInactive: '#5A5270',
-      ink: '#0D0A1C',
+      ink: '#100A1C',
     },
     day: {
       ...MIST,
@@ -149,65 +175,11 @@ export const COLOR_PALETTES: ColorPalette[] = [
       backgroundSoft: '#EBE4F5',
       shell: '#E0D6EF',
       border: 'rgba(90, 60, 140, 0.12)',
-      borderStrong: 'rgba(124, 58, 237, 0.35)',
+      borderStrong: 'rgba(127, 119, 221, 0.35)',
       text: '#1A1230',
       textSoft: '#3A2E55',
       textMuted: '#6B5F88',
     },
-  },
-  {
-    id: 'sunset',
-    label: 'Sunset',
-    swatch: { primary: '#FB923C', secondary: '#EA580C' },
-    typeStyle: TYPE_BY_ID.sunset,
-    nightTint: '#1A0C07',
-    night: tintNight(MIDNIGHT, '#1A0C07', 'rgba(251, 146, 60, 0.2)'),
-    day: tintDay(MIST, '#FAF3EC'),
-  },
-  {
-    id: 'rose',
-    label: 'Rose',
-    swatch: { primary: '#F472B6', secondary: '#EC4899' },
-    typeStyle: TYPE_BY_ID.rose,
-    nightTint: '#1A071A',
-    night: tintNight(MIDNIGHT, '#1A071A', 'rgba(244, 114, 182, 0.2)'),
-    day: tintDay(MIST, '#FAEFF5'),
-  },
-  {
-    id: 'forest',
-    label: 'Forest',
-    swatch: { primary: '#34D399', secondary: '#059669' },
-    typeStyle: TYPE_BY_ID.forest,
-    nightTint: '#061410',
-    night: tintNight(MIDNIGHT, '#061410', 'rgba(52, 211, 153, 0.18)'),
-    day: tintDay(MIST, '#EAF6F0'),
-  },
-  {
-    id: 'slate',
-    label: 'Slate',
-    swatch: { primary: '#94A3B8', secondary: '#64748B' },
-    typeStyle: TYPE_BY_ID.slate,
-    nightTint: '#0B1018',
-    night: tintNight(MIDNIGHT, '#0B1018', 'rgba(148, 163, 184, 0.2)'),
-    day: tintDay(MIST, '#F2F4F6'),
-  },
-  {
-    id: 'amber',
-    label: 'Amber',
-    swatch: { primary: '#FBBF24', secondary: '#D97706' },
-    typeStyle: TYPE_BY_ID.amber,
-    nightTint: '#161008',
-    night: tintNight(MIDNIGHT, '#161008', 'rgba(251, 191, 36, 0.2)'),
-    day: tintDay(MIST, '#FAF6EB'),
-  },
-  {
-    id: 'violet',
-    label: 'Violet',
-    swatch: { primary: '#8B5CF6', secondary: '#6D28D9' },
-    typeStyle: TYPE_BY_ID.violet,
-    nightTint: '#100A1C',
-    night: tintNight(MIDNIGHT, '#100A1C', 'rgba(139, 92, 246, 0.22)'),
-    day: tintDay(MIST, '#F3EFFA'),
   },
 ];
 
@@ -219,8 +191,13 @@ export function isColorPaletteId(value: string | null | undefined): value is Col
   return Boolean(value && PALETTE_IDS.has(value));
 }
 
+export function migrateColorPaletteId(value: string | null | undefined): ColorPaletteId {
+  return migrateAccentThemeId(value);
+}
+
 export function getColorPalette(id?: string | null): ColorPalette {
-  return COLOR_PALETTES.find((p) => p.id === id) ?? COLOR_PALETTES[0]!;
+  const resolved = migrateColorPaletteId(id);
+  return COLOR_PALETTES.find((p) => p.id === resolved) ?? COLOR_PALETTES[2]!;
 }
 
 /** AccentTheme view of a palette (compat with existing consumers). */
@@ -267,3 +244,5 @@ export function resolveThemeFromPalette(
 export function getAccentThemeCompat(id?: string | null): AccentTheme {
   return getAccentTheme(id);
 }
+
+export { LEGACY_ACCENT_TO_PALETTE };

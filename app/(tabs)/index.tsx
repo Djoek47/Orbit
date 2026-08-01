@@ -25,6 +25,7 @@ import {
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { greetingWord } from '@/lib/time/greeting';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
@@ -104,7 +105,11 @@ export default function HomeScreen() {
             <PageEyebrow>
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </PageEyebrow>
-            <LargeTitleHeader title={`${greetingWord()}, ${displayName}`} scrollY={scrollY} />
+            <LargeTitleHeader
+              title={`${greetingWord()}, ${displayName}`}
+              scrollY={scrollY}
+              size="compact"
+            />
             {sharedDevice ? (
               <Pressable
                 onPress={() => {
@@ -292,11 +297,6 @@ export default function HomeScreen() {
       />
     </>
   );
-}
-
-function greetingWord() {
-  const hour = new Date().getHours();
-  return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 }
 
 function PersonalStat({

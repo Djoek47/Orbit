@@ -1,6 +1,7 @@
 import { KeyboardTypeOptions, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 
-import { orbitColors, radius, space } from '@/constants/orbit-theme';
+import { radius, space } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type OrbitInputProps = {
   autoCapitalize?: TextInputProps['autoCapitalize'];
@@ -21,17 +22,26 @@ export function OrbitInput({
   secureTextEntry = false,
   value,
 }: OrbitInputProps) {
+  const { c, isDark } = useOrbitColors();
+
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: c.textMuted }]}>{label}</Text>
       <TextInput
         autoCapitalize={autoCapitalize}
         keyboardType={keyboardType}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={orbitColors.textSubtle}
+        placeholderTextColor={c.textSubtle}
         secureTextEntry={secureTextEntry}
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.92)',
+            borderColor: c.border,
+            color: c.text,
+          },
+        ]}
         value={value}
       />
     </View>
@@ -43,18 +53,14 @@ const styles = StyleSheet.create({
     gap: space.xs,
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderColor: orbitColors.border,
     borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: 1,
-    color: orbitColors.text,
     fontSize: 16,
     minHeight: 52,
     paddingHorizontal: space.md,
   },
   label: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },

@@ -14,6 +14,7 @@ import { SearchBar } from '@/components/orbit/search-bar';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
   findSharedDeviceForMember,
   isSharedDeviceAccount,
@@ -138,6 +139,7 @@ function TaskItem({
   onToggle: () => void;
   onDelete: () => void;
 }) {
+  const { c, glass } = useOrbitColors();
   const shareDone =
     member && isSplitTask(task)
       ? task.shares?.find((share) => share.name === member.name)?.status === 'Completed'
@@ -147,7 +149,7 @@ function TaskItem({
   const accent = memberAccentColor(member);
   const borderColor = done
     ? accent
-    : `${isHomework(task) ? (sub?.color ?? orbitColors.planPurple) : getPriorityColor(task)}80`;
+    : `${isHomework(task) ? (sub?.color ?? c.planPurple) : getPriorityColor(task)}80`;
   const avatarGradient = GRADIENT_BY_COLOR[accent] ?? [accent, accent];
   const hygiene = task.tracking === 'streak' || task.category === 'Hygiene';
 
@@ -160,7 +162,7 @@ function TaskItem({
           ? [{ key: 'delete', label: 'Delete', icon: 'delete-outline' as const, destructive: true, onPress: onDelete }]
           : []),
       ]}>
-      <View style={[styles.taskItem, done && styles.taskItemDone]}>
+      <View style={[styles.taskItem, done && styles.taskItemDone, done && { backgroundColor: glass(0.03) }]}>
         <Pressable
           onPress={onToggle}
           style={[
@@ -170,7 +172,7 @@ function TaskItem({
               backgroundColor: done ? accent : 'transparent',
             },
           ]}>
-          {done ? <MaterialIcons name="check" size={12} color={orbitColors.ink} /> : null}
+          {done ? <MaterialIcons name="check" size={12} color={c.ink} /> : null}
         </Pressable>
 
         <Pressable style={styles.taskBody} onPress={() => router.push(`/task/${task.id}` as never)}>
@@ -182,13 +184,19 @@ function TaskItem({
               </Text>
             </View>
           ) : null}
-          <Text style={[styles.taskTitle, done && styles.taskTitleDone]} numberOfLines={2}>
+          <Text
+            style={[
+              styles.taskTitle,
+              { color: done ? c.textMuted : c.text },
+              done && styles.taskTitleDone,
+            ]}
+            numberOfLines={2}>
             {task.title}
           </Text>
         </View>
         <View style={styles.metaRow}>
-          <MaterialIcons name="schedule" size={10} color={orbitColors.textSubtle} />
-          <Text style={styles.dueText}>{task.due}</Text>
+          <MaterialIcons name="schedule" size={10} color={c.textSubtle} />
+          <Text style={[styles.dueText, { color: c.textSubtle }]}>{task.due}</Text>
           {isSplitTask(task) ? (
             <View style={[styles.metaPill, { backgroundColor: 'rgba(167,139,250,0.18)' }]}>
               <Text style={[styles.metaPillText, { color: '#A78BFA' }]}>Split</Text>
@@ -350,6 +358,7 @@ export default function TasksScreen() {
     currentMember,
     deleteTask,
     household,
+    orbitPalette,
     permissions,
     switchPersona,
   } = useOrbit();
@@ -534,7 +543,7 @@ export default function TasksScreen() {
                 ? `${focusMember}'s chores`
                 : 'Tasks & Homework'}
           </PageEyebrow>
-          <Text style={typography.title1}>
+          <Text style={[typography.title1, { color: orbitPalette.text }]}>
             {sharedKidMode
               ? 'My tasks'
               : focusMember

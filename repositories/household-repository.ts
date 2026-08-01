@@ -716,7 +716,7 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     events: mappedEvents,
     itineraries: [],
     rooms: [],
-    accentThemeId: 'ocean',
+    accentThemeId: 'sky',
     taskTemplates: [],
     notificationPrefs: {
       tasks: true,

@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AVATAR_EMOJIS,
   DEFAULT_ACCENT_THEME_ID,
+  migrateAccentThemeId,
   ROOM_EMOJIS,
   type AccentThemeId,
 } from '@/constants/accent-themes';
@@ -206,7 +207,7 @@ export default function SettingsScreen() {
   );
 
   const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
-  const householdThemeId = (household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID) as AccentThemeId;
+  const householdThemeId = migrateAccentThemeId(household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID);
   const rooms = household.rooms ?? [];
   const nestedAccountIds = useMemo(
     () => nestedSharedAccountIds(household.members),

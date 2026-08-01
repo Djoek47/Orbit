@@ -3,7 +3,8 @@ import { useState } from 'react';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
 import { motion } from '@/constants/motion-tokens';
-import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
+import { radius, space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type SegmentedControlProps<T extends string> = {
@@ -24,7 +25,8 @@ export function SegmentedControl<T extends string>({
   onChange,
 }: SegmentedControlProps<T>) {
   const orbit = useOrbitOptional();
-  const accent = orbit?.accentTheme.primary ?? orbitColors.primary;
+  const { c, glass } = useOrbitColors();
+  const accent = orbit?.accentTheme.primary ?? c.primary;
   const [containerWidth, setContainerWidth] = useState(0);
   const segmentWidth = options.length > 0 ? containerWidth / options.length : 0;
   const activeIndex = Math.max(0, options.findIndex((option) => option.value === value));
@@ -40,14 +42,20 @@ export function SegmentedControl<T extends string>({
 
   return (
     <View>
-      {label ? <Text style={[typography.footnote, styles.label]}>{label}</Text> : null}
+      {label ? (
+        <Text style={[typography.footnote, styles.label, { color: c.textMuted }]}>{label}</Text>
+      ) : null}
       <View
-        style={styles.track}
+        style={[styles.track, { backgroundColor: glass(0.05) }]}
         onLayout={onLayout}
         accessibilityRole="tablist">
         {segmentWidth > 0 ? (
           <Animated.View
-            style={[styles.indicator, { backgroundColor: `${accent}28`, borderColor: accent }, indicatorStyle]}
+            style={[
+              styles.indicator,
+              { backgroundColor: `${accent}28`, borderColor: accent },
+              indicatorStyle,
+            ]}
           />
         ) : null}
         {options.map((option) => {
@@ -63,7 +71,8 @@ export function SegmentedControl<T extends string>({
                 style={[
                   typography.footnote,
                   styles.segmentText,
-                  active && { color: accent, fontWeight: '700' },
+                  { color: active ? accent : c.textMuted },
+                  active && { fontWeight: '700' },
                 ]}>
                 {option.label}
               </Text>
@@ -80,7 +89,6 @@ const styles = StyleSheet.create({
     marginBottom: space.xs,
   },
   track: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: radius.control,
     borderCurve: 'continuous',
     flexDirection: 'row',
@@ -101,6 +109,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   segmentText: {
-    color: orbitColors.textMuted,
+    fontWeight: '600',
   },
 });

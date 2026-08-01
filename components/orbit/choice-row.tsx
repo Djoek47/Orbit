@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
-import { orbitColors, radius, space } from '@/constants/orbit-theme';
+import { radius, space } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type ChoiceRowProps<T extends string> = {
   label: string;
@@ -10,9 +11,11 @@ type ChoiceRowProps<T extends string> = {
 };
 
 export function ChoiceRow<T extends string>({ label, onChange, options, value }: ChoiceRowProps<T>) {
+  const { c, isDark, glass, glassBorder } = useOrbitColors();
+
   return (
     <>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: c.textMuted }]}>{label}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {options.map((option) => {
           const selected = value === option;
@@ -20,8 +23,24 @@ export function ChoiceRow<T extends string>({ label, onChange, options, value }:
             <Pressable
               key={option}
               onPress={() => onChange(option)}
-              style={[styles.chip, selected && styles.selected]}>
-              <Text style={[styles.chipText, selected && styles.selectedText]}>{option}</Text>
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: selected
+                    ? isDark
+                      ? 'rgba(0, 194, 255, 0.16)'
+                      : `${c.novaCyan}22`
+                    : glass(0.06),
+                  borderColor: selected ? c.novaCyan : glassBorder(0.12),
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: selected ? c.text : c.textSoft },
+                ]}>
+                {option}
+              </Text>
             </Pressable>
           );
         })}
@@ -32,8 +51,6 @@ export function ChoiceRow<T extends string>({ label, onChange, options, value }:
 
 const styles = StyleSheet.create({
   chip: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderColor: orbitColors.border,
     borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: 1,
@@ -41,24 +58,15 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
   },
   chipText: {
-    color: orbitColors.textMuted,
     fontSize: 14,
     fontWeight: '700',
   },
   label: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },
   row: {
     gap: space.sm,
     paddingBottom: space.xs,
-  },
-  selected: {
-    backgroundColor: 'rgba(0, 194, 255, 0.16)',
-    borderColor: orbitColors.novaCyan,
-  },
-  selectedText: {
-    color: orbitColors.text,
   },
 });

@@ -124,7 +124,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 95,
       streak: 12,
       loadShare: 52,
-      accentThemeId: 'ocean',
+      accentThemeId: 'sky',
     },
     {
       id: 'm2',
@@ -136,7 +136,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 110,
       streak: 8,
       loadShare: 34,
-      accentThemeId: 'cosmic',
+      accentThemeId: 'berry',
       // On a short work trip — Nova Monitor skips task nudges
       awayFrom: todayKey(0),
       awayTo: todayKey(2),
@@ -151,7 +151,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 45,
       streak: 3,
       loadShare: 8,
-      accentThemeId: 'rose',
+      accentThemeId: 'berry',
       profileInviteCode: 'CMX-EMMA',
     },
     {
@@ -164,7 +164,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 80,
       streak: 5,
       loadShare: 6,
-      accentThemeId: 'sunset',
+      accentThemeId: 'coral',
       profileInviteCode: 'CMX-LIAM',
     },
     {
@@ -177,7 +177,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 0,
       streak: 0,
       loadShare: 0,
-      accentThemeId: 'violet',
+      accentThemeId: 'berry',
     },
     {
       id: 'm6',
@@ -189,7 +189,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 0,
       streak: 0,
       loadShare: 0,
-      accentThemeId: 'slate',
+      accentThemeId: 'citrus',
     },
     {
       id: 'm8',
@@ -201,7 +201,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 20,
       streak: 1,
       loadShare: 5,
-      accentThemeId: 'amber',
+      accentThemeId: 'citrus',
       profileInviteCode: 'CMX-JOSH',
     },
     {
@@ -214,7 +214,7 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 15,
       streak: 1,
       loadShare: 5,
-      accentThemeId: 'forest',
+      accentThemeId: 'sky',
       profileInviteCode: 'CMX-TODD',
     },
     {

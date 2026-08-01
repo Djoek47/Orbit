@@ -14,9 +14,6 @@ import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { isMockMode } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
 
-const MOCK_DEMO_EMAIL = 'sarah@orbit.test';
-const MOCK_DEMO_PASSWORD = 'orbit-demo';
-
 /** Never surface repository prefixes / raw provider dumps to testers. */
 function toUserFacingAuthError(err: unknown, fallback: string): string {
   const raw = err instanceof Error ? err.message.trim() : '';
@@ -37,8 +34,8 @@ function toUserFacingAuthError(err: unknown, fallback: string): string {
 export default function SignInScreen() {
   const { accentTheme, orbitPalette, signIn, hydrateFromSession } = useOrbit();
   const mock = isMockMode();
-  const [email, setEmail] = useState(mock ? MOCK_DEMO_EMAIL : '');
-  const [password, setPassword] = useState(mock ? MOCK_DEMO_PASSWORD : '');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -110,11 +107,7 @@ export default function SignInScreen() {
         brandHero
         kicker="Welcome back"
         title="Sign in"
-        subtitle={
-          mock
-            ? 'Open your household. Demo credentials are prefilled.'
-            : 'Use your Choremaxx account, or Get Started to create one.'
-        }
+        subtitle="Open your household with your Choremaxx account, or Get Started to create one."
         footer={
           <View style={styles.footerLinks}>
             <Pressable onPress={() => router.push('/forgot-password' as never)}>
@@ -165,21 +158,14 @@ export default function SignInScreen() {
           </>
         ) : null}
 
-        {mock ? (
-          <View style={[styles.demoHint, { backgroundColor: orbitPalette.cardMuted }]}>
+        {!mock ? (
+          <View style={[styles.hint, { backgroundColor: orbitPalette.cardMuted }]}>
             <MaterialIcons name="info-outline" size={14} color={orbitPalette.textSubtle} />
-            <Text style={[styles.demoText, { color: orbitPalette.textSubtle }]}>
-              Demo: {MOCK_DEMO_EMAIL} · {MOCK_DEMO_PASSWORD}
-            </Text>
-          </View>
-        ) : (
-          <View style={[styles.demoHint, { backgroundColor: orbitPalette.cardMuted }]}>
-            <MaterialIcons name="info-outline" size={14} color={orbitPalette.textSubtle} />
-            <Text style={[styles.demoText, { color: orbitPalette.textSubtle }]}>
+            <Text style={[styles.hintText, { color: orbitPalette.textSubtle }]}>
               Live account required. Use Get Started if you don’t have one yet.
             </Text>
           </View>
-        )}
+        ) : null}
       </AuthShell>
 
       <SignInSuccess visible={showSuccess} onDone={finishToHome} />
@@ -193,7 +179,7 @@ const styles = StyleSheet.create({
   divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.12)' },
   dividerText: { color: orbitColors.textSubtle, fontSize: 12, fontWeight: '600' },
   appleButton: { height: 48, width: '100%' },
-  demoHint: {
+  hint: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -201,7 +187,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  demoText: { color: orbitColors.textSubtle, fontSize: 12, flex: 1 },
+  hintText: { color: orbitColors.textSubtle, fontSize: 12, flex: 1 },
   footerLinks: { alignItems: 'center', gap: 14 },
   link: { fontSize: 14, fontWeight: '700' },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

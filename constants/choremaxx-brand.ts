@@ -1,18 +1,27 @@
-/** Official Choremaxx brand tokens from the primary logo lockup. */
+/** Official Choremaxx brand tokens from choremaxx_logo_color_directions. */
 export const choremaxxBrand = {
-  /** Cyan / sky — roof + “chorema” */
-  cyan: '#59B2E1',
-  /** Mint / teal — icon base ribbon */
+  /** Warm coral — primary lockup / “maxx” */
+  coral: '#D85A30',
+  /** Dark brown — “chore” wordmark + citrus secondary */
+  brown: '#712B13',
+  /** Sky blue — Sky pack primary */
+  sky: '#378ADD',
+  /** Citrus orange */
+  citrus: '#EF9F27',
+  /** Gold bars / sun accent */
+  gold: '#FAC775',
+  /** Berry purple */
+  berry: '#7F77DD',
+  /** Berry pink secondary */
+  berryPink: '#F4C0D1',
+  /** Legacy aliases used by older chrome */
+  cyan: '#378ADD',
   mint: '#76C4AE',
-  /** Gold sparkle */
-  gold: '#FFD700',
-  /** First “x” */
-  slate: '#4A6984',
-  /** Second “x” (lighter / faded) */
-  faded: '#8BB8D4',
+  slate: '#712B13',
+  faded: '#D85A30',
   /** Logo presentation background */
   black: '#000000',
-  /** App shell stays on Orbit night navy for UI chrome */
+  /** App shell night navy */
   ink: '#070D1C',
 } as const;
 

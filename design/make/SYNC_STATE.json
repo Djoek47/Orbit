@@ -5,10 +5,17 @@
   "makeVersion": "v8",
   "rootNodeId": "0:1",
   "makeUrl": "https://www.figma.com/make/nwBB1pEqZMWxsm6WE7dFeS/Design-Orbit-AI-App--copie-",
-  "lastSyncedAt": "2026-08-01T03:13:38Z",
+  "lastSyncedAt": "2026-08-01T04:55:00Z",
   "lastSyncedCommit": "pending",
-  "lastSourceHash": "design8-glass",
+  "lastSourceHash": "design8-glass+nova-v9",
   "previousFileKey": "4J6d4LW335tDyEDpqq3VD1",
+  "novaV9": {
+    "fileKey": "4J6d4LW335tDyEDpqq3VD1",
+    "makeVersion": "v9",
+    "screens": ["NovaScreen.tsx", "NovaOrb.tsx"],
+    "makeUrl": "https://www.figma.com/make/4J6d4LW335tDyEDpqq3VD1/Design-Orbit-AI-App",
+    "notes": "Nova-only sync: voice orb + transcript + Nova Activity sheet. Rest of app stays Design 8 glass SoT."
+  },
   "screensMirrored": [
     "App.tsx",
     "OnboardingScreen.tsx",
@@ -16,7 +23,8 @@
     "AdminScreen.tsx",
     "theme.css",
     "gameData.ts",
-    "choremaxx-v2-redesign.md"
+    "choremaxx-v2-redesign.md",
+    "nova-v9/NovaScreen (mirrored from 4J6d4LW335tDyEDpqq3VD1)"
   ],
   "primaryTabs": [
     "Home",
@@ -25,5 +33,5 @@
     "Rewards",
     "Nova"
   ],
-  "notes": "Make Design 8 (copie): iOS glass itineraries with Smart Trips + My Places + Pickup Summary; Admin/Settings glass SectionCards; onboarding glass cues. Visual SoT for onboarding/itineraries/settings/palette. Product IA remains docs/product-context.md."
+  "notes": "Make Design 8 (copie) remains visual SoT for onboarding/itineraries/settings/palette. Nova + Nova Activity ported from original Make fileKey 4J6d4LW335tDyEDpqq3VD1 v9 only. Product IA remains docs/product-context.md."
 }

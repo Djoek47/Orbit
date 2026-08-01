@@ -212,6 +212,10 @@ export class NovaRealtimeSession {
       const delta = String(event.delta ?? '');
       this.assistantBuffer += delta;
       this.callbacks.onStateChange?.('speaking');
+      // Stream partial assistant text so the Make-style transcript panel can update live.
+      if (this.assistantBuffer.trim()) {
+        this.callbacks.onTranscript?.('assistant', this.assistantBuffer);
+      }
     }
 
     if (type === 'response.audio_transcript.done' || type === 'response.text.done') {

@@ -96,6 +96,7 @@ import {
 import {
   DEFAULT_COLOR_PALETTE_ID,
   isColorPaletteId,
+  migrateColorPaletteId,
   type ColorPaletteId,
 } from '@/constants/color-palettes';
 import type { OrbitColorPalette } from '@/constants/orbit-theme';
@@ -1588,13 +1589,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const resolvedPaletteId = useMemo<ColorPaletteId>(() => {
-    if (isColorPaletteId(currentMember?.accentThemeId)) {
-      return currentMember.accentThemeId;
+    if (currentMember?.accentThemeId) {
+      return migrateColorPaletteId(currentMember.accentThemeId);
     }
-    if (isColorPaletteId(household.accentThemeId)) {
-      return household.accentThemeId;
+    if (household.accentThemeId) {
+      return migrateColorPaletteId(household.accentThemeId);
     }
-    return paletteId ?? DEFAULT_COLOR_PALETTE_ID;
+    return migrateColorPaletteId(paletteId ?? DEFAULT_COLOR_PALETTE_ID);
   }, [currentMember?.accentThemeId, household.accentThemeId, paletteId]);
 
   const accentTheme = useMemo(

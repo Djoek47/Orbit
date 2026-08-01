@@ -11,13 +11,14 @@ import {
   DEFAULT_COLOR_PALETTE_ID,
   getColorPalette,
   isColorPaletteId,
+  migrateColorPaletteId,
   resolveThemeFromPalette,
   type ColorPaletteId,
 } from '@/constants/color-palettes';
 import { choremaxxBrand } from '@/constants/choremaxx-brand';
 import type { OrbitColorPalette } from '@/constants/orbit-theme';
 import {
-  isAccentThemeId,
+  isResolvableAccentThemeId,
   type AccentThemeId,
 } from '@/constants/accent-themes';
 
@@ -103,20 +104,34 @@ export async function loadPaletteId(
   try {
     if (householdId && memberId) {
       const memberRaw = await AsyncStorage.getItem(`${MEMBER_PALETTE_KEY}:${householdId}:${memberId}`);
-      if (isColorPaletteId(memberRaw)) return memberRaw;
+      if (memberRaw && (isColorPaletteId(memberRaw) || isResolvableAccentThemeId(memberRaw))) {
+        const migrated = migrateColorPaletteId(memberRaw);
+        if (migrated !== memberRaw) {
+          await AsyncStorage.setItem(`${MEMBER_PALETTE_KEY}:${householdId}:${memberId}`, migrated);
+        }
+        return migrated;
+      }
       const legacyMember = await AsyncStorage.getItem(`${LEGACY_ACCENT_MEMBER}:${householdId}:${memberId}`);
-      if (isAccentThemeId(legacyMember)) {
-        await AsyncStorage.setItem(`${MEMBER_PALETTE_KEY}:${householdId}:${memberId}`, legacyMember);
-        return legacyMember;
+      if (isResolvableAccentThemeId(legacyMember)) {
+        const migrated = migrateColorPaletteId(legacyMember);
+        await AsyncStorage.setItem(`${MEMBER_PALETTE_KEY}:${householdId}:${memberId}`, migrated);
+        return migrated;
       }
     }
     if (householdId) {
       const hhRaw = await AsyncStorage.getItem(`${PALETTE_KEY}:${householdId}`);
-      if (isColorPaletteId(hhRaw)) return hhRaw;
+      if (hhRaw && (isColorPaletteId(hhRaw) || isResolvableAccentThemeId(hhRaw))) {
+        const migrated = migrateColorPaletteId(hhRaw);
+        if (migrated !== hhRaw) {
+          await AsyncStorage.setItem(`${PALETTE_KEY}:${householdId}`, migrated);
+        }
+        return migrated;
+      }
       const legacyHh = await AsyncStorage.getItem(`${LEGACY_ACCENT_HH}:${householdId}`);
-      if (isAccentThemeId(legacyHh)) {
-        await AsyncStorage.setItem(`${PALETTE_KEY}:${householdId}`, legacyHh);
-        return legacyHh;
+      if (isResolvableAccentThemeId(legacyHh)) {
+        const migrated = migrateColorPaletteId(legacyHh);
+        await AsyncStorage.setItem(`${PALETTE_KEY}:${householdId}`, migrated);
+        return migrated;
       }
     }
     return DEFAULT_COLOR_PALETTE_ID;
@@ -241,9 +256,9 @@ export function resolveOrbitPalette(
   };
 }
 
-/** Map a legacy AccentThemeId onto ColorPaletteId (identity). */
-export function accentIdAsPaletteId(id: AccentThemeId): ColorPaletteId {
-  return isColorPaletteId(id) ? id : DEFAULT_COLOR_PALETTE_ID;
+/** Map a legacy AccentThemeId onto ColorPaletteId. */
+export function accentIdAsPaletteId(id: AccentThemeId | string): ColorPaletteId {
+  return migrateColorPaletteId(id);
 }
 
 export { getColorPalette };

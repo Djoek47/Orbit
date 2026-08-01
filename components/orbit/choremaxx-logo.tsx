@@ -24,7 +24,7 @@ type ChoremaxxLogoProps = {
 };
 
 /**
- * Official Choremaxx lockup: brand mark + wordmark “chorema” with dual-tone “xx”.
+ * Official Choremaxx lockup: brand mark + wordmark “chore” (brown) + “maxx” (coral).
  */
 export function ChoremaxxLogo({
   size = 'md',
@@ -55,12 +55,10 @@ export function ChoremaxxLogo({
 }
 
 function Wordmark({ fontSize }: { fontSize: number }) {
-  const xSize = fontSize * 0.96;
   return (
     <View style={styles.wordRow}>
-      <Text style={[styles.chorema, { fontSize, lineHeight: fontSize * 1.1 }]}>chorema</Text>
-      <Text style={[styles.xPrimary, { fontSize: xSize, lineHeight: fontSize * 1.1 }]}>x</Text>
-      <Text style={[styles.xFaded, { fontSize: xSize, lineHeight: fontSize * 1.1 }]}>x</Text>
+      <Text style={[styles.chore, { fontSize, lineHeight: fontSize * 1.1 }]}>chore</Text>
+      <Text style={[styles.maxx, { fontSize, lineHeight: fontSize * 1.1 }]}>maxx</Text>
     </View>
   );
 }
@@ -125,9 +123,8 @@ export function ChoremaxxBadge({
       />
       {showWordmark ? (
         <View style={styles.badgeWord}>
-          <Text style={[styles.badgeChorema, { fontSize: scale.text }]}>chorema</Text>
-          <Text style={[styles.badgeX, { fontSize: scale.x }]}>x</Text>
-          <Text style={[styles.badgeXFaded, { fontSize: scale.x }]}>x</Text>
+          <Text style={[styles.badgeChore, { fontSize: scale.text }]}>chore</Text>
+          <Text style={[styles.badgeMaxx, { fontSize: scale.text }]}>maxx</Text>
         </View>
       ) : null}
     </View>
@@ -140,8 +137,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
   },
-  badgeChorema: {
-    color: choremaxxBrand.cyan,
+  badgeChore: {
+    color: choremaxxBrand.brown,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.35,
+  },
+  badgeMaxx: {
+    color: choremaxxBrand.coral,
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: -0.35,
@@ -150,21 +153,13 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     flexDirection: 'row',
   },
-  badgeX: {
-    color: choremaxxBrand.slate,
-    fontSize: 13.5,
+  chore: {
+    color: choremaxxBrand.brown,
     fontWeight: '700',
-    letterSpacing: -0.8,
+    letterSpacing: -0.6,
   },
-  badgeXFaded: {
-    color: choremaxxBrand.faded,
-    fontSize: 13.5,
-    fontWeight: '700',
-    letterSpacing: -0.8,
-    opacity: 0.85,
-  },
-  chorema: {
-    color: choremaxxBrand.cyan,
+  maxx: {
+    color: choremaxxBrand.coral,
     fontWeight: '700',
     letterSpacing: -0.6,
   },
@@ -175,16 +170,5 @@ const styles = StyleSheet.create({
   wordRow: {
     alignItems: 'baseline',
     flexDirection: 'row',
-  },
-  xFaded: {
-    color: choremaxxBrand.faded,
-    fontWeight: '700',
-    letterSpacing: -1.1,
-    opacity: 0.9,
-  },
-  xPrimary: {
-    color: choremaxxBrand.slate,
-    fontWeight: '700',
-    letterSpacing: -1.1,
   },
 });

@@ -10,7 +10,7 @@ import { useOrbit } from '@/store/orbit-store';
 
 export default function ForgotPasswordScreen() {
   const { accentTheme, forgotPassword, orbitPalette } = useOrbit();
-  const [email, setEmail] = useState('sarah@orbit.test');
+  const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 

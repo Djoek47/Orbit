@@ -1,9 +1,9 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -12,12 +12,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { NovaCard } from '@/components/orbit/nova-card';
 import { NovaOrb } from '@/components/orbit/nova-orb';
-import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { NovaWaveform } from '@/components/orbit/nova-waveform';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
-import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
+import { radius, space } from '@/constants/orbit-theme';
+import { greetingWord } from '@/lib/time/greeting';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
   isNovaRealtimeEnabled,
   NovaRealtimeSession,
@@ -27,16 +29,13 @@ import {
 import { useOrbit } from '@/store/orbit-store';
 import type { NovaMonitorAction, NotificationItem } from '@/types/orbit';
 
-// Apple-Intelligence-style reframe (design-system/07-nova-experience.md §3):
-// briefing feed is the default landing view; chat is the "Ask Nova" fallback.
-type NovaTab = 'briefing' | 'chat';
 type NovaVisualState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
-const STATE_CONFIG: Record<NovaVisualState, { label: string; color: string; speaking: boolean }> = {
-  idle: { label: 'Nova · Ready', color: '#06B6D4', speaking: false },
-  listening: { label: 'Nova · Listening…', color: '#34D399', speaking: false },
-  thinking: { label: 'Nova · Thinking…', color: '#A78BFA', speaking: false },
-  speaking: { label: 'Nova · Speaking', color: '#38BDF8', speaking: true },
+const STATE_CONFIG: Record<NovaVisualState, { label: string; color: string }> = {
+  idle: { label: 'Nova · Ready', color: '#06B6D4' },
+  listening: { label: 'Nova · Listening…', color: '#34D399' },
+  thinking: { label: 'Nova · Thinking…', color: '#A78BFA' },
+  speaking: { label: 'Nova · Speaking', color: '#38BDF8' },
 };
 
 const ACTIVITY_TYPE_CONFIG: Record<
@@ -57,6 +56,11 @@ const ACTIVITY_TYPE_CONFIG: Record<
   holiday: { icon: 'flight', color: '#A78BFA', action: 'Holiday' },
   ask_info: { icon: 'help-outline', color: '#38BDF8', action: 'Asked' },
   monitor: { icon: 'visibility', color: '#06B6D4', action: 'Monitor' },
+  completed: { icon: 'check-circle', color: '#34D399', action: 'Marked complete' },
+  reminder: { icon: 'notifications-active', color: '#A78BFA', action: 'Sent reminder' },
+  insight: { icon: 'lightbulb', color: '#FBBF24', action: 'Insight detected' },
+  itinerary: { icon: 'place', color: '#38BDF8', action: 'Itinerary created' },
+  notification: { icon: 'notifications', color: '#FB923C', action: 'Notification sent' },
 };
 
 const MONITOR_KIND_EMOJI: Record<NovaMonitorAction['kind'], string> = {
@@ -90,8 +94,15 @@ function activityEmoji(category: NotificationItem['category']) {
   return '🔔';
 }
 
+/**
+ * Make v9 Nova — voice-first orb + live transcript + Nova Activity sheet.
+ * Realtime: set EXPO_PUBLIC_NOVA_REALTIME=1 with live Nova AI + supabase edge
+ * `nova-realtime-session`. Falls back to Whisper + askNova when gated off.
+ */
 export default function NovaScreen() {
   const chromePad = useTabChromePaddingTop();
+  const insets = useSafeAreaInsets();
+  const { c, isDark, glass, glassBorder } = useOrbitColors();
   const {
     appendNovaTurn,
     askNova,
@@ -99,23 +110,21 @@ export default function NovaScreen() {
     household,
     metrics,
     notifications,
-    novaConversation,
     novaMonitorActions,
     novaWeeklyBriefing,
-    runNovaMonitor,
-    suggestedNovaQuestions,
     orbitPalette,
   } = useOrbit();
 
-  const [activeTab, setActiveTab] = useState<NovaTab>('briefing');
-  const [showHistory, setShowHistory] = useState(false);
+  const [showText, setShowText] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
   const [draft, setDraft] = useState('');
   const [asking, setAsking] = useState(false);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
   const [voiceState, setVoiceState] = useState<NovaRealtimeVisualState>('idle');
+  const [userTranscript, setUserTranscript] = useState('');
+  const [novaTranscript, setNovaTranscript] = useState('');
   const [localMonitorActions, setLocalMonitorActions] = useState<NovaMonitorAction[]>([]);
-  const scrollRef = useRef<ScrollView>(null);
   const realtimeRef = useRef<NovaRealtimeSession | null>(null);
 
   const visualState: NovaVisualState =
@@ -127,6 +136,7 @@ export default function NovaScreen() {
           ? 'thinking'
           : 'idle';
   const cfg = STATE_CONFIG[visualState];
+  const isActive = visualState !== 'idle';
 
   useEffect(() => {
     return () => {
@@ -134,28 +144,6 @@ export default function NovaScreen() {
       realtimeRef.current = null;
     };
   }, []);
-
-  const messages = useMemo(() => {
-    const mapped = novaConversation.map((msg, index) => ({
-      id: `${index}-${msg.role}`,
-      role: msg.role === 'user' ? ('user' as const) : ('nova' as const),
-      text: msg.content,
-      timestamp: formatTime(),
-    }));
-
-    if (mapped.length === 0) {
-      return [
-        {
-          id: 'briefing',
-          role: 'nova' as const,
-          text: `Good morning. ${novaWeeklyBriefing.summary}`,
-          timestamp: formatTime(),
-        },
-      ];
-    }
-
-    return mapped;
-  }, [novaConversation, novaWeeklyBriefing.summary]);
 
   const monitorFeed = useMemo(
     () =>
@@ -172,71 +160,80 @@ export default function NovaScreen() {
       body: action.detail,
       category: action.kind as string,
       createdAt: action.createdAt,
-      isMonitor: true as const,
+      emoji: MONITOR_KIND_EMOJI[action.kind] ?? '🔔',
+      actionLabel: ACTIVITY_TYPE_CONFIG[action.kind]?.action ?? action.label,
     }));
-    const aiItems = notifications
-      .filter((item) => item.category === 'ai')
-      .map((item) => ({ ...item, isMonitor: false as const }));
-    const recent = notifications
-      .filter((item) => item.category !== 'ai')
+    const fromNotes = notifications
+      .slice()
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 6)
-      .map((item) => ({ ...item, isMonitor: false as const }));
-    return [...fromMonitor, ...aiItems, ...recent].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+      .slice(0, 12)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        body: item.body,
+        category: item.category,
+        createdAt: item.createdAt,
+        emoji: activityEmoji(item.category),
+        actionLabel: ACTIVITY_TYPE_CONFIG[item.category]?.action ?? item.title,
+      }));
+    return [...fromMonitor, ...fromNotes]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 16);
   }, [monitorFeed, notifications]);
+
+  const recentBadgeCount = useMemo(
+    () =>
+      activityItems.filter((item) => {
+        const mins = (Date.now() - new Date(item.createdAt).getTime()) / 60000;
+        return mins < 60;
+      }).length,
+    [activityItems]
+  );
 
   const novaStats = useMemo(
     () => [
       {
-        val: String(novaWeeklyBriefing.tasksCompleted || household.tasks.filter((t) => t.status === 'Completed').length),
-        label: 'Tasks managed',
+        val: String(
+          novaWeeklyBriefing.tasksCompleted ||
+            household.tasks.filter((t) => t.status === 'Completed').length
+        ),
+        label: 'Managed',
         emoji: '✅',
       },
       {
         val: String(household.itineraries?.length ?? 0),
-        label: 'Trips created',
+        label: 'Trips',
         emoji: '🗺️',
       },
       {
         val: `${Math.max(1, Math.abs(novaWeeklyBriefing.momentumChange) || 2)}h`,
-        label: 'Time saved',
+        label: 'Saved',
         emoji: '⏱️',
       },
     ],
-    [household.itineraries?.length, household.tasks, novaWeeklyBriefing.momentumChange, novaWeeklyBriefing.tasksCompleted]
+    [
+      household.itineraries?.length,
+      household.tasks,
+      novaWeeklyBriefing.momentumChange,
+      novaWeeklyBriefing.tasksCompleted,
+    ]
   );
 
-  const handleSend = async (text?: string) => {
-    const trimmed = (text ?? draft).trim();
-    if (!trimmed || asking || listening) return;
-
-    setAsking(true);
-    setError('');
-    try {
-      await askNova(trimmed);
-      setDraft('');
-      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
-    } catch {
-      setError('Nova could not answer right now. Try again in a moment.');
-    } finally {
-      setAsking(false);
+  const applyTranscript = (role: 'user' | 'assistant', text: string) => {
+    if (role === 'user') {
+      setUserTranscript(text);
+      setNovaTranscript('');
+    } else {
+      setNovaTranscript(text);
     }
   };
 
   const ensureRealtime = async () => {
-    if (!isNovaRealtimeEnabled()) {
-      return null;
-    }
-    if (realtimeRef.current?.isConnected) {
-      return realtimeRef.current;
-    }
+    if (!isNovaRealtimeEnabled()) return null;
+    if (realtimeRef.current?.isConnected) return realtimeRef.current;
     const session = new NovaRealtimeSession({
       onStateChange: setVoiceState,
-      onTranscript: () => {
-        requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
-      },
+      onTranscript: applyTranscript,
       onToolCall: async (name, args) => {
         setLocalMonitorActions((current) => [toolCallToMonitorAction(name, args), ...current]);
         return { ok: true, tool: name, args };
@@ -252,9 +249,64 @@ export default function NovaScreen() {
     return session;
   };
 
-  const handleMicPressIn = async () => {
+  const handleSend = async () => {
+    const trimmed = draft.trim();
+    if (!trimmed || asking || listening) return;
+    setDraft('');
+    setUserTranscript(trimmed);
+    setNovaTranscript('');
+    setAsking(true);
+    setError('');
+    setVoiceState('thinking');
+    try {
+      const result = await askNova(trimmed);
+      setVoiceState('speaking');
+      setNovaTranscript(result.answer);
+    } catch {
+      setError('Nova could not answer right now. Try again in a moment.');
+    } finally {
+      setAsking(false);
+      setTimeout(() => setVoiceState('idle'), 1800);
+    }
+  };
+
+  const toggleMic = async () => {
+    if (isActive && listening) {
+      // Cancel / end listen
+      setAsking(true);
+      try {
+        const session = realtimeRef.current;
+        if (session?.isConnected) {
+          const result = await session.endListen(household, metrics);
+          if (result.answer) {
+            applyTranscript('user', result.answer.question);
+            applyTranscript('assistant', result.answer.answer);
+            appendNovaTurn(result.answer.question, result.answer.answer);
+          }
+        } else {
+          const { stopVoiceCapture } = await import('@/lib/voice/nova-voice');
+          const uri = await stopVoiceCapture();
+          setVoiceState('thinking');
+          const result = await askNovaVoice(uri);
+          applyTranscript('user', result.question);
+          setVoiceState('speaking');
+          applyTranscript('assistant', result.answer);
+        }
+      } catch {
+        setError('Nova voice failed. Try again or type your question.');
+        setVoiceState('idle');
+      } finally {
+        setListening(false);
+        setAsking(false);
+        setTimeout(() => setVoiceState('idle'), 1600);
+      }
+      return;
+    }
+
     if (asking || listening) return;
     setError('');
+    setUserTranscript('');
+    setNovaTranscript('');
     setListening(true);
     try {
       const session = await ensureRealtime();
@@ -272,632 +324,586 @@ export default function NovaScreen() {
     }
   };
 
-  const handleMicPressOut = async () => {
-    if (!listening) return;
-    setAsking(true);
-    try {
-      const session = realtimeRef.current;
-      if (session?.isConnected) {
-        const result = await session.endListen(household, metrics);
-        if (result.answer) {
-          appendNovaTurn(result.answer.question, result.answer.answer);
-        }
-      } else {
-        const { stopVoiceCapture } = await import('@/lib/voice/nova-voice');
-        const uri = await stopVoiceCapture();
-        setVoiceState('thinking');
-        await askNovaVoice(uri);
-        setVoiceState('idle');
-      }
-      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
-    } catch {
-      setError('Nova voice failed. Try again or type your question.');
-      setVoiceState('idle');
-    } finally {
-      setListening(false);
-      setAsking(false);
-    }
-  };
+  const ambient =
+    visualState === 'listening'
+      ? 'rgba(52,211,153,0.12)'
+      : visualState === 'speaking'
+        ? 'rgba(56,189,248,0.14)'
+        : visualState === 'thinking'
+          ? 'rgba(167,139,250,0.12)'
+          : isDark
+            ? 'rgba(56,189,248,0.06)'
+            : `${orbitPalette.primary}18`;
 
-  const handleRefreshMonitor = async () => {
-    setAsking(true);
-    try {
-      await runNovaMonitor();
-      setActiveTab('briefing');
-      setShowHistory(true);
-    } catch {
-      setError('Monitor refresh failed.');
-    } finally {
-      setAsking(false);
-    }
-  };
+  const transcriptRoleLabel =
+    visualState === 'speaking' && novaTranscript
+      ? 'NOVA'
+      : visualState === 'thinking'
+        ? 'PROCESSING'
+        : userTranscript
+          ? 'YOU'
+          : null;
+
+  const transcriptBody =
+    visualState === 'speaking' && novaTranscript
+      ? novaTranscript
+      : userTranscript ||
+        (visualState === 'idle'
+          ? ''
+          : '');
+
+  const idleHint = `${greetingWord()}. Tap to speak with Nova`;
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: orbitPalette.background }]}
+      style={[styles.container, { backgroundColor: isDark ? '#000000' : orbitPalette.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={88}>
+      keyboardVerticalOffset={24}>
+      <View
+        style={[styles.ambient, { backgroundColor: ambient }]}
+        pointerEvents="none"
+      />
+
       <View style={[styles.header, { paddingTop: chromePad }]}>
-        <View style={styles.headerGlow} pointerEvents="none" />
-        <NovaOrb size={80} speaking={cfg.speaking} />
-        <View style={styles.stateRow}>
-          <View style={[styles.stateDot, { backgroundColor: cfg.color }]} />
-          <Text style={[styles.stateLabel, { color: cfg.color }]}>{cfg.label}</Text>
-        </View>
-        <PageEyebrow>Household majordomo</PageEyebrow>
-        <Pressable style={styles.refreshChip} onPress={handleRefreshMonitor} disabled={asking}>
-          <MaterialIcons name="refresh" size={14} color={orbitColors.orbitBlue} />
-          <Text style={styles.refreshChipText}>Run Nova check</Text>
+        <Text style={[styles.kicker, { color: isDark ? 'rgba(255,255,255,0.3)' : c.textSubtle }]}>
+          NOVA AI
+        </Text>
+        <Pressable
+          style={[
+            styles.bellBtn,
+            {
+              backgroundColor: glass(0.06),
+              borderColor: glassBorder(0.1),
+            },
+          ]}
+          onPress={() => setShowActivity(true)}
+          accessibilityLabel="Nova Activity">
+          <MaterialIcons name="notifications-none" size={18} color={c.textMuted} />
+          {recentBadgeCount > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{Math.min(9, recentBadgeCount)}</Text>
+            </View>
+          ) : null}
         </Pressable>
       </View>
 
-      {activeTab === 'chat' ? (
-        <View style={styles.chatPane}>
-          <Pressable style={styles.backRow} onPress={() => setActiveTab('briefing')} hitSlop={8}>
-            <MaterialIcons name="chevron-left" size={18} color={orbitColors.textMuted} />
-            <Text style={styles.backText}>Briefing</Text>
-          </Pressable>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickActions}>
-            {suggestedNovaQuestions.map((action) => (
-              <Pressable
-                key={action}
-                disabled={asking}
-                onPress={() => handleSend(action)}
-                style={styles.quickChip}>
-                <Text style={styles.quickChipText}>{action}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          <ScrollView
-            ref={scrollRef}
-            style={styles.messagesScroll}
-            contentContainerStyle={styles.messagesContent}
-            showsVerticalScrollIndicator={false}>
-            {messages.map((msg) => (
-              <View
-                key={msg.id}
-                style={[styles.messageRow, msg.role === 'user' ? styles.messageRowUser : styles.messageRowNova]}>
-                {msg.role === 'nova' ? <View style={styles.novaAvatar} /> : null}
-                <View style={{ maxWidth: '78%' }}>
-                  {msg.role === 'user' ? (
-                    <LinearGradient
-                      colors={['#0EA5E9', '#0369A1']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.userBubble}>
-                      <Text style={styles.bubbleText}>{msg.text}</Text>
-                    </LinearGradient>
-                  ) : (
-                    <View style={styles.novaBubble}>
-                      <Text style={styles.bubbleText}>{msg.text}</Text>
-                    </View>
-                  )}
-                  <Text style={[styles.timestamp, msg.role === 'user' && styles.timestampUser]}>{msg.timestamp}</Text>
-                </View>
-              </View>
-            ))}
-
-            {asking ? (
-              <View style={styles.messageRowNova}>
-                <View style={styles.novaAvatar} />
-                <View style={styles.thinkingBubble}>
-                  {[0, 1, 2].map((dot) => (
-                    <View key={dot} style={[styles.thinkingDot, { opacity: 0.45 + dot * 0.2 }]} />
+      <View style={styles.stage}>
+        <View style={styles.transcriptBlock}>
+          {transcriptRoleLabel && (transcriptBody || visualState === 'thinking') ? (
+            <>
+              <Text style={[styles.roleLabel, { color: cfg.color }]}>{transcriptRoleLabel}</Text>
+              <Text
+                style={[
+                  styles.transcriptText,
+                  { color: isDark ? 'rgba(255,255,255,0.9)' : c.text },
+                ]}>
+                {transcriptBody ||
+                  (visualState === 'thinking' ? 'Working on your household…' : '')}
+              </Text>
+              {visualState === 'thinking' ? (
+                <View style={styles.dots}>
+                  {[0, 1, 2].map((i) => (
+                    <View key={i} style={[styles.dot, { backgroundColor: cfg.color, opacity: 0.5 + i * 0.2 }]} />
                   ))}
                 </View>
-              </View>
-            ) : null}
-
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-          </ScrollView>
-
-          <View style={styles.inputWrap}>
-            <View style={styles.inputBar}>
-              <MaterialIcons name="auto-awesome" size={16} color={orbitColors.orbitBlue} />
-              <TextInput
-                value={draft}
-                onChangeText={setDraft}
-                placeholder="Ask Nova anything…"
-                placeholderTextColor={orbitColors.textSubtle}
-                style={styles.input}
-                multiline
-                editable={!asking}
-              />
-              <Pressable
-                style={[styles.micButton, listening && styles.micButtonActive]}
-                onPressIn={handleMicPressIn}
-                onPressOut={handleMicPressOut}
-                disabled={asking && !listening}>
-                <MaterialIcons
-                  name={listening ? 'mic' : 'mic-none'}
-                  size={15}
-                  color={listening ? '#34D399' : orbitColors.orbitBlue}
-                />
-              </Pressable>
-              <Pressable
-                disabled={asking || draft.trim().length < 1}
-                onPress={() => handleSend()}
-                style={styles.sendWrap}>
-                {draft.trim().length > 0 && !asking ? (
-                  <LinearGradient colors={['#38BDF8', '#0EA5E9']} style={styles.sendButton}>
-                    <MaterialIcons name="send" size={14} color={orbitColors.ink} />
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.sendButtonDisabled}>
-                    <MaterialIcons name="send" size={14} color={orbitColors.textSubtle} />
-                  </View>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      ) : (
-        <ScrollView style={styles.activityScroll} contentContainerStyle={styles.activityContent}>
-          <NovaCard
-            kind="morningBrief"
-            message={novaWeeklyBriefing.summary}
-            actions={[{ label: 'Ask a follow-up', onPress: () => setActiveTab('chat') }]}
-          />
-
-          {monitorFeed.slice(0, 3).map((action) => (
-            <NovaCard key={action.id} kind="recommendation" message={action.detail || action.label} />
-          ))}
-
-          <Pressable style={styles.askRow} onPress={() => setActiveTab('chat')}>
-            <MaterialIcons name="auto-awesome" size={16} color={orbitColors.orbitBlue} />
-            <Text style={styles.askRowText}>Ask Nova anything…</Text>
-          </Pressable>
-
-          <LinearGradient
-            colors={['rgba(6,182,212,0.10)', 'rgba(56,189,248,0.06)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.statsCard}>
-            <Text style={styles.statsEyebrow}>NOVA THIS WEEK</Text>
-            <View style={styles.statsGrid}>
-              {novaStats.map((stat) => (
-                <View key={stat.label} style={styles.statTile}>
-                  <Text style={styles.statEmoji}>{stat.emoji}</Text>
-                  <Text style={styles.statValue}>{stat.val}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                </View>
-              ))}
-            </View>
-          </LinearGradient>
-
-          <Pressable style={styles.historyToggle} onPress={() => setShowHistory((v) => !v)}>
-            <Text style={styles.historyToggleText}>
-              History · {monitorFeed.length} actions · {activityItems.length} items
+              ) : null}
+            </>
+          ) : (
+            <Text style={[styles.idleHint, { color: isDark ? 'rgba(255,255,255,0.25)' : c.textMuted }]}>
+              {idleHint}
             </Text>
+          )}
+        </View>
+
+        <Pressable onPress={() => void toggleMic()} accessibilityRole="button">
+          <NovaOrb size={176} state={visualState} speaking={visualState === 'speaking'} />
+        </Pressable>
+
+        <View style={styles.waveWrap}>
+          <NovaWaveform
+            active={visualState === 'listening' || visualState === 'speaking'}
+            color={cfg.color}
+          />
+        </View>
+      </View>
+
+      {error ? (
+        <Text style={[styles.error, { color: c.danger }]}>{error}</Text>
+      ) : null}
+
+      <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+        {showText ? (
+          <View
+            style={[
+              styles.textComposer,
+              {
+                backgroundColor: glass(0.06),
+                borderColor: glassBorder(0.12),
+              },
+            ]}>
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Type to Nova…"
+              placeholderTextColor={c.textSubtle}
+              style={[styles.textInput, { color: c.text }]}
+              onSubmitEditing={() => void handleSend()}
+              returnKeyType="send"
+            />
+            <Pressable
+              onPress={() => void handleSend()}
+              style={[
+                styles.sendBtn,
+                {
+                  backgroundColor: draft.trim() ? '#38BDF8' : glass(0.08),
+                },
+              ]}>
+              <MaterialIcons
+                name="send"
+                size={16}
+                color={draft.trim() ? '#041018' : c.textSubtle}
+              />
+            </Pressable>
+          </View>
+        ) : null}
+
+        <View style={styles.controlRow}>
+          <Pressable
+            onPress={() => setShowText((v) => !v)}
+            style={[
+              styles.sideBtn,
+              {
+                backgroundColor: showText ? 'rgba(56,189,248,0.15)' : glass(0.07),
+                borderColor: showText ? 'rgba(56,189,248,0.3)' : glassBorder(0.1),
+              },
+            ]}>
             <MaterialIcons
-              name={showHistory ? 'expand-less' : 'expand-more'}
-              size={18}
-              color={orbitColors.textMuted}
+              name={showText ? 'close' : 'keyboard'}
+              size={20}
+              color={showText ? '#38BDF8' : c.textMuted}
             />
           </Pressable>
 
-          {showHistory
-            ? activityItems.map((item) => {
-                const config = ACTIVITY_TYPE_CONFIG[item.category] ?? ACTIVITY_TYPE_CONFIG.general;
-                const emoji =
-                  'isMonitor' in item && item.isMonitor
-                    ? MONITOR_KIND_EMOJI[(item.category as NovaMonitorAction['kind'])] ?? '👁️'
-                    : activityEmoji(item.category as NotificationItem['category']);
+          <Pressable
+            onPress={() => void toggleMic()}
+            style={styles.micWrap}
+            accessibilityLabel={listening ? 'Stop listening' : 'Talk to Nova'}>
+            {visualState === 'listening' ? (
+              <View style={[styles.micPulse, { backgroundColor: 'rgba(52,211,153,0.2)' }]} />
+            ) : null}
+            <LinearGradient
+              colors={
+                visualState === 'listening'
+                  ? ['rgba(52,211,153,0.95)', 'rgba(16,185,129,0.85)']
+                  : isActive
+                    ? ['rgba(56,189,248,0.9)', 'rgba(14,165,233,0.8)']
+                    : isDark
+                      ? ['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.06)']
+                      : [`${c.primary}33`, `${c.primary}18`]
+              }
+              style={[
+                styles.micBtn,
+                {
+                  borderColor: isActive ? 'rgba(255,255,255,0.25)' : glassBorder(0.14),
+                },
+              ]}>
+              {visualState === 'idle' ? (
+                <MaterialIcons name="mic" size={32} color={isDark ? '#fff' : c.text} />
+              ) : visualState === 'listening' ? (
+                <View style={styles.stopSquare} />
+              ) : (
+                <MaterialIcons name="graphic-eq" size={28} color="#fff" />
+              )}
+            </LinearGradient>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setShowActivity(true)}
+            style={[
+              styles.sideBtn,
+              {
+                backgroundColor: glass(0.07),
+                borderColor: glassBorder(0.1),
+              },
+            ]}>
+            <MaterialIcons name="keyboard-arrow-up" size={22} color={c.textMuted} />
+          </Pressable>
+        </View>
+
+        <Text style={[styles.stateLabel, { color: isActive ? cfg.color : c.textSubtle }]}>
+          {cfg.label}
+        </Text>
+      </View>
+
+      <Modal
+        visible={showActivity}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowActivity(false)}>
+        <Pressable style={styles.sheetBackdrop} onPress={() => setShowActivity(false)} />
+        <View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: isDark ? 'rgba(10,10,18,0.98)' : c.cardStrong,
+              borderColor: glassBorder(0.1),
+              paddingBottom: Math.max(insets.bottom, 16),
+            },
+          ]}>
+          <View style={styles.sheetHandle} />
+          <View style={styles.sheetHeader}>
+            <View>
+              <Text style={[styles.sheetTitle, { color: c.text }]}>Nova Activity</Text>
+              <Text style={[styles.sheetSub, { color: c.textMuted }]}>
+                Recent actions & insights
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setShowActivity(false)}
+              style={[styles.sheetClose, { backgroundColor: glass(0.08) }]}>
+              <MaterialIcons name="close" size={18} color={c.textMuted} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            style={styles.sheetScroll}
+            contentContainerStyle={styles.sheetContent}
+            showsVerticalScrollIndicator={false}>
+            {activityItems.length === 0 ? (
+              <Text style={{ color: c.textMuted, fontSize: 14 }}>
+                Nova hasn&apos;t logged activity yet. Ask a question or run a household check.
+              </Text>
+            ) : (
+              activityItems.map((item) => {
+                const tc = ACTIVITY_TYPE_CONFIG[item.category] ?? ACTIVITY_TYPE_CONFIG.general;
                 return (
-                  <View key={item.id} style={styles.activityCard}>
-                    <View style={[styles.activityIconWrap, { backgroundColor: `${config.color}15`, borderColor: `${config.color}25` }]}>
-                      <MaterialIcons name={config.icon} size={16} color={config.color} />
+                  <View
+                    key={item.id}
+                    style={[
+                      styles.activityCard,
+                      {
+                        backgroundColor: glass(0.04),
+                        borderColor: glassBorder(0.08),
+                      },
+                    ]}>
+                    <View
+                      style={[
+                        styles.activityIcon,
+                        {
+                          backgroundColor: `${tc.color}18`,
+                          borderColor: `${tc.color}33`,
+                        },
+                      ]}>
+                      <MaterialIcons name={tc.icon} size={16} color={tc.color} />
                     </View>
                     <View style={styles.activityCopy}>
                       <View style={styles.activityMeta}>
-                        <Text style={[styles.activityAction, { color: config.color }]}>{item.title || config.action}</Text>
-                        <Text style={styles.activityDot}>·</Text>
-                        <Text style={styles.activityTime}>{formatTime(item.createdAt)}</Text>
+                        <Text style={[styles.activityAction, { color: tc.color }]}>
+                          {item.actionLabel}
+                        </Text>
+                        <Text style={[styles.activityTime, { color: c.textSubtle }]}>
+                          · {formatTime(item.createdAt)}
+                        </Text>
                       </View>
-                      <Text style={styles.activityDetail}>{item.body}</Text>
+                      <Text style={[styles.activityDetail, { color: c.textSoft }]} numberOfLines={3}>
+                        {item.body || item.title}
+                      </Text>
                     </View>
-                    <Text style={styles.activityEmoji}>{emoji}</Text>
+                    <Text style={styles.activityEmoji}>{item.emoji}</Text>
                   </View>
                 );
               })
-            : null}
+            )}
 
-          <Pressable onPress={() => router.push('/notifications' as never)}>
-            <Text style={styles.viewAll}>View all notifications</Text>
-          </Pressable>
-        </ScrollView>
-      )}
+            <View
+              style={[
+                styles.weekCard,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(6,182,212,0.08)'
+                    : `${c.novaCyan}12`,
+                  borderColor: isDark ? 'rgba(56,189,248,0.12)' : `${c.novaCyan}33`,
+                },
+              ]}>
+              <Text style={[styles.weekLabel, { color: c.novaCyan }]}>THIS WEEK</Text>
+              <View style={styles.weekRow}>
+                {novaStats.map((stat) => (
+                  <View
+                    key={stat.label}
+                    style={[styles.weekStat, { backgroundColor: isDark ? 'rgba(0,0,0,0.35)' : glass(0.06) }]}>
+                    <Text style={styles.weekEmoji}>{stat.emoji}</Text>
+                    <Text style={[styles.weekVal, { color: '#38BDF8' }]}>{stat.val}</Text>
+                    <Text style={[styles.weekStatLabel, { color: c.textSubtle }]}>{stat.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  activityAction: {
-    fontSize: 12,
-    fontWeight: '700',
+  container: { flex: 1 },
+  ambient: {
+    position: 'absolute',
+    top: '12%',
+    left: '10%',
+    right: '10%',
+    height: 340,
+    borderRadius: 999,
+    opacity: 0.9,
   },
-  activityCard: {
-    backgroundColor: orbitColors.card,
-    borderColor: 'rgba(255,255,255,0.07)',
-    borderRadius: radius.cardLarge,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    padding: space.md,
-  },
-  activityContent: {
-    gap: 10,
-    paddingBottom: 24,
-    paddingHorizontal: space.md,
-  },
-  activityCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  activityDetail: {
-    color: orbitColors.textSoft,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 2,
-  },
-  activityDot: {
-    color: orbitColors.textFaint,
-    fontSize: 12,
-  },
-  activityEmoji: {
-    fontSize: 18,
-  },
-  activityIconWrap: {
+  header: {
     alignItems: 'center',
-    borderRadius: radius.card,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.lg,
+    paddingBottom: space.sm,
+    zIndex: 2,
+  },
+  kicker: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.2,
+  },
+  bellBtn: {
+    alignItems: 'center',
+    borderRadius: 16,
     borderWidth: 1,
     height: 36,
     justifyContent: 'center',
     width: 36,
   },
-  activityIntro: {
-    color: orbitColors.textSubtle,
-    fontSize: 12,
-    paddingTop: 8,
-  },
-  activityMeta: {
+  badge: {
     alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  activityScroll: {
-    flex: 1,
-  },
-  activityTime: {
-    color: orbitColors.textFaint,
-    fontSize: 12,
-  },
-  backRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    paddingBottom: 4,
-    paddingHorizontal: space.md,
-  },
-  backText: {
-    color: orbitColors.textMuted,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  askRow: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(56,189,248,0.08)',
-    borderColor: 'rgba(56,189,248,0.18)',
-    borderRadius: radius.full,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: space.md,
-    paddingVertical: 12,
-  },
-  askRowText: {
-    color: orbitColors.textMuted,
-    fontSize: 15,
-  },
-  historyToggle: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  historyToggleText: {
-    ...typography.footnote,
-  },
-  bellBadge: {
-    alignItems: 'center',
-    backgroundColor: orbitColors.danger,
-    borderRadius: 999,
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
     height: 16,
     justifyContent: 'center',
     minWidth: 16,
-    paddingHorizontal: 4,
     position: 'absolute',
     right: -2,
     top: -2,
+    paddingHorizontal: 3,
   },
-  bellBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  bellButton: {
+  badgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+  stage: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 999,
-    borderWidth: 1,
-    height: 32,
+    flex: 1,
     justifyContent: 'center',
-    position: 'absolute',
-    right: space.md,
-    top: space.md,
-    width: 32,
+    paddingHorizontal: space.lg,
+    zIndex: 2,
   },
-  bubbleText: {
-    color: orbitColors.text,
-    fontSize: 14,
-    lineHeight: 21,
+  transcriptBlock: {
+    alignItems: 'center',
+    marginBottom: space.lg,
+    minHeight: 96,
+    paddingHorizontal: space.sm,
+    width: '100%',
   },
-  chatPane: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-  },
-  error: {
-    color: orbitColors.warning,
-    fontSize: 13,
+  roleLabel: {
+    fontSize: 11,
     fontWeight: '700',
-    marginTop: 8,
+    letterSpacing: 1.4,
+    marginBottom: 10,
   },
-  header: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(14,165,233,0.10)',
-    paddingBottom: 12,
-    paddingTop: 0,
-    position: 'relative',
+  transcriptText: {
+    fontSize: 20,
+    fontWeight: '300',
+    letterSpacing: -0.2,
+    lineHeight: 30,
+    textAlign: 'center',
   },
-  headerGlow: {
-    backgroundColor: 'rgba(56,189,248,0.10)',
-    borderRadius: 100,
-    height: 200,
-    position: 'absolute',
-    top: -40,
-    width: 200,
-  },
-  input: {
-    color: orbitColors.text,
-    flex: 1,
+  idleHint: {
     fontSize: 14,
-    maxHeight: 96,
-    paddingVertical: 0,
+    fontWeight: '400',
+    letterSpacing: 0.2,
+    textAlign: 'center',
   },
-  inputBar: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderColor: 'rgba(56,189,248,0.18)',
-    borderRadius: radius.cardLarge,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: space.md,
-    paddingVertical: 12,
-  },
-  inputWrap: {
-    paddingBottom: space.md,
-    paddingHorizontal: space.md,
-    paddingTop: 4,
-  },
-  messageRow: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  messageRowNova: {
-    justifyContent: 'flex-start',
-  },
-  messageRowUser: {
-    justifyContent: 'flex-end',
-  },
-  messagesContent: {
-    gap: 12,
-    paddingBottom: 8,
-    paddingHorizontal: space.md,
-  },
-  messagesScroll: {
-    flex: 1,
-  },
-  micButton: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(56,189,248,0.12)',
-    borderRadius: 999,
-    height: 32,
-    justifyContent: 'center',
-    width: 32,
-  },
-  micButtonActive: {
-    backgroundColor: 'rgba(52,211,153,0.22)',
-    borderColor: 'rgba(52,211,153,0.45)',
-    borderWidth: 1,
-  },
-  refreshChip: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(56,189,248,0.12)',
-    borderColor: 'rgba(56,189,248,0.25)',
-    borderRadius: 999,
-    borderWidth: 1,
+  dots: {
     flexDirection: 'row',
     gap: 6,
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  refreshChipText: {
-    color: orbitColors.orbitBlue,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  novaAvatar: {
-    backgroundColor: '#0EA5E9',
-    borderRadius: 999,
-    height: 24,
-    marginBottom: 2,
-    width: 24,
-  },
-  novaBubble: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderBottomLeftRadius: 8,
-    borderColor: 'rgba(56,189,248,0.12)',
-    borderRadius: radius.cardLarge,
-    borderWidth: 1,
-    paddingHorizontal: space.md,
-    paddingVertical: 12,
-  },
-  quickActions: {
-    gap: 8,
-    paddingBottom: 8,
-    paddingHorizontal: space.md,
-  },
-  quickChip: {
-    backgroundColor: 'rgba(56,189,248,0.10)',
-    borderColor: 'rgba(56,189,248,0.18)',
-    borderRadius: radius.card,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  quickChipText: {
-    color: orbitColors.orbitBlue,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  sendButton: {
-    alignItems: 'center',
-    borderRadius: 999,
-    height: 32,
     justifyContent: 'center',
-    width: 32,
+    marginTop: 14,
   },
-  sendButtonDisabled: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 999,
-    height: 32,
-    justifyContent: 'center',
-    width: 32,
-  },
-  sendWrap: {
-    borderRadius: 999,
-  },
-  stateDot: {
+  dot: {
     borderRadius: 999,
     height: 6,
     width: 6,
   },
-  stateLabel: {
-    fontSize: 14,
+  waveWrap: {
+    marginTop: space.lg,
+    width: '100%',
+  },
+  error: {
+    fontSize: 12,
     fontWeight: '600',
-  },
-  stateRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  statEmoji: {
-    fontSize: 20,
-  },
-  statLabel: {
-    color: orbitColors.textSubtle,
-    fontSize: 9,
-    marginTop: 2,
+    paddingHorizontal: space.lg,
     textAlign: 'center',
   },
-  statTile: {
+  controls: {
+    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
+    zIndex: 2,
+  },
+  textComposer: {
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 14,
+    minHeight: 28,
+    paddingVertical: 4,
+  },
+  sendBtn: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  controlRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 20,
+    justifyContent: 'center',
+  },
+  sideBtn: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+  },
+  micWrap: {
+    alignItems: 'center',
+    height: 80,
+    justifyContent: 'center',
+    width: 80,
+  },
+  micPulse: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 40,
+    transform: [{ scale: 1.35 }],
+  },
+  micBtn: {
+    alignItems: 'center',
+    borderRadius: 40,
+    borderWidth: 1.5,
+    height: 80,
+    justifyContent: 'center',
+    width: 80,
+  },
+  stopSquare: {
+    backgroundColor: '#fff',
+    borderRadius: 4,
+    height: 20,
+    width: 20,
+  },
+  stateLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.5,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  sheet: {
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderWidth: 1,
+    bottom: 0,
+    left: 0,
+    maxHeight: '80%',
+    position: 'absolute',
+    right: 0,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(128,128,128,0.35)',
+    borderRadius: 999,
+    height: 4,
+    marginTop: 10,
+    width: 40,
+  },
+  sheetHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.lg,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  sheetTitle: { fontSize: 16, fontWeight: '700' },
+  sheetSub: { fontSize: 12, marginTop: 2 },
+  sheetClose: {
+    alignItems: 'center',
+    borderRadius: 999,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  sheetScroll: { flexGrow: 0 },
+  sheetContent: {
+    gap: 10,
+    paddingHorizontal: space.md,
+    paddingBottom: space.lg,
+  },
+  activityCard: {
     borderRadius: radius.card,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+  },
+  activityIcon: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  activityCopy: { flex: 1, minWidth: 0 },
+  activityMeta: { alignItems: 'center', flexDirection: 'row', gap: 4 },
+  activityAction: { fontSize: 12, fontWeight: '700' },
+  activityTime: { fontSize: 12 },
+  activityDetail: { fontSize: 13, lineHeight: 18, marginTop: 2 },
+  activityEmoji: { fontSize: 18 },
+  weekCard: {
+    borderRadius: radius.card,
+    borderWidth: 1,
+    marginTop: 4,
+    padding: 14,
+  },
+  weekLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  weekRow: { flexDirection: 'row', gap: 8 },
+  weekStat: {
+    alignItems: 'center',
+    borderRadius: 16,
     flex: 1,
     paddingVertical: 12,
   },
-  statValue: {
-    color: orbitColors.orbitBlue,
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 18,
-  },
-  statsCard: {
-    borderColor: 'rgba(56,189,248,0.15)',
-    borderRadius: radius.cardLarge,
-    borderWidth: 1,
-    marginTop: 8,
-    padding: space.md,
-  },
-  statsEyebrow: {
-    color: orbitColors.novaCyan,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 12,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  subtitle: {
-    color: orbitColors.textSubtle,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  thinkingBubble: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderBottomLeftRadius: 8,
-    borderColor: 'rgba(56,189,248,0.12)',
-    borderRadius: radius.cardLarge,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: space.md,
-    paddingVertical: 12,
-  },
-  thinkingDot: {
-    backgroundColor: orbitColors.orbitBlue,
-    borderRadius: 999,
-    height: 8,
-    width: 8,
-  },
-  timestamp: {
-    color: orbitColors.textSubtle,
-    fontSize: 12,
-    marginTop: 4,
-    paddingLeft: 4,
-  },
-  timestampUser: {
-    paddingLeft: 0,
-    paddingRight: 4,
-    textAlign: 'right',
-  },
-  userBubble: {
-    borderBottomRightRadius: 8,
-    borderRadius: radius.cardLarge,
-    paddingHorizontal: space.md,
-    paddingVertical: 12,
-  },
-  viewAll: {
-    color: orbitColors.orbitBlue,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 8,
-    textAlign: 'center',
-  },
+  weekEmoji: { fontSize: 16 },
+  weekVal: { fontSize: 15, fontWeight: '800', marginTop: 2 },
+  weekStatLabel: { fontSize: 9, marginTop: 2 },
 });

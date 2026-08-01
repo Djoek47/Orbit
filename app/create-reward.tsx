@@ -8,9 +8,10 @@ import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 const EMOJIS = ['📱', '🎬', '🌙', '🍦', '🎮', '✨', '🚲', '🍕', '🎁', '💤', '💵'];
@@ -26,7 +27,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function CreateRewardScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, createReward, currentMember, household, permissions } = useOrbit();
+  const { accentTheme, createReward, currentMember, household, orbitPalette, permissions } = useOrbit();
+  const { c, glass, glassBorder } = useOrbitColors();
   const [title, setTitle] = useState('');
   const [cost, setCost] = useState('120');
   const [emoji, setEmoji] = useState(EMOJIS[0]);
@@ -49,12 +51,14 @@ export default function CreateRewardScreen() {
   if (!permissions.canManageHousehold) {
     return (
       <ScrollView
-        style={orbitScreen.container}
+        style={[orbitScreen.container, { backgroundColor: orbitPalette.background }]}
         contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <ChoremaxxBadge />
-        <Text style={[typography.title2, { marginTop: 16 }]}>Minting locked</Text>
-        <Text style={typography.body}>Only household owners and admins can mint shop rewards.</Text>
+        <Text style={[typography.title2, { marginTop: 16, color: c.text }]}>Minting locked</Text>
+        <Text style={[typography.body, { color: c.textSoft }]}>
+          Only household owners and admins can mint shop rewards.
+        </Text>
         <OrbitButton tone="secondary" onPress={() => router.back()}>
           Back
         </OrbitButton>
@@ -88,15 +92,15 @@ export default function CreateRewardScreen() {
 
   return (
     <ScrollView
-      style={orbitScreen.container}
+      style={[orbitScreen.container, { backgroundColor: orbitPalette.background }]}
       contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}
       keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ headerShown: false }} />
       <View style={orbitScreen.header}>
         <ChoremaxxBadge />
-        <Text style={[typography.footnote, { marginTop: 8 }]}>Admin mint</Text>
-        <Text style={typography.title1}>Mint reward</Text>
-        <Text style={typography.body}>
+        <Text style={[typography.footnote, { marginTop: 8, color: c.textMuted }]}>Admin mint</Text>
+        <Text style={[typography.title1, { color: c.text }]}>Mint reward</Text>
+        <Text style={[typography.body, { color: c.textSoft }]}>
           Add to the vault for everyone, or assign to one person when you mint.
         </Text>
       </View>
@@ -104,7 +108,7 @@ export default function CreateRewardScreen() {
       <GlassCard style={styles.card}>
         <OrbitInput label="Title" value={title} onChangeText={setTitle} placeholder="30 minutes screen time" />
         <OrbitInput keyboardType="number-pad" label="XP cost" value={cost} onChangeText={setCost} />
-        <Text style={styles.fieldLabel}>Category</Text>
+        <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Category</Text>
         <View style={styles.chipRow}>
           {CATEGORIES.map((item) => {
             const active = category === item;
@@ -114,12 +118,18 @@ export default function CreateRewardScreen() {
                 onPress={() => setCategory(item)}
                 style={[
                   styles.chip,
-                  active && {
-                    backgroundColor: `${CATEGORY_COLORS[item]}33`,
-                    borderColor: `${CATEGORY_COLORS[item]}88`,
+                  {
+                    backgroundColor: active ? `${CATEGORY_COLORS[item]}33` : glass(0.06),
+                    borderColor: active ? `${CATEGORY_COLORS[item]}88` : glassBorder(0.12),
                   },
                 ]}>
-                <Text style={[styles.chipText, active && { color: CATEGORY_COLORS[item] }]}>{item}</Text>
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: active ? CATEGORY_COLORS[item] : c.textSoft },
+                  ]}>
+                  {item}
+                </Text>
               </Pressable>
             );
           })}
@@ -131,18 +141,22 @@ export default function CreateRewardScreen() {
           value={approval}
           onChange={setApproval}
         />
-        <Text style={styles.fieldLabel}>Assign to</Text>
+        <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Assign to</Text>
         <View style={styles.chipRow}>
           <Pressable
             onPress={() => setAssignMemberId(null)}
             style={[
               styles.chip,
-              !assignMemberId && {
-                backgroundColor: `${accentTheme.primary}33`,
-                borderColor: `${accentTheme.primary}88`,
+              {
+                backgroundColor: !assignMemberId ? `${accentTheme.primary}33` : glass(0.06),
+                borderColor: !assignMemberId ? `${accentTheme.primary}88` : glassBorder(0.12),
               },
             ]}>
-            <Text style={[styles.chipText, !assignMemberId && { color: accentTheme.primary }]}>
+            <Text
+              style={[
+                styles.chipText,
+                { color: !assignMemberId ? accentTheme.primary : c.textSoft },
+              ]}>
               Everyone
             </Text>
           </Pressable>
@@ -154,13 +168,17 @@ export default function CreateRewardScreen() {
                 onPress={() => setAssignMemberId(member.id)}
                 style={[
                   styles.chip,
-                  active && {
-                    backgroundColor: `${accentTheme.primary}33`,
-                    borderColor: `${accentTheme.primary}88`,
+                  {
+                    backgroundColor: active ? `${accentTheme.primary}33` : glass(0.06),
+                    borderColor: active ? `${accentTheme.primary}88` : glassBorder(0.12),
                   },
                 ]}>
                 <Text style={styles.chipEmoji}>{memberDisplayEmoji(member)}</Text>
-                <Text style={[styles.chipText, active && { color: accentTheme.primary }]}>
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: active ? accentTheme.primary : c.textSoft },
+                  ]}>
                   {member.name}
                 </Text>
               </Pressable>
@@ -182,7 +200,6 @@ export default function CreateRewardScreen() {
 const styles = StyleSheet.create({
   card: { gap: space.md },
   fieldLabel: {
-    color: orbitColors.textMuted,
     fontSize: 12,
     fontWeight: '700',
     marginBottom: 6,
@@ -190,7 +207,6 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   chip: {
     alignItems: 'center',
-    borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 999,
     borderWidth: 1,
     flexDirection: 'row',
@@ -199,5 +215,5 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   chipEmoji: { fontSize: 14 },
-  chipText: { color: orbitColors.textSoft, fontSize: 12, fontWeight: '600' },
+  chipText: { fontSize: 12, fontWeight: '600' },
 });
