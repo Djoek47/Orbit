@@ -29,6 +29,7 @@ import {
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
+import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { createLocalId } from '@/repositories/repository-utils';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
@@ -42,7 +43,6 @@ import {
 import { ensureProfileInviteCode } from '@/lib/household/profile-codes';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
-import type { AppearanceMode, PreferredMapsApp } from '@/lib/theme/appearance-prefs';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdRoom } from '@/types/orbit';
@@ -580,72 +580,28 @@ export default function SettingsScreen() {
             />
 
             <SectionCard title="Appearance">
-              <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>Mode</Text>
-              <View style={styles.segmentRow}>
-                {(
-                  [
-                    ['dark', 'Dark'],
-                    ['light', 'Light'],
-                    ['system', 'System'],
-                  ] as const
-                ).map(([mode, label]) => {
-                  const active = appearanceMode === mode;
-                  return (
-                    <Pressable
-                      key={mode}
-                      onPress={() => updateAppearanceMode(mode as AppearanceMode)}
-                      style={[
-                        styles.segmentChip,
-                        active && {
-                          backgroundColor: `${accentTheme.primary}28`,
-                          borderColor: accentTheme.primary,
-                        },
-                      ]}>
-                      <Text
-                        style={[
-                          styles.segmentText,
-                          active && { color: accentTheme.primary, fontWeight: '700' },
-                        ]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <Text style={[styles.caption, { marginTop: 12, color: orbitPalette.textMuted }]}>
-                Preferred maps app
-              </Text>
-              <View style={styles.segmentRow}>
-                {(
-                  [
-                    ['auto', 'Auto'],
-                    ['apple', 'Apple'],
-                    ['google', 'Google'],
-                    ['waze', 'Waze'],
-                  ] as const
-                ).map(([app, label]) => {
-                  const active = preferredMapsApp === app;
-                  return (
-                    <Pressable
-                      key={app}
-                      onPress={() => updatePreferredMapsApp(app as PreferredMapsApp)}
-                      style={[
-                        styles.segmentChip,
-                        active && {
-                          backgroundColor: `${accentTheme.primary}28`,
-                          borderColor: accentTheme.primary,
-                        },
-                      ]}>
-                      <Text
-                        style={[
-                          styles.segmentText,
-                          active && { color: accentTheme.primary, fontWeight: '700' },
-                        ]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              <SegmentedControl
+                label="Mode"
+                value={appearanceMode}
+                onChange={(mode) => updateAppearanceMode(mode)}
+                options={[
+                  { value: 'dark', label: 'Dark' },
+                  { value: 'light', label: 'Light' },
+                  { value: 'system', label: 'System' },
+                ]}
+              />
+              <View style={{ marginTop: 12 }}>
+                <SegmentedControl
+                  label="Preferred maps app"
+                  value={preferredMapsApp}
+                  onChange={(app) => updatePreferredMapsApp(app)}
+                  options={[
+                    { value: 'auto', label: 'Auto' },
+                    { value: 'apple', label: 'Apple' },
+                    { value: 'google', label: 'Google' },
+                    { value: 'waze', label: 'Waze' },
+                  ]}
+                />
               </View>
             </SectionCard>
 
@@ -1194,25 +1150,6 @@ const styles = StyleSheet.create({
   nestedTitle: {
     color: '#C8D8F0',
     fontSize: 14,
-    fontWeight: '600',
-  },
-  segmentRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
-  },
-  segmentChip: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  segmentText: {
-    color: '#7C9CC0',
-    fontSize: 13,
     fontWeight: '600',
   },
   themeLabel: { color: '#4B6080', fontSize: 12 },
