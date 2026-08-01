@@ -1,6 +1,6 @@
 import { KeyboardTypeOptions, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 
-import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
+import { orbitColors, radius, space } from '@/constants/orbit-theme';
 
 type OrbitInputProps = {
   autoCapitalize?: TextInputProps['autoCapitalize'];
@@ -40,17 +40,18 @@ export function OrbitInput({
 
 const styles = StyleSheet.create({
   field: {
-    gap: orbitSpacing.xs,
+    gap: space.xs,
   },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderColor: orbitColors.border,
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
+    borderCurve: 'continuous',
     borderWidth: 1,
     color: orbitColors.text,
     fontSize: 16,
     minHeight: 52,
-    paddingHorizontal: orbitSpacing.md,
+    paddingHorizontal: space.md,
   },
   label: {
     color: orbitColors.textMuted,

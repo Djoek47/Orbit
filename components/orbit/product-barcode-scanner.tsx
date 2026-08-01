@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { orbitColors, orbitRadius, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 
 type ProductBarcodeScannerProps = {
   onCode: (barcode: string) => void;
@@ -27,7 +27,7 @@ export function ProductBarcodeScanner({ onCode, onClose }: ProductBarcodeScanner
   if (!permission) {
     return (
       <View style={styles.wrap}>
-        <Text style={orbitTypography.body}>Checking camera permission…</Text>
+        <Text style={typography.body}>Checking camera permission…</Text>
       </View>
     );
   }
@@ -35,7 +35,7 @@ export function ProductBarcodeScanner({ onCode, onClose }: ProductBarcodeScanner
   if (!permission.granted) {
     return (
       <View style={styles.wrap}>
-        <Text style={orbitTypography.body}>Camera access is needed to scan product barcodes.</Text>
+        <Text style={typography.body}>Camera access is needed to scan product barcodes.</Text>
         <OrbitButton onPress={() => requestPermission()}>Allow camera</OrbitButton>
         <OrbitButton tone="secondary" onPress={onClose}>
           Cancel
@@ -69,15 +69,15 @@ export function ProductBarcodeScanner({ onCode, onClose }: ProductBarcodeScanner
 
 const styles = StyleSheet.create({
   camera: {
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     flex: 1,
     minHeight: 280,
     overflow: 'hidden',
   },
   close: {
     alignSelf: 'center',
-    marginTop: orbitSpacing.md,
-    padding: orbitSpacing.sm,
+    marginTop: space.md,
+    padding: space.sm,
   },
   closeText: {
     color: orbitColors.orbitBlue,
@@ -90,10 +90,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   overlay: {
-    marginTop: orbitSpacing.md,
+    marginTop: space.md,
   },
   wrap: {
-    gap: orbitSpacing.md,
+    gap: space.md,
     minHeight: 320,
   },
 });

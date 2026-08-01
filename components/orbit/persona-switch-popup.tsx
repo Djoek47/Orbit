@@ -4,7 +4,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { getAccentTheme } from '@/constants/accent-themes';
-import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
+import { orbitColors, radius, space } from '@/constants/orbit-theme';
 import { memberDisplayEmoji } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(8, 14, 28, 0.55)',
     justifyContent: 'center',
-    paddingHorizontal: orbitSpacing.lg,
+    paddingHorizontal: space.md,
   },
   sheet: {
     width: '100%',
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   card: {
-    gap: orbitSpacing.sm,
+    gap: space.md,
   },
   title: {
     color: orbitColors.text,
@@ -133,25 +133,25 @@ const styles = StyleSheet.create({
   subtitle: {
     color: orbitColors.textMuted,
     fontSize: 13,
-    marginBottom: orbitSpacing.xs,
+    marginBottom: space.md,
   },
   empty: {
     color: orbitColors.textSoft,
     fontSize: 14,
-    paddingVertical: orbitSpacing.md,
+    paddingVertical: space.md,
   },
   list: {
-    gap: orbitSpacing.sm,
+    gap: space.md,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: orbitSpacing.sm,
-    borderRadius: orbitRadius.md,
+    gap: space.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     borderColor: orbitColors.border,
     backgroundColor: 'rgba(255,255,255,0.03)',
-    paddingHorizontal: orbitSpacing.sm,
+    paddingHorizontal: space.md,
     paddingVertical: 10,
   },
   rowActive: {

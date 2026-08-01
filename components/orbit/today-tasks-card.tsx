@@ -7,7 +7,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { FireEdgeProgress } from '@/components/orbit/fire-edge-progress';
 import { GlassCard } from '@/components/orbit/glass-card';
-import { orbitColors, orbitRadius } from '@/constants/orbit-theme';
+import { orbitColors } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import { taskMatchesAssignee } from '@/lib/tasks/split-assign';

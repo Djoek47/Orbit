@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
-import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
+import { orbitColors, radius, space } from '@/constants/orbit-theme';
 
 type ChoiceRowProps<T extends string> = {
   label: string;
@@ -34,10 +34,11 @@ const styles = StyleSheet.create({
   chip: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderColor: orbitColors.border,
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
+    borderCurve: 'continuous',
     borderWidth: 1,
-    paddingHorizontal: orbitSpacing.md,
-    paddingVertical: orbitSpacing.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
   chipText: {
     color: orbitColors.textMuted,
@@ -50,8 +51,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   row: {
-    gap: orbitSpacing.sm,
-    paddingBottom: orbitSpacing.xs,
+    gap: space.sm,
+    paddingBottom: space.xs,
   },
   selected: {
     backgroundColor: 'rgba(0, 194, 255, 0.16)',

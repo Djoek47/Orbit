@@ -4,7 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { orbitColors, orbitRadius, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import { parseInvitePayload } from '@/lib/invites/parse-invite';
 
 type InviteQrScannerProps = {
@@ -44,8 +44,8 @@ export function InviteQrScanner({ visible, onClose, onScanned }: InviteQrScanner
       <View style={[styles.root, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.header}>
           <View>
-            <Text style={orbitTypography.caption}>Join household</Text>
-            <Text style={orbitTypography.title}>Scan invite QR</Text>
+            <Text style={typography.body}>Join household</Text>
+            <Text style={typography.body}>Scan invite QR</Text>
           </View>
           <Pressable onPress={onClose} style={styles.closeChip}>
             <Text style={styles.closeLabel}>Close</Text>
@@ -54,11 +54,11 @@ export function InviteQrScanner({ visible, onClose, onScanned }: InviteQrScanner
 
         {!permission ? (
           <View style={styles.centered}>
-            <Text style={orbitTypography.caption}>Checking camera permission…</Text>
+            <Text style={typography.body}>Checking camera permission…</Text>
           </View>
         ) : !permission.granted ? (
           <View style={styles.centered}>
-            <Text style={orbitTypography.body}>
+            <Text style={typography.body}>
               Camera access is needed to scan household invite QR codes.
             </Text>
             <OrbitButton onPress={() => requestPermission()}>Allow camera</OrbitButton>
@@ -93,16 +93,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     borderColor: orbitColors.border,
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     borderWidth: 1,
     flex: 1,
-    marginBottom: orbitSpacing.md,
+    marginBottom: space.md,
     minHeight: 360,
     overflow: 'hidden',
   },
   centered: {
     flex: 1,
-    gap: orbitSpacing.md,
+    gap: space.md,
     justifyContent: 'center',
   },
   closeChip: {
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   frame: {
     borderColor: orbitColors.primary,
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 2,
     bottom: '22%',
     left: '12%',
@@ -133,18 +133,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: orbitSpacing.md,
+    marginBottom: space.md,
   },
   hint: {
     color: orbitColors.textMuted,
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: orbitSpacing.md,
+    marginBottom: space.md,
     textAlign: 'center',
   },
   root: {
     backgroundColor: orbitColors.background,
     flex: 1,
-    paddingHorizontal: orbitSpacing.lg,
+    paddingHorizontal: space.xl,
   },
 });

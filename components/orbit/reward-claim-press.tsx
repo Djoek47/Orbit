@@ -17,7 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-import { orbitColors, orbitRadius } from '@/constants/orbit-theme';
+import { orbitColors, radius } from '@/constants/orbit-theme';
 
 const HOLD_MS = 900;
 
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   control: {
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.control,
     borderWidth: 1,
     overflow: 'hidden',
   },

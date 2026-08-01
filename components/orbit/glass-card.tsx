@@ -1,7 +1,7 @@
 import { PropsWithChildren, useMemo } from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
-import { orbitColors, orbitRadius } from '@/constants/orbit-theme';
+import { orbitColors, radius } from '@/constants/orbit-theme';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type GlassCardProps = PropsWithChildren<{
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
   card: {
     alignSelf: 'stretch',
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.card,
     borderWidth: 1,
     gap: 12,
     padding: 16,

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, type StyleProp, type TextStyle } from 'react-native';
 
-import { orbitTypography } from '@/constants/orbit-theme';
+import { typography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 
 type PageEyebrowProps = {
@@ -20,7 +20,7 @@ export function PageEyebrow({ children, style }: PageEyebrowProps) {
   return (
     <Text
       style={[
-        orbitTypography.pageEyebrow,
+        typography.eyebrow,
         {
           fontWeight: typeStyle.captionWeight,
           letterSpacing: typeStyle.letterSpacing + 0.35,
@@ -33,4 +33,4 @@ export function PageEyebrow({ children, style }: PageEyebrowProps) {
 }
 
 /** Static style alias when a component cannot use the hook. Prefer `PageEyebrow`. */
-export const pageEyebrowStyle = StyleSheet.flatten(orbitTypography.pageEyebrow);
+export const pageEyebrowStyle = StyleSheet.flatten(typography.eyebrow);

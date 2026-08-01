@@ -17,7 +17,7 @@ import { NovaCard } from '@/components/orbit/nova-card';
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
-import { orbitColors, orbitRadius, orbitSpacing, space, typography } from '@/constants/orbit-theme';
+import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import {
   isNovaRealtimeEnabled,
   NovaRealtimeSession,
@@ -522,16 +522,16 @@ const styles = StyleSheet.create({
   activityCard: {
     backgroundColor: orbitColors.card,
     borderColor: 'rgba(255,255,255,0.07)',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 12,
-    padding: orbitSpacing.md,
+    padding: space.md,
   },
   activityContent: {
     gap: 10,
     paddingBottom: 24,
-    paddingHorizontal: orbitSpacing.md,
+    paddingHorizontal: space.md,
   },
   activityCopy: {
     flex: 1,
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
   },
   activityIconWrap: {
     alignItems: 'center',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     height: 36,
     justifyContent: 'center',
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(56,189,248,0.08)',
     borderColor: 'rgba(56,189,248,0.18)',
-    borderRadius: orbitRadius.full,
+    borderRadius: radius.full,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
@@ -637,8 +637,8 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: 'center',
     position: 'absolute',
-    right: orbitSpacing.md,
-    top: orbitSpacing.md,
+    right: space.md,
+    top: space.md,
     width: 32,
   },
   bubbleText: {
@@ -685,16 +685,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.07)',
     borderColor: 'rgba(56,189,248,0.18)',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 10,
-    paddingHorizontal: orbitSpacing.md,
+    paddingHorizontal: space.md,
     paddingVertical: 12,
   },
   inputWrap: {
-    paddingBottom: orbitSpacing.md,
-    paddingHorizontal: orbitSpacing.md,
+    paddingBottom: space.md,
+    paddingHorizontal: space.md,
     paddingTop: 4,
   },
   messageRow: {
@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
   messagesContent: {
     gap: 12,
     paddingBottom: 8,
-    paddingHorizontal: orbitSpacing.md,
+    paddingHorizontal: space.md,
   },
   messagesScroll: {
     flex: 1,
@@ -757,20 +757,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.07)',
     borderBottomLeftRadius: 8,
     borderColor: 'rgba(56,189,248,0.12)',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     borderWidth: 1,
-    paddingHorizontal: orbitSpacing.md,
+    paddingHorizontal: space.md,
     paddingVertical: 12,
   },
   quickActions: {
     gap: 8,
     paddingBottom: 8,
-    paddingHorizontal: orbitSpacing.md,
+    paddingHorizontal: space.md,
   },
   quickChip: {
     backgroundColor: 'rgba(56,189,248,0.10)',
     borderColor: 'rgba(56,189,248,0.18)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
   statTile: {
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.2)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     flex: 1,
     paddingVertical: 12,
   },
@@ -837,10 +837,10 @@ const styles = StyleSheet.create({
   },
   statsCard: {
     borderColor: 'rgba(56,189,248,0.15)',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     borderWidth: 1,
     marginTop: 8,
-    padding: orbitSpacing.md,
+    padding: space.md,
   },
   statsEyebrow: {
     color: orbitColors.novaCyan,
@@ -863,11 +863,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.07)',
     borderBottomLeftRadius: 8,
     borderColor: 'rgba(56,189,248,0.12)',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
-    paddingHorizontal: orbitSpacing.md,
+    paddingHorizontal: space.md,
     paddingVertical: 12,
   },
   thinkingDot: {
@@ -889,8 +889,8 @@ const styles = StyleSheet.create({
   },
   userBubble: {
     borderBottomRightRadius: 8,
-    borderRadius: orbitRadius.lg,
-    paddingHorizontal: orbitSpacing.md,
+    borderRadius: radius.cardLarge,
+    paddingHorizontal: space.md,
     paddingVertical: 12,
   },
   viewAll: {

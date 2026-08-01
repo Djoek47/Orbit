@@ -1,7 +1,7 @@
 import { PropsWithChildren, ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { orbitColors, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, space, typography } from '@/constants/orbit-theme';
 
 type OrbitListItemProps = PropsWithChildren<{
   completed?: boolean;
@@ -20,8 +20,8 @@ export function OrbitListItem({
   return (
     <View style={styles.row}>
       <View style={styles.copy}>
-        <Text style={[orbitTypography.cardTitle, completed && styles.completed]}>{title}</Text>
-        {meta ? <Text style={orbitTypography.caption}>{meta}</Text> : null}
+        <Text style={[typography.headline, completed && styles.completed]}>{title}</Text>
+        {meta ? <Text style={typography.footnote}>{meta}</Text> : null}
         {children}
       </View>
       {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
@@ -36,12 +36,12 @@ const styles = StyleSheet.create({
   },
   copy: {
     flex: 1,
-    gap: orbitSpacing.xs,
+    gap: space.xs,
   },
   row: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   trailing: {
     alignItems: 'flex-end',

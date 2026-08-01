@@ -8,7 +8,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitListItem } from '@/components/orbit/orbit-list-item';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { buildWeekStrip, groupHouseholdEvents } from '@/lib/calendar/event-groups';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -50,8 +50,8 @@ export default function PlanScreen() {
       contentInsetAdjustmentBehavior="never">
       <View style={orbitScreen.header}>
         <PageEyebrow>Plan</PageEyebrow>
-        <Text style={orbitTypography.display}>Family logistics</Text>
-        <Text style={orbitTypography.body}>
+        <Text style={typography.title1}>Family logistics</Text>
+        <Text style={typography.body}>
           Calendar and itineraries in one place — {metrics.upcomingEvents} upcoming ·{' '}
           {metrics.calendarCoverage}% coverage.
         </Text>
@@ -79,7 +79,7 @@ export default function PlanScreen() {
       {planTab === 'calendar' ? (
         <>
           <GlassCard elevated>
-            <Text style={orbitTypography.cardTitle}>This week</Text>
+            <Text style={typography.headline}>This week</Text>
             <View style={styles.weekStrip}>
               {week.map((day, index) => {
                 const active = selectedDay === index;
@@ -100,17 +100,17 @@ export default function PlanScreen() {
 
           {household.events.length === 0 ? (
             <GlassCard>
-              <Text style={orbitTypography.cardTitle}>No events yet</Text>
-              <Text style={orbitTypography.caption}>
+              <Text style={typography.headline}>No events yet</Text>
+              <Text style={typography.footnote}>
                 Add school pickups, activities, and appointments so Nova can brief the household.
               </Text>
             </GlassCard>
           ) : selectedDay <= 1 ? (
             <View style={styles.section}>
-              <Text style={orbitTypography.cardTitle}>{focusLabel}</Text>
+              <Text style={typography.headline}>{focusLabel}</Text>
               {focusedEvents.length === 0 ? (
                 <GlassCard>
-                  <Text style={orbitTypography.caption}>Nothing scheduled for {focusLabel.toLowerCase()}.</Text>
+                  <Text style={typography.footnote}>Nothing scheduled for {focusLabel.toLowerCase()}.</Text>
                 </GlassCard>
               ) : (
                 focusedEvents.map((event) => <EventCard key={event.id} event={event} />)
@@ -119,7 +119,7 @@ export default function PlanScreen() {
           ) : (
             groups.map((group) => (
               <View key={group.key} style={styles.section}>
-                <Text style={orbitTypography.cardTitle}>{group.key}</Text>
+                <Text style={typography.headline}>{group.key}</Text>
                 {group.events.map((event) => (
                   <EventCard key={event.id} event={event} />
                 ))}
@@ -129,23 +129,23 @@ export default function PlanScreen() {
         </>
       ) : (
         <>
-          <Text style={orbitTypography.cardTitle}>This weekend</Text>
+          <Text style={typography.headline}>This weekend</Text>
           {SAMPLE_ITINERARIES.map((item) => (
             <GlassCard key={item.id} elevated style={styles.itineraryCard}>
               <Text style={styles.itineraryWhen}>{item.when}</Text>
-              <Text style={orbitTypography.cardTitle}>{item.title}</Text>
+              <Text style={typography.headline}>{item.title}</Text>
               {item.stops.map((stop, index) => (
                 <View key={stop} style={styles.stopRow}>
                   <View style={styles.stopIndex}>
                     <Text style={styles.stopIndexText}>{index + 1}</Text>
                   </View>
-                  <Text style={orbitTypography.body}>{stop}</Text>
+                  <Text style={typography.body}>{stop}</Text>
                 </View>
               ))}
             </GlassCard>
           ))}
           <GlassCard>
-            <Text style={orbitTypography.caption}>
+            <Text style={typography.footnote}>
               Full itinerary builder ships next — groceries stay on Home for quick missing-item capture.
             </Text>
           </GlassCard>
@@ -198,12 +198,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderColor: orbitColors.border,
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     flexGrow: 1,
     gap: 4,
     minWidth: 44,
-    paddingVertical: orbitSpacing.sm,
+    paddingVertical: space.sm,
   },
   dayChipActive: {
     backgroundColor: 'rgba(167, 139, 250, 0.18)',
@@ -227,10 +227,10 @@ const styles = StyleSheet.create({
   },
   eventRow: {
     flexDirection: 'row',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   itineraryCard: {
-    gap: orbitSpacing.sm,
+    gap: space.sm,
   },
   itineraryWhen: {
     color: orbitColors.planPurple,
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   section: {
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   stopIndex: {
     alignItems: 'center',
@@ -260,14 +260,14 @@ const styles = StyleSheet.create({
   },
   subNav: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     flexDirection: 'row',
     gap: 4,
     padding: 4,
   },
   subNavButton: {
     alignItems: 'center',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     flex: 1,
     paddingVertical: 10,
   },
@@ -305,6 +305,6 @@ const styles = StyleSheet.create({
   weekStrip: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: orbitSpacing.sm,
+    gap: space.sm,
   },
 });

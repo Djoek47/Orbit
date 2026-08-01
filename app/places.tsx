@@ -99,7 +99,7 @@ export default function PlacesScreen() {
     });
   };
 
-  const useCurrentLocation = async () => {
+  const fillFromCurrentLocation = async () => {
     if (!editor) return;
     setLocating(true);
     try {
@@ -196,7 +196,7 @@ export default function PlacesScreen() {
           </View>
 
           <Pressable
-            onPress={() => void useCurrentLocation()}
+            onPress={() => void fillFromCurrentLocation()}
             style={[styles.locateBtn, { borderColor: `${accentTheme.primary}55` }]}
             disabled={locating}>
             <MaterialIcons name="my-location" size={18} color={accentTheme.primary} />

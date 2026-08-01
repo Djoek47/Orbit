@@ -2,7 +2,7 @@ import { PropsWithChildren } from 'react';
 import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { orbitColors, orbitControl, orbitRadius, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitControl, radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type OrbitButtonProps = PropsWithChildren<{
@@ -32,7 +32,7 @@ export function OrbitButton({
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.button}>
-          <Text style={[orbitTypography.buttonLabel, styles.primaryLabel]}>{children}</Text>
+          <Text style={[typography.buttonLabel, styles.primaryLabel]}>{children}</Text>
         </LinearGradient>
       </Pressable>
     );
@@ -51,7 +51,7 @@ export function OrbitButton({
       ]}>
       <Text
         style={[
-          orbitTypography.buttonLabel,
+          typography.buttonLabel,
           tone === 'secondary' ? styles.secondaryLabel : styles.primaryLabel,
         ]}>
         {children}
@@ -64,10 +64,10 @@ const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     justifyContent: 'center',
     minHeight: orbitControl.buttonHeight,
-    paddingHorizontal: orbitSpacing.lg,
+    paddingHorizontal: space.xl,
     paddingVertical: 14,
   },
   danger: {
