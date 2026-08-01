@@ -79,6 +79,8 @@ See [expo-go-test-matrix.md](./expo-go-test-matrix.md) for the full manual check
 
 Enable **Email** auth in Supabase → Authentication → Providers.
 
+**Disable Confirm email for staging/TestFlight.** The app has no confirmation-mail deep link yet. With confirmation on, `signUp` returns a user but no session, so Get Started / Sign in break. Path: Authentication → Providers → Email → turn off **Confirm email**. Dashboard **Add user** + **Auto Confirm User** also works for demo accounts.
+
 For **Sign in with Apple** (required for TestFlight Apple button):
 
 1. Enable the Apple provider in Supabase (Services ID, Team ID, Key ID, `.p8` — see [Supabase Apple login](https://supabase.com/docs/guides/auth/social-login/auth-apple)).

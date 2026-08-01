@@ -138,12 +138,24 @@ TestFlight builds use **Supabase** (`EXPO_PUBLIC_DATA_MODE=supabase`). They do *
 | Real email + password created in Supabase Auth (or via Get Started) | TestFlight / production |
 | Sign in with Apple | Device builds **after** Apple is enabled in Supabase Auth → Providers |
 
+### Turn off email confirmation (staging / TestFlight)
+
+Choremaxx does not ship a confirmation-email deep link yet. If **Confirm email** stays on, Get Started creates a user with **no session**, and Sign in fails with “email not confirmed” / invalid credentials.
+
+1. Supabase → **Authentication** → **Providers** → **Email**
+2. Disable **Confirm email**
+3. Save
+
+For production later you can re-enable confirmation once you wire a magic-link / deep-link handler.
+
 ### Create a demo user (Dashboard)
 
 1. Supabase → **Authentication** → **Users** → **Add user**
-2. Email + password, enable **Auto Confirm User**
+2. Email + password, enable **Auto Confirm User** (required if Confirm email is still on)
 3. Sign in once in TestFlight → complete onboarding / create household
 4. Put that email/password in App Store Connect **Beta App Review** / Review Notes
+
+If a tester already signed up while Confirm email was on: open that user in the Dashboard → confirm / verify them (or delete and recreate with Auto Confirm).
 
 ### Enable Sign in with Apple (Supabase)
 
@@ -191,6 +203,8 @@ Trigger manually: **Actions → iOS TestFlight → Run workflow**
 | Push not working on TestFlight | Ensure Push Notifications capability + APNs key in EAS credentials |
 | Sign in with Apple fails (`Provider apple not installed` / issuer not enabled) | Enable **Apple** under Supabase Auth → Providers (Services ID, Team ID, Key ID, `.p8`). App ID capability alone is not enough. |
 | `Invalid login credentials` / `sarah@orbit.test` | Mock-only email. Create a Supabase Auth user or use Get Started on device. |
+| Sign-up stuck / “email confirmation is required” | Supabase → Auth → Providers → Email → **disable Confirm email** (staging). Or Add user with **Auto Confirm**. |
+| `Email not confirmed` on sign-in | Same as above; confirm the user in Dashboard → Authentication → Users. |
 | Raw `authRepository.signIn: …` error text | Fixed in shipping branch after Build 2 — ship a new TestFlight build |
 | Build uses mock data | Check `eas.json` `testflight.env.EXPO_PUBLIC_DATA_MODE=supabase` |
 

@@ -80,18 +80,20 @@ export const authRepository = {
     });
     if (error) {
       const msg = (error.message ?? '').toLowerCase();
-      if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+      if (msg.includes('email not confirmed') || msg.includes('email_not_confirmed')) {
         throw new Error(
-          'Email or password is incorrect. Tap Get Started to create a household account — demo emails like sarah@orbit.test only work in Expo Go.'
+          'This email isn’t confirmed yet. Open the confirmation link if you got one, or ask the admin to turn off “Confirm email” in Supabase Auth (staging) and confirm the user in the Dashboard.'
         );
       }
-      if (msg.includes('email not confirmed')) {
-        throw new Error('Confirm your email before signing in.');
+      if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+        throw new Error(
+          'Email or password is incorrect — or the account isn’t confirmed yet. Tap Get Started to create an account. (sarah@orbit.test only works in Expo Go.)'
+        );
       }
       throw new Error(error.message || 'Sign in failed. Try again.');
     }
 
-    if (!data.user) {
+    if (!data.user || !data.session) {
       throw new Error('Sign in failed. Try again.');
     }
 
@@ -126,6 +128,17 @@ export const authRepository = {
         throw new Error(error.message || 'Choose a stronger password and try again.');
       }
       throw new Error(error.message || 'Could not create account. Try again.');
+    }
+
+    // With “Confirm email” enabled, Supabase returns a user but no session until the
+    // inbox link is clicked — we have no mail deep-link for that in TestFlight yet.
+    if (!data.session) {
+      if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+        throw new Error('That email already has an account. Sign in instead.');
+      }
+      throw new Error(
+        'Account created, but email confirmation is required and no mail link is set up yet. In Supabase → Authentication → Providers → Email, turn off “Confirm email” for staging, then try Get Started again (or Add user with Auto Confirm).'
+      );
     }
 
     if (!data.user) {
