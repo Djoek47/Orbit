@@ -139,7 +139,7 @@ function TaskItem({
   onToggle: () => void;
   onDelete: () => void;
 }) {
-  const { c, glass } = useOrbitColors();
+  const { c, glass, glassBorder } = useOrbitColors();
   const shareDone =
     member && isSplitTask(task)
       ? task.shares?.find((share) => share.name === member.name)?.status === 'Completed'
@@ -152,6 +152,10 @@ function TaskItem({
     : `${isHomework(task) ? (sub?.color ?? c.planPurple) : getPriorityColor(task)}80`;
   const avatarGradient = GRADIENT_BY_COLOR[accent] ?? [accent, accent];
   const hygiene = task.tracking === 'streak' || task.category === 'Hygiene';
+  const metaPillTone = {
+    backgroundColor: glass(0.08),
+    borderColor: glassBorder(0.12),
+  } as const;
 
   return (
     <ContextMenu
@@ -198,25 +202,33 @@ function TaskItem({
           <MaterialIcons name="schedule" size={10} color={c.textSubtle} />
           <Text style={[styles.dueText, { color: c.textSubtle }]}>{task.due}</Text>
           {isSplitTask(task) ? (
-            <View style={[styles.metaPill, { backgroundColor: 'rgba(167,139,250,0.18)' }]}>
-              <Text style={[styles.metaPillText, { color: '#A78BFA' }]}>Split</Text>
+            <View
+              style={[
+                styles.metaPill,
+                { backgroundColor: `${c.planPurple}22`, borderColor: `${c.planPurple}40` },
+              ]}>
+              <Text style={[styles.metaPillText, { color: c.planPurple }]}>Split</Text>
             </View>
           ) : null}
           {task.repeat !== 'None' ? (
-            <View style={styles.metaPill}>
-              <Text style={styles.metaPillText}>{task.repeat}</Text>
+            <View style={[styles.metaPill, metaPillTone]}>
+              <Text style={[styles.metaPillText, { color: c.textMuted }]}>{task.repeat}</Text>
             </View>
           ) : null}
           {room ? (
-            <View style={styles.metaPill}>
-              <Text style={styles.metaPillText}>
+            <View style={[styles.metaPill, metaPillTone]}>
+              <Text style={[styles.metaPillText, { color: c.textMuted }]}>
                 {room.emoji} {room.name}
               </Text>
             </View>
           ) : null}
           {task.proofRequired ? (
-            <View style={[styles.metaPill, { backgroundColor: 'rgba(251,146,60,0.15)' }]}>
-              <Text style={[styles.metaPillText, { color: orbitColors.warning }]}>
+            <View
+              style={[
+                styles.metaPill,
+                { backgroundColor: `${c.warning}22`, borderColor: `${c.warning}40` },
+              ]}>
+              <Text style={[styles.metaPillText, { color: c.warning }]}>
                 {task.proofStatus === 'submitted'
                   ? 'Proof review'
                   : task.proofStatus === 'approved'
@@ -352,6 +364,7 @@ function TaskSection({
 export default function TasksScreen() {
   const chromePad = useTabChromePaddingTop();
   const params = useLocalSearchParams<{ member?: string | string[] }>();
+  const { c, glass, glassBorder } = useOrbitColors();
   const {
     accentTheme,
     completeTask,
@@ -616,16 +629,18 @@ export default function TasksScreen() {
             <Pressable
               style={[
                 styles.filterIconButton,
-                (showRoomFilter || roomFilter) && {
-                  backgroundColor: `${accentTheme.primary}2E`,
-                  borderColor: `${accentTheme.primary}4D`,
+                {
+                  backgroundColor:
+                    showRoomFilter || roomFilter ? `${accentTheme.primary}2E` : glass(0.06),
+                  borderColor:
+                    showRoomFilter || roomFilter ? `${accentTheme.primary}4D` : glassBorder(0.12),
                 },
               ]}
               onPress={() => setShowRoomFilter((value) => !value)}>
               <MaterialIcons
                 name="filter-list"
                 size={14}
-                color={showRoomFilter || roomFilter ? accentTheme.primary : orbitColors.textSubtle}
+                color={showRoomFilter || roomFilter ? accentTheme.primary : c.textSubtle}
               />
             </Pressable>
           </View>
@@ -655,12 +670,18 @@ export default function TasksScreen() {
             onPress={() => setRoomFilter(null)}
             style={[
               styles.roomChip,
-              !roomFilter && {
-                backgroundColor: `${accentTheme.primary}22`,
-                borderColor: `${accentTheme.primary}44`,
+              {
+                backgroundColor: !roomFilter ? `${accentTheme.primary}22` : glass(0.06),
+                borderColor: !roomFilter ? `${accentTheme.primary}44` : glassBorder(0.12),
               },
             ]}>
-            <Text style={[styles.roomChipText, !roomFilter && { color: accentTheme.primary }]}>All rooms</Text>
+            <Text
+              style={[
+                styles.roomChipText,
+                { color: !roomFilter ? accentTheme.primary : c.textMuted },
+              ]}>
+              All rooms
+            </Text>
           </Pressable>
           {rooms.map((room) => {
             const active = roomFilter === room.id;
@@ -670,12 +691,16 @@ export default function TasksScreen() {
                 onPress={() => setRoomFilter(room.id)}
                 style={[
                   styles.roomChip,
-                  active && {
-                    backgroundColor: `${accentTheme.primary}22`,
-                    borderColor: `${accentTheme.primary}44`,
+                  {
+                    backgroundColor: active ? `${accentTheme.primary}22` : glass(0.06),
+                    borderColor: active ? `${accentTheme.primary}44` : glassBorder(0.12),
                   },
                 ]}>
-                <Text style={[styles.roomChipText, active && { color: accentTheme.primary }]}>
+                <Text
+                  style={[
+                    styles.roomChipText,
+                    { color: active ? accentTheme.primary : c.textMuted },
+                  ]}>
                   {room.emoji} {room.name}
                 </Text>
               </Pressable>
@@ -928,8 +953,6 @@ const styles = StyleSheet.create({
   },
   filterIconButton: {
     alignItems: 'center',
-    backgroundColor: orbitColors.card,
-    borderColor: orbitColors.border,
     borderRadius: radius.control,
     borderWidth: 1,
     height: 32,
@@ -954,13 +977,12 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   metaPill: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 999,
+    borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   metaPillText: {
-    color: orbitColors.textMuted,
     fontSize: 10,
     fontWeight: '600',
   },
@@ -972,15 +994,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   roomChip: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
   roomChipText: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
     fontWeight: '600',
   },
