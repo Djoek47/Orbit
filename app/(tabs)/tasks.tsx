@@ -1064,13 +1064,11 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   taskTitle: {
-    color: orbitColors.text,
     flex: 1,
     fontSize: 14,
     fontWeight: '400',
   },
   taskTitleDone: {
-    color: orbitColors.textSubtle,
     textDecorationLine: 'line-through',
   },
   titleRow: {
