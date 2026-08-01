@@ -7,7 +7,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent } from '@/types/orbit';
 
@@ -31,7 +31,7 @@ export default function EventDetailScreen() {
   if (!event) {
     return (
       <ScrollView style={orbitScreen.container} contentContainerStyle={orbitScreen.content}>
-        <Text style={orbitTypography.title}>Event not found</Text>
+        <Text style={typography.title2}>Event not found</Text>
         <OrbitButton tone="secondary" onPress={() => router.back()}>
           Back
         </OrbitButton>
@@ -76,8 +76,8 @@ export default function EventDetailScreen() {
       contentContainerStyle={orbitScreen.content}
       contentInsetAdjustmentBehavior="automatic">
       <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Calendar</Text>
-        <Text style={orbitTypography.display}>{editing ? 'Edit event' : event.title}</Text>
+        <Text style={typography.footnote}>Calendar</Text>
+        <Text style={typography.title1}>{editing ? 'Edit event' : event.title}</Text>
         <StatusPill label={event.category} tone="cyan" />
       </View>
 
@@ -138,7 +138,7 @@ export default function EventDetailScreen() {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.row}>
-      <Text style={orbitTypography.caption}>{label}</Text>
+      <Text style={typography.footnote}>{label}</Text>
       <Text style={styles.value}>{value}</Text>
     </View>
   );
@@ -146,7 +146,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   card: {
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   row: {
     gap: 4,

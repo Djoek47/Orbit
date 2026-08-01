@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function SmartHomeScreen() {
@@ -27,21 +27,21 @@ export default function SmartHomeScreen() {
       contentContainerStyle={orbitScreen.content}
       contentInsetAdjustmentBehavior="automatic">
       <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Connected home</Text>
-        <Text style={orbitTypography.display}>Smart home</Text>
-        <Text style={orbitTypography.body}>Toggle devices and run household scenes.</Text>
+        <Text style={typography.footnote}>Connected home</Text>
+        <Text style={typography.title1}>Smart home</Text>
+        <Text style={typography.body}>Toggle devices and run household scenes.</Text>
       </View>
 
       <GlassCard style={styles.card}>
-        <Text style={orbitTypography.cardTitle}>Scenes</Text>
+        <Text style={typography.headline}>Scenes</Text>
         {smartHomeScenes.length === 0 ? (
-          <Text style={orbitTypography.caption}>No scenes configured yet.</Text>
+          <Text style={typography.footnote}>No scenes configured yet.</Text>
         ) : (
           smartHomeScenes.map((scene) => (
             <View key={scene.id} style={styles.sceneRow}>
               <View style={styles.sceneCopy}>
                 <Text style={styles.deviceName}>{scene.name}</Text>
-                <Text style={orbitTypography.caption}>{scene.description || 'Household scene'}</Text>
+                <Text style={typography.footnote}>{scene.description || 'Household scene'}</Text>
               </View>
               <OrbitButton style={styles.compactButton} onPress={() => activateSmartScene(scene.id)}>
                 Run
@@ -51,10 +51,10 @@ export default function SmartHomeScreen() {
         )}
       </GlassCard>
 
-      <Text style={orbitTypography.title}>Devices</Text>
+      <Text style={typography.title2}>Devices</Text>
       {smartHomeDevices.length === 0 ? (
         <GlassCard>
-          <Text style={orbitTypography.caption}>No devices linked for this household.</Text>
+          <Text style={typography.footnote}>No devices linked for this household.</Text>
         </GlassCard>
       ) : (
         smartHomeDevices.map((device) => (
@@ -64,7 +64,7 @@ export default function SmartHomeScreen() {
               <StatusPill label={device.isOn ? 'On' : 'Off'} tone={device.isOn ? 'cyan' : 'blue'} />
             </View>
             <Text style={styles.deviceName}>{device.name}</Text>
-            <Text style={orbitTypography.caption}>
+            <Text style={typography.footnote}>
               {device.room || 'Home'} · {device.deviceType}
               {device.description ? ` · ${device.description}` : ''}
             </Text>
@@ -87,12 +87,12 @@ export default function SmartHomeScreen() {
 
 const styles = StyleSheet.create({
   card: {
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   compactButton: {
     minHeight: 44,
-    paddingHorizontal: orbitSpacing.md,
-    paddingVertical: orbitSpacing.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
   deviceName: {
     color: orbitColors.text,
@@ -106,6 +106,6 @@ const styles = StyleSheet.create({
   sceneRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
 });

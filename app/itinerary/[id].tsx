@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 import type { ItineraryStopKind } from '@/types/orbit';
 
@@ -96,7 +96,7 @@ export default function ItineraryDetailScreen() {
         showsVerticalScrollIndicator={false}>
         <Stack.Screen options={{ headerShown: false }} />
         {themedBack}
-        <Text style={orbitTypography.title}>Trip not found</Text>
+        <Text style={typography.title2}>Trip not found</Text>
         <OrbitButton tone="secondary" onPress={() => router.back()}>
           Back to Plan
         </OrbitButton>
@@ -125,7 +125,7 @@ export default function ItineraryDetailScreen() {
 
       <View style={styles.header}>
         <PageEyebrow>{formatTripDate(itinerary.date)}</PageEyebrow>
-        <Text style={orbitTypography.display}>{itinerary.title}</Text>
+        <Text style={typography.title1}>{itinerary.title}</Text>
         {itinerary.summary ? <Text style={styles.summary}>{itinerary.summary}</Text> : null}
         <View style={styles.metaRow}>
           <View style={[styles.statusChip, { backgroundColor: `${tripColor}18` }]}>
@@ -321,8 +321,8 @@ export default function ItineraryDetailScreen() {
 
 const styles = StyleSheet.create({
   activeActions: {
-    gap: orbitSpacing.sm,
-    marginTop: orbitSpacing.md,
+    gap: space.sm,
+    marginTop: space.md,
   },
   addrRow: {
     alignItems: 'center',
@@ -444,12 +444,12 @@ const styles = StyleSheet.create({
   startBtn: {
     alignItems: 'center',
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.lg,
+    borderRadius: radius.cardLarge,
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
     minHeight: 52,
-    paddingHorizontal: orbitSpacing.lg,
+    paddingHorizontal: space.xl,
   },
   startBtnText: {
     color: '#070D1C',

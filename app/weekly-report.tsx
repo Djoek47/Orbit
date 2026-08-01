@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function WeeklyReportScreen() {
@@ -17,9 +17,9 @@ export default function WeeklyReportScreen() {
       contentContainerStyle={orbitScreen.content}
       contentInsetAdjustmentBehavior="automatic">
       <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>{household.householdName}</Text>
-        <Text style={orbitTypography.display}>{report.title || 'Weekly report'}</Text>
-        <Text style={orbitTypography.body}>{report.summary}</Text>
+        <Text style={typography.footnote}>{household.householdName}</Text>
+        <Text style={typography.title1}>{report.title || 'Weekly report'}</Text>
+        <Text style={typography.body}>{report.summary}</Text>
       </View>
 
       <View style={styles.grid}>
@@ -31,18 +31,18 @@ export default function WeeklyReportScreen() {
 
       <GlassCard style={styles.card}>
         <StatusPill label="Highlights" tone="blue" />
-        <Text style={orbitTypography.cardTitle}>Most active</Text>
-        <Text style={orbitTypography.body}>{report.mostActiveMember}</Text>
-        <Text style={orbitTypography.caption}>
+        <Text style={typography.headline}>Most active</Text>
+        <Text style={typography.body}>{report.mostActiveMember}</Text>
+        <Text style={typography.footnote}>
           Momentum {report.momentumChange >= 0 ? '+' : ''}
           {report.momentumChange} this week
         </Text>
       </GlassCard>
 
       <GlassCard style={styles.card}>
-        <Text style={orbitTypography.cardTitle}>Nova recommendations</Text>
+        <Text style={typography.headline}>Nova recommendations</Text>
         {report.recommendations.map((item) => (
-          <Text key={item} style={orbitTypography.caption}>
+          <Text key={item} style={typography.footnote}>
             • {item}
           </Text>
         ))}
@@ -74,17 +74,17 @@ function StatCard({
 
 const styles = StyleSheet.create({
   card: {
-    gap: orbitSpacing.sm,
+    gap: space.sm,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   gridCard: {
     flexBasis: '47%',
     flexGrow: 1,
-    gap: orbitSpacing.sm,
+    gap: space.sm,
   },
   metric: {
     color: orbitColors.text,

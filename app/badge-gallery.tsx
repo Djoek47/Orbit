@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import {
   formatXp,
   getLevel,
@@ -64,9 +64,9 @@ export default function BadgeGalleryScreen() {
 
       <View style={orbitScreen.header}>
         <ChoremaxxLogo size="md" />
-        <Text style={[orbitTypography.caption, { marginTop: 8 }]}>Collection</Text>
-        <Text style={orbitTypography.display}>Badge gallery</Text>
-        <Text style={orbitTypography.body}>
+        <Text style={[typography.footnote, { marginTop: 8 }]}>Collection</Text>
+        <Text style={typography.title1}>Badge gallery</Text>
+        <Text style={typography.body}>
           Habit badges plus XP trophies all the way to Most Glorious at 1,000,000 XP.
         </Text>
       </View>
@@ -90,7 +90,7 @@ export default function BadgeGalleryScreen() {
             style={[styles.summaryFill, { width: `${levelPct}%` }]}
           />
         </View>
-        <Text style={orbitTypography.caption}>
+        <Text style={typography.footnote}>
           {nextTrophy
             ? `Next trophy: ${nextTrophy.label} at ${formatXp(nextTrophy.xp)} XP`
             : 'Most Glorious unlocked — you reached 1,000,000 XP'}
@@ -114,15 +114,15 @@ export default function BadgeGalleryScreen() {
             style={[styles.summaryFill, { width: `${householdPct}%` }]}
           />
         </View>
-        <Text style={orbitTypography.caption}>
+        <Text style={typography.footnote}>
           {achievements.filter((badge) => badge.earned).length}/{achievements.length} awards unlocked
         </Text>
       </GlassCard>
 
       <GlassCard style={styles.card}>
-        <Text style={orbitTypography.cardTitle}>Household badges</Text>
+        <Text style={typography.headline}>Household badges</Text>
         {household.badges.length === 0 ? (
-          <Text style={orbitTypography.caption}>No household badges yet.</Text>
+          <Text style={typography.footnote}>No household badges yet.</Text>
         ) : (
           household.badges.map((badge) => {
             const pct = Math.min(100, Math.round(badge.progress * 100));
@@ -169,12 +169,12 @@ export default function BadgeGalleryScreen() {
 
       <GlassCard style={styles.card}>
         <View style={orbitScreen.row}>
-          <Text style={orbitTypography.cardTitle}>XP trophies</Text>
+          <Text style={typography.headline}>XP trophies</Text>
           <Text style={styles.earnedCount}>
             {xpTrophies.filter((badge) => badge.earned).length}/{XP_MILESTONE_TROPHIES.length}
           </Text>
         </View>
-        <Text style={[orbitTypography.caption, { marginBottom: 8 }]}>
+        <Text style={[typography.footnote, { marginBottom: 8 }]}>
           Awards unlock as lifetime XP climbs — bronze to Most Glorious at one million.
         </Text>
         <View style={styles.badgeGrid}>
@@ -205,7 +205,7 @@ export default function BadgeGalleryScreen() {
 
       <GlassCard style={styles.card}>
         <View style={orbitScreen.row}>
-          <Text style={orbitTypography.cardTitle}>Habit achievements</Text>
+          <Text style={typography.headline}>Habit achievements</Text>
           <Text style={styles.earnedCount}>
             {habitAchievements.filter((badge) => badge.earned).length}/{habitAchievements.length}
           </Text>
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   badgeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   badgeHint: {
     color: orbitColors.textSubtle,
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(251, 191, 36, 0.12)',
     borderColor: 'rgba(251, 191, 36, 0.3)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     height: 52,
     justifyContent: 'center',
@@ -319,12 +319,12 @@ const styles = StyleSheet.create({
   badgeRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   badgeTile: {
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     gap: 6,
     padding: 12,
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   card: {
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   earnedCount: {
     color: orbitColors.success,
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     backgroundColor: 'rgba(7,13,28,0.35)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     justifyContent: 'center',
   },
   progressFill: {

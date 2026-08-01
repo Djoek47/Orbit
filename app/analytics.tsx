@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function AnalyticsScreen() {
@@ -13,8 +13,8 @@ export default function AnalyticsScreen() {
   if (!permissions.canViewAnalytics) {
     return (
       <ScrollView style={orbitScreen.container} contentContainerStyle={orbitScreen.content}>
-        <Text style={orbitTypography.title}>Analytics locked</Text>
-        <Text style={orbitTypography.body}>Analytics requires a role with household visibility enabled.</Text>
+        <Text style={typography.title2}>Analytics locked</Text>
+        <Text style={typography.body}>Analytics requires a role with household visibility enabled.</Text>
         <OrbitButton tone="secondary" onPress={() => router.back()}>
           Back
         </OrbitButton>
@@ -34,16 +34,16 @@ export default function AnalyticsScreen() {
       contentContainerStyle={orbitScreen.content}
       contentInsetAdjustmentBehavior="automatic">
       <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Owner / admin</Text>
-        <Text style={orbitTypography.display}>Analytics</Text>
-        <Text style={orbitTypography.body}>Participation, momentum, and Nova usage for {household.householdName}.</Text>
+        <Text style={typography.footnote}>Owner / admin</Text>
+        <Text style={typography.title1}>Analytics</Text>
+        <Text style={typography.body}>Participation, momentum, and Nova usage for {household.householdName}.</Text>
       </View>
 
       <GlassCard style={styles.card}>
         <StatusPill label="Participation" tone="blue" />
         <Text style={styles.metric}>{metrics.taskCompletionRate}%</Text>
-        <Text style={orbitTypography.caption}>Task completion across the household</Text>
-        <Text style={orbitTypography.caption}>
+        <Text style={typography.footnote}>Task completion across the household</Text>
+        <Text style={typography.footnote}>
           {household.members.length} members · {totalXp} total XP · avg load {avgLoad}%
         </Text>
       </GlassCard>
@@ -51,11 +51,11 @@ export default function AnalyticsScreen() {
       <GlassCard style={styles.card}>
         <StatusPill label="Momentum" tone="cyan" />
         <Text style={styles.metric}>{metrics.momentum}</Text>
-        <Text style={orbitTypography.caption}>
+        <Text style={typography.footnote}>
           Composite of tasks ({metrics.taskCompletionRate}%), groceries ({metrics.groceryReadiness}%),
           calendar ({metrics.calendarCoverage}%)
         </Text>
-        <Text style={orbitTypography.caption}>
+        <Text style={typography.footnote}>
           Weekly delta {novaWeeklyBriefing.momentumChange >= 0 ? '+' : ''}
           {novaWeeklyBriefing.momentumChange}
         </Text>
@@ -64,9 +64,9 @@ export default function AnalyticsScreen() {
       <GlassCard style={styles.card}>
         <StatusPill label="Nova usage" tone="green" />
         <Text style={styles.metric}>{novaWeeklyBriefing.recommendations.length}</Text>
-        <Text style={orbitTypography.caption}>Active recommendation slots this week</Text>
-        <Text style={orbitTypography.caption}>Briefing: {novaWeeklyBriefing.title}</Text>
-        <Text style={orbitTypography.caption}>Ask Nova from the Nova tab for live co-manager guidance.</Text>
+        <Text style={typography.footnote}>Active recommendation slots this week</Text>
+        <Text style={typography.footnote}>Briefing: {novaWeeklyBriefing.title}</Text>
+        <Text style={typography.footnote}>Ask Nova from the Nova tab for live co-manager guidance.</Text>
       </GlassCard>
 
       <OrbitButton onPress={() => router.push('/weekly-report' as never)}>Open weekly report</OrbitButton>
@@ -82,7 +82,7 @@ export default function AnalyticsScreen() {
 
 const styles = StyleSheet.create({
   card: {
-    gap: orbitSpacing.sm,
+    gap: space.sm,
   },
   metric: {
     color: orbitColors.text,
