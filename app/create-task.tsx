@@ -1004,7 +1004,7 @@ export default function CreateTaskScreen() {
                               <Pressable
                                 onPress={() =>
                                   updateQuickOverride(task.id, {
-                                    baseXp: Math.max(5, xp - 5),
+                                    baseXp: Math.max(0, xp - 5),
                                   })
                                 }
                                 style={styles.quickStepBtn}>
@@ -1453,7 +1453,7 @@ export default function CreateTaskScreen() {
         ) : (
           <View style={styles.field}>
             <Text style={styles.label}>XP · slide the wheel</Text>
-            <View style={styles.xpWheelCard}>
+            <View style={styles.xpWheelCard} collapsable={false}>
               <XpWheel
                 value={baseXp}
                 onChange={(next) => {

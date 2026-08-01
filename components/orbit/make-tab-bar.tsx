@@ -2,12 +2,14 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { orbitTabColors, radius, shadow, space } from '@/constants/orbit-theme';
+import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 
@@ -21,13 +23,16 @@ const TAB_META: Record<
   index: { label: 'Home', color: orbitTabColors.home, icon: 'house.fill' },
   tasks: { label: 'Tasks', color: orbitTabColors.tasks, icon: 'checklist' },
   plan: { label: 'Plan', color: orbitTabColors.plan, icon: 'calendar' },
-  rewards: { label: 'Ranks', color: orbitTabColors.ranking, icon: 'trophy.fill' },
+  rewards: { label: 'Rewards', color: orbitTabColors.ranking, icon: 'trophy.fill' },
   nova: { label: 'Nova', color: orbitTabColors.nova, icon: 'sparkles' },
 };
 
+const LABEL_CYCLE_MS = 2600;
+
 /**
  * Floating Liquid Glass tab bar — Day uses colored light glass; Night keeps
- * deep accent wash. See docs/design-system/08-liquid-glass-guidelines.md.
+ * deep accent wash. Rewards tab label cycles by role:
+ * admin/parent → Rewards ↔ Ranks · child → Ranks ↔ Redeem.
  */
 export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -41,9 +46,34 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   const ink = palette?.ink ?? '#070D1C';
   const activeRouteName = state.routes[state.index]?.name;
 
+  const isChildMode = useMemo(() => {
+    const member = orbit?.currentMember;
+    const members = orbit?.household.members ?? [];
+    if (!member) return false;
+    return member.role === 'child' || isSharedDeviceAccount(member, members);
+  }, [orbit?.currentMember, orbit?.household.members]);
+
+  const rewardsCycle = useMemo(
+    () => (isChildMode ? (['Ranks', 'Redeem'] as const) : (['Rewards', 'Ranks'] as const)),
+    [isChildMode]
+  );
+  const [cycleIndex, setCycleIndex] = useState(0);
+
+  useEffect(() => {
+    setCycleIndex(0);
+    const id = setInterval(() => {
+      setCycleIndex((i) => (i + 1) % rewardsCycle.length);
+    }, LABEL_CYCLE_MS);
+    return () => clearInterval(id);
+  }, [rewardsCycle]);
+
+  const rewardsLabel = rewardsCycle[cycleIndex] ?? rewardsCycle[0];
+
   const visibleRoutes = TAB_ORDER.map((name) => {
     const route = state.routes.find((r) => r.name === name);
     if (!route) return null;
+    const options = descriptors[route.key]?.options as { href?: string | null } | undefined;
+    if (options?.href === null) return null;
     return { route };
   }).filter((item): item is NonNullable<typeof item> => item !== null);
 
@@ -96,8 +126,10 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           if (!meta) return null;
 
           const isNova = route.name === 'nova';
-          const { label, icon } = meta;
+          const isRewards = route.name === 'rewards';
+          const label = isRewards ? rewardsLabel : meta.label;
           const color = isFocused ? accentPrimary : meta.color;
+          const { icon } = meta;
 
           const onPress = () => {
             if (process.env.EXPO_OS === 'ios') {
@@ -109,7 +141,22 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               canPreventDefault: true,
             });
             if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name, route.params);
+              if (isRewards && isChildMode && rewardsLabel === 'Redeem') {
+                navigation.navigate(route.name, { surface: 'rewards' });
+              } else if (isRewards && rewardsLabel === 'Ranks') {
+                navigation.navigate(route.name, { surface: 'ranks' });
+              } else if (isRewards && rewardsLabel === 'Rewards') {
+                navigation.navigate(route.name, { surface: 'rewards' });
+              } else {
+                navigation.navigate(route.name, route.params);
+              }
+            } else if (isFocused && isRewards) {
+              // Already on tab — jump to the surface matching the cycling label.
+              if (rewardsLabel === 'Redeem' || rewardsLabel === 'Rewards') {
+                navigation.navigate(route.name, { surface: 'rewards' });
+              } else {
+                navigation.navigate(route.name, { surface: 'ranks' });
+              }
             }
           };
 

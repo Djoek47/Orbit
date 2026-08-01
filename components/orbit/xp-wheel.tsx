@@ -1,23 +1,23 @@
 import * as Haptics from 'expo-haptics';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 
-import { orbitColors } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 const ITEM_H = 44;
 const VISIBLE = 3;
 const PAD = ((VISIBLE - 1) / 2) * ITEM_H;
 
-/** Common XP steps for the sliding wheel. */
-export const XP_WHEEL_VALUES = [5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 75, 100] as const;
+/** XP steps for the sliding wheel — 0 XP through 100 XP in 5s. */
+export const XP_WHEEL_VALUES: readonly number[] = Array.from({ length: 21 }, (_, i) => i * 5);
 
 type XpWheelProps = {
   value: number;
@@ -39,66 +39,147 @@ function nearestIndex(value: number, values: readonly number[]) {
   return best;
 }
 
+function indexFromOffset(y: number, count: number) {
+  return Math.max(0, Math.min(count - 1, Math.round(y / ITEM_H)));
+}
+
 /**
- * Vertical snap wheel for picking task XP — scroll to settle on a value.
+ * Vertical snap wheel for picking task XP (0–100).
+ * Uses RNGH ScrollView so nested page ScrollViews do not steal the gesture.
  */
 export function XpWheel({
   value,
   onChange,
-  accent = orbitColors.primary,
+  accent,
   values = XP_WHEEL_VALUES,
 }: XpWheelProps) {
+  const { c } = useOrbitColors();
+  const accentColor = accent ?? c.primary;
   const scrollRef = useRef<ScrollView>(null);
-  const index = nearestIndex(value, values);
+  const draggingRef = useRef(false);
+  const lastEmittedRef = useRef(value);
+  const [displayIndex, setDisplayIndex] = useState(() => nearestIndex(value, values));
+
+  const snapOffsets = useMemo(
+    () => values.map((_, i) => i * ITEM_H),
+    [values]
+  );
 
   useEffect(() => {
+    if (draggingRef.current) return;
+    const idx = nearestIndex(value, values);
+    setDisplayIndex(idx);
+    lastEmittedRef.current = values[idx] ?? value;
     const id = requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({ y: index * ITEM_H, animated: false });
+      scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: false });
     });
     return () => cancelAnimationFrame(id);
-  }, [index]);
+  }, [value, values]);
 
-  const onMomentumEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const y = event.nativeEvent.contentOffset.y;
-    const next = Math.max(0, Math.min(values.length - 1, Math.round(y / ITEM_H)));
-    scrollRef.current?.scrollTo({ y: next * ITEM_H, animated: true });
-    if (values[next] !== value) {
-      onChange(values[next]);
+  const commitIndex = (next: number) => {
+    const xp = values[next] ?? 0;
+    setDisplayIndex(next);
+    if (xp !== lastEmittedRef.current) {
+      lastEmittedRef.current = xp;
+      onChange(xp);
       if (Platform.OS !== 'web') {
         void Haptics.selectionAsync().catch(() => undefined);
       }
     }
   };
 
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!draggingRef.current) return;
+    const next = indexFromOffset(event.nativeEvent.contentOffset.y, values.length);
+    if (next !== displayIndex) {
+      setDisplayIndex(next);
+    }
+  };
+
+  const onScrollBeginDrag = () => {
+    draggingRef.current = true;
+  };
+
+  const onMomentumEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const next = indexFromOffset(event.nativeEvent.contentOffset.y, values.length);
+    scrollRef.current?.scrollTo({ y: next * ITEM_H, animated: true });
+    commitIndex(next);
+    draggingRef.current = false;
+  };
+
+  const onScrollEndDrag = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = event.nativeEvent.contentOffset.y;
+    const velocity = event.nativeEvent.velocity?.y ?? 0;
+    if (Math.abs(velocity) > 0.05) return;
+    const next = indexFromOffset(y, values.length);
+    scrollRef.current?.scrollTo({ y: next * ITEM_H, animated: true });
+    commitIndex(next);
+    draggingRef.current = false;
+  };
+
+  const selectedXp = values[displayIndex] ?? 0;
+
   return (
-    <View style={styles.wrap}>
-      <View style={[styles.selection, { borderColor: `${accent}66` }]} pointerEvents="none" />
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        snapToInterval={ITEM_H}
-        decelerationRate="fast"
-        onMomentumScrollEnd={onMomentumEnd}
-        onScrollEndDrag={onMomentumEnd}
-        contentContainerStyle={{ paddingVertical: PAD }}
-        style={styles.scroll}>
-        {values.map((item, i) => {
-          const active = i === index;
-          return (
-            <View key={item} style={styles.item}>
-              <Text style={[styles.itemText, active && { color: accent, fontSize: 22, fontWeight: '800' }]}>
-                {item}
-              </Text>
-            </View>
-          );
-        })}
-      </ScrollView>
-      <Text style={[styles.unit, { color: accent }]}>XP</Text>
+    <View style={styles.root}>
+      <Text style={[styles.readout, { color: accentColor }]}>{selectedXp} XP</Text>
+      <View style={styles.wrap}>
+        <View
+          style={[
+            styles.selection,
+            { borderColor: `${accentColor}66`, backgroundColor: `${accentColor}14` },
+          ]}
+          pointerEvents="none"
+        />
+        <ScrollView
+          ref={scrollRef}
+          nestedScrollEnabled
+          waitFor={undefined}
+          simultaneousHandlers={undefined}
+          showsVerticalScrollIndicator={false}
+          snapToOffsets={[...snapOffsets]}
+          decelerationRate="fast"
+          disableIntervalMomentum
+          scrollEventThrottle={16}
+          onScroll={onScroll}
+          onScrollBeginDrag={onScrollBeginDrag}
+          onMomentumScrollEnd={onMomentumEnd}
+          onScrollEndDrag={onScrollEndDrag}
+          contentContainerStyle={{ paddingVertical: PAD }}
+          style={styles.scroll}>
+          {values.map((item, i) => {
+            const active = i === displayIndex;
+            return (
+              <View key={item} style={styles.item}>
+                <Text
+                  style={[
+                    styles.itemText,
+                    { color: active ? accentColor : c.textSubtle },
+                    active && styles.itemTextActive,
+                  ]}>
+                  {item}
+                </Text>
+              </View>
+            );
+          })}
+        </ScrollView>
+        <Text style={[styles.unit, { color: accentColor }]}>XP</Text>
+      </View>
+      <Text style={[styles.hint, { color: c.textMuted }]}>Slide · 0 to 100</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    alignItems: 'center',
+    gap: 6,
+    width: '100%',
+  },
+  readout: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
   wrap: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -111,7 +192,6 @@ const styles = StyleSheet.create({
     width: 88,
   },
   selection: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 14,
     borderWidth: 1.5,
     height: ITEM_H,
@@ -126,13 +206,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   itemText: {
-    color: orbitColors.textSubtle,
     fontSize: 16,
     fontWeight: '600',
+  },
+  itemTextActive: {
+    fontSize: 22,
+    fontWeight: '800',
   },
   unit: {
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.4,
+    width: 28,
+  },
+  hint: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
