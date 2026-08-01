@@ -1,11 +1,13 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { orbitTabColors } from '@/constants/orbit-theme';
+import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
+import { orbitTabColors, radius, shadow, space } from '@/constants/orbit-theme';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 const INACTIVE = '#3A5070';
@@ -25,8 +27,9 @@ const TAB_META: Record<
 };
 
 /**
- * Make App.tsx TabBar tokens — native iPhone port.
- * No fake home-indicator pill (real iOS already draws that).
+ * Floating Liquid Glass tab bar — see docs/design-system/08-liquid-glass-guidelines.md
+ * "Concrete before/after": inset rounded-rect glass, not a full-bleed opaque bar.
+ * Reuses global-header-chips.tsx's proven BlurView + gradient-wash recipe.
  */
 export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -34,6 +37,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   const accentPrimary = orbit?.accentTheme.primary ?? '#38BDF8';
   const accentSecondary = orbit?.accentTheme.secondary ?? '#0EA5E9';
   const typeStyle = orbit?.accentTheme.typeStyle;
+  const isDark = orbit?.orbitPalette.isDark ?? true;
   const activeRouteName = state.routes[state.index]?.name;
 
   const visibleRoutes = TAB_ORDER.map((name) => {
@@ -43,8 +47,28 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   }).filter((item): item is NonNullable<typeof item> => item !== null);
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-      <View style={styles.bar}>
+    <View
+      pointerEvents="box-none"
+      style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom - 4, space.xs) }]}>
+      <View style={[styles.bar, isDark ? shadow.floating.dark : shadow.floating.light]}>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <BlurView
+            intensity={Platform.OS === 'ios' ? material.liquidGlass.intensity : material.liquidGlass.androidIntensity}
+            tint={resolveBlurTint(isDark)}
+            experimentalBlurMethod={androidBlurMethod}
+            style={StyleSheet.absoluteFill}
+          />
+          <LinearGradient
+            colors={[
+              `${accentPrimary}${isDark ? '26' : '30'}`,
+              `${accentSecondary}${isDark ? '14' : '1A'}`,
+              'transparent',
+            ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
         {visibleRoutes.map(({ route }) => {
           const isFocused = activeRouteName === route.name;
           const meta = TAB_META[route.name as TabRoute];
@@ -56,7 +80,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
 
           const onPress = () => {
             if (process.env.EXPO_OS === 'ios') {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Haptics.selectionAsync();
             }
             const event = navigation.emit({
               type: 'tabPress',
@@ -80,8 +104,8 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           return (
             <Pressable
               key={route.key}
-              accessibilityRole="button"
-              accessibilityState={isFocused ? { selected: true } : {}}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isFocused }}
               accessibilityLabel={descriptors[route.key].options.tabBarAccessibilityLabel ?? label}
               onPress={onPress}
               onLongPress={onLongPress}
@@ -133,16 +157,20 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: 'rgba(7, 13, 28, 0.94)',
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-    borderTopWidth: 1,
+    backgroundColor: 'transparent',
+    paddingHorizontal: space.sm,
   },
   bar: {
     alignItems: 'flex-end',
+    borderRadius: radius.full,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     flexDirection: 'row',
-    paddingBottom: 4,
+    overflow: 'hidden',
+    paddingBottom: 6,
     paddingHorizontal: 8,
-    paddingTop: 8,
+    paddingTop: 10,
   },
   tab: {
     alignItems: 'center',
