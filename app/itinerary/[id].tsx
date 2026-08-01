@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { RouteSteps } from '@/components/orbit/route-steps';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
 import type { ItineraryStopKind } from '@/types/orbit';
@@ -16,7 +17,7 @@ const STOP_EMOJI: Record<ItineraryStopKind, string> = {
   school: '🏫',
   work: '💼',
   grocery: '🛒',
-  pickup: '⚽',
+  pickup: '📦',
   practice: '🏃',
   family: '🏠',
   home: '🏡',
@@ -66,6 +67,7 @@ export default function ItineraryDetailScreen() {
     household,
     openFullItineraryInMaps,
     openStopInMaps,
+    orbitPalette,
     preferredMapsApp,
     reorderItineraryStops,
     rerunItinerary,
@@ -77,9 +79,36 @@ export default function ItineraryDetailScreen() {
     [itinerary]
   );
 
+  const overviewSteps = useMemo(
+    () =>
+      ordered.map((stop, index) => ({
+        id: stop.id,
+        emoji: stop.status === 'done' ? '✓' : STOP_EMOJI[stop.kind],
+        title: stop.label,
+        address: stop.address || stop.placeQuery || 'No address',
+        category: STOP_CATEGORY[stop.kind],
+        driveMinutes:
+          index < ordered.length - 1
+            ? Math.max(
+                2,
+                Math.min(
+                  12,
+                  Math.round(
+                    ((ordered[index + 1]?.etaMinutes ?? 10) - (stop.etaMinutes ?? 10)) * 0.25
+                  ) || 3
+                )
+              )
+            : undefined,
+        estimatedMinutes: stop.etaMinutes ?? 15,
+        active: stop.status === 'active',
+      })),
+    [ordered]
+  );
+
   const doneCount = ordered.filter((s) => s.status === 'done').length;
   const canRun = itinerary?.status === 'active' || itinerary?.status === 'draft';
   const tripColor = accentTheme.primary;
+  const activeStop = ordered.find((s) => s.status === 'active');
 
   const themedBack = (
     <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
@@ -164,130 +193,72 @@ export default function ItineraryDetailScreen() {
         </Pressable>
       ) : null}
 
-      <View style={styles.stopList}>
-        {ordered.map((stop, index) => {
-          const isActive = stop.status === 'active';
-          const isDone = stop.status === 'done';
-          const isLast = index === ordered.length - 1;
-          const driveMin =
-            index === 0
-              ? 0
-              : Math.max(2, Math.min(12, Math.round(((stop.etaMinutes ?? 10) - (ordered[index - 1]?.etaMinutes ?? 10)) * 0.25) || 3));
+      <GlassCard
+        elevated
+        style={[
+          styles.routeCard,
+          {
+            backgroundColor: orbitPalette.isDark ? 'rgba(255,255,255,0.05)' : orbitPalette.card,
+            borderColor: `${tripColor}28`,
+          },
+        ]}>
+        <Text style={[styles.routeHeading, { color: orbitPalette.text }]}>Route</Text>
+        <RouteSteps steps={overviewSteps} accentColor={tripColor} emphasized />
+      </GlassCard>
 
-          const row = (
-            <View style={styles.stopInner}>
-              <View style={styles.timelineCol}>
-                <View
-                  style={[
-                    styles.node,
-                    isActive && { backgroundColor: `${tripColor}33`, borderColor: `${tripColor}66` },
-                    isDone && styles.nodeDone,
-                  ]}>
-                  <Text style={styles.nodeEmoji}>{isDone ? '✓' : STOP_EMOJI[stop.kind]}</Text>
-                </View>
-                {!isLast ? (
-                  <View style={styles.connector}>
-                    {[0, 1].map((d) => (
-                      <View
-                        key={d}
-                        style={[
-                          styles.connectorDot,
-                          { backgroundColor: isActive ? tripColor : 'rgba(255,255,255,0.12)' },
-                        ]}
-                      />
-                    ))}
-                    {driveMin > 0 ? (
-                      <Text style={styles.driveHint}>{driveMin}m</Text>
-                    ) : (
-                      <View style={[styles.connectorDot, { backgroundColor: 'rgba(255,255,255,0.12)' }]} />
-                    )}
-                    {[0, 1].map((d) => (
-                      <View
-                        key={`b-${d}`}
-                        style={[
-                          styles.connectorDot,
-                          { backgroundColor: isActive ? tripColor : 'rgba(255,255,255,0.12)' },
-                        ]}
-                      />
-                    ))}
-                  </View>
-                ) : null}
-              </View>
-
-              <View style={styles.stopBody}>
-                <View style={styles.stopHead}>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={[styles.stopTitle, isDone && styles.doneText]} numberOfLines={1}>
-                      {stop.label}
-                    </Text>
-                    <View style={styles.addrRow}>
-                      <MaterialIcons name="place" size={11} color={orbitColors.textSubtle} />
-                      <Text style={styles.addrText} numberOfLines={1}>
-                        {stop.address || stop.placeQuery || 'No address'}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.stopMeta}>
-                    <View style={[styles.catPill, { backgroundColor: `${tripColor}18` }]}>
-                      <Text style={[styles.catText, { color: tripColor }]}>
-                        {STOP_CATEGORY[stop.kind]}
-                      </Text>
-                    </View>
-                    {stop.etaMinutes ? (
-                      <View style={styles.timeRow}>
-                        <MaterialIcons name="schedule" size={11} color={orbitColors.textSubtle} />
-                        <Text style={styles.timeText}>~{stop.etaMinutes}m</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  {!isDone ? (
-                    <View style={styles.reorderCol}>
-                      <Pressable onPress={() => void moveStop(stop.id, -1)} hitSlop={10}>
-                        <MaterialIcons name="keyboard-arrow-up" size={18} color={orbitColors.textSubtle} />
-                      </Pressable>
-                      <Pressable onPress={() => void moveStop(stop.id, 1)} hitSlop={10}>
-                        <MaterialIcons name="keyboard-arrow-down" size={18} color={orbitColors.textSubtle} />
-                      </Pressable>
-                    </View>
-                  ) : null}
-                </View>
-
-                {isActive && !isDone ? (
-                  <View style={styles.activeActions}>
-                    <OrbitButton onPress={() => void advanceItineraryStop(itinerary.id, stop.id)}>
-                      Arrived → next
-                    </OrbitButton>
-                    <View style={styles.linkRow}>
-                      <Pressable
-                        onPress={() => void openStopInMaps(itinerary.id, stop.id)}
-                        style={styles.textLink}>
-                        <Text style={[styles.textLinkLabel, { color: tripColor }]}>Open this stop</Text>
-                      </Pressable>
-                      {stop.kind === 'grocery' || stop.kind === 'shop' ? (
-                        <Pressable
-                          onPress={() => router.push('/shopping-mode' as never)}
-                          style={styles.textLink}>
-                          <Text style={[styles.textLinkLabel, { color: tripColor }]}>Shopping list</Text>
-                        </Pressable>
-                      ) : null}
-                    </View>
-                  </View>
-                ) : null}
-              </View>
+      {activeStop ? (
+        <GlassCard elevated style={[styles.activeCard, { borderColor: `${tripColor}40` }]}>
+          <Text style={[styles.activeLabel, { color: tripColor }]}>Current stop</Text>
+          <Text style={[styles.stopTitle, { color: orbitPalette.text }]}>{activeStop.label}</Text>
+          <View style={styles.activeActions}>
+            <OrbitButton onPress={() => void advanceItineraryStop(itinerary.id, activeStop.id)}>
+              Arrived → next
+            </OrbitButton>
+            <View style={styles.linkRow}>
+              <Pressable
+                onPress={() => void openStopInMaps(itinerary.id, activeStop.id)}
+                style={styles.textLink}>
+                <Text style={[styles.textLinkLabel, { color: tripColor }]}>Open this stop</Text>
+              </Pressable>
+              {activeStop.kind === 'grocery' || activeStop.kind === 'shop' ? (
+                <Pressable
+                  onPress={() => router.push('/shopping-mode' as never)}
+                  style={styles.textLink}>
+                  <Text style={[styles.textLinkLabel, { color: tripColor }]}>Shopping list</Text>
+                </Pressable>
+              ) : null}
             </View>
-          );
+          </View>
+        </GlassCard>
+      ) : null}
 
-          return isActive ? (
-            <GlassCard key={stop.id} elevated style={[styles.stopActive, { borderColor: `${tripColor}40` }]}>
-              {row}
-            </GlassCard>
-          ) : (
-            <View key={stop.id} style={styles.stopQuiet}>
-              {row}
-            </View>
-          );
-        })}
-      </View>
+      <GlassCard style={styles.reorderCard}>
+        <Text style={[styles.routeHeading, { color: orbitPalette.text }]}>Reorder stops</Text>
+        {ordered.map((stop, index) => (
+          <View key={stop.id} style={styles.reorderRow}>
+            <Text style={{ fontSize: 16 }}>{STOP_EMOJI[stop.kind]}</Text>
+            <Text
+              style={[
+                styles.reorderLabel,
+                { color: orbitPalette.text },
+                stop.status === 'done' && styles.doneText,
+              ]}
+              numberOfLines={1}>
+              {index + 1}. {stop.label}
+            </Text>
+            {stop.status !== 'done' ? (
+              <View style={styles.reorderCol}>
+                <Pressable onPress={() => void moveStop(stop.id, -1)} hitSlop={10}>
+                  <MaterialIcons name="keyboard-arrow-up" size={18} color={orbitPalette.textSubtle} />
+                </Pressable>
+                <Pressable onPress={() => void moveStop(stop.id, 1)} hitSlop={10}>
+                  <MaterialIcons name="keyboard-arrow-down" size={18} color={orbitPalette.textSubtle} />
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+        ))}
+      </GlassCard>
 
       <View style={styles.secondaryRow}>
         <Pressable
@@ -324,16 +295,14 @@ const styles = StyleSheet.create({
     gap: space.sm,
     marginTop: space.md,
   },
-  addrRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 3,
-    marginTop: 3,
+  activeCard: {
+    gap: space.sm,
   },
-  addrText: {
-    color: orbitColors.textSubtle,
-    flex: 1,
-    fontSize: 12,
+  activeLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   backBtn: {
     alignItems: 'center',
@@ -347,34 +316,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  catPill: {
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  catText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  connector: {
-    alignItems: 'center',
-    flex: 1,
-    gap: 3,
-    paddingVertical: 4,
-  },
-  connectorDot: {
-    borderRadius: 2,
-    height: 3,
-    width: 3,
-  },
   doneText: {
     color: orbitColors.textSubtle,
     textDecorationLine: 'line-through',
-  },
-  driveHint: {
-    color: orbitColors.textSubtle,
-    fontSize: 9,
-    fontWeight: '600',
   },
   header: {
     gap: 6,
@@ -393,32 +337,36 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
-  node: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
-  nodeDone: {
-    backgroundColor: 'rgba(52,211,153,0.2)',
-    borderColor: orbitColors.success,
-  },
-  nodeEmoji: {
-    fontSize: 15,
-  },
   progress: {
     color: orbitColors.textMuted,
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 'auto',
   },
+  reorderCard: {
+    gap: space.sm,
+  },
   reorderCol: {
     alignItems: 'center',
     marginLeft: 2,
+  },
+  reorderLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  reorderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 4,
+  },
+  routeCard: {
+    gap: space.md,
+  },
+  routeHeading: {
+    fontSize: 15,
+    fontWeight: '700',
   },
   secondaryChip: {
     alignItems: 'center',
@@ -469,36 +417,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'capitalize',
   },
-  stopActive: {
-    paddingVertical: 4,
-  },
-  stopBody: {
-    flex: 1,
-    minWidth: 0,
-    paddingBottom: 4,
-  },
-  stopHead: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  stopInner: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  stopList: {
-    gap: 4,
-  },
-  stopMeta: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  stopQuiet: {
-    paddingHorizontal: 4,
-    paddingVertical: 6,
-  },
   stopTitle: {
-    color: orbitColors.text,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -513,19 +432,5 @@ const styles = StyleSheet.create({
   textLinkLabel: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  timeRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 3,
-  },
-  timeText: {
-    color: orbitColors.textSubtle,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  timelineCol: {
-    alignItems: 'center',
-    width: 36,
   },
 });

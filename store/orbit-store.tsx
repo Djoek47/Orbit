@@ -79,10 +79,12 @@ import {
 import {
   loadAppearanceMode,
   loadBackgroundThemeId,
+  loadPaletteId,
   loadPreferredMapsApp,
-  resolveOrbitPalette,
+  resolveTheme,
   saveAppearanceMode,
   saveBackgroundThemeId,
+  savePaletteId,
   savePreferredMapsApp,
   type AppearanceMode,
   type PreferredMapsApp,
@@ -91,6 +93,11 @@ import {
   DEFAULT_BACKGROUND_THEME_ID,
   type BackgroundThemeId,
 } from '@/constants/background-themes';
+import {
+  DEFAULT_COLOR_PALETTE_ID,
+  isColorPaletteId,
+  type ColorPaletteId,
+} from '@/constants/color-palettes';
 import type { OrbitColorPalette } from '@/constants/orbit-theme';
 import { openDirections, openMultiStopRoute } from '@/lib/maps/directions';
 import { DEFAULT_NOVA_NOTIFICATION_PREFS, novaNotifications } from '@/services/nova-notifications';
@@ -247,14 +254,18 @@ type OrbitContextValue = {
   updateMemberCapabilities: (prefs: Partial<MemberCapabilities>) => void;
   /** Updates the current member’s personal look (follows persona switches). */
   updateAccentTheme: (themeId: AccentThemeId) => void;
+  /** Unified palette wheel — day/night pairs live on the palette. */
+  updatePalette: (paletteId: ColorPaletteId) => void;
   /** Owner/admin: household fallback theme for members without a personal pick. */
   updateHouseholdAccentTheme: (themeId: AccentThemeId) => void;
   accentTheme: AccentTheme;
+  paletteId: ColorPaletteId;
   appearanceMode: AppearanceMode;
   updateAppearanceMode: (mode: AppearanceMode) => void;
+  /** @deprecated Background packs folded into palette day/night. */
   backgroundThemeId: BackgroundThemeId;
   updateBackgroundTheme: (themeId: BackgroundThemeId) => void;
-  /** Resolved surface palette (light/dark + background pack). */
+  /** Resolved surface palette (palette + day/night/system). */
   orbitPalette: OrbitColorPalette & { isDark: boolean };
   preferredMapsApp: PreferredMapsApp;
   updatePreferredMapsApp: (app: PreferredMapsApp) => void;
@@ -335,6 +346,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [novaAskCount, setNovaAskCount] = useState(0);
   const [novaConversation, setNovaConversation] = useState<NovaChatMessage[]>([]);
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>('dark');
+  const [paletteId, setPaletteId] = useState<ColorPaletteId>(DEFAULT_COLOR_PALETTE_ID);
   const [backgroundThemeId, setBackgroundThemeId] = useState<BackgroundThemeId>(
     DEFAULT_BACKGROUND_THEME_ID
   );
@@ -455,7 +467,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
       if (!session) {
         if (isMounted) {
-          const [prefs, themeId, savedRooms, avatarOverrides, appearance, bgTheme, mapsApp] =
+          const [prefs, themeId, savedRooms, avatarOverrides, appearance, bgTheme, mapsApp, palette] =
             await Promise.all([
               loadNovaNotificationPrefs(mockHousehold.id),
               loadAccentThemeId(mockHousehold.id),
@@ -464,9 +476,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
               loadAppearanceMode(),
               loadBackgroundThemeId(mockHousehold.id),
               loadPreferredMapsApp(),
+              loadPaletteId(mockHousehold.id),
             ]);
           setAppearanceMode(appearance);
           setBackgroundThemeId(bgTheme);
+          setPaletteId(palette);
           setPreferredMapsApp(mapsApp);
           const withAvatars = mockHousehold.members.map((member) =>
             avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
@@ -509,7 +523,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
 
       if (isMounted) {
-        const [prefs, themeId, appearance, bgTheme, mapsApp, storedMemberId, mockStored] =
+        const [prefs, themeId, appearance, bgTheme, mapsApp, storedMemberId, mockStored, palette] =
           await Promise.all([
             loadNovaNotificationPrefs(hydratedHousehold.id),
             loadAccentThemeId(hydratedHousehold.id),
@@ -518,9 +532,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             loadPreferredMapsApp(),
             loadActiveMemberId(),
             dataMode === 'mock' ? loadMockSession() : Promise.resolve(null),
+            loadPaletteId(hydratedHousehold.id, session.user.id),
           ]);
         setAppearanceMode(appearance);
         setBackgroundThemeId(bgTheme);
+        setPaletteId(palette);
         setPreferredMapsApp(mapsApp);
         setCurrentUser(session.user);
         setHousehold({
@@ -1571,19 +1587,28 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }));
   };
 
+  const resolvedPaletteId = useMemo<ColorPaletteId>(() => {
+    if (isColorPaletteId(currentMember?.accentThemeId)) {
+      return currentMember.accentThemeId;
+    }
+    if (isColorPaletteId(household.accentThemeId)) {
+      return household.accentThemeId;
+    }
+    return paletteId ?? DEFAULT_COLOR_PALETTE_ID;
+  }, [currentMember?.accentThemeId, household.accentThemeId, paletteId]);
+
   const accentTheme = useMemo(
-    () =>
-      getAccentTheme(
-        currentMember?.accentThemeId ?? household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID
-      ),
-    [currentMember?.accentThemeId, household.accentThemeId]
+    () => getAccentTheme(resolvedPaletteId),
+    [resolvedPaletteId]
   );
 
   const updateAccentTheme = (themeId: AccentThemeId) => {
     const memberId = currentMember?.id;
+    setPaletteId(themeId);
     if (!memberId) {
       setHousehold((current) => ({ ...current, accentThemeId: themeId }));
       void saveAccentThemeId(household.id, themeId);
+      void savePaletteId(household.id, null, themeId);
       return;
     }
     setHousehold((current) => ({
@@ -1593,6 +1618,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ),
     }));
     void saveMemberAccentThemeId(household.id, memberId, themeId);
+    void savePaletteId(household.id, memberId, themeId);
+  };
+
+  const updatePalette = (next: ColorPaletteId) => {
+    updateAccentTheme(next);
   };
 
   const updateHouseholdAccentTheme = (themeId: AccentThemeId) => {
@@ -1601,6 +1631,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     setHousehold((current) => ({ ...current, accentThemeId: themeId }));
     void saveAccentThemeId(household.id, themeId);
+    void savePaletteId(household.id, null, themeId);
   };
 
   const updateAppearanceMode = (mode: AppearanceMode) => {
@@ -1609,8 +1640,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const updateBackgroundTheme = (themeId: BackgroundThemeId) => {
+    // Legacy: map light packs → light mode, dark packs → dark mode.
     setBackgroundThemeId(themeId);
     void saveBackgroundThemeId(household.id, currentMember?.id, themeId);
+    if (themeId === 'paper' || themeId === 'mist') {
+      setAppearanceMode('light');
+      void saveAppearanceMode('light');
+    } else {
+      setAppearanceMode('dark');
+      void saveAppearanceMode('dark');
+    }
   };
 
   const updatePreferredMapsApp = (app: PreferredMapsApp) => {
@@ -1619,8 +1658,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const orbitPalette = useMemo(
-    () => resolveOrbitPalette(appearanceMode, backgroundThemeId),
-    [appearanceMode, backgroundThemeId]
+    () => resolveTheme(appearanceMode, resolvedPaletteId),
+    [appearanceMode, resolvedPaletteId]
   );
 
   const upsertSavedPlace = (place: SavedPlace) => {
@@ -2738,8 +2777,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateNotificationPrefs,
       updateMemberCapabilities,
       updateAccentTheme,
+      updatePalette,
       updateHouseholdAccentTheme,
       accentTheme,
+      paletteId: resolvedPaletteId,
       appearanceMode,
       updateAppearanceMode,
       backgroundThemeId,
@@ -2817,7 +2858,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       refreshSmartHome,
       runNovaMonitor,
       accentTheme,
+      resolvedPaletteId,
       updateAccentTheme,
+      updatePalette,
       updateHouseholdAccentTheme,
       appearanceMode,
       updateAppearanceMode,

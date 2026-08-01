@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
-import { orbitColors } from '@/constants/orbit-theme';
+import { orbitColors, radius, typography } from '@/constants/orbit-theme';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type AuthShellProps = {
@@ -25,7 +25,7 @@ type AuthShellProps = {
   showLegal?: boolean;
 };
 
-/** Shared Choremaxx chrome for auth / onboarding side screens. */
+/** Shared Choremaxx chrome for auth / onboarding side screens — Design 8 glass. */
 export function AuthShell({
   children,
   kicker,
@@ -38,16 +38,30 @@ export function AuthShell({
 }: AuthShellProps) {
   const insets = useSafeAreaInsets();
   const orbit = useOrbitOptional();
+  const palette = orbit?.orbitPalette;
   const primary = orbit?.accentTheme.primary ?? orbitColors.primary;
   const secondary = orbit?.accentTheme.secondary ?? orbitColors.orbitBlueDeep;
+  const background = palette?.background ?? orbitColors.background;
+  const cardBg = palette?.cardStrong ?? orbitColors.cardStrong;
+  const cardBorder = palette?.borderStrong ?? orbitColors.borderStrong;
+  const text = palette?.text ?? orbitColors.text;
+  const textSoft = palette?.textSoft ?? orbitColors.textSoft;
+  const textMuted = palette?.textMuted ?? orbitColors.textMuted;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: background }]}>
       <LinearGradient
-        colors={[`${primary}22`, 'transparent']}
+        colors={[`${primary}33`, `${secondary}14`, 'transparent']}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={styles.ambient}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={['transparent', `${primary}0A`]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
-        style={styles.ambient}
+        style={styles.ambientFloor}
         pointerEvents="none"
       />
       <KeyboardScreen
@@ -69,7 +83,7 @@ export function AuthShell({
         {brandHero ? (
           <View style={styles.brandBlock}>
             <ChoremaxxLogo size="lg" />
-            <Text style={styles.brandTag}>AI Household OS</Text>
+            <Text style={[styles.brandTag, { color: textMuted }]}>AI Household OS</Text>
           </View>
         ) : (
           <View style={styles.logoRow}>
@@ -79,11 +93,26 @@ export function AuthShell({
 
         <View style={styles.header}>
           {kicker ? <Text style={[styles.kicker, { color: secondary }]}>{kicker}</Text> : null}
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          <Text style={[typography.title1, styles.title, { color: text }]}>{title}</Text>
+          {subtitle ? (
+            <Text style={[styles.subtitle, { color: textSoft }]}>{subtitle}</Text>
+          ) : null}
         </View>
 
-        <View style={styles.card}>{children}</View>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: cardBg,
+              borderColor: cardBorder,
+            },
+          ]}>
+          <View
+            style={[styles.cardInset, { borderColor: 'rgba(255,255,255,0.06)' }]}
+            pointerEvents="none"
+          />
+          {children}
+        </View>
         {footer ? <View style={styles.footer}>{footer}</View> : null}
         {showLegal ? <BrandLegalFooter compact showLogo={false} style={styles.legal} /> : null}
       </KeyboardScreen>
@@ -101,7 +130,14 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 320,
+    height: 380,
+  },
+  ambientFloor: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 180,
   },
   content: {
     paddingHorizontal: 20,
@@ -144,10 +180,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   title: {
-    color: orbitColors.text,
-    fontSize: 28,
-    fontWeight: '800',
-    lineHeight: 34,
+    letterSpacing: -0.5,
   },
   subtitle: {
     color: orbitColors.textSoft,
@@ -155,12 +188,22 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   card: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 24,
+    backgroundColor: orbitColors.cardStrong,
+    borderColor: orbitColors.borderStrong,
+    borderCurve: 'continuous',
+    borderRadius: radius.cardLarge,
     borderWidth: 1,
     gap: 14,
+    overflow: 'hidden',
     padding: 18,
+    position: 'relative',
+  },
+  cardInset: {
+    ...StyleSheet.absoluteFillObject,
+    borderCurve: 'continuous',
+    borderRadius: radius.cardLarge - 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    margin: 1,
   },
   footer: {
     gap: 10,

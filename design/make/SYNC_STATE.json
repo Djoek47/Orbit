@@ -1,19 +1,21 @@
 {
-  "fileKey": "4J6d4LW335tDyEDpqq3VD1",
-  "fileName": "Design-Orbit-AI-App",
+  "fileKey": "nwBB1pEqZMWxsm6WE7dFeS",
+  "fileName": "Design-Orbit-AI-App--copie-",
   "brandName": "Choremaxx",
-  "makeVersion": "v7",
+  "makeVersion": "v8",
   "rootNodeId": "0:1",
-  "makeUrl": "https://www.figma.com/make/4J6d4LW335tDyEDpqq3VD1/Design-Orbit-AI-App",
-  "lastSyncedAt": "2026-07-20T19:39:13Z",
-  "lastSyncedCommit": "b43ecb5",
-  "lastSourceHash": "257c02119d951255",
+  "makeUrl": "https://www.figma.com/make/nwBB1pEqZMWxsm6WE7dFeS/Design-Orbit-AI-App--copie-",
+  "lastSyncedAt": "2026-08-01T03:13:38Z",
+  "lastSyncedCommit": "pending",
+  "lastSourceHash": "design8-glass",
+  "previousFileKey": "4J6d4LW335tDyEDpqq3VD1",
   "screensMirrored": [
     "App.tsx",
-    "ChoremaxxLogo.tsx",
     "OnboardingScreen.tsx",
-    "RewardsScreen.tsx",
+    "ItineraryScreen.tsx",
+    "AdminScreen.tsx",
     "theme.css",
+    "gameData.ts",
     "choremaxx-v2-redesign.md"
   ],
   "primaryTabs": [
@@ -23,5 +25,5 @@
     "Rewards",
     "Nova"
   ],
-  "notes": "Make v7 rebrand to Choremaxx. Plan tab = Calendar + Itineraries. Rewards tab = Rewards + Allowance + Rankings. Role-filtered tabs."
+  "notes": "Make Design 8 (copie): iOS glass itineraries with Smart Trips + My Places + Pickup Summary; Admin/Settings glass SectionCards; onboarding glass cues. Visual SoT for onboarding/itineraries/settings/palette. Product IA remains docs/product-context.md."
 }

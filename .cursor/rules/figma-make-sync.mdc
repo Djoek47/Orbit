@@ -7,8 +7,9 @@ alwaysApply: true
 
 ## Source of truth
 
-- Design visual/layout source: Figma Make  
-  https://www.figma.com/make/4J6d4LW335tDyEDpqq3VD1/Design-Orbit-AI-App
+- Design visual/layout source: Figma Make Design 8  
+  https://www.figma.com/make/nwBB1pEqZMWxsm6WE7dFeS/Design-Orbit-AI-App--copie-  
+  (prior v7: `4J6d4LW335tDyEDpqq3VD1` — kept as `previousFileKey` in `design/make/SYNC_STATE.json`)
 - Product brand (Make v7+): **Choremaxx** (shipping product name). Internal code namespaces may still say `orbit` for stability.
 - Product/IA source of truth for shipping product remains `docs/product-context.md`, `docs/ux-design-system.md`, and `docs/technical-blueprint.md`.
 - **Visual/material/motion/component detail** (colors, type scale, spacing, radius, shadows, glass materials, motion timing, and the shared component library) is authoritative in **`docs/design-system/`** (the iOS 27 / Liquid Glass rebuild spec, `01`–`11`). This document and the three above remain authoritative for **information architecture** (which tabs exist, which roles see what) — Figma Make sync should still respect the tab/role structure below, but should not reintroduce web-style visual patterns (flat opaque tab bars, arbitrary radii, dashboard-style card stacking) that `docs/design-system/` has since superseded. When porting a future Make update, re-skin the ported screen against `docs/design-system/02-design-language.md` and `05-component-library.md` rather than 1:1-copying Make's own visual treatment.
@@ -34,8 +35,8 @@ design registry and applied by a Cursor agent (manual trigger, schedule, or
 Automation):
 
 1. User pastes the Make URL, says “sync from Figma”, or Automation runs.
-2. Agent calls Figma MCP `get_design_context` with `fileKey=4J6d4LW335tDyEDpqq3VD1` and `nodeId=0:1`.
-3. Agent fetches Make source via MCP resources (`file://figma/make/source/4J6d4LW335tDyEDpqq3VD1/...`) into `design/make/source/` and updates `design/make/SYNC_STATE.json`.
+2. Agent calls Figma MCP `get_design_context` with `fileKey=nwBB1pEqZMWxsm6WE7dFeS` and `nodeId=0:1`.
+3. Agent fetches Make source via MCP resources (`file://figma/make/source/nwBB1pEqZMWxsm6WE7dFeS/...`) into `design/make/source/` and updates `design/make/SYNC_STATE.json`.
 4. Agent ports UI into Expo Router / React Native under `app/` and `components/orbit/`, using tokens in `constants/orbit-theme.ts` — do not paste Tailwind/web DOM code directly.
 5. **Backend wire-up:** if the design introduces entities or fields, extend `supabase/` schema, repository supabase paths, and `store/orbit-store.tsx`. Do not leave new screens hard-coded mock-only when `EXPO_PUBLIC_DATA_MODE=supabase`.
 6. Open a PR; user verifies in Expo Go (`npx expo start`) and staging supabase.

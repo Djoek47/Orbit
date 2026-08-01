@@ -18,7 +18,7 @@ import { useOrbit } from '@/store/orbit-store';
 
 export default function ConfirmEmailScreen() {
   const params = useLocalSearchParams<{ email?: string }>();
-  const { accentTheme, hydrateFromSession, signIn } = useOrbit();
+  const { accentTheme, hydrateFromSession, orbitPalette, signIn } = useOrbit();
   const pending = getPendingSignup();
   const email = useMemo(
     () => (typeof params.email === 'string' ? params.email : pending?.email ?? '').trim(),
@@ -119,13 +119,20 @@ export default function ConfirmEmailScreen() {
           <Text style={[styles.link, { color: accentTheme.primary }]}>Back to sign in</Text>
         </Pressable>
       }>
-      <View style={styles.mailCard}>
+      <View
+        style={[
+          styles.mailCard,
+          {
+            backgroundColor: orbitPalette.cardMuted,
+            borderColor: orbitPalette.border,
+          },
+        ]}>
         <View style={[styles.mailIcon, { backgroundColor: `${accentTheme.primary}22` }]}>
           <MaterialIcons name="mark-email-unread" size={28} color={accentTheme.primary} />
         </View>
-        <Text style={styles.mailBody}>
-          Tap the link in the email to verify this address. You can leave Choremaxx open — we’ll pick
-          up when the link opens the app.
+        <Text style={[styles.mailBody, { color: orbitPalette.textMuted }]}>
+          Tap the link in the email to verify. Leave Choremaxx open — we’ll continue when the link
+          opens the app.
         </Text>
       </View>
 
@@ -162,7 +169,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
   mailIcon: {

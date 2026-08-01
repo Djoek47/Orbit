@@ -35,7 +35,7 @@ function toUserFacingAuthError(err: unknown, fallback: string): string {
 }
 
 export default function SignInScreen() {
-  const { accentTheme, signIn, hydrateFromSession } = useOrbit();
+  const { accentTheme, orbitPalette, signIn, hydrateFromSession } = useOrbit();
   const mock = isMockMode();
   const [email, setEmail] = useState(mock ? MOCK_DEMO_EMAIL : '');
   const [password, setPassword] = useState(mock ? MOCK_DEMO_PASSWORD : '');
@@ -112,8 +112,8 @@ export default function SignInScreen() {
         title="Sign in"
         subtitle={
           mock
-            ? 'Open your household. Demo credentials are prefilled for the Rivera home.'
-            : 'Sign in with the account you created, or tap Get Started to make a household.'
+            ? 'Open your household. Demo credentials are prefilled.'
+            : 'Use your Choremaxx account, or Get Started to create one.'
         }
         footer={
           <View style={styles.footerLinks}>
@@ -121,7 +121,7 @@ export default function SignInScreen() {
               <Text style={[styles.link, { color: accentTheme.primary }]}>Forgot password?</Text>
             </Pressable>
             <Pressable onPress={() => router.push('/welcome' as never)} style={styles.switchRow}>
-              <Text style={styles.switchMuted}>New here?</Text>
+              <Text style={[styles.switchMuted, { color: orbitPalette.textMuted }]}>New here?</Text>
               <Text style={[styles.link, { color: accentTheme.primary }]}>Get Started</Text>
             </Pressable>
           </View>
@@ -142,7 +142,7 @@ export default function SignInScreen() {
           secureTextEntry
           placeholder="Your password"
         />
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={[styles.error, { color: orbitPalette.danger }]}>{error}</Text> : null}
 
         <OrbitButton disabled={busy || showSuccess} onPress={() => void handleSignIn()}>
           {busy ? 'Signing in…' : 'Sign in'}
@@ -151,9 +151,9 @@ export default function SignInScreen() {
         {appleAvailable && Platform.OS === 'ios' ? (
           <>
             <View style={styles.dividerRow}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: orbitPalette.border }]} />
+              <Text style={[styles.dividerText, { color: orbitPalette.textSubtle }]}>or</Text>
+              <View style={[styles.divider, { backgroundColor: orbitPalette.border }]} />
             </View>
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
@@ -166,16 +166,16 @@ export default function SignInScreen() {
         ) : null}
 
         {mock ? (
-          <View style={styles.demoHint}>
-            <MaterialIcons name="info-outline" size={14} color={orbitColors.textSubtle} />
-            <Text style={styles.demoText}>
+          <View style={[styles.demoHint, { backgroundColor: orbitPalette.cardMuted }]}>
+            <MaterialIcons name="info-outline" size={14} color={orbitPalette.textSubtle} />
+            <Text style={[styles.demoText, { color: orbitPalette.textSubtle }]}>
               Demo: {MOCK_DEMO_EMAIL} · {MOCK_DEMO_PASSWORD}
             </Text>
           </View>
         ) : (
-          <View style={styles.demoHint}>
-            <MaterialIcons name="info-outline" size={14} color={orbitColors.textSubtle} />
-            <Text style={styles.demoText}>
+          <View style={[styles.demoHint, { backgroundColor: orbitPalette.cardMuted }]}>
+            <MaterialIcons name="info-outline" size={14} color={orbitPalette.textSubtle} />
+            <Text style={[styles.demoText, { color: orbitPalette.textSubtle }]}>
               Live account required. Use Get Started if you don’t have one yet.
             </Text>
           </View>
@@ -193,7 +193,14 @@ const styles = StyleSheet.create({
   divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.12)' },
   dividerText: { color: orbitColors.textSubtle, fontSize: 12, fontWeight: '600' },
   appleButton: { height: 48, width: '100%' },
-  demoHint: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  demoHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   demoText: { color: orbitColors.textSubtle, fontSize: 12, flex: 1 },
   footerLinks: { alignItems: 'center', gap: 14 },
   link: { fontSize: 14, fontWeight: '700' },

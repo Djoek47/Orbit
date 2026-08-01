@@ -1,10 +1,9 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import 'react-native-reanimated';
 
 import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
 import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { OrbitNavTheme } from '@/components/orbit/orbit-nav-theme';
 import { OrbitProvider } from '@/store/orbit-store';
 
 export const unstable_settings = {
@@ -12,11 +11,9 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <OrbitProvider>
+    <OrbitProvider>
+      <OrbitNavTheme>
         <DeepLinkBridge />
         <OrbitChromeBridge />
         <Stack>
@@ -63,7 +60,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen
             name="places"
-            options={{ presentation: 'modal', headerShown: false, title: 'Places' }}
+            options={{ presentation: 'modal', headerShown: false, title: 'My Places' }}
           />
           <Stack.Screen name="notifications" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="momentum" options={{ title: 'Momentum' }} />
@@ -109,7 +106,7 @@ export default function RootLayout() {
             options={{ presentation: 'modal', headerShown: false, title: 'Reward Tally' }}
           />
         </Stack>
-      </OrbitProvider>
-    </ThemeProvider>
+      </OrbitNavTheme>
+    </OrbitProvider>
   );
 }

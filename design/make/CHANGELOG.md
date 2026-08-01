@@ -1,3 +1,9 @@
+## Design 8 (2026-08-01)
+
+- Visual SoT switched to Make file `nwBB1pEqZMWxsm6WE7dFeS` (Design Orbit AI App — copie).
+- Mirrored: ItineraryScreen (Smart Trips + My Places + Pickup Summary glass), OnboardingScreen, AdminScreen, theme.css, gameData.
+- Prior v7 file key retained as `previousFileKey` in SYNC_STATE.json.
+
 # Make sync changelog
 
 ## 2026-07-20 — Make v7 / Choremaxx

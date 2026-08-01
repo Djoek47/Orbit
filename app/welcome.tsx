@@ -1,7 +1,9 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   Platform,
   PanResponder,
   Pressable,
@@ -17,14 +19,17 @@ import QRCode from 'react-native-qrcode-svg';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { BrandOpening } from '@/components/orbit/brand-opening';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
+import { GlassCard } from '@/components/orbit/glass-card';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
+import { OnboardingProgress } from '@/components/orbit/onboarding-progress';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import {
   ONBOARDING_MOTIVATIONS,
   ONBOARDING_ROLES,
+  ONBOARDING_SPLASH_HOOKS,
   loadOnboardingPrefs,
   onboardingRoleToHouseholdType,
   saveOnboardingPrefs,
@@ -63,6 +68,7 @@ const HOUSEHOLD_TYPES: { label: string; value: HouseholdType }[] = [
 export default function WelcomeOnboardingScreen() {
   const insets = useSafeAreaInsets();
   const {
+    accentTheme,
     connectSharedTabletProfiles,
     createChildInvites,
     createHousehold,
@@ -75,9 +81,14 @@ export default function WelcomeOnboardingScreen() {
     isSignedIn,
     hydrateFromSession,
     joinHousehold,
+    orbitPalette,
     redeemChildInvite,
     signUp,
   } = useOrbit();
+
+  const accent = accentTheme.primary;
+  const ink = orbitPalette.ink;
+  const bg = orbitPalette.background;
 
   const [step, setStep] = useState<Step>('splash');
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -111,6 +122,18 @@ export default function WelcomeOnboardingScreen() {
   const [tabletCodes, setTabletCodes] = useState<string[]>([]);
   const [tabletCodeDraft, setTabletCodeDraft] = useState('');
   const [tabletLabel, setTabletLabel] = useState('Shared tablet');
+
+  const stepOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (step === 'splash') return;
+    stepOpacity.setValue(0);
+    Animated.timing(stepOpacity, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [step, stepOpacity]);
 
   const roomCatalog = useMemo(
     () => [...DEFAULT_HOUSEHOLD_ROOMS, ...customRooms],
@@ -564,12 +587,42 @@ export default function WelcomeOnboardingScreen() {
 
   return (
     <View
-      style={[styles.root, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}
+      style={[
+        styles.root,
+        {
+          backgroundColor: bg,
+          paddingTop: insets.top + 8,
+          paddingBottom: insets.bottom + 16,
+        },
+      ]}
       {...swipeBack.panHandlers}>
+      <LinearGradient
+        colors={[`${accent}28`, 'transparent']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.ambient}
+        pointerEvents="none"
+      />
+
       {step === 'splash' ? (
         <View style={styles.splashScreen}>
           <View style={styles.splashCenter}>
-            <BrandOpening tagline="Run the household" onReady={() => setSplashReady(true)} />
+            <BrandOpening
+              tagline="Your household, quietly run."
+              onReady={() => setSplashReady(true)}
+            />
+            <View
+              style={[styles.splashHooks, !splashReady && styles.splashBottomHidden]}
+              pointerEvents="none">
+              {ONBOARDING_SPLASH_HOOKS.map((hook) => (
+                <View key={hook.text} style={styles.hookRow}>
+                  <View style={[styles.hookDot, { backgroundColor: hook.color }]} />
+                  <Text style={[styles.hookText, { color: orbitPalette.textMuted }]}>
+                    {hook.text}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
 
           <View
@@ -578,8 +631,9 @@ export default function WelcomeOnboardingScreen() {
             <View style={styles.splashCtaBlock}>
               <OrbitButton onPress={() => setStep('role')}>Get Started</OrbitButton>
               <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
-                <Text style={styles.signInText}>
-                  Already have an account? <Text style={styles.signInAccent}>Sign in</Text>
+                <Text style={[styles.signInText, { color: orbitPalette.textMuted }]}>
+                  Already have an account?{' '}
+                  <Text style={[styles.signInAccent, { color: accent }]}>Sign in</Text>
                 </Text>
               </Pressable>
             </View>
@@ -588,477 +642,646 @@ export default function WelcomeOnboardingScreen() {
         </View>
       ) : null}
 
-      {step === 'role' ? (
-        <KeyboardScreen contentContainerStyle={[styles.scroll, styles.roleScroll]}>
-          <Header progress={progressIndex} onBack={goBack} />
-          <View style={styles.roleIntro}>
-            <Text style={[typography.title2, styles.roleHeading]}>Who are you?</Text>
-            <Text style={styles.roleCaption}>Choremaxx adapts to your role in the household.</Text>
-          </View>
-          <View style={styles.roleList}>
-            {ONBOARDING_ROLES.map((role) => {
-              const active = selectedRole === role.id;
-              return (
-                <Pressable
-                  key={role.id}
-                  onPress={() => setSelectedRole(role.id)}
-                  style={[
-                    styles.roleCard,
-                    active && {
-                      backgroundColor: `${role.color}14`,
-                      borderColor: `${role.color}66`,
-                    },
-                  ]}>
-                  <View
-                    style={[
-                      styles.roleEmoji,
-                      {
-                        backgroundColor: active ? `${role.color}22` : 'rgba(255,255,255,0.05)',
-                        borderColor: active ? `${role.color}40` : 'rgba(255,255,255,0.08)',
-                      },
-                    ]}>
-                    <Text style={styles.emoji}>{role.emoji}</Text>
-                  </View>
-                  <View style={styles.roleBody}>
-                    <Text style={styles.roleTitle}>{role.title}</Text>
-                    <Text
+      {step !== 'splash' ? (
+        <Animated.View style={[styles.stepFade, { opacity: stepOpacity }]}>
+          {step === 'role' ? (
+            <KeyboardScreen contentContainerStyle={[styles.scroll, styles.roleScroll]}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <View style={styles.roleIntro}>
+                <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
+                  Who&apos;s using Choremaxx?
+                </Text>
+                <Text style={[styles.roleCaption, { color: orbitPalette.textMuted }]}>
+                  We&apos;ll shape the home around you.
+                </Text>
+              </View>
+              <View style={styles.roleList}>
+                {ONBOARDING_ROLES.map((role) => {
+                  const active = selectedRole === role.id;
+                  return (
+                    <Pressable
+                      key={role.id}
+                      onPress={() => setSelectedRole(role.id)}
                       style={[
-                        styles.roleSubtitle,
-                        active ? { color: role.color } : null,
+                        styles.roleCard,
+                        {
+                          backgroundColor: active
+                            ? `${role.color}18`
+                            : orbitPalette.card,
+                          borderColor: active ? `${role.color}66` : orbitPalette.border,
+                        },
+                        active && {
+                          shadowColor: role.color,
+                          shadowOpacity: 0.35,
+                          shadowRadius: 14,
+                          shadowOffset: { width: 0, height: 0 },
+                          elevation: 4,
+                        },
                       ]}>
-                      {role.subtitle}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.radio,
-                      active && { backgroundColor: role.color, borderColor: role.color },
-                    ]}>
-                    {active ? <Text style={styles.radioCheck}>✓</Text> : null}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-          <View style={styles.roleFooter}>
-            <OrbitButton disabled={!selectedRole} onPress={handleRoleContinue}>
-              Continue
-            </OrbitButton>
-          </View>
-        </KeyboardScreen>
-      ) : null}
-
-      {step === 'motivation' ? (
-        <KeyboardScreen contentContainerStyle={styles.scroll}>
-          <Header progress={progressIndex} onBack={goBack} />
-          <Text style={typography.title2}>How do you motivate your household?</Text>
-          <Text style={[typography.footnote, styles.mb]}>You can change this anytime in Settings.</Text>
-          <View style={styles.motivationGrid}>
-            {ONBOARDING_MOTIVATIONS.map((opt) => {
-              const active = selectedMotivation === opt.id;
-              return (
-                <Pressable
-                  key={opt.id}
-                  onPress={() => setSelectedMotivation(opt.id)}
-                  style={[
-                    styles.motivationCard,
-                    opt.wide && styles.motivationWide,
-                    active && styles.motivationActive,
-                  ]}>
-                  <View style={styles.motivationTop}>
-                    <Text style={styles.emoji}>{opt.emoji}</Text>
-                    {active ? (
-                      <View style={styles.miniCheck}>
-                        <Text style={styles.radioCheck}>✓</Text>
+                      <View
+                        style={[
+                          styles.roleEmoji,
+                          {
+                            backgroundColor: active
+                              ? `${role.color}28`
+                              : orbitPalette.cardMuted,
+                            borderColor: active ? `${role.color}44` : orbitPalette.border,
+                          },
+                        ]}>
+                        <Text style={styles.emoji}>{role.emoji}</Text>
                       </View>
-                    ) : null}
-                  </View>
-                  <Text style={styles.motivationLabel}>{opt.label}</Text>
-                  <Text style={styles.motivationDesc}>{opt.desc}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <OrbitButton disabled={!selectedMotivation} onPress={handleMotivationContinue}>
-            Continue
-          </OrbitButton>
-        </KeyboardScreen>
-      ) : null}
+                      <View style={styles.roleBody}>
+                        <Text style={[styles.roleTitle, { color: orbitPalette.text }]}>
+                          {role.title}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.roleSubtitle,
+                            { color: active ? role.color : orbitPalette.textMuted },
+                          ]}>
+                          {role.subtitle}
+                        </Text>
+                        <View style={styles.perkWrap}>
+                          {role.perks.map((perk) => (
+                            <View
+                              key={perk}
+                              style={[
+                                styles.perk,
+                                {
+                                  backgroundColor: active
+                                    ? `${role.color}18`
+                                    : orbitPalette.cardMuted,
+                                },
+                              ]}>
+                              <Text
+                                style={[
+                                  styles.perkText,
+                                  {
+                                    color: active
+                                      ? orbitPalette.textSoft
+                                      : orbitPalette.textMuted,
+                                  },
+                                ]}>
+                                {perk}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                      <View
+                        style={[
+                          styles.radio,
+                          active && { backgroundColor: role.color, borderColor: role.color },
+                        ]}>
+                        {active ? (
+                          <Text style={[styles.radioCheck, { color: ink }]}>✓</Text>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <View style={styles.roleFooter}>
+                <OrbitButton disabled={!selectedRole} onPress={handleRoleContinue}>
+                  Continue
+                </OrbitButton>
+              </View>
+            </KeyboardScreen>
+          ) : null}
 
-      {step === 'child-invite' ? (
-        <KeyboardScreen contentContainerStyle={styles.scroll}>
-          <Header progress={progressIndex} onBack={goBack} />
-          <Text style={typography.title2}>Got a parent invite?</Text>
-          <Text style={[typography.footnote, styles.mb]}>
-            No email or password. Open the AirDrop your parent sent, scan their QR, or type your kid
-            code. Your parent&apos;s account keeps the household saved.
-          </Text>
-          <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
-          <OrbitInput
-            autoCapitalize="characters"
-            label="Kid invite code"
-            value={inviteCode}
-            onChangeText={setInviteCode}
-            placeholder="e.g. CMX-EMMA"
-          />
-          <Text style={typography.footnote}>
-            Demo profiles: CMX-EMMA · CMX-LIAM · CMX-JOSH · CMX-TODD
-          </Text>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <OrbitButton disabled={busy} onPress={() => void handleChildInviteContinue()}>
-            {busy ? 'Opening…' : 'Enter Choremaxx'}
-          </OrbitButton>
-        </KeyboardScreen>
-      ) : null}
+          {step === 'motivation' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
+                How should chores feel?
+              </Text>
+              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
+                Change anytime in Settings.
+              </Text>
+              <View style={styles.motivationGrid}>
+                {ONBOARDING_MOTIVATIONS.map((opt) => {
+                  const active = selectedMotivation === opt.id;
+                  return (
+                    <Pressable
+                      key={opt.id}
+                      onPress={() => setSelectedMotivation(opt.id)}
+                      style={[
+                        styles.motivationCard,
+                        {
+                          backgroundColor: active ? `${accent}22` : orbitPalette.card,
+                          borderColor: active ? `${accent}55` : orbitPalette.border,
+                        },
+                        opt.wide && styles.motivationWide,
+                      ]}>
+                      <View style={styles.motivationTop}>
+                        <Text style={styles.emoji}>{opt.emoji}</Text>
+                        {active ? (
+                          <View style={[styles.miniCheck, { backgroundColor: accent }]}>
+                            <Text style={[styles.radioCheck, { color: ink }]}>✓</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={[styles.motivationLabel, { color: orbitPalette.text }]}>
+                        {opt.label}
+                      </Text>
+                      <Text style={[styles.motivationDesc, { color: orbitPalette.textSubtle }]}>
+                        {opt.desc}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <OrbitButton disabled={!selectedMotivation} onPress={handleMotivationContinue}>
+                Continue
+              </OrbitButton>
+            </KeyboardScreen>
+          ) : null}
 
-      {step === 'tablet-invite' ? (
-        <KeyboardScreen contentContainerStyle={styles.scroll}>
-          <Header progress={progressIndex} onBack={goBack} />
-          <Text style={typography.title2}>Set up this shared tablet</Text>
-          <Text style={[typography.footnote, styles.mb]}>
-            Add profiles with AirDrop or invite codes from a parent/admin. No email on the tablet —
-            the admin account keeps everything saved. Add one or two people (or more).
-          </Text>
-          <OrbitInput
-            label="Device name"
-            value={tabletLabel}
-            onChangeText={setTabletLabel}
-            placeholder="Shared tablet"
-          />
-          <OrbitButton onPress={() => setScannerOpen(true)}>Scan AirDrop / invite QR</OrbitButton>
-          <View style={styles.tabletCodeRow}>
-            <View style={styles.tabletCodeInput}>
+          {step === 'child-invite' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
+                Join with an invite
+              </Text>
+              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
+                No email needed. Open the AirDrop your parent sent, scan their QR, or enter your kid
+                code.
+              </Text>
+              <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
               <OrbitInput
                 autoCapitalize="characters"
-                label="Profile invite code"
-                value={tabletCodeDraft}
-                onChangeText={setTabletCodeDraft}
-                placeholder="e.g. CMX-JOSH"
+                label="Kid invite code"
+                value={inviteCode}
+                onChangeText={setInviteCode}
+                placeholder="e.g. CMX-EMMA"
               />
-            </View>
-            <OrbitButton
-              tone="secondary"
-              disabled={!tabletCodeDraft.trim()}
-              onPress={() => addTabletCode(tabletCodeDraft)}>
-              Add
-            </OrbitButton>
-          </View>
-          {tabletCodes.length > 0 ? (
-            <View style={styles.tabletChipWrap}>
-              {tabletCodes.map((code) => (
-                <Pressable
-                  key={code}
-                  onPress={() => setTabletCodes((current) => current.filter((item) => item !== code))}
-                  style={styles.tabletChip}>
-                  <Text style={styles.tabletChipText}>{code} ✕</Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : (
-            <Text style={typography.footnote}>
-              Demo: add CMX-JOSH and CMX-TODD for a two-profile tablet.
-            </Text>
-          )}
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <OrbitButton
-            disabled={busy || (tabletCodes.length === 0 && !tabletCodeDraft.trim())}
-            onPress={() => void handleTabletInviteContinue()}>
-            {busy ? 'Setting up…' : 'Continue on this tablet'}
-          </OrbitButton>
-        </KeyboardScreen>
-      ) : null}
-
-      {step === 'account' ? (
-        <KeyboardScreen contentContainerStyle={styles.scroll}>
-          <Header progress={progressIndex} onBack={goBack} />
-          <Text style={typography.title2}>Create your account</Text>
-          <Text style={[typography.footnote, styles.mb]}>
-            One account unlocks your household — tasks, Plan, Rewards, and Nova. We’ll email a
-            confirmation link when needed.
-          </Text>
-          {appleAvailable && Platform.OS === 'ios' ? (
-            <>
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-                cornerRadius={16}
-                style={styles.appleButton}
-                onPress={() => void handleAppleContinue()}
-              />
-              <View style={styles.dividerRow}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>or use email</Text>
-                <View style={styles.divider} />
-              </View>
-            </>
-          ) : null}
-          <OrbitInput
-            autoCapitalize="none"
-            keyboardType="email-address"
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <OrbitInput
-            autoCapitalize="none"
-            secureTextEntry
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-          />
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <OrbitButton disabled={busy} onPress={() => void handleAccountContinue()}>
-            {busy ? 'Creating…' : 'Continue'}
-          </OrbitButton>
-          <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
-            <Text style={styles.signInText}>Already have an account? Sign in</Text>
-          </Pressable>
-        </KeyboardScreen>
-      ) : null}
-
-      {step === 'profile' ? (
-        <KeyboardScreen contentContainerStyle={styles.scroll}>
-          <Header progress={progressIndex} onBack={goBack} />
-          <Text style={typography.title2}>What should we call you?</Text>
-          <Text style={[typography.footnote, styles.mb]}>
-            This name is your identity inside the household.
-          </Text>
-          <OrbitInput label="Display name" value={displayName} onChangeText={setDisplayName} />
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <OrbitButton disabled={busy} onPress={handleProfileContinue}>
-            {busy ? 'Saving…' : 'Continue'}
-          </OrbitButton>
-        </KeyboardScreen>
-      ) : null}
-
-      {step === 'household' ? (
-        <KeyboardScreen contentContainerStyle={styles.scroll}>
-          <Header progress={progressIndex} onBack={goBack} />
-          <Text style={typography.title2}>Set up your household</Text>
-          <Text style={[typography.footnote, styles.mb]}>
-            Create a new home or join one with an invite code.
-          </Text>
-
-          <View style={styles.modeRow}>
-            {(
-              [
-                { id: 'create' as const, label: 'Create' },
-                { id: 'join' as const, label: 'Join' },
-              ] as const
-            ).map((mode) => {
-              const active = householdMode === mode.id;
-              return (
-                <Pressable
-                  key={mode.id}
-                  onPress={() => {
-                    setError('');
-                    setHouseholdMode(mode.id);
-                  }}
-                  style={[styles.modeChip, active && styles.modeChipActive]}>
-                  <Text style={[styles.modeLabel, active && styles.modeLabelActive]}>{mode.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {householdMode === 'create' ? (
-            <>
-              <OrbitInput
-                label="Household name"
-                value={householdName}
-                onChangeText={setHouseholdName}
-              />
-              <Text style={styles.fieldLabel}>Household type</Text>
-              <View style={styles.typeGrid}>
-                {HOUSEHOLD_TYPES.map((item) => {
-                  const selected = item.value === householdType;
-                  return (
-                    <Pressable
-                      key={item.value}
-                      onPress={() => setHouseholdType(item.value)}
-                      style={[styles.typeChip, selected && styles.typeChipSelected]}>
-                      <Text style={[styles.typeLabel, selected && styles.typeLabelSelected]}>
-                        {item.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <Text style={styles.fieldLabel}>Rooms</Text>
-              <Text style={[typography.footnote, styles.mb]}>
-                Pick the spaces you manage. Add custom rooms if needed.
+              <Text style={[typography.footnote, { color: orbitPalette.textSubtle }]}>
+                Demo: CMX-EMMA · CMX-LIAM · CMX-JOSH · CMX-TODD
               </Text>
-              <View style={styles.typeGrid}>
-                {roomCatalog.map((room) => {
-                  const selected = selectedRoomIds.includes(room.id);
-                  return (
-                    <Pressable
-                      key={room.id}
-                      onPress={() =>
-                        setSelectedRoomIds((current) =>
-                          current.includes(room.id)
-                            ? current.filter((id) => id !== room.id)
-                            : [...current, room.id],
-                        )
-                      }
-                      style={[styles.typeChip, selected && styles.typeChipSelected]}>
-                      <Text style={[styles.typeLabel, selected && styles.typeLabelSelected]}>
-                        {room.emoji} {room.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <View style={styles.typeGrid}>
-                {ROOM_EMOJIS.map((emoji) => {
-                  const selected = customRoomEmoji === emoji;
-                  return (
-                    <Pressable
-                      key={emoji}
-                      onPress={() => setCustomRoomEmoji(emoji)}
-                      style={[styles.typeChip, selected && styles.typeChipSelected]}>
-                      <Text style={{ fontSize: 16 }}>{emoji}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <View style={styles.customRoomRow}>
-                <View style={styles.customRoomInput}>
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+              <OrbitButton disabled={busy} onPress={() => void handleChildInviteContinue()}>
+                {busy ? 'Opening…' : 'Enter Choremaxx'}
+              </OrbitButton>
+            </KeyboardScreen>
+          ) : null}
+
+          {step === 'tablet-invite' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
+                Connect this tablet
+              </Text>
+              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
+                Add profiles via AirDrop or invite codes from a parent. No tablet email — the admin
+                account keeps everything saved.
+              </Text>
+              <OrbitInput
+                label="Device name"
+                value={tabletLabel}
+                onChangeText={setTabletLabel}
+                placeholder="Shared tablet"
+              />
+              <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
+              <View style={styles.tabletCodeRow}>
+                <View style={styles.tabletCodeInput}>
                   <OrbitInput
-                    label="Custom room"
-                    value={customRoomName}
-                    onChangeText={setCustomRoomName}
-                    placeholder="e.g. Garage"
+                    autoCapitalize="characters"
+                    label="Profile invite code"
+                    value={tabletCodeDraft}
+                    onChangeText={setTabletCodeDraft}
+                    placeholder="e.g. CMX-JOSH"
                   />
                 </View>
                 <OrbitButton
                   tone="secondary"
-                  onPress={() => {
-                    const trimmed = customRoomName.trim();
-                    if (!trimmed) return;
-                    const room: HouseholdRoom = {
-                      id: createLocalId('room'),
-                      name: trimmed,
-                      emoji: customRoomEmoji,
-                      kind: 'custom',
-                    };
-                    setCustomRooms((current) => [...current, room]);
-                    setSelectedRoomIds((current) => [...current, room.id]);
-                    setCustomRoomName('');
-                  }}>
+                  disabled={!tabletCodeDraft.trim()}
+                  onPress={() => addTabletCode(tabletCodeDraft)}>
                   Add
                 </OrbitButton>
               </View>
-            </>
-          ) : (
-            <>
-              <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
-              <OrbitInput
-                autoCapitalize="characters"
-                label="Invite code"
-                value={inviteCode}
-                onChangeText={setInviteCode}
-              />
-              <Text style={typography.footnote}>
-                Demo code: CMX-7429 — or scan a household QR from an invite.
-              </Text>
-            </>
-          )}
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <OrbitButton disabled={busy} onPress={handleHouseholdContinue}>
-            {busy ? 'Working…' : householdMode === 'create' ? 'Create household' : 'Join household'}
-          </OrbitButton>
-        </KeyboardScreen>
-      ) : null}
-
-      {step === 'ready' ? (
-        <ScrollView contentContainerStyle={[styles.scroll, styles.readyScroll]} showsVerticalScrollIndicator={false}>
-          <View style={styles.readyBadge}>
-            <Text style={styles.readyEmoji}>{roleMeta?.emoji ?? '🏠'}</Text>
-          </View>
-          <Text style={[typography.title2, styles.readyTitle]}>You&apos;re all set!</Text>
-          <Text style={styles.readySub}>
-            Welcome to Choremaxx
-            {roleMeta ? (
-              <>
-                , <Text style={styles.readyRole}>{roleMeta.title}</Text>
-              </>
-            ) : null}
-          </Text>
-
-          {showKidInviteBox ? (
-            <View style={styles.kidInviteBox}>
-              <Text style={styles.kidInviteEyebrow}>Kids</Text>
-              <Text style={typography.headline}>Invite kids (no sign-in)</Text>
-              <Text style={[typography.footnote, styles.mb]}>
-                Create up to two kid profiles on your admin account, then AirDrop or share each
-                invite. Young kids never need email — you keep everything saved. On a shared tablet,
-                pick Shared / tablet under Roommate and add these same codes.
-              </Text>
-              <OrbitInput
-                label="Kid 1 name"
-                value={kidNameOne}
-                onChangeText={setKidNameOne}
-                placeholder="e.g. Emma"
-              />
-              <OrbitInput
-                label="Kid 2 name (optional)"
-                value={kidNameTwo}
-                onChangeText={setKidNameTwo}
-                placeholder="e.g. Liam"
-              />
-              <OrbitButton
-                disabled={busy || (!kidNameOne.trim() && !kidNameTwo.trim())}
-                onPress={() => void handleCreateKidInvites()}>
-                {busy ? 'Saving…' : 'Create kid invites'}
-              </OrbitButton>
-
-              {kidInvites.map((invite) => (
-                <View key={invite.id} style={styles.kidInviteCard}>
-                  <Text style={styles.kidInviteName}>{invite.name}</Text>
-                  <View style={styles.qrWrap}>
-                    <QRCode value={invite.webLink} size={132} backgroundColor="#FFFFFF" color="#070D1C" />
-                  </View>
-                  <Text selectable style={styles.inviteCode}>
-                    {invite.code}
-                  </Text>
-                  <OrbitButton onPress={() => void handleShareKidInvite(invite)}>
-                    {Platform.OS === 'ios'
-                      ? `AirDrop / Share ${invite.name}`
-                      : `Share ${invite.name}`}
-                  </OrbitButton>
+              {tabletCodes.length > 0 ? (
+                <View style={styles.tabletChipWrap}>
+                  {tabletCodes.map((code) => (
+                    <Pressable
+                      key={code}
+                      onPress={() =>
+                        setTabletCodes((current) => current.filter((item) => item !== code))
+                      }
+                      style={[
+                        styles.tabletChip,
+                        {
+                          backgroundColor: `${orbitColors.warning}22`,
+                          borderColor: `${orbitColors.warning}66`,
+                        },
+                      ]}>
+                      <Text style={[styles.tabletChipText, { color: orbitColors.warning }]}>
+                        {code} ✕
+                      </Text>
+                    </Pressable>
+                  ))}
                 </View>
-              ))}
-            </View>
-          ) : null}
-
-          {createdHousehold && readyInvite ? (
-            <View style={styles.invitePanel}>
-              <Text style={typography.headline}>
-                {selectedRole === 'roommate' ? 'Invite roommates' : 'Invite adults'}
-              </Text>
-              <Text style={typography.footnote}>
-                For parents, partners, or roommates who can create their own account. AirDrop,
-                share the link, or scan the QR.
-              </Text>
-              <View style={styles.qrWrap}>
-                <QRCode value={readyInvite.webLink} size={160} backgroundColor="#FFFFFF" color="#070D1C" />
-              </View>
-              <Text selectable style={styles.inviteCode}>
-                {readyInvite.code}
-              </Text>
-              <OrbitButton onPress={handleAirDropInvite}>
-                {Platform.OS === 'ios' ? 'AirDrop / Share invite' : 'Share invite'}
+              ) : (
+                <Text style={[typography.footnote, { color: orbitPalette.textSubtle }]}>
+                  Demo: add CMX-JOSH and CMX-TODD for a two-profile tablet.
+                </Text>
+              )}
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+              <OrbitButton
+                disabled={busy || (tabletCodes.length === 0 && !tabletCodeDraft.trim())}
+                onPress={() => void handleTabletInviteContinue()}>
+                {busy ? 'Setting up…' : 'Continue on this tablet'}
               </OrbitButton>
-            </View>
+            </KeyboardScreen>
           ) : null}
 
-          {shareStatus ? <Text style={styles.shareHint}>{shareStatus}</Text> : null}
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {step === 'account' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
+                Create your account
+              </Text>
+              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
+                One account for your household. We&apos;ll confirm by email when needed.
+              </Text>
+              {appleAvailable && Platform.OS === 'ios' ? (
+                <>
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                    cornerRadius={16}
+                    style={styles.appleButton}
+                    onPress={() => void handleAppleContinue()}
+                  />
+                  <View style={styles.dividerRow}>
+                    <View
+                      style={[styles.divider, { backgroundColor: orbitPalette.border }]}
+                    />
+                    <Text style={[styles.dividerText, { color: orbitPalette.textSubtle }]}>
+                      or use email
+                    </Text>
+                    <View
+                      style={[styles.divider, { backgroundColor: orbitPalette.border }]}
+                    />
+                  </View>
+                </>
+              ) : null}
+              <OrbitInput
+                autoCapitalize="none"
+                keyboardType="email-address"
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <OrbitInput
+                autoCapitalize="none"
+                secureTextEntry
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+              />
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+              <OrbitButton disabled={busy} onPress={() => void handleAccountContinue()}>
+                {busy ? 'Creating…' : 'Continue'}
+              </OrbitButton>
+              <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
+                <Text style={[styles.signInText, { color: orbitPalette.textMuted }]}>
+                  Already have an account? Sign in
+                </Text>
+              </Pressable>
+            </KeyboardScreen>
+          ) : null}
 
-          <OrbitButton onPress={handleEnter}>Enter Choremaxx →</OrbitButton>
-        </ScrollView>
+          {step === 'profile' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
+                What should we call you?
+              </Text>
+              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
+                Your name inside the household.
+              </Text>
+              <OrbitInput label="Display name" value={displayName} onChangeText={setDisplayName} />
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+              <OrbitButton disabled={busy} onPress={handleProfileContinue}>
+                {busy ? 'Saving…' : 'Continue'}
+              </OrbitButton>
+            </KeyboardScreen>
+          ) : null}
+
+          {step === 'household' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
+                Set up your household
+              </Text>
+              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
+                Create a home or join with an invite.
+              </Text>
+
+              <View
+                style={[
+                  styles.modeRow,
+                  { backgroundColor: orbitPalette.cardMuted },
+                ]}>
+                {(
+                  [
+                    { id: 'create' as const, label: 'Create' },
+                    { id: 'join' as const, label: 'Join' },
+                  ] as const
+                ).map((mode) => {
+                  const active = householdMode === mode.id;
+                  return (
+                    <Pressable
+                      key={mode.id}
+                      onPress={() => {
+                        setError('');
+                        setHouseholdMode(mode.id);
+                      }}
+                      style={[
+                        styles.modeChip,
+                        active && {
+                          backgroundColor: `${accent}33`,
+                          borderColor: `${accent}4D`,
+                          borderWidth: 1,
+                        },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.modeLabel,
+                          { color: orbitPalette.textSubtle },
+                          active && { color: accent, fontWeight: '700' },
+                        ]}>
+                        {mode.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {householdMode === 'create' ? (
+                <>
+                  <OrbitInput
+                    label="Household name"
+                    value={householdName}
+                    onChangeText={setHouseholdName}
+                  />
+                  <Text style={[styles.fieldLabel, { color: orbitPalette.textMuted }]}>
+                    Household type
+                  </Text>
+                  <View style={styles.typeGrid}>
+                    {HOUSEHOLD_TYPES.map((item) => {
+                      const selected = item.value === householdType;
+                      return (
+                        <Pressable
+                          key={item.value}
+                          onPress={() => setHouseholdType(item.value)}
+                          style={[
+                            styles.typeChip,
+                            {
+                              backgroundColor: selected ? `${accent}2E` : orbitPalette.card,
+                              borderColor: selected ? `${accent}73` : orbitPalette.border,
+                            },
+                          ]}>
+                          <Text
+                            style={[
+                              styles.typeLabel,
+                              {
+                                color: selected ? accent : orbitPalette.textMuted,
+                              },
+                            ]}>
+                            {item.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Text style={[styles.fieldLabel, { color: orbitPalette.textMuted }]}>Rooms</Text>
+                  <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
+                    Pick the spaces you manage.
+                  </Text>
+                  <View style={styles.typeGrid}>
+                    {roomCatalog.map((room) => {
+                      const selected = selectedRoomIds.includes(room.id);
+                      return (
+                        <Pressable
+                          key={room.id}
+                          onPress={() =>
+                            setSelectedRoomIds((current) =>
+                              current.includes(room.id)
+                                ? current.filter((id) => id !== room.id)
+                                : [...current, room.id],
+                            )
+                          }
+                          style={[
+                            styles.typeChip,
+                            {
+                              backgroundColor: selected ? `${accent}2E` : orbitPalette.card,
+                              borderColor: selected ? `${accent}73` : orbitPalette.border,
+                            },
+                          ]}>
+                          <Text
+                            style={[
+                              styles.typeLabel,
+                              {
+                                color: selected ? accent : orbitPalette.textMuted,
+                              },
+                            ]}>
+                            {room.emoji} {room.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <View style={styles.typeGrid}>
+                    {ROOM_EMOJIS.map((emoji) => {
+                      const selected = customRoomEmoji === emoji;
+                      return (
+                        <Pressable
+                          key={emoji}
+                          onPress={() => setCustomRoomEmoji(emoji)}
+                          style={[
+                            styles.typeChip,
+                            {
+                              backgroundColor: selected ? `${accent}2E` : orbitPalette.card,
+                              borderColor: selected ? `${accent}73` : orbitPalette.border,
+                            },
+                          ]}>
+                          <Text style={{ fontSize: 16 }}>{emoji}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <View style={styles.customRoomRow}>
+                    <View style={styles.customRoomInput}>
+                      <OrbitInput
+                        label="Custom room"
+                        value={customRoomName}
+                        onChangeText={setCustomRoomName}
+                        placeholder="e.g. Garage"
+                      />
+                    </View>
+                    <OrbitButton
+                      tone="secondary"
+                      onPress={() => {
+                        const trimmed = customRoomName.trim();
+                        if (!trimmed) return;
+                        const room: HouseholdRoom = {
+                          id: createLocalId('room'),
+                          name: trimmed,
+                          emoji: customRoomEmoji,
+                          kind: 'custom',
+                        };
+                        setCustomRooms((current) => [...current, room]);
+                        setSelectedRoomIds((current) => [...current, room.id]);
+                        setCustomRoomName('');
+                      }}>
+                      Add
+                    </OrbitButton>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
+                  <OrbitInput
+                    autoCapitalize="characters"
+                    label="Invite code"
+                    value={inviteCode}
+                    onChangeText={setInviteCode}
+                  />
+                  <Text style={[typography.footnote, { color: orbitPalette.textSubtle }]}>
+                    Demo: CMX-7429 — or scan a household QR.
+                  </Text>
+                </>
+              )}
+
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+              <OrbitButton disabled={busy} onPress={handleHouseholdContinue}>
+                {busy ? 'Working…' : householdMode === 'create' ? 'Create household' : 'Join household'}
+              </OrbitButton>
+            </KeyboardScreen>
+          ) : null}
+
+          {step === 'ready' ? (
+            <ScrollView
+              contentContainerStyle={[styles.scroll, styles.readyScroll]}
+              showsVerticalScrollIndicator={false}>
+              <View style={[styles.readyBadge, { backgroundColor: accent }]}>
+                <Text style={styles.readyEmoji}>{roleMeta?.emoji ?? '🏠'}</Text>
+              </View>
+              <Text
+                style={[
+                  typography.title1,
+                  styles.readyTitle,
+                  { color: orbitPalette.text },
+                ]}>
+                You&apos;re in.
+              </Text>
+              <Text style={[styles.readySub, { color: orbitPalette.textMuted }]}>
+                Welcome to Choremaxx
+                {roleMeta ? (
+                  <>
+                    , <Text style={[styles.readyRole, { color: accent }]}>{roleMeta.title}</Text>
+                  </>
+                ) : null}
+              </Text>
+
+              {showKidInviteBox ? (
+                <GlassCard elevated style={styles.kidInviteBox}>
+                  <Text style={[styles.kidInviteEyebrow, { color: orbitColors.success }]}>
+                    Kids
+                  </Text>
+                  <Text style={[typography.headline, { color: orbitPalette.text }]}>
+                    Invite kids (no sign-in)
+                  </Text>
+                  <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
+                    Create up to two kid profiles, then AirDrop each invite. Kids never need email.
+                  </Text>
+                  <OrbitInput
+                    label="Kid 1 name"
+                    value={kidNameOne}
+                    onChangeText={setKidNameOne}
+                    placeholder="e.g. Emma"
+                  />
+                  <OrbitInput
+                    label="Kid 2 name (optional)"
+                    value={kidNameTwo}
+                    onChangeText={setKidNameTwo}
+                    placeholder="e.g. Liam"
+                  />
+                  <OrbitButton
+                    disabled={busy || (!kidNameOne.trim() && !kidNameTwo.trim())}
+                    onPress={() => void handleCreateKidInvites()}>
+                    {busy ? 'Saving…' : 'Create kid invites'}
+                  </OrbitButton>
+
+                  {kidInvites.map((invite) => (
+                    <View
+                      key={invite.id}
+                      style={[
+                        styles.kidInviteCard,
+                        {
+                          backgroundColor: orbitPalette.cardMuted,
+                          borderColor: orbitPalette.border,
+                        },
+                      ]}>
+                      <Text style={[styles.kidInviteName, { color: orbitPalette.text }]}>
+                        {invite.name}
+                      </Text>
+                      <View style={styles.qrWrap}>
+                        <QRCode
+                          value={invite.webLink}
+                          size={132}
+                          backgroundColor="#FFFFFF"
+                          color={ink}
+                        />
+                      </View>
+                      <Text selectable style={[styles.inviteCode, { color: orbitPalette.text }]}>
+                        {invite.code}
+                      </Text>
+                      <OrbitButton onPress={() => void handleShareKidInvite(invite)}>
+                        {Platform.OS === 'ios'
+                          ? `AirDrop / Share ${invite.name}`
+                          : `Share ${invite.name}`}
+                      </OrbitButton>
+                    </View>
+                  ))}
+                </GlassCard>
+              ) : null}
+
+              {createdHousehold && readyInvite ? (
+                <GlassCard style={styles.invitePanel}>
+                  <Text style={[typography.headline, { color: orbitPalette.text }]}>
+                    {selectedRole === 'roommate' ? 'Invite roommates' : 'Invite adults'}
+                  </Text>
+                  <Text style={[typography.footnote, { color: orbitPalette.textMuted }]}>
+                    AirDrop, share the link, or scan the QR.
+                  </Text>
+                  <View style={styles.qrWrap}>
+                    <QRCode
+                      value={readyInvite.webLink}
+                      size={160}
+                      backgroundColor="#FFFFFF"
+                      color={ink}
+                    />
+                  </View>
+                  <Text selectable style={[styles.inviteCode, { color: orbitPalette.text }]}>
+                    {readyInvite.code}
+                  </Text>
+                  <OrbitButton onPress={handleAirDropInvite}>
+                    {Platform.OS === 'ios' ? 'AirDrop / Share invite' : 'Share invite'}
+                  </OrbitButton>
+                </GlassCard>
+              ) : null}
+
+              {shareStatus ? (
+                <Text style={[styles.shareHint, { color: accent }]}>{shareStatus}</Text>
+              ) : null}
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+
+              <OrbitButton onPress={handleEnter}>Enter Choremaxx →</OrbitButton>
+            </ScrollView>
+          ) : null}
+        </Animated.View>
       ) : null}
 
       <InviteQrScanner
@@ -1078,7 +1301,15 @@ export default function WelcomeOnboardingScreen() {
   );
 }
 
-function Header({ progress, onBack }: { progress: number; onBack?: () => void }) {
+function Header({
+  progress,
+  accent,
+  onBack,
+}: {
+  progress: number;
+  accent: string;
+  onBack?: () => void;
+}) {
   return (
     <View style={styles.topRow}>
       {onBack ? (
@@ -1087,75 +1318,70 @@ function Header({ progress, onBack }: { progress: number; onBack?: () => void })
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back">
-          <MaterialIcons name="chevron-left" size={22} color={orbitColors.primary} />
-          <Text style={styles.backLabel}>Back</Text>
+          <MaterialIcons name="chevron-left" size={22} color={accent} />
+          <Text style={[styles.backLabel, { color: accent }]}>Back</Text>
         </Pressable>
       ) : (
         <ChoremaxxLogo size="sm" />
       )}
-      <View style={styles.dots}>
-        {[0, 1, 2, 3, 4].map((index) => (
-          <View
-            key={index}
-            style={[
-              styles.dot,
-              index === progress && styles.dotActive,
-              index < progress && styles.dotDone,
-            ]}
-          />
-        ))}
-      </View>
+      <OnboardingProgress activeIndex={progress} accent={accent} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  bulletDot: {
-    borderRadius: 999,
-    height: 8,
-    width: 8,
-  },
-  bulletRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'center',
-    paddingVertical: 4,
-  },
-  bulletText: {
-    color: orbitColors.textMuted,
-    fontSize: 16,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  bullets: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    gap: 16,
-    paddingVertical: 8,
-    width: '100%',
-  },
-  centered: {
-    alignItems: 'center',
+  root: {
+    backgroundColor: orbitColors.background,
     flex: 1,
-    gap: space.xxl,
-    justifyContent: 'center',
-    paddingHorizontal: space.xl,
+  },
+  ambient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 320,
+  },
+  stepFade: {
+    flex: 1,
+  },
+  stepTitle: {
+    letterSpacing: -0.45,
+    marginBottom: 4,
   },
   splashScreen: {
     alignItems: 'center',
     flex: 1,
     justifyContent: 'space-between',
     paddingHorizontal: space.xl,
-    paddingTop: 12,
-    paddingBottom: 8,
-    width: '100%',
   },
   splashCenter: {
     alignItems: 'center',
     flex: 1,
+    gap: 28,
     justifyContent: 'center',
     width: '100%',
+  },
+  splashHooks: {
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingHorizontal: 8,
+    width: '100%',
+  },
+  hookRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  hookDot: {
+    borderRadius: 999,
+    height: 6,
+    width: 6,
+  },
+  hookText: {
+    color: orbitColors.textMuted,
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
   },
   splashBottom: {
     alignItems: 'stretch',
@@ -1166,15 +1392,6 @@ const styles = StyleSheet.create({
   },
   splashBottomHidden: {
     opacity: 0,
-  },
-  splashHero: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    gap: space.md,
-    width: '100%',
-  },
-  splashLogo: {
-    alignSelf: 'center',
   },
   splashCtaBlock: {
     alignSelf: 'stretch',
@@ -1194,23 +1411,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginBottom: space.md,
-  },
-  dot: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 999,
-    height: 4,
-    width: 8,
-  },
-  dotActive: {
-    backgroundColor: orbitColors.primary,
-    width: 20,
-  },
-  dotDone: {
-    backgroundColor: orbitColors.primary,
-  },
-  dots: {
-    flexDirection: 'row',
-    gap: 6,
   },
   emoji: {
     fontSize: 24,
@@ -1245,19 +1445,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
   },
-  modeChipActive: {
-    backgroundColor: 'rgba(59,181,240,0.2)',
-    borderColor: 'rgba(59,181,240,0.3)',
-    borderWidth: 1,
-  },
   modeLabel: {
     color: orbitColors.textSubtle,
     fontSize: 14,
     fontWeight: '500',
-  },
-  modeLabelActive: {
-    color: orbitColors.primary,
-    fontWeight: '700',
   },
   modeRow: {
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -1266,10 +1457,6 @@ const styles = StyleSheet.create({
     gap: 4,
     marginBottom: space.md,
     padding: 4,
-  },
-  motivationActive: {
-    backgroundColor: 'rgba(59,181,240,0.15)',
-    borderColor: 'rgba(59,181,240,0.35)',
   },
   motivationCard: {
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -1313,6 +1500,7 @@ const styles = StyleSheet.create({
   perkText: {
     color: orbitColors.textMuted,
     fontSize: 11,
+    fontWeight: '500',
   },
   perkWrap: {
     flexDirection: 'row',
@@ -1322,16 +1510,17 @@ const styles = StyleSheet.create({
   },
   radio: {
     alignItems: 'center',
-    alignSelf: 'center',
+    alignSelf: 'flex-start',
     borderColor: 'rgba(255,255,255,0.18)',
     borderRadius: 999,
     borderWidth: 2,
     height: 22,
     justifyContent: 'center',
+    marginTop: 4,
     width: 22,
   },
   radioCheck: {
-    color: orbitColors.background,
+    color: orbitColors.ink,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -1374,25 +1563,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   invitePanel: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderCurve: 'continuous',
-    borderRadius: radius.cardLarge,
-    borderWidth: 1,
-    gap: space.md,
     marginBottom: space.md,
-    padding: space.xl,
   },
   kidInviteBox: {
-    backgroundColor: 'rgba(52,211,153,0.08)',
-    borderColor: 'rgba(52,211,153,0.28)',
-    borderCurve: 'continuous',
-    borderRadius: radius.cardLarge,
-    borderWidth: 1,
-    gap: space.md,
     marginBottom: space.md,
-    padding: space.xl,
-    width: '100%',
   },
   kidInviteCard: {
     backgroundColor: 'rgba(7,13,28,0.35)',
@@ -1469,7 +1643,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   roleCard: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderColor: 'rgba(255,255,255,0.09)',
     borderCurve: 'continuous',
@@ -1494,10 +1668,6 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
     paddingBottom: 8,
     paddingTop: 28,
-  },
-  roleHeading: {
-    letterSpacing: -0.4,
-    marginBottom: 0,
   },
   roleIntro: {
     gap: 10,
@@ -1525,15 +1695,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.2,
-  },
-  roleTitleRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  root: {
-    backgroundColor: orbitColors.background,
-    flex: 1,
   },
   scroll: {
     gap: 4,
@@ -1573,26 +1734,6 @@ const styles = StyleSheet.create({
     color: orbitColors.primary,
     fontWeight: '700',
   },
-  splashCopy: {
-    alignItems: 'center',
-    gap: 8,
-    width: '100%',
-  },
-  splashLead: {
-    color: orbitColors.text,
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: -0.4,
-    lineHeight: 32,
-    textAlign: 'center',
-  },
-  splashSub: {
-    color: orbitColors.textMuted,
-    fontSize: 17,
-    fontWeight: '500',
-    lineHeight: 24,
-    textAlign: 'center',
-  },
   topRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -1620,10 +1761,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  typeChipSelected: {
-    backgroundColor: 'rgba(59,181,240,0.18)',
-    borderColor: 'rgba(59,181,240,0.45)',
-  },
   typeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1634,8 +1771,5 @@ const styles = StyleSheet.create({
     color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '600',
-  },
-  typeLabelSelected: {
-    color: orbitColors.primary,
   },
 });

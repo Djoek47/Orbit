@@ -28,16 +28,16 @@ Legend: **P** Purpose · **G** Primary goal · **H** Hierarchy (primary/secondar
 - **S** Adopt shared Task Row (`05-component-library.md`); group by day with sticky headers.
 - **K** Underlying task-completion logic/store calls.
 
-### Plan — `app/(tabs)/plan.tsx` [Skeleton]
+### Plan — `app/(tabs)/plan.tsx` + `plan-trips-panel.tsx` [Design 8 glass]
 - **P** Calendar + itineraries in one place.
 - **G** See what's happening and where, plan a trip if useful.
-- **H** Primary: today/this-week events. Secondary: itineraries. Hidden: trip creation flow (behind FAB).
-- **I** Tap event for detail; tap itinerary card for trip detail; FAB to create trip/event.
+- **H** Itineraries: **Smart Trips | My Places** segment; glass trip cards with step timeline (`RouteSteps`).
+- **I** Tap event for detail; expand trip for route steps; My Places for pickups.
 - **A** Trip-suggestion surfaces as a Nova Smart Recommendation card fade-in, not a persistent nudge card.
-- **X** Event rows announce time + title + location.
-- **R** Standalone trip-suggestion heuristic card competing with calendar content.
-- **S** Calendar-first layout; itineraries as a clearly labeled secondary section.
-- **K** Underlying event/itinerary data and `suggestItinerarySummary` logic.
+- **X** Event rows announce time + title + location; steps announce stop labels.
+- **R** Opaque gradient trip cards without glass step timeline.
+- **S** Design 8 glass itineraries + My Places pickup summary.
+- **K** Event/itinerary data, `RouteSteps`, `buildPickupSummary`, `suggestItinerarySummary`.
 
 ### Rewards — `app/(tabs)/rewards.tsx` [Skeleton]
 - **P** Rewards, allowance, and rankings.
@@ -63,15 +63,15 @@ Legend: **P** Purpose · **G** Primary goal · **H** Hierarchy (primary/secondar
 
 ## Batch 2 — Onboarding / Auth
 
-### Welcome / onboarding — `app/welcome.tsx` [Skeleton]
+### Welcome / onboarding — `app/welcome.tsx` [Design 8 glass]
 - **P** Role → motivation → account → profile → household → invite, single flow.
 - **G** Get a new household or member set up with minimal friction.
-- **H** One field-group per step (already correct structurally).
+- **H** One field-group per step; large-title headlines; perk chips on role cards.
 - **I** Step-by-step continue buttons; swipe-back gesture (existing `PanResponder`).
-- **A** Step transitions; Apple Sign-In button per current implementation.
+- **A** Segment progress bars; fade step transitions; ambient glow on splash/ready.
 - **X** Each step's heading readable as the step's purpose.
-- **R** Any inline magic-number spacing/type inconsistent with `02-design-language.md`.
-- **S** Token migration only — structure is largely correct already.
+- **R** Flat pre-glass cards; emoji-only role rows without perks.
+- **S** Translucent glass surfaces + AuthShell ambient; copy refreshed (Design 8).
 - **K** Step machine, swipe-back gesture, Apple/email account creation, room multi-select.
 
 ### Sign in — `app/sign-in.tsx` [Skeleton]
@@ -264,26 +264,27 @@ Legend: **P** Purpose · **G** Primary goal · **H** Hierarchy (primary/secondar
 - **R/S** Reframe as a Nova Smart Recommendation surface per `07-nova-experience.md` where contextually shown from Groceries/Plan, not only as a standalone modal.
 - **K** `findNearbyStores`/OSM lookup logic.
 
-### Places — `app/places.tsx` [Skeleton]
-- **P** Manage saved places (home/work/stops).
-- **G** Quick add/edit of key addresses.
-- **H** Primary: Home/Work rows. Secondary: extra places, add-new.
-- **I/A/X** Edit sheet with "use current location" (existing).
-- **R/S** Token pass only — recently built to spec already.
-- **K** Existing implementation from the location-selection feedback fix.
+### My Places — `app/places.tsx` + `components/orbit/my-places-panel.tsx` [Design 8]
+- **P** Manage saved places (home/work/stops/shops) with pickup lists.
+- **G** Quick add/edit of key addresses; see grocery-linked pickup summary.
+- **H** Primary: place cards + Pickup Summary. Secondary: category filters, favorites.
+- **I/A/X** Edit sheet (emoji, kind, pickups, location); summary CTA → shopping / trip.
+- **R** Flat address book without grocery connection.
+- **S** Glass cards; Plan → Itineraries embeds My Places panel.
+- **K** `SavedPlace.pickupItemNames`, `buildPickupSummary`, grocery Missing/Low merge.
 
 ## Batch 5 — Settings / notifications
 
-### Settings — `app/settings.tsx` [Skeleton]
+### Settings — `app/settings.tsx` [Design 8 glass]
 - **P** All account/household/appearance/notification controls.
 - **G** Find and change a setting quickly.
-- **H** Currently a flat stack of many `SectionCard`s (~32 inline fontSize values) — needs top-level grouping.
-- **I** Navigate into grouped categories; inline toggles for simple settings.
-- **A** Segmented control selection slide (once shared component lands).
+- **H** Glass `SectionCard` / chevron rows; unified palette wheel + Day/Night/System.
+- **I** Navigate into members/rooms/notifications; palette + maps segmented controls.
+- **A** Segmented control selection slide.
 - **X** Every row/toggle has an accessible label + current-state announcement.
-- **R** Flat ungrouped section stack; multiple hand-rolled segmented rows.
-- **S** Apple-Settings-style top-level categories (Household, Appearance, Notifications, Account, Legal) per `09-ui-audit.md`.
-- **K** All underlying admin/permission logic, theme pickers' data.
+- **R** Separate accent + background pickers.
+- **S** Design 8 AdminScreen glass language; My Places entry.
+- **K** `updatePalette`, `appearanceMode`, admin/permission logic.
 
 ### Notifications — `app/notifications.tsx` [Skeleton]
 - **P** Notification center/history.

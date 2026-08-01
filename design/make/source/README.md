@@ -1,12 +1,5 @@
-# Make v7 source mirror
+# Figma Make source mirror — Design 8
 
-Pulled from `file://figma/make/source/4J6d4LW335tDyEDpqq3VD1/` on 2026-07-20.
+Mirrored from Figma Make fileKey **`nwBB1pEqZMWxsm6WE7dFeS`** (Design 8).
 
-Key files (see sibling paths):
-- `src/app/App.tsx` — tabs Home/Tasks/Plan/Rewards/Nova, role filters, onboarding gate
-- `src/app/components/ChoremaxxLogo.tsx`
-- `src/app/components/OnboardingScreen.tsx`
-- `src/app/components/RewardsScreen.tsx`
-- `src/styles/theme.css` — primary `#3BB5F0`
-
-Full redesign backlog may live in Make imports; treat as phased, not single-PR scope.
+This directory holds raw Make web source for reference when porting UI into Expo. Product IA, shipping behavior, and design-system rules remain in `docs/` (`product-context.md`, `ux-design-system.md`, `technical-blueprint.md`).

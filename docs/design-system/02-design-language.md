@@ -4,10 +4,10 @@
 
 ## 0. Relationship to existing tokens
 
-Choremaxx already has `constants/orbit-theme.ts` (colors, spacing, radius, typography), `constants/accent-themes.ts` (9 personal accent packs), `constants/background-themes.ts` (5 background packs), and `constants/choremaxx-brand.ts` (brand marks). This document does not throw that away — it **tightens and completes** it:
+Choremaxx already has `constants/orbit-theme.ts` (colors, spacing, radius, typography), `constants/color-palettes.ts` (unified day/night palettes — Design 8), legacy `accent-themes.ts` / `background-themes.ts` (compat re-exports), and `constants/choremaxx-brand.ts` (brand marks). This document does not throw that away — it **tightens and completes** it:
 
 - Existing dark/light semantic colors (`orbitColorsDark` / `orbitColorsLight`) become the **base** and **elevated** background/surface tiers below — accurate already, just formalized.
-- Existing accent/background theme packs remain the personalization layer — the accent hierarchy below is "which accent value plays which *role*," not a replacement for the 9 packs.
+- **Unified personalization (Design 8):** one `ColorPaletteId` owns paired **Day** and **Night** surface/font/accent values. Users pick a color on the palette wheel; Day / Night / System selects which half. Legacy separate accent + background packs are migrated into this model via `lib/theme/appearance-prefs.ts` → `resolveTheme`.
 - Existing spacing (`orbitSpacing`: 8/12/16/24/32/48) and radius (`orbitRadius`: 12/16/24/999) are **replaced** by the exact scales below, because they currently drift from what's documented in `docs/ux-design-system.md` (which lists 18/32 radii and 8/16/24/32/48/64 spacing) and from what screens actually use (10/14/18/20/22/26/28/80 appear ad hoc across the codebase per the UI audit). One scale, everywhere.
 - Existing typography (`orbitTypography`: display/title/cardTitle/body/caption/eyebrow/metric) is **superseded** by the full Apple-style scale below, mapped 1:1 so migration is mechanical (see §2.4).
 
@@ -23,7 +23,7 @@ Three tiers, each with a dark and light value. These map directly onto the exist
 | `background.elevated` | One step up: sheets, modals, grouped sections sitting on top of base. | `#0A1525` | `#E4EBF2` |
 | `background.recessed` | One step down: the outermost shell behind rounded screen corners (status bar / home-indicator zone). | `#030810` | `#D8E2EC` |
 
-Background theme packs (Midnight/Dusk/Paper/Mist/Contrast in `constants/background-themes.ts`) each supply their own base/elevated/recessed triad — this hierarchy is the *contract* those packs must satisfy, not a fixed palette.
+Each unified color palette supplies its own base/elevated/recessed triad for day and night — this hierarchy is the *contract* those palettes must satisfy, not a single fixed hex set.
 
 ### 1.2 Surface hierarchy
 

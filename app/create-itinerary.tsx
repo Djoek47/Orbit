@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
+import { RouteSteps } from '@/components/orbit/route-steps';
 import { getPreferredStore } from '@/data/preferred-stores';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { optimizeDraftStops } from '@/lib/calendar/suggest-itinerary';
@@ -26,6 +27,30 @@ type DraftStop = {
   eventId?: string;
 };
 
+const STOP_EMOJI: Record<ItineraryStopKind, string> = {
+  school: '🏫',
+  work: '💼',
+  grocery: '🛒',
+  pickup: '📦',
+  practice: '🏃',
+  family: '🏠',
+  home: '🏡',
+  shop: '🛒',
+  custom: '📍',
+};
+
+const STOP_CATEGORY: Record<ItineraryStopKind, string> = {
+  school: 'School',
+  work: 'Work',
+  grocery: 'Grocery',
+  pickup: 'Pickup',
+  practice: 'Practice',
+  family: 'Family',
+  home: 'Home',
+  shop: 'Shop',
+  custom: 'Errand',
+};
+
 function placeToStop(place: SavedPlace): DraftStop {
   const kindMap: Record<SavedPlace['kind'], ItineraryStopKind> = {
     home: 'home',
@@ -34,6 +59,8 @@ function placeToStop(place: SavedPlace): DraftStop {
     shop: 'shop',
     practice: 'practice',
     family: 'family',
+    cafe: 'custom',
+    pickup: 'pickup',
     custom: 'custom',
   };
   return {
@@ -344,7 +371,12 @@ export default function CreateItineraryScreen() {
       </View>
 
       {selected.length > 0 ? (
-        <GlassCard>
+        <GlassCard
+          elevated
+          style={{
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            borderColor: `${accentTheme.primary}28`,
+          }}>
           <View style={styles.orderHead}>
             <Text style={typography.headline}>Stop order</Text>
             <Pressable onPress={handleOptimize} hitSlop={8}>
@@ -353,21 +385,36 @@ export default function CreateItineraryScreen() {
               </Text>
             </Pressable>
           </View>
-          {selected.map((stop, index) => (
-            <View key={stop.key} style={styles.orderRow}>
-              <Text style={styles.orderIndex}>{index + 1}</Text>
-              <Text style={styles.orderLabel}>{stop.label}</Text>
-              <Pressable onPress={() => moveStop(stop.key, -1)} hitSlop={6}>
-                <MaterialIcons name="keyboard-arrow-up" size={20} color={orbitColors.textMuted} />
-              </Pressable>
-              <Pressable onPress={() => moveStop(stop.key, 1)} hitSlop={6}>
-                <MaterialIcons name="keyboard-arrow-down" size={20} color={orbitColors.textMuted} />
-              </Pressable>
-              <Pressable onPress={() => toggleStop(stop)}>
-                <MaterialIcons name="close" size={18} color={orbitColors.danger} />
-              </Pressable>
-            </View>
-          ))}
+          <RouteSteps
+            steps={selected.map((stop, index) => ({
+              id: stop.key,
+              emoji: STOP_EMOJI[stop.kind],
+              title: stop.label,
+              address: stop.address || stop.placeQuery,
+              category: STOP_CATEGORY[stop.kind],
+              driveMinutes: index < selected.length - 1 ? 5 : undefined,
+              estimatedMinutes: 12 + index * 8,
+            }))}
+            accentColor={accentTheme.primary}
+            emphasized
+          />
+          <View style={{ gap: 4, marginTop: 8 }}>
+            {selected.map((stop, index) => (
+              <View key={stop.key} style={styles.orderRow}>
+                <Text style={styles.orderIndex}>{index + 1}</Text>
+                <Text style={styles.orderLabel}>{stop.label}</Text>
+                <Pressable onPress={() => moveStop(stop.key, -1)} hitSlop={6}>
+                  <MaterialIcons name="keyboard-arrow-up" size={20} color={orbitColors.textMuted} />
+                </Pressable>
+                <Pressable onPress={() => moveStop(stop.key, 1)} hitSlop={6}>
+                  <MaterialIcons name="keyboard-arrow-down" size={20} color={orbitColors.textMuted} />
+                </Pressable>
+                <Pressable onPress={() => toggleStop(stop)}>
+                  <MaterialIcons name="close" size={18} color={orbitColors.danger} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
         </GlassCard>
       ) : null}
 

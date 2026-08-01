@@ -189,7 +189,16 @@ export type Itinerary = {
 };
 
 /** Household saved places for building multi-stop itineraries. */
-export type SavedPlaceKind = 'home' | 'work' | 'school' | 'shop' | 'practice' | 'family' | 'custom';
+export type SavedPlaceKind =
+  | 'home'
+  | 'work'
+  | 'school'
+  | 'shop'
+  | 'practice'
+  | 'family'
+  | 'cafe'
+  | 'pickup'
+  | 'custom';
 
 export type SavedPlace = {
   id: string;
@@ -199,6 +208,11 @@ export type SavedPlace = {
   placeQuery?: string;
   lat?: number;
   lng?: number;
+  /** Display emoji for My Places cards (Design 8). */
+  emoji?: string;
+  isFavorite?: boolean;
+  /** Place-local pickup reminders; grocery Missing/Low also merge into summary for shops. */
+  pickupItemNames?: string[];
 };
 
 export type ProductCatalogItem = {

@@ -16,18 +16,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
-  ACCENT_THEMES,
   AVATAR_EMOJIS,
   DEFAULT_ACCENT_THEME_ID,
   ROOM_EMOJIS,
   type AccentThemeId,
 } from '@/constants/accent-themes';
-import {
-  BACKGROUND_THEMES,
-  type BackgroundThemeId,
-} from '@/constants/background-themes';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
+import { PaletteWheel } from '@/components/orbit/palette-wheel';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
@@ -154,23 +150,22 @@ export default function SettingsScreen() {
   const {
     accentTheme,
     appearanceMode,
-    backgroundThemeId,
     createSharedDevice,
     currentMember,
     currentUser,
     deleteAccount,
     household,
     orbitPalette,
+    paletteId,
     permissions,
     preferredMapsApp,
     removeMember,
     removeRoom,
     signOut,
     switchPersona,
-    updateAccentTheme,
     updateAppearanceMode,
-    updateBackgroundTheme,
     updateHouseholdAccentTheme,
+    updatePalette,
     updateMemberAvatar,
     updateNotificationPrefs,
     updateMemberCapabilities,
@@ -207,7 +202,6 @@ export default function SettingsScreen() {
   );
 
   const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
-  const personalThemeId = (currentMember?.accentThemeId ?? accentTheme.id) as AccentThemeId;
   const householdThemeId = (household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID) as AccentThemeId;
   const rooms = household.rooms ?? [];
   const nestedAccountIds = useMemo(
@@ -379,70 +373,21 @@ export default function SettingsScreen() {
             </SectionCard>
 
             <SectionCard title="Your look">
-              <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>
-                Personal accent for {currentMember?.name ?? 'you'} · switches with your profile
+              <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 8 }]}>
+                Color for {currentMember?.name ?? 'you'} · each palette has Day and Night
               </Text>
-              <View style={styles.themeRow}>
-                {ACCENT_THEMES.map((theme) => {
-                  const active = personalThemeId === theme.id;
-                  return (
-                    <Pressable
-                      key={theme.id}
-                      style={styles.themeItem}
-                      onPress={() => updateAccentTheme(theme.id)}>
-                      <LinearGradient
-                        colors={[theme.primary, theme.secondary]}
-                        style={[
-                          styles.themeSwatch,
-                          active && {
-                            borderColor: theme.primary,
-                            borderWidth: 2,
-                            shadowColor: theme.primary,
-                            shadowOpacity: 0.35,
-                            shadowRadius: 8,
-                          },
-                        ]}>
-                        {active ? <MaterialIcons name="check" size={16} color="#fff" /> : null}
-                      </LinearGradient>
-                      <Text style={[styles.themeLabel, active && { color: theme.primary, fontWeight: '600' }]}>
-                        {theme.label}
-                      </Text>
-                      <Text style={styles.themeTypeLabel}>{theme.typeStyle.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <Text style={[styles.caption, { marginTop: 8, color: orbitPalette.textMuted }]}>
-                Background · canvas that pairs with your fonts
-              </Text>
-              <View style={styles.themeRow}>
-                {BACKGROUND_THEMES.map((theme) => {
-                  const active = backgroundThemeId === theme.id;
-                  return (
-                    <Pressable
-                      key={theme.id}
-                      style={styles.themeItem}
-                      onPress={() => updateBackgroundTheme(theme.id as BackgroundThemeId)}>
-                      <LinearGradient
-                        colors={theme.preview}
-                        style={[
-                          styles.themeSwatch,
-                          active && {
-                            borderColor: accentTheme.primary,
-                            borderWidth: 2,
-                          },
-                        ]}>
-                        {active ? (
-                          <MaterialIcons name="check" size={16} color={theme.base === 'light' ? '#111' : '#fff'} />
-                        ) : null}
-                      </LinearGradient>
-                      <Text style={[styles.themeLabel, active && { color: accentTheme.primary, fontWeight: '600' }]}>
-                        {theme.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              <PaletteWheel value={paletteId} onChange={updatePalette} label="Palette" />
+              <View style={{ marginTop: 14 }}>
+                <SegmentedControl
+                  label="Day / Night"
+                  value={appearanceMode}
+                  onChange={(mode) => updateAppearanceMode(mode)}
+                  options={[
+                    { value: 'light', label: 'Day' },
+                    { value: 'dark', label: 'Night' },
+                    { value: 'system', label: 'System' },
+                  ]}
+                />
               </View>
 
               {permissions.canManageHousehold ? (
@@ -460,32 +405,14 @@ export default function SettingsScreen() {
                   {householdDefaultOpen ? (
                     <>
                       <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>
-                        Fallback accent for members without a personal pick
+                        Fallback palette for members without a personal pick
                       </Text>
-                      <View style={styles.themeRow}>
-                        {ACCENT_THEMES.map((theme) => {
-                          const active = householdThemeId === theme.id;
-                          return (
-                            <Pressable
-                              key={theme.id}
-                              style={styles.themeItem}
-                              onPress={() => updateHouseholdAccentTheme(theme.id)}>
-                              <LinearGradient
-                                colors={[theme.primary, theme.secondary]}
-                                style={[
-                                  styles.themeSwatchSmall,
-                                  active && {
-                                    borderColor: theme.primary,
-                                    borderWidth: 2,
-                                  },
-                                ]}>
-                                {active ? <MaterialIcons name="check" size={14} color="#fff" /> : null}
-                              </LinearGradient>
-                              <Text style={styles.themeTypeLabel}>{theme.label}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
+                      <PaletteWheel
+                        value={householdThemeId}
+                        onChange={(id) => updateHouseholdAccentTheme(id)}
+                        size="compact"
+                        label=""
+                      />
                     </>
                   ) : null}
                 </View>
@@ -574,35 +501,23 @@ export default function SettingsScreen() {
             <SettingsRow
               icon="place"
               iconColor="#38BDF8"
-              label="Places"
-              subtitle="Home, work, and stops for trips"
+              label="My Places"
+              subtitle="Trips, stores & grocery pickup summary"
               onPress={() => router.push('/places' as never)}
             />
 
-            <SectionCard title="Appearance">
+            <SectionCard title="Maps">
               <SegmentedControl
-                label="Mode"
-                value={appearanceMode}
-                onChange={(mode) => updateAppearanceMode(mode)}
+                label="Preferred maps app"
+                value={preferredMapsApp}
+                onChange={(app) => updatePreferredMapsApp(app)}
                 options={[
-                  { value: 'dark', label: 'Dark' },
-                  { value: 'light', label: 'Light' },
-                  { value: 'system', label: 'System' },
+                  { value: 'auto', label: 'Auto' },
+                  { value: 'apple', label: 'Apple' },
+                  { value: 'google', label: 'Google' },
+                  { value: 'waze', label: 'Waze' },
                 ]}
               />
-              <View style={{ marginTop: 12 }}>
-                <SegmentedControl
-                  label="Preferred maps app"
-                  value={preferredMapsApp}
-                  onChange={(app) => updatePreferredMapsApp(app)}
-                  options={[
-                    { value: 'auto', label: 'Auto' },
-                    { value: 'apple', label: 'Apple' },
-                    { value: 'google', label: 'Google' },
-                    { value: 'waze', label: 'Waze' },
-                  ]}
-                />
-              </View>
             </SectionCard>
 
             <SectionCard title="Account">

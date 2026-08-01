@@ -28,13 +28,15 @@ export const ONBOARDING_ROLES: {
   title: string;
   subtitle: string;
   color: string;
+  perks: string[];
 }[] = [
   {
     id: 'parent',
     emoji: '👑',
     title: 'Parent',
-    subtitle: 'Run the household',
+    subtitle: 'Full household admin',
     color: '#3BB5F0',
+    perks: ['Assign & approve', 'Allowance & rewards', 'Invite members', 'Analytics'],
   },
   {
     id: 'child',
@@ -42,6 +44,7 @@ export const ONBOARDING_ROLES: {
     title: 'Child',
     subtitle: 'Join with a parent invite',
     color: '#34D399',
+    perks: ['My tasks', 'Earn XP', 'Unlock rewards', 'Build habits'],
   },
   {
     id: 'roommate',
@@ -49,6 +52,7 @@ export const ONBOARDING_ROLES: {
     title: 'Roommate',
     subtitle: 'Shared living, simplified',
     color: '#A78BFA',
+    perks: ['Shared chores', 'Groceries', 'Rotations', 'No parenting tone'],
   },
   {
     id: 'shared-tablet',
@@ -56,6 +60,7 @@ export const ONBOARDING_ROLES: {
     title: 'Shared / tablet',
     subtitle: 'One device · several profiles',
     color: '#F59E0B',
+    perks: ['Multiple profiles', 'Quick switch', 'Kid-safe', 'No tablet email'],
   },
 ];
 
@@ -66,14 +71,21 @@ export const ONBOARDING_MOTIVATIONS: {
   desc: string;
   wide?: boolean;
 }[] = [
-  { id: 'none', emoji: '🧘', label: 'No rewards', desc: 'Just get things done' },
-  { id: 'xp', emoji: '⚡', label: 'XP only', desc: 'Level up with points' },
+  { id: 'none', emoji: '🧘', label: 'No rewards', desc: 'Quiet focus, no points' },
+  { id: 'xp', emoji: '⚡', label: 'XP only', desc: 'Levels that celebrate effort' },
   { id: 'xp_rewards', emoji: '🎁', label: 'XP + Rewards', desc: 'Points unlock fun prizes' },
-  { id: 'allowance', emoji: '💰', label: 'Allowance', desc: 'Earn real money for chores' },
-  { id: 'allowance_xp', emoji: '🌟', label: 'Allowance + XP', desc: 'Money & levels combined' },
+  { id: 'allowance', emoji: '💰', label: 'Allowance', desc: 'Real money for real help' },
+  { id: 'allowance_xp', emoji: '🌟', label: 'Allowance + XP', desc: 'Money and levels together' },
   { id: 'allowance_rewards', emoji: '🏆', label: 'Full System', desc: 'Allowance, XP & rewards', wide: true },
-  { id: 'custom', emoji: '✏️', label: 'Custom', desc: 'Build your own system', wide: true },
+  { id: 'custom', emoji: '✏️', label: 'Custom', desc: 'Tune it later in Settings', wide: true },
 ];
+
+/** Splash micro-hooks (Design 8 glass onboarding). */
+export const ONBOARDING_SPLASH_HOOKS = [
+  { text: 'Zero clutter. Quiet rhythm.', color: '#3BB5F0' },
+  { text: 'Nova co-manages the home.', color: '#2DD4BF' },
+  { text: 'Built for real households.', color: '#F59E0B' },
+] as const;
 
 const KEY = 'choremaxx.onboarding.v7';
 
