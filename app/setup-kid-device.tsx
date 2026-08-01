@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { orbitColors, orbitRadius, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import { setupSharedDeviceSession } from '@/lib/device/device-session';
 import { memberDisplayEmoji } from '@/lib/game-levels';
 import {
@@ -119,8 +119,8 @@ export default function SetupKidDeviceScreen() {
             <MaterialIcons name="arrow-back" size={20} color={orbitColors.text} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={orbitTypography.caption}>Shared / kid device</Text>
-            <Text style={orbitTypography.title}>Host multiple profiles</Text>
+            <Text style={typography.footnote}>Shared / kid device</Text>
+            <Text style={typography.title2}>Host multiple profiles</Text>
           </View>
         </View>
 
@@ -230,9 +230,9 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: orbitSpacing.md,
-    paddingHorizontal: orbitSpacing.lg,
-    paddingVertical: orbitSpacing.sm,
+    gap: space.md,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.sm,
   },
   back: {
     alignItems: 'center',
@@ -244,9 +244,9 @@ const styles = StyleSheet.create({
   },
   scroll: { flex: 1 },
   content: {
-    gap: orbitSpacing.md,
+    gap: space.md,
     paddingBottom: 48,
-    paddingHorizontal: orbitSpacing.lg,
+    paddingHorizontal: space.xl,
   },
   body: {
     color: orbitColors.textMuted,
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     color: orbitColors.text,
     fontSize: 16,
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(56,189,248,0.12)',
     borderColor: 'rgba(56,189,248,0.35)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     height: 48,
     justifyContent: 'center',

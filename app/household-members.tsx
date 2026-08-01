@@ -5,7 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import {
   canPromoteToAdmin,
   familyAdminSeatsLabel,
@@ -180,9 +180,9 @@ export default function HouseholdMembersScreen() {
       contentContainerStyle={orbitScreen.content}
       contentInsetAdjustmentBehavior="automatic">
       <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>{household.householdName}</Text>
-        <Text style={orbitTypography.display}>Members</Text>
-        <Text style={orbitTypography.body}>
+        <Text style={typography.footnote}>{household.householdName}</Text>
+        <Text style={typography.title1}>Members</Text>
+        <Text style={typography.body}>
           {familyCap
             ? `Families can have two admins (co-parents). ${adminSeats}.`
             : `Approve join requests and manage roles. ${adminSeats}.`}
@@ -191,8 +191,8 @@ export default function HouseholdMembersScreen() {
 
       {permissions.canInviteMembers ? (
         <GlassCard style={styles.card}>
-          <Text style={orbitTypography.cardTitle}>Invite adult / roommate</Text>
-          <Text style={orbitTypography.caption}>
+          <Text style={typography.headline}>Invite adult / roommate</Text>
+          <Text style={typography.footnote}>
             They create their own account with this invite and stay pending until you approve.
           </Text>
           <OrbitButton onPress={() => router.push('/invite-household' as never)}>
@@ -203,8 +203,8 @@ export default function HouseholdMembersScreen() {
 
       {permissions.canInviteMembers || permissions.canManageHousehold ? (
         <GlassCard style={styles.card}>
-          <Text style={orbitTypography.cardTitle}>Invite kids (no sign-in)</Text>
-          <Text style={orbitTypography.caption}>
+          <Text style={typography.headline}>Invite kids (no sign-in)</Text>
+          <Text style={typography.footnote}>
             Create up to two kid profiles saved on your admin account. AirDrop or send their codes —
             young kids never need email.
           </Text>
@@ -233,8 +233,8 @@ export default function HouseholdMembersScreen() {
 
       {permissions.canManageHousehold ? (
         <GlassCard style={styles.card}>
-          <Text style={orbitTypography.cardTitle}>Add shared device</Text>
-          <Text style={orbitTypography.caption}>
+          <Text style={typography.headline}>Add shared device</Text>
+          <Text style={typography.footnote}>
             For a phone or tablet used by several people. Tasks sent here ask which person it&apos;s for (e.g. Clean
             dishes - David).
           </Text>
@@ -253,8 +253,8 @@ export default function HouseholdMembersScreen() {
 
       {admins.length > 0 ? (
         <GlassCard style={styles.card}>
-          <Text style={orbitTypography.cardTitle}>Family admins</Text>
-          <Text style={orbitTypography.caption}>
+          <Text style={typography.headline}>Family admins</Text>
+          <Text style={typography.footnote}>
             {admins.map((member) => `${member.name} (${formatHouseholdRole(member.role)})`).join(' · ')}
           </Text>
           {familyCap && admins.length < MAX_FAMILY_ADMINS ? (
@@ -267,14 +267,14 @@ export default function HouseholdMembersScreen() {
 
       {pending.length > 0 ? (
         <>
-          <Text style={orbitTypography.cardTitle}>Pending approval</Text>
+          <Text style={typography.headline}>Pending approval</Text>
           {pending.map((member) => (
             <GlassCard key={member.id} style={styles.card}>
               <View style={styles.memberHeader}>
                 <Text style={styles.avatar}>{member.avatar}</Text>
                 <View style={styles.memberCopy}>
-                  <Text style={orbitTypography.cardTitle}>{member.name}</Text>
-                  <Text style={orbitTypography.caption}>
+                  <Text style={typography.headline}>{member.name}</Text>
+                  <Text style={typography.footnote}>
                     Requested {formatHouseholdRole(member.role)} access
                   </Text>
                 </View>
@@ -306,14 +306,14 @@ export default function HouseholdMembersScreen() {
         </>
       ) : null}
 
-      <Text style={orbitTypography.cardTitle}>Household</Text>
+      <Text style={typography.headline}>Household</Text>
       {active.map((member) => (
         <GlassCard key={member.id} style={styles.card}>
           <View style={styles.memberHeader}>
             <Text style={styles.avatar}>{member.avatar}</Text>
             <View style={styles.memberCopy}>
-              <Text style={orbitTypography.cardTitle}>{member.name}</Text>
-              <Text style={orbitTypography.caption}>
+              <Text style={typography.headline}>{member.name}</Text>
+              <Text style={typography.footnote}>
                 {member.xp} XP · week {member.weekXp ?? 0} · streak {member.streak ?? 0}
               </Text>
             </View>
@@ -335,7 +335,7 @@ export default function HouseholdMembersScreen() {
           </View>
           {isSharedDeviceMember(member) ? (
             <View style={styles.sharedBlock}>
-              <Text style={orbitTypography.caption}>People on this device</Text>
+              <Text style={typography.footnote}>People on this device</Text>
               <Text style={styles.hint}>
                 {resolveSharedDevicePeople(member, household.members)
                   .map((person) => person.name)
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   avatar: {
     backgroundColor: 'rgba(0, 194, 255, 0.16)',
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     width: 44,
   },
   card: {
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   hint: {
     color: orbitColors.textMuted,
@@ -418,22 +418,22 @@ const styles = StyleSheet.create({
   },
   memberCopy: {
     flex: 1,
-    gap: orbitSpacing.xs,
+    gap: space.xs,
   },
   memberHeader: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   pillRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: orbitSpacing.sm,
+    gap: space.sm,
   },
   deviceInput: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     color: orbitColors.text,
     fontSize: 15,
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   sharedBlock: {
-    gap: orbitSpacing.sm,
+    gap: space.sm,
   },
   linkWrap: {
     flexDirection: 'row',

@@ -5,7 +5,7 @@ import QRCode from 'react-native-qrcode-svg';
 
 import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
+import { orbitColors, radius, space } from '@/constants/orbit-theme';
 import { buildInviteLinks } from '@/lib/invites/parse-invite';
 import { shareInvite } from '@/lib/invites/share-invite';
 import { householdRepository } from '@/repositories';
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: orbitRadius.md,
-    padding: orbitSpacing.md,
+    borderRadius: radius.card,
+    padding: space.md,
   },
 });
