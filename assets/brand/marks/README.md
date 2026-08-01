@@ -1,6 +1,6 @@
-# Choremaxx mark variants
+# Choremaxx house mark variants
 
-Uniform checkmark + rising-bars mark from `choremaxx_logo_color_directions`.
+Classic house logo (sparkle + roof + body) recolored per palette — not the checkmark mark.
 
 | File | Palette |
 |------|---------|
@@ -9,4 +9,4 @@ Uniform checkmark + rising-bars mark from `choremaxx_logo_color_directions`.
 | `choremaxx-mark-berry.png` | Berry |
 | `choremaxx-mark-citrus.png` | Citrus |
 
-In-app UI uses the themeable SVG `ChoremaxxMark` (see `components/orbit/choremaxx-logo.tsx`) so colors follow the active palette. These PNGs feed `app.json` icon / adaptive / splash assets (Coral) and monochrome tint layers.
+In-app UI uses the themeable SVG `ChoremaxxIcon`. Wordmark: **chore** = secondary, **maxx** = primary.

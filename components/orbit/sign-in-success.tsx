@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { ChoremaxxLogo, ChoremaxxMark } from '@/components/orbit/choremaxx-logo';
+import { ChoremaxxIcon, ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { resolveBrandLockup } from '@/constants/brand-lockup';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
@@ -64,12 +64,12 @@ export function SignInSuccess({ visible, onDone }: SignInSuccessProps) {
       <Animated.View style={[styles.root, { backgroundColor: c.background }, shellStyle]}>
         <Animated.View style={[styles.glowWrap, glowStyle]} pointerEvents="none">
           <LinearGradient
-            colors={[`${lockup.markBg}66`, `${lockup.bars}33`, 'transparent']}
+            colors={[`${lockup.wash}66`, `${lockup.sparkle}33`, 'transparent']}
             style={styles.glow}
           />
         </Animated.View>
         <Animated.View style={iconStyle}>
-          <ChoremaxxMark width={72} height={72} colors={lockup} />
+          <ChoremaxxIcon width={72} height={62} colors={lockup} />
         </Animated.View>
         <Animated.View style={wordStyle}>
           <ChoremaxxLogo variant="wordmark" size="md" />

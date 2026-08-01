@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { ChoremaxxLogo, ChoremaxxMark } from '@/components/orbit/choremaxx-logo';
+import { ChoremaxxIcon, ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { SpinningLogoGlow } from '@/components/orbit/spinning-logo-glow';
 import { resolveBrandLockup } from '@/constants/brand-lockup';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -124,7 +124,7 @@ export function BrandOpening({
     <View style={styles.root} accessibilityRole="image" accessibilityLabel="Choremaxx">
       <Animated.View style={[styles.glowWrap, glowStyle]} pointerEvents="none">
         <LinearGradient
-          colors={[`${c.primary}59`, `${lockup.markBg}2E`, 'transparent']}
+          colors={[`${c.primary}59`, `${lockup.wash}2E`, 'transparent']}
           style={styles.glow}
           start={{ x: 0.15, y: 0.1 }}
           end={{ x: 0.9, y: 0.95 }}
@@ -137,9 +137,9 @@ export function BrandOpening({
       <View style={styles.lockup}>
         <Animated.View style={[styles.iconWrap, iconStyle]}>
           <Animated.View
-            style={[styles.sparkleHalo, sparkleStyle, { backgroundColor: `${lockup.bars}33` }]}
+            style={[styles.sparkleHalo, sparkleStyle, { backgroundColor: `${lockup.sparkle}33` }]}
           />
-          <ChoremaxxMark width={84} height={84} colors={lockup} />
+          <ChoremaxxIcon width={84} height={72} colors={lockup} />
         </Animated.View>
 
         <Animated.View style={wordStyle}>
