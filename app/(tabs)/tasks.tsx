@@ -4,17 +4,15 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { ContextMenu } from '@/components/orbit/context-menu';
+import { EmptyState } from '@/components/orbit/empty-state';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
-import {
-  orbitColors,
-  orbitRadius,
-  orbitScreen,
-  orbitSpacing,
-  orbitTypography,
-} from '@/constants/orbit-theme';
+import { SearchBar } from '@/components/orbit/search-bar';
+import { SegmentedControl } from '@/components/orbit/segmented-control';
+import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
@@ -127,14 +125,18 @@ function TaskItem({
   room,
   accentPrimary,
   justCompleted,
+  canDelete,
   onToggle,
+  onDelete,
 }: {
   task: HouseholdTask;
   member?: HouseholdMember;
   room?: HouseholdRoom;
   accentPrimary: string;
   justCompleted: boolean;
+  canDelete: boolean;
   onToggle: () => void;
+  onDelete: () => void;
 }) {
   const shareDone =
     member && isSplitTask(task)
@@ -150,20 +152,28 @@ function TaskItem({
   const hygiene = task.tracking === 'streak' || task.category === 'Hygiene';
 
   return (
-    <View style={[styles.taskItem, done && styles.taskItemDone]}>
-      <Pressable
-        onPress={onToggle}
-        style={[
-          styles.checkbox,
-          {
-            borderColor,
-            backgroundColor: done ? accent : 'transparent',
-          },
-        ]}>
-        {done ? <MaterialIcons name="check" size={12} color={orbitColors.ink} /> : null}
-      </Pressable>
+    <ContextMenu
+      actions={[
+        { key: 'open', label: 'Open task', icon: 'chevron-right', onPress: () => router.push(`/task/${task.id}` as never) },
+        ...(!done ? [{ key: 'complete', label: 'Mark complete', icon: 'check' as const, onPress: onToggle }] : []),
+        ...(canDelete
+          ? [{ key: 'delete', label: 'Delete', icon: 'delete-outline' as const, destructive: true, onPress: onDelete }]
+          : []),
+      ]}>
+      <View style={[styles.taskItem, done && styles.taskItemDone]}>
+        <Pressable
+          onPress={onToggle}
+          style={[
+            styles.checkbox,
+            {
+              borderColor,
+              backgroundColor: done ? accent : 'transparent',
+            },
+          ]}>
+          {done ? <MaterialIcons name="check" size={12} color={orbitColors.ink} /> : null}
+        </Pressable>
 
-      <Pressable style={styles.taskBody} onPress={() => router.push(`/task/${task.id}` as never)}>
+        <Pressable style={styles.taskBody} onPress={() => router.push(`/task/${task.id}` as never)}>
         <View style={styles.titleRow}>
           {isHomework(task) && sub ? (
             <View style={[styles.subjectPill, { backgroundColor: `${sub.color}18` }]}>
@@ -215,17 +225,18 @@ function TaskItem({
         </View>
       </Pressable>
 
-      {justCompleted ? (
-        <View style={styles.celebrate}>
-          {!hygiene ? <Text style={styles.celebrateBolt}>⚡</Text> : null}
-          <Text style={[styles.celebrateXp, { color: accentPrimary }]}>
-            {hygiene ? 'Streak' : `+${task.xp}`}
-          </Text>
-        </View>
-      ) : (
-        <XPBadge xp={task.xp} done={done} accent={accentPrimary} hygiene={hygiene} />
-      )}
-    </View>
+        {justCompleted ? (
+          <View style={styles.celebrate}>
+            {!hygiene ? <Text style={styles.celebrateBolt}>⚡</Text> : null}
+            <Text style={[styles.celebrateXp, { color: accentPrimary }]}>
+              {hygiene ? 'Streak' : `+${task.xp}`}
+            </Text>
+          </View>
+        ) : (
+          <XPBadge xp={task.xp} done={done} accent={accentPrimary} hygiene={hygiene} />
+        )}
+      </View>
+    </ContextMenu>
   );
 }
 
@@ -256,7 +267,9 @@ function TaskSection({
   emptyLabel,
   progress,
   justCompletedId,
+  canDelete,
   onToggle,
+  onDelete,
 }: {
   title: string;
   dotColor: string;
@@ -271,7 +284,9 @@ function TaskSection({
   emptyLabel?: string;
   progress?: { done: number; total: number; color: string };
   justCompletedId: string | null;
+  canDelete: boolean;
   onToggle: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
 }) {
   if (tasks.length === 0 && !allowEmpty) return null;
 
@@ -315,7 +330,9 @@ function TaskSection({
               room={rooms.find((item) => item.id === task.roomId)}
               accentPrimary={accentPrimary}
               justCompleted={justCompletedId === task.id}
+              canDelete={canDelete}
               onToggle={() => onToggle(task.id)}
+              onDelete={() => onDelete(task.id)}
             />
           </View>
         ))
@@ -331,6 +348,7 @@ export default function TasksScreen() {
     accentTheme,
     completeTask,
     currentMember,
+    deleteTask,
     household,
     permissions,
     switchPersona,
@@ -341,6 +359,7 @@ export default function TasksScreen() {
   const [showRoomFilter, setShowRoomFilter] = useState(false);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
   const memberParam = Array.isArray(params.member) ? params.member[0] : params.member;
 
@@ -385,6 +404,7 @@ export default function TasksScreen() {
       }
       if (filter === 'homework' && !isHomework(task)) return false;
       if (roomFilter && task.roomId !== roomFilter) return false;
+      if (search.trim() && !task.title.toLowerCase().includes(search.trim().toLowerCase())) return false;
       return true;
     });
   }, [
@@ -394,6 +414,7 @@ export default function TasksScreen() {
     focusMember,
     household.tasks,
     roomFilter,
+    search,
     sharedKidMode,
   ]);
 
@@ -493,6 +514,10 @@ export default function TasksScreen() {
     }
   };
 
+  const handleDelete = (taskId: string) => {
+    void deleteTask(taskId);
+  };
+
   return (
     <>
     <ScrollView
@@ -509,7 +534,7 @@ export default function TasksScreen() {
                 ? `${focusMember}'s chores`
                 : 'Tasks & Homework'}
           </PageEyebrow>
-          <Text style={orbitTypography.display}>
+          <Text style={typography.title1}>
             {sharedKidMode
               ? 'My tasks'
               : focusMember
@@ -566,49 +591,36 @@ export default function TasksScreen() {
       </LinearGradient>
 
       {!sharedKidMode ? (
-        <View style={styles.filterRow}>
-          {FILTER_TABS.map((tab) => {
-            const active = filter === tab.id && !focusMember;
-            return (
-              <Pressable
-                key={tab.id}
-                onPress={() => {
+        <>
+          <SearchBar value={search} onChangeText={setSearch} placeholder="Search tasks" />
+          <View style={styles.filterRow}>
+            <View style={{ flex: 1 }}>
+              <SegmentedControl
+                options={FILTER_TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
+                value={filter}
+                onChange={(next) => {
                   clearFocusMember();
-                  setFilter(tab.id);
+                  setFilter(next);
                 }}
-                style={[
-                  styles.filterChip,
-                  active && {
-                    backgroundColor: `${accentTheme.primary}2E`,
-                    borderColor: `${accentTheme.primary}4D`,
-                  },
-                ]}>
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    active && { color: accentTheme.primary, fontWeight: '600' },
-                  ]}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-          <Pressable
-            style={[
-              styles.filterIconButton,
-              (showRoomFilter || roomFilter) && {
-                backgroundColor: `${accentTheme.primary}2E`,
-                borderColor: `${accentTheme.primary}4D`,
-              },
-            ]}
-            onPress={() => setShowRoomFilter((value) => !value)}>
-            <MaterialIcons
-              name="filter-list"
-              size={14}
-              color={showRoomFilter || roomFilter ? accentTheme.primary : orbitColors.textSubtle}
-            />
-          </Pressable>
-        </View>
+              />
+            </View>
+            <Pressable
+              style={[
+                styles.filterIconButton,
+                (showRoomFilter || roomFilter) && {
+                  backgroundColor: `${accentTheme.primary}2E`,
+                  borderColor: `${accentTheme.primary}4D`,
+                },
+              ]}
+              onPress={() => setShowRoomFilter((value) => !value)}>
+              <MaterialIcons
+                name="filter-list"
+                size={14}
+                color={showRoomFilter || roomFilter ? accentTheme.primary : orbitColors.textSubtle}
+              />
+            </Pressable>
+          </View>
+        </>
       ) : null}
 
       {focusMember && !sharedKidMode ? (
@@ -664,17 +676,18 @@ export default function TasksScreen() {
       ) : null}
 
       {empty ? (
-        <GlassCard>
-          <Text style={styles.emptyTitle}>
-            {sharedKidMode ? 'No tasks for you right now' : 'Nothing in this view'}
-          </Text>
-          <Text style={styles.emptyBody}>
-            {sharedKidMode
-              ? 'Ask an adult to assign you something — or switch account if it’s someone else’s turn.'
-              : permissions.canCreateTask
-                ? "Create a preset or custom task to fill Today's Work."
-                : 'Ask an adult to assign you something, or switch filters.'}
-          </Text>
+        <View>
+          <EmptyState
+            tone="allClear"
+            title={sharedKidMode ? 'No tasks for you right now' : 'Nothing in this view'}
+            caption={
+              sharedKidMode
+                ? 'Ask an adult to assign you something — or switch account if it’s someone else’s turn.'
+                : permissions.canCreateTask
+                  ? "Create a preset or custom task to fill Today's Work."
+                  : 'Ask an adult to assign you something, or switch filters.'
+            }
+          />
           {sharedKidMode ? (
             <Pressable onPress={() => setPersonaSwitchOpen(true)} style={styles.emptyCta}>
               <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Switch account</Text>
@@ -684,7 +697,7 @@ export default function TasksScreen() {
               <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Create task</Text>
             </Pressable>
           ) : null}
-        </GlassCard>
+        </View>
       ) : null}
 
       {memberSections ? (
@@ -705,7 +718,9 @@ export default function TasksScreen() {
             progress={{ done: section.done, total: section.total, color: section.accent }}
             muted={section.total > 0 && section.done === section.total}
             justCompletedId={justCompletedId}
+            canDelete={permissions.canCreateTask}
             onToggle={handleToggle}
+            onDelete={handleDelete}
           />
         ))
       ) : (
@@ -720,7 +735,9 @@ export default function TasksScreen() {
             rooms={rooms}
             accentPrimary={accentTheme.primary}
             justCompletedId={justCompletedId}
+            canDelete={permissions.canCreateTask}
             onToggle={handleToggle}
+            onDelete={handleDelete}
           />
 
           <TaskSection
@@ -732,7 +749,9 @@ export default function TasksScreen() {
             rooms={rooms}
             accentPrimary={accentTheme.primary}
             justCompletedId={justCompletedId}
+            canDelete={permissions.canCreateTask}
             onToggle={handleToggle}
+            onDelete={handleDelete}
           />
 
           <TaskSection
@@ -745,7 +764,9 @@ export default function TasksScreen() {
             accentPrimary={accentTheme.primary}
             muted
             justCompletedId={justCompletedId}
+            canDelete={permissions.canCreateTask}
             onToggle={handleToggle}
+            onDelete={handleDelete}
           />
         </>
       )}
@@ -765,7 +786,7 @@ export default function TasksScreen() {
 const styles = StyleSheet.create({
   addButton: {
     alignItems: 'center',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.control,
     height: 40,
     justifyContent: 'center',
     width: 40,
@@ -872,7 +893,7 @@ const styles = StyleSheet.create({
   filterChip: {
     backgroundColor: orbitColors.card,
     borderColor: orbitColors.border,
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.control,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -900,7 +921,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: orbitColors.card,
     borderColor: orbitColors.border,
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.control,
     borderWidth: 1,
     height: 32,
     justifyContent: 'center',
@@ -1050,11 +1071,11 @@ const styles = StyleSheet.create({
   xpBanner: {
     alignItems: 'center',
     borderColor: 'rgba(56,189,248,0.15)',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.control,
     borderWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: orbitSpacing.md,
+    paddingHorizontal: space.md,
     paddingVertical: 12,
   },
   xpBannerLeft: {

@@ -44,11 +44,45 @@
 
 **Task 020** — Run `npx tsc --noEmit`, fix any type errors from the token renames, commit Phase B as one PR update before starting Batch 1.
 
-## Batch 1 — Tabs [Skeleton]
+## Batch 1 — Tabs [Detailed]
 
-Screens: Home (`app/(tabs)/index.tsx`), Tasks (`tasks.tsx`), Plan (`plan.tsx`), Rewards (`rewards.tsx`), Nova (`nova.tsx`).
+**Task 021** — Home: replace the Nova chat-entry card with an inline `NovaCard` (`kind="morningBrief"`) composed from existing `novaBriefing`/task/grocery/event state, per `07-nova-experience.md` §2 and `06`'s Home entry.
 
-Detailed numbered tasks (021+) are added here immediately before this batch executes, derived from `06-screen-specifications.md`'s Batch 1 entries and `09-ui-audit.md`'s Home/Tasks/Plan/Rewards/Nova findings.
+**Task 022** — Home: merge Today's Tasks + Groceries/Upcoming chips into one typography-led "Today" section (remove per-chip cards), per `04-information-hierarchy.md` §5/§7.
+
+**Task 023** — Home: demote "This week" rankings to a small tappable preview below the fold using the new `Leaderboard` (`variant="podium"`, compact), not competing with Today's section.
+
+**Task 024** — Home: migrate all inline `fontSize`/`orbitRadius`/`orbitSpacing` usage to `typography`/`radius`/`space`; drop the `groceryEmoji` ad hoc styling table in favor of `MaterialIcons`-consistent iconography.
+
+**Task 025** — Home: wrap primary `ScrollView` with a `scrollY` shared value and mount `LargeTitleHeader` for the greeting per `03-motion-interaction.md` §7 (keep existing header greeting/avatar/persona-switch chrome as-is per `06`'s "Keep").
+
+**Task 026** — Tasks: replace hand-rolled task rows with shared `TaskRow`; group by day with sticky `material.ultraThin` section headers.
+
+**Task 027** — Tasks: add `SearchBar` (expandable) for assignee/room filtering, wire into existing task list state.
+
+**Task 028** — Tasks: add `ContextMenu` (complete/reassign/delete) on long-press per `03-motion-interaction.md` §4.
+
+**Task 029** — Tasks: migrate inline styling to new tokens; add `EmptyState` (`tone="allClear"`) for the zero-tasks state.
+
+**Task 030** — Plan: extract `locationShort` and trip-suggestion heuristic into a `NovaCard` (`kind="recommendation"`) shown contextually rather than a standalone competing card, per `06`'s Plan entry.
+
+**Task 031** — Plan: apply restrained "today emphasis" (filled dot, not background wash) to the calendar/day rendering per `11-reverse-engineering-apple-apps.md` (Apple Calendar).
+
+**Task 032** — Plan: migrate inline styling to new tokens.
+
+**Task 033** — Rewards: replace inline ranking implementation with shared `Leaderboard`; consolidate with Home's preview so there is one implementation, two render sizes.
+
+**Task 034** — Rewards: adopt ring-based personal XP/streak progress (`momentum-ring.tsx`-style) as the dominant visual per member per `11` (Fitness reference), demoting the full rankings list to a secondary section.
+
+**Task 035** — Rewards: migrate the ~46 inline `fontSize` values to `typography`/`space`/`radius` tokens; keep `RewardClaimPress` hold-to-claim control as-is.
+
+**Task 036** — Nova: restructure the screen around a briefing feed of `NovaCard`s (Morning Brief / Evening Wrap-up / Recommendations) as the default view, replacing the Chat/Activity segmented top-level split, per `07-nova-experience.md` §3.
+
+**Task 037** — Nova: demote the existing chat UI to an "Ask Nova" fallback reachable via a compact affordance below the briefing feed; keep the Nova orb + voice pipeline for that mode.
+
+**Task 038** — Nova: demote the Activity/monitor log to a detail view reachable from a card's context menu ("History"), using the new `ContextMenu` component.
+
+**Task 039** — All five tab screens: verify `npx tsc --noEmit` clean, commit Batch 1, update PR.
 
 ## Batch 2 — Onboarding / Auth [Skeleton]
 
