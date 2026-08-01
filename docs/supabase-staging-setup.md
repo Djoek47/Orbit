@@ -77,4 +77,12 @@ See [expo-go-test-matrix.md](./expo-go-test-matrix.md) for the full manual check
 
 ## 7. Auth note
 
-Enable Email auth in Supabase → Authentication → Providers. For Apple Sign-In, configure separately before production.
+Enable **Email** auth in Supabase → Authentication → Providers.
+
+For **Sign in with Apple** (required for TestFlight Apple button):
+
+1. Enable the Apple provider in Supabase (Services ID, Team ID, Key ID, `.p8` — see [Supabase Apple login](https://supabase.com/docs/guides/auth/social-login/auth-apple)).
+2. Callback / Site URL host: `https://YOUR_PROJECT.supabase.co`
+3. App ID `app.choremaxx.household` must also have Sign in with Apple capability (EAS / Apple Developer).
+
+`sarah@orbit.test` exists only in Expo Go mock mode — create real Auth users for staging/TestFlight.

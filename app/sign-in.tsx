@@ -16,6 +16,23 @@ import { useOrbit } from '@/store/orbit-store';
 const MOCK_DEMO_EMAIL = 'sarah@orbit.test';
 const MOCK_DEMO_PASSWORD = 'orbit-demo';
 
+/** Never surface repository prefixes / raw provider dumps to testers. */
+function toUserFacingAuthError(err: unknown, fallback: string): string {
+  const raw = err instanceof Error ? err.message.trim() : '';
+  if (!raw) return fallback;
+  const lower = raw.toLowerCase();
+  if (lower.startsWith('authrepository.') || lower.includes('provider (issuer')) {
+    if (lower.includes('invalid login') || lower.includes('invalid credentials')) {
+      return 'Email or password is incorrect. Tap Get Started to create an account.';
+    }
+    if (lower.includes('apple') || lower.includes('provider')) {
+      return 'Sign in with Apple isn’t set up yet. Use email and password, or tap Get Started.';
+    }
+    return fallback;
+  }
+  return raw;
+}
+
 export default function SignInScreen() {
   const { accentTheme, signIn, hydrateFromSession } = useOrbit();
   const mock = isMockMode();
@@ -54,7 +71,7 @@ export default function SignInScreen() {
       await signIn({ email, password });
       setShowSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign in failed.');
+      setError(toUserFacingAuthError(err, 'Sign in failed. Check your email and password.'));
     } finally {
       setBusy(false);
     }
@@ -74,7 +91,7 @@ export default function SignInScreen() {
       if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') {
         return;
       }
-      setError(err instanceof Error ? err.message : 'Apple Sign-In failed.');
+      setError(toUserFacingAuthError(err, 'Apple Sign-In failed. Try email and password instead.'));
     }
   };
 

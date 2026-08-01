@@ -81,7 +81,9 @@ export const authRepository = {
     if (error) {
       const msg = (error.message ?? '').toLowerCase();
       if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
-        throw new Error('Email or password is incorrect. Create an account with Get Started, or use the TestFlight demo user from your admin.');
+        throw new Error(
+          'Email or password is incorrect. Tap Get Started to create a household account — demo emails like sarah@orbit.test only work in Expo Go.'
+        );
       }
       if (msg.includes('email not confirmed')) {
         throw new Error('Confirm your email before signing in.');
@@ -115,10 +117,19 @@ export const authRepository = {
       email: input.email.trim(),
       password: input.password,
     });
-    mapDbError('authRepository.signUp', error);
+    if (error) {
+      const msg = (error.message ?? '').toLowerCase();
+      if (msg.includes('already registered') || msg.includes('already been registered')) {
+        throw new Error('That email already has an account. Sign in instead.');
+      }
+      if (msg.includes('password')) {
+        throw new Error(error.message || 'Choose a stronger password and try again.');
+      }
+      throw new Error(error.message || 'Could not create account. Try again.');
+    }
 
     if (!data.user) {
-      throw new Error('authRepository.signUp: No user returned from Supabase.');
+      throw new Error('Could not create account. Try again.');
     }
 
     const user = await loadProfileUser(supabase, data.user.id, data.user.email ?? input.email.trim());
