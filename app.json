@@ -5,11 +5,7 @@
     "version": "1.0.0",
     "description": "Choremaxx is an AI household operating system — tasks, rewards, groceries, and Nova your calm co-manager.",
     "orientation": "portrait",
-    "icon": {
-      "light": "./assets/images/icon-light.png",
-      "dark": "./assets/images/icon-dark.png",
-      "tinted": "./assets/images/icon-tinted.png"
-    },
+    "icon": "./assets/images/icon.png",
     "scheme": "choremaxx",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -33,6 +29,11 @@
       "bundleIdentifier": "app.choremaxx.household",
       "buildNumber": "1",
       "usesAppleSignIn": true,
+      "icon": {
+        "light": "./assets/images/icon-light.png",
+        "dark": "./assets/images/icon-dark.png",
+        "tinted": "./assets/images/icon-tinted.png"
+      },
       "config": {
         "usesNonExemptEncryption": false
       },

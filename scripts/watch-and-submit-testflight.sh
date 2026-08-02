@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-BUILD_ID="${1:-d99ce763-d5f9-4d7c-b3bc-fd2ab2a3cdc2}"
+BUILD_ID="${1:?build id required}"
 echo "Watching build $BUILD_ID ..."
 for i in $(seq 1 90); do
-  STATUS=$(npx eas build:view "$BUILD_ID" --json 2>/dev/null | node -e '
-    let s=""; process.stdin.on("data",d=>s+=d); process.stdin.on("end",()=>{
-      try { console.log(JSON.parse(s).status||""); } catch { console.log(""); }
-    });
-  ')
+  STATUS=$(npx eas build:view "$BUILD_ID" --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{console.log(JSON.parse(s).status||"")}catch{console.log("")}})')
   echo "[$(date -u +%H:%M:%S)] status=${STATUS:-unknown}"
   case "$STATUS" in
     finished)
