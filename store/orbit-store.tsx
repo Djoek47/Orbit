@@ -2931,6 +2931,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       removeRoom,
       updateMemberCapabilities,
       updateHouseholdRewardSettings,
+      redeemStreak,
     ]
   );
 
