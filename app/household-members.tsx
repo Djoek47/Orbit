@@ -19,6 +19,7 @@ import {
   sharedDeviceLinkCandidates,
 } from '@/lib/household/shared-device';
 import { formatHouseholdRole } from '@/lib/permissions';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdRole } from '@/types/orbit';
 
@@ -48,6 +49,7 @@ export default function HouseholdMembersScreen() {
     updateMemberRole,
     updateSharedDeviceLinks,
   } = useOrbit();
+  const { c } = useOrbitColors();
 
   const [sharedDeviceName, setSharedDeviceName] = useState('Shared tablet');
   const [creatingDevice, setCreatingDevice] = useState(false);
@@ -212,22 +214,22 @@ export default function HouseholdMembersScreen() {
             value={kidNameOne}
             onChangeText={setKidNameOne}
             placeholder="Kid 1 name"
-            placeholderTextColor={orbitColors.textSubtle}
-            style={styles.deviceInput}
+            placeholderTextColor={c.textSubtle}
+            style={[styles.deviceInput, { color: c.text }]}
           />
           <TextInput
             value={kidNameTwo}
             onChangeText={setKidNameTwo}
             placeholder="Kid 2 name (optional)"
-            placeholderTextColor={orbitColors.textSubtle}
-            style={styles.deviceInput}
+            placeholderTextColor={c.textSubtle}
+            style={[styles.deviceInput, { color: c.text }]}
           />
           <OrbitButton
             disabled={creatingKids || (!kidNameOne.trim() && !kidNameTwo.trim())}
             onPress={handleCreateKidInvites}>
             {creatingKids ? 'Saving…' : 'Create kid invites'}
           </OrbitButton>
-          {kidStatus ? <Text style={styles.hint}>{kidStatus}</Text> : null}
+          {kidStatus ? <Text style={[styles.hint, { color: c.textMuted }]}>{kidStatus}</Text> : null}
         </GlassCard>
       ) : null}
 
@@ -242,8 +244,8 @@ export default function HouseholdMembersScreen() {
             value={sharedDeviceName}
             onChangeText={setSharedDeviceName}
             placeholder="e.g. Kitchen tablet"
-            placeholderTextColor={orbitColors.textSubtle}
-            style={styles.deviceInput}
+            placeholderTextColor={c.textSubtle}
+            style={[styles.deviceInput, { color: c.text }]}
           />
           <OrbitButton disabled={creatingDevice || !sharedDeviceName.trim()} onPress={handleCreateSharedDevice}>
             {creatingDevice ? 'Adding…' : 'Add shared device'}
@@ -258,7 +260,7 @@ export default function HouseholdMembersScreen() {
             {admins.map((member) => `${member.name} (${formatHouseholdRole(member.role)})`).join(' · ')}
           </Text>
           {familyCap && admins.length < MAX_FAMILY_ADMINS ? (
-            <Text style={styles.hint}>
+            <Text style={[styles.hint, { color: c.textMuted }]}>
               One admin seat open — promote a partner with Make co-admin.
             </Text>
           ) : null}
@@ -271,7 +273,7 @@ export default function HouseholdMembersScreen() {
           {pending.map((member) => (
             <GlassCard key={member.id} style={styles.card}>
               <View style={styles.memberHeader}>
-                <Text style={styles.avatar}>{member.avatar}</Text>
+                <Text style={[styles.avatar, { color: c.text }]}>{member.avatar}</Text>
                 <View style={styles.memberCopy}>
                   <Text style={typography.headline}>{member.name}</Text>
                   <Text style={typography.footnote}>
@@ -310,7 +312,7 @@ export default function HouseholdMembersScreen() {
       {active.map((member) => (
         <GlassCard key={member.id} style={styles.card}>
           <View style={styles.memberHeader}>
-            <Text style={styles.avatar}>{member.avatar}</Text>
+            <Text style={[styles.avatar, { color: c.text }]}>{member.avatar}</Text>
             <View style={styles.memberCopy}>
               <Text style={typography.headline}>{member.name}</Text>
               <Text style={typography.footnote}>
@@ -336,7 +338,7 @@ export default function HouseholdMembersScreen() {
           {isSharedDeviceMember(member) ? (
             <View style={styles.sharedBlock}>
               <Text style={typography.footnote}>People on this device</Text>
-              <Text style={styles.hint}>
+              <Text style={[styles.hint, { color: c.textMuted }]}>
                 {resolveSharedDevicePeople(member, household.members)
                   .map((person) => person.name)
                   .join(', ') || 'None linked yet — tap names below.'}
@@ -352,7 +354,12 @@ export default function HouseholdMembersScreen() {
                         toggleSharedLink(member.id, person.id, member.sharedWithMemberIds ?? [])
                       }
                       style={[styles.linkChip, linked && styles.linkChipActive]}>
-                      <Text style={[styles.linkChipText, linked && styles.linkChipTextActive]}>
+                      <Text
+                        style={[
+                          styles.linkChipText,
+                          { color: c.textMuted },
+                          linked && styles.linkChipTextActive,
+                        ]}>
                         {person.avatar} {person.name}
                       </Text>
                     </Pressable>
@@ -399,7 +406,6 @@ const styles = StyleSheet.create({
   avatar: {
     backgroundColor: 'rgba(0, 194, 255, 0.16)',
     borderRadius: 22,
-    color: orbitColors.text,
     fontSize: 18,
     fontWeight: '900',
     height: 44,
@@ -412,7 +418,6 @@ const styles = StyleSheet.create({
     gap: space.md,
   },
   hint: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -435,7 +440,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: radius.card,
     borderWidth: 1,
-    color: orbitColors.text,
     fontSize: 15,
     fontWeight: '600',
     paddingHorizontal: 14,
@@ -462,7 +466,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(52,211,153,0.45)',
   },
   linkChipText: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '600',
   },

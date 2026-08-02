@@ -5,7 +5,8 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { MomentumRing } from '@/components/orbit/momentum-ring';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function MomentumScreen() {
@@ -62,9 +63,10 @@ export default function MomentumScreen() {
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {
+  const { c } = useOrbitColors();
   return (
     <GlassCard style={styles.gridCard}>
-      <Text style={styles.metric}>{value}</Text>
+      <Text style={[styles.metric, { color: c.text }]}>{value}</Text>
       <Text style={typography.footnote}>{label}</Text>
     </GlassCard>
   );
@@ -95,7 +97,6 @@ const styles = StyleSheet.create({
     paddingRight: space.md,
   },
   metric: {
-    color: orbitColors.text,
     fontSize: 28,
     fontWeight: '800',
   },

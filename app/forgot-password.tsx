@@ -75,5 +75,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
     paddingVertical: 14,
   },
-  secondaryText: { color: orbitColors.textMuted, fontSize: 14, fontWeight: '700' },
+  secondaryText: { fontSize: 14, fontWeight: '700' },
 });

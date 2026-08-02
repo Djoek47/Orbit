@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type ProductBarcodeScannerProps = {
   onCode: (barcode: string) => void;
@@ -21,13 +22,14 @@ const PRODUCT_TYPES = [
 ] as const;
 
 export function ProductBarcodeScanner({ onCode, onClose }: ProductBarcodeScannerProps) {
+  const { c } = useOrbitColors();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
 
   if (!permission) {
     return (
       <View style={styles.wrap}>
-        <Text style={typography.body}>Checking camera permission…</Text>
+        <Text style={[typography.body, { color: c.text }]}>Checking camera permission…</Text>
       </View>
     );
   }
@@ -35,7 +37,9 @@ export function ProductBarcodeScanner({ onCode, onClose }: ProductBarcodeScanner
   if (!permission.granted) {
     return (
       <View style={styles.wrap}>
-        <Text style={typography.body}>Camera access is needed to scan product barcodes.</Text>
+        <Text style={[typography.body, { color: c.text }]}>
+          Camera access is needed to scan product barcodes.
+        </Text>
         <OrbitButton onPress={() => requestPermission()}>Allow camera</OrbitButton>
         <OrbitButton tone="secondary" onPress={onClose}>
           Cancel
@@ -58,7 +62,7 @@ export function ProductBarcodeScanner({ onCode, onClose }: ProductBarcodeScanner
         }}
       />
       <View style={styles.overlay}>
-        <Text style={styles.hint}>Align the product barcode inside the frame</Text>
+        <Text style={[styles.hint, { color: c.text }]}>Align the product barcode inside the frame</Text>
         <Pressable onPress={onClose} style={styles.close}>
           <Text style={styles.closeText}>Close scanner</Text>
         </Pressable>
@@ -84,7 +88,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   hint: {
-    color: orbitColors.text,
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',

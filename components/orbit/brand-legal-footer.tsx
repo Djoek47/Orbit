@@ -8,6 +8,7 @@ import {
   CHOREMAXX_VERSION,
 } from '@/constants/choremaxx-brand';
 import { orbitColors } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type BrandLegalFooterProps = {
   /** Show full lockup above the legal lines. */
@@ -22,6 +23,8 @@ export function BrandLegalFooter({
   compact = false,
   style,
 }: BrandLegalFooterProps) {
+  const { c } = useOrbitColors();
+
   const open = (url: string) => {
     void Linking.openURL(url).catch(() => undefined);
   };
@@ -30,20 +33,20 @@ export function BrandLegalFooter({
     <View style={[styles.root, compact && styles.compact, style]}>
       {showLogo ? <ChoremaxxLogo size={compact ? 'sm' : 'md'} /> : null}
       {!compact ? (
-        <Text style={styles.meta}>
+        <Text style={[styles.meta, { color: c.textMuted }]}>
           Version {CHOREMAXX_VERSION} · {CHOREMAXX_TAGLINE}
         </Text>
       ) : null}
-      <Text style={styles.copyright}>{CHOREMAXX_LEGAL.copyright}</Text>
+      <Text style={[styles.copyright, { color: c.textSubtle }]}>{CHOREMAXX_LEGAL.copyright}</Text>
       <View style={styles.links}>
         <Pressable onPress={() => open(CHOREMAXX_LEGAL.privacyUrl)} hitSlop={8}>
           <Text style={styles.link}>Privacy</Text>
         </Pressable>
-        <Text style={styles.dot}>·</Text>
+        <Text style={[styles.dot, { color: c.textFaint }]}>·</Text>
         <Pressable onPress={() => open(CHOREMAXX_LEGAL.termsUrl)} hitSlop={8}>
           <Text style={styles.link}>Terms</Text>
         </Pressable>
-        <Text style={styles.dot}>·</Text>
+        <Text style={[styles.dot, { color: c.textFaint }]}>·</Text>
         <Pressable onPress={() => open(`mailto:${CHOREMAXX_LEGAL.supportEmail}`)} hitSlop={8}>
           <Text style={styles.link}>Support</Text>
         </Pressable>
@@ -58,13 +61,11 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   copyright: {
-    color: orbitColors.textSubtle,
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
   },
   dot: {
-    color: orbitColors.textFaint,
     fontSize: 12,
   },
   link: {
@@ -80,7 +81,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   meta: {
-    color: orbitColors.textMuted,
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
@@ -91,4 +91,3 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
 });
-

@@ -8,10 +8,12 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitColors } from '@/constants/orbit-theme';
 import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function JoinHouseholdScreen() {
   const { joinHousehold } = useOrbit();
+  const { c } = useOrbitColors();
   const [inviteCode, setInviteCode] = useState('CMX-7429');
   const [error, setError] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -51,7 +53,9 @@ export default function JoinHouseholdScreen() {
           value={inviteCode}
           onChangeText={setInviteCode}
         />
-        <Text style={styles.hint}>Demo code: CMX-7429 — or scan a household QR from an invite.</Text>
+        <Text style={[styles.hint, { color: c.textSubtle }]}>
+          Demo code: CMX-7429 — or scan a household QR from an invite.
+        </Text>
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <OrbitButton disabled={busy} onPress={() => void handleJoinHousehold()}>
           {busy ? 'Joining…' : 'Join household'}
@@ -77,7 +81,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   hint: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
     lineHeight: 16,
   },

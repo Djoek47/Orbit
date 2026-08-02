@@ -11,6 +11,7 @@ import {
   isSharedDeviceRole,
   resolveSharedDevicePeople,
 } from '@/lib/household/shared-device';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
 
 type PersonaSwitchPopupProps = {
@@ -55,6 +56,7 @@ export function PersonaSwitchPopup({
   currentMemberId,
   onSwitch,
 }: PersonaSwitchPopupProps) {
+  const { c } = useOrbitColors();
   const { accounts, subtitle } = switchableAccounts(members, currentMemberId);
 
   return (
@@ -62,11 +64,11 @@ export function PersonaSwitchPopup({
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
           <GlassCard style={styles.card}>
-            <Text style={styles.title}>Switch account</Text>
-            <Text style={styles.subtitle}>{subtitle}</Text>
+            <Text style={[styles.title, { color: c.text }]}>Switch account</Text>
+            <Text style={[styles.subtitle, { color: c.textMuted }]}>{subtitle}</Text>
 
             {accounts.length === 0 ? (
-              <Text style={styles.empty}>No other accounts on this device.</Text>
+              <Text style={[styles.empty, { color: c.textSoft }]}>No other accounts on this device.</Text>
             ) : (
               <View style={styles.list}>
                 {accounts.map((member) => {
@@ -75,7 +77,7 @@ export function PersonaSwitchPopup({
                   return (
                     <Pressable
                       key={member.id}
-                      style={[styles.row, active && styles.rowActive]}
+                      style={[styles.row, { borderColor: orbitColors.border }, active && styles.rowActive]}
                       onPress={() => {
                         if (!active) {
                           void Haptics.selectionAsync();
@@ -87,8 +89,8 @@ export function PersonaSwitchPopup({
                         <Text style={styles.avatarText}>{memberDisplayEmoji(member)}</Text>
                       </View>
                       <View style={styles.meta}>
-                        <Text style={styles.name}>{member.name}</Text>
-                        <Text style={styles.xp}>
+                        <Text style={[styles.name, { color: c.text }]}>{member.name}</Text>
+                        <Text style={[styles.xp, { color: c.textMuted }]}>
                           {member.xp} XP · {theme.label}
                         </Text>
                       </View>
@@ -126,17 +128,14 @@ const styles = StyleSheet.create({
     gap: space.md,
   },
   title: {
-    color: orbitColors.text,
     fontSize: 18,
     fontWeight: '800',
   },
   subtitle: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     marginBottom: space.md,
   },
   empty: {
-    color: orbitColors.textSoft,
     fontSize: 14,
     paddingVertical: space.md,
   },
@@ -149,7 +148,6 @@ const styles = StyleSheet.create({
     gap: space.md,
     borderRadius: radius.card,
     borderWidth: 1,
-    borderColor: orbitColors.border,
     backgroundColor: 'rgba(255,255,255,0.03)',
     paddingHorizontal: space.md,
     paddingVertical: 10,
@@ -175,12 +173,10 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   name: {
-    color: orbitColors.text,
     fontSize: 15,
     fontWeight: '700',
   },
   xp: {
-    color: orbitColors.textMuted,
     fontSize: 12,
   },
   dot: {

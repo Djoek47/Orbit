@@ -1366,7 +1366,6 @@ const styles = StyleSheet.create({
     width: 6,
   },
   hookText: {
-    color: orbitColors.textMuted,
     fontSize: 14,
     fontWeight: '500',
     lineHeight: 20,
@@ -1410,7 +1409,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   fieldLabel: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 8,
@@ -1434,7 +1432,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   modeLabel: {
-    color: orbitColors.textSubtle,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -1457,7 +1454,6 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   motivationDesc: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
   },
   motivationGrid: {
@@ -1467,7 +1463,6 @@ const styles = StyleSheet.create({
     marginBottom: space.md,
   },
   motivationLabel: {
-    color: orbitColors.text,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1486,7 +1481,6 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   perkText: {
-    color: orbitColors.textMuted,
     fontSize: 11,
     fontWeight: '500',
   },
@@ -1535,7 +1529,6 @@ const styles = StyleSheet.create({
     paddingTop: space.xxl,
   },
   readySub: {
-    color: orbitColors.textMuted,
     fontSize: 14,
     marginBottom: space.md,
     textAlign: 'center',
@@ -1544,7 +1537,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   inviteCode: {
-    color: orbitColors.text,
     fontSize: 28,
     fontWeight: '900',
     letterSpacing: 1,
@@ -1573,7 +1565,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   kidInviteName: {
-    color: orbitColors.text,
     fontSize: 18,
     fontWeight: '800',
     textAlign: 'center',
@@ -1625,7 +1616,6 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   roleCaption: {
-    color: orbitColors.textMuted,
     fontSize: 15,
     fontWeight: '500',
     lineHeight: 22,
@@ -1673,13 +1663,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   roleSubtitle: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '500',
     lineHeight: 18,
   },
   roleTitle: {
-    color: orbitColors.text,
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.2,
@@ -1705,7 +1693,6 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
   },
   dividerText: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1713,7 +1700,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   signInText: {
-    color: orbitColors.textMuted,
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
@@ -1756,7 +1742,6 @@ const styles = StyleSheet.create({
     marginBottom: space.md,
   },
   typeLabel: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '600',
   },

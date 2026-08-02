@@ -9,6 +9,7 @@ import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { orbitColors, radius, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type AuthShellProps = {
@@ -37,19 +38,13 @@ export function AuthShell({
   showLegal = true,
 }: AuthShellProps) {
   const insets = useSafeAreaInsets();
+  const { c } = useOrbitColors();
   const orbit = useOrbitOptional();
-  const palette = orbit?.orbitPalette;
   const primary = orbit?.accentTheme.primary ?? orbitColors.primary;
   const secondary = orbit?.accentTheme.secondary ?? orbitColors.orbitBlueDeep;
-  const background = palette?.background ?? orbitColors.background;
-  const cardBg = palette?.cardStrong ?? orbitColors.cardStrong;
-  const cardBorder = palette?.borderStrong ?? orbitColors.borderStrong;
-  const text = palette?.text ?? orbitColors.text;
-  const textSoft = palette?.textSoft ?? orbitColors.textSoft;
-  const textMuted = palette?.textMuted ?? orbitColors.textMuted;
 
   return (
-    <View style={[styles.root, { backgroundColor: background }]}>
+    <View style={[styles.root, { backgroundColor: c.background }]}>
       <LinearGradient
         colors={[`${primary}33`, `${secondary}14`, 'transparent']}
         start={{ x: 0.2, y: 0 }}
@@ -83,7 +78,7 @@ export function AuthShell({
         {brandHero ? (
           <View style={styles.brandBlock}>
             <ChoremaxxLogo size="lg" />
-            <Text style={[styles.brandTag, { color: textMuted }]}>AI Household OS</Text>
+            <Text style={[styles.brandTag, { color: c.textMuted }]}>AI Household OS</Text>
           </View>
         ) : (
           <View style={styles.logoRow}>
@@ -93,9 +88,9 @@ export function AuthShell({
 
         <View style={styles.header}>
           {kicker ? <Text style={[styles.kicker, { color: secondary }]}>{kicker}</Text> : null}
-          <Text style={[typography.title1, styles.title, { color: text }]}>{title}</Text>
+          <Text style={[typography.title1, styles.title, { color: c.text }]}>{title}</Text>
           {subtitle ? (
-            <Text style={[styles.subtitle, { color: textSoft }]}>{subtitle}</Text>
+            <Text style={[styles.subtitle, { color: c.textSoft }]}>{subtitle}</Text>
           ) : null}
         </View>
 
@@ -103,8 +98,8 @@ export function AuthShell({
           style={[
             styles.card,
             {
-              backgroundColor: cardBg,
-              borderColor: cardBorder,
+              backgroundColor: c.cardStrong,
+              borderColor: c.borderStrong,
             },
           ]}>
           <View
@@ -123,7 +118,6 @@ export function AuthShell({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: orbitColors.background,
   },
   ambient: {
     position: 'absolute',
@@ -165,7 +159,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   brandTag: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -173,7 +166,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   kicker: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.7,
@@ -183,13 +175,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   subtitle: {
-    color: orbitColors.textSoft,
     fontSize: 15,
     lineHeight: 22,
   },
   card: {
-    backgroundColor: orbitColors.cardStrong,
-    borderColor: orbitColors.borderStrong,
     borderCurve: 'continuous',
     borderRadius: radius.cardLarge,
     borderWidth: 1,

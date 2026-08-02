@@ -1,7 +1,8 @@
 import { PropsWithChildren, ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { orbitColors, space, typography } from '@/constants/orbit-theme';
+import { space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type OrbitListItemProps = PropsWithChildren<{
   completed?: boolean;
@@ -17,11 +18,20 @@ export function OrbitListItem({
   title,
   trailing,
 }: OrbitListItemProps) {
+  const { c } = useOrbitColors();
+
   return (
     <View style={styles.row}>
       <View style={styles.copy}>
-        <Text style={[typography.headline, completed && styles.completed]}>{title}</Text>
-        {meta ? <Text style={typography.footnote}>{meta}</Text> : null}
+        <Text
+          style={[
+            typography.headline,
+            { color: c.text },
+            completed && [styles.completed, { color: c.textMuted }],
+          ]}>
+          {title}
+        </Text>
+        {meta ? <Text style={[typography.footnote, { color: c.textMuted }]}>{meta}</Text> : null}
         {children}
       </View>
       {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
@@ -31,7 +41,6 @@ export function OrbitListItem({
 
 const styles = StyleSheet.create({
   completed: {
-    color: orbitColors.textMuted,
     textDecorationLine: 'line-through',
   },
   copy: {

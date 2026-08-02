@@ -20,6 +20,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { XpWheel } from '@/components/orbit/xp-wheel';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
   CHOREMAXX_TASK_LIBRARY,
   DEFAULT_QUICK_PRESET_IDS,
@@ -177,6 +178,7 @@ function AssignEmojiGrid({
   onLongPress: (id: string) => void;
 }) {
   const { orbitPalette } = useOrbit();
+  const { c, glass } = useOrbitColors();
   return (
     <View style={styles.assignEmojiGrid}>
       {members.map((member) => {
@@ -210,7 +212,7 @@ function AssignEmojiGrid({
                   <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
                 </LinearGradient>
               ) : (
-                <View style={styles.memberInnerMuted}>
+                <View style={[styles.memberInnerMuted, { backgroundColor: glass(0.08) }]}>
                   <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
                 </View>
               )}
@@ -242,7 +244,7 @@ function AssignEmojiGrid({
         );
       })}
       {splitMode ? (
-        <Text style={styles.splitModeHint}>Split mode · tap more people</Text>
+        <Text style={[styles.splitModeHint, { color: c.warning }]}>Split mode · tap more people</Text>
       ) : null}
     </View>
   );
@@ -251,6 +253,7 @@ function AssignEmojiGrid({
 export default function CreateTaskScreen() {
   const insets = useSafeAreaInsets();
   const { accentTheme, createTask, household, orbitPalette, permissions } = useOrbit();
+  const { c, glass, glassBorder } = useOrbitColors();
 
   /** Real people only — shared tablet shells are not assign chips. */
   const activeMembers = useMemo(() => assignablePeople(household.members), [household.members]);
@@ -747,7 +750,7 @@ export default function CreateTaskScreen() {
         ]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.handleWrap, { paddingTop: insets.top + 8 }]}>
-          <View style={styles.handle} />
+          <View style={[styles.handle, { backgroundColor: glass(0.2) }]} />
         </View>
         <ScrollView
           style={orbitScreen.container}
@@ -756,7 +759,7 @@ export default function CreateTaskScreen() {
           keyboardShouldPersistTaps="handled">
           <View style={orbitScreen.header}>
             <View style={styles.tripNavRow}>
-              <Pressable onPress={() => router.back()} style={styles.backPill} hitSlop={8}>
+              <Pressable onPress={() => router.back()} style={[styles.backPill, { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) }]} hitSlop={8}>
                 <MaterialIcons name="chevron-left" size={20} color={orbitPalette.text} />
                 <Text style={[styles.backPillText, { color: orbitPalette.text }]}>Close</Text>
               </Pressable>
@@ -778,7 +781,7 @@ export default function CreateTaskScreen() {
 
           {permissions.canAssignTask ? (
             <GlassCard style={styles.heroCard}>
-              <Text style={styles.novaLabel}>WHO&apos;S DOING IT</Text>
+              <Text style={[styles.novaLabel, { color: c.novaCyan }]}>WHO&apos;S DOING IT</Text>
               <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
                 Pick one person, or hold a second profile to split the chore.
               </Text>
@@ -799,11 +802,11 @@ export default function CreateTaskScreen() {
           ) : null}
 
           <GlassCard style={styles.heroCard}>
-            <Text style={styles.novaLabel}>BROWSE</Text>
+            <Text style={[styles.novaLabel, { color: c.novaCyan }]}>BROWSE</Text>
             <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
               Presets, the full library, or a room category from the Choremaxx catalog.
             </Text>
-            <View style={styles.searchFieldWrap}>
+            <View style={[styles.searchFieldWrap, { backgroundColor: glass(0.04), borderColor: glassBorder(0.1) }]}>
               <MaterialIcons name="search" size={18} color={orbitPalette.textSubtle} />
               <TextInput
                 value={presetQuery}
@@ -843,6 +846,7 @@ export default function CreateTaskScreen() {
                     <Text
                       style={[
                         styles.filterPillLabel,
+                        { color: c.novaCyan },
                         active && { color: accentTheme.primary },
                       ]}>
                       {meta.label}
@@ -929,9 +933,9 @@ export default function CreateTaskScreen() {
                     <View style={styles.actions}>
                       <Pressable
                         onPress={() => applyPreset(preset, false)}
-                        style={styles.iconBtn}
+                        style={[styles.iconBtn, { backgroundColor: glass(0.06) }]}
                         accessibilityLabel="Customize before creating">
-                        <MaterialIcons name="tune" size={20} color={orbitColors.textMuted} />
+                        <MaterialIcons name="tune" size={20} color={c.textMuted} />
                       </Pressable>
                       <OrbitButton style={styles.flexBtn} onPress={() => applyPreset(preset, true)}>
                         Add task
@@ -980,12 +984,12 @@ export default function CreateTaskScreen() {
                   const xp = resolvedQuickXp(task.id, task.baseXp);
                   const freq = resolvedQuickRepeat(task.id, inferLibraryRepeat(task));
                   return (
-                    <View key={task.id} style={styles.libraryRow}>
+                    <View key={task.id} style={[styles.libraryRow, { borderBottomColor: glassBorder(0.06) }]}>
                       <Pressable onPress={() => toggleQuickId(task.id)} hitSlop={6}>
                         <MaterialIcons
                           name={on ? 'check-box' : 'check-box-outline-blank'}
                           size={18}
-                          color={on ? accentTheme.primary : orbitColors.textFaint}
+                          color={on ? accentTheme.primary : c.textFaint}
                         />
                       </Pressable>
                       <View style={{ flex: 1, gap: 8 }}>
@@ -1000,15 +1004,15 @@ export default function CreateTaskScreen() {
                         {on ? (
                           <View style={styles.quickTuneBlock}>
                             <View style={styles.quickXpRow}>
-                              <Text style={styles.quickTuneLabel}>XP</Text>
+                              <Text style={[styles.quickTuneLabel, { color: c.textSubtle }]}>XP</Text>
                               <Pressable
                                 onPress={() =>
                                   updateQuickOverride(task.id, {
                                     baseXp: Math.max(0, xp - 5),
                                   })
                                 }
-                                style={styles.quickStepBtn}>
-                                <MaterialIcons name="remove" size={16} color={orbitColors.textSoft} />
+                                style={[styles.quickStepBtn, { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) }]}>
+                                <MaterialIcons name="remove" size={16} color={c.textSoft} />
                               </Pressable>
                               <Text style={[styles.quickXpValue, { color: accentTheme.primary }]}>
                                 {xp}
@@ -1019,8 +1023,8 @@ export default function CreateTaskScreen() {
                                     baseXp: Math.min(100, xp + 5),
                                   })
                                 }
-                                style={styles.quickStepBtn}>
-                                <MaterialIcons name="add" size={16} color={orbitColors.textSoft} />
+                                style={[styles.quickStepBtn, { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) }]}>
+                                <MaterialIcons name="add" size={16} color={c.textSoft} />
                               </Pressable>
                             </View>
                             <View style={styles.quickFreqRow}>
@@ -1032,6 +1036,7 @@ export default function CreateTaskScreen() {
                                     onPress={() => updateQuickOverride(task.id, { repeat: option })}
                                     style={[
                                       styles.quickFreqChip,
+                                      { borderColor: glassBorder(0.12) },
                                       active && {
                                         backgroundColor: `${accentTheme.primary}28`,
                                         borderColor: `${accentTheme.primary}66`,
@@ -1040,6 +1045,7 @@ export default function CreateTaskScreen() {
                                     <Text
                                       style={[
                                         styles.quickFreqText,
+                                        { color: c.textMuted },
                                         active && { color: accentTheme.primary },
                                       ]}>
                                       {option === 'None' ? 'Once' : option}
@@ -1050,7 +1056,7 @@ export default function CreateTaskScreen() {
                             </View>
                           </View>
                         ) : (
-                          <Text style={styles.libraryMeta}>
+                          <Text style={[styles.libraryMeta, { color: c.textMuted }]}>
                             {task.baseXp} XP ·{' '}
                             {inferLibraryRepeat(task) === 'None' ? 'Once' : inferLibraryRepeat(task)}
                           </Text>
@@ -1077,7 +1083,7 @@ export default function CreateTaskScreen() {
         ]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.handleWrap, { paddingTop: insets.top + 8 }]}>
-          <View style={styles.handle} />
+          <View style={[styles.handle, { backgroundColor: glass(0.2) }]} />
         </View>
         <ScrollView contentContainerStyle={styles.tripContent} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
@@ -1086,7 +1092,7 @@ export default function CreateTaskScreen() {
               <Text style={[styles.backChipText, { color: orbitPalette.textMuted }]}>Quick</Text>
             </Pressable>
             <Text style={[styles.headerTitle, { color: orbitPalette.text }]}>Task library</Text>
-            <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
+            <Pressable accessibilityRole="button" onPress={() => router.back()} style={[styles.closeButton, { backgroundColor: glass(0.08) }]}>
               <MaterialIcons color={orbitPalette.textMuted} name="close" size={16} />
             </Pressable>
           </View>
@@ -1095,19 +1101,19 @@ export default function CreateTaskScreen() {
             onChangeText={setLibraryQuery}
             placeholder="Search chores…"
             placeholderTextColor={orbitPalette.textSubtle}
-            style={[styles.searchInput, { color: orbitPalette.text }]}
+            style={[styles.searchInput, { color: orbitPalette.text, backgroundColor: glass(0.06), borderColor: glassBorder(0.1) }]}
           />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetFilterRow}>
             <Pressable
               onPress={() => setLibraryDomain(null)}
               style={[
                 styles.presetFilterChip,
-                !libraryDomain && {
-                  backgroundColor: `${accentTheme.primary}22`,
-                  borderColor: `${accentTheme.primary}44`,
+                {
+                  backgroundColor: !libraryDomain ? `${accentTheme.primary}22` : glass(0.06),
+                  borderColor: !libraryDomain ? `${accentTheme.primary}44` : glassBorder(0.08),
                 },
               ]}>
-              <Text style={[styles.presetFilterText, !libraryDomain && { color: accentTheme.primary }]}>
+              <Text style={[styles.presetFilterText, { color: c.textMuted }, !libraryDomain && { color: accentTheme.primary }]}>
                 All
               </Text>
             </Pressable>
@@ -1119,12 +1125,12 @@ export default function CreateTaskScreen() {
                   onPress={() => setLibraryDomain(domain)}
                   style={[
                     styles.presetFilterChip,
-                    active && {
-                      backgroundColor: `${accentTheme.primary}22`,
-                      borderColor: `${accentTheme.primary}44`,
+                    {
+                      backgroundColor: active ? `${accentTheme.primary}22` : glass(0.06),
+                      borderColor: active ? `${accentTheme.primary}44` : glassBorder(0.08),
                     },
                   ]}>
-                  <Text style={[styles.presetFilterText, active && { color: accentTheme.primary }]}>
+                  <Text style={[styles.presetFilterText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>
                     {domain}
                   </Text>
                 </Pressable>
@@ -1161,7 +1167,7 @@ export default function CreateTaskScreen() {
                             </Text>
                           </View>
                         </View>
-                        <Text style={styles.roomChip}>
+                        <Text style={[styles.roomChip, { color: c.textMuted }]}>
                           {preset.group ?? preset.category} · hold to customize
                         </Text>
                       </Pressable>
@@ -1171,7 +1177,7 @@ export default function CreateTaskScreen() {
               </View>
             ))}
             {libraryByRoom.length === 0 ? (
-              <Text style={styles.presetHint}>No chores match this search.</Text>
+              <Text style={[styles.presetHint, { color: c.textMuted }]}>No chores match this search.</Text>
             ) : null}
           </View>
         </ScrollView>
@@ -1190,7 +1196,7 @@ export default function CreateTaskScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={[styles.handleWrap, { paddingTop: insets.top + 8 }]}>
-        <View style={styles.handle} />
+        <View style={[styles.handle, { backgroundColor: glass(0.2) }]} />
       </View>
 
       <ScrollView
@@ -1203,12 +1209,12 @@ export default function CreateTaskScreen() {
             <Text style={[styles.backChipText, { color: orbitPalette.textMuted }]}>Presets</Text>
           </Pressable>
           <Text style={[styles.headerTitle, { color: orbitPalette.text }]}>Custom task</Text>
-          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
+          <Pressable accessibilityRole="button" onPress={() => router.back()} style={[styles.closeButton, { backgroundColor: glass(0.08) }]}>
             <MaterialIcons color={orbitPalette.textMuted} name="close" size={16} />
           </Pressable>
         </View>
 
-        <View style={styles.typeToggle}>
+        <View style={[styles.typeToggle, { backgroundColor: glass(0.06) }]}>
           {(['task', 'homework'] as const).map((option) => {
             const active = type === option;
             const isHomework = option === 'homework';
@@ -1224,13 +1230,14 @@ export default function CreateTaskScreen() {
                   },
                 ]}>
                 <MaterialIcons
-                  color={active ? (isHomework ? '#A78BFA' : accentTheme.primary) : '#4B6080'}
+                  color={active ? (isHomework ? '#A78BFA' : accentTheme.primary) : c.textSubtle }
                   name={isHomework ? 'menu-book' : 'check-box'}
                   size={15}
                 />
                 <Text
                   style={[
                     styles.typeLabel,
+                    { color: c.textSubtle },
                     active && { color: isHomework ? '#A78BFA' : accentTheme.primary },
                   ]}>
                   {option}
@@ -1241,20 +1248,20 @@ export default function CreateTaskScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>{type === 'homework' ? 'ASSIGNMENT' : 'TASK'}</Text>
+          <Text style={[styles.label, { color: c.textMuted }]}>{type === 'homework' ? 'ASSIGNMENT' : 'TASK'}</Text>
           <TextInput
             autoFocus
             onChangeText={setTitle}
             placeholder={type === 'homework' ? 'e.g. Chapter 5 worksheet' : 'e.g. Call plumber about sink'}
             placeholderTextColor={orbitPalette.textSubtle}
-            style={[styles.titleInput, { color: orbitPalette.text }]}
+            style={[styles.titleInput, { color: orbitPalette.text, backgroundColor: glass(0.07), borderColor: glassBorder(0.1) }]}
             value={title}
           />
         </View>
 
         {type === 'homework' ? (
           <View style={styles.field}>
-            <Text style={styles.label}>SUBJECT</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>SUBJECT</Text>
             <View style={styles.subjectRow}>
               {subjects.map((item) => {
                 const active = subject === item.label;
@@ -1265,12 +1272,12 @@ export default function CreateTaskScreen() {
                     style={[
                       styles.subjectChip,
                       {
-                        backgroundColor: active ? `${item.color}22` : 'rgba(255,255,255,0.06)',
-                        borderColor: active ? `${item.color}44` : 'rgba(255,255,255,0.08)',
+                        backgroundColor: active ? `${item.color}22` : glass(0.06),
+                        borderColor: active ? `${item.color}44` : glassBorder(0.08),
                       },
                     ]}>
                     <Text style={styles.subjectEmoji}>{item.emoji}</Text>
-                    <Text style={[styles.subjectText, { color: active ? item.color : '#7C9CC0' }]}>
+                    <Text style={[styles.subjectText, { color: active ? item.color : c.textMuted }]}>
                       {item.label}
                     </Text>
                   </Pressable>
@@ -1280,7 +1287,7 @@ export default function CreateTaskScreen() {
           </View>
         ) : (
           <View style={styles.field}>
-            <Text style={styles.label}>PRIORITY</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>PRIORITY</Text>
             <View style={styles.priorityRow}>
               {priorities.map((item, index) => {
                 const active = priority === index;
@@ -1295,11 +1302,11 @@ export default function CreateTaskScreen() {
                     style={[
                       styles.priorityChip,
                       {
-                        backgroundColor: active ? `${item.color}22` : 'rgba(255,255,255,0.06)',
-                        borderColor: active ? `${item.color}44` : 'rgba(255,255,255,0.08)',
+                        backgroundColor: active ? `${item.color}22` : glass(0.06),
+                        borderColor: active ? `${item.color}44` : glassBorder(0.08),
                       },
                     ]}>
-                    <Text style={[styles.priorityText, { color: active ? item.color : '#7C9CC0' }]}>
+                    <Text style={[styles.priorityText, { color: active ? item.color : c.textMuted }]}>
                       {item.label}
                     </Text>
                   </Pressable>
@@ -1310,7 +1317,7 @@ export default function CreateTaskScreen() {
         )}
 
         <View style={styles.field}>
-          <Text style={styles.label}>REPEAT</Text>
+          <Text style={[styles.label, { color: c.textMuted }]}>REPEAT</Text>
           <View style={styles.subjectRow}>
             {repeatOptions.map((option) => {
               const active = repeat === option;
@@ -1320,12 +1327,12 @@ export default function CreateTaskScreen() {
                   onPress={() => setRepeat(option)}
                   style={[
                     styles.subjectChip,
-                    active && {
-                      backgroundColor: `${accentTheme.primary}22`,
-                      borderColor: `${accentTheme.primary}44`,
+                    {
+                      backgroundColor: active ? `${accentTheme.primary}22` : glass(0.06),
+                      borderColor: active ? `${accentTheme.primary}44` : glassBorder(0.08),
                     },
                   ]}>
-                  <Text style={[styles.subjectText, { color: active ? accentTheme.primary : '#7C9CC0' }]}>
+                  <Text style={[styles.subjectText, { color: active ? accentTheme.primary : c.textMuted }]}>
                     {option}
                   </Text>
                 </Pressable>
@@ -1336,18 +1343,18 @@ export default function CreateTaskScreen() {
 
         {rooms.length ? (
           <View style={styles.field}>
-            <Text style={styles.label}>ROOM (OPTIONAL)</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>ROOM (OPTIONAL)</Text>
             <View style={styles.subjectRow}>
               <Pressable
                 onPress={() => setRoomId(undefined)}
                 style={[
                   styles.subjectChip,
-                  !roomId && {
-                    backgroundColor: `${accentTheme.primary}22`,
-                    borderColor: `${accentTheme.primary}44`,
+                  {
+                    backgroundColor: !roomId ? `${accentTheme.primary}22` : glass(0.06),
+                    borderColor: !roomId ? `${accentTheme.primary}44` : glassBorder(0.08),
                   },
                 ]}>
-                <Text style={[styles.subjectText, { color: !roomId ? accentTheme.primary : '#7C9CC0' }]}>
+                <Text style={[styles.subjectText, { color: !roomId ? accentTheme.primary : c.textMuted }]}>
                   None
                 </Text>
               </Pressable>
@@ -1359,13 +1366,13 @@ export default function CreateTaskScreen() {
                     onPress={() => setRoomId(room.id)}
                     style={[
                       styles.subjectChip,
-                      active && {
-                        backgroundColor: `${accentTheme.primary}22`,
-                        borderColor: `${accentTheme.primary}44`,
+                      {
+                        backgroundColor: active ? `${accentTheme.primary}22` : glass(0.06),
+                        borderColor: active ? `${accentTheme.primary}44` : glassBorder(0.08),
                       },
                     ]}>
                     <Text style={styles.subjectEmoji}>{room.emoji}</Text>
-                    <Text style={[styles.subjectText, { color: active ? accentTheme.primary : '#7C9CC0' }]}>
+                    <Text style={[styles.subjectText, { color: active ? accentTheme.primary : c.textMuted }]}>
                       {room.name}
                     </Text>
                   </Pressable>
@@ -1380,19 +1387,19 @@ export default function CreateTaskScreen() {
             <MaterialIcons
               name={proofRequired ? 'check-box' : 'check-box-outline-blank'}
               size={18}
-              color={proofRequired ? accentTheme.primary : '#4B6080'}
+              color={proofRequired ? accentTheme.primary : c.textSubtle }
             />
-            <Text style={styles.proofToggleText}>Require photo proof after complete</Text>
+            <Text style={[styles.proofToggleText, { color: c.textSoft }]}>Require photo proof after complete</Text>
           </Pressable>
         ) : null}
 
         {permissions.canAssignTask ? (
           <View style={styles.field}>
-            <Text style={styles.label}>
+            <Text style={[styles.label, { color: c.textMuted }]}>
               {isHygieneDraft ? 'ASSIGN TO · kids only' : 'ASSIGN TO · hold to split'}
             </Text>
             {isHygieneDraft ? (
-              <Text style={styles.presetHint}>Hygiene builds habits — no XP · children only</Text>
+              <Text style={[styles.presetHint, { color: c.textMuted }]}>Hygiene builds habits — no XP · children only</Text>
             ) : null}
             <AssignEmojiGrid
               members={assigneeChoices}
@@ -1406,7 +1413,7 @@ export default function CreateTaskScreen() {
         ) : null}
 
         <View style={styles.field}>
-          <Text style={styles.label}>DUE</Text>
+          <Text style={[styles.label, { color: c.textMuted }]}>DUE</Text>
           <View style={styles.dueChipWrap}>
             {dueOptions.map((option) => {
               const active = due === option;
@@ -1416,6 +1423,7 @@ export default function CreateTaskScreen() {
                   onPress={() => setDue(option)}
                   style={[
                     styles.dueChip,
+                    { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) },
                     active && {
                       backgroundColor: `${accentTheme.primary}1F`,
                       borderColor: `${accentTheme.primary}59`,
@@ -1424,6 +1432,7 @@ export default function CreateTaskScreen() {
                   <Text
                     style={[
                       styles.dueChipText,
+                      { color: c.textMuted },
                       active && { color: accentTheme.primary },
                     ]}>
                     {option}
@@ -1436,8 +1445,8 @@ export default function CreateTaskScreen() {
 
         {isSplitAssign ? (
           <View style={[styles.sharedPickBlock, styles.splitBanner]}>
-            <Text style={styles.sharedTitlePreview}>Split · {resolvedAssigneeName}</Text>
-            <Text style={styles.sharedPickHint}>
+            <Text style={[styles.sharedTitlePreview, { color: c.textSoft }]}>Split · {resolvedAssigneeName}</Text>
+            <Text style={[styles.sharedPickHint, { color: c.textMuted }]}>
               Each person earns +{xpPreview} XP when they finish
               {proofRequired ? ' (proof requested after)' : ''}. If everyone finishes, each gets a bonus.
               Admins can penalize anyone who doesn’t.
@@ -1447,13 +1456,13 @@ export default function CreateTaskScreen() {
 
         {isHygieneDraft ? (
           <View style={styles.field}>
-            <Text style={styles.label}>TRACKING</Text>
-            <Text style={styles.presetHint}>Kids hygiene habit · streak only · 0 XP</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>TRACKING</Text>
+            <Text style={[styles.presetHint, { color: c.textMuted }]}>Kids hygiene habit · streak only · 0 XP</Text>
           </View>
         ) : (
           <View style={styles.field}>
-            <Text style={styles.label}>XP · slide the wheel</Text>
-            <View style={styles.xpWheelCard} collapsable={false}>
+            <Text style={[styles.label, { color: c.textMuted }]}>XP · slide the wheel</Text>
+            <View style={[styles.xpWheelCard, { backgroundColor: glass(0.04), borderColor: glassBorder(0.08) }]} collapsable={false}>
               <XpWheel
                 value={baseXp}
                 onChange={(next) => {
@@ -1471,7 +1480,7 @@ export default function CreateTaskScreen() {
         )}
 
         <View style={[styles.xpPreview, { borderColor: `${accentTheme.primary}26`, backgroundColor: `${accentTheme.primary}14` }]}>
-          <Text style={styles.xpPreviewLabel}>
+          <Text style={[styles.xpPreviewLabel, { color: c.textMuted }]}>
             {isHygieneDraft
               ? `${resolvedAssigneeName || 'Someone'} builds a habit`
               : isSplitAssign
@@ -1485,7 +1494,7 @@ export default function CreateTaskScreen() {
               <>
                 <Text style={styles.xpBolt}>⚡</Text>
                 <Text style={[styles.xpAmount, { color: accentTheme.primary }]}>+{xpPreview}</Text>
-                <Text style={styles.xpSuffix}>XP</Text>
+                <Text style={[styles.xpSuffix, { color: c.textMuted }]}>XP</Text>
               </>
             )}
           </View>
@@ -1508,8 +1517,8 @@ export default function CreateTaskScreen() {
               </Text>
             </LinearGradient>
           ) : (
-            <View style={[styles.createButton, styles.createButtonDisabled]}>
-              <Text style={styles.createButtonTextDisabled}>
+            <View style={[styles.createButton, styles.createButtonDisabled, { backgroundColor: glass(0.06) }]}>
+              <Text style={[styles.createButtonTextDisabled, { color: c.textSubtle }]}>
                 Create {type === 'homework' ? 'Homework' : 'Task'}
               </Text>
             </View>
@@ -1522,32 +1531,30 @@ export default function CreateTaskScreen() {
 
 const styles = StyleSheet.create({
   screen: {
-    flex: 1,
+    flex: 1
   },
   handleWrap: {
     alignItems: 'center',
-    paddingBottom: 4,
+    paddingBottom: 4
   },
   handle: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 999,
     height: 4,
-    width: 40,
+    width: 40
   },
   tripContent: {
     gap: space.md,
     paddingBottom: 40,
     paddingHorizontal: 16,
-    paddingTop: 4,
+    paddingTop: 4
   },
   tripNavRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 8
   },
   backPill: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderColor: orbitColors.border,
     borderRadius: 999,
     borderWidth: 1,
@@ -1555,45 +1562,44 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingLeft: 4,
     paddingRight: 12,
-    paddingVertical: 6,
+    paddingVertical: 6
   },
   backPillText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   summary: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 20
   },
   pillRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 8
   },
   heroCard: {
-    gap: 10,
+    gap: 10
   },
   novaLabel: {
     color: orbitColors.novaCyan,
     fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 0.6,
+    letterSpacing: 0.6
   },
   searchFieldWrap: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
     borderColor: orbitColors.border,
     borderRadius: radius.card,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 10
   },
   searchField: {
     flex: 1,
     fontSize: 15,
-    padding: 0,
+    padding: 0
   },
   filterPill: {
     alignItems: 'center',
@@ -1604,275 +1610,255 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 7
   },
   filterPillEmoji: {
     fontSize: 13,
-    lineHeight: 16,
+    lineHeight: 16
   },
   filterPillLabel: {
     color: orbitColors.novaCyan,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '700'
   },
   actionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: space.sm,
+    gap: space.sm
   },
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: space.sm,
-    marginTop: 4,
+    marginTop: 4
   },
   flexBtn: {
     flexGrow: 1,
-    minWidth: 120,
+    minWidth: 120
   },
   iconBtn: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: radius.control,
     height: 44,
     justifyContent: 'center',
-    width: 44,
+    width: 44
   },
   sectionBlock: {
-    gap: 12,
+    gap: 12
   },
   sectionLabel: {
-    color: orbitColors.textSubtle,
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.2,
-    paddingHorizontal: 2,
+    paddingHorizontal: 2
   },
   sectionCount: {
-    color: orbitColors.textFaint,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   stopCard: {
-    gap: space.sm,
+    gap: space.sm
   },
   stopRow: {
     flexDirection: 'row',
-    gap: space.md,
+    gap: space.md
   },
   stopBody: {
     flex: 1,
-    gap: 6,
+    gap: 6
   },
   dot: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderColor: orbitColors.border,
     borderRadius: 14,
     borderWidth: 2,
     height: 36,
     justifyContent: 'center',
-    width: 36,
+    width: 36
   },
   dotEmoji: {
     fontSize: 15,
-    lineHeight: 18,
+    lineHeight: 18
   },
 
   header: {
     alignItems: 'flex-start',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 8
   },
   headerCopy: {
     flex: 1,
     gap: 4,
-    paddingRight: 12,
+    paddingRight: 12
   },
   headerEyebrow: {
-    color: '#6B82A3',
     fontSize: 11,
     fontWeight: '600',
-    letterSpacing: 0.8,
+    letterSpacing: 0.8
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '700',
     letterSpacing: -0.4,
-    lineHeight: 28,
+    lineHeight: 28
   },
   closeButton: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 999,
     height: 32,
     justifyContent: 'center',
     marginTop: 4,
-    width: 32,
+    width: 32
   },
   backChip: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 2,
-    minWidth: 72,
+    minWidth: 72
   },
   backChipText: {
-    color: '#7C9CC0',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   presetHint: {
-    color: '#6B82A3',
     fontSize: 13,
     lineHeight: 18,
-    marginBottom: 16,
+    marginBottom: 16
   },
   presetAssignBlock: {
     gap: 10,
-    marginBottom: 18,
+    marginBottom: 18
   },
   sharedPickBlock: {
     gap: 8,
     marginBottom: 16,
-    marginTop: 4,
+    marginTop: 4
   },
   sharedPickHint: {
-    color: '#7C9CC0',
     fontSize: 12,
-    lineHeight: 17,
+    lineHeight: 17
   },
   sharedTitlePreview: {
-    color: '#C8D8F0',
     fontSize: 13,
     fontWeight: '700',
-    marginTop: 4,
+    marginTop: 4
   },
   splitBanner: {
     backgroundColor: 'rgba(167,139,250,0.12)',
     borderColor: 'rgba(167,139,250,0.28)',
     borderRadius: 14,
     borderWidth: 1,
-    padding: 12,
+    padding: 12
   },
   presetFilterRow: {
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 14
   },
   presetFilterChip: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 7
   },
   presetFilterText: {
-    color: '#7C9CC0',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   presetGrid: {
-    gap: 10,
+    gap: 10
   },
   presetCard: {
-    backgroundColor: 'rgba(255,255,255,0.045)',
-    borderColor: 'rgba(255,255,255,0.07)',
     borderRadius: 18,
     borderWidth: 1,
     gap: 8,
     paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingVertical: 13
   },
   presetTop: {
     alignItems: 'flex-start',
     flexDirection: 'row',
     gap: 10,
-    justifyContent: 'space-between',
+    justifyContent: 'space-between'
   },
   presetTitleBlock: {
     alignItems: 'flex-start',
     flex: 1,
     flexDirection: 'row',
     gap: 8,
-    minWidth: 0,
+    minWidth: 0
   },
   presetDomainEmoji: {
     fontSize: 15,
     lineHeight: 20,
-    marginTop: 1,
+    marginTop: 1
   },
   presetTitle: {
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
     letterSpacing: -0.2,
-    lineHeight: 20,
+    lineHeight: 20
   },
   xpBadge: {
     borderRadius: 10,
     paddingHorizontal: 9,
-    paddingVertical: 4,
+    paddingVertical: 4
   },
   xpBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    letterSpacing: 0.2
   },
   presetMetaRow: {
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 8
   },
   presetMetaMuted: {
-    color: '#5A7190',
     flexShrink: 1,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '500'
   },
   repeatPill: {
     backgroundColor: 'rgba(6,182,212,0.12)',
     borderRadius: 10,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 3
   },
   repeatText: {
     color: '#38BDF8',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '700'
   },
   roomChip: {
-    color: '#5A7190',
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '500'
   },
   proofHint: {
-    color: '#7C9CC0',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   customEntry: {
     alignItems: 'center',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
     marginTop: 16,
-    paddingVertical: 14,
+    paddingVertical: 14
   },
   customEntryText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '700'
   },
   typeToggle: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 16,
     flexDirection: 'row',
     gap: 4,
     marginBottom: 20,
-    padding: 4,
+    padding: 4
   },
   typeOption: {
     alignItems: 'center',
@@ -1883,113 +1869,106 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 10
   },
   typeLabel: {
-    color: '#4B6080',
     fontSize: 14,
     fontWeight: '600',
-    textTransform: 'capitalize',
+    textTransform: 'capitalize'
   },
   field: {
-    marginBottom: 16,
+    marginBottom: 16
   },
   label: {
-    color: '#7C9CC0',
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.6,
     marginBottom: 8,
-    textTransform: 'uppercase',
+    textTransform: 'uppercase'
   },
   titleInput: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 16,
     borderWidth: 1,
     fontSize: 14,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 14
   },
   subjectRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 8
   },
   subjectChip: {
     alignItems: 'center',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 8
   },
   subjectEmoji: {
-    fontSize: 14,
+    fontSize: 14
   },
   subjectText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   priorityRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 8
   },
   priorityChip: {
     alignItems: 'center',
     borderRadius: 16,
     borderWidth: 1,
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 8
   },
   priorityText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   proofToggle: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 16
   },
   proofToggleText: {
-    color: '#C8D8F0',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   assignDueRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 20,
+    marginBottom: 20
   },
   assignColumn: {
-    flex: 1,
+    flex: 1
   },
   dueColumn: {
-    flex: 1,
+    flex: 1
   },
   dueColumnFull: {
-    flex: 1,
+    flex: 1
   },
   assignEmojiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginTop: 4,
+    marginTop: 4
   },
   assignEmojiCell: {
     alignItems: 'center',
     gap: 6,
-    width: 64,
+    width: 64
   },
   assignEmojiName: {
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
-    width: '100%',
+    width: '100%'
   },
   splitCheck: {
     alignItems: 'center',
@@ -1999,61 +1978,55 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -2,
     top: -2,
-    width: 16,
+    width: 16
   },
   xpWheelCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
     borderWidth: 1,
-    paddingVertical: 8,
+    paddingVertical: 8
   },
   memberRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 6
   },
   memberOuter: {
     borderColor: 'transparent',
     borderRadius: 999,
     borderWidth: 2,
     height: 36,
-    width: 36,
+    width: 36
   },
   memberInner: {
     alignItems: 'center',
     borderRadius: 999,
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   memberInnerMuted: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 999,
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   memberEmoji: {
-    fontSize: 16,
+    fontSize: 16
   },
   dueChipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 6
   },
   dueChip: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 8
   },
   dueChipText: {
-    color: '#7C9CC0',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   xpPreview: {
     alignItems: 'center',
@@ -2063,111 +2036,103 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 12
   },
   xpPreviewLabel: {
-    color: '#7C9CC0',
     flex: 1,
     fontSize: 14,
-    marginRight: 8,
+    marginRight: 8
   },
   xpPreviewValue: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 6,
+    gap: 6
   },
   xpBolt: {
-    fontSize: 18,
+    fontSize: 18
   },
   xpAmount: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '700'
   },
   xpSuffix: {
-    color: '#7C9CC0',
-    fontSize: 14,
+    fontSize: 14
   },
   createPressable: {
-    width: '100%',
+    width: '100%'
   },
   createButton: {
     alignItems: 'center',
     borderRadius: 24,
     justifyContent: 'center',
     paddingVertical: 16,
-    width: '100%',
+    width: '100%'
   },
   createButtonDisabled: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   createButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '700'
   },
   createButtonTextDisabled: {
-    color: '#4B6080',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '700'
   },
   lockedTitle: {
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: 20
   },
   lockedBody: {
     fontSize: 14,
     marginBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 20
   },
   closeOnly: {
     marginHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 12
   },
   closeOnlyText: {
     color: '#38BDF8',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   assignDeviceCell: {
-    minWidth: 96,
+    minWidth: 96
   },
   deviceCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(255,255,255,0.14)',
     borderRadius: 16,
     borderWidth: 1.5,
     gap: 4,
     minWidth: 92,
     paddingHorizontal: 10,
     paddingVertical: 12,
-    position: 'relative',
+    position: 'relative'
   },
   deviceCardLabel: {
-    color: '#7C9CC0',
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.2,
-    textTransform: 'uppercase',
+    textTransform: 'uppercase'
   },
   deviceCardName: {
-    color: '#C8D8F0',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '700'
   },
   splitModeHint: {
     color: '#FB923C',
     fontSize: 11,
     fontWeight: '600',
     marginTop: 4,
-    width: '100%',
+    width: '100%'
   },
   modalBackdrop: {
     backgroundColor: 'rgba(0,0,0,0.55)',
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end'
   },
   modalSheet: {
     borderTopLeftRadius: radius.cardLarge,
@@ -2175,109 +2140,99 @@ const styles = StyleSheet.create({
     gap: 10,
     maxHeight: '85%',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 20
   },
   libraryRow: {
     alignItems: 'center',
-    borderBottomColor: 'rgba(255,255,255,0.06)',
     borderBottomWidth: 1,
     flexDirection: 'row',
     gap: 12,
-    paddingVertical: 12,
+    paddingVertical: 12
   },
   libraryTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   libraryMeta: {
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 2
   },
   quickTuneBlock: {
-    gap: 8,
+    gap: 8
   },
   quickXpRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: 8
   },
   quickTuneLabel: {
-    color: '#4B6080',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.4,
-    width: 28,
+    width: 28
   },
   quickStepBtn: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 10,
     borderWidth: 1,
     height: 30,
     justifyContent: 'center',
-    width: 30,
+    width: 30
   },
   quickXpValue: {
     fontSize: 15,
     fontVariant: ['tabular-nums'],
     fontWeight: '800',
     minWidth: 28,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   quickFreqRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 6
   },
   quickFreqChip: {
-    borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 5
   },
   quickFreqText: {
-    color: '#7C9CC0',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '700'
   },
   librarySections: {
-    gap: 18,
+    gap: 18
   },
   librarySection: {
-    gap: 10,
+    gap: 10
   },
   librarySectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    letterSpacing: -0.2,
+    letterSpacing: -0.2
   },
   librarySectionCount: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   searchInput: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 14,
     borderWidth: 1,
     fontSize: 15,
     marginBottom: 8,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 12
   },
   searchWrap: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 10,
     marginBottom: 0,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 12
   },
   sharedDeviceBadge: {
     alignItems: 'center',
@@ -2289,17 +2244,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'absolute',
     right: -2,
-    width: 16,
+    width: 16
   },
   doneBtn: {
     alignItems: 'center',
     borderRadius: 16,
     marginTop: 8,
-    paddingVertical: 14,
+    paddingVertical: 14
   },
   doneBtnText: {
     color: '#04101F',
     fontSize: 15,
-    fontWeight: '800',
-  },
+    fontWeight: '800'
+  }
 });

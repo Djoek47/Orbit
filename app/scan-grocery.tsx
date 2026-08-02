@@ -15,23 +15,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { ProductBarcodeScanner } from '@/components/orbit/product-barcode-scanner';
-import { orbitColors } from '@/constants/orbit-theme';
 import { lookupProductByBarcode, searchProducts } from '@/data/mock-products';
 import { fetchOpenFoodFactsProduct } from '@/lib/grocery/open-food-facts';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { ProductCatalogItem } from '@/types/orbit';
 
-function nutriTone(score?: string) {
+function nutriTone(
+  score: string | undefined,
+  colors: { success: string; rankGold: string; danger: string; textMuted: string }
+) {
   const grade = score?.toUpperCase();
-  if (grade === 'A' || grade === 'B') return orbitColors.success;
-  if (grade === 'C') return orbitColors.rankGold;
-  if (grade === 'D' || grade === 'E') return orbitColors.danger;
-  return orbitColors.textMuted;
+  if (grade === 'A' || grade === 'B') return colors.success;
+  if (grade === 'C') return colors.rankGold;
+  if (grade === 'D' || grade === 'E') return colors.danger;
+  return colors.textMuted;
 }
 
 export default function ScanGroceryScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, addMissingGrocery, canAddGroceryWishlist, preferredStore, orbitPalette } = useOrbit();
+  const { accentTheme, addMissingGrocery, canAddGroceryWishlist, preferredStore, orbitPalette } =
+    useOrbit();
+  const { c, glass, glassBorder } = useOrbitColors();
   const [scanning, setScanning] = useState(true);
   const [lookingUp, setLookingUp] = useState(false);
   const [query, setQuery] = useState('');
@@ -80,7 +85,9 @@ export default function ScanGroceryScreen() {
       nutriScore: undefined,
       novaGroup: undefined,
     });
-    setMessage(`No Open Food Facts match for ${code}. You can still Add to cart and edit details later.`);
+    setMessage(
+      `No Open Food Facts match for ${code}. You can still Add to cart and edit details later.`
+    );
     setQuery(code);
   };
 
@@ -99,12 +106,13 @@ export default function ScanGroceryScreen() {
       salePrice: product.salePrice,
       aisle: product.aisle,
       storeId: product.storeId ?? preferredStore.id,
-      note: [
-        product.nutriScore ? `Nutri-Score ${product.nutriScore}` : null,
-        product.allergens?.length ? `Allergens: ${product.allergens.join(', ')}` : null,
-      ]
-        .filter(Boolean)
-        .join(' · ') || undefined,
+      note:
+        [
+          product.nutriScore ? `Nutri-Score ${product.nutriScore}` : null,
+          product.allergens?.length ? `Allergens: ${product.allergens.join(', ')}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ') || undefined,
     });
     router.back();
   };
@@ -116,14 +124,17 @@ export default function ScanGroceryScreen() {
         { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
       ]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.handle} />
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
-          <MaterialIcons name="close" size={18} color={orbitColors.textMuted} />
+      <View style={[styles.handle, { backgroundColor: glass(0.18) }]} />
+      <View style={[styles.header, { borderBottomColor: glassBorder(0.08) }]}>
+        <Pressable
+          onPress={() => router.back()}
+          style={[styles.iconBtn, { backgroundColor: glass(0.06) }]}
+          hitSlop={8}>
+          <MaterialIcons name="close" size={18} color={c.textMuted} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>Grocery intelligence</Text>
-          <Text style={styles.title}>Scan product</Text>
+          <Text style={[styles.kicker, { color: c.textMuted }]}>Grocery intelligence</Text>
+          <Text style={[styles.title, { color: c.text }]}>Scan product</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -132,10 +143,12 @@ export default function ScanGroceryScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <Text style={styles.subtitle}>Preferred store: {preferredStore.name}</Text>
+        <Text style={[styles.subtitle, { color: c.textSoft }]}>
+          Preferred store: {preferredStore.name}
+        </Text>
 
         {scanning ? (
-          <View style={styles.scannerCard}>
+          <View style={[styles.scannerCard, { borderColor: glassBorder(0.08) }]}>
             <ProductBarcodeScanner
               onCode={(code) => void handleBarcode(code)}
               onClose={() => setScanning(false)}
@@ -147,31 +160,45 @@ export default function ScanGroceryScreen() {
               setScanning(true);
               setMessage('');
             }}
-            style={styles.secondaryBtn}>
-            <MaterialIcons name="qr-code-scanner" size={18} color={orbitColors.novaCyan} />
-            <Text style={[styles.secondaryText, { color: orbitColors.novaCyan }]}>Open scanner</Text>
+            style={[
+              styles.secondaryBtn,
+              { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) },
+            ]}>
+            <MaterialIcons name="qr-code-scanner" size={18} color={c.novaCyan} />
+            <Text style={[styles.secondaryText, { color: c.novaCyan }]}>Open scanner</Text>
           </Pressable>
         )}
 
         {lookingUp ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={accentTheme.primary} />
-            <Text style={styles.loadingText}>Looking up {lastBarcode}…</Text>
+            <Text style={[styles.loadingText, { color: c.textMuted }]}>
+              Looking up {lastBarcode}…
+            </Text>
           </View>
         ) : null}
 
-        <View style={styles.card}>
-          <OrbitInput label="Search catalog" value={query} onChangeText={setQuery} placeholder="Milk, cereal, UPC…" />
+        <View
+          style={[styles.card, { borderColor: glassBorder(0.08), backgroundColor: glass(0.05) }]}>
+          <OrbitInput
+            label="Search catalog"
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Milk, cereal, UPC…"
+          />
           {results.map((item) => (
-            <Pressable key={item.barcode} onPress={() => applyProduct({ ...item, source: 'mock' })} style={styles.resultRow}>
+            <Pressable
+              key={item.barcode}
+              onPress={() => applyProduct({ ...item, source: 'mock' })}
+              style={[styles.resultRow, { borderTopColor: glassBorder(0.08) }]}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.resultName}>{item.name}</Text>
-                <Text style={styles.resultMeta}>
+                <Text style={[styles.resultName, { color: c.text }]}>{item.name}</Text>
+                <Text style={[styles.resultMeta, { color: c.textMuted }]}>
                   {item.brand ?? 'Generic'} · ${item.typicalPrice.toFixed(2)}
                   {item.salePrice != null ? ' · On sale' : ''}
                 </Text>
               </View>
-              <MaterialIcons name="chevron-right" size={18} color={orbitColors.textSubtle} />
+              <MaterialIcons name="chevron-right" size={18} color={c.textSubtle} />
             </Pressable>
           ))}
         </View>
@@ -180,15 +207,23 @@ export default function ScanGroceryScreen() {
           <View style={styles.resultCard}>
             <View style={styles.resultHeader}>
               {product.imageUrl ? (
-                <Image source={{ uri: product.imageUrl }} style={styles.productImage} />
+                <Image
+                  source={{ uri: product.imageUrl }}
+                  style={[styles.productImage, { backgroundColor: glass(0.06) }]}
+                />
               ) : (
-                <View style={[styles.productImage, styles.productImageFallback]}>
+                <View
+                  style={[
+                    styles.productImage,
+                    styles.productImageFallback,
+                    { backgroundColor: glass(0.06) },
+                  ]}>
                   <MaterialIcons name="shopping-bag" size={28} color={accentTheme.primary} />
                 </View>
               )}
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.productName}>{product.name}</Text>
-                <Text style={styles.resultMeta}>
+                <Text style={[styles.productName, { color: c.text }]}>{product.name}</Text>
+                <Text style={[styles.resultMeta, { color: c.textMuted }]}>
                   {product.brand ?? 'Generic'} · {product.size ?? '—'}
                   {product.aisle ? ` · Aisle ${product.aisle}` : ''}
                 </Text>
@@ -198,29 +233,49 @@ export default function ScanGroceryScreen() {
                     : `$${product.typicalPrice.toFixed(2)} est.`}
                 </Text>
                 {product.source === 'openfoodfacts' ? (
-                  <Text style={styles.source}>Open Food Facts</Text>
+                  <Text style={[styles.source, { color: c.novaCyan }]}>Open Food Facts</Text>
                 ) : product.source === 'unknown' ? (
-                  <Text style={styles.source}>Unknown barcode · add anyway</Text>
+                  <Text style={[styles.source, { color: c.novaCyan }]}>
+                    Unknown barcode · add anyway
+                  </Text>
                 ) : (
-                  <Text style={styles.source}>Mock catalog</Text>
+                  <Text style={[styles.source, { color: c.novaCyan }]}>Mock catalog</Text>
                 )}
               </View>
             </View>
 
             <View style={styles.qualityRow}>
-              <View style={styles.qualityChip}>
-                <Text style={styles.qualityLabel}>Nutri-Score</Text>
-                <Text style={[styles.qualityValue, { color: nutriTone(product.nutriScore) }]}>
+              <View
+                style={[
+                  styles.qualityChip,
+                  { backgroundColor: glass(0.05), borderColor: glassBorder(0.08) },
+                ]}>
+                <Text style={[styles.qualityLabel, { color: c.textSubtle }]}>Nutri-Score</Text>
+                <Text
+                  style={[
+                    styles.qualityValue,
+                    { color: nutriTone(product.nutriScore, c) },
+                  ]}>
                   {product.nutriScore ?? '—'}
                 </Text>
               </View>
-              <View style={styles.qualityChip}>
-                <Text style={styles.qualityLabel}>NOVA</Text>
-                <Text style={styles.qualityValue}>{product.novaGroup ?? '—'}</Text>
+              <View
+                style={[
+                  styles.qualityChip,
+                  { backgroundColor: glass(0.05), borderColor: glassBorder(0.08) },
+                ]}>
+                <Text style={[styles.qualityLabel, { color: c.textSubtle }]}>NOVA</Text>
+                <Text style={[styles.qualityValue, { color: c.text }]}>
+                  {product.novaGroup ?? '—'}
+                </Text>
               </View>
-              <View style={[styles.qualityChip, { flex: 1.4 }]}>
-                <Text style={styles.qualityLabel}>Allergens</Text>
-                <Text style={styles.qualityValue} numberOfLines={2}>
+              <View
+                style={[
+                  styles.qualityChip,
+                  { flex: 1.4, backgroundColor: glass(0.05), borderColor: glassBorder(0.08) },
+                ]}>
+                <Text style={[styles.qualityLabel, { color: c.textSubtle }]}>Allergens</Text>
+                <Text style={[styles.qualityValue, { color: c.text }]} numberOfLines={2}>
                   {product.allergens?.length ? product.allergens.join(', ') : 'None listed'}
                 </Text>
               </View>
@@ -228,8 +283,8 @@ export default function ScanGroceryScreen() {
 
             {product.ingredients ? (
               <View style={styles.ingredientsBox}>
-                <Text style={styles.qualityLabel}>Ingredients</Text>
-                <Text style={styles.ingredients}>{product.ingredients}</Text>
+                <Text style={[styles.qualityLabel, { color: c.textSubtle }]}>Ingredients</Text>
+                <Text style={[styles.ingredients, { color: c.textSoft }]}>{product.ingredients}</Text>
               </View>
             ) : null}
 
@@ -245,9 +300,14 @@ export default function ScanGroceryScreen() {
           </View>
         ) : null}
 
-        {message ? <Text style={styles.message}>{message}</Text> : null}
+        {message ? <Text style={[styles.message, { color: c.warning }]}>{message}</Text> : null}
 
-        <Pressable onPress={() => router.push('/add-grocery' as never)} style={styles.secondaryBtn}>
+        <Pressable
+          onPress={() => router.push('/add-grocery' as never)}
+          style={[
+            styles.secondaryBtn,
+            { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) },
+          ]}>
           <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>Add manually</Text>
         </Pressable>
       </ScrollView>
@@ -262,7 +322,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.18)',
     marginTop: 8,
     marginBottom: 4,
   },
@@ -272,7 +331,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   iconBtn: {
     width: 40,
@@ -280,32 +338,27 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   headerCopy: { flex: 1, alignItems: 'center' },
   kicker: {
-    color: orbitColors.textMuted,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
-  title: { color: orbitColors.text, fontSize: 18, fontWeight: '800', marginTop: 2 },
+  title: { fontSize: 18, fontWeight: '800', marginTop: 2 },
   content: { padding: 16, gap: 12 },
-  subtitle: { color: orbitColors.textSoft, fontSize: 13 },
+  subtitle: { fontSize: 13 },
   scannerCard: {
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  loadingText: { color: orbitColors.textMuted, fontSize: 13 },
+  loadingText: { fontSize: 13 },
   card: {
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
     padding: 14,
     gap: 8,
   },
@@ -315,10 +368,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.08)',
   },
-  resultName: { color: orbitColors.text, fontSize: 14, fontWeight: '600' },
-  resultMeta: { color: orbitColors.textMuted, fontSize: 12, marginTop: 2 },
+  resultName: { fontSize: 14, fontWeight: '600' },
+  resultMeta: { fontSize: 12, marginTop: 2 },
   resultCard: {
     borderRadius: 24,
     borderWidth: 1,
@@ -328,35 +380,32 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   resultHeader: { flexDirection: 'row', gap: 12 },
-  productImage: { width: 72, height: 72, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)' },
+  productImage: { width: 72, height: 72, borderRadius: 16 },
   productImageFallback: { alignItems: 'center', justifyContent: 'center' },
-  productName: { color: orbitColors.text, fontSize: 17, fontWeight: '800' },
+  productName: { fontSize: 17, fontWeight: '800' },
   price: { fontSize: 15, fontWeight: '800', marginTop: 2 },
-  source: { color: orbitColors.novaCyan, fontSize: 11, fontWeight: '700' },
+  source: { fontSize: 11, fontWeight: '700' },
   qualityRow: { flexDirection: 'row', gap: 8 },
   qualityChip: {
     flex: 1,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
     padding: 10,
     gap: 4,
   },
   qualityLabel: {
-    color: orbitColors.textSubtle,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
-  qualityValue: { color: orbitColors.text, fontSize: 13, fontWeight: '700' },
+  qualityValue: { fontSize: 13, fontWeight: '700' },
   ingredientsBox: { gap: 6 },
-  ingredients: { color: orbitColors.textSoft, fontSize: 12, lineHeight: 18 },
+  ingredients: { fontSize: 12, lineHeight: 18 },
   ctaWrap: { borderRadius: 18, overflow: 'hidden' },
   cta: { alignItems: 'center', paddingVertical: 14 },
   ctaText: { color: '#04101F', fontWeight: '800', fontSize: 14 },
-  message: { color: orbitColors.warning, fontSize: 13, lineHeight: 18 },
+  message: { fontSize: 13, lineHeight: 18 },
   secondaryBtn: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -365,8 +414,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   secondaryText: { fontSize: 14, fontWeight: '700' },
 });

@@ -4,7 +4,8 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function WeeklyReportScreen() {
@@ -64,10 +65,11 @@ function StatCard({
   value: string;
   tone: 'green' | 'red' | 'cyan' | 'amber';
 }) {
+  const { c } = useOrbitColors();
   return (
     <GlassCard style={styles.gridCard}>
       <StatusPill label={label} tone={tone} />
-      <Text style={styles.metric}>{value}</Text>
+      <Text style={[styles.metric, { color: c.text }]}>{value}</Text>
     </GlassCard>
   );
 }
@@ -87,7 +89,6 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   metric: {
-    color: orbitColors.text,
     fontSize: 28,
     fontWeight: '800',
   },

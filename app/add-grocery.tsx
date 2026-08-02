@@ -7,9 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { GROCERY_CATEGORIES, GROCERY_LOCATIONS, locationForGroceryCategory } from '@/data/household-rooms';
-import { orbitColors } from '@/constants/orbit-theme';
 import { lookupGroceryProduct } from '@/lib/grocery/product-lookup';
 import { openDirections } from '@/lib/maps/directions';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { GroceryItem } from '@/types/orbit';
 
@@ -19,6 +19,7 @@ type GroceryLocation = GroceryItem['location'];
 export default function AddGroceryScreen() {
   const insets = useSafeAreaInsets();
   const { addMissingGrocery, accentTheme, preferredStore, orbitPalette } = useOrbit();
+  const { c, glass, glassBorder } = useOrbitColors();
   const [name, setName] = useState('');
   const [category, setCategory] = useState<GroceryCategory>('Produce');
   const [quantity, setQuantity] = useState('1');
@@ -73,14 +74,17 @@ export default function AddGroceryScreen() {
         { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
       ]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.handle} />
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
-          <Ionicons name="close" size={20} color={orbitColors.text} />
+      <View style={[styles.handle, { backgroundColor: glass(0.18) }]} />
+      <View style={[styles.header, { borderBottomColor: glassBorder(0.08) }]}>
+        <Pressable
+          onPress={() => router.back()}
+          style={[styles.iconBtn, { backgroundColor: glass(0.06) }]}
+          hitSlop={8}>
+          <Ionicons name="close" size={20} color={c.text} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>Grocery</Text>
-          <Text style={styles.title}>Missing Item</Text>
+          <Text style={[styles.kicker, { color: c.textMuted }]}>Grocery</Text>
+          <Text style={[styles.title, { color: c.text }]}>Missing Item</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -88,19 +92,22 @@ export default function AddGroceryScreen() {
       <KeyboardScreen
         offset={24}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}>
-        <Text style={styles.label}>Item name</Text>
+        <Text style={[styles.label, { color: c.textMuted }]}>Item name</Text>
         <TextInput
           value={name}
           onChangeText={setName}
           placeholder="e.g. Almond milk"
-          placeholderTextColor={orbitColors.textMuted}
-          style={styles.input}
+          placeholderTextColor={c.textMuted}
+          style={[
+            styles.input,
+            { color: c.text, backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
+          ]}
         />
 
         {lookup ? (
           <View style={styles.lookupCard}>
-            <Text style={styles.lookupTitle}>Lookup · {lookup.store.name}</Text>
-            <Text style={styles.lookupMeta}>
+            <Text style={[styles.lookupTitle, { color: c.text }]}>Lookup · {lookup.store.name}</Text>
+            <Text style={[styles.lookupMeta, { color: c.textMuted }]}>
               ${lookup.estimatedPackPrice.toFixed(2)} est. · {lookup.packSize}
             </Text>
             {lookup.pricePerLiter != null ? (
@@ -124,7 +131,7 @@ export default function AddGroceryScreen() {
           </View>
         ) : null}
 
-        <Text style={styles.label}>Category</Text>
+        <Text style={[styles.label, { color: c.textMuted }]}>Category</Text>
         <View style={styles.chipWrap}>
           {GROCERY_CATEGORIES.map((item) => {
             const active = item === category;
@@ -134,28 +141,34 @@ export default function AddGroceryScreen() {
                 onPress={() => selectCategory(item)}
                 style={[
                   styles.chip,
+                  { backgroundColor: glass(0.04), borderColor: glassBorder(0.1) },
                   active && {
                     backgroundColor: `${accentTheme.primary}22`,
                     borderColor: `${accentTheme.primary}55`,
                   },
                 ]}>
-                <Text style={[styles.chipText, active && { color: accentTheme.primary }]}>{item}</Text>
+                <Text style={[styles.chipText, { color: active ? accentTheme.primary : c.textMuted }]}>
+                  {item}
+                </Text>
               </Pressable>
             );
           })}
         </View>
 
-        <Text style={styles.label}>Quantity</Text>
+        <Text style={[styles.label, { color: c.textMuted }]}>Quantity</Text>
         <TextInput
           value={quantity}
           onChangeText={setQuantity}
           keyboardType="number-pad"
           placeholder="1"
-          placeholderTextColor={orbitColors.textMuted}
-          style={styles.input}
+          placeholderTextColor={c.textMuted}
+          style={[
+            styles.input,
+            { color: c.text, backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
+          ]}
         />
 
-        <Text style={styles.label}>Storage</Text>
+        <Text style={[styles.label, { color: c.textMuted }]}>Storage</Text>
         <View style={styles.chipWrap}>
           {GROCERY_LOCATIONS.map((item) => {
             const active = item === location;
@@ -165,25 +178,32 @@ export default function AddGroceryScreen() {
                 onPress={() => setLocation(item)}
                 style={[
                   styles.chip,
+                  { backgroundColor: glass(0.04), borderColor: glassBorder(0.1) },
                   active && {
                     backgroundColor: `${accentTheme.primary}22`,
                     borderColor: `${accentTheme.primary}55`,
                   },
                 ]}>
-                <Text style={[styles.chipText, active && { color: accentTheme.primary }]}>{item}</Text>
+                <Text style={[styles.chipText, { color: active ? accentTheme.primary : c.textMuted }]}>
+                  {item}
+                </Text>
               </Pressable>
             );
           })}
         </View>
 
-        <Text style={styles.label}>Note</Text>
+        <Text style={[styles.label, { color: c.textMuted }]}>Note</Text>
         <TextInput
           value={note}
           onChangeText={setNote}
           placeholder="Brand, size, dietary note…"
-          placeholderTextColor={orbitColors.textMuted}
+          placeholderTextColor={c.textMuted}
           multiline
-          style={[styles.input, styles.noteInput]}
+          style={[
+            styles.input,
+            styles.noteInput,
+            { color: c.text, backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
+          ]}
         />
 
         <Pressable onPress={() => void onSave()} disabled={busy} style={styles.saveWrap}>
@@ -200,7 +220,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   handle: {
     alignSelf: 'center',
-    backgroundColor: 'rgba(255,255,255,0.18)',
     borderRadius: 999,
     height: 4,
     marginBottom: 4,
@@ -209,7 +228,6 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    borderBottomColor: 'rgba(255,255,255,0.08)',
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -217,7 +235,6 @@ const styles = StyleSheet.create({
   },
   iconBtn: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 20,
     height: 40,
     justifyContent: 'center',
@@ -225,21 +242,17 @@ const styles = StyleSheet.create({
   },
   headerCopy: { alignItems: 'center', flex: 1 },
   kicker: {
-    color: orbitColors.textMuted,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
-  title: { color: orbitColors.text, fontSize: 18, fontWeight: '800', marginTop: 2 },
+  title: { fontSize: 18, fontWeight: '800', marginTop: 2 },
   content: { gap: 10, padding: 16 },
-  label: { color: orbitColors.textMuted, fontSize: 12, fontWeight: '700', marginTop: 4 },
+  label: { fontSize: 12, fontWeight: '700', marginTop: 4 },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 14,
     borderWidth: 1,
-    color: orbitColors.text,
     fontSize: 14,
     fontWeight: '600',
     paddingHorizontal: 12,
@@ -248,14 +261,12 @@ const styles = StyleSheet.create({
   noteInput: { minHeight: 72, textAlignVertical: 'top' },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  chipText: { color: orbitColors.textMuted, fontSize: 12, fontWeight: '700' },
+  chipText: { fontSize: 12, fontWeight: '700' },
   lookupCard: {
     backgroundColor: 'rgba(89,178,225,0.08)',
     borderColor: 'rgba(89,178,225,0.25)',
@@ -264,8 +275,8 @@ const styles = StyleSheet.create({
     gap: 4,
     padding: 12,
   },
-  lookupTitle: { color: orbitColors.text, fontSize: 13, fontWeight: '700' },
-  lookupMeta: { color: orbitColors.textMuted, fontSize: 12 },
+  lookupTitle: { fontSize: 13, fontWeight: '700' },
+  lookupMeta: { fontSize: 12 },
   lookupUnit: { fontSize: 13, fontWeight: '700' },
   mapLink: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 6 },
   mapLinkText: { fontSize: 12, fontWeight: '700' },

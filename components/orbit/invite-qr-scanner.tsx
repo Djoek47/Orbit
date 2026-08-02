@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import { parseInvitePayload } from '@/lib/invites/parse-invite';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type InviteQrScannerProps = {
   visible: boolean;
@@ -15,6 +16,7 @@ type InviteQrScannerProps = {
 
 export function InviteQrScanner({ visible, onClose, onScanned }: InviteQrScannerProps) {
   const insets = useSafeAreaInsets();
+  const { c } = useOrbitColors();
   const [permission, requestPermission] = useCameraPermissions();
   const [locked, setLocked] = useState(false);
   const [hint, setHint] = useState('Align the invite QR in the frame');
@@ -41,24 +43,28 @@ export function InviteQrScanner({ visible, onClose, onScanned }: InviteQrScanner
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <View style={[styles.root, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}>
+      <View
+        style={[
+          styles.root,
+          { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16, backgroundColor: c.background },
+        ]}>
         <View style={styles.header}>
           <View>
-            <Text style={typography.body}>Join household</Text>
-            <Text style={typography.body}>Scan invite QR</Text>
+            <Text style={[typography.body, { color: c.text }]}>Join household</Text>
+            <Text style={[typography.body, { color: c.text }]}>Scan invite QR</Text>
           </View>
           <Pressable onPress={onClose} style={styles.closeChip}>
-            <Text style={styles.closeLabel}>Close</Text>
+            <Text style={[styles.closeLabel, { color: c.textMuted }]}>Close</Text>
           </Pressable>
         </View>
 
         {!permission ? (
           <View style={styles.centered}>
-            <Text style={typography.body}>Checking camera permission…</Text>
+            <Text style={[typography.body, { color: c.text }]}>Checking camera permission…</Text>
           </View>
         ) : !permission.granted ? (
           <View style={styles.centered}>
-            <Text style={typography.body}>
+            <Text style={[typography.body, { color: c.text }]}>
               Camera access is needed to scan household invite QR codes.
             </Text>
             <OrbitButton onPress={() => requestPermission()}>Allow camera</OrbitButton>
@@ -77,7 +83,7 @@ export function InviteQrScanner({ visible, onClose, onScanned }: InviteQrScanner
               />
               <View style={styles.frame} pointerEvents="none" />
             </View>
-            <Text style={styles.hint}>{hint}</Text>
+            <Text style={[styles.hint, { color: c.textMuted }]}>{hint}</Text>
             <OrbitButton tone="secondary" onPress={onClose}>
               Enter code manually
             </OrbitButton>
@@ -114,7 +120,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   closeLabel: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -136,14 +141,12 @@ const styles = StyleSheet.create({
     marginBottom: space.md,
   },
   hint: {
-    color: orbitColors.textMuted,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: space.md,
     textAlign: 'center',
   },
   root: {
-    backgroundColor: orbitColors.background,
     flex: 1,
     paddingHorizontal: space.xl,
   },

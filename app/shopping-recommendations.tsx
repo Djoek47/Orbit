@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { orbitColors } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function ShoppingRecommendationsScreen() {
@@ -21,6 +21,7 @@ export default function ShoppingRecommendationsScreen() {
     storeRecommendations,
     suggestNovaItinerary,
   } = useOrbit();
+  const { c, glass, glassBorder } = useOrbitColors();
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -48,14 +49,17 @@ export default function ShoppingRecommendationsScreen() {
         { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
       ]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.handle} />
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
-          <MaterialIcons name="close" size={18} color={orbitColors.textMuted} />
+      <View style={[styles.handle, { backgroundColor: glass(0.18) }]} />
+      <View style={[styles.header, { borderBottomColor: glassBorder(0.08) }]}>
+        <Pressable
+          onPress={() => router.back()}
+          style={[styles.iconBtn, { backgroundColor: glass(0.06) }]}
+          hitSlop={8}>
+          <MaterialIcons name="close" size={18} color={c.textMuted} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>Grocery</Text>
-          <Text style={styles.title}>Store recommendations</Text>
+          <Text style={[styles.kicker, { color: c.textMuted }]}>Grocery</Text>
+          <Text style={[styles.title, { color: c.text }]}>Store recommendations</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -63,7 +67,7 @@ export default function ShoppingRecommendationsScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         showsVerticalScrollIndicator={false}>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, { color: c.textSoft }]}>
           Based on {metrics.missingGroceries} missing items in {household.householdName}. Preferred:{' '}
           {preferredStore.name}.
         </Text>
@@ -79,29 +83,34 @@ export default function ShoppingRecommendationsScreen() {
               }}
               style={[
                 styles.card,
+                { borderColor: glassBorder(0.08), backgroundColor: glass(0.05) },
                 active && {
                   borderColor: `${accentTheme.primary}55`,
                   backgroundColor: `${accentTheme.primary}14`,
                 },
               ]}>
               <View style={styles.cardTop}>
-                <Text style={styles.cardTitle}>{store.title}</Text>
+                <Text style={[styles.cardTitle, { color: c.text }]}>{store.title}</Text>
                 <View style={[styles.pill, { backgroundColor: `${accentTheme.primary}26` }]}>
                   <Text style={[styles.pillText, { color: accentTheme.primary }]}>
                     {store.itemCount} items
                   </Text>
                 </View>
               </View>
-              <Text style={styles.detail}>{store.detail}</Text>
-              {store.description ? <Text style={styles.body}>{store.description}</Text> : null}
+              <Text style={[styles.detail, { color: c.textMuted }]}>{store.detail}</Text>
+              {store.description ? (
+                <Text style={[styles.body, { color: c.textSoft }]}>{store.description}</Text>
+              ) : null}
               {typeof store.etaMinutes === 'number' && store.etaMinutes > 0 ? (
-                <Text style={styles.eta}>{store.etaMinutes} min away</Text>
+                <Text style={[styles.eta, { color: c.novaCyan }]}>{store.etaMinutes} min away</Text>
               ) : null}
               {store.storeId ? (
                 active ? (
                   <Text style={[styles.preferred, { color: accentTheme.primary }]}>Preferred store</Text>
                 ) : (
-                  <Text style={styles.tapHint}>Tap to set preferred · {storeKey}</Text>
+                  <Text style={[styles.tapHint, { color: c.textSubtle }]}>
+                    Tap to set preferred · {storeKey}
+                  </Text>
                 )
               ) : null}
             </Pressable>
@@ -121,7 +130,12 @@ export default function ShoppingRecommendationsScreen() {
           </LinearGradient>
         </Pressable>
 
-        <Pressable onPress={() => router.push('/add-grocery' as never)} style={styles.secondaryBtn}>
+        <Pressable
+          onPress={() => router.push('/add-grocery' as never)}
+          style={[
+            styles.secondaryBtn,
+            { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) },
+          ]}>
           <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>Add missing item</Text>
         </Pressable>
       </ScrollView>
@@ -136,7 +150,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.18)',
     marginTop: 8,
     marginBottom: 4,
   },
@@ -146,7 +159,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   iconBtn: {
     width: 40,
@@ -154,36 +166,32 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   headerCopy: { flex: 1, alignItems: 'center' },
   kicker: {
-    color: orbitColors.textMuted,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
-  title: { color: orbitColors.text, fontSize: 18, fontWeight: '800', marginTop: 2 },
+  title: { fontSize: 18, fontWeight: '800', marginTop: 2 },
   content: { padding: 16, gap: 12 },
-  subtitle: { color: orbitColors.textSoft, fontSize: 13, lineHeight: 20 },
+  subtitle: { fontSize: 13, lineHeight: 20 },
   card: {
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
     padding: 16,
     gap: 8,
   },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  cardTitle: { color: orbitColors.text, fontSize: 15, fontWeight: '700', flex: 1 },
+  cardTitle: { fontSize: 15, fontWeight: '700', flex: 1 },
   pill: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   pillText: { fontSize: 11, fontWeight: '700' },
-  detail: { color: orbitColors.textMuted, fontSize: 12 },
-  body: { color: orbitColors.textSoft, fontSize: 13, lineHeight: 19 },
-  eta: { color: orbitColors.novaCyan, fontSize: 13, fontWeight: '700' },
+  detail: { fontSize: 12 },
+  body: { fontSize: 13, lineHeight: 19 },
+  eta: { fontSize: 13, fontWeight: '700' },
   preferred: { fontSize: 12, fontWeight: '700', marginTop: 2 },
-  tapHint: { color: orbitColors.textSubtle, fontSize: 12, marginTop: 2 },
+  tapHint: { fontSize: 12, marginTop: 2 },
   ctaWrap: { borderRadius: 18, overflow: 'hidden', marginTop: 4 },
   cta: {
     flexDirection: 'row',
@@ -198,8 +206,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   secondaryText: { fontSize: 14, fontWeight: '700' },
 });

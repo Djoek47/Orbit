@@ -8,6 +8,7 @@ import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitColors } from '@/constants/orbit-theme';
 import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
 import { ROOM_EMOJIS } from '@/constants/accent-themes';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { createLocalId } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdRoom, HouseholdType } from '@/types/orbit';
@@ -22,6 +23,7 @@ const householdTypes: { label: string; value: HouseholdType; emoji: string }[] =
 
 export default function CreateHouseholdScreen() {
   const { accentTheme, createHousehold } = useOrbit();
+  const { c } = useOrbitColors();
   const [name, setName] = useState('The Choremaxx Home');
   const [type, setType] = useState<HouseholdType>('family');
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() =>
@@ -92,7 +94,7 @@ export default function CreateHouseholdScreen() {
       title="Create household"
       subtitle="Name → type → rooms. You will be owner — families can add a second co-parent admin after invite.">
       <OrbitInput label="Household name" value={name} onChangeText={setName} placeholder="e.g. The Millers" />
-      <Text style={styles.label}>Household type</Text>
+      <Text style={[styles.label, { color: c.textMuted }]}>Household type</Text>
       <View style={styles.typeGrid}>
         {householdTypes.map((item) => {
           const selected = item.value === type;
@@ -108,14 +110,23 @@ export default function CreateHouseholdScreen() {
                 },
               ]}>
               <Text style={styles.typeEmoji}>{item.emoji}</Text>
-              <Text style={[styles.typeLabel, selected && { color: accentTheme.primary }]}>{item.label}</Text>
+              <Text
+                style={[
+                  styles.typeLabel,
+                  { color: c.textMuted },
+                  selected && { color: accentTheme.primary },
+                ]}>
+                {item.label}
+              </Text>
             </Pressable>
           );
         })}
       </View>
 
-      <Text style={styles.label}>Rooms</Text>
-      <Text style={styles.hint}>Select the spaces you manage. You can edit these later in Settings.</Text>
+      <Text style={[styles.label, { color: c.textMuted }]}>Rooms</Text>
+      <Text style={[styles.hint, { color: c.textSubtle }]}>
+        Select the spaces you manage. You can edit these later in Settings.
+      </Text>
       <View style={styles.typeGrid}>
         {catalog.map((room) => {
           const selected = selectedRoomIds.includes(room.id);
@@ -131,7 +142,14 @@ export default function CreateHouseholdScreen() {
                 },
               ]}>
               <Text style={styles.typeEmoji}>{room.emoji}</Text>
-              <Text style={[styles.typeLabel, selected && { color: accentTheme.primary }]}>{room.name}</Text>
+              <Text
+                style={[
+                  styles.typeLabel,
+                  { color: c.textMuted },
+                  selected && { color: accentTheme.primary },
+                ]}>
+                {room.name}
+              </Text>
             </Pressable>
           );
         })}
@@ -160,8 +178,8 @@ export default function CreateHouseholdScreen() {
           value={customName}
           onChangeText={setCustomName}
           placeholder="Add a custom room"
-          placeholderTextColor={orbitColors.textSubtle}
-          style={styles.customInput}
+          placeholderTextColor={c.textSubtle}
+          style={[styles.customInput, { color: c.text }]}
           onSubmitEditing={addCustomRoom}
           returnKeyType="done"
         />
@@ -180,12 +198,10 @@ export default function CreateHouseholdScreen() {
 
 const styles = StyleSheet.create({
   label: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },
   hint: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
     lineHeight: 16,
     marginTop: -6,
@@ -208,7 +224,6 @@ const styles = StyleSheet.create({
   },
   typeEmoji: { fontSize: 14 },
   typeLabel: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -223,7 +238,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     backgroundColor: 'rgba(255,255,255,0.04)',
-    color: orbitColors.text,
     fontSize: 14,
     fontWeight: '600',
     paddingHorizontal: 12,

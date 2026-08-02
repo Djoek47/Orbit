@@ -10,6 +10,7 @@ import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { buildWeekStrip, groupHouseholdEvents } from '@/lib/calendar/event-groups';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 type PlanSubTab = 'calendar' | 'itinerary';
@@ -32,6 +33,7 @@ const SAMPLE_ITINERARIES = [
 export default function PlanScreen() {
   const chromePad = useTabChromePaddingTop();
   const { household, metrics } = useOrbit();
+  const { c } = useOrbitColors();
   const [planTab, setPlanTab] = useState<PlanSubTab>('calendar');
   const [selectedDay, setSelectedDay] = useState(0);
   const week = useMemo(() => buildWeekStrip(), []);
@@ -70,7 +72,14 @@ export default function PlanScreen() {
               key={tab.id}
               onPress={() => setPlanTab(tab.id)}
               style={[styles.subNavButton, active && styles.subNavButtonActive]}>
-              <Text style={[styles.subNavLabel, active && styles.subNavLabelActive]}>{tab.label}</Text>
+              <Text
+                style={[
+                  styles.subNavLabel,
+                  { color: c.textSubtle },
+                  active && styles.subNavLabelActive,
+                ]}>
+                {tab.label}
+              </Text>
             </Pressable>
           );
         })}
@@ -88,8 +97,22 @@ export default function PlanScreen() {
                     key={day.key}
                     onPress={() => setSelectedDay(index)}
                     style={[styles.dayChip, active && styles.dayChipActive, day.isToday && styles.dayChipToday]}>
-                    <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>{day.label}</Text>
-                    <Text style={[styles.dayNumber, active && styles.dayLabelActive]}>{day.dayNumber}</Text>
+                    <Text
+                      style={[
+                        styles.dayLabel,
+                        { color: c.textMuted },
+                        active && { color: c.text },
+                      ]}>
+                      {day.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.dayNumber,
+                        { color: c.text },
+                        active && { color: c.text },
+                      ]}>
+                      {day.dayNumber}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -168,13 +191,14 @@ function EventCard({
     responsible: string;
   };
 }) {
+  const { c } = useOrbitColors();
   return (
     <Pressable onPress={() => router.push(`/event/${event.id}` as never)}>
       <GlassCard>
         <View style={styles.eventRow}>
           <View style={styles.timeBadge}>
-            <Text style={styles.dateText}>{event.date}</Text>
-            <Text style={styles.timeText}>{event.time}</Text>
+            <Text style={[styles.dateText, { color: c.textMuted }]}>{event.date}</Text>
+            <Text style={[styles.timeText, { color: c.text }]}>{event.time}</Text>
           </View>
           <OrbitListItem
             meta={`${event.location || 'No location'} • ${event.responsible}`}
@@ -189,7 +213,6 @@ function EventCard({
 
 const styles = StyleSheet.create({
   dateText: {
-    color: orbitColors.textMuted,
     fontSize: 11,
     fontWeight: '800',
     textAlign: 'center',
@@ -213,15 +236,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(59, 181, 240, 0.45)',
   },
   dayLabel: {
-    color: orbitColors.textMuted,
     fontSize: 11,
     fontWeight: '800',
   },
-  dayLabelActive: {
-    color: orbitColors.text,
-  },
   dayNumber: {
-    color: orbitColors.text,
     fontSize: 16,
     fontWeight: '800',
   },
@@ -277,7 +295,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   subNavLabel: {
-    color: orbitColors.textSubtle,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -297,7 +314,6 @@ const styles = StyleSheet.create({
     width: 78,
   },
   timeText: {
-    color: orbitColors.text,
     fontSize: 13,
     fontWeight: '800',
     textAlign: 'center',

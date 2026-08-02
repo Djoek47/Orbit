@@ -5,7 +5,8 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function SmartHomeScreen() {
@@ -16,6 +17,7 @@ export default function SmartHomeScreen() {
     smartHomeScenes,
     toggleSmartDevice,
   } = useOrbit();
+  const { c } = useOrbitColors();
 
   useEffect(() => {
     void refreshSmartHome();
@@ -40,7 +42,7 @@ export default function SmartHomeScreen() {
           smartHomeScenes.map((scene) => (
             <View key={scene.id} style={styles.sceneRow}>
               <View style={styles.sceneCopy}>
-                <Text style={styles.deviceName}>{scene.name}</Text>
+                <Text style={[styles.deviceName, { color: c.text }]}>{scene.name}</Text>
                 <Text style={typography.footnote}>{scene.description || 'Household scene'}</Text>
               </View>
               <OrbitButton style={styles.compactButton} onPress={() => activateSmartScene(scene.id)}>
@@ -63,7 +65,7 @@ export default function SmartHomeScreen() {
               <StatusPill label={device.isOnline ? 'Online' : 'Offline'} tone={device.isOnline ? 'green' : 'amber'} />
               <StatusPill label={device.isOn ? 'On' : 'Off'} tone={device.isOn ? 'cyan' : 'blue'} />
             </View>
-            <Text style={styles.deviceName}>{device.name}</Text>
+            <Text style={[styles.deviceName, { color: c.text }]}>{device.name}</Text>
             <Text style={typography.footnote}>
               {device.room || 'Home'} · {device.deviceType}
               {device.description ? ` · ${device.description}` : ''}
@@ -95,7 +97,6 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
   },
   deviceName: {
-    color: orbitColors.text,
     fontSize: 16,
     fontWeight: '700',
   },

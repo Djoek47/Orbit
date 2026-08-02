@@ -31,7 +31,7 @@ const CATEGORY_META: Record<string, { emoji: string; color: string }> = {
   Cleaning: { emoji: '✨', color: '#34D399' },
   Pets: { emoji: '🐾', color: '#FB923C' },
   Baby: { emoji: '🍼', color: '#F472B6' },
-  Other: { emoji: '📦', color: '#7C9CC0' },
+  Other: { emoji: '📦', color: '#94A3B8' },
 };
 
 export default function GroceriesScreen() {
@@ -353,7 +353,12 @@ export default function GroceriesScreen() {
                       borderColor: `${accentTheme.primary}55`,
                     },
                   ]}>
-                  <Text style={[styles.storeChipText, active && { color: accentTheme.primary }]}>
+                  <Text
+                    style={[
+                      styles.storeChipText,
+                      { color: c.textMuted },
+                      active && { color: accentTheme.primary },
+                    ]}>
                     {store.name}
                   </Text>
                 </Pressable>
@@ -395,7 +400,7 @@ export default function GroceriesScreen() {
               <MaterialIcons
                 name={isExpanded ? 'expand-more' : 'chevron-right'}
                 size={18}
-                color="#4B6080"
+                color={c.textSubtle}
               />
             </Pressable>
             {isExpanded ? (
@@ -583,7 +588,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  storeChipText: { color: '#7C9CC0', fontSize: 12, fontWeight: '600' },
+  storeChipText: { fontSize: 12, fontWeight: '600' },
   catCard: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderColor: 'rgba(255,255,255,0.08)',

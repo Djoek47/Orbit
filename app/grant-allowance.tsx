@@ -7,9 +7,10 @@ import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 const PRESETS = ['$5', '$10', '$20', 'Extra screen', 'Treat night'];
@@ -17,6 +18,7 @@ const PRESETS = ['$5', '$10', '$20', 'Extra screen', 'Treat night'];
 export default function GrantAllowanceScreen() {
   const insets = useSafeAreaInsets();
   const { accentTheme, grantAllowance, household, permissions } = useOrbit();
+  const { c } = useOrbitColors();
   const [memberId, setMemberId] = useState<string | null>(null);
   const [amountLabel, setAmountLabel] = useState('$5');
   const [note, setNote] = useState('');
@@ -81,7 +83,7 @@ export default function GrantAllowanceScreen() {
       </View>
 
       <GlassCard style={styles.card}>
-        <Text style={styles.label}>Person</Text>
+        <Text style={[styles.label, { color: c.textMuted }]}>Person</Text>
         <View style={styles.chipRow}>
           {members.map((member) => {
             const active = memberId === member.id;
@@ -97,14 +99,19 @@ export default function GrantAllowanceScreen() {
                   },
                 ]}>
                 <Text style={styles.emoji}>{memberDisplayEmoji(member)}</Text>
-                <Text style={[styles.chipText, active && { color: accentTheme.primary }]}>
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: c.textSoft },
+                    active && { color: accentTheme.primary },
+                  ]}>
                   {member.name}
                 </Text>
               </Pressable>
             );
           })}
         </View>
-        <Text style={styles.label}>Amount</Text>
+        <Text style={[styles.label, { color: c.textMuted }]}>Amount</Text>
         <View style={styles.chipRow}>
           {PRESETS.map((preset) => {
             const active = amountLabel === preset;
@@ -119,7 +126,12 @@ export default function GrantAllowanceScreen() {
                     borderColor: `${accentTheme.primary}88`,
                   },
                 ]}>
-                <Text style={[styles.chipText, active && { color: accentTheme.primary }]}>
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: c.textSoft },
+                    active && { color: accentTheme.primary },
+                  ]}>
                   {preset}
                 </Text>
               </Pressable>
@@ -143,7 +155,6 @@ export default function GrantAllowanceScreen() {
 const styles = StyleSheet.create({
   card: { gap: space.md },
   label: {
-    color: orbitColors.textMuted,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -158,6 +169,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  chipText: { color: orbitColors.textSoft, fontSize: 13, fontWeight: '600' },
+  chipText: { fontSize: 13, fontWeight: '600' },
   emoji: { fontSize: 14 },
 });

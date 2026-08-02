@@ -8,9 +8,10 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { RouteSteps } from '@/components/orbit/route-steps';
 import { getPreferredStore } from '@/data/preferred-stores';
-import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { optimizeDraftStops } from '@/lib/calendar/suggest-itinerary';
 import { shopNearStops, findNearbyStores } from '@/lib/places/nearby-stores';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent, ItineraryStopKind, PreferredStore, SavedPlace } from '@/types/orbit';
 
@@ -110,6 +111,7 @@ function eventToStop(event: HouseholdEvent): DraftStop {
 
 export default function CreateItineraryScreen() {
   const { createItinerary, household, preferredStore, accentTheme } = useOrbit();
+  const { c, glass, glassBorder } = useOrbitColors();
   const [title, setTitle] = useState('Family run');
   const [selected, setSelected] = useState<DraftStop[]>([]);
   const [nearby, setNearby] = useState<PreferredStore[]>([]);
@@ -260,16 +262,18 @@ export default function CreateItineraryScreen() {
     }
   };
 
+  const chipTone = { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) } as const;
+
   return (
     <ScrollView
-      style={orbitScreen.container}
+      style={[orbitScreen.container, { backgroundColor: c.background }]}
       contentContainerStyle={orbitScreen.content}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}>
       <View style={orbitScreen.header}>
-        <Text style={typography.footnote}>Plan</Text>
-        <Text style={typography.title1}>New trip</Text>
-        <Text style={typography.body}>
+        <Text style={[typography.footnote, { color: c.textMuted }]}>Plan</Text>
+        <Text style={[typography.title1, { color: c.text }]}>New trip</Text>
+        <Text style={[typography.body, { color: c.textSoft }]}>
           Add stops from places, today’s calendar, or nearby stores.
         </Text>
       </View>
@@ -281,16 +285,19 @@ export default function CreateItineraryScreen() {
       {passByHint ? (
         <Pressable
           onPress={addPassByShop}
-          style={[styles.hintCard, { borderColor: `${accentTheme.primary}55` }]}>
+          style={[
+            styles.hintCard,
+            { backgroundColor: glass(0.04), borderColor: `${accentTheme.primary}55` },
+          ]}>
           <MaterialIcons name="local-grocery-store" size={18} color={accentTheme.primary} />
           <Text style={[styles.hintText, { color: accentTheme.primary }]}>{passByHint}</Text>
-          <Text style={styles.hintAdd}>Add</Text>
+          <Text style={[styles.hintAdd, { color: c.text }]}>Add</Text>
         </Pressable>
       ) : null}
 
       {todayEvents.length > 0 ? (
         <>
-          <Text style={styles.sectionLabel}>Today’s calendar</Text>
+          <Text style={[styles.sectionLabel, { color: c.textMuted }]}>Today’s calendar</Text>
           <View style={styles.chipWrap}>
             {todayEvents.map((event) => {
               const stop = eventToStop(event);
@@ -301,9 +308,10 @@ export default function CreateItineraryScreen() {
                   onPress={() => toggleStop(stop)}
                   style={[
                     styles.chip,
+                    chipTone,
                     on && { backgroundColor: `${accentTheme.primary}28`, borderColor: accentTheme.primary },
                   ]}>
-                  <Text style={[styles.chipText, on && { color: accentTheme.primary }]}>
+                  <Text style={[styles.chipText, { color: on ? accentTheme.primary : c.textSoft }]}>
                     {event.title}
                   </Text>
                 </Pressable>
@@ -314,7 +322,7 @@ export default function CreateItineraryScreen() {
       ) : null}
 
       <View style={styles.sectionRow}>
-        <Text style={styles.sectionLabel}>Saved places</Text>
+        <Text style={[styles.sectionLabel, { color: c.textMuted }]}>Saved places</Text>
         <Pressable onPress={() => router.push('/places' as never)} hitSlop={8}>
           <Text style={[styles.manageLink, { color: accentTheme.primary }]}>Manage</Text>
         </Pressable>
@@ -323,7 +331,7 @@ export default function CreateItineraryScreen() {
         {places.length === 0 ? (
           <Pressable
             onPress={() => router.push('/places' as never)}
-            style={[styles.chip, { borderColor: `${accentTheme.primary}55` }]}>
+            style={[styles.chip, chipTone, { borderColor: `${accentTheme.primary}55` }]}>
             <Text style={[styles.chipText, { color: accentTheme.primary }]}>Add home / work…</Text>
           </Pressable>
         ) : null}
@@ -336,15 +344,18 @@ export default function CreateItineraryScreen() {
               onPress={() => toggleStop(stop)}
               style={[
                 styles.chip,
+                chipTone,
                 on && { backgroundColor: `${accentTheme.primary}28`, borderColor: accentTheme.primary },
               ]}>
-              <Text style={[styles.chipText, on && { color: accentTheme.primary }]}>{place.name}</Text>
+              <Text style={[styles.chipText, { color: on ? accentTheme.primary : c.textSoft }]}>
+                {place.name}
+              </Text>
             </Pressable>
           );
         })}
       </View>
 
-      <Text style={styles.sectionLabel}>
+      <Text style={[styles.sectionLabel, { color: c.textMuted }]}>
         Stores near you{nearbySource ? ` · ${nearbySource}` : ''}
       </Text>
       <View style={styles.chipWrap}>
@@ -357,9 +368,10 @@ export default function CreateItineraryScreen() {
               onPress={() => toggleStop(stop)}
               style={[
                 styles.chip,
+                chipTone,
                 on && { backgroundColor: `${accentTheme.primary}28`, borderColor: accentTheme.primary },
               ]}>
-              <Text style={[styles.chipText, on && { color: accentTheme.primary }]}>
+              <Text style={[styles.chipText, { color: on ? accentTheme.primary : c.textSoft }]}>
                 {item.name}
                 {item.distanceMeters != null
                   ? ` · ${Math.round(item.distanceMeters / 100) / 10}km`
@@ -374,11 +386,11 @@ export default function CreateItineraryScreen() {
         <GlassCard
           elevated
           style={{
-            backgroundColor: 'rgba(255,255,255,0.05)',
+            backgroundColor: glass(0.05),
             borderColor: `${accentTheme.primary}28`,
           }}>
           <View style={styles.orderHead}>
-            <Text style={typography.headline}>Stop order</Text>
+            <Text style={[typography.headline, { color: c.text }]}>Stop order</Text>
             <Pressable onPress={handleOptimize} hitSlop={8}>
               <Text style={[styles.optimizeLink, { color: accentTheme.primary }]}>
                 Optimize with Nova
@@ -401,16 +413,16 @@ export default function CreateItineraryScreen() {
           <View style={{ gap: 4, marginTop: 8 }}>
             {selected.map((stop, index) => (
               <View key={stop.key} style={styles.orderRow}>
-                <Text style={styles.orderIndex}>{index + 1}</Text>
-                <Text style={styles.orderLabel}>{stop.label}</Text>
+                <Text style={[styles.orderIndex, { color: c.textMuted }]}>{index + 1}</Text>
+                <Text style={[styles.orderLabel, { color: c.text }]}>{stop.label}</Text>
                 <Pressable onPress={() => moveStop(stop.key, -1)} hitSlop={6}>
-                  <MaterialIcons name="keyboard-arrow-up" size={20} color={orbitColors.textMuted} />
+                  <MaterialIcons name="keyboard-arrow-up" size={20} color={c.textMuted} />
                 </Pressable>
                 <Pressable onPress={() => moveStop(stop.key, 1)} hitSlop={6}>
-                  <MaterialIcons name="keyboard-arrow-down" size={20} color={orbitColors.textMuted} />
+                  <MaterialIcons name="keyboard-arrow-down" size={20} color={c.textMuted} />
                 </Pressable>
                 <Pressable onPress={() => toggleStop(stop)}>
-                  <MaterialIcons name="close" size={18} color={orbitColors.danger} />
+                  <MaterialIcons name="close" size={18} color={c.danger} />
                 </Pressable>
               </View>
             ))}
@@ -437,7 +449,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionLabel: {
-    color: orbitColors.textMuted,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.4,
@@ -453,15 +464,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: radius.full,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   chipText: {
-    color: orbitColors.textSoft,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -481,20 +489,17 @@ const styles = StyleSheet.create({
     gap: space.xs,
   },
   orderIndex: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '800',
     width: 20,
   },
   orderLabel: {
-    color: orbitColors.text,
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
   },
   hintCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
@@ -508,7 +513,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   hintAdd: {
-    color: orbitColors.text,
     fontSize: 13,
     fontWeight: '800',
   },

@@ -18,6 +18,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 
 import { orbitColors, radius } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 const HOLD_MS = 900;
 
@@ -41,6 +42,7 @@ export function RewardClaimPress({
   busy,
   onClaim,
 }: RewardClaimPressProps) {
+  const { c } = useOrbitColors();
   const [holding, setHolding] = useState(false);
   const firedRef = useRef(false);
   const holdingRef = useRef(false);
@@ -124,7 +126,7 @@ export function RewardClaimPress({
         {busy ? (
           <ActivityIndicator size="small" color={accent} />
         ) : (
-          <Text style={[styles.label, { color: disabled ? orbitColors.textSubtle : accent }]}>
+          <Text style={[styles.label, { color: disabled ? c.textSubtle : accent }]}>
             {holding ? 'Hold…' : label}
           </Text>
         )}

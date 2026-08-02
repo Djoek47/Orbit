@@ -14,11 +14,13 @@ import {
   resendSignupConfirmation,
 } from '@/lib/auth/email-confirmation';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function ConfirmEmailScreen() {
   const params = useLocalSearchParams<{ email?: string }>();
   const { accentTheme, hydrateFromSession, orbitPalette, signIn } = useOrbit();
+  const { c } = useOrbitColors();
   const pending = getPendingSignup();
   const email = useMemo(
     () => (typeof params.email === 'string' ? params.email : pending?.email ?? '').trim(),
@@ -130,7 +132,7 @@ export default function ConfirmEmailScreen() {
         <View style={[styles.mailIcon, { backgroundColor: `${accentTheme.primary}22` }]}>
           <MaterialIcons name="mark-email-unread" size={28} color={accentTheme.primary} />
         </View>
-        <Text style={[styles.mailBody, { color: orbitPalette.textMuted }]}>
+        <Text style={[styles.mailBody, { color: c.textMuted }]}>
           Tap the link in the email to verify. Leave Choremaxx open — we’ll continue when the link
           opens the app.
         </Text>
@@ -179,7 +181,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  mailBody: { color: orbitColors.textMuted, fontSize: 14, lineHeight: 20 },
+  mailBody: { fontSize: 14, lineHeight: 20 },
   error: { color: orbitColors.danger, fontSize: 13, fontWeight: '700' },
   info: { color: orbitColors.success, fontSize: 13, fontWeight: '600' },
   resend: { alignItems: 'center', paddingVertical: 4 },

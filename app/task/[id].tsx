@@ -6,7 +6,7 @@ import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { XpWheel } from '@/components/orbit/xp-wheel';
-import { orbitColors } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { promptPickProofPhoto } from '@/lib/tasks/pick-proof';
 import {
@@ -66,6 +66,7 @@ export default function TaskDetailScreen() {
     submitTaskProof,
     updateTask,
   } = useOrbit();
+  const { c, glass, glassBorder } = useOrbitColors();
 
   const task = household.tasks.find((item) => item.id === id);
   const rooms = household.rooms ?? [];
@@ -108,8 +109,8 @@ export default function TaskDetailScreen() {
           },
         ]}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Text style={styles.missingTitle}>Task not found</Text>
-        <Pressable onPress={() => router.back()} style={styles.secondaryBtn}>
+        <Text style={[styles.missingTitle, { color: c.text }]}>Task not found</Text>
+        <Pressable onPress={() => router.back()} style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
           <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>Back</Text>
         </Pressable>
       </View>
@@ -282,19 +283,19 @@ export default function TaskDetailScreen() {
         { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
       ]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.handle} />
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
-          <MaterialIcons name="close" size={18} color={orbitColors.textMuted} />
+      <View style={[styles.handle, { backgroundColor: glass(0.18) }]} />
+      <View style={[styles.header, { borderBottomColor: glassBorder(0.08) }]}>
+        <Pressable onPress={() => router.back()} style={[styles.iconBtn, { backgroundColor: glass(0.06) }]} hitSlop={8}>
+          <MaterialIcons name="close" size={18} color={c.textMuted} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>{task.category}</Text>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={[styles.kicker, { color: c.textMuted }]}>{task.category}</Text>
+          <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>
             {editing ? 'Edit task' : 'Task'}
           </Text>
         </View>
         {canEdit && !editing ? (
-          <Pressable onPress={() => setEditing(true)} style={styles.iconBtn} hitSlop={8}>
+          <Pressable onPress={() => setEditing(true)} style={[styles.iconBtn, { backgroundColor: glass(0.06) }]} hitSlop={8}>
             <MaterialIcons name="edit" size={16} color={accentTheme.primary} />
           </Pressable>
         ) : (
@@ -308,7 +309,7 @@ export default function TaskDetailScreen() {
         keyboardShouldPersistTaps="handled">
         {!editing ? (
           <>
-            <Text style={styles.heroTitle}>{task.title}</Text>
+            <Text style={[styles.heroTitle, { color: c.text }]}>{task.title}</Text>
             <View style={styles.chipRow}>
               <View style={[styles.statusChip, { backgroundColor: `${statusColor}22` }]}>
                 <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
@@ -318,13 +319,13 @@ export default function TaskDetailScreen() {
                 <Text style={[styles.statusText, { color: accentTheme.primary }]}>⚡ +{task.xp} XP</Text>
               </View>
               {task.repeat !== 'None' ? (
-                <View style={styles.statusChip}>
-                  <Text style={styles.metaChipText}>{task.repeat}</Text>
+                <View style={[styles.statusChip, { backgroundColor: glass(0.06) }]}>
+                  <Text style={[styles.metaChipText, { color: c.textMuted }]}>{task.repeat}</Text>
                 </View>
               ) : null}
               {late && task.status !== 'Completed' ? (
                 <View style={[styles.statusChip, { backgroundColor: 'rgba(248,113,113,0.15)' }]}>
-                  <Text style={[styles.statusText, { color: orbitColors.danger }]}>Late</Text>
+                  <Text style={[styles.statusText, { color: c.danger }]}>Late</Text>
                 </View>
               ) : null}
             </View>
@@ -332,9 +333,9 @@ export default function TaskDetailScreen() {
         ) : null}
 
         {celebration ? (
-          <View style={[styles.card, styles.celebrateCard]}>
-            <Text style={styles.cardTitle}>Nice work</Text>
-            <Text style={styles.body}>
+          <View style={[styles.card, styles.celebrateCard, { borderColor: glassBorder(0.08) }]}>
+            <Text style={[styles.cardTitle, { color: c.text }]}>Nice work</Text>
+            <Text style={[styles.body, { color: c.textSoft }]}>
               +{celebration.awarded} XP
               {celebration.bonus ? ` (+${celebration.bonus} all-done bonus)` : ''}
               {celebration.late ? ` (−${celebration.penalty} late penalty)` : ''}. Rankings week XP
@@ -344,18 +345,18 @@ export default function TaskDetailScreen() {
         ) : null}
 
         {editing ? (
-          <View style={styles.card}>
-            <Text style={styles.label}>Title</Text>
-            <TextInput value={title} onChangeText={setTitle} style={styles.input} placeholderTextColor={orbitColors.textSubtle} />
-            <Text style={styles.label}>Description</Text>
+          <View style={[styles.card, { borderColor: glassBorder(0.08), backgroundColor: glass(0.05) }]}>
+            <Text style={[styles.label, { color: c.textMuted }]}>Title</Text>
+            <TextInput value={title} onChangeText={setTitle} style={[styles.input, { color: c.text, backgroundColor: glass(0.04), borderColor: glassBorder(0.1) }]} placeholderTextColor={c.textSubtle} />
+            <Text style={[styles.label, { color: c.textMuted }]}>Description</Text>
             <TextInput
               value={description}
               onChangeText={setDescription}
-              style={[styles.input, styles.multiline]}
+              style={[styles.input, styles.multiline, { color: c.text, backgroundColor: glass(0.04), borderColor: glassBorder(0.1) }]}
               multiline
-              placeholderTextColor={orbitColors.textSubtle}
+              placeholderTextColor={c.textSubtle}
             />
-            <Text style={styles.label}>Category</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>Category</Text>
             <View style={styles.chipWrap}>
               {categories.map((item) => {
                 const active = category === item;
@@ -363,13 +364,13 @@ export default function TaskDetailScreen() {
                   <Pressable
                     key={item}
                     onPress={() => setCategory(item)}
-                    style={[styles.choiceChip, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
-                    <Text style={[styles.choiceText, active && { color: accentTheme.primary }]}>{item}</Text>
+                    style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
+                    <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>{item}</Text>
                   </Pressable>
                 );
               })}
             </View>
-            <Text style={styles.label}>Assignee</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>Assignee</Text>
             <View style={styles.chipWrap}>
               {memberNames.map((name) => {
                 const active = assignee === name;
@@ -378,24 +379,24 @@ export default function TaskDetailScreen() {
                   <Pressable
                     key={name}
                     onPress={() => setAssignee(name)}
-                    style={[styles.choiceChip, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
+                    style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
                     <Text style={styles.choiceEmoji}>{member ? memberDisplayEmoji(member) : '👤'}</Text>
-                    <Text style={[styles.choiceText, active && { color: accentTheme.primary }]}>{name}</Text>
+                    <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>{name}</Text>
                   </Pressable>
                 );
               })}
             </View>
-            <Text style={styles.label}>Due</Text>
-            <TextInput value={due} onChangeText={setDue} style={styles.input} placeholderTextColor={orbitColors.textSubtle} />
-            <Text style={styles.label}>XP · slide the wheel</Text>
-            <View style={styles.xpWheelCard}>
+            <Text style={[styles.label, { color: c.textMuted }]}>Due</Text>
+            <TextInput value={due} onChangeText={setDue} style={[styles.input, { color: c.text, backgroundColor: glass(0.04), borderColor: glassBorder(0.1) }]} placeholderTextColor={c.textSubtle} />
+            <Text style={[styles.label, { color: c.textMuted }]}>XP · slide the wheel</Text>
+            <View style={[styles.xpWheelCard, { backgroundColor: glass(0.04), borderColor: glassBorder(0.08) }]}>
               <XpWheel
                 value={Number(xp) || 15}
                 onChange={(next) => setXp(String(next))}
                 accent={accentTheme.primary}
               />
             </View>
-            <Text style={styles.label}>Difficulty</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>Difficulty</Text>
             <View style={styles.chipWrap}>
               {difficulties.map((item) => {
                 const active = difficulty === item;
@@ -403,13 +404,13 @@ export default function TaskDetailScreen() {
                   <Pressable
                     key={item}
                     onPress={() => setDifficulty(item)}
-                    style={[styles.choiceChip, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
-                    <Text style={[styles.choiceText, active && { color: accentTheme.primary }]}>{item}</Text>
+                    style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
+                    <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>{item}</Text>
                   </Pressable>
                 );
               })}
             </View>
-            <Text style={styles.label}>Repeat</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>Repeat</Text>
             <View style={styles.chipWrap}>
               {repeats.map((item) => {
                 const active = repeat === item;
@@ -417,20 +418,20 @@ export default function TaskDetailScreen() {
                   <Pressable
                     key={item}
                     onPress={() => setRepeat(item)}
-                    style={[styles.choiceChip, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
-                    <Text style={[styles.choiceText, active && { color: accentTheme.primary }]}>{item}</Text>
+                    style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
+                    <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>{item}</Text>
                   </Pressable>
                 );
               })}
             </View>
             {rooms.length ? (
               <>
-                <Text style={styles.label}>Room</Text>
+                <Text style={[styles.label, { color: c.textMuted }]}>Room</Text>
                 <View style={styles.chipWrap}>
                   <Pressable
                     onPress={() => setRoomId(undefined)}
-                    style={[styles.choiceChip, !roomId && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
-                    <Text style={[styles.choiceText, !roomId && { color: accentTheme.primary }]}>None</Text>
+                    style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, !roomId && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
+                    <Text style={[styles.choiceText, { color: c.textMuted }, !roomId && { color: accentTheme.primary }]}>None</Text>
                   </Pressable>
                   {rooms.map((item) => {
                     const active = roomId === item.id;
@@ -438,9 +439,9 @@ export default function TaskDetailScreen() {
                       <Pressable
                         key={item.id}
                         onPress={() => setRoomId(item.id)}
-                        style={[styles.choiceChip, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
+                        style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
                         <Text style={styles.choiceEmoji}>{item.emoji}</Text>
-                        <Text style={[styles.choiceText, active && { color: accentTheme.primary }]}>{item.name}</Text>
+                        <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>{item.name}</Text>
                       </Pressable>
                     );
                   })}
@@ -449,16 +450,16 @@ export default function TaskDetailScreen() {
             ) : null}
           </View>
         ) : (
-          <View style={styles.card}>
+          <View style={[styles.card, { borderColor: glassBorder(0.08), backgroundColor: glass(0.05) }]}>
             <View style={styles.detailRow}>
-              <Text style={styles.label}>{split ? 'Split between' : 'Assignee'}</Text>
+              <Text style={[styles.label, { color: c.textMuted }]}>{split ? 'Split between' : 'Assignee'}</Text>
               <View style={styles.assigneeRow}>
                 {assigneeMember && !split ? (
                   <View style={[styles.avatar, { backgroundColor: `${memberColor}33` }]}>
                     <Text style={styles.avatarEmoji}>{memberDisplayEmoji(assigneeMember)}</Text>
                   </View>
                 ) : null}
-                <Text style={styles.value}>{task.assignee}</Text>
+                <Text style={[styles.value, { color: c.text }]}>{task.assignee}</Text>
               </View>
             </View>
             {(late || task.status === 'Overdue') &&
@@ -466,8 +467,8 @@ export default function TaskDetailScreen() {
             task.status !== 'Cancelled' &&
             (permissions.canAssignTask || permissions.canManageHousehold) ? (
               <View style={styles.detailRow}>
-                <Text style={styles.label}>Reassign (overdue)</Text>
-                <Text style={styles.body}>
+                <Text style={[styles.label, { color: c.textMuted }]}>Reassign (overdue)</Text>
+                <Text style={[styles.body, { color: c.textSoft }]}>
                   Hand this to someone else. They earn the XP when they finish.
                 </Text>
                 <View style={styles.chipWrap}>
@@ -498,8 +499,8 @@ export default function TaskDetailScreen() {
             ) : null}
             {split && task.shares ? (
               <View style={styles.detailRow}>
-                <Text style={styles.label}>Shares</Text>
-                <Text style={styles.body}>
+                <Text style={[styles.label, { color: c.textMuted }]}>Shares</Text>
+                <Text style={[styles.body, { color: c.textSoft }]}>
                   Each earns {splitShareXp(task)} XP · all-done bonus {splitAllDoneBonus(task)} XP · admin
                   penalty {splitPenaltyAmount(task)} XP
                 </Text>
@@ -514,8 +515,8 @@ export default function TaskDetailScreen() {
                         </Text>
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.value}>{share.name}</Text>
-                        <Text style={styles.body}>
+                        <Text style={[styles.value, { color: c.text }]}>{share.name}</Text>
+                        <Text style={[styles.body, { color: c.textSoft }]}>
                           {share.status}
                           {needsProof
                             ? ` · ${proofStatusLabel(share.proofStatus, share.status === 'Completed')}`
@@ -561,13 +562,13 @@ export default function TaskDetailScreen() {
             ) : null}
             {showProofPreview ? (
               <View style={styles.detailRow}>
-                <Text style={styles.label}>Attached photo</Text>
-                <Image source={{ uri: myProofUri }} style={styles.proofImage} resizeMode="cover" />
+                <Text style={[styles.label, { color: c.textMuted }]}>Attached photo</Text>
+                <Image source={{ uri: myProofUri }} style={[styles.proofImage, { backgroundColor: glass(0.06) }]} resizeMode="cover" />
               </View>
             ) : null}
             <View style={styles.detailRow}>
-              <Text style={styles.label}>Description</Text>
-              <Text style={styles.body}>{task.description || 'No additional details for this task.'}</Text>
+              <Text style={[styles.label, { color: c.textMuted }]}>Description</Text>
+              <Text style={[styles.body, { color: c.textSoft }]}>{task.description || 'No additional details for this task.'}</Text>
             </View>
           </View>
         )}
@@ -583,8 +584,8 @@ export default function TaskDetailScreen() {
                 <Text style={styles.ctaText}>{busy ? 'Saving…' : 'Save changes'}</Text>
               </LinearGradient>
             </Pressable>
-            <Pressable onPress={() => setEditing(false)} style={styles.secondaryBtn}>
-              <Text style={styles.secondaryMuted}>Cancel edit</Text>
+            <Pressable onPress={() => setEditing(false)} style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
+              <Text style={[styles.secondaryMuted, { color: c.textMuted }]}>Cancel edit</Text>
             </Pressable>
           </>
         ) : (
@@ -637,7 +638,7 @@ export default function TaskDetailScreen() {
             !permissions.canApproveReward &&
             canCompleteMine ? (
               <View style={styles.waitCard}>
-                <MaterialIcons name="hourglass-top" size={18} color={orbitColors.warning} />
+                <MaterialIcons name="hourglass-top" size={18} color={c.warning} />
                 <Text style={styles.waitText}>Proof sent to admin for review.</Text>
               </View>
             ) : null}
@@ -645,7 +646,7 @@ export default function TaskDetailScreen() {
             !split &&
             task.proofStatus === 'submitted' &&
             permissions.canApproveReward ? (
-              <Pressable disabled={proofBusy} onPress={() => void handleApproveProof()} style={styles.secondaryBtn}>
+              <Pressable disabled={proofBusy} onPress={() => void handleApproveProof()} style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
                 <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
                   {proofBusy ? 'Approving…' : 'Approve proof'}
                 </Text>
@@ -653,15 +654,15 @@ export default function TaskDetailScreen() {
             ) : null}
             {split && myShare?.status === 'Completed' && task.status !== 'Completed' ? (
               <View style={styles.waitCard}>
-                <MaterialIcons name="check-circle" size={18} color={orbitColors.success} />
+                <MaterialIcons name="check-circle" size={18} color={c.success} />
                 <Text style={styles.waitText}>
                   Your share is done. Waiting on others — all-done bonus when everyone finishes.
                 </Text>
               </View>
             ) : null}
             {permissions.canManageHousehold && task.status !== 'Completed' && task.status !== 'Cancelled' ? (
-              <Pressable onPress={confirmCancel} style={styles.secondaryBtn}>
-                <Text style={[styles.secondaryText, { color: orbitColors.warning }]}>
+              <Pressable onPress={confirmCancel} style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
+                <Text style={[styles.secondaryText, { color: c.warning }]}>
                   Cancel task{task.status === 'Overdue' ? ' (overdue ok)' : ''}
                 </Text>
               </Pressable>
@@ -687,10 +688,11 @@ export default function TaskDetailScreen() {
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const { c } = useOrbitColors();
   return (
     <View style={styles.detailRow}>
-      <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value}>{value}</Text>
+      <Text style={[styles.label, { color: c.textMuted }]}>{label}</Text>
+      <Text style={[styles.value, { color: c.text }]}>{value}</Text>
     </View>
   );
 }
@@ -718,8 +720,6 @@ const styles = StyleSheet.create({
   },
   xpWheelCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
     borderWidth: 1,
     marginBottom: 8,
@@ -730,7 +730,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.18)',
     marginTop: 8,
     marginBottom: 4,
   },
@@ -740,7 +739,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    
   },
   iconBtn: {
     width: 40,
@@ -748,37 +747,32 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
+    },
   headerCopy: { flex: 1, alignItems: 'center' },
   kicker: {
-    color: orbitColors.textMuted,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
-  title: { color: orbitColors.text, fontSize: 18, fontWeight: '800', marginTop: 2 },
+  title: { fontSize: 18, fontWeight: '800', marginTop: 2 },
   content: { padding: 16, gap: 12 },
-  heroTitle: { color: orbitColors.text, fontSize: 24, fontWeight: '800', lineHeight: 30 },
+  heroTitle: { fontSize: 24, fontWeight: '800', lineHeight: 30 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   statusChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.06)',
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   statusDot: { width: 6, height: 6, borderRadius: 999 },
   statusText: { fontSize: 12, fontWeight: '700' },
-  metaChipText: { color: orbitColors.textMuted, fontSize: 12, fontWeight: '700' },
+  metaChipText: { fontSize: 12, fontWeight: '700' },
   card: {
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
     padding: 16,
     gap: 12,
   },
@@ -786,16 +780,15 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(52,211,153,0.3)',
     backgroundColor: 'rgba(52,211,153,0.1)',
   },
-  cardTitle: { color: orbitColors.text, fontSize: 16, fontWeight: '800' },
+  cardTitle: { fontSize: 16, fontWeight: '800' },
   label: {
-    color: orbitColors.textMuted,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
-  value: { color: orbitColors.text, fontSize: 16, fontWeight: '700' },
-  body: { color: orbitColors.textSoft, fontSize: 14, lineHeight: 20 },
+  value: { fontSize: 16, fontWeight: '700' },
+  body: { fontSize: 14, lineHeight: 20 },
   detailRow: { gap: 6 },
   assigneeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatar: {
@@ -810,8 +803,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
+    },
   waitCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -823,13 +815,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  waitText: { flex: 1, color: orbitColors.warning, fontSize: 13, fontWeight: '700' },
+  waitText: { flex: 1, color: '#FB923C', fontSize: 13, fontWeight: '700' },
   input: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    color: orbitColors.text,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
@@ -842,13 +831,11 @@ const styles = StyleSheet.create({
     gap: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   choiceEmoji: { fontSize: 13 },
-  choiceText: { color: orbitColors.textMuted, fontSize: 12, fontWeight: '700' },
+  choiceText: { fontSize: 12, fontWeight: '700' },
   ctaWrap: { borderRadius: 18, overflow: 'hidden' },
   cta: {
     flexDirection: 'row',
@@ -863,11 +850,9 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
+    },
   secondaryText: { fontSize: 14, fontWeight: '700' },
-  secondaryMuted: { color: orbitColors.textMuted, fontSize: 14, fontWeight: '700' },
+  secondaryMuted: { fontSize: 14, fontWeight: '700' },
   dangerBtn: {
     alignItems: 'center',
     paddingVertical: 13,
@@ -876,9 +861,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(248,113,113,0.35)',
     backgroundColor: 'rgba(248,113,113,0.1)',
   },
-  dangerText: { color: orbitColors.danger, fontSize: 14, fontWeight: '700' },
+  dangerText: { color: '#F87171', fontSize: 14, fontWeight: '700' },
   missingTitle: {
-    color: orbitColors.text,
     fontSize: 18,
     fontWeight: '800',
     paddingHorizontal: 20,

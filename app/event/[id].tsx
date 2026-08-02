@@ -7,7 +7,8 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent } from '@/types/orbit';
 
@@ -136,10 +137,11 @@ export default function EventDetailScreen() {
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const { c } = useOrbitColors();
   return (
     <View style={styles.row}>
       <Text style={typography.footnote}>{label}</Text>
-      <Text style={styles.value}>{value}</Text>
+      <Text style={[styles.value, { color: c.text }]}>{value}</Text>
     </View>
   );
 }
@@ -152,7 +154,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   value: {
-    color: orbitColors.text,
     fontSize: 16,
     fontWeight: '700',
   },

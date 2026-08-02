@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { orbitColors, orbitScreen, radius, typography } from '@/constants/orbit-theme';
+import { orbitScreen, radius, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function RewardTallyScreen() {
@@ -20,6 +21,7 @@ export default function RewardTallyScreen() {
     redemptions,
     rejectRedemption,
   } = useOrbit();
+  const { c, glass, glassBorder } = useOrbitColors();
 
   const sorted = useMemo(
     () =>
@@ -34,7 +36,7 @@ export default function RewardTallyScreen() {
 
   return (
     <ScrollView
-      style={orbitScreen.container}
+      style={[orbitScreen.container, { backgroundColor: c.background }]}
       contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.topRow}>
@@ -46,32 +48,46 @@ export default function RewardTallyScreen() {
 
       <View style={orbitScreen.header}>
         <ChoremaxxBadge />
-        <Text style={[typography.footnote, { marginTop: 8 }]}>Redeem ledger</Text>
-        <Text style={typography.title1}>Reward tally</Text>
-        <Text style={typography.body}>
+        <Text style={[typography.footnote, { marginTop: 8, color: c.textMuted }]}>Redeem ledger</Text>
+        <Text style={[typography.title1, { color: c.text }]}>Reward tally</Text>
+        <Text style={[typography.body, { color: c.textSoft }]}>
           Pending, approved, and rejected asks — with origin so admins know mint vs special request.
         </Text>
       </View>
 
       <View style={styles.statsRow}>
-        <View style={[styles.statChip, { borderColor: `${accentTheme.primary}44` }]}>
-          <Text style={styles.statValue}>{pendingCount}</Text>
-          <Text style={styles.statLabel}>Pending</Text>
+        <View
+          style={[
+            styles.statChip,
+            { backgroundColor: glass(0.04), borderColor: `${accentTheme.primary}44` },
+          ]}>
+          <Text style={[styles.statValue, { color: c.text }]}>{pendingCount}</Text>
+          <Text style={[styles.statLabel, { color: c.textMuted }]}>Pending</Text>
         </View>
-        <View style={[styles.statChip, { borderColor: 'rgba(52,211,153,0.4)' }]}>
-          <Text style={[styles.statValue, { color: orbitColors.success }]}>{approvedCount}</Text>
-          <Text style={styles.statLabel}>Approved</Text>
+        <View
+          style={[
+            styles.statChip,
+            { backgroundColor: glass(0.04), borderColor: 'rgba(52,211,153,0.4)' },
+          ]}>
+          <Text style={[styles.statValue, { color: c.success }]}>{approvedCount}</Text>
+          <Text style={[styles.statLabel, { color: c.textMuted }]}>Approved</Text>
         </View>
-        <View style={[styles.statChip, { borderColor: 'rgba(255,255,255,0.12)' }]}>
-          <Text style={styles.statValue}>{sorted.length}</Text>
-          <Text style={styles.statLabel}>Total</Text>
+        <View
+          style={[
+            styles.statChip,
+            { backgroundColor: glass(0.04), borderColor: glassBorder(0.12) },
+          ]}>
+          <Text style={[styles.statValue, { color: c.text }]}>{sorted.length}</Text>
+          <Text style={[styles.statLabel, { color: c.textMuted }]}>Total</Text>
         </View>
       </View>
 
       {sorted.length === 0 ? (
         <GlassCard>
-          <Text style={typography.headline}>No redemptions yet</Text>
-          <Text style={typography.footnote}>Redeem from the shop or send a special request.</Text>
+          <Text style={[typography.headline, { color: c.text }]}>No redemptions yet</Text>
+          <Text style={[typography.footnote, { color: c.textMuted }]}>
+            Redeem from the shop or send a special request.
+          </Text>
         </GlassCard>
       ) : (
         sorted.map((redemption) => {
@@ -83,7 +99,7 @@ export default function RewardTallyScreen() {
           return (
             <GlassCard key={redemption.id} style={styles.card}>
               <View style={styles.cardHead}>
-                <Text style={typography.headline}>
+                <Text style={[typography.headline, { color: c.text }]}>
                   {reward?.emoji ? `${reward.emoji} ` : ''}
                   {reward?.title ?? 'Reward'}
                 </Text>
@@ -94,20 +110,22 @@ export default function RewardTallyScreen() {
                     redemption.status === 'approved' && styles.statusApproved,
                     redemption.status === 'rejected' && styles.statusRejected,
                   ]}>
-                  <Text style={styles.statusText}>{redemption.status}</Text>
+                  <Text style={[styles.statusText, { color: c.textSoft }]}>{redemption.status}</Text>
                 </View>
               </View>
-              <Text style={typography.footnote}>
+              <Text style={[typography.footnote, { color: c.textMuted }]}>
                 {member?.name ?? 'Member'} · {reward?.cost ?? '—'} XP · {originLabel}
                 {reward?.createdByName ? ` · by ${reward.createdByName}` : ''}
               </Text>
-              <Text style={styles.time}>
+              <Text style={[styles.time, { color: c.textSubtle }]}>
                 Asked {new Date(redemption.requestedAt).toLocaleString()}
                 {redemption.decidedAt
                   ? ` · Decided ${new Date(redemption.decidedAt).toLocaleString()}`
                   : ''}
               </Text>
-              {redemption.note ? <Text style={styles.note}>“{redemption.note}”</Text> : null}
+              {redemption.note ? (
+                <Text style={[styles.note, { color: c.textMuted }]}>“{redemption.note}”</Text>
+              ) : null}
               {redemption.status === 'pending' && permissions.canApproveReward ? (
                 <View style={styles.actions}>
                   <OrbitButton
@@ -137,7 +155,6 @@ const styles = StyleSheet.create({
   backLabel: { fontSize: 15, fontWeight: '600' },
   statsRow: { flexDirection: 'row', gap: 10 },
   statChip: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: radius.card,
     borderWidth: 1,
     flex: 1,
@@ -145,8 +162,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
-  statValue: { color: orbitColors.text, fontSize: 20, fontWeight: '800' },
-  statLabel: { color: orbitColors.textMuted, fontSize: 11, fontWeight: '600' },
+  statValue: { fontSize: 20, fontWeight: '800' },
+  statLabel: { fontSize: 11, fontWeight: '600' },
   card: { gap: 8 },
   cardHead: {
     alignItems: 'center',
@@ -163,13 +180,12 @@ const styles = StyleSheet.create({
   statusApproved: { backgroundColor: 'rgba(52,211,153,0.18)' },
   statusRejected: { backgroundColor: 'rgba(248,113,113,0.18)' },
   statusText: {
-    color: orbitColors.textSoft,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'capitalize',
   },
-  time: { color: orbitColors.textSubtle, fontSize: 11 },
-  note: { color: orbitColors.textMuted, fontSize: 13, fontStyle: 'italic' },
+  time: { fontSize: 11 },
+  note: { fontSize: 13, fontStyle: 'italic' },
   actions: { flexDirection: 'row', gap: 8, marginTop: 4 },
   actionBtn: { flex: 1 },
 });

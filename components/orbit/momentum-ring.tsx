@@ -1,7 +1,7 @@
 import Svg, { Circle } from 'react-native-svg';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { orbitColors } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type MomentumRingProps = {
   /** Make API: 0–1 fractions */
@@ -27,6 +27,7 @@ export function MomentumRing({
   score = 72,
   size = BASE_CONTAINER,
 }: MomentumRingProps) {
+  const { c } = useOrbitColors();
   const t = tasks ?? Math.min(1, Math.max(0, score / 100));
   const e = energy ?? Math.min(1, Math.max(0, (score + 8) / 100));
   const h = harmony ?? Math.min(1, Math.max(0, (score - 10) / 100));
@@ -40,8 +41,8 @@ export function MomentumRing({
   const cy = size / 2;
 
   const ring = (radius: number, value: number, color: string, track: string) => {
-    const c = 2 * Math.PI * radius;
-    const offset = c * (1 - value);
+    const circ = 2 * Math.PI * radius;
+    const offset = circ * (1 - value);
     return (
       <>
         <Circle cx={cx} cy={cy} r={radius} stroke={track} strokeWidth={stroke} fill="none" />
@@ -53,7 +54,7 @@ export function MomentumRing({
           strokeWidth={stroke}
           fill="none"
           strokeLinecap="round"
-          strokeDasharray={`${c} ${c}`}
+          strokeDasharray={`${circ} ${circ}`}
           strokeDashoffset={offset}
           rotation={-90}
           origin={`${cx}, ${cy}`}
@@ -71,7 +72,9 @@ export function MomentumRing({
       </Svg>
       <View style={styles.center}>
         <Text style={[styles.pct, { fontSize: 13 * scale }]}>{Math.round(t * 100)}%</Text>
-        <Text style={[styles.label, { fontSize: 9 * scale, lineHeight: 11 * scale }]}>today</Text>
+        <Text style={[styles.label, { fontSize: 9 * scale, lineHeight: 11 * scale, color: c.textMuted }]}>
+          today
+        </Text>
       </View>
     </View>
   );
@@ -85,7 +88,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
-    color: orbitColors.textMuted,
     fontSize: 9,
     lineHeight: 11,
   },

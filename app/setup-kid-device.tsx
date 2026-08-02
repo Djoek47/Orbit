@@ -18,6 +18,7 @@ import {
   listSharedDevices,
   resolveSharedDevicePeople,
 } from '@/lib/household/shared-device';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
 
@@ -28,6 +29,7 @@ import type { HouseholdMember } from '@/types/orbit';
 export default function SetupKidDeviceScreen() {
   const insets = useSafeAreaInsets();
   const { createSharedDevice, household, switchPersona, updateSharedDeviceLinks } = useOrbit();
+  const { c } = useOrbitColors();
   const [code, setCode] = useState('');
   const [hosted, setHosted] = useState<HouseholdMember[]>([]);
   const [deviceLabel, setDeviceLabel] = useState('Kids tablet');
@@ -116,7 +118,7 @@ export default function SetupKidDeviceScreen() {
       <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.back}>
-            <MaterialIcons name="arrow-back" size={20} color={orbitColors.text} />
+            <MaterialIcons name="arrow-back" size={20} color={c.text} />
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={typography.footnote}>Shared / kid device</Text>
@@ -125,29 +127,29 @@ export default function SetupKidDeviceScreen() {
         </View>
 
         <KeyboardScreen style={styles.scroll} contentContainerStyle={styles.content}>
-          <Text style={styles.body}>
+          <Text style={[styles.body, { color: c.textMuted }]}>
             Enter or scan each person&apos;s profile code. This tablet will ask “Who&apos;s logging
             in?” before opening Choremaxx — like Netflix on a shared TV.
           </Text>
 
-          <Text style={styles.label}>Device name</Text>
+          <Text style={[styles.label, { color: c.textSoft }]}>Device name</Text>
           <TextInput
             value={deviceLabel}
             onChangeText={setDeviceLabel}
             placeholder="Kids tablet"
-            placeholderTextColor={orbitColors.textSubtle}
-            style={styles.input}
+            placeholderTextColor={c.textSubtle}
+            style={[styles.input, { color: c.text }]}
           />
 
-          <Text style={styles.label}>Add profile code</Text>
+          <Text style={[styles.label, { color: c.textSoft }]}>Add profile code</Text>
           <View style={styles.codeRow}>
             <TextInput
               value={code}
               onChangeText={setCode}
               autoCapitalize="characters"
               placeholder="CMX-JOSH"
-              placeholderTextColor={orbitColors.textSubtle}
-              style={[styles.input, styles.codeInput]}
+              placeholderTextColor={c.textSubtle}
+              style={[styles.input, styles.codeInput, { color: c.text }]}
               onSubmitEditing={() => addCode(code)}
             />
             <Pressable style={styles.scanBtn} onPress={() => setScannerOpen(true)}>
@@ -162,13 +164,15 @@ export default function SetupKidDeviceScreen() {
 
           {hosted.length > 0 ? (
             <View style={styles.hosted}>
-              <Text style={styles.label}>Profiles on this device</Text>
+              <Text style={[styles.label, { color: c.textSoft }]}>Profiles on this device</Text>
               {hosted.map((person) => (
                 <View key={person.id} style={styles.hostedRow}>
                   <Text style={styles.hostedEmoji}>{memberDisplayEmoji(person)}</Text>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.hostedName}>{person.name}</Text>
-                    <Text style={styles.hostedCode}>{ensureProfileInviteCode(person)}</Text>
+                    <Text style={[styles.hostedName, { color: c.text }]}>{person.name}</Text>
+                    <Text style={[styles.hostedCode, { color: c.textMuted }]}>
+                      {ensureProfileInviteCode(person)}
+                    </Text>
                   </View>
                   <Pressable onPress={() => removeHosted(person.id)}>
                     <MaterialIcons name="close" size={18} color="#F87171" />
@@ -179,7 +183,9 @@ export default function SetupKidDeviceScreen() {
           ) : null}
 
           {demoCodes.length > 0 ? (
-            <Text style={styles.hint}>Demo profile codes · {demoCodes.join(' · ')}</Text>
+            <Text style={[styles.hint, { color: c.textSubtle }]}>
+              Demo profile codes · {demoCodes.join(' · ')}
+            </Text>
           ) : null}
 
           <OrbitButton disabled={busy || hosted.length === 0} onPress={() => void finish()}>
@@ -249,12 +255,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.xl,
   },
   body: {
-    color: orbitColors.textMuted,
     fontSize: 15,
     lineHeight: 22,
   },
   label: {
-    color: orbitColors.textSoft,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.4,
@@ -265,7 +269,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: radius.card,
     borderWidth: 1,
-    color: orbitColors.text,
     fontSize: 16,
     fontWeight: '600',
     paddingHorizontal: 14,
@@ -305,10 +308,9 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   hostedEmoji: { fontSize: 28 },
-  hostedName: { color: orbitColors.text, fontSize: 15, fontWeight: '700' },
-  hostedCode: { color: orbitColors.textMuted, fontSize: 12, marginTop: 2 },
+  hostedName: { fontSize: 15, fontWeight: '700' },
+  hostedCode: { fontSize: 12, marginTop: 2 },
   hint: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
     lineHeight: 17,
   },

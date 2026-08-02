@@ -6,10 +6,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function PendingApprovalScreen() {
   const { household, refreshHousehold } = useOrbit();
+  const { c } = useOrbitColors();
   const [busy, setBusy] = useState(false);
 
   return (
@@ -19,15 +21,15 @@ export default function PendingApprovalScreen() {
       subtitle={`Your request to join ${household.householdName} is pending. An owner or admin needs to approve you before full access unlocks.`}
       footer={
         <Pressable onPress={() => router.push('/settings' as never)} style={styles.secondary}>
-          <Text style={styles.secondaryText}>Open settings</Text>
+          <Text style={[styles.secondaryText, { color: c.textMuted }]}>Open settings</Text>
         </Pressable>
       }>
       <View style={styles.pill}>
         <MaterialIcons name="hourglass-empty" size={14} color={orbitColors.warning} />
         <Text style={styles.pillText}>Pending adult</Text>
       </View>
-      <Text style={styles.cardTitle}>Limited access is active</Text>
-      <Text style={styles.body}>
+      <Text style={[styles.cardTitle, { color: c.text }]}>Limited access is active</Text>
+      <Text style={[styles.body, { color: c.textSoft }]}>
         You can browse calmly, but creating tasks, groceries, and invites stay locked until approval lands.
       </Text>
 
@@ -60,8 +62,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   pillText: { color: orbitColors.warning, fontSize: 12, fontWeight: '700' },
-  cardTitle: { color: orbitColors.text, fontSize: 16, fontWeight: '800' },
-  body: { color: orbitColors.textSoft, fontSize: 14, lineHeight: 20 },
+  cardTitle: { fontSize: 16, fontWeight: '800' },
+  body: { fontSize: 14, lineHeight: 20 },
   secondary: {
     alignItems: 'center',
     borderRadius: 18,
@@ -70,5 +72,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
     paddingVertical: 14,
   },
-  secondaryText: { color: orbitColors.textMuted, fontSize: 14, fontWeight: '700' },
+  secondaryText: { fontSize: 14, fontWeight: '700' },
 });

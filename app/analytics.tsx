@@ -4,11 +4,13 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function AnalyticsScreen() {
   const { household, metrics, novaWeeklyBriefing, permissions } = useOrbit();
+  const { c } = useOrbitColors();
 
   if (!permissions.canViewAnalytics) {
     return (
@@ -41,7 +43,7 @@ export default function AnalyticsScreen() {
 
       <GlassCard style={styles.card}>
         <StatusPill label="Participation" tone="blue" />
-        <Text style={styles.metric}>{metrics.taskCompletionRate}%</Text>
+        <Text style={[styles.metric, { color: c.text }]}>{metrics.taskCompletionRate}%</Text>
         <Text style={typography.footnote}>Task completion across the household</Text>
         <Text style={typography.footnote}>
           {household.members.length} members · {totalXp} total XP · avg load {avgLoad}%
@@ -50,7 +52,7 @@ export default function AnalyticsScreen() {
 
       <GlassCard style={styles.card}>
         <StatusPill label="Momentum" tone="cyan" />
-        <Text style={styles.metric}>{metrics.momentum}</Text>
+        <Text style={[styles.metric, { color: c.text }]}>{metrics.momentum}</Text>
         <Text style={typography.footnote}>
           Composite of tasks ({metrics.taskCompletionRate}%), groceries ({metrics.groceryReadiness}%),
           calendar ({metrics.calendarCoverage}%)
@@ -63,7 +65,7 @@ export default function AnalyticsScreen() {
 
       <GlassCard style={styles.card}>
         <StatusPill label="Nova usage" tone="green" />
-        <Text style={styles.metric}>{novaWeeklyBriefing.recommendations.length}</Text>
+        <Text style={[styles.metric, { color: c.text }]}>{novaWeeklyBriefing.recommendations.length}</Text>
         <Text style={typography.footnote}>Active recommendation slots this week</Text>
         <Text style={typography.footnote}>Briefing: {novaWeeklyBriefing.title}</Text>
         <Text style={typography.footnote}>Ask Nova from the Nova tab for live co-manager guidance.</Text>
@@ -85,7 +87,6 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   metric: {
-    color: orbitColors.text,
     fontSize: 34,
     fontWeight: '800',
   },

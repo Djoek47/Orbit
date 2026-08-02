@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getNotificationRoute } from '@/lib/notifications/navigate';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { NotificationItem } from '@/types/orbit';
 
@@ -59,6 +60,7 @@ export default function NotificationsScreen() {
     refreshNotifications,
     unreadNotificationCount,
   } = useOrbit();
+  const { c } = useOrbitColors();
   const [filter, setFilter] = useState<FilterKey>('all');
 
   useEffect(() => {
@@ -124,7 +126,9 @@ export default function NotificationsScreen() {
                 key={item.key}
                 onPress={() => setFilter(item.key)}
                 style={[styles.filterChip, active && styles.filterChipActive]}>
-                <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{item.label}</Text>
+                <Text style={[styles.filterLabel, { color: c.textSubtle }, active && styles.filterLabelActive]}>
+                  {item.label}
+                </Text>
               </Pressable>
             );
           })}
@@ -145,7 +149,7 @@ export default function NotificationsScreen() {
         {filtered.length === 0 ? (
           <View style={styles.emptyCard}>
             <View style={styles.emptyIcon}>
-              <MaterialIcons name="notifications-none" size={28} color="#4B6080" />
+              <MaterialIcons name="notifications-none" size={28} color={c.textSubtle} />
             </View>
             <Text style={[styles.emptyTitle, { color: orbitPalette.text }]}>No notifications</Text>
             <Text style={[styles.emptyBody, { color: orbitPalette.textSubtle }]}>
@@ -177,8 +181,10 @@ export default function NotificationsScreen() {
                 <View style={styles.cardCopy}>
                   <View style={styles.cardMeta}>
                     <Text style={[styles.cardAction, { color: ui.color }]}>{ui.action}</Text>
-                    <Text style={styles.cardDot}>·</Text>
-                    <Text style={styles.cardTime}>{formatRelativeTime(item.createdAt)}</Text>
+                    <Text style={[styles.cardDot, { color: c.textFaint }]}>·</Text>
+                    <Text style={[styles.cardTime, { color: c.textFaint }]}>
+                      {formatRelativeTime(item.createdAt)}
+                    </Text>
                     {!item.isRead ? <View style={styles.unreadDot} /> : null}
                   </View>
                   <Text
@@ -190,7 +196,7 @@ export default function NotificationsScreen() {
                     numberOfLines={2}>
                     {item.title}
                   </Text>
-                  <Text style={styles.cardDetail} numberOfLines={3}>
+                  <Text style={[styles.cardDetail, { color: c.textMuted }]} numberOfLines={3}>
                     {item.body}
                   </Text>
                   {getNotificationRoute(item) ? (
@@ -204,7 +210,9 @@ export default function NotificationsScreen() {
         )}
 
         <View style={styles.footerNote}>
-          <Text style={styles.footerText}>Household inbox · Nova Monitor + app alerts</Text>
+          <Text style={[styles.footerText, { color: c.textFaint }]}>
+            Household inbox · Nova Monitor + app alerts
+          </Text>
         </View>
       </ScrollView>
     </View>
@@ -282,7 +290,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(56,189,248,0.3)',
   },
   filterLabel: {
-    color: '#4B6080',
     fontSize: 13,
     fontWeight: '500',
   },
@@ -352,11 +359,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cardDot: {
-    color: '#2A3A54',
     fontSize: 12,
   },
   cardTime: {
-    color: '#2A3A54',
     fontSize: 12,
   },
   unreadDot: {
@@ -376,7 +381,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cardDetail: {
-    color: '#7C9CC0',
     fontSize: 13,
     lineHeight: 18,
     marginTop: 2,
@@ -423,7 +427,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   footerText: {
-    color: '#2A3A54',
     fontSize: 11,
     fontWeight: '600',
   },

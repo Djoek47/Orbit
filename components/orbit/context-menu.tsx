@@ -16,7 +16,7 @@ import {
 
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
-import { useOrbitOptional } from '@/store/orbit-store';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 export type ContextMenuAction = {
   key: string;
@@ -37,8 +37,7 @@ type ContextMenuProps = {
  * docs/design-system/05-component-library.md "Context Menu".
  */
 export function ContextMenu({ actions, children }: ContextMenuProps) {
-  const orbit = useOrbitOptional();
-  const isDark = orbit?.orbitPalette.isDark ?? true;
+  const { c, isDark } = useOrbitColors();
   const [visible, setVisible] = useState(false);
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number } | null>(null);
   const layoutRef = useRef<LayoutRectangle | null>(null);
@@ -96,7 +95,7 @@ export function ContextMenu({ actions, children }: ContextMenuProps) {
                     style={[
                       typography.body,
                       styles.rowLabel,
-                      action.destructive && { color: orbitColors.danger },
+                      { color: action.destructive ? orbitColors.danger : c.text },
                     ]}>
                     {action.label}
                   </Text>
@@ -104,7 +103,7 @@ export function ContextMenu({ actions, children }: ContextMenuProps) {
                     <MaterialIcons
                       name={action.icon}
                       size={18}
-                      color={action.destructive ? orbitColors.danger : orbitColors.textMuted}
+                      color={action.destructive ? orbitColors.danger : c.textMuted}
                     />
                   ) : null}
                 </Pressable>

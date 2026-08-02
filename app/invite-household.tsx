@@ -8,12 +8,14 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors, radius, space } from '@/constants/orbit-theme';
 import { buildInviteLinks } from '@/lib/invites/parse-invite';
 import { shareInvite } from '@/lib/invites/share-invite';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { householdRepository } from '@/repositories';
 import { useOrbit } from '@/store/orbit-store';
 import type { InviteLinks } from '@/types/orbit';
 
 export default function InviteHouseholdScreen() {
   const { household, inviteLinks, orbitPalette, permissions, refreshInviteLinks } = useOrbit();
+  const { c } = useOrbitColors();
   const [links, setLinks] = useState<InviteLinks | null>(inviteLinks);
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [shareStatus, setShareStatus] = useState('');
@@ -50,7 +52,9 @@ export default function InviteHouseholdScreen() {
       <AuthShell
         title="Add member locked"
         subtitle="Only owners and admins can add new household members.">
-        <Text style={styles.body}>Ask an owner or admin to share an invite from Manage Members.</Text>
+        <Text style={[styles.body, { color: c.textSoft }]}>
+          Ask an owner or admin to share an invite from Manage Members.
+        </Text>
       </AuthShell>
     );
   }
@@ -108,7 +112,7 @@ export default function InviteHouseholdScreen() {
       <View style={styles.qrWrap}>
         <QRCode value={webLink} size={160} backgroundColor="#FFFFFF" color={orbitPalette.ink} />
       </View>
-      <Text selectable style={styles.code}>
+      <Text selectable style={[styles.code, { color: c.text }]}>
         {inviteCode}
       </Text>
       <OrbitButton onPress={handleAirDropShare}>
@@ -122,7 +126,7 @@ export default function InviteHouseholdScreen() {
       <OrbitButton disabled={refreshing || !household.id} tone="secondary" onPress={handleRefresh}>
         {refreshing ? 'Refreshing…' : 'Refresh code'}
       </OrbitButton>
-      <Text selectable style={styles.linkCaption}>
+      <Text selectable style={[styles.linkCaption, { color: c.textSubtle }]}>
         {webLink}
       </Text>
     </AuthShell>
@@ -131,12 +135,10 @@ export default function InviteHouseholdScreen() {
 
 const styles = StyleSheet.create({
   body: {
-    color: orbitColors.textSoft,
     fontSize: 14,
     lineHeight: 20,
   },
   code: {
-    color: orbitColors.text,
     fontSize: 28,
     fontVariant: ['tabular-nums'],
     fontWeight: '900',
@@ -149,7 +151,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   linkCaption: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
     lineHeight: 16,
   },

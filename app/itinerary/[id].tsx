@@ -10,6 +10,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RouteSteps } from '@/components/orbit/route-steps';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { ItineraryStopKind } from '@/types/orbit';
 
@@ -61,6 +62,7 @@ function mapsLabel(app: string): string {
 export default function ItineraryDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { c } = useOrbitColors();
   const {
     advanceItineraryStop,
     accentTheme,
@@ -155,7 +157,9 @@ export default function ItineraryDetailScreen() {
       <View style={styles.header}>
         <PageEyebrow>{formatTripDate(itinerary.date)}</PageEyebrow>
         <Text style={typography.title1}>{itinerary.title}</Text>
-        {itinerary.summary ? <Text style={styles.summary}>{itinerary.summary}</Text> : null}
+        {itinerary.summary ? (
+          <Text style={[styles.summary, { color: c.textMuted }]}>{itinerary.summary}</Text>
+        ) : null}
         <View style={styles.metaRow}>
           <View style={[styles.statusChip, { backgroundColor: `${tripColor}18` }]}>
             <Text style={[styles.statusChipText, { color: tripColor }]}>
@@ -174,7 +178,7 @@ export default function ItineraryDetailScreen() {
               <Text style={[styles.statusChipText, { color: orbitColors.novaCyan }]}>Nova</Text>
             </View>
           ) : null}
-          <Text style={styles.progress}>
+          <Text style={[styles.progress, { color: c.textMuted }]}>
             {doneCount}/{ordered.length}
           </Text>
         </View>
@@ -243,7 +247,7 @@ export default function ItineraryDetailScreen() {
               style={[
                 styles.reorderLabel,
                 { color: orbitPalette.text },
-                stop.status === 'done' && styles.doneText,
+                stop.status === 'done' && [styles.doneText, { color: c.textSubtle }],
               ]}
               numberOfLines={1}>
               {index + 1}. {stop.label}
@@ -271,7 +275,7 @@ export default function ItineraryDetailScreen() {
             size={16}
             color={orbitColors.rankGold}
           />
-          <Text style={styles.secondaryLabel}>
+          <Text style={[styles.secondaryLabel, { color: c.textSoft }]}>
             {itinerary.favorite ? 'Preferred' : 'Save preferred'}
           </Text>
         </Pressable>
@@ -319,7 +323,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   doneText: {
-    color: orbitColors.textSubtle,
     textDecorationLine: 'line-through',
   },
   header: {
@@ -340,7 +343,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   progress: {
-    color: orbitColors.textMuted,
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 'auto',
@@ -381,7 +383,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   secondaryLabel: {
-    color: orbitColors.textSoft,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -423,7 +424,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   summary: {
-    color: orbitColors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },

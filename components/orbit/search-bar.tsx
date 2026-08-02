@@ -7,6 +7,7 @@ import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated'
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { motionDuration } from '@/constants/motion-tokens';
 import { orbitColors, radius, space } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type SearchBarProps = {
@@ -23,7 +24,7 @@ type SearchBarProps = {
  */
 export function SearchBar({ value, onChangeText, placeholder = 'Search', onFocusChange }: SearchBarProps) {
   const orbit = useOrbitOptional();
-  const isDark = orbit?.orbitPalette.isDark ?? true;
+  const { c, isDark } = useOrbitColors();
   const [focused, setFocused] = useState(false);
 
   const cancelStyle = useAnimatedStyle(() => ({
@@ -53,14 +54,14 @@ export function SearchBar({ value, onChangeText, placeholder = 'Search', onFocus
             style={StyleSheet.absoluteFill}
           />
         </View>
-        <MaterialIcons name="search" size={18} color={orbitColors.textMuted} />
+        <MaterialIcons name="search" size={18} color={c.textMuted} />
         <TextInput
           value={value}
           onChangeText={onChangeText}
           onFocus={handleFocus}
           placeholder={placeholder}
-          placeholderTextColor={orbitColors.textSubtle}
-          style={styles.input}
+          placeholderTextColor={c.textSubtle}
+          style={[styles.input, { color: c.text }]}
           returnKeyType="search"
         />
       </View>
@@ -92,7 +93,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.sm,
   },
   input: {
-    color: orbitColors.text,
     flex: 1,
     fontSize: 15,
     height: '100%',

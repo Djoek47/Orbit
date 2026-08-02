@@ -12,6 +12,7 @@ import { orbitColors } from '@/constants/orbit-theme';
 import { isEmailNotConfirmedError } from '@/lib/auth/auth-errors';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { isMockMode } from '@/repositories/repository-utils';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 /** Never surface repository prefixes / raw provider dumps to testers. */
@@ -33,6 +34,7 @@ function toUserFacingAuthError(err: unknown, fallback: string): string {
 
 export default function SignInScreen() {
   const { accentTheme, orbitPalette, signIn, hydrateFromSession } = useOrbit();
+  const { c } = useOrbitColors();
   const mock = isMockMode();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -114,7 +116,7 @@ export default function SignInScreen() {
               <Text style={[styles.link, { color: accentTheme.primary }]}>Forgot password?</Text>
             </Pressable>
             <Pressable onPress={() => router.push('/welcome' as never)} style={styles.switchRow}>
-              <Text style={[styles.switchMuted, { color: orbitPalette.textMuted }]}>New here?</Text>
+              <Text style={[styles.switchMuted, { color: c.textMuted }]}>New here?</Text>
               <Text style={[styles.link, { color: accentTheme.primary }]}>Get Started</Text>
             </Pressable>
           </View>
@@ -145,7 +147,7 @@ export default function SignInScreen() {
           <>
             <View style={styles.dividerRow}>
               <View style={[styles.divider, { backgroundColor: orbitPalette.border }]} />
-              <Text style={[styles.dividerText, { color: orbitPalette.textSubtle }]}>or</Text>
+              <Text style={[styles.dividerText, { color: c.textSubtle }]}>or</Text>
               <View style={[styles.divider, { backgroundColor: orbitPalette.border }]} />
             </View>
             <AppleAuthentication.AppleAuthenticationButton
@@ -160,8 +162,8 @@ export default function SignInScreen() {
 
         {!mock ? (
           <View style={[styles.hint, { backgroundColor: orbitPalette.cardMuted }]}>
-            <MaterialIcons name="info-outline" size={14} color={orbitPalette.textSubtle} />
-            <Text style={[styles.hintText, { color: orbitPalette.textSubtle }]}>
+            <MaterialIcons name="info-outline" size={14} color={c.textSubtle} />
+            <Text style={[styles.hintText, { color: c.textSubtle }]}>
               Live account required. Use Get Started if you don’t have one yet.
             </Text>
           </View>
@@ -177,7 +179,7 @@ const styles = StyleSheet.create({
   error: { color: orbitColors.danger, fontSize: 13, fontWeight: '700' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.12)' },
-  dividerText: { color: orbitColors.textSubtle, fontSize: 12, fontWeight: '600' },
+  dividerText: { fontSize: 12, fontWeight: '600' },
   appleButton: { height: 48, width: '100%' },
   hint: {
     flexDirection: 'row',
@@ -187,9 +189,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  hintText: { color: orbitColors.textSubtle, fontSize: 12, flex: 1 },
+  hintText: { fontSize: 12, flex: 1 },
   footerLinks: { alignItems: 'center', gap: 14 },
   link: { fontSize: 14, fontWeight: '700' },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  switchMuted: { color: orbitColors.textMuted, fontSize: 14 },
+  switchMuted: { fontSize: 14 },
 });

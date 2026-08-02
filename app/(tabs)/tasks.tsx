@@ -942,7 +942,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   filterChipText: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
     fontWeight: '400',
   },

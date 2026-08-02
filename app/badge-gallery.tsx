@@ -15,6 +15,7 @@ import {
   XP_MILESTONE_TROPHIES,
   xpProgress,
 } from '@/lib/game-levels';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 const HOUSEHOLD_ICON_MAP: Record<string, keyof typeof MaterialIcons.glyphMap> = {
@@ -38,6 +39,7 @@ function resolveHouseholdIcon(icon: string): keyof typeof MaterialIcons.glyphMap
 export default function BadgeGalleryScreen() {
   const insets = useSafeAreaInsets();
   const { accentTheme, achievements, currentMember, household } = useOrbit();
+  const { c } = useOrbitColors();
   const habitAchievements = achievements.filter((badge) => badge.kind !== 'xp-trophy');
   const xpTrophies = achievements.filter((badge) => badge.kind === 'xp-trophy');
   const lifetimeXp = currentMember?.xp ?? 0;
@@ -78,7 +80,7 @@ export default function BadgeGalleryScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.summaryGlow}
         />
-        <Text style={styles.summaryTitle}>
+        <Text style={[styles.summaryTitle, { color: c.textSoft }]}>
           {level.emoji} {level.name}
         </Text>
         <Text style={[styles.summaryPct, { color: level.color }]}>{formatXp(lifetimeXp)} XP</Text>
@@ -104,7 +106,7 @@ export default function BadgeGalleryScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.summaryGlow}
         />
-        <Text style={styles.summaryTitle}>Collection progress</Text>
+        <Text style={[styles.summaryTitle, { color: c.textSoft }]}>Collection progress</Text>
         <Text style={[styles.summaryPct, { color: accentTheme.primary }]}>{householdPct}%</Text>
         <View style={styles.summaryTrack}>
           <LinearGradient
@@ -144,8 +146,8 @@ export default function BadgeGalleryScreen() {
                   />
                 </View>
                 <View style={styles.badgeCopy}>
-                  <Text style={styles.badgeTitle}>{badge.title}</Text>
-                  <Text style={styles.badgeHint}>
+                  <Text style={[styles.badgeTitle, { color: c.text }]}>{badge.title}</Text>
+                  <Text style={[styles.badgeHint, { color: c.textSubtle }]}>
                     {earned ? 'Earned' : 'Keep going — progress counts toward this badge'}
                   </Text>
                   <View style={styles.progressTrack}>
@@ -160,7 +162,9 @@ export default function BadgeGalleryScreen() {
                     />
                   </View>
                 </View>
-                <Text style={[styles.progressLabel, earned && { color: '#FBBF24' }]}>{pct}%</Text>
+                <Text style={[styles.progressLabel, { color: c.textMuted }, earned && { color: '#FBBF24' }]}>
+                  {pct}%
+                </Text>
               </View>
             );
           })
@@ -186,14 +190,14 @@ export default function BadgeGalleryScreen() {
                 <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
                 {!badge.earned ? (
                   <View style={styles.lockOverlay}>
-                    <MaterialIcons name="lock" size={12} color={orbitColors.textSubtle} />
+                    <MaterialIcons name="lock" size={12} color={c.textSubtle} />
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.badgeLabel, !badge.earned && styles.badgeLabelMuted]}>
+              <Text style={[styles.badgeLabel, { color: c.text }, !badge.earned && { color: c.textSubtle }]}>
                 {badge.label}
               </Text>
-              <Text style={[styles.badgeDesc, !badge.earned && styles.badgeLabelMuted]}>
+              <Text style={[styles.badgeDesc, { color: c.textMuted }, !badge.earned && { color: c.textSubtle }]}>
                 {badge.earned
                   ? badge.description
                   : `Locked · ${formatXp(badge.xpRequired ?? 0)} XP`}
@@ -219,14 +223,14 @@ export default function BadgeGalleryScreen() {
                 <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
                 {!badge.earned ? (
                   <View style={styles.lockOverlay}>
-                    <MaterialIcons name="lock" size={12} color={orbitColors.textSubtle} />
+                    <MaterialIcons name="lock" size={12} color={c.textSubtle} />
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.badgeLabel, !badge.earned && styles.badgeLabelMuted]}>
+              <Text style={[styles.badgeLabel, { color: c.text }, !badge.earned && { color: c.textSubtle }]}>
                 {badge.label}
               </Text>
-              <Text style={[styles.badgeDesc, !badge.earned && styles.badgeLabelMuted]}>
+              <Text style={[styles.badgeDesc, { color: c.textMuted }, !badge.earned && { color: c.textSubtle }]}>
                 {badge.earned ? badge.description : `Locked · ${badge.description}`}
               </Text>
             </View>
@@ -255,7 +259,6 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   summaryTitle: {
-    color: orbitColors.textSoft,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -278,7 +281,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   badgeDesc: {
-    color: orbitColors.textMuted,
     fontSize: 11,
     lineHeight: 15,
   },
@@ -291,7 +293,6 @@ const styles = StyleSheet.create({
     gap: space.md,
   },
   badgeHint: {
-    color: orbitColors.textSubtle,
     fontSize: 11,
   },
   badgeIconWrap: {
@@ -306,12 +307,8 @@ const styles = StyleSheet.create({
     width: 52,
   },
   badgeLabel: {
-    color: orbitColors.text,
     fontSize: 13,
     fontWeight: '700',
-  },
-  badgeLabelMuted: {
-    color: orbitColors.textSubtle,
   },
   badgeLocked: {
     opacity: 0.45,
@@ -334,7 +331,6 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   badgeTitle: {
-    color: orbitColors.text,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -366,7 +362,6 @@ const styles = StyleSheet.create({
     height: 8,
   },
   progressLabel: {
-    color: orbitColors.textMuted,
     fontSize: 12,
     fontWeight: '700',
   },

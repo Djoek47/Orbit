@@ -867,7 +867,6 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   categoryChipText: {
-    color: orbitColors.textMuted,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -875,7 +874,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   shopSectionTitle: {
-    color: orbitColors.textSoft,
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.3,
@@ -926,13 +924,11 @@ const styles = StyleSheet.create({
     width: 48,
   },
   badgeLabel: {
-    color: orbitColors.textSoft,
     fontSize: 9,
     fontWeight: '600',
     textAlign: 'center',
   },
   badgeLabelMuted: {
-    color: orbitColors.textSubtle,
     fontWeight: '400',
   },
   badgeLocked: {
@@ -946,7 +942,6 @@ const styles = StyleSheet.create({
     width: '22%',
   },
   collectionCaption: {
-    color: orbitColors.textMuted,
     fontSize: 12,
   },
   collectionFill: {
@@ -1009,7 +1004,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   surfaceChipText: {
-    color: orbitColors.textSubtle,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1047,7 +1041,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   memberName: {
-    color: orbitColors.text,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1080,7 +1073,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   deviceChipText: {
-    color: orbitColors.textMuted,
     flexShrink: 1,
     fontSize: 11,
     fontWeight: '600',
@@ -1133,7 +1125,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
   },
   podiumName: {
-    color: orbitColors.text,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1190,7 +1181,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   rankNumber: {
-    color: orbitColors.textSubtle,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -1232,7 +1222,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   streakCaption: {
-    color: orbitColors.textSubtle,
     fontSize: 9,
   },
   streakItem: {
@@ -1266,7 +1255,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(56,189,248,0.3)',
   },
   toggleLabel: {
-    color: orbitColors.textSubtle,
     fontSize: 14,
     fontWeight: '400',
   },
@@ -1286,14 +1274,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   xpCaption: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
   },
   xpColumn: {
     alignItems: 'flex-end',
   },
   xpPeriod: {
-    color: orbitColors.textSubtle,
     fontSize: 12,
   },
   xpValue: {
@@ -1348,7 +1334,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   manageChipLight: {
-    color: '#C8D8F0',
     fontSize: 13,
     fontWeight: '700',
   },
