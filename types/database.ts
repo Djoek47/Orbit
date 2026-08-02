@@ -20,6 +20,10 @@ export type HouseholdRow = {
   owner_id: string;
   timezone: string;
   country: string | null;
+  reward_mode?: 'weighted' | 'flat';
+  hygiene_rewarded?: boolean;
+  hygiene_xp?: 5 | 10;
+  member_capabilities?: Record<string, boolean> | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

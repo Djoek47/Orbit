@@ -6,11 +6,20 @@ import {
   getTaskAssignees,
   isSplitTask,
 } from '@/lib/tasks/split-assign';
-import { resolveCompletionXp } from '@/lib/tasks/xp';
+import { isTaskLate } from '@/lib/tasks/xp';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type { CreateTaskInput, HouseholdTask } from '@/types/orbit';
 
 let mockTasksState: HouseholdTask[] = clone(mockHousehold.tasks);
+
+/** Test / mock continuity — replace in-memory task list. */
+export function __setMockTasksStateForTests(tasks: HouseholdTask[]) {
+  mockTasksState = clone(tasks);
+}
+
+export function __resetTasksMockStateForTests() {
+  mockTasksState = clone(mockHousehold.tasks);
+}
 
 export const taskRepository = {
   async getTasks(householdId: string | null | undefined): Promise<HouseholdTask[]> {
@@ -173,11 +182,13 @@ export const taskRepository = {
     task: HouseholdTask,
     householdId?: string | null
   ): Promise<HouseholdTask> {
+    const completedAt = task.completedAt ?? new Date().toISOString();
     const completed: HouseholdTask = {
       ...task,
       due: 'Completed today',
       status: 'Completed',
       awardedXp: task.awardedXp,
+      completedAt,
       // Keep prior proof status (usually 'none') — attach happens after complete.
       proofStatus: task.proofStatus,
     };
@@ -200,32 +211,98 @@ export const taskRepository = {
     mapDbError('taskRepository.completeTask', error);
 
     const resolvedHouseholdId = householdId ?? data?.household_id;
-    const xpToAward = task.awardedXp ?? task.xp;
+    const xpToAward = task.awardedXp ?? 0;
     if (resolvedHouseholdId && xpToAward > 0) {
       await awardTaskXp(supabase, resolvedHouseholdId, data ?? null, {
         ...task,
-        xp: xpToAward,
+        awardedXp: xpToAward,
       });
     }
 
-    return data ? { ...mapTaskRow(data), awardedXp: task.awardedXp } : completed;
+    return data
+      ? { ...mapTaskRow(data), awardedXp: task.awardedXp, completedAt }
+      : completed;
+  },
+
+  /**
+   * Award a pre-resolved XP snapshot to a named member (split shares).
+   * Does not re-run resolveCompletionXp — caller owns the snapshot.
+   */
+  async awardMemberXp(input: {
+    householdId: string;
+    memberName: string;
+    amount: number;
+    reason: string;
+    taskId?: string;
+  }): Promise<void> {
+    if (isMockMode() || input.amount <= 0) {
+      return;
+    }
+    const supabase = getConfiguredSupabase('taskRepository.awardMemberXp');
+    const { data: member } = await supabase
+      .from('household_members')
+      .select('id, xp, week_xp')
+      .eq('household_id', input.householdId)
+      .ilike('display_name', input.memberName)
+      .maybeSingle();
+    if (!member) return;
+
+    const { error: xpError } = await supabase
+      .from('household_members')
+      .update({
+        xp: (member.xp ?? 0) + input.amount,
+        week_xp: (member.week_xp ?? 0) + input.amount,
+      })
+      .eq('id', member.id);
+    mapDbError('taskRepository.awardMemberXp.memberXp', xpError);
+
+    const { data: authData } = await supabase.auth.getUser();
+    const { error: txError } = await supabase.from('xp_transactions').insert({
+      household_id: input.householdId,
+      user_id: authData.user?.id ?? null,
+      member_id: member.id,
+      amount: input.amount,
+      reason: input.reason,
+      related_task_id: input.taskId ?? null,
+    });
+    mapDbError('taskRepository.awardMemberXp.xpTransaction', txError);
+  },
+
+  async updateMemberStreak(input: {
+    householdId: string;
+    memberId: string;
+    streak: number;
+  }): Promise<void> {
+    if (isMockMode()) return;
+    const supabase = getConfiguredSupabase('taskRepository.updateMemberStreak');
+    const { error } = await supabase
+      .from('household_members')
+      .update({ streak: input.streak })
+      .eq('id', input.memberId)
+      .eq('household_id', input.householdId);
+    mapDbError('taskRepository.updateMemberStreak', error);
   },
 };
 
+/**
+ * Award XP using the completion snapshot on `task.awardedXp`.
+ * Never re-resolves mode/late math — that would double-penalize.
+ */
 async function awardTaskXp(
   supabase: ReturnType<typeof getConfiguredSupabase>,
   householdId: string,
   taskRow: { assignee_member_id: string | null; assignee_name: string; id: string } | null,
   task: HouseholdTask
 ) {
-  const { awarded, penalty, late } = resolveCompletionXp(task);
+  const awarded = task.awardedXp ?? 0;
   if (awarded <= 0) {
     return;
   }
 
   let memberId = taskRow?.assignee_member_id ?? null;
+  const late = isTaskLate(task);
   const reason = late
-    ? `Completed task (late −${penalty} XP): ${task.title}`
+    ? `Completed task (late): ${task.title}`
     : `Completed task: ${task.title}`;
 
   if (!memberId) {

@@ -1,5 +1,11 @@
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
 import { childInviteEmoji } from '@/lib/household/child-invites';
+import {
+  clearActiveMockHousehold,
+  loadActiveMockHousehold,
+  saveActiveMockHousehold,
+} from '@/lib/household/mock-active-household';
+import { seedMockDomainsFromHousehold } from '@/lib/household/seed-mock-domains';
 import { buildInviteLinks, createInviteCode, normalizeInviteCode } from '@/lib/invites/parse-invite';
 import {
   mapBadgeRow,
@@ -26,6 +32,30 @@ import type { HouseholdInviteRow, HouseholdMemberRow, HouseholdRow } from '@/typ
 export const householdRepository = {
   async getHousehold(): Promise<HouseholdSnapshot> {
     if (isMockMode()) {
+      const active = await loadActiveMockHousehold();
+      if (active?.id && active.id !== mockHousehold.id) {
+        seedMockDomainsFromHousehold(active);
+        return clone(active);
+      }
+      if (active?.id === mockHousehold.id) {
+        // Persisted Rivera with member XP/settings edits — merge onto domain state.
+        seedMockDomainsFromHousehold({
+          ...active,
+          tasks: active.tasks?.length ? active.tasks : mockHousehold.tasks,
+          rewards: active.rewards?.length ? active.rewards : mockHousehold.rewards,
+          groceries: active.groceries?.length ? active.groceries : mockHousehold.groceries,
+          events: active.events?.length ? active.events : mockHousehold.events,
+        });
+        return clone({
+          ...mockHousehold,
+          ...active,
+          tasks: active.tasks?.length ? active.tasks : mockHousehold.tasks,
+          rewards: active.rewards?.length ? active.rewards : mockHousehold.rewards,
+          groceries: active.groceries?.length ? active.groceries : mockHousehold.groceries,
+          events: active.events?.length ? active.events : mockHousehold.events,
+          members: active.members?.length ? active.members : mockHousehold.members,
+        });
+      }
       return clone(mockHousehold);
     }
 
@@ -90,13 +120,16 @@ export const householdRepository = {
   async createHousehold(input: CreateHouseholdInput, user: OrbitUser): Promise<HouseholdSnapshot> {
     if (isMockMode()) {
       const base = createEmptyHousehold(user);
-      return {
+      const created: HouseholdSnapshot = {
         ...base,
         id: createLocalId('hh'),
         householdName: input.name.trim(),
         householdType: input.type,
         inviteCode: createInviteCode(),
         greetingName: user.name,
+        rewardMode: 'weighted',
+        hygieneRewarded: false,
+        hygieneXp: 5,
         rooms:
           input.rooms && input.rooms.length > 0
             ? input.rooms.map((room) => ({ ...room }))
@@ -120,6 +153,9 @@ export const householdRepository = {
           actions: ['Invite members', 'Create task'],
         },
       };
+      seedMockDomainsFromHousehold(created);
+      await saveActiveMockHousehold(created);
+      return created;
     }
 
     const supabase = getConfiguredSupabase('householdRepository.createHousehold');
@@ -710,6 +746,15 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     missingGroceries: mappedGroceries.filter((item) => item.status === 'Missing').length,
     upcomingEvents: mappedEvents.length,
     preferredStoreId: (household as { preferred_store_id?: string | null }).preferred_store_id ?? 'store-freshmart',
+    rewardMode:
+      (household as { reward_mode?: 'weighted' | 'flat' | null }).reward_mode === 'flat'
+        ? 'flat'
+        : 'weighted',
+    hygieneRewarded: Boolean((household as { hygiene_rewarded?: boolean | null }).hygiene_rewarded),
+    hygieneXp:
+      (household as { hygiene_xp?: number | null }).hygiene_xp === 10 ? 10 : 5,
+    memberCapabilities: ((household as { member_capabilities?: Record<string, boolean> | null })
+      .member_capabilities ?? undefined) as HouseholdSnapshot['memberCapabilities'],
     members: mappedMembers,
     tasks: mappedTasks,
     groceries: mappedGroceries,
@@ -737,6 +782,17 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
           actions: ['Create task', 'Check groceries'],
         },
   };
+}
+
+/** Persist mock household snapshot (members/settings/tasks) across Expo Go reload. */
+export async function persistMockHouseholdSnapshot(household: HouseholdSnapshot) {
+  if (!isMockMode() || !household.id) return;
+  await saveActiveMockHousehold(household);
+}
+
+export async function clearMockHouseholdSnapshot() {
+  if (!isMockMode()) return;
+  await clearActiveMockHousehold();
 }
 
 function clone<T>(value: T): T {

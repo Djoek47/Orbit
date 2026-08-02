@@ -15,6 +15,12 @@ import {
   saveMemberAvatarOverride,
 } from '@/lib/household/local-prefs';
 import { saveChildInviteRecord, loadChildInviteRecord } from '@/lib/household/child-invites';
+import {
+  applyStoredHouseholdLogicPrefs,
+  saveMemberCapabilitiesPrefs,
+  saveRewardSettings,
+} from '@/lib/household/reward-settings-prefs';
+import { saveActiveMockHousehold } from '@/lib/household/mock-active-household';
 import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { suggestItineraryFromHousehold } from '@/lib/calendar/suggest-itinerary';
@@ -27,6 +33,7 @@ import { registerForPushNotifications, scheduleLocalReminder } from '@/lib/notif
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
 import { persistHouseholdScore } from '@/lib/momentum/score-writer';
 import { subscribeHouseholdRealtime } from '@/lib/realtime/household-realtime';
+import { formatLocalDate } from '@/lib/streaks/local-date';
 import { spawnNextOccurrence } from '@/lib/tasks/recurring';
 import {
   allSharesCompleted,
@@ -41,7 +48,9 @@ import {
 } from '@/lib/tasks/split-assign';
 import { splitOpenTasksBetweenTwo } from '@/lib/tasks/split-between';
 import { isOpenTask, isSameTaskSeries } from '@/lib/tasks/cancel';
+import { isTodayTask } from '@/lib/tasks/today';
 import { isTaskLate, resolveCompletionXp } from '@/lib/tasks/xp';
+import { recordCompletionForTrophies } from '@/lib/trophies/runtime';
 import {
   canPromoteToAdmin,
   resolveSplitPair,
@@ -50,6 +59,10 @@ import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import {
   resolveMemberCapabilities,
 } from '@/lib/member-capabilities';
+import {
+  clearMockHouseholdSnapshot,
+  persistMockHouseholdSnapshot,
+} from '@/repositories/household-repository';
 import {
   authRepository,
   calendarRepository,
@@ -714,11 +727,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         : createdHousehold.rooms?.length
           ? createdHousehold.rooms
           : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room }));
-    setHousehold({
+    const createdNext = {
       ...createdHousehold,
       rooms,
-    });
+    };
+    setHousehold(createdNext);
     void saveHouseholdRooms(createdHousehold.id, rooms);
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot(createdNext);
+    }
     if (createdHousehold.id) {
       const links = createdHousehold.inviteCode
         ? buildInviteLinks(createdHousehold.inviteCode)
@@ -745,6 +762,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (pendingSelf) {
       setActiveMemberId(pendingSelf.id);
     }
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot(joinedHousehold);
+    }
     if (joinedHousehold.id) {
       await novaNotifications.joinPending(pushNotification, {
         memberName: currentUser.name,
@@ -757,6 +777,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const signOut = async () => {
     await authRepository.signOut();
     await trackAnalytics('auth.sign_out', {}, analyticsContext);
+    await clearMockHouseholdSnapshot();
     setCurrentUser(null);
     setHousehold(mockHousehold);
     setPendingRedemptions([]);
@@ -907,6 +928,46 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return null;
     }
 
+    const rewardSettings = {
+      rewardMode: household.rewardMode,
+      hygieneRewarded: household.hygieneRewarded,
+      hygieneXp: household.hygieneXp,
+    };
+    const completedAt = new Date().toISOString();
+    const localHour = new Date().getHours();
+    const onDueDay = isTodayTask(currentTask) || /today/i.test(currentTask.due);
+
+    const finishTrophyAndStreakHooks = async (
+      assigneeName: string,
+      awardedXp: number,
+      nextHousehold: HouseholdSnapshot
+    ) => {
+      const member = nextHousehold.members.find((item) => item.name === assigneeName);
+      if (!member || !nextHousehold.id) return;
+      const unlocks = await recordCompletionForTrophies({
+        householdId: nextHousehold.id,
+        childId: member.id,
+        event: {
+          localHour,
+          xpAwarded: awardedXp,
+          isHygiene: currentTask.tracking === 'streak' || /hygiene/i.test(currentTask.category),
+          onDueDay,
+        },
+      });
+      for (const unlock of unlocks) {
+        await pushNotification({
+          title: 'Trophy unlocked',
+          body: unlock.name,
+          category: 'rewards',
+          priority: 'medium',
+          data: { kind: 'trophy_unlock', trophyId: unlock.id },
+        });
+      }
+      if (dataMode === 'mock') {
+        await persistMockHouseholdSnapshot(nextHousehold);
+      }
+    };
+
     // --- Split task: one person's share ---
     if (isSplitTask(currentTask) && currentTask.shares) {
       const forAssignee = options?.forAssignee?.trim() || currentMember?.name;
@@ -936,10 +997,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const everyoneDone = allSharesCompleted(draft);
       const settled = allSharesSettled(draft);
       const bonus = everyoneDone ? splitAllDoneBonus(currentTask) : 0;
+      const totalAwarded = awarded + (everyoneDone ? bonus : 0);
 
       let nextTask: HouseholdTask = {
         ...draft,
         status: settled || everyoneDone ? 'Completed' : 'In Progress',
+        completedAt: settled || everyoneDone ? completedAt : currentTask.completedAt,
+        awardedXp: everyoneDone
+          ? (currentTask.awardedXp ?? 0) + totalAwarded
+          : currentTask.awardedXp,
       };
 
       // Apply all-finish bonus onto each completed share
@@ -955,6 +1021,29 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
 
       const saved = await taskRepository.updateTask(nextTask);
+      if (household.id && totalAwarded > 0) {
+        await taskRepository.awardMemberXp({
+          householdId: household.id,
+          memberName: forAssignee,
+          amount: totalAwarded,
+          reason: late
+            ? `Split share (late): ${currentTask.title}`
+            : `Split share: ${currentTask.title}`,
+          taskId,
+        });
+      }
+      if (everyoneDone && bonus > 0 && household.id) {
+        for (const earlier of nextShares) {
+          if (earlier.name === forAssignee || earlier.status !== 'Completed') continue;
+          await taskRepository.awardMemberXp({
+            householdId: household.id,
+            memberName: earlier.name,
+            amount: bonus,
+            reason: `Split all-done bonus: ${currentTask.title}`,
+            taskId,
+          });
+        }
+      }
 
       let nextOccurrence: HouseholdTask | null = null;
       if (saved.status === 'Completed') {
@@ -981,14 +1070,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         }
       }
 
+      let nextHouseholdSnapshot: HouseholdSnapshot | null = null;
       setHousehold((current) => {
         const tasks = current.tasks.map((item) => (item.id === taskId ? saved : item));
         const members = current.members.map((member) => {
           if (member.name === forAssignee) {
             return {
               ...member,
-              xp: member.xp + awarded + (everyoneDone ? bonus : 0),
-              weekXp: (member.weekXp ?? 0) + awarded + (everyoneDone ? bonus : 0),
+              xp: member.xp + totalAwarded,
+              weekXp: (member.weekXp ?? 0) + totalAwarded,
               streak: member.streak ?? 0,
             };
           }
@@ -1002,22 +1092,26 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           }
           return member;
         });
-        return {
+        nextHouseholdSnapshot = {
           ...current,
           members,
           tasks: nextOccurrence ? [nextOccurrence, ...tasks] : tasks,
         };
+        return nextHouseholdSnapshot;
       });
 
       const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
       await novaNotifications.taskCompleted(pushNotification, prefs, {
         title: currentTask.title,
         assignee: forAssignee,
-        awardedXp: awarded + (everyoneDone ? bonus : 0),
+        awardedXp: totalAwarded,
         penalty: latePenalty,
         late,
         taskId,
       });
+      if (nextHouseholdSnapshot) {
+        await finishTrophyAndStreakHooks(forAssignee, totalAwarded, nextHouseholdSnapshot);
+      }
       await trackAnalytics(
         'task.share_completed',
         { taskId, forAssignee, awarded, bonus, everyoneDone, needsProof },
@@ -1039,16 +1133,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       currentTask.proofStatus !== 'submitted' &&
       currentTask.proofStatus !== 'approved';
 
-    const rewardSettings = {
-      rewardMode: household.rewardMode,
-      hygieneRewarded: household.hygieneRewarded,
-      hygieneXp: household.hygieneXp,
-    };
     const { awarded, penalty, late } = resolveCompletionXp(currentTask, rewardSettings);
     const completedWithXp: HouseholdTask = {
       ...currentTask,
       status: 'Completed',
       awardedXp: awarded,
+      completedAt,
     };
     const completedTask = await taskRepository.completeTask(completedWithXp, household.id);
     const spawned = spawnNextOccurrence(currentTask);
@@ -1071,6 +1161,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       });
     }
 
+    let nextHouseholdSnapshot: HouseholdSnapshot | null = null;
     setHousehold((current) => {
       const task = current.tasks.find((item) => item.id === taskId);
 
@@ -1079,7 +1170,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
 
       const tasks = current.tasks.map((item) => (item.id === taskId ? completedTask : item));
-      return {
+      nextHouseholdSnapshot = {
         ...current,
         members: current.members.map((member) =>
           member.name === task.assignee
@@ -1093,6 +1184,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         ),
         tasks: nextOccurrence ? [nextOccurrence, ...tasks] : tasks,
       };
+      return nextHouseholdSnapshot;
     });
 
     const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
@@ -1104,6 +1196,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       late,
       taskId,
     });
+    if (nextHouseholdSnapshot) {
+      await finishTrophyAndStreakHooks(currentTask.assignee, awarded, nextHouseholdSnapshot);
+    }
     const nextMetrics = calculateMetrics({
       ...household,
       tasks: household.tasks.map((item) => (item.id === taskId ? completedTask : item)),
@@ -1202,32 +1297,85 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const awardDailyStreak = async () => {
     if (!currentMember || !household.id) return null;
+    // Gate on the same today filter as Home counters.
+    const mineToday = household.tasks.filter(
+      (task) =>
+        isTodayTask(task, new Date(), household.timezone) &&
+        taskMatchesAssignee(task, currentMember.name)
+    );
+    if (mineToday.length === 0 || mineToday.some((task) => task.status !== 'Completed')) {
+      return null;
+    }
     const { awardDailyStreakIfNeeded } = await import('@/lib/streaks/daily-streak');
     const result = await awardDailyStreakIfNeeded({
       householdId: household.id,
       memberId: currentMember.id,
       currentStreak: currentMember.streak ?? 0,
+      timeZone: household.timezone,
     });
     if (!result.awarded) return null;
-    setHousehold((current) => ({
-      ...current,
-      members: current.members.map((member) =>
-        member.id === currentMember.id ? { ...member, streak: result.streak } : member
-      ),
-    }));
+    setHousehold((current) => {
+      const next = {
+        ...current,
+        members: current.members.map((member) =>
+          member.id === currentMember.id ? { ...member, streak: result.streak } : member
+        ),
+      };
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      return next;
+    });
+    await taskRepository.updateMemberStreak({
+      householdId: household.id,
+      memberId: currentMember.id,
+      streak: result.streak,
+    });
+    const { ensureChildStreak, setChildStreak } = await import('@/lib/streaks/mock-streak-store');
+    const engine = ensureChildStreak(currentMember.id);
+    const today = formatLocalDate(new Date(), household.timezone);
+    setChildStreak({
+      ...engine,
+      current: result.streak,
+      longest: Math.max(engine.longest, result.streak),
+      state: 'active',
+      lastActiveDate: today,
+      brokenOnDate: null,
+      redeemableUntil: null,
+    });
     await trackAnalytics('streak.daily_awarded', { streak: result.streak }, analyticsContext);
     return result.streak;
   };
 
-  /** Phase 3 stub — uses mock ChildStreak map; does not change member.streak yet. */
+  /** Phase 3 redeem — restores engine state and syncs member.streak. */
   const redeemStreak = async () => {
-    if (!currentMember) return false;
+    if (!currentMember || !household.id) return false;
     const { redeemChildStreak } = await import('@/lib/streaks/mock-streak-store');
-    const ok = redeemChildStreak(currentMember.id);
-    if (ok) {
-      await trackAnalytics('streak.redeemed', { memberId: currentMember.id }, analyticsContext);
-    }
-    return ok;
+    const restored = redeemChildStreak(currentMember.id);
+    if (!restored) return false;
+    setHousehold((current) => {
+      const next = {
+        ...current,
+        members: current.members.map((member) =>
+          member.id === currentMember.id ? { ...member, streak: restored.current } : member
+        ),
+      };
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      return next;
+    });
+    await taskRepository.updateMemberStreak({
+      householdId: household.id,
+      memberId: currentMember.id,
+      streak: restored.current,
+    });
+    await trackAnalytics(
+      'streak.redeemed',
+      { memberId: currentMember.id, streak: restored.current },
+      analyticsContext
+    );
+    return true;
   };
 
   const deleteTask = async (taskId: string) => {
@@ -1612,13 +1760,33 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!permissions.canManageHousehold) {
       return;
     }
-    setHousehold((current) => ({
-      ...current,
-      memberCapabilities: {
+    setHousehold((current) => {
+      const memberCapabilities = {
         ...resolveMemberCapabilities(current),
         ...prefs,
-      },
-    }));
+      };
+      void saveMemberCapabilitiesPrefs(current.id, memberCapabilities);
+      const next: HouseholdSnapshot = { ...current, memberCapabilities };
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      const householdId = current.id;
+      if (dataMode === 'supabase' && householdId) {
+        void import('@/repositories/repository-utils').then(async ({ getConfiguredSupabase, mapDbError }) => {
+          try {
+            const supabase = getConfiguredSupabase('updateMemberCapabilities');
+            const { error } = await supabase
+              .from('households')
+              .update({ member_capabilities: memberCapabilities })
+              .eq('id', householdId);
+            mapDbError('updateMemberCapabilities', error);
+          } catch (error) {
+            console.warn('updateMemberCapabilities supabase skipped', error);
+          }
+        });
+      }
+      return next;
+    });
   };
 
   const updateHouseholdRewardSettings = (prefs: {
@@ -1629,12 +1797,47 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!permissions.canManageHousehold) {
       return;
     }
-    setHousehold((current) => ({
-      ...current,
-      ...(prefs.rewardMode != null ? { rewardMode: prefs.rewardMode } : null),
-      ...(prefs.hygieneRewarded != null ? { hygieneRewarded: prefs.hygieneRewarded } : null),
-      ...(prefs.hygieneXp != null ? { hygieneXp: prefs.hygieneXp === 10 ? 10 : 5 } : null),
-    }));
+    setHousehold((current) => {
+      const next: HouseholdSnapshot = {
+        ...current,
+        rewardMode: prefs.rewardMode ?? current.rewardMode,
+        hygieneRewarded: prefs.hygieneRewarded ?? current.hygieneRewarded,
+        hygieneXp:
+          prefs.hygieneXp != null
+            ? prefs.hygieneXp === 10
+              ? 10
+              : 5
+            : current.hygieneXp,
+      };
+      void saveRewardSettings(current.id, {
+        rewardMode: next.rewardMode ?? 'weighted',
+        hygieneRewarded: next.hygieneRewarded ?? false,
+        hygieneXp: next.hygieneXp === 10 ? 10 : 5,
+      });
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      const householdId = current.id;
+      if (dataMode === 'supabase' && householdId) {
+        void import('@/repositories/repository-utils').then(async ({ getConfiguredSupabase, mapDbError }) => {
+          try {
+            const supabase = getConfiguredSupabase('updateHouseholdRewardSettings');
+            const { error } = await supabase
+              .from('households')
+              .update({
+                reward_mode: next.rewardMode ?? 'weighted',
+                hygiene_rewarded: next.hygieneRewarded ?? false,
+                hygiene_xp: next.hygieneXp === 10 ? 10 : 5,
+              })
+              .eq('id', householdId);
+            mapDbError('updateHouseholdRewardSettings', error);
+          } catch (error) {
+            console.warn('updateHouseholdRewardSettings supabase skipped', error);
+          }
+        });
+      }
+      return next;
+    });
   };
 
   const resolvedPaletteId = useMemo<ColorPaletteId>(() => {
@@ -2128,14 +2331,24 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updated,
       ...current.filter((item) => item.id !== redemption.id),
     ]);
-    setHousehold((current) => ({
-      ...current,
-      members: current.members.map((member) =>
-        member.id === currentMember.id
-          ? { ...member, xp: Math.max(0, member.xp - reward.cost) }
-          : member,
-      ),
-    }));
+    // Mock approve is status-only — debit XP once here.
+    // Supabase approve already deducts; reload domains instead of double-subtract.
+    if (dataMode === 'mock') {
+      setHousehold((current) => {
+        const next = {
+          ...current,
+          members: current.members.map((member) =>
+            member.id === currentMember.id
+              ? { ...member, xp: Math.max(0, member.xp - reward.cost) }
+              : member
+          ),
+        };
+        void persistMockHouseholdSnapshot(next);
+        return next;
+      });
+    } else {
+      await reloadHouseholdDomains();
+    }
     // Assigned one-shots leave the catalog after instant claim; shared catalog stays.
     if (reward.assignedMemberId) {
       await archiveReward(rewardId);
@@ -2226,19 +2439,27 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       current.map((item) => (item.id === redemptionId ? updated : item))
     );
     if (pending && reward) {
-      setHousehold((current) => ({
-        ...current,
-        members: current.members.map((member) =>
-          member.id === pending.memberId
-            ? { ...member, xp: Math.max(0, member.xp - reward.cost) }
-            : member
-        ),
-      }));
+      if (dataMode === 'mock') {
+        setHousehold((current) => {
+          const next = {
+            ...current,
+            members: current.members.map((member) =>
+              member.id === pending.memberId
+                ? { ...member, xp: Math.max(0, member.xp - reward.cost) }
+                : member
+            ),
+          };
+          void persistMockHouseholdSnapshot(next);
+          return next;
+        });
+      }
       if (reward.assignedMemberId) {
         await archiveReward(reward.id);
       }
     }
-    await reloadHouseholdDomains();
+    if (dataMode !== 'mock') {
+      await reloadHouseholdDomains();
+    }
     const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
     await novaNotifications.rewardApproved(pushNotification, prefs, {
       title: reward?.title ?? 'Reward',
@@ -2969,7 +3190,7 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
   );
   const members = await applyStoredMemberThemes(householdId, withAvatars);
-  const initialHousehold: HouseholdSnapshot = {
+  const initialHousehold: HouseholdSnapshot = await applyStoredHouseholdLogicPrefs({
     ...baseHousehold,
     members,
     badges,
@@ -2988,7 +3209,7 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
         : baseHousehold.rooms?.length
           ? baseHousehold.rooms
           : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
-  };
+  });
   const briefing = await novaRepository.getNovaBriefing(initialHousehold, calculateMetrics(initialHousehold));
 
   return {

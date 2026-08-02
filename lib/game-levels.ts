@@ -206,7 +206,7 @@ export const ACHIEVEMENT_DEFINITIONS: Omit<AchievementBadge, 'earned'>[] = [
     id: 'early_bird',
     emoji: '🌅',
     label: 'Early Bird',
-    description: 'Complete 3+ tasks due today',
+    description: 'Complete 3+ tasks before noon',
     kind: 'habit',
   },
   {
@@ -243,25 +243,40 @@ export function evaluateAchievements(
   household: HouseholdSnapshot,
   options?: { novaAskCount?: number; focusMemberName?: string }
 ): AchievementBadge[] {
-  const completed = household.tasks.filter((task) => task.status === 'Completed');
-  const open = household.tasks.filter((task) => task.status !== 'Completed');
-  const homeworkDone = completed.filter((task) =>
-    /homework|school/i.test(`${task.category} ${task.title}`)
-  ).length;
-  const todayDone = completed.filter((task) => /today|completed today/i.test(task.due)).length;
   const focus =
     household.members.find((member) => member.name === options?.focusMemberName) ?? household.members[0];
+  const focusName = focus?.name;
+  const completed = household.tasks.filter((task) => task.status === 'Completed');
+  const focusCompleted = focusName
+    ? completed.filter((task) => {
+        if (task.assignees?.length) return task.assignees.includes(focusName);
+        return task.assignee === focusName;
+      })
+    : completed;
+  const open = household.tasks.filter(
+    (task) => task.status !== 'Completed' && task.status !== 'Cancelled'
+  );
+  const homeworkDone = focusCompleted.filter((task) =>
+    /homework|school/i.test(`${task.category} ${task.title}`)
+  ).length;
+  /** Morning completions — prefer completedAt hour; fall back to AM due labels. */
+  const earlyBirdDone = focusCompleted.filter((task) => {
+    if (task.completedAt) {
+      return new Date(task.completedAt).getHours() < 12;
+    }
+    return /\b(0?[1-9]|10|11):\d{2}\s*AM\b/i.test(task.due);
+  }).length;
   const weeklyHelpers = household.members.filter((member) => (member.weekXp ?? 0) > 0).length;
   const novaAskCount = options?.novaAskCount ?? 0;
   const focusXp = focus?.xp ?? 0;
 
   const earnedMap: Record<string, boolean> = {
-    first_task: completed.length >= 1,
+    first_task: focusCompleted.length >= 1,
     streak_7: (focus?.streak ?? 0) >= 7,
-    homework_ace: homeworkDone >= 5 || completed.filter((t) => /homework/i.test(t.category)).length >= 1,
+    homework_ace: homeworkDone >= 5,
     team_player: weeklyHelpers >= 2,
     clean_sweep: household.tasks.length > 0 && open.length === 0,
-    early_bird: todayDone >= 3 || completed.length >= 3,
+    early_bird: earlyBirdDone >= 3,
     streak_30: (focus?.streak ?? 0) >= 30,
     nova_fav: novaAskCount >= 5,
   };

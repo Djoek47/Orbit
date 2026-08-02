@@ -5,6 +5,10 @@ import type { CreateEventInput, HouseholdEvent } from '@/types/orbit';
 
 let mockEventsState: HouseholdEvent[] = clone(mockHousehold.events);
 
+export function __setMockEventsStateForTests(items: HouseholdEvent[]) {
+  mockEventsState = clone(items);
+}
+
 function normalizeCategory(category?: CreateEventInput['category'] | HouseholdEvent['category']): HouseholdEvent['category'] {
   const value = (category ?? 'Family').trim();
   const allowed: HouseholdEvent['category'][] = ['School', 'Activity', 'Appointment', 'Family', 'Routine'];

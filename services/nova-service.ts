@@ -1,3 +1,4 @@
+import { isTodayTask } from '@/lib/tasks/today';
 import { runMonitorPass } from '@/services/nova-monitor';
 import type {
   HouseholdMember,
@@ -199,10 +200,6 @@ export const novaService = {
     return runMonitorPass(household, metrics, prefs);
   },
 };
-
-function isTodayTask(task: HouseholdTask) {
-  return task.due.toLowerCase().includes('today') || task.status === 'Overdue';
-}
 
 function cleanTime(value: string) {
   return value.replace('Today, ', '').replace('Tomorrow, ', '');

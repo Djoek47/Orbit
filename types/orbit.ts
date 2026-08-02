@@ -106,6 +106,8 @@ export type HouseholdTask = {
   repeat: 'None' | 'Daily' | 'Weekly' | 'Weekdays';
   status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue' | 'Cancelled';
   dueAt?: string;
+  /** ISO timestamp when the task was completed (household-local day checks). */
+  completedAt?: string;
   /** Optional room for cleaning attribution. */
   roomId?: string;
   /** When set, task was created via this shared-device profile. */

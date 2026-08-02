@@ -29,6 +29,11 @@
     "qr:expo": "node scripts/write-expo-qr.mjs",
     "test:reward-mode": "npx --yes tsx lib/rewards/reward-mode.test.ts",
     "test:streak-engine": "npx --yes tsx lib/streaks/streak-engine.test.ts",
+    "test:today": "npx --yes tsx lib/tasks/today.test.ts",
+    "test:completion-xp": "npx --yes tsx lib/tasks/completion-xp.test.ts",
+    "test:daily-streak": "npx --yes tsx lib/streaks/daily-streak.test.ts",
+    "test:claim-reward": "npx --yes tsx lib/rewards/claim-reward.test.ts",
+    "test:logic": "npm run test:reward-mode && npm run test:streak-engine && npm run test:trophies && npm run test:today && npm run test:completion-xp && npm run test:daily-streak && npm run test:claim-reward && npm run test:task-library",
     "test:task-library": "npx --yes tsx scripts/validate-task-library.ts",
     "generate:brand-marks": "node scripts/generate-brand-marks.mjs"
   },

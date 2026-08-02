@@ -18,6 +18,7 @@ import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { isAvatarImageUri, MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
+import { isTodayTask } from '@/lib/tasks/today';
 import type { AccentTheme } from '@/constants/accent-themes';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
 
@@ -39,17 +40,6 @@ function openTasksTab(memberName?: string) {
     pathname: '/tasks',
     params: { member: memberName ?? '' },
   } as never);
-}
-
-function isTodayTask(task: HouseholdTask) {
-  if (task.status === 'Cancelled') return false;
-  return (
-    /today/i.test(task.due) ||
-    task.status === 'Overdue' ||
-    task.status === 'Pending' ||
-    task.status === 'In Progress' ||
-    task.status === 'Completed'
-  );
 }
 
 function PersonChipEnter({ index, children }: { index: number; children: ReactNode }) {
@@ -83,7 +73,7 @@ export function TodayTasksCard({
   const [size, setSize] = useState({ width: 0, height: 0 });
 
   const scoped = useMemo(() => {
-    const today = tasks.filter(isTodayTask);
+    const today = tasks.filter((task) => isTodayTask(task));
     if (mineOnly && currentMember) {
       return today.filter((task) => taskMatchesAssignee(task, currentMember.name));
     }

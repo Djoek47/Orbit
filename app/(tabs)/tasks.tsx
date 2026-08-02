@@ -15,7 +15,11 @@ import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { StreakMarker } from '@/components/orbit/streak-marker';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
-import { normalizeRewardSettings } from '@/lib/rewards/reward-mode';
+import {
+  normalizeRewardSettings,
+  resolveTaskXpFromHouseholdTask,
+  type HouseholdRewardSettings,
+} from '@/lib/rewards/reward-mode';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
   findSharedDeviceForMember,
@@ -23,6 +27,7 @@ import {
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
 import { isSplitTask, taskMatchesAssignee } from '@/lib/tasks/split-assign';
+import { isDueToday } from '@/lib/tasks/today';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdRoom, HouseholdTask } from '@/types/orbit';
 
@@ -63,11 +68,6 @@ const GRADIENT_BY_COLOR: Record<string, [string, string]> = {
 
 function isHomework(task: HouseholdTask) {
   return /homework/i.test(task.category) || /homework/i.test(task.title);
-}
-
-function isDueToday(task: HouseholdTask) {
-  if (task.status === 'Completed' || task.status === 'Cancelled') return false;
-  return /today/i.test(task.due) || task.status === 'Overdue';
 }
 
 function isUpcoming(task: HouseholdTask) {
@@ -148,6 +148,7 @@ function TaskItem({
   justCompleted,
   canDelete,
   hygieneXpWhenRewarded,
+  rewardSettings,
   onToggle,
   onDelete,
 }: {
@@ -158,6 +159,7 @@ function TaskItem({
   justCompleted: boolean;
   canDelete: boolean;
   hygieneXpWhenRewarded?: number;
+  rewardSettings: HouseholdRewardSettings;
   onToggle: () => void;
   onDelete: () => void;
 }) {
@@ -167,6 +169,12 @@ function TaskItem({
       ? task.shares?.find((share) => share.name === member.name)?.status === 'Completed'
       : undefined;
   const done = shareDone ?? task.status === 'Completed';
+  const shareXp =
+    member && isSplitTask(task)
+      ? task.shares?.find((share) => share.name === member.name)?.awardedXp
+      : undefined;
+  const displayXp =
+    shareXp ?? task.awardedXp ?? resolveTaskXpFromHouseholdTask(task, rewardSettings);
   const sub = getSubjectMeta(task);
   const accent = memberAccentColor(member);
   const borderColor = done
@@ -274,13 +282,13 @@ function TaskItem({
             ) : (
               <>
                 <Text style={styles.celebrateBolt}>⚡</Text>
-                <Text style={[styles.celebrateXp, { color: accentPrimary }]}>+{task.xp}</Text>
+                <Text style={[styles.celebrateXp, { color: accentPrimary }]}>+{displayXp}</Text>
               </>
             )}
           </View>
         ) : (
           <XPBadge
-            xp={task.xp}
+            xp={displayXp}
             done={done}
             accent={accentPrimary}
             hygiene={hygiene}
@@ -321,6 +329,7 @@ function TaskSection({
   justCompletedId,
   canDelete,
   hygieneXpWhenRewarded,
+  rewardSettings,
   onToggle,
   onDelete,
 }: {
@@ -339,6 +348,7 @@ function TaskSection({
   justCompletedId: string | null;
   canDelete: boolean;
   hygieneXpWhenRewarded?: number;
+  rewardSettings: HouseholdRewardSettings;
   onToggle: (taskId: string) => void;
   onDelete: (taskId: string) => void;
 }) {
@@ -395,6 +405,7 @@ function TaskSection({
               justCompleted={justCompletedId === task.id}
               canDelete={canDelete}
               hygieneXpWhenRewarded={hygieneXpWhenRewarded}
+              rewardSettings={rewardSettings}
               onToggle={() => onToggle(task.id)}
               onDelete={() => onDelete(task.id)}
             />
@@ -815,6 +826,7 @@ export default function TasksScreen() {
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}
+            rewardSettings={rewardSettings}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />
@@ -833,6 +845,7 @@ export default function TasksScreen() {
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}
+            rewardSettings={rewardSettings}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />
@@ -848,6 +861,7 @@ export default function TasksScreen() {
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}
+            rewardSettings={rewardSettings}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />
@@ -855,7 +869,7 @@ export default function TasksScreen() {
           <TaskSection
             title="Completed"
             dotColor={orbitColors.success}
-            countLabel={`+${grouped.done.reduce((sum, task) => sum + task.xp, 0)} XP earned`}
+            countLabel={`+${grouped.done.reduce((sum, task) => sum + (task.awardedXp ?? resolveTaskXpFromHouseholdTask(task, rewardSettings)), 0)} XP earned`}
             tasks={grouped.done}
             members={household.members}
             rooms={rooms}
@@ -864,6 +878,7 @@ export default function TasksScreen() {
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}
+            rewardSettings={rewardSettings}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />

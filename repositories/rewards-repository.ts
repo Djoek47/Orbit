@@ -1,5 +1,11 @@
 import { mockHousehold } from '@/data/mock-household';
+import { loadAllowances, saveAllowances } from '@/lib/household/allowance-prefs';
 import { mapBadgeRow, mapRewardRow } from '@/lib/mappers/orbit-mappers';
+import {
+  loadRewardFieldOverlay,
+  mergeRewardOverlay,
+  saveRewardFieldOverlay,
+} from '@/lib/rewards/reward-field-overlay';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type {
   AllowanceGrant,
@@ -13,6 +19,11 @@ import type {
 let mockRewardsState: Reward[] = clone(mockHousehold.rewards);
 let mockRedemptionsState: RewardRedemption[] = [];
 let mockAllowancesState: AllowanceGrant[] = [];
+let allowancesHydratedFor: string | null = null;
+
+export function __setMockRewardsStateForTests(items: Reward[]) {
+  mockRewardsState = clone(items);
+}
 
 function mapRedemptionRow(row: {
   id: string;
@@ -50,7 +61,9 @@ export const rewardsRepository = {
     const { data, error } = await supabase.from('rewards').select('*').eq('household_id', householdId);
     mapDbError('rewardsRepository.getRewards', error);
 
-    return (data ?? []).map((row) => mapRewardRow(row));
+    const mapped = (data ?? []).map((row) => mapRewardRow(row));
+    const overlay = await loadRewardFieldOverlay(householdId);
+    return mergeRewardOverlay(mapped, overlay);
   },
 
   async getBadges(householdId: string | null | undefined): Promise<Badge[]> {
@@ -129,7 +142,7 @@ export const rewardsRepository = {
       .select('*')
       .single();
     mapDbError('rewardsRepository.createReward', error);
-    return data
+    const created = data
       ? {
           ...mapRewardRow(data),
           emoji: reward.emoji,
@@ -143,16 +156,35 @@ export const rewardsRepository = {
           assignedMemberName: reward.assignedMemberName,
         }
       : reward;
+    await saveRewardFieldOverlay(householdId, created.id, {
+      emoji: created.emoji,
+      category: created.category,
+      color: created.color,
+      specialRequest: created.specialRequest,
+      origin: created.origin,
+      createdByMemberId: created.createdByMemberId,
+      createdByName: created.createdByName,
+      assignedMemberId: created.assignedMemberId,
+      assignedMemberName: created.assignedMemberName,
+      archived: created.archived,
+    });
+    return created;
   },
 
   async getAllowances(householdId: string | null | undefined): Promise<AllowanceGrant[]> {
-    if (isMockMode()) {
-      return clone(
-        mockAllowancesState.filter((item) => item.householdId === (householdId ?? mockHousehold.id))
-      );
+    const id = householdId ?? mockHousehold.id;
+    if (!id) return [];
+    if (allowancesHydratedFor !== id) {
+      const stored = await loadAllowances(id);
+      if (stored.length) {
+        mockAllowancesState = [
+          ...stored,
+          ...mockAllowancesState.filter((item) => item.householdId !== id),
+        ];
+      }
+      allowancesHydratedFor = id;
     }
-    // Allowance is mock-first until a Supabase table ships.
-    return [];
+    return clone(mockAllowancesState.filter((item) => item.householdId === id));
   },
 
   async createAllowance(
@@ -175,12 +207,11 @@ export const rewardsRepository = {
       createdByName: input.createdByName,
     };
 
-    if (isMockMode()) {
-      mockAllowancesState = [grant, ...mockAllowancesState];
-      return clone(grant);
-    }
-
     mockAllowancesState = [grant, ...mockAllowancesState];
+    await saveAllowances(
+      grant.householdId,
+      mockAllowancesState.filter((item) => item.householdId === grant.householdId)
+    );
     return clone(grant);
   },
 
@@ -386,6 +417,10 @@ async function decideAllowance(
   };
   mockAllowancesState = mockAllowancesState.map((item) =>
     item.id === allowanceId ? updated : item
+  );
+  await saveAllowances(
+    updated.householdId,
+    mockAllowancesState.filter((item) => item.householdId === updated.householdId)
   );
   return clone(updated);
 }
