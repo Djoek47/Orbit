@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { NovaHourglass } from '@/components/orbit/nova-hourglass';
+import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { getNotificationRoute } from '@/lib/notifications/navigate';
 import {
@@ -23,12 +23,12 @@ import {
   buildSheetNotifications,
   needsAttentionCount,
   type NotifBucket,
-} from '@/lib/nova/notification-buckets';
+} from '@/lib/poppins/notification-buckets';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type {
-  NovaBriefing,
-  NovaMonitorAction,
-  NovaWeeklyBriefing,
+  PoppinsBriefing,
+  PoppinsMonitorAction,
+  PoppinsWeeklyBriefing,
   NotificationItem,
   OrbitMetrics,
 } from '@/types/orbit';
@@ -167,20 +167,20 @@ function BreathingDot({ color, delay }: { color: string; delay: number }) {
   );
 }
 
-type NovaActivitySheetProps = {
+type PoppinsActivitySheetProps = {
   visible: boolean;
   onClose: () => void;
   notifications: NotificationItem[];
-  monitorActions: NovaMonitorAction[];
-  briefing?: NovaBriefing | null;
-  weekly: NovaWeeklyBriefing;
+  monitorActions: PoppinsMonitorAction[];
+  briefing?: PoppinsBriefing | null;
+  weekly: PoppinsWeeklyBriefing;
   metrics?: OrbitMetrics | null;
-  novaActive?: boolean;
+  poppinsActive?: boolean;
   onDismissNotification: (id: string) => void | Promise<void>;
   taskCompletedFallback?: number;
 };
 
-export function NovaActivitySheet({
+export function PoppinsActivitySheet({
   visible,
   onClose,
   notifications,
@@ -188,10 +188,10 @@ export function NovaActivitySheet({
   briefing,
   weekly,
   metrics,
-  novaActive = true,
+  poppinsActive = true,
   onDismissNotification,
   taskCompletedFallback = 0,
-}: NovaActivitySheetProps) {
+}: PoppinsActivitySheetProps) {
   const insets = useSafeAreaInsets();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
   const [tab, setTab] = useState<SheetTab>('notifications');
@@ -327,19 +327,19 @@ export function NovaActivitySheet({
                 },
               ]}>
               {tab === 'activity' ? (
-                <NovaHourglass size={18} color="#2DD4BF" active={novaActive} />
+                <PoppinsHourglass size={18} color="#2DD4BF" active={poppinsActive} />
               ) : (
                 <MaterialIcons name="notifications" size={16} color="#F87171" />
               )}
             </View>
             <View>
               <Text style={[typography.headline, { color: c.text }]}>
-                {tab === 'activity' ? 'Nova Activity' : 'Notifications'}
+                {tab === 'activity' ? 'Poppins Activity' : 'Notifications'}
               </Text>
               <Text style={[typography.caption1, { color: c.textMuted }]}>
                 {tab === 'activity'
-                  ? novaActive
-                    ? 'Nova is active in the background'
+                  ? poppinsActive
+                    ? 'Poppins is active in the background'
                     : 'All quiet'
                   : unread > 0
                     ? `${unread} need${unread === 1 ? 's' : ''} your attention`
@@ -376,7 +376,7 @@ export function NovaActivitySheet({
                     color={active ? '#F87171' : c.textSubtle}
                   />
                 ) : (
-                  <NovaHourglass size={14} color={active ? '#2DD4BF' : c.textSubtle} active={false} />
+                  <PoppinsHourglass size={14} color={active ? '#2DD4BF' : c.textSubtle} active={false} />
                 )}
                 <Text
                   style={[
@@ -386,7 +386,7 @@ export function NovaActivitySheet({
                       fontWeight: active ? '700' : '500',
                     },
                   ]}>
-                  {t === 'notifications' ? 'Notifications' : 'Nova Activity'}
+                  {t === 'notifications' ? 'Notifications' : 'Poppins Activity'}
                 </Text>
                 {t === 'notifications' && unread > 0 ? (
                   <View style={styles.badge}>
@@ -503,10 +503,10 @@ export function NovaActivitySheet({
                     borderColor: 'rgba(45,212,191,0.16)',
                   },
                 ]}>
-                <NovaHourglass size={16} color="#2DD4BF" active={novaActive} />
+                <PoppinsHourglass size={16} color="#2DD4BF" active={poppinsActive} />
                 <View style={{ flex: 1 }}>
                   <Text style={[typography.caption1, { color: '#2DD4BF', fontWeight: '700' }]}>
-                    Nova is active
+                    Poppins is active
                   </Text>
                   <Text style={[typography.caption2, { color: c.textMuted, lineHeight: 16 }]}>
                     Monitoring schedules, GPS patterns, streaks & rewards in the background
@@ -517,7 +517,7 @@ export function NovaActivitySheet({
 
               {activityGroups.length === 0 ? (
                 <Text style={[typography.footnote, { color: c.textMuted }]}>
-                  Nova hasn&apos;t logged activity yet.
+                  Poppins hasn&apos;t logged activity yet.
                 </Text>
               ) : (
                 activityGroups.map(({ label, items }) => (
@@ -632,7 +632,7 @@ export function NovaActivitySheet({
                   },
                 ]}>
                 <View style={styles.weekHead}>
-                  <NovaHourglass size={13} color="#2DD4BF" />
+                  <PoppinsHourglass size={13} color="#2DD4BF" />
                   <Text style={styles.weekLabel}>THIS WEEK</Text>
                 </View>
                 <View style={styles.weekGrid}>

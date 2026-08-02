@@ -3,7 +3,7 @@
     "name": "Choremaxx",
     "slug": "choremaxx",
     "version": "1.0.0",
-    "description": "Choremaxx is an AI household operating system — tasks, rewards, groceries, and Nova your calm co-manager.",
+    "description": "Choremaxx is an AI household operating system — tasks, rewards, groceries, and Poppins your calm co-manager.",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "choremaxx",
@@ -38,7 +38,7 @@
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Choremaxx uses the microphone so you can talk to Nova.",
+        "NSMicrophoneUsageDescription": "Choremaxx uses the microphone so you can talk to Poppins.",
         "NSLocationWhenInUseUsageDescription": "Choremaxx uses your location for nearby grocery suggestions.",
         "NSCameraUsageDescription": "Choremaxx uses the camera to scan invite QR codes and attach task proof photos.",
         "NSPhotoLibraryUsageDescription": "Choremaxx uses your photos for profile pictures and task proof attachments.",
@@ -98,7 +98,7 @@
       [
         "expo-av",
         {
-          "microphonePermission": "Choremaxx uses the microphone so you can talk to Nova."
+          "microphonePermission": "Choremaxx uses the microphone so you can talk to Poppins."
         }
       ],
       [

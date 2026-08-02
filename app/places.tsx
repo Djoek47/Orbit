@@ -96,7 +96,7 @@ export default function PlacesScreen() {
     household,
     orbitPalette,
     removeSavedPlace,
-    suggestNovaItinerary,
+    suggestPoppinsItinerary,
     upsertSavedPlace,
   } = useOrbit();
   const { glass } = useOrbitColors();
@@ -229,7 +229,7 @@ export default function PlacesScreen() {
     }
     setSuggestBusy(true);
     try {
-      const created = await suggestNovaItinerary();
+      const created = await suggestPoppinsItinerary();
       if (created) router.push(`/itinerary/${created.id}` as never);
       else router.push('/create-itinerary' as never);
     } finally {
@@ -442,10 +442,10 @@ export default function PlacesScreen() {
             </View>
           ) : null}
 
-          <View style={[styles.novaHint, { backgroundColor: 'rgba(6,182,212,0.08)', borderColor: 'rgba(6,182,212,0.18)' }]}>
+          <View style={[styles.poppinsHint, { backgroundColor: 'rgba(6,182,212,0.08)', borderColor: 'rgba(6,182,212,0.18)' }]}>
             <MaterialIcons name="auto-awesome" size={13} color="#06B6D4" />
             <Text style={{ flex: 1, fontSize: 12, color: orbitPalette.textMuted, lineHeight: 18 }}>
-              <Text style={{ color: '#06B6D4', fontWeight: '700' }}>Nova uses this</Text> to bundle
+              <Text style={{ color: '#06B6D4', fontWeight: '700' }}>Poppins uses this</Text> to bundle
               errands, suggest pickup reminders, and build smart itineraries.
             </Text>
           </View>
@@ -457,7 +457,7 @@ export default function PlacesScreen() {
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
           showsVerticalScrollIndicator={false}>
           <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
-            Train Nova with home, work, stores, and pickup spots — Plan trips reuse them.
+            Train Poppins with home, work, stores, and pickup spots — Plan trips reuse them.
           </Text>
 
           <PlaceRow
@@ -566,7 +566,7 @@ export default function PlacesScreen() {
                 <MaterialIcons name="route" size={16} color={accentTheme.primary} />
                 <Text style={[styles.summaryCtaText, { color: accentTheme.primary }]}>
                   {suggestBusy
-                    ? 'Asking Nova…'
+                    ? 'Asking Poppins…'
                     : summary.groups.some((g) => g.groceryLinked)
                       ? 'Open shopping list'
                       : 'Plan a pickup trip'}
@@ -744,7 +744,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     borderWidth: 1,
   },
-  novaHint: {
+  poppinsHint: {
     flexDirection: 'row',
     gap: 8,
     padding: 12,

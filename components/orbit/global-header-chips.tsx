@@ -113,7 +113,7 @@ export function GlobalHeaderChips() {
 
 /**
  * Total sticky offset for ScrollView / header content under GlobalHeaderChips.
- * Always use the default so Home, Tasks, Plan, Rewards, Nova, Groceries share one gap.
+ * Always use the default so Home, Tasks, Plan, Rewards, Poppins, Groceries share one gap.
  */
 export function useTabChromePaddingTop(extra = TAB_CHROME_CONTENT_GAP) {
   const insets = useSafeAreaInsets();

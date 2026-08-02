@@ -59,7 +59,7 @@ const mockNotifications: NotificationItem[] = [
   {
     id: 'n5',
     householdId: 'hh-rivera',
-    title: 'Nova suggestion',
+    title: 'Poppins suggestion',
     body: 'Rebalance open tasks before school pickup at 3:00 PM.',
     category: 'ai',
     priority: 'medium',

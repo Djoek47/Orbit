@@ -125,7 +125,7 @@ export default function PlanScreen() {
             <GlassCard>
               <Text style={typography.headline}>No events yet</Text>
               <Text style={typography.footnote}>
-                Add school pickups, activities, and appointments so Nova can brief the household.
+                Add school pickups, activities, and appointments so Poppins can brief the household.
               </Text>
             </GlassCard>
           ) : selectedDay <= 1 ? (

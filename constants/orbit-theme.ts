@@ -28,7 +28,7 @@ export type OrbitColorPalette = {
   primary: string;
   accent: string;
   rewardsGold: string;
-  novaCyan: string;
+  poppinsCyan: string;
   success: string;
   warning: string;
   danger: string;
@@ -60,7 +60,7 @@ export const orbitColorsDark: OrbitColorPalette = {
   primary: choremaxxBrand.cyan,
   accent: choremaxxBrand.mint,
   rewardsGold: choremaxxBrand.gold,
-  novaCyan: '#06B6D4',
+  poppinsCyan: '#06B6D4',
   success: '#34D399',
   warning: '#FB923C',
   danger: '#F87171',
@@ -92,7 +92,7 @@ export const orbitColorsLight: OrbitColorPalette = {
   primary: choremaxxBrand.cyan,
   accent: choremaxxBrand.mint,
   rewardsGold: choremaxxBrand.gold,
-  novaCyan: '#06B6D4',
+  poppinsCyan: '#06B6D4',
   success: '#059669',
   warning: '#EA580C',
   danger: '#DC2626',
@@ -111,7 +111,7 @@ export const orbitTabColors = {
   tasks: choremaxxBrand.mint,
   plan: '#A78BFA',
   ranking: choremaxxBrand.gold,
-  nova: '#06B6D4',
+  poppins: '#06B6D4',
 } as const;
 
 /**

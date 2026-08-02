@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 
 import { MyPlacesPanel } from '@/components/orbit/my-places-panel';
-import { NovaOrb } from '@/components/orbit/nova-orb';
+import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RouteSteps, type RouteStepItem } from '@/components/orbit/route-steps';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
@@ -94,7 +94,7 @@ function driveMinutesBetween(stops: ItineraryStop[], index: number): number {
   return Math.max(2, Math.min(12, Math.round((curr - prev) * 0.25) || 3));
 }
 
-function novaReasonForTrip(trip: Itinerary): string {
+function poppinsReasonForTrip(trip: Itinerary): string {
   if (trip.summary && trip.summary.length > 20) return trip.summary;
   const names = [...trip.stops]
     .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -220,11 +220,11 @@ function TripCard({
 
       {expanded ? (
         <View style={styles.tripExpanded}>
-          <View style={styles.novaReason}>
+          <View style={styles.poppinsReason}>
             <MaterialIcons name="auto-awesome" size={13} color="#06B6D4" />
             <Text style={[styles.heroBody, { color: c.textSoft }]}>
-              <Text style={{ color: '#06B6D4', fontWeight: '700' }}>Nova: </Text>
-              {novaReasonForTrip(trip)}
+              <Text style={{ color: '#06B6D4', fontWeight: '700' }}>Poppins: </Text>
+              {poppinsReasonForTrip(trip)}
             </Text>
           </View>
           <RouteSteps steps={steps} accentColor={color} emphasized={!activated} />
@@ -270,7 +270,7 @@ function TripCard({
 }
 
 /**
- * Full Nova Smart Trips experience — Design 8 glass + My Places segment.
+ * Full Poppins Smart Trips experience — Design 8 glass + My Places segment.
  */
 export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string }) {
   const {
@@ -278,7 +278,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
     household,
     openFullItineraryInMaps,
     rerunItinerary,
-    suggestNovaItinerary,
+    suggestPoppinsItinerary,
   } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
   const [section, setSection] = useState<TripsSection>('trips');
@@ -304,7 +304,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
   const runSuggest = async (opts?: { date?: string; eventIds?: string[] }) => {
     setBusy(true);
     try {
-      const created = await suggestNovaItinerary({
+      const created = await suggestPoppinsItinerary({
         mode,
         date: opts?.date ?? selectedDateKey,
         eventIds: opts?.eventIds,
@@ -323,7 +323,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
   return (
     <View style={styles.wrap}>
       <View style={styles.itinHeader}>
-        <PageEyebrow>Nova Smart Trips</PageEyebrow>
+        <PageEyebrow>Poppins Smart Trips</PageEyebrow>
         <Text style={[styles.h1, { color: c.text }]}>Itineraries</Text>
       </View>
 
@@ -388,14 +388,14 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
             colors={['rgba(6,182,212,0.15)', 'rgba(56,189,248,0.08)', 'rgba(129,140,248,0.08)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.novaHero}>
-            <View style={styles.novaHeroGlow} />
-            <View style={styles.novaHeroRow}>
-              <NovaOrb size={56} />
+            style={styles.poppinsHero}>
+            <View style={styles.poppinsHeroGlow} />
+            <View style={styles.poppinsHeroRow}>
+              <PoppinsOrb size={56} />
               <View style={{ flex: 1, gap: 6 }}>
-                <View style={styles.novaLive}>
+                <View style={styles.poppinsLive}>
                   <View style={styles.liveDot} />
-                  <Text style={styles.novaLiveText}>NOVA SMART ROUTING</Text>
+                  <Text style={styles.poppinsLiveText}>POPPINS SMART ROUTING</Text>
                 </View>
                 <Text style={[styles.heroBodyLg, { color: c.textSoft }]}>
                   I&apos;ve analysed your calendar and errands. I&apos;ve bundled{' '}
@@ -473,7 +473,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
             />
             <ComposeChip
               icon="auto-awesome"
-              label="Ask Nova"
+              label="Ask Poppins"
               accent={accentTheme.primary}
               busy={busy}
               onPress={() => void runSuggest()}
@@ -504,7 +504,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
                 ]}>
                 <Text style={[styles.emptyTripsTitle, { color: c.text }]}>No active trips yet</Text>
                 <Text style={[styles.emptyTripsBody, { color: c.textMuted }]}>
-                  Ask Nova to bundle today, or build one from your calendar.
+                  Ask Poppins to bundle today, or build one from your calendar.
                 </Text>
               </View>
             ) : (
@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   segmentBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
-  novaHero: {
+  poppinsHero: {
     borderColor: 'rgba(56,189,248,0.2)',
     borderRadius: 24,
     borderWidth: 1,
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     padding: 16,
   },
-  novaHeroGlow: {
+  poppinsHeroGlow: {
     backgroundColor: 'rgba(56,189,248,0.08)',
     borderRadius: 80,
     height: 160,
@@ -678,9 +678,9 @@ const styles = StyleSheet.create({
     transform: [{ translateX: 48 }, { translateY: -48 }],
     width: 160,
   },
-  novaHeroRow: { flexDirection: 'row', gap: 16 },
-  novaLive: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  novaLiveText: { color: '#34D399', fontSize: 12, fontWeight: '700', letterSpacing: 0.6 },
+  poppinsHeroRow: { flexDirection: 'row', gap: 16 },
+  poppinsLive: { alignItems: 'center', flexDirection: 'row', gap: 6 },
+  poppinsLiveText: { color: '#34D399', fontSize: 12, fontWeight: '700', letterSpacing: 0.6 },
   liveDot: { backgroundColor: '#34D399', borderRadius: 3, height: 6, width: 6 },
   heroBody: { flex: 1, fontSize: 12, lineHeight: 18 },
   heroBodyLg: { fontSize: 14, lineHeight: 21 },
@@ -754,7 +754,7 @@ const styles = StyleSheet.create({
   },
   stopCountText: { color: '#34D399', fontSize: 10, fontWeight: '700' },
   tripExpanded: { paddingBottom: 16, paddingHorizontal: 16 },
-  novaReason: {
+  poppinsReason: {
     backgroundColor: 'rgba(6,182,212,0.1)',
     borderColor: 'rgba(6,182,212,0.2)',
     borderRadius: 16,

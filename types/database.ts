@@ -294,7 +294,7 @@ export type XPTransaction = XPTransactionRow;
 /** @deprecated Prefer HouseholdScoreRow */
 export type HouseholdMomentum = HouseholdScoreRow;
 /** @deprecated Prefer AiBriefingRow */
-export type NovaBriefing = AiBriefingRow;
+export type PoppinsBriefing = AiBriefingRow;
 
 type TableDef<Row, Insert = Partial<Row> & Record<string, unknown>, Update = Partial<Row>> = {
   Row: Row;

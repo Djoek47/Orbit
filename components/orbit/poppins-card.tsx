@@ -6,20 +6,20 @@ import { motion } from '@/constants/motion-tokens';
 import { radius, space } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
-export type NovaCardKind = 'morningBrief' | 'eveningWrap' | 'recommendation' | 'alert';
+export type PoppinsCardKind = 'morningBrief' | 'eveningWrap' | 'recommendation' | 'alert';
 
-export type NovaCardAction = {
+export type PoppinsCardAction = {
   label: string;
   onPress: () => void;
 };
 
-type NovaCardProps = {
-  kind?: NovaCardKind;
+type PoppinsCardProps = {
+  kind?: PoppinsCardKind;
   message: string;
-  actions?: NovaCardAction[];
+  actions?: PoppinsCardAction[];
 };
 
-const KIND_ICON: Record<NovaCardKind, keyof typeof MaterialIcons.glyphMap> = {
+const KIND_ICON: Record<PoppinsCardKind, keyof typeof MaterialIcons.glyphMap> = {
   morningBrief: 'wb-sunny',
   eveningWrap: 'nights-stay',
   recommendation: 'auto-awesome',
@@ -28,11 +28,11 @@ const KIND_ICON: Record<NovaCardKind, keyof typeof MaterialIcons.glyphMap> = {
 
 /**
  * Calm Apple-Intelligence-style summary card with one-tap actions — replaces
- * chat-bubble UI as Nova's primary surface.
+ * chat-bubble UI as Poppins's primary surface.
  */
-export function NovaCard({ kind = 'recommendation', message, actions = [] }: NovaCardProps) {
+export function PoppinsCard({ kind = 'recommendation', message, actions = [] }: PoppinsCardProps) {
   const { c, type, glass, glassBorder } = useOrbitColors();
-  const accent = c.novaCyan;
+  const accent = c.poppinsCyan;
   const enter = useAnimatedStyle(() => ({
     opacity: withSpring(1, motion.settle),
     transform: [{ translateY: withSpring(0, motion.settle) }],

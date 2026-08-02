@@ -147,7 +147,7 @@ export const householdRepository = {
             loadShare: 100,
           },
         ],
-        nova: {
+        poppins: {
           title: 'Your household is ready',
           summary: `${input.name.trim()} is ready. Add tasks, Plan events, and rewards when your household is set.`,
           actions: ['Invite members', 'Create task'],
@@ -225,7 +225,7 @@ export const householdRepository = {
         inviteCode: code || mockHousehold.inviteCode,
         greetingName: user.name,
         members: [...existingWithoutDup, pendingMember],
-        nova: {
+        poppins: {
           title: 'Join request sent',
           summary:
             'Your household access is pending approval. Browse calmly — create/edit stays locked until an owner or admin accepts you.',
@@ -341,7 +341,7 @@ export const householdRepository = {
           loadShare: 0,
         },
       ],
-      nova: {
+      poppins: {
         title: 'Join request sent',
         summary: 'Waiting for an owner or admin to approve your access on Members.',
         actions: ['Check back soon', 'Message household owner'],
@@ -774,11 +774,11 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     },
     rewards: (rewards ?? []).map((row) => mapRewardRow(row)),
     badges: (badges ?? []).map((row) => mapBadgeRow(row)),
-    nova: briefing
+    poppins: briefing
       ? mapBriefingRow(briefing)
       : {
           title: 'Welcome to Choremaxx',
-          summary: 'Your household is synced. Nova will fill in guidance as activity arrives.',
+          summary: 'Your household is synced. Poppins will fill in guidance as activity arrives.',
           actions: ['Create task', 'Check groceries'],
         },
   };
@@ -830,7 +830,7 @@ async function loadPendingJoinSnapshot(
         loadShare: 0,
       },
     ],
-    nova: {
+    poppins: {
       title: 'Join request sent',
       summary: 'Waiting for an owner or admin to approve your access on Members.',
       actions: ['Check back soon', 'Message household owner'],

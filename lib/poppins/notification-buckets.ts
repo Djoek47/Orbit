@@ -1,4 +1,4 @@
-import type { NovaBriefing, NotificationItem } from '@/types/orbit';
+import type { PoppinsBriefing, NotificationItem } from '@/types/orbit';
 
 export type NotifBucket = 'critical' | 'urgent' | 'insight' | 'done';
 
@@ -66,7 +66,7 @@ function actionLabelFor(item: NotificationItem): string | undefined {
   if (item.category === 'tasks' || kind.includes('proof')) return 'Open Task';
   if (item.category === 'events') return 'Open Plan';
   if (item.category === 'groceries') return 'Open Groceries';
-  if (item.category === 'ai') return 'Ask Nova';
+  if (item.category === 'ai') return 'Ask Poppins';
   return 'View';
 }
 
@@ -100,7 +100,7 @@ export function bucketNotification(item: NotificationItem): NotifBucket {
 
 export function buildSheetNotifications(
   notifications: NotificationItem[],
-  briefing?: NovaBriefing | null
+  briefing?: PoppinsBriefing | null
 ): SheetNotificationCard[] {
   const cards: SheetNotificationCard[] = [];
 
@@ -121,7 +121,7 @@ export function buildSheetNotifications(
       bullets: digestBullets.length ? digestBullets : [briefing.summary],
       timeLabel: 'Today',
       color: BUCKET_COLORS.urgent,
-      actionLabel: 'Open Nova',
+      actionLabel: 'Open Poppins',
     });
   }
 

@@ -164,8 +164,8 @@ export default function ScanGroceryScreen() {
               styles.secondaryBtn,
               { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) },
             ]}>
-            <MaterialIcons name="qr-code-scanner" size={18} color={c.novaCyan} />
-            <Text style={[styles.secondaryText, { color: c.novaCyan }]}>Open scanner</Text>
+            <MaterialIcons name="qr-code-scanner" size={18} color={c.poppinsCyan} />
+            <Text style={[styles.secondaryText, { color: c.poppinsCyan }]}>Open scanner</Text>
           </Pressable>
         )}
 
@@ -233,13 +233,13 @@ export default function ScanGroceryScreen() {
                     : `$${product.typicalPrice.toFixed(2)} est.`}
                 </Text>
                 {product.source === 'openfoodfacts' ? (
-                  <Text style={[styles.source, { color: c.novaCyan }]}>Open Food Facts</Text>
+                  <Text style={[styles.source, { color: c.poppinsCyan }]}>Open Food Facts</Text>
                 ) : product.source === 'unknown' ? (
-                  <Text style={[styles.source, { color: c.novaCyan }]}>
+                  <Text style={[styles.source, { color: c.poppinsCyan }]}>
                     Unknown barcode · add anyway
                   </Text>
                 ) : (
-                  <Text style={[styles.source, { color: c.novaCyan }]}>Mock catalog</Text>
+                  <Text style={[styles.source, { color: c.poppinsCyan }]}>Mock catalog</Text>
                 )}
               </View>
             </View>

@@ -8,7 +8,7 @@ import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { LargeTitleHeader } from '@/components/orbit/large-title-header';
 import { Leaderboard, type LeaderboardEntry } from '@/components/orbit/leaderboard';
-import { NovaCard } from '@/components/orbit/nova-card';
+import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
@@ -30,7 +30,7 @@ import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
   const chromePad = useTabChromePaddingTop();
-  const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona, permissions, orbitPalette } =
+  const { accentTheme, awardDailyStreak, household, metrics, poppinsBriefing, currentMember, switchPersona, permissions, orbitPalette } =
     useOrbit();
   const { c, glass } = useOrbitColors();
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
@@ -148,10 +148,10 @@ export default function HomeScreen() {
         </View>
 
         {/* Morning Brief — Apple-Intelligence-style card, not a chat entry point. */}
-        <NovaCard
+        <PoppinsCard
           kind="morningBrief"
-          message={novaBriefing.summary}
-          actions={[{ label: 'Open Nova', onPress: () => router.push('/(tabs)/nova' as never) }]}
+          message={poppinsBriefing.summary}
+          actions={[{ label: 'Open Poppins', onPress: () => router.push('/(tabs)/poppins' as never) }]}
         />
 
         {/* Today — unified typography-led section (tasks + grocery/event stats together). */}

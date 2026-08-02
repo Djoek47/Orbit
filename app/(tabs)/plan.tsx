@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { NovaCard } from '@/components/orbit/nova-card';
+import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
@@ -50,7 +50,7 @@ function locationShort(location: string): string | null {
 
 export default function PlanScreen() {
   const chromePad = useTabChromePaddingTop();
-  const { household, suggestNovaItinerary, currentMember, permissions, accentTheme, orbitPalette } = useOrbit();
+  const { household, suggestPoppinsItinerary, currentMember, permissions, accentTheme, orbitPalette } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
   const [buildingTrip, setBuildingTrip] = useState(false);
   const [subTab, setSubTab] = useState<PlanSubTab>('calendar');
@@ -89,7 +89,7 @@ export default function PlanScreen() {
     if (buildingTrip) return;
     setBuildingTrip(true);
     try {
-      const created = await suggestNovaItinerary({
+      const created = await suggestPoppinsItinerary({
         date: selectedKey,
         mode: 'efficient',
         eventIds: selectedEvents.map((e) => e.id),
@@ -301,7 +301,7 @@ export default function PlanScreen() {
           </View>
 
           {canBuildTrip ? (
-            <NovaCard
+            <PoppinsCard
               kind="recommendation"
               message={
                 missingGroceries > 0 && locationEvents.length >= 1

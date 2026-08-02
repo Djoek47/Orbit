@@ -1,24 +1,24 @@
 import { aiProvider } from '@/lib/ai/ai-provider';
-import type { NovaChatMessage } from '@/lib/ai/ai-provider';
+import type { PoppinsChatMessage } from '@/lib/ai/ai-provider';
 import { mapBriefingRow } from '@/lib/mappers/orbit-mappers';
 import { getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type {
   HouseholdSnapshot,
-  NovaBriefing,
-  NovaConversationAnswer,
-  NovaRecommendation,
-  NovaWeeklyBriefing,
+  PoppinsBriefing,
+  PoppinsConversationAnswer,
+  PoppinsRecommendation,
+  PoppinsWeeklyBriefing,
   OrbitMetrics,
   WeeklyReport,
 } from '@/types/orbit';
 
-const mockConversationByHousehold = new Map<string, NovaChatMessage[]>();
+const mockConversationByHousehold = new Map<string, PoppinsChatMessage[]>();
 
-export const novaRepository = {
+export const poppinsRepository = {
   async getConversationHistory(
     householdId: string | null | undefined,
     userId: string | null | undefined
-  ): Promise<NovaChatMessage[]> {
+  ): Promise<PoppinsChatMessage[]> {
     if (!householdId || !userId) {
       return [];
     }
@@ -27,14 +27,14 @@ export const novaRepository = {
       return [...(mockConversationByHousehold.get(`${householdId}:${userId}`) ?? [])];
     }
 
-    const supabase = getConfiguredSupabase('novaRepository.getConversationHistory');
+    const supabase = getConfiguredSupabase('poppinsRepository.getConversationHistory');
     const { data: conversation, error: convError } = await supabase
       .from('ai_conversations')
       .select('id')
       .eq('household_id', householdId)
       .eq('user_id', userId)
       .maybeSingle();
-    mapDbError('novaRepository.getConversationHistory.conversation', convError);
+    mapDbError('poppinsRepository.getConversationHistory.conversation', convError);
 
     if (!conversation?.id) {
       return [];
@@ -46,14 +46,14 @@ export const novaRepository = {
       .eq('conversation_id', conversation.id)
       .order('created_at', { ascending: true })
       .limit(20);
-    mapDbError('novaRepository.getConversationHistory.messages', error);
+    mapDbError('poppinsRepository.getConversationHistory.messages', error);
 
     return (messages ?? []).map(
       (row) =>
         ({
           role: row.role,
           content: row.content,
-        }) as NovaChatMessage
+        }) as PoppinsChatMessage
     );
   },
 
@@ -76,19 +76,19 @@ export const novaRepository = {
           ...current,
           { role: 'user', content: question },
           { role: 'assistant', content: answer },
-        ].slice(-20) as NovaChatMessage[]
+        ].slice(-20) as PoppinsChatMessage[]
       );
       return;
     }
 
-    const supabase = getConfiguredSupabase('novaRepository.appendConversationTurn');
+    const supabase = getConfiguredSupabase('poppinsRepository.appendConversationTurn');
     const { data: existing, error: existingError } = await supabase
       .from('ai_conversations')
       .select('id')
       .eq('household_id', householdId)
       .eq('user_id', userId)
       .maybeSingle();
-    mapDbError('novaRepository.appendConversationTurn.lookup', existingError);
+    mapDbError('poppinsRepository.appendConversationTurn.lookup', existingError);
 
     let conversationId = existing?.id;
     if (!conversationId) {
@@ -97,7 +97,7 @@ export const novaRepository = {
         .insert({ household_id: householdId, user_id: userId })
         .select('id')
         .single();
-      mapDbError('novaRepository.appendConversationTurn.create', createError);
+      mapDbError('poppinsRepository.appendConversationTurn.create', createError);
       conversationId = created?.id;
     }
 
@@ -109,10 +109,10 @@ export const novaRepository = {
       { conversation_id: conversationId, role: 'user', content: question },
       { conversation_id: conversationId, role: 'assistant', content: answer },
     ]);
-    mapDbError('novaRepository.appendConversationTurn.insert', insertError);
+    mapDbError('poppinsRepository.appendConversationTurn.insert', insertError);
   },
 
-  async getNovaBriefing(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<NovaBriefing> {
+  async getPoppinsBriefing(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<PoppinsBriefing> {
     if (isMockMode()) {
       return aiProvider.generateDailyBriefing(household, metrics);
     }
@@ -121,7 +121,7 @@ export const novaRepository = {
       return aiProvider.generateDailyBriefing(household, metrics);
     }
 
-    const supabase = getConfiguredSupabase('novaRepository.getNovaBriefing');
+    const supabase = getConfiguredSupabase('poppinsRepository.getPoppinsBriefing');
     const { data, error } = await supabase
       .from('ai_briefings')
       .select('*')
@@ -130,7 +130,7 @@ export const novaRepository = {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    mapDbError('novaRepository.getNovaBriefing', error);
+    mapDbError('poppinsRepository.getPoppinsBriefing', error);
 
     if (data) {
       return mapBriefingRow(data);
@@ -141,12 +141,12 @@ export const novaRepository = {
     return generated;
   },
 
-  async getWeeklyBriefing(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<NovaWeeklyBriefing> {
+  async getWeeklyBriefing(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<PoppinsWeeklyBriefing> {
     if (isMockMode() || !household.id) {
       return aiProvider.generateWeeklyBriefing(household, metrics);
     }
 
-    const supabase = getConfiguredSupabase('novaRepository.getWeeklyBriefing');
+    const supabase = getConfiguredSupabase('poppinsRepository.getWeeklyBriefing');
     const { data, error } = await supabase
       .from('ai_briefings')
       .select('*')
@@ -155,7 +155,7 @@ export const novaRepository = {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    mapDbError('novaRepository.getWeeklyBriefing', error);
+    mapDbError('poppinsRepository.getWeeklyBriefing', error);
 
     if (data) {
       const metadata = (data.metadata ?? {}) as Record<string, unknown>;
@@ -196,17 +196,17 @@ export const novaRepository = {
     return generated;
   },
 
-  async getRecommendations(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<NovaRecommendation[]> {
+  async getRecommendations(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<PoppinsRecommendation[]> {
     return aiProvider.generateRecommendations(household, metrics);
   },
 
-  async askNova(
+  async askPoppins(
     question: string,
     household: HouseholdSnapshot,
     metrics: OrbitMetrics,
-    history: NovaChatMessage[] = [],
+    history: PoppinsChatMessage[] = [],
     userId?: string | null
-  ): Promise<NovaConversationAnswer> {
+  ): Promise<PoppinsConversationAnswer> {
     const answer = await aiProvider.answerQuestion(question, household, metrics, history);
     await this.appendConversationTurn(household.id, userId ?? null, answer.question, answer.answer);
     return answer;
@@ -214,15 +214,15 @@ export const novaRepository = {
 
   async saveBriefing(
     householdId: string,
-    briefing: NovaBriefing,
+    briefing: PoppinsBriefing,
     briefingType: 'daily' | 'weekly' = 'daily',
     metadata: Record<string, unknown> = {}
-  ): Promise<NovaBriefing> {
+  ): Promise<PoppinsBriefing> {
     if (isMockMode()) {
       return briefing;
     }
 
-    const supabase = getConfiguredSupabase('novaRepository.saveBriefing');
+    const supabase = getConfiguredSupabase('poppinsRepository.saveBriefing');
     const { data, error } = await supabase
       .from('ai_briefings')
       .insert({
@@ -235,7 +235,7 @@ export const novaRepository = {
       })
       .select('*')
       .single();
-    mapDbError('novaRepository.saveBriefing', error);
+    mapDbError('poppinsRepository.saveBriefing', error);
 
     return data ? mapBriefingRow(data) : briefing;
   },
@@ -245,7 +245,7 @@ export const novaRepository = {
       return null;
     }
 
-    const supabase = getConfiguredSupabase('novaRepository.getLatestWeeklyReport');
+    const supabase = getConfiguredSupabase('poppinsRepository.getLatestWeeklyReport');
     const { data, error } = await supabase
       .from('ai_briefings')
       .select('*')
@@ -254,7 +254,7 @@ export const novaRepository = {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    mapDbError('novaRepository.getLatestWeeklyReport', error);
+    mapDbError('poppinsRepository.getLatestWeeklyReport', error);
 
     if (!data) {
       return null;

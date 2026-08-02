@@ -803,7 +803,7 @@ export default function CreateTaskScreen() {
 
           {permissions.canAssignTask ? (
             <GlassCard style={styles.heroCard}>
-              <Text style={[styles.novaLabel, { color: c.novaCyan }]}>WHO&apos;S DOING IT</Text>
+              <Text style={[styles.poppinsLabel, { color: c.poppinsCyan }]}>WHO&apos;S DOING IT</Text>
               <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
                 Pick one person, or hold a second profile to split the chore.
               </Text>
@@ -824,7 +824,7 @@ export default function CreateTaskScreen() {
           ) : null}
 
           <GlassCard style={styles.heroCard}>
-            <Text style={[styles.novaLabel, { color: c.novaCyan }]}>BROWSE</Text>
+            <Text style={[styles.poppinsLabel, { color: c.poppinsCyan }]}>BROWSE</Text>
             <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
               Presets, the full library, or a room category from the Choremaxx catalog.
             </Text>
@@ -868,7 +868,7 @@ export default function CreateTaskScreen() {
                     <Text
                       style={[
                         styles.filterPillLabel,
-                        { color: c.novaCyan },
+                        { color: c.poppinsCyan },
                         active && { color: accentTheme.primary },
                       ]}>
                       {meta.label}
@@ -1632,8 +1632,8 @@ const styles = StyleSheet.create({
   heroCard: {
     gap: 10
   },
-  novaLabel: {
-    color: orbitColors.novaCyan,
+  poppinsLabel: {
+    color: orbitColors.poppinsCyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.6
@@ -1669,7 +1669,7 @@ const styles = StyleSheet.create({
     lineHeight: 16
   },
   filterPillLabel: {
-    color: orbitColors.novaCyan,
+    color: orbitColors.poppinsCyan,
     fontSize: 12,
     fontWeight: '700'
   },

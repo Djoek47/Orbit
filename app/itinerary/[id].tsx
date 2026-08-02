@@ -172,10 +172,10 @@ export default function ItineraryDetailScreen() {
               <Text style={[styles.statusChipText, { color: orbitColors.rankGold }]}>Preferred</Text>
             </View>
           ) : null}
-          {itinerary.suggestedByNova ? (
+          {itinerary.suggestedByPoppins ? (
             <View style={[styles.statusChip, { backgroundColor: 'rgba(6,182,212,0.14)' }]}>
-              <MaterialIcons name="auto-awesome" size={12} color={orbitColors.novaCyan} />
-              <Text style={[styles.statusChipText, { color: orbitColors.novaCyan }]}>Nova</Text>
+              <MaterialIcons name="auto-awesome" size={12} color={orbitColors.poppinsCyan} />
+              <Text style={[styles.statusChipText, { color: orbitColors.poppinsCyan }]}>Poppins</Text>
             </View>
           ) : null}
           <Text style={[styles.progress, { color: c.textMuted }]}>

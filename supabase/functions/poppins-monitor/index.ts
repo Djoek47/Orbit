@@ -1,5 +1,5 @@
-// Deno Edge Function — Nova Monitor Agent (tool loop → notifications + ai_recommendations).
-// Auth: service role for cron, or JWT + active member for "Run Nova check now".
+// Deno Edge Function — Poppins Monitor Agent (tool loop → notifications + ai_recommendations).
+// Auth: service role for cron, or JWT + active member for "Run Poppins check now".
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import {
@@ -7,12 +7,12 @@ import {
   corsHeaders,
   jsonResponse,
   requireActiveMember,
-} from '../_shared/nova-auth.ts';
+} from '../_shared/poppins-auth.ts';
 import {
-  NOVA_MAJORDOMO_SYSTEM,
-  novaToolsAsOpenAIFunctions,
+  POPPINS_MAJORDOMO_SYSTEM,
+  poppinsToolsAsOpenAIFunctions,
   scanMockDeals,
-} from '../_shared/nova-tools.ts';
+} from '../_shared/poppins-tools.ts';
 
 type Snapshot = {
   tasks?: Array<Record<string, unknown>>;
@@ -93,7 +93,7 @@ function executeTool(
         taskId: args.taskId,
         reason: args.reason,
         notification: {
-          title: 'Nova · Nudge',
+          title: 'Poppins · Nudge',
           body: `${args.memberName}: ${args.reason}`,
           data: { kind: 'nudge', taskId: args.taskId },
         },
@@ -154,8 +154,8 @@ function executeTool(
           tone: 'cyan',
         },
         notification: {
-          title: 'Nova · Plan suggestion',
-          body: String(args.detail ?? args.title ?? 'Nova proposed a plan.'),
+          title: 'Poppins · Plan suggestion',
+          body: String(args.detail ?? args.title ?? 'Poppins proposed a plan.'),
           data: { kind: 'propose_plan', dayLabel: args.dayLabel },
         },
       };
@@ -163,7 +163,7 @@ function executeTool(
     case 'ask_for_info': {
       return {
         notification: {
-          title: 'Nova needs a detail',
+          title: 'Poppins needs a detail',
           body: `${args.memberName}, ${args.question}`,
           data: { kind: 'ask_for_info' },
         },
@@ -183,7 +183,7 @@ async function runToolLoop(
   const messages: Array<Record<string, unknown>> = [
     {
       role: 'system',
-      content: `${NOVA_MAJORDOMO_SYSTEM}\nHousehold snapshot: ${JSON.stringify({ metrics, ...context })}`,
+      content: `${POPPINS_MAJORDOMO_SYSTEM}\nHousehold snapshot: ${JSON.stringify({ metrics, ...context })}`,
     },
     {
       role: 'user',
@@ -205,7 +205,7 @@ async function runToolLoop(
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages,
-        tools: novaToolsAsOpenAIFunctions(),
+        tools: poppinsToolsAsOpenAIFunctions(),
         tool_choice: step === 0 ? 'required' : 'auto',
       }),
     });
@@ -269,7 +269,7 @@ async function persistEffects(
       const deals = result.deals as Array<{ title: string; store: string; savings: number }>;
       const top = deals.slice(0, 3);
       const body = top.map((d) => `${d.title} at ${d.store} (save $${d.savings})`).join(' · ');
-      await writeNotification(supabase, householdId, `Nova · ${top.length} deals found`, body, {
+      await writeNotification(supabase, householdId, `Poppins · ${top.length} deals found`, body, {
         kind: 'deals',
       });
       await writeRecommendation(supabase, householdId, 'Worth grabbing on the next run', body, 'green');
@@ -284,7 +284,7 @@ async function persistEffects(
         await writeNotification(
           supabase,
           householdId,
-          'Nova · Task is late',
+          'Poppins · Task is late',
           `${title} for ${assignee} is overdue. Want me to nudge or reassign?`,
           { kind: 'task_overdue', taskId: task.id }
         );

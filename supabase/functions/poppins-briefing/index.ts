@@ -1,4 +1,4 @@
-// Deno Edge Function — Nova briefings via OpenAI.
+// Deno Edge Function — Poppins briefings via OpenAI.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import {
@@ -6,7 +6,7 @@ import {
   corsHeaders,
   jsonResponse,
   requireActiveMember,
-} from '../_shared/nova-auth.ts';
+} from '../_shared/poppins-auth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
             {
               role: 'system',
               content:
-                'You are Nova, the calm AI majordomo for Orbit households. Notify, ensure fair tasks/XP, surface deals, respect holidays, free the lead’s time. Propose — never silently mutate consequential changes. Be concise. Reply with JSON only.',
+                'You are Poppins, the calm AI majordomo for Orbit households. Notify, ensure fair tasks/XP, surface deals, respect holidays, free the lead’s time. Propose — never silently mutate consequential changes. Be concise. Reply with JSON only.',
             },
             { role: 'user', content: prompt },
           ],

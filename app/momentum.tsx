@@ -10,7 +10,7 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function MomentumScreen() {
-  const { household, metrics, novaWeeklyBriefing } = useOrbit();
+  const { household, metrics, poppinsWeeklyBriefing } = useOrbit();
 
   return (
     <ScrollView
@@ -30,8 +30,8 @@ export default function MomentumScreen() {
           <StatusPill label={metrics.momentum >= 80 ? 'Strong' : metrics.momentum >= 60 ? 'Steady' : 'Needs lift'} tone="cyan" />
           <Text style={typography.title2}>{metrics.momentum}</Text>
           <Text style={typography.footnote}>
-            Weekly change {novaWeeklyBriefing.momentumChange >= 0 ? '+' : ''}
-            {novaWeeklyBriefing.momentumChange}
+            Weekly change {poppinsWeeklyBriefing.momentumChange >= 0 ? '+' : ''}
+            {poppinsWeeklyBriefing.momentumChange}
           </Text>
         </View>
         <MomentumRing score={metrics.momentum} />

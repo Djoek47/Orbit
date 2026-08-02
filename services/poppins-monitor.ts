@@ -1,15 +1,15 @@
 import { scanDealsForHousehold } from '@/data/mock-deals';
 import type {
   HouseholdSnapshot,
-  NovaMonitorAction,
-  NovaNotificationPrefs,
-  NovaRecommendation,
+  PoppinsMonitorAction,
+  PoppinsNotificationPrefs,
+  PoppinsRecommendation,
   OrbitMetrics,
 } from '@/types/orbit';
 
 export type MonitorPassResult = {
-  actions: NovaMonitorAction[];
-  recommendations: NovaRecommendation[];
+  actions: PoppinsMonitorAction[];
+  recommendations: PoppinsRecommendation[];
   notifications: {
     title: string;
     body: string;
@@ -32,10 +32,10 @@ function isAway(member: { awayFrom?: string; awayTo?: string }, now = new Date()
 export function runMonitorPass(
   household: HouseholdSnapshot,
   metrics: OrbitMetrics,
-  prefs: NovaNotificationPrefs
+  prefs: PoppinsNotificationPrefs
 ): MonitorPassResult {
-  const actions: NovaMonitorAction[] = [];
-  const recommendations: NovaRecommendation[] = [];
+  const actions: PoppinsMonitorAction[] = [];
+  const recommendations: PoppinsRecommendation[] = [];
   const notifications: MonitorPassResult['notifications'] = [];
   const now = new Date();
 
@@ -49,7 +49,7 @@ export function runMonitorPass(
     for (const task of overdue.slice(0, 5)) {
       if (awayNames.has(task.assignee.toLowerCase())) continue;
       notifications.push({
-        title: 'Nova · Task is late',
+        title: 'Poppins · Task is late',
         body: `${task.title} for ${task.assignee} is overdue. Want me to nudge or reassign?`,
         category: 'ai',
         priority: 'high',
@@ -77,7 +77,7 @@ export function runMonitorPass(
       );
       if (completedToday) continue;
       notifications.push({
-        title: 'Nova · Streak check',
+        title: 'Poppins · Streak check',
         body: `${member.name}'s ${member.streak}-day streak is at risk today. One small task keeps it alive.`,
         category: 'ai',
         priority: 'medium',
@@ -118,7 +118,7 @@ export function runMonitorPass(
         });
         if (prefs.tasks !== false) {
           notifications.push({
-            title: 'Nova · Fairness check',
+            title: 'Poppins · Fairness check',
             body: detail,
             category: 'ai',
             priority: 'medium',
@@ -141,7 +141,7 @@ export function runMonitorPass(
         .map((d) => `${d.title} at ${d.store} (save $${d.savings})`)
         .join(' · ');
       notifications.push({
-        title: `Nova · ${top.length} deal${top.length === 1 ? '' : 's'} found`,
+        title: `Poppins · ${top.length} deal${top.length === 1 ? '' : 's'} found`,
         body,
         category: 'ai',
         priority: 'medium',
@@ -170,7 +170,7 @@ export function runMonitorPass(
     if (missing >= 2 || overdue >= 1 || metrics.momentum < 50) {
       const title = 'Bundle errands into one trip';
       const detail =
-        'Nova can fold school pickup, a short grocery stop, and one overdue errand into a single loop — saves the household lead a second drive.';
+        'Poppins can fold school pickup, a short grocery stop, and one overdue errand into a single loop — saves the household lead a second drive.';
       recommendations.push({ id: 'propose-plan', title, detail, tone: 'cyan' });
       actions.push({
         id: `plan-${now.getTime()}`,
@@ -180,7 +180,7 @@ export function runMonitorPass(
         createdAt: now.toISOString(),
       });
       notifications.push({
-        title: 'Nova · Plan suggestion',
+        title: 'Poppins · Plan suggestion',
         body: detail,
         category: 'ai',
         priority: 'low',
@@ -206,7 +206,7 @@ export function runMonitorPass(
     const lead = household.members.find((m) => m.role === 'owner' || m.role === 'admin');
     if (lead && !awayNames.has(lead.name.toLowerCase())) {
       notifications.push({
-        title: 'Nova needs a detail',
+        title: 'Poppins needs a detail',
         body: `${lead.name}, can you add this week's pickups or appointments so I can plan better?`,
         category: 'ai',
         priority: 'low',

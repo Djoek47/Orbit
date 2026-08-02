@@ -131,7 +131,7 @@ export function PersonalizeLookSheet({
                 ? 'Open Apple Intelligence in Choremaxx'
                 : 'See how to create a look, then pick it from Photos'
             }
-            color={c.novaCyan ?? '#06B6D4'}
+            color={c.poppinsCyan ?? '#06B6D4'}
             glass={glass}
             border={glassBorder(0.1)}
             text={c.text}

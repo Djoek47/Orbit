@@ -15,7 +15,7 @@ type FilterKey = 'all' | 'unread' | NotificationItem['category'];
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'unread', label: 'Unread' },
-  { key: 'ai', label: 'Nova' },
+  { key: 'ai', label: 'Poppins' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'events', label: 'Events' },
   { key: 'groceries', label: 'Groceries' },
@@ -26,7 +26,7 @@ const CATEGORY_UI: Record<
   NotificationItem['category'],
   { icon: keyof typeof MaterialIcons.glyphMap; color: string; action: string; emoji: string }
 > = {
-  ai: { icon: 'auto-awesome', color: '#06B6D4', action: 'Nova', emoji: '🤖' },
+  ai: { icon: 'auto-awesome', color: '#06B6D4', action: 'Poppins', emoji: '🤖' },
   tasks: { icon: 'check-circle', color: '#34D399', action: 'Task', emoji: '✅' },
   events: { icon: 'event', color: '#A78BFA', action: 'Event', emoji: '📅' },
   groceries: { icon: 'shopping-cart', color: '#FB923C', action: 'Grocery', emoji: '🛒' },
@@ -47,7 +47,7 @@ function formatRelativeTime(iso: string) {
 }
 
 /**
- * Make v5 notifications inbox — AdminScreen sheet chrome + Nova Activity card pattern.
+ * Make v5 notifications inbox — AdminScreen sheet chrome + Poppins Activity card pattern.
  * Looks-first port; keep existing mark-read / deep-link behavior.
  */
 export default function NotificationsScreen() {
@@ -155,7 +155,7 @@ export default function NotificationsScreen() {
             <Text style={[styles.emptyBody, { color: orbitPalette.textSubtle }]}>
               {filter === 'unread'
                 ? 'Nothing unread in this inbox.'
-                : 'Nova will drop household alerts here.'}
+                : 'Poppins will drop household alerts here.'}
             </Text>
           </View>
         ) : (
@@ -211,7 +211,7 @@ export default function NotificationsScreen() {
 
         <View style={styles.footerNote}>
           <Text style={[styles.footerText, { color: c.textFaint }]}>
-            Household inbox · Nova Monitor + app alerts
+            Household inbox · Poppins Monitor + app alerts
           </Text>
         </View>
       </ScrollView>

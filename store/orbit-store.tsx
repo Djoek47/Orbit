@@ -3,7 +3,7 @@ import { createContext, PropsWithChildren, useCallback, useContext, useEffect, u
 import { dataMode } from '@/config/data-mode';
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
 import { loadActiveMemberId, loadMockSession, saveActiveMemberId } from '@/lib/auth/mock-session';
-import type { NovaChatMessage } from '@/lib/ai/ai-provider';
+import type { PoppinsChatMessage } from '@/lib/ai/ai-provider';
 import { trackAnalytics } from '@/lib/analytics';
 import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, memberDisplayEmoji, xpProgress } from '@/lib/game-levels';
 import { getLocationAwareGrocerySuggestions, buildStoreRecommendations } from '@/lib/grocery/location-suggestions';
@@ -70,7 +70,7 @@ import {
   householdRepository,
   itineraryRepository,
   notificationsRepository,
-  novaRepository,
+  poppinsRepository,
   rewardsRepository,
   smartHomeRepository,
   taskRepository,
@@ -82,7 +82,7 @@ import {
   type AccentThemeId,
 } from '@/constants/accent-themes';
 import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
-import { loadNovaNotificationPrefs, saveNovaNotificationPrefs } from '@/lib/nova/prefs-store';
+import { loadPoppinsNotificationPrefs, savePoppinsNotificationPrefs } from '@/lib/poppins/prefs-store';
 import {
   applyStoredMemberThemes,
   loadAccentThemeId,
@@ -114,9 +114,9 @@ import {
 } from '@/constants/color-palettes';
 import type { OrbitColorPalette } from '@/constants/orbit-theme';
 import { openDirections, openMultiStopRoute } from '@/lib/maps/directions';
-import { DEFAULT_NOVA_NOTIFICATION_PREFS, novaNotifications } from '@/services/nova-notifications';
-import { runMonitorPass } from '@/services/nova-monitor';
-import { novaService, suggestedNovaQuestions } from '@/services/nova-service';
+import { DEFAULT_POPPINS_NOTIFICATION_PREFS, poppinsNotifications } from '@/services/poppins-notifications';
+import { runMonitorPass } from '@/services/poppins-monitor';
+import { poppinsService, suggestedPoppinsQuestions } from '@/services/poppins-service';
 import type {
   AuthSession,
   CancelTaskScope,
@@ -141,12 +141,12 @@ import type {
   MemberCapabilities,
   MemberProgress,
   NotificationItem,
-  NovaBriefing,
-  NovaConversationAnswer,
-  NovaMonitorAction,
-  NovaNotificationPrefs,
-  NovaRecommendation,
-  NovaWeeklyBriefing,
+  PoppinsBriefing,
+  PoppinsConversationAnswer,
+  PoppinsMonitorAction,
+  PoppinsNotificationPrefs,
+  PoppinsRecommendation,
+  PoppinsWeeklyBriefing,
   OrbitUser,
   OrbitMetrics,
   PreferredStore,
@@ -174,12 +174,12 @@ type OrbitContextValue = {
   metrics: OrbitMetrics;
   membersWithProgress: MemberProgress[];
   achievements: ReturnType<typeof evaluateAchievements>;
-  novaAskCount: number;
-  novaConversation: NovaChatMessage[];
-  novaBriefing: NovaBriefing;
-  novaRecommendations: NovaRecommendation[];
-  novaMonitorActions: NovaMonitorAction[];
-  novaWeeklyBriefing: NovaWeeklyBriefing;
+  poppinsAskCount: number;
+  poppinsConversation: PoppinsChatMessage[];
+  poppinsBriefing: PoppinsBriefing;
+  poppinsRecommendations: PoppinsRecommendation[];
+  poppinsMonitorActions: PoppinsMonitorAction[];
+  poppinsWeeklyBriefing: PoppinsWeeklyBriefing;
   permissions: HouseholdPermissions;
   notifications: NotificationItem[];
   unreadNotificationCount: number;
@@ -192,9 +192,9 @@ type OrbitContextValue = {
   smartHomeScenes: SmartHomeScene[];
   storeRecommendations: StoreRecommendation[];
   inviteLinks: InviteLinks | null;
-  askNova: (question: string) => Promise<NovaConversationAnswer>;
-  askNovaVoice: (audioUri: string | null) => Promise<NovaConversationAnswer>;
-  appendNovaTurn: (question: string, answer: string) => void;
+  askPoppins: (question: string) => Promise<PoppinsConversationAnswer>;
+  askPoppinsVoice: (audioUri: string | null) => Promise<PoppinsConversationAnswer>;
+  appendPoppinsTurn: (question: string, answer: string) => void;
   switchPersona: (memberId: string) => void;
   approveMember: (memberId: string) => Promise<void>;
   declineMember: (memberId: string) => Promise<void>;
@@ -245,7 +245,7 @@ type OrbitContextValue = {
   deleteEvent: (eventId: string) => Promise<void>;
   remindAboutEvent: (eventId: string) => Promise<void>;
   createItinerary: (input: CreateItineraryInput) => Promise<Itinerary | null>;
-  suggestNovaItinerary: (options?: {
+  suggestPoppinsItinerary: (options?: {
     date?: string;
     mode?: 'efficient' | 'spread';
     eventIds?: string[];
@@ -257,7 +257,7 @@ type OrbitContextValue = {
   hydrateFromSession: (session: AuthSession) => Promise<void>;
   signOut: () => Promise<void>;
   signUp: (input: SignUpInput) => Promise<{ needsConfirmation: boolean; email: string }>;
-  suggestedNovaQuestions: readonly string[];
+  suggestedPoppinsQuestions: readonly string[];
   refreshNotifications: () => Promise<void>;
   markNotificationRead: (notificationId: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
@@ -270,7 +270,7 @@ type OrbitContextValue = {
     /** When set, notification is attributed to this user (e.g. admin inbox). */
     userId?: string | null;
   }) => Promise<NotificationItem | null>;
-  updateNotificationPrefs: (prefs: Partial<NovaNotificationPrefs>) => void;
+  updateNotificationPrefs: (prefs: Partial<PoppinsNotificationPrefs>) => void;
   updateMemberCapabilities: (prefs: Partial<MemberCapabilities>) => void;
   /** Parent/admin: Meritocracy vs Equity + hygiene XP opt-in (household-scoped). */
   updateHouseholdRewardSettings: (prefs: {
@@ -303,7 +303,7 @@ type OrbitContextValue = {
   updateMemberAvatar: (memberId: string, avatar: string) => Promise<void>;
   upsertRoom: (room: HouseholdRoom) => void;
   removeRoom: (roomId: string) => void;
-  runNovaMonitor: () => Promise<NovaMonitorAction[]>;
+  runPoppinsMonitor: () => Promise<PoppinsMonitorAction[]>;
   requestRewardRedemption: (rewardId: string, note?: string) => Promise<void>;
   /** Hold-to-claim: Instant spends XP now; Approval submits a pending request. */
   claimReward: (rewardId: string) => Promise<'claimed' | 'requested' | null>;
@@ -369,8 +369,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [storeRecommendations, setStoreRecommendations] = useState<StoreRecommendation[]>([]);
   const [inviteLinks, setInviteLinks] = useState<InviteLinks | null>(null);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
-  const [novaAskCount, setNovaAskCount] = useState(0);
-  const [novaConversation, setNovaConversation] = useState<NovaChatMessage[]>([]);
+  const [poppinsAskCount, setPoppinsAskCount] = useState(0);
+  const [poppinsConversation, setPoppinsConversation] = useState<PoppinsChatMessage[]>([]);
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>('dark');
   const [paletteId, setPaletteId] = useState<ColorPaletteId>(DEFAULT_COLOR_PALETTE_ID);
   const [backgroundThemeId, setBackgroundThemeId] = useState<BackgroundThemeId>(
@@ -378,13 +378,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   );
   const [preferredMapsApp, setPreferredMapsApp] = useState<PreferredMapsApp>('auto');
   const initialMetrics = useMemo(() => calculateMetrics(mockHousehold), []);
-  const [novaWeeklyBriefing, setNovaWeeklyBriefing] = useState<NovaWeeklyBriefing>(() =>
-    novaService.generateWeeklyBriefing(mockHousehold, initialMetrics)
+  const [poppinsWeeklyBriefing, setPoppinsWeeklyBriefing] = useState<PoppinsWeeklyBriefing>(() =>
+    poppinsService.generateWeeklyBriefing(mockHousehold, initialMetrics)
   );
-  const [novaRecommendations, setNovaRecommendations] = useState<NovaRecommendation[]>(() =>
-    novaService.generateRecommendations(mockHousehold, initialMetrics)
+  const [poppinsRecommendations, setPoppinsRecommendations] = useState<PoppinsRecommendation[]>(() =>
+    poppinsService.generateRecommendations(mockHousehold, initialMetrics)
   );
-  const [novaMonitorActions, setNovaMonitorActions] = useState<NovaMonitorAction[]>([]);
+  const [poppinsMonitorActions, setPoppinsMonitorActions] = useState<PoppinsMonitorAction[]>([]);
 
   const currentMember = useMemo(() => {
     if (activeMemberId) {
@@ -407,10 +407,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     [household.members, household.tasks]
   );
   const achievements = useMemo(
-    () => evaluateAchievements(household, { novaAskCount, focusMemberName: currentMember?.name }),
-    [household, novaAskCount, currentMember?.name]
+    () => evaluateAchievements(household, { poppinsAskCount, focusMemberName: currentMember?.name }),
+    [household, poppinsAskCount, currentMember?.name]
   );
-  const novaBriefing = useMemo(() => household.nova, [household.nova]);
+  const poppinsBriefing = useMemo(() => household.poppins, [household.poppins]);
   const visibleNotifications = useMemo(
     () =>
       notifications.filter((item) =>
@@ -495,7 +495,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         if (isMounted) {
           const [prefs, themeId, savedRooms, avatarOverrides, appearance, bgTheme, mapsApp, palette] =
             await Promise.all([
-              loadNovaNotificationPrefs(mockHousehold.id),
+              loadPoppinsNotificationPrefs(mockHousehold.id),
               loadAccentThemeId(mockHousehold.id),
               loadHouseholdRooms(mockHousehold.id),
               loadMemberAvatarOverrides(mockHousehold.id),
@@ -551,7 +551,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (isMounted) {
         const [prefs, themeId, appearance, bgTheme, mapsApp, storedMemberId, mockStored, palette] =
           await Promise.all([
-            loadNovaNotificationPrefs(hydratedHousehold.id),
+            loadPoppinsNotificationPrefs(hydratedHousehold.id),
             loadAccentThemeId(hydratedHousehold.id),
             loadAppearanceMode(),
             loadBackgroundThemeId(hydratedHousehold.id, session.user.id),
@@ -586,11 +586,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         if (resumeMemberId) {
           setActiveMemberId(resumeMemberId);
         }
-        const history = await novaRepository.getConversationHistory(
+        const history = await poppinsRepository.getConversationHistory(
           hydratedHousehold.id,
           session.user.id
         );
-        setNovaConversation(history);
+        setPoppinsConversation(history);
         setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
         const [items, redemptions, allowanceItems, devices, scenes, links] = await Promise.all([
           notificationsRepository.list(hydratedHousehold.id),
@@ -766,7 +766,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       await persistMockHouseholdSnapshot(joinedHousehold);
     }
     if (joinedHousehold.id) {
-      await novaNotifications.joinPending(pushNotification, {
+      await poppinsNotifications.joinPending(pushNotification, {
         memberName: currentUser.name,
         inviteCode: input.inviteCode,
       });
@@ -865,8 +865,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    const created = await novaNotifications.proofSubmitted(pushNotification, prefs, {
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    const created = await poppinsNotifications.proofSubmitted(pushNotification, prefs, {
       title: currentTask.title,
       assignee: forAssignee,
       taskId,
@@ -911,9 +911,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
     const assigneeMember = household.members.find((member) => member.name === forAssignee);
-    await novaNotifications.proofApproved(pushNotification, prefs, {
+    await poppinsNotifications.proofApproved(pushNotification, prefs, {
       title: currentTask.title,
       taskId,
       audienceRoles: assigneeMember ? [assigneeMember.role] : undefined,
@@ -1100,8 +1100,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         return nextHouseholdSnapshot;
       });
 
-      const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-      await novaNotifications.taskCompleted(pushNotification, prefs, {
+      const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+      await poppinsNotifications.taskCompleted(pushNotification, prefs, {
         title: currentTask.title,
         assignee: forAssignee,
         awardedXp: totalAwarded,
@@ -1187,8 +1187,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return nextHouseholdSnapshot;
     });
 
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    await novaNotifications.taskCompleted(pushNotification, prefs, {
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    await poppinsNotifications.taskCompleted(pushNotification, prefs, {
       title: currentTask.title,
       assignee: currentTask.assignee,
       awardedXp: awarded,
@@ -1449,7 +1449,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     setHousehold((current) => ({ ...current, tasks: nextTasks }));
     await pushNotification({
-      title: 'Nova · Task cancelled',
+      title: 'Poppins · Task cancelled',
       body:
         scope === 'future' && currentTask.repeat !== 'None'
           ? `${currentTask.title} cancelled for this and all future occurrences.`
@@ -1479,8 +1479,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       groceries: [grocery, ...current.groceries],
     }));
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    await novaNotifications.groceryAdded(pushNotification, prefs, {
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    await poppinsNotifications.groceryAdded(pushNotification, prefs, {
       name: grocery.name,
       onSale: grocery.salePrice != null && (grocery.typicalPrice ?? 0) > grocery.salePrice,
       groceryId: grocery.id,
@@ -1657,7 +1657,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return itinerary;
   };
 
-  const suggestNovaItinerary = async (options?: {
+  const suggestPoppinsItinerary = async (options?: {
     date?: string;
     mode?: 'efficient' | 'spread';
     eventIds?: string[];
@@ -1680,8 +1680,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     const ordered = [...updated.stops].sort((a, b) => a.sortOrder - b.sortOrder);
     const nextActive = ordered.find((item) => item.status === 'active');
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    await novaNotifications.itineraryNextLeg(pushNotification, prefs, {
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    await poppinsNotifications.itineraryNextLeg(pushNotification, prefs, {
       itinerary: updated,
       stopLabel: stop?.label ?? 'Stop',
       nextLabel: nextActive?.label,
@@ -1742,13 +1742,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }));
   };
 
-  const updateNotificationPrefs = (prefs: Partial<NovaNotificationPrefs>) => {
+  const updateNotificationPrefs = (prefs: Partial<PoppinsNotificationPrefs>) => {
     setHousehold((current) => {
       const next = {
-        ...(current.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS),
+        ...(current.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS),
         ...prefs,
       };
-      void saveNovaNotificationPrefs(current.id, next);
+      void savePoppinsNotificationPrefs(current.id, next);
       return {
         ...current,
         notificationPrefs: next,
@@ -2059,12 +2059,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
   };
 
-  const runNovaMonitor = useCallback(async () => {
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+  const runPoppinsMonitor = useCallback(async () => {
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
     const result = runMonitorPass(household, metrics, prefs);
 
-    setNovaMonitorActions(result.actions);
-    setNovaRecommendations((current) => {
+    setPoppinsMonitorActions(result.actions);
+    setPoppinsRecommendations((current) => {
       const ids = new Set(result.recommendations.map((item) => item.id));
       return [...result.recommendations, ...current.filter((item) => !ids.has(item.id))];
     });
@@ -2086,66 +2086,66 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
     }
 
-    await trackAnalytics('nova.monitor_pass', { actions: result.actions.length }, analyticsContext);
+    await trackAnalytics('poppins.monitor_pass', { actions: result.actions.length }, analyticsContext);
     return result.actions;
   }, [analyticsContext, household, metrics]);
 
   // Initial Monitor Agent pass once household + metrics are ready (mock-first).
   useEffect(() => {
-    if (isLoading || !household.id || novaMonitorActions.length > 0) {
+    if (isLoading || !household.id || poppinsMonitorActions.length > 0) {
       return;
     }
     const timer = setTimeout(() => {
-      void runNovaMonitor().catch((error) => console.warn('Nova monitor pass skipped', error));
+      void runPoppinsMonitor().catch((error) => console.warn('Poppins monitor pass skipped', error));
     }, 800);
     return () => clearTimeout(timer);
-  }, [household.id, isLoading, novaMonitorActions.length, runNovaMonitor]);
+  }, [household.id, isLoading, poppinsMonitorActions.length, runPoppinsMonitor]);
 
-  const askNova = async (question: string) => {
-    setNovaAskCount((count) => count + 1);
-    const answer = await novaRepository.askNova(
+  const askPoppins = async (question: string) => {
+    setPoppinsAskCount((count) => count + 1);
+    const answer = await poppinsRepository.askPoppins(
       question,
       household,
       metrics,
-      novaConversation,
+      poppinsConversation,
       currentUser?.id
     );
-    setNovaConversation((current) => [
+    setPoppinsConversation((current) => [
       ...current,
       { role: 'user', content: answer.question },
       { role: 'assistant', content: answer.answer },
     ]);
-    await trackAnalytics('nova.asked', { questionLength: question.length }, analyticsContext);
+    await trackAnalytics('poppins.asked', { questionLength: question.length }, analyticsContext);
     return answer;
   };
 
-  const askNovaVoice = async (audioUri: string | null) => {
-    const { transcribeAndAskNova } = await import('@/lib/voice/nova-voice');
-    setNovaAskCount((count) => count + 1);
-    const answer = await transcribeAndAskNova(audioUri, household, metrics);
-    setNovaConversation((current) => [
+  const askPoppinsVoice = async (audioUri: string | null) => {
+    const { transcribeAndAskPoppins } = await import('@/lib/voice/poppins-voice');
+    setPoppinsAskCount((count) => count + 1);
+    const answer = await transcribeAndAskPoppins(audioUri, household, metrics);
+    setPoppinsConversation((current) => [
       ...current,
       { role: 'user', content: answer.question },
       { role: 'assistant', content: answer.answer },
     ]);
-    await novaRepository.appendConversationTurn(
+    await poppinsRepository.appendConversationTurn(
       household.id,
       currentUser?.id ?? null,
       answer.question,
       answer.answer
     );
-    await trackAnalytics('nova.voice_asked', {}, analyticsContext);
+    await trackAnalytics('poppins.voice_asked', {}, analyticsContext);
     return answer;
   };
 
-  const appendNovaTurn = (question: string, answer: string) => {
-    setNovaAskCount((count) => count + 1);
-    setNovaConversation((current) => [
+  const appendPoppinsTurn = (question: string, answer: string) => {
+    setPoppinsAskCount((count) => count + 1);
+    setPoppinsConversation((current) => [
       ...current,
       { role: 'user', content: question },
       { role: 'assistant', content: answer },
     ]);
-    void novaRepository.appendConversationTurn(
+    void poppinsRepository.appendConversationTurn(
       household.id,
       currentUser?.id ?? null,
       question,
@@ -2274,8 +2274,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
     setPendingRedemptions((current) => [redemption, ...current.filter((item) => item.id !== redemption.id)]);
     setRedemptions((current) => [redemption, ...current.filter((item) => item.id !== redemption.id)]);
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    const created = await novaNotifications.rewardRequested(pushNotification, prefs, {
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    const created = await poppinsNotifications.rewardRequested(pushNotification, prefs, {
       title: reward?.title ?? 'a reward',
       memberName: currentMember.name,
       redemptionId: redemption.id,
@@ -2312,7 +2312,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return null;
     }
 
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
 
     if (reward.approvalRequired) {
       await requestRewardRedemption(rewardId);
@@ -2353,7 +2353,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (reward.assignedMemberId) {
       await archiveReward(rewardId);
     }
-    await novaNotifications.rewardClaimed(pushNotification, prefs, {
+    await poppinsNotifications.rewardClaimed(pushNotification, prefs, {
       title: reward.title,
       memberName: currentMember.name,
       cost: reward.cost,
@@ -2405,8 +2405,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
     }));
     if (reward.assignedMemberId && reward.assignedMemberId !== currentMember?.id) {
-      const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-      await novaNotifications.rewardAssigned(pushNotification, prefs, {
+      const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+      await poppinsNotifications.rewardAssigned(pushNotification, prefs, {
         title: reward.title,
         cost: reward.cost,
         rewardId: reward.id,
@@ -2460,8 +2460,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (dataMode !== 'mock') {
       await reloadHouseholdDomains();
     }
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    await novaNotifications.rewardApproved(pushNotification, prefs, {
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    await poppinsNotifications.rewardApproved(pushNotification, prefs, {
       title: reward?.title ?? 'Reward',
       redemptionId,
       audienceMemberIds: pending?.memberId ? [pending.memberId] : undefined,
@@ -2489,8 +2489,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createdByName: currentMember?.name,
     });
     setAllowances((current) => [grant, ...current.filter((item) => item.id !== grant.id)]);
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    await novaNotifications.allowanceGranted(pushNotification, prefs, {
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    await poppinsNotifications.allowanceGranted(pushNotification, prefs, {
       amountLabel: grant.amountLabel,
       allowanceId: grant.id,
       audienceMemberIds: [grant.memberId],
@@ -2515,8 +2515,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createdByName: currentMember.name,
     });
     setAllowances((current) => [grant, ...current.filter((item) => item.id !== grant.id)]);
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    const created = await novaNotifications.allowanceRequested(pushNotification, prefs, {
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    const created = await poppinsNotifications.allowanceRequested(pushNotification, prefs, {
       amountLabel: grant.amountLabel,
       memberName: currentMember.name,
       allowanceId: grant.id,
@@ -2539,8 +2539,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setAllowances((current) =>
       current.map((item) => (item.id === allowanceId ? updated : item))
     );
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
-    await novaNotifications.allowanceApproved(pushNotification, prefs, {
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    await poppinsNotifications.allowanceApproved(pushNotification, prefs, {
       amountLabel: updated.amountLabel,
       allowanceId,
       audienceMemberIds: pending?.memberId ? [pending.memberId] : [updated.memberId],
@@ -2865,7 +2865,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       tasks: splitOpenTasksBetweenTwo(current.tasks, left!, right!),
     }));
     await pushNotification({
-      title: 'Nova · Tasks split',
+      title: 'Poppins · Tasks split',
       body: `Open tasks are now shared between ${left} and ${right}.`,
       category: 'tasks',
       priority: 'medium',
@@ -2936,24 +2936,24 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let isMounted = true;
 
-    async function refreshNova() {
+    async function refreshPoppins() {
       const [briefing, weeklyBriefing, recommendations] = await Promise.all([
-        novaRepository.getNovaBriefing(household, metrics),
-        novaRepository.getWeeklyBriefing(household, metrics),
-        novaRepository.getRecommendations(household, metrics),
+        poppinsRepository.getPoppinsBriefing(household, metrics),
+        poppinsRepository.getWeeklyBriefing(household, metrics),
+        poppinsRepository.getRecommendations(household, metrics),
       ]);
       if (isMounted) {
         setHousehold((current) => ({
           ...current,
-          nova: briefing,
+          poppins: briefing,
         }));
-        setNovaWeeklyBriefing(weeklyBriefing);
-        setNovaRecommendations(recommendations);
+        setPoppinsWeeklyBriefing(weeklyBriefing);
+        setPoppinsRecommendations(recommendations);
       }
     }
 
-    refreshNova().catch((error) => {
-      console.warn('Failed to refresh Nova briefing', error);
+    refreshPoppins().catch((error) => {
+      console.warn('Failed to refresh Poppins briefing', error);
     });
 
     return () => {
@@ -2983,7 +2983,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         completionRate: metrics.taskCompletionRate,
         missingGroceries: metrics.missingGroceries,
         upcomingEvents: metrics.upcomingEvents,
-        nova: novaBriefing,
+        poppins: poppinsBriefing,
       },
       hasHousehold,
       isPendingMember,
@@ -2992,12 +2992,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       metrics,
       membersWithProgress,
       achievements,
-      novaAskCount,
-      novaConversation,
-      novaBriefing,
-      novaRecommendations,
-      novaMonitorActions,
-      novaWeeklyBriefing,
+      poppinsAskCount,
+      poppinsConversation,
+      poppinsBriefing,
+      poppinsRecommendations,
+      poppinsMonitorActions,
+      poppinsWeeklyBriefing,
       permissions,
       notifications: visibleNotifications,
       unreadNotificationCount,
@@ -3014,9 +3014,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         permissions.canManageGroceries ||
         resolveMemberCapabilities(household).allowGroceryAdd ||
         (currentMember?.role === 'child' && (currentMember?.xp ?? 0) >= CHILD_GROCERY_WISHLIST_XP),
-      askNova,
-      askNovaVoice,
-      appendNovaTurn,
+      askPoppins,
+      askPoppinsVoice,
+      appendPoppinsTurn,
       switchPersona,
       approveMember,
       declineMember,
@@ -3046,7 +3046,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       deleteEvent,
       remindAboutEvent,
       createItinerary,
-      suggestNovaItinerary,
+      suggestPoppinsItinerary,
       advanceItineraryStop,
       openStopInMaps,
       reorderItineraryStops,
@@ -3054,7 +3054,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       hydrateFromSession,
       signOut,
       signUp,
-      suggestedNovaQuestions,
+      suggestedPoppinsQuestions,
       refreshNotifications,
       markNotificationRead,
       markAllNotificationsRead,
@@ -3082,7 +3082,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateMemberAvatar,
       upsertRoom,
       removeRoom,
-      runNovaMonitor,
+      runPoppinsMonitor,
       requestRewardRedemption,
       claimReward,
       requestSpecialReward,
@@ -3121,12 +3121,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       metrics,
       membersWithProgress,
       achievements,
-      novaAskCount,
-      novaConversation,
-      novaBriefing,
-      novaRecommendations,
-      novaMonitorActions,
-      novaWeeklyBriefing,
+      poppinsAskCount,
+      poppinsConversation,
+      poppinsBriefing,
+      poppinsRecommendations,
+      poppinsMonitorActions,
+      poppinsWeeklyBriefing,
       permissions,
       visibleNotifications,
       unreadNotificationCount,
@@ -3142,7 +3142,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       refreshStoreRecommendations,
       refreshInviteLinks,
       refreshSmartHome,
-      runNovaMonitor,
+      runPoppinsMonitor,
       accentTheme,
       resolvedPaletteId,
       updateAccentTheme,
@@ -3200,7 +3200,7 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     tasks,
     itineraries: itineraries.length > 0 ? itineraries : baseHousehold.itineraries ?? [],
     taskTemplates: baseHousehold.taskTemplates ?? [],
-    notificationPrefs: baseHousehold.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS,
+    notificationPrefs: baseHousehold.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS,
     preferredStoreId: baseHousehold.preferredStoreId ?? 'store-freshmart',
     accentThemeId: themeId || baseHousehold.accentThemeId || DEFAULT_ACCENT_THEME_ID,
     rooms:
@@ -3210,11 +3210,11 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
           ? baseHousehold.rooms
           : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
   });
-  const briefing = await novaRepository.getNovaBriefing(initialHousehold, calculateMetrics(initialHousehold));
+  const briefing = await poppinsRepository.getPoppinsBriefing(initialHousehold, calculateMetrics(initialHousehold));
 
   return {
     ...initialHousehold,
-    nova: briefing,
+    poppins: briefing,
   };
 }
 

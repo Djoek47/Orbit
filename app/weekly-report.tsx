@@ -9,8 +9,8 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function WeeklyReportScreen() {
-  const { household, novaWeeklyBriefing } = useOrbit();
-  const report = novaWeeklyBriefing;
+  const { household, poppinsWeeklyBriefing } = useOrbit();
+  const report = poppinsWeeklyBriefing;
 
   return (
     <ScrollView
@@ -41,7 +41,7 @@ export default function WeeklyReportScreen() {
       </GlassCard>
 
       <GlassCard style={styles.card}>
-        <Text style={typography.headline}>Nova recommendations</Text>
+        <Text style={typography.headline}>Poppins recommendations</Text>
         {report.recommendations.map((item) => (
           <Text key={item} style={typography.footnote}>
             • {item}

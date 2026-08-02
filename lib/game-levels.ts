@@ -217,10 +217,10 @@ export const ACHIEVEMENT_DEFINITIONS: Omit<AchievementBadge, 'earned'>[] = [
     kind: 'habit',
   },
   {
-    id: 'nova_fav',
+    id: 'poppins_fav',
     emoji: '🤖',
-    label: "Nova's Favorite",
-    description: 'Chat with Nova 5 times this session',
+    label: "Poppins's Favorite",
+    description: 'Chat with Poppins 5 times this session',
     kind: 'habit',
   },
   ...XP_MILESTONE_TROPHIES.map((trophy) => ({
@@ -241,7 +241,7 @@ export const ACHIEVEMENT_BADGES: AchievementBadge[] = ACHIEVEMENT_DEFINITIONS.ma
 
 export function evaluateAchievements(
   household: HouseholdSnapshot,
-  options?: { novaAskCount?: number; focusMemberName?: string }
+  options?: { poppinsAskCount?: number; focusMemberName?: string }
 ): AchievementBadge[] {
   const focus =
     household.members.find((member) => member.name === options?.focusMemberName) ?? household.members[0];
@@ -267,7 +267,7 @@ export function evaluateAchievements(
     return /\b(0?[1-9]|10|11):\d{2}\s*AM\b/i.test(task.due);
   }).length;
   const weeklyHelpers = household.members.filter((member) => (member.weekXp ?? 0) > 0).length;
-  const novaAskCount = options?.novaAskCount ?? 0;
+  const poppinsAskCount = options?.poppinsAskCount ?? 0;
   const focusXp = focus?.xp ?? 0;
 
   const earnedMap: Record<string, boolean> = {
@@ -278,7 +278,7 @@ export function evaluateAchievements(
     clean_sweep: household.tasks.length > 0 && open.length === 0,
     early_bird: earlyBirdDone >= 3,
     streak_30: (focus?.streak ?? 0) >= 30,
-    nova_fav: novaAskCount >= 5,
+    poppins_fav: poppinsAskCount >= 5,
   };
 
   for (const trophy of XP_MILESTONE_TROPHIES) {

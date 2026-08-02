@@ -1,18 +1,18 @@
 import { isTodayTask } from '@/lib/tasks/today';
-import { runMonitorPass } from '@/services/nova-monitor';
+import { runMonitorPass } from '@/services/poppins-monitor';
 import type {
   HouseholdMember,
   HouseholdSnapshot,
   HouseholdTask,
-  NovaBriefing,
-  NovaConversationAnswer,
-  NovaNotificationPrefs,
-  NovaRecommendation,
-  NovaWeeklyBriefing,
+  PoppinsBriefing,
+  PoppinsConversationAnswer,
+  PoppinsNotificationPrefs,
+  PoppinsRecommendation,
+  PoppinsWeeklyBriefing,
   OrbitMetrics,
 } from '@/types/orbit';
 
-export const suggestedNovaQuestions = [
+export const suggestedPoppinsQuestions = [
   'What needs attention today?',
   'Any deals worth grabbing?',
   'Is XP fair this week?',
@@ -20,8 +20,8 @@ export const suggestedNovaQuestions = [
   'Propose a Thursday errand loop',
 ] as const;
 
-export const novaService = {
-  generateDailyBriefing(household: HouseholdSnapshot, metrics: OrbitMetrics): NovaBriefing {
+export const poppinsService = {
+  generateDailyBriefing(household: HouseholdSnapshot, metrics: OrbitMetrics): PoppinsBriefing {
     const tasksDueToday = household.tasks.filter((task) => isTodayTask(task) && task.status !== 'Completed');
     const overdueTasks = household.tasks.filter((task) => task.status === 'Overdue');
     const missingGroceries = household.groceries.filter((item) => item.status === 'Missing');
@@ -37,7 +37,7 @@ export const novaService = {
         : `${tasksDueToday.length} ${pluralize('task', tasksDueToday.length)} due today`;
 
     return {
-      title: metrics.momentum >= 80 ? 'Your household is steady today' : 'Nova sees a few pressure points',
+      title: metrics.momentum >= 80 ? 'Your household is steady today' : 'Poppins sees a few pressure points',
       summary: `Good morning. You have ${pressureText}, ${missingGroceries.length} missing grocery ${pluralize(
         'item',
         missingGroceries.length
@@ -50,7 +50,7 @@ export const novaService = {
     };
   },
 
-  generateWeeklyBriefing(household: HouseholdSnapshot, metrics: OrbitMetrics): NovaWeeklyBriefing {
+  generateWeeklyBriefing(household: HouseholdSnapshot, metrics: OrbitMetrics): PoppinsWeeklyBriefing {
     const completedTasks = household.tasks.filter((task) => task.status === 'Completed');
     const missedTasks = household.tasks.filter((task) => task.status === 'Overdue');
     const purchasedGroceries = household.groceries.filter((item) => item.status === 'Purchased');
@@ -77,8 +77,8 @@ export const novaService = {
     };
   },
 
-  generateRecommendations(household: HouseholdSnapshot, metrics: OrbitMetrics): NovaRecommendation[] {
-    const recommendations: NovaRecommendation[] = [];
+  generateRecommendations(household: HouseholdSnapshot, metrics: OrbitMetrics): PoppinsRecommendation[] {
+    const recommendations: PoppinsRecommendation[] = [];
     const missingGroceries = household.groceries.filter((item) => item.status === 'Missing');
     const overdueTasks = household.tasks.filter((task) => task.status === 'Overdue');
     const overloadedMember = getMostLoadedMember(household.members);
@@ -115,7 +115,7 @@ export const novaService = {
       recommendations.push({
         id: 'add-events',
         title: 'Add calendar coverage',
-        detail: 'No events are scheduled yet. Adding pickups, practices, or appointments helps Nova plan ahead.',
+        detail: 'No events are scheduled yet. Adding pickups, practices, or appointments helps Poppins plan ahead.',
         tone: 'blue',
       });
     }
@@ -141,7 +141,7 @@ export const novaService = {
     return recommendations;
   },
 
-  answerQuestion(question: string, household: HouseholdSnapshot, metrics: OrbitMetrics): NovaConversationAnswer {
+  answerQuestion(question: string, household: HouseholdSnapshot, metrics: OrbitMetrics): PoppinsConversationAnswer {
     const normalizedQuestion = question.toLowerCase();
     const missingGroceries = household.groceries.filter((item) => item.status === 'Missing');
     const overdueTasks = household.tasks.filter((task) => task.status === 'Overdue');
@@ -195,8 +195,8 @@ export const novaService = {
     };
   },
 
-  /** Mock Monitor Agent pass (same checks as edge nova-monitor without OpenAI). */
-  runMonitorPass(household: HouseholdSnapshot, metrics: OrbitMetrics, prefs: NovaNotificationPrefs) {
+  /** Mock Monitor Agent pass (same checks as edge poppins-monitor without OpenAI). */
+  runMonitorPass(household: HouseholdSnapshot, metrics: OrbitMetrics, prefs: PoppinsNotificationPrefs) {
     return runMonitorPass(household, metrics, prefs);
   },
 };

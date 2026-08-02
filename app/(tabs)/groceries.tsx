@@ -48,7 +48,7 @@ export default function GroceriesScreen() {
     permissions,
     preferredStore,
     setPreferredStore,
-    suggestNovaItinerary,
+    suggestPoppinsItinerary,
   } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
 
@@ -96,7 +96,7 @@ export default function GroceriesScreen() {
   const startStoreTrip = async () => {
     setBusy(true);
     try {
-      const created = await suggestNovaItinerary();
+      const created = await suggestPoppinsItinerary();
       if (created) {
         router.push(`/itinerary/${created.id}` as never);
       } else {
@@ -279,7 +279,7 @@ export default function GroceriesScreen() {
       <View style={styles.insights}>
         <View style={styles.inline}>
           <MaterialIcons name="auto-awesome" size={14} color="#06B6D4" />
-          <Text style={styles.insightsEyebrow}>NOVA INSIGHTS</Text>
+          <Text style={styles.insightsEyebrow}>POPPINS INSIGHTS</Text>
         </View>
         {insights.map((insight) => (
           <View key={insight.text} style={styles.insightRow}>

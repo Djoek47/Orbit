@@ -60,8 +60,8 @@ function WaveBar({
   return <Animated.View style={[styles.bar, style]} />;
 }
 
-/** Make NovaScreen waveform — 38 center-weighted bars. */
-export function NovaWaveform({ active, color }: { active: boolean; color: string }) {
+/** Make PoppinsScreen waveform — 38 center-weighted bars. */
+export function PoppinsWaveform({ active, color }: { active: boolean; color: string }) {
   return (
     <View style={styles.row}>
       {Array.from({ length: COUNT }, (_, i) => (

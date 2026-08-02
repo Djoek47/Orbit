@@ -1,11 +1,11 @@
-// Deno Edge Function — Nova conversational answers via OpenAI.
+// Deno Edge Function — Poppins conversational answers via OpenAI.
 
 import {
   buildCompactHouseholdContext,
   corsHeaders,
   jsonResponse,
   requireActiveMember,
-} from '../_shared/nova-auth.ts';
+} from '../_shared/poppins-auth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     if (!openaiKey) {
       return jsonResponse({
         question,
-        answer: `Momentum is ${metrics?.momentum ?? '—'}% with ${metrics?.openTasks ?? 0} open tasks. Configure OPENAI_API_KEY for full Nova answers.`,
+        answer: `Momentum is ${metrics?.momentum ?? '—'}% with ${metrics?.openTasks ?? 0} open tasks. Configure OPENAI_API_KEY for full Poppins answers.`,
         source: 'fallback',
       });
     }
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
           {
             role: 'system',
             content:
-              'You are Nova, the calm AI majordomo for Orbit households (like a family butler). ' +
+              'You are Poppins, the calm AI majordomo for Orbit households (like a family butler). ' +
               'Notify clearly, help finish fair tasks, keep XP fair, surface deals, know calendar/holidays, and free time for the household lead. ' +
               'Propose consequential changes — never silently reassign tasks, approve rewards, or spend money. Be brief, never guilt-inducing. ' +
               `Viewer role: ${memberRole}. Household context: ${JSON.stringify({ metrics, ...context })}`,

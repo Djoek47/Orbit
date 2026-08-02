@@ -9,7 +9,7 @@ type StatusPillProps = {
 
 const toneColors = {
   blue: orbitColors.orbitBlue,
-  cyan: orbitColors.novaCyan,
+  cyan: orbitColors.poppinsCyan,
   green: orbitColors.success,
   amber: orbitColors.warning,
   red: orbitColors.danger,

@@ -9,24 +9,24 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-export type NovaOrbState = 'idle' | 'listening' | 'thinking' | 'speaking';
+export type PoppinsOrbState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
-type NovaOrbProps = {
+type PoppinsOrbProps = {
   size?: number;
   speaking?: boolean;
-  state?: NovaOrbState;
+  state?: PoppinsOrbState;
 };
 
-const STATE_GLOW: Record<NovaOrbState, string> = {
+const STATE_GLOW: Record<PoppinsOrbState, string> = {
   idle: 'rgba(56,189,248,0.12)',
   listening: 'rgba(52,211,153,0.28)',
   thinking: 'rgba(167,139,250,0.28)',
   speaking: 'rgba(56,189,248,0.3)',
 };
 
-/** Make Nova glass orb — iridescent core + state glow rings. */
-export function NovaOrb({ size = 80, speaking = false, state }: NovaOrbProps) {
-  const visual: NovaOrbState = state ?? (speaking ? 'speaking' : 'idle');
+/** Make Poppins glass orb — iridescent core + state glow rings. */
+export function PoppinsOrb({ size = 80, speaking = false, state }: PoppinsOrbProps) {
+  const visual: PoppinsOrbState = state ?? (speaking ? 'speaking' : 'idle');
   const isActive = visual !== 'idle';
   const pulse = useSharedValue(1);
   const outerGlow = useSharedValue(0.6);

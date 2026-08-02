@@ -89,7 +89,7 @@ const FALLBACK_PALETTE: OrbitColorPalette & { isDark: boolean } = {
   primary: '#D85A30',
   accent: '#76C4AE',
   rewardsGold: '#FAC775',
-  novaCyan: '#06B6D4',
+  poppinsCyan: '#06B6D4',
   success: '#34D399',
   warning: '#FB923C',
   danger: '#F87171',

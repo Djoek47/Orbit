@@ -15,7 +15,7 @@ import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 
-const TAB_ORDER = ['index', 'tasks', 'plan', 'rewards', 'nova'] as const;
+const TAB_ORDER = ['index', 'tasks', 'plan', 'rewards', 'poppins'] as const;
 type TabRoute = (typeof TAB_ORDER)[number];
 
 const TAB_META: Record<
@@ -26,7 +26,7 @@ const TAB_META: Record<
   tasks: { label: 'Tasks', color: orbitTabColors.tasks, icon: 'checklist' },
   plan: { label: 'Plan', color: orbitTabColors.plan, icon: 'calendar' },
   rewards: { label: 'Rewards', color: orbitTabColors.ranking, icon: 'trophy.fill' },
-  nova: { label: 'Nova', color: orbitTabColors.nova, icon: 'sparkles' },
+  poppins: { label: 'Poppins', color: orbitTabColors.poppins, icon: 'sparkles' },
 };
 
 /** Hold each word long enough for the morph (~720ms) to feel magical. */
@@ -95,7 +95,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
     return { route };
   }).filter((item): item is NonNullable<typeof item> => item !== null);
 
-  const novaIdleColors = isDark
+  const poppinsIdleColors = isDark
     ? (['#0F2644', '#0A1E38'] as const)
     : ([`${accentPrimary}33`, `${accentSecondary}28`] as const);
 
@@ -143,7 +143,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           const meta = TAB_META[route.name as TabRoute];
           if (!meta) return null;
 
-          const isNova = route.name === 'nova';
+          const isPoppins = route.name === 'poppins';
           const isRewards = route.name === 'rewards';
           const label = isRewards ? rewardsLabel : meta.label;
           const color = isFocused
@@ -189,7 +189,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           };
 
           const labelColor = isFocused
-            ? isNova
+            ? isPoppins
               ? accentPrimary
               : color
             : isRewards && canAffordRedeem && rewardsLabel === 'Redeem'
@@ -204,15 +204,15 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               accessibilityLabel={descriptors[route.key].options.tabBarAccessibilityLabel ?? label}
               onPress={onPress}
               onLongPress={onLongPress}
-              style={[styles.tab, isNova && styles.novaTab]}>
-              {isNova ? (
+              style={[styles.tab, isPoppins && styles.poppinsTab]}>
+              {isPoppins ? (
                 <LinearGradient
-                  colors={isFocused ? [accentPrimary, accentSecondary] : [...novaIdleColors]}
+                  colors={isFocused ? [accentPrimary, accentSecondary] : [...poppinsIdleColors]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={[
-                    styles.novaButton,
-                    isFocused ? styles.novaButtonActive : styles.novaButtonInactive,
+                    styles.poppinsButton,
+                    isFocused ? styles.poppinsButtonActive : styles.poppinsButtonInactive,
                     {
                       borderColor: `${accentPrimary}66`,
                       shadowColor: accentPrimary,
@@ -270,7 +270,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                       fontWeight: isFocused ? (typeStyle?.captionWeight ?? '600') : '400',
                       letterSpacing: isFocused ? (typeStyle?.letterSpacing ?? 0) : 0,
                     },
-                    isNova && styles.novaLabel,
+                    isPoppins && styles.poppinsLabel,
                   ]}>
                   {label}
                 </Text>
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingBottom: 4,
   },
-  novaTab: {
+  poppinsTab: {
     paddingBottom: 0,
   },
   iconColumn: {
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     width: 4,
   },
-  novaButton: {
+  poppinsButton: {
     alignItems: 'center',
     borderColor: 'rgba(56, 189, 248, 0.4)',
     borderRadius: 24,
@@ -334,14 +334,14 @@ const styles = StyleSheet.create({
     marginTop: -20,
     width: 48,
   },
-  novaButtonActive: {
+  poppinsButtonActive: {
     elevation: 8,
     shadowColor: '#38BDF8',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
   },
-  novaButtonInactive: {
+  poppinsButtonInactive: {
     elevation: 4,
     shadowColor: '#38BDF8',
     shadowOffset: { width: 0, height: 0 },
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     minHeight: 13,
     width: '100%',
   },
-  novaLabel: {
+  poppinsLabel: {
     marginTop: 2,
     textAlign: 'center',
   },

@@ -1,8 +1,8 @@
-import type { HouseholdSnapshot, Itinerary, NotificationItem, NovaNotificationPrefs } from '@/types/orbit';
+import type { HouseholdSnapshot, Itinerary, NotificationItem, PoppinsNotificationPrefs } from '@/types/orbit';
 
-export type { NovaNotificationPrefs };
+export type { PoppinsNotificationPrefs };
 
-export const DEFAULT_NOVA_NOTIFICATION_PREFS: NovaNotificationPrefs = {
+export const DEFAULT_POPPINS_NOTIFICATION_PREFS: PoppinsNotificationPrefs = {
   tasks: true,
   itinerary: true,
   groceries: true,
@@ -31,10 +31,10 @@ export function isQuietHoursForChildren(household: HouseholdSnapshot, now = new 
   return hasSchoolToday && hour >= 8 && hour < 15;
 }
 
-export const novaNotifications = {
+export const poppinsNotifications = {
   async taskCompleted(
     push: PushFn,
-    prefs: NovaNotificationPrefs,
+    prefs: PoppinsNotificationPrefs,
     input: { title: string; assignee: string; awardedXp: number; penalty: number; late: boolean; taskId: string }
   ) {
     if (!prefs.tasks) return null;
@@ -42,7 +42,7 @@ export const novaNotifications = {
       ? `${input.assignee} finished late · +${input.awardedXp} XP (−${input.penalty} late).`
       : `${input.assignee} finished · +${input.awardedXp} XP.`;
     return push({
-      title: `Nova · ${input.title}`,
+      title: `Poppins · ${input.title}`,
       body,
       category: 'ai',
       priority: input.late ? 'high' : 'medium',
@@ -50,10 +50,10 @@ export const novaNotifications = {
     });
   },
 
-  async taskOverdue(push: PushFn, prefs: NovaNotificationPrefs, input: { title: string; assignee: string; taskId: string }) {
+  async taskOverdue(push: PushFn, prefs: PoppinsNotificationPrefs, input: { title: string; assignee: string; taskId: string }) {
     if (!prefs.tasks) return null;
     return push({
-      title: 'Nova · Task is late',
+      title: 'Poppins · Task is late',
       body: `${input.title} for ${input.assignee} is overdue. Want me to nudge or reassign?`,
       category: 'ai',
       priority: 'high',
@@ -63,12 +63,12 @@ export const novaNotifications = {
 
   async proofSubmitted(
     push: PushFn,
-    prefs: NovaNotificationPrefs,
+    prefs: PoppinsNotificationPrefs,
     input: { title: string; assignee: string; taskId: string; proofUri?: string; audienceRoles?: string[] }
   ) {
     if (!prefs.tasks) return null;
     return push({
-      title: 'Nova · Proof ready to review',
+      title: 'Poppins · Proof ready to review',
       body: `${input.assignee} attached proof for ${input.title}. Open the task to approve.`,
       category: 'tasks',
       priority: 'high',
@@ -83,12 +83,12 @@ export const novaNotifications = {
 
   async proofApproved(
     push: PushFn,
-    prefs: NovaNotificationPrefs,
+    prefs: PoppinsNotificationPrefs,
     input: { title: string; taskId: string; audienceRoles?: string[] }
   ) {
     if (!prefs.tasks) return null;
     return push({
-      title: 'Nova · Proof approved',
+      title: 'Poppins · Proof approved',
       body: `Your proof for ${input.title} was approved. Nice verification.`,
       category: 'tasks',
       priority: 'medium',
@@ -102,7 +102,7 @@ export const novaNotifications = {
 
   async itineraryNextLeg(
     push: PushFn,
-    prefs: NovaNotificationPrefs,
+    prefs: PoppinsNotificationPrefs,
     input: { itinerary: Itinerary; stopLabel: string; nextLabel?: string }
   ) {
     if (!prefs.itinerary) return null;
@@ -110,7 +110,7 @@ export const novaNotifications = {
       ? `Arrived at ${input.stopLabel}. Next: ${input.nextLabel}. Opening Maps when you are ready.`
       : `Arrived at ${input.stopLabel}. ${input.itinerary.title} is complete.`;
     return push({
-      title: `Nova · ${input.itinerary.title}`,
+      title: `Poppins · ${input.itinerary.title}`,
       body,
       category: 'ai',
       priority: 'medium',
@@ -118,10 +118,10 @@ export const novaNotifications = {
     });
   },
 
-  async groceryAdded(push: PushFn, prefs: NovaNotificationPrefs, input: { name: string; onSale: boolean; groceryId: string }) {
+  async groceryAdded(push: PushFn, prefs: PoppinsNotificationPrefs, input: { name: string; onSale: boolean; groceryId: string }) {
     if (!prefs.groceries) return null;
     return push({
-      title: input.onSale ? 'Nova · On sale opportunity' : 'Nova · Cart updated',
+      title: input.onSale ? 'Poppins · On sale opportunity' : 'Poppins · Cart updated',
       body: input.onSale
         ? `${input.name} is on sale — worth grabbing on the next store stop.`
         : `${input.name} was added to the shopping list.`,
@@ -133,12 +133,12 @@ export const novaNotifications = {
 
   async rewardRequested(
     push: PushFn,
-    prefs: NovaNotificationPrefs,
+    prefs: PoppinsNotificationPrefs,
     input: { title: string; memberName: string; redemptionId: string; audienceRoles?: string[] }
   ) {
     if (!prefs.rewards) return null;
     return push({
-      title: 'Nova · Reward request',
+      title: 'Poppins · Reward request',
       body: `${input.memberName} requested ${input.title}. Approve when it feels fair.`,
       category: 'rewards',
       priority: 'medium',
@@ -152,12 +152,12 @@ export const novaNotifications = {
 
   async rewardClaimed(
     push: PushFn,
-    prefs: NovaNotificationPrefs,
+    prefs: PoppinsNotificationPrefs,
     input: { title: string; memberName: string; cost: number; redemptionId: string; audienceRoles?: string[] }
   ) {
     if (!prefs.rewards) return null;
     return push({
-      title: 'Nova · Reward claimed',
+      title: 'Poppins · Reward claimed',
       body: `${input.memberName} claimed ${input.title} for ${input.cost} XP.`,
       category: 'rewards',
       priority: 'medium',
@@ -171,12 +171,12 @@ export const novaNotifications = {
 
   async rewardApproved(
     push: PushFn,
-    prefs: NovaNotificationPrefs,
+    prefs: PoppinsNotificationPrefs,
     input: { title: string; redemptionId: string; audienceMemberIds?: string[] }
   ) {
     if (!prefs.rewards) return null;
     return push({
-      title: 'Nova · Reward approved',
+      title: 'Poppins · Reward approved',
       body: `${input.title} is good to go. Enjoy it.`,
       category: 'rewards',
       priority: 'medium',
@@ -190,7 +190,7 @@ export const novaNotifications = {
 
   async rewardAssigned(
     push: PushFn,
-    prefs: NovaNotificationPrefs,
+    prefs: PoppinsNotificationPrefs,
     input: {
       title: string;
       cost: number;
@@ -201,7 +201,7 @@ export const novaNotifications = {
   ) {
     if (!prefs.rewards) return null;
     return push({
-      title: 'Nova · Reward assigned',
+      title: 'Poppins · Reward assigned',
       body: `${input.assignedByName} minted "${input.title}" for you (${input.cost} XP). Open Ranks → Rewards when ready.`,
       category: 'rewards',
       priority: 'medium',
@@ -215,12 +215,12 @@ export const novaNotifications = {
 
   async allowanceRequested(
     push: PushFn,
-    prefs: NovaNotificationPrefs,
+    prefs: PoppinsNotificationPrefs,
     input: { amountLabel: string; memberName: string; allowanceId: string }
   ) {
     if (!prefs.rewards) return null;
     return push({
-      title: 'Nova · Allowance request',
+      title: 'Poppins · Allowance request',
       body: `${input.memberName} asked for ${input.amountLabel}. Approve when it feels fair.`,
       category: 'rewards',
       priority: 'medium',
@@ -234,12 +234,12 @@ export const novaNotifications = {
 
   async allowanceApproved(
     push: PushFn,
-    prefs: NovaNotificationPrefs,
+    prefs: PoppinsNotificationPrefs,
     input: { amountLabel: string; allowanceId: string; audienceMemberIds?: string[] }
   ) {
     if (!prefs.rewards) return null;
     return push({
-      title: 'Nova · Allowance approved',
+      title: 'Poppins · Allowance approved',
       body: `${input.amountLabel} is approved. Enjoy it.`,
       category: 'rewards',
       priority: 'medium',
@@ -253,12 +253,12 @@ export const novaNotifications = {
 
   async allowanceGranted(
     push: PushFn,
-    prefs: NovaNotificationPrefs,
+    prefs: PoppinsNotificationPrefs,
     input: { amountLabel: string; allowanceId: string; audienceMemberIds?: string[] }
   ) {
     if (!prefs.rewards) return null;
     return push({
-      title: 'Nova · Allowance granted',
+      title: 'Poppins · Allowance granted',
       body: `You received ${input.amountLabel} from an admin.`,
       category: 'rewards',
       priority: 'medium',
@@ -270,10 +270,10 @@ export const novaNotifications = {
     });
   },
 
-  async streakAtRisk(push: PushFn, prefs: NovaNotificationPrefs, input: { memberName: string; streak: number }) {
+  async streakAtRisk(push: PushFn, prefs: PoppinsNotificationPrefs, input: { memberName: string; streak: number }) {
     if (!prefs.tasks) return null;
     return push({
-      title: 'Nova · Streak check',
+      title: 'Poppins · Streak check',
       body: `${input.memberName}'s ${input.streak}-day streak is at risk today. One small task keeps it alive.`,
       category: 'ai',
       priority: 'medium',
@@ -283,7 +283,7 @@ export const novaNotifications = {
 
   async joinPending(push: PushFn, input: { memberName: string; inviteCode: string }) {
     return push({
-      title: 'Nova · Someone wants in',
+      title: 'Poppins · Someone wants in',
       body: `${input.memberName} requested access with ${input.inviteCode}. Review in Members.`,
       category: 'ai',
       priority: 'high',

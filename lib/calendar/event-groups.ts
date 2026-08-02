@@ -134,7 +134,7 @@ export function countUpcomingSoon(events: HouseholdEvent[], reference = new Date
   }).length;
 }
 
-/** Nova-friendly itinerary suggestion copy from today's events + missing groceries. */
+/** Poppins-friendly itinerary suggestion copy from today's events + missing groceries. */
 export function suggestItinerarySummary(input: {
   stopCount: number;
   etaMinutes: number;

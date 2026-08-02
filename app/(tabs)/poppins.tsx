@@ -12,55 +12,55 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { NovaActivitySheet } from '@/components/orbit/nova-activity-sheet';
-import { NovaOrb } from '@/components/orbit/nova-orb';
-import { NovaWaveform } from '@/components/orbit/nova-waveform';
+import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet';
+import { PoppinsOrb } from '@/components/orbit/poppins-orb';
+import { PoppinsWaveform } from '@/components/orbit/poppins-waveform';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius, space } from '@/constants/orbit-theme';
 import {
   buildSheetNotifications,
   needsAttentionCount,
-} from '@/lib/nova/notification-buckets';
+} from '@/lib/poppins/notification-buckets';
 import { greetingWord } from '@/lib/time/greeting';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
-  isNovaRealtimeEnabled,
-  NovaRealtimeSession,
+  isPoppinsRealtimeEnabled,
+  PoppinsRealtimeSession,
   toolCallToMonitorAction,
-  type NovaRealtimeVisualState,
-} from '@/lib/voice/nova-realtime';
+  type PoppinsRealtimeVisualState,
+} from '@/lib/voice/poppins-realtime';
 import { useOrbit } from '@/store/orbit-store';
-import type { NovaMonitorAction } from '@/types/orbit';
+import type { PoppinsMonitorAction } from '@/types/orbit';
 
-type NovaVisualState = 'idle' | 'listening' | 'thinking' | 'speaking';
+type PoppinsVisualState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
-const STATE_CONFIG: Record<NovaVisualState, { label: string; color: string }> = {
-  idle: { label: 'Nova · Ready', color: '#06B6D4' },
-  listening: { label: 'Nova · Listening…', color: '#34D399' },
-  thinking: { label: 'Nova · Thinking…', color: '#A78BFA' },
-  speaking: { label: 'Nova · Speaking', color: '#38BDF8' },
+const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
+  idle: { label: 'Poppins · Ready', color: '#06B6D4' },
+  listening: { label: 'Poppins · Listening…', color: '#34D399' },
+  thinking: { label: 'Poppins · Thinking…', color: '#A78BFA' },
+  speaking: { label: 'Poppins · Speaking', color: '#38BDF8' },
 };
 
 /**
- * Make v9 Nova — voice-first orb + live transcript + Nova Activity sheet.
- * Realtime: set EXPO_PUBLIC_NOVA_REALTIME=1 with live Nova AI + supabase edge
- * `nova-realtime-session`. Falls back to Whisper + askNova when gated off.
+ * Make v9 Poppins — voice-first orb + live transcript + Poppins Activity sheet.
+ * Realtime: set EXPO_PUBLIC_POPPINS_REALTIME=1 with live Poppins AI + supabase edge
+ * `poppins-realtime-session`. Falls back to Whisper + askPoppins when gated off.
  */
-export default function NovaScreen() {
+export default function PoppinsScreen() {
   const chromePad = useTabChromePaddingTop();
   const insets = useSafeAreaInsets();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
   const {
-    appendNovaTurn,
-    askNova,
-    askNovaVoice,
+    appendPoppinsTurn,
+    askPoppins,
+    askPoppinsVoice,
     household,
     markNotificationRead,
     metrics,
     notifications,
-    novaBriefing,
-    novaMonitorActions,
-    novaWeeklyBriefing,
+    poppinsBriefing,
+    poppinsMonitorActions,
+    poppinsWeeklyBriefing,
     orbitPalette,
   } = useOrbit();
 
@@ -70,13 +70,13 @@ export default function NovaScreen() {
   const [asking, setAsking] = useState(false);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
-  const [voiceState, setVoiceState] = useState<NovaRealtimeVisualState>('idle');
+  const [voiceState, setVoiceState] = useState<PoppinsRealtimeVisualState>('idle');
   const [userTranscript, setUserTranscript] = useState('');
-  const [novaTranscript, setNovaTranscript] = useState('');
-  const [localMonitorActions, setLocalMonitorActions] = useState<NovaMonitorAction[]>([]);
-  const realtimeRef = useRef<NovaRealtimeSession | null>(null);
+  const [poppinsTranscript, setPoppinsTranscript] = useState('');
+  const [localMonitorActions, setLocalMonitorActions] = useState<PoppinsMonitorAction[]>([]);
+  const realtimeRef = useRef<PoppinsRealtimeSession | null>(null);
 
-  const visualState: NovaVisualState =
+  const visualState: PoppinsVisualState =
     voiceState !== 'idle'
       ? voiceState
       : listening
@@ -96,30 +96,30 @@ export default function NovaScreen() {
 
   const monitorFeed = useMemo(
     () =>
-      [...localMonitorActions, ...novaMonitorActions].sort(
+      [...localMonitorActions, ...poppinsMonitorActions].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ),
-    [localMonitorActions, novaMonitorActions]
+    [localMonitorActions, poppinsMonitorActions]
   );
 
   const bellBadgeCount = useMemo(() => {
-    const cards = buildSheetNotifications(notifications, novaBriefing);
+    const cards = buildSheetNotifications(notifications, poppinsBriefing);
     return needsAttentionCount(cards);
-  }, [notifications, novaBriefing]);
+  }, [notifications, poppinsBriefing]);
 
   const applyTranscript = (role: 'user' | 'assistant', text: string) => {
     if (role === 'user') {
       setUserTranscript(text);
-      setNovaTranscript('');
+      setPoppinsTranscript('');
     } else {
-      setNovaTranscript(text);
+      setPoppinsTranscript(text);
     }
   };
 
   const ensureRealtime = async () => {
-    if (!isNovaRealtimeEnabled()) return null;
+    if (!isPoppinsRealtimeEnabled()) return null;
     if (realtimeRef.current?.isConnected) return realtimeRef.current;
-    const session = new NovaRealtimeSession({
+    const session = new PoppinsRealtimeSession({
       onStateChange: setVoiceState,
       onTranscript: applyTranscript,
       onToolCall: async (name, args) => {
@@ -142,16 +142,16 @@ export default function NovaScreen() {
     if (!trimmed || asking || listening) return;
     setDraft('');
     setUserTranscript(trimmed);
-    setNovaTranscript('');
+    setPoppinsTranscript('');
     setAsking(true);
     setError('');
     setVoiceState('thinking');
     try {
-      const result = await askNova(trimmed);
+      const result = await askPoppins(trimmed);
       setVoiceState('speaking');
-      setNovaTranscript(result.answer);
+      setPoppinsTranscript(result.answer);
     } catch {
-      setError('Nova could not answer right now. Try again in a moment.');
+      setError('Poppins could not answer right now. Try again in a moment.');
     } finally {
       setAsking(false);
       setTimeout(() => setVoiceState('idle'), 1800);
@@ -169,19 +169,19 @@ export default function NovaScreen() {
           if (result.answer) {
             applyTranscript('user', result.answer.question);
             applyTranscript('assistant', result.answer.answer);
-            appendNovaTurn(result.answer.question, result.answer.answer);
+            appendPoppinsTurn(result.answer.question, result.answer.answer);
           }
         } else {
-          const { stopVoiceCapture } = await import('@/lib/voice/nova-voice');
+          const { stopVoiceCapture } = await import('@/lib/voice/poppins-voice');
           const uri = await stopVoiceCapture();
           setVoiceState('thinking');
-          const result = await askNovaVoice(uri);
+          const result = await askPoppinsVoice(uri);
           applyTranscript('user', result.question);
           setVoiceState('speaking');
           applyTranscript('assistant', result.answer);
         }
       } catch {
-        setError('Nova voice failed. Try again or type your question.');
+        setError('Poppins voice failed. Try again or type your question.');
         setVoiceState('idle');
       } finally {
         setListening(false);
@@ -194,14 +194,14 @@ export default function NovaScreen() {
     if (asking || listening) return;
     setError('');
     setUserTranscript('');
-    setNovaTranscript('');
+    setPoppinsTranscript('');
     setListening(true);
     try {
       const session = await ensureRealtime();
       if (session) {
         await session.beginListen();
       } else {
-        const { startVoiceCapture } = await import('@/lib/voice/nova-voice');
+        const { startVoiceCapture } = await import('@/lib/voice/poppins-voice');
         setVoiceState('listening');
         await startVoiceCapture();
       }
@@ -224,8 +224,8 @@ export default function NovaScreen() {
             : `${orbitPalette.primary}18`;
 
   const transcriptRoleLabel =
-    visualState === 'speaking' && novaTranscript
-      ? 'NOVA'
+    visualState === 'speaking' && poppinsTranscript
+      ? 'POPPINS'
       : visualState === 'thinking'
         ? 'PROCESSING'
         : userTranscript
@@ -233,14 +233,14 @@ export default function NovaScreen() {
           : null;
 
   const transcriptBody =
-    visualState === 'speaking' && novaTranscript
-      ? novaTranscript
+    visualState === 'speaking' && poppinsTranscript
+      ? poppinsTranscript
       : userTranscript ||
         (visualState === 'idle'
           ? ''
           : '');
 
-  const idleHint = `${greetingWord()}. Tap to speak with Nova`;
+  const idleHint = `${greetingWord()}. Tap to speak with Poppins`;
 
   return (
     <KeyboardAvoidingView
@@ -254,7 +254,7 @@ export default function NovaScreen() {
 
       <View style={[styles.header, { paddingTop: chromePad }]}>
         <Text style={[styles.kicker, { color: isDark ? 'rgba(255,255,255,0.3)' : c.textSubtle }]}>
-          NOVA AI
+          POPPINS AI
         </Text>
         <Pressable
           style={[
@@ -265,7 +265,7 @@ export default function NovaScreen() {
             },
           ]}
           onPress={() => setShowActivity(true)}
-          accessibilityLabel="Notifications and Nova Activity">
+          accessibilityLabel="Notifications and Poppins Activity">
           <MaterialIcons name="notifications-none" size={18} color={c.textMuted} />
           {bellBadgeCount > 0 ? (
             <View style={styles.badge}>
@@ -304,11 +304,11 @@ export default function NovaScreen() {
         </View>
 
         <Pressable onPress={() => void toggleMic()} accessibilityRole="button">
-          <NovaOrb size={176} state={visualState} speaking={visualState === 'speaking'} />
+          <PoppinsOrb size={176} state={visualState} speaking={visualState === 'speaking'} />
         </Pressable>
 
         <View style={styles.waveWrap}>
-          <NovaWaveform
+          <PoppinsWaveform
             active={visualState === 'listening' || visualState === 'speaking'}
             color={cfg.color}
           />
@@ -332,7 +332,7 @@ export default function NovaScreen() {
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder="Type to Nova…"
+              placeholder="Type to Poppins…"
               placeholderTextColor={c.textSubtle}
               style={[styles.textInput, { color: c.text }]}
               onSubmitEditing={() => void handleSend()}
@@ -375,7 +375,7 @@ export default function NovaScreen() {
           <Pressable
             onPress={() => void toggleMic()}
             style={styles.micWrap}
-            accessibilityLabel={listening ? 'Stop listening' : 'Talk to Nova'}>
+            accessibilityLabel={listening ? 'Stop listening' : 'Talk to Poppins'}>
             {visualState === 'listening' ? (
               <View style={[styles.micPulse, { backgroundColor: 'rgba(52,211,153,0.2)' }]} />
             ) : null}
@@ -423,15 +423,15 @@ export default function NovaScreen() {
         </Text>
       </View>
 
-      <NovaActivitySheet
+      <PoppinsActivitySheet
         visible={showActivity}
         onClose={() => setShowActivity(false)}
         notifications={notifications}
         monitorActions={monitorFeed}
-        briefing={novaBriefing}
-        weekly={novaWeeklyBriefing}
+        briefing={poppinsBriefing}
+        weekly={poppinsWeeklyBriefing}
         metrics={metrics}
-        novaActive={isActive || monitorFeed.length > 0}
+        poppinsActive={isActive || monitorFeed.length > 0}
         taskCompletedFallback={household.tasks.filter((t) => t.status === 'Completed').length}
         onDismissNotification={(id) => markNotificationRead(id)}
       />

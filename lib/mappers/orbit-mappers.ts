@@ -4,7 +4,7 @@ import type {
   HouseholdEvent,
   HouseholdMember,
   HouseholdTask,
-  NovaBriefing,
+  PoppinsBriefing,
   OrbitUser,
   Reward,
 } from '@/types/orbit';
@@ -234,7 +234,7 @@ export function mapBriefingRow(row: {
   title: string;
   summary: string;
   actions: string[] | null;
-}): NovaBriefing {
+}): PoppinsBriefing {
   return {
     title: row.title,
     summary: row.summary,

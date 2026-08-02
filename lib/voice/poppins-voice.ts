@@ -1,13 +1,13 @@
 import * as Speech from 'expo-speech';
 import { Audio } from 'expo-av';
 
-import { buildNovaHouseholdPayload } from '@/lib/ai/household-context';
-import { useLiveNovaAi } from '@/config/nova-ai-mode';
+import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
+import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
 import { getSupabaseClient } from '@/lib/supabase/client';
-import { novaService } from '@/services/nova-service';
-import type { HouseholdSnapshot, NovaConversationAnswer, OrbitMetrics } from '@/types/orbit';
+import { poppinsService } from '@/services/poppins-service';
+import type { HouseholdSnapshot, PoppinsConversationAnswer, OrbitMetrics } from '@/types/orbit';
 
-export async function speakNova(text: string) {
+export async function speakPoppins(text: string) {
   Speech.stop();
   Speech.speak(text, {
     language: 'en-US',
@@ -47,7 +47,7 @@ export async function stopVoiceCapture() {
   return uri;
 }
 
-async function invokeNovaVoice(
+async function invokePoppinsVoice(
   audioUri: string,
   household: HouseholdSnapshot,
   metrics: OrbitMetrics,
@@ -68,17 +68,17 @@ async function invokeNovaVoice(
   const form = new FormData();
   form.append('audio', {
     uri: audioUri,
-    name: 'nova.m4a',
+    name: 'poppins.m4a',
     type: 'audio/m4a',
   } as unknown as Blob);
   form.append('householdId', household.id ?? '');
   form.append('metrics', JSON.stringify(metrics));
-  form.append('household', JSON.stringify(buildNovaHouseholdPayload(household, metrics)));
+  form.append('household', JSON.stringify(buildPoppinsHouseholdPayload(household, metrics)));
   if (transcriptOnly) {
     form.append('transcriptOnly', '1');
   }
 
-  const response = await fetch(`${baseUrl}/functions/v1/nova-voice`, {
+  const response = await fetch(`${baseUrl}/functions/v1/poppins-voice`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -98,44 +98,44 @@ async function invokeNovaVoice(
 }
 
 /** Whisper-only transcription for Realtime text turns (Expo Go). */
-export async function transcribeNovaAudio(
+export async function transcribePoppinsAudio(
   audioUri: string | null,
   household: HouseholdSnapshot,
   metrics: OrbitMetrics
 ): Promise<string> {
   const fallbackQuestion = 'What should our household focus on right now?';
-  if (!useLiveNovaAi || !audioUri) {
+  if (!useLivePoppinsAi || !audioUri) {
     return fallbackQuestion;
   }
   try {
-    const payload = await invokeNovaVoice(audioUri, household, metrics, true);
+    const payload = await invokePoppinsVoice(audioUri, household, metrics, true);
     return payload?.transcript?.trim() || fallbackQuestion;
   } catch {
     return fallbackQuestion;
   }
 }
 
-export async function transcribeAndAskNova(
+export async function transcribeAndAskPoppins(
   audioUri: string | null,
   household: HouseholdSnapshot,
   metrics: OrbitMetrics
-): Promise<NovaConversationAnswer> {
+): Promise<PoppinsConversationAnswer> {
   const fallbackQuestion = 'What should our household focus on right now?';
 
-  if (!useLiveNovaAi || !audioUri) {
-    return novaService.answerQuestion(fallbackQuestion, household, metrics);
+  if (!useLivePoppinsAi || !audioUri) {
+    return poppinsService.answerQuestion(fallbackQuestion, household, metrics);
   }
 
   try {
-    const payload = await invokeNovaVoice(audioUri, household, metrics, false);
+    const payload = await invokePoppinsVoice(audioUri, household, metrics, false);
     if (!payload) {
-      return novaService.answerQuestion(fallbackQuestion, household, metrics);
+      return poppinsService.answerQuestion(fallbackQuestion, household, metrics);
     }
     return {
       question: payload.transcript || fallbackQuestion,
       answer: payload.answer || 'I could not respond just now.',
     };
   } catch {
-    return novaService.answerQuestion(fallbackQuestion, household, metrics);
+    return poppinsService.answerQuestion(fallbackQuestion, household, metrics);
   }
 }

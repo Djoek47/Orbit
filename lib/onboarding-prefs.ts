@@ -86,7 +86,7 @@ export const ONBOARDING_MOTIVATIONS: {
 /** Splash micro-hooks (Design 8 glass onboarding). */
 export const ONBOARDING_SPLASH_HOOKS = [
   { text: 'Zero clutter. Quiet rhythm.', color: '#3BB5F0' },
-  { text: 'Nova co-manages the home.', color: '#2DD4BF' },
+  { text: 'Poppins co-manages the home.', color: '#2DD4BF' },
   { text: 'Built for real households.', color: '#F59E0B' },
 ] as const;
 

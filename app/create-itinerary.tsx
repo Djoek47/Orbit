@@ -393,7 +393,7 @@ export default function CreateItineraryScreen() {
             <Text style={[typography.headline, { color: c.text }]}>Stop order</Text>
             <Pressable onPress={handleOptimize} hitSlop={8}>
               <Text style={[styles.optimizeLink, { color: accentTheme.primary }]}>
-                Optimize with Nova
+                Optimize with Poppins
               </Text>
             </Pressable>
           </View>

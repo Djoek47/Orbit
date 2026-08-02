@@ -1,11 +1,11 @@
-// Deno Edge Function — Nova voice: Whisper STT + short GPT reply for Expo Go talk mode.
+// Deno Edge Function — Poppins voice: Whisper STT + short GPT reply for Expo Go talk mode.
 
 import {
   buildCompactHouseholdContext,
   corsHeaders,
   jsonResponse,
   requireActiveMember,
-} from '../_shared/nova-auth.ts';
+} from '../_shared/poppins-auth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
     if (audio instanceof File) {
       const whisperForm = new FormData();
-      whisperForm.append('file', audio, 'nova.m4a');
+      whisperForm.append('file', audio, 'poppins.m4a');
       whisperForm.append('model', 'whisper-1');
 
       const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
           {
             role: 'system',
             content:
-              'You are Nova, the calm AI majordomo for Orbit households. Reply in 2-3 calm spoken sentences. Propose consequential changes — never silently reassign, approve rewards, or spend. ' +
+              'You are Poppins, the calm AI majordomo for Orbit households. Reply in 2-3 calm spoken sentences. Propose consequential changes — never silently reassign, approve rewards, or spend. ' +
               `Context: ${JSON.stringify({ metrics, ...context })}`,
           },
           { role: 'user', content: transcript },

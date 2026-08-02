@@ -1,35 +1,35 @@
 import { Audio } from 'expo-av';
 
-import { useLiveNovaAi } from '@/config/nova-ai-mode';
-import { buildNovaHouseholdPayload } from '@/lib/ai/household-context';
-import { NOVA_TOOL_DEFINITIONS, type NovaToolName } from '@/lib/ai/nova-tools';
+import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
+import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
+import { POPPINS_TOOL_DEFINITIONS, type PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import {
   startVoiceCapture,
   stopVoiceCapture,
-  speakNova,
+  speakPoppins,
   stopSpeaking,
-  transcribeAndAskNova,
-  transcribeNovaAudio,
-} from '@/lib/voice/nova-voice';
+  transcribeAndAskPoppins,
+  transcribePoppinsAudio,
+} from '@/lib/voice/poppins-voice';
 import type {
   HouseholdSnapshot,
-  NovaConversationAnswer,
-  NovaMonitorAction,
+  PoppinsConversationAnswer,
+  PoppinsMonitorAction,
   OrbitMetrics,
 } from '@/types/orbit';
 
-export type NovaRealtimeVisualState = 'idle' | 'listening' | 'thinking' | 'speaking';
+export type PoppinsRealtimeVisualState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
-export type NovaRealtimeCallbacks = {
-  onStateChange?: (state: NovaRealtimeVisualState) => void;
+export type PoppinsRealtimeCallbacks = {
+  onStateChange?: (state: PoppinsRealtimeVisualState) => void;
   onTranscript?: (role: 'user' | 'assistant', text: string) => void;
-  onToolCall?: (name: NovaToolName, args: Record<string, unknown>) => Promise<unknown> | unknown;
+  onToolCall?: (name: PoppinsToolName, args: Record<string, unknown>) => Promise<unknown> | unknown;
   onError?: (message: string) => void;
 };
 
-export function isNovaRealtimeEnabled() {
-  return process.env.EXPO_PUBLIC_NOVA_REALTIME === '1' && useLiveNovaAi;
+export function isPoppinsRealtimeEnabled() {
+  return process.env.EXPO_PUBLIC_POPPINS_REALTIME === '1' && useLivePoppinsAi;
 }
 
 type SessionPayload = {
@@ -55,7 +55,7 @@ async function mintRealtimeSession(
     return null;
   }
 
-  const res = await fetch(`${baseUrl}/functions/v1/nova-realtime-session`, {
+  const res = await fetch(`${baseUrl}/functions/v1/poppins-realtime-session`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -64,7 +64,7 @@ async function mintRealtimeSession(
     },
     body: JSON.stringify({
       householdId: household.id,
-      householdContext: buildNovaHouseholdPayload(household, metrics),
+      householdContext: buildPoppinsHouseholdPayload(household, metrics),
     }),
   });
 
@@ -89,23 +89,23 @@ async function mintRealtimeSession(
  * OpenAI Realtime voice layer for Expo Go (WebSocket).
  * Mic audio is transcribed via Whisper (PCM streaming is limited in Expo Go),
  * then injected as a text turn into Realtime for tool-aware replies.
- * Falls back to full Whisper + TTS via nova-voice when session mint/connect fails.
+ * Falls back to full Whisper + TTS via poppins-voice when session mint/connect fails.
  */
-export class NovaRealtimeSession {
+export class PoppinsRealtimeSession {
   private ws: WebSocket | null = null;
   private model = 'gpt-4o-realtime-preview';
   private assistantBuffer = '';
   private connected = false;
   private responseWaiters: Array<(text: string) => void> = [];
 
-  constructor(private callbacks: NovaRealtimeCallbacks = {}) {}
+  constructor(private callbacks: PoppinsRealtimeCallbacks = {}) {}
 
   get isConnected() {
     return this.connected && this.ws?.readyState === WebSocket.OPEN;
   }
 
   async connect(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<boolean> {
-    if (!isNovaRealtimeEnabled()) {
+    if (!isPoppinsRealtimeEnabled()) {
       return false;
     }
 
@@ -153,7 +153,7 @@ export class NovaRealtimeSession {
         type: 'session.update',
         session: {
           modalities: ['text', 'audio'],
-          tools: NOVA_TOOL_DEFINITIONS.map((tool) => ({
+          tools: POPPINS_TOOL_DEFINITIONS.map((tool) => ({
             type: 'function',
             name: tool.name,
             description: tool.description,
@@ -223,7 +223,7 @@ export class NovaRealtimeSession {
       if (text) {
         this.callbacks.onTranscript?.('assistant', text);
         this.resolveWaiters(text);
-        await speakNova(text);
+        await speakPoppins(text);
       }
       this.assistantBuffer = '';
       this.callbacks.onStateChange?.('idle');
@@ -238,7 +238,7 @@ export class NovaRealtimeSession {
     }
 
     if (type === 'response.function_call_arguments.done') {
-      const name = String(event.name ?? '') as NovaToolName;
+      const name = String(event.name ?? '') as PoppinsToolName;
       let args: Record<string, unknown> = {};
       try {
         args = JSON.parse(String(event.arguments ?? '{}'));
@@ -273,21 +273,21 @@ export class NovaRealtimeSession {
   async endListen(
     household: HouseholdSnapshot,
     metrics: OrbitMetrics
-  ): Promise<{ mode: 'realtime' | 'whisper'; answer: NovaConversationAnswer }> {
+  ): Promise<{ mode: 'realtime' | 'whisper'; answer: PoppinsConversationAnswer }> {
     const uri = await stopVoiceCapture();
     this.callbacks.onStateChange?.('thinking');
 
     if (!this.isConnected) {
-      const answer = await transcribeAndAskNova(uri, household, metrics);
+      const answer = await transcribeAndAskPoppins(uri, household, metrics);
       this.callbacks.onTranscript?.('user', answer.question);
       this.callbacks.onTranscript?.('assistant', answer.answer);
-      await speakNova(answer.answer);
+      await speakPoppins(answer.answer);
       this.callbacks.onStateChange?.('idle');
       return { mode: 'whisper', answer };
     }
 
     try {
-      const userText = await transcribeNovaAudio(uri, household, metrics);
+      const userText = await transcribePoppinsAudio(uri, household, metrics);
       this.callbacks.onTranscript?.('user', userText);
 
       const replyPromise = new Promise<string>((resolve) => {
@@ -317,28 +317,28 @@ export class NovaRealtimeSession {
       }
 
       // Timed out — Whisper fallback
-      const answer = await transcribeAndAskNova(uri, household, metrics);
+      const answer = await transcribeAndAskPoppins(uri, household, metrics);
       this.callbacks.onTranscript?.('assistant', answer.answer);
-      await speakNova(answer.answer);
+      await speakPoppins(answer.answer);
       this.callbacks.onStateChange?.('idle');
       return { mode: 'whisper', answer };
     } catch (error) {
       this.callbacks.onError?.(error instanceof Error ? error.message : String(error));
-      const answer = await transcribeAndAskNova(uri, household, metrics);
+      const answer = await transcribeAndAskPoppins(uri, household, metrics);
       this.callbacks.onTranscript?.('user', answer.question);
       this.callbacks.onTranscript?.('assistant', answer.answer);
-      await speakNova(answer.answer);
+      await speakPoppins(answer.answer);
       this.callbacks.onStateChange?.('idle');
       return { mode: 'whisper', answer };
     }
   }
 }
 
-/** Map tool results into monitor-style activity labels for the Nova Activity feed. */
+/** Map tool results into monitor-style activity labels for the Poppins Activity feed. */
 export function toolCallToMonitorAction(
-  name: NovaToolName,
+  name: PoppinsToolName,
   args: Record<string, unknown>
-): NovaMonitorAction {
+): PoppinsMonitorAction {
   const now = new Date().toISOString();
   switch (name) {
     case 'nudge_member':
@@ -400,4 +400,4 @@ export function toolCallToMonitorAction(
   }
 }
 
-export { speakNova, stopSpeaking };
+export { speakPoppins, stopSpeaking };

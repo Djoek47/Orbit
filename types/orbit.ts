@@ -30,7 +30,7 @@ export type HouseholdMember = {
   loadShare: number;
   /** Personal accent look — follows the member when switching personas. */
   accentThemeId?: string;
-  /** ISO date YYYY-MM-DD — member away / on holiday (Nova skips nudges). */
+  /** ISO date YYYY-MM-DD — member away / on holiday (Poppins skips nudges). */
   awayFrom?: string;
   awayTo?: string;
   /**
@@ -196,7 +196,7 @@ export type Itinerary = {
   date: string;
   status: 'draft' | 'active' | 'completed';
   stops: ItineraryStop[];
-  suggestedByNova?: boolean;
+  suggestedByPoppins?: boolean;
   summary?: string;
   /** Saved as a preferred / reusable trip template. */
   favorite?: boolean;
@@ -306,20 +306,20 @@ export type Badge = {
   progress: number;
 };
 
-export type NovaBriefing = {
+export type PoppinsBriefing = {
   title: string;
   summary: string;
   actions: string[];
 };
 
-export type NovaRecommendation = {
+export type PoppinsRecommendation = {
   id: string;
   title: string;
   detail: string;
   tone: 'blue' | 'cyan' | 'green' | 'amber' | 'red';
 };
 
-export type NovaWeeklyBriefing = {
+export type PoppinsWeeklyBriefing = {
   title: string;
   summary: string;
   tasksCompleted: number;
@@ -331,7 +331,7 @@ export type NovaWeeklyBriefing = {
   recommendations: string[];
 };
 
-export type NovaConversationAnswer = {
+export type PoppinsConversationAnswer = {
   question: string;
   answer: string;
 };
@@ -422,7 +422,7 @@ export type CreateItineraryInput = {
   title: string;
   date: string;
   stops: Omit<ItineraryStop, 'id' | 'status'>[];
-  suggestedByNova?: boolean;
+  suggestedByPoppins?: boolean;
   summary?: string;
 };
 
@@ -466,7 +466,7 @@ export type TaskTemplate = {
   householdScoped: boolean;
 };
 
-export type NovaNotificationPrefs = {
+export type PoppinsNotificationPrefs = {
   tasks: boolean;
   itinerary: boolean;
   groceries: boolean;
@@ -483,8 +483,8 @@ export type NovaNotificationPrefs = {
   missingOnTheWay?: boolean;
 };
 
-/** Activity feed entry from Nova Monitor Agent. */
-export type NovaMonitorAction = {
+/** Activity feed entry from Poppins Monitor Agent. */
+export type PoppinsMonitorAction = {
   id: string;
   kind: 'nudge' | 'deals' | 'plan' | 'xp_fairness' | 'holiday' | 'ask_info' | 'monitor';
   label: string;
@@ -553,7 +553,7 @@ export type HouseholdSnapshot = {
   /** Make accent theme id (ocean/aurora/…). */
   accentThemeId?: string;
   taskTemplates: TaskTemplate[];
-  notificationPrefs: NovaNotificationPrefs;
+  notificationPrefs: PoppinsNotificationPrefs;
   /** What non-admin members may do (admin-controlled). */
   memberCapabilities?: MemberCapabilities;
   /**
@@ -575,7 +575,7 @@ export type HouseholdSnapshot = {
   notificationHour?: number;
   rewards: Reward[];
   badges: Badge[];
-  nova: NovaBriefing;
+  poppins: PoppinsBriefing;
 };
 
 export type NotificationItem = {

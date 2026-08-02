@@ -1,6 +1,6 @@
 import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
 import { DEFAULT_ACCENT_THEME_ID } from '@/constants/accent-themes';
-import { DEFAULT_NOVA_NOTIFICATION_PREFS } from '@/services/nova-notifications';
+import { DEFAULT_POPPINS_NOTIFICATION_PREFS } from '@/services/poppins-notifications';
 import type { HouseholdSnapshot, OrbitUser } from '@/types/orbit';
 
 function todayKey(offset = 0) {
@@ -120,7 +120,7 @@ export const mockHousehold: HouseholdSnapshot = {
       pickupItemNames: [],
     },
   ],
-  notificationPrefs: { ...DEFAULT_NOVA_NOTIFICATION_PREFS },
+  notificationPrefs: { ...DEFAULT_POPPINS_NOTIFICATION_PREFS },
   taskTemplates: [],
   members: [
     {
@@ -146,7 +146,7 @@ export const mockHousehold: HouseholdSnapshot = {
       streak: 8,
       loadShare: 34,
       accentThemeId: 'berry',
-      // On a short work trip — Nova Monitor skips task nudges
+      // On a short work trip — Poppins Monitor skips task nudges
       awayFrom: todayKey(0),
       awayTo: todayKey(2),
     },
@@ -691,7 +691,7 @@ export const mockHousehold: HouseholdSnapshot = {
       title: 'After-school run',
       date: todayKey(0),
       status: 'active',
-      suggestedByNova: true,
+      suggestedByPoppins: true,
       favorite: true,
       summary: 'Leave by 2:50 · 3 stops · ~42 min',
       stops: [
@@ -736,7 +736,7 @@ export const mockHousehold: HouseholdSnapshot = {
       title: 'Oak Road Errands Loop',
       date: todayKey(1),
       status: 'active',
-      suggestedByNova: true,
+      suggestedByPoppins: true,
       summary:
         'Dentist, pharmacy, and dry cleaner are all within 0.4 miles of each other on Oak Road. Combining saves 42 minutes vs. separate trips.',
       stops: [
@@ -778,7 +778,7 @@ export const mockHousehold: HouseholdSnapshot = {
       title: 'Thursday Grocery Circuit',
       date: todayKey(4),
       status: 'active',
-      suggestedByNova: true,
+      suggestedByPoppins: true,
       summary:
         "Trader Joe's, Costco, and the hardware store are on the same route. Thursday has the lightest traffic — best time to go.",
       stops: [
@@ -830,7 +830,7 @@ export const mockHousehold: HouseholdSnapshot = {
       title: 'Monday Evening Loop',
       date: todayKey(-2),
       status: 'completed',
-      suggestedByNova: true,
+      suggestedByPoppins: true,
       summary: 'Saved 28m · 3 stops',
       stops: [
         {
@@ -871,7 +871,7 @@ export const mockHousehold: HouseholdSnapshot = {
       title: 'Weekend Grocery Circuit',
       date: todayKey(-5),
       status: 'completed',
-      suggestedByNova: true,
+      suggestedByPoppins: true,
       summary: 'Saved 52m · 4 stops',
       stops: [
         {
@@ -914,8 +914,8 @@ export const mockHousehold: HouseholdSnapshot = {
     { id: 'b2', title: 'Dish Master', icon: 'local-dining', progress: 0.45 },
     { id: 'b3', title: 'Perfect Week', icon: 'workspace-premium', progress: 0.58 },
   ],
-  nova: {
-    title: 'Nova morning briefing',
+  poppins: {
+    title: 'Poppins morning briefing',
     summary:
       'Your household momentum is strong today. James already picked up groceries. Two tasks need your attention.',
     actions: ['View Itineraries', 'See Tasks', 'Open groceries'],
@@ -945,7 +945,7 @@ export function createEmptyHousehold(user: OrbitUser): HouseholdSnapshot {
     },
     rooms: DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
     savedPlaces: [],
-    notificationPrefs: { ...DEFAULT_NOVA_NOTIFICATION_PREFS },
+    notificationPrefs: { ...DEFAULT_POPPINS_NOTIFICATION_PREFS },
     taskTemplates: [],
     members: [],
     tasks: [],
@@ -954,7 +954,7 @@ export function createEmptyHousehold(user: OrbitUser): HouseholdSnapshot {
     itineraries: [],
     rewards: [],
     badges: [],
-    nova: {
+    poppins: {
       title: 'Welcome to Choremaxx',
       summary: 'Create or join a household to start building your daily rhythm.',
       actions: ['Create household', 'Join household'],

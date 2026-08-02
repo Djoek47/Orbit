@@ -13,19 +13,19 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-type NovaHourglassProps = {
+type PoppinsHourglassProps = {
   size?: number;
   color?: string;
   /** When true, sand drains/fills and the glass flips every 3s. */
   active?: boolean;
 };
 
-/** Nova Activity brand mark — animated sandglass. */
-export function NovaHourglass({
+/** Poppins Activity brand mark — animated sandglass. */
+export function PoppinsHourglass({
   size = 18,
   color = '#2DD4BF',
   active = false,
-}: NovaHourglassProps) {
+}: PoppinsHourglassProps) {
   const flip = useSharedValue(0);
   const sand = useSharedValue(1);
   const grain = useSharedValue(0);

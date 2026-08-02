@@ -114,7 +114,7 @@ export default function TabLayout() {
             title: 'Rewards',
           }}
         />
-        <Tabs.Screen name="nova" options={{ title: 'Nova' }} />
+        <Tabs.Screen name="poppins" options={{ title: 'Poppins' }} />
       </Tabs>
 
       <GlobalHeaderChips />

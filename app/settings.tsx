@@ -967,7 +967,7 @@ export default function SettingsScreen() {
 
         {section === 'notifications' ? (
           <>
-            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>Nova Monitor categories</Text>
+            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>Poppins Monitor categories</Text>
             {(
               [
                 ['tasks', 'Task Reminders', 'Overdue nudges and streak checks', '✅'],
@@ -1007,8 +1007,8 @@ export default function SettingsScreen() {
               <Text style={styles.linkText}>Open notifications inbox</Text>
               <MaterialIcons name="chevron-right" size={16} color="#38BDF8" />
             </Pressable>
-            <Pressable style={styles.linkRow} onPress={() => router.push('/(tabs)/nova' as never)}>
-              <Text style={styles.linkText}>Open Nova · Run check</Text>
+            <Pressable style={styles.linkRow} onPress={() => router.push('/(tabs)/poppins' as never)}>
+              <Text style={styles.linkText}>Open Poppins · Run check</Text>
               <MaterialIcons name="chevron-right" size={16} color="#38BDF8" />
             </Pressable>
           </>

@@ -222,9 +222,9 @@ export function suggestItineraryFromHousehold(
   const baseSummary = shortSummary(ordered) + modeNote + (leaveBy ? ` · leave by ${leaveBy}` : '');
 
   return {
-    title: mode === 'spread' ? 'Nova light run' : 'Nova suggested run',
+    title: mode === 'spread' ? 'Poppins light run' : 'Poppins suggested run',
     date: dateKey,
-    suggestedByNova: true,
+    suggestedByPoppins: true,
     summary:
       baseSummary.trim().length > 0
         ? baseSummary

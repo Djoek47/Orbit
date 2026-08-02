@@ -1,15 +1,15 @@
-// Deno Edge Function — mint ephemeral OpenAI Realtime client secret for Nova voice.
+// Deno Edge Function — mint ephemeral OpenAI Realtime client secret for Poppins voice.
 // Never returns the long-lived OPENAI_API_KEY.
 
 import {
   corsHeaders,
   jsonResponse,
   requireActiveMember,
-} from '../_shared/nova-auth.ts';
+} from '../_shared/poppins-auth.ts';
 import {
-  NOVA_MAJORDOMO_SYSTEM,
-  novaToolsAsRealtimeTools,
-} from '../_shared/nova-tools.ts';
+  POPPINS_MAJORDOMO_SYSTEM,
+  poppinsToolsAsRealtimeTools,
+} from '../_shared/poppins-tools.ts';
 
 const REALTIME_MODEL = 'gpt-4o-realtime-preview';
 
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
 
     const memberRole = auth.membership?.role ?? 'adult';
     const instructions =
-      `${NOVA_MAJORDOMO_SYSTEM} Viewer role: ${memberRole}.` +
+      `${POPPINS_MAJORDOMO_SYSTEM} Viewer role: ${memberRole}.` +
       ' Speak calmly and briefly. Use tools when helpful; propose consequential changes for confirmation.' +
       householdHint;
 
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
         voice: 'coral',
         modalities: ['text', 'audio'],
         instructions,
-        tools: novaToolsAsRealtimeTools(),
+        tools: poppinsToolsAsRealtimeTools(),
         tool_choice: 'auto',
         input_audio_transcription: { model: 'whisper-1' },
       }),
