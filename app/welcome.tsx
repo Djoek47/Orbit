@@ -52,7 +52,6 @@ import { rewardsFromDraftMember, tasksFromDraftMember } from '@/lib/onboarding/m
 import {
   DEFAULT_REWARD_MODEL,
   REWARD_MODEL_OPTIONS,
-  capabilitiesFor,
   type RewardModel,
 } from '@/lib/rewards/reward-model';
 import {
