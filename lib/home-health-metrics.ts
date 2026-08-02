@@ -104,7 +104,9 @@ export function buildHomeHealthMetrics(opts: {
     ];
   }
 
-  const fairness = metrics.fairnessScore ?? fairnessFromWeekXp(household.members);
+  // Household Health shows Completion + Streak only (§7.1 — Fairness removed).
+  // Household streak: increments on any day where 100% of that day's due occurrences
+  // across all members were completed by their deadlines (§7.2).
   const streak = metrics.householdStreak ?? householdStreakDays(household.members);
   return [
     {
@@ -114,15 +116,6 @@ export function buildHomeHealthMetrics(opts: {
       valueLabel: `${metrics.taskCompletionRate}%`,
       color: '#34D399',
       icon: 'check-circle',
-      kind: 'pct',
-    },
-    {
-      key: 'fairness',
-      label: 'Fairness',
-      val: fairness,
-      valueLabel: `${fairness}%`,
-      color: '#FBBF24',
-      icon: 'balance',
       kind: 'pct',
     },
     {

@@ -36,6 +36,7 @@
     "test:logic": "npm run test:reward-mode && npm run test:streak-engine && npm run test:trophies && npm run test:today && npm run test:completion-xp && npm run test:daily-streak && npm run test:claim-reward && npm run test:task-library && npm run test:task-library-v2",
     "test:task-library": "npx --yes tsx scripts/validate-task-library.ts",
     "test:task-library-v2": "npx --yes tsx lib/tasks/task-library.test.ts",
+    "test:recurrence-defaults": "npx --yes tsx lib/tasks/recurrence-defaults.test.ts",
     "generate:brand-marks": "node scripts/generate-brand-marks.mjs"
   },
   "dependencies": {
