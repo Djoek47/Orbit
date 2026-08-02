@@ -16,6 +16,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 
+import { Avatar } from '@/components/orbit/avatar';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { BrandOpening } from '@/components/orbit/brand-opening';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
@@ -25,8 +26,10 @@ import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OnboardingProgress } from '@/components/orbit/onboarding-progress';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
+import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { SplashHooks } from '@/components/orbit/splash-hooks';
 import { StreakFootnote } from '@/components/orbit/streak-marker';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import {
   ONBOARDING_MOTIVATIONS,
@@ -106,6 +109,8 @@ export default function WelcomeOnboardingScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [draftAvatar, setDraftAvatar] = useState('');
+  const [lookSheetOpen, setLookSheetOpen] = useState(false);
   const [householdName, setHouseholdName] = useState('');
   const [householdType, setHouseholdType] = useState<HouseholdType>('family');
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() =>
@@ -419,7 +424,10 @@ export default function WelcomeOnboardingScreen() {
     setError('');
     try {
       await persistPrefs();
-      await createProfile({ name: displayName.trim() });
+      await createProfile({
+        name: displayName.trim(),
+        avatar: draftAvatar.trim() || undefined,
+      });
       if (!householdName.trim() && roleMeta) {
         setHouseholdName(
           selectedRole === 'roommate' ? 'Our Place' : `The ${displayName.trim().split(' ')[0]} Home`,
@@ -1060,8 +1068,31 @@ export default function WelcomeOnboardingScreen() {
                 What should we call you?
               </Text>
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                Your name inside the household.
+                Your name inside the household. Add a photo if you like.
               </Text>
+              <Pressable
+                onPress={() => setLookSheetOpen(true)}
+                style={styles.profileAvatarRow}
+                accessibilityRole="button"
+                accessibilityLabel="Personalize your look">
+                <Avatar
+                  name={displayName.trim() || 'You'}
+                  emoji={
+                    draftAvatar && !isAvatarImageUri(draftAvatar)
+                      ? draftAvatar
+                      : memberDisplayEmoji({ name: displayName.trim() || 'You', avatar: draftAvatar })
+                  }
+                  imageUri={isAvatarImageUri(draftAvatar) ? draftAvatar : undefined}
+                  size="xl"
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={[typography.headline, { color: orbitPalette.text }]}>Photo</Text>
+                  <Text style={[typography.footnote, { color: orbitPalette.textMuted, marginTop: 2 }]}>
+                    Photos, Image Playground, or emoji — optional
+                  </Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color={orbitPalette.textSubtle} />
+              </Pressable>
               <OrbitInput label="Display name" value={displayName} onChangeText={setDisplayName} />
               {error ? <Text style={styles.error}>{error}</Text> : null}
               <OrbitButton disabled={busy} onPress={handleProfileContinue}>
@@ -1399,6 +1430,15 @@ export default function WelcomeOnboardingScreen() {
           setInviteCode(code);
         }}
       />
+      <PersonalizeLookSheet
+        visible={lookSheetOpen}
+        memberName={displayName.trim() || 'you'}
+        currentAvatar={draftAvatar || undefined}
+        onDismiss={() => setLookSheetOpen(false)}
+        onSelect={(avatar) => {
+          setDraftAvatar(avatar);
+        }}
+      />
     </View>
   );
 }
@@ -1448,6 +1488,13 @@ const styles = StyleSheet.create({
   stepTitle: {
     letterSpacing: -0.45,
     marginBottom: 4,
+  },
+  profileAvatarRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 14,
+    marginBottom: space.md,
+    paddingVertical: 4,
   },
   splashScreen: {
     alignItems: 'center',

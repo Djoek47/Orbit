@@ -2,10 +2,12 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   canPromoteToAdmin,
   familyAdminSeatsLabel,
@@ -273,7 +275,12 @@ export default function HouseholdMembersScreen() {
           {pending.map((member) => (
             <GlassCard key={member.id} style={styles.card}>
               <View style={styles.memberHeader}>
-                <Text style={[styles.avatar, { color: c.text }]}>{member.avatar}</Text>
+                <Avatar
+                  name={member.name}
+                  emoji={memberDisplayEmoji(member)}
+                  imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
+                  size="m"
+                />
                 <View style={styles.memberCopy}>
                   <Text style={typography.headline}>{member.name}</Text>
                   <Text style={typography.footnote}>
@@ -312,7 +319,12 @@ export default function HouseholdMembersScreen() {
       {active.map((member) => (
         <GlassCard key={member.id} style={styles.card}>
           <View style={styles.memberHeader}>
-            <Text style={[styles.avatar, { color: c.text }]}>{member.avatar}</Text>
+            <Avatar
+              name={member.name}
+              emoji={memberDisplayEmoji(member)}
+              imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
+              size="m"
+            />
             <View style={styles.memberCopy}>
               <Text style={typography.headline}>{member.name}</Text>
               <Text style={typography.footnote}>
@@ -360,7 +372,7 @@ export default function HouseholdMembersScreen() {
                           { color: c.textMuted },
                           linked && styles.linkChipTextActive,
                         ]}>
-                        {person.avatar} {person.name}
+                        {memberDisplayEmoji(person)} {person.name}
                       </Text>
                     </Pressable>
                   );

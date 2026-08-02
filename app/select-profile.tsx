@@ -3,9 +3,10 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/orbit/avatar';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { getAccentTheme } from '@/constants/accent-themes';
 import { space } from '@/constants/orbit-theme';
@@ -128,11 +129,12 @@ export default function SelectProfileScreen() {
                       styles.avatarInner,
                       { backgroundColor: orbitPalette.backgroundSoft },
                     ]}>
-                    {photo ? (
-                      <Image source={{ uri: member.avatar }} style={styles.avatarImage} />
-                    ) : (
-                      <Text style={styles.avatarEmoji}>{memberDisplayEmoji(member)}</Text>
-                    )}
+                    <Avatar
+                      name={member.name}
+                      emoji={memberDisplayEmoji(member)}
+                      imageUri={photo ? member.avatar : undefined}
+                      size="xl"
+                    />
                   </View>
                 </LinearGradient>
                 <Text style={[styles.name, { color: orbitPalette.text }]} numberOfLines={1}>

@@ -14,7 +14,7 @@ import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
-import { memberDisplayEmoji } from '@/lib/game-levels';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   buildHomeHealthMetrics,
   resolveHomeHealthRole,
@@ -78,6 +78,7 @@ export default function HomeScreen() {
         id: member.id,
         name: member.name,
         avatarEmoji: memberDisplayEmoji(member),
+        avatarImageUri: isAvatarImageUri(member.avatar) ? member.avatar : undefined,
         xp: member.weekXp ?? 0,
       }));
   }, [household.members]);
@@ -136,6 +137,11 @@ export default function HomeScreen() {
             <Avatar
               name={displayName}
               emoji={currentMember ? memberDisplayEmoji(currentMember) : undefined}
+              imageUri={
+                currentMember?.avatar && isAvatarImageUri(currentMember.avatar)
+                  ? currentMember.avatar
+                  : undefined
+              }
               size="l"
             />
           </Pressable>

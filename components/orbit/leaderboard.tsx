@@ -8,6 +8,8 @@ export type LeaderboardEntry = {
   id: string;
   name: string;
   avatarEmoji?: string;
+  /** Photo URI when the member set a gallery / Playground look. */
+  avatarImageUri?: string;
   xp: number;
 };
 
@@ -35,7 +37,12 @@ export function Leaderboard({ entries, variant = 'list' }: LeaderboardProps) {
           const isFirst = entry.id === first?.id;
           return (
             <View key={entry.id} style={styles.podiumItem}>
-              <Avatar name={entry.name} emoji={entry.avatarEmoji} size={isFirst ? 'l' : 'm'} />
+              <Avatar
+                name={entry.name}
+                emoji={entry.avatarEmoji}
+                imageUri={entry.avatarImageUri}
+                size={isFirst ? 'l' : 'm'}
+              />
               <Text style={[typography.footnote, { color: c.text }]} numberOfLines={1}>
                 {entry.name}
               </Text>
@@ -54,7 +61,12 @@ export function Leaderboard({ entries, variant = 'list' }: LeaderboardProps) {
       {sorted.map((entry, index) => (
         <View key={entry.id} style={styles.row}>
           <Text style={[typography.footnote, styles.rank, { color: c.textMuted }]}>{index + 1}</Text>
-          <Avatar name={entry.name} emoji={entry.avatarEmoji} size="s" />
+          <Avatar
+            name={entry.name}
+            emoji={entry.avatarEmoji}
+            imageUri={entry.avatarImageUri}
+            size="s"
+          />
           <Text style={[typography.body, styles.name, { color: c.text }]} numberOfLines={1}>
             {entry.name}
           </Text>

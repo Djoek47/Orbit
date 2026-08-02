@@ -11,10 +11,11 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
+import { Avatar } from '@/components/orbit/avatar';
 import { FireEdgeProgress } from '@/components/orbit/fire-edge-progress';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
+import { isAvatarImageUri, MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import type { AccentTheme } from '@/constants/accent-themes';
@@ -190,7 +191,14 @@ export function TodayTasksCard({
               {perPerson.map((row, index) => {
                 const chip = (
                   <>
-                    <Text style={styles.personEmoji}>{memberDisplayEmoji(row.member)}</Text>
+                    <Avatar
+                      name={row.member.name}
+                      emoji={memberDisplayEmoji(row.member)}
+                      imageUri={
+                        isAvatarImageUri(row.member.avatar) ? row.member.avatar : undefined
+                      }
+                      size="xs"
+                    />
                     <Text style={[styles.personName, { color: row.color }]} numberOfLines={1}>
                       {row.member.name}
                     </Text>

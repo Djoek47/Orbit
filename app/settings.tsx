@@ -1,6 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as ImagePicker from 'expo-image-picker';
 import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -16,7 +15,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
-  AVATAR_EMOJIS,
   DEFAULT_ACCENT_THEME_ID,
   migrateAccentThemeId,
   ROOM_EMOJIS,
@@ -25,6 +23,7 @@ import {
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { PaletteWheel } from '@/components/orbit/palette-wheel';
+import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { BUILD_INFO } from '@/constants/build-info';
@@ -58,24 +57,18 @@ function SharedAccountRow({
   person,
   active,
   accent,
-  picking,
   canManage,
   onSwitch,
-  onTogglePick,
-  onPickEmoji,
-  onPickPhoto,
+  onPersonalize,
   onUnlink,
   onRemove,
 }: {
   person: HouseholdMember;
   active: boolean;
   accent: string;
-  picking: boolean;
   canManage: boolean;
   onSwitch: () => void;
-  onTogglePick: () => void;
-  onPickEmoji: (emoji: string) => void;
-  onPickPhoto: () => void;
+  onPersonalize: () => void;
   onUnlink?: () => void;
   onRemove?: () => void;
 }) {
@@ -85,7 +78,8 @@ function SharedAccountRow({
     <View style={[styles.sharedAccountBlock, { borderTopColor: glassBorder(0.08) }]}>
       <View style={styles.memberCardInner}>
         <Pressable
-          onPress={onTogglePick}
+          onPress={onPersonalize}
+          accessibilityLabel={`Personalize look for ${person.name}`}
           style={[
             styles.memberAvatar,
             { backgroundColor: `${active ? accent : c.textSubtle}33` },
@@ -123,31 +117,6 @@ function SharedAccountRow({
               <Text style={[styles.adminActionText, { color: '#F87171' }]}>Remove</Text>
             </Pressable>
           ) : null}
-        </View>
-      ) : null}
-      {picking ? (
-        <View style={styles.emojiGrid}>
-          <Pressable
-            style={[styles.emojiChip, styles.photoChip, { borderColor: `${accent}88`, backgroundColor: glass(0.06) }]}
-            onPress={onPickPhoto}>
-            <MaterialIcons name="photo-camera" size={18} color={accent} />
-            <Text style={[styles.photoChipText, { color: accent }]}>Photo / Memoji</Text>
-          </Pressable>
-          {AVATAR_EMOJIS.map((emoji) => (
-            <Pressable
-              key={emoji}
-              style={[
-                styles.emojiChip,
-                { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) },
-                person.avatar === emoji && {
-                  borderColor: `${accent}88`,
-                  backgroundColor: `${accent}22`,
-                },
-              ]}
-              onPress={() => onPickEmoji(emoji)}>
-              <Text style={{ fontSize: 22 }}>{emoji}</Text>
-            </Pressable>
-          ))}
         </View>
       ) : null}
     </View>
@@ -200,7 +169,7 @@ export default function SettingsScreen() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(household.householdName);
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
-  const [pickingAvatarFor, setPickingAvatarFor] = useState<string | null>(null);
+  const [personalizeMemberId, setPersonalizeMemberId] = useState<string | null>(null);
   const [sharedDeviceName, setSharedDeviceName] = useState('Kids tablet');
   const [creatingDevice, setCreatingDevice] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
@@ -307,22 +276,10 @@ export default function SettingsScreen() {
     ]);
   };
 
-  const pickMemojiPhoto = async (memberId: string) => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Photos needed', 'Allow photo library access to use a Memoji or portrait.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
-    });
-    if (result.canceled || !result.assets?.[0]?.uri) return;
-    await updateMemberAvatar(memberId, result.assets[0].uri);
-    setPickingAvatarFor(null);
-  };
+  const personalizeMember = useMemo(
+    () => household.members.find((member) => member.id === personalizeMemberId) ?? null,
+    [household.members, personalizeMemberId]
+  );
 
   return (
     <>
@@ -794,7 +751,7 @@ export default function SettingsScreen() {
                                 { color: orbitPalette.textMuted },
                                 linked && styles.linkChipTextActive,
                               ]}>
-                              {person.avatar} {person.name}
+                              {memberDisplayEmoji(person)} {person.name}
                             </Text>
                           </Pressable>
                         );
@@ -807,17 +764,9 @@ export default function SettingsScreen() {
                       person={person}
                       active={currentMember?.id === person.id}
                       accent={accentTheme.primary}
-                      picking={pickingAvatarFor === person.id}
                       canManage={permissions.canManageHousehold}
                       onSwitch={() => switchPersona(person.id)}
-                      onTogglePick={() =>
-                        setPickingAvatarFor(pickingAvatarFor === person.id ? null : person.id)
-                      }
-                      onPickEmoji={async (emoji) => {
-                        await updateMemberAvatar(person.id, emoji);
-                        setPickingAvatarFor(null);
-                      }}
-                      onPickPhoto={() => void pickMemojiPhoto(person.id)}
+                      onPersonalize={() => setPersonalizeMemberId(person.id)}
                       onUnlink={() =>
                         toggleSharedLink(
                           device.id,
@@ -843,7 +792,6 @@ export default function SettingsScreen() {
 
             {topLevelMembers.map((member) => {
               const active = currentMember?.id === member.id;
-              const picking = pickingAvatarFor === member.id;
               const photo = isAvatarImageUri(member.avatar);
               return (
                 <View
@@ -856,7 +804,8 @@ export default function SettingsScreen() {
                     },
                   ]}>
                   <Pressable
-                    onPress={() => setPickingAvatarFor(picking ? null : member.id)}
+                    onPress={() => setPersonalizeMemberId(member.id)}
+                    accessibilityLabel={`Personalize look for ${member.name}`}
                     style={[
                       styles.memberAvatar,
                       { backgroundColor: `${active ? accentTheme.primary : orbitPalette.textSubtle}33` },
@@ -896,41 +845,6 @@ export default function SettingsScreen() {
                       accessibilityLabel={`Remove ${member.name}`}>
                       <MaterialIcons name="person-remove" size={20} color="#F87171" />
                     </Pressable>
-                  ) : null}
-                  {picking ? (
-                    <View style={styles.emojiGrid}>
-                      <Pressable
-                        style={[
-                          styles.emojiChip,
-                          styles.photoChip,
-                          {
-                            borderColor: `${accentTheme.primary}88`,
-                            backgroundColor: glass(0.06),
-                          },
-                        ]}
-                        onPress={() => void pickMemojiPhoto(member.id)}>
-                        <MaterialIcons name="photo-camera" size={18} color={accentTheme.primary} />
-                        <Text style={[styles.photoChipText, { color: accentTheme.primary }]}>Photo / Memoji</Text>
-                      </Pressable>
-                      {AVATAR_EMOJIS.map((emoji) => (
-                        <Pressable
-                          key={emoji}
-                          style={[
-                            styles.emojiChip,
-                            { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) },
-                            member.avatar === emoji && {
-                              borderColor: `${accentTheme.primary}88`,
-                              backgroundColor: `${accentTheme.primary}22`,
-                            },
-                          ]}
-                          onPress={async () => {
-                            await updateMemberAvatar(member.id, emoji);
-                            setPickingAvatarFor(null);
-                          }}>
-                          <Text style={{ fontSize: 22 }}>{emoji}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
                   ) : null}
                 </View>
               );
@@ -1107,6 +1021,16 @@ export default function SettingsScreen() {
       members={household.members}
       currentMemberId={currentMember?.id ?? ''}
       onSwitch={switchPersona}
+    />
+    <PersonalizeLookSheet
+      visible={Boolean(personalizeMember)}
+      memberName={personalizeMember?.name ?? 'you'}
+      currentAvatar={personalizeMember?.avatar}
+      onDismiss={() => setPersonalizeMemberId(null)}
+      onSelect={async (avatar) => {
+        if (!personalizeMember) return;
+        await updateMemberAvatar(personalizeMember.id, avatar);
+      }}
     />
     </>
   );

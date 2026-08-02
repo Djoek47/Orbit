@@ -2,10 +2,11 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { getAccentTheme } from '@/constants/accent-themes';
 import { orbitColors, radius, space } from '@/constants/orbit-theme';
-import { memberDisplayEmoji } from '@/lib/game-levels';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
   isSharedDeviceRole,
@@ -86,7 +87,14 @@ export function PersonaSwitchPopup({
                         onClose();
                       }}>
                       <View style={[styles.avatar, { borderColor: theme.primary }]}>
-                        <Text style={styles.avatarText}>{memberDisplayEmoji(member)}</Text>
+                        <Avatar
+                          name={member.name}
+                          emoji={memberDisplayEmoji(member)}
+                          imageUri={
+                            isAvatarImageUri(member.avatar) ? member.avatar : undefined
+                          }
+                          size="s"
+                        />
                       </View>
                       <View style={styles.meta}>
                         <Text style={[styles.name, { color: c.text }]}>{member.name}</Text>
@@ -164,9 +172,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  avatarText: {
-    fontSize: 20,
+    overflow: 'hidden',
   },
   meta: {
     flex: 1,
