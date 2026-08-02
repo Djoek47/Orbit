@@ -2,7 +2,8 @@ export type HouseholdRole = 'owner' | 'admin' | 'adult' | 'child' | 'guest' | 's
 
 export type HouseholdMemberStatus = 'pending' | 'active' | 'inactive';
 
-export type HouseholdType = 'family' | 'single-parent' | 'roommates' | 'multi-generational' | 'custom';
+/** ChoreMaxx v2: every household is a family. Legacy DB values are normalized to `family`. */
+export type HouseholdType = 'family';
 
 export type OrbitUser = {
   id: string;
@@ -521,8 +522,9 @@ export type CreateProfileInput = {
 
 export type CreateHouseholdInput = {
   name: string;
-  type: HouseholdType;
-  /** Selected during create (name → type → rooms). Defaults applied when omitted. */
+  /** Ignored — all households are created as `family` (ChoreMaxx v2). */
+  type?: HouseholdType;
+  /** Selected during create. Defaults applied when omitted. */
   rooms?: HouseholdRoom[];
 };
 

@@ -23,7 +23,6 @@ export default function HouseholdBalanceScreen() {
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
   const healthRole = resolveHomeHealthRole(currentMember, {
-    householdType: household.householdType,
     isAdmin: permissions.canManageHousehold,
   });
   const healthItems = useMemo(

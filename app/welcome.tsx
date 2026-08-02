@@ -35,7 +35,6 @@ import {
   ONBOARDING_MOTIVATIONS,
   ONBOARDING_ROLES,
   loadOnboardingPrefs,
-  onboardingRoleToHouseholdType,
   saveOnboardingPrefs,
   skipsMotivation,
   type MotivationMode,
@@ -53,7 +52,7 @@ import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib
 import { shareInvite } from '@/lib/invites/share-invite';
 import { createLocalId } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdRoom, HouseholdType } from '@/types/orbit';
+import type { HouseholdRoom } from '@/types/orbit';
 
 type Step =
   | 'splash'
@@ -66,14 +65,6 @@ type Step =
   | 'child-invite'
   | 'tablet-invite'
   | 'ready';
-
-const HOUSEHOLD_TYPES: { label: string; value: HouseholdType }[] = [
-  { label: 'Family', value: 'family' },
-  { label: 'Single Parent', value: 'single-parent' },
-  { label: 'Roommates', value: 'roommates' },
-  { label: 'Multi-Gen', value: 'multi-generational' },
-  { label: 'Custom', value: 'custom' },
-];
 
 export default function WelcomeOnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -112,7 +103,6 @@ export default function WelcomeOnboardingScreen() {
   const [draftAvatar, setDraftAvatar] = useState('');
   const [lookSheetOpen, setLookSheetOpen] = useState(false);
   const [householdName, setHouseholdName] = useState('');
-  const [householdType, setHouseholdType] = useState<HouseholdType>('family');
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() =>
     DEFAULT_HOUSEHOLD_ROOMS.map((room) => room.id),
   );
@@ -172,7 +162,6 @@ export default function WelcomeOnboardingScreen() {
         setSelectedRole(prefs.role);
         setSelectedMotivation(prefs.motivation);
         setSelectedRewardMode(prefs.rewardMode ?? 'weighted');
-        setHouseholdType(onboardingRoleToHouseholdType(prefs.role));
       }
     });
 
@@ -304,7 +293,6 @@ export default function WelcomeOnboardingScreen() {
   const handleRoleContinue = () => {
     if (!selectedRole) return;
     setError('');
-    setHouseholdType(onboardingRoleToHouseholdType(selectedRole));
     // Kids never create an account — they redeem a parent AirDrop / invite.
     if (selectedRole === 'child') {
       setSelectedMotivation(selectedMotivation ?? 'xp');
@@ -312,15 +300,12 @@ export default function WelcomeOnboardingScreen() {
       setStep('child-invite');
       return;
     }
-    // Shared / tablet sits under Roommate — invite codes or AirDrop, no tablet email.
+    // Shared / tablet — invite codes or AirDrop, no tablet email.
     if (selectedRole === 'shared-tablet') {
       setSelectedMotivation(selectedMotivation ?? 'xp');
       setHouseholdMode('join');
       setStep('tablet-invite');
       return;
-    }
-    if (selectedRole === 'roommate') {
-      setHouseholdMode('create');
     }
     if (skipsMotivation(selectedRole)) {
       setSelectedMotivation(selectedMotivation ?? 'xp');
@@ -429,9 +414,7 @@ export default function WelcomeOnboardingScreen() {
         avatar: draftAvatar.trim() || undefined,
       });
       if (!householdName.trim() && roleMeta) {
-        setHouseholdName(
-          selectedRole === 'roommate' ? 'Our Place' : `The ${displayName.trim().split(' ')[0]} Home`,
-        );
+        setHouseholdName(`The ${displayName.trim().split(' ')[0]} Home`);
       }
       setStep('household');
     } catch (err) {
@@ -459,7 +442,6 @@ export default function WelcomeOnboardingScreen() {
         }
         await createHousehold({
           name: householdName.trim(),
-          type: householdType,
           rooms: selectedRooms,
         });
         updateHouseholdRewardSettings({ rewardMode: selectedRewardMode ?? 'weighted' });
@@ -627,7 +609,6 @@ export default function WelcomeOnboardingScreen() {
 
   const showKidInviteBox =
     createdHousehold &&
-    selectedRole !== 'roommate' &&
     selectedRole !== 'child' &&
     selectedRole !== 'shared-tablet';
 
@@ -1158,36 +1139,6 @@ export default function WelcomeOnboardingScreen() {
                     value={householdName}
                     onChangeText={setHouseholdName}
                   />
-                  <Text style={[styles.fieldLabel, { color: orbitPalette.textMuted }]}>
-                    Household type
-                  </Text>
-                  <View style={styles.typeGrid}>
-                    {HOUSEHOLD_TYPES.map((item) => {
-                      const selected = item.value === householdType;
-                      return (
-                        <Pressable
-                          key={item.value}
-                          onPress={() => setHouseholdType(item.value)}
-                          style={[
-                            styles.typeChip,
-                            {
-                              backgroundColor: selected ? `${accent}2E` : orbitPalette.card,
-                              borderColor: selected ? `${accent}73` : orbitPalette.border,
-                            },
-                          ]}>
-                          <Text
-                            style={[
-                              styles.typeLabel,
-                              {
-                                color: selected ? accent : orbitPalette.textMuted,
-                              },
-                            ]}>
-                            {item.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
                   <Text style={[styles.fieldLabel, { color: orbitPalette.textMuted }]}>Rooms</Text>
                   <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
                     Pick the spaces you manage.
@@ -1384,7 +1335,7 @@ export default function WelcomeOnboardingScreen() {
               {createdHousehold && readyInvite ? (
                 <GlassCard style={styles.invitePanel}>
                   <Text style={[typography.headline, { color: orbitPalette.text }]}>
-                    {selectedRole === 'roommate' ? 'Invite roommates' : 'Invite adults'}
+                    Invite adults
                   </Text>
                   <Text style={[typography.footnote, { color: orbitPalette.textMuted }]}>
                     AirDrop, share the link, or scan the QR.

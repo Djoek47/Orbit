@@ -11,21 +11,12 @@ import { ROOM_EMOJIS } from '@/constants/accent-themes';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { createLocalId } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdRoom, HouseholdType } from '@/types/orbit';
-
-const householdTypes: { label: string; value: HouseholdType; emoji: string }[] = [
-  { label: 'Family', value: 'family', emoji: '👨‍👩‍👧‍👦' },
-  { label: 'Single Parent', value: 'single-parent', emoji: '🧑‍👧' },
-  { label: 'Roommates', value: 'roommates', emoji: '🏠' },
-  { label: 'Multi-Gen', value: 'multi-generational', emoji: '👴' },
-  { label: 'Custom', value: 'custom', emoji: '✨' },
-];
+import type { HouseholdRoom } from '@/types/orbit';
 
 export default function CreateHouseholdScreen() {
   const { accentTheme, createHousehold } = useOrbit();
   const { c } = useOrbitColors();
   const [name, setName] = useState('The Choremaxx Home');
-  const [type, setType] = useState<HouseholdType>('family');
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() =>
     DEFAULT_HOUSEHOLD_ROOMS.map((room) => room.id),
   );
@@ -78,7 +69,7 @@ export default function CreateHouseholdScreen() {
     try {
       setBusy(true);
       setError('');
-      await createHousehold({ name: name.trim(), type, rooms: selectedRooms });
+      await createHousehold({ name: name.trim(), rooms: selectedRooms });
       router.replace('/invite-household' as never);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create household.');
@@ -92,36 +83,8 @@ export default function CreateHouseholdScreen() {
       showBack
       kicker="Owner setup"
       title="Create household"
-      subtitle="Name → type → rooms. You will be owner — families can add a second co-parent admin after invite.">
+      subtitle="Name your home and pick rooms. You will be owner — families can add a second co-parent admin after invite.">
       <OrbitInput label="Household name" value={name} onChangeText={setName} placeholder="e.g. The Millers" />
-      <Text style={[styles.label, { color: c.textMuted }]}>Household type</Text>
-      <View style={styles.typeGrid}>
-        {householdTypes.map((item) => {
-          const selected = item.value === type;
-          return (
-            <Pressable
-              key={item.value}
-              onPress={() => setType(item.value)}
-              style={[
-                styles.typeChip,
-                selected && {
-                  backgroundColor: `${accentTheme.primary}22`,
-                  borderColor: `${accentTheme.primary}55`,
-                },
-              ]}>
-              <Text style={styles.typeEmoji}>{item.emoji}</Text>
-              <Text
-                style={[
-                  styles.typeLabel,
-                  { color: c.textMuted },
-                  selected && { color: accentTheme.primary },
-                ]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
 
       <Text style={[styles.label, { color: c.textMuted }]}>Rooms</Text>
       <Text style={[styles.hint, { color: c.textSubtle }]}>

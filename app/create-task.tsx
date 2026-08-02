@@ -295,13 +295,12 @@ export default function CreateTaskScreen() {
   }, [activeMembers, household.members]);
 
   const rooms = useMemo(() => household.rooms ?? [], [household.rooms]);
-  const libraryAudience: LibraryAudience =
-    household.householdType === 'roommates' ? 'roommate' : 'family';
+  const libraryAudience: LibraryAudience = 'family';
   const childMembers = useMemo(
     () => activeMembers.filter(isChildMember),
     [activeMembers],
   );
-  /** Hygiene is kids-only — never roommates / guests / adult-only homes. */
+  /** Hygiene is kids-only — never adult-only homes. */
   const showHygieneLibrary =
     libraryAudience === 'family' && childMembers.length > 0;
 

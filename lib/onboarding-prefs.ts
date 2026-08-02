@@ -1,12 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { RewardMode } from '@/lib/rewards/reward-mode';
-import type { HouseholdRole, HouseholdType } from '@/types/orbit';
+import type { HouseholdRole } from '@/types/orbit';
 
-export type OnboardingRole = 'parent' | 'child' | 'roommate' | 'shared-tablet';
+export type OnboardingRole = 'parent' | 'child' | 'shared-tablet';
 
-/** Legacy role kept only so old AsyncStorage prefs can be migrated. */
-type LegacyOnboardingRole = OnboardingRole | 'caregiver';
+/** Legacy roles kept only so old AsyncStorage prefs can be migrated. */
+type LegacyOnboardingRole = OnboardingRole | 'caregiver' | 'roommate';
 
 export type MotivationMode =
   | 'none'
@@ -50,14 +50,6 @@ export const ONBOARDING_ROLES: {
     perks: ['My tasks', 'Earn XP', 'Unlock rewards', 'Build habits'],
   },
   {
-    id: 'roommate',
-    emoji: '🏠',
-    title: 'Roommate',
-    subtitle: 'Shared living, simplified',
-    color: '#A78BFA',
-    perks: ['Shared chores', 'Groceries', 'Rotations', 'No parenting tone'],
-  },
-  {
     id: 'shared-tablet',
     emoji: '📱',
     title: 'Shared / tablet',
@@ -93,10 +85,10 @@ export const ONBOARDING_SPLASH_HOOKS = [
 const KEY = 'choremaxx.onboarding.v7';
 
 function normalizeOnboardingRole(role: LegacyOnboardingRole | string | undefined): OnboardingRole {
-  if (role === 'child' || role === 'roommate' || role === 'parent' || role === 'shared-tablet') {
+  if (role === 'child' || role === 'parent' || role === 'shared-tablet') {
     return role;
   }
-  // Former "Caregiver" choice → Parent. Never surface as a greeting name.
+  // Former "Caregiver" / "Roommate" choices → Parent.
   return 'parent';
 }
 
@@ -123,7 +115,7 @@ export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
       rewardMode,
       completedAt: parsed.completedAt ?? new Date().toISOString(),
     };
-    if (parsed.role === 'caregiver' || parsed.rewardMode == null) {
+    if (parsed.role === 'caregiver' || parsed.role === 'roommate' || parsed.rewardMode == null) {
       await AsyncStorage.setItem(KEY, JSON.stringify(prefs));
     }
     return prefs;
@@ -156,8 +148,6 @@ export function onboardingRoleToHouseholdRole(role: OnboardingRole): HouseholdRo
       return 'owner';
     case 'child':
       return 'child';
-    case 'roommate':
-      return 'adult';
     case 'shared-tablet':
       return 'shared-device';
     default:
@@ -165,19 +155,6 @@ export function onboardingRoleToHouseholdRole(role: OnboardingRole): HouseholdRo
   }
 }
 
-export function onboardingRoleToHouseholdType(role: OnboardingRole): HouseholdType {
-  switch (role) {
-    case 'roommate':
-    case 'shared-tablet':
-      return 'roommates';
-    case 'parent':
-    case 'child':
-      return 'family';
-    default:
-      return 'family';
-  }
-}
-
 export function skipsMotivation(role: OnboardingRole) {
-  return role === 'child' || role === 'roommate' || role === 'shared-tablet';
+  return role === 'child' || role === 'shared-tablet';
 }

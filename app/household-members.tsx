@@ -62,9 +62,9 @@ export default function HouseholdMembersScreen() {
 
   const pending = household.members.filter((member) => member.status === 'pending');
   const active = household.members.filter((member) => member.status !== 'pending');
-  const adminSeats = familyAdminSeatsLabel(household.members, household.householdType);
+  const adminSeats = familyAdminSeatsLabel(household.members);
   const admins = getAdminMembers(household.members);
-  const familyCap = usesFamilyAdminCap(household.householdType);
+  const familyCap = usesFamilyAdminCap();
   const linkCandidates = sharedDeviceLinkCandidates(household.members);
 
   const handleChangeRole = (memberId: string, currentRole: HouseholdRole) => {
@@ -195,7 +195,7 @@ export default function HouseholdMembersScreen() {
 
       {permissions.canInviteMembers ? (
         <GlassCard style={styles.card}>
-          <Text style={typography.headline}>Invite adult / roommate</Text>
+          <Text style={typography.headline}>Invite adult</Text>
           <Text style={typography.footnote}>
             They create their own account with this invite and stay pending until you approve.
           </Text>

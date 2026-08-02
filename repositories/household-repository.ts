@@ -22,7 +22,6 @@ import type {
   HouseholdMember,
   HouseholdRole,
   HouseholdSnapshot,
-  HouseholdType,
   InviteLinks,
   JoinHouseholdInput,
   OrbitUser,
@@ -124,7 +123,7 @@ export const householdRepository = {
         ...base,
         id: createLocalId('hh'),
         householdName: input.name.trim(),
-        householdType: input.type,
+        householdType: 'family',
         inviteCode: createInviteCode(),
         greetingName: user.name,
         rewardMode: 'weighted',
@@ -166,7 +165,7 @@ export const householdRepository = {
       .from('households')
       .insert({
         name: input.name.trim(),
-        household_type: input.type,
+        household_type: 'family',
         owner_id: user.id,
       } satisfies Partial<HouseholdRow> & Pick<HouseholdRow, 'name' | 'owner_id'>)
       .select('*')
@@ -737,7 +736,7 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
   return {
     id: household.id,
     householdName: household.name,
-    householdType: (household.household_type as HouseholdType) || 'family',
+    householdType: 'family',
     inviteCode: invite?.invite_code ?? '',
     greetingName,
     momentum: score?.momentum_score ?? 0,
