@@ -368,6 +368,8 @@ export type OrbitMetrics = {
 export type MemberCapabilities = {
   allowRewardRedeem: boolean;
   allowSpecialRewardRequest: boolean;
+  /** When true, Rewards Center shows the Allowance surface. */
+  allowAllowance: boolean;
   allowGroceryAdd: boolean;
   allowCalendarCreate: boolean;
 };

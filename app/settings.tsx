@@ -419,6 +419,7 @@ export default function SettingsScreen() {
                   [
                     ['allowRewardRedeem', 'Allow redeem XP rewards', 'Members can spend XP in the shop'],
                     ['allowSpecialRewardRequest', 'Allow special reward requests', 'Kids/adults can ask for one-offs'],
+                    ['allowAllowance', 'Allow allowance', 'Shows Allowance in Rewards Center'],
                     ['allowGroceryAdd', 'Allow grocery list adds', 'Non-admins can add items'],
                     ['allowCalendarCreate', 'Allow calendar event creates', 'Simplified create when enabled'],
                   ] as const

@@ -3,10 +3,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,10 +12,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { NovaActivitySheet } from '@/components/orbit/nova-activity-sheet';
 import { NovaOrb } from '@/components/orbit/nova-orb';
 import { NovaWaveform } from '@/components/orbit/nova-waveform';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius, space } from '@/constants/orbit-theme';
+import {
+  buildSheetNotifications,
+  needsAttentionCount,
+} from '@/lib/nova/notification-buckets';
 import { greetingWord } from '@/lib/time/greeting';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
@@ -27,7 +30,7 @@ import {
   type NovaRealtimeVisualState,
 } from '@/lib/voice/nova-realtime';
 import { useOrbit } from '@/store/orbit-store';
-import type { NovaMonitorAction, NotificationItem } from '@/types/orbit';
+import type { NovaMonitorAction } from '@/types/orbit';
 
 type NovaVisualState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
@@ -37,62 +40,6 @@ const STATE_CONFIG: Record<NovaVisualState, { label: string; color: string }> = 
   thinking: { label: 'Nova · Thinking…', color: '#A78BFA' },
   speaking: { label: 'Nova · Speaking', color: '#38BDF8' },
 };
-
-const ACTIVITY_TYPE_CONFIG: Record<
-  string,
-  { icon: keyof typeof MaterialIcons.glyphMap; color: string; action: string }
-> = {
-  tasks: { icon: 'check-circle', color: '#34D399', action: 'Task update' },
-  ai: { icon: 'lightbulb', color: '#FBBF24', action: 'Nova insight' },
-  events: { icon: 'place', color: '#38BDF8', action: 'Itinerary' },
-  groceries: { icon: 'notifications', color: '#FB923C', action: 'Notification' },
-  rewards: { icon: 'notifications-active', color: '#A78BFA', action: 'Reminder' },
-  members: { icon: 'notifications', color: '#FB923C', action: 'Notification' },
-  general: { icon: 'notifications', color: '#FB923C', action: 'Notification' },
-  nudge: { icon: 'campaign', color: '#FB923C', action: 'Nudge' },
-  deals: { icon: 'local-offer', color: '#34D399', action: 'Deals' },
-  plan: { icon: 'map', color: '#38BDF8', action: 'Plan' },
-  xp_fairness: { icon: 'balance', color: '#FBBF24', action: 'XP fairness' },
-  holiday: { icon: 'flight', color: '#A78BFA', action: 'Holiday' },
-  ask_info: { icon: 'help-outline', color: '#38BDF8', action: 'Asked' },
-  monitor: { icon: 'visibility', color: '#06B6D4', action: 'Monitor' },
-  completed: { icon: 'check-circle', color: '#34D399', action: 'Marked complete' },
-  reminder: { icon: 'notifications-active', color: '#A78BFA', action: 'Sent reminder' },
-  insight: { icon: 'lightbulb', color: '#FBBF24', action: 'Insight detected' },
-  itinerary: { icon: 'place', color: '#38BDF8', action: 'Itinerary created' },
-  notification: { icon: 'notifications', color: '#FB923C', action: 'Notification sent' },
-};
-
-const MONITOR_KIND_EMOJI: Record<NovaMonitorAction['kind'], string> = {
-  nudge: '📣',
-  deals: '🏷️',
-  plan: '🗺️',
-  xp_fairness: '⚖️',
-  holiday: '✈️',
-  ask_info: '❓',
-  monitor: '👁️',
-};
-
-function formatTime(iso?: string) {
-  if (!iso) {
-    return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  }
-  const date = new Date(iso);
-  const diffMin = Math.round((Date.now() - date.getTime()) / 60000);
-  if (diffMin < 1) return 'Just now';
-  if (diffMin < 60) return `${diffMin} min ago`;
-  if (diffMin < 24 * 60) return `${Math.round(diffMin / 60)} hr ago`;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-function activityEmoji(category: NotificationItem['category']) {
-  if (category === 'ai') return '🤖';
-  if (category === 'tasks') return '✅';
-  if (category === 'events') return '📅';
-  if (category === 'groceries') return '🛒';
-  if (category === 'rewards') return '🎁';
-  return '🔔';
-}
 
 /**
  * Make v9 Nova — voice-first orb + live transcript + Nova Activity sheet.
@@ -108,8 +55,10 @@ export default function NovaScreen() {
     askNova,
     askNovaVoice,
     household,
+    markNotificationRead,
     metrics,
     notifications,
+    novaBriefing,
     novaMonitorActions,
     novaWeeklyBriefing,
     orbitPalette,
@@ -153,71 +102,10 @@ export default function NovaScreen() {
     [localMonitorActions, novaMonitorActions]
   );
 
-  const activityItems = useMemo(() => {
-    const fromMonitor = monitorFeed.map((action) => ({
-      id: action.id,
-      title: action.label,
-      body: action.detail,
-      category: action.kind as string,
-      createdAt: action.createdAt,
-      emoji: MONITOR_KIND_EMOJI[action.kind] ?? '🔔',
-      actionLabel: ACTIVITY_TYPE_CONFIG[action.kind]?.action ?? action.label,
-    }));
-    const fromNotes = notifications
-      .slice()
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 12)
-      .map((item) => ({
-        id: item.id,
-        title: item.title,
-        body: item.body,
-        category: item.category,
-        createdAt: item.createdAt,
-        emoji: activityEmoji(item.category),
-        actionLabel: ACTIVITY_TYPE_CONFIG[item.category]?.action ?? item.title,
-      }));
-    return [...fromMonitor, ...fromNotes]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 16);
-  }, [monitorFeed, notifications]);
-
-  const recentBadgeCount = useMemo(
-    () =>
-      activityItems.filter((item) => {
-        const mins = (Date.now() - new Date(item.createdAt).getTime()) / 60000;
-        return mins < 60;
-      }).length,
-    [activityItems]
-  );
-
-  const novaStats = useMemo(
-    () => [
-      {
-        val: String(
-          novaWeeklyBriefing.tasksCompleted ||
-            household.tasks.filter((t) => t.status === 'Completed').length
-        ),
-        label: 'Managed',
-        emoji: '✅',
-      },
-      {
-        val: String(household.itineraries?.length ?? 0),
-        label: 'Trips',
-        emoji: '🗺️',
-      },
-      {
-        val: `${Math.max(1, Math.abs(novaWeeklyBriefing.momentumChange) || 2)}h`,
-        label: 'Saved',
-        emoji: '⏱️',
-      },
-    ],
-    [
-      household.itineraries?.length,
-      household.tasks,
-      novaWeeklyBriefing.momentumChange,
-      novaWeeklyBriefing.tasksCompleted,
-    ]
-  );
+  const bellBadgeCount = useMemo(() => {
+    const cards = buildSheetNotifications(notifications, novaBriefing);
+    return needsAttentionCount(cards);
+  }, [notifications, novaBriefing]);
 
   const applyTranscript = (role: 'user' | 'assistant', text: string) => {
     if (role === 'user') {
@@ -377,11 +265,11 @@ export default function NovaScreen() {
             },
           ]}
           onPress={() => setShowActivity(true)}
-          accessibilityLabel="Nova Activity">
+          accessibilityLabel="Notifications and Nova Activity">
           <MaterialIcons name="notifications-none" size={18} color={c.textMuted} />
-          {recentBadgeCount > 0 ? (
+          {bellBadgeCount > 0 ? (
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{Math.min(9, recentBadgeCount)}</Text>
+              <Text style={styles.badgeText}>{Math.min(9, bellBadgeCount)}</Text>
             </View>
           ) : null}
         </Pressable>
@@ -535,112 +423,18 @@ export default function NovaScreen() {
         </Text>
       </View>
 
-      <Modal
+      <NovaActivitySheet
         visible={showActivity}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowActivity(false)}>
-        <Pressable style={styles.sheetBackdrop} onPress={() => setShowActivity(false)} />
-        <View
-          style={[
-            styles.sheet,
-            {
-              backgroundColor: isDark ? 'rgba(10,10,18,0.98)' : c.cardStrong,
-              borderColor: glassBorder(0.1),
-              paddingBottom: Math.max(insets.bottom, 16),
-            },
-          ]}>
-          <View style={styles.sheetHandle} />
-          <View style={styles.sheetHeader}>
-            <View>
-              <Text style={[styles.sheetTitle, { color: c.text }]}>Nova Activity</Text>
-              <Text style={[styles.sheetSub, { color: c.textMuted }]}>
-                Recent actions & insights
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => setShowActivity(false)}
-              style={[styles.sheetClose, { backgroundColor: glass(0.08) }]}>
-              <MaterialIcons name="close" size={18} color={c.textMuted} />
-            </Pressable>
-          </View>
-
-          <ScrollView
-            style={styles.sheetScroll}
-            contentContainerStyle={styles.sheetContent}
-            showsVerticalScrollIndicator={false}>
-            {activityItems.length === 0 ? (
-              <Text style={{ color: c.textMuted, fontSize: 14 }}>
-                Nova hasn&apos;t logged activity yet. Ask a question or run a household check.
-              </Text>
-            ) : (
-              activityItems.map((item) => {
-                const tc = ACTIVITY_TYPE_CONFIG[item.category] ?? ACTIVITY_TYPE_CONFIG.general;
-                return (
-                  <View
-                    key={item.id}
-                    style={[
-                      styles.activityCard,
-                      {
-                        backgroundColor: glass(0.04),
-                        borderColor: glassBorder(0.08),
-                      },
-                    ]}>
-                    <View
-                      style={[
-                        styles.activityIcon,
-                        {
-                          backgroundColor: `${tc.color}18`,
-                          borderColor: `${tc.color}33`,
-                        },
-                      ]}>
-                      <MaterialIcons name={tc.icon} size={16} color={tc.color} />
-                    </View>
-                    <View style={styles.activityCopy}>
-                      <View style={styles.activityMeta}>
-                        <Text style={[styles.activityAction, { color: tc.color }]}>
-                          {item.actionLabel}
-                        </Text>
-                        <Text style={[styles.activityTime, { color: c.textSubtle }]}>
-                          · {formatTime(item.createdAt)}
-                        </Text>
-                      </View>
-                      <Text style={[styles.activityDetail, { color: c.textSoft }]} numberOfLines={3}>
-                        {item.body || item.title}
-                      </Text>
-                    </View>
-                    <Text style={styles.activityEmoji}>{item.emoji}</Text>
-                  </View>
-                );
-              })
-            )}
-
-            <View
-              style={[
-                styles.weekCard,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(6,182,212,0.08)'
-                    : `${c.novaCyan}12`,
-                  borderColor: isDark ? 'rgba(56,189,248,0.12)' : `${c.novaCyan}33`,
-                },
-              ]}>
-              <Text style={[styles.weekLabel, { color: c.novaCyan }]}>THIS WEEK</Text>
-              <View style={styles.weekRow}>
-                {novaStats.map((stat) => (
-                  <View
-                    key={stat.label}
-                    style={[styles.weekStat, { backgroundColor: isDark ? 'rgba(0,0,0,0.35)' : glass(0.06) }]}>
-                    <Text style={styles.weekEmoji}>{stat.emoji}</Text>
-                    <Text style={[styles.weekVal, { color: '#38BDF8' }]}>{stat.val}</Text>
-                    <Text style={[styles.weekStatLabel, { color: c.textSubtle }]}>{stat.label}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-      </Modal>
+        onClose={() => setShowActivity(false)}
+        notifications={notifications}
+        monitorActions={monitorFeed}
+        briefing={novaBriefing}
+        weekly={novaWeeklyBriefing}
+        metrics={metrics}
+        novaActive={isActive || monitorFeed.length > 0}
+        taskCompletedFallback={household.tasks.filter((t) => t.status === 'Completed').length}
+        onDismissNotification={(id) => markNotificationRead(id)}
+      />
     </KeyboardAvoidingView>
   );
 }

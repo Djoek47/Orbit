@@ -40,6 +40,7 @@ export const mockHousehold: HouseholdSnapshot = {
   notificationHour: 8,
   memberCapabilities: {
     allowRewardRedeem: true,
+    allowAllowance: true,
     allowSpecialRewardRequest: true,
     allowGroceryAdd: false,
     allowCalendarCreate: false,
@@ -937,6 +938,7 @@ export function createEmptyHousehold(user: OrbitUser): HouseholdSnapshot {
     accentThemeId: DEFAULT_ACCENT_THEME_ID,
     memberCapabilities: {
       allowRewardRedeem: true,
+    allowAllowance: true,
       allowSpecialRewardRequest: false,
       allowGroceryAdd: false,
       allowCalendarCreate: false,
