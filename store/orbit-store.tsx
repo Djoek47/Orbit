@@ -1659,6 +1659,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       setHousehold((current) => ({ ...current, accentThemeId: themeId }));
       void saveAccentThemeId(household.id, themeId);
       void savePaletteId(household.id, null, themeId);
+      void import('@/lib/brand/sync-app-icon').then(({ syncHomeScreenIcon }) =>
+        syncHomeScreenIcon(themeId)
+      );
       return;
     }
     setHousehold((current) => ({
@@ -1669,11 +1672,21 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }));
     void saveMemberAccentThemeId(household.id, memberId, themeId);
     void savePaletteId(household.id, memberId, themeId);
+    void import('@/lib/brand/sync-app-icon').then(({ syncHomeScreenIcon }) =>
+      syncHomeScreenIcon(themeId)
+    );
   };
 
   const updatePalette = (next: ColorPaletteId) => {
     updateAccentTheme(next);
   };
+
+  // Keep home-screen icon aligned after hydrate / persona switch (native builds only).
+  useEffect(() => {
+    void import('@/lib/brand/sync-app-icon').then(({ syncHomeScreenIcon }) =>
+      syncHomeScreenIcon(resolvedPaletteId)
+    );
+  }, [resolvedPaletteId]);
 
   const updateHouseholdAccentTheme = (themeId: AccentThemeId) => {
     if (!permissions.canManageHousehold) {

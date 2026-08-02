@@ -5,7 +5,11 @@
     "version": "1.0.0",
     "description": "Choremaxx is an AI household operating system — tasks, rewards, groceries, and Nova your calm co-manager.",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": {
+      "light": "./assets/images/icon-light.png",
+      "dark": "./assets/images/icon-dark.png",
+      "tinted": "./assets/images/icon-tinted.png"
+    },
     "scheme": "choremaxx",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -120,6 +124,59 @@
             "backgroundColor": "#070D1C"
           }
         }
+      ],
+      [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "Sky",
+            "ios": {
+              "light": "./assets/brand/icons/icon-sky.png",
+              "dark": "./assets/brand/icons/icon-sky-dark.png",
+              "tinted": "./assets/brand/icons/icon-sky-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/brand/icons/icon-sky-foreground.png",
+              "backgroundColor": "#378ADD"
+            }
+          },
+          {
+            "name": "Citrus",
+            "ios": {
+              "light": "./assets/brand/icons/icon-citrus.png",
+              "dark": "./assets/brand/icons/icon-citrus-dark.png",
+              "tinted": "./assets/brand/icons/icon-citrus-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/brand/icons/icon-citrus-foreground.png",
+              "backgroundColor": "#EF9F27"
+            }
+          },
+          {
+            "name": "Coral",
+            "ios": {
+              "light": "./assets/brand/icons/icon-coral.png",
+              "dark": "./assets/brand/icons/icon-coral-dark.png",
+              "tinted": "./assets/brand/icons/icon-coral-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/brand/icons/icon-coral-foreground.png",
+              "backgroundColor": "#D85A30"
+            }
+          },
+          {
+            "name": "Berry",
+            "ios": {
+              "light": "./assets/brand/icons/icon-berry.png",
+              "dark": "./assets/brand/icons/icon-berry-dark.png",
+              "tinted": "./assets/brand/icons/icon-berry-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/brand/icons/icon-berry-foreground.png",
+              "backgroundColor": "#7F77DD"
+            }
+          }
+        ]
       ]
     ],
     "experiments": {
