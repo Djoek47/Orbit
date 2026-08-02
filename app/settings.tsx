@@ -27,6 +27,7 @@ import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { PaletteWheel } from '@/components/orbit/palette-wheel';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
+import { BUILD_INFO } from '@/constants/build-info';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { createLocalId } from '@/repositories/repository-utils';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
@@ -650,6 +651,13 @@ export default function SettingsScreen() {
               </Pressable>
             </SectionCard>
 
+            <Text
+              style={[
+                styles.caption,
+                { color: c.textSubtle, textAlign: 'center', marginBottom: 8 },
+              ]}>
+              Dev tip · {BUILD_INFO.label}
+            </Text>
             <BrandLegalFooter style={styles.brand} />
           </>
         ) : null}
