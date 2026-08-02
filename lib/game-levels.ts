@@ -1,5 +1,6 @@
-/** Rankings / XP helpers — levels + trophies through 1,000,000 XP. */
+/** Rankings / XP helpers — levels + trophies through 100,000 XP (v2 §9). */
 
+import { TROPHY_TIERS, type TrophyTier } from '@/lib/game/trophy-tiers';
 import type { HouseholdSnapshot } from '@/types/orbit';
 
 export type GameLevel = {
@@ -10,132 +11,43 @@ export type GameLevel = {
   emoji: string;
 };
 
-/** Progression ladder — final tier crowns Most Glorious at 1M XP. */
+/** Progression ladder — final tier crowns Most Glorious at 100k XP. */
 export const LEVELS: GameLevel[] = [
   { name: 'Seedling', minXP: 0, maxXP: 99, color: '#34D399', emoji: '🌱' },
   { name: 'Helper', minXP: 100, maxXP: 299, color: '#38BDF8', emoji: '⭐' },
   { name: 'Contributor', minXP: 300, maxXP: 599, color: '#A78BFA', emoji: '💎' },
   { name: 'Champion', minXP: 600, maxXP: 999, color: '#FB923C', emoji: '🏆' },
-  { name: 'Legend', minXP: 1000, maxXP: 2499, color: '#F59E0B', emoji: '👑' },
-  { name: 'Titan', minXP: 2500, maxXP: 4999, color: '#F472B6', emoji: '🛡️' },
-  { name: 'Mythic', minXP: 5000, maxXP: 9999, color: '#C084FC', emoji: '🔮' },
-  { name: 'Celestial', minXP: 10000, maxXP: 24999, color: '#22D3EE', emoji: '🌌' },
-  { name: 'Immortal', minXP: 25000, maxXP: 49999, color: '#FBBF24', emoji: '⚔️' },
-  { name: 'Dynasty', minXP: 50000, maxXP: 99999, color: '#FB7185', emoji: '🏛️' },
-  { name: 'Ascendant', minXP: 100000, maxXP: 249999, color: '#A3E635', emoji: '🚀' },
-  { name: 'Sovereign', minXP: 250000, maxXP: 499999, color: '#38BDF8', emoji: '💠' },
-  { name: 'Eternal', minXP: 500000, maxXP: 999999, color: '#E879F9', emoji: '✨' },
-  { name: 'Most Glorious', minXP: 1000000, maxXP: 9999999, color: '#FFD700', emoji: '🏅' },
+  { name: 'Legend', minXP: 1000, maxXP: 1999, color: '#F59E0B', emoji: '👑' },
+  { name: 'Titan', minXP: 2000, maxXP: 3999, color: '#F472B6', emoji: '🛡️' },
+  { name: 'Mythic', minXP: 4000, maxXP: 9999, color: '#C084FC', emoji: '🔮' },
+  { name: 'Celestial', minXP: 10000, maxXP: 17999, color: '#22D3EE', emoji: '🌌' },
+  { name: 'Immortal', minXP: 18000, maxXP: 27999, color: '#FBBF24', emoji: '⚔️' },
+  { name: 'Dynasty', minXP: 28000, maxXP: 39999, color: '#FB7185', emoji: '🏛️' },
+  { name: 'Ascendant', minXP: 40000, maxXP: 54999, color: '#A3E635', emoji: '🚀' },
+  { name: 'Sovereign', minXP: 55000, maxXP: 74999, color: '#38BDF8', emoji: '💠' },
+  { name: 'Eternal', minXP: 75000, maxXP: 99999, color: '#E879F9', emoji: '✨' },
+  { name: 'Most Glorious', minXP: 100000, maxXP: 9999999, color: '#FFD700', emoji: '🏅' },
 ];
 
-export type XpMilestoneTrophy = {
-  id: string;
-  xp: number;
-  emoji: string;
-  label: string;
-  description: string;
+export type XpMilestoneTrophy = TrophyTier & {
   tier: 'bronze' | 'silver' | 'gold' | 'platinum' | 'glorious';
 };
 
-/** Hard XP awards / trophies members unlock as lifetime XP climbs to 1M. */
-export const XP_MILESTONE_TROPHIES: XpMilestoneTrophy[] = [
-  {
-    id: 'xp_100',
-    xp: 100,
-    emoji: '🥉',
-    label: 'First Hundred',
-    description: 'Earn 100 lifetime XP',
-    tier: 'bronze',
-  },
-  {
-    id: 'xp_500',
-    xp: 500,
-    emoji: '🥈',
-    label: 'Rising Star',
-    description: 'Earn 500 lifetime XP',
-    tier: 'silver',
-  },
-  {
-    id: 'xp_1000',
-    xp: 1000,
-    emoji: '🥇',
-    label: 'Thousand Club',
-    description: 'Earn 1,000 lifetime XP',
-    tier: 'gold',
-  },
-  {
-    id: 'xp_2500',
-    xp: 2500,
-    emoji: '🏆',
-    label: 'Household Hero',
-    description: 'Earn 2,500 lifetime XP',
-    tier: 'gold',
-  },
-  {
-    id: 'xp_5000',
-    xp: 5000,
-    emoji: '🎖️',
-    label: 'Decorated',
-    description: 'Earn 5,000 lifetime XP',
-    tier: 'platinum',
-  },
-  {
-    id: 'xp_10000',
-    xp: 10000,
-    emoji: '🌟',
-    label: 'Ten Thousand',
-    description: 'Earn 10,000 lifetime XP',
-    tier: 'platinum',
-  },
-  {
-    id: 'xp_25000',
-    xp: 25000,
-    emoji: '⚔️',
-    label: 'Immortal Badge',
-    description: 'Earn 25,000 lifetime XP',
-    tier: 'platinum',
-  },
-  {
-    id: 'xp_50000',
-    xp: 50000,
-    emoji: '🏛️',
-    label: 'Dynasty Trophy',
-    description: 'Earn 50,000 lifetime XP',
-    tier: 'platinum',
-  },
-  {
-    id: 'xp_100000',
-    xp: 100000,
-    emoji: '🚀',
-    label: 'Ascendant Cup',
-    description: 'Earn 100,000 lifetime XP',
-    tier: 'glorious',
-  },
-  {
-    id: 'xp_250000',
-    xp: 250000,
-    emoji: '💠',
-    label: 'Sovereign Crown',
-    description: 'Earn 250,000 lifetime XP',
-    tier: 'glorious',
-  },
-  {
-    id: 'xp_500000',
-    xp: 500000,
-    emoji: '✨',
-    label: 'Eternal Laurel',
-    description: 'Earn 500,000 lifetime XP',
-    tier: 'glorious',
-  },
-  {
-    id: 'xp_1000000',
-    xp: 1000000,
-    emoji: '🏅',
-    label: 'Most Glorious',
-    description: 'Earn 1,000,000 lifetime XP — the ultimate household honor',
-    tier: 'glorious',
-  },
-];
+function tierForXp(xp: number): XpMilestoneTrophy['tier'] {
+  if (xp >= 40_000) return 'glorious';
+  if (xp >= 10_000) return 'platinum';
+  if (xp >= 1_000) return 'gold';
+  if (xp >= 400) return 'silver';
+  return 'bronze';
+}
+
+/** Hard XP trophies — thresholds from TROPHY_TIERS only (§9). */
+export const XP_MILESTONE_TROPHIES: XpMilestoneTrophy[] = TROPHY_TIERS.map((trophy) => ({
+  ...trophy,
+  tier: tierForXp(trophy.xp),
+}));
+
+export { TROPHY_TIERS };
 
 export function getLevel(xp: number): GameLevel {
   return [...LEVELS].reverse().find((level) => xp >= level.minXP) ?? LEVELS[0];
