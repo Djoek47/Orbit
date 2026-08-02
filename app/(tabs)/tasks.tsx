@@ -12,8 +12,10 @@ import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { SearchBar } from '@/components/orbit/search-bar';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
+import { StreakMarker } from '@/components/orbit/streak-marker';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
+import { normalizeRewardSettings } from '@/lib/rewards/reward-mode';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
   findSharedDeviceForMember,
@@ -104,13 +106,27 @@ function XPBadge({
   done,
   accent,
   hygiene,
+  hygieneXpWhenRewarded,
 }: {
   xp: number;
   done: boolean;
   accent: string;
   hygiene?: boolean;
+  hygieneXpWhenRewarded?: number;
 }) {
   const { c, glass } = useOrbitColors();
+  if (hygiene) {
+    return (
+      <View
+        style={[
+          styles.xpBadge,
+          done && { backgroundColor: glass(0.1), opacity: 0.55 },
+          !done && { backgroundColor: glass(0.08) },
+        ]}>
+        <StreakMarker variant="asterisk" xpWhenRewarded={hygieneXpWhenRewarded} />
+      </View>
+    );
+  }
   return (
     <View
       style={[
@@ -118,10 +134,8 @@ function XPBadge({
         done && { backgroundColor: glass(0.1), opacity: 0.55 },
         !done && { backgroundColor: `${accent}1F` },
       ]}>
-      {!hygiene ? <Text style={styles.xpBolt}>⚡</Text> : null}
-      <Text style={[styles.xpBadgeText, { color: done ? c.textSubtle : accent }]}>
-        {hygiene ? 'Streak' : `+${xp}`}
-      </Text>
+      <Text style={styles.xpBolt}>⚡</Text>
+      <Text style={[styles.xpBadgeText, { color: done ? c.textSubtle : accent }]}>+{xp}</Text>
     </View>
   );
 }
@@ -133,6 +147,7 @@ function TaskItem({
   accentPrimary,
   justCompleted,
   canDelete,
+  hygieneXpWhenRewarded,
   onToggle,
   onDelete,
 }: {
@@ -142,6 +157,7 @@ function TaskItem({
   accentPrimary: string;
   justCompleted: boolean;
   canDelete: boolean;
+  hygieneXpWhenRewarded?: number;
   onToggle: () => void;
   onDelete: () => void;
 }) {
@@ -253,13 +269,23 @@ function TaskItem({
 
         {justCompleted ? (
           <View style={styles.celebrate}>
-            {!hygiene ? <Text style={styles.celebrateBolt}>⚡</Text> : null}
-            <Text style={[styles.celebrateXp, { color: accentPrimary }]}>
-              {hygiene ? 'Streak' : `+${task.xp}`}
-            </Text>
+            {hygiene ? (
+              <StreakMarker variant="asterisk" xpWhenRewarded={hygieneXpWhenRewarded} />
+            ) : (
+              <>
+                <Text style={styles.celebrateBolt}>⚡</Text>
+                <Text style={[styles.celebrateXp, { color: accentPrimary }]}>+{task.xp}</Text>
+              </>
+            )}
           </View>
         ) : (
-          <XPBadge xp={task.xp} done={done} accent={accentPrimary} hygiene={hygiene} />
+          <XPBadge
+            xp={task.xp}
+            done={done}
+            accent={accentPrimary}
+            hygiene={hygiene}
+            hygieneXpWhenRewarded={hygieneXpWhenRewarded}
+          />
         )}
       </View>
     </ContextMenu>
@@ -294,6 +320,7 @@ function TaskSection({
   progress,
   justCompletedId,
   canDelete,
+  hygieneXpWhenRewarded,
   onToggle,
   onDelete,
 }: {
@@ -311,6 +338,7 @@ function TaskSection({
   progress?: { done: number; total: number; color: string };
   justCompletedId: string | null;
   canDelete: boolean;
+  hygieneXpWhenRewarded?: number;
   onToggle: (taskId: string) => void;
   onDelete: (taskId: string) => void;
 }) {
@@ -366,6 +394,7 @@ function TaskSection({
               accentPrimary={accentPrimary}
               justCompleted={justCompletedId === task.id}
               canDelete={canDelete}
+              hygieneXpWhenRewarded={hygieneXpWhenRewarded}
               onToggle={() => onToggle(task.id)}
               onDelete={() => onDelete(task.id)}
             />
@@ -397,6 +426,19 @@ export default function TasksScreen() {
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [search, setSearch] = useState('');
+
+  const rewardSettings = useMemo(
+    () =>
+      normalizeRewardSettings({
+        rewardMode: household.rewardMode,
+        hygieneRewarded: household.hygieneRewarded,
+        hygieneXp: household.hygieneXp,
+      }),
+    [household.hygieneRewarded, household.hygieneXp, household.rewardMode]
+  );
+  const hygieneXpWhenRewarded = rewardSettings.hygieneRewarded
+    ? rewardSettings.hygieneXp
+    : undefined;
 
   const memberParam = Array.isArray(params.member) ? params.member[0] : params.member;
 
@@ -772,6 +814,7 @@ export default function TasksScreen() {
             muted={section.total > 0 && section.done === section.total}
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
+            hygieneXpWhenRewarded={hygieneXpWhenRewarded}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />
@@ -789,6 +832,7 @@ export default function TasksScreen() {
             accentPrimary={accentTheme.primary}
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
+            hygieneXpWhenRewarded={hygieneXpWhenRewarded}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />
@@ -803,6 +847,7 @@ export default function TasksScreen() {
             accentPrimary={accentTheme.primary}
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
+            hygieneXpWhenRewarded={hygieneXpWhenRewarded}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />
@@ -818,6 +863,7 @@ export default function TasksScreen() {
             muted
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
+            hygieneXpWhenRewarded={hygieneXpWhenRewarded}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />

@@ -26,6 +26,7 @@ import { OnboardingProgress } from '@/components/orbit/onboarding-progress';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { SplashHooks } from '@/components/orbit/splash-hooks';
+import { StreakFootnote } from '@/components/orbit/streak-marker';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import {
   ONBOARDING_MOTIVATIONS,
@@ -37,6 +38,11 @@ import {
   type MotivationMode,
   type OnboardingRole,
 } from '@/lib/onboarding-prefs';
+import {
+  REWARD_MODE_COPY,
+  REWARD_MODE_EXAMPLES,
+  type RewardMode,
+} from '@/lib/rewards/reward-mode';
 import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
 import { ROOM_EMOJIS } from '@/constants/accent-themes';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
@@ -50,6 +56,7 @@ type Step =
   | 'splash'
   | 'role'
   | 'motivation'
+  | 'reward-system'
   | 'account'
   | 'profile'
   | 'household'
@@ -84,6 +91,7 @@ export default function WelcomeOnboardingScreen() {
     orbitPalette,
     redeemChildInvite,
     signUp,
+    updateHouseholdRewardSettings,
   } = useOrbit();
 
   const accent = accentTheme.primary;
@@ -94,6 +102,7 @@ export default function WelcomeOnboardingScreen() {
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [selectedRole, setSelectedRole] = useState<OnboardingRole | null>(null);
   const [selectedMotivation, setSelectedMotivation] = useState<MotivationMode | null>(null);
+  const [selectedRewardMode, setSelectedRewardMode] = useState<RewardMode>('weighted');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -157,6 +166,7 @@ export default function WelcomeOnboardingScreen() {
       if (prefs) {
         setSelectedRole(prefs.role);
         setSelectedMotivation(prefs.motivation);
+        setSelectedRewardMode(prefs.rewardMode ?? 'weighted');
         setHouseholdType(onboardingRoleToHouseholdType(prefs.role));
       }
     });
@@ -198,6 +208,7 @@ export default function WelcomeOnboardingScreen() {
       case 'role':
         return 0;
       case 'motivation':
+      case 'reward-system':
         return 1;
       case 'child-invite':
       case 'tablet-invite':
@@ -223,12 +234,15 @@ export default function WelcomeOnboardingScreen() {
       case 'motivation':
         setStep('role');
         break;
+      case 'reward-system':
+        setStep('motivation');
+        break;
       case 'child-invite':
       case 'tablet-invite':
         setStep('role');
         break;
       case 'account':
-        setStep(selectedRole && skipsMotivation(selectedRole) ? 'role' : 'motivation');
+        setStep(selectedRole && skipsMotivation(selectedRole) ? 'role' : 'reward-system');
         break;
       case 'profile':
         setStep('account');
@@ -314,13 +328,36 @@ export default function WelcomeOnboardingScreen() {
   const handleMotivationContinue = () => {
     if (!selectedMotivation) return;
     setError('');
+    setStep('reward-system');
+  };
+
+  const advanceAfterPrefs = () => {
     setStep(isSignedIn ? (currentUser?.profileComplete ? 'household' : 'profile') : 'account');
+  };
+
+  const handleRewardSystemContinue = async () => {
+    setError('');
+    const rewardMode = selectedRewardMode ?? 'weighted';
+    try {
+      await saveOnboardingPrefs({
+        role: selectedRole ?? 'parent',
+        motivation: selectedMotivation ?? 'xp',
+        rewardMode,
+      });
+      if (hasHousehold) {
+        updateHouseholdRewardSettings({ rewardMode });
+      }
+    } catch {
+      // Prefs are best-effort; still advance so onboarding isn't blocked.
+    }
+    advanceAfterPrefs();
   };
 
   const persistPrefs = async () => {
     await saveOnboardingPrefs({
       role: selectedRole ?? 'parent',
       motivation: selectedMotivation ?? 'xp',
+      rewardMode: selectedRewardMode ?? 'weighted',
     });
   };
 
@@ -417,6 +454,7 @@ export default function WelcomeOnboardingScreen() {
           type: householdType,
           rooms: selectedRooms,
         });
+        updateHouseholdRewardSettings({ rewardMode: selectedRewardMode ?? 'weighted' });
         setCreatedHousehold(true);
       } else {
         const parsed =
@@ -783,6 +821,81 @@ export default function WelcomeOnboardingScreen() {
               <OrbitButton disabled={!selectedMotivation} onPress={handleMotivationContinue}>
                 Continue
               </OrbitButton>
+            </KeyboardScreen>
+          ) : null}
+
+          {step === 'reward-system' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
+                What reward system would you like to put in place?
+              </Text>
+              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
+                You can change this in Settings.
+              </Text>
+              <View
+                style={styles.rewardModeList}
+                accessibilityRole="radiogroup"
+                accessibilityLabel="What reward system would you like to put in place?">
+                {(['weighted', 'flat'] as const).map((mode) => {
+                  const active = selectedRewardMode === mode;
+                  const copy = REWARD_MODE_COPY[mode];
+                  const examples = REWARD_MODE_EXAMPLES[mode];
+                  return (
+                    <Pressable
+                      key={mode}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => setSelectedRewardMode(mode)}
+                      style={[
+                        styles.rewardModeCard,
+                        {
+                          backgroundColor: active ? `${accent}22` : orbitPalette.card,
+                          borderColor: active ? `${accent}55` : orbitPalette.border,
+                        },
+                      ]}>
+                      <View style={styles.rewardModeHeader}>
+                        <View style={{ flex: 1, gap: 4 }}>
+                          <Text style={[styles.motivationLabel, { color: orbitPalette.text }]}>
+                            {copy.label}
+                          </Text>
+                          <Text style={[styles.motivationDesc, { color: orbitPalette.textSubtle }]}>
+                            {copy.blurb}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.radio,
+                            active && { backgroundColor: accent, borderColor: accent },
+                          ]}>
+                          {active ? (
+                            <Text style={[styles.radioCheck, { color: ink }]}>✓</Text>
+                          ) : null}
+                        </View>
+                      </View>
+                      <View style={styles.rewardExampleList}>
+                        {examples.map((row) => (
+                          <View key={row.task} style={styles.rewardExampleRow}>
+                            <Text
+                              style={[styles.rewardExampleTask, { color: orbitPalette.textSoft }]}
+                              numberOfLines={1}>
+                              {row.task}
+                            </Text>
+                            <Text style={[styles.rewardExampleXp, { color: orbitPalette.textMuted }]}>
+                              {row.xp} XP
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <StreakFootnote />
+              <Text style={[typography.footnote, styles.rewardSettingsHint, { color: orbitPalette.textSubtle }]}>
+                You can change this in Settings.
+              </Text>
+              <OrbitButton onPress={() => void handleRewardSystemContinue()}>Continue</OrbitButton>
             </KeyboardScreen>
           ) : null}
 
@@ -1473,6 +1586,44 @@ const styles = StyleSheet.create({
   },
   motivationWide: {
     width: '100%',
+  },
+  rewardModeList: {
+    gap: 12,
+    marginBottom: space.sm,
+  },
+  rewardModeCard: {
+    borderCurve: 'continuous',
+    borderRadius: radius.cardLarge,
+    borderWidth: 2,
+    gap: 12,
+    padding: space.md,
+  },
+  rewardModeHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  rewardExampleList: {
+    gap: 6,
+  },
+  rewardExampleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  rewardExampleTask: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  rewardExampleXp: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  rewardSettingsHint: {
+    marginBottom: space.md,
+    marginTop: 4,
   },
   perk: {
     backgroundColor: 'rgba(255,255,255,0.06)',

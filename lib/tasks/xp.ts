@@ -1,4 +1,10 @@
 import { LATE_XP_PENALTY_RATE } from '@/data/task-presets';
+import {
+  isXpEligible,
+  normalizeRewardSettings,
+  resolveTaskXpFromHouseholdTask,
+  type HouseholdRewardSettings,
+} from '@/lib/rewards/reward-mode';
 import type { HouseholdTask, TaskDifficulty } from '@/types/orbit';
 
 const WEIGHT_BY_DIFFICULTY: Record<TaskDifficulty, number> = {
@@ -18,8 +24,10 @@ export function weightForDifficulty(difficulty: TaskDifficulty): number {
   return WEIGHT_BY_DIFFICULTY[difficulty];
 }
 
-export function isHygieneTask(task: Pick<HouseholdTask, 'category' | 'tracking' | 'xp'>): boolean {
-  return task.tracking === 'streak' || task.category === 'Hygiene';
+export function isHygieneTask(
+  task: Pick<HouseholdTask, 'category' | 'tracking' | 'xp' | 'xpEligible'>
+): boolean {
+  return !isXpEligible(task);
 }
 
 export function isTaskLate(task: HouseholdTask): boolean {
@@ -33,16 +41,20 @@ export function isTaskLate(task: HouseholdTask): boolean {
 }
 
 /**
- * Award after late check. Returns awarded XP and any penalty applied.
- * Hygiene / streak tasks never grant XP.
- * Formula: awarded = floor(xp * (1 - LATE_XP_PENALTY_RATE)) when late.
+ * Award after mode resolution + late check. Snapshots go onto `awardedXp`.
+ * Hygiene eligibility is resolved before reward mode (Meritocracy/Equity).
  */
-export function resolveCompletionXp(task: HouseholdTask, penaltyRate = LATE_XP_PENALTY_RATE) {
+export function resolveCompletionXp(
+  task: HouseholdTask,
+  settings?: Partial<HouseholdRewardSettings> | null,
+  penaltyRate = LATE_XP_PENALTY_RATE
+) {
   const late = isTaskLate(task);
-  if (isHygieneTask(task) || task.xp <= 0) {
+  const rewardSettings = normalizeRewardSettings(settings);
+  const base = resolveTaskXpFromHouseholdTask(task, rewardSettings);
+  if (base <= 0) {
     return { awarded: 0, penalty: 0, late, base: 0 };
   }
-  const base = task.xp;
   const penalty = late ? Math.max(0, Math.floor(base * penaltyRate)) : 0;
   const awarded = Math.max(0, base - penalty);
   return { awarded, penalty, late, base };

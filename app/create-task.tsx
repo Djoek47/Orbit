@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
+import { StreakMarker } from '@/components/orbit/streak-marker';
 import { XpWheel } from '@/components/orbit/xp-wheel';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -39,6 +40,11 @@ import {
   isSharedDeviceRole,
   withSharedPersonLabel,
 } from '@/lib/household/shared-device';
+import {
+  normalizeRewardSettings,
+  resolveTaskXp,
+  XP_LADDER,
+} from '@/lib/rewards/reward-mode';
 import { formatAssigneeLabel } from '@/lib/tasks/split-assign';
 import { computeTaskXp, weightForDifficulty } from '@/lib/tasks/xp';
 import { useOrbit } from '@/store/orbit-store';
@@ -254,6 +260,27 @@ export default function CreateTaskScreen() {
   const insets = useSafeAreaInsets();
   const { accentTheme, createTask, household, orbitPalette, permissions } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
+
+  const rewardSettings = useMemo(
+    () =>
+      normalizeRewardSettings({
+        rewardMode: household.rewardMode,
+        hygieneRewarded: household.hygieneRewarded,
+        hygieneXp: household.hygieneXp,
+      }),
+    [household.hygieneRewarded, household.hygieneXp, household.rewardMode]
+  );
+  const hygieneXpWhenRewarded = rewardSettings.hygieneRewarded
+    ? rewardSettings.hygieneXp
+    : undefined;
+  const xpCtx = useMemo(
+    () => ({
+      mode: rewardSettings.rewardMode,
+      hygieneRewarded: rewardSettings.hygieneRewarded,
+      hygieneXp: rewardSettings.hygieneXp,
+    }),
+    [rewardSettings]
+  );
 
   /** Real people only — shared tablet shells are not assign chips. */
   const activeMembers = useMemo(() => assignablePeople(household.members), [household.members]);
@@ -486,11 +513,6 @@ export default function CreateTaskScreen() {
   })();
 
   const weight = weightForDifficulty(type === 'homework' ? 'medium' : difficulty);
-  const xpPreview = isHygieneDraft
-    ? 0
-    : type === 'homework'
-      ? computeTaskXp(baseXp || 15, weightForDifficulty('medium'), 'medium')
-      : computeTaskXp(baseXp, weight, difficulty);
   const canCreate =
     title.trim().length > 0 &&
     resolvedAssigneeNames.length > 0 &&
@@ -892,9 +914,10 @@ export default function CreateTaskScreen() {
               ) : null}
               {section.items.map((preset) => {
                 const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
-                const xp = hygiene
-                  ? 0
-                  : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+                const xp = resolveTaskXp(
+                  { baseXp: preset.baseXp, xpEligible: !hygiene },
+                  xpCtx
+                );
                 const domainEmoji =
                   CATALOG_CHIP_META[preset.category ?? '']?.emoji ??
                   CATALOG_CHIP_META[preset.domain ?? '']?.emoji ??
@@ -920,10 +943,14 @@ export default function CreateTaskScreen() {
                           {metaLine}
                         </Text>
                         <View style={styles.pillRow}>
-                          <StatusPill
-                            label={hygiene ? 'streak' : `+${xp} xp`}
-                            tone={hygiene ? 'green' : 'cyan'}
-                          />
+                          {hygiene ? (
+                            <StreakMarker
+                              variant="badge"
+                              xpWhenRewarded={hygieneXpWhenRewarded}
+                            />
+                          ) : (
+                            <StatusPill label={`+${xp} xp`} tone="cyan" />
+                          )}
                           {preset.repeat !== 'None' ? (
                             <StatusPill label={preset.repeat.toLowerCase()} tone="blue" />
                           ) : null}
@@ -1150,7 +1177,10 @@ export default function CreateTaskScreen() {
                 <View style={styles.presetGrid}>
                   {section.items.map((preset) => {
                     const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
-                    const xp = hygiene ? 0 : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
+                    const xp = resolveTaskXp(
+                      { baseXp: preset.baseXp, xpEligible: !hygiene },
+                      xpCtx
+                    );
                     return (
                       <Pressable
                         key={preset.id}
@@ -1161,11 +1191,18 @@ export default function CreateTaskScreen() {
                           <Text style={[styles.presetTitle, { color: orbitPalette.text }]}>
                             {preset.title}
                           </Text>
-                          <View style={[styles.xpBadge, { backgroundColor: `${accentTheme.primary}22` }]}>
-                            <Text style={[styles.xpBadgeText, { color: accentTheme.primary }]}>
-                              {hygiene ? 'Streak' : `+${xp}`}
-                            </Text>
-                          </View>
+                          {hygiene ? (
+                            <StreakMarker
+                              variant="asterisk"
+                              xpWhenRewarded={hygieneXpWhenRewarded}
+                            />
+                          ) : (
+                            <View style={[styles.xpBadge, { backgroundColor: `${accentTheme.primary}22` }]}>
+                              <Text style={[styles.xpBadgeText, { color: accentTheme.primary }]}>
+                                +{xp}
+                              </Text>
+                            </View>
+                          )}
                         </View>
                         <Text style={[styles.roomChip, { color: c.textMuted }]}>
                           {preset.group ?? preset.category} · hold to customize
@@ -1399,7 +1436,12 @@ export default function CreateTaskScreen() {
               {isHygieneDraft ? 'ASSIGN TO · kids only' : 'ASSIGN TO · hold to split'}
             </Text>
             {isHygieneDraft ? (
-              <Text style={[styles.presetHint, { color: c.textMuted }]}>Hygiene builds habits — no XP · children only</Text>
+              <Text style={[styles.presetHint, { color: c.textMuted }]}>
+                Hygiene builds habits · children only
+                {hygieneXpWhenRewarded
+                  ? ` · flat ${hygieneXpWhenRewarded} XP when rewarded`
+                  : ' · streak, not points'}
+              </Text>
             ) : null}
             <AssignEmojiGrid
               members={assigneeChoices}
@@ -1447,7 +1489,8 @@ export default function CreateTaskScreen() {
           <View style={[styles.sharedPickBlock, styles.splitBanner]}>
             <Text style={[styles.sharedTitlePreview, { color: c.textSoft }]}>Split · {resolvedAssigneeName}</Text>
             <Text style={[styles.sharedPickHint, { color: c.textMuted }]}>
-              Each person earns +{xpPreview} XP when they finish
+              Each person earns +
+              {resolveTaskXp({ baseXp: baseXp || 10, xpEligible: true }, xpCtx)} XP when they finish
               {proofRequired ? ' (proof requested after)' : ''}. If everyone finishes, each gets a bonus.
               Admins can penalize anyone who doesn’t.
             </Text>
@@ -1457,7 +1500,13 @@ export default function CreateTaskScreen() {
         {isHygieneDraft ? (
           <View style={styles.field}>
             <Text style={[styles.label, { color: c.textMuted }]}>TRACKING</Text>
-            <Text style={[styles.presetHint, { color: c.textMuted }]}>Kids hygiene habit · streak only · 0 XP</Text>
+            <View style={styles.pillRow}>
+              <StreakMarker variant="badge" xpWhenRewarded={hygieneXpWhenRewarded} />
+            </View>
+            <Text style={[styles.presetHint, { color: c.textMuted }]}>
+              Kids hygiene habit · streak tracking
+              {hygieneXpWhenRewarded ? ` · flat ${hygieneXpWhenRewarded} XP` : ' · no XP'}
+            </Text>
           </View>
         ) : (
           <View style={styles.field}>
@@ -1465,6 +1514,7 @@ export default function CreateTaskScreen() {
             <View style={[styles.xpWheelCard, { backgroundColor: glass(0.04), borderColor: glassBorder(0.08) }]} collapsable={false}>
               <XpWheel
                 value={baseXp}
+                values={XP_LADDER}
                 onChange={(next) => {
                   setBaseXp(next);
                   const match = priorities.findIndex((item) => item.xp === next);
@@ -1489,11 +1539,13 @@ export default function CreateTaskScreen() {
           </Text>
           <View style={styles.xpPreviewValue}>
             {isHygieneDraft ? (
-              <Text style={[styles.xpAmount, { color: accentTheme.primary }]}>Streak</Text>
+              <StreakMarker variant="asterisk" xpWhenRewarded={hygieneXpWhenRewarded} />
             ) : (
               <>
                 <Text style={styles.xpBolt}>⚡</Text>
-                <Text style={[styles.xpAmount, { color: accentTheme.primary }]}>+{xpPreview}</Text>
+                <Text style={[styles.xpAmount, { color: accentTheme.primary }]}>
+                  +{resolveTaskXp({ baseXp: baseXp || 10, xpEligible: true }, xpCtx)}
+                </Text>
                 <Text style={[styles.xpSuffix, { color: c.textMuted }]}>XP</Text>
               </>
             )}

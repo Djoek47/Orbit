@@ -209,6 +209,12 @@ type OrbitContextValue = {
   reassignTask: (taskId: string, newAssigneeName: string) => Promise<void>;
   /** Award daily streak once when today's tasks are all done. */
   awardDailyStreak: () => Promise<number | null>;
+  /**
+   * Child-initiated streak redemption stub (Phase 3 foundations).
+   * Restores a held broken_redeemable streak via mock-streak-store.
+   * XP penalty is deferred to week close — does not rewrite awardDailyStreak.
+   */
+  redeemStreak: () => Promise<boolean>;
   deleteTask: (taskId: string) => Promise<void>;
   /** Admin-only soft cancel (keeps history). `future` also stops the recurring series. */
   cancelTask: (taskId: string, scope?: CancelTaskScope) => Promise<void>;
@@ -253,6 +259,12 @@ type OrbitContextValue = {
   }) => Promise<NotificationItem | null>;
   updateNotificationPrefs: (prefs: Partial<NovaNotificationPrefs>) => void;
   updateMemberCapabilities: (prefs: Partial<MemberCapabilities>) => void;
+  /** Parent/admin: Meritocracy vs Equity + hygiene XP opt-in (household-scoped). */
+  updateHouseholdRewardSettings: (prefs: {
+    rewardMode?: 'weighted' | 'flat';
+    hygieneRewarded?: boolean;
+    hygieneXp?: 5 | 10;
+  }) => void;
   /** Updates the current member’s personal look (follows persona switches). */
   updateAccentTheme: (themeId: AccentThemeId) => void;
   /** Unified palette wheel — day/night pairs live on the palette. */
@@ -1027,8 +1039,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       currentTask.proofStatus !== 'submitted' &&
       currentTask.proofStatus !== 'approved';
 
-    const { awarded, penalty, late } = resolveCompletionXp(currentTask);
-    const completedTask = await taskRepository.completeTask(currentTask, household.id);
+    const rewardSettings = {
+      rewardMode: household.rewardMode,
+      hygieneRewarded: household.hygieneRewarded,
+      hygieneXp: household.hygieneXp,
+    };
+    const { awarded, penalty, late } = resolveCompletionXp(currentTask, rewardSettings);
+    const completedWithXp: HouseholdTask = {
+      ...currentTask,
+      status: 'Completed',
+      awardedXp: awarded,
+    };
+    const completedTask = await taskRepository.completeTask(completedWithXp, household.id);
     const spawned = spawnNextOccurrence(currentTask);
     let nextOccurrence: HouseholdTask | null = null;
     if (spawned) {
@@ -1195,6 +1217,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }));
     await trackAnalytics('streak.daily_awarded', { streak: result.streak }, analyticsContext);
     return result.streak;
+  };
+
+  /** Phase 3 stub — uses mock ChildStreak map; does not change member.streak yet. */
+  const redeemStreak = async () => {
+    if (!currentMember) return false;
+    const { redeemChildStreak } = await import('@/lib/streaks/mock-streak-store');
+    const ok = redeemChildStreak(currentMember.id);
+    if (ok) {
+      await trackAnalytics('streak.redeemed', { memberId: currentMember.id }, analyticsContext);
+    }
+    return ok;
   };
 
   const deleteTask = async (taskId: string) => {
@@ -1585,6 +1618,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         ...resolveMemberCapabilities(current),
         ...prefs,
       },
+    }));
+  };
+
+  const updateHouseholdRewardSettings = (prefs: {
+    rewardMode?: 'weighted' | 'flat';
+    hygieneRewarded?: boolean;
+    hygieneXp?: 5 | 10;
+  }) => {
+    if (!permissions.canManageHousehold) {
+      return;
+    }
+    setHousehold((current) => ({
+      ...current,
+      ...(prefs.rewardMode != null ? { rewardMode: prefs.rewardMode } : null),
+      ...(prefs.hygieneRewarded != null ? { hygieneRewarded: prefs.hygieneRewarded } : null),
+      ...(prefs.hygieneXp != null ? { hygieneXp: prefs.hygieneXp === 10 ? 10 : 5 } : null),
     }));
   };
 
@@ -2748,6 +2797,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       penalizeSplitAssignee,
       reassignTask,
       awardDailyStreak,
+      redeemStreak,
       deleteTask,
       cancelTask,
       splitAllTasksBetweenTwo,
@@ -2777,6 +2827,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       pushNotification,
       updateNotificationPrefs,
       updateMemberCapabilities,
+      updateHouseholdRewardSettings,
       updateAccentTheme,
       updatePalette,
       updateHouseholdAccentTheme,
@@ -2879,6 +2930,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       upsertRoom,
       removeRoom,
       updateMemberCapabilities,
+      updateHouseholdRewardSettings,
     ]
   );
 

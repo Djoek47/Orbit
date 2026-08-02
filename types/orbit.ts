@@ -81,11 +81,23 @@ export type HouseholdTask = {
   splitPenaltyXp?: number;
   due: string;
   xp: number;
+  /**
+   * Intrinsic Meritocracy ladder value (never overwrite when Equity is selected).
+   * Display / award XP is resolved via `resolveTaskXp` + household reward settings.
+   */
+  baseXp?: number;
+  /** Explicit eligibility; when omitted, derived from `tracking` / Hygiene category. */
+  xpEligible?: boolean;
+  /**
+   * Snapshot of XP granted at completion. Leaderboards and history read this —
+   * never recompute from current reward mode.
+   */
+  awardedXp?: number;
   /** Weight multiplier for XP (1 = easy, 1.5 = medium, 2 = hard). */
   weight?: number;
   difficulty?: TaskDifficulty;
   /**
-   * `streak` = kids Hygiene habits (0 XP). Default / omit = normal XP chore.
+   * `streak` = kids Hygiene habits (0 XP by default). Default / omit = normal XP chore.
    */
   tracking?: 'xp' | 'streak';
   proofRequired?: boolean;
@@ -540,6 +552,23 @@ export type HouseholdSnapshot = {
   notificationPrefs: NovaNotificationPrefs;
   /** What non-admin members may do (admin-controlled). */
   memberCapabilities?: MemberCapabilities;
+  /**
+   * Household-scoped XP scoring (Meritocracy vs Equity + hygiene opt-in).
+   * Defaults: weighted, hygieneRewarded false, hygieneXp 5.
+   */
+  rewardMode?: 'weighted' | 'flat';
+  hygieneRewarded?: boolean;
+  hygieneXp?: 5 | 10;
+  /** IANA timezone for streak/day boundaries. Default America/Toronto. */
+  timezone?: string;
+  /** Local time HH:mm when the household day ends. Default 00:00. */
+  dayEndsAt?: string;
+  /** 0 = Sunday … 1 = Monday (default). */
+  weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  /** When true, streak redemption requires parent approval. Default false. */
+  redemptionRequiresApproval?: boolean;
+  /** Local hour 0–23 for queued streak-break notifications. Default 8. */
+  notificationHour?: number;
   rewards: Reward[];
   badges: Badge[];
   nova: NovaBriefing;

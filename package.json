@@ -17,6 +17,7 @@
     "web": "npx expo start --web",
     "lint": "npx expo lint",
     "typecheck": "npx tsc --noEmit",
+    "test:trophies": "npx --yes tsx lib/trophies/trophy-engine.test.ts",
     "figma:check": "node ./scripts/figma-sync-check.js",
     "build:ios": "eas build --platform ios --profile production",
     "build:ios:testflight": "eas build --platform ios --profile testflight",
@@ -25,7 +26,10 @@
     "submit:ios:testflight": "eas submit --platform ios --profile testflight --latest",
     "submit:android": "eas submit --platform android --profile production",
     "testflight:preflight": "bash ./scripts/testflight-preflight.sh",
-    "qr:expo": "node scripts/write-expo-qr.mjs"
+    "qr:expo": "node scripts/write-expo-qr.mjs",
+    "test:reward-mode": "npx --yes tsx lib/rewards/reward-mode.test.ts",
+    "test:streak-engine": "npx --yes tsx lib/streaks/streak-engine.test.ts",
+    "test:task-library": "npx --yes tsx scripts/validate-task-library.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

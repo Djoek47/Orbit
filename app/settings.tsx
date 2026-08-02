@@ -40,6 +40,11 @@ import {
 import { ensureProfileInviteCode } from '@/lib/household/profile-codes';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
+import {
+  normalizeRewardSettings,
+  REWARD_MODE_COPY,
+  type RewardMode,
+} from '@/lib/rewards/reward-mode';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -169,6 +174,7 @@ export default function SettingsScreen() {
     switchPersona,
     updateAppearanceMode,
     updateHouseholdAccentTheme,
+    updateHouseholdRewardSettings,
     updatePalette,
     updateMemberAvatar,
     updateNotificationPrefs,
@@ -177,7 +183,17 @@ export default function SettingsScreen() {
     updateSharedDeviceLinks,
     upsertRoom,
   } = useOrbit();
-  const { isDark, glass, glassBorder } = useOrbitColors();
+  const { c, isDark, glass, glassBorder } = useOrbitColors();
+
+  const rewardSettings = useMemo(
+    () =>
+      normalizeRewardSettings({
+        rewardMode: household.rewardMode,
+        hygieneRewarded: household.hygieneRewarded,
+        hygieneXp: household.hygieneXp,
+      }),
+    [household.hygieneRewarded, household.hygieneXp, household.rewardMode]
+  );
 
   const [section, setSection] = useState<Section>('main');
   const [editingName, setEditingName] = useState(false);
@@ -473,6 +489,93 @@ export default function SettingsScreen() {
                     </View>
                   );
                 })}
+              </SectionCard>
+            ) : null}
+            {permissions.canManageHousehold ? (
+              <SectionCard title="Rewards & XP">
+                <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
+                  How chores score points for this household
+                </Text>
+                <SegmentedControl
+                  label="Reward system"
+                  value={rewardSettings.rewardMode}
+                  onChange={(mode: RewardMode) => updateHouseholdRewardSettings({ rewardMode: mode })}
+                  options={[
+                    { value: 'weighted', label: REWARD_MODE_COPY.weighted.label },
+                    { value: 'flat', label: REWARD_MODE_COPY.flat.label },
+                  ]}
+                />
+                <Text style={[styles.caption, { color: c.textSubtle, marginTop: 6, marginBottom: 12 }]}>
+                  {REWARD_MODE_COPY[rewardSettings.rewardMode].blurb}
+                </Text>
+                <View
+                  style={[
+                    styles.prefRow,
+                    {
+                      backgroundColor: glassFill(isDark),
+                      borderColor: glassBorder(0.08),
+                    },
+                  ]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.memberName, { color: c.text }]}>Reward hygiene tasks</Text>
+                    <Text style={[styles.caption, { color: c.textSubtle }]}>
+                      Off by default. Hygiene is tracked as a streak so kids build the habit without
+                      earning points for it.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={rewardSettings.hygieneRewarded}
+                    onValueChange={(value) => {
+                      if (value) {
+                        Alert.alert(
+                          'Reward hygiene tasks?',
+                          'Brushing teeth, showering and similar tasks will start earning 5 XP each and will count on the leaderboard. Streaks keep working either way.',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Turn on',
+                              onPress: () =>
+                                updateHouseholdRewardSettings({
+                                  hygieneRewarded: true,
+                                  hygieneXp: rewardSettings.hygieneXp,
+                                }),
+                            },
+                          ]
+                        );
+                        return;
+                      }
+                      Alert.alert(
+                        'Stop rewarding hygiene tasks?',
+                        "These tasks go back to streaks only. Points already earned won't change.",
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Turn off',
+                            style: 'destructive',
+                            onPress: () => updateHouseholdRewardSettings({ hygieneRewarded: false }),
+                          },
+                        ]
+                      );
+                    }}
+                    trackColor={{ false: glassBorder(0.1), true: accentTheme.primary }}
+                    thumbColor="#fff"
+                  />
+                </View>
+                {rewardSettings.hygieneRewarded ? (
+                  <View style={{ marginTop: 12 }}>
+                    <SegmentedControl
+                      label="Points per hygiene task"
+                      value={String(rewardSettings.hygieneXp) as '5' | '10'}
+                      onChange={(xp) =>
+                        updateHouseholdRewardSettings({ hygieneXp: xp === '10' ? 10 : 5 })
+                      }
+                      options={[
+                        { value: '5', label: '5' },
+                        { value: '10', label: '10' },
+                      ]}
+                    />
+                  </View>
+                ) : null}
               </SectionCard>
             ) : null}
             <SettingsRow

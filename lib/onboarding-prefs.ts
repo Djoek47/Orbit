@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import type { RewardMode } from '@/lib/rewards/reward-mode';
 import type { HouseholdRole, HouseholdType } from '@/types/orbit';
 
 export type OnboardingRole = 'parent' | 'child' | 'roommate' | 'shared-tablet';
@@ -19,6 +20,8 @@ export type MotivationMode =
 export type OnboardingPrefs = {
   role: OnboardingRole;
   motivation: MotivationMode;
+  /** Meritocracy (`weighted`) vs Equity (`flat`). Defaults to weighted when missing. */
+  rewardMode?: RewardMode;
   completedAt: string;
 };
 
@@ -97,6 +100,10 @@ function normalizeOnboardingRole(role: LegacyOnboardingRole | string | undefined
   return 'parent';
 }
 
+function normalizeRewardMode(value: string | undefined): RewardMode {
+  return value === 'flat' ? 'flat' : 'weighted';
+}
+
 export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
   try {
     const raw = await AsyncStorage.getItem(KEY);
@@ -104,16 +111,19 @@ export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
     const parsed = JSON.parse(raw) as {
       role?: string;
       motivation?: MotivationMode;
+      rewardMode?: RewardMode | string;
       completedAt?: string;
     };
     const role = normalizeOnboardingRole(parsed.role);
     const motivation = parsed.motivation ?? 'xp';
+    const rewardMode = normalizeRewardMode(parsed.rewardMode);
     const prefs: OnboardingPrefs = {
       role,
       motivation,
+      rewardMode,
       completedAt: parsed.completedAt ?? new Date().toISOString(),
     };
-    if (parsed.role === 'caregiver') {
+    if (parsed.role === 'caregiver' || parsed.rewardMode == null) {
       await AsyncStorage.setItem(KEY, JSON.stringify(prefs));
     }
     return prefs;
@@ -128,6 +138,7 @@ export async function saveOnboardingPrefs(
   const next: OnboardingPrefs = {
     role: normalizeOnboardingRole(prefs.role),
     motivation: prefs.motivation,
+    rewardMode: normalizeRewardMode(prefs.rewardMode),
     completedAt: new Date().toISOString(),
   };
   await AsyncStorage.setItem(KEY, JSON.stringify(next));

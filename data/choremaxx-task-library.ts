@@ -27,6 +27,11 @@ export type ChoremaxxLibraryTask = {
   aliases?: string;
 };
 
+/** Streak / hygiene rows are never mode-eligible (Meritocracy or Equity). */
+export function libraryTaskXpEligible(task: Pick<ChoremaxxLibraryTask, 'tracking'>): boolean {
+  return task.tracking !== 'streak';
+}
+
 export const CHOREMAXX_TASK_LIBRARY: ChoremaxxLibraryTask[] = [
   {
     id: "T001",

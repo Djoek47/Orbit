@@ -177,6 +177,7 @@ export const taskRepository = {
       ...task,
       due: 'Completed today',
       status: 'Completed',
+      awardedXp: task.awardedXp,
       // Keep prior proof status (usually 'none') — attach happens after complete.
       proofStatus: task.proofStatus,
     };
@@ -199,11 +200,15 @@ export const taskRepository = {
     mapDbError('taskRepository.completeTask', error);
 
     const resolvedHouseholdId = householdId ?? data?.household_id;
-    if (resolvedHouseholdId && task.xp > 0) {
-      await awardTaskXp(supabase, resolvedHouseholdId, data ?? null, task);
+    const xpToAward = task.awardedXp ?? task.xp;
+    if (resolvedHouseholdId && xpToAward > 0) {
+      await awardTaskXp(supabase, resolvedHouseholdId, data ?? null, {
+        ...task,
+        xp: xpToAward,
+      });
     }
 
-    return data ? mapTaskRow(data) : completed;
+    return data ? { ...mapTaskRow(data), awardedXp: task.awardedXp } : completed;
   },
 };
 
