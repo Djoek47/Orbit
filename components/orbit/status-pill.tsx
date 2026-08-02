@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { orbitColors, orbitRadius } from '@/constants/orbit-theme';
+import { orbitColors, radius } from '@/constants/orbit-theme';
 
 type StatusPillProps = {
   label: string;
@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
   },
   pill: {
     alignSelf: 'flex-start',
-    borderRadius: orbitRadius.sm,
+    borderRadius: radius.control,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 6,

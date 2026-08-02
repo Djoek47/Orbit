@@ -1,226 +1,425 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
+import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
-import { MomentumRing } from '@/components/orbit/momentum-ring';
-import { NovaOrb } from '@/components/orbit/nova-orb';
-import { OrbitButton } from '@/components/orbit/orbit-button';
-import { OrbitListItem } from '@/components/orbit/orbit-list-item';
-import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { LargeTitleHeader } from '@/components/orbit/large-title-header';
+import { Leaderboard, type LeaderboardEntry } from '@/components/orbit/leaderboard';
+import { NovaCard } from '@/components/orbit/nova-card';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
+import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
+import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
+import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  buildHomeHealthMetrics,
+  resolveHomeHealthRole,
+} from '@/lib/home-health-metrics';
+import {
+  findSharedDeviceForMember,
+  isSharedDeviceAccount,
+  isSharedDeviceRole,
+} from '@/lib/household/shared-device';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { greetingWord } from '@/lib/time/greeting';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function HomeScreen() {
-  const { household, metrics, novaBriefing, permissions, signOut } = useOrbit();
+  const chromePad = useTabChromePaddingTop();
+  const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona, permissions, orbitPalette } =
+    useOrbit();
+  const { c, glass } = useOrbitColors();
+  const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+
+  const displayName = currentMember?.name ?? household.greetingName;
+  const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
+  const sharedKidMode =
+    isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
+  const healthRole = resolveHomeHealthRole(currentMember, {
+    householdType: household.householdType,
+    isAdmin: permissions.canManageHousehold,
+  });
+  const healthItems = useMemo(
+    () =>
+      buildHomeHealthMetrics({
+        role: healthRole,
+        metrics,
+        household,
+        currentMember,
+      }),
+    [healthRole, metrics, household, currentMember],
+  );
+
+  const groceryAlerts = household.groceries.filter((g) => g.status === 'Missing' || g.status === 'Low');
+  const nextEvent = [
+    ...household.events.filter(
+      (e) => e.date === 'Today' || (e.startsAt ?? '').startsWith(new Date().toISOString().slice(0, 10))
+    ),
+    ...household.events,
+  ].filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i)[0];
+
+  const weekLeaders = useMemo<LeaderboardEntry[]>(() => {
+    return household.members
+      .filter(
+        (member) =>
+          member.status === 'active' &&
+          member.role !== 'guest' &&
+          !isSharedDeviceRole(member.role)
+      )
+      .map((member) => ({
+        id: member.id,
+        name: member.name,
+        avatarEmoji: memberDisplayEmoji(member),
+        xp: member.weekXp ?? 0,
+      }));
+  }, [household.members]);
+
+  const personalWeekXp = currentMember?.weekXp ?? 0;
+  const personalTotalXp = currentMember?.xp ?? 0;
+  const personalStreak = currentMember?.streak ?? 0;
 
   return (
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>{household.householdName}</Text>
-        <Text style={orbitTypography.display}>Good morning, {household.greetingName}</Text>
-        <Text style={orbitTypography.body}>{novaBriefing.summary}</Text>
-      </View>
-
-      <GlassCard elevated style={styles.heroCard}>
-        <View style={styles.heroText}>
-          <StatusPill label={`${metrics.taskCompletionRate}% tasks`} tone="green" />
-          <Text style={orbitTypography.title}>Household Momentum</Text>
-          <Text style={orbitTypography.caption}>
-            Calculated from task completion, grocery readiness, and calendar coverage.
-          </Text>
-        </View>
-        <MomentumRing score={metrics.momentum} />
-      </GlassCard>
-
-      <GlassCard>
-        <View style={orbitScreen.row}>
-          <View style={styles.novaCopy}>
-            <Text style={orbitTypography.cardTitle}>Nova briefing</Text>
-            <Text style={orbitTypography.caption}>{novaBriefing.summary}</Text>
+    <>
+      <Animated.ScrollView
+        style={[orbitScreen.container, { backgroundColor: orbitPalette.background }]}
+        contentContainerStyle={[
+          orbitScreen.content,
+          styles.pageContent,
+          { paddingTop: chromePad },
+        ]}
+        contentInsetAdjustmentBehavior="never"
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}>
+        {/* Header — greeting + avatar (persona switch), date eyebrow. Kept per design-system/06. */}
+        <View style={styles.headerRow}>
+          <View style={styles.headerCopy}>
+            <PageEyebrow>
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </PageEyebrow>
+            <LargeTitleHeader
+              title={`${greetingWord()}, ${displayName}`}
+              scrollY={scrollY}
+              size="compact"
+            />
+            {sharedDevice ? (
+              <Pressable
+                onPress={() => {
+                  void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
+                    markNeedsProfilePick().then(() => router.push('/select-profile' as never))
+                  );
+                }}
+                style={[
+                  styles.deviceSwitchChip,
+                  { backgroundColor: `${accentTheme.primary}22`, borderColor: `${accentTheme.primary}66` },
+                ]}>
+                <Text style={styles.deviceSwitchEmoji}>{sharedDevice.avatar || '📱'}</Text>
+                <Text style={[typography.caption1, { color: accentTheme.primary }]}>
+                  Switch who&apos;s on · {displayName}
+                </Text>
+                <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
+              </Pressable>
+            ) : null}
           </View>
-          <NovaOrb />
+          <Pressable
+            onPress={() => setPersonaSwitchOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Switch account">
+            <Avatar
+              name={displayName}
+              emoji={currentMember ? memberDisplayEmoji(currentMember) : undefined}
+              size="l"
+            />
+          </Pressable>
         </View>
-      </GlassCard>
 
-      <View style={styles.quickActions}>
-        <OrbitButton style={styles.quickButton} onPress={() => router.push('/create-task' as never)}>
-          Create Task
-        </OrbitButton>
-        <OrbitButton
-          style={styles.quickButton}
-          tone="secondary"
-          onPress={() => router.push('/add-grocery' as never)}>
-          + Missing Item
-        </OrbitButton>
-        <OrbitButton
-          disabled={!permissions.canInviteMembers}
-          style={styles.quickButton}
-          tone="secondary"
-          onPress={() => router.push('/invite-household' as never)}>
-          Invite
-        </OrbitButton>
-        <OrbitButton style={styles.quickButton} tone="secondary" onPress={() => router.push('/household-members' as never)}>
-          Members
-        </OrbitButton>
-      </View>
+        {/* Morning Brief — Apple-Intelligence-style card, not a chat entry point. */}
+        <NovaCard
+          kind="morningBrief"
+          message={novaBriefing.summary}
+          actions={[{ label: 'Open Nova', onPress: () => router.push('/(tabs)/nova' as never) }]}
+        />
 
-      <View style={styles.grid}>
-        <GlassCard style={styles.gridCard}>
-          <Text style={styles.metric}>{metrics.openTasks}</Text>
-          <Text style={orbitTypography.caption}>Open tasks</Text>
-        </GlassCard>
-        <GlassCard style={styles.gridCard}>
-          <Text style={styles.metric}>{metrics.missingGroceries}</Text>
-          <Text style={orbitTypography.caption}>Missing items</Text>
-        </GlassCard>
-        <GlassCard style={styles.gridCard}>
-          <Text style={styles.metric}>{metrics.upcomingEvents}</Text>
-          <Text style={orbitTypography.caption}>Events</Text>
-        </GlassCard>
-        <GlassCard style={styles.gridCard}>
-          <Text style={styles.metric}>{metrics.groceryReadiness}%</Text>
-          <Text style={orbitTypography.caption}>Grocery ready</Text>
-        </GlassCard>
-      </View>
-
-      <GlassCard>
-        <Text style={orbitTypography.cardTitle}>Today&apos;s tasks</Text>
-        {household.tasks.slice(0, 3).map((task) => (
-          <OrbitListItem
-            key={task.id}
-            completed={task.status === 'Completed'}
-            meta={`${task.category} • ${task.assignee} • ${task.due}`}
-            title={task.title}
-            trailing={<StatusPill label={task.status} tone={task.status === 'Completed' ? 'green' : 'blue'} />}
+        {/* Today — unified typography-led section (tasks + grocery/event stats together). */}
+        <View style={styles.todaySection}>
+          <Text style={[typography.title2, { color: orbitPalette.text }]}>Today</Text>
+          <TodayTasksCard
+            tasks={household.tasks}
+            members={household.members}
+            currentMember={currentMember}
+            accentTheme={accentTheme}
+            canFocusMembers={permissions.canManageHousehold}
+            mineOnly={sharedKidMode}
+            streak={currentMember?.streak ?? 0}
+            onAwardDailyStreak={() => {
+              void awardDailyStreak();
+            }}
           />
-        ))}
-      </GlassCard>
+          <View style={styles.statRow}>
+            <Pressable style={styles.statItem} onPress={() => router.push('/(tabs)/groceries' as never)}>
+              <MaterialIcons
+                name="shopping-cart"
+                size={16}
+                color={groceryAlerts.length > 0 ? c.warning : c.textMuted}
+              />
+              <Text style={[typography.subheadline, { color: orbitPalette.textSoft }]}>
+                {groceryAlerts.length > 0 ? `${groceryAlerts.length} low or missing` : 'Groceries stocked'}
+              </Text>
+            </Pressable>
+            <Pressable style={styles.statItem} onPress={() => router.push('/(tabs)/plan' as never)}>
+              <MaterialIcons name="calendar-today" size={16} color={c.textMuted} />
+              <Text style={[typography.subheadline, { color: orbitPalette.textSoft }]} numberOfLines={1}>
+                {nextEvent ? `${nextEvent.title} · ${nextEvent.time}` : 'Nothing on the calendar'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
 
-      <GlassCard>
-        <Text style={orbitTypography.cardTitle}>Upcoming events</Text>
-        {household.events.slice(0, 3).map((event) => (
-          <OrbitListItem
-            key={event.id}
-            meta={`${event.date} • ${event.responsible}`}
-            title={event.title}
-            trailing={<Text style={styles.eventTime}>{event.time}</Text>}
-          />
-        ))}
-      </GlassCard>
-
-      <GlassCard>
-        <Text style={orbitTypography.cardTitle}>Household balance</Text>
-        {household.members.map((member) => (
-          <View key={member.id} style={styles.memberRow}>
-            <Text style={styles.avatar}>{member.avatar}</Text>
-            <View style={styles.memberInfo}>
-              <Text style={styles.memberName}>{member.name}</Text>
-              <View style={styles.loadTrack}>
-                <View style={[styles.loadFill, { width: `${member.loadShare}%` }]} />
-              </View>
+        {/* This week — demoted preview, not competing with Today. */}
+        <View style={styles.weekSection}>
+          <View style={styles.sectionHead}>
+            <Text style={[typography.title3, { color: orbitPalette.text }]}>This week</Text>
+            <Pressable
+              onPress={() => router.push({ pathname: '/rewards', params: { surface: 'ranks' } } as never)}
+              hitSlop={8}>
+              <Text style={[typography.footnote, { color: accentTheme.primary, fontWeight: '700' }]}>
+                {sharedKidMode ? 'Rewards' : 'Ranks'}
+              </Text>
+            </Pressable>
+          </View>
+          {sharedKidMode ? (
+            <View style={styles.personalXpRow}>
+              <PersonalStat
+                label="This week"
+                value={`${personalWeekXp} XP`}
+                accent={accentTheme.primary}
+                glassBg={glass(0.05)}
+                labelColor={orbitPalette.textSoft}
+              />
+              <PersonalStat
+                label="Total"
+                value={`${personalTotalXp} XP`}
+                accent={accentTheme.primary}
+                glassBg={glass(0.05)}
+                labelColor={orbitPalette.textSoft}
+              />
+              <PersonalStat
+                label="Streak"
+                value={`${personalStreak}d`}
+                accent={accentTheme.primary}
+                glassBg={glass(0.05)}
+                labelColor={orbitPalette.textSoft}
+              />
             </View>
-            <Text style={styles.loadText}>{member.loadShare}%</Text>
-          </View>
-        ))}
-      </GlassCard>
+          ) : weekLeaders.length > 0 ? (
+            <Leaderboard entries={weekLeaders.slice(0, 3)} variant="podium" />
+          ) : (
+            <Text style={[typography.subheadline, { color: orbitPalette.textSoft }]}>
+              No XP yet this week.
+            </Text>
+          )}
+        </View>
 
-      <OrbitButton tone="secondary" onPress={async () => {
-        await signOut();
-        router.replace('/welcome' as never);
-      }}>
-        Sign Out
-      </OrbitButton>
-    </ScrollView>
+        {sharedKidMode ? (
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/rewards', params: { surface: 'rewards' } } as never)
+            }
+            style={[
+              styles.kidRewardCard,
+              {
+                borderColor: `${accentTheme.primary}44`,
+                backgroundColor: glass(0.05),
+              },
+            ]}>
+            <View style={[styles.kidRewardIcon, { backgroundColor: `${accentTheme.primary}22` }]}>
+              <MaterialIcons name="card-giftcard" size={22} color={accentTheme.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.headline, { color: orbitPalette.text }]}>Rewards shop</Text>
+              <Text style={[typography.subheadline, { color: orbitPalette.textSoft }]}>
+                Spend your XP on treats — you have {personalTotalXp} XP
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color={accentTheme.primary} />
+          </Pressable>
+        ) : null}
+
+        <Pressable onPress={() => router.push('/household-balance' as never)} style={styles.fullBleed}>
+          <GlassCard>
+            <View style={styles.sectionHead}>
+              <Text style={[typography.headline, { color: orbitPalette.text }]}>Household Health</Text>
+              <MaterialIcons name="chevron-right" size={16} color={c.textSubtle} />
+            </View>
+            <View style={styles.healthRow}>
+              {healthItems.map((item) => (
+                <View key={item.key} style={styles.healthCol}>
+                  <View style={styles.healthLabelRow}>
+                    <MaterialIcons name={item.icon} size={12} color={item.color} />
+                    <Text
+                      style={[typography.caption1, styles.healthLabel, { color: orbitPalette.textSoft }]}
+                      numberOfLines={1}>
+                      {item.label}
+                    </Text>
+                  </View>
+                  <View style={[styles.progressTrack, { backgroundColor: glass(0.06) }]}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { width: `${Math.max(4, Math.min(100, item.val))}%`, backgroundColor: item.color },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[typography.footnote, styles.healthVal, { color: item.color }]}>
+                    {item.valueLabel}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </GlassCard>
+        </Pressable>
+      </Animated.ScrollView>
+
+      <PersonaSwitchPopup
+        visible={personaSwitchOpen}
+        onClose={() => setPersonaSwitchOpen(false)}
+        members={household.members}
+        currentMemberId={currentMember?.id ?? ''}
+        onSwitch={switchPersona}
+      />
+    </>
+  );
+}
+
+function PersonalStat({
+  label,
+  value,
+  accent,
+  glassBg,
+  labelColor,
+}: {
+  label: string;
+  value: string;
+  accent: string;
+  glassBg: string;
+  labelColor: string;
+}) {
+  return (
+    <View style={[styles.personalXpChip, { borderColor: `${accent}55`, backgroundColor: glassBg }]}>
+      <Text style={[typography.caption1, { color: labelColor }]}>{label}</Text>
+      <Text style={[typography.metricSmall, { color: accent }]}>{value}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  avatar: {
-    backgroundColor: 'rgba(41, 121, 255, 0.18)',
-    borderRadius: 18,
-    color: orbitColors.text,
-    fontWeight: '800',
-    height: 36,
-    lineHeight: 36,
-    textAlign: 'center',
-    width: 36,
+  pageContent: {
+    alignItems: 'stretch',
+    alignSelf: 'stretch',
+    gap: space.xl,
+    width: '100%',
   },
-  eventTime: {
-    color: orbitColors.novaCyan,
-    fontSize: 13,
-    fontWeight: '800',
-    textAlign: 'right',
-  },
-  grid: {
+  headerRow: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: orbitSpacing.md,
+    gap: space.sm,
+    justifyContent: 'space-between',
   },
-  gridCard: {
-    flexBasis: '47%',
-    flexGrow: 1,
-    gap: orbitSpacing.xs,
+  headerCopy: {
+    flex: 1,
+    gap: 2,
   },
-  heroCard: {
+  deviceSwitchChip: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: radius.full,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: space.xs,
+    marginTop: space.xs,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
+  },
+  deviceSwitchEmoji: { fontSize: 16 },
+  fullBleed: { alignSelf: 'stretch', width: '100%' },
+  todaySection: {
+    alignSelf: 'stretch',
+    gap: space.sm,
+  },
+  statRow: {
+    flexDirection: 'row',
+    gap: space.md,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: space.xs,
+  },
+  weekSection: {
+    alignSelf: 'stretch',
+    gap: space.sm,
+  },
+  sectionHead: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  heroText: {
-    flex: 1,
-    gap: orbitSpacing.sm,
-    paddingRight: orbitSpacing.md,
-  },
-  loadFill: {
-    backgroundColor: orbitColors.novaCyan,
-    borderRadius: 999,
-    height: 8,
-  },
-  loadText: {
-    color: orbitColors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  loadTrack: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 999,
-    height: 8,
-    overflow: 'hidden',
-  },
-  memberInfo: {
-    flex: 1,
-    gap: 8,
-  },
-  memberName: {
-    color: orbitColors.text,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  memberRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: orbitSpacing.md,
-  },
-  metric: {
-    color: orbitColors.text,
-    fontSize: 30,
-    fontWeight: '800',
-  },
-  novaCopy: {
-    flex: 1,
-    gap: orbitSpacing.xs,
-    paddingRight: orbitSpacing.md,
-  },
-  quickActions: {
+  personalXpRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: orbitSpacing.md,
+    gap: space.xs,
   },
-  quickButton: {
-    flexBasis: '47%',
-    flexGrow: 1,
+  personalXpChip: {
+    borderRadius: radius.control,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    flex: 1,
+    gap: 2,
+    minWidth: 88,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
+  },
+  kidRewardCard: {
+    alignItems: 'center',
+    borderRadius: radius.card,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: space.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.md,
+  },
+  kidRewardIcon: {
+    alignItems: 'center',
+    borderRadius: radius.control,
+    borderCurve: 'continuous',
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  healthCol: { alignItems: 'stretch', flex: 1, gap: 6, minWidth: 0 },
+  healthLabel: { flexShrink: 1 },
+  healthLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 4 },
+  healthRow: { alignSelf: 'stretch', flexDirection: 'row', gap: space.sm, width: '100%' },
+  healthVal: { textAlign: 'center' },
+  progressFill: {
+    borderRadius: radius.full,
+    height: '100%',
+  },
+  progressTrack: {
+    borderRadius: radius.full,
+    height: 6,
+    overflow: 'hidden',
+    width: '100%',
   },
 });

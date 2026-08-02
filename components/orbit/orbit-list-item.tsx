@@ -1,7 +1,8 @@
 import { PropsWithChildren, ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { orbitColors, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type OrbitListItemProps = PropsWithChildren<{
   completed?: boolean;
@@ -17,11 +18,20 @@ export function OrbitListItem({
   title,
   trailing,
 }: OrbitListItemProps) {
+  const { c } = useOrbitColors();
+
   return (
     <View style={styles.row}>
       <View style={styles.copy}>
-        <Text style={[orbitTypography.cardTitle, completed && styles.completed]}>{title}</Text>
-        {meta ? <Text style={orbitTypography.caption}>{meta}</Text> : null}
+        <Text
+          style={[
+            typography.headline,
+            { color: c.text },
+            completed && [styles.completed, { color: c.textMuted }],
+          ]}>
+          {title}
+        </Text>
+        {meta ? <Text style={[typography.footnote, { color: c.textMuted }]}>{meta}</Text> : null}
         {children}
       </View>
       {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
@@ -31,17 +41,16 @@ export function OrbitListItem({
 
 const styles = StyleSheet.create({
   completed: {
-    color: orbitColors.textMuted,
     textDecorationLine: 'line-through',
   },
   copy: {
     flex: 1,
-    gap: orbitSpacing.xs,
+    gap: space.xs,
   },
   row: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   trailing: {
     alignItems: 'flex-end',
