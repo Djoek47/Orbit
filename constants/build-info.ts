@@ -1,6 +1,6 @@
 /** Injected tip marker so Expo Go can prove which commit is running. */
 export const BUILD_INFO = {
-  branch: 'cursor/choremaxx-make-v7-c30d',
-  commit: 'd46a6d7',
-  label: 'make-v7 · d46a6d7',
+  branch: 'cursor/choremaxx-make-v8-5f8f',
+  commit: 'pending',
+  label: 'make-v8 · boot',
 } as const;
