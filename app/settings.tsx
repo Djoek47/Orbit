@@ -17,7 +17,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   DEFAULT_ACCENT_THEME_ID,
   migrateAccentThemeId,
-  ROOM_EMOJIS,
   type AccentThemeId,
 } from '@/constants/accent-themes';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
@@ -28,7 +27,6 @@ import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { BUILD_INFO } from '@/constants/build-info';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
-import { createLocalId } from '@/repositories/repository-utils';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
@@ -48,10 +46,10 @@ import {
 import { markNeedsProfilePick } from '@/lib/device/device-session';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdMember, HouseholdRoom } from '@/types/orbit';
+import type { HouseholdMember } from '@/types/orbit';
 import * as Linking from 'expo-linking';
 
-type Section = 'main' | 'members' | 'notifications' | 'rooms';
+type Section = 'main' | 'members' | 'notifications';
 
 function SharedAccountRow({
   person,
@@ -139,7 +137,6 @@ export default function SettingsScreen() {
     permissions,
     preferredMapsApp,
     removeMember,
-    removeRoom,
     signOut,
     switchPersona,
     updateAppearanceMode,
@@ -151,7 +148,6 @@ export default function SettingsScreen() {
     updateMemberCapabilities,
     updatePreferredMapsApp,
     updateSharedDeviceLinks,
-    upsertRoom,
   } = useOrbit();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
 
@@ -173,9 +169,6 @@ export default function SettingsScreen() {
   const [sharedDeviceName, setSharedDeviceName] = useState('Kids tablet');
   const [creatingDevice, setCreatingDevice] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
-  const [roomDraft, setRoomDraft] = useState('');
-  const [roomEmoji, setRoomEmoji] = useState('🚪');
-  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const prefs = useMemo(
     () =>
       household.notificationPrefs ?? {
@@ -194,7 +187,6 @@ export default function SettingsScreen() {
 
   const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
   const householdThemeId = migrateAccentThemeId(household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID);
-  const rooms = household.rooms ?? [];
   const nestedAccountIds = useMemo(
     () => nestedSharedAccountIds(household.members),
     [household.members]
@@ -403,12 +395,6 @@ export default function SettingsScreen() {
               label="Manage Members"
               subtitle={`${household.members.length} members · add new · customize avatars`}
               onPress={() => setSection('members')}
-            />
-            <SettingsRow
-              emoji="🚪"
-              label="Rooms"
-              subtitle={`${rooms.length} rooms for cleaning attribution`}
-              onPress={() => setSection('rooms')}
             />
             {permissions.canManageHousehold ? (
               <SectionCard title="Member permissions">
@@ -857,114 +843,6 @@ export default function SettingsScreen() {
           </>
         ) : null}
 
-        {section === 'rooms' ? (
-          <>
-            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>
-              Rooms power cleaning presets and attribution
-            </Text>
-            {rooms.map((room) => (
-              <View
-                key={room.id}
-                style={[
-                  styles.prefRow,
-                  {
-                    backgroundColor: glassFill(isDark),
-                    borderColor: glassBorder(0.08),
-                  },
-                ]}>
-                <Text style={{ fontSize: 22 }}>{room.emoji}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.memberName, { color: orbitPalette.text }]}>{room.name}</Text>
-                  <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>{room.kind}</Text>
-                </View>
-                <Pressable
-                  onPress={() => {
-                    setEditingRoomId(room.id);
-                    setRoomDraft(room.name);
-                    setRoomEmoji(room.emoji);
-                  }}
-                  style={{ marginRight: 10 }}>
-                  <MaterialIcons name="edit" size={18} color={accentTheme.primary} />
-                </Pressable>
-                <Pressable onPress={() => removeRoom(room.id)}>
-                  <MaterialIcons name="delete-outline" size={18} color="#F87171" />
-                </Pressable>
-              </View>
-            ))}
-            <View style={styles.emojiRow}>
-              {ROOM_EMOJIS.map((emoji) => {
-                const active = roomEmoji === emoji;
-                return (
-                  <Pressable
-                    key={emoji}
-                    onPress={() => setRoomEmoji(emoji)}
-                    style={[
-                      styles.emojiChip,
-                      { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) },
-                      active && {
-                        borderColor: `${accentTheme.primary}88`,
-                        backgroundColor: `${accentTheme.primary}22`,
-                      },
-                    ]}>
-                    <Text style={{ fontSize: 18 }}>{emoji}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <View
-              style={[
-                styles.prefRow,
-                {
-                  backgroundColor: glassFill(isDark),
-                  borderColor: glassBorder(0.08),
-                },
-              ]}>
-              <TextInput
-                value={roomDraft}
-                onChangeText={setRoomDraft}
-                placeholder={editingRoomId ? 'Rename room' : 'Add room name'}
-                placeholderTextColor={orbitPalette.textSubtle}
-                style={[styles.roomInput, { color: orbitPalette.text }]}
-              />
-              <Pressable
-                style={[styles.addRoomBtn, { backgroundColor: `${accentTheme.primary}22` }]}
-                onPress={() => {
-                  const name = roomDraft.trim();
-                  if (!name) return;
-                  if (editingRoomId) {
-                    const existing = rooms.find((item) => item.id === editingRoomId);
-                    if (!existing) return;
-                    upsertRoom({ ...existing, name, emoji: roomEmoji });
-                    setEditingRoomId(null);
-                  } else {
-                    const room: HouseholdRoom = {
-                      id: createLocalId('room'),
-                      name,
-                      emoji: roomEmoji,
-                      kind: 'custom',
-                    };
-                    upsertRoom(room);
-                  }
-                  setRoomDraft('');
-                  setRoomEmoji('🚪');
-                }}>
-                <MaterialIcons name={editingRoomId ? 'check' : 'add'} size={18} color={accentTheme.primary} />
-              </Pressable>
-            </View>
-            {editingRoomId ? (
-              <Pressable
-                onPress={() => {
-                  setEditingRoomId(null);
-                  setRoomDraft('');
-                  setRoomEmoji('🚪');
-                }}
-                style={styles.linkRow}>
-                <Text style={[styles.linkText, { color: accentTheme.primary }]}>Cancel edit</Text>
-              </Pressable>
-            ) : null}
-          </>
-        ) : null}
-
         {section === 'notifications' ? (
           <>
             <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>Poppins Monitor categories</Text>
@@ -1397,33 +1275,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 4,
-  },
-  emojiRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  emojiChip: {
-    alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
-  roomInput: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    paddingVertical: 4,
-  },
-  addRoomBtn: {
-    alignItems: 'center',
-    borderRadius: 12,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
   },
   prefRow: {
     alignItems: 'center',

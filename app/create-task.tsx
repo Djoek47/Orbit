@@ -294,7 +294,6 @@ export default function CreateTaskScreen() {
     return ids;
   }, [activeMembers, household.members]);
 
-  const rooms = useMemo(() => household.rooms ?? [], [household.rooms]);
   const libraryAudience: LibraryAudience = 'family';
   const childMembers = useMemo(
     () => activeMembers.filter(isChildMember),
@@ -317,7 +316,6 @@ export default function CreateTaskScreen() {
   const [repeat, setRepeat] = useState<HouseholdTask['repeat']>('None');
   const [difficulty, setDifficulty] = useState<TaskDifficulty>('medium');
   const [proofRequired, setProofRequired] = useState(false);
-  const [roomId, setRoomId] = useState<string | undefined>();
   const [presetQuery, setPresetQuery] = useState('');
   const [baseXp, setBaseXp] = useState(10);
   const [category, setCategory] = useState('General');
@@ -448,17 +446,14 @@ export default function CreateTaskScreen() {
     return order
       .filter((kind) => (buckets.get(kind)?.length ?? 0) > 0)
       .map((kind) => {
-        const householdRoom = rooms.find((room) => room.kind === kind);
         const fallback = labels[kind];
         return {
           kind,
-          title: householdRoom
-            ? `${householdRoom.emoji} ${householdRoom.name}`
-            : `${fallback.emoji} ${fallback.name}`,
+          title: `${fallback.emoji} ${fallback.name}`,
           items: buckets.get(kind) ?? [],
         };
       });
-  }, [libraryResults, rooms]);
+  }, [libraryResults]);
 
   const isHygieneDraft = tracking === 'streak' || category === 'Hygiene';
 
@@ -548,11 +543,6 @@ export default function CreateTaskScreen() {
     );
   }
 
-    function roomIdForKind(kind?: TaskPreset['roomKind']) {
-    if (!kind) return undefined;
-    return rooms.find((room) => room.kind === kind)?.id;
-  }
-
   async function persistQuickConfig(nextIds: string[], nextOverrides: Record<string, QuickPresetOverride>) {
     setQuickIds(nextIds);
     setQuickOverrides(nextOverrides);
@@ -597,7 +587,6 @@ export default function CreateTaskScreen() {
     difficulty: TaskDifficulty;
     weight: number;
     proofRequired: boolean;
-    roomId?: string;
     tracking?: LibraryTracking;
   }) {
     const hygiene = base.tracking === 'streak' || base.category === 'Hygiene';
@@ -621,7 +610,6 @@ export default function CreateTaskScreen() {
   }
 
   function applyPreset(preset: TaskPreset, createNow: boolean) {
-    const nextRoomId = roomIdForKind(preset.roomKind);
     const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
     const nextXp = hygiene ? 0 : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
 
@@ -656,7 +644,6 @@ export default function CreateTaskScreen() {
         difficulty: preset.difficulty,
         weight: preset.weight,
         proofRequired: hygiene ? false : preset.proofRequired,
-        roomId: nextRoomId,
         tracking: hygiene ? 'streak' : 'xp',
         assignee: names[0] ?? household.greetingName,
         assignees: names.length > 1 ? names : undefined,
@@ -675,7 +662,6 @@ export default function CreateTaskScreen() {
     setDifficulty(preset.difficulty);
     setProofRequired(hygiene ? false : preset.proofRequired);
     setBaseXp(hygiene ? 0 : preset.baseXp);
-    setRoomId(nextRoomId);
     const priorityIndex = Math.max(
       0,
       priorities.findIndex((item) => item.difficulty === preset.difficulty),
@@ -725,7 +711,6 @@ export default function CreateTaskScreen() {
           difficulty: 'medium',
           weight: weightForDifficulty('medium'),
           proofRequired,
-          roomId,
         })
       );
     } else {
@@ -741,7 +726,6 @@ export default function CreateTaskScreen() {
           difficulty: isHygieneDraft ? 'easy' : difficulty,
           weight: isHygieneDraft ? 1 : weight,
           proofRequired: isHygieneDraft ? false : proofRequired,
-          roomId,
           tracking: isHygieneDraft ? 'streak' : 'xp',
         })
       );
@@ -825,7 +809,7 @@ export default function CreateTaskScreen() {
           <GlassCard style={styles.heroCard}>
             <Text style={[styles.poppinsLabel, { color: c.poppinsCyan }]}>BROWSE</Text>
             <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
-              Presets, the full library, or a room category from the Choremaxx catalog.
+              Presets, the full library, or a domain from the Choremaxx catalog.
             </Text>
             <View style={[styles.searchFieldWrap, { backgroundColor: glass(0.04), borderColor: glassBorder(0.1) }]}>
               <MaterialIcons name="search" size={18} color={orbitPalette.textSubtle} />
@@ -893,7 +877,6 @@ export default function CreateTaskScreen() {
                   setProofRequired(false);
                   setBaseXp(10);
                   setTracking('xp');
-                  setRoomId(undefined);
                 }}>
                 Custom task
               </OrbitButton>
@@ -1376,47 +1359,6 @@ export default function CreateTaskScreen() {
             })}
           </View>
         </View>
-
-        {rooms.length ? (
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: c.textMuted }]}>ROOM (OPTIONAL)</Text>
-            <View style={styles.subjectRow}>
-              <Pressable
-                onPress={() => setRoomId(undefined)}
-                style={[
-                  styles.subjectChip,
-                  {
-                    backgroundColor: !roomId ? `${accentTheme.primary}22` : glass(0.06),
-                    borderColor: !roomId ? `${accentTheme.primary}44` : glassBorder(0.08),
-                  },
-                ]}>
-                <Text style={[styles.subjectText, { color: !roomId ? accentTheme.primary : c.textMuted }]}>
-                  None
-                </Text>
-              </Pressable>
-              {rooms.map((room) => {
-                const active = roomId === room.id;
-                return (
-                  <Pressable
-                    key={room.id}
-                    onPress={() => setRoomId(room.id)}
-                    style={[
-                      styles.subjectChip,
-                      {
-                        backgroundColor: active ? `${accentTheme.primary}22` : glass(0.06),
-                        borderColor: active ? `${accentTheme.primary}44` : glassBorder(0.08),
-                      },
-                    ]}>
-                    <Text style={styles.subjectEmoji}>{room.emoji}</Text>
-                    <Text style={[styles.subjectText, { color: active ? accentTheme.primary : c.textMuted }]}>
-                      {room.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        ) : null}
 
         {!isHygieneDraft ? (
           <Pressable onPress={() => setProofRequired((value) => !value)} style={styles.proofToggle}>

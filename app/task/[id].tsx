@@ -69,7 +69,6 @@ export default function TaskDetailScreen() {
   const { c, glass, glassBorder } = useOrbitColors();
 
   const task = household.tasks.find((item) => item.id === id);
-  const rooms = household.rooms ?? [];
   const memberNames = useMemo(
     () =>
       household.members
@@ -87,7 +86,6 @@ export default function TaskDetailScreen() {
   const [xp, setXp] = useState(String(task?.xp ?? 15));
   const [repeat, setRepeat] = useState<HouseholdTask['repeat']>(task?.repeat ?? 'None');
   const [difficulty, setDifficulty] = useState<HouseholdTask['difficulty']>(task?.difficulty ?? 'medium');
-  const [roomId, setRoomId] = useState<string | undefined>(task?.roomId);
   const [busy, setBusy] = useState(false);
   const [proofBusy, setProofBusy] = useState(false);
   const [celebration, setCelebration] = useState<{
@@ -121,7 +119,6 @@ export default function TaskDetailScreen() {
   const myShare = currentMember ? getShare(task, currentMember.name) : undefined;
   const onThisSplit = taskMatchesAssignee(task, currentMember?.name);
   const assigneeMember = household.members.find((member) => member.name === task.assignee);
-  const room = rooms.find((item) => item.id === (editing ? roomId : task.roomId));
   const canEdit = permissions.canCreateTask || permissions.canAssignTask;
   const needsProof = Boolean(task.proofRequired);
   const myProofStatus = split ? myShare?.proofStatus : task.proofStatus;
@@ -207,7 +204,6 @@ export default function TaskDetailScreen() {
         xp: Number(xp) || task.xp,
         repeat,
         difficulty,
-        roomId,
       });
       setEditing(false);
     } finally {
@@ -424,30 +420,6 @@ export default function TaskDetailScreen() {
                 );
               })}
             </View>
-            {rooms.length ? (
-              <>
-                <Text style={[styles.label, { color: c.textMuted }]}>Room</Text>
-                <View style={styles.chipWrap}>
-                  <Pressable
-                    onPress={() => setRoomId(undefined)}
-                    style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, !roomId && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
-                    <Text style={[styles.choiceText, { color: c.textMuted }, !roomId && { color: accentTheme.primary }]}>None</Text>
-                  </Pressable>
-                  {rooms.map((item) => {
-                    const active = roomId === item.id;
-                    return (
-                      <Pressable
-                        key={item.id}
-                        onPress={() => setRoomId(item.id)}
-                        style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
-                        <Text style={styles.choiceEmoji}>{item.emoji}</Text>
-                        <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>{item.name}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </>
-            ) : null}
           </View>
         ) : (
           <View style={[styles.card, { borderColor: glassBorder(0.08), backgroundColor: glass(0.05) }]}>
@@ -553,7 +525,6 @@ export default function TaskDetailScreen() {
               value={`${task.xp} XP${task.weight ? ` · weight ${task.weight}` : ''}${task.difficulty ? ` · ${task.difficulty}` : ''}`}
             />
             <DetailRow label="Repeat" value={task.repeat} />
-            {room ? <DetailRow label="Room" value={`${room.emoji} ${room.name}`} /> : null}
             {needsProof && !split ? (
               <DetailRow
                 label="Proof"

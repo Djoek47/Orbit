@@ -29,7 +29,7 @@ import {
 import { isSplitTask, taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { isDueToday } from '@/lib/tasks/today';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdMember, HouseholdRoom, HouseholdTask } from '@/types/orbit';
+import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
 
 type TaskFilter = 'all' | 'mine' | 'kids' | 'homework';
 
@@ -143,7 +143,6 @@ function XPBadge({
 function TaskItem({
   task,
   member,
-  room,
   accentPrimary,
   justCompleted,
   canDelete,
@@ -154,7 +153,6 @@ function TaskItem({
 }: {
   task: HouseholdTask;
   member?: HouseholdMember;
-  room?: HouseholdRoom;
   accentPrimary: string;
   justCompleted: boolean;
   canDelete: boolean;
@@ -245,13 +243,6 @@ function TaskItem({
               <Text style={[styles.metaPillText, { color: c.textMuted }]}>{task.repeat}</Text>
             </View>
           ) : null}
-          {room ? (
-            <View style={[styles.metaPill, metaPillTone]}>
-              <Text style={[styles.metaPillText, { color: c.textMuted }]}>
-                {room.emoji} {room.name}
-              </Text>
-            </View>
-          ) : null}
           {task.proofRequired ? (
             <View
               style={[
@@ -320,7 +311,6 @@ function TaskSection({
   countLabel,
   tasks,
   members,
-  rooms,
   accentPrimary,
   muted,
   allowEmpty,
@@ -339,7 +329,6 @@ function TaskSection({
   countLabel: string;
   tasks: HouseholdTask[];
   members: HouseholdMember[];
-  rooms: HouseholdRoom[];
   accentPrimary: string;
   muted?: boolean;
   allowEmpty?: boolean;
@@ -400,7 +389,6 @@ function TaskSection({
             <TaskItem
               task={task}
               member={getMember(members, task.assignee)}
-              room={rooms.find((item) => item.id === task.roomId)}
               accentPrimary={accentPrimary}
               justCompleted={justCompletedId === task.id}
               canDelete={canDelete}
@@ -432,8 +420,6 @@ export default function TasksScreen() {
   } = useOrbit();
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [focusMember, setFocusMember] = useState<string | null>(null);
-  const [roomFilter, setRoomFilter] = useState<string | null>(null);
-  const [showRoomFilter, setShowRoomFilter] = useState(false);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -466,7 +452,6 @@ export default function TasksScreen() {
     router.setParams({ member: '' } as never);
   };
 
-  const rooms = household.rooms ?? [];
   const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
@@ -480,7 +465,6 @@ export default function TasksScreen() {
       // Shared-tablet accounts only ever see their own tasks (switch account to see the other person).
       if (sharedKidMode) {
         if (!taskMatchesAssignee(task, currentMember?.name)) return false;
-        if (roomFilter && task.roomId !== roomFilter) return false;
         return true;
       }
       if (focusMember && !taskMatchesAssignee(task, focusMember)) {
@@ -493,7 +477,6 @@ export default function TasksScreen() {
         return false;
       }
       if (filter === 'homework' && !isHomework(task)) return false;
-      if (roomFilter && task.roomId !== roomFilter) return false;
       if (search.trim() && !task.title.toLowerCase().includes(search.trim().toLowerCase())) return false;
       return true;
     });
@@ -503,7 +486,6 @@ export default function TasksScreen() {
     filter,
     focusMember,
     household.tasks,
-    roomFilter,
     search,
     sharedKidMode,
   ]);
@@ -687,35 +669,14 @@ export default function TasksScreen() {
       {!sharedKidMode ? (
         <>
           <SearchBar value={search} onChangeText={setSearch} placeholder="Search tasks" />
-          <View style={styles.filterRow}>
-            <View style={{ flex: 1 }}>
-              <SegmentedControl
-                options={FILTER_TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
-                value={filter}
-                onChange={(next) => {
-                  clearFocusMember();
-                  setFilter(next);
-                }}
-              />
-            </View>
-            <Pressable
-              style={[
-                styles.filterIconButton,
-                {
-                  backgroundColor:
-                    showRoomFilter || roomFilter ? `${accentTheme.primary}2E` : glass(0.06),
-                  borderColor:
-                    showRoomFilter || roomFilter ? `${accentTheme.primary}4D` : glassBorder(0.12),
-                },
-              ]}
-              onPress={() => setShowRoomFilter((value) => !value)}>
-              <MaterialIcons
-                name="filter-list"
-                size={14}
-                color={showRoomFilter || roomFilter ? accentTheme.primary : c.textSubtle}
-              />
-            </Pressable>
-          </View>
+          <SegmentedControl
+            options={FILTER_TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
+            value={filter}
+            onChange={(next) => {
+              clearFocusMember();
+              setFilter(next);
+            }}
+          />
         </>
       ) : null}
 
@@ -734,51 +695,6 @@ export default function TasksScreen() {
           </Text>
           <MaterialIcons name="close" size={16} color={focusedAccent} />
         </Pressable>
-      ) : null}
-
-      {!sharedKidMode && showRoomFilter ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomFilterRow}>
-          <Pressable
-            onPress={() => setRoomFilter(null)}
-            style={[
-              styles.roomChip,
-              {
-                backgroundColor: !roomFilter ? `${accentTheme.primary}22` : glass(0.06),
-                borderColor: !roomFilter ? `${accentTheme.primary}44` : glassBorder(0.12),
-              },
-            ]}>
-            <Text
-              style={[
-                styles.roomChipText,
-                { color: !roomFilter ? accentTheme.primary : c.textMuted },
-              ]}>
-              All rooms
-            </Text>
-          </Pressable>
-          {rooms.map((room) => {
-            const active = roomFilter === room.id;
-            return (
-              <Pressable
-                key={room.id}
-                onPress={() => setRoomFilter(room.id)}
-                style={[
-                  styles.roomChip,
-                  {
-                    backgroundColor: active ? `${accentTheme.primary}22` : glass(0.06),
-                    borderColor: active ? `${accentTheme.primary}44` : glassBorder(0.12),
-                  },
-                ]}>
-                <Text
-                  style={[
-                    styles.roomChipText,
-                    { color: active ? accentTheme.primary : c.textMuted },
-                  ]}>
-                  {room.emoji} {room.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
       ) : null}
 
       {empty ? (
@@ -817,7 +733,6 @@ export default function TasksScreen() {
             }
             tasks={section.tasks}
             members={household.members}
-            rooms={rooms}
             accentPrimary={accentTheme.primary}
             allowEmpty
             emptyLabel="No tasks assigned"
@@ -840,7 +755,6 @@ export default function TasksScreen() {
             countLabel={`${grouped.today.length} items`}
             tasks={grouped.today}
             members={household.members}
-            rooms={rooms}
             accentPrimary={accentTheme.primary}
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
@@ -856,7 +770,6 @@ export default function TasksScreen() {
             countLabel={`${grouped.upcoming.length} items`}
             tasks={grouped.upcoming}
             members={household.members}
-            rooms={rooms}
             accentPrimary={accentTheme.primary}
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
@@ -872,7 +785,6 @@ export default function TasksScreen() {
             countLabel={`+${grouped.done.reduce((sum, task) => sum + (task.awardedXp ?? resolveTaskXpFromHouseholdTask(task, rewardSettings)), 0)} XP earned`}
             tasks={grouped.done}
             members={household.members}
-            rooms={rooms}
             accentPrimary={accentTheme.primary}
             muted
             justCompletedId={justCompletedId}
@@ -1020,21 +932,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  filterIconButton: {
-    alignItems: 'center',
-    borderRadius: radius.control,
-    borderWidth: 1,
-    height: 32,
-    justifyContent: 'center',
-    marginLeft: 'auto',
-    width: 32,
-  },
-  filterRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
   headerRow: {
     alignItems: 'flex-start',
     flexDirection: 'row',
@@ -1061,20 +958,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 4,
-  },
-  roomChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  roomChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  roomFilterRow: {
-    gap: 8,
-    paddingBottom: 2,
   },
   sectionCount: {
     fontSize: 12,
