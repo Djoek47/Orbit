@@ -13,14 +13,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet';
+import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PoppinsWaveform } from '@/components/orbit/poppins-waveform';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius, space } from '@/constants/orbit-theme';
-import {
-  buildSheetNotifications,
-  needsAttentionCount,
-} from '@/lib/poppins/notification-buckets';
 import { greetingWord } from '@/lib/time/greeting';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
@@ -101,11 +98,6 @@ export default function PoppinsScreen() {
       ),
     [localMonitorActions, poppinsMonitorActions]
   );
-
-  const bellBadgeCount = useMemo(() => {
-    const cards = buildSheetNotifications(notifications, poppinsBriefing);
-    return needsAttentionCount(cards);
-  }, [notifications, poppinsBriefing]);
 
   const applyTranscript = (role: 'user' | 'assistant', text: string) => {
     if (role === 'user') {
@@ -258,20 +250,15 @@ export default function PoppinsScreen() {
         </Text>
         <Pressable
           style={[
-            styles.bellBtn,
+            styles.activityBtn,
             {
               backgroundColor: glass(0.06),
               borderColor: glassBorder(0.1),
             },
           ]}
           onPress={() => setShowActivity(true)}
-          accessibilityLabel="Notifications and Poppins Activity">
-          <MaterialIcons name="notifications-none" size={18} color={c.textMuted} />
-          {bellBadgeCount > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{Math.min(9, bellBadgeCount)}</Text>
-            </View>
-          ) : null}
+          accessibilityLabel="Poppins Activity">
+          <PoppinsHourglass size={18} color="#2DD4BF" active={isActive || monitorFeed.length > 0} />
         </Pressable>
       </View>
 
@@ -426,6 +413,7 @@ export default function PoppinsScreen() {
       <PoppinsActivitySheet
         visible={showActivity}
         onClose={() => setShowActivity(false)}
+        variant="activity"
         notifications={notifications}
         monitorActions={monitorFeed}
         briefing={poppinsBriefing}
@@ -463,7 +451,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 1.2,
   },
-  bellBtn: {
+  activityBtn: {
     alignItems: 'center',
     borderRadius: 16,
     borderWidth: 1,
@@ -471,19 +459,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 36,
   },
-  badge: {
-    alignItems: 'center',
-    backgroundColor: '#EF4444',
-    borderRadius: 8,
-    height: 16,
-    justifyContent: 'center',
-    minWidth: 16,
-    position: 'absolute',
-    right: -2,
-    top: -2,
-    paddingHorizontal: 3,
-  },
-  badgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   stage: {
     alignItems: 'center',
     flex: 1,

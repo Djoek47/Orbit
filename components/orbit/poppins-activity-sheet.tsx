@@ -35,6 +35,9 @@ import type {
 
 type SheetTab = 'notifications' | 'activity';
 
+/** `inbox` = header bell (Notifications + Activity). `activity` = Poppins tab (Activity only). */
+export type PoppinsSheetVariant = 'inbox' | 'activity';
+
 type ActivityItem = {
   id: string;
   action: string;
@@ -170,6 +173,8 @@ function BreathingDot({ color, delay }: { color: string; delay: number }) {
 type PoppinsActivitySheetProps = {
   visible: boolean;
   onClose: () => void;
+  /** Header bell uses `inbox`; Poppins tab uses `activity` only. */
+  variant?: PoppinsSheetVariant;
   notifications: NotificationItem[];
   monitorActions: PoppinsMonitorAction[];
   briefing?: PoppinsBriefing | null;
@@ -183,6 +188,7 @@ type PoppinsActivitySheetProps = {
 export function PoppinsActivitySheet({
   visible,
   onClose,
+  variant = 'inbox',
   notifications,
   monitorActions,
   briefing,
@@ -194,8 +200,15 @@ export function PoppinsActivitySheet({
 }: PoppinsActivitySheetProps) {
   const insets = useSafeAreaInsets();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
-  const [tab, setTab] = useState<SheetTab>('notifications');
+  const activityOnly = variant === 'activity';
+  const [tab, setTab] = useState<SheetTab>(activityOnly ? 'activity' : 'notifications');
   const [dismissed, setDismissed] = useState<string[]>([]);
+  const showingActivity = activityOnly || tab === 'activity';
+
+  useEffect(() => {
+    if (!visible) return;
+    setTab(activityOnly ? 'activity' : 'notifications');
+  }, [activityOnly, visible]);
 
   const cards = useMemo(
     () =>
@@ -320,13 +333,15 @@ export function PoppinsActivitySheet({
               style={[
                 styles.headerIcon,
                 {
-                  backgroundColor:
-                    tab === 'activity' ? 'rgba(45,212,191,0.1)' : 'rgba(248,113,113,0.1)',
-                  borderColor:
-                    tab === 'activity' ? 'rgba(45,212,191,0.25)' : 'rgba(248,113,113,0.25)',
+                  backgroundColor: showingActivity
+                    ? 'rgba(45,212,191,0.1)'
+                    : 'rgba(248,113,113,0.1)',
+                  borderColor: showingActivity
+                    ? 'rgba(45,212,191,0.25)'
+                    : 'rgba(248,113,113,0.25)',
                 },
               ]}>
-              {tab === 'activity' ? (
+              {showingActivity ? (
                 <PoppinsHourglass size={18} color="#2DD4BF" active={poppinsActive} />
               ) : (
                 <MaterialIcons name="notifications" size={16} color="#F87171" />
@@ -334,10 +349,10 @@ export function PoppinsActivitySheet({
             </View>
             <View>
               <Text style={[typography.headline, { color: c.text }]}>
-                {tab === 'activity' ? 'Poppins Activity' : 'Notifications'}
+                {showingActivity ? 'Poppins Activity' : 'Notifications'}
               </Text>
               <Text style={[typography.caption1, { color: c.textMuted }]}>
-                {tab === 'activity'
+                {showingActivity
                   ? poppinsActive
                     ? 'Poppins is active in the background'
                     : 'All quiet'
@@ -354,6 +369,7 @@ export function PoppinsActivitySheet({
           </Pressable>
         </View>
 
+        {!activityOnly ? (
         <View style={[styles.tabs, { backgroundColor: glass(0.05) }]}>
           {(['notifications', 'activity'] as const).map((t) => {
             const active = tab === t;
@@ -397,12 +413,13 @@ export function PoppinsActivitySheet({
             );
           })}
         </View>
+        ) : null}
 
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          {tab === 'notifications' ? (
+          {!showingActivity ? (
             <Animated.View key="notifs" entering={FadeIn.duration(180)} style={{ gap: 20 }}>
               {groups.length === 0 ? (
                 <Text style={[typography.footnote, { color: c.textMuted }]}>
