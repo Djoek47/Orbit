@@ -15,6 +15,11 @@ Companion files still required when implementing full seeds from external CSV/Pa
 - `choremaxx_tasks.csv` (authoritative XP SoT if re-importing)
 - `choremaxx-100-trophies-part1.md` (trophy names/tiers/conditions)
 
-The in-repo task library at `data/choremaxx-task-library.ts` (T001–T150) is the current seeded reference for Expo mock mode.
+The in-repo task library at `data/choremaxx-task-library.ts` (T001–T150) is the current seeded reference for Expo mock mode. Validate with `npm run test:task-library`.
 
-Run engine checks: `npm run test:trophies`.
+Run engine checks:
+
+- `npm run test:reward-mode`
+- `npm run test:streak-engine`
+- `npm run test:trophies`
+- `npm run test:task-library`
