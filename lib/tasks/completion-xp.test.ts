@@ -1,5 +1,6 @@
 /**
- * Completion XP snapshot / no double-penalty — `npm run test:completion-xp`.
+ * Completion XP snapshot — late never docks XP (v2 §5.2).
+ * `npm run test:completion-xp`
  */
 
 import { resolveCompletionXp } from '@/lib/tasks/xp';
@@ -31,20 +32,8 @@ assert(onTime.penalty === 0, 'no penalty on time');
 
 const late = resolveCompletionXp(task({ status: 'Overdue', due: 'Overdue' }), settings);
 assert(late.late === true, 'late flagged');
-assert(late.penalty > 0, 'late penalty applied once');
-assert(late.awarded === late.base - late.penalty, 'awarded = base - penalty');
-
-// Snapshot path: consumers must use awardedXp, not re-resolve with late again.
-const snap = late.awarded;
-const wronglyReResolved = resolveCompletionXp(
-  task({ status: 'Overdue', due: 'Overdue', awardedXp: snap, xp: snap }),
-  settings
-);
-assert(
-  wronglyReResolved.awarded < snap || wronglyReResolved.penalty > 0,
-  're-resolve would double-penalize — awardTaskXp must use awardedXp snapshot'
-);
-assert(snap === late.awarded, 'snapshot stable');
+assert(late.penalty === 0, 'late never docks XP');
+assert(late.awarded === late.base, 'full XP when late');
 
 const hygieneOff = resolveCompletionXp(
   task({ category: 'Hygiene', xp: 0, tracking: 'streak', status: 'Pending', due: 'Today' }),

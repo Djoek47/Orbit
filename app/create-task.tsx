@@ -19,6 +19,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { StreakMarker } from '@/components/orbit/streak-marker';
+import { TaskPicker } from '@/components/orbit/task-picker';
 import { XpWheel } from '@/components/orbit/xp-wheel';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -47,11 +48,13 @@ import {
 } from '@/lib/rewards/reward-mode';
 import { formatAssigneeLabel } from '@/lib/tasks/split-assign';
 import { computeTaskXp, weightForDifficulty } from '@/lib/tasks/xp';
+import { allLibraryTasks } from '@/lib/tasks/task-library';
+import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask, TaskDifficulty } from '@/types/orbit';
 
 type TaskType = 'task' | 'homework';
-type ScreenMode = 'presets' | 'custom' | 'library';
+type ScreenMode = 'picker' | 'presets' | 'custom' | 'library';
 
 export type TaskPreset = {
   id: string;
@@ -303,7 +306,8 @@ export default function CreateTaskScreen() {
   const showHygieneLibrary =
     libraryAudience === 'family' && childMembers.length > 0;
 
-  const [mode, setMode] = useState<ScreenMode>('presets');
+  const [mode, setMode] = useState<ScreenMode>('picker');
+  const [pickerIds, setPickerIds] = useState<string[]>([]);
   const [type, setType] = useState<TaskType>('task');
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState<(typeof subjects)[number]['label']>('Math');
@@ -733,6 +737,101 @@ export default function CreateTaskScreen() {
 
     router.back();
   };
+
+  const assignFromPicker = () => {
+    if (!permissions.canAssignTask || pickerIds.length === 0) return;
+    const library = allLibraryTasks();
+    const byId = new Map(library.map((t) => [t.id, t]));
+    const assignee =
+      resolvedAssigneeName ||
+      activeMembers.find((m) => m.id === selectedIds[0])?.name ||
+      'Unassigned';
+    for (const id of pickerIds) {
+      const task = byId.get(id);
+      if (!task) continue;
+      const dueAt = dueAtForFrequency(task.defaultFrequency);
+      createTask({
+        title: task.name,
+        category: task.domainId,
+        assignee,
+        due: dueAt ? 'Today' : 'As needed',
+        dueAt: dueAt?.toISOString(),
+        xp: task.xp,
+        baseXp: task.xp,
+        xpEligible: task.tracking === 'xp',
+        tracking: task.tracking,
+        repeat:
+          task.defaultFrequency === 'daily'
+            ? 'Daily'
+            : task.defaultFrequency === 'weekdays'
+              ? 'Weekdays'
+              : task.defaultFrequency === 'weekly' || task.defaultFrequency === '2x_weekly'
+                ? 'Weekly'
+                : 'None',
+      });
+    }
+    router.back();
+  };
+
+  if (mode === 'picker') {
+    return (
+      <View
+        style={[
+          orbitScreen.container,
+          { paddingBottom: insets.bottom, backgroundColor: orbitPalette.background },
+        ]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.handleWrap, { paddingTop: insets.top + 8 }]}>
+          <View style={[styles.handle, { backgroundColor: glass(0.2) }]} />
+        </View>
+        <ScrollView
+          style={orbitScreen.container}
+          contentContainerStyle={styles.tripContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
+          <View style={orbitScreen.header}>
+            <View style={styles.tripNavRow}>
+              <Pressable
+                onPress={() => router.back()}
+                style={[styles.backPill, { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) }]}
+                hitSlop={8}>
+                <MaterialIcons name="chevron-left" size={20} color={orbitPalette.text} />
+                <Text style={[styles.backPillText, { color: orbitPalette.text }]}>Close</Text>
+              </Pressable>
+            </View>
+            <Text style={[typography.footnote, { color: orbitPalette.textMuted }]}>Create task</Text>
+            <Text style={[typography.title1, { color: orbitPalette.text }]}>Assign chores</Text>
+            <Text style={[styles.summary, { color: orbitPalette.textMuted }]}>
+              Search or browse domains. {pickerIds.length} selected.
+            </Text>
+          </View>
+          <TaskPicker
+            selectedIds={pickerIds}
+            onChange={setPickerIds}
+            tab={type === 'homework' ? 'homework' : 'chores'}
+            onRequestCustom={() => setMode('custom')}
+          />
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+            <Pressable onPress={() => setMode('presets')} style={{ flex: 1 }}>
+              <Text style={{ color: orbitPalette.textMuted, textAlign: 'center', fontWeight: '600' }}>
+                Quick presets
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => setMode('custom')} style={{ flex: 1 }}>
+              <Text style={{ color: orbitPalette.textMuted, textAlign: 'center', fontWeight: '600' }}>
+                Custom task
+              </Text>
+            </Pressable>
+          </View>
+          <OrbitButton
+            disabled={!permissions.canAssignTask || pickerIds.length === 0}
+            onPress={assignFromPicker}>
+            Assign {pickerIds.length || ''} task{pickerIds.length === 1 ? '' : 's'}
+          </OrbitButton>
+        </ScrollView>
+      </View>
+    );
+  }
 
   if (mode === 'presets') {
     const activeMeta = CATALOG_CHIP_META[catalogChip];

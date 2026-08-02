@@ -107,9 +107,9 @@ export const rewardsRepository = {
     const reward: Reward = {
       id: createLocalId('reward'),
       title: input.title.trim(),
-      cost: Math.max(1, Math.round(input.cost)),
+      cost: Math.max(0, Math.round(input.cost ?? 0)),
       approvalRequired: input.approvalRequired ?? true,
-      emoji: input.emoji,
+      emoji: undefined,
       category: input.category ?? (input.specialRequest ? 'Special' : 'Privilege'),
       color: input.color,
       specialRequest: input.specialRequest ?? origin === 'special-request',
@@ -118,6 +118,11 @@ export const rewardsRepository = {
       createdByName: input.createdByName,
       assignedMemberId: input.assignedMemberId,
       assignedMemberName: input.assignedMemberName,
+      frequency: input.frequency,
+      quantity: input.quantity,
+      subtitle: input.subtitle,
+      isCustom: input.isCustom,
+      presetId: input.presetId,
       archived: false,
     };
 

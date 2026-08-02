@@ -27,6 +27,7 @@ const statusTone: Record<HouseholdTask['status'], string> = {
   Completed: '#34D399',
   Overdue: '#F87171',
   Cancelled: '#94A3B8',
+  Missed: '#F59E0B',
 };
 
 const categories = ['Cleaning', 'Kitchen', 'Laundry', 'School', 'Homework', 'Groceries', 'Pets', 'Maintenance', 'General'];

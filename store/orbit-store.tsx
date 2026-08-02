@@ -31,10 +31,19 @@ import {
 } from '@/lib/notifications/audience';
 import { registerForPushNotifications, scheduleLocalReminder } from '@/lib/notifications/push';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
+import { getV2Permissions } from '@/lib/permissions-v2';
 import { persistHouseholdScore } from '@/lib/momentum/score-writer';
 import { subscribeHouseholdRealtime } from '@/lib/realtime/household-realtime';
+import {
+  DEFAULT_REWARD_MODEL,
+  capabilitiesFor,
+  type RewardModel,
+  type RewardModelCapabilities,
+} from '@/lib/rewards/reward-model';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { spawnNextOccurrence } from '@/lib/tasks/recurring';
+import { completedLateFlag } from '@/lib/tasks/occurrence-status';
+import { initialVerification } from '@/lib/tasks/verification';
 import {
   allSharesCompleted,
   allSharesSettled,
@@ -181,6 +190,10 @@ type OrbitContextValue = {
   poppinsMonitorActions: PoppinsMonitorAction[];
   poppinsWeeklyBriefing: PoppinsWeeklyBriefing;
   permissions: HouseholdPermissions;
+  /** v2 Admin/Member capability matrix (§1.6). */
+  v2Permissions: ReturnType<typeof getV2Permissions>;
+  /** Derived from household.rewardModel (§2.2). */
+  rewardCapabilities: RewardModelCapabilities;
   notifications: NotificationItem[];
   unreadNotificationCount: number;
   pendingRedemptions: RewardRedemption[];
@@ -401,6 +414,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     return getPermissionsForRole(currentMember?.role ?? 'guest');
   }, [currentMember?.role, currentMember?.status]);
+  const v2Permissions = useMemo(
+    () => getV2Permissions(currentMember?.role),
+    [currentMember?.role]
+  );
+  const rewardCapabilities = useMemo(
+    () => capabilitiesFor(household.rewardModel ?? DEFAULT_REWARD_MODEL),
+    [household.rewardModel]
+  );
   const metrics = useMemo(() => calculateMetrics(household), [household]);
   const membersWithProgress = useMemo(
     () => household.members.map((member) => calculateMemberProgress(member, household.tasks)),
@@ -730,6 +751,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const createdNext = {
       ...createdHousehold,
       rooms,
+      rewardModel: input.rewardModel ?? createdHousehold.rewardModel ?? DEFAULT_REWARD_MODEL,
+      rewardMode: input.rewardMode ?? createdHousehold.rewardMode ?? 'weighted',
+      setupComplete: input.setupComplete ?? createdHousehold.setupComplete ?? false,
     };
     setHousehold(createdNext);
     void saveHouseholdRooms(createdHousehold.id, rooms);
@@ -985,8 +1009,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
       const late = isTaskLate(currentTask);
       const baseShare = splitShareXp(currentTask);
-      const latePenalty = late ? Math.floor(baseShare * 0.25) : 0;
-      const awarded = Math.max(0, baseShare - latePenalty);
+      // v2 §5.2: late never docks XP
+      const latePenalty = 0;
+      const awarded = Math.max(0, baseShare);
 
       const nextShares = currentTask.shares.map((item) =>
         item.name === forAssignee
@@ -1046,29 +1071,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
 
       let nextOccurrence: HouseholdTask | null = null;
-      if (saved.status === 'Completed') {
-        const spawned = spawnNextOccurrence(currentTask);
-        if (spawned) {
-          nextOccurrence = await taskRepository.createTask(household.id, {
-            title: spawned.title,
-            description: spawned.description,
-            category: spawned.category,
-            assignee: getTaskAssignees(spawned)[0] ?? spawned.assignee,
-            assignees: isSplitTask(spawned) ? getTaskAssignees(spawned) : undefined,
-            due: spawned.due,
-            xp: spawned.xp,
-            repeat: spawned.repeat,
-            weight: spawned.weight,
-            difficulty: spawned.difficulty,
-            tracking: spawned.tracking,
-            proofRequired: spawned.proofRequired,
-            roomId: spawned.roomId,
-            splitXpEach: spawned.splitXpEach,
-            splitBonusXp: spawned.splitBonusXp,
-            splitPenaltyXp: spawned.splitPenaltyXp,
-          });
-        }
-      }
+      // v2 §5.2: completion never spawns the next occurrence.
+      void nextOccurrence;
 
       let nextHouseholdSnapshot: HouseholdSnapshot | null = null;
       setHousehold((current) => {
@@ -1095,7 +1099,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         nextHouseholdSnapshot = {
           ...current,
           members,
-          tasks: nextOccurrence ? [nextOccurrence, ...tasks] : tasks,
+          tasks,
         };
         return nextHouseholdSnapshot;
       });
@@ -1134,32 +1138,29 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       currentTask.proofStatus !== 'approved';
 
     const { awarded, penalty, late } = resolveCompletionXp(currentTask, rewardSettings);
+    const lateMeta = completedLateFlag(completedAt, currentTask.dueAt);
+    const verification = initialVerification(Boolean(currentTask.proofRequired));
     const completedWithXp: HouseholdTask = {
       ...currentTask,
       status: 'Completed',
       awardedXp: awarded,
       completedAt,
+      verification,
+      proofRounds: currentTask.proofRounds ?? [],
+      proofPhotoUrls: currentTask.proofUri
+        ? [currentTask.proofUri, ...(currentTask.proofPhotoUrls ?? [])]
+        : currentTask.proofPhotoUrls ?? [],
+      completedLate: lateMeta.completedLate || late,
+      latenessMinutes: lateMeta.latenessMinutes,
+      // Keep legacy proofStatus in sync for older UI until fully migrated.
+      proofStatus: currentTask.proofRequired
+        ? currentTask.proofStatus === 'submitted' || currentTask.proofStatus === 'approved'
+          ? currentTask.proofStatus
+          : 'none'
+        : 'none',
     };
     const completedTask = await taskRepository.completeTask(completedWithXp, household.id);
-    const spawned = spawnNextOccurrence(currentTask);
-    let nextOccurrence: HouseholdTask | null = null;
-    if (spawned) {
-      nextOccurrence = await taskRepository.createTask(household.id, {
-        title: spawned.title,
-        description: spawned.description,
-        category: spawned.category,
-        assignee: getTaskAssignees(spawned)[0] ?? spawned.assignee,
-        assignees: isSplitTask(spawned) ? getTaskAssignees(spawned) : undefined,
-        due: spawned.due,
-        xp: spawned.xp,
-        repeat: spawned.repeat,
-        weight: spawned.weight,
-        difficulty: spawned.difficulty,
-        tracking: spawned.tracking,
-        proofRequired: spawned.proofRequired,
-        roomId: spawned.roomId,
-      });
-    }
+    // v2 §5.2: completion never spawns the next occurrence (time-based only).
 
     let nextHouseholdSnapshot: HouseholdSnapshot | null = null;
     setHousehold((current) => {
@@ -1182,7 +1183,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
               }
             : member
         ),
-        tasks: nextOccurrence ? [nextOccurrence, ...tasks] : tasks,
+        tasks,
       };
       return nextHouseholdSnapshot;
     });
@@ -2308,9 +2309,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     ) {
       return null;
     }
-    if ((currentMember.xp ?? 0) < reward.cost) {
-      return null;
-    }
+    // v2 §6.1: rewards are not purchased with XP — no affordability gate / debit.
 
     const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
 
@@ -2331,22 +2330,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updated,
       ...current.filter((item) => item.id !== redemption.id),
     ]);
-    // Mock approve is status-only — debit XP once here.
-    // Supabase approve already deducts; reload domains instead of double-subtract.
-    if (dataMode === 'mock') {
-      setHousehold((current) => {
-        const next = {
-          ...current,
-          members: current.members.map((member) =>
-            member.id === currentMember.id
-              ? { ...member, xp: Math.max(0, member.xp - reward.cost) }
-              : member
-          ),
-        };
-        void persistMockHouseholdSnapshot(next);
-        return next;
-      });
-    } else {
+    if (dataMode !== 'mock') {
       await reloadHouseholdDomains();
     }
     // Assigned one-shots leave the catalog after instant claim; shared catalog stays.
@@ -2356,7 +2340,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await poppinsNotifications.rewardClaimed(pushNotification, prefs, {
       title: reward.title,
       memberName: currentMember.name,
-      cost: reward.cost,
+      cost: reward.cost ?? 0,
       redemptionId: redemption.id,
       audienceRoles: [...REWARD_REVIEW_ROLES],
     });
@@ -2408,7 +2392,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
       await poppinsNotifications.rewardAssigned(pushNotification, prefs, {
         title: reward.title,
-        cost: reward.cost,
+        cost: reward.cost ?? 0,
         rewardId: reward.id,
         assignedByName: currentMember?.name ?? 'Admin',
         audienceMemberIds: [reward.assignedMemberId],
@@ -2439,20 +2423,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       current.map((item) => (item.id === redemptionId ? updated : item))
     );
     if (pending && reward) {
-      if (dataMode === 'mock') {
-        setHousehold((current) => {
-          const next = {
-            ...current,
-            members: current.members.map((member) =>
-              member.id === pending.memberId
-                ? { ...member, xp: Math.max(0, member.xp - reward.cost) }
-                : member
-            ),
-          };
-          void persistMockHouseholdSnapshot(next);
-          return next;
-        });
-      }
+      // v2 §6.1: approving a reward never deducts XP.
       if (reward.assignedMemberId) {
         await archiveReward(reward.id);
       }
@@ -2625,7 +2596,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       throw new Error('Only a parent/admin can create kid invites.');
     }
 
-    const trimmed = [...new Set(names.map((name) => name.trim()).filter(Boolean))].slice(0, 2);
+    const trimmed = [...new Set(names.map((name) => name.trim()).filter(Boolean))].slice(0, 12);
     if (trimmed.length === 0) {
       throw new Error('Add at least one kid name.');
     }
@@ -2999,6 +2970,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       poppinsMonitorActions,
       poppinsWeeklyBriefing,
       permissions,
+      v2Permissions,
+      rewardCapabilities,
       notifications: visibleNotifications,
       unreadNotificationCount,
       pendingRedemptions,

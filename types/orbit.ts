@@ -103,9 +103,31 @@ export type HouseholdTask = {
   tracking?: 'xp' | 'streak';
   proofRequired?: boolean;
   proofUri?: string;
+  /** @deprecated Prefer `verification` + `proofRounds` (v2 §1.7). */
   proofStatus?: 'none' | 'submitted' | 'approved' | 'rejected';
+  /**
+   * Oversight layer — separate from status. XP awards on Complete tap.
+   * `not_required` | `unreviewed` | `confirmed` | `proof_requested` | `rejected`
+   */
+  verification?:
+    | 'not_required'
+    | 'unreviewed'
+    | 'confirmed'
+    | 'proof_requested'
+    | 'rejected';
+  proofPhotoUrls?: string[];
+  proofRounds?: { note?: string; requestedAt: string; requestedByMemberId?: string }[];
+  verifiedBy?: string;
+  verifiedAt?: string;
+  /** True when completedAt > dueAt (informational; never reduces XP). */
+  completedLate?: boolean;
+  latenessMinutes?: number;
+  /** Recurring rule id when Definition/Occurrence split is active. */
+  definitionId?: string;
+  /** Local calendar day key YYYY-MM-DD for occurrence uniqueness. */
+  occurrenceDate?: string;
   repeat: 'None' | 'Daily' | 'Weekly' | 'Weekdays';
-  status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue' | 'Cancelled';
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue' | 'Cancelled' | 'Missed';
   dueAt?: string;
   /** ISO timestamp when the task was completed (household-local day checks). */
   completedAt?: string;
@@ -265,8 +287,13 @@ export type RewardOrigin = 'minted' | 'special-request';
 export type Reward = {
   id: string;
   title: string;
-  cost: number;
+  /**
+   * @deprecated v2 §6.1 — rewards are not purchased with XP.
+   * Kept optional for legacy rows; treat missing/0 as free grant.
+   */
+  cost?: number;
   approvalRequired: boolean;
+  /** @deprecated v2 §6.2 — no emoji on reward surfaces. */
   emoji?: string;
   category?: string;
   color?: string;
@@ -279,6 +306,14 @@ export type Reward = {
   /** When set, only this member (and admins) see the reward in the vault. */
   assignedMemberId?: string;
   assignedMemberName?: string;
+  /** Grant cadence — daily / weekly / monthly (§6.2). */
+  frequency?: 'daily' | 'weekly' | 'monthly';
+  /** e.g. "30 min" for screen-time tiers. */
+  quantity?: string;
+  subtitle?: string;
+  isCustom?: boolean;
+  /** Library preset id when minted from REWARD_PRESETS. */
+  presetId?: string;
 };
 
 /** Cash / privilege allowance — admin grants or member requests, admin approves. */
@@ -388,6 +423,8 @@ export type CreateTaskInput = {
   splitPenaltyXp?: number;
   due: string;
   xp: number;
+  baseXp?: number;
+  xpEligible?: boolean;
   repeat: HouseholdTask['repeat'];
   description?: string;
   weight?: number;
@@ -429,7 +466,8 @@ export type CreateItineraryInput = {
 
 export type CreateRewardInput = {
   title: string;
-  cost: number;
+  /** @deprecated v2 §6.1 — always pass 0. */
+  cost?: number;
   approvalRequired?: boolean;
   emoji?: string;
   specialRequest?: boolean;
@@ -440,6 +478,11 @@ export type CreateRewardInput = {
   createdByName?: string;
   assignedMemberId?: string;
   assignedMemberName?: string;
+  frequency?: 'daily' | 'weekly' | 'monthly';
+  quantity?: string;
+  subtitle?: string;
+  isCustom?: boolean;
+  presetId?: string;
 };
 
 export type CreateAllowanceInput = {
@@ -526,6 +569,14 @@ export type CreateHouseholdInput = {
   type?: HouseholdType;
   /** Selected during create. Defaults applied when omitted. */
   rooms?: HouseholdRoom[];
+  rewardModel?:
+    | 'xp_only'
+    | 'allowance'
+    | 'xp_rewards'
+    | 'xp_allowance'
+    | 'full';
+  rewardMode?: 'weighted' | 'flat';
+  setupComplete?: boolean;
 };
 
 export type JoinHouseholdInput = {
@@ -561,8 +612,21 @@ export type HouseholdSnapshot = {
   /**
    * Household-scoped XP scoring (Meritocracy vs Equity + hygiene opt-in).
    * Defaults: weighted, hygieneRewarded false, hygieneXp 5.
+   * `weighted` ≡ meritocracy, `flat` ≡ equity (§2 / §3.2).
    */
   rewardMode?: 'weighted' | 'flat';
+  /**
+   * How chores feel — XP / allowance / rewards subsystems (§2.2).
+   * Screens must read CAPABILITIES via `capabilitiesFor(rewardModel)`.
+   */
+  rewardModel?:
+    | 'xp_only'
+    | 'allowance'
+    | 'xp_rewards'
+    | 'xp_allowance'
+    | 'full';
+  /** False until roster Create household / finish-later path settles (§3.4). */
+  setupComplete?: boolean;
   hygieneRewarded?: boolean;
   hygieneXp?: 5 | 10;
   /** IANA timezone for streak/day boundaries. Default America/Toronto. */

@@ -238,11 +238,7 @@ export default function RewardsScreen() {
     ] as const
   ).filter((t) => t.show);
 
-  const handleClaim = async (rewardId: string, cost: number) => {
-    if ((currentMember?.xp ?? 0) < cost) {
-      Alert.alert('Not enough XP', `You need ${cost} XP to claim this.`);
-      return;
-    }
+  const handleClaim = async (rewardId: string) => {
     setClaimingId(rewardId);
     try {
       const result = await claimReward(rewardId);
@@ -345,7 +341,10 @@ export default function RewardsScreen() {
                         {member?.name ?? 'Member'} wants {reward?.title ?? 'a reward'}
                       </Text>
                       <Text style={[typography.caption1, { color: c.textSubtle }]}>
-                        {reward?.cost ?? 0} XP · {relativeTime(redemption.requestedAt)}
+                        {reward?.frequency
+                          ? `${reward.frequency[0].toUpperCase()}${reward.frequency.slice(1)}`
+                          : 'Reward'}{' '}
+                        · {relativeTime(redemption.requestedAt)}
                       </Text>
                     </View>
                     <View style={styles.pendingActions}>
@@ -372,7 +371,6 @@ export default function RewardsScreen() {
 
           <View style={styles.vaultGrid}>
             {catalogRewards.map((reward, index) => {
-              const canAfford = (currentMember?.xp ?? 0) >= reward.cost;
               return (
                 <Animated.View
                   key={reward.id}
@@ -382,11 +380,11 @@ export default function RewardsScreen() {
                     reward={reward}
                     accent={accentTheme.primary}
                     canRedeem={canRedeem}
-                    canAfford={canAfford}
+                    canAfford
                     busy={claimingId === reward.id}
                     isAdmin={isAdmin}
                     statusLabel={isAdmin && !canRedeem ? 'Active' : undefined}
-                    onClaim={() => handleClaim(reward.id, reward.cost)}
+                    onClaim={() => handleClaim(reward.id)}
                     onArchive={
                       isAdmin ? () => void archiveReward(reward.id) : undefined
                     }

@@ -12,6 +12,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { orbitTabColors, radius, shadow, space } from '@/constants/orbit-theme';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
+import { capabilitiesFor, DEFAULT_REWARD_MODEL } from '@/lib/rewards/reward-model';
 import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 
@@ -58,10 +59,12 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   }, [orbit?.currentMember, orbit?.household.members]);
 
   const canAffordRedeem = useMemo(() => {
-    const xp = orbit?.currentMember?.xp ?? 0;
+    const caps = capabilitiesFor(orbit?.household.rewardModel ?? DEFAULT_REWARD_MODEL);
+    if (!caps.rewardsEnabled) return false;
     const rewards = orbit?.household.rewards ?? [];
-    return rewards.some((reward) => !reward.archived && reward.cost > 0 && xp >= reward.cost);
-  }, [orbit?.currentMember?.xp, orbit?.household.rewards]);
+    // v2 §6.1: rewards are grants, not XP purchases — animate when any live reward exists.
+    return rewards.some((reward) => !reward.archived);
+  }, [orbit?.household.rewardModel, orbit?.household.rewards]);
 
   const rewardsCycle = useMemo(() => {
     if (isChildMode) {

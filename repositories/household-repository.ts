@@ -126,7 +126,9 @@ export const householdRepository = {
         householdType: 'family',
         inviteCode: createInviteCode(),
         greetingName: user.name,
-        rewardMode: 'weighted',
+        rewardMode: input.rewardMode ?? 'weighted',
+        rewardModel: input.rewardModel ?? 'full',
+        setupComplete: input.setupComplete ?? false,
         hygieneRewarded: false,
         hygieneXp: 5,
         rooms:

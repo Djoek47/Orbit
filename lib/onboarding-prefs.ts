@@ -1,5 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import {
+  DEFAULT_REWARD_MODEL,
+  migrateLegacyRewardModel,
+  type RewardModel,
+} from '@/lib/rewards/reward-model';
 import type { RewardMode } from '@/lib/rewards/reward-mode';
 import type { HouseholdRole } from '@/types/orbit';
 
@@ -8,6 +13,7 @@ export type OnboardingRole = 'parent' | 'child' | 'shared-tablet';
 /** Legacy roles kept only so old AsyncStorage prefs can be migrated. */
 type LegacyOnboardingRole = OnboardingRole | 'caregiver' | 'roommate';
 
+/** @deprecated Prefer RewardModel — kept for AsyncStorage migration. */
 export type MotivationMode =
   | 'none'
   | 'allowance'
@@ -19,7 +25,8 @@ export type MotivationMode =
 
 export type OnboardingPrefs = {
   role: OnboardingRole;
-  motivation: MotivationMode;
+  /** ChoreMaxx v2 §2 reward model. */
+  rewardModel: RewardModel;
   /** Meritocracy (`weighted`) vs Equity (`flat`). Defaults to weighted when missing. */
   rewardMode?: RewardMode;
   completedAt: string;
@@ -59,6 +66,7 @@ export const ONBOARDING_ROLES: {
   },
 ];
 
+/** @deprecated Use REWARD_MODEL_OPTIONS from reward-model.ts */
 export const ONBOARDING_MOTIVATIONS: {
   id: MotivationMode;
   emoji: string;
@@ -66,13 +74,11 @@ export const ONBOARDING_MOTIVATIONS: {
   desc: string;
   wide?: boolean;
 }[] = [
-  { id: 'none', emoji: '🧘', label: 'No rewards', desc: 'Quiet focus, no points' },
   { id: 'xp', emoji: '⚡', label: 'XP only', desc: 'Levels that celebrate effort' },
-  { id: 'xp_rewards', emoji: '🎁', label: 'XP + Rewards', desc: 'Points unlock fun prizes' },
   { id: 'allowance', emoji: '💰', label: 'Allowance', desc: 'Real money for real help' },
+  { id: 'xp_rewards', emoji: '🎁', label: 'XP + Rewards', desc: 'Points unlock fun prizes' },
   { id: 'allowance_xp', emoji: '🌟', label: 'Allowance + XP', desc: 'Money and levels together' },
   { id: 'allowance_rewards', emoji: '🏆', label: 'Full System', desc: 'Allowance, XP & rewards', wide: true },
-  { id: 'custom', emoji: '✏️', label: 'Custom', desc: 'Tune it later in Settings', wide: true },
 ];
 
 /** Splash micro-hooks (Design 8 glass onboarding). */
@@ -96,6 +102,27 @@ function normalizeRewardMode(value: string | undefined): RewardMode {
   return value === 'flat' ? 'flat' : 'weighted';
 }
 
+function motivationToRewardModel(motivation: MotivationMode | string | undefined): RewardModel {
+  switch (motivation) {
+    case 'none':
+      return 'xp_only';
+    case 'xp':
+      return 'xp_only';
+    case 'allowance':
+      return 'allowance';
+    case 'xp_rewards':
+      return 'xp_rewards';
+    case 'allowance_xp':
+      return 'xp_allowance';
+    case 'allowance_rewards':
+      return 'full';
+    case 'custom':
+      return migrateLegacyRewardModel({ legacy: 'custom' });
+    default:
+      return DEFAULT_REWARD_MODEL;
+  }
+}
+
 export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
   try {
     const raw = await AsyncStorage.getItem(KEY);
@@ -103,19 +130,28 @@ export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
     const parsed = JSON.parse(raw) as {
       role?: string;
       motivation?: MotivationMode;
+      rewardModel?: RewardModel | string;
       rewardMode?: RewardMode | string;
       completedAt?: string;
     };
     const role = normalizeOnboardingRole(parsed.role);
-    const motivation = parsed.motivation ?? 'xp';
+    const rewardModel =
+      (parsed.rewardModel as RewardModel | undefined) ??
+      motivationToRewardModel(parsed.motivation) ??
+      DEFAULT_REWARD_MODEL;
     const rewardMode = normalizeRewardMode(parsed.rewardMode);
     const prefs: OnboardingPrefs = {
       role,
-      motivation,
+      rewardModel: migrateLegacyRewardModel({ legacy: rewardModel }),
       rewardMode,
       completedAt: parsed.completedAt ?? new Date().toISOString(),
     };
-    if (parsed.role === 'caregiver' || parsed.role === 'roommate' || parsed.rewardMode == null) {
+    if (
+      parsed.role === 'caregiver' ||
+      parsed.role === 'roommate' ||
+      parsed.rewardMode == null ||
+      parsed.rewardModel == null
+    ) {
       await AsyncStorage.setItem(KEY, JSON.stringify(prefs));
     }
     return prefs;
@@ -125,11 +161,14 @@ export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
 }
 
 export async function saveOnboardingPrefs(
-  prefs: Omit<OnboardingPrefs, 'completedAt'>,
+  prefs: Omit<OnboardingPrefs, 'completedAt'> & { motivation?: MotivationMode }
 ): Promise<OnboardingPrefs> {
+  const rewardModel =
+    prefs.rewardModel ??
+    (prefs.motivation ? motivationToRewardModel(prefs.motivation) : DEFAULT_REWARD_MODEL);
   const next: OnboardingPrefs = {
     role: normalizeOnboardingRole(prefs.role),
-    motivation: prefs.motivation,
+    rewardModel: migrateLegacyRewardModel({ legacy: rewardModel }),
     rewardMode: normalizeRewardMode(prefs.rewardMode),
     completedAt: new Date().toISOString(),
   };
@@ -158,3 +197,5 @@ export function onboardingRoleToHouseholdRole(role: OnboardingRole): HouseholdRo
 export function skipsMotivation(role: OnboardingRole) {
   return role === 'child' || role === 'shared-tablet';
 }
+
+export { motivationToRewardModel };

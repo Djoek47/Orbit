@@ -135,6 +135,8 @@ export function taskStatusToDb(status: HouseholdTask['status']) {
     Completed: 'completed',
     Overdue: 'overdue',
     Cancelled: 'cancelled',
+    // DB enum not yet extended — persist missed as overdue until migration.
+    Missed: 'overdue',
   } as const;
   return map[status];
 }

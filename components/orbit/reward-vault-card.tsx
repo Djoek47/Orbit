@@ -12,6 +12,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { radius, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -34,7 +35,7 @@ type RewardVaultCardProps = {
 
 /**
  * Make-style 2-column reward box — whole-card hold-to-redeem with glass fill.
- * Calls existing claimReward via onClaim; no store logic here.
+ * v2 §6: no emoji, no XP cost — frequency grants only.
  */
 export function RewardVaultCard({
   reward,
@@ -58,16 +59,17 @@ export function RewardVaultCard({
   const shimmer = useSharedValue(0);
 
   const interactive = canRedeem && canAfford && !busy;
+  const frequencyLabel = reward.frequency
+    ? reward.frequency.charAt(0).toUpperCase() + reward.frequency.slice(1)
+    : null;
   const hint =
     !canRedeem
       ? statusLabel ?? (isAdmin ? 'Active' : 'Locked')
-      : !canAfford
-        ? 'Not yet'
-        : holding
-          ? 'Hold…'
-          : mode === 'request'
-            ? 'Hold to request'
-            : 'Hold to redeem';
+      : holding
+        ? 'Hold…'
+        : mode === 'request'
+          ? 'Hold to request'
+          : 'Hold to redeem';
 
   const resetVisual = () => {
     cancelAnimation(progress);
@@ -141,7 +143,7 @@ export function RewardVaultCard({
         onPressIn={startHold}
         onPressOut={clearHold}
         accessibilityRole="button"
-        accessibilityLabel={`${reward.title}, ${reward.cost} XP. ${hint}`}
+        accessibilityLabel={`${reward.title}. ${hint}`}
         accessibilityHint={
           interactive ? 'Hold until the card fills to redeem' : undefined
         }
@@ -171,19 +173,19 @@ export function RewardVaultCard({
           ]}
         />
 
-        <Text style={styles.emoji}>{reward.emoji || '🎁'}</Text>
+        <View style={[styles.iconWrap, { backgroundColor: `${color}22` }]}>
+          <MaterialIcons name="card-giftcard" size={22} color={color} />
+        </View>
         <Text style={[typography.headline, styles.title, { color: c.text }]} numberOfLines={2}>
           {reward.title}
         </Text>
         <Text style={[typography.caption1, { color: c.textSubtle, marginTop: 2 }]}>
-          {reward.category?.trim() || 'Reward'}
+          {reward.subtitle?.trim() || reward.category?.trim() || 'Reward'}
+          {reward.quantity ? ` · ${reward.quantity}` : ''}
         </Text>
 
         <View style={styles.footer}>
-          <View style={styles.costRow}>
-            <Text style={{ fontSize: 12 }}>⚡</Text>
-            <Text style={[styles.cost, { color }]}>{reward.cost}</Text>
-          </View>
+          <Text style={[styles.freq, { color }]}>{frequencyLabel ?? 'Anytime'}</Text>
           <View
             style={[
               styles.statusPill,
@@ -246,7 +248,13 @@ const styles = StyleSheet.create({
   shimmer: {
     ...StyleSheet.absoluteFillObject,
   },
-  emoji: { fontSize: 28 },
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: { marginTop: 8, fontWeight: '700' },
   footer: {
     marginTop: 'auto',
@@ -256,8 +264,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  costRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  cost: { fontSize: 15, fontWeight: '800' },
+  freq: { fontSize: 13, fontWeight: '700' },
   statusPill: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
