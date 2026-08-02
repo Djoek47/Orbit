@@ -445,7 +445,7 @@ export default function RewardsScreen() {
                 <View style={styles.pendingHead}>
                   <MaterialIcons name="payments" size={16} color="#F59E0B" />
                   <Text style={[typography.headline, { color: '#F59E0B' }]}>
-                    This Week&apos;s Payroll
+                    This Week&apos;s Allowance
                   </Text>
                 </View>
                 <View style={styles.payrollRow}>
@@ -453,7 +453,7 @@ export default function RewardsScreen() {
                     <Text style={[typography.title2, { color: c.text }]}>
                       {pendingAllowances.length}
                     </Text>
-                    <Text style={[typography.caption1, { color: c.textSubtle }]}>Open items</Text>
+                    <Text style={[typography.caption1, { color: c.textSubtle }]}>Unpaid</Text>
                   </View>
                   <View>
                     <Text style={[typography.title2, { color: '#34D399' }]}>
@@ -510,7 +510,7 @@ export default function RewardsScreen() {
                       onPress={() => router.push('/grant-allowance' as never)}
                       style={[styles.allowBtn, { backgroundColor: `${accentTheme.primary}22` }]}>
                       <Text style={{ color: accentTheme.primary, fontWeight: '700', fontSize: 12 }}>
-                        Pay Now
+                        Send Allowance
                       </Text>
                     </Pressable>
                     <Pressable
@@ -831,25 +831,6 @@ export default function RewardsScreen() {
                   ))}
               </View>
             </GlassCard>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push('/household-games' as never)}
-            style={[
-              styles.gamesCard,
-              {
-                borderColor: `${accentTheme.primary}44`,
-                backgroundColor: glassFill(isDark),
-              },
-            ]}>
-            <Text style={{ fontSize: 22 }}>🎮</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={[typography.headline, { color: c.text }]}>Household Games</Text>
-              <Text style={[typography.footnote, { color: c.textSoft }]}>
-                Drinking games, Uno, guessing nights — coming soon.
-              </Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={18} color={accentTheme.primary} />
           </Pressable>
         </Animated.View>
       ) : null}

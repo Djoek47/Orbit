@@ -74,10 +74,6 @@ export default function RootLayout() {
             name="shopping-recommendations"
             options={{ presentation: 'modal', headerShown: false, title: 'Store Recommendations' }}
           />
-          <Stack.Screen
-            name="household-games"
-            options={{ presentation: 'modal', headerShown: false, title: 'Household Games' }}
-          />
           <Stack.Screen name="smart-home" options={{ title: 'Smart Home' }} />
           <Stack.Screen name="analytics" options={{ title: 'Analytics' }} />
           <Stack.Screen name="task/[id]" options={{ title: 'Task' }} />
