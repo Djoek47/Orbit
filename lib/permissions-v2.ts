@@ -54,7 +54,8 @@ const MEMBER: V2Permissions = {
 };
 
 export function toV2Role(role: HouseholdRole | null | undefined): V2Role {
-  if (role === 'owner' || role === 'admin') return 'admin';
+  // owner / admin / adult are parent-like and may assign. child/guest/shared → member.
+  if (role === 'owner' || role === 'admin' || role === 'adult') return 'admin';
   return 'member';
 }
 

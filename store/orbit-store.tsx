@@ -224,7 +224,7 @@ type OrbitContextValue = {
   declineMember: (memberId: string) => Promise<void>;
   createHousehold: (input: CreateHouseholdInput) => Promise<void>;
   createProfile: (input: CreateProfileInput) => Promise<void>;
-  createTask: (input: CreateTaskInput) => void;
+  createTask: (input: CreateTaskInput) => Promise<HouseholdTask | null>;
   updateTask: (task: HouseholdTask) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   completeTask: (
@@ -832,36 +832,49 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     );
   };
 
-  const createTask = async (input: CreateTaskInput) => {
+  const createTask = async (input: CreateTaskInput): Promise<HouseholdTask | null> => {
     if (!v2Permissions.canAssignOrEditTask && !permissions.canCreateTask) {
-      return;
+      console.warn('createTask blocked: no assign/create permission', {
+        role: currentMember?.role,
+        v2: v2Permissions.canAssignOrEditTask,
+        create: permissions.canCreateTask,
+      });
+      return null;
     }
     const task = await taskRepository.createTask(household.id, input);
-    setHousehold((current) => {
-      const nextTemplates: TaskTemplate[] = input.saveAsTemplate
-        ? [
-            {
-              id: `tpl-${task.id}`,
-              title: task.title,
-              category: task.category,
-              baseXp: input.xp,
-              difficulty: input.difficulty ?? 'easy',
-              weight: input.weight ?? 1,
-              repeat: task.repeat,
-              proofRequired: Boolean(input.proofRequired),
-              description: task.description,
-              householdScoped: true,
-            },
-            ...(current.taskTemplates ?? []),
-          ]
-        : current.taskTemplates ?? [];
-      return {
-        ...current,
-        tasks: [task, ...current.tasks],
-        taskTemplates: nextTemplates,
-      };
+    // Functional update so batched assigns don't clobber each other with a stale closure.
+    const nextHousehold = await new Promise<HouseholdSnapshot>((resolve) => {
+      setHousehold((current) => {
+        const nextTemplates: TaskTemplate[] = input.saveAsTemplate
+          ? [
+              {
+                id: `tpl-${task.id}`,
+                title: task.title,
+                category: task.category,
+                baseXp: input.xp,
+                difficulty: input.difficulty ?? 'easy',
+                weight: input.weight ?? 1,
+                repeat: task.repeat,
+                proofRequired: Boolean(input.proofRequired),
+                description: task.description,
+                householdScoped: true,
+              },
+              ...(current.taskTemplates ?? []),
+            ]
+          : current.taskTemplates ?? [];
+        const next: HouseholdSnapshot = {
+          ...current,
+          tasks: [task, ...current.tasks],
+          taskTemplates: nextTemplates,
+        };
+        resolve(next);
+        return next;
+      });
     });
+    // Persist so getHousehold() → seedMockDomains cannot wipe newly assigned tasks.
+    await persistMockHouseholdSnapshot(nextHousehold);
     await trackAnalytics('task.created', { taskId: task.id }, analyticsContext);
+    return task;
   };
 
   const updateTask = async (task: HouseholdTask) => {

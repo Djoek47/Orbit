@@ -517,7 +517,7 @@ export default function WelcomeOnboardingScreen() {
           (c) => c.name.trim().toLowerCase() === member.name.trim().toLowerCase()
         );
         for (const task of tasksFromDraftMember(member)) {
-          createTask(task);
+          await createTask(task);
         }
         for (const reward of rewardsFromDraftMember(member)) {
           await createReward({

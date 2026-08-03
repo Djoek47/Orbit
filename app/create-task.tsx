@@ -753,7 +753,7 @@ export default function CreateTaskScreen() {
     router.back();
   };
 
-  const assignFromPicker = () => {
+  const assignFromPicker = async () => {
     if (!permissions.canAssignTask || pickerIds.length === 0) return;
     if (resolvedAssigneeNames.length === 0) {
       Alert.alert('Pick someone', 'Choose who should do these tasks before assigning.');
@@ -761,10 +761,13 @@ export default function CreateTaskScreen() {
     }
     const library = allLibraryTasks();
     const byId = new Map(library.map((t) => [t.id, t]));
+    let createdCount = 0;
+    let blocked = false;
     for (const id of pickerIds) {
       const task = byId.get(id);
       if (!task) continue;
       const dueAt = dueAtForFrequency(task.defaultFrequency);
+      const occurrenceDate = dueAt ? dueAt.toISOString().slice(0, 10) : undefined;
       const payload = buildTaskPayload({
         title: task.name,
         category: task.domainId,
@@ -783,6 +786,7 @@ export default function CreateTaskScreen() {
         proofRequired: false,
         tracking: task.tracking,
       });
+      const definitionId = `lib:${task.id}:${payload.assignee}`;
       // Hygiene tasks always go to kids — if parent picked an adult, fall back to children.
       if (task.tracking === 'streak') {
         const kids = childMembers.map((m) => m.name);
@@ -792,24 +796,49 @@ export default function CreateTaskScreen() {
           : kids.includes(payload.assignee)
             ? [payload.assignee]
             : [kids[0]];
-        createTask({
+        const created = await createTask({
           ...payload,
           assignee: kidNames[0],
           assignees: kidNames.length > 1 ? kidNames : undefined,
           dueAt: dueAt?.toISOString(),
           baseXp: 0,
           xpEligible: false,
+          definitionId: `lib:${task.id}:${kidNames[0]}`,
+          occurrenceDate,
         });
+        if (created) createdCount += 1;
+        else blocked = true;
         continue;
       }
-      createTask({
+      const created = await createTask({
         ...payload,
         dueAt: dueAt?.toISOString(),
         baseXp: task.xp,
         xpEligible: true,
+        definitionId,
+        occurrenceDate,
       });
+      if (created) createdCount += 1;
+      else blocked = true;
     }
-    router.back();
+
+    if (createdCount === 0) {
+      Alert.alert(
+        'Nothing assigned',
+        blocked
+          ? 'You need an admin profile to assign chores. Switch to a parent account and try again.'
+          : 'No matching tasks were created. Try selecting tasks again.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Assigned',
+      createdCount === 1
+        ? `1 task assigned to ${resolvedAssigneeName}.`
+        : `${createdCount} tasks assigned to ${resolvedAssigneeName}.`,
+      [{ text: 'OK', onPress: () => router.back() }]
+    );
   };
 
   if (mode === 'picker') {
@@ -904,7 +933,7 @@ export default function CreateTaskScreen() {
               pickerIds.length === 0 ||
               resolvedAssigneeNames.length === 0
             }
-            onPress={assignFromPicker}>
+            onPress={() => void assignFromPicker()}>
             Assign {pickerIds.length || ''} task{pickerIds.length === 1 ? '' : 's'}
             {resolvedAssigneeName ? ` · ${resolvedAssigneeName}` : ''}
           </OrbitButton>
