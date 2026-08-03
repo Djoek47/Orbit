@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -487,6 +488,13 @@ export default function CreateTaskScreen() {
     setProofRequired(false);
   }, [isHygieneDraft, childMembers]);
 
+  // Seed assignee when household members load (picker/custom can mount before roster is ready).
+  useEffect(() => {
+    if (selectedIds.length > 0) return;
+    const pool = isHygieneDraft ? childMembers : activeMembers;
+    if (pool[0]) setSelectedIds([pool[0].id]);
+  }, [activeMembers, childMembers, isHygieneDraft, selectedIds.length]);
+
   const selectedMembers = useMemo(
     () => assigneeChoices.filter((member) => selectedIds.includes(member.id)),
     [assigneeChoices, selectedIds],
@@ -747,26 +755,21 @@ export default function CreateTaskScreen() {
 
   const assignFromPicker = () => {
     if (!permissions.canAssignTask || pickerIds.length === 0) return;
+    if (resolvedAssigneeNames.length === 0) {
+      Alert.alert('Pick someone', 'Choose who should do these tasks before assigning.');
+      return;
+    }
     const library = allLibraryTasks();
     const byId = new Map(library.map((t) => [t.id, t]));
-    const assignee =
-      resolvedAssigneeName ||
-      activeMembers.find((m) => m.id === selectedIds[0])?.name ||
-      'Unassigned';
     for (const id of pickerIds) {
       const task = byId.get(id);
       if (!task) continue;
       const dueAt = dueAtForFrequency(task.defaultFrequency);
-      createTask({
+      const payload = buildTaskPayload({
         title: task.name,
         category: task.domainId,
-        assignee,
         due: dueAt ? 'Today' : 'As needed',
-        dueAt: dueAt?.toISOString(),
         xp: task.xp,
-        baseXp: task.xp,
-        xpEligible: task.tracking === 'xp',
-        tracking: task.tracking,
         repeat:
           task.defaultFrequency === 'daily'
             ? 'Daily'
@@ -775,6 +778,35 @@ export default function CreateTaskScreen() {
               : task.defaultFrequency === 'weekly' || task.defaultFrequency === '2x_weekly'
                 ? 'Weekly'
                 : 'None',
+        difficulty: 'medium',
+        weight: 1,
+        proofRequired: false,
+        tracking: task.tracking,
+      });
+      // Hygiene tasks always go to kids — if parent picked an adult, fall back to children.
+      if (task.tracking === 'streak') {
+        const kids = childMembers.map((m) => m.name);
+        if (kids.length === 0) continue;
+        const kidNames = payload.assignees?.length
+          ? payload.assignees.filter((n) => kids.includes(n))
+          : kids.includes(payload.assignee)
+            ? [payload.assignee]
+            : [kids[0]];
+        createTask({
+          ...payload,
+          assignee: kidNames[0],
+          assignees: kidNames.length > 1 ? kidNames : undefined,
+          dueAt: dueAt?.toISOString(),
+          baseXp: 0,
+          xpEligible: false,
+        });
+        continue;
+      }
+      createTask({
+        ...payload,
+        dueAt: dueAt?.toISOString(),
+        baseXp: task.xp,
+        xpEligible: true,
       });
     }
     router.back();
@@ -809,9 +841,45 @@ export default function CreateTaskScreen() {
             <Text style={[typography.footnote, { color: orbitPalette.textMuted }]}>Create task</Text>
             <Text style={[typography.title1, { color: orbitPalette.text }]}>Assign chores</Text>
             <Text style={[styles.summary, { color: orbitPalette.textMuted }]}>
-              Search or browse domains. {pickerIds.length} selected.
+              Pick who first, then browse domains. {pickerIds.length} selected.
             </Text>
           </View>
+
+          {permissions.canAssignTask ? (
+            <GlassCard style={styles.heroCard}>
+              <Text style={[styles.poppinsLabel, { color: c.poppinsCyan }]}>WHO&apos;S DOING IT</Text>
+              <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
+                Tap a person for these tasks. Hold a second profile to split.
+              </Text>
+              {activeMembers.length === 0 ? (
+                <Text style={[typography.footnote, { color: c.warning }]}>
+                  No household members yet — add people in Settings, then come back.
+                </Text>
+              ) : (
+                <AssignEmojiGrid
+                  members={assigneeChoices}
+                  selectedIds={selectedIds}
+                  splitMode={splitMode}
+                  sharedDeviceIds={sharedDeviceMemberIds}
+                  onSelect={selectAssignee}
+                  onLongPress={longPressAssignee}
+                />
+              )}
+              {resolvedAssigneeName ? (
+                <Text style={[typography.footnote, { color: orbitPalette.textMuted }]}>
+                  Assigning to {resolvedAssigneeName}
+                  {isSplitAssign ? ' · split XP when each finishes' : ''}
+                </Text>
+              ) : null}
+            </GlassCard>
+          ) : (
+            <GlassCard style={styles.heroCard}>
+              <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
+                Only an admin can assign chores. Ask a parent to switch profiles.
+              </Text>
+            </GlassCard>
+          )}
+
           <TaskPicker
             selectedIds={pickerIds}
             onChange={setPickerIds}
@@ -831,9 +899,14 @@ export default function CreateTaskScreen() {
             </Pressable>
           </View>
           <OrbitButton
-            disabled={!permissions.canAssignTask || pickerIds.length === 0}
+            disabled={
+              !permissions.canAssignTask ||
+              pickerIds.length === 0 ||
+              resolvedAssigneeNames.length === 0
+            }
             onPress={assignFromPicker}>
             Assign {pickerIds.length || ''} task{pickerIds.length === 1 ? '' : 's'}
+            {resolvedAssigneeName ? ` · ${resolvedAssigneeName}` : ''}
           </OrbitButton>
         </ScrollView>
       </View>
