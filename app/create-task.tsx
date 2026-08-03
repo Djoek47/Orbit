@@ -763,6 +763,7 @@ export default function CreateTaskScreen() {
     const byId = new Map(library.map((t) => [t.id, t]));
     let createdCount = 0;
     let blocked = false;
+    let lastError = '';
     for (const id of pickerIds) {
       const task = byId.get(id);
       if (!task) continue;
@@ -787,47 +788,53 @@ export default function CreateTaskScreen() {
         tracking: task.tracking,
       });
       const definitionId = `lib:${task.id}:${payload.assignee}`;
-      // Hygiene tasks always go to kids — if parent picked an adult, fall back to children.
-      if (task.tracking === 'streak') {
-        const kids = childMembers.map((m) => m.name);
-        if (kids.length === 0) continue;
-        const kidNames = payload.assignees?.length
-          ? payload.assignees.filter((n) => kids.includes(n))
-          : kids.includes(payload.assignee)
-            ? [payload.assignee]
-            : [kids[0]];
+      try {
+        if (task.tracking === 'streak') {
+          const kids = childMembers.map((m) => m.name);
+          if (kids.length === 0) continue;
+          const kidNames = payload.assignees?.length
+            ? payload.assignees.filter((n) => kids.includes(n))
+            : kids.includes(payload.assignee)
+              ? [payload.assignee]
+              : [kids[0]];
+          const created = await createTask({
+            ...payload,
+            assignee: kidNames[0],
+            assignees: kidNames.length > 1 ? kidNames : undefined,
+            dueAt: dueAt?.toISOString(),
+            baseXp: 0,
+            xpEligible: false,
+            definitionId: `lib:${task.id}:${kidNames[0]}`,
+            occurrenceDate,
+          });
+          if (created) createdCount += 1;
+          else blocked = true;
+          continue;
+        }
         const created = await createTask({
           ...payload,
-          assignee: kidNames[0],
-          assignees: kidNames.length > 1 ? kidNames : undefined,
           dueAt: dueAt?.toISOString(),
-          baseXp: 0,
-          xpEligible: false,
-          definitionId: `lib:${task.id}:${kidNames[0]}`,
+          baseXp: task.xp,
+          xpEligible: true,
+          definitionId,
           occurrenceDate,
         });
         if (created) createdCount += 1;
         else blocked = true;
-        continue;
+      } catch (error) {
+        blocked = true;
+        lastError = error instanceof Error ? error.message : 'Unknown error';
       }
-      const created = await createTask({
-        ...payload,
-        dueAt: dueAt?.toISOString(),
-        baseXp: task.xp,
-        xpEligible: true,
-        definitionId,
-        occurrenceDate,
-      });
-      if (created) createdCount += 1;
-      else blocked = true;
     }
 
     if (createdCount === 0) {
       Alert.alert(
         'Nothing assigned',
-        blocked
-          ? 'You need an admin profile to assign chores. Switch to a parent account and try again.'
-          : 'No matching tasks were created. Try selecting tasks again.'
+        lastError
+          ? `Could not save tasks: ${lastError}`
+          : blocked
+            ? 'Could not save tasks to the household. Check you are signed in as an admin and try again.'
+            : 'No matching tasks were created. Try selecting tasks again.'
       );
       return;
     }
