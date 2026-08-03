@@ -82,7 +82,7 @@ export function TaskPicker({
   tab = 'chores',
   onRequestCustom,
 }: TaskPickerProps) {
-  const { c, glass, glassBorder } = useOrbitColors();
+  const { c, glass, glassBorder, isDark } = useOrbitColors();
   const [query, setQuery] = useState('');
   const [domainSheet, setDomainSheet] = useState<TaskDomain | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -321,8 +321,16 @@ export function TaskPicker({
       ) : null}
 
       <Modal visible={Boolean(domainSheet)} animationType="slide" transparent>
-        <View style={styles.sheetScrim}>
-          <View style={[styles.sheet, { backgroundColor: c.card ?? '#111827' }]}>
+        <View style={[styles.sheetScrim, { backgroundColor: isDark ? 'rgba(0,0,0,0.72)' : 'rgba(15,28,42,0.45)' }]}>
+          {/* Opaque sheet — never use glass/card rgba here or the domain grid bleeds through. */}
+          <View
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: c.backgroundSoft,
+                borderColor: glassBorder(0.12),
+              },
+            ]}>
             <View style={styles.sheetHead}>
               <Text style={[typography.title3, { color: c.text }]}>{domainSheet?.name}</Text>
               <Pressable onPress={() => setDomainSheet(null)} hitSlop={12}>
@@ -334,10 +342,21 @@ export function TaskPicker({
                 Hygiene builds a daily streak instead of XP.
               </Text>
             ) : null}
-            <ScrollView>{domainSheet ? renderGroupList(domainSheet.groups) : null}</ScrollView>
+            <ScrollView
+              style={{ backgroundColor: c.backgroundSoft }}
+              contentContainerStyle={{ backgroundColor: c.backgroundSoft }}>
+              {domainSheet ? renderGroupList(domainSheet.groups) : null}
+            </ScrollView>
             <Pressable
               onPress={() => setDomainSheet(null)}
-              style={[styles.doneBtn, { backgroundColor: glass(0.12) }]}>
+              style={[
+                styles.doneBtn,
+                {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,28,42,0.08)',
+                  borderColor: glassBorder(0.14),
+                  borderWidth: StyleSheet.hairlineWidth,
+                },
+              ]}>
               <Text style={[typography.headline, { color: c.text }]}>Done</Text>
             </Pressable>
           </View>
@@ -416,14 +435,15 @@ const styles = StyleSheet.create({
   sheetScrim: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   sheet: {
     maxHeight: '78%',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
     padding: 16,
     gap: 8,
+    overflow: 'hidden',
   },
   sheetHead: {
     flexDirection: 'row',
