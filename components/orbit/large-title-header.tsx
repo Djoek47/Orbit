@@ -45,7 +45,7 @@ export function LargeTitleHeader({
     <View style={styles.root}>
       <Animated.Text
         style={[typography.largeTitle, styles.title, { color: c.text, lineHeight: fromSize + 4 }, animatedStyle]}
-        numberOfLines={1}>
+        numberOfLines={2}>
         {title}
       </Animated.Text>
     </View>

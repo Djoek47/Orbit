@@ -95,6 +95,17 @@ export function mapTaskRow(row: {
   proof_required?: boolean | null;
   proof_uri?: string | null;
   proof_status?: 'none' | 'submitted' | 'approved' | 'rejected' | null;
+  definition_id?: string | null;
+  occurrence_date?: string | null;
+  due_at?: string | null;
+  completed_at?: string | null;
+  awarded_xp?: number | null;
+  completed_late?: boolean | null;
+  verification?: HouseholdTask['verification'] | null;
+  proof_photo_urls?: string[] | null;
+  proof_rounds?: HouseholdTask['proofRounds'] | null;
+  verified_by?: string | null;
+  verified_at?: string | null;
 }): HouseholdTask {
   const proofStatus =
     row.proof_status === 'none' ||
@@ -121,6 +132,17 @@ export function mapTaskRow(row: {
     proofRequired: row.proof_required ?? undefined,
     proofUri: row.proof_uri ?? undefined,
     proofStatus,
+    definitionId: row.definition_id ?? undefined,
+    occurrenceDate: row.occurrence_date ?? undefined,
+    dueAt: row.due_at ?? undefined,
+    completedAt: row.completed_at ?? undefined,
+    awardedXp: row.awarded_xp ?? undefined,
+    completedLate: row.completed_late ?? undefined,
+    verification: row.verification ?? undefined,
+    proofPhotoUrls: Array.isArray(row.proof_photo_urls) ? row.proof_photo_urls : undefined,
+    proofRounds: Array.isArray(row.proof_rounds) ? row.proof_rounds : undefined,
+    verifiedBy: row.verified_by ?? undefined,
+    verifiedAt: row.verified_at ?? undefined,
   };
 }
 

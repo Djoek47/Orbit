@@ -41,8 +41,19 @@ import {
   type RewardModelCapabilities,
 } from '@/lib/rewards/reward-model';
 import { formatLocalDate } from '@/lib/streaks/local-date';
-import { spawnNextOccurrence } from '@/lib/tasks/recurring';
+import {
+  ensureOccurrencesForDay,
+  rolloverMissedOccurrences,
+  seriesDefinitionId,
+} from '@/lib/tasks/recurring';
 import { completedLateFlag } from '@/lib/tasks/occurrence-status';
+import {
+  autoConfirmUnreviewed,
+  confirmTaskVerification,
+  markTaskNotDone,
+  requestAnotherProofOnTask,
+  resubmitProofPhoto,
+} from '@/lib/tasks/proof-actions';
 import { initialVerification } from '@/lib/tasks/verification';
 import {
   allSharesCompleted,
@@ -229,6 +240,14 @@ type OrbitContextValue = {
   } | null>;
   submitTaskProof: (taskId: string, proofUri: string, options?: { forAssignee?: string }) => Promise<void>;
   approveTaskProof: (taskId: string, options?: { forAssignee?: string }) => Promise<void>;
+  /** Admin: confirm completion verification (XP already awarded). */
+  confirmVerification: (taskId: string) => Promise<boolean>;
+  /** Admin: ask for another photo (max 3 rounds). XP untouched. */
+  requestAnotherProof: (taskId: string, note?: string) => Promise<boolean>;
+  /** Admin: reverse XP and return task to pending/missed within 7 days. */
+  markNotDone: (taskId: string, note?: string) => Promise<boolean>;
+  /** Foreground catch-up: auto-confirm, materialise occurrences, mark missed. */
+  runOccurrenceCatchUp: () => Promise<void>;
   /** Admin: dock XP from someone who did not finish their share of a split task. */
   penalizeSplitAssignee: (taskId: string, assigneeName: string) => Promise<number | null>;
   /** Reassign overdue / unfinished work — new assignee earns XP on complete. */
@@ -814,6 +833,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const createTask = async (input: CreateTaskInput) => {
+    if (!v2Permissions.canAssignOrEditTask && !permissions.canCreateTask) {
+      return;
+    }
     const task = await taskRepository.createTask(household.id, input);
     setHousehold((current) => {
       const nextTemplates: TaskTemplate[] = input.saveAsTemplate
@@ -843,6 +865,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const updateTask = async (task: HouseholdTask) => {
+    if (!v2Permissions.canAssignOrEditTask && !permissions.canAssignTask) {
+      return;
+    }
     const updated = await taskRepository.updateTask(task);
     setHousehold((current) => ({
       ...current,
@@ -866,10 +891,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       (isSplitTask(currentTask) ? currentMember?.name : undefined) ||
       currentTask.assignee;
 
+    const withProof = resubmitProofPhoto(currentTask, proofUri);
     let updated: HouseholdTask;
     if (isSplitTask(currentTask) && currentTask.shares) {
       updated = await taskRepository.updateTask({
-        ...currentTask,
+        ...withProof,
         shares: currentTask.shares.map((share) =>
           share.name === forAssignee
             ? { ...share, proofUri, proofStatus: 'submitted' }
@@ -878,11 +904,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         status: currentTask.status === 'Pending' ? 'In Progress' : currentTask.status,
       });
     } else {
-      updated = await taskRepository.updateTask({
-        ...currentTask,
-        proofUri,
-        proofStatus: 'submitted',
-      });
+      updated = await taskRepository.updateTask(withProof);
     }
 
     setHousehold((current) => ({
@@ -906,44 +928,207 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const approveTaskProof = async (taskId: string, options?: { forAssignee?: string }) => {
+    await confirmVerification(taskId);
+    void options;
+  };
+
+  const confirmVerification = async (taskId: string) => {
+    if (!v2Permissions.canApproveCompletion) return false;
     const currentTask = household.tasks.find((item) => item.id === taskId);
-    if (!currentTask) {
-      return;
-    }
-
-    const forAssignee =
-      options?.forAssignee?.trim() ||
-      (isSplitTask(currentTask) ? currentMember?.name : undefined) ||
-      currentTask.assignee;
-
-    let updated: HouseholdTask;
-    if (isSplitTask(currentTask) && currentTask.shares) {
-      updated = await taskRepository.updateTask({
-        ...currentTask,
-        shares: currentTask.shares.map((share) =>
-          share.name === forAssignee ? { ...share, proofStatus: 'approved' } : share
-        ),
-      });
-    } else {
-      updated = await taskRepository.updateTask({
-        ...currentTask,
-        proofStatus: 'approved',
-      });
-    }
-
+    if (!currentTask || !currentMember) return false;
+    const result = confirmTaskVerification(currentTask, currentMember.id);
+    if (!result.ok) return false;
+    const updated = await taskRepository.updateTask(result.task);
     setHousehold((current) => ({
       ...current,
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
     const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    const assigneeMember = household.members.find((member) => member.name === forAssignee);
+    const assigneeMember = household.members.find((member) => member.name === currentTask.assignee);
     await poppinsNotifications.proofApproved(pushNotification, prefs, {
       title: currentTask.title,
       taskId,
       audienceRoles: assigneeMember ? [assigneeMember.role] : undefined,
     });
-    await trackAnalytics('task.proof_approved', { taskId, forAssignee }, analyticsContext);
+    await trackAnalytics('task.verification_confirmed', { taskId }, analyticsContext);
+    return true;
   };
+
+  const requestAnotherProof = async (taskId: string, note?: string) => {
+    if (!v2Permissions.canRequestProof) return false;
+    const currentTask = household.tasks.find((item) => item.id === taskId);
+    if (!currentTask || !currentMember) return false;
+    const result = requestAnotherProofOnTask(currentTask, currentMember.id, note);
+    if (!result.ok) return false;
+    const updated = await taskRepository.updateTask(result.task);
+    setHousehold((current) => ({
+      ...current,
+      tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
+    }));
+    await pushNotification({
+      title: 'Poppins · Another photo please',
+      body: note?.trim()
+        ? `${currentMember.name}: ${note.trim()}`
+        : `${currentMember.name} asked for another photo of “${currentTask.title}”.`,
+      category: 'tasks',
+      priority: 'high',
+      data: { taskId, kind: 'proof_requested' },
+    });
+    await trackAnalytics('task.proof_requested', { taskId }, analyticsContext);
+    return true;
+  };
+
+  const markNotDone = async (taskId: string, note?: string) => {
+    if (!v2Permissions.canApproveCompletion) return false;
+    const currentTask = household.tasks.find((item) => item.id === taskId);
+    if (!currentTask || !currentMember) return false;
+    const result = markTaskNotDone(currentTask);
+    if (!result.ok) return false;
+    const updated = await taskRepository.updateTask(result.task);
+    const reversed = result.reversedXp ?? 0;
+    const completionDay = currentTask.completedAt
+      ? formatLocalDate(new Date(currentTask.completedAt))
+      : null;
+    const todayKey = formatLocalDate(new Date());
+    const remainingToday = household.tasks.some(
+      (task) =>
+        task.id !== taskId &&
+        task.status === 'Completed' &&
+        taskMatchesAssignee(task, currentTask.assignee) &&
+        task.completedAt &&
+        formatLocalDate(new Date(task.completedAt)) === (completionDay ?? todayKey)
+    );
+    setHousehold((current) => ({
+      ...current,
+      tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
+      members: current.members.map((member) => {
+        if (member.name !== currentTask.assignee) return member;
+        const streak =
+          !remainingToday && completionDay === todayKey
+            ? Math.max(0, (member.streak ?? 0) - 1)
+            : member.streak ?? 0;
+        if (streak !== (member.streak ?? 0)) {
+          void import('@/lib/streaks/mock-streak-store').then(({ syncChildStreakCurrent }) => {
+            syncChildStreakCurrent(member.id, streak);
+          });
+        }
+        return {
+          ...member,
+          xp: Math.max(0, member.xp - reversed),
+          weekXp: Math.max(0, (member.weekXp ?? 0) - reversed),
+          streak,
+        };
+      }),
+    }));
+    await pushNotification({
+      title: 'Poppins · Not done yet',
+      body: note?.trim()
+        ? `${currentMember.name} marked “${currentTask.title}” as not done yet. ${note.trim()}`
+        : `${currentMember.name} marked “${currentTask.title}” as not done yet.`,
+      category: 'tasks',
+      priority: 'high',
+      data: { taskId, kind: 'marked_not_done', reversedXp: reversed },
+    });
+    await trackAnalytics('task.marked_not_done', { taskId, reversed }, analyticsContext);
+    return true;
+  };
+
+  const runOccurrenceCatchUp = async () => {
+    const now = new Date();
+    let nextTasks = autoConfirmUnreviewed(household.tasks, now);
+
+    // Cold-start: resolve intervening days (up to 14) then materialise today.
+    const LOOKBACK_DAYS = 7;
+    for (let offset = LOOKBACK_DAYS; offset >= 1; offset -= 1) {
+      const day = new Date(now);
+      day.setDate(day.getDate() - offset);
+      const dayKey = formatLocalDate(day);
+      nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now);
+      const dayDrafts = ensureOccurrencesForDay(nextTasks, day);
+      for (const draft of dayDrafts) {
+        const exists = nextTasks.some(
+          (t) =>
+            t.definitionId === draft.definitionId &&
+            t.occurrenceDate === draft.occurrenceDate
+        );
+        if (exists || !household.id) continue;
+        const row = await taskRepository.createTask(household.id, {
+          title: draft.title,
+          description: draft.description,
+          category: draft.category,
+          assignee: getTaskAssignees(draft)[0] ?? draft.assignee,
+          assignees: isSplitTask(draft) ? getTaskAssignees(draft) : undefined,
+          due: draft.due,
+          dueAt: draft.dueAt,
+          xp: draft.xp,
+          baseXp: draft.baseXp,
+          xpEligible: draft.xpEligible,
+          repeat: draft.repeat,
+          weight: draft.weight,
+          difficulty: draft.difficulty,
+          tracking: draft.tracking,
+          proofRequired: draft.proofRequired,
+          definitionId: draft.definitionId ?? seriesDefinitionId(draft),
+          occurrenceDate: draft.occurrenceDate,
+        });
+        nextTasks = [row, ...nextTasks];
+      }
+      // After creating past-day open rows, mark them missed if still pending.
+      nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now);
+    }
+
+    const todayDrafts = ensureOccurrencesForDay(nextTasks, now);
+    const created: HouseholdTask[] = [];
+    for (const draft of todayDrafts) {
+      const exists = nextTasks.some(
+        (t) =>
+          t.definitionId === draft.definitionId &&
+          t.occurrenceDate === draft.occurrenceDate
+      );
+      if (exists || !household.id) continue;
+      const row = await taskRepository.createTask(household.id, {
+        title: draft.title,
+        description: draft.description,
+        category: draft.category,
+        assignee: getTaskAssignees(draft)[0] ?? draft.assignee,
+        assignees: isSplitTask(draft) ? getTaskAssignees(draft) : undefined,
+        due: draft.due,
+        dueAt: draft.dueAt,
+        xp: draft.xp,
+        baseXp: draft.baseXp,
+        xpEligible: draft.xpEligible,
+        repeat: draft.repeat,
+        weight: draft.weight,
+        difficulty: draft.difficulty,
+        tracking: draft.tracking,
+        proofRequired: draft.proofRequired,
+        definitionId: draft.definitionId ?? seriesDefinitionId(draft),
+        occurrenceDate: draft.occurrenceDate,
+      });
+      created.push(row);
+    }
+
+    const merged = [...created, ...nextTasks];
+    // Persist auto-confirm / missed transitions for changed rows
+    for (const task of merged) {
+      const prev = household.tasks.find((t) => t.id === task.id);
+      if (
+        prev &&
+        (prev.verification !== task.verification || prev.status !== task.status)
+      ) {
+        await taskRepository.updateTask(task);
+      }
+    }
+
+    setHousehold((current) => ({ ...current, tasks: merged }));
+  };
+
+  useEffect(() => {
+    if (!household.id || isLoading) return;
+    void runOccurrenceCatchUp();
+    // One catch-up per household session mount / id change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [household.id, isLoading]);
 
   const completeTask = async (taskId: string, options?: { forAssignee?: string }) => {
     const currentTask = household.tasks.find((item) => item.id === taskId);
@@ -1428,25 +1613,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
     }
 
-    if (scope === 'this' && currentTask.repeat !== 'None') {
-      const spawned = spawnNextOccurrence({ ...currentTask, status: 'Pending' });
-      if (spawned) {
-        const nextOccurrence = await taskRepository.createTask(household.id, {
-          title: spawned.title,
-          description: spawned.description,
-          category: spawned.category,
-          assignee: spawned.assignee,
-          due: spawned.due,
-          xp: spawned.xp,
-          weight: spawned.weight,
-          difficulty: spawned.difficulty,
-          proofRequired: spawned.proofRequired,
-          repeat: spawned.repeat,
-          roomId: spawned.roomId,
-        });
-        nextTasks = [nextOccurrence, ...nextTasks];
-      }
-    }
+    // v2 §5.2: cancel never spawns the next occurrence — time-based catch-up does.
 
     setHousehold((current) => ({ ...current, tasks: nextTasks }));
     await pushNotification({
@@ -3001,6 +3168,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       completeTask,
       submitTaskProof,
       approveTaskProof,
+      confirmVerification,
+      requestAnotherProof,
+      markNotDone,
+      runOccurrenceCatchUp,
       penalizeSplitAssignee,
       reassignTask,
       awardDailyStreak,

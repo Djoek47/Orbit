@@ -31,7 +31,7 @@ import { isDueToday } from '@/lib/tasks/today';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
 
-type TaskFilter = 'all' | 'mine' | 'kids' | 'homework';
+type TaskFilter = 'all' | 'mine';
 
 const SUBJECT_COLORS: Record<string, { color: string; emoji: string }> = {
   Math: { color: '#38BDF8', emoji: '🔢' },
@@ -49,11 +49,11 @@ const PRIORITY_COLORS = {
   hard: '#FB923C',
 } as const;
 
+type TaskDomainTab = 'chores' | 'homework';
+
 const FILTER_TABS: { id: TaskFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'mine', label: 'Mine' },
-  { id: 'kids', label: 'Kids' },
-  { id: 'homework', label: 'Homework' },
 ];
 
 const GRADIENT_BY_COLOR: Record<string, [string, string]> = {
@@ -67,7 +67,11 @@ const GRADIENT_BY_COLOR: Record<string, [string, string]> = {
 };
 
 function isHomework(task: HouseholdTask) {
-  return /homework/i.test(task.category) || /homework/i.test(task.title);
+  return (
+    task.category === 'homework_education' ||
+    /homework/i.test(task.category) ||
+    /homework/i.test(task.title)
+  );
 }
 
 function isUpcoming(task: HouseholdTask) {
@@ -148,6 +152,7 @@ function TaskItem({
   canDelete,
   hygieneXpWhenRewarded,
   rewardSettings,
+  xpEnabled,
   onToggle,
   onDelete,
 }: {
@@ -158,6 +163,7 @@ function TaskItem({
   canDelete: boolean;
   hygieneXpWhenRewarded?: number;
   rewardSettings: HouseholdRewardSettings;
+  xpEnabled: boolean;
   onToggle: () => void;
   onDelete: () => void;
 }) {
@@ -229,6 +235,24 @@ function TaskItem({
         <View style={styles.metaRow}>
           <MaterialIcons name="schedule" size={10} color={c.textSubtle} />
           <Text style={[styles.dueText, { color: c.textSubtle }]}>{task.due}</Text>
+          {task.completedLate || (done && task.completedAt && task.dueAt && task.completedAt > task.dueAt) ? (
+            <View
+              style={[
+                styles.metaPill,
+                { backgroundColor: `${c.warning}22`, borderColor: `${c.warning}40` },
+              ]}>
+              <Text style={[styles.metaPillText, { color: c.warning }]}>Completed late</Text>
+            </View>
+          ) : null}
+          {task.status === 'Missed' ? (
+            <View
+              style={[
+                styles.metaPill,
+                { backgroundColor: `${c.danger}22`, borderColor: `${c.danger}40` },
+              ]}>
+              <Text style={[styles.metaPillText, { color: c.danger }]}>Missed</Text>
+            </View>
+          ) : null}
           {isSplitTask(task) ? (
             <View
               style={[
@@ -266,26 +290,28 @@ function TaskItem({
         </View>
       </Pressable>
 
-        {justCompleted ? (
-          <View style={styles.celebrate}>
-            {hygiene ? (
-              <StreakMarker variant="asterisk" xpWhenRewarded={hygieneXpWhenRewarded} />
-            ) : (
-              <>
-                <Text style={styles.celebrateBolt}>⚡</Text>
-                <Text style={[styles.celebrateXp, { color: accentPrimary }]}>+{displayXp}</Text>
-              </>
-            )}
-          </View>
-        ) : (
-          <XPBadge
-            xp={displayXp}
-            done={done}
-            accent={accentPrimary}
-            hygiene={hygiene}
-            hygieneXpWhenRewarded={hygieneXpWhenRewarded}
-          />
-        )}
+        {xpEnabled ? (
+          justCompleted ? (
+            <View style={styles.celebrate}>
+              {hygiene ? (
+                <StreakMarker variant="asterisk" xpWhenRewarded={hygieneXpWhenRewarded} />
+              ) : (
+                <>
+                  <Text style={styles.celebrateBolt}>⚡</Text>
+                  <Text style={[styles.celebrateXp, { color: accentPrimary }]}>+{displayXp}</Text>
+                </>
+              )}
+            </View>
+          ) : (
+            <XPBadge
+              xp={displayXp}
+              done={done}
+              accent={accentPrimary}
+              hygiene={hygiene}
+              hygieneXpWhenRewarded={hygieneXpWhenRewarded}
+            />
+          )
+        ) : null}
       </View>
     </ContextMenu>
   );
@@ -320,6 +346,7 @@ function TaskSection({
   canDelete,
   hygieneXpWhenRewarded,
   rewardSettings,
+  xpEnabled,
   onToggle,
   onDelete,
 }: {
@@ -338,6 +365,7 @@ function TaskSection({
   canDelete: boolean;
   hygieneXpWhenRewarded?: number;
   rewardSettings: HouseholdRewardSettings;
+  xpEnabled: boolean;
   onToggle: (taskId: string) => void;
   onDelete: (taskId: string) => void;
 }) {
@@ -394,6 +422,7 @@ function TaskSection({
               canDelete={canDelete}
               hygieneXpWhenRewarded={hygieneXpWhenRewarded}
               rewardSettings={rewardSettings}
+              xpEnabled={xpEnabled}
               onToggle={() => onToggle(task.id)}
               onDelete={() => onDelete(task.id)}
             />
@@ -416,8 +445,11 @@ export default function TasksScreen() {
     household,
     orbitPalette,
     permissions,
+    rewardCapabilities,
     switchPersona,
+    v2Permissions,
   } = useOrbit();
+  const [domainTab, setDomainTab] = useState<TaskDomainTab>('chores');
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [focusMember, setFocusMember] = useState<string | null>(null);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
@@ -462,6 +494,8 @@ export default function TasksScreen() {
 
   const filtered = useMemo(() => {
     return household.tasks.filter((task) => {
+      const homework = isHomework(task);
+      if (domainTab === 'homework' ? !homework : homework) return false;
       // Shared-tablet accounts only ever see their own tasks (switch account to see the other person).
       if (sharedKidMode) {
         if (!taskMatchesAssignee(task, currentMember?.name)) return false;
@@ -473,20 +507,17 @@ export default function TasksScreen() {
       if (filter === 'mine' && !taskMatchesAssignee(task, currentMember?.name)) {
         return false;
       }
-      if (filter === 'kids' && ![...childNames].some((name) => taskMatchesAssignee(task, name))) {
-        return false;
-      }
-      if (filter === 'homework' && !isHomework(task)) return false;
       if (search.trim() && !task.title.toLowerCase().includes(search.trim().toLowerCase())) return false;
       return true;
     });
   }, [
-    childNames,
     currentMember?.name,
+    domainTab,
     filter,
     focusMember,
     household.tasks,
     search,
+    sharedKidMode,
     sharedKidMode,
   ]);
 
@@ -637,8 +668,15 @@ export default function TasksScreen() {
             </Pressable>
           ) : null}
         </View>
-        {!sharedKidMode && permissions.canCreateTask ? (
-          <Pressable onPress={() => router.push('/create-task' as never)} style={styles.addButtonWrap}>
+        {!sharedKidMode && (v2Permissions.canAssignOrEditTask || permissions.canCreateTask) ? (
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: '/create-task',
+                params: { tab: domainTab },
+              } as never)
+            }
+            style={styles.addButtonWrap}>
             <LinearGradient
               colors={[accentTheme.primary, accentTheme.secondary]}
               start={{ x: 0, y: 0 }}
@@ -650,25 +688,39 @@ export default function TasksScreen() {
         ) : null}
       </View>
 
-      <LinearGradient
-        colors={[`${accentTheme.primary}1F`, 'rgba(52,211,153,0.08)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.xpBanner, { borderColor: `${accentTheme.primary}26` }]}>
-        <View style={styles.xpBannerLeft}>
-          <MaterialIcons name="local-fire-department" size={16} color={c.warning} />
-          <Text style={[styles.xpBannerTitle, { color: c.text }]}>
-            {totalXPToday} XP available today
+      <SegmentedControl
+        options={[
+          { value: 'chores', label: 'Chores' },
+          { value: 'homework', label: 'Homework' },
+        ]}
+        value={domainTab}
+        onChange={(next) => {
+          clearFocusMember();
+          setDomainTab(next);
+        }}
+      />
+
+      {rewardCapabilities.xpEnabled ? (
+        <LinearGradient
+          colors={[`${accentTheme.primary}1F`, 'rgba(52,211,153,0.08)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.xpBanner, { borderColor: `${accentTheme.primary}26` }]}>
+          <View style={styles.xpBannerLeft}>
+            <MaterialIcons name="local-fire-department" size={16} color={c.warning} />
+            <Text style={[styles.xpBannerTitle, { color: c.text }]}>
+              {totalXPToday} XP available today
+            </Text>
+          </View>
+          <Text style={[styles.xpBannerMeta, { color: c.textSubtle }]}>
+            {grouped.today.length} tasks left
           </Text>
-        </View>
-        <Text style={[styles.xpBannerMeta, { color: c.textSubtle }]}>
-          {grouped.today.length} tasks left
-        </Text>
-      </LinearGradient>
+        </LinearGradient>
+      ) : null}
 
       {!sharedKidMode ? (
         <>
-          <SearchBar value={search} onChangeText={setSearch} placeholder="Search tasks" />
+          <SearchBar value={search} onChangeText={setSearch} placeholder="Search assigned tasks" />
           <SegmentedControl
             options={FILTER_TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
             value={filter}
@@ -742,6 +794,7 @@ export default function TasksScreen() {
             canDelete={permissions.canCreateTask}
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}
             rewardSettings={rewardSettings}
+            xpEnabled={rewardCapabilities.xpEnabled}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />
@@ -760,6 +813,7 @@ export default function TasksScreen() {
             canDelete={permissions.canCreateTask}
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}
             rewardSettings={rewardSettings}
+            xpEnabled={rewardCapabilities.xpEnabled}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />
@@ -775,6 +829,7 @@ export default function TasksScreen() {
             canDelete={permissions.canCreateTask}
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}
             rewardSettings={rewardSettings}
+            xpEnabled={rewardCapabilities.xpEnabled}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />
@@ -782,7 +837,11 @@ export default function TasksScreen() {
           <TaskSection
             title="Completed"
             dotColor={orbitColors.success}
-            countLabel={`+${grouped.done.reduce((sum, task) => sum + (task.awardedXp ?? resolveTaskXpFromHouseholdTask(task, rewardSettings)), 0)} XP earned`}
+            countLabel={
+              rewardCapabilities.xpEnabled
+                ? `+${grouped.done.reduce((sum, task) => sum + (task.awardedXp ?? resolveTaskXpFromHouseholdTask(task, rewardSettings)), 0)} XP earned`
+                : `${grouped.done.length} done`
+            }
             tasks={grouped.done}
             members={household.members}
             accentPrimary={accentTheme.primary}
@@ -791,6 +850,7 @@ export default function TasksScreen() {
             canDelete={permissions.canCreateTask}
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}
             rewardSettings={rewardSettings}
+            xpEnabled={rewardCapabilities.xpEnabled}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />

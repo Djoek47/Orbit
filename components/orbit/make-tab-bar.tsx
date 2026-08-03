@@ -58,23 +58,33 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
     return member.role === 'child' || isSharedDeviceAccount(member, members);
   }, [orbit?.currentMember, orbit?.household.members]);
 
+  const modelCaps = useMemo(
+    () => capabilitiesFor(orbit?.household.rewardModel ?? DEFAULT_REWARD_MODEL),
+    [orbit?.household.rewardModel]
+  );
+
   const canAffordRedeem = useMemo(() => {
-    const caps = capabilitiesFor(orbit?.household.rewardModel ?? DEFAULT_REWARD_MODEL);
-    if (!caps.rewardsEnabled) return false;
+    if (!modelCaps.rewardsEnabled) return false;
     const rewards = orbit?.household.rewards ?? [];
     // v2 §6.1: rewards are grants, not XP purchases — animate when any live reward exists.
     return rewards.some((reward) => !reward.archived);
-  }, [orbit?.household.rewardModel, orbit?.household.rewards]);
+  }, [modelCaps.rewardsEnabled, orbit?.household.rewards]);
 
   const rewardsCycle = useMemo(() => {
-    if (isChildMode) {
-      // Prefer Redeem in the cycle when they can actually claim something.
-      return canAffordRedeem
-        ? (['Redeem', 'Ranks'] as const)
-        : (['Ranks', 'Redeem'] as const);
+    const labels: Array<'Rewards' | 'Ranks' | 'Redeem' | 'Allowance'> = [];
+    if (modelCaps.rewardsEnabled) {
+      labels.push(isChildMode ? 'Redeem' : 'Rewards');
     }
-    return (['Rewards', 'Ranks'] as const);
-  }, [canAffordRedeem, isChildMode]);
+    if (modelCaps.xpEnabled) labels.push('Ranks');
+    if (modelCaps.allowanceEnabled && !modelCaps.rewardsEnabled && !modelCaps.xpEnabled) {
+      labels.push('Allowance');
+    }
+    if (labels.length === 0) labels.push('Rewards');
+    if (isChildMode && modelCaps.rewardsEnabled && canAffordRedeem && labels[0] !== 'Redeem') {
+      return ['Redeem', ...labels.filter((l) => l !== 'Redeem')] as typeof labels;
+    }
+    return labels;
+  }, [canAffordRedeem, isChildMode, modelCaps]);
 
   const [cycleIndex, setCycleIndex] = useState(0);
 
@@ -166,18 +176,20 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               canPreventDefault: true,
             });
             if (!isFocused && !event.defaultPrevented) {
-              if (isRewards && rewardsLabel === 'Redeem') {
+              if (isRewards && (rewardsLabel === 'Redeem' || rewardsLabel === 'Rewards')) {
                 navigation.navigate(route.name, { surface: 'rewards' });
               } else if (isRewards && rewardsLabel === 'Ranks') {
                 navigation.navigate(route.name, { surface: 'ranks' });
-              } else if (isRewards && rewardsLabel === 'Rewards') {
-                navigation.navigate(route.name, { surface: 'rewards' });
+              } else if (isRewards && rewardsLabel === 'Allowance') {
+                navigation.navigate(route.name, { surface: 'allowance' });
               } else {
                 navigation.navigate(route.name, route.params);
               }
             } else if (isFocused && isRewards) {
               if (rewardsLabel === 'Redeem' || rewardsLabel === 'Rewards') {
                 navigation.navigate(route.name, { surface: 'rewards' });
+              } else if (rewardsLabel === 'Allowance') {
+                navigation.navigate(route.name, { surface: 'allowance' });
               } else {
                 navigation.navigate(route.name, { surface: 'ranks' });
               }

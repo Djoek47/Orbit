@@ -73,6 +73,8 @@ export const taskRepository = {
       dueAt: input.dueAt,
       roomId: input.roomId,
       sharedDeviceId: input.sharedDeviceId,
+      definitionId: input.definitionId,
+      occurrenceDate: input.occurrenceDate,
       repeat: input.repeat,
       status: 'Pending',
     };
@@ -95,24 +97,30 @@ export const taskRepository = {
       .ilike('display_name', input.assignee.trim())
       .maybeSingle();
 
+    const insertPayload = {
+      household_id: householdId,
+      title: task.title,
+      description: task.description ?? null,
+      category: task.category,
+      assignee_name: task.assignee,
+      assignee_member_id: member?.id ?? null,
+      due_label: task.due,
+      xp_value: task.xp,
+      repeat_rule: taskRepeatToDb(task.repeat),
+      status: 'pending',
+      weight: task.weight ?? null,
+      difficulty: task.difficulty ?? null,
+      proof_required: task.proofRequired ?? false,
+      room_id: task.roomId ?? null,
+      // Columns added in 20260803010000 — cast until generated DB types catch up.
+      definition_id: task.definitionId ?? null,
+      occurrence_date: task.occurrenceDate ?? null,
+      due_at: task.dueAt ?? null,
+      verification: task.verification ?? null,
+    };
     const { data, error } = await supabase
       .from('tasks')
-      .insert({
-        household_id: householdId,
-        title: task.title,
-        description: task.description ?? null,
-        category: task.category,
-        assignee_name: task.assignee,
-        assignee_member_id: member?.id ?? null,
-        due_label: task.due,
-        xp_value: task.xp,
-        repeat_rule: taskRepeatToDb(task.repeat),
-        status: 'pending',
-        weight: task.weight ?? null,
-        difficulty: task.difficulty ?? null,
-        proof_required: task.proofRequired ?? false,
-        room_id: task.roomId ?? null,
-      })
+      .insert(insertPayload as never)
       .select('*')
       .single();
     mapDbError('taskRepository.createTask', error);
@@ -144,24 +152,36 @@ export const taskRepository = {
     }
 
     const supabase = getConfiguredSupabase('taskRepository.updateTask');
+    const updatePayload = {
+      title: next.title,
+      description: next.description ?? null,
+      category: next.category,
+      assignee_name: next.assignee,
+      due_label: next.due,
+      xp_value: next.xp,
+      repeat_rule: taskRepeatToDb(next.repeat),
+      status: taskStatusToDb(next.status),
+      room_id: next.roomId ?? null,
+      weight: next.weight ?? null,
+      difficulty: next.difficulty ?? null,
+      proof_required: next.proofRequired ?? false,
+      proof_uri: next.proofUri ?? null,
+      proof_status: next.proofStatus ?? null,
+      definition_id: next.definitionId ?? null,
+      occurrence_date: next.occurrenceDate ?? null,
+      due_at: next.dueAt ?? null,
+      completed_at: next.completedAt ?? null,
+      awarded_xp: next.awardedXp ?? null,
+      completed_late: next.completedLate ?? false,
+      verification: next.verification ?? null,
+      proof_photo_urls: next.proofPhotoUrls ?? [],
+      proof_rounds: next.proofRounds ?? [],
+      verified_by: next.verifiedBy ?? null,
+      verified_at: next.verifiedAt ?? null,
+    };
     const { data, error } = await supabase
       .from('tasks')
-      .update({
-        title: next.title,
-        description: next.description ?? null,
-        category: next.category,
-        assignee_name: next.assignee,
-        due_label: next.due,
-        xp_value: next.xp,
-        repeat_rule: taskRepeatToDb(next.repeat),
-        status: taskStatusToDb(next.status),
-        room_id: next.roomId ?? null,
-        weight: next.weight ?? null,
-        difficulty: next.difficulty ?? null,
-        proof_required: next.proofRequired ?? false,
-        proof_uri: next.proofUri ?? null,
-        proof_status: next.proofStatus ?? null,
-      })
+      .update(updatePayload as never)
       .eq('id', next.id)
       .select('*')
       .single();

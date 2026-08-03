@@ -97,18 +97,31 @@ export default function RewardsScreen() {
     claimReward,
     currentMember,
     requestAllowance,
+    rewardCapabilities,
   } = useOrbit();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
   const caps = resolveMemberCapabilities(household);
   const isAdmin = permissions.canManageHousehold;
-  const canRedeem = isAdmin || caps.allowRewardRedeem;
-  const canRequestSpecial = isAdmin || caps.allowSpecialRewardRequest;
+  const canRedeem =
+    rewardCapabilities.rewardsEnabled && (isAdmin || caps.allowRewardRedeem);
+  const canRequestSpecial =
+    rewardCapabilities.rewardsEnabled && (isAdmin || caps.allowSpecialRewardRequest);
   const canApprove = isAdmin || permissions.canApproveReward;
-  const showAllowance = caps.allowAllowance;
+  const showAllowance = rewardCapabilities.allowanceEnabled && caps.allowAllowance;
+  const showRewards = rewardCapabilities.rewardsEnabled;
+  const showRanks = rewardCapabilities.xpEnabled;
 
   const [surface, setSurface] = useState<Surface>(() => {
     const resolved = resolveSurface(params.surface);
-    if (resolved === 'allowance' && !showAllowance) return 'rewards';
+    if (resolved === 'allowance' && !showAllowance) {
+      return showRewards ? 'rewards' : showRanks ? 'ranks' : 'rewards';
+    }
+    if (resolved === 'rewards' && !showRewards) {
+      return showRanks ? 'ranks' : showAllowance ? 'allowance' : 'rewards';
+    }
+    if (resolved === 'ranks' && !showRanks) {
+      return showRewards ? 'rewards' : showAllowance ? 'allowance' : 'ranks';
+    }
     return resolved;
   });
   const [rankCat, setRankCat] = useState<RankCat>('xp');
@@ -116,24 +129,45 @@ export default function RewardsScreen() {
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [allowanceBusy, setAllowanceBusy] = useState(false);
 
+  const fallbackSurface = (): Surface => {
+    if (showRewards) return 'rewards';
+    if (showRanks) return 'ranks';
+    if (showAllowance) return 'allowance';
+    return 'rewards';
+  };
+
   useEffect(() => {
     if (params.surface === undefined) return;
     const next = resolveSurface(params.surface);
     if (next === 'allowance' && !showAllowance) {
-      setSurface('rewards');
+      setSurface(fallbackSurface());
+      return;
+    }
+    if (next === 'rewards' && !showRewards) {
+      setSurface(fallbackSurface());
+      return;
+    }
+    if (next === 'ranks' && !showRanks) {
+      setSurface(fallbackSurface());
       return;
     }
     setSurface(next);
-  }, [params.surface, showAllowance]);
+  }, [params.surface, showAllowance, showRanks, showRewards]);
 
   useEffect(() => {
-    if (surface === 'allowance' && !showAllowance) {
-      setSurface('rewards');
+    if (
+      (surface === 'allowance' && !showAllowance) ||
+      (surface === 'rewards' && !showRewards) ||
+      (surface === 'ranks' && !showRanks)
+    ) {
+      setSurface(fallbackSurface());
     }
-  }, [showAllowance, surface]);
+  }, [showAllowance, showRanks, showRewards, surface]);
 
   const selectSurface = (next: Surface) => {
     if (next === 'allowance' && !showAllowance) return;
+    if (next === 'rewards' && !showRewards) return;
+    if (next === 'ranks' && !showRanks) return;
     setSurface(next);
     router.setParams({ surface: next } as never);
   };
@@ -232,9 +266,9 @@ export default function RewardsScreen() {
 
   const surfaceTabs = (
     [
-      { id: 'rewards' as const, label: 'Rewards', show: true },
+      { id: 'rewards' as const, label: 'Rewards', show: showRewards },
       { id: 'allowance' as const, label: 'Allowance', show: showAllowance },
-      { id: 'ranks' as const, label: 'Rankings', show: true },
+      { id: 'ranks' as const, label: 'Rankings', show: showRanks },
     ] as const
   ).filter((t) => t.show);
 

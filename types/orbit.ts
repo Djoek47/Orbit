@@ -438,6 +438,10 @@ export type CreateTaskInput = {
   sharedDeviceId?: string;
   /** When true, also save into household custom catalog (admin mint). */
   saveAsTemplate?: boolean;
+  /** Recurrence series id — pairs with occurrenceDate for uniqueness (§5.2). */
+  definitionId?: string;
+  /** Local calendar day key YYYY-MM-DD for this occurrence. */
+  occurrenceDate?: string;
 };
 
 export type CreateGroceryInput = {

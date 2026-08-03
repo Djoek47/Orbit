@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -261,8 +261,11 @@ function AssignEmojiGrid({
 
 export default function CreateTaskScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ tab?: string | string[] }>();
   const { accentTheme, createTask, household, orbitPalette, permissions } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
+  const initialTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
+  const initialType: TaskType = initialTab === 'homework' ? 'homework' : 'task';
 
   const rewardSettings = useMemo(
     () =>
@@ -308,7 +311,7 @@ export default function CreateTaskScreen() {
 
   const [mode, setMode] = useState<ScreenMode>('picker');
   const [pickerIds, setPickerIds] = useState<string[]>([]);
-  const [type, setType] = useState<TaskType>('task');
+  const [type, setType] = useState<TaskType>(initialType);
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState<(typeof subjects)[number]['label']>('Math');
   const defaultAssigneeId = activeMembers[0]?.id ?? '';
@@ -317,6 +320,10 @@ export default function CreateTaskScreen() {
   const [splitMode, setSplitMode] = useState(false);
   const [due, setDue] = useState<(typeof dueOptions)[number]>('Today');
   const [priority, setPriority] = useState(1);
+
+  useEffect(() => {
+    setType(initialType);
+  }, [initialType]);
   const [repeat, setRepeat] = useState<HouseholdTask['repeat']>('None');
   const [difficulty, setDifficulty] = useState<TaskDifficulty>('medium');
   const [proofRequired, setProofRequired] = useState(false);
@@ -1332,45 +1339,12 @@ export default function CreateTaskScreen() {
           </Pressable>
         </View>
 
-        <View style={[styles.typeToggle, { backgroundColor: glass(0.06) }]}>
-          {(['task', 'homework'] as const).map((option) => {
-            const active = type === option;
-            const isHomework = option === 'homework';
-            return (
-              <Pressable
-                key={option}
-                onPress={() => setType(option)}
-                style={[
-                  styles.typeOption,
-                  active && {
-                    backgroundColor: isHomework ? 'rgba(167,139,250,0.2)' : `${accentTheme.primary}33`,
-                    borderColor: isHomework ? 'rgba(167,139,250,0.2)' : `${accentTheme.primary}33`,
-                  },
-                ]}>
-                <MaterialIcons
-                  color={active ? (isHomework ? '#A78BFA' : accentTheme.primary) : c.textSubtle }
-                  name={isHomework ? 'menu-book' : 'check-box'}
-                  size={15}
-                />
-                <Text
-                  style={[
-                    styles.typeLabel,
-                    { color: c.textSubtle },
-                    active && { color: isHomework ? '#A78BFA' : accentTheme.primary },
-                  ]}>
-                  {option}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
         <View style={styles.field}>
           <Text style={[styles.label, { color: c.textMuted }]}>{type === 'homework' ? 'ASSIGNMENT' : 'TASK'}</Text>
           <TextInput
             autoFocus
             onChangeText={setTitle}
-            placeholder={type === 'homework' ? 'e.g. Chapter 5 worksheet' : 'e.g. Call plumber about sink'}
+            placeholder={type === 'homework' ? 'e.g. Chapter 5 worksheet' : 'e.g. Clean bedroom'}
             placeholderTextColor={orbitPalette.textSubtle}
             style={[styles.titleInput, { color: orbitPalette.text, backgroundColor: glass(0.07), borderColor: glassBorder(0.1) }]}
             value={title}
@@ -1403,36 +1377,7 @@ export default function CreateTaskScreen() {
               })}
             </View>
           </View>
-        ) : (
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: c.textMuted }]}>PRIORITY</Text>
-            <View style={styles.priorityRow}>
-              {priorities.map((item, index) => {
-                const active = priority === index;
-                return (
-                  <Pressable
-                    key={item.label}
-                    onPress={() => {
-                      setPriority(index);
-                      setDifficulty(item.difficulty);
-                      setBaseXp(item.xp);
-                    }}
-                    style={[
-                      styles.priorityChip,
-                      {
-                        backgroundColor: active ? `${item.color}22` : glass(0.06),
-                        borderColor: active ? `${item.color}44` : glassBorder(0.08),
-                      },
-                    ]}>
-                    <Text style={[styles.priorityText, { color: active ? item.color : c.textMuted }]}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        )}
+        ) : null}
 
         <View style={styles.field}>
           <Text style={[styles.label, { color: c.textMuted }]}>REPEAT</Text>

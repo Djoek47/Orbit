@@ -54,18 +54,21 @@ export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const {
     accentTheme,
-    approveTaskProof,
     cancelTask,
     completeTask,
+    confirmVerification,
     currentMember,
     deleteTask,
     household,
+    markNotDone,
     orbitPalette,
     penalizeSplitAssignee,
     permissions,
     reassignTask,
+    requestAnotherProof,
     submitTaskProof,
     updateTask,
+    v2Permissions,
   } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
 
@@ -160,14 +163,53 @@ export default function TaskDetailScreen() {
     }
   };
 
-  const handleApproveProof = async (forAssignee?: string) => {
+  const handleConfirm = async () => {
     setProofBusy(true);
     try {
-      await approveTaskProof(task.id, forAssignee ? { forAssignee } : undefined);
-      Alert.alert('Proof approved', 'Verification saved for this completion.');
+      const ok = await confirmVerification(task.id);
+      if (ok) Alert.alert('Confirmed', 'Verification saved for this completion.');
     } finally {
       setProofBusy(false);
     }
+  };
+
+  const handleAskPhoto = () => {
+    Alert.alert('Ask for another photo', 'Send a request for another photo?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Send',
+        onPress: () => {
+          void (async () => {
+            setProofBusy(true);
+            try {
+              await requestAnotherProof(task.id);
+            } finally {
+              setProofBusy(false);
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
+  const handleMarkNotDone = () => {
+    Alert.alert('Mark not done?', 'This reverses the XP awarded for this completion.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Mark not done',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setProofBusy(true);
+            try {
+              await markNotDone(task.id);
+            } finally {
+              setProofBusy(false);
+            }
+          })();
+        },
+      },
+    ]);
   };
 
   const handlePenalize = (name: string) => {
@@ -503,15 +545,15 @@ export default function TaskDetailScreen() {
                           <Text style={styles.penalizeText}>Penalize</Text>
                         </Pressable>
                       ) : null}
-                      {permissions.canApproveReward &&
+                      {v2Permissions.canApproveCompletion &&
                       needsProof &&
                       share.proofStatus === 'submitted' ? (
                         <Pressable
                           disabled={proofBusy}
-                          onPress={() => void handleApproveProof(share.name)}
+                          onPress={() => void handleConfirm()}
                           style={styles.penalizeChip}>
                           <Text style={[styles.penalizeText, { color: accentTheme.primary }]}>
-                            Approve
+                            Confirm
                           </Text>
                         </Pressable>
                       ) : null}
@@ -614,14 +656,54 @@ export default function TaskDetailScreen() {
                 <Text style={styles.waitText}>Proof sent to admin for review.</Text>
               </View>
             ) : null}
-            {needsProof &&
-            !split &&
-            task.proofStatus === 'submitted' &&
-            permissions.canApproveReward ? (
-              <Pressable disabled={proofBusy} onPress={() => void handleApproveProof()} style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-                <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
-                  {proofBusy ? 'Approving…' : 'Approve proof'}
-                </Text>
+            {!split &&
+            task.status === 'Completed' &&
+            (task.verification === 'unreviewed' ||
+              task.verification === 'proof_requested' ||
+              task.proofStatus === 'submitted') &&
+            v2Permissions.canApproveCompletion ? (
+              <View style={{ gap: 8 }}>
+                <Pressable
+                  disabled={proofBusy}
+                  onPress={() => void handleConfirm()}
+                  style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
+                  <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
+                    {proofBusy ? 'Working…' : 'Confirm'}
+                  </Text>
+                </Pressable>
+                {v2Permissions.canRequestProof ? (
+                  <Pressable
+                    disabled={proofBusy}
+                    onPress={handleAskPhoto}
+                    style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
+                    <Text style={[styles.secondaryText, { color: c.textMuted }]}>
+                      Ask for another photo
+                    </Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  disabled={proofBusy}
+                  onPress={handleMarkNotDone}
+                  style={[styles.secondaryBtn, { borderColor: 'rgba(248,113,113,0.35)', backgroundColor: 'rgba(248,113,113,0.08)' }]}>
+                  <Text style={[styles.secondaryText, { color: '#F87171' }]}>Mark not done</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {task.verification === 'proof_requested' && canCompleteMine ? (
+              <Pressable
+                disabled={proofBusy}
+                onPress={() => void handleAttachProof(split ? currentMember?.name : undefined)}
+                style={[styles.ctaWrap, proofBusy && { opacity: 0.6 }]}>
+                <LinearGradient
+                  colors={[accentTheme.primary, accentTheme.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.cta}>
+                  <MaterialIcons name="photo-camera" size={18} color="#04101F" />
+                  <Text style={styles.ctaText}>
+                    {proofBusy ? 'Sending…' : 'Add another photo'}
+                  </Text>
+                </LinearGradient>
               </Pressable>
             ) : null}
             {split && myShare?.status === 'Completed' && task.status !== 'Completed' ? (

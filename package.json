@@ -33,10 +33,12 @@
     "test:completion-xp": "npx --yes tsx lib/tasks/completion-xp.test.ts",
     "test:daily-streak": "npx --yes tsx lib/streaks/daily-streak.test.ts",
     "test:claim-reward": "npx --yes tsx lib/rewards/claim-reward.test.ts",
-    "test:logic": "npm run test:reward-mode && npm run test:streak-engine && npm run test:trophies && npm run test:today && npm run test:completion-xp && npm run test:daily-streak && npm run test:claim-reward && npm run test:task-library && npm run test:task-library-v2",
+    "test:logic": "npm run test:reward-mode && npm run test:streak-engine && npm run test:trophies && npm run test:today && npm run test:completion-xp && npm run test:daily-streak && npm run test:claim-reward && npm run test:task-library && npm run test:task-library-v2 && npm run test:proof-actions && npm run test:recurrence-defaults && npm run test:recurring",
     "test:task-library": "npx --yes tsx scripts/validate-task-library.ts",
     "test:task-library-v2": "npx --yes tsx lib/tasks/task-library.test.ts",
     "test:recurrence-defaults": "npx --yes tsx lib/tasks/recurrence-defaults.test.ts",
+    "test:proof-actions": "npx --yes tsx lib/tasks/proof-actions.test.ts",
+    "test:recurring": "npx --yes tsx lib/tasks/recurring.test.ts",
     "generate:brand-marks": "node scripts/generate-brand-marks.mjs"
   },
   "dependencies": {

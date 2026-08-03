@@ -159,9 +159,7 @@ export default function BadgeGalleryScreen() {
         </Text>
         <View style={styles.badgeGrid}>
           {xpTrophies.map((badge) => (
-            <View
-              key={badge.id}
-              style={[styles.badgeTile, !badge.earned && styles.badgeTileLocked]}>
+            <View key={badge.id} style={styles.badgeTile}>
               <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
                 <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
                 {!badge.earned ? (
@@ -170,10 +168,8 @@ export default function BadgeGalleryScreen() {
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.badgeLabel, { color: c.text }, !badge.earned && { color: c.textSubtle }]}>
-                {badge.label}
-              </Text>
-              <Text style={[styles.badgeDesc, { color: c.textMuted }, !badge.earned && { color: c.textSubtle }]}>
+              <Text style={[styles.badgeLabel, { color: c.text }]}>{badge.label}</Text>
+              <Text style={[styles.badgeDesc, { color: c.textMuted }]}>
                 {badge.earned
                   ? badge.description
                   : `Locked · ${formatXp(badge.xpRequired ?? 0)} XP`}
@@ -192,9 +188,7 @@ export default function BadgeGalleryScreen() {
         </View>
         <View style={styles.badgeGrid}>
           {habitAchievements.map((badge) => (
-            <View
-              key={badge.id}
-              style={[styles.badgeTile, !badge.earned && styles.badgeTileLocked]}>
+            <View key={badge.id} style={styles.badgeTile}>
               <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
                 <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
                 {!badge.earned ? (
@@ -203,10 +197,8 @@ export default function BadgeGalleryScreen() {
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.badgeLabel, { color: c.text }, !badge.earned && { color: c.textSubtle }]}>
-                {badge.label}
-              </Text>
-              <Text style={[styles.badgeDesc, { color: c.textMuted }, !badge.earned && { color: c.textSubtle }]}>
+              <Text style={[styles.badgeLabel, { color: c.text }]}>{badge.label}</Text>
+              <Text style={[styles.badgeDesc, { color: c.textMuted }]}>
                 {badge.earned ? badge.description : `Locked · ${badge.description}`}
               </Text>
             </View>
