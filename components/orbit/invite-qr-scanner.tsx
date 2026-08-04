@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,6 +7,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import { parseInvitePayload } from '@/lib/invites/parse-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type InviteQrScannerProps = {
   visible: boolean;

@@ -2,18 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -53,6 +42,7 @@ import { allLibraryTasks } from '@/lib/tasks/task-library';
 import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask, TaskDifficulty } from '@/types/orbit';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 type TaskType = 'task' | 'homework';
 type ScreenMode = 'picker' | 'presets' | 'custom' | 'library';

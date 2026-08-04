@@ -5,15 +5,7 @@
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useMemo, useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { radius, space, typography } from '@/constants/orbit-theme';
@@ -25,6 +17,7 @@ import {
   type TaskGroup,
 } from '@/lib/tasks/task-library';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 export type TaskPickerTab = 'chores' | 'homework';
 

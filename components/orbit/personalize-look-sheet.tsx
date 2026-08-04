@@ -1,14 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
 import { AVATAR_EMOJIS } from '@/constants/accent-themes';
@@ -20,6 +12,7 @@ import {
   pickAvatarFromLibrary,
 } from '@/lib/profile/pick-avatar';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type PersonalizeLookSheetProps = {
   visible: boolean;

@@ -1,16 +1,36 @@
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
 import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
 import { OrbitNavTheme } from '@/components/orbit/orbit-nav-theme';
+import { BRICOLAGE_FONT_MAP } from '@/constants/bricolage-font-assets';
 import { OrbitProvider } from '@/store/orbit-store';
 
 export const unstable_settings = {
   anchor: 'index',
 };
 
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* already prevented / native splash absent in some hosts */
+});
+
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts(BRICOLAGE_FONT_MAP);
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
+
   return (
     <OrbitProvider>
       <OrbitNavTheme>

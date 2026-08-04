@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -13,6 +13,7 @@ import { orbitColors, orbitScreen, radius, space, typography } from '@/constants
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { ItineraryStopKind } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 const STOP_EMOJI: Record<ItineraryStopKind, string> = {
   school: '🏫',

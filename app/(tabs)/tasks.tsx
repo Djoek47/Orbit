@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ContextMenu } from '@/components/orbit/context-menu';
 import { EmptyState } from '@/components/orbit/empty-state';
@@ -30,6 +30,7 @@ import { isSplitTask, taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { isDueToday } from '@/lib/tasks/today';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type TaskFilter = 'all' | 'mine';
 

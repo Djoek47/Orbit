@@ -1,6 +1,6 @@
 import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
@@ -12,6 +12,7 @@ import { memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 /** Money-only amounts (§8.2) — no privilege chips. */
 const AMOUNTS = ['$5', '$10', '$15', '$20', '$25', '$50'];

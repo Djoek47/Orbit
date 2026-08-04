@@ -10,6 +10,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { fontFamilyForWeight } from '@/constants/typography';
+
 const SCRAMBLE = 'RanksRedeemWards★✦·';
 const MORPH_MS = 720;
 const STAGGER_MS = 38;
@@ -123,7 +125,7 @@ function MorphGlyph({
   const textStyle = {
     color,
     fontSize: 10,
-    fontWeight: fontWeight ?? '400',
+    fontFamily: fontFamilyForWeight(fontWeight ?? '400'),
     letterSpacing,
   } as const;
 

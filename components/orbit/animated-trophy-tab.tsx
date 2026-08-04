@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { FontFamily } from '@/constants/typography';
 import { motion } from '@/constants/motion-tokens';
 
 type AnimatedTrophyTabProps = {
@@ -141,6 +142,6 @@ const styles = StyleSheet.create({
   },
   sparkText: {
     fontSize: 9,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
   },
 });

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { AuthShell } from '@/components/orbit/auth-shell';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
@@ -10,6 +10,7 @@ import { orbitColors } from '@/constants/orbit-theme';
 import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function JoinHouseholdScreen() {
   const { joinHousehold } = useOrbit();

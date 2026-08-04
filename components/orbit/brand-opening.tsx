@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   interpolate,
@@ -18,6 +18,7 @@ import { SpinningLogoGlow } from '@/components/orbit/spinning-logo-glow';
 import { resolveBrandLockup } from '@/constants/brand-lockup';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type BrandOpeningProps = {
   /** Called once the intro settle finishes (CTAs can appear). */

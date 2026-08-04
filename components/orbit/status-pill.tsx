@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { orbitColors, radius } from '@/constants/orbit-theme';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type StatusPillProps = {
   label: string;

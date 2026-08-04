@@ -3,7 +3,7 @@
  */
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { radius, space, typography } from '@/constants/orbit-theme';
@@ -16,6 +16,7 @@ import {
 } from '@/lib/onboarding/setup-draft';
 import { incompleteMemberCount } from '@/lib/onboarding/materialize-setup';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type SetupRosterHubProps = {
   draft: HouseholdSetupDraft;

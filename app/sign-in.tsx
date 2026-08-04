@@ -2,7 +2,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -14,6 +14,7 @@ import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { isMockMode } from '@/repositories/repository-utils';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 /** Never surface repository prefixes / raw provider dumps to testers. */
 function toUserFacingAuthError(err: unknown, fallback: string): string {

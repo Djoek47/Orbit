@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimatedTrophyTab } from '@/components/orbit/animated-trophy-tab';
@@ -15,6 +15,7 @@ import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { capabilitiesFor, DEFAULT_REWARD_MODEL } from '@/lib/rewards/reward-model';
 import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 const TAB_ORDER = ['index', 'tasks', 'plan', 'rewards', 'poppins'] as const;
 type TabRoute = (typeof TAB_ORDER)[number];

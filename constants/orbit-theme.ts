@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 
 import { choremaxxBrand } from '@/constants/choremaxx-brand';
+import { FontFamily } from '@/constants/typography';
 
 /**
  * Choremaxx Make UI tokens. Primary cyan/mint follow the official logo lockup.
@@ -219,85 +220,83 @@ export const orbitControl = {
  * @deprecated Use `typography` (design-system/02-design-language.md §2) — see
  * §2.4's migration map for the 1:1 replacement of each key below. Kept only so
  * screens not yet migrated in the iOS 27 rebuild keep compiling.
- */
-/**
- * Size/weight only — set `color` from `orbitPalette` (or `useOrbitColors().type`).
- * Baked night hexes were removed so Day mode text can resolve correctly.
+ *
+ * Size / lineHeight unchanged; weight → Bricolage family (no raw fontWeight).
  */
 export const orbitTypography = StyleSheet.create({
   display: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     lineHeight: 29,
   },
   title: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     lineHeight: 24,
   },
   cardTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: FontFamily.semiBold,
   },
   body: {
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '400',
+    fontFamily: FontFamily.regular,
   },
   caption: {
     fontSize: 12,
     lineHeight: 16,
-    fontWeight: '400',
+    fontFamily: FontFamily.regular,
   },
   /** Under-chrome page label — matches Home date line. */
   pageEyebrow: {
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: FontFamily.semiBold,
     letterSpacing: 0.35,
     lineHeight: 14,
     textTransform: 'uppercase',
   },
   eyebrow: {
     fontSize: 12,
-    fontWeight: '400',
+    fontFamily: FontFamily.regular,
   },
   metric: {
     fontSize: 28,
-    fontWeight: '800',
+    fontFamily: FontFamily.extraBold,
   },
   buttonLabel: {
     fontSize: orbitControl.buttonLabelSize,
-    fontWeight: orbitControl.buttonLabelWeight,
+    fontFamily: FontFamily.bold,
   },
 });
 
 /**
  * The Apple-style type scale — see `docs/design-system/02-design-language.md` §2.2.
- * Size/weight only — pair with `orbitPalette.text*` or `useOrbitColors().type`.
- * SF Pro resolves automatically on iOS via the unset system `fontFamily`.
+ * Size / lineHeight / letterSpacing unchanged. Family is Bricolage Grotesque only
+ * (see `constants/typography.ts`). Pair with `orbitPalette.text*` or `useOrbitColors().type`.
  */
 export const typography = StyleSheet.create({
-  largeTitle: { fontSize: 34, fontWeight: '700', lineHeight: 41 },
-  title1: { fontSize: 28, fontWeight: '700', lineHeight: 34 },
-  title2: { fontSize: 22, fontWeight: '700', lineHeight: 28 },
-  title3: { fontSize: 20, fontWeight: '600', lineHeight: 25 },
-  headline: { fontSize: 17, fontWeight: '600', lineHeight: 22 },
-  body: { fontSize: 17, fontWeight: '400', lineHeight: 22 },
-  callout: { fontSize: 16, fontWeight: '400', lineHeight: 21 },
-  subheadline: { fontSize: 15, fontWeight: '400', lineHeight: 20 },
-  footnote: { fontSize: 13, fontWeight: '400', lineHeight: 18 },
-  caption1: { fontSize: 12, fontWeight: '400', lineHeight: 16 },
-  caption2: { fontSize: 11, fontWeight: '500', lineHeight: 13 },
+  largeTitle: { fontSize: 34, fontFamily: FontFamily.bold, lineHeight: 41 },
+  title1: { fontSize: 28, fontFamily: FontFamily.bold, lineHeight: 34 },
+  title2: { fontSize: 22, fontFamily: FontFamily.bold, lineHeight: 28 },
+  title3: { fontSize: 20, fontFamily: FontFamily.semiBold, lineHeight: 25 },
+  headline: { fontSize: 17, fontFamily: FontFamily.semiBold, lineHeight: 22 },
+  body: { fontSize: 17, fontFamily: FontFamily.regular, lineHeight: 22 },
+  callout: { fontSize: 16, fontFamily: FontFamily.regular, lineHeight: 21 },
+  subheadline: { fontSize: 15, fontFamily: FontFamily.regular, lineHeight: 20 },
+  footnote: { fontSize: 13, fontFamily: FontFamily.regular, lineHeight: 18 },
+  caption1: { fontSize: 12, fontFamily: FontFamily.regular, lineHeight: 16 },
+  caption2: { fontSize: 11, fontFamily: FontFamily.medium, lineHeight: 13 },
   eyebrow: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     letterSpacing: 0.4,
     lineHeight: 16,
     textTransform: 'uppercase',
   },
-  metricLarge: { fontSize: 34, fontWeight: '800' },
-  metricSmall: { fontSize: 22, fontWeight: '700' },
-  buttonLabel: { fontSize: 17, fontWeight: '600' },
+  metricLarge: { fontSize: 34, fontFamily: FontFamily.extraBold },
+  metricSmall: { fontSize: 22, fontFamily: FontFamily.bold },
+  buttonLabel: { fontSize: 17, fontFamily: FontFamily.semiBold },
 });
 
 /** Legacy right-gutter when chips floated alone — chrome now owns logo+chips. */

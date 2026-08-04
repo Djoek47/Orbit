@@ -4,7 +4,7 @@
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { TaskPicker } from '@/components/orbit/task-picker';
@@ -24,6 +24,7 @@ import {
 } from '@/lib/rewards/reward-presets';
 import { allLibraryTasks } from '@/lib/tasks/task-library';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 type WizardStep = 'A' | 'B' | 'C' | 'D';
 

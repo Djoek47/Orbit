@@ -1,9 +1,10 @@
 import { Image } from 'expo-image';
-import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { StyleSheet, View, ViewStyle } from 'react-native';
 
 import { radius } from '@/constants/orbit-theme';
 import { isAvatarImageUri } from '@/lib/game-levels';
 import { useOrbitOptional } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export type AvatarSize = 'xs' | 's' | 'm' | 'l' | 'xl';
 

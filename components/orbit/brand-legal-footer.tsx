@@ -1,5 +1,5 @@
 import * as Linking from 'expo-linking';
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import {
@@ -9,6 +9,7 @@ import {
 } from '@/constants/choremaxx-brand';
 import { orbitColors } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type BrandLegalFooterProps = {
   /** Show full lockup above the legal lines. */

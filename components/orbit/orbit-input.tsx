@@ -1,7 +1,8 @@
-import { KeyboardTypeOptions, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import { KeyboardTypeOptions, StyleSheet, TextInputProps, View } from 'react-native';
 
 import { radius, space } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 type OrbitInputProps = {
   autoCapitalize?: TextInputProps['autoCapitalize'];

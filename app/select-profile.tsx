@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -19,6 +19,7 @@ import { memberDisplayEmoji, isAvatarImageUri } from '@/lib/game-levels';
 import { findSharedDeviceForMember, resolveSharedDevicePeople } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 function profilesForSession(
   session: DeviceSession | null,

@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
@@ -21,6 +21,7 @@ import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { isTodayTask } from '@/lib/tasks/today';
 import type { AccentTheme } from '@/constants/accent-themes';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type TodayTasksCardProps = {
   tasks: HouseholdTask[];

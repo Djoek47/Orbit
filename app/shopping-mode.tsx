@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
@@ -9,6 +9,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { radius, space } from '@/constants/orbit-theme';
 import { DEFAULT_POPPINS_NOTIFICATION_PREFS } from '@/services/poppins-notifications';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 /**
  * Simplified shopping-only list — large checkboxes, no add/budget chrome.

@@ -2,13 +2,14 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getNotificationRoute } from '@/lib/notifications/navigate';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { NotificationItem } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type FilterKey = 'all' | 'unread' | NotificationItem['category'];
 

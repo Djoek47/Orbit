@@ -6,6 +6,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { typography } from '@/constants/orbit-theme';
+import { FontFamily } from '@/constants/typography';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 /** Distance (px) the large title collapses over — matches iOS nav-bar feel. */
@@ -57,6 +58,6 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   title: {
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
   },
 });

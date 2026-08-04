@@ -1,6 +1,6 @@
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
@@ -10,6 +10,7 @@ import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function SpecialRewardRequestScreen() {
   const insets = useSafeAreaInsets();

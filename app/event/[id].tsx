@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ChoiceRow } from '@/components/orbit/choice-row';
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -11,6 +11,7 @@ import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 const CATEGORIES: HouseholdEvent['category'][] = ['School', 'Activity', 'Appointment', 'Family', 'Routine'];
 

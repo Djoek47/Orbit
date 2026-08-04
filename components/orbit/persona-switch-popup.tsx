@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -14,6 +14,7 @@ import {
 } from '@/lib/household/shared-device';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type PersonaSwitchPopupProps = {
   visible: boolean;

@@ -3,16 +3,7 @@ import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  LayoutAnimation,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  UIManager,
-  View,
-} from 'react-native';
+import { ActivityIndicator, LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
 
 import { MyPlacesPanel } from '@/components/orbit/my-places-panel';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
@@ -22,6 +13,7 @@ import { buildPickupSummary } from '@/lib/places/pickup-summary';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { Itinerary, ItineraryStop, ItineraryStopKind } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);

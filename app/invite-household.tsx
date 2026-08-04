@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { AuthShell } from '@/components/orbit/auth-shell';
@@ -12,6 +12,7 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { householdRepository } from '@/repositories';
 import { useOrbit } from '@/store/orbit-store';
 import type { InviteLinks } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function InviteHouseholdScreen() {
   const { household, inviteLinks, orbitPalette, permissions, refreshInviteLinks } = useOrbit();

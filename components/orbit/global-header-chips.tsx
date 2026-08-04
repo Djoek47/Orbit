@@ -3,13 +3,14 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet';
 import { buildSheetNotifications, needsAttentionCount } from '@/lib/poppins/notification-buckets';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 /** Fixed chrome row height below the status bar (logo + chips). */
 export const TAB_CHROME_BODY = 52;

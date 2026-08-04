@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -23,6 +23,7 @@ import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type Surface = 'rewards' | 'allowance' | 'ranks';
 type RankCat = 'xp' | 'tasks' | 'streak' | 'improved';

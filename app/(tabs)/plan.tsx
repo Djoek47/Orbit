@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
@@ -26,6 +26,7 @@ import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type PlanSubTab = 'calendar' | 'itinerary';
 type CalView = 'month' | 'week';
@@ -102,7 +103,6 @@ export default function PlanScreen() {
     }
   };
 
-
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: orbitPalette.background }]}
@@ -135,7 +135,6 @@ export default function PlanScreen() {
           );
         })}
       </View>
-
 
       {subTab === 'calendar' ? (
         <>
@@ -443,8 +442,6 @@ export default function PlanScreen() {
     </ScrollView>
   );
 }
-
-
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

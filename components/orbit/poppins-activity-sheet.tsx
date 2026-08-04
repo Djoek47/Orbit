@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -14,6 +14,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
+import { AppText as Text } from '@/components/orbit/app-text';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { getNotificationRoute } from '@/lib/notifications/navigate';
 import {

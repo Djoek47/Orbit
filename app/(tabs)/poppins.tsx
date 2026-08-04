@@ -1,15 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet';
@@ -28,6 +20,7 @@ import {
 } from '@/lib/voice/poppins-realtime';
 import { useOrbit } from '@/store/orbit-store';
 import type { PoppinsMonitorAction } from '@/types/orbit';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 type PoppinsVisualState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
