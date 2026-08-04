@@ -14,6 +14,13 @@ Pick **one** delivery path:
 
 Do **not** enable Path B while relying on Path A for the same Auth emails — the Send Email Hook replaces Supabase’s mailer for those events.
 
+**Branded HTML for Path B:** use the ChoreMaxx React Email templates in
+[`emails/`](../emails/) instead of hand-written HTML — see
+[email-templates.md](./email-templates.md) for the full catalog, brand
+tokens, local preview (`npm run email:dev`), and the exact steps to swap
+`send-auth-email`'s inline HTML for `emails/verification.tsx`,
+`password-reset.tsx`, `magic-link.tsx`, and `email-changed.tsx`.
+
 ---
 
 ## Prerequisites
