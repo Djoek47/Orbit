@@ -36,7 +36,7 @@ export type IconShape =
   | { t: 'p'; d: string; accent?: true; fill?: true }
   | { t: 'c'; cx: number; cy: number; r: number; accent?: true; fill?: true };
 
-/** Shapes marked `accent` carry the rust highlight in the duotone variant.
+/** Shapes marked `accent` carry the theme primary highlight in the duotone variant.
  *  Shapes marked `fill` are closed silhouettes; open paths must never be filled. */
 export const ICONS: Record<IconName, IconShape[]> = {
   kitchen: [

@@ -19,10 +19,12 @@ update the import paths in this document accordingly. Keep them together.
 The set has one geometry and two treatments. Nothing else is permitted.
 
 **`duotone`** — everything except the XP trophies.
-Cream body stroke, one rust accent per mark carrying the meaningful detail (the washer
-drum, the broom bristles, the check, the flame core). Fixed colors: body `#F1E6D6`,
-accent `#E4552B`. These are the icon's identity — do **not** recolor duotone icons per
-screen, per domain, or per state.
+Body stroke + one accent per mark carrying the meaningful detail (the washer drum, the
+broom bristles, the check, the flame core). Colors follow the active accent pack
+(Sky / Citrus / Coral / Berry) via `resolveIconDuotone` — board secondary as body,
+board primary as accent. Do **not** invent per-screen or per-domain colors; optional
+`bodyColor` / `accentColor` props are escape hatches only. House logo and app icons
+are separate — leave them alone.
 
 **`halo`** — XP trophies only, and it is **colorless by design**.
 One line weight, one tone, plus a soft bloom. The tone is never hard-coded: it is passed

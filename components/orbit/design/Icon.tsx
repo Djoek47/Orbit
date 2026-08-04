@@ -1,12 +1,14 @@
 import React, { memo } from 'react';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { useOrbitOptional } from '@/store/orbit-store';
+import { resolveIconDuotone } from './iconDuotone';
 import { ICONS, IconName, IconShape } from './icons';
 
 export type IconVariant = 'duotone' | 'halo';
 
-/** Defaults. Prefer passing colors from the theme rather than editing these. */
-export const ICON_BODY = '#F1E6D6';   // cream — same family as the "chore" wordmark
-export const ICON_ACCENT = '#E4552B'; // rust — same family as the "maxx" wordmark
+/** Coral-pack fallbacks when Icon renders outside OrbitProvider. */
+export const ICON_BODY = '#FAC775';
+export const ICON_ACCENT = '#D85A30';
 
 const STROKE = {
   duotone: { body: 1.75, accent: 1.9 },
@@ -19,7 +21,7 @@ export type IconProps = {
   variant?: IconVariant;
   /** halo only — one tone taken from the surrounding palette. */
   tone?: string;
-  /** duotone only */
+  /** duotone only — omit to follow active Sky/Citrus/Coral/Berry pack. */
   bodyColor?: string;
   accentColor?: string;
   /** halo only — bloom strength, 0 turns it off. */
@@ -55,12 +57,18 @@ function Icon({
   name,
   size = 24,
   variant = 'duotone',
-  tone = ICON_BODY,
-  bodyColor = ICON_BODY,
-  accentColor = ICON_ACCENT,
+  tone,
+  bodyColor,
+  accentColor,
   glow = 1,
   muted = false,
 }: IconProps) {
+  const orbit = useOrbitOptional();
+  const themed = resolveIconDuotone(orbit?.accentTheme?.id, orbit?.orbitPalette?.isDark);
+  const resolvedBody = bodyColor ?? themed.body;
+  const resolvedAccent = accentColor ?? themed.accent;
+  const resolvedTone = tone ?? resolvedBody;
+
   const shapes = ICONS[name];
   if (!shapes) return null;
 
@@ -72,17 +80,19 @@ function Icon({
     // reliable filter support, so do not reach for feGaussianBlur here.
     shapes.forEach((s, i) => {
       const base = s.accent ? w.accent : w.body;
-      nodes.push(draw(s, 1000 + i, tone, base * 3.4, undefined, 0.08 * glow));
-      nodes.push(draw(s, 2000 + i, tone, base * 2.0, undefined, 0.16 * glow));
+      nodes.push(draw(s, 1000 + i, resolvedTone, base * 3.4, undefined, 0.08 * glow));
+      nodes.push(draw(s, 2000 + i, resolvedTone, base * 2.0, undefined, 0.16 * glow));
     });
   }
 
   shapes.forEach((s, i) => {
     if (variant === 'halo') {
-      nodes.push(draw(s, i, tone, s.accent ? w.accent : w.body, undefined, s.accent ? 0.55 : 1));
+      nodes.push(
+        draw(s, i, resolvedTone, s.accent ? w.accent : w.body, undefined, s.accent ? 0.55 : 1),
+      );
     } else {
-      const stroke = s.accent ? accentColor : bodyColor;
-      const fill = s.accent && s.fill ? accentColor : undefined;
+      const stroke = s.accent ? resolvedAccent : resolvedBody;
+      const fill = s.accent && s.fill ? resolvedAccent : undefined;
       nodes.push(draw(s, i, stroke, s.accent ? w.accent : w.body, fill, 1));
     }
   });
