@@ -5,7 +5,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
+import { AppText as Text } from '@/components/orbit/app-text';
 import { Avatar } from '@/components/orbit/avatar';
+import Icon from '@/components/orbit/design/Icon';
+import { achievementIconName, trophyIconName } from '@/components/orbit/design/icon-map';
+import { tierTone } from '@/components/orbit/design/tierTone';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
@@ -14,6 +18,7 @@ import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme'
 import {
   isAvatarImageUri,
   memberDisplayEmoji,
+  XP_MILESTONE_TROPHIES,
 } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
@@ -23,7 +28,6 @@ import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
-import { AppText as Text } from '@/components/orbit/app-text';
 
 type Surface = 'rewards' | 'allowance' | 'ranks';
 type RankCat = 'xp' | 'tasks' | 'streak' | 'improved';
@@ -44,6 +48,26 @@ function resolveSurface(raw?: string | string[]): Surface {
   if (value === 'ranks' || value === 'rankings') return 'ranks';
   if (value === 'rewards' || value === 'shop') return 'rewards';
   return 'rewards';
+}
+
+function AchievementStripIcon({ id, earned }: { id: string; earned: boolean }) {
+  const habitName = achievementIconName(id);
+  if (habitName) {
+    return <Icon name={habitName} size={24} muted={!earned} />;
+  }
+  const trophyIndex = XP_MILESTONE_TROPHIES.findIndex((trophy) => trophy.id === id);
+  if (trophyIndex >= 0) {
+    return (
+      <Icon
+        name={trophyIconName(trophyIndex)}
+        variant="halo"
+        tone={tierTone(trophyIndex, earned)}
+        muted={!earned}
+        size={24}
+      />
+    );
+  }
+  return null;
 }
 
 function completedTaskCount(tasks: HouseholdTask[], memberName: string) {
@@ -786,7 +810,7 @@ export default function RewardsScreen() {
                           { backgroundColor: `${member.levelColor}18` },
                         ]}>
                         <Text style={{ color: member.levelColor, fontSize: 9, fontWeight: '700' }}>
-                          {member.levelEmoji} {member.levelName}
+                          {member.levelName}
                         </Text>
                       </View>
                     </View>
@@ -842,7 +866,7 @@ export default function RewardsScreen() {
                           borderColor: 'rgba(245,158,11,0.28)',
                         },
                       ]}>
-                      <Text style={{ fontSize: 20 }}>{b.emoji}</Text>
+                      <AchievementStripIcon id={b.id} earned />
                     </View>
                   ))}
                 {achievements
@@ -859,7 +883,7 @@ export default function RewardsScreen() {
                           opacity: 0.35,
                         },
                       ]}>
-                      <Text style={{ fontSize: 20 }}>{b.emoji}</Text>
+                      <AchievementStripIcon id={b.id} earned={false} />
                     </View>
                   ))}
               </View>

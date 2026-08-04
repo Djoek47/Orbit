@@ -8,6 +8,9 @@ import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
+import Icon from '@/components/orbit/design/Icon';
+import { domainIconName } from '@/components/orbit/design/icon-map';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import {
   choreDomains,
@@ -17,7 +20,6 @@ import {
   type TaskGroup,
 } from '@/lib/tasks/task-library';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 export type TaskPickerTab = 'chores' | 'homework';
 
@@ -270,11 +272,7 @@ export function TaskPicker({
                 styles.tile,
                 { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) },
               ]}>
-              <MaterialIcons
-                name={domain.tracking === 'streak' ? 'spa' : 'home'}
-                size={22}
-                color={c.textSoft}
-              />
+              <Icon name={domainIconName(domain.id)} size={28} />
               <Text style={[styles.tileLabel, { color: c.text }]} numberOfLines={2}>
                 {domain.name}
               </Text>

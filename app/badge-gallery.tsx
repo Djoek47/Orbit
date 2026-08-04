@@ -5,7 +5,11 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
+import Icon from '@/components/orbit/design/Icon';
+import { achievementIconName, trophyIconName } from '@/components/orbit/design/icon-map';
+import { tierTone } from '@/components/orbit/design/tierTone';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import {
@@ -17,7 +21,6 @@ import {
 } from '@/lib/game-levels';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function BadgeGalleryScreen() {
   const insets = useSafeAreaInsets();
@@ -64,7 +67,7 @@ export default function BadgeGalleryScreen() {
           style={styles.summaryGlow}
         />
         <Text style={[styles.summaryTitle, { color: c.textSoft }]}>
-          {level.emoji} {level.name}
+          {level.name}
         </Text>
         <Text style={[styles.summaryPct, { color: level.color }]}>{formatXp(lifetimeXp)} XP</Text>
         <View style={styles.summaryTrack}>
@@ -121,7 +124,7 @@ export default function BadgeGalleryScreen() {
                     borderColor: earned ? 'rgba(251,191,36,0.45)' : `${accentTheme.primary}33`,
                   },
                 ]}>
-                <Text style={{ fontSize: 18 }}>{badge.emoji}</Text>
+                <Icon name={achievementIconName(badge.id)!} size={24} muted={!earned} />
               </View>
               <View style={styles.badgeCopy}>
                 <Text style={[styles.badgeTitle, { color: c.text }]}>{badge.label}</Text>
@@ -159,15 +162,16 @@ export default function BadgeGalleryScreen() {
           Awards unlock as lifetime XP climbs — bronze to Most Glorious at one million.
         </Text>
         <View style={styles.badgeGrid}>
-          {xpTrophies.map((badge) => (
+          {xpTrophies.map((badge, index) => (
             <View key={badge.id} style={styles.badgeTile}>
-              <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
-                <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
-                {!badge.earned ? (
-                  <View style={styles.lockOverlay}>
-                    <MaterialIcons name="lock" size={12} color={c.textSubtle} />
-                  </View>
-                ) : null}
+              <View style={styles.badgeIconWrap}>
+                <Icon
+                  name={trophyIconName(index)}
+                  variant="halo"
+                  tone={tierTone(index, badge.earned)}
+                  muted={!badge.earned}
+                  size={44}
+                />
               </View>
               <Text style={[styles.badgeLabel, { color: c.text }]}>{badge.label}</Text>
               <Text style={[styles.badgeDesc, { color: c.textMuted }]}>
@@ -190,13 +194,8 @@ export default function BadgeGalleryScreen() {
         <View style={styles.badgeGrid}>
           {habitAchievements.map((badge) => (
             <View key={badge.id} style={styles.badgeTile}>
-              <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
-                <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
-                {!badge.earned ? (
-                  <View style={styles.lockOverlay}>
-                    <MaterialIcons name="lock" size={12} color={c.textSubtle} />
-                  </View>
-                ) : null}
+              <View style={styles.badgeIconWrap}>
+                <Icon name={achievementIconName(badge.id)!} size={32} muted={!badge.earned} />
               </View>
               <Text style={[styles.badgeLabel, { color: c.text }]}>{badge.label}</Text>
               <Text style={[styles.badgeDesc, { color: c.textMuted }]}>
@@ -253,9 +252,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
   },
-  badgeEmoji: {
-    fontSize: 22,
-  },
   badgeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -279,9 +275,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  badgeLocked: {
-    opacity: 0.45,
-  },
   badgeRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -295,9 +288,6 @@ const styles = StyleSheet.create({
     gap: 6,
     padding: 12,
     width: '47%',
-  },
-  badgeTileLocked: {
-    opacity: 0.72,
   },
   badgeTitle: {
     fontSize: 15,
@@ -318,13 +308,6 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     width: 48,
-  },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    backgroundColor: 'rgba(7,13,28,0.35)',
-    borderRadius: radius.card,
-    justifyContent: 'center',
   },
   progressFill: {
     borderRadius: 999,
