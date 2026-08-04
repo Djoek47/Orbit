@@ -12,7 +12,11 @@ import Icon from '@/components/orbit/design/Icon';
 import { domainIconName } from '@/components/orbit/design/icon-map';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { radius, space, typography } from '@/constants/orbit-theme';
-import { normalizeRewardSettings, resolveTaskXp } from '@/lib/rewards/reward-mode';
+import {
+  normalizeRewardSettings,
+  resolveTaskXp,
+  type RewardMode,
+} from '@/lib/rewards/reward-mode';
 import {
   choreDomains,
   homeworkDomain,
@@ -31,6 +35,11 @@ type TaskPickerProps = {
   /** chores = 14 domain tiles; homework = groups only (§4.6). */
   tab?: TaskPickerTab;
   onRequestCustom?: (query: string) => void;
+  /**
+   * Prefer this over household.rewardMode (onboarding picks Equity before a
+   * household exists — store still defaults to Meritocracy / weighted).
+   */
+  rewardMode?: RewardMode;
 };
 
 function normalize(s: string) {
@@ -78,17 +87,23 @@ export function TaskPicker({
   onChange,
   tab = 'chores',
   onRequestCustom,
+  rewardMode: rewardModeProp,
 }: TaskPickerProps) {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const { household } = useOrbit();
   const rewardSettings = useMemo(
     () =>
       normalizeRewardSettings({
-        rewardMode: household.rewardMode,
+        rewardMode: rewardModeProp ?? household.rewardMode,
         hygieneRewarded: household.hygieneRewarded,
         hygieneXp: household.hygieneXp,
       }),
-    [household.hygieneRewarded, household.hygieneXp, household.rewardMode]
+    [
+      household.hygieneRewarded,
+      household.hygieneXp,
+      household.rewardMode,
+      rewardModeProp,
+    ]
   );
   const [query, setQuery] = useState('');
   const [domainSheet, setDomainSheet] = useState<TaskDomain | null>(null);
@@ -271,7 +286,17 @@ export function TaskPicker({
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.taskName, { color: c.text }]}>{task.name}</Text>
                     <Text style={[typography.caption2, { color: c.textSubtle }]}>
-                      {task.domainId.replace(/_/g, ' ')} · {task.groupId.replace(/_/g, ' ')}
+                      {task.domainId.replace(/_/g, ' ')} ·{' '}
+                      {task.tracking === 'streak'
+                        ? 'Streak · no XP'
+                        : `${resolveTaskXp(
+                            { baseXp: task.xp, xpEligible: true },
+                            {
+                              mode: rewardSettings.rewardMode,
+                              hygieneRewarded: rewardSettings.hygieneRewarded,
+                              hygieneXp: rewardSettings.hygieneXp,
+                            }
+                          )} XP${rewardSettings.rewardMode === 'flat' ? ' · Equity' : ''}`}
                     </Text>
                   </View>
                 </Pressable>

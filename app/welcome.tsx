@@ -554,7 +554,7 @@ export default function WelcomeOnboardingScreen() {
         const matched = created.find(
           (c) => c.name.trim().toLowerCase() === member.name.trim().toLowerCase()
         );
-        for (const task of tasksFromDraftMember(member)) {
+        for (const task of tasksFromDraftMember(member, draft.scoringMode)) {
           await createTask(task, { householdId });
         }
         for (const reward of rewardsFromDraftMember(member)) {
@@ -1348,6 +1348,7 @@ export default function WelcomeOnboardingScreen() {
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
               <SetupMemberWizard
                 rewardModel={selectedRewardModel ?? DEFAULT_REWARD_MODEL}
+                rewardMode={selectedRewardMode ?? setupDraft.scoringMode ?? 'weighted'}
                 initial={editingMember}
                 onCancel={() => setStep('roster')}
                 onConfirm={(member) => {

@@ -3,6 +3,7 @@
  */
 
 import type { DraftMember, HouseholdSetupDraft } from '@/lib/onboarding/setup-draft';
+import { type RewardMode, resolveTaskXp } from '@/lib/rewards/reward-mode';
 import { allLibraryTasks } from '@/lib/tasks/task-library';
 import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
 import type { CreateRewardInput, CreateTaskInput, HouseholdTask } from '@/types/orbit';
@@ -22,23 +23,37 @@ function mapFrequency(freq: string): HouseholdTask['repeat'] {
   }
 }
 
-export function tasksFromDraftMember(member: DraftMember): CreateTaskInput[] {
+/**
+ * Library → CreateTaskInput. Keeps intrinsic `baseXp`; snapshots display/award
+ * `xp` for Equity (flat 10) so onboarding materialize matches Tasks.
+ */
+export function tasksFromDraftMember(
+  member: DraftMember,
+  scoringMode: RewardMode = 'weighted'
+): CreateTaskInput[] {
   const library = allLibraryTasks();
   const byId = new Map(library.map((t) => [t.id, t]));
+  const mode = scoringMode === 'flat' ? 'flat' : 'weighted';
   return member.taskLibraryIds
     .map((id) => byId.get(id))
     .filter((t): t is NonNullable<typeof t> => Boolean(t))
     .map((task) => {
       const dueAt = dueAtForFrequency(task.defaultFrequency);
+      const xpEligible = task.tracking === 'xp';
+      const baseXp = xpEligible ? task.xp : 0;
+      const xp = resolveTaskXp(
+        { baseXp, xpEligible },
+        { mode, hygieneRewarded: false, hygieneXp: 5 }
+      );
       return {
         title: task.name,
         category: task.domainId,
         assignee: member.name.trim(),
         due: dueAt ? 'Today' : 'As needed',
         dueAt: dueAt?.toISOString(),
-        xp: task.xp,
-        baseXp: task.xp,
-        xpEligible: task.tracking === 'xp',
+        xp,
+        baseXp,
+        xpEligible,
         tracking: task.tracking,
         repeat: mapFrequency(task.defaultFrequency),
       } satisfies CreateTaskInput;

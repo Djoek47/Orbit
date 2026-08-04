@@ -16,6 +16,7 @@ import {
   type DraftMemberAllowance,
   type DraftMemberReward,
 } from '@/lib/onboarding/setup-draft';
+import { type RewardMode } from '@/lib/rewards/reward-mode';
 import { capabilitiesFor, type RewardModel } from '@/lib/rewards/reward-model';
 import {
   REWARD_FREQUENCY_LABELS,
@@ -30,6 +31,8 @@ type WizardStep = 'A' | 'B' | 'C' | 'D';
 
 type SetupMemberWizardProps = {
   rewardModel: RewardModel;
+  /** Meritocracy / Equity — drives XP labels in the task picker before household exists. */
+  rewardMode?: RewardMode;
   initial?: DraftMember | null;
   onCancel: () => void;
   onConfirm: (member: DraftMember) => void;
@@ -52,6 +55,7 @@ function emptyMember(): DraftMember {
 
 export function SetupMemberWizard({
   rewardModel,
+  rewardMode = 'weighted',
   initial,
   onCancel,
   onConfirm,
@@ -237,6 +241,7 @@ export function SetupMemberWizard({
             <TaskPicker
               selectedIds={member.taskLibraryIds}
               onChange={(taskLibraryIds) => setMember((m) => ({ ...m, taskLibraryIds }))}
+              rewardMode={rewardMode}
             />
           </ScrollView>
           <OrbitButton onPress={goNext}>
