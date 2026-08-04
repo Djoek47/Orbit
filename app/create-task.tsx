@@ -76,6 +76,8 @@ export type TaskPreset = {
 
 function libraryToPreset(task: ChoremaxxLibraryTask): TaskPreset {
   const hygiene = isHygieneLibraryTask(task);
+  const isHomework =
+    task.domain === 'Homework & Education' || task.domain === 'Homework' || task.group === 'Homework';
   const difficulty: TaskDifficulty = hygiene
     ? 'easy'
     : task.baseXp >= 20
@@ -91,7 +93,8 @@ function libraryToPreset(task: ChoremaxxLibraryTask): TaskPreset {
     difficulty,
     weight: weightForDifficulty(difficulty),
     repeat: inferLibraryRepeat(task),
-    proofRequired: hygiene ? false : task.proofDefault,
+    // Revision C §1: proof is not a create-time chore flag; homework requires it by default.
+    proofRequired: hygiene ? false : isHomework,
     roomKind: task.roomKind,
     domain: task.domain,
     group: task.group,
@@ -327,7 +330,6 @@ export default function CreateTaskScreen() {
   }, [initialType]);
   const [repeat, setRepeat] = useState<HouseholdTask['repeat']>('None');
   const [difficulty, setDifficulty] = useState<TaskDifficulty>('medium');
-  const [proofRequired, setProofRequired] = useState(false);
   const [presetQuery, setPresetQuery] = useState('');
   const [baseXp, setBaseXp] = useState(10);
   const [category, setCategory] = useState('General');
@@ -485,7 +487,6 @@ export default function CreateTaskScreen() {
     });
     setSplitMode(false);
     setBaseXp(0);
-    setProofRequired(false);
   }, [isHygieneDraft, childMembers]);
 
   // Seed assignee when household members load (picker/custom can mount before roster is ready).
@@ -662,7 +663,7 @@ export default function CreateTaskScreen() {
         repeat: preset.repeat,
         difficulty: preset.difficulty,
         weight: preset.weight,
-        proofRequired: hygiene ? false : preset.proofRequired,
+        proofRequired: hygiene ? false : Boolean(preset.proofRequired),
         tracking: hygiene ? 'streak' : 'xp',
         assignee: names[0] ?? household.greetingName,
         assignees: names.length > 1 ? names : undefined,
@@ -679,7 +680,6 @@ export default function CreateTaskScreen() {
     setDescription(preset.description);
     setRepeat(preset.repeat);
     setDifficulty(preset.difficulty);
-    setProofRequired(hygiene ? false : preset.proofRequired);
     setBaseXp(hygiene ? 0 : preset.baseXp);
     const priorityIndex = Math.max(
       0,
@@ -729,7 +729,8 @@ export default function CreateTaskScreen() {
           repeat,
           difficulty: 'medium',
           weight: weightForDifficulty('medium'),
-          proofRequired,
+          // Revision C §1: homework requires proof by default.
+          proofRequired: true,
         })
       );
     } else {
@@ -744,7 +745,8 @@ export default function CreateTaskScreen() {
           repeat,
           difficulty: isHygieneDraft ? 'easy' : difficulty,
           weight: isHygieneDraft ? 1 : weight,
-          proofRequired: isHygieneDraft ? false : proofRequired,
+          // Revision C §1: chores never pre-set proof — admins request it after complete.
+          proofRequired: false,
           tracking: isHygieneDraft ? 'streak' : 'xp',
         })
       );
@@ -784,7 +786,8 @@ export default function CreateTaskScreen() {
                 : 'None',
         difficulty: 'medium',
         weight: 1,
-        proofRequired: false,
+        // Revision C §1: homework proof by default; chores on-demand after complete.
+        proofRequired: type === 'homework' || task.domainId === 'homework_education',
         tracking: task.tracking,
       });
       const definitionId = `lib:${task.id}:${payload.assignee}`;
@@ -1089,7 +1092,6 @@ export default function CreateTaskScreen() {
                   setCategory('General');
                   setRepeat('None');
                   setDifficulty('medium');
-                  setProofRequired(false);
                   setBaseXp(10);
                   setTracking('xp');
                 }}>
@@ -1513,17 +1515,6 @@ export default function CreateTaskScreen() {
           </View>
         </View>
 
-        {!isHygieneDraft ? (
-          <Pressable onPress={() => setProofRequired((value) => !value)} style={styles.proofToggle}>
-            <MaterialIcons
-              name={proofRequired ? 'check-box' : 'check-box-outline-blank'}
-              size={18}
-              color={proofRequired ? accentTheme.primary : c.textSubtle }
-            />
-            <Text style={[styles.proofToggleText, { color: c.textSoft }]}>Require photo proof after complete</Text>
-          </Pressable>
-        ) : null}
-
         {permissions.canAssignTask ? (
           <View style={styles.field}>
             <Text style={[styles.label, { color: c.textMuted }]}>
@@ -1585,7 +1576,7 @@ export default function CreateTaskScreen() {
             <Text style={[styles.sharedPickHint, { color: c.textMuted }]}>
               Each person earns +
               {resolveTaskXp({ baseXp: baseXp || 10, xpEligible: true }, xpCtx)} XP when they finish
-              {proofRequired ? ' (proof requested after)' : ''}. If everyone finishes, each gets a bonus.
+              {type === 'homework' ? ' (photo proof required)' : ''}. If everyone finishes, each gets a bonus.
               Admins can penalize anyone who doesn’t.
             </Text>
           </View>

@@ -21,6 +21,11 @@ export type RewardFieldOverlay = Pick<
   | 'assignedMemberId'
   | 'assignedMemberName'
   | 'archived'
+  | 'frequency'
+  | 'quantity'
+  | 'subtitle'
+  | 'isCustom'
+  | 'presetId'
 >;
 
 export async function loadRewardFieldOverlay(

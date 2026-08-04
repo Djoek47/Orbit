@@ -83,6 +83,8 @@ Delete the "Household Games" card from the Ranks/Achievements page, including th
 
 ### 1.6 Permission model — Admin vs Member (confirmed)
 
+> ⚠️ **Labels superseded by Revision C §3** — `member` now displays as **Helper**. The permission matrix below is unchanged.
+
 Two roles. Enforce **server-side**, not by hiding buttons — a hidden button is not a permission.
 
 | Action | Admin | Member |
@@ -105,6 +107,8 @@ Two roles. Enforce **server-side**, not by hiding buttons — a hidden button is
 - The first member created during onboarding is the admin. Additional admins can be promoted from Settings → Household.
 
 ### 1.7 Completion, notification, and the proof loop (new)
+
+> ⚠️ **Partially superseded by Revision C §1.** The XP-on-tap rule below still holds. What changed: proof is no longer a pre-set task flag — it is an on-demand admin action on completed chores, and is required by default on homework. Read Revision C §1 for the corrected model.
 
 **The governing rule: XP is awarded the moment the child taps Complete.** Not on parent approval. Approval is a *verification layer that runs after the fact*, never a gate in front of the reward.
 
@@ -468,7 +472,7 @@ Third path, always available, never the primary one. Entry points: the empty-sea
 The custom task sheet is drastically simplified from its current state:
 
 - Keep: **Task name**, **Domain** (a required picker among the 14 chore domains, or the Homework domain if created from that tab — this replaces Room), **Repeat** (the 9 frequencies, Section 5.1), **Due time** (Section 5), **XP value** (a picker of 5/10/15/20/25/30, defaulting to 15; hidden entirely in Equity mode and in `allowance`-only households).
-- Keep: `Require photo proof after complete` checkbox.
+- **Removed:** the `Require photo proof after complete` checkbox — proof is now requested after the fact by an admin (Revision C §1.1).
 - Keep: `Assign to` (pre-filled with the current member in the onboarding context).
 - **Remove:** the `Room (optional)` field entirely.
 - **Remove:** the `Priority (Low / Medium / High)` control entirely — field, UI, sorting logic, and any badge on task cards. **Confirmed.** Priority duplicates what XP weighting already expresses and adds a decision with no downstream effect.
@@ -640,6 +644,8 @@ interface TaskOccurrence {
 ---
 
 ## 6. Reward system rebuild
+
+> ⚠️ **Superseded by Revision C §2** for the catalogue, assignment flow, and Mint Reward sheet. The nine presets in §6.2 and the no-XP-cost rule in §6.1 still stand; the surfaces around them changed.
 
 ### 6.1 Remove XP costs from rewards
 
@@ -963,3 +969,27 @@ Concretely, in review, reject any implementation that:
 - Makes a step un-undoable.
 
 The through-line for all of it: a parent should be able to set up two children, with real chores and real rewards, in under three minutes, and never once wonder what a screen is asking.
+
+---
+
+## Revision C — Implemented deltas (agent notes)
+
+The uploaded Revision B document references Revision C §1–§3 via supersession callouts but did not include the full Revision C body. The following was implemented from those callouts:
+
+### C§1 Proof model
+- XP still awards on Complete tap (§1.7 rule unchanged).
+- Proof is **not** a create-time chore flag. The custom-task "Require photo proof after complete" checkbox is removed.
+- Chores complete with `verification: not_required`. Admins can **Ask for photo** on-demand from a completed chore (sets `proofRequired` + `proof_requested`).
+- Homework assigns/creates with `proofRequired: true` by default.
+- Existing Confirm / Ask for another photo / Mark not done / 3-round cap / 72h auto-confirm remain.
+
+### C§2 Rewards surfaces
+- Nine presets (§6.2) and no-XP-cost (§6.1) stand.
+- **Mint Reward** sheet replaced by **Create Reward**: presets + name + frequency (+ quantity where offered) + optional notes + assign. `cost` always `0`. No emoji picker.
+- Special reward request no longer asks for XP cost.
+- Redeem tally / assign notifications no longer show XP purchase cost.
+
+### C§3 Labels
+- Role `member` (stored household role `child`) **displays as Helper**.
+- Setup wizard Admin / Helper chips. `formatHouseholdRole('child')` → `Helper`.
+- Permission matrix keys unchanged (`admin` / `member` in `permissions-v2.ts`).

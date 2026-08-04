@@ -437,7 +437,7 @@ export default function RewardsScreen() {
               ]}>
               <MaterialIcons name="add" size={18} color={c.textSubtle} />
               <Text style={[typography.subheadline, { color: c.textSubtle, fontWeight: '600' }]}>
-                Create Custom Reward
+                Create Reward
               </Text>
             </Pressable>
           ) : null}

@@ -29,6 +29,14 @@ export function canRequestAnotherProof(
   rounds: ProofRound[]
 ): boolean {
   if (verification === 'rejected' || verification === 'confirmed') return false;
+  // Revision C §1: allow first on-demand request from `not_required` completed chores.
+  if (
+    verification !== 'not_required' &&
+    verification !== 'unreviewed' &&
+    verification !== 'proof_requested'
+  ) {
+    return false;
+  }
   return rounds.length < PROOF_ROUND_CAP;
 }
 

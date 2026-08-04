@@ -69,6 +69,8 @@ export function requestAnotherProofOnTask(
     ok: true,
     task: {
       ...task,
+      // Revision C §1: on-demand proof may start from chores that never had a create-time flag.
+      proofRequired: true,
       verification: 'proof_requested',
       proofRounds: [...rounds, nextRound],
       proofStatus: 'none',

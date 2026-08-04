@@ -95,7 +95,7 @@ export default function RewardTallyScreen() {
           const member = household.members.find((item) => item.id === redemption.memberId);
           const origin =
             reward?.origin ?? (reward?.specialRequest ? 'special-request' : 'minted');
-          const originLabel = origin === 'special-request' ? 'Special request' : 'Minted';
+          const originLabel = origin === 'special-request' ? 'Special request' : 'Catalogue';
           return (
             <GlassCard key={redemption.id} style={styles.card}>
               <View style={styles.cardHead}>
@@ -114,7 +114,11 @@ export default function RewardTallyScreen() {
                 </View>
               </View>
               <Text style={[typography.footnote, { color: c.textMuted }]}>
-                {member?.name ?? 'Member'} · {reward?.cost ?? '—'} XP · {originLabel}
+                {member?.name ?? 'Helper'}
+                {reward?.frequency
+                  ? ` · ${reward.frequency.charAt(0).toUpperCase()}${reward.frequency.slice(1)}`
+                  : ''}
+                {` · ${originLabel}`}
                 {reward?.createdByName ? ` · by ${reward.createdByName}` : ''}
               </Text>
               <Text style={[styles.time, { color: c.textSubtle }]}>

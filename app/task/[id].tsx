@@ -174,22 +174,29 @@ export default function TaskDetailScreen() {
   };
 
   const handleAskPhoto = () => {
-    Alert.alert('Ask for another photo', 'Send a request for another photo?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Send',
-        onPress: () => {
-          void (async () => {
-            setProofBusy(true);
-            try {
-              await requestAnotherProof(task.id);
-            } finally {
-              setProofBusy(false);
-            }
-          })();
+    const firstAsk = task.verification === 'not_required';
+    Alert.alert(
+      firstAsk ? 'Ask for photo' : 'Ask for another photo',
+      firstAsk
+        ? 'Request a photo of this completed chore?'
+        : 'Send a request for another photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: () => {
+            void (async () => {
+              setProofBusy(true);
+              try {
+                await requestAnotherProof(task.id);
+              } finally {
+                setProofBusy(false);
+              }
+            })();
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const handleMarkNotDone = () => {
@@ -654,6 +661,31 @@ export default function TaskDetailScreen() {
               <View style={styles.waitCard}>
                 <MaterialIcons name="hourglass-top" size={18} color={c.warning} />
                 <Text style={styles.waitText}>Proof sent to admin for review.</Text>
+              </View>
+            ) : null}
+            {!split &&
+            task.status === 'Completed' &&
+            task.verification === 'not_required' &&
+            (v2Permissions.canRequestProof || v2Permissions.canApproveCompletion) ? (
+              <View style={{ gap: 8 }}>
+                {v2Permissions.canRequestProof ? (
+                  <Pressable
+                    disabled={proofBusy}
+                    onPress={handleAskPhoto}
+                    style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
+                    <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
+                      {proofBusy ? 'Working…' : 'Ask for photo'}
+                    </Text>
+                  </Pressable>
+                ) : null}
+                {v2Permissions.canApproveCompletion ? (
+                  <Pressable
+                    disabled={proofBusy}
+                    onPress={handleMarkNotDone}
+                    style={[styles.secondaryBtn, { borderColor: 'rgba(248,113,113,0.35)', backgroundColor: 'rgba(248,113,113,0.08)' }]}>
+                    <Text style={[styles.secondaryText, { color: '#F87171' }]}>Mark not done</Text>
+                  </Pressable>
+                ) : null}
               </View>
             ) : null}
             {!split &&

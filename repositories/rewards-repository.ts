@@ -159,6 +159,11 @@ export const rewardsRepository = {
           createdByName: reward.createdByName,
           assignedMemberId: reward.assignedMemberId,
           assignedMemberName: reward.assignedMemberName,
+          frequency: reward.frequency,
+          quantity: reward.quantity,
+          subtitle: reward.subtitle,
+          isCustom: reward.isCustom,
+          presetId: reward.presetId,
         }
       : reward;
     await saveRewardFieldOverlay(householdId, created.id, {
@@ -171,6 +176,11 @@ export const rewardsRepository = {
       createdByName: created.createdByName,
       assignedMemberId: created.assignedMemberId,
       assignedMemberName: created.assignedMemberName,
+      frequency: created.frequency,
+      quantity: created.quantity,
+      subtitle: created.subtitle,
+      isCustom: created.isCustom,
+      presetId: created.presetId,
       archived: created.archived,
     });
     return created;

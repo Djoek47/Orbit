@@ -42,6 +42,15 @@ const ask1 = requestAnotherProofOnTask(base(), 'admin-1', 'Get the corner');
 assert(ask1.ok && ask1.task.verification === 'proof_requested', 'ask photo');
 assert((ask1.ok && ask1.task.proofRounds?.length) === 1, 'one round');
 
+const onDemand = requestAnotherProofOnTask(
+  base({ verification: 'not_required', proofRequired: false, proofRounds: [] }),
+  'admin-1',
+  'Show the sink'
+);
+assert(onDemand.ok && onDemand.task.verification === 'proof_requested', 'on-demand from not_required');
+assert(onDemand.ok && onDemand.task.proofRequired === true, 'on-demand sets proofRequired');
+assert((onDemand.ok && onDemand.task.proofRounds?.length) === 1, 'on-demand one round');
+
 let task = ask1.ok ? ask1.task : base();
 for (let i = 0; i < 3; i++) {
   const next = requestAnotherProofOnTask(

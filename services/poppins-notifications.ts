@@ -202,7 +202,7 @@ export const poppinsNotifications = {
     if (!prefs.rewards) return null;
     return push({
       title: 'Poppins · Reward assigned',
-      body: `${input.assignedByName} minted "${input.title}" for you (${input.cost} XP). Open Ranks → Rewards when ready.`,
+      body: `${input.assignedByName} added "${input.title}" for you. Open Ranks → Rewards when ready.`,
       category: 'rewards',
       priority: 'medium',
       data: {

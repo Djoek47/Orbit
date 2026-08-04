@@ -1,6 +1,7 @@
 /**
  * ChoreMaxx v2 Admin vs Member permissions (§1.6).
  * Legacy roles map: owner/admin → admin; everyone else → member.
+ * Revision C §3: Member displays as **Helper** in UI; role key stays `member`.
  * Enforce in store actions — do not only hide UI.
  */
 

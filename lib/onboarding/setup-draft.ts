@@ -25,7 +25,7 @@ export type DraftMemberAllowance = {
 export type DraftMember = {
   id: string;
   name: string;
-  /** Admin / Member — first household creator is always admin in store. */
+  /** Admin / Helper (draft `member`) — first household creator is always admin in store. */
   role: 'admin' | 'member';
   avatarColor?: string;
   taskLibraryIds: string[];
