@@ -586,10 +586,10 @@ export default function TasksScreen() {
     ? MEMBER_ACCENTS[focusedMemberRecord.name]?.color ?? accentTheme.primary
     : accentTheme.primary;
 
-  const totalXPToday = grouped.today.reduce(
-    (sum, task) => sum + (task.tracking === 'streak' || task.category === 'Hygiene' ? 0 : task.xp),
-    0,
-  );
+  const totalXPToday = grouped.today.reduce((sum, task) => {
+    if (task.tracking === 'streak' || task.category === 'Hygiene') return sum;
+    return sum + resolveTaskXpFromHouseholdTask(task, rewardSettings);
+  }, 0);
   const empty = showByMember
     ? (memberSections?.every((section) => section.total === 0) ?? true)
     : grouped.today.length + grouped.upcoming.length + grouped.done.length === 0;

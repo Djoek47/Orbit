@@ -23,6 +23,10 @@ import {
   isSharedDeviceAccount,
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
+import {
+  displayTaskXp,
+  normalizeRewardSettings,
+} from '@/lib/rewards/reward-mode';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { greetingWord } from '@/lib/time/greeting';
 import { useOrbit } from '@/store/orbit-store';
@@ -46,6 +50,15 @@ export default function HomeScreen() {
     orbitPalette,
   } = useOrbit();
   const { c, glass } = useOrbitColors();
+  const rewardSettings = useMemo(
+    () =>
+      normalizeRewardSettings({
+        rewardMode: household.rewardMode,
+        hygieneRewarded: household.hygieneRewarded,
+        hygieneXp: household.hygieneXp,
+      }),
+    [household.hygieneRewarded, household.hygieneXp, household.rewardMode]
+  );
   const scrollY = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
@@ -193,7 +206,7 @@ export default function HomeScreen() {
                     {task.assignee} · {task.title}
                   </Text>
                   <Text style={[typography.caption1, { color: c.textMuted }]}>
-                    +{task.awardedXp ?? task.xp} XP
+                    +{displayTaskXp(task, rewardSettings)} XP
                     {task.verification === 'proof_requested' ? ' · waiting on photo' : ''}
                   </Text>
                 </View>

@@ -17,6 +17,11 @@ import {
   splitShareXp,
   taskMatchesAssignee,
 } from '@/lib/tasks/split-assign';
+import {
+  displayTaskXp,
+  isXpEligible,
+  normalizeRewardSettings,
+} from '@/lib/rewards/reward-mode';
 import { isTaskLate } from '@/lib/tasks/xp';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
@@ -72,8 +77,18 @@ export default function TaskDetailScreen() {
     v2Permissions,
   } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
+  const rewardSettings = useMemo(
+    () =>
+      normalizeRewardSettings({
+        rewardMode: household.rewardMode,
+        hygieneRewarded: household.hygieneRewarded,
+        hygieneXp: household.hygieneXp,
+      }),
+    [household.hygieneRewarded, household.hygieneXp, household.rewardMode]
+  );
 
   const task = household.tasks.find((item) => item.id === id);
+  const taskDisplayXp = task ? displayTaskXp(task, rewardSettings) : 0;
   const memberNames = useMemo(
     () =>
       household.members
@@ -363,7 +378,9 @@ export default function TaskDetailScreen() {
                 <Text style={[styles.statusText, { color: statusColor }]}>{task.status}</Text>
               </View>
               <View style={[styles.statusChip, { backgroundColor: `${accentTheme.primary}22` }]}>
-                <Text style={[styles.statusText, { color: accentTheme.primary }]}>⚡ +{task.xp} XP</Text>
+                <Text style={[styles.statusText, { color: accentTheme.primary }]}>
+                  ⚡ +{taskDisplayXp} XP
+                </Text>
               </View>
               {task.repeat !== 'None' ? (
                 <View style={[styles.statusChip, { backgroundColor: glass(0.06) }]}>
@@ -524,7 +541,8 @@ export default function TaskDetailScreen() {
               <View style={styles.detailRow}>
                 <Text style={[styles.label, { color: c.textMuted }]}>Shares</Text>
                 <Text style={[styles.body, { color: c.textSoft }]}>
-                  Each earns {splitShareXp(task)} XP · all-done bonus {splitAllDoneBonus(task)} XP · admin
+                  Each earns {splitShareXp(task, rewardSettings)} XP · all-done bonus{' '}
+                  {splitAllDoneBonus(task, rewardSettings)} XP · admin
                   penalty {splitPenaltyAmount(task)} XP
                 </Text>
                 {task.shares.map((share) => {
@@ -573,7 +591,19 @@ export default function TaskDetailScreen() {
             <DetailRow label="Due" value={task.due} />
             <DetailRow
               label="XP"
-              value={`${task.xp} XP${task.weight ? ` · weight ${task.weight}` : ''}${task.difficulty ? ` · ${task.difficulty}` : ''}`}
+              value={`${taskDisplayXp} XP${
+                rewardSettings.rewardMode === 'weighted' && task.weight
+                  ? ` · weight ${task.weight}`
+                  : ''
+              }${
+                rewardSettings.rewardMode === 'weighted' && task.difficulty
+                  ? ` · ${task.difficulty}`
+                  : ''
+              }${
+                rewardSettings.rewardMode === 'flat' && isXpEligible(task)
+                  ? ' · Equity (flat)'
+                  : ''
+              }`}
             />
             <DetailRow label="Repeat" value={task.repeat} />
             {needsProof && !split ? (

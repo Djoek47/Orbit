@@ -40,6 +40,7 @@ import {
   type RewardModel,
   type RewardModelCapabilities,
 } from '@/lib/rewards/reward-model';
+import { normalizeRewardSettings } from '@/lib/rewards/reward-mode';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import {
   ensureOccurrencesForDay,
@@ -310,6 +311,8 @@ type OrbitContextValue = {
     hygieneRewarded?: boolean;
     hygieneXp?: 5 | 10;
   }) => void;
+  /** Parent/admin: XP system (xp_only / allowance / rewards / full) — changeable in Settings. */
+  updateHouseholdRewardModel: (model: RewardModel) => void;
   /** Updates the current member’s personal look (follows persona switches). */
   updateAccentTheme: (themeId: AccentThemeId) => void;
   /** Unified palette wheel — day/night pairs live on the palette. */
@@ -1155,11 +1158,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return null;
     }
 
-    const rewardSettings = {
+    const rewardSettings = normalizeRewardSettings({
       rewardMode: household.rewardMode,
       hygieneRewarded: household.hygieneRewarded,
       hygieneXp: household.hygieneXp,
-    };
+    });
     const completedAt = new Date().toISOString();
     const localHour = new Date().getHours();
     const onDueDay = isTodayTask(currentTask) || /today/i.test(currentTask.due);
@@ -1211,7 +1214,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         share.proofStatus !== 'approved';
 
       const late = isTaskLate(currentTask);
-      const baseShare = splitShareXp(currentTask);
+      const baseShare = splitShareXp(currentTask, rewardSettings);
       // v2 §5.2: late never docks XP
       const latePenalty = 0;
       const awarded = Math.max(0, baseShare);
@@ -1224,7 +1227,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const draft: HouseholdTask = { ...currentTask, shares: nextShares };
       const everyoneDone = allSharesCompleted(draft);
       const settled = allSharesSettled(draft);
-      const bonus = everyoneDone ? splitAllDoneBonus(currentTask) : 0;
+      const bonus = everyoneDone ? splitAllDoneBonus(currentTask, rewardSettings) : 0;
       const totalAwarded = awarded + (everyoneDone ? bonus : 0);
 
       let nextTask: HouseholdTask = {
@@ -1429,7 +1432,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return null;
     }
 
-    const dock = splitPenaltyAmount(currentTask);
+    const dock = splitPenaltyAmount(
+      currentTask,
+      normalizeRewardSettings({
+        rewardMode: household.rewardMode,
+        hygieneRewarded: household.hygieneRewarded,
+        hygieneXp: household.hygieneXp,
+      })
+    );
     const nextShares = currentTask.shares.map((item) =>
       item.name === assigneeName
         ? { ...item, status: 'Penalized' as const, penalizedXp: dock }
@@ -1975,15 +1985,28 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
   };
 
+  const canEditHouseholdRewardLogic = (snapshot: HouseholdSnapshot) => {
+    const actor =
+      (activeMemberId
+        ? snapshot.members.find((member) => member.id === activeMemberId)
+        : undefined) ??
+      snapshot.members.find((member) => member.name === currentUser?.name) ??
+      snapshot.members[0];
+    const role = actor?.status === 'pending' ? 'guest' : (actor?.role ?? 'guest');
+    return role === 'owner' || role === 'admin';
+  };
+
   const updateHouseholdRewardSettings = (prefs: {
     rewardMode?: 'weighted' | 'flat';
     hygieneRewarded?: boolean;
     hygieneXp?: 5 | 10;
   }) => {
-    if (!permissions.canManageHousehold) {
-      return;
-    }
+    // Permission checked against the latest household snapshot (not a stale
+    // guest role from the pre-createHousehold render during onboarding).
     setHousehold((current) => {
+      if (!canEditHouseholdRewardLogic(current)) {
+        return current;
+      }
       const next: HouseholdSnapshot = {
         ...current,
         rewardMode: prefs.rewardMode ?? current.rewardMode,
@@ -2019,6 +2042,37 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             mapDbError('updateHouseholdRewardSettings', error);
           } catch (error) {
             console.warn('updateHouseholdRewardSettings supabase skipped', error);
+          }
+        });
+      }
+      return next;
+    });
+  };
+
+  const updateHouseholdRewardModel = (model: RewardModel) => {
+    setHousehold((current) => {
+      if (!canEditHouseholdRewardLogic(current)) {
+        return current;
+      }
+      const next: HouseholdSnapshot = {
+        ...current,
+        rewardModel: model,
+      };
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      const householdId = current.id;
+      if (dataMode === 'supabase' && householdId) {
+        void import('@/repositories/repository-utils').then(async ({ getConfiguredSupabase, mapDbError }) => {
+          try {
+            const supabase = getConfiguredSupabase('updateHouseholdRewardModel');
+            const { error } = await supabase
+              .from('households')
+              .update({ reward_model: model })
+              .eq('id', householdId);
+            mapDbError('updateHouseholdRewardModel', error);
+          } catch (error) {
+            console.warn('updateHouseholdRewardModel supabase skipped', error);
           }
         });
       }
@@ -3224,6 +3278,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateNotificationPrefs,
       updateMemberCapabilities,
       updateHouseholdRewardSettings,
+      updateHouseholdRewardModel,
       updateAccentTheme,
       updatePalette,
       updateHouseholdAccentTheme,
@@ -3327,6 +3382,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       removeRoom,
       updateMemberCapabilities,
       updateHouseholdRewardSettings,
+      updateHouseholdRewardModel,
       redeemStreak,
     ]
   );

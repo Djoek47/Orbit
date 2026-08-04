@@ -30,6 +30,11 @@ import { ensureProfileInviteCode } from '@/lib/household/profile-codes';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import {
+  DEFAULT_REWARD_MODEL,
+  REWARD_MODEL_OPTIONS,
+  type RewardModel,
+} from '@/lib/rewards/reward-model';
+import {
   normalizeRewardSettings,
   REWARD_MODE_COPY,
   type RewardMode,
@@ -134,6 +139,7 @@ export default function SettingsScreen() {
     updateAppearanceMode,
     updateHouseholdAccentTheme,
     updateHouseholdRewardSettings,
+    updateHouseholdRewardModel,
     updatePalette,
     updateMemberAvatar,
     updateNotificationPrefs,
@@ -431,6 +437,48 @@ export default function SettingsScreen() {
             {permissions.canManageHousehold ? (
               <SectionCard title="Rewards & XP">
                 <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
+                  XP system — which parts of ChoreMaxx are on
+                </Text>
+                <View style={{ gap: 8, marginBottom: 16 }}>
+                  {REWARD_MODEL_OPTIONS.map((opt) => {
+                    const active =
+                      (household.rewardModel ?? DEFAULT_REWARD_MODEL) === opt.id;
+                    return (
+                      <Pressable
+                        key={opt.id}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: active }}
+                        onPress={() => updateHouseholdRewardModel(opt.id as RewardModel)}
+                        style={[
+                          styles.prefRow,
+                          {
+                            backgroundColor: active
+                              ? `${accentTheme.primary}22`
+                              : glassFill(isDark),
+                            borderColor: active
+                              ? `${accentTheme.primary}55`
+                              : glassBorder(0.08),
+                          },
+                        ]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.memberName, { color: c.text }]}>
+                            {opt.title}
+                            {opt.recommended ? ' · Recommended' : ''}
+                          </Text>
+                          <Text style={[styles.caption, { color: c.textSubtle }]}>
+                            {opt.subtitle}
+                          </Text>
+                        </View>
+                        {active ? (
+                          <MaterialIcons name="check-circle" size={20} color={accentTheme.primary} />
+                        ) : (
+                          <MaterialIcons name="radio-button-unchecked" size={20} color={c.textSubtle} />
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
                   How chores score points for this household
                 </Text>
                 <SegmentedControl
@@ -444,6 +492,9 @@ export default function SettingsScreen() {
                 />
                 <Text style={[styles.caption, { color: c.textSubtle, marginTop: 6, marginBottom: 12 }]}>
                   {REWARD_MODE_COPY[rewardSettings.rewardMode].blurb}
+                  {rewardSettings.rewardMode === 'flat'
+                    ? ' Every eligible chore shows and awards 10 XP.'
+                    : ''}
                 </Text>
                 <View
                   style={[

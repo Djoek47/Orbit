@@ -21,6 +21,7 @@ export type HouseholdRow = {
   timezone: string;
   country: string | null;
   reward_mode?: 'weighted' | 'flat';
+  reward_model?: 'xp_only' | 'allowance' | 'xp_rewards' | 'xp_allowance' | 'full';
   hygiene_rewarded?: boolean;
   hygiene_xp?: 5 | 10;
   member_capabilities?: Record<string, boolean> | null;

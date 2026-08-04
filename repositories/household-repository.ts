@@ -16,6 +16,11 @@ import {
   mapRewardRow,
   mapTaskRow,
 } from '@/lib/mappers/orbit-mappers';
+import {
+  DEFAULT_REWARD_MODEL,
+  migrateLegacyRewardModel,
+  type RewardModel,
+} from '@/lib/rewards/reward-model';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type {
   CreateHouseholdInput,
@@ -27,6 +32,10 @@ import type {
   OrbitUser,
 } from '@/types/orbit';
 import type { HouseholdInviteRow, HouseholdMemberRow, HouseholdRow } from '@/types/database';
+
+function migrateLoadedRewardModel(value: string | null | undefined): RewardModel {
+  return migrateLegacyRewardModel({ legacy: value ?? DEFAULT_REWARD_MODEL });
+}
 
 export const householdRepository = {
   async getHousehold(): Promise<HouseholdSnapshot> {
@@ -163,12 +172,19 @@ export const householdRepository = {
     const inviteCode = createInviteCode();
     const deepLink = buildInviteLinks(inviteCode).deepLink;
 
+    const rewardMode = input.rewardMode === 'flat' ? 'flat' : 'weighted';
+    const rewardModel = input.rewardModel ?? 'full';
+
     const { data: household, error: householdError } = await supabase
       .from('households')
       .insert({
         name: input.name.trim(),
         household_type: 'family',
         owner_id: user.id,
+        reward_mode: rewardMode,
+        reward_model: rewardModel,
+        hygiene_rewarded: false,
+        hygiene_xp: 5,
       } satisfies Partial<HouseholdRow> & Pick<HouseholdRow, 'name' | 'owner_id'>)
       .select('*')
       .single();
@@ -751,6 +767,9 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
       (household as { reward_mode?: 'weighted' | 'flat' | null }).reward_mode === 'flat'
         ? 'flat'
         : 'weighted',
+    rewardModel: migrateLoadedRewardModel(
+      (household as { reward_model?: string | null }).reward_model
+    ),
     hygieneRewarded: Boolean((household as { hygiene_rewarded?: boolean | null }).hygiene_rewarded),
     hygieneXp:
       (household as { hygiene_xp?: number | null }).hygiene_xp === 10 ? 10 : 5,

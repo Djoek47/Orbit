@@ -33,6 +33,8 @@ create table if not exists public.households (
   timezone text not null default 'America/Montreal',
   country text,
   reward_mode text not null default 'weighted' check (reward_mode in ('weighted', 'flat')),
+  reward_model text not null default 'full'
+    check (reward_model in ('xp_only', 'allowance', 'xp_rewards', 'xp_allowance', 'full')),
   hygiene_rewarded boolean not null default false,
   hygiene_xp integer not null default 5 check (hygiene_xp in (5, 10)),
   member_capabilities jsonb not null default '{}'::jsonb,

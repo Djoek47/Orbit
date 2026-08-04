@@ -12,6 +12,7 @@ import Icon from '@/components/orbit/design/Icon';
 import { domainIconName } from '@/components/orbit/design/icon-map';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { radius, space, typography } from '@/constants/orbit-theme';
+import { normalizeRewardSettings, resolveTaskXp } from '@/lib/rewards/reward-mode';
 import {
   choreDomains,
   homeworkDomain,
@@ -20,6 +21,7 @@ import {
   type TaskGroup,
 } from '@/lib/tasks/task-library';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useOrbit } from '@/store/orbit-store';
 
 export type TaskPickerTab = 'chores' | 'homework';
 
@@ -78,6 +80,16 @@ export function TaskPicker({
   onRequestCustom,
 }: TaskPickerProps) {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
+  const { household } = useOrbit();
+  const rewardSettings = useMemo(
+    () =>
+      normalizeRewardSettings({
+        rewardMode: household.rewardMode,
+        hygieneRewarded: household.hygieneRewarded,
+        hygieneXp: household.hygieneXp,
+      }),
+    [household.hygieneRewarded, household.hygieneXp, household.rewardMode]
+  );
   const [query, setQuery] = useState('');
   const [domainSheet, setDomainSheet] = useState<TaskDomain | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -179,7 +191,19 @@ export function TaskPicker({
                         </Text>
                       ) : (
                         <Text style={[typography.caption2, { color: c.textSubtle }]}>
-                          {task.xp} XP
+                          {resolveTaskXp(
+                            {
+                              baseXp: task.xp,
+                              xpEligible: true,
+                            },
+                            {
+                              mode: rewardSettings.rewardMode,
+                              hygieneRewarded: rewardSettings.hygieneRewarded,
+                              hygieneXp: rewardSettings.hygieneXp,
+                            }
+                          )}{' '}
+                          XP
+                          {rewardSettings.rewardMode === 'flat' ? ` · Equity` : ''}
                         </Text>
                       )}
                     </View>

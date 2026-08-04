@@ -17,6 +17,12 @@ Use this when moving from Expo Go mock mode to live household sync + Nova GPT.
 4. `supabase/migrations/20260716200000_nova_majordomo.sql`
 5. `supabase/migrations/20260716210000_rooms_and_grocery_notes.sql`
 6. `supabase/migrations/20260720230000_shared_device_role.sql`
+7. `supabase/migrations/20260802000000_household_reward_settings.sql` — Meritocracy/Equity + hygiene
+8. `supabase/migrations/20260802120000_household_family_only.sql`
+9. `supabase/migrations/20260803010000_task_occurrence_uniqueness.sql` — occurrence/proof columns
+10. `supabase/migrations/20260804220000_household_reward_model.sql` — XP system (`reward_model`)
+
+Skip `20260802230000_rooms_to_domains.sql` (placeholder no-op).
 
 Do **not** run a later migration first — you’ll get `relation "public.household_members" does not exist`.
 
@@ -31,11 +37,11 @@ npx supabase db push
 ## 3. Deploy edge functions
 
 ```bash
-npx supabase functions deploy nova-briefing
-npx supabase functions deploy nova-chat
-npx supabase functions deploy nova-voice
-npx supabase functions deploy nova-monitor
-npx supabase functions deploy nova-realtime-session
+npx supabase functions deploy poppins-briefing
+npx supabase functions deploy poppins-chat
+npx supabase functions deploy poppins-voice
+npx supabase functions deploy poppins-monitor
+npx supabase functions deploy poppins-realtime-session
 npx supabase functions deploy join-household
 ```
 
