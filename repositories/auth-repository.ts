@@ -1,5 +1,11 @@
 import { dataMode } from '@/config/data-mode';
-import { EmailNotConfirmedError } from '@/lib/auth/auth-errors';
+import {
+  AuthRateLimitError,
+  EmailNotConfirmedError,
+  formatAuthError,
+  isAuthRateLimitMessage,
+  throwMappedAuthError,
+} from '@/lib/auth/auth-errors';
 import {
   clearPendingSignup,
   getEmailConfirmRedirectUrl,
@@ -94,12 +100,15 @@ export const authRepository = {
         setPendingSignup(input.email.trim(), input.password);
         throw new EmailNotConfirmedError(input.email.trim());
       }
+      if (isAuthRateLimitMessage(error.message) || error.status === 429) {
+        throw new AuthRateLimitError();
+      }
       if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
         throw new Error(
           'Email or password is incorrect — or the account isn’t confirmed yet. Tap Get Started to create an account. (sarah@orbit.test only works in Expo Go.)'
         );
       }
-      throw new Error(error.message || 'Sign in failed. Try again.');
+      throw new Error(formatAuthError(error) || 'Sign in failed. Try again.');
     }
 
     if (!data.user || !data.session) {
@@ -136,13 +145,18 @@ export const authRepository = {
     });
     if (error) {
       const msg = (error.message ?? '').toLowerCase();
+      if (isAuthRateLimitMessage(error.message) || error.status === 429) {
+        // Account may already exist from an earlier attempt — keep credentials for confirm flow.
+        setPendingSignup(email, input.password);
+        throw new AuthRateLimitError();
+      }
       if (msg.includes('already registered') || msg.includes('already been registered')) {
         throw new Error('That email already has an account. Sign in instead.');
       }
       if (msg.includes('password')) {
         throw new Error(error.message || 'Choose a stronger password and try again.');
       }
-      throw new Error(error.message || 'Could not create account. Try again.');
+      throwMappedAuthError(error);
     }
 
     // Confirm email on: user row exists but session is null until the inbox link is used.
@@ -170,7 +184,9 @@ export const authRepository = {
 
     const supabase = getConfiguredSupabase('authRepository.forgotPassword');
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
-    mapDbError('authRepository.forgotPassword', error);
+    if (error) {
+      throwMappedAuthError(error);
+    }
   },
 
   async createProfile(user: OrbitUser, input: CreateProfileInput): Promise<OrbitUser> {

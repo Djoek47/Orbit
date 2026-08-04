@@ -11,6 +11,7 @@ import { isEmailNotConfirmedError } from '@/lib/auth/auth-errors';
 import {
   clearPendingSignup,
   getPendingSignup,
+  getResendCooldownRemainingMs,
   resendSignupConfirmation,
 } from '@/lib/auth/email-confirmation';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -33,6 +34,14 @@ export default function ConfirmEmailScreen() {
   const [info, setInfo] = useState('');
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
+  const [cooldownSec, setCooldownSec] = useState(0);
+
+  useEffect(() => {
+    const tick = () => setCooldownSec(Math.ceil(getResendCooldownRemainingMs() / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const finishOnboarding = async () => {
     clearPendingSignup();
@@ -157,9 +166,20 @@ export default function ConfirmEmailScreen() {
         {busy ? 'Signing in…' : 'I’ve confirmed — continue'}
       </OrbitButton>
 
-      <Pressable disabled={resending} onPress={() => void handleResend()} style={styles.resend}>
-        <Text style={[styles.link, { color: accentTheme.primary }]}>
-          {resending ? 'Sending…' : 'Resend confirmation email'}
+      <Pressable
+        disabled={resending || cooldownSec > 0}
+        onPress={() => void handleResend()}
+        style={styles.resend}>
+        <Text
+          style={[
+            styles.link,
+            { color: cooldownSec > 0 ? c.textSubtle : accentTheme.primary },
+          ]}>
+          {resending
+            ? 'Sending…'
+            : cooldownSec > 0
+              ? `Resend available in ${cooldownSec}s`
+              : 'Resend confirmation email'}
         </Text>
       </Pressable>
     </AuthShell>

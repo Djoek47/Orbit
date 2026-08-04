@@ -1,5 +1,6 @@
 import * as Linking from 'expo-linking';
 
+import { throwMappedAuthError } from '@/lib/auth/auth-errors';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 type PendingSignup = {
@@ -8,6 +9,18 @@ type PendingSignup = {
 };
 
 let pendingSignup: PendingSignup | null = null;
+
+/** Client-side cooldown so resend / signup retries don't burn Supabase email quota. */
+const RESEND_COOLDOWN_MS = 60_000;
+let lastResendAt = 0;
+
+export function getResendCooldownRemainingMs(now = Date.now()): number {
+  return Math.max(0, lastResendAt + RESEND_COOLDOWN_MS - now);
+}
+
+export function markAuthEmailSent(now = Date.now()) {
+  lastResendAt = now;
+}
 
 export function setPendingSignup(email: string, password: string) {
   pendingSignup = { email: email.trim(), password };
@@ -72,6 +85,12 @@ export async function createSessionFromUrl(url: string) {
 }
 
 export async function resendSignupConfirmation(email: string) {
+  const remaining = getResendCooldownRemainingMs();
+  if (remaining > 0) {
+    const seconds = Math.ceil(remaining / 1000);
+    throw new Error(`Wait ${seconds}s before requesting another confirmation email.`);
+  }
+
   const supabase = getSupabaseClient();
   if (!supabase) {
     throw new Error('Live auth is not configured.');
@@ -83,7 +102,9 @@ export async function resendSignupConfirmation(email: string) {
       emailRedirectTo: getEmailConfirmRedirectUrl(),
     },
   });
+  // Always start cooldown after an attempt so hammering doesn't deepen the project-wide limit.
+  markAuthEmailSent();
   if (error) {
-    throw new Error(error.message || 'Could not resend confirmation email.');
+    throwMappedAuthError(error);
   }
 }

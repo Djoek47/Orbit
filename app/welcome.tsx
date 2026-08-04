@@ -51,6 +51,12 @@ import {
   type RewardMode,
 } from '@/lib/rewards/reward-mode';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
+import { isAuthRateLimitError } from '@/lib/auth/auth-errors';
+import {
+  getPendingSignup,
+  markAuthEmailSent,
+} from '@/lib/auth/email-confirmation';
+
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { shareInvite } from '@/lib/invites/share-invite';
 import { useOrbit } from '@/store/orbit-store';
@@ -119,6 +125,7 @@ export default function WelcomeOnboardingScreen() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
   const [error, setError] = useState('');
+  const [signupRateLimited, setSignupRateLimited] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resumed, setResumed] = useState(false);
   const [splashReady, setSplashReady] = useState(false);
@@ -376,9 +383,11 @@ export default function WelcomeOnboardingScreen() {
     }
     setBusy(true);
     setError('');
+    setSignupRateLimited(false);
     try {
       await persistPrefs();
       const outcome = await signUp({ email: email.trim(), password });
+      markAuthEmailSent();
       if (outcome.needsConfirmation) {
         router.push({
           pathname: '/confirm-email',
@@ -390,6 +399,12 @@ export default function WelcomeOnboardingScreen() {
       setDisplayName((current) => current || guessedName);
       setStep('profile');
     } catch (err) {
+      if (isAuthRateLimitError(err)) {
+        markAuthEmailSent();
+        setSignupRateLimited(true);
+        setError(err.message);
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Could not create account.');
     } finally {
       setBusy(false);
@@ -1137,6 +1152,21 @@ export default function WelcomeOnboardingScreen() {
               <OrbitButton disabled={busy} onPress={() => void handleAccountContinue()}>
                 {busy ? 'Creating…' : 'Continue'}
               </OrbitButton>
+              {signupRateLimited ? (
+                <Pressable
+                  onPress={() => {
+                    const pending = getPendingSignup();
+                    router.push({
+                      pathname: '/confirm-email',
+                      params: { email: pending?.email ?? email.trim() },
+                    } as never);
+                  }}
+                  style={styles.signInLink}>
+                  <Text style={[styles.signInText, { color: accent }]}>
+                    Already got an email? Open confirmation
+                  </Text>
+                </Pressable>
+              ) : null}
               <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
                 <Text style={[styles.signInText, { color: orbitPalette.textMuted }]}>
                   Already have an account? Sign in
