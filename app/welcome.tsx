@@ -51,7 +51,13 @@ import {
   type RewardMode,
 } from '@/lib/rewards/reward-mode';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
-import { isAuthRateLimitError } from '@/lib/auth/auth-errors';
+import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
+import {
+  authIssue,
+  isAuthRateLimitError,
+  resolveAuthIssue,
+  type AuthIssue,
+} from '@/lib/auth/auth-errors';
 import { isProfileNameComplete } from '@/lib/auth/display-name';
 import {
   getPendingSignup,
@@ -127,6 +133,7 @@ export default function WelcomeOnboardingScreen() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
   const [error, setError] = useState('');
+  const [accountIssue, setAccountIssue] = useState<AuthIssue | null>(null);
   const [signupRateLimited, setSignupRateLimited] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resumed, setResumed] = useState(false);
@@ -383,11 +390,13 @@ export default function WelcomeOnboardingScreen() {
 
   const handleAccountContinue = async () => {
     if (!email.trim() || !password.trim()) {
-      setError('Enter an email and password to continue.');
+      setAccountIssue(authIssue('missing_fields'));
+      setError('');
       return;
     }
     setBusy(true);
     setError('');
+    setAccountIssue(null);
     setSignupRateLimited(false);
     try {
       await persistPrefs();
@@ -404,13 +413,12 @@ export default function WelcomeOnboardingScreen() {
       setDisplayName((current) => current || guessedName);
       setStep('profile');
     } catch (err) {
-      if (isAuthRateLimitError(err)) {
+      const issue = resolveAuthIssue(err);
+      if (isAuthRateLimitError(err) || issue.code === 'rate_limit') {
         markAuthEmailSent();
         setSignupRateLimited(true);
-        setError(err.message);
-        return;
       }
-      setError(err instanceof Error ? err.message : 'Could not create account.');
+      setAccountIssue(issue);
     } finally {
       setBusy(false);
     }
@@ -419,6 +427,7 @@ export default function WelcomeOnboardingScreen() {
   const handleAppleContinue = async () => {
     setBusy(true);
     setError('');
+    setAccountIssue(null);
     try {
       await persistPrefs();
       const session = await signInWithApple();
@@ -431,11 +440,9 @@ export default function WelcomeOnboardingScreen() {
       }
       setStep(appleComplete ? 'household' : 'profile');
     } catch (err) {
-      if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') {
-        return;
-      }
-      const msg = err instanceof Error ? err.message : 'Apple Sign-In failed.';
-      setError(msg);
+      const issue = resolveAuthIssue(err);
+      if (issue.code === 'apple_canceled') return;
+      setAccountIssue(issue);
     } finally {
       setBusy(false);
     }
@@ -1167,20 +1174,30 @@ export default function WelcomeOnboardingScreen() {
                 keyboardType="email-address"
                 label="Email"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => {
+                  setEmail(value);
+                  if (accountIssue) setAccountIssue(null);
+                }}
               />
               <OrbitInput
                 autoCapitalize="none"
                 secureTextEntry
                 label="Password"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(value) => {
+                  setPassword(value);
+                  if (accountIssue) setAccountIssue(null);
+                }}
               />
-              {error ? <Text style={styles.error}>{error}</Text> : null}
+              <AuthErrorBanner
+                issue={accountIssue}
+                actionParams={{ email: email.trim() }}
+                onDismiss={() => setAccountIssue(null)}
+              />
               <OrbitButton disabled={busy} onPress={() => void handleAccountContinue()}>
                 {busy ? 'Creating…' : 'Continue'}
               </OrbitButton>
-              {signupRateLimited ? (
+              {signupRateLimited && !accountIssue ? (
                 <Pressable
                   onPress={() => {
                     const pending = getPendingSignup();

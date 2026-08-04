@@ -1,7 +1,9 @@
 import {
-  AUTH_RATE_LIMIT_MESSAGE,
+  AUTH_ISSUES,
   formatAuthError,
   isAuthRateLimitMessage,
+  resolveAuthIssue,
+  AuthUserError,
 } from '@/lib/auth/auth-errors';
 
 function assert(cond: boolean, msg: string) {
@@ -18,11 +20,25 @@ export function runAuthErrorsTests(): string[] {
   pass('1 detect rate limit messages');
 
   assert(
-    formatAuthError({ message: 'email rate limit exceeded' }) === AUTH_RATE_LIMIT_MESSAGE,
-    'friendly copy'
+    formatAuthError({ message: 'email rate limit exceeded' }) === AUTH_ISSUES.rate_limit.message,
+    'friendly rate limit'
   );
-  assert(formatAuthError({ status: 429, message: 'slow down' }) === AUTH_RATE_LIMIT_MESSAGE, '429');
+  assert(formatAuthError({ status: 429, message: 'slow down' }) === AUTH_ISSUES.rate_limit.message, '429');
   pass('2 formatAuthError');
+
+  const invalid = resolveAuthIssue(new Error('Invalid login credentials'));
+  assert(invalid.code === 'invalid_credentials', 'invalid code');
+  assert(!invalid.message.toLowerCase().includes('orbit.test'), 'no demo email leak');
+  assert(!invalid.message.toLowerCase().includes('expo go'), 'no expo go leak');
+  pass('3 invalid credentials professional');
+
+  const taken = resolveAuthIssue(new Error('User already registered'));
+  assert(taken.code === 'email_taken', 'email taken');
+  pass('4 email taken');
+
+  const structured = resolveAuthIssue(new AuthUserError(AUTH_ISSUES.invalid_credentials));
+  assert(structured.title === 'Couldn’t sign in', 'structured title');
+  pass('5 AuthUserError passthrough');
 
   return logs;
 }

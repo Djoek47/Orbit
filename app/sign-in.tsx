@@ -4,34 +4,22 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
 import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { SignInSuccess } from '@/components/orbit/sign-in-success';
-import { orbitColors } from '@/constants/orbit-theme';
-import { isEmailNotConfirmedError } from '@/lib/auth/auth-errors';
+import {
+  authIssue,
+  isEmailNotConfirmedError,
+  resolveAuthIssue,
+  type AuthIssue,
+} from '@/lib/auth/auth-errors';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { isMockMode } from '@/repositories/repository-utils';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
-
-/** Never surface repository prefixes / raw provider dumps to testers. */
-function toUserFacingAuthError(err: unknown, fallback: string): string {
-  const raw = err instanceof Error ? err.message.trim() : '';
-  if (!raw) return fallback;
-  const lower = raw.toLowerCase();
-  if (lower.startsWith('authrepository.') || lower.includes('provider (issuer')) {
-    if (lower.includes('invalid login') || lower.includes('invalid credentials')) {
-      return 'Email or password is incorrect. Tap Get Started to create an account.';
-    }
-    if (lower.includes('apple') || lower.includes('provider')) {
-      return 'Sign in with Apple isn’t set up yet. Use email and password, or tap Get Started.';
-    }
-    return fallback;
-  }
-  return raw;
-}
 
 export default function SignInScreen() {
   const { accentTheme, orbitPalette, signIn, hydrateFromSession } = useOrbit();
@@ -39,7 +27,7 @@ export default function SignInScreen() {
   const mock = isMockMode();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [issue, setIssue] = useState<AuthIssue | null>(null);
   const [busy, setBusy] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -62,13 +50,13 @@ export default function SignInScreen() {
 
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
-      setError('Enter an email and password to continue.');
+      setIssue(authIssue('missing_fields'));
       return;
     }
 
     try {
       setBusy(true);
-      setError('');
+      setIssue(null);
       await signIn({ email, password });
       setShowSuccess(true);
     } catch (err) {
@@ -79,7 +67,7 @@ export default function SignInScreen() {
         } as never);
         return;
       }
-      setError(toUserFacingAuthError(err, 'Sign in failed. Check your email and password.'));
+      setIssue(resolveAuthIssue(err));
     } finally {
       setBusy(false);
     }
@@ -87,7 +75,7 @@ export default function SignInScreen() {
 
   const handleApple = async () => {
     try {
-      setError('');
+      setIssue(null);
       const session = await signInWithApple();
       if (hydrateFromSession) {
         await hydrateFromSession(session);
@@ -96,10 +84,9 @@ export default function SignInScreen() {
       }
       setShowSuccess(true);
     } catch (err) {
-      if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') {
-        return;
-      }
-      setError(toUserFacingAuthError(err, 'Apple Sign-In failed. Try email and password instead.'));
+      const resolved = resolveAuthIssue(err);
+      if (resolved.code === 'apple_canceled') return;
+      setIssue(resolved);
     }
   };
 
@@ -126,7 +113,10 @@ export default function SignInScreen() {
           autoCapitalize="none"
           label="Email"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(value) => {
+            setEmail(value);
+            if (issue) setIssue(null);
+          }}
           keyboardType="email-address"
           placeholder="you@home.com"
         />
@@ -134,11 +124,18 @@ export default function SignInScreen() {
           autoCapitalize="none"
           label="Password"
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(value) => {
+            setPassword(value);
+            if (issue) setIssue(null);
+          }}
           secureTextEntry
           placeholder="Your password"
         />
-        {error ? <Text style={[styles.error, { color: orbitPalette.danger }]}>{error}</Text> : null}
+        <AuthErrorBanner
+          issue={issue}
+          actionParams={{ email: email.trim() }}
+          onDismiss={() => setIssue(null)}
+        />
 
         <OrbitButton disabled={busy || showSuccess} onPress={() => void handleSignIn()}>
           {busy ? 'Signing in…' : 'Sign in'}
@@ -165,7 +162,7 @@ export default function SignInScreen() {
           <View style={[styles.hint, { backgroundColor: orbitPalette.cardMuted }]}>
             <MaterialIcons name="info-outline" size={14} color={c.textSubtle} />
             <Text style={[styles.hintText, { color: c.textSubtle }]}>
-              Live account required. Use Get Started if you don’t have one yet.
+              Use the email you signed up with. New here? Tap Get Started.
             </Text>
           </View>
         ) : null}
@@ -177,7 +174,6 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  error: { color: orbitColors.danger, fontSize: 13, fontWeight: '700' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.12)' },
   dividerText: { fontSize: 12, fontWeight: '600' },

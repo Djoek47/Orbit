@@ -7,7 +7,13 @@ import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitColors } from '@/constants/orbit-theme';
-import { isEmailNotConfirmedError } from '@/lib/auth/auth-errors';
+import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
+import {
+  authIssue,
+  isEmailNotConfirmedError,
+  resolveAuthIssue,
+  type AuthIssue,
+} from '@/lib/auth/auth-errors';
 import {
   clearPendingSignup,
   getPendingSignup,
@@ -30,7 +36,7 @@ export default function ConfirmEmailScreen() {
   );
   const [password, setPassword] = useState(pending?.password ?? '');
   const [showPassword, setShowPassword] = useState(!pending?.password);
-  const [error, setError] = useState('');
+  const [issue, setIssue] = useState<AuthIssue | null>(null);
   const [info, setInfo] = useState('');
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
@@ -75,17 +81,17 @@ export default function ConfirmEmailScreen() {
 
   const handleResend = async () => {
     if (!email) {
-      setError('Add the email you signed up with.');
+      setIssue(authIssue('missing_fields', { message: 'Add the email you signed up with.' }));
       return;
     }
     setResending(true);
-    setError('');
+    setIssue(null);
     setInfo('');
     try {
       await resendSignupConfirmation(email);
       setInfo('Confirmation email sent. Check your inbox and spam folder.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not resend email.');
+      setIssue(resolveAuthIssue(err));
     } finally {
       setResending(false);
     }
@@ -93,26 +99,37 @@ export default function ConfirmEmailScreen() {
 
   const handleContinue = async () => {
     if (!email) {
-      setError('Add the email you signed up with.');
+      setIssue(authIssue('missing_fields', { message: 'Add the email you signed up with.' }));
       return;
     }
     const pwd = password.trim() || pending?.password || '';
     if (!pwd) {
       setShowPassword(true);
-      setError('Enter your password to continue after confirming.');
+      setIssue(
+        authIssue('missing_fields', {
+          title: 'Password needed',
+          message: 'Enter the password you created, then continue after confirming.',
+        })
+      );
       return;
     }
 
     setBusy(true);
-    setError('');
+    setIssue(null);
     try {
       await signIn({ email, password: pwd });
       await finishOnboarding();
     } catch (err) {
       if (isEmailNotConfirmedError(err)) {
-        setError('Still waiting — open the link in your email, then try again.');
+        setIssue(
+          authIssue('email_not_confirmed', {
+            title: 'Still waiting',
+            message: 'Open the confirmation link in your email, then try again.',
+            email,
+          })
+        );
       } else {
-        setError(err instanceof Error ? err.message : 'Still waiting on confirmation.');
+        setIssue(resolveAuthIssue(err));
       }
     } finally {
       setBusy(false);
@@ -159,7 +176,11 @@ export default function ConfirmEmailScreen() {
         />
       ) : null}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <AuthErrorBanner
+        issue={issue}
+        actionParams={{ email }}
+        onDismiss={() => setIssue(null)}
+      />
       {info ? <Text style={styles.info}>{info}</Text> : null}
 
       <OrbitButton disabled={busy} onPress={() => void handleContinue()}>
@@ -203,7 +224,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mailBody: { fontSize: 14, lineHeight: 20 },
-  error: { color: orbitColors.danger, fontSize: 13, fontWeight: '700' },
   info: { color: orbitColors.success, fontSize: 13, fontWeight: '600' },
   resend: { alignItems: 'center', paddingVertical: 4 },
   link: { fontSize: 14, fontWeight: '700', textAlign: 'center' },

@@ -2,10 +2,12 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
+import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
 import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitColors } from '@/constants/orbit-theme';
+import { authIssue, resolveAuthIssue, type AuthIssue } from '@/lib/auth/auth-errors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
@@ -13,15 +15,23 @@ export default function ForgotPasswordScreen() {
   const { accentTheme, forgotPassword, orbitPalette } = useOrbit();
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [issue, setIssue] = useState<AuthIssue | null>(null);
   const [sending, setSending] = useState(false);
 
   const handleReset = async () => {
+    if (!email.trim()) {
+      setIssue(authIssue('missing_fields', { message: 'Enter the email for your Choremaxx account.' }));
+      setMessage('');
+      return;
+    }
     setSending(true);
+    setIssue(null);
+    setMessage('');
     try {
       await forgotPassword(email);
-      setMessage('If this email is on file, a reset link is on its way. Check your inbox.');
+      setMessage('If this email is on file, a reset link is on its way. Check your inbox and spam folder.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to send reset email right now.');
+      setIssue(resolveAuthIssue(error));
     } finally {
       setSending(false);
     }
@@ -52,10 +62,14 @@ export default function ForgotPasswordScreen() {
         autoCapitalize="none"
         label="Email"
         value={email}
-        onChangeText={setEmail}
+        onChangeText={(value) => {
+          setEmail(value);
+          if (issue) setIssue(null);
+        }}
         keyboardType="email-address"
         placeholder="you@home.com"
       />
+      <AuthErrorBanner issue={issue} onDismiss={() => setIssue(null)} />
       {message ? (
         <Text style={[styles.message, { color: orbitPalette.success }]}>{message}</Text>
       ) : null}

@@ -2,8 +2,8 @@ import { dataMode } from '@/config/data-mode';
 import {
   AuthRateLimitError,
   EmailNotConfirmedError,
-  formatAuthError,
   isAuthRateLimitMessage,
+  throwAuthIssue,
   throwMappedAuthError,
 } from '@/lib/auth/auth-errors';
 import { isProfileNameComplete } from '@/lib/auth/display-name';
@@ -105,15 +105,13 @@ export const authRepository = {
         throw new AuthRateLimitError();
       }
       if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
-        throw new Error(
-          'Email or password is incorrect — or the account isn’t confirmed yet. Tap Get Started to create an account. (sarah@orbit.test only works in Expo Go.)'
-        );
+        throwAuthIssue('invalid_credentials');
       }
-      throw new Error(formatAuthError(error) || 'Sign in failed. Try again.');
+      throwMappedAuthError(error);
     }
 
     if (!data.user || !data.session) {
-      throw new Error('Sign in failed. Try again.');
+      throwAuthIssue('generic', { message: 'Sign in didn’t complete. Please try again.' });
     }
 
     const user = await loadProfileUser(supabase, data.user.id, data.user.email ?? input.email.trim());
@@ -152,10 +150,12 @@ export const authRepository = {
         throw new AuthRateLimitError();
       }
       if (msg.includes('already registered') || msg.includes('already been registered')) {
-        throw new Error('That email already has an account. Sign in instead.');
+        throwAuthIssue('email_taken');
       }
       if (msg.includes('password')) {
-        throw new Error(error.message || 'Choose a stronger password and try again.');
+        throwAuthIssue('weak_password', {
+          message: error.message || undefined,
+        });
       }
       throwMappedAuthError(error);
     }
@@ -163,14 +163,14 @@ export const authRepository = {
     // Confirm email on: user row exists but session is null until the inbox link is used.
     if (!data.session) {
       if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
-        throw new Error('That email already has an account. Sign in instead.');
+        throwAuthIssue('email_taken');
       }
       setPendingSignup(email, input.password);
       return { status: 'needs_confirmation', email };
     }
 
     if (!data.user) {
-      throw new Error('Could not create account. Try again.');
+      throwAuthIssue('generic', { message: 'We couldn’t create your account. Please try again.' });
     }
 
     clearPendingSignup();
