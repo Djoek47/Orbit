@@ -14,6 +14,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RewardVaultCard } from '@/components/orbit/reward-vault-card';
+import type { IconName } from '@/components/orbit/design/icons';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import {
   isAvatarImageUri,
@@ -33,13 +34,14 @@ type Surface = 'rewards' | 'allowance' | 'ranks';
 type RankCat = 'xp' | 'tasks' | 'streak' | 'improved';
 type RankingView = 'week' | 'alltime';
 
-const RANK_EMOJI = ['👑', '🥈', '🥉'] as const;
+/** Podium marks from the ChoreMaxx set (no emoji). */
+const RANK_PODIUM: IconName[] = ['tierCrown', 'tierMedal', 'tierMedal'];
 
-const RANK_CATS: { id: RankCat; label: string; emoji: string }[] = [
-  { id: 'xp', label: 'Most XP', emoji: '⚡' },
-  { id: 'tasks', label: 'Most Tasks', emoji: '✅' },
-  { id: 'streak', label: 'Longest Streak', emoji: '🔥' },
-  { id: 'improved', label: 'Most Improved', emoji: '📈' },
+const RANK_CATS: { id: RankCat; label: string; icon?: IconName }[] = [
+  { id: 'xp', label: 'Most XP' },
+  { id: 'tasks', label: 'Most Tasks', icon: 'cleanSweep' },
+  { id: 'streak', label: 'Longest Streak', icon: 'weekWarrior' },
+  { id: 'improved', label: 'Most Improved' },
 ];
 
 function resolveSurface(raw?: string | string[]): Surface {
@@ -672,7 +674,7 @@ export default function RewardsScreen() {
                       borderColor: active ? `${accentTheme.primary}55` : glassBorder(0.1),
                     },
                   ]}>
-                  <Text style={{ fontSize: 12 }}>{cat.emoji}</Text>
+                  {cat.icon ? <Icon name={cat.icon} size={20} /> : null}
                   <Text
                     style={[
                       typography.caption1,
@@ -787,16 +789,17 @@ export default function RewardsScreen() {
                       borderBottomWidth: StyleSheet.hairlineWidth,
                     },
                   ]}>
-                  <Text style={[styles.rankBadge, { color: c.textSubtle }]}>
-                    {index < 3 ? RANK_EMOJI[index] : `#${index + 1}`}
-                  </Text>
+                  {index < 3 ? (
+                    <Icon name={RANK_PODIUM[index]} size={20} />
+                  ) : (
+                    <Text style={[styles.rankBadge, { color: c.textSubtle }]}>#{index + 1}</Text>
+                  )}
                   <Avatar
                     name={member.name}
                     emoji={member.avatarEmoji}
                     imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
                     size="s"
-                  />
-                  <View style={{ flex: 1, gap: 4 }}>
+                  />                  <View style={{ flex: 1, gap: 4 }}>
                     <View style={styles.nameRow}>
                       <Text style={[typography.subheadline, { color: c.text, fontWeight: '600' }]}>
                         {member.name}

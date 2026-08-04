@@ -11,6 +11,9 @@ import { StatusPill } from '@/components/orbit/status-pill';
 import { StreakMarker } from '@/components/orbit/streak-marker';
 import { TaskPicker } from '@/components/orbit/task-picker';
 import { XpWheel } from '@/components/orbit/xp-wheel';
+import Icon from '@/components/orbit/design/Icon';
+import type { IconName } from '@/components/orbit/design/icons';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
@@ -42,7 +45,6 @@ import { allLibraryTasks } from '@/lib/tasks/task-library';
 import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask, TaskDifficulty } from '@/types/orbit';
-import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 type TaskType = 'task' | 'homework';
 type ScreenMode = 'picker' | 'presets' | 'custom' | 'library';
@@ -126,25 +128,26 @@ const priorities = [
 
 const repeatOptions: HouseholdTask['repeat'][] = ['None', 'Daily', 'Weekly', 'Weekdays'];
 
-/** Catalog chips — emoji + short label (filter id stays the full domain). */
-const CATALOG_CHIP_META: Record<string, { emoji: string; label: string }> = {
-  presets: { emoji: '⚡', label: 'Presets' },
-  all: { emoji: '✨', label: 'All' },
-  'Kitchen & Dining': { emoji: '🍽️', label: 'Kitchen' },
-  'Trash & Recycling': { emoji: '♻️', label: 'Trash' },
-  Bathroom: { emoji: '🚿', label: 'Bathroom' },
-  Laundry: { emoji: '🧺', label: 'Laundry' },
-  Bedroom: { emoji: '🛏️', label: 'Bedroom' },
-  'Living Room & Shared Spaces': { emoji: '🛋️', label: 'Living' },
-  'Floors & Deep Cleaning': { emoji: '🧹', label: 'Floors' },
-  Pets: { emoji: '🐾', label: 'Pets' },
-  Car: { emoji: '🚗', label: 'Car' },
-  'Yard & Outdoors': { emoji: '🌿', label: 'Yard' },
-  Hygiene: { emoji: '🪥', label: 'Hygiene' },
-  'Daily Routine': { emoji: '🌅', label: 'Routine' },
-  'Homework & Education': { emoji: '📚', label: 'Homework' },
-  'Meals, Groceries & Errands': { emoji: '🛒', label: 'Meals' },
-  'Home Maintenance & Organization': { emoji: '🧰', label: 'Home' },
+/** Catalog chips — ChoreMaxx Icon where a domain mark exists; label only otherwise. */
+const CATALOG_CHIP_META: Record<string, { icon?: IconName; label: string }> = {
+  presets: { label: 'Presets' },
+  all: { label: 'All' },
+  'Kitchen & Dining': { icon: 'kitchen', label: 'Kitchen' },
+  'Trash & Recycling': { icon: 'trash', label: 'Trash' },
+  Bathroom: { icon: 'bathroom', label: 'Bathroom' },
+  Laundry: { icon: 'laundry', label: 'Laundry' },
+  Bedroom: { icon: 'bedroom', label: 'Bedroom' },
+  'Living Room & Shared Spaces': { icon: 'livingRoom', label: 'Living' },
+  'Floors & Deep Cleaning': { icon: 'floors', label: 'Floors' },
+  Pets: { icon: 'pets', label: 'Pets' },
+  Car: { icon: 'car', label: 'Car' },
+  'Yard & Outdoors': { icon: 'yard', label: 'Yard' },
+  Hygiene: { icon: 'hygiene', label: 'Hygiene' },
+  'Personal Hygiene': { icon: 'hygiene', label: 'Hygiene' },
+  'Daily Routine': { icon: 'dailyRoutine', label: 'Routine' },
+  'Homework & Education': { icon: 'homework', label: 'Homework' },
+  'Meals, Groceries & Errands': { icon: 'groceries', label: 'Meals' },
+  'Home Maintenance & Organization': { icon: 'maintenance', label: 'Home' },
 };
 
 const GRADIENT_BY_COLOR: Record<string, [string, string]> = {
@@ -1042,7 +1045,7 @@ export default function CreateTaskScreen() {
                   ...domains.map((domain) => ({ id: domain })),
                 ] as { id: string }[]
               ).map((chip) => {
-                const meta = CATALOG_CHIP_META[chip.id] ?? { emoji: '•', label: chip.id };
+                const meta = CATALOG_CHIP_META[chip.id] ?? { label: chip.id };
                 const active = catalogChip === chip.id;
                 return (
                   <Pressable
@@ -1055,7 +1058,7 @@ export default function CreateTaskScreen() {
                         backgroundColor: `${accentTheme.primary}22`,
                       },
                     ]}>
-                    <Text style={styles.filterPillEmoji}>{meta.emoji}</Text>
+                    {meta.icon ? <Icon name={meta.icon} size={20} /> : null}
                     <Text
                       style={[
                         styles.filterPillLabel,
@@ -1107,10 +1110,9 @@ export default function CreateTaskScreen() {
                   { baseXp: preset.baseXp, xpEligible: !hygiene },
                   xpCtx
                 );
-                const domainEmoji =
-                  CATALOG_CHIP_META[preset.category ?? '']?.emoji ??
-                  CATALOG_CHIP_META[preset.domain ?? '']?.emoji ??
-                  '✓';
+                const domainIcon =
+                  CATALOG_CHIP_META[preset.category ?? '']?.icon ??
+                  CATALOG_CHIP_META[preset.domain ?? '']?.icon;
                 const metaLine = [
                   preset.group ?? preset.category,
                   preset.repeat !== 'None' ? preset.repeat : null,
@@ -1122,7 +1124,11 @@ export default function CreateTaskScreen() {
                   <GlassCard key={preset.id} style={styles.stopCard}>
                     <View style={styles.stopRow}>
                       <View style={styles.dot}>
-                        <Text style={styles.dotEmoji}>{domainEmoji}</Text>
+                        {domainIcon ? (
+                          <Icon name={domainIcon} size={20} />
+                        ) : (
+                          <Icon name="maintenance" size={20} />
+                        )}
                       </View>
                       <View style={styles.stopBody}>
                         <Text style={[typography.headline, { color: orbitPalette.text }]}>
