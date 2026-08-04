@@ -9,12 +9,19 @@ npx supabase functions deploy poppins-voice
 npx supabase functions deploy poppins-monitor
 npx supabase functions deploy poppins-realtime-session
 npx supabase functions deploy join-household
+# Auth emails via Resend (optional if Custom SMTP is enough — see docs/resend-auth-email.md)
+npx supabase functions deploy send-auth-email --no-verify-jwt
 npx supabase secrets set OPENAI_API_KEY=sk-...
 # Service role required for cron → poppins-monitor
 npx supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
+# Resend (Send Email Hook path only)
+# npx supabase secrets set RESEND_API_KEY=re_...
+# npx supabase secrets set SEND_EMAIL_HOOK_SECRET="v1,whsec_..."
+# npx supabase secrets set RESEND_FROM_EMAIL="Choremaxx <noreply@choremaxx.app>"
 ```
 
-See [docs/supabase-staging-setup.md](../docs/supabase-staging-setup.md) for full staging steps.
+See [docs/supabase-staging-setup.md](../docs/supabase-staging-setup.md) for full staging steps.  
+Auth email delivery: [docs/resend-auth-email.md](../docs/resend-auth-email.md).
 
 | Function | Purpose |
 |----------|---------|
@@ -24,6 +31,7 @@ See [docs/supabase-staging-setup.md](../docs/supabase-staging-setup.md) for full
 | `poppins-monitor` | Monitor Agent tool loop → `notifications` + `ai_recommendations` |
 | `poppins-realtime-session` | Mints ephemeral OpenAI Realtime client secret (never ships long-lived key) |
 | `join-household` | Invite-code join with pending membership |
+| `send-auth-email` | Auth Send Email Hook → Resend (confirm / recovery / magic link); deploy with `--no-verify-jwt` |
 
 ## Poppins Monitor cron
 

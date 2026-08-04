@@ -43,6 +43,8 @@ npx supabase functions deploy poppins-voice
 npx supabase functions deploy poppins-monitor
 npx supabase functions deploy poppins-realtime-session
 npx supabase functions deploy join-household
+# Optional: branded Auth emails via Resend (Send Email Hook) — see docs/resend-auth-email.md
+npx supabase functions deploy send-auth-email --no-verify-jwt
 ```
 
 Apply `20260716200000_nova_majordomo.sql` for away windows + `notification_prefs`. See [supabase/functions/README.md](../supabase/functions/README.md) for Monitor cron.
@@ -53,6 +55,9 @@ Apply `20260716200000_nova_majordomo.sql` for away windows + `notification_prefs
 |--------|---------|
 | `OPENAI_API_KEY` | Nova chat, briefings, voice STT, Monitor, Realtime session mint |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side joins, briefing writes, Monitor cron |
+| `RESEND_API_KEY` | Resend API (only if using `send-auth-email` hook; SMTP path uses the key as SMTP password in Auth settings) |
+| `SEND_EMAIL_HOOK_SECRET` | Auth Send Email Hook webhook secret (`v1,whsec_…`) |
+| `RESEND_FROM_EMAIL` | Optional From header, e.g. `Choremaxx <noreply@choremaxx.app>` |
 
 `SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically for edge functions.
 
@@ -91,6 +96,16 @@ Enable **Email** auth in Supabase → Authentication → Providers.
 - `exp://127.0.0.1:8081/--/auth/callback` (Expo Go local, if needed)
 
 Site URL can remain your web origin; confirmation emails use `emailRedirectTo` from the app.
+
+### Auth email delivery (Resend) — required for production
+
+Supabase’s built-in mailer is ~2 emails/hour and team-only. Point Auth at **Resend** so signup / confirm / reset work for real testers:
+
+1. Prefer **Custom SMTP** (Dashboard → Authentication → SMTP): host `smtp.resend.com`, port `465`, user `resend`, password = Resend API key, from `noreply@your-verified-domain`.
+2. Raise **Authentication → Rate Limits** for email after SMTP is on.
+3. Optional branded templates: deploy `send-auth-email` (Send Email Hook) — see [resend-auth-email.md](./resend-auth-email.md).
+
+Login still uses Supabase Auth; only the mail transport changes.
 
 For **Sign in with Apple** (required for TestFlight Apple button):
 
