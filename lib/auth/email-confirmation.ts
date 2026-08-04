@@ -10,7 +10,7 @@ type PendingSignup = {
 
 let pendingSignup: PendingSignup | null = null;
 
-/** Client-side cooldown so resend / signup retries don't burn Supabase email quota. */
+/** Client-side cooldown so resend / signup retries don't spam Auth email (Resend/SMTP). */
 const RESEND_COOLDOWN_MS = 60_000;
 let lastResendAt = 0;
 
