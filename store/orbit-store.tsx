@@ -223,9 +223,16 @@ type OrbitContextValue = {
   switchPersona: (memberId: string) => void;
   approveMember: (memberId: string) => Promise<void>;
   declineMember: (memberId: string) => Promise<void>;
-  createHousehold: (input: CreateHouseholdInput) => Promise<void>;
+  createHousehold: (input: CreateHouseholdInput) => Promise<HouseholdSnapshot | null>;
   createProfile: (input: CreateProfileInput) => Promise<void>;
-  createTask: (input: CreateTaskInput) => Promise<HouseholdTask | null>;
+  /** Rename the signed-in user (profile + owner member + greeting). */
+  updateDisplayName: (name: string, avatar?: string) => Promise<void>;
+  /** Admin: rename any household member display name. */
+  updateMemberDisplayName: (memberId: string, name: string) => Promise<void>;
+  createTask: (
+    input: CreateTaskInput,
+    options?: { householdId?: string | null }
+  ) => Promise<HouseholdTask | null>;
   updateTask: (task: HouseholdTask) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   completeTask: (
@@ -343,7 +350,10 @@ type OrbitContextValue = {
   /** Hold-to-claim: Instant spends XP now; Approval submits a pending request. */
   claimReward: (rewardId: string) => Promise<'claimed' | 'requested' | null>;
   requestSpecialReward: (title: string, note?: string, cost?: number) => Promise<void>;
-  createReward: (input: CreateRewardInput) => Promise<void>;
+  createReward: (
+    input: CreateRewardInput,
+    options?: { householdId?: string | null }
+  ) => Promise<void>;
   archiveReward: (rewardId: string) => Promise<void>;
   approveRedemption: (redemptionId: string) => Promise<void>;
   rejectRedemption: (redemptionId: string) => Promise<void>;
@@ -362,7 +372,16 @@ type OrbitContextValue = {
    * Admin creates 1–2 kid profiles (no child email). Invites are AirDrop/shareable.
    * Household data stays on the admin account.
    */
-  createChildInvites: (names: string[]) => Promise<HouseholdMember[]>;
+  createChildInvites: (
+    names: string[],
+    options?: { householdId?: string | null; householdName?: string }
+  ) => Promise<HouseholdMember[]>;
+  /** Persist onboarding roster drafts into household_members (explicit household id). */
+  addOnboardingMembers: (
+    householdId: string,
+    drafts: { name: string; role: 'admin' | 'member' }[],
+    options?: { householdName?: string }
+  ) => Promise<HouseholdMember[]>;
   /** Child device: redeem invite code / QR with no sign-up. */
   redeemChildInvite: (rawCode: string) => Promise<HouseholdMember>;
   /**
@@ -425,7 +444,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (activeMemberId) {
       return household.members.find((m) => m.id === activeMemberId) ?? household.members[0];
     }
-    return household.members.find((m) => m.name === currentUser?.name) ?? household.members[0];
+    return (
+      household.members.find((m) => m.name === currentUser?.name) ??
+      household.members.find((m) => m.role === 'owner') ??
+      household.members[0]
+    );
   }, [activeMemberId, currentUser?.name, household.members]);
   const hasHousehold = Boolean(currentUser && household.id);
   const isPendingMember = currentMember?.status === 'pending';
@@ -749,18 +772,77 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    const previousName = currentUser.name;
     const user = await authRepository.createProfile(currentUser, input);
     setCurrentUser(user);
-    setHousehold((current) => ({
-      ...current,
-      greetingName: user.name,
-    }));
+    setHousehold((current) => {
+      const next: HouseholdSnapshot = {
+        ...current,
+        greetingName: user.name,
+        members: current.members.map((member) => {
+          const isOwnerRow =
+            member.role === 'owner' ||
+            member.name === previousName ||
+            member.name === current.greetingName;
+          if (!isOwnerRow) return member;
+          return {
+            ...member,
+            name: user.name,
+            avatar:
+              input.avatar?.trim() ||
+              (member.avatar?.length === 1 ? user.name.charAt(0).toUpperCase() : member.avatar),
+          };
+        }),
+      };
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      return next;
+    });
     await trackAnalytics('profile.created', { name: user.name }, { ...analyticsContext, userId: user.id });
   };
 
-  const createHousehold = async (input: CreateHouseholdInput) => {
-    if (!currentUser) {
+  const updateDisplayName = async (name: string, avatar?: string) => {
+    await createProfile({ name, avatar });
+  };
+
+  const updateMemberDisplayName = async (memberId: string, name: string) => {
+    if (!permissions.canManageHousehold && currentMember?.id !== memberId) {
       return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const updated = await householdRepository.updateMemberDisplayName(
+      memberId,
+      trimmed,
+      household.id
+    );
+    setHousehold((current) => {
+      const next = {
+        ...current,
+        greetingName:
+          currentMember?.id === memberId || updated?.role === 'owner'
+            ? trimmed
+            : current.greetingName,
+        members: current.members.map((member) =>
+          member.id === memberId
+            ? { ...member, name: trimmed, ...(updated ?? {}) }
+            : member
+        ),
+      };
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      return next;
+    });
+    if (currentMember?.id === memberId && currentUser) {
+      await createProfile({ name: trimmed, avatar: currentUser.avatar });
+    }
+  };
+
+  const createHousehold = async (input: CreateHouseholdInput): Promise<HouseholdSnapshot | null> => {
+    if (!currentUser) {
+      return null;
     }
 
     const createdHousehold = await householdRepository.createHousehold(input, currentUser);
@@ -770,7 +852,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         : createdHousehold.rooms?.length
           ? createdHousehold.rooms
           : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room }));
-    const createdNext = {
+    const createdNext: HouseholdSnapshot = {
       ...createdHousehold,
       rooms,
       rewardModel: input.rewardModel ?? createdHousehold.rewardModel ?? DEFAULT_REWARD_MODEL,
@@ -792,6 +874,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
     }
     await trackAnalytics('household.created', { name: input.name }, { householdId: createdHousehold.id, userId: currentUser.id });
+    return createdNext;
   };
 
   const joinHousehold = async (input: JoinHouseholdInput) => {
@@ -835,8 +918,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     );
   };
 
-  const createTask = async (input: CreateTaskInput): Promise<HouseholdTask | null> => {
-    if (!v2Permissions.canAssignOrEditTask && !permissions.canCreateTask) {
+  const createTask = async (
+    input: CreateTaskInput,
+    options?: { householdId?: string | null }
+  ): Promise<HouseholdTask | null> => {
+    const targetHouseholdId = options?.householdId ?? household.id;
+    // Explicit householdId = onboarding materialize (owner perms not flushed yet).
+    const allowOnboardingWrite = Boolean(options?.householdId && currentUser);
+    if (
+      !allowOnboardingWrite &&
+      !v2Permissions.canAssignOrEditTask &&
+      !permissions.canCreateTask
+    ) {
       console.warn('createTask blocked: no assign/create permission', {
         role: currentMember?.role,
         v2: v2Permissions.canAssignOrEditTask,
@@ -845,7 +938,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return null;
     }
     try {
-      const task = await taskRepository.createTask(household.id, input);
+      const task = await taskRepository.createTask(targetHouseholdId, input);
       // Functional update so batched assigns don't clobber each other with a stale closure.
       const nextHousehold = await new Promise<HouseholdSnapshot>((resolve) => {
         setHousehold((current) => {
@@ -2613,15 +2706,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await requestRewardRedemption(reward.id, note || 'Special request');
   };
 
-  const createReward = async (input: CreateRewardInput) => {
-    if (!permissions.canManageHousehold) {
+  const createReward = async (
+    input: CreateRewardInput,
+    options?: { householdId?: string | null }
+  ) => {
+    const targetHouseholdId = options?.householdId ?? household.id;
+    const allowOnboardingWrite = Boolean(options?.householdId && currentUser);
+    if (!allowOnboardingWrite && !permissions.canManageHousehold) {
       return;
     }
-    const reward = await rewardsRepository.createReward(household.id, {
+    const reward = await rewardsRepository.createReward(targetHouseholdId, {
       ...input,
       origin: input.origin ?? 'minted',
       createdByMemberId: input.createdByMemberId ?? currentMember?.id,
-      createdByName: input.createdByName ?? currentMember?.name,
+      createdByName: input.createdByName ?? currentMember?.name ?? currentUser?.name,
     });
     setHousehold((current) => ({
       ...current,
@@ -2827,11 +2925,21 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     );
   };
 
-  const createChildInvites = async (names: string[]) => {
-    if (!currentUser || !household.id) {
+  const createChildInvites = async (
+    names: string[],
+    options?: { householdId?: string | null; householdName?: string }
+  ) => {
+    const householdId = options?.householdId ?? household.id;
+    const householdName = options?.householdName ?? household.householdName;
+    if (!currentUser || !householdId) {
       throw new Error('Create your household first, then invite kids.');
     }
-    if (!permissions.canInviteMembers && !permissions.canManageHousehold) {
+    const onboardingWrite = Boolean(options?.householdId);
+    if (
+      !onboardingWrite &&
+      !permissions.canInviteMembers &&
+      !permissions.canManageHousehold
+    ) {
       throw new Error('Only a parent/admin can create kid invites.');
     }
 
@@ -2840,9 +2948,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       throw new Error('Add at least one kid name.');
     }
 
+    const existingMembers = onboardingWrite
+      ? // Prefer latest snapshot from state updater path; fall back to closure.
+        household.id === householdId
+        ? household.members
+        : household.members
+      : household.members;
+
     const created: HouseholdMember[] = [];
     for (const name of trimmed) {
-      const already = household.members.find(
+      const already = existingMembers.find(
         (member) =>
           member.role === 'child' &&
           member.name.trim().toLowerCase() === name.toLowerCase() &&
@@ -2851,19 +2966,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (already) {
         await saveChildInviteRecord({
           member: already,
-          householdId: household.id,
-          householdName: household.householdName,
+          householdId,
+          householdName,
           code: already.profileInviteCode,
         });
         created.push(already);
         continue;
       }
 
-      const member = await householdRepository.createChildMember(household.id, name);
+      const member = await householdRepository.createChildMember(householdId, name);
       await saveChildInviteRecord({
         member,
-        householdId: household.id,
-        householdName: household.householdName,
+        householdId,
+        householdName,
         code: member.profileInviteCode,
       });
       created.push(member);
@@ -2872,15 +2987,79 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setHousehold((current) => {
       const ids = new Set(current.members.map((member) => member.id));
       const additions = created.filter((member) => !ids.has(member.id));
-      return additions.length
+      const next = additions.length
         ? { ...current, members: [...current.members, ...additions] }
         : current;
+      if (dataMode === 'mock' && additions.length) {
+        void persistMockHouseholdSnapshot(next);
+      }
+      return next;
     });
 
     await trackAnalytics(
       'member.child_invites_created',
       { count: created.length },
       analyticsContext,
+    );
+    return created;
+  };
+
+  const addOnboardingMembers = async (
+    householdId: string,
+    drafts: { name: string; role: 'admin' | 'member' }[],
+    options?: { householdName?: string }
+  ) => {
+    if (!currentUser || !householdId) {
+      throw new Error('Create your household first, then add members.');
+    }
+    const householdName = options?.householdName ?? household.householdName;
+    const created: HouseholdMember[] = [];
+
+    for (const draft of drafts) {
+      const name = draft.name.trim();
+      if (!name) continue;
+      const role = draft.role === 'admin' ? 'admin' : 'child';
+      const already = household.members.find(
+        (member) =>
+          member.name.trim().toLowerCase() === name.toLowerCase() &&
+          member.status === 'active' &&
+          member.role !== 'owner'
+      );
+      if (already) {
+        created.push(already);
+        continue;
+      }
+      const member = await householdRepository.createOnboardingMember(householdId, {
+        name,
+        role,
+      });
+      if (member.role === 'child') {
+        await saveChildInviteRecord({
+          member,
+          householdId,
+          householdName,
+          code: member.profileInviteCode,
+        });
+      }
+      created.push(member);
+    }
+
+    setHousehold((current) => {
+      const ids = new Set(current.members.map((member) => member.id));
+      const additions = created.filter((member) => !ids.has(member.id));
+      const next = additions.length
+        ? { ...current, members: [...current.members, ...additions] }
+        : current;
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      return next;
+    });
+
+    await trackAnalytics(
+      'member.onboarding_roster_persisted',
+      { count: created.length },
+      { ...analyticsContext, householdId }
     );
     return created;
   };
@@ -3234,6 +3413,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       declineMember,
       createHousehold,
       createProfile,
+      updateDisplayName,
+      updateMemberDisplayName,
       createTask,
       updateTask,
       forgotPassword,
@@ -3315,6 +3496,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createSharedDevice,
       updateSharedDeviceLinks,
       createChildInvites,
+      addOnboardingMembers,
       redeemChildInvite,
       connectSharedTabletProfiles,
       removeMember,
@@ -3383,6 +3565,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateMemberCapabilities,
       updateHouseholdRewardSettings,
       updateHouseholdRewardModel,
+      updateDisplayName,
+      updateMemberDisplayName,
+      addOnboardingMembers,
       redeemStreak,
     ]
   );

@@ -512,6 +512,8 @@ begin
   values (
     new.id,
     coalesce(new.email, ''),
+    -- Email local-part fallback can be an Apple private-relay token; the app
+    -- treats those as incomplete via isProfileNameComplete and forces a name step.
     coalesce(new.raw_user_meta_data->>'display_name', split_part(coalesce(new.email, 'orbit'), '@', 1)),
     new.raw_user_meta_data->>'avatar_url'
   )

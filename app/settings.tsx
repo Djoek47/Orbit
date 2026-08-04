@@ -140,6 +140,8 @@ export default function SettingsScreen() {
     updateHouseholdAccentTheme,
     updateHouseholdRewardSettings,
     updateHouseholdRewardModel,
+    updateDisplayName,
+    updateMemberDisplayName,
     updatePalette,
     updateMemberAvatar,
     updateNotificationPrefs,
@@ -162,6 +164,12 @@ export default function SettingsScreen() {
   const [section, setSection] = useState<Section>('main');
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(household.householdName);
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
+  const [displayNameInput, setDisplayNameInput] = useState(
+    currentMember?.name ?? currentUser?.name ?? ''
+  );
+  const [renamingMemberId, setRenamingMemberId] = useState<string | null>(null);
+  const [renamingMemberInput, setRenamingMemberInput] = useState('');
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [personalizeMemberId, setPersonalizeMemberId] = useState<string | null>(null);
   const [sharedDeviceName, setSharedDeviceName] = useState('Kids tablet');
@@ -339,6 +347,55 @@ export default function SettingsScreen() {
                 Viewing as {currentMember?.name ?? currentUser?.email ?? household.greetingName}
                 {currentMember ? ` · ${formatHouseholdRole(currentMember.role)}` : ''}
               </Text>
+            </SectionCard>
+
+            <SectionCard title="Your name">
+              <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 8 }]}>
+                Shown on Home and in your household — not your Apple email code.
+              </Text>
+              <View style={styles.rowBetween}>
+                {editingDisplayName ? (
+                  <TextInput
+                    value={displayNameInput}
+                    onChangeText={setDisplayNameInput}
+                    style={[styles.nameInput, { color: orbitPalette.text, flex: 1 }]}
+                    autoFocus
+                    placeholder="Your name"
+                    placeholderTextColor={orbitPalette.textSubtle}
+                    onSubmitEditing={() => {
+                      const next = displayNameInput.trim();
+                      if (next.length >= 2) {
+                        void updateDisplayName(next);
+                        setEditingDisplayName(false);
+                      }
+                    }}
+                  />
+                ) : (
+                  <Text style={[styles.nameText, { color: orbitPalette.text }]}>
+                    {currentMember?.name ?? currentUser?.name ?? 'Add your name'}
+                  </Text>
+                )}
+                <Pressable
+                  style={styles.iconBtn}
+                  onPress={() => {
+                    if (editingDisplayName) {
+                      const next = displayNameInput.trim();
+                      if (next.length >= 2) {
+                        void updateDisplayName(next);
+                      }
+                      setEditingDisplayName(false);
+                    } else {
+                      setDisplayNameInput(currentMember?.name ?? currentUser?.name ?? '');
+                      setEditingDisplayName(true);
+                    }
+                  }}>
+                  <MaterialIcons
+                    name={editingDisplayName ? 'check' : 'edit'}
+                    size={14}
+                    color={editingDisplayName ? '#34D399' : '#38BDF8'}
+                  />
+                </Pressable>
+              </View>
             </SectionCard>
 
             <SectionCard title="Your look">
@@ -854,7 +911,23 @@ export default function SettingsScreen() {
                     </View>
                   </Pressable>
                   <Pressable style={{ flex: 1 }} onPress={() => switchPersona(member.id)}>
-                    <Text style={[styles.memberName, { color: orbitPalette.text }]}>{member.name}</Text>
+                    {renamingMemberId === member.id ? (
+                      <TextInput
+                        value={renamingMemberInput}
+                        onChangeText={setRenamingMemberInput}
+                        style={[styles.nameInput, { color: orbitPalette.text }]}
+                        autoFocus
+                        onSubmitEditing={() => {
+                          const next = renamingMemberInput.trim();
+                          if (next.length >= 2) {
+                            void updateMemberDisplayName(member.id, next);
+                          }
+                          setRenamingMemberId(null);
+                        }}
+                      />
+                    ) : (
+                      <Text style={[styles.memberName, { color: orbitPalette.text }]}>{member.name}</Text>
+                    )}
                     <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
                       {formatHouseholdRole(member.role)}
                     </Text>
@@ -868,6 +941,29 @@ export default function SettingsScreen() {
                     ) : null}
                   </Pressable>
                   {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
+                  {permissions.canManageHousehold || currentMember?.id === member.id ? (
+                    <Pressable
+                      onPress={() => {
+                        if (renamingMemberId === member.id) {
+                          const next = renamingMemberInput.trim();
+                          if (next.length >= 2) {
+                            void updateMemberDisplayName(member.id, next);
+                          }
+                          setRenamingMemberId(null);
+                          return;
+                        }
+                        setRenamingMemberId(member.id);
+                        setRenamingMemberInput(member.name);
+                      }}
+                      hitSlop={8}
+                      accessibilityLabel={`Rename ${member.name}`}>
+                      <MaterialIcons
+                        name={renamingMemberId === member.id ? 'check' : 'badge'}
+                        size={18}
+                        color={renamingMemberId === member.id ? '#34D399' : '#38BDF8'}
+                      />
+                    </Pressable>
+                  ) : null}
                   {permissions.canManageHousehold && member.role !== 'owner' ? (
                     <Pressable
                       onPress={() => handleRemoveMember(member)}

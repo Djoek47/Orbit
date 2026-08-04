@@ -6,6 +6,7 @@ import {
   isAuthRateLimitMessage,
   throwMappedAuthError,
 } from '@/lib/auth/auth-errors';
+import { isProfileNameComplete } from '@/lib/auth/display-name';
 import {
   clearPendingSignup,
   getEmailConfirmRedirectUrl,
@@ -199,7 +200,7 @@ export const authRepository = {
       ...user,
       name: trimmedName,
       avatar,
-      profileComplete: true,
+      profileComplete: isProfileNameComplete(trimmedName, user.email),
     };
 
     if (isMockMode()) {
@@ -213,6 +214,15 @@ export const authRepository = {
       .update({ display_name: trimmedName } satisfies Partial<ProfileRow>)
       .eq('id', user.id);
     mapDbError('authRepository.createProfile', error);
+
+    // Keep the owner's household_members.display_name in sync with the profile.
+    const { error: memberError } = await supabase
+      .from('household_members')
+      .update({ display_name: trimmedName, avatar_symbol: avatar })
+      .eq('user_id', user.id);
+    if (memberError) {
+      console.warn('authRepository.createProfile: member name sync skipped', memberError.message);
+    }
 
     return nextUser;
   },

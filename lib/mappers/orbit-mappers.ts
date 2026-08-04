@@ -1,3 +1,4 @@
+import { isProfileNameComplete } from '@/lib/auth/display-name';
 import type {
   Badge,
   GroceryItem,
@@ -21,7 +22,8 @@ export function mapProfileToUser(row: {
     email: row.email,
     name,
     avatar: name.charAt(0).toUpperCase() || row.email.charAt(0).toUpperCase() || 'O',
-    profileComplete: Boolean(name),
+    // Apple private-relay local-parts must not count as a finished name.
+    profileComplete: isProfileNameComplete(name, row.email),
   };
 }
 

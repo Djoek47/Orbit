@@ -401,17 +401,32 @@ export const householdRepository = {
     householdId: string | null | undefined,
     name: string
   ): Promise<HouseholdMember> {
-    const trimmed = name.trim();
+    return this.createOnboardingMember(householdId, { name, role: 'child' });
+  },
+
+  /**
+   * Persist an onboarding roster person into household_members (no auth user).
+   * Roles: child (helpers/kids), adult/admin (co-parents pending their own join).
+   */
+  async createOnboardingMember(
+    householdId: string | null | undefined,
+    input: { name: string; role: HouseholdRole }
+  ): Promise<HouseholdMember> {
+    const trimmed = input.name.trim();
     if (!trimmed) {
-      throw new Error('householdRepository.createChildMember: name is required.');
+      throw new Error('householdRepository.createOnboardingMember: name is required.');
     }
+    const role: HouseholdRole =
+      input.role === 'admin' || input.role === 'adult' || input.role === 'child'
+        ? input.role
+        : 'child';
 
     const member: HouseholdMember = {
       id: createLocalId('member'),
       name: trimmed,
-      role: 'child',
+      role,
       status: 'active',
-      avatar: childInviteEmoji(trimmed),
+      avatar: role === 'child' ? childInviteEmoji(trimmed) : trimmed.charAt(0).toUpperCase(),
       xp: 0,
       weekXp: 0,
       streak: 0,
@@ -422,42 +437,55 @@ export const householdRepository = {
       .toUpperCase()
       .replace(/[^A-Z0-9]+/g, '')
       .slice(0, 6);
-    member.profileInviteCode = normalizeInviteCode(
-      fromName.length >= 3 ? `CMX-${fromName}` : createInviteCode(),
-    );
-    // Avoid colliding with an existing demo code in mock.
-    if (isMockMode()) {
-      const taken = new Set(
-        mockHousehold.members
-          .map((item) => item.profileInviteCode)
-          .filter((code): code is string => Boolean(code))
-          .map((code) => normalizeInviteCode(code)),
+    if (role === 'child') {
+      member.profileInviteCode = normalizeInviteCode(
+        fromName.length >= 3 ? `CMX-${fromName}` : createInviteCode(),
       );
-      let attempt = member.profileInviteCode!;
-      let n = 2;
-      while (taken.has(attempt)) {
-        attempt = normalizeInviteCode(`CMX-${fromName.slice(0, 4)}${n}`);
-        n += 1;
+    }
+
+    if (isMockMode()) {
+      if (member.profileInviteCode) {
+        const taken = new Set(
+          mockHousehold.members
+            .map((item) => item.profileInviteCode)
+            .filter((code): code is string => Boolean(code))
+            .map((code) => normalizeInviteCode(code)),
+        );
+        let attempt = member.profileInviteCode;
+        let n = 2;
+        while (taken.has(attempt)) {
+          attempt = normalizeInviteCode(`CMX-${fromName.slice(0, 4)}${n}`);
+          n += 1;
+        }
+        member.profileInviteCode = attempt;
       }
-      member.profileInviteCode = attempt;
-      // Only mutate the shared Rivera demo when inviting into that household.
-      if (!householdId || householdId === mockHousehold.id) {
+      // Prefer the active mock household when present; fall back to Rivera demo.
+      const active = await loadActiveMockHousehold();
+      if (active?.id && (!householdId || householdId === active.id)) {
+        const next = {
+          ...active,
+          members: [...active.members.filter((m) => m.id !== member.id), member],
+        };
+        await saveActiveMockHousehold(next);
+      } else if (!householdId || householdId === mockHousehold.id) {
         mockHousehold.members = [...mockHousehold.members, member];
       }
       return member;
     }
 
     if (!householdId) {
-      throw new Error('householdRepository.createChildMember: householdId is required in Supabase mode.');
+      throw new Error(
+        'householdRepository.createOnboardingMember: householdId is required in Supabase mode.'
+      );
     }
 
-    const supabase = getConfiguredSupabase('householdRepository.createChildMember');
+    const supabase = getConfiguredSupabase('householdRepository.createOnboardingMember');
     const { data, error } = await supabase
       .from('household_members')
       .insert({
         household_id: householdId,
         display_name: member.name,
-        role: 'child',
+        role,
         status: 'active',
         avatar_symbol: member.avatar,
         xp: 0,
@@ -467,10 +495,54 @@ export const householdRepository = {
       })
       .select('*')
       .single();
-    mapDbError('householdRepository.createChildMember', error);
+    mapDbError('householdRepository.createOnboardingMember', error);
 
-    const mapped = mapMemberRow(data as HouseholdMemberRow & { shared_with_member_ids?: string[] | null });
-    return { ...mapped, profileInviteCode: member.profileInviteCode, role: 'child' };
+    const mapped = mapMemberRow(
+      data as HouseholdMemberRow & { shared_with_member_ids?: string[] | null }
+    );
+    return { ...mapped, profileInviteCode: member.profileInviteCode, role };
+  },
+
+  async updateMemberDisplayName(
+    memberId: string,
+    name: string,
+    householdId?: string | null
+  ): Promise<HouseholdMember | null> {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error('householdRepository.updateMemberDisplayName: name is required.');
+    }
+
+    if (isMockMode()) {
+      const active = await loadActiveMockHousehold();
+      if (active?.id) {
+        const nextMembers = active.members.map((m) =>
+          m.id === memberId
+            ? { ...m, name: trimmed, avatar: m.avatar?.length === 1 ? trimmed.charAt(0).toUpperCase() : m.avatar }
+            : m
+        );
+        await saveActiveMockHousehold({ ...active, members: nextMembers });
+        return nextMembers.find((m) => m.id === memberId) ?? null;
+      }
+      mockHousehold.members = mockHousehold.members.map((m) =>
+        m.id === memberId ? { ...m, name: trimmed } : m
+      );
+      return mockHousehold.members.find((m) => m.id === memberId) ?? null;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.updateMemberDisplayName');
+    let query = supabase
+      .from('household_members')
+      .update({ display_name: trimmed })
+      .eq('id', memberId);
+    if (householdId) {
+      query = query.eq('household_id', householdId);
+    }
+    const { data, error } = await query.select('*').single();
+    mapDbError('householdRepository.updateMemberDisplayName', error);
+    return data
+      ? mapMemberRow(data as HouseholdMemberRow & { shared_with_member_ids?: string[] | null })
+      : null;
   },
 
   async createSharedDevice(

@@ -20,7 +20,10 @@ import { AppText as Text } from '@/components/orbit/app-text';
 
 type SetupRosterHubProps = {
   draft: HouseholdSetupDraft;
+  /** Confirmed admin display name (You) — not a draft child invite. */
+  ownerName?: string;
   onEditName: () => void;
+  onEditOwnerName?: () => void;
   onAddMember: () => void;
   onEditMember: (member: DraftMember) => void;
   onCreateHousehold: () => void;
@@ -30,7 +33,9 @@ type SetupRosterHubProps = {
 
 export function SetupRosterHub({
   draft,
+  ownerName,
   onEditName,
+  onEditOwnerName,
   onAddMember,
   onEditMember,
   onCreateHousehold,
@@ -38,8 +43,10 @@ export function SetupRosterHub({
   busy,
 }: SetupRosterHubProps) {
   const { c, glass, glassBorder } = useOrbitColors();
-  const canCreate = draftHasCompleteMember(draft);
+  // Solo admin can create; otherwise need at least one finished family member.
+  const canCreate = draftHasCompleteMember(draft) || Boolean(ownerName?.trim());
   const incomplete = incompleteMemberCount(draft);
+  const youName = (ownerName ?? '').trim() || 'You';
 
   return (
     <View style={styles.wrap}>
@@ -60,6 +67,32 @@ export function SetupRosterHub({
       </Text>
 
       <View style={styles.list}>
+        <Pressable
+          onPress={onEditOwnerName}
+          disabled={!onEditOwnerName}
+          style={[
+            styles.card,
+            {
+              backgroundColor: glass(0.05),
+              borderColor: glassBorder(0.1),
+            },
+          ]}>
+          <View style={[styles.avatar, { backgroundColor: c.primary }]}>
+            <Text style={styles.avatarText}>{youName.charAt(0).toUpperCase()}</Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[typography.headline, { color: c.text }]} numberOfLines={1}>
+              {youName}
+            </Text>
+            <Text style={[typography.caption1, { color: c.textMuted }]}>You · Admin</Text>
+          </View>
+          {onEditOwnerName ? (
+            <MaterialIcons name="edit" size={18} color={c.textSubtle} />
+          ) : (
+            <MaterialIcons name="check-circle" size={22} color="#34D399" />
+          )}
+        </Pressable>
+
         {draft.members.map((member) => {
           const complete = memberIsComplete(member);
           return (

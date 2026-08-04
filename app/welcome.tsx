@@ -52,6 +52,7 @@ import {
 } from '@/lib/rewards/reward-mode';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { isAuthRateLimitError } from '@/lib/auth/auth-errors';
+import { isProfileNameComplete } from '@/lib/auth/display-name';
 import {
   getPendingSignup,
   markAuthEmailSent,
@@ -81,6 +82,7 @@ export default function WelcomeOnboardingScreen() {
   const {
     accentTheme,
     connectSharedTabletProfiles,
+    addOnboardingMembers,
     createChildInvites,
     createHousehold,
     createProfile,
@@ -180,15 +182,18 @@ export default function WelcomeOnboardingScreen() {
       return;
     }
 
-    if (isSignedIn && currentUser?.profileComplete && !hasHousehold) {
-      setDisplayName(currentUser.name || '');
+    const nameComplete = isProfileNameComplete(currentUser?.name, currentUser?.email);
+
+    if (isSignedIn && nameComplete && !hasHousehold) {
+      setDisplayName(currentUser?.name || '');
       setStep('household');
       setResumed(true);
       return;
     }
 
-    if (isSignedIn && !currentUser?.profileComplete) {
-      setDisplayName(currentUser?.name || '');
+    if (isSignedIn && (!nameComplete || !currentUser?.profileComplete)) {
+      // Prefill only when the stored name is a real human name — not a relay code.
+      setDisplayName(nameComplete ? currentUser?.name || '' : '');
       setStep('profile');
       setResumed(true);
       return;
@@ -418,10 +423,13 @@ export default function WelcomeOnboardingScreen() {
       await persistPrefs();
       const session = await signInWithApple();
       await hydrateFromSession(session);
-      if (session.user.name) {
+      const appleComplete = isProfileNameComplete(session.user.name, session.user.email);
+      if (appleComplete) {
         setDisplayName(session.user.name);
+      } else {
+        setDisplayName('');
       }
-      setStep(session.user.profileComplete ? 'household' : 'profile');
+      setStep(appleComplete ? 'household' : 'profile');
     } catch (err) {
       if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') {
         return;
@@ -509,35 +517,55 @@ export default function WelcomeOnboardingScreen() {
   };
 
   const materializeDraft = async (draft: HouseholdSetupDraft, setupComplete: boolean) => {
-    await createHousehold({
+    const createdHousehold = await createHousehold({
       name: draft.householdName.trim(),
       rewardModel: draft.rewardModel,
       rewardMode: draft.scoringMode,
       setupComplete,
     });
+    if (!createdHousehold?.id) {
+      throw new Error('Could not create household. Try again.');
+    }
+    const householdId = createdHousehold.id;
     updateHouseholdRewardSettings({ rewardMode: draft.scoringMode });
-    const completeMembers = draft.members.filter((m) => m.setupComplete && m.name.trim());
-    if (completeMembers.length > 0) {
-      const created = await createChildInvites(completeMembers.map((m) => m.name.trim()));
-      for (const member of completeMembers) {
+
+    // Finish-later: persist every named draft person. Create: prefer complete ones,
+    // but still keep named incomplete members so Manage Members isn't empty.
+    const rosterMembers = draft.members.filter((m) => m.name.trim());
+    const toPersist = setupComplete
+      ? rosterMembers.filter((m) => m.setupComplete || m.name.trim())
+      : rosterMembers;
+
+    let created: Awaited<ReturnType<typeof addOnboardingMembers>> = [];
+    if (toPersist.length > 0) {
+      created = await addOnboardingMembers(
+        householdId,
+        toPersist.map((m) => ({ name: m.name.trim(), role: m.role })),
+        { householdName: draft.householdName.trim() }
+      );
+      for (const member of toPersist.filter((m) => m.setupComplete)) {
         const matched = created.find(
           (c) => c.name.trim().toLowerCase() === member.name.trim().toLowerCase()
         );
         for (const task of tasksFromDraftMember(member)) {
-          await createTask(task);
+          await createTask(task, { householdId });
         }
         for (const reward of rewardsFromDraftMember(member)) {
-          await createReward({
-            ...reward,
-            assignedMemberId: matched?.id,
-            assignedMemberName: matched?.name ?? member.name.trim(),
-            cost: 0,
-          });
+          await createReward(
+            {
+              ...reward,
+              assignedMemberId: matched?.id,
+              assignedMemberName: matched?.name ?? member.name.trim(),
+              cost: 0,
+            },
+            { householdId }
+          );
         }
       }
     }
     setCreatedHousehold(true);
     await clearSetupDraft();
+    return created;
   };
 
   const handleCreateFromRoster = async () => {
@@ -1182,7 +1210,8 @@ export default function WelcomeOnboardingScreen() {
                 What should we call you?
               </Text>
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                Your name inside the household. Add a photo if you like.
+                Your name inside the household — not your email code. Apple Sign-In may prefill this;
+                you can change it anytime in Settings.
               </Text>
               <Pressable
                 onPress={() => setLookSheetOpen(true)}
@@ -1278,8 +1307,10 @@ export default function WelcomeOnboardingScreen() {
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
               <SetupRosterHub
                 draft={setupDraft}
+                ownerName={displayName.trim() || currentUser?.name || 'You'}
                 busy={busy}
                 onEditName={() => setStep('household')}
+                onEditOwnerName={() => setStep('profile')}
                 onAddMember={() => {
                   setEditingMember(null);
                   setStep('member-wizard');
