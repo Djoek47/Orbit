@@ -374,11 +374,13 @@ export default function RewardsScreen() {
   };
 
   return (
+    <>
     <ScrollView
       style={[orbitScreen.container, { backgroundColor: orbitPalette.background }]}
       contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
       contentInsetAdjustmentBehavior="never"
-      showsVerticalScrollIndicator={false}>
+      showsVerticalScrollIndicator
+      persistentScrollbar>
       <View style={[orbitScreen.header, styles.header]}>
         <PageEyebrow>Rewards & Rankings</PageEyebrow>
         <Text style={[typography.title1, { color: orbitPalette.text }]}>
@@ -969,6 +971,7 @@ export default function RewardsScreen() {
           </Pressable>
         </Animated.View>
       ) : null}
+    </ScrollView>
       <ChampionsRecordSheet
         visible={championsRecord != null}
         record={championsRecord}
@@ -979,7 +982,7 @@ export default function RewardsScreen() {
         periodLabel={VOCAB.weeksCrown}
         onClose={() => setChampionsRecord(null)}
       />
-    </ScrollView>
+    </>
   );
 }
 

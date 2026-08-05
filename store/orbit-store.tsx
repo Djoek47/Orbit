@@ -263,9 +263,9 @@ type OrbitContextValue = {
   /** Award daily streak once when today's tasks are all done. */
   awardDailyStreak: () => Promise<number | null>;
   /**
-   * Child-initiated streak redemption stub (Phase 3 foundations).
-   * Restores a held broken_redeemable streak via mock-streak-store.
-   * XP penalty is deferred to week close — does not rewrite awardDailyStreak.
+   * Streak Rescue — member must press the confirmation prompt
+   * (confirmedViaPrompt). Free first rescue still requires that tap.
+   * XP cost settles at week close via the rescue accrual ledger.
    */
   redeemStreak: () => Promise<boolean>;
   deleteTask: (taskId: string) => Promise<void>;
