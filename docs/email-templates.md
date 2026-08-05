@@ -8,6 +8,10 @@
 wiring into a live send (Supabase Auth Hook, a new edge function, a
 billing webhook, etc.) happens incrementally afterward, one at a time.
 
+**Next session:** after the V0 companion site ships on `mytikas73.com`,
+wire Auth templates into Resend and close MVP — see
+[next-session.md](./next-session.md).
+
 ## Brand
 
 Fixed coral/cream ChoreMaxx identity for every email, independent of a
