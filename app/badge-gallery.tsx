@@ -11,7 +11,7 @@ import Icon from '@/components/orbit/design/Icon';
 import { achievementIconName, trophyIconName } from '@/components/orbit/design/icon-map';
 import { tierTone } from '@/components/orbit/design/tierTone';
 import { GlassCard } from '@/components/orbit/glass-card';
-import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, radius, space } from '@/constants/orbit-theme';
 import {
   formatXp,
   getLevel,
@@ -25,7 +25,9 @@ import { useOrbit } from '@/store/orbit-store';
 export default function BadgeGalleryScreen() {
   const insets = useSafeAreaInsets();
   const { accentTheme, achievements, currentMember } = useOrbit();
-  const { c } = useOrbitColors();
+  // `type` is the color-aware type scale — bare `typography.*` has NO color and
+  // paints system black, which disappears on dark glass (TestFlight feedback).
+  const { c, type } = useOrbitColors();
   const habitAchievements = achievements.filter((badge) => badge.kind !== 'xp-trophy');
   const xpTrophies = achievements.filter((badge) => badge.kind === 'xp-trophy');
   const lifetimeXp = currentMember?.xp ?? 0;
@@ -40,10 +42,10 @@ export default function BadgeGalleryScreen() {
 
   return (
     <ScrollView
-      style={orbitScreen.container}
+      style={[orbitScreen.container, { backgroundColor: c.background }]}
       contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}
       contentInsetAdjustmentBehavior="automatic"
-      showsVerticalScrollIndicator={false}>
+      showsVerticalScrollIndicator>
       <Stack.Screen options={{ headerShown: false }} />
       <Pressable onPress={() => router.back()} style={styles.backBtn}>
         <MaterialIcons name="chevron-left" size={22} color={accentTheme.primary} />
@@ -52,9 +54,9 @@ export default function BadgeGalleryScreen() {
 
       <View style={orbitScreen.header}>
         <ChoremaxxLogo size="md" />
-        <Text style={[typography.footnote, { marginTop: 8 }]}>Collection</Text>
-        <Text style={typography.title1}>Badge gallery</Text>
-        <Text style={typography.body}>
+        <Text style={[type.footnote, { marginTop: 8, color: c.textMuted }]}>Collection</Text>
+        <Text style={[type.title1, { color: c.text }]}>Badge gallery</Text>
+        <Text style={[type.body, { color: c.textSoft }]}>
           Habit badges plus XP trophies all the way to Most Glorious at 1,000,000 XP.
         </Text>
       </View>
@@ -78,7 +80,7 @@ export default function BadgeGalleryScreen() {
             style={[styles.summaryFill, { width: `${levelPct}%` }]}
           />
         </View>
-        <Text style={typography.footnote}>
+        <Text style={[type.footnote, { color: c.textSoft }]}>
           {nextTrophy
             ? `Next trophy: ${nextTrophy.label} at ${formatXp(nextTrophy.xp)} XP`
             : 'Most Glorious unlocked — you reached 1,000,000 XP'}
@@ -102,14 +104,14 @@ export default function BadgeGalleryScreen() {
             style={[styles.summaryFill, { width: `${collectionPct}%` }]}
           />
         </View>
-        <Text style={typography.footnote}>
+        <Text style={[type.footnote, { color: c.textSoft }]}>
           {achievements.filter((badge) => badge.earned).length}/{achievements.length} awards unlocked
         </Text>
       </GlassCard>
 
       <GlassCard style={styles.card}>
-        <Text style={typography.headline}>Live collection</Text>
-        <Text style={[typography.footnote, { marginBottom: 8 }]}>
+        <Text style={[type.headline, { color: c.text }]}>Live collection</Text>
+        <Text style={[type.footnote, { marginBottom: 8, color: c.textMuted }]}>
           Driven by achievements for {currentMember?.name ?? 'you'} — not static household badge stubs.
         </Text>
         {habitAchievements.map((badge) => {
@@ -128,7 +130,7 @@ export default function BadgeGalleryScreen() {
               </View>
               <View style={styles.badgeCopy}>
                 <Text style={[styles.badgeTitle, { color: c.text }]}>{badge.label}</Text>
-                <Text style={[styles.badgeHint, { color: c.textSubtle }]}>
+                <Text style={[styles.badgeHint, { color: c.textMuted }]}>
                   {earned ? 'Earned' : badge.description}
                 </Text>
                 <View style={styles.progressTrack}>
@@ -153,12 +155,12 @@ export default function BadgeGalleryScreen() {
 
       <GlassCard style={styles.card}>
         <View style={orbitScreen.row}>
-          <Text style={typography.headline}>XP trophies</Text>
+          <Text style={[type.headline, { color: c.text }]}>XP trophies</Text>
           <Text style={styles.earnedCount}>
             {xpTrophies.filter((badge) => badge.earned).length}/{XP_MILESTONE_TROPHIES.length}
           </Text>
         </View>
-        <Text style={[typography.footnote, { marginBottom: 8 }]}>
+        <Text style={[type.footnote, { marginBottom: 8, color: c.textMuted }]}>
           Awards unlock as lifetime XP climbs — bronze to Most Glorious at one million.
         </Text>
         <View style={styles.badgeGrid}>
@@ -186,7 +188,7 @@ export default function BadgeGalleryScreen() {
 
       <GlassCard style={styles.card}>
         <View style={orbitScreen.row}>
-          <Text style={typography.headline}>Habit achievements</Text>
+          <Text style={[type.headline, { color: c.text }]}>Habit achievements</Text>
           <Text style={styles.earnedCount}>
             {habitAchievements.filter((badge) => badge.earned).length}/{habitAchievements.length}
           </Text>
