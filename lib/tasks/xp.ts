@@ -1,4 +1,3 @@
-import { LATE_XP_PENALTY_RATE } from '@/data/task-presets';
 import {
   isXpEligible,
   normalizeRewardSettings,
@@ -41,13 +40,16 @@ export function isTaskLate(task: HouseholdTask): boolean {
 }
 
 /**
- * Award after mode resolution + late check. Snapshots go onto `awardedXp`.
+ * Award after mode resolution. Snapshots go onto `awardedXp`.
  * Hygiene eligibility is resolved before reward mode (Meritocracy/Equity).
+ *
+ * v2 §5.2: late/missed never reduce XP. `penalty` stays 0; `late` is informational.
+ * The optional `penaltyRate` arg is ignored (kept for call-site compatibility).
  */
 export function resolveCompletionXp(
   task: HouseholdTask,
   settings?: Partial<HouseholdRewardSettings> | null,
-  penaltyRate = LATE_XP_PENALTY_RATE
+  _penaltyRate = 0
 ) {
   const late = isTaskLate(task);
   const rewardSettings = normalizeRewardSettings(settings);
@@ -55,7 +57,5 @@ export function resolveCompletionXp(
   if (base <= 0) {
     return { awarded: 0, penalty: 0, late, base: 0 };
   }
-  const penalty = late ? Math.max(0, Math.floor(base * penaltyRate)) : 0;
-  const awarded = Math.max(0, base - penalty);
-  return { awarded, penalty, late, base };
+  return { awarded: base, penalty: 0, late, base };
 }

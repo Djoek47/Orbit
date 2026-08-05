@@ -1,6 +1,6 @@
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
@@ -10,13 +10,13 @@ import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function SpecialRewardRequestScreen() {
   const insets = useSafeAreaInsets();
   const { household, permissions, requestSpecialReward } = useOrbit();
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
-  const [cost, setCost] = useState('150');
   const [busy, setBusy] = useState(false);
 
   const caps = resolveMemberCapabilities(household);
@@ -26,7 +26,8 @@ export default function SpecialRewardRequestScreen() {
     if (!title.trim() || !allowed) return;
     setBusy(true);
     try {
-      await requestSpecialReward(title.trim(), note.trim() || undefined, Number(cost) || 150);
+      // Revision C §2 / §6.1 — rewards have no XP cost.
+      await requestSpecialReward(title.trim(), note.trim() || undefined, 0);
       router.back();
     } finally {
       setBusy(false);
@@ -79,12 +80,6 @@ export default function SpecialRewardRequestScreen() {
           value={note}
           onChangeText={setNote}
           placeholder="Why this matters"
-        />
-        <OrbitInput
-          label="Suggested XP cost"
-          value={cost}
-          onChangeText={setCost}
-          keyboardType="number-pad"
         />
       </GlassCard>
 

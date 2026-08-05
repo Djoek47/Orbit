@@ -1,8 +1,9 @@
 import { PropsWithChildren, ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type OrbitListItemProps = PropsWithChildren<{
   completed?: boolean;

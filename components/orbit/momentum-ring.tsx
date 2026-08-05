@@ -1,7 +1,8 @@
 import Svg, { Circle } from 'react-native-svg';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type MomentumRingProps = {
   /** Make API: 0–1 fractions */

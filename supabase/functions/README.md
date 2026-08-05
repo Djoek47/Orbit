@@ -3,42 +3,50 @@
 Deploy after creating a Supabase project and applying migrations (including `20260716000000_ai_conversations.sql` and `20260716200000_nova_majordomo.sql`).
 
 ```bash
-npx supabase functions deploy nova-briefing
-npx supabase functions deploy nova-chat
-npx supabase functions deploy nova-voice
-npx supabase functions deploy nova-monitor
-npx supabase functions deploy nova-realtime-session
+npx supabase functions deploy poppins-briefing
+npx supabase functions deploy poppins-chat
+npx supabase functions deploy poppins-voice
+npx supabase functions deploy poppins-monitor
+npx supabase functions deploy poppins-realtime-session
 npx supabase functions deploy join-household
+# Auth emails via Resend (optional if Custom SMTP is enough — see docs/resend-auth-email.md)
+npx supabase functions deploy send-auth-email --no-verify-jwt
 npx supabase secrets set OPENAI_API_KEY=sk-...
-# Service role required for cron → nova-monitor
+# Service role required for cron → poppins-monitor
 npx supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
+# Resend (Send Email Hook path only)
+# npx supabase secrets set RESEND_API_KEY=re_...
+# npx supabase secrets set SEND_EMAIL_HOOK_SECRET="v1,whsec_..."
+# npx supabase secrets set RESEND_FROM_EMAIL="Choremaxx <noreply@choremaxx.app>"
 ```
 
-See [docs/supabase-staging-setup.md](../docs/supabase-staging-setup.md) for full staging steps.
+See [docs/supabase-staging-setup.md](../docs/supabase-staging-setup.md) for full staging steps.  
+Auth email delivery: [docs/resend-auth-email.md](../docs/resend-auth-email.md).
 
 | Function | Purpose |
 |----------|---------|
-| `nova-briefing` | Daily/weekly briefings + recommendation payloads (JWT + active member) |
-| `nova-chat` | Conversational Nova with household context + history |
-| `nova-voice` | Whisper STT + short GPT reply for Talk to Nova (Whisper fallback) |
-| `nova-monitor` | Monitor Agent tool loop → `notifications` + `ai_recommendations` |
-| `nova-realtime-session` | Mints ephemeral OpenAI Realtime client secret (never ships long-lived key) |
+| `poppins-briefing` | Daily/weekly briefings + recommendation payloads (JWT + active member) |
+| `poppins-chat` | Conversational Poppins with household context + history |
+| `poppins-voice` | Whisper STT + short GPT reply for Talk to Poppins (Whisper fallback) |
+| `poppins-monitor` | Monitor Agent tool loop → `notifications` + `ai_recommendations` |
+| `poppins-realtime-session` | Mints ephemeral OpenAI Realtime client secret (never ships long-lived key) |
 | `join-household` | Invite-code join with pending membership |
+| `send-auth-email` | Auth Send Email Hook → Resend (confirm / recovery / magic link); deploy with `--no-verify-jwt` |
 
-## Nova Monitor cron
+## Poppins Monitor cron
 
-Schedule `nova-monitor` about every 15 minutes per active household (pg_cron + `net.http_post`, or Supabase scheduled functions).
+Schedule `poppins-monitor` about every 15 minutes per active household (pg_cron + `net.http_post`, or Supabase scheduled functions).
 
 Example with `pg_cron` + `pg_net` (adjust project URL / keys):
 
 ```sql
 -- Requires extensions: pg_cron, pg_net
 select cron.schedule(
-  'nova-monitor-pass',
+  'poppins-monitor-pass',
   '*/15 * * * *',
   $$
   select net.http_post(
-    url := 'https://YOUR_PROJECT.supabase.co/functions/v1/nova-monitor',
+    url := 'https://YOUR_PROJECT.supabase.co/functions/v1/poppins-monitor',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || 'YOUR_SERVICE_ROLE_KEY'
@@ -55,6 +63,6 @@ select cron.schedule(
 );
 ```
 
-For a single household “Run Nova check now” from the app, invoke with the user JWT + active membership and a compact household snapshot in the body.
+For a single household “Run Poppins check now” from the app, invoke with the user JWT + active membership and a compact household snapshot in the body.
 
-Mock / Expo Go mode uses `runNovaMonitor()` in the Orbit store (local rule engine, same notification writers) — no edge required.
+Mock / Expo Go mode uses `runPoppinsMonitor()` in the Orbit store (local rule engine, same notification writers) — no edge required.

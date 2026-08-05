@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, Stack } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
@@ -10,6 +10,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitScreen, radius, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function RewardTallyScreen() {
   const insets = useSafeAreaInsets();
@@ -95,7 +96,7 @@ export default function RewardTallyScreen() {
           const member = household.members.find((item) => item.id === redemption.memberId);
           const origin =
             reward?.origin ?? (reward?.specialRequest ? 'special-request' : 'minted');
-          const originLabel = origin === 'special-request' ? 'Special request' : 'Minted';
+          const originLabel = origin === 'special-request' ? 'Special request' : 'Catalogue';
           return (
             <GlassCard key={redemption.id} style={styles.card}>
               <View style={styles.cardHead}>
@@ -114,7 +115,11 @@ export default function RewardTallyScreen() {
                 </View>
               </View>
               <Text style={[typography.footnote, { color: c.textMuted }]}>
-                {member?.name ?? 'Member'} · {reward?.cost ?? '—'} XP · {originLabel}
+                {member?.name ?? 'Helper'}
+                {reward?.frequency
+                  ? ` · ${reward.frequency.charAt(0).toUpperCase()}${reward.frequency.slice(1)}`
+                  : ''}
+                {` · ${originLabel}`}
                 {reward?.createdByName ? ` · by ${reward.createdByName}` : ''}
               </Text>
               <Text style={[styles.time, { color: c.textSubtle }]}>

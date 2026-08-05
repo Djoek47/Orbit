@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BlurView } from 'expo-blur';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
@@ -9,6 +9,7 @@ import { motionDuration } from '@/constants/motion-tokens';
 import { orbitColors, radius, space } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 type SearchBarProps = {
   value: string;

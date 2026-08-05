@@ -9,7 +9,7 @@ import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { loadOnboardingPrefs, type OnboardingRole } from '@/lib/onboarding-prefs';
 import { useOrbit } from '@/store/orbit-store';
 
-/** Map household role → Make onboarding role for tab visibility. */
+/** Map household role → onboarding role for tab visibility. */
 function resolveUiRole(
   householdRole: string | undefined,
   onboardingRole: OnboardingRole | null,
@@ -17,7 +17,6 @@ function resolveUiRole(
 ): OnboardingRole {
   if (sharedKid || householdRole === 'child') return 'child';
   if (onboardingRole) return onboardingRole;
-  if (householdRole === 'guest') return 'roommate';
   return 'parent';
 }
 
@@ -73,7 +72,7 @@ export default function TabLayout() {
   }
 
   const showPlan = uiRole !== 'child';
-  const showRewards = uiRole !== 'roommate';
+  const showRewards = uiRole !== 'child';
 
   return (
     <View style={[styles.shell, { backgroundColor: orbitPalette.background }]}>
@@ -114,7 +113,7 @@ export default function TabLayout() {
             title: 'Rewards',
           }}
         />
-        <Tabs.Screen name="nova" options={{ title: 'Nova' }} />
+        <Tabs.Screen name="poppins" options={{ title: 'Poppins' }} />
       </Tabs>
 
       <GlobalHeaderChips />

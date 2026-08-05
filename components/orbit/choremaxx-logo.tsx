@@ -29,6 +29,11 @@ function useBrandLockup(): BrandLockupColors {
 
 /**
  * Official Choremaxx lockup: themed house mark + “chore” (secondary) + “maxx” (primary).
+ *
+ * OPEN DECISION (Bricolage migration): the live wordmark Text is intentionally
+ * left on the system / StyleSheet weight path for now — do not silently convert
+ * to Bricolage. Product will decide whether the wordmark stays a locked asset
+ * and Bricolage handles only UI chrome.
  */
 export function ChoremaxxLogo({
   size = 'md',

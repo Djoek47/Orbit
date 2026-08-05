@@ -20,6 +20,11 @@ export type HouseholdRow = {
   owner_id: string;
   timezone: string;
   country: string | null;
+  reward_mode?: 'weighted' | 'flat';
+  reward_model?: 'xp_only' | 'allowance' | 'xp_rewards' | 'xp_allowance' | 'full';
+  hygiene_rewarded?: boolean;
+  hygiene_xp?: 5 | 10;
+  member_capabilities?: Record<string, boolean> | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -290,7 +295,7 @@ export type XPTransaction = XPTransactionRow;
 /** @deprecated Prefer HouseholdScoreRow */
 export type HouseholdMomentum = HouseholdScoreRow;
 /** @deprecated Prefer AiBriefingRow */
-export type NovaBriefing = AiBriefingRow;
+export type PoppinsBriefing = AiBriefingRow;
 
 type TableDef<Row, Insert = Partial<Row> & Record<string, unknown>, Update = Partial<Row>> = {
   Row: Row;

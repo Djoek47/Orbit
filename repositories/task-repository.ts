@@ -6,11 +6,101 @@ import {
   getTaskAssignees,
   isSplitTask,
 } from '@/lib/tasks/split-assign';
-import { resolveCompletionXp } from '@/lib/tasks/xp';
+import { isTaskLate } from '@/lib/tasks/xp';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type { CreateTaskInput, HouseholdTask } from '@/types/orbit';
 
 let mockTasksState: HouseholdTask[] = clone(mockHousehold.tasks);
+
+/** Test / mock continuity — replace in-memory task list. */
+export function __setMockTasksStateForTests(tasks: HouseholdTask[]) {
+  mockTasksState = clone(tasks);
+}
+
+export function __resetTasksMockStateForTests() {
+  mockTasksState = clone(mockHousehold.tasks);
+}
+
+/**
+ * Columns known to exist on the live TestFlight Supabase project.
+ * Extended v2 columns (definition_id, verification, …) ship via migration
+ * 20260803010000 — omit them from writes until that migration is applied,
+ * otherwise inserts fail and Assign appears to do nothing on device.
+ */
+function buildCoreTaskInsert(input: {
+  householdId: string;
+  task: HouseholdTask;
+  assigneeMemberId: string | null;
+}) {
+  return {
+    household_id: input.householdId,
+    title: input.task.title,
+    description: input.task.description ?? null,
+    category: input.task.category,
+    assignee_name: input.task.assignee,
+    assignee_member_id: input.assigneeMemberId,
+    due_label: input.task.due,
+    due_at: input.task.dueAt ?? null,
+    xp_value: input.task.xp,
+    repeat_rule: taskRepeatToDb(input.task.repeat),
+    status: 'pending' as const,
+    weight: input.task.weight ?? null,
+    difficulty: input.task.difficulty ?? null,
+    proof_required: input.task.proofRequired ?? false,
+    room_id: input.task.roomId ?? null,
+  };
+}
+
+function buildCoreTaskUpdate(task: HouseholdTask) {
+  return {
+    title: task.title,
+    description: task.description ?? null,
+    category: task.category,
+    assignee_name: task.assignee,
+    due_label: task.due,
+    due_at: task.dueAt ?? null,
+    xp_value: task.xp,
+    repeat_rule: taskRepeatToDb(task.repeat),
+    status: taskStatusToDb(task.status),
+    room_id: task.roomId ?? null,
+    weight: task.weight ?? null,
+    difficulty: task.difficulty ?? null,
+    proof_required: task.proofRequired ?? false,
+    proof_uri: task.proofUri ?? null,
+    proof_status: task.proofStatus ?? null,
+  };
+}
+
+/** Merge DB row with client-only / not-yet-migrated fields. */
+function mergeTaskRow(data: Parameters<typeof mapTaskRow>[0], local: HouseholdTask): HouseholdTask {
+  const mapped = mapTaskRow(data);
+  return {
+    ...mapped,
+    roomId: local.roomId ?? mapped.roomId,
+    weight: local.weight ?? mapped.weight,
+    difficulty: local.difficulty ?? mapped.difficulty,
+    proofRequired: local.proofRequired ?? mapped.proofRequired,
+    tracking: local.tracking,
+    definitionId: local.definitionId,
+    occurrenceDate: local.occurrenceDate,
+    verification: local.verification,
+    awardedXp: local.awardedXp,
+    completedAt: local.completedAt,
+    completedLate: local.completedLate,
+    proofPhotoUrls: local.proofPhotoUrls,
+    proofRounds: local.proofRounds,
+    verifiedBy: local.verifiedBy,
+    verifiedAt: local.verifiedAt,
+    assignees: local.assignees,
+    shares: local.shares,
+    splitXpEach: local.splitXpEach,
+    splitBonusXp: local.splitBonusXp,
+    splitPenaltyXp: local.splitPenaltyXp,
+    sharedDeviceId: local.sharedDeviceId,
+    xpEligible: local.xpEligible,
+    baseXp: local.baseXp,
+  };
+}
 
 export const taskRepository = {
   async getTasks(householdId: string | null | undefined): Promise<HouseholdTask[]> {
@@ -53,14 +143,19 @@ export const taskRepository = {
       splitPenaltyXp: split ? input.splitPenaltyXp : undefined,
       due: input.due.trim(),
       xp: input.xp,
+      baseXp: input.baseXp ?? input.xp,
+      xpEligible: input.xpEligible,
       weight: input.weight,
       difficulty: input.difficulty,
       tracking: input.tracking,
       proofRequired: input.proofRequired,
       proofStatus: input.proofRequired && !split ? 'none' : undefined,
+      verification: input.proofRequired ? 'not_required' : 'not_required',
       dueAt: input.dueAt,
       roomId: input.roomId,
       sharedDeviceId: input.sharedDeviceId,
+      definitionId: input.definitionId,
+      occurrenceDate: input.occurrenceDate,
       repeat: input.repeat,
       status: 'Pending',
     };
@@ -76,46 +171,37 @@ export const taskRepository = {
 
     const supabase = getConfiguredSupabase('taskRepository.createTask');
 
+    // Resolve member by first assignee name (split labels are not a single display_name).
+    const lookupName = uniqueNames[0] ?? input.assignee.trim();
     const { data: member } = await supabase
       .from('household_members')
       .select('id')
       .eq('household_id', householdId)
-      .ilike('display_name', input.assignee.trim())
+      .ilike('display_name', lookupName)
       .maybeSingle();
 
+    const corePayload = buildCoreTaskInsert({
+      householdId,
+      task,
+      assigneeMemberId: member?.id ?? null,
+    });
+
+    // Write only columns that exist on production today. Extended v2 columns
+    // (definition_id / occurrence_date / verification) are kept on the client
+    // object until migration 20260803010000 is applied to Supabase.
     const { data, error } = await supabase
       .from('tasks')
-      .insert({
-        household_id: householdId,
-        title: task.title,
-        description: task.description ?? null,
-        category: task.category,
-        assignee_name: task.assignee,
-        assignee_member_id: member?.id ?? null,
-        due_label: task.due,
-        xp_value: task.xp,
-        repeat_rule: taskRepeatToDb(task.repeat),
-        status: 'pending',
-        weight: task.weight ?? null,
-        difficulty: task.difficulty ?? null,
-        proof_required: task.proofRequired ?? false,
-        room_id: task.roomId ?? null,
-      })
+      .insert(corePayload as never)
       .select('*')
       .single();
+
     mapDbError('taskRepository.createTask', error);
 
     if (!data) {
       throw new Error('taskRepository.createTask: Insert returned no row.');
     }
 
-    return {
-      ...mapTaskRow(data),
-      roomId: task.roomId,
-      weight: task.weight,
-      difficulty: task.difficulty,
-      proofRequired: task.proofRequired,
-    };
+    return mergeTaskRow(data, task);
   },
 
   async updateTask(task: HouseholdTask): Promise<HouseholdTask> {
@@ -132,30 +218,19 @@ export const taskRepository = {
     }
 
     const supabase = getConfiguredSupabase('taskRepository.updateTask');
+    const corePayload = buildCoreTaskUpdate(next);
+
+    // Same as create — core columns only until the occurrence migration is live.
     const { data, error } = await supabase
       .from('tasks')
-      .update({
-        title: next.title,
-        description: next.description ?? null,
-        category: next.category,
-        assignee_name: next.assignee,
-        due_label: next.due,
-        xp_value: next.xp,
-        repeat_rule: taskRepeatToDb(next.repeat),
-        status: taskStatusToDb(next.status),
-        room_id: next.roomId ?? null,
-        weight: next.weight ?? null,
-        difficulty: next.difficulty ?? null,
-        proof_required: next.proofRequired ?? false,
-        proof_uri: next.proofUri ?? null,
-        proof_status: next.proofStatus ?? null,
-      })
+      .update(corePayload as never)
       .eq('id', next.id)
       .select('*')
       .single();
+
     mapDbError('taskRepository.updateTask', error);
 
-    return data ? mapTaskRow(data) : next;
+    return data ? mergeTaskRow(data, next) : next;
   },
 
   async deleteTask(taskId: string): Promise<void> {
@@ -173,11 +248,13 @@ export const taskRepository = {
     task: HouseholdTask,
     householdId?: string | null
   ): Promise<HouseholdTask> {
+    const completedAt = task.completedAt ?? new Date().toISOString();
     const completed: HouseholdTask = {
       ...task,
       due: 'Completed today',
       status: 'Completed',
       awardedXp: task.awardedXp,
+      completedAt,
       // Keep prior proof status (usually 'none') — attach happens after complete.
       proofStatus: task.proofStatus,
     };
@@ -200,32 +277,98 @@ export const taskRepository = {
     mapDbError('taskRepository.completeTask', error);
 
     const resolvedHouseholdId = householdId ?? data?.household_id;
-    const xpToAward = task.awardedXp ?? task.xp;
+    const xpToAward = task.awardedXp ?? 0;
     if (resolvedHouseholdId && xpToAward > 0) {
       await awardTaskXp(supabase, resolvedHouseholdId, data ?? null, {
         ...task,
-        xp: xpToAward,
+        awardedXp: xpToAward,
       });
     }
 
-    return data ? { ...mapTaskRow(data), awardedXp: task.awardedXp } : completed;
+    return data
+      ? { ...mapTaskRow(data), awardedXp: task.awardedXp, completedAt }
+      : completed;
+  },
+
+  /**
+   * Award a pre-resolved XP snapshot to a named member (split shares).
+   * Does not re-run resolveCompletionXp — caller owns the snapshot.
+   */
+  async awardMemberXp(input: {
+    householdId: string;
+    memberName: string;
+    amount: number;
+    reason: string;
+    taskId?: string;
+  }): Promise<void> {
+    if (isMockMode() || input.amount <= 0) {
+      return;
+    }
+    const supabase = getConfiguredSupabase('taskRepository.awardMemberXp');
+    const { data: member } = await supabase
+      .from('household_members')
+      .select('id, xp, week_xp')
+      .eq('household_id', input.householdId)
+      .ilike('display_name', input.memberName)
+      .maybeSingle();
+    if (!member) return;
+
+    const { error: xpError } = await supabase
+      .from('household_members')
+      .update({
+        xp: (member.xp ?? 0) + input.amount,
+        week_xp: (member.week_xp ?? 0) + input.amount,
+      })
+      .eq('id', member.id);
+    mapDbError('taskRepository.awardMemberXp.memberXp', xpError);
+
+    const { data: authData } = await supabase.auth.getUser();
+    const { error: txError } = await supabase.from('xp_transactions').insert({
+      household_id: input.householdId,
+      user_id: authData.user?.id ?? null,
+      member_id: member.id,
+      amount: input.amount,
+      reason: input.reason,
+      related_task_id: input.taskId ?? null,
+    });
+    mapDbError('taskRepository.awardMemberXp.xpTransaction', txError);
+  },
+
+  async updateMemberStreak(input: {
+    householdId: string;
+    memberId: string;
+    streak: number;
+  }): Promise<void> {
+    if (isMockMode()) return;
+    const supabase = getConfiguredSupabase('taskRepository.updateMemberStreak');
+    const { error } = await supabase
+      .from('household_members')
+      .update({ streak: input.streak })
+      .eq('id', input.memberId)
+      .eq('household_id', input.householdId);
+    mapDbError('taskRepository.updateMemberStreak', error);
   },
 };
 
+/**
+ * Award XP using the completion snapshot on `task.awardedXp`.
+ * Never re-resolves mode/late math — that would double-penalize.
+ */
 async function awardTaskXp(
   supabase: ReturnType<typeof getConfiguredSupabase>,
   householdId: string,
   taskRow: { assignee_member_id: string | null; assignee_name: string; id: string } | null,
   task: HouseholdTask
 ) {
-  const { awarded, penalty, late } = resolveCompletionXp(task);
+  const awarded = task.awardedXp ?? 0;
   if (awarded <= 0) {
     return;
   }
 
   let memberId = taskRow?.assignee_member_id ?? null;
+  const late = isTaskLate(task);
   const reason = late
-    ? `Completed task (late −${penalty} XP): ${task.title}`
+    ? `Completed task (late): ${task.title}`
     : `Completed task: ${task.title}`;
 
   if (!memberId) {

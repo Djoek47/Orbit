@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
@@ -15,6 +15,7 @@ import { summarizeShoppingRun } from '@/lib/grocery/savings';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { GroceryItem } from '@/types/orbit';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 const CATEGORY_META: Record<string, { emoji: string; color: string }> = {
   Produce: { emoji: '🥬', color: '#34D399' },
@@ -48,7 +49,7 @@ export default function GroceriesScreen() {
     permissions,
     preferredStore,
     setPreferredStore,
-    suggestNovaItinerary,
+    suggestPoppinsItinerary,
   } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
 
@@ -96,7 +97,7 @@ export default function GroceriesScreen() {
   const startStoreTrip = async () => {
     setBusy(true);
     try {
-      const created = await suggestNovaItinerary();
+      const created = await suggestPoppinsItinerary();
       if (created) {
         router.push(`/itinerary/${created.id}` as never);
       } else {
@@ -279,7 +280,7 @@ export default function GroceriesScreen() {
       <View style={styles.insights}>
         <View style={styles.inline}>
           <MaterialIcons name="auto-awesome" size={14} color="#06B6D4" />
-          <Text style={styles.insightsEyebrow}>NOVA INSIGHTS</Text>
+          <Text style={styles.insightsEyebrow}>POPPINS INSIGHTS</Text>
         </View>
         {insights.map((insight) => (
           <View key={insight.text} style={styles.insightRow}>

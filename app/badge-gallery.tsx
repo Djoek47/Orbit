@@ -2,10 +2,14 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
+import Icon from '@/components/orbit/design/Icon';
+import { achievementIconName, trophyIconName } from '@/components/orbit/design/icon-map';
+import { tierTone } from '@/components/orbit/design/tierTone';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import {
@@ -18,27 +22,9 @@ import {
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
-const HOUSEHOLD_ICON_MAP: Record<string, keyof typeof MaterialIcons.glyphMap> = {
-  school: 'school',
-  'local-dining': 'local-dining',
-  'workspace-premium': 'workspace-premium',
-  star: 'star',
-  emoji_events: 'emoji-events',
-  'emoji-events': 'emoji-events',
-  cleaning: 'cleaning-services',
-  'cleaning-services': 'cleaning-services',
-  pets: 'pets',
-  fitness: 'fitness-center',
-  home: 'home',
-};
-
-function resolveHouseholdIcon(icon: string): keyof typeof MaterialIcons.glyphMap {
-  return HOUSEHOLD_ICON_MAP[icon] ?? 'military-tech';
-}
-
 export default function BadgeGalleryScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, achievements, currentMember, household } = useOrbit();
+  const { accentTheme, achievements, currentMember } = useOrbit();
   const { c } = useOrbitColors();
   const habitAchievements = achievements.filter((badge) => badge.kind !== 'xp-trophy');
   const xpTrophies = achievements.filter((badge) => badge.kind === 'xp-trophy');
@@ -46,11 +32,11 @@ export default function BadgeGalleryScreen() {
   const level = getLevel(lifetimeXp);
   const levelPct = Math.round(xpProgress(lifetimeXp) * 100);
   const nextTrophy = nextXpMilestone(lifetimeXp);
-  const householdPct = useMemo(() => {
-    if (!household.badges.length) return 0;
-    const sum = household.badges.reduce((acc, badge) => acc + badge.progress, 0);
-    return Math.round((sum / household.badges.length) * 100);
-  }, [household.badges]);
+  const collectionPct = useMemo(() => {
+    if (!achievements.length) return 0;
+    const earned = achievements.filter((badge) => badge.earned).length;
+    return Math.round((earned / achievements.length) * 100);
+  }, [achievements]);
 
   return (
     <ScrollView
@@ -81,7 +67,7 @@ export default function BadgeGalleryScreen() {
           style={styles.summaryGlow}
         />
         <Text style={[styles.summaryTitle, { color: c.textSoft }]}>
-          {level.emoji} {level.name}
+          {level.name}
         </Text>
         <Text style={[styles.summaryPct, { color: level.color }]}>{formatXp(lifetimeXp)} XP</Text>
         <View style={styles.summaryTrack}>
@@ -107,13 +93,13 @@ export default function BadgeGalleryScreen() {
           style={styles.summaryGlow}
         />
         <Text style={[styles.summaryTitle, { color: c.textSoft }]}>Collection progress</Text>
-        <Text style={[styles.summaryPct, { color: accentTheme.primary }]}>{householdPct}%</Text>
+        <Text style={[styles.summaryPct, { color: accentTheme.primary }]}>{collectionPct}%</Text>
         <View style={styles.summaryTrack}>
           <LinearGradient
             colors={[accentTheme.primary, '#FBBF24']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={[styles.summaryFill, { width: `${householdPct}%` }]}
+            style={[styles.summaryFill, { width: `${collectionPct}%` }]}
           />
         </View>
         <Text style={typography.footnote}>
@@ -122,53 +108,47 @@ export default function BadgeGalleryScreen() {
       </GlassCard>
 
       <GlassCard style={styles.card}>
-        <Text style={typography.headline}>Household badges</Text>
-        {household.badges.length === 0 ? (
-          <Text style={typography.footnote}>No household badges yet.</Text>
-        ) : (
-          household.badges.map((badge) => {
-            const pct = Math.min(100, Math.round(badge.progress * 100));
-            const earned = pct >= 100;
-            return (
-              <View key={badge.id} style={styles.badgeRow}>
-                <View
-                  style={[
-                    styles.householdIconWrap,
-                    {
-                      backgroundColor: earned ? 'rgba(251,191,36,0.18)' : `${accentTheme.primary}18`,
-                      borderColor: earned ? 'rgba(251,191,36,0.45)' : `${accentTheme.primary}33`,
-                    },
-                  ]}>
-                  <MaterialIcons
-                    name={resolveHouseholdIcon(badge.icon)}
-                    size={22}
-                    color={earned ? '#FBBF24' : accentTheme.primary}
+        <Text style={typography.headline}>Live collection</Text>
+        <Text style={[typography.footnote, { marginBottom: 8 }]}>
+          Driven by achievements for {currentMember?.name ?? 'you'} — not static household badge stubs.
+        </Text>
+        {habitAchievements.map((badge) => {
+          const earned = badge.earned;
+          return (
+            <View key={`live-${badge.id}`} style={styles.badgeRow}>
+              <View
+                style={[
+                  styles.householdIconWrap,
+                  {
+                    backgroundColor: earned ? 'rgba(251,191,36,0.18)' : `${accentTheme.primary}18`,
+                    borderColor: earned ? 'rgba(251,191,36,0.45)' : `${accentTheme.primary}33`,
+                  },
+                ]}>
+                <Icon name={achievementIconName(badge.id)!} size={24} muted={!earned} />
+              </View>
+              <View style={styles.badgeCopy}>
+                <Text style={[styles.badgeTitle, { color: c.text }]}>{badge.label}</Text>
+                <Text style={[styles.badgeHint, { color: c.textSubtle }]}>
+                  {earned ? 'Earned' : badge.description}
+                </Text>
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: earned ? '100%' : '0%',
+                        backgroundColor: earned ? '#FBBF24' : accentTheme.primary,
+                      },
+                    ]}
                   />
                 </View>
-                <View style={styles.badgeCopy}>
-                  <Text style={[styles.badgeTitle, { color: c.text }]}>{badge.title}</Text>
-                  <Text style={[styles.badgeHint, { color: c.textSubtle }]}>
-                    {earned ? 'Earned' : 'Keep going — progress counts toward this badge'}
-                  </Text>
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        {
-                          width: `${pct}%`,
-                          backgroundColor: earned ? '#FBBF24' : accentTheme.primary,
-                        },
-                      ]}
-                    />
-                  </View>
-                </View>
-                <Text style={[styles.progressLabel, { color: c.textMuted }, earned && { color: '#FBBF24' }]}>
-                  {pct}%
-                </Text>
               </View>
-            );
-          })
-        )}
+              <Text style={[styles.progressLabel, { color: c.textMuted }, earned && { color: '#FBBF24' }]}>
+                {earned ? '100%' : '0%'}
+              </Text>
+            </View>
+          );
+        })}
       </GlassCard>
 
       <GlassCard style={styles.card}>
@@ -182,22 +162,19 @@ export default function BadgeGalleryScreen() {
           Awards unlock as lifetime XP climbs — bronze to Most Glorious at one million.
         </Text>
         <View style={styles.badgeGrid}>
-          {xpTrophies.map((badge) => (
-            <View
-              key={badge.id}
-              style={[styles.badgeTile, !badge.earned && styles.badgeTileLocked]}>
-              <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
-                <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
-                {!badge.earned ? (
-                  <View style={styles.lockOverlay}>
-                    <MaterialIcons name="lock" size={12} color={c.textSubtle} />
-                  </View>
-                ) : null}
+          {xpTrophies.map((badge, index) => (
+            <View key={badge.id} style={styles.badgeTile}>
+              <View style={styles.badgeIconWrap}>
+                <Icon
+                  name={trophyIconName(index)}
+                  variant="halo"
+                  tone={tierTone(index, badge.earned)}
+                  muted={!badge.earned}
+                  size={44}
+                />
               </View>
-              <Text style={[styles.badgeLabel, { color: c.text }, !badge.earned && { color: c.textSubtle }]}>
-                {badge.label}
-              </Text>
-              <Text style={[styles.badgeDesc, { color: c.textMuted }, !badge.earned && { color: c.textSubtle }]}>
+              <Text style={[styles.badgeLabel, { color: c.text }]}>{badge.label}</Text>
+              <Text style={[styles.badgeDesc, { color: c.textMuted }]}>
                 {badge.earned
                   ? badge.description
                   : `Locked · ${formatXp(badge.xpRequired ?? 0)} XP`}
@@ -216,21 +193,12 @@ export default function BadgeGalleryScreen() {
         </View>
         <View style={styles.badgeGrid}>
           {habitAchievements.map((badge) => (
-            <View
-              key={badge.id}
-              style={[styles.badgeTile, !badge.earned && styles.badgeTileLocked]}>
-              <View style={[styles.badgeIconWrap, !badge.earned && styles.badgeLocked]}>
-                <Text style={styles.badgeEmoji}>{badge.emoji}</Text>
-                {!badge.earned ? (
-                  <View style={styles.lockOverlay}>
-                    <MaterialIcons name="lock" size={12} color={c.textSubtle} />
-                  </View>
-                ) : null}
+            <View key={badge.id} style={styles.badgeTile}>
+              <View style={styles.badgeIconWrap}>
+                <Icon name={achievementIconName(badge.id)!} size={32} muted={!badge.earned} />
               </View>
-              <Text style={[styles.badgeLabel, { color: c.text }, !badge.earned && { color: c.textSubtle }]}>
-                {badge.label}
-              </Text>
-              <Text style={[styles.badgeDesc, { color: c.textMuted }, !badge.earned && { color: c.textSubtle }]}>
+              <Text style={[styles.badgeLabel, { color: c.text }]}>{badge.label}</Text>
+              <Text style={[styles.badgeDesc, { color: c.textMuted }]}>
                 {badge.earned ? badge.description : `Locked · ${badge.description}`}
               </Text>
             </View>
@@ -284,9 +252,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
   },
-  badgeEmoji: {
-    fontSize: 22,
-  },
   badgeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -310,9 +275,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  badgeLocked: {
-    opacity: 0.45,
-  },
   badgeRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -326,9 +288,6 @@ const styles = StyleSheet.create({
     gap: 6,
     padding: 12,
     width: '47%',
-  },
-  badgeTileLocked: {
-    opacity: 0.72,
   },
   badgeTitle: {
     fontSize: 15,
@@ -349,13 +308,6 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     width: 48,
-  },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    backgroundColor: 'rgba(7,13,28,0.35)',
-    borderRadius: radius.card,
-    justifyContent: 'center',
   },
   progressFill: {
     borderRadius: 999,

@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import {
   COLOR_PALETTES,
@@ -8,6 +8,7 @@ import {
 } from '@/constants/color-palettes';
 import { space, typography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type PaletteWheelProps = {
   value: ColorPaletteId;

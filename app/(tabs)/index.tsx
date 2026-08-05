@@ -1,20 +1,19 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { LargeTitleHeader } from '@/components/orbit/large-title-header';
 import { Leaderboard, type LeaderboardEntry } from '@/components/orbit/leaderboard';
-import { NovaCard } from '@/components/orbit/nova-card';
+import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
-import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
-import { memberDisplayEmoji } from '@/lib/game-levels';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   buildHomeHealthMetrics,
   resolveHomeHealthRole,
@@ -24,27 +23,62 @@ import {
   isSharedDeviceAccount,
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
+import {
+  displayTaskXp,
+  normalizeRewardSettings,
+} from '@/lib/rewards/reward-mode';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { greetingWord } from '@/lib/time/greeting';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function HomeScreen() {
   const chromePad = useTabChromePaddingTop();
-  const { accentTheme, awardDailyStreak, household, metrics, novaBriefing, currentMember, switchPersona, permissions, orbitPalette } =
-    useOrbit();
+  const {
+    accentTheme,
+    awardDailyStreak,
+    confirmVerification,
+    household,
+    markNotDone,
+    metrics,
+    poppinsBriefing,
+    currentMember,
+    permissions,
+    requestAnotherProof,
+    rewardCapabilities,
+    v2Permissions,
+    orbitPalette,
+  } = useOrbit();
   const { c, glass } = useOrbitColors();
-  const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
+  const rewardSettings = useMemo(
+    () =>
+      normalizeRewardSettings({
+        rewardMode: household.rewardMode,
+        hygieneRewarded: household.hygieneRewarded,
+        hygieneXp: household.hygieneXp,
+      }),
+    [household.hygieneRewarded, household.hygieneXp, household.rewardMode]
+  );
   const scrollY = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
   });
 
   const displayName = currentMember?.name ?? household.greetingName;
+  const firstName = displayName.trim().split(/\s+/)[0] || displayName;
+  const pendingApprovals = useMemo(
+    () =>
+      household.tasks.filter(
+        (task) =>
+          task.status === 'Completed' &&
+          (task.verification === 'unreviewed' || task.verification === 'proof_requested')
+      ),
+    [household.tasks]
+  );
   const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
   const healthRole = resolveHomeHealthRole(currentMember, {
-    householdType: household.householdType,
     isAdmin: permissions.canManageHousehold,
   });
   const healthItems = useMemo(
@@ -78,6 +112,7 @@ export default function HomeScreen() {
         id: member.id,
         name: member.name,
         avatarEmoji: memberDisplayEmoji(member),
+        avatarImageUri: isAvatarImageUri(member.avatar) ? member.avatar : undefined,
         xp: member.weekXp ?? 0,
       }));
   }, [household.members]);
@@ -106,7 +141,7 @@ export default function HomeScreen() {
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </PageEyebrow>
             <LargeTitleHeader
-              title={`${greetingWord()}, ${displayName}`}
+              title={`${greetingWord()}, ${firstName}`}
               scrollY={scrollY}
               size="compact"
             />
@@ -123,30 +158,92 @@ export default function HomeScreen() {
                 ]}>
                 <Text style={styles.deviceSwitchEmoji}>{sharedDevice.avatar || '📱'}</Text>
                 <Text style={[typography.caption1, { color: accentTheme.primary }]}>
-                  Switch who&apos;s on · {displayName}
+                  Switch who&apos;s on · {firstName}
                 </Text>
                 <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
               </Pressable>
             ) : null}
           </View>
           <Pressable
-            onPress={() => setPersonaSwitchOpen(true)}
+            onPress={() => router.push('/settings' as never)}
             accessibilityRole="button"
-            accessibilityLabel="Switch account">
+            accessibilityLabel="Open profile settings">
             <Avatar
               name={displayName}
               emoji={currentMember ? memberDisplayEmoji(currentMember) : undefined}
+              imageUri={
+                currentMember?.avatar && isAvatarImageUri(currentMember.avatar)
+                  ? currentMember.avatar
+                  : undefined
+              }
               size="l"
             />
           </Pressable>
         </View>
 
         {/* Morning Brief — Apple-Intelligence-style card, not a chat entry point. */}
-        <NovaCard
+        <PoppinsCard
           kind="morningBrief"
-          message={novaBriefing.summary}
-          actions={[{ label: 'Open Nova', onPress: () => router.push('/(tabs)/nova' as never) }]}
+          message={poppinsBriefing.summary}
+          actions={[{ label: 'Open Poppins', onPress: () => router.push('/(tabs)/poppins' as never) }]}
         />
+
+        {v2Permissions.canApproveCompletion && pendingApprovals.length > 0 ? (
+          <GlassCard style={styles.approvalsCard}>
+            <View style={styles.approvalsHead}>
+              <Text style={[typography.title2, { color: orbitPalette.text }]}>Approvals</Text>
+              <View style={[styles.approvalsBadge, { backgroundColor: accentTheme.primary }]}>
+                <Text style={styles.approvalsBadgeText}>{pendingApprovals.length}</Text>
+              </View>
+            </View>
+            <Text style={[typography.footnote, { color: c.textMuted, marginBottom: 8 }]}>
+              XP already awarded — confirm or ask for another photo.
+            </Text>
+            {pendingApprovals.slice(0, 6).map((task) => (
+              <View key={task.id} style={styles.approvalRow}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[typography.headline, { color: orbitPalette.text }]} numberOfLines={1}>
+                    {task.assignee} · {task.title}
+                  </Text>
+                  <Text style={[typography.caption1, { color: c.textMuted }]}>
+                    +{displayTaskXp(task, rewardSettings)} XP
+                    {task.verification === 'proof_requested' ? ' · waiting on photo' : ''}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => void confirmVerification(task.id)}
+                  style={[styles.approvalBtn, { backgroundColor: `${accentTheme.primary}22` }]}>
+                  <Text style={{ color: accentTheme.primary, fontWeight: '700', fontSize: 12 }}>
+                    Confirm
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void requestAnotherProof(task.id)}
+                  style={[styles.approvalBtn, { backgroundColor: glass(0.08) }]}>
+                  <Text style={{ color: c.textMuted, fontWeight: '700', fontSize: 12 }}>
+                    Ask photo
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void markNotDone(task.id)}
+                  style={[styles.approvalBtn, { backgroundColor: 'rgba(248,113,113,0.12)' }]}>
+                  <Text style={{ color: '#F87171', fontWeight: '700', fontSize: 12 }}>
+                    Not done
+                  </Text>
+                </Pressable>
+              </View>
+            ))}
+            {pendingApprovals.length > 1 ? (
+              <Pressable
+                onPress={() => {
+                  void Promise.all(pendingApprovals.map((task) => confirmVerification(task.id)));
+                }}
+                style={{ marginTop: 8 }}>
+                <Text style={{ color: accentTheme.primary, fontWeight: '700' }}>Confirm all</Text>
+              </Pressable>
+            ) : null}
+          </GlassCard>
+        ) : null}
 
         {/* Today — unified typography-led section (tasks + grocery/event stats together). */}
         <View style={styles.todaySection}>
@@ -187,30 +284,41 @@ export default function HomeScreen() {
         <View style={styles.weekSection}>
           <View style={styles.sectionHead}>
             <Text style={[typography.title3, { color: orbitPalette.text }]}>This week</Text>
-            <Pressable
-              onPress={() => router.push({ pathname: '/rewards', params: { surface: 'ranks' } } as never)}
-              hitSlop={8}>
-              <Text style={[typography.footnote, { color: accentTheme.primary, fontWeight: '700' }]}>
-                {sharedKidMode ? 'Rewards' : 'Ranks'}
-              </Text>
-            </Pressable>
+            {rewardCapabilities.xpEnabled || rewardCapabilities.rewardsEnabled ? (
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/rewards',
+                    params: { surface: rewardCapabilities.xpEnabled ? 'ranks' : 'rewards' },
+                  } as never)
+                }
+                hitSlop={8}>
+                <Text style={[typography.footnote, { color: accentTheme.primary, fontWeight: '700' }]}>
+                  {sharedKidMode ? 'Rewards' : 'Ranks'}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
           {sharedKidMode ? (
             <View style={styles.personalXpRow}>
-              <PersonalStat
-                label="This week"
-                value={`${personalWeekXp} XP`}
-                accent={accentTheme.primary}
-                glassBg={glass(0.05)}
-                labelColor={orbitPalette.textSoft}
-              />
-              <PersonalStat
-                label="Total"
-                value={`${personalTotalXp} XP`}
-                accent={accentTheme.primary}
-                glassBg={glass(0.05)}
-                labelColor={orbitPalette.textSoft}
-              />
+              {rewardCapabilities.xpEnabled ? (
+                <>
+                  <PersonalStat
+                    label="This week"
+                    value={`${personalWeekXp} XP`}
+                    accent={accentTheme.primary}
+                    glassBg={glass(0.05)}
+                    labelColor={orbitPalette.textSoft}
+                  />
+                  <PersonalStat
+                    label="Total"
+                    value={`${personalTotalXp} XP`}
+                    accent={accentTheme.primary}
+                    glassBg={glass(0.05)}
+                    labelColor={orbitPalette.textSoft}
+                  />
+                </>
+              ) : null}
               <PersonalStat
                 label="Streak"
                 value={`${personalStreak}d`}
@@ -219,16 +327,16 @@ export default function HomeScreen() {
                 labelColor={orbitPalette.textSoft}
               />
             </View>
-          ) : weekLeaders.length > 0 ? (
+          ) : rewardCapabilities.xpEnabled && weekLeaders.length > 0 ? (
             <Leaderboard entries={weekLeaders.slice(0, 3)} variant="podium" />
           ) : (
             <Text style={[typography.subheadline, { color: orbitPalette.textSoft }]}>
-              No XP yet this week.
+              {rewardCapabilities.xpEnabled ? 'No XP yet this week.' : 'Keep the household rhythm going.'}
             </Text>
           )}
         </View>
 
-        {sharedKidMode ? (
+        {sharedKidMode && rewardCapabilities.rewardsEnabled ? (
           <Pressable
             onPress={() =>
               router.push({ pathname: '/rewards', params: { surface: 'rewards' } } as never)
@@ -244,9 +352,9 @@ export default function HomeScreen() {
               <MaterialIcons name="card-giftcard" size={22} color={accentTheme.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[typography.headline, { color: orbitPalette.text }]}>Rewards shop</Text>
+              <Text style={[typography.headline, { color: orbitPalette.text }]}>Rewards</Text>
               <Text style={[typography.subheadline, { color: orbitPalette.textSoft }]}>
-                Spend your XP on treats — you have {personalTotalXp} XP
+                Privileges your family set up for you
               </Text>
             </View>
             <MaterialIcons name="chevron-right" size={20} color={accentTheme.primary} />
@@ -287,14 +395,6 @@ export default function HomeScreen() {
           </GlassCard>
         </Pressable>
       </Animated.ScrollView>
-
-      <PersonaSwitchPopup
-        visible={personaSwitchOpen}
-        onClose={() => setPersonaSwitchOpen(false)}
-        members={household.members}
-        currentMemberId={currentMember?.id ?? ''}
-        onSwitch={switchPersona}
-      />
     </>
   );
 }
@@ -321,6 +421,19 @@ function PersonalStat({
 }
 
 const styles = StyleSheet.create({
+  approvalsCard: { gap: 8 },
+  approvalsHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  approvalsBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  approvalsBadgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  approvalRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  approvalBtn: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6 },
   pageContent: {
     alignItems: 'stretch',
     alignSelf: 'stretch',

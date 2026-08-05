@@ -1,16 +1,36 @@
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
 import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
 import { OrbitNavTheme } from '@/components/orbit/orbit-nav-theme';
+import { BRICOLAGE_FONT_MAP } from '@/constants/bricolage-font-assets';
 import { OrbitProvider } from '@/store/orbit-store';
 
 export const unstable_settings = {
   anchor: 'index',
 };
 
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* already prevented / native splash absent in some hosts */
+});
+
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts(BRICOLAGE_FONT_MAP);
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
+
   return (
     <OrbitProvider>
       <OrbitNavTheme>
@@ -74,10 +94,6 @@ export default function RootLayout() {
             name="shopping-recommendations"
             options={{ presentation: 'modal', headerShown: false, title: 'Store Recommendations' }}
           />
-          <Stack.Screen
-            name="household-games"
-            options={{ presentation: 'modal', headerShown: false, title: 'Household Games' }}
-          />
           <Stack.Screen name="smart-home" options={{ title: 'Smart Home' }} />
           <Stack.Screen name="analytics" options={{ title: 'Analytics' }} />
           <Stack.Screen name="task/[id]" options={{ title: 'Task' }} />
@@ -88,7 +104,7 @@ export default function RootLayout() {
           <Stack.Screen name="scan-grocery" options={{ presentation: 'modal', headerShown: false, title: 'Scan Product' }} />
           <Stack.Screen name="create-event" options={{ presentation: 'modal', headerShown: false, title: 'Create Event' }} />
           <Stack.Screen name="create-itinerary" options={{ presentation: 'modal', headerShown: false, title: 'Create Itinerary' }} />
-          <Stack.Screen name="create-reward" options={{ presentation: 'modal', headerShown: false, title: 'Mint Reward' }} />
+          <Stack.Screen name="create-reward" options={{ presentation: 'modal', headerShown: false, title: 'Create Reward' }} />
           <Stack.Screen
             name="grant-allowance"
             options={{ presentation: 'modal', headerShown: false, title: 'Grant Allowance' }}

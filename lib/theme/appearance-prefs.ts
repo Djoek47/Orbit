@@ -243,7 +243,7 @@ export function resolveOrbitPalette(
     primary: choremaxxBrand.cyan,
     accent: choremaxxBrand.mint,
     rewardsGold: choremaxxBrand.gold,
-    novaCyan: '#06B6D4',
+    poppinsCyan: '#06B6D4',
     success: '#34D399',
     warning: '#FB923C',
     danger: '#F87171',

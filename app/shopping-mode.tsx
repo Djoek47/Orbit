@@ -1,14 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { radius, space } from '@/constants/orbit-theme';
-import { DEFAULT_NOVA_NOTIFICATION_PREFS } from '@/services/nova-notifications';
+import { DEFAULT_POPPINS_NOTIFICATION_PREFS } from '@/services/poppins-notifications';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 /**
  * Simplified shopping-only list — large checkboxes, no add/budget chrome.
@@ -31,12 +32,12 @@ export default function ShoppingModeScreen() {
     [household.groceries]
   );
 
-  const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+  const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
 
   const suggestAdd = async () => {
     if (!prefs.missingOnTheWay) return;
     await pushNotification({
-      title: 'Nova · Add before you leave?',
+      title: 'Poppins · Add before you leave?',
       body: 'Anything else for the cart? Open add item if you remember something.',
       category: 'groceries',
       priority: 'low',

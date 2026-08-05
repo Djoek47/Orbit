@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -14,6 +14,7 @@ import { shopNearStops, findNearbyStores } from '@/lib/places/nearby-stores';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent, ItineraryStopKind, PreferredStore, SavedPlace } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type DraftStop = {
   key: string;
@@ -393,7 +394,7 @@ export default function CreateItineraryScreen() {
             <Text style={[typography.headline, { color: c.text }]}>Stop order</Text>
             <Pressable onPress={handleOptimize} hitSlop={8}>
               <Text style={[styles.optimizeLink, { color: accentTheme.primary }]}>
-                Optimize with Nova
+                Optimize with Poppins
               </Text>
             </Pressable>
           </View>

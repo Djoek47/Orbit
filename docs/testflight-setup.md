@@ -140,7 +140,7 @@ TestFlight builds use **Supabase** (`EXPO_PUBLIC_DATA_MODE=supabase`). They do *
 
 ### Email confirmation (supported)
 
-Get Started → email/password sends a Supabase confirmation email when **Confirm email** is on. The app opens `confirm-email`, and the mail link should redirect to `choremaxx://auth/callback`.
+Get Started → email/password sends a confirmation email when **Confirm email** is on. Supabase Auth still owns the flow; delivery should go through **Resend** (Custom SMTP or `send-auth-email` hook) — see [resend-auth-email.md](./resend-auth-email.md). The app opens `confirm-email`, and the mail link should redirect to `choremaxx://auth/callback`.
 
 In Supabase → **Authentication** → **URL configuration**, allow:
 

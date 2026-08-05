@@ -1,4 +1,4 @@
-import type { HouseholdMember, HouseholdRole, HouseholdSnapshot, HouseholdType } from '@/types/orbit';
+import type { HouseholdMember, HouseholdRole, HouseholdSnapshot } from '@/types/orbit';
 
 /** Owner and admin both count as family admin seats (co-parents). */
 export const FAMILY_ADMIN_ROLES: HouseholdRole[] = ['owner', 'admin'];
@@ -6,15 +6,13 @@ export const FAMILY_ADMIN_ROLES: HouseholdRole[] = ['owner', 'admin'];
 /** Families can have two co-parent admins (typically owner + one admin). */
 export const MAX_FAMILY_ADMINS = 2;
 
-const FAMILY_HOUSEHOLD_TYPES: HouseholdType[] = ['family', 'single-parent', 'multi-generational'];
-
 export function isAdminRole(role: HouseholdRole): boolean {
   return role === 'owner' || role === 'admin';
 }
 
-export function usesFamilyAdminCap(type: HouseholdType | null | undefined): boolean {
-  if (!type) return true;
-  return FAMILY_HOUSEHOLD_TYPES.includes(type);
+/** ChoreMaxx v2: every household uses the family admin seat cap. */
+export function usesFamilyAdminCap(_type?: unknown): boolean {
+  return true;
 }
 
 export function getAdminMembers(members: HouseholdMember[]): HouseholdMember[] {
@@ -27,12 +25,9 @@ export function countAdminSeats(members: HouseholdMember[]): number {
 
 /** Whether this member can be set to `admin` without exceeding the family seat cap. */
 export function canPromoteToAdmin(
-  household: Pick<HouseholdSnapshot, 'householdType' | 'members'>,
+  household: Pick<HouseholdSnapshot, 'members'>,
   memberId: string
 ): boolean {
-  if (!usesFamilyAdminCap(household.householdType)) {
-    return true;
-  }
   const target = household.members.find((member) => member.id === memberId);
   if (target && isAdminRole(target.role)) {
     return true;
@@ -60,13 +55,7 @@ export function resolveSplitPair(members: HouseholdMember[]): [HouseholdMember, 
   return null;
 }
 
-export function familyAdminSeatsLabel(
-  members: HouseholdMember[],
-  type: HouseholdType | null | undefined
-): string {
+export function familyAdminSeatsLabel(members: HouseholdMember[], _type?: unknown): string {
   const seats = countAdminSeats(members);
-  if (!usesFamilyAdminCap(type)) {
-    return `${seats} admin${seats === 1 ? '' : 's'}`;
-  }
   return `${seats} of ${MAX_FAMILY_ADMINS} family admins`;
 }

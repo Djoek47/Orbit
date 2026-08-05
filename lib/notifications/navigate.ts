@@ -34,7 +34,7 @@ export function getNotificationRoute(item: NotificationItem): string | null {
     return '/household-members';
   }
   if (item.category === 'ai') {
-    return '/(tabs)/nova';
+    return '/(tabs)/poppins';
   }
   if (item.category === 'events') {
     return '/(tabs)/plan';

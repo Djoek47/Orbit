@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
@@ -9,6 +9,7 @@ import { orbitColors } from '@/constants/orbit-theme';
 import { clearPendingSignup, createSessionFromUrl } from '@/lib/auth/email-confirmation';
 import { authRepository } from '@/repositories/auth-repository';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 /** Handles choremaxx://auth/callback after Supabase email confirmation. */
 export default function AuthCallbackScreen() {

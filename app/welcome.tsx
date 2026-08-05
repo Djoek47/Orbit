@@ -2,20 +2,12 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Animated,
-  Platform,
-  PanResponder,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Animated, Platform, PanResponder, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 
+import { Avatar } from '@/components/orbit/avatar';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { BrandOpening } from '@/components/orbit/brand-opening';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
@@ -25,32 +17,57 @@ import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OnboardingProgress } from '@/components/orbit/onboarding-progress';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
+import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
+import { SetupMemberWizard } from '@/components/orbit/setup-member-wizard';
+import { SetupRosterHub } from '@/components/orbit/setup-roster-hub';
 import { SplashHooks } from '@/components/orbit/splash-hooks';
 import { StreakFootnote } from '@/components/orbit/streak-marker';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import {
-  ONBOARDING_MOTIVATIONS,
   ONBOARDING_ROLES,
   loadOnboardingPrefs,
-  onboardingRoleToHouseholdType,
   saveOnboardingPrefs,
   skipsMotivation,
-  type MotivationMode,
   type OnboardingRole,
 } from '@/lib/onboarding-prefs';
+import {
+  clearSetupDraft,
+  createEmptyDraft,
+  loadSetupDraft,
+  saveSetupDraft,
+  type DraftMember,
+  type HouseholdSetupDraft,
+} from '@/lib/onboarding/setup-draft';
+import { rewardsFromDraftMember, tasksFromDraftMember } from '@/lib/onboarding/materialize-setup';
+import {
+  DEFAULT_REWARD_MODEL,
+  REWARD_MODEL_OPTIONS,
+  type RewardModel,
+} from '@/lib/rewards/reward-model';
 import {
   REWARD_MODE_COPY,
   REWARD_MODE_EXAMPLES,
   type RewardMode,
 } from '@/lib/rewards/reward-mode';
-import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
-import { ROOM_EMOJIS } from '@/constants/accent-themes';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
+import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
+import {
+  authIssue,
+  isAuthRateLimitError,
+  resolveAuthIssue,
+  type AuthIssue,
+} from '@/lib/auth/auth-errors';
+import { isProfileNameComplete } from '@/lib/auth/display-name';
+import {
+  getPendingSignup,
+  markAuthEmailSent,
+} from '@/lib/auth/email-confirmation';
+
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { shareInvite } from '@/lib/invites/share-invite';
-import { createLocalId } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdRoom, HouseholdType } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type Step =
   | 'splash'
@@ -60,26 +77,23 @@ type Step =
   | 'account'
   | 'profile'
   | 'household'
+  | 'roster'
+  | 'member-wizard'
   | 'child-invite'
   | 'tablet-invite'
   | 'ready';
-
-const HOUSEHOLD_TYPES: { label: string; value: HouseholdType }[] = [
-  { label: 'Family', value: 'family' },
-  { label: 'Single Parent', value: 'single-parent' },
-  { label: 'Roommates', value: 'roommates' },
-  { label: 'Multi-Gen', value: 'multi-generational' },
-  { label: 'Custom', value: 'custom' },
-];
 
 export default function WelcomeOnboardingScreen() {
   const insets = useSafeAreaInsets();
   const {
     accentTheme,
     connectSharedTabletProfiles,
+    addOnboardingMembers,
     createChildInvites,
     createHousehold,
     createProfile,
+    createReward,
+    createTask,
     currentUser,
     hasHousehold,
     household,
@@ -101,25 +115,26 @@ export default function WelcomeOnboardingScreen() {
   const [step, setStep] = useState<Step>('splash');
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [selectedRole, setSelectedRole] = useState<OnboardingRole | null>(null);
-  const [selectedMotivation, setSelectedMotivation] = useState<MotivationMode | null>(null);
+  const [selectedRewardModel, setSelectedRewardModel] = useState<RewardModel | null>(
+    DEFAULT_REWARD_MODEL
+  );
   const [selectedRewardMode, setSelectedRewardMode] = useState<RewardMode>('weighted');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [draftAvatar, setDraftAvatar] = useState('');
+  const [lookSheetOpen, setLookSheetOpen] = useState(false);
   const [householdName, setHouseholdName] = useState('');
-  const [householdType, setHouseholdType] = useState<HouseholdType>('family');
-  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() =>
-    DEFAULT_HOUSEHOLD_ROOMS.map((room) => room.id),
-  );
-  const [customRooms, setCustomRooms] = useState<HouseholdRoom[]>([]);
-  const [customRoomName, setCustomRoomName] = useState('');
-  const [customRoomEmoji, setCustomRoomEmoji] = useState<string>('🚪');
   const [inviteCode, setInviteCode] = useState('');
   const [householdMode, setHouseholdMode] = useState<'create' | 'join'>('create');
   const [createdHousehold, setCreatedHousehold] = useState(false);
+  const [setupDraft, setSetupDraft] = useState<HouseholdSetupDraft>(() => createEmptyDraft());
+  const [editingMember, setEditingMember] = useState<DraftMember | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
   const [error, setError] = useState('');
+  const [accountIssue, setAccountIssue] = useState<AuthIssue | null>(null);
+  const [signupRateLimited, setSignupRateLimited] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resumed, setResumed] = useState(false);
   const [splashReady, setSplashReady] = useState(false);
@@ -144,15 +159,6 @@ export default function WelcomeOnboardingScreen() {
     }).start();
   }, [step, stepOpacity]);
 
-  const roomCatalog = useMemo(
-    () => [...DEFAULT_HOUSEHOLD_ROOMS, ...customRooms],
-    [customRooms],
-  );
-  const selectedRooms = useMemo(
-    () => roomCatalog.filter((room) => selectedRoomIds.includes(room.id)),
-    [roomCatalog, selectedRoomIds],
-  );
-
   const roleMeta = useMemo(
     () => ONBOARDING_ROLES.find((role) => role.id === selectedRole),
     [selectedRole],
@@ -165,9 +171,16 @@ export default function WelcomeOnboardingScreen() {
     loadOnboardingPrefs().then((prefs) => {
       if (prefs) {
         setSelectedRole(prefs.role);
-        setSelectedMotivation(prefs.motivation);
+        setSelectedRewardModel(prefs.rewardModel ?? DEFAULT_REWARD_MODEL);
         setSelectedRewardMode(prefs.rewardMode ?? 'weighted');
-        setHouseholdType(onboardingRoleToHouseholdType(prefs.role));
+      }
+    });
+    loadSetupDraft().then((draft) => {
+      if (draft) {
+        setSetupDraft(draft);
+        if (draft.householdName) setHouseholdName(draft.householdName);
+        if (draft.rewardModel) setSelectedRewardModel(draft.rewardModel);
+        if (draft.scoringMode) setSelectedRewardMode(draft.scoringMode);
       }
     });
 
@@ -176,15 +189,18 @@ export default function WelcomeOnboardingScreen() {
       return;
     }
 
-    if (isSignedIn && currentUser?.profileComplete && !hasHousehold) {
-      setDisplayName(currentUser.name || '');
+    const nameComplete = isProfileNameComplete(currentUser?.name, currentUser?.email);
+
+    if (isSignedIn && nameComplete && !hasHousehold) {
+      setDisplayName(currentUser?.name || '');
       setStep('household');
       setResumed(true);
       return;
     }
 
-    if (isSignedIn && !currentUser?.profileComplete) {
-      setDisplayName(currentUser?.name || '');
+    if (isSignedIn && (!nameComplete || !currentUser?.profileComplete)) {
+      // Prefill only when the stored name is a real human name — not a relay code.
+      setDisplayName(nameComplete ? currentUser?.name || '' : '');
       setStep('profile');
       setResumed(true);
       return;
@@ -217,6 +233,8 @@ export default function WelcomeOnboardingScreen() {
       case 'profile':
         return 2;
       case 'household':
+      case 'roster':
+      case 'member-wizard':
         return 3;
       case 'ready':
         return 4;
@@ -250,13 +268,19 @@ export default function WelcomeOnboardingScreen() {
       case 'household':
         setStep(currentUser?.profileComplete ? 'profile' : 'account');
         break;
+      case 'roster':
+        setStep('household');
+        break;
+      case 'member-wizard':
+        setStep('roster');
+        break;
       case 'ready':
         setStep(
           selectedRole === 'child'
             ? 'child-invite'
             : selectedRole === 'shared-tablet'
               ? 'tablet-invite'
-              : 'household',
+              : 'roster',
         );
         break;
       default:
@@ -299,26 +323,22 @@ export default function WelcomeOnboardingScreen() {
   const handleRoleContinue = () => {
     if (!selectedRole) return;
     setError('');
-    setHouseholdType(onboardingRoleToHouseholdType(selectedRole));
     // Kids never create an account — they redeem a parent AirDrop / invite.
     if (selectedRole === 'child') {
-      setSelectedMotivation(selectedMotivation ?? 'xp');
+      setSelectedRewardModel(selectedRewardModel ?? DEFAULT_REWARD_MODEL);
       setHouseholdMode('join');
       setStep('child-invite');
       return;
     }
-    // Shared / tablet sits under Roommate — invite codes or AirDrop, no tablet email.
+    // Shared / tablet — invite codes or AirDrop, no tablet email.
     if (selectedRole === 'shared-tablet') {
-      setSelectedMotivation(selectedMotivation ?? 'xp');
+      setSelectedRewardModel(selectedRewardModel ?? DEFAULT_REWARD_MODEL);
       setHouseholdMode('join');
       setStep('tablet-invite');
       return;
     }
-    if (selectedRole === 'roommate') {
-      setHouseholdMode('create');
-    }
     if (skipsMotivation(selectedRole)) {
-      setSelectedMotivation(selectedMotivation ?? 'xp');
+      setSelectedRewardModel(selectedRewardModel ?? DEFAULT_REWARD_MODEL);
       setStep(isSignedIn ? (currentUser?.profileComplete ? 'household' : 'profile') : 'account');
       return;
     }
@@ -326,7 +346,7 @@ export default function WelcomeOnboardingScreen() {
   };
 
   const handleMotivationContinue = () => {
-    if (!selectedMotivation) return;
+    if (!selectedRewardModel) return;
     setError('');
     setStep('reward-system');
   };
@@ -338,15 +358,22 @@ export default function WelcomeOnboardingScreen() {
   const handleRewardSystemContinue = async () => {
     setError('');
     const rewardMode = selectedRewardMode ?? 'weighted';
+    const rewardModel = selectedRewardModel ?? DEFAULT_REWARD_MODEL;
     try {
       await saveOnboardingPrefs({
         role: selectedRole ?? 'parent',
-        motivation: selectedMotivation ?? 'xp',
+        rewardModel,
         rewardMode,
       });
       if (hasHousehold) {
         updateHouseholdRewardSettings({ rewardMode });
       }
+      const nextDraft = await saveSetupDraft({
+        ...setupDraft,
+        rewardModel,
+        scoringMode: rewardMode,
+      });
+      setSetupDraft(nextDraft);
     } catch {
       // Prefs are best-effort; still advance so onboarding isn't blocked.
     }
@@ -356,21 +383,25 @@ export default function WelcomeOnboardingScreen() {
   const persistPrefs = async () => {
     await saveOnboardingPrefs({
       role: selectedRole ?? 'parent',
-      motivation: selectedMotivation ?? 'xp',
+      rewardModel: selectedRewardModel ?? DEFAULT_REWARD_MODEL,
       rewardMode: selectedRewardMode ?? 'weighted',
     });
   };
 
   const handleAccountContinue = async () => {
     if (!email.trim() || !password.trim()) {
-      setError('Enter an email and password to continue.');
+      setAccountIssue(authIssue('missing_fields'));
+      setError('');
       return;
     }
     setBusy(true);
     setError('');
+    setAccountIssue(null);
+    setSignupRateLimited(false);
     try {
       await persistPrefs();
       const outcome = await signUp({ email: email.trim(), password });
+      markAuthEmailSent();
       if (outcome.needsConfirmation) {
         router.push({
           pathname: '/confirm-email',
@@ -382,7 +413,12 @@ export default function WelcomeOnboardingScreen() {
       setDisplayName((current) => current || guessedName);
       setStep('profile');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create account.');
+      const issue = resolveAuthIssue(err);
+      if (isAuthRateLimitError(err) || issue.code === 'rate_limit') {
+        markAuthEmailSent();
+        setSignupRateLimited(true);
+      }
+      setAccountIssue(issue);
     } finally {
       setBusy(false);
     }
@@ -391,20 +427,22 @@ export default function WelcomeOnboardingScreen() {
   const handleAppleContinue = async () => {
     setBusy(true);
     setError('');
+    setAccountIssue(null);
     try {
       await persistPrefs();
       const session = await signInWithApple();
       await hydrateFromSession(session);
-      if (session.user.name) {
+      const appleComplete = isProfileNameComplete(session.user.name, session.user.email);
+      if (appleComplete) {
         setDisplayName(session.user.name);
+      } else {
+        setDisplayName('');
       }
-      setStep(session.user.profileComplete ? 'household' : 'profile');
+      setStep(appleComplete ? 'household' : 'profile');
     } catch (err) {
-      if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') {
-        return;
-      }
-      const msg = err instanceof Error ? err.message : 'Apple Sign-In failed.';
-      setError(msg);
+      const issue = resolveAuthIssue(err);
+      if (issue.code === 'apple_canceled') return;
+      setAccountIssue(issue);
     } finally {
       setBusy(false);
     }
@@ -419,11 +457,12 @@ export default function WelcomeOnboardingScreen() {
     setError('');
     try {
       await persistPrefs();
-      await createProfile({ name: displayName.trim() });
+      await createProfile({
+        name: displayName.trim(),
+        avatar: draftAvatar.trim() || undefined,
+      });
       if (!householdName.trim() && roleMeta) {
-        setHouseholdName(
-          selectedRole === 'roommate' ? 'Our Place' : `The ${displayName.trim().split(' ')[0]} Home`,
-        );
+        setHouseholdName(`The ${displayName.trim().split(' ')[0]} Home`);
       }
       setStep('household');
     } catch (err) {
@@ -438,25 +477,7 @@ export default function WelcomeOnboardingScreen() {
     setError('');
     try {
       await persistPrefs();
-      if (householdMode === 'create') {
-        if (!householdName.trim()) {
-          setError('Add a household name to continue.');
-          setBusy(false);
-          return;
-        }
-        if (selectedRooms.length < 1) {
-          setError('Pick at least one room.');
-          setBusy(false);
-          return;
-        }
-        await createHousehold({
-          name: householdName.trim(),
-          type: householdType,
-          rooms: selectedRooms,
-        });
-        updateHouseholdRewardSettings({ rewardMode: selectedRewardMode ?? 'weighted' });
-        setCreatedHousehold(true);
-      } else {
+      if (householdMode === 'join') {
         const parsed =
           parseInvitePayload(inviteCode) ?? (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
         if (!parsed) {
@@ -467,10 +488,124 @@ export default function WelcomeOnboardingScreen() {
         setInviteCode(parsed);
         await joinHousehold({ inviteCode: parsed });
         setCreatedHousehold(false);
+        setStep('ready');
+        return;
       }
-      setStep('ready');
+      if (!householdName.trim()) {
+        setError('Add a household name to continue.');
+        setBusy(false);
+        return;
+      }
+      const nextDraft = await saveSetupDraft({
+        ...setupDraft,
+        householdName: householdName.trim(),
+        rewardModel: selectedRewardModel ?? DEFAULT_REWARD_MODEL,
+        scoringMode: selectedRewardMode ?? 'weighted',
+      });
+      setSetupDraft(nextDraft);
+      setStep('roster');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Household setup failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const persistDraftMembers = async (members: DraftMember[]) => {
+    const next = await saveSetupDraft({
+      ...setupDraft,
+      householdName: householdName.trim() || setupDraft.householdName,
+      rewardModel: selectedRewardModel ?? DEFAULT_REWARD_MODEL,
+      scoringMode: selectedRewardMode ?? 'weighted',
+      members,
+    });
+    setSetupDraft(next);
+    return next;
+  };
+
+  const materializeDraft = async (draft: HouseholdSetupDraft, setupComplete: boolean) => {
+    const createdHousehold = await createHousehold({
+      name: draft.householdName.trim(),
+      rewardModel: draft.rewardModel,
+      rewardMode: draft.scoringMode,
+      setupComplete,
+    });
+    if (!createdHousehold?.id) {
+      throw new Error('Could not create household. Try again.');
+    }
+    const householdId = createdHousehold.id;
+    updateHouseholdRewardSettings({ rewardMode: draft.scoringMode });
+
+    // Finish-later: persist every named draft person. Create: prefer complete ones,
+    // but still keep named incomplete members so Manage Members isn't empty.
+    const rosterMembers = draft.members.filter((m) => m.name.trim());
+    const toPersist = setupComplete
+      ? rosterMembers.filter((m) => m.setupComplete || m.name.trim())
+      : rosterMembers;
+
+    let created: Awaited<ReturnType<typeof addOnboardingMembers>> = [];
+    if (toPersist.length > 0) {
+      created = await addOnboardingMembers(
+        householdId,
+        toPersist.map((m) => ({ name: m.name.trim(), role: m.role })),
+        { householdName: draft.householdName.trim() }
+      );
+      for (const member of toPersist.filter((m) => m.setupComplete)) {
+        const matched = created.find(
+          (c) => c.name.trim().toLowerCase() === member.name.trim().toLowerCase()
+        );
+        for (const task of tasksFromDraftMember(member, draft.scoringMode)) {
+          await createTask(task, { householdId });
+        }
+        for (const reward of rewardsFromDraftMember(member)) {
+          await createReward(
+            {
+              ...reward,
+              assignedMemberId: matched?.id,
+              assignedMemberName: matched?.name ?? member.name.trim(),
+              cost: 0,
+            },
+            { householdId }
+          );
+        }
+      }
+    }
+    setCreatedHousehold(true);
+    await clearSetupDraft();
+    return created;
+  };
+
+  const handleCreateFromRoster = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await persistPrefs();
+      await materializeDraft(setupDraft, true);
+      setStep('ready');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create household.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleFinishLater = async () => {
+    if (!householdName.trim() && !setupDraft.householdName.trim()) {
+      setError('Add a household name before saving.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await persistPrefs();
+      const draft = await saveSetupDraft({
+        ...setupDraft,
+        householdName: householdName.trim() || setupDraft.householdName,
+      });
+      await materializeDraft(draft, false);
+      setStep('ready');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save household.');
     } finally {
       setBusy(false);
     }
@@ -502,7 +637,10 @@ export default function WelcomeOnboardingScreen() {
     setBusy(true);
     setError('');
     try {
-      await saveOnboardingPrefs({ role: 'child', motivation: selectedMotivation ?? 'xp' });
+      await saveOnboardingPrefs({
+        role: 'child',
+        rewardModel: selectedRewardModel ?? DEFAULT_REWARD_MODEL,
+      });
       const parsed =
         parseInvitePayload(inviteCode) ?? (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
       if (!parsed) {
@@ -538,7 +676,7 @@ export default function WelcomeOnboardingScreen() {
     try {
       await saveOnboardingPrefs({
         role: 'shared-tablet',
-        motivation: selectedMotivation ?? 'xp',
+        rewardModel: selectedRewardModel ?? DEFAULT_REWARD_MODEL,
       });
       const codes = tabletCodes.length
         ? tabletCodes
@@ -619,7 +757,6 @@ export default function WelcomeOnboardingScreen() {
 
   const showKidInviteBox =
     createdHousehold &&
-    selectedRole !== 'roommate' &&
     selectedRole !== 'child' &&
     selectedRole !== 'shared-tablet';
 
@@ -786,22 +923,28 @@ export default function WelcomeOnboardingScreen() {
                 Change anytime in Settings.
               </Text>
               <View style={styles.motivationGrid}>
-                {ONBOARDING_MOTIVATIONS.map((opt) => {
-                  const active = selectedMotivation === opt.id;
+                {REWARD_MODEL_OPTIONS.map((opt) => {
+                  const active = selectedRewardModel === opt.id;
                   return (
                     <Pressable
                       key={opt.id}
-                      onPress={() => setSelectedMotivation(opt.id)}
+                      onPress={() => setSelectedRewardModel(opt.id)}
                       style={[
                         styles.motivationCard,
                         {
                           backgroundColor: active ? `${accent}22` : orbitPalette.card,
                           borderColor: active ? `${accent}55` : orbitPalette.border,
                         },
-                        opt.wide && styles.motivationWide,
+                        opt.id === 'full' && styles.motivationWide,
                       ]}>
                       <View style={styles.motivationTop}>
-                        <Text style={styles.emoji}>{opt.emoji}</Text>
+                        {opt.recommended ? (
+                          <View style={[styles.recommendedPill, { backgroundColor: `${accent}33` }]}>
+                            <Text style={[styles.recommendedText, { color: accent }]}>Recommended</Text>
+                          </View>
+                        ) : (
+                          <View />
+                        )}
                         {active ? (
                           <View style={[styles.miniCheck, { backgroundColor: accent }]}>
                             <Text style={[styles.radioCheck, { color: ink }]}>✓</Text>
@@ -809,16 +952,16 @@ export default function WelcomeOnboardingScreen() {
                         ) : null}
                       </View>
                       <Text style={[styles.motivationLabel, { color: orbitPalette.text }]}>
-                        {opt.label}
+                        {opt.title}
                       </Text>
-                      <Text style={[styles.motivationDesc, { color: orbitPalette.textSubtle }]}>
-                        {opt.desc}
+                      <Text style={[styles.motivationDesc, { color: orbitPalette.textMuted }]}>
+                        {opt.subtitle}
                       </Text>
                     </Pressable>
                   );
                 })}
               </View>
-              <OrbitButton disabled={!selectedMotivation} onPress={handleMotivationContinue}>
+              <OrbitButton disabled={!selectedRewardModel} onPress={handleMotivationContinue}>
                 Continue
               </OrbitButton>
             </KeyboardScreen>
@@ -882,7 +1025,9 @@ export default function WelcomeOnboardingScreen() {
                               {row.task}
                             </Text>
                             <Text style={[styles.rewardExampleXp, { color: orbitPalette.textMuted }]}>
-                              {row.xp} XP
+                              {selectedRewardModel === 'allowance'
+                                ? `$${(row.xp / 10).toFixed(0)}`
+                                : `${row.xp} XP`}
                             </Text>
                           </View>
                         ))}
@@ -892,9 +1037,6 @@ export default function WelcomeOnboardingScreen() {
                 })}
               </View>
               <StreakFootnote />
-              <Text style={[typography.footnote, styles.rewardSettingsHint, { color: orbitPalette.textSubtle }]}>
-                You can change this in Settings.
-              </Text>
               <OrbitButton onPress={() => void handleRewardSystemContinue()}>Continue</OrbitButton>
             </KeyboardScreen>
           ) : null}
@@ -1032,19 +1174,44 @@ export default function WelcomeOnboardingScreen() {
                 keyboardType="email-address"
                 label="Email"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => {
+                  setEmail(value);
+                  if (accountIssue) setAccountIssue(null);
+                }}
               />
               <OrbitInput
                 autoCapitalize="none"
                 secureTextEntry
                 label="Password"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(value) => {
+                  setPassword(value);
+                  if (accountIssue) setAccountIssue(null);
+                }}
               />
-              {error ? <Text style={styles.error}>{error}</Text> : null}
+              <AuthErrorBanner
+                issue={accountIssue}
+                actionParams={{ email: email.trim() }}
+                onDismiss={() => setAccountIssue(null)}
+              />
               <OrbitButton disabled={busy} onPress={() => void handleAccountContinue()}>
                 {busy ? 'Creating…' : 'Continue'}
               </OrbitButton>
+              {signupRateLimited && !accountIssue ? (
+                <Pressable
+                  onPress={() => {
+                    const pending = getPendingSignup();
+                    router.push({
+                      pathname: '/confirm-email',
+                      params: { email: pending?.email ?? email.trim() },
+                    } as never);
+                  }}
+                  style={styles.signInLink}>
+                  <Text style={[styles.signInText, { color: accent }]}>
+                    Already got an email? Open confirmation
+                  </Text>
+                </Pressable>
+              ) : null}
               <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
                 <Text style={[styles.signInText, { color: orbitPalette.textMuted }]}>
                   Already have an account? Sign in
@@ -1060,8 +1227,32 @@ export default function WelcomeOnboardingScreen() {
                 What should we call you?
               </Text>
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                Your name inside the household.
+                Your name inside the household — not your email code. Apple Sign-In may prefill this;
+                you can change it anytime in Settings.
               </Text>
+              <Pressable
+                onPress={() => setLookSheetOpen(true)}
+                style={styles.profileAvatarRow}
+                accessibilityRole="button"
+                accessibilityLabel="Personalize your look">
+                <Avatar
+                  name={displayName.trim() || 'You'}
+                  emoji={
+                    draftAvatar && !isAvatarImageUri(draftAvatar)
+                      ? draftAvatar
+                      : memberDisplayEmoji({ name: displayName.trim() || 'You', avatar: draftAvatar })
+                  }
+                  imageUri={isAvatarImageUri(draftAvatar) ? draftAvatar : undefined}
+                  size="xl"
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={[typography.headline, { color: orbitPalette.text }]}>Photo</Text>
+                  <Text style={[typography.footnote, { color: orbitPalette.textMuted, marginTop: 2 }]}>
+                    Photos, Image Playground, or emoji — optional
+                  </Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color={orbitPalette.textSubtle} />
+              </Pressable>
               <OrbitInput label="Display name" value={displayName} onChangeText={setDisplayName} />
               {error ? <Text style={styles.error}>{error}</Text> : null}
               <OrbitButton disabled={busy} onPress={handleProfileContinue}>
@@ -1074,174 +1265,28 @@ export default function WelcomeOnboardingScreen() {
             <KeyboardScreen contentContainerStyle={styles.scroll}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
               <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
-                Set up your household
+                Household name
               </Text>
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                Create a home or join with an invite.
+                One name for everyone pitching in.
               </Text>
-
-              <View
-                style={[
-                  styles.modeRow,
-                  { backgroundColor: orbitPalette.cardMuted },
-                ]}>
-                {(
-                  [
-                    { id: 'create' as const, label: 'Create' },
-                    { id: 'join' as const, label: 'Join' },
-                  ] as const
-                ).map((mode) => {
-                  const active = householdMode === mode.id;
-                  return (
-                    <Pressable
-                      key={mode.id}
-                      onPress={() => {
-                        setError('');
-                        setHouseholdMode(mode.id);
-                      }}
-                      style={[
-                        styles.modeChip,
-                        active && {
-                          backgroundColor: `${accent}33`,
-                          borderColor: `${accent}4D`,
-                          borderWidth: 1,
-                        },
-                      ]}>
-                      <Text
-                        style={[
-                          styles.modeLabel,
-                          { color: orbitPalette.textSubtle },
-                          active && { color: accent, fontWeight: '700' },
-                        ]}>
-                        {mode.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              {householdMode === 'create' ? (
-                <>
-                  <OrbitInput
-                    label="Household name"
-                    value={householdName}
-                    onChangeText={setHouseholdName}
-                  />
-                  <Text style={[styles.fieldLabel, { color: orbitPalette.textMuted }]}>
-                    Household type
-                  </Text>
-                  <View style={styles.typeGrid}>
-                    {HOUSEHOLD_TYPES.map((item) => {
-                      const selected = item.value === householdType;
-                      return (
-                        <Pressable
-                          key={item.value}
-                          onPress={() => setHouseholdType(item.value)}
-                          style={[
-                            styles.typeChip,
-                            {
-                              backgroundColor: selected ? `${accent}2E` : orbitPalette.card,
-                              borderColor: selected ? `${accent}73` : orbitPalette.border,
-                            },
-                          ]}>
-                          <Text
-                            style={[
-                              styles.typeLabel,
-                              {
-                                color: selected ? accent : orbitPalette.textMuted,
-                              },
-                            ]}>
-                            {item.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <Text style={[styles.fieldLabel, { color: orbitPalette.textMuted }]}>Rooms</Text>
-                  <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                    Pick the spaces you manage.
-                  </Text>
-                  <View style={styles.typeGrid}>
-                    {roomCatalog.map((room) => {
-                      const selected = selectedRoomIds.includes(room.id);
-                      return (
-                        <Pressable
-                          key={room.id}
-                          onPress={() =>
-                            setSelectedRoomIds((current) =>
-                              current.includes(room.id)
-                                ? current.filter((id) => id !== room.id)
-                                : [...current, room.id],
-                            )
-                          }
-                          style={[
-                            styles.typeChip,
-                            {
-                              backgroundColor: selected ? `${accent}2E` : orbitPalette.card,
-                              borderColor: selected ? `${accent}73` : orbitPalette.border,
-                            },
-                          ]}>
-                          <Text
-                            style={[
-                              styles.typeLabel,
-                              {
-                                color: selected ? accent : orbitPalette.textMuted,
-                              },
-                            ]}>
-                            {room.emoji} {room.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <View style={styles.typeGrid}>
-                    {ROOM_EMOJIS.map((emoji) => {
-                      const selected = customRoomEmoji === emoji;
-                      return (
-                        <Pressable
-                          key={emoji}
-                          onPress={() => setCustomRoomEmoji(emoji)}
-                          style={[
-                            styles.typeChip,
-                            {
-                              backgroundColor: selected ? `${accent}2E` : orbitPalette.card,
-                              borderColor: selected ? `${accent}73` : orbitPalette.border,
-                            },
-                          ]}>
-                          <Text style={{ fontSize: 16 }}>{emoji}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <View style={styles.customRoomRow}>
-                    <View style={styles.customRoomInput}>
-                      <OrbitInput
-                        label="Custom room"
-                        value={customRoomName}
-                        onChangeText={setCustomRoomName}
-                        placeholder="e.g. Garage"
-                      />
-                    </View>
-                    <OrbitButton
-                      tone="secondary"
-                      onPress={() => {
-                        const trimmed = customRoomName.trim();
-                        if (!trimmed) return;
-                        const room: HouseholdRoom = {
-                          id: createLocalId('room'),
-                          name: trimmed,
-                          emoji: customRoomEmoji,
-                          kind: 'custom',
-                        };
-                        setCustomRooms((current) => [...current, room]);
-                        setSelectedRoomIds((current) => [...current, room.id]);
-                        setCustomRoomName('');
-                      }}>
-                      Add
-                    </OrbitButton>
-                  </View>
-                </>
-              ) : (
+              <OrbitInput
+                label="Household name"
+                value={householdName}
+                onChangeText={setHouseholdName}
+                placeholder="e.g. The Martin Family"
+              />
+              <Pressable
+                onPress={() => {
+                  setHouseholdMode('join');
+                  setError('');
+                }}
+                style={{ marginBottom: 12 }}>
+                <Text style={[typography.footnote, { color: accent, fontWeight: '600' }]}>
+                  Have an invite code?
+                </Text>
+              </Pressable>
+              {householdMode === 'join' ? (
                 <>
                   <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
                   <OrbitInput
@@ -1250,16 +1295,71 @@ export default function WelcomeOnboardingScreen() {
                     value={inviteCode}
                     onChangeText={setInviteCode}
                   />
-                  <Text style={[typography.footnote, { color: orbitPalette.textSubtle }]}>
-                    Demo: CMX-7429 — or scan a household QR.
-                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setHouseholdMode('create');
+                      setError('');
+                    }}>
+                    <Text style={[typography.footnote, { color: orbitPalette.textSubtle }]}>
+                      Back to create
+                    </Text>
+                  </Pressable>
                 </>
-              )}
-
+              ) : null}
               {error ? <Text style={styles.error}>{error}</Text> : null}
-              <OrbitButton disabled={busy} onPress={handleHouseholdContinue}>
-                {busy ? 'Working…' : householdMode === 'create' ? 'Create household' : 'Join household'}
+              <OrbitButton
+                disabled={busy || (householdMode === 'create' && !householdName.trim())}
+                onPress={handleHouseholdContinue}>
+                {busy
+                  ? 'Working…'
+                  : householdMode === 'join'
+                    ? 'Join household'
+                    : 'Continue'}
               </OrbitButton>
+            </KeyboardScreen>
+          ) : null}
+
+          {step === 'roster' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <SetupRosterHub
+                draft={setupDraft}
+                ownerName={displayName.trim() || currentUser?.name || 'You'}
+                busy={busy}
+                onEditName={() => setStep('household')}
+                onEditOwnerName={() => setStep('profile')}
+                onAddMember={() => {
+                  setEditingMember(null);
+                  setStep('member-wizard');
+                }}
+                onEditMember={(member) => {
+                  setEditingMember(member);
+                  setStep('member-wizard');
+                }}
+                onCreateHousehold={() => void handleCreateFromRoster()}
+                onFinishLater={() => void handleFinishLater()}
+              />
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+            </KeyboardScreen>
+          ) : null}
+
+          {step === 'member-wizard' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <SetupMemberWizard
+                rewardModel={selectedRewardModel ?? DEFAULT_REWARD_MODEL}
+                rewardMode={selectedRewardMode ?? setupDraft.scoringMode ?? 'weighted'}
+                initial={editingMember}
+                onCancel={() => setStep('roster')}
+                onConfirm={(member) => {
+                  void (async () => {
+                    const others = setupDraft.members.filter((m) => m.id !== member.id);
+                    await persistDraftMembers([...others, member]);
+                    setEditingMember(null);
+                    setStep('roster');
+                  })();
+                }}
+              />
             </KeyboardScreen>
           ) : null}
 
@@ -1353,7 +1453,7 @@ export default function WelcomeOnboardingScreen() {
               {createdHousehold && readyInvite ? (
                 <GlassCard style={styles.invitePanel}>
                   <Text style={[typography.headline, { color: orbitPalette.text }]}>
-                    {selectedRole === 'roommate' ? 'Invite roommates' : 'Invite adults'}
+                    Invite adults
                   </Text>
                   <Text style={[typography.footnote, { color: orbitPalette.textMuted }]}>
                     AirDrop, share the link, or scan the QR.
@@ -1397,6 +1497,15 @@ export default function WelcomeOnboardingScreen() {
             return;
           }
           setInviteCode(code);
+        }}
+      />
+      <PersonalizeLookSheet
+        visible={lookSheetOpen}
+        memberName={displayName.trim() || 'you'}
+        currentAvatar={draftAvatar || undefined}
+        onDismiss={() => setLookSheetOpen(false)}
+        onSelect={(avatar) => {
+          setDraftAvatar(avatar);
         }}
       />
     </View>
@@ -1448,6 +1557,13 @@ const styles = StyleSheet.create({
   stepTitle: {
     letterSpacing: -0.45,
     marginBottom: 4,
+  },
+  profileAvatarRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 14,
+    marginBottom: space.md,
+    paddingVertical: 4,
   },
   splashScreen: {
     alignItems: 'center',
@@ -1502,15 +1618,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 4,
     width: '100%',
-  },
-  customRoomInput: {
-    flex: 1,
-  },
-  customRoomRow: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: space.md,
   },
   emoji: {
     fontSize: 24,
@@ -1586,6 +1693,15 @@ const styles = StyleSheet.create({
   },
   motivationWide: {
     width: '100%',
+  },
+  recommendedPill: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  recommendedText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   rewardModeList: {
     gap: 12,
