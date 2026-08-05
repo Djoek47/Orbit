@@ -32,6 +32,7 @@
     "test:today": "npx --yes tsx lib/tasks/today.test.ts",
     "test:completion-xp": "npx --yes tsx lib/tasks/completion-xp.test.ts",
     "test:revision-d-phase1": "npx --yes tsx lib/scoring/revision-d-phase1.test.ts",
+    "test:revision-d-phase2": "npx --yes tsx lib/scoring/revision-d-phase2.test.ts",
     "test:daily-streak": "npx --yes tsx lib/streaks/daily-streak.test.ts",
     "test:claim-reward": "npx --yes tsx lib/rewards/claim-reward.test.ts",
     "test:logic": "npm run test:reward-mode && npm run test:streak-engine && npm run test:trophies && npm run test:today && npm run test:completion-xp && npm run test:daily-streak && npm run test:claim-reward && npm run test:task-library && npm run test:task-library-v2 && npm run test:proof-actions && npm run test:recurrence-defaults && npm run test:recurring",
