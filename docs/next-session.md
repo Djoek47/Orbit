@@ -1,11 +1,12 @@
 # Next session — finish website, Resend emails, close MVP
 
-**Status:** Blocked until Revision D is complete on `cursor/choremaxx-make-v9-5f8f`.  
+**Status:** Revision D STOP GATES passed on `cursor/choremaxx-make-v9-5f8f` — these three are the remaining finish list.  
 **Domain:** `https://mytikas73.com`  
+**Shipping branch:** `cursor/choremaxx-make-v9-5f8f` → PR #28  
 
-See `docs/logic/V9_BRANCH.md` and `docs/logic/choremaxx-revision-d-spec.md` for the in-progress work. Website / Resend / MVP-close resume after D §10 Completion Report.
+See `docs/logic/V9_BRANCH.md` and `docs/logic/choremaxx-revision-d-spec.md`.
 
-When you come back (after V0 finishes the companion site **and** Revision D is done), do these in order.
+Do these in order:
 
 ---
 
@@ -29,7 +30,7 @@ When you come back (after V0 finishes the companion site **and** Revision D is d
   - `EXPO_PUBLIC_TERMS_URL=https://mytikas73.com/terms`
 - [ ] Update in-repo defaults that still say `choremaxx.app` for website URLs (`.env.example`, `constants/choremaxx-brand.ts`, `emails/theme.ts` `EMAIL_LOGO_URL` / `EMAIL_LINKS`, docs) where the public site host matters
 
-**V0 brief:** use the SEO + `mytikas73.com` prompt from the prior chat (Ask-mode reply). Product/legal source: `docs/product-context.md`, `docs/legal/*`.
+**V0 brief:** use the SEO + `mytikas73.com` prompt from the prior chat. Product/legal source: `docs/product-context.md`, `docs/legal/*`.
 
 ---
 
@@ -88,4 +89,5 @@ When the checklist above is green, call MVP closed and move to growth (richer No
 | Email wiring guide | `docs/email-templates.md` |
 | Resend + Supabase Auth | `docs/resend-auth-email.md` |
 | Legal source copy | `docs/legal/privacy-policy.md`, `docs/legal/terms-of-service.md` |
-| Shipping branch | `cursor/choremaxx-make-v8-5f8f` → PR #27 into Make v7 |
+| Shipping branch | `cursor/choremaxx-make-v9-5f8f` → PR #28 into Make v7 |
+| TestFlight build 19 | in progress / auto-submit to ASC |
