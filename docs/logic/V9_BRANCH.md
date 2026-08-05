@@ -23,8 +23,18 @@
 
 | Phase | Status |
 |---|---|
-| 1 Scoring engine | STOP GATE 1 — see test output |
-| 2 Crowns | pending |
-| 3 Recess | pending |
-| 4 House Rules | pending |
-| 5 Notifications + polish | pending |
+| 1 Scoring engine | DONE — 28/28 |
+| 2 Crowns | DONE — 10/10 + UI (CrownLeaderboard, Champion's Record, medal colours) |
+| 3 Recess | DONE — 11/11 + Settings → Recess + Home banners |
+| 4 House Rules | DONE — 8/8 + Settings → House Rules (adult/kid) |
+| 5 Notifications + polish | DONE — 6/6 engine + PersistentScrollView + WheelPickerChrome |
+
+## Test scripts
+
+```bash
+npm run test:revision-d-phase1
+npm run test:revision-d-phase2
+npm run test:revision-d-phase3
+npm run test:revision-d-phase4
+npm run test:revision-d-phase5
+```

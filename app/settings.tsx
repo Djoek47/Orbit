@@ -18,6 +18,7 @@ import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { BUILD_INFO } from '@/constants/build-info';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
+import { VOCAB } from '@/constants/vocabulary';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
@@ -630,6 +631,22 @@ export default function SettingsScreen() {
               subtitle={`${enabledCount} alerts enabled`}
               onPress={() => setSection('notifications')}
             />
+            <SettingsRow
+              icon="menu-book"
+              iconColor="#FAC775"
+              label={VOCAB.houseRules}
+              subtitle="How XP, streaks, and rewards work here"
+              onPress={() => router.push('/house-rules' as never)}
+            />
+            {permissions.canManageHousehold ? (
+              <SettingsRow
+                icon="beach-access"
+                iconColor="#38BDF8"
+                label={VOCAB.recess}
+                subtitle="Pause tasks · freeze streaks"
+                onPress={() => router.push('/recess' as never)}
+              />
+            ) : null}
             <SettingsRow
               icon="shield"
               iconColor="#34D399"

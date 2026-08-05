@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { XpWheel } from '@/components/orbit/xp-wheel';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { VOCAB } from '@/constants/vocabulary';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { promptPickProofPhoto } from '@/lib/tasks/pick-proof';
 import {
@@ -402,7 +403,7 @@ export default function TaskDetailScreen() {
             <Text style={[styles.body, { color: c.textSoft }]}>
               +{celebration.awarded} XP
               {celebration.bonus ? ` (+${celebration.bonus} all-done bonus)` : ''}
-              {celebration.late ? ` (−${celebration.penalty} late penalty)` : ''}. Rankings week XP
+              {celebration.late ? ` · ${VOCAB.lateCredit} (was higher)` : ''}. Rankings week XP
               {celebration.late ? ' held streak' : ' and streak'} updated.
             </Text>
           </View>

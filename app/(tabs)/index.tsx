@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
@@ -10,8 +10,10 @@ import { LargeTitleHeader } from '@/components/orbit/large-title-header';
 import { Leaderboard, type LeaderboardEntry } from '@/components/orbit/leaderboard';
 import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { StreakRescueSheet } from '@/components/orbit/streak-rescue-sheet';
 import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
+import { VOCAB } from '@/constants/vocabulary';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
@@ -23,10 +25,12 @@ import {
   isSharedDeviceAccount,
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
+import { isOnRecess } from '@/lib/recess/recess-engine';
 import {
   displayTaskXp,
   normalizeRewardSettings,
 } from '@/lib/rewards/reward-mode';
+import { formatLocalDate } from '@/lib/streaks/local-date';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { greetingWord } from '@/lib/time/greeting';
 import { useOrbit } from '@/store/orbit-store';
@@ -44,6 +48,7 @@ export default function HomeScreen() {
     poppinsBriefing,
     currentMember,
     permissions,
+    redeemStreak,
     requestAnotherProof,
     rewardCapabilities,
     v2Permissions,
@@ -121,6 +126,39 @@ export default function HomeScreen() {
   const personalTotalXp = currentMember?.xp ?? 0;
   const personalStreak = currentMember?.streak ?? 0;
 
+  const todayLocal = formatLocalDate(new Date(), household.timezone);
+  const recessPeriods = household.recessPeriods ?? [];
+  const selfOnRecess =
+    currentMember != null && isOnRecess(recessPeriods, currentMember.id, todayLocal);
+  const othersOnRecess = household.members.filter(
+    (m) =>
+      m.id !== currentMember?.id &&
+      isOnRecess(recessPeriods, m.id, todayLocal) &&
+      !isSharedDeviceRole(m.role)
+  );
+
+  const [rescueVisible, setRescueVisible] = useState(false);
+  const [rescueOffer, setRescueOffer] = useState<{
+    streakDays: number;
+    estimatedXpCost: number;
+    freeEligible: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!currentMember) return;
+    void import('@/lib/streaks/mock-streak-store').then(({ getMemberStreak }) => {
+      const streak = getMemberStreak(currentMember.id);
+      if (streak?.pendingRescue) {
+        setRescueOffer({
+          streakDays: streak.current,
+          estimatedXpCost: streak.pendingRescue.estimatedXpCost,
+          freeEligible: streak.pendingRescue.freeEligible,
+        });
+        setRescueVisible(true);
+      }
+    });
+  }, [currentMember?.id, personalStreak]);
+
   return (
     <>
       <Animated.ScrollView
@@ -133,7 +171,8 @@ export default function HomeScreen() {
         contentInsetAdjustmentBehavior="never"
         onScroll={onScroll}
         scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator
+        persistentScrollbar>
         {/* Header — greeting + avatar (persona switch), date eyebrow. Kept per design-system/06. */}
         <View style={styles.headerRow}>
           <View style={styles.headerCopy}>
@@ -180,6 +219,21 @@ export default function HomeScreen() {
             />
           </Pressable>
         </View>
+
+        {selfOnRecess ? (
+          <GlassCard>
+            <Text style={[typography.body, { color: orbitPalette.text }]}>
+              You&apos;re on {VOCAB.recess.toLowerCase()}. Your {personalStreak}-day streak is safe.
+            </Text>
+          </GlassCard>
+        ) : othersOnRecess.length > 0 ? (
+          <GlassCard>
+            <Text style={[typography.body, { color: orbitPalette.text }]}>
+              {othersOnRecess.map((m) => m.name).join(', ')}{' '}
+              {othersOnRecess.length === 1 ? 'is' : 'are'} on {VOCAB.recess.toLowerCase()}.
+            </Text>
+          </GlassCard>
+        ) : null}
 
         {/* Morning Brief — Apple-Intelligence-style card, not a chat entry point. */}
         <PoppinsCard
@@ -395,6 +449,25 @@ export default function HomeScreen() {
           </GlassCard>
         </Pressable>
       </Animated.ScrollView>
+      <StreakRescueSheet
+        visible={rescueVisible}
+        offer={rescueOffer}
+        onAccept={() => {
+          void redeemStreak().then(() => {
+            setRescueVisible(false);
+            setRescueOffer(null);
+          });
+        }}
+        onDecline={() => {
+          if (!currentMember) return;
+          void import('@/lib/streaks/mock-streak-store').then(({ declineMemberRescue }) => {
+            declineMemberRescue(currentMember.id);
+            setRescueVisible(false);
+            setRescueOffer(null);
+          });
+        }}
+        onDismiss={() => setRescueVisible(false)}
+      />
     </>
   );
 }

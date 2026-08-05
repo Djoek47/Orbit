@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
+import { VOCAB } from '@/constants/vocabulary';
 import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -26,7 +27,7 @@ export default function WeeklyReportScreen() {
 
       <View style={styles.grid}>
         <StatCard label="Completed" value={`${report.tasksCompleted}`} tone="green" />
-        <StatCard label="Missed" value={`${report.tasksMissed}`} tone="red" />
+        <StatCard label={VOCAB.expired} value={`${report.tasksMissed}`} tone="red" />
         <StatCard label="Groceries" value={`${report.groceriesPurchased}`} tone="cyan" />
         <StatCard label="XP earned" value={`${report.xpEarned}`} tone="amber" />
       </View>

@@ -43,7 +43,10 @@
     "test:recurring": "npx --yes tsx lib/tasks/recurring.test.ts",
     "generate:brand-marks": "node scripts/generate-brand-marks.mjs",
     "email:dev": "email dev --dir emails --port 3010",
-    "test:emails": "npx --yes tsx emails/render.test.tsx"
+    "test:emails": "npx --yes tsx emails/render.test.tsx",
+    "test:revision-d-phase3": "npx --yes tsx lib/recess/revision-d-phase3.test.ts",
+    "test:revision-d-phase4": "npx --yes tsx lib/rules/revision-d-phase4.test.ts",
+    "test:revision-d-phase5": "npx --yes tsx lib/poppins/revision-d-phase5.test.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

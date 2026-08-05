@@ -34,6 +34,8 @@ export type HouseholdMember = {
   /** ISO date YYYY-MM-DD — member away / on holiday (Poppins skips nudges). */
   awayFrom?: string;
   awayTo?: string;
+  /** Revision D — first Streak Rescue accepted (free when FIRST_RESCUE_IS_FREE). */
+  freeRescueUsed?: boolean;
   /**
    * For `shared-device` profiles: household member ids who use this phone/tablet.
    * Tasks assigned via the device must pick one of these people.
@@ -639,10 +641,25 @@ export type HouseholdSnapshot = {
   dayEndsAt?: string;
   /** 0 = Sunday … 1 = Monday (default). */
   weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
-  /** When true, streak redemption requires parent approval. Default false. */
+  /** When true, streak rescue requires parent approval. Default false. */
   redemptionRequiresApproval?: boolean;
   /** Local hour 0–23 for queued streak-break notifications. Default 8. */
   notificationHour?: number;
+  /**
+   * Revision D Recess periods (per member). Prefer this over awayFrom/awayTo.
+   * Stored in supabase `recess_periods` when data mode is supabase.
+   */
+  recessPeriods?: {
+    id: string;
+    memberId: string;
+    startDate: string;
+    endDate: string | null;
+    createdBy: string;
+    createdAt: string;
+    isBackdated: boolean;
+  }[];
+  /** Custom house rules — display only; never alter mechanics. */
+  customHouseRules?: { id: string; body: string; sortOrder: number }[];
   rewards: Reward[];
   badges: Badge[];
   poppins: PoppinsBriefing;

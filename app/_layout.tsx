@@ -79,6 +79,14 @@ export default function RootLayout() {
           />
           <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen
+            name="house-rules"
+            options={{ presentation: 'modal', headerShown: false, title: 'House Rules' }}
+          />
+          <Stack.Screen
+            name="recess"
+            options={{ presentation: 'modal', headerShown: false, title: 'Recess' }}
+          />
+          <Stack.Screen
             name="places"
             options={{ presentation: 'modal', headerShown: false, title: 'My Places' }}
           />

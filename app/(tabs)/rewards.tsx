@@ -7,6 +7,8 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Avatar } from '@/components/orbit/avatar';
+import { ChampionsRecordSheet } from '@/components/orbit/champions-record-sheet';
+import { CrownLeaderboard } from '@/components/orbit/crown-leaderboard';
 import Icon from '@/components/orbit/design/Icon';
 import { achievementIconName, trophyIconName } from '@/components/orbit/design/icon-map';
 import { tierTone } from '@/components/orbit/design/tierTone';
@@ -15,6 +17,7 @@ import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RewardVaultCard } from '@/components/orbit/reward-vault-card';
 import type { IconName } from '@/components/orbit/design/icons';
+import { VOCAB } from '@/constants/vocabulary';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import {
   isAvatarImageUri,
@@ -25,7 +28,10 @@ import {
   findSharedDeviceForMember,
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
+import { isOnRecess } from '@/lib/recess/recess-engine';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
+import { rankCrownPeriod, type ChampionsRecord } from '@/lib/scoring/crowns';
+import { formatLocalDate } from '@/lib/streaks/local-date';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
@@ -155,6 +161,7 @@ export default function RewardsScreen() {
   const [view, setView] = useState<RankingView>('week');
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [allowanceBusy, setAllowanceBusy] = useState(false);
+  const [championsRecord, setChampionsRecord] = useState<ChampionsRecord | null>(null);
 
   const fallbackSurface = (): Surface => {
     if (showRewards) return 'rewards';
@@ -248,6 +255,40 @@ export default function RewardsScreen() {
       return b.xp - a.xp;
     });
   }, [household.tasks, membersWithProgress, rankCat, view]);
+
+  const todayLocal = formatLocalDate(new Date(), household.timezone);
+  const weekCrown = useMemo(() => {
+    if (rankCat !== 'xp' || view !== 'week') return null;
+    const competitors = ranked.map((m) => ({
+      memberId: m.id,
+      name: m.name,
+      onRecess: isOnRecess(household.recessPeriods ?? [], m.id, todayLocal),
+      tasksCompleted: completedTaskCount(household.tasks, m.name),
+      lateCount: 0,
+    }));
+    // Mock week standings from weekXp until ledger is fully hydrated in store.
+    const ledger = ranked.flatMap((m) =>
+      (m.weekXp ?? 0) > 0
+        ? [
+            {
+              id: `mock_${m.id}`,
+              memberId: m.id,
+              occurredAt: new Date().toISOString(),
+              type: 'task_completed' as const,
+              delta: m.weekXp ?? 0,
+              balanceAfter: m.xp,
+              label: 'Week XP',
+            },
+          ]
+        : []
+    );
+    return rankCrownPeriod({
+      ledger,
+      competitors,
+      fromIso: new Date(Date.now() - 7 * 86400000).toISOString(),
+      toIso: new Date().toISOString(),
+    });
+  }, [rankCat, view, ranked, household.recessPeriods, household.tasks, todayLocal]);
 
   const metricFor = (member: (typeof ranked)[number]) => {
     if (rankCat === 'tasks') return completedTaskCount(household.tasks, member.name);
@@ -706,7 +747,7 @@ export default function RewardsScreen() {
                         typography.footnote,
                         { color: active ? accentTheme.primary : c.textSubtle, fontWeight: active ? '700' : '500' },
                       ]}>
-                      {option === 'week' ? 'This Week' : 'All Time'}
+                      {option === 'week' ? VOCAB.weeksCrown : 'All Time'}
                     </Text>
                   </Pressable>
                 );
@@ -714,6 +755,37 @@ export default function RewardsScreen() {
             </View>
           ) : null}
 
+          {weekCrown ? (
+            <GlassCard style={{ paddingVertical: 8 }}>
+              <Text style={[typography.caption1, { color: c.textMuted, marginBottom: 8 }]}>
+                {VOCAB.weeksCrown}
+              </Text>
+              <CrownLeaderboard
+                rows={weekCrown.rows}
+                emptyCopy={weekCrown.emptyCopy}
+                onSelect={(memberId) => {
+                  const row = weekCrown.rows.find((r) => r.memberId === memberId);
+                  const member = ranked.find((m) => m.id === memberId);
+                  if (!row || !member) return;
+                  setChampionsRecord({
+                    memberId,
+                    name: member.name,
+                    rank: row.rank,
+                    medal: row.medal,
+                    netXp: row.netXp,
+                    tasksCompleted: completedTaskCount(household.tasks, member.name),
+                    onTimeCount: completedTaskCount(household.tasks, member.name),
+                    currentStreak: member.streak ?? 0,
+                    bestDayLabel: null,
+                    busiestDomain: null,
+                    lateCount: 0,
+                    expiredCount: 0,
+                    streakRescuesUsed: 0,
+                  });
+                }}
+              />
+            </GlassCard>
+          ) : (
           <View
             style={[
               styles.podiumCard,
@@ -773,7 +845,9 @@ export default function RewardsScreen() {
               })}
             </View>
           </View>
+          )}
 
+          {!weekCrown ? (
           <GlassCard style={{ paddingVertical: 4 }}>
             {ranked.map((member, index) => {
               const val = metricFor(member);
@@ -843,6 +917,7 @@ export default function RewardsScreen() {
               );
             })}
           </GlassCard>
+          ) : null}
 
           <Pressable onPress={() => router.push('/badge-gallery' as never)}>
             <GlassCard>
@@ -894,6 +969,16 @@ export default function RewardsScreen() {
           </Pressable>
         </Animated.View>
       ) : null}
+      <ChampionsRecordSheet
+        visible={championsRecord != null}
+        record={championsRecord}
+        viewer={{
+          memberId: currentMember?.id ?? '',
+          isAdmin,
+        }}
+        periodLabel={VOCAB.weeksCrown}
+        onClose={() => setChampionsRecord(null)}
+      />
     </ScrollView>
   );
 }
