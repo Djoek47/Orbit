@@ -1,10 +1,11 @@
 # Next session — finish website, Resend emails, close MVP
 
-**Status:** Waiting on V0 website generation.  
+**Status:** Blocked until Revision D is complete on `cursor/choremaxx-make-v9-5f8f`.  
 **Domain:** `https://mytikas73.com`  
-**Branch tip:** `cursor/choremaxx-make-v8-5f8f`
 
-When you come back (after V0 finishes the companion site), do these in order.
+See `docs/logic/V9_BRANCH.md` and `docs/logic/choremaxx-revision-d-spec.md` for the in-progress work. Website / Resend / MVP-close resume after D §10 Completion Report.
+
+When you come back (after V0 finishes the companion site **and** Revision D is done), do these in order.
 
 ---
 
