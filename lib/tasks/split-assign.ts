@@ -2,6 +2,7 @@ import {
   resolveTaskXpFromHouseholdTask,
   type HouseholdRewardSettings,
 } from '@/lib/rewards/reward-mode';
+import { bundleBonusXp } from '@/lib/scoring/bundle-bonus';
 import type { HouseholdTask, TaskAssigneeShare } from '@/types/orbit';
 
 export function getTaskAssignees(task: Pick<HouseholdTask, 'assignee' | 'assignees' | 'shares'>): string[] {
@@ -59,20 +60,20 @@ export function splitShareXp(
   return Math.max(1, task.splitXpEach ?? task.xp);
 }
 
-/** Extra XP each completer gets when every assignee finishes. */
+/**
+ * Bundle / all-done bonus — Revision D §1.2.
+ * BUNDLE_BONUS_FULL (10) or BUNDLE_BONUS_LATE (7) when any share was late.
+ */
 export function splitAllDoneBonus(
   task: HouseholdTask,
-  settings?: HouseholdRewardSettings
+  settings?: HouseholdRewardSettings,
+  anyCompletedLate = false
 ): number {
   if (typeof task.splitBonusXp === 'number') {
     return Math.max(0, task.splitBonusXp);
   }
-  if (settings?.rewardMode === 'flat') {
-    const resolved = resolveTaskXpFromHouseholdTask(task, settings);
-    return Math.max(0, Math.round(resolved * 0.25));
-  }
-  const base = settings ? resolveTaskXpFromHouseholdTask(task, settings) : task.xp;
-  return Math.max(5, Math.round(base * 0.25));
+  void settings;
+  return bundleBonusXp(anyCompletedLate);
 }
 
 /** XP deducted when an admin penalizes a non-finisher. */

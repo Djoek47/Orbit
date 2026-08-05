@@ -969,27 +969,3 @@ Concretely, in review, reject any implementation that:
 - Makes a step un-undoable.
 
 The through-line for all of it: a parent should be able to set up two children, with real chores and real rewards, in under three minutes, and never once wonder what a screen is asking.
-
----
-
-## Revision C — Implemented deltas (agent notes)
-
-The uploaded Revision B document references Revision C §1–§3 via supersession callouts but did not include the full Revision C body. The following was implemented from those callouts:
-
-### C§1 Proof model
-- XP still awards on Complete tap (§1.7 rule unchanged).
-- Proof is **not** a create-time chore flag. The custom-task "Require photo proof after complete" checkbox is removed.
-- Chores complete with `verification: not_required`. Admins can **Ask for photo** on-demand from a completed chore (sets `proofRequired` + `proof_requested`).
-- Homework assigns/creates with `proofRequired: true` by default.
-- Existing Confirm / Ask for another photo / Mark not done / 3-round cap / 72h auto-confirm remain.
-
-### C§2 Rewards surfaces
-- Nine presets (§6.2) and no-XP-cost (§6.1) stand.
-- **Mint Reward** sheet replaced by **Create Reward**: presets + name + frequency (+ quantity where offered) + optional notes + assign. `cost` always `0`. No emoji picker.
-- Special reward request no longer asks for XP cost.
-- Redeem tally / assign notifications no longer show XP purchase cost.
-
-### C§3 Labels
-- Role `member` (stored household role `child`) **displays as Helper**.
-- Setup wizard Admin / Helper chips. `formatHouseholdRole('child')` → `Helper`.
-- Permission matrix keys unchanged (`admin` / `member` in `permissions-v2.ts`).

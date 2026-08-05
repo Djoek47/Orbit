@@ -1,10 +1,9 @@
 /**
- * Late vs missed display helpers (§5.2).
- * `late` is derived client-side between dueAt and local midnight.
- * `missed` is a persisted transition written by the 00:00 rollover job.
+ * Occurrence clock helpers — Revision D §1.3.
+ * `expired` replaces `missed`. Late Credit window = after dueAt, before 23:59.
  */
 
-export type OccurrenceClockStatus = 'pending' | 'late' | 'completed' | 'missed';
+export type OccurrenceClockStatus = 'pending' | 'late' | 'completed' | 'expired';
 
 /** True when now is after dueAt but still on the same local calendar day. */
 export function isLateWindow(dueAt: string | undefined, now = new Date()): boolean {
@@ -32,4 +31,13 @@ export function completedLateFlag(
     completedLate: true,
     latenessMinutes: Math.max(1, Math.round((completed - due) / 60_000)),
   };
+}
+
+/** Migrate legacy 'missed' → 'expired'. */
+export function normalizeOccurrenceStatus(status: string): OccurrenceClockStatus {
+  if (status === 'missed') return 'expired';
+  if (status === 'pending' || status === 'late' || status === 'completed' || status === 'expired') {
+    return status;
+  }
+  return 'pending';
 }

@@ -1,5 +1,5 @@
 /**
- * Completion XP snapshot — late never docks XP (v2 §5.2).
+ * Completion XP — Revision D Late Credit.
  * `npm run test:completion-xp`
  */
 
@@ -18,7 +18,10 @@ function task(partial: Partial<HouseholdTask>): HouseholdTask {
     assignee: 'Emma',
     due: 'Today',
     status: 'Pending',
-    xp: 40,
+    xp: 10,
+    baseXp: 10,
+    xpEligible: true,
+    tracking: 'xp',
     repeat: 'None',
     ...partial,
   };
@@ -26,25 +29,41 @@ function task(partial: Partial<HouseholdTask>): HouseholdTask {
 
 const settings = { rewardMode: 'weighted' as const, hygieneRewarded: false, hygieneXp: 5 as const };
 
-const onTime = resolveCompletionXp(task({ status: 'Pending', due: 'Today' }), settings);
-assert(onTime.awarded === 40, `on-time awarded 40 got ${onTime.awarded}`);
-assert(onTime.penalty === 0, 'no penalty on time');
+const onTime = resolveCompletionXp(
+  task({ dueAt: '2026-08-04T19:00:00.000Z' }),
+  settings,
+  '2026-08-04T18:45:00.000Z'
+);
+assert(onTime.awarded === 10, `on-time awarded 10 got ${onTime.awarded}`);
+assert(onTime.completedLate === false, 'not late');
 
-const late = resolveCompletionXp(task({ status: 'Overdue', due: 'Overdue' }), settings);
+const late = resolveCompletionXp(
+  task({ dueAt: '2026-08-04T19:00:00.000Z', status: 'Overdue' }),
+  settings,
+  '2026-08-04T19:30:00.000Z'
+);
 assert(late.late === true, 'late flagged');
-assert(late.penalty === 0, 'late never docks XP');
-assert(late.awarded === late.base, 'full XP when late');
+assert(late.awarded === 7, `Late Credit 7 got ${late.awarded}`);
+assert(late.completedLate === true, 'completedLate');
 
 const hygieneOff = resolveCompletionXp(
-  task({ category: 'Hygiene', xp: 0, tracking: 'streak', status: 'Pending', due: 'Today' }),
-  settings
+  task({
+    category: 'Hygiene',
+    xp: 0,
+    tracking: 'streak',
+    xpEligible: false,
+    dueAt: '2026-08-04T19:00:00.000Z',
+  }),
+  settings,
+  '2026-08-04T20:00:00.000Z'
 );
 assert(hygieneOff.awarded === 0, 'hygiene off → 0');
 
-const hygieneOn = resolveCompletionXp(
-  task({ category: 'Hygiene', xp: 0, tracking: 'streak', status: 'Pending', due: 'Today' }),
-  { ...settings, hygieneRewarded: true, hygieneXp: 5 }
+const equityLate = resolveCompletionXp(
+  task({ dueAt: '2026-08-04T19:00:00.000Z', xp: 10, baseXp: 30 }),
+  { rewardMode: 'flat', hygieneRewarded: false, hygieneXp: 5 },
+  '2026-08-04T20:00:00.000Z'
 );
-assert(hygieneOn.awarded === 5, 'hygiene on → 5');
+assert(equityLate.awarded === 7, `equity late 7 got ${equityLate.awarded}`);
 
 console.log('test:completion-xp OK');

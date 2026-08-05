@@ -1638,28 +1638,26 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       memberId: currentMember.id,
       streak: result.streak,
     });
-    const { ensureChildStreak, setChildStreak } = await import('@/lib/streaks/mock-streak-store');
-    const engine = ensureChildStreak(currentMember.id);
-    const today = formatLocalDate(new Date(), household.timezone);
-    setChildStreak({
+    const { ensureMemberStreak, setMemberStreak } = await import('@/lib/streaks/mock-streak-store');
+    const engine = ensureMemberStreak(currentMember.id);
+    setMemberStreak({
       ...engine,
       current: result.streak,
       longest: Math.max(engine.longest, result.streak),
-      state: 'active',
-      lastActiveDate: today,
-      brokenOnDate: null,
-      redeemableUntil: null,
     });
     await trackAnalytics('streak.daily_awarded', { streak: result.streak }, analyticsContext);
     return result.streak;
   };
 
-  /** Phase 3 redeem — restores engine state and syncs member.streak. */
+  /**
+   * Streak Rescue — requires the member to press the confirmation prompt
+   * (confirmedViaPrompt). Free first rescue still needs that tap.
+   */
   const redeemStreak = async () => {
     if (!currentMember || !household.id) return false;
-    const { redeemChildStreak } = await import('@/lib/streaks/mock-streak-store');
-    const restored = redeemChildStreak(currentMember.id);
-    if (!restored) return false;
+    const { acceptMemberRescue } = await import('@/lib/streaks/mock-streak-store');
+    const { streak: restored, accrual } = acceptMemberRescue(currentMember.id, true);
+    if (!accrual) return false;
     setHousehold((current) => {
       const next = {
         ...current,

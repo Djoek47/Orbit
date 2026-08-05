@@ -1,241 +1,287 @@
 /**
- * Choremaxx streak engine — pure foundations (Phase 3).
+ * ChoreMaxx streak engine — Revision D §1.4–§1.5.
  *
- * All dates are household-local `YYYY-MM-DD` strings (`localDate`).
- * Decisions locked in docs/logic/choremaxx-streak-engine-cursor-spec.md §1.
+ * DELETED (Rev D §0.2): single-miss break, 15%/30%/50% redemption ladder.
+ * Cliffs: 3 consecutive misses OR 3 misses in a rolling 7-day window.
+ * Rescue: 10% of week's gross XP per rescued day, max 2 consecutive days.
+ * First rescue is free only after the member presses the confirmation prompt.
  */
 
+import {
+  FIRST_RESCUE_IS_FREE,
+  MAX_RESCUABLE_CONSECUTIVE_DAYS,
+  RESCUE_COST_PCT_PER_DAY,
+  ROLLING_MISS_LIMIT,
+  ROLLING_MISS_WINDOW_DAYS,
+  WEEK_STARTS_ON,
+} from '@/constants/scoring';
+import { classifyDay, type DayClass, type QualifyingOccurrence } from '@/lib/scoring/classify-day';
 import { addLocalDays } from '@/lib/streaks/local-date';
 
-// ── Types ──────────────────────────────────────────────────────────────
+export type StreakEndedReason = 'consecutive' | 'rolling';
 
-export type StreakState = 'active' | 'broken_redeemable' | 'broken_final';
-
-export type DayOutcome = 'complete' | 'partial' | 'missed' | 'neutral';
-
-export interface ChildDay {
-  childId: string;
-  /** YYYY-MM-DD, household-local */
-  localDate: string;
-  /** Chores due this day (hygiene excluded) */
-  tasksDue: number;
-  tasksCompleted: number;
-  /** null = not yet rolled over */
-  outcome: DayOutcome | null;
-  evaluatedAt: string | null;
-}
-
-export interface ChildStreak {
-  childId: string;
+export type MemberStreak = {
+  memberId: string;
   current: number;
   longest: number;
-  state: StreakState;
-  /** Last date that counted toward the streak */
-  lastActiveDate: string | null;
-  brokenOnDate: string | null;
-  /** localDate — end of the day after the break */
-  redeemableUntil: string | null;
-}
+  /** Consecutive missed days (skips neutral/recess). */
+  consecutiveMissedDays: number;
+  /** Local dates classified 'missed' inside the rolling window. */
+  rollingMissDates: string[];
+  streakEndedAt: string | null;
+  streakEndedReason: StreakEndedReason | null;
+  freeRescueUsed: boolean;
+  /** Pending rescue offer for the most recent miss (not yet accepted/declined). */
+  pendingRescue: PendingRescue | null;
+};
 
-export interface WeeklyPenalty {
-  childId: string;
-  /** YYYY-Www, household-local, respects weekStartsOn */
+export type PendingRescue = {
+  missedDate: string;
+  /** Offered at this rollover local date. */
+  offeredOn: string;
+  /** Expires at next 00:00 rollover (local date). */
+  expiresOn: string;
+  /** Percentage owed against the week that missedDate falls in. */
+  pctOwed: number;
+  /** Absolute estimate shown in UI (week-to-date gross × pct). */
+  estimatedXpCost: number;
+  /** True when FIRST_RESCUE_IS_FREE and freeRescueUsed is still false. */
+  freeEligible: boolean;
+};
+
+export type RescueDecision = 'accepted' | 'declined';
+
+export type WeekRescueAccrual = {
+  memberId: string;
   weekKey: string;
-  /** 0, 1, 2, 3+ */
-  redemptionCount: number;
-  /** 0 | 0.15 | 0.30 | 0.50 — derived, stored for audit */
-  penaltyRate: number;
-  /** Set at week close; null while week is open */
-  appliedAt: string | null;
-  grossXpAtApply: number | null;
-  deductedXp: number | null;
+  /** Sum of per-day rescue percentages owed this week (0.10 or 0.20 typically). */
+  totalRescuePct: number;
+  rescuedDates: string[];
+};
+
+export type { DayClass, QualifyingOccurrence };
+
+export function classifyMemberDay(input: {
+  onRecess?: boolean;
+  occurrences: QualifyingOccurrence[];
+}): DayClass {
+  return classifyDay(input);
 }
 
-export interface HouseholdDay {
-  householdId: string;
-  localDate: string;
-  /** Across all members */
-  tasksDue: number;
-  tasksCompleted: number;
-  /** When it first hit 100% — null if never */
-  completedAt: string | null;
-  celebrationFiredAt: string | null;
+export function emptyStreak(memberId: string): MemberStreak {
+  return {
+    memberId,
+    current: 0,
+    longest: 0,
+    consecutiveMissedDays: 0,
+    rollingMissDates: [],
+    streakEndedAt: null,
+    streakEndedReason: null,
+    freeRescueUsed: false,
+    pendingRescue: null,
+  };
 }
 
-export interface XpLedgerEntry {
-  id: string;
-  childId: string;
-  weekKey: string;
-  type: 'award' | 'streak_penalty' | 'adjustment';
-  /** Signed — penalties are negative */
-  amount: number;
-  /** Completion id, redemption id */
-  sourceId: string | null;
-  occurredAt: string;
+/** ISO week key Mon-start: YYYY-Www relative to household-local date. */
+export function weekKeyForLocalDate(localDate: string, weekStartsOn = WEEK_STARTS_ON): string {
+  const [y, m, d] = localDate.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  // Shift so weekStartsOn (1=Mon) is start
+  const day = date.getUTCDay(); // 0=Sun
+  const diff = (day - weekStartsOn + 7) % 7;
+  date.setUTCDate(date.getUTCDate() - diff);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const week = Math.floor((date.getTime() - yearStart.getTime()) / 86_400_000 / 7) + 1;
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
-export const MAX_PENALTY_RATE = 0.5;
-
-// ── Penalty ladder (tiered replacement, not additive) ──────────────────
-
-/**
- * Tiered redemption penalty rate.
- * 0 → 0, 1 → 15%, 2 → 30%, 3+ → 50% (hard ceiling).
- */
-export function penaltyRateFor(redemptionCount: number): number {
-  if (redemptionCount <= 0) return 0;
-  if (redemptionCount === 1) return 0.15;
-  if (redemptionCount === 2) return 0.3;
-  return MAX_PENALTY_RATE;
+function pruneRolling(dates: string[], asOfLocalDate: string): string[] {
+  const cutoff = addLocalDays(asOfLocalDate, -(ROLLING_MISS_WINDOW_DAYS - 1));
+  return dates.filter((d) => d >= cutoff && d <= asOfLocalDate);
 }
 
-// ── Day classification ─────────────────────────────────────────────────
-
-/**
- * Classify a child-day at rollover.
- * Hygiene must already be excluded from tasksDue / tasksCompleted.
- */
-export function classifyChildDay(input: {
-  tasksDue: number;
-  tasksCompleted: number;
-}): DayOutcome {
-  const { tasksDue, tasksCompleted } = input;
-  if (tasksDue === 0) return 'neutral';
-  if (tasksCompleted === tasksDue) return 'complete';
-  if (tasksCompleted === 0) return 'missed';
-  return 'partial';
+function hitConsecutiveCliff(consecutive: number): boolean {
+  return consecutive >= ROLLING_MISS_LIMIT;
 }
 
-// ── Streak state machine ───────────────────────────────────────────────
-
-function withLongest(streak: ChildStreak, current: number): number {
-  return Math.max(streak.longest, current);
+function hitRollingCliff(rollingMissDates: string[]): boolean {
+  return rollingMissDates.length >= ROLLING_MISS_LIMIT;
 }
 
 /**
- * Apply one day's outcome to a ChildStreak.
- * `localDate` is the closing household-local YYYY-MM-DD being evaluated.
- *
- * - neutral: preserve current (do not increment)
- * - complete: current += 1 (only while active / after broken_final)
- * - partial / missed: break → broken_redeemable, hold current, redeemableUntil = next day
- *
- * While `broken_redeemable`, complete/neutral leave the held streak alone until
- * redeem or window expiry. Expires when localDate > redeemableUntil.
+ * Apply one day's classification at 00:00 rollover for the day that just ended.
+ * `localDate` = the day being closed.
  */
-export function applyStreakTransition(
-  streak: ChildStreak,
-  outcome: DayOutcome,
-  localDate: string
-): ChildStreak {
-  let next: ChildStreak = { ...streak };
-
-  // Expire redemption window before applying today's outcome.
-  if (
-    next.state === 'broken_redeemable' &&
-    next.redeemableUntil != null &&
-    localDate > next.redeemableUntil
-  ) {
+export function applyDayToStreak(
+  streak: MemberStreak,
+  dayClass: DayClass,
+  localDate: string,
+  weekToDateGrossXp: number
+): MemberStreak {
+  // Expire unanswered rescue from previous day → DECLINE (XP unchanged, streak already at risk).
+  let next: MemberStreak = { ...streak, rollingMissDates: [...streak.rollingMissDates] };
+  if (next.pendingRescue && localDate > next.pendingRescue.expiresOn) {
+    // Inaction = decline. Streak ends (was held only while offer open for day 1–2).
+    // Spec: default DECLINE → streak 0, XP unchanged.
     next = {
       ...next,
       current: 0,
-      state: 'broken_final',
-      brokenOnDate: null,
-      redeemableUntil: null,
+      consecutiveMissedDays: 0,
+      pendingRescue: null,
+      streakEndedAt: next.pendingRescue.missedDate,
+      streakEndedReason: 'consecutive',
     };
+  } else if (next.pendingRescue && localDate === next.pendingRescue.expiresOn) {
+    // Still on the expiry day boundary handled above via `>`. Keep pending until past.
   }
 
-  // Still within redemption window: only a fresh break refreshes the window.
-  // complete/neutral do not touch the held current (must redeem explicitly).
-  if (next.state === 'broken_redeemable') {
-    if (outcome === 'partial' || outcome === 'missed') {
-      return {
-        ...next,
-        brokenOnDate: localDate,
-        redeemableUntil: addLocalDays(localDate, 1),
-      };
-    }
+  if (dayClass === 'neutral' || dayClass === 'recess') {
+    // Skipped — neither miss nor reset consecutive. Rolling window ages via prune.
+    next.rollingMissDates = pruneRolling(next.rollingMissDates, localDate);
     return next;
   }
 
-  if (outcome === 'neutral') {
-    // Preserve — current and lastActiveDate unchanged.
-    if (next.state === 'broken_final') {
-      return { ...next, state: 'active' };
-    }
-    return next;
-  }
-
-  if (outcome === 'complete') {
-    // broken_final (or post-expiry) accrues from 0 → 1.
-    const base = next.state === 'broken_final' ? 0 : next.current;
-    const current = base + 1;
+  if (dayClass === 'complete') {
+    next.consecutiveMissedDays = 0;
+    next.rollingMissDates = pruneRolling(next.rollingMissDates, localDate);
+    next.pendingRescue = null;
+    const current = next.current + 1;
     return {
       ...next,
       current,
-      longest: withLongest(next, current),
-      state: 'active',
-      lastActiveDate: localDate,
-      brokenOnDate: null,
-      redeemableUntil: null,
+      longest: Math.max(next.longest, current),
+      streakEndedAt: null,
+      streakEndedReason: null,
     };
   }
 
-  // partial or missed → break. Hold current for redemption (do not zero yet).
+  // missed
+  const consecutive = next.consecutiveMissedDays + 1;
+  let rolling = pruneRolling([...next.rollingMissDates, localDate], localDate);
+  // dedupe
+  rolling = Array.from(new Set(rolling)).sort();
+
+  if (hitConsecutiveCliff(consecutive) || hitRollingCliff(rolling)) {
+    const reason: StreakEndedReason = hitConsecutiveCliff(consecutive) ? 'consecutive' : 'rolling';
+    // No Rescue at the cliff.
+    return {
+      ...next,
+      current: 0,
+      consecutiveMissedDays: consecutive,
+      rollingMissDates: rolling,
+      pendingRescue: null,
+      streakEndedAt: localDate,
+      streakEndedReason: reason,
+    };
+  }
+
+  // Offer rescue for consecutive 1 or 2.
+  const freeEligible = FIRST_RESCUE_IS_FREE && !next.freeRescueUsed;
+  const pctOwed = RESCUE_COST_PCT_PER_DAY;
+  const estimatedXpCost = freeEligible
+    ? 0
+    : Math.round(Math.max(0, weekToDateGrossXp) * pctOwed);
+
   return {
     ...next,
-    state: 'broken_redeemable',
-    brokenOnDate: localDate,
-    redeemableUntil: addLocalDays(localDate, 1),
+    consecutiveMissedDays: consecutive,
+    rollingMissDates: rolling,
+    pendingRescue: {
+      missedDate: localDate,
+      offeredOn: localDate,
+      expiresOn: addLocalDays(localDate, 1),
+      pctOwed,
+      estimatedXpCost,
+      freeEligible,
+    },
   };
 }
 
 /**
- * Child-initiated streak redemption. Restores the held current value.
- * Caller must increment WeeklyPenalty.redemptionCount and enforce gates
- * (state, redeemableUntil, approval). Pure — does not touch XP.
+ * Accept a Streak Rescue.
+ *
+ * Free first rescue requires `confirmedViaPrompt: true` — the child must
+ * press the prompt. Silent auto-accept of free rescue is forbidden.
+ *
+ * Bridge-not-credit: streak current is preserved (not incremented for the miss).
+ * No refund at cliff — caller must not reverse prior accruals.
  */
-export function redeemStreak(streak: ChildStreak): ChildStreak | null {
-  if (streak.state !== 'broken_redeemable') return null;
+export function acceptStreakRescue(
+  streak: MemberStreak,
+  opts: { confirmedViaPrompt: boolean }
+): {
+  streak: MemberStreak;
+  accrual: { weekKey: string; pct: number; missedDate: string; free: boolean } | null;
+} {
+  if (!streak.pendingRescue) {
+    return { streak, accrual: null };
+  }
+  if (!opts.confirmedViaPrompt) {
+    // Must press the prompt — especially for free first rescue.
+    return { streak, accrual: null };
+  }
+
+  const offer = streak.pendingRescue;
+  const free = offer.freeEligible && FIRST_RESCUE_IS_FREE;
+  const pct = free ? 0 : offer.pctOwed;
+  const weekKey = weekKeyForLocalDate(offer.missedDate);
+
+  // Deliberate: no refund if a later cliff ends the streak after paid rescues.
+  // They purchased days of preservation and received them.
+  return {
+    streak: {
+      ...streak,
+      // Bridge — current unchanged (not credited for the missed day).
+      pendingRescue: null,
+      freeRescueUsed: free ? true : streak.freeRescueUsed,
+      streakEndedAt: null,
+      streakEndedReason: null,
+    },
+    accrual: { weekKey, pct, missedDate: offer.missedDate, free },
+  };
+}
+
+/** Decline rescue → streak goes to 0. XP unchanged. */
+export function declineStreakRescue(streak: MemberStreak): MemberStreak {
+  if (!streak.pendingRescue) return streak;
   return {
     ...streak,
-    state: 'active',
-    brokenOnDate: null,
-    redeemableUntil: null,
-    longest: withLongest(streak, streak.current),
+    current: 0,
+    pendingRescue: null,
+    consecutiveMissedDays: 0,
+    streakEndedAt: streak.pendingRescue.missedDate,
+    streakEndedReason: 'consecutive',
   };
 }
 
-// ── Weekly penalty projection ──────────────────────────────────────────
-
-export interface WeekPenaltyProjection {
-  rate: number;
-  deducted: number;
-  net: number;
+/** Accrue per-day rescue percentages onto a week bucket. */
+export function accrueRescuePct(
+  week: WeekRescueAccrual,
+  missedDate: string,
+  pct: number
+): WeekRescueAccrual {
+  if (pct <= 0) {
+    return {
+      ...week,
+      rescuedDates: [...week.rescuedDates, missedDate],
+    };
+  }
+  return {
+    ...week,
+    totalRescuePct: week.totalRescuePct + pct,
+    rescuedDates: [...week.rescuedDates, missedDate],
+  };
 }
 
 /**
- * Project week-close penalty against gross XP.
- * Uses Math.round. Net is never negative.
+ * Week-close settlement: deduction = round(weekGrossXp × totalRescuePct).
+ * Returns the absolute XP to deduct (positive number).
  */
-export function projectWeekPenalty(input: {
-  grossXp: number;
-  redemptionCount: number;
-}): WeekPenaltyProjection {
-  const rate = penaltyRateFor(input.redemptionCount);
-  const gross = Math.max(0, input.grossXp);
-  const deducted = Math.round(gross * rate);
-  const net = Math.max(0, gross - deducted);
-  return { rate, deducted, net };
+export function settleWeekRescueDeduction(weekGrossXp: number, totalRescuePct: number): number {
+  return Math.round(Math.max(0, weekGrossXp) * Math.max(0, totalRescuePct));
 }
 
-// ── Household completion ───────────────────────────────────────────────
-
-/**
- * Household completion percentage.
- * Returns null when nothing is due (empty/rest day — never celebrate 100%).
- */
-export function householdCompletionPct(day: Pick<HouseholdDay, 'tasksDue' | 'tasksCompleted'>): number | null {
-  if (day.tasksDue === 0) return null;
-  return Math.floor((day.tasksCompleted / day.tasksDue) * 100);
+/** Max consecutive days that can still be rescued. */
+export function canOfferRescue(consecutiveMissedDays: number): boolean {
+  return consecutiveMissedDays >= 1 && consecutiveMissedDays <= MAX_RESCUABLE_CONSECUTIVE_DAYS;
 }

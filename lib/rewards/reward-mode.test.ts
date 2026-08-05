@@ -121,8 +121,9 @@ export function runRewardModeTests(): string[] {
   } satisfies HouseholdTask;
   assert(splitShareXp(splitTask, flatSettings) === FLAT_TASK_XP, 'split share flat');
   assert(splitShareXp(splitTask, settings) === 15, 'split share weighted');
-  assert(splitAllDoneBonus(splitTask, flatSettings) === Math.round(FLAT_TASK_XP * 0.25), 'split bonus flat');
-  pass('13 split XP respects Equity');
+  assert(splitAllDoneBonus(splitTask, flatSettings) === 10, 'split bonus full = BUNDLE_BONUS_FULL');
+  assert(splitAllDoneBonus(splitTask, flatSettings, true) === 7, 'split bonus late = BUNDLE_BONUS_LATE');
+  pass('13 split XP respects Equity + Rev D bundle bonus');
 
   return logs;
 }
