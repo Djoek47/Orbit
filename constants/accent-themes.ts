@@ -1,7 +1,7 @@
 /**
  * Personal accent-color packs — fills the `accent.primary`/`accent.secondary`
  * roles from `docs/design-system/02-design-language.md` §1.3. Domain colors
- * (rewardsGold/novaCyan/planPurple in `orbit-theme.ts`) stay fixed regardless
+ * (rewardsGold/poppinsCyan/planPurple in `orbit-theme.ts`) stay fixed regardless
  * of which pack is active.
  *
  * Logo directions (`choremaxx_logo_color_directions`): Sky, Citrus, Coral, Berry.

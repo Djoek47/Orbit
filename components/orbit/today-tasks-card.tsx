@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
@@ -11,14 +11,17 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
+import { Avatar } from '@/components/orbit/avatar';
 import { FireEdgeProgress } from '@/components/orbit/fire-edge-progress';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
+import { isAvatarImageUri, MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
+import { isTodayTask } from '@/lib/tasks/today';
 import type { AccentTheme } from '@/constants/accent-themes';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type TodayTasksCardProps = {
   tasks: HouseholdTask[];
@@ -38,17 +41,6 @@ function openTasksTab(memberName?: string) {
     pathname: '/tasks',
     params: { member: memberName ?? '' },
   } as never);
-}
-
-function isTodayTask(task: HouseholdTask) {
-  if (task.status === 'Cancelled') return false;
-  return (
-    /today/i.test(task.due) ||
-    task.status === 'Overdue' ||
-    task.status === 'Pending' ||
-    task.status === 'In Progress' ||
-    task.status === 'Completed'
-  );
 }
 
 function PersonChipEnter({ index, children }: { index: number; children: ReactNode }) {
@@ -82,7 +74,7 @@ export function TodayTasksCard({
   const [size, setSize] = useState({ width: 0, height: 0 });
 
   const scoped = useMemo(() => {
-    const today = tasks.filter(isTodayTask);
+    const today = tasks.filter((task) => isTodayTask(task));
     if (mineOnly && currentMember) {
       return today.filter((task) => taskMatchesAssignee(task, currentMember.name));
     }
@@ -190,7 +182,14 @@ export function TodayTasksCard({
               {perPerson.map((row, index) => {
                 const chip = (
                   <>
-                    <Text style={styles.personEmoji}>{memberDisplayEmoji(row.member)}</Text>
+                    <Avatar
+                      name={row.member.name}
+                      emoji={memberDisplayEmoji(row.member)}
+                      imageUri={
+                        isAvatarImageUri(row.member.avatar) ? row.member.avatar : undefined
+                      }
+                      size="xs"
+                    />
                     <Text style={[styles.personName, { color: row.color }]} numberOfLines={1}>
                       {row.member.name}
                     </Text>

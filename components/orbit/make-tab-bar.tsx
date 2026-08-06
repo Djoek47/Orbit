@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimatedTrophyTab } from '@/components/orbit/animated-trophy-tab';
@@ -12,10 +12,12 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { orbitTabColors, radius, shadow, space } from '@/constants/orbit-theme';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
+import { capabilitiesFor, DEFAULT_REWARD_MODEL } from '@/lib/rewards/reward-model';
 import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
-const TAB_ORDER = ['index', 'tasks', 'plan', 'rewards', 'nova'] as const;
+const TAB_ORDER = ['index', 'tasks', 'plan', 'rewards', 'poppins'] as const;
 type TabRoute = (typeof TAB_ORDER)[number];
 
 const TAB_META: Record<
@@ -26,7 +28,7 @@ const TAB_META: Record<
   tasks: { label: 'Tasks', color: orbitTabColors.tasks, icon: 'checklist' },
   plan: { label: 'Plan', color: orbitTabColors.plan, icon: 'calendar' },
   rewards: { label: 'Rewards', color: orbitTabColors.ranking, icon: 'trophy.fill' },
-  nova: { label: 'Nova', color: orbitTabColors.nova, icon: 'sparkles' },
+  poppins: { label: 'Poppins', color: orbitTabColors.poppins, icon: 'sparkles' },
 };
 
 /** Hold each word long enough for the morph (~720ms) to feel magical. */
@@ -57,21 +59,33 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
     return member.role === 'child' || isSharedDeviceAccount(member, members);
   }, [orbit?.currentMember, orbit?.household.members]);
 
+  const modelCaps = useMemo(
+    () => capabilitiesFor(orbit?.household.rewardModel ?? DEFAULT_REWARD_MODEL),
+    [orbit?.household.rewardModel]
+  );
+
   const canAffordRedeem = useMemo(() => {
-    const xp = orbit?.currentMember?.xp ?? 0;
+    if (!modelCaps.rewardsEnabled) return false;
     const rewards = orbit?.household.rewards ?? [];
-    return rewards.some((reward) => !reward.archived && reward.cost > 0 && xp >= reward.cost);
-  }, [orbit?.currentMember?.xp, orbit?.household.rewards]);
+    // v2 §6.1: rewards are grants, not XP purchases — animate when any live reward exists.
+    return rewards.some((reward) => !reward.archived);
+  }, [modelCaps.rewardsEnabled, orbit?.household.rewards]);
 
   const rewardsCycle = useMemo(() => {
-    if (isChildMode) {
-      // Prefer Redeem in the cycle when they can actually claim something.
-      return canAffordRedeem
-        ? (['Redeem', 'Ranks'] as const)
-        : (['Ranks', 'Redeem'] as const);
+    const labels: Array<'Rewards' | 'Ranks' | 'Redeem' | 'Allowance'> = [];
+    if (modelCaps.rewardsEnabled) {
+      labels.push(isChildMode ? 'Redeem' : 'Rewards');
     }
-    return (['Rewards', 'Ranks'] as const);
-  }, [canAffordRedeem, isChildMode]);
+    if (modelCaps.xpEnabled) labels.push('Ranks');
+    if (modelCaps.allowanceEnabled && !modelCaps.rewardsEnabled && !modelCaps.xpEnabled) {
+      labels.push('Allowance');
+    }
+    if (labels.length === 0) labels.push('Rewards');
+    if (isChildMode && modelCaps.rewardsEnabled && canAffordRedeem && labels[0] !== 'Redeem') {
+      return ['Redeem', ...labels.filter((l) => l !== 'Redeem')] as typeof labels;
+    }
+    return labels;
+  }, [canAffordRedeem, isChildMode, modelCaps]);
 
   const [cycleIndex, setCycleIndex] = useState(0);
 
@@ -95,7 +109,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
     return { route };
   }).filter((item): item is NonNullable<typeof item> => item !== null);
 
-  const novaIdleColors = isDark
+  const poppinsIdleColors = isDark
     ? (['#0F2644', '#0A1E38'] as const)
     : ([`${accentPrimary}33`, `${accentSecondary}28`] as const);
 
@@ -143,7 +157,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           const meta = TAB_META[route.name as TabRoute];
           if (!meta) return null;
 
-          const isNova = route.name === 'nova';
+          const isPoppins = route.name === 'poppins';
           const isRewards = route.name === 'rewards';
           const label = isRewards ? rewardsLabel : meta.label;
           const color = isFocused
@@ -163,18 +177,20 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               canPreventDefault: true,
             });
             if (!isFocused && !event.defaultPrevented) {
-              if (isRewards && rewardsLabel === 'Redeem') {
+              if (isRewards && (rewardsLabel === 'Redeem' || rewardsLabel === 'Rewards')) {
                 navigation.navigate(route.name, { surface: 'rewards' });
               } else if (isRewards && rewardsLabel === 'Ranks') {
                 navigation.navigate(route.name, { surface: 'ranks' });
-              } else if (isRewards && rewardsLabel === 'Rewards') {
-                navigation.navigate(route.name, { surface: 'rewards' });
+              } else if (isRewards && rewardsLabel === 'Allowance') {
+                navigation.navigate(route.name, { surface: 'allowance' });
               } else {
                 navigation.navigate(route.name, route.params);
               }
             } else if (isFocused && isRewards) {
               if (rewardsLabel === 'Redeem' || rewardsLabel === 'Rewards') {
                 navigation.navigate(route.name, { surface: 'rewards' });
+              } else if (rewardsLabel === 'Allowance') {
+                navigation.navigate(route.name, { surface: 'allowance' });
               } else {
                 navigation.navigate(route.name, { surface: 'ranks' });
               }
@@ -189,7 +205,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           };
 
           const labelColor = isFocused
-            ? isNova
+            ? isPoppins
               ? accentPrimary
               : color
             : isRewards && canAffordRedeem && rewardsLabel === 'Redeem'
@@ -204,15 +220,15 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               accessibilityLabel={descriptors[route.key].options.tabBarAccessibilityLabel ?? label}
               onPress={onPress}
               onLongPress={onLongPress}
-              style={[styles.tab, isNova && styles.novaTab]}>
-              {isNova ? (
+              style={[styles.tab, isPoppins && styles.poppinsTab]}>
+              {isPoppins ? (
                 <LinearGradient
-                  colors={isFocused ? [accentPrimary, accentSecondary] : [...novaIdleColors]}
+                  colors={isFocused ? [accentPrimary, accentSecondary] : [...poppinsIdleColors]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={[
-                    styles.novaButton,
-                    isFocused ? styles.novaButtonActive : styles.novaButtonInactive,
+                    styles.poppinsButton,
+                    isFocused ? styles.poppinsButtonActive : styles.poppinsButtonInactive,
                     {
                       borderColor: `${accentPrimary}66`,
                       shadowColor: accentPrimary,
@@ -270,7 +286,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                       fontWeight: isFocused ? (typeStyle?.captionWeight ?? '600') : '400',
                       letterSpacing: isFocused ? (typeStyle?.letterSpacing ?? 0) : 0,
                     },
-                    isNova && styles.novaLabel,
+                    isPoppins && styles.poppinsLabel,
                   ]}>
                   {label}
                 </Text>
@@ -305,7 +321,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingBottom: 4,
   },
-  novaTab: {
+  poppinsTab: {
     paddingBottom: 0,
   },
   iconColumn: {
@@ -324,7 +340,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     width: 4,
   },
-  novaButton: {
+  poppinsButton: {
     alignItems: 'center',
     borderColor: 'rgba(56, 189, 248, 0.4)',
     borderRadius: 24,
@@ -334,14 +350,14 @@ const styles = StyleSheet.create({
     marginTop: -20,
     width: 48,
   },
-  novaButtonActive: {
+  poppinsButtonActive: {
     elevation: 8,
     shadowColor: '#38BDF8',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
   },
-  novaButtonInactive: {
+  poppinsButtonInactive: {
     elevation: 4,
     shadowColor: '#38BDF8',
     shadowOffset: { width: 0, height: 0 },
@@ -359,7 +375,7 @@ const styles = StyleSheet.create({
     minHeight: 13,
     width: '100%',
   },
-  novaLabel: {
+  poppinsLabel: {
     marginTop: 2,
     textAlign: 'center',
   },

@@ -6,8 +6,8 @@ function isAway(member: { awayFrom?: string; awayTo?: string }, now = new Date()
   return t >= member.awayFrom && t <= member.awayTo;
 }
 
-/** Compact snapshot sent to Nova edge functions / Monitor Agent. */
-export function buildNovaHouseholdPayload(household: HouseholdSnapshot, metrics: OrbitMetrics) {
+/** Compact snapshot sent to Poppins edge functions / Monitor Agent. */
+export function buildPoppinsHouseholdPayload(household: HouseholdSnapshot, metrics: OrbitMetrics) {
   return {
     householdName: household.householdName,
     greetingName: household.greetingName,

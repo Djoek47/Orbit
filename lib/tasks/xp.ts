@@ -1,10 +1,10 @@
-import { LATE_XP_PENALTY_RATE } from '@/data/task-presets';
 import {
   isXpEligible,
   normalizeRewardSettings,
   resolveTaskXpFromHouseholdTask,
   type HouseholdRewardSettings,
 } from '@/lib/rewards/reward-mode';
+import { calculateAward } from '@/lib/scoring/calculate-award';
 import type { HouseholdTask, TaskDifficulty } from '@/types/orbit';
 
 const WEIGHT_BY_DIFFICULTY: Record<TaskDifficulty, number> = {
@@ -30,32 +30,50 @@ export function isHygieneTask(
   return !isXpEligible(task);
 }
 
-export function isTaskLate(task: HouseholdTask): boolean {
+export function isTaskLate(task: HouseholdTask, completedAt: Date = new Date()): boolean {
   if (task.status === 'Overdue') {
     return true;
   }
   if (task.dueAt) {
-    return new Date(task.dueAt).getTime() < Date.now();
+    return new Date(task.dueAt).getTime() < completedAt.getTime();
   }
   return /overdue/i.test(task.due);
 }
 
 /**
- * Award after mode resolution + late check. Snapshots go onto `awardedXp`.
- * Hygiene eligibility is resolved before reward mode (Meritocracy/Equity).
+ * Award after mode resolution. Snapshots go onto `awardedXp`.
+ * Revision D §1.2: late completions earn Late Credit (not full XP).
+ * Hygiene never earns Late Credit.
  */
 export function resolveCompletionXp(
   task: HouseholdTask,
   settings?: Partial<HouseholdRewardSettings> | null,
-  penaltyRate = LATE_XP_PENALTY_RATE
+  completedAt: Date | string = new Date()
 ) {
-  const late = isTaskLate(task);
   const rewardSettings = normalizeRewardSettings(settings);
   const base = resolveTaskXpFromHouseholdTask(task, rewardSettings);
   if (base <= 0) {
-    return { awarded: 0, penalty: 0, late, base: 0 };
+    return { awarded: 0, penalty: 0, late: false, base: 0, completedLate: false };
   }
-  const penalty = late ? Math.max(0, Math.floor(base * penaltyRate)) : 0;
-  const awarded = Math.max(0, base - penalty);
-  return { awarded, penalty, late, base };
+
+  const award = calculateAward(
+    {
+      xp: base,
+      dueAt: task.dueAt,
+      xpEligible: isXpEligible(task),
+      tracking: task.tracking,
+      category: task.category,
+    },
+    completedAt,
+    task.dueAt
+  );
+
+  const forgone = award.completedLate ? award.fullXp - award.awardedXp : 0;
+  return {
+    awarded: award.awardedXp,
+    penalty: forgone,
+    late: award.completedLate,
+    base: award.fullXp,
+    completedLate: award.completedLate,
+  };
 }

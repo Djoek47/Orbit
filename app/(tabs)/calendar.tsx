@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -12,6 +12,7 @@ import { orbitColors, orbitScreen, radius, space, typography } from '@/constants
 import { buildWeekStrip, groupHouseholdEvents } from '@/lib/calendar/event-groups';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type PlanSubTab = 'calendar' | 'itinerary';
 
@@ -125,7 +126,7 @@ export default function PlanScreen() {
             <GlassCard>
               <Text style={typography.headline}>No events yet</Text>
               <Text style={typography.footnote}>
-                Add school pickups, activities, and appointments so Nova can brief the household.
+                Add school pickups, activities, and appointments so Poppins can brief the household.
               </Text>
             </GlassCard>
           ) : selectedDay <= 1 ? (

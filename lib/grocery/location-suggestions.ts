@@ -40,7 +40,7 @@ export function buildStoreRecommendations(
         id: `${id}-ready`,
         householdId: id,
         title: 'You are stocked',
-        detail: 'No missing groceries right now. Nova will suggest a store when items go low.',
+        detail: 'No missing groceries right now. Poppins will suggest a store when items go low.',
         itemCount: 0,
         etaMinutes: 0,
       },

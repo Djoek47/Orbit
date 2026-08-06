@@ -1,11 +1,13 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   canPromoteToAdmin,
   familyAdminSeatsLabel,
@@ -22,6 +24,7 @@ import { formatHouseholdRole } from '@/lib/permissions';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdRole } from '@/types/orbit';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 const ROLE_CYCLE: HouseholdRole[] = ['adult', 'admin', 'child', 'guest', 'shared-device'];
 
@@ -60,9 +63,9 @@ export default function HouseholdMembersScreen() {
 
   const pending = household.members.filter((member) => member.status === 'pending');
   const active = household.members.filter((member) => member.status !== 'pending');
-  const adminSeats = familyAdminSeatsLabel(household.members, household.householdType);
+  const adminSeats = familyAdminSeatsLabel(household.members);
   const admins = getAdminMembers(household.members);
-  const familyCap = usesFamilyAdminCap(household.householdType);
+  const familyCap = usesFamilyAdminCap();
   const linkCandidates = sharedDeviceLinkCandidates(household.members);
 
   const handleChangeRole = (memberId: string, currentRole: HouseholdRole) => {
@@ -193,7 +196,7 @@ export default function HouseholdMembersScreen() {
 
       {permissions.canInviteMembers ? (
         <GlassCard style={styles.card}>
-          <Text style={typography.headline}>Invite adult / roommate</Text>
+          <Text style={typography.headline}>Invite adult</Text>
           <Text style={typography.footnote}>
             They create their own account with this invite and stay pending until you approve.
           </Text>
@@ -273,7 +276,12 @@ export default function HouseholdMembersScreen() {
           {pending.map((member) => (
             <GlassCard key={member.id} style={styles.card}>
               <View style={styles.memberHeader}>
-                <Text style={[styles.avatar, { color: c.text }]}>{member.avatar}</Text>
+                <Avatar
+                  name={member.name}
+                  emoji={memberDisplayEmoji(member)}
+                  imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
+                  size="m"
+                />
                 <View style={styles.memberCopy}>
                   <Text style={typography.headline}>{member.name}</Text>
                   <Text style={typography.footnote}>
@@ -312,7 +320,12 @@ export default function HouseholdMembersScreen() {
       {active.map((member) => (
         <GlassCard key={member.id} style={styles.card}>
           <View style={styles.memberHeader}>
-            <Text style={[styles.avatar, { color: c.text }]}>{member.avatar}</Text>
+            <Avatar
+              name={member.name}
+              emoji={memberDisplayEmoji(member)}
+              imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
+              size="m"
+            />
             <View style={styles.memberCopy}>
               <Text style={typography.headline}>{member.name}</Text>
               <Text style={typography.footnote}>
@@ -360,7 +373,7 @@ export default function HouseholdMembersScreen() {
                           { color: c.textMuted },
                           linked && styles.linkChipTextActive,
                         ]}>
-                        {person.avatar} {person.name}
+                        {memberDisplayEmoji(person)} {person.name}
                       </Text>
                     </Pressable>
                   );

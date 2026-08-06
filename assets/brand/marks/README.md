@@ -9,4 +9,8 @@ Classic house logo (sparkle + roof + body) recolored per palette — not the che
 | `choremaxx-mark-berry.png` | Berry |
 | `choremaxx-mark-citrus.png` | Citrus |
 
+Plated PNGs use a **cream/white roof** on the primary plate so the full house stays visible (roof must never match `bg`).
+
+Home-screen alternates live in [`../icons/`](../icons/) (`icon-{palette}.png` + dark/tinted/foreground). Regenerate with `npm run generate:brand-marks`.
+
 In-app UI uses the themeable SVG `ChoremaxxIcon`. Wordmark: **chore** = secondary, **maxx** = primary.

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -7,9 +7,10 @@ import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function AnalyticsScreen() {
-  const { household, metrics, novaWeeklyBriefing, permissions } = useOrbit();
+  const { household, metrics, poppinsWeeklyBriefing, permissions } = useOrbit();
   const { c } = useOrbitColors();
 
   if (!permissions.canViewAnalytics) {
@@ -38,7 +39,7 @@ export default function AnalyticsScreen() {
       <View style={orbitScreen.header}>
         <Text style={typography.footnote}>Owner / admin</Text>
         <Text style={typography.title1}>Analytics</Text>
-        <Text style={typography.body}>Participation, momentum, and Nova usage for {household.householdName}.</Text>
+        <Text style={typography.body}>Participation, momentum, and Poppins usage for {household.householdName}.</Text>
       </View>
 
       <GlassCard style={styles.card}>
@@ -58,17 +59,17 @@ export default function AnalyticsScreen() {
           calendar ({metrics.calendarCoverage}%)
         </Text>
         <Text style={typography.footnote}>
-          Weekly delta {novaWeeklyBriefing.momentumChange >= 0 ? '+' : ''}
-          {novaWeeklyBriefing.momentumChange}
+          Weekly delta {poppinsWeeklyBriefing.momentumChange >= 0 ? '+' : ''}
+          {poppinsWeeklyBriefing.momentumChange}
         </Text>
       </GlassCard>
 
       <GlassCard style={styles.card}>
-        <StatusPill label="Nova usage" tone="green" />
-        <Text style={[styles.metric, { color: c.text }]}>{novaWeeklyBriefing.recommendations.length}</Text>
+        <StatusPill label="Poppins usage" tone="green" />
+        <Text style={[styles.metric, { color: c.text }]}>{poppinsWeeklyBriefing.recommendations.length}</Text>
         <Text style={typography.footnote}>Active recommendation slots this week</Text>
-        <Text style={typography.footnote}>Briefing: {novaWeeklyBriefing.title}</Text>
-        <Text style={typography.footnote}>Ask Nova from the Nova tab for live co-manager guidance.</Text>
+        <Text style={typography.footnote}>Briefing: {poppinsWeeklyBriefing.title}</Text>
+        <Text style={typography.footnote}>Ask Poppins from the Poppins tab for live co-manager guidance.</Text>
       </GlassCard>
 
       <OrbitButton onPress={() => router.push('/weekly-report' as never)}>Open weekly report</OrbitButton>

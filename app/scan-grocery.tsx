@@ -2,15 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, router } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OrbitInput } from '@/components/orbit/orbit-input';
@@ -20,6 +12,7 @@ import { fetchOpenFoodFactsProduct } from '@/lib/grocery/open-food-facts';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { ProductCatalogItem } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 function nutriTone(
   score: string | undefined,
@@ -164,8 +157,8 @@ export default function ScanGroceryScreen() {
               styles.secondaryBtn,
               { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) },
             ]}>
-            <MaterialIcons name="qr-code-scanner" size={18} color={c.novaCyan} />
-            <Text style={[styles.secondaryText, { color: c.novaCyan }]}>Open scanner</Text>
+            <MaterialIcons name="qr-code-scanner" size={18} color={c.poppinsCyan} />
+            <Text style={[styles.secondaryText, { color: c.poppinsCyan }]}>Open scanner</Text>
           </Pressable>
         )}
 
@@ -233,13 +226,13 @@ export default function ScanGroceryScreen() {
                     : `$${product.typicalPrice.toFixed(2)} est.`}
                 </Text>
                 {product.source === 'openfoodfacts' ? (
-                  <Text style={[styles.source, { color: c.novaCyan }]}>Open Food Facts</Text>
+                  <Text style={[styles.source, { color: c.poppinsCyan }]}>Open Food Facts</Text>
                 ) : product.source === 'unknown' ? (
-                  <Text style={[styles.source, { color: c.novaCyan }]}>
+                  <Text style={[styles.source, { color: c.poppinsCyan }]}>
                     Unknown barcode · add anyway
                   </Text>
                 ) : (
-                  <Text style={[styles.source, { color: c.novaCyan }]}>Mock catalog</Text>
+                  <Text style={[styles.source, { color: c.poppinsCyan }]}>Mock catalog</Text>
                 )}
               </View>
             </View>

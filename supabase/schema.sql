@@ -32,6 +32,12 @@ create table if not exists public.households (
   owner_id uuid not null references public.profiles(id) on delete cascade,
   timezone text not null default 'America/Montreal',
   country text,
+  reward_mode text not null default 'weighted' check (reward_mode in ('weighted', 'flat')),
+  reward_model text not null default 'full'
+    check (reward_model in ('xp_only', 'allowance', 'xp_rewards', 'xp_allowance', 'full')),
+  hygiene_rewarded boolean not null default false,
+  hygiene_xp integer not null default 5 check (hygiene_xp in (5, 10)),
+  member_capabilities jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -506,6 +512,8 @@ begin
   values (
     new.id,
     coalesce(new.email, ''),
+    -- Email local-part fallback can be an Apple private-relay token; the app
+    -- treats those as incomplete via isProfileNameComplete and forces a name step.
     coalesce(new.raw_user_meta_data->>'display_name', split_part(coalesce(new.email, 'orbit'), '@', 1)),
     new.raw_user_meta_data->>'avatar_url'
   )

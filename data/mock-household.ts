@@ -1,6 +1,6 @@
 import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
 import { DEFAULT_ACCENT_THEME_ID } from '@/constants/accent-themes';
-import { DEFAULT_NOVA_NOTIFICATION_PREFS } from '@/services/nova-notifications';
+import { DEFAULT_POPPINS_NOTIFICATION_PREFS } from '@/services/poppins-notifications';
 import type { HouseholdSnapshot, OrbitUser } from '@/types/orbit';
 
 function todayKey(offset = 0) {
@@ -31,6 +31,8 @@ export const mockHousehold: HouseholdSnapshot = {
   preferredStoreId: 'store-freshmart',
   accentThemeId: DEFAULT_ACCENT_THEME_ID,
   rewardMode: 'weighted',
+  rewardModel: 'full',
+  setupComplete: true,
   hygieneRewarded: false,
   hygieneXp: 5,
   timezone: 'America/Toronto',
@@ -40,6 +42,7 @@ export const mockHousehold: HouseholdSnapshot = {
   notificationHour: 8,
   memberCapabilities: {
     allowRewardRedeem: true,
+    allowAllowance: true,
     allowSpecialRewardRequest: true,
     allowGroceryAdd: false,
     allowCalendarCreate: false,
@@ -119,7 +122,7 @@ export const mockHousehold: HouseholdSnapshot = {
       pickupItemNames: [],
     },
   ],
-  notificationPrefs: { ...DEFAULT_NOVA_NOTIFICATION_PREFS },
+  notificationPrefs: { ...DEFAULT_POPPINS_NOTIFICATION_PREFS },
   taskTemplates: [],
   members: [
     {
@@ -145,7 +148,7 @@ export const mockHousehold: HouseholdSnapshot = {
       streak: 8,
       loadShare: 34,
       accentThemeId: 'berry',
-      // On a short work trip — Nova Monitor skips task nudges
+      // On a short work trip — Poppins Monitor skips task nudges
       awayFrom: todayKey(0),
       awayTo: todayKey(2),
     },
@@ -690,7 +693,7 @@ export const mockHousehold: HouseholdSnapshot = {
       title: 'After-school run',
       date: todayKey(0),
       status: 'active',
-      suggestedByNova: true,
+      suggestedByPoppins: true,
       favorite: true,
       summary: 'Leave by 2:50 · 3 stops · ~42 min',
       stops: [
@@ -735,7 +738,7 @@ export const mockHousehold: HouseholdSnapshot = {
       title: 'Oak Road Errands Loop',
       date: todayKey(1),
       status: 'active',
-      suggestedByNova: true,
+      suggestedByPoppins: true,
       summary:
         'Dentist, pharmacy, and dry cleaner are all within 0.4 miles of each other on Oak Road. Combining saves 42 minutes vs. separate trips.',
       stops: [
@@ -777,7 +780,7 @@ export const mockHousehold: HouseholdSnapshot = {
       title: 'Thursday Grocery Circuit',
       date: todayKey(4),
       status: 'active',
-      suggestedByNova: true,
+      suggestedByPoppins: true,
       summary:
         "Trader Joe's, Costco, and the hardware store are on the same route. Thursday has the lightest traffic — best time to go.",
       stops: [
@@ -829,7 +832,7 @@ export const mockHousehold: HouseholdSnapshot = {
       title: 'Monday Evening Loop',
       date: todayKey(-2),
       status: 'completed',
-      suggestedByNova: true,
+      suggestedByPoppins: true,
       summary: 'Saved 28m · 3 stops',
       stops: [
         {
@@ -870,7 +873,7 @@ export const mockHousehold: HouseholdSnapshot = {
       title: 'Weekend Grocery Circuit',
       date: todayKey(-5),
       status: 'completed',
-      suggestedByNova: true,
+      suggestedByPoppins: true,
       summary: 'Saved 52m · 4 stops',
       stops: [
         {
@@ -887,23 +890,24 @@ export const mockHousehold: HouseholdSnapshot = {
     },
   ],
   rewards: [
-    { id: 'r1', title: 'Movie Night', cost: 150, approvalRequired: true, emoji: '🎬', category: 'Experience', color: '#A78BFA', origin: 'minted' },
-    { id: 'r2', title: 'Ice Cream Trip', cost: 80, approvalRequired: true, emoji: '🍦', category: 'Treat', color: '#FB923C', origin: 'minted' },
-    { id: 'r3', title: 'Extra Screen Time', cost: 60, approvalRequired: true, emoji: '📱', category: 'Screen', color: '#38BDF8', origin: 'minted' },
-    { id: 'r4', title: 'Gaming Hour', cost: 50, approvalRequired: true, emoji: '🎮', category: 'Screen', color: '#34D399', origin: 'minted' },
-    { id: 'r5', title: '$5 Allowance', cost: 200, approvalRequired: true, emoji: '🛍️', category: 'Money', color: '#F59E0B', origin: 'minted' },
-    { id: 'r6', title: 'Choose Dinner', cost: 120, approvalRequired: true, emoji: '🚗', category: 'Experience', color: '#F472B6', origin: 'minted' },
-    { id: 'r7', title: 'Late Bedtime', cost: 90, approvalRequired: true, emoji: '😴', category: 'Privilege', color: '#2DD4BF', origin: 'minted' },
-    { id: 'r8', title: 'Mystery Box', cost: 300, approvalRequired: true, emoji: '🎁', category: 'Special', color: '#F59E0B', origin: 'minted' },
+    { id: 'r1', title: 'Additional screen time', cost: 0, approvalRequired: true, category: 'Privilege', color: '#38BDF8', origin: 'minted', frequency: 'daily', quantity: '30 min', presetId: 'preset-screen-time' },
+    { id: 'r2', title: 'Video game time', cost: 0, approvalRequired: true, category: 'Privilege', color: '#34D399', origin: 'minted', frequency: 'daily', quantity: '1 hr', presetId: 'preset-video-game-time' },
+    { id: 'r3', title: 'Dessert choice', cost: 0, approvalRequired: true, category: 'Privilege', color: '#FB923C', origin: 'minted', frequency: 'daily', presetId: 'preset-dessert' },
+    { id: 'r4', title: 'Choose dinner', cost: 0, approvalRequired: true, category: 'Privilege', color: '#F472B6', origin: 'minted', frequency: 'weekly', presetId: 'preset-choose-dinner' },
+    { id: 'r5', title: 'Choose breakfast', cost: 0, approvalRequired: true, category: 'Privilege', color: '#F59E0B', origin: 'minted', frequency: 'weekly', presetId: 'preset-choose-breakfast' },
+    { id: 'r6', title: 'Choose the movie', cost: 0, approvalRequired: true, category: 'Privilege', color: '#A78BFA', origin: 'minted', frequency: 'weekly', presetId: 'preset-choose-movie' },
+    { id: 'r7', title: 'New video game', cost: 0, approvalRequired: true, category: 'Privilege', color: '#2DD4BF', origin: 'minted', frequency: 'monthly', presetId: 'preset-new-video-game' },
+    { id: 'r8', title: 'Big outing', cost: 0, approvalRequired: true, category: 'Privilege', color: '#F59E0B', origin: 'minted', frequency: 'monthly', subtitle: 'bowling, trampoline park, arcade, cinema', presetId: 'preset-big-outing' },
     {
       id: 'r9',
-      title: 'Liam gaming bonus',
-      cost: 40,
+      title: 'Room upgrade item',
+      cost: 0,
       approvalRequired: true,
-      emoji: '🕹️',
-      category: 'Screen',
+      category: 'Privilege',
       color: '#34D399',
       origin: 'minted',
+      frequency: 'monthly',
+      presetId: 'preset-room-upgrade',
       assignedMemberId: 'm4',
       assignedMemberName: 'Liam',
     },
@@ -913,8 +917,8 @@ export const mockHousehold: HouseholdSnapshot = {
     { id: 'b2', title: 'Dish Master', icon: 'local-dining', progress: 0.45 },
     { id: 'b3', title: 'Perfect Week', icon: 'workspace-premium', progress: 0.58 },
   ],
-  nova: {
-    title: 'Nova morning briefing',
+  poppins: {
+    title: 'Poppins morning briefing',
     summary:
       'Your household momentum is strong today. James already picked up groceries. Two tasks need your attention.',
     actions: ['View Itineraries', 'See Tasks', 'Open groceries'],
@@ -937,13 +941,17 @@ export function createEmptyHousehold(user: OrbitUser): HouseholdSnapshot {
     accentThemeId: DEFAULT_ACCENT_THEME_ID,
     memberCapabilities: {
       allowRewardRedeem: true,
+    allowAllowance: true,
       allowSpecialRewardRequest: false,
       allowGroceryAdd: false,
       allowCalendarCreate: false,
     },
     rooms: DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
     savedPlaces: [],
-    notificationPrefs: { ...DEFAULT_NOVA_NOTIFICATION_PREFS },
+    notificationPrefs: { ...DEFAULT_POPPINS_NOTIFICATION_PREFS },
+    rewardModel: 'full',
+    rewardMode: 'weighted',
+    setupComplete: false,
     taskTemplates: [],
     members: [],
     tasks: [],
@@ -952,7 +960,7 @@ export function createEmptyHousehold(user: OrbitUser): HouseholdSnapshot {
     itineraries: [],
     rewards: [],
     badges: [],
-    nova: {
+    poppins: {
       title: 'Welcome to Choremaxx',
       summary: 'Create or join a household to start building your daily rhythm.',
       actions: ['Create household', 'Join household'],

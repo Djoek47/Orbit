@@ -1,12 +1,16 @@
 import {
   DEFAULT_HOUSEHOLD_REWARD_SETTINGS,
+  displayTaskXp,
   FLAT_TASK_XP,
   isXpEligible,
   normalizeRewardSettings,
   resolveTaskXp,
+  resolveTaskXpFromHouseholdTask,
   type HouseholdRewardSettings,
   type XpContext,
 } from '@/lib/rewards/reward-mode';
+import { splitAllDoneBonus, splitShareXp } from '@/lib/tasks/split-assign';
+import type { HouseholdTask } from '@/types/orbit';
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(msg);
@@ -73,6 +77,53 @@ export function runRewardModeTests(): string[] {
   };
   assert(settings.rewardMode === 'weighted', 'defaults object');
   pass('defaults object ok');
+
+  const flatSettings: HouseholdRewardSettings = {
+    rewardMode: 'flat',
+    hygieneRewarded: false,
+    hygieneXp: 5,
+  };
+  const sampleTask = {
+    xp: 30,
+    baseXp: 30,
+    tracking: 'xp' as const,
+    category: 'Cleaning',
+  };
+  assert(
+    resolveTaskXpFromHouseholdTask(sampleTask, flatSettings) === FLAT_TASK_XP,
+    'household task flat'
+  );
+  assert(displayTaskXp(sampleTask, flatSettings) === FLAT_TASK_XP, 'display pending flat');
+  assert(
+    displayTaskXp({ ...sampleTask, awardedXp: 10, status: 'Completed' }, flatSettings) === 10,
+    'display awarded'
+  );
+  pass('12 displayTaskXp / household resolve');
+
+  const splitTask = {
+    id: 't1',
+    title: 'Mow',
+    category: 'Yard',
+    assignee: 'A & B',
+    assignees: ['A', 'B'],
+    due: 'Today',
+    xp: 30,
+    baseXp: 30,
+    splitXpEach: 15,
+    tracking: 'xp' as const,
+    xpEligible: true,
+    repeat: 'None' as const,
+    status: 'Pending' as const,
+    shares: [
+      { name: 'A', status: 'Pending' as const },
+      { name: 'B', status: 'Pending' as const },
+    ],
+  } satisfies HouseholdTask;
+  assert(splitShareXp(splitTask, flatSettings) === FLAT_TASK_XP, 'split share flat');
+  assert(splitShareXp(splitTask, settings) === 15, 'split share weighted');
+  assert(splitAllDoneBonus(splitTask, flatSettings) === 10, 'split bonus full = BUNDLE_BONUS_FULL');
+  assert(splitAllDoneBonus(splitTask, flatSettings, true) === 7, 'split bonus late = BUNDLE_BONUS_LATE');
+  pass('13 split XP respects Equity + Rev D bundle bonus');
 
   return logs;
 }

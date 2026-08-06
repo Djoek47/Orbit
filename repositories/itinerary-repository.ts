@@ -45,7 +45,7 @@ export const itineraryRepository = {
       date: input.date,
       status: 'active',
       stops,
-      suggestedByNova: input.suggestedByNova,
+      suggestedByPoppins: input.suggestedByPoppins,
       summary: input.summary,
       favorite: false,
     };

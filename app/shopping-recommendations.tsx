@@ -2,11 +2,12 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function ShoppingRecommendationsScreen() {
   const insets = useSafeAreaInsets();
@@ -19,7 +20,7 @@ export default function ShoppingRecommendationsScreen() {
     refreshStoreRecommendations,
     setPreferredStore,
     storeRecommendations,
-    suggestNovaItinerary,
+    suggestPoppinsItinerary,
   } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
   const [busy, setBusy] = useState(false);
@@ -31,7 +32,7 @@ export default function ShoppingRecommendationsScreen() {
   async function startTrip() {
     setBusy(true);
     try {
-      const created = await suggestNovaItinerary();
+      const created = await suggestPoppinsItinerary();
       if (created) {
         router.push(`/itinerary/${created.id}` as never);
       } else {
@@ -102,7 +103,7 @@ export default function ShoppingRecommendationsScreen() {
                 <Text style={[styles.body, { color: c.textSoft }]}>{store.description}</Text>
               ) : null}
               {typeof store.etaMinutes === 'number' && store.etaMinutes > 0 ? (
-                <Text style={[styles.eta, { color: c.novaCyan }]}>{store.etaMinutes} min away</Text>
+                <Text style={[styles.eta, { color: c.poppinsCyan }]}>{store.etaMinutes} min away</Text>
               ) : null}
               {store.storeId ? (
                 active ? (

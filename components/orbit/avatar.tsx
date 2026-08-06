@@ -1,7 +1,10 @@
-import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
+import { StyleSheet, View, ViewStyle } from 'react-native';
 
 import { radius } from '@/constants/orbit-theme';
+import { isAvatarImageUri } from '@/lib/game-levels';
 import { useOrbitOptional } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export type AvatarSize = 'xs' | 's' | 'm' | 'l' | 'xl';
 
@@ -20,6 +23,8 @@ type AvatarProps = {
   name: string;
   /** Emoji or single-character glyph to show instead of the initial. */
   emoji?: string;
+  /** Local or remote photo URI — takes precedence over emoji when valid. */
+  imageUri?: string | null;
   size?: AvatarSize;
   /** Small colored dot in the corner (online/active/etc). */
   statusColor?: string;
@@ -27,11 +32,19 @@ type AvatarProps = {
 };
 
 /** Shared person representation — see docs/design-system/05-component-library.md "Avatar". */
-export function Avatar({ name, emoji, size = 'm', statusColor, style }: AvatarProps) {
+export function Avatar({
+  name,
+  emoji,
+  imageUri,
+  size = 'm',
+  statusColor,
+  style,
+}: AvatarProps) {
   const orbit = useOrbitOptional();
   const accent = orbit?.accentTheme.primary ?? '#38BDF8';
   const shell = orbit?.orbitPalette.background ?? '#070D1C';
   const dimension = SIZES[size];
+  const photo = imageUri && isAvatarImageUri(imageUri) ? imageUri : null;
   const glyph = emoji || name.trim().charAt(0).toUpperCase() || '?';
 
   return (
@@ -43,11 +56,21 @@ export function Avatar({ name, emoji, size = 'm', statusColor, style }: AvatarPr
           width: dimension,
           height: dimension,
           borderRadius: radius.full,
-          backgroundColor: `${accent}26`,
+          backgroundColor: photo ? 'transparent' : `${accent}26`,
+          overflow: 'hidden',
         },
         style,
       ]}>
-      <Text style={{ fontSize: dimension * FONT_RATIO }}>{glyph}</Text>
+      {photo ? (
+        <Image
+          source={{ uri: photo }}
+          style={{ width: dimension, height: dimension }}
+          contentFit="cover"
+          accessibilityIgnoresInvertColors
+        />
+      ) : (
+        <Text style={{ fontSize: dimension * FONT_RATIO }}>{glyph}</Text>
+      )}
       {statusColor ? (
         <View
           style={[
@@ -70,7 +93,6 @@ const styles = StyleSheet.create({
   root: {
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'visible',
   },
   statusDot: {
     borderWidth: 2,

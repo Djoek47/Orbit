@@ -1,5 +1,11 @@
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
 import { childInviteEmoji } from '@/lib/household/child-invites';
+import {
+  clearActiveMockHousehold,
+  loadActiveMockHousehold,
+  saveActiveMockHousehold,
+} from '@/lib/household/mock-active-household';
+import { seedMockDomainsFromHousehold } from '@/lib/household/seed-mock-domains';
 import { buildInviteLinks, createInviteCode, normalizeInviteCode } from '@/lib/invites/parse-invite';
 import {
   mapBadgeRow,
@@ -10,22 +16,54 @@ import {
   mapRewardRow,
   mapTaskRow,
 } from '@/lib/mappers/orbit-mappers';
+import {
+  DEFAULT_REWARD_MODEL,
+  migrateLegacyRewardModel,
+  type RewardModel,
+} from '@/lib/rewards/reward-model';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type {
   CreateHouseholdInput,
   HouseholdMember,
   HouseholdRole,
   HouseholdSnapshot,
-  HouseholdType,
   InviteLinks,
   JoinHouseholdInput,
   OrbitUser,
 } from '@/types/orbit';
 import type { HouseholdInviteRow, HouseholdMemberRow, HouseholdRow } from '@/types/database';
 
+function migrateLoadedRewardModel(value: string | null | undefined): RewardModel {
+  return migrateLegacyRewardModel({ legacy: value ?? DEFAULT_REWARD_MODEL });
+}
+
 export const householdRepository = {
   async getHousehold(): Promise<HouseholdSnapshot> {
     if (isMockMode()) {
+      const active = await loadActiveMockHousehold();
+      if (active?.id && active.id !== mockHousehold.id) {
+        seedMockDomainsFromHousehold(active);
+        return clone(active);
+      }
+      if (active?.id === mockHousehold.id) {
+        // Persisted Rivera with member XP/settings edits — merge onto domain state.
+        seedMockDomainsFromHousehold({
+          ...active,
+          tasks: active.tasks?.length ? active.tasks : mockHousehold.tasks,
+          rewards: active.rewards?.length ? active.rewards : mockHousehold.rewards,
+          groceries: active.groceries?.length ? active.groceries : mockHousehold.groceries,
+          events: active.events?.length ? active.events : mockHousehold.events,
+        });
+        return clone({
+          ...mockHousehold,
+          ...active,
+          tasks: active.tasks?.length ? active.tasks : mockHousehold.tasks,
+          rewards: active.rewards?.length ? active.rewards : mockHousehold.rewards,
+          groceries: active.groceries?.length ? active.groceries : mockHousehold.groceries,
+          events: active.events?.length ? active.events : mockHousehold.events,
+          members: active.members?.length ? active.members : mockHousehold.members,
+        });
+      }
       return clone(mockHousehold);
     }
 
@@ -90,13 +128,18 @@ export const householdRepository = {
   async createHousehold(input: CreateHouseholdInput, user: OrbitUser): Promise<HouseholdSnapshot> {
     if (isMockMode()) {
       const base = createEmptyHousehold(user);
-      return {
+      const created: HouseholdSnapshot = {
         ...base,
         id: createLocalId('hh'),
         householdName: input.name.trim(),
-        householdType: input.type,
+        householdType: 'family',
         inviteCode: createInviteCode(),
         greetingName: user.name,
+        rewardMode: input.rewardMode ?? 'weighted',
+        rewardModel: input.rewardModel ?? 'full',
+        setupComplete: input.setupComplete ?? false,
+        hygieneRewarded: false,
+        hygieneXp: 5,
         rooms:
           input.rooms && input.rooms.length > 0
             ? input.rooms.map((room) => ({ ...room }))
@@ -114,24 +157,34 @@ export const householdRepository = {
             loadShare: 100,
           },
         ],
-        nova: {
+        poppins: {
           title: 'Your household is ready',
           summary: `${input.name.trim()} is ready. Add tasks, Plan events, and rewards when your household is set.`,
           actions: ['Invite members', 'Create task'],
         },
       };
+      seedMockDomainsFromHousehold(created);
+      await saveActiveMockHousehold(created);
+      return created;
     }
 
     const supabase = getConfiguredSupabase('householdRepository.createHousehold');
     const inviteCode = createInviteCode();
     const deepLink = buildInviteLinks(inviteCode).deepLink;
 
+    const rewardMode = input.rewardMode === 'flat' ? 'flat' : 'weighted';
+    const rewardModel = input.rewardModel ?? 'full';
+
     const { data: household, error: householdError } = await supabase
       .from('households')
       .insert({
         name: input.name.trim(),
-        household_type: input.type,
+        household_type: 'family',
         owner_id: user.id,
+        reward_mode: rewardMode,
+        reward_model: rewardModel,
+        hygiene_rewarded: false,
+        hygiene_xp: 5,
       } satisfies Partial<HouseholdRow> & Pick<HouseholdRow, 'name' | 'owner_id'>)
       .select('*')
       .single();
@@ -189,7 +242,7 @@ export const householdRepository = {
         inviteCode: code || mockHousehold.inviteCode,
         greetingName: user.name,
         members: [...existingWithoutDup, pendingMember],
-        nova: {
+        poppins: {
           title: 'Join request sent',
           summary:
             'Your household access is pending approval. Browse calmly — create/edit stays locked until an owner or admin accepts you.',
@@ -305,7 +358,7 @@ export const householdRepository = {
           loadShare: 0,
         },
       ],
-      nova: {
+      poppins: {
         title: 'Join request sent',
         summary: 'Waiting for an owner or admin to approve your access on Members.',
         actions: ['Check back soon', 'Message household owner'],
@@ -348,17 +401,32 @@ export const householdRepository = {
     householdId: string | null | undefined,
     name: string
   ): Promise<HouseholdMember> {
-    const trimmed = name.trim();
+    return this.createOnboardingMember(householdId, { name, role: 'child' });
+  },
+
+  /**
+   * Persist an onboarding roster person into household_members (no auth user).
+   * Roles: child (helpers/kids), adult/admin (co-parents pending their own join).
+   */
+  async createOnboardingMember(
+    householdId: string | null | undefined,
+    input: { name: string; role: HouseholdRole }
+  ): Promise<HouseholdMember> {
+    const trimmed = input.name.trim();
     if (!trimmed) {
-      throw new Error('householdRepository.createChildMember: name is required.');
+      throw new Error('householdRepository.createOnboardingMember: name is required.');
     }
+    const role: HouseholdRole =
+      input.role === 'admin' || input.role === 'adult' || input.role === 'child'
+        ? input.role
+        : 'child';
 
     const member: HouseholdMember = {
       id: createLocalId('member'),
       name: trimmed,
-      role: 'child',
+      role,
       status: 'active',
-      avatar: childInviteEmoji(trimmed),
+      avatar: role === 'child' ? childInviteEmoji(trimmed) : trimmed.charAt(0).toUpperCase(),
       xp: 0,
       weekXp: 0,
       streak: 0,
@@ -369,42 +437,55 @@ export const householdRepository = {
       .toUpperCase()
       .replace(/[^A-Z0-9]+/g, '')
       .slice(0, 6);
-    member.profileInviteCode = normalizeInviteCode(
-      fromName.length >= 3 ? `CMX-${fromName}` : createInviteCode(),
-    );
-    // Avoid colliding with an existing demo code in mock.
-    if (isMockMode()) {
-      const taken = new Set(
-        mockHousehold.members
-          .map((item) => item.profileInviteCode)
-          .filter((code): code is string => Boolean(code))
-          .map((code) => normalizeInviteCode(code)),
+    if (role === 'child') {
+      member.profileInviteCode = normalizeInviteCode(
+        fromName.length >= 3 ? `CMX-${fromName}` : createInviteCode(),
       );
-      let attempt = member.profileInviteCode!;
-      let n = 2;
-      while (taken.has(attempt)) {
-        attempt = normalizeInviteCode(`CMX-${fromName.slice(0, 4)}${n}`);
-        n += 1;
+    }
+
+    if (isMockMode()) {
+      if (member.profileInviteCode) {
+        const taken = new Set(
+          mockHousehold.members
+            .map((item) => item.profileInviteCode)
+            .filter((code): code is string => Boolean(code))
+            .map((code) => normalizeInviteCode(code)),
+        );
+        let attempt = member.profileInviteCode;
+        let n = 2;
+        while (taken.has(attempt)) {
+          attempt = normalizeInviteCode(`CMX-${fromName.slice(0, 4)}${n}`);
+          n += 1;
+        }
+        member.profileInviteCode = attempt;
       }
-      member.profileInviteCode = attempt;
-      // Only mutate the shared Rivera demo when inviting into that household.
-      if (!householdId || householdId === mockHousehold.id) {
+      // Prefer the active mock household when present; fall back to Rivera demo.
+      const active = await loadActiveMockHousehold();
+      if (active?.id && (!householdId || householdId === active.id)) {
+        const next = {
+          ...active,
+          members: [...active.members.filter((m) => m.id !== member.id), member],
+        };
+        await saveActiveMockHousehold(next);
+      } else if (!householdId || householdId === mockHousehold.id) {
         mockHousehold.members = [...mockHousehold.members, member];
       }
       return member;
     }
 
     if (!householdId) {
-      throw new Error('householdRepository.createChildMember: householdId is required in Supabase mode.');
+      throw new Error(
+        'householdRepository.createOnboardingMember: householdId is required in Supabase mode.'
+      );
     }
 
-    const supabase = getConfiguredSupabase('householdRepository.createChildMember');
+    const supabase = getConfiguredSupabase('householdRepository.createOnboardingMember');
     const { data, error } = await supabase
       .from('household_members')
       .insert({
         household_id: householdId,
         display_name: member.name,
-        role: 'child',
+        role,
         status: 'active',
         avatar_symbol: member.avatar,
         xp: 0,
@@ -414,10 +495,54 @@ export const householdRepository = {
       })
       .select('*')
       .single();
-    mapDbError('householdRepository.createChildMember', error);
+    mapDbError('householdRepository.createOnboardingMember', error);
 
-    const mapped = mapMemberRow(data as HouseholdMemberRow & { shared_with_member_ids?: string[] | null });
-    return { ...mapped, profileInviteCode: member.profileInviteCode, role: 'child' };
+    const mapped = mapMemberRow(
+      data as HouseholdMemberRow & { shared_with_member_ids?: string[] | null }
+    );
+    return { ...mapped, profileInviteCode: member.profileInviteCode, role };
+  },
+
+  async updateMemberDisplayName(
+    memberId: string,
+    name: string,
+    householdId?: string | null
+  ): Promise<HouseholdMember | null> {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error('householdRepository.updateMemberDisplayName: name is required.');
+    }
+
+    if (isMockMode()) {
+      const active = await loadActiveMockHousehold();
+      if (active?.id) {
+        const nextMembers = active.members.map((m) =>
+          m.id === memberId
+            ? { ...m, name: trimmed, avatar: m.avatar?.length === 1 ? trimmed.charAt(0).toUpperCase() : m.avatar }
+            : m
+        );
+        await saveActiveMockHousehold({ ...active, members: nextMembers });
+        return nextMembers.find((m) => m.id === memberId) ?? null;
+      }
+      mockHousehold.members = mockHousehold.members.map((m) =>
+        m.id === memberId ? { ...m, name: trimmed } : m
+      );
+      return mockHousehold.members.find((m) => m.id === memberId) ?? null;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.updateMemberDisplayName');
+    let query = supabase
+      .from('household_members')
+      .update({ display_name: trimmed })
+      .eq('id', memberId);
+    if (householdId) {
+      query = query.eq('household_id', householdId);
+    }
+    const { data, error } = await query.select('*').single();
+    mapDbError('householdRepository.updateMemberDisplayName', error);
+    return data
+      ? mapMemberRow(data as HouseholdMemberRow & { shared_with_member_ids?: string[] | null })
+      : null;
   },
 
   async createSharedDevice(
@@ -701,7 +826,7 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
   return {
     id: household.id,
     householdName: household.name,
-    householdType: (household.household_type as HouseholdType) || 'family',
+    householdType: 'family',
     inviteCode: invite?.invite_code ?? '',
     greetingName,
     momentum: score?.momentum_score ?? 0,
@@ -710,6 +835,18 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     missingGroceries: mappedGroceries.filter((item) => item.status === 'Missing').length,
     upcomingEvents: mappedEvents.length,
     preferredStoreId: (household as { preferred_store_id?: string | null }).preferred_store_id ?? 'store-freshmart',
+    rewardMode:
+      (household as { reward_mode?: 'weighted' | 'flat' | null }).reward_mode === 'flat'
+        ? 'flat'
+        : 'weighted',
+    rewardModel: migrateLoadedRewardModel(
+      (household as { reward_model?: string | null }).reward_model
+    ),
+    hygieneRewarded: Boolean((household as { hygiene_rewarded?: boolean | null }).hygiene_rewarded),
+    hygieneXp:
+      (household as { hygiene_xp?: number | null }).hygiene_xp === 10 ? 10 : 5,
+    memberCapabilities: ((household as { member_capabilities?: Record<string, boolean> | null })
+      .member_capabilities ?? undefined) as HouseholdSnapshot['memberCapabilities'],
     members: mappedMembers,
     tasks: mappedTasks,
     groceries: mappedGroceries,
@@ -729,14 +866,25 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     },
     rewards: (rewards ?? []).map((row) => mapRewardRow(row)),
     badges: (badges ?? []).map((row) => mapBadgeRow(row)),
-    nova: briefing
+    poppins: briefing
       ? mapBriefingRow(briefing)
       : {
           title: 'Welcome to Choremaxx',
-          summary: 'Your household is synced. Nova will fill in guidance as activity arrives.',
+          summary: 'Your household is synced. Poppins will fill in guidance as activity arrives.',
           actions: ['Create task', 'Check groceries'],
         },
   };
+}
+
+/** Persist mock household snapshot (members/settings/tasks) across Expo Go reload. */
+export async function persistMockHouseholdSnapshot(household: HouseholdSnapshot) {
+  if (!isMockMode() || !household.id) return;
+  await saveActiveMockHousehold(household);
+}
+
+export async function clearMockHouseholdSnapshot() {
+  if (!isMockMode()) return;
+  await clearActiveMockHousehold();
 }
 
 function clone<T>(value: T): T {
@@ -774,7 +922,7 @@ async function loadPendingJoinSnapshot(
         loadShare: 0,
       },
     ],
-    nova: {
+    poppins: {
       title: 'Join request sent',
       summary: 'Waiting for an owner or admin to approve your access on Members.',
       actions: ['Check back soon', 'Message household owner'],

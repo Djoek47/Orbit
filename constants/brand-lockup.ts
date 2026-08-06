@@ -69,6 +69,20 @@ const NIGHT_CHORE: Record<AccentThemeId, string> = {
   berry: '#F4C0D1',
 };
 
+/** Night: lift roof/body slightly so the house stays lit on dark glass. */
+const NIGHT_ROOF: Record<AccentThemeId, string> = {
+  sky: '#5BADE8',
+  citrus: '#F5C56B',
+  coral: '#E88B5C',
+  berry: '#A49AE8',
+};
+const NIGHT_BODY: Record<AccentThemeId, string> = {
+  sky: '#8CC8F0',
+  citrus: '#F8D99A',
+  coral: '#F0A87A',
+  berry: '#C4BBF0',
+};
+
 /** Resolve house + wordmark colors for the active palette / appearance. */
 export function resolveBrandLockup(
   paletteId?: string | null,
@@ -76,9 +90,14 @@ export function resolveBrandLockup(
 ): BrandLockupColors {
   const id = migrateAccentThemeId(paletteId ?? DEFAULT_ACCENT_THEME_ID);
   const base = LOCKUPS[id] ?? LOCKUPS.coral;
+  if (!isDark) {
+    return { ...base };
+  }
   return {
     ...base,
-    chore: isDark ? NIGHT_CHORE[id] ?? base.chore : base.chore,
+    roof: NIGHT_ROOF[id] ?? base.roof,
+    body: NIGHT_BODY[id] ?? base.body,
+    chore: NIGHT_CHORE[id] ?? base.chore,
   };
 }
 

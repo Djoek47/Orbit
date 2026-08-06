@@ -1,8 +1,9 @@
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -11,12 +12,15 @@ import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { useOrbit } from '@/store/orbit-store';
 
+/**
+ * Q1 = B — Admin may allow members to ask for something not yet minted.
+ * At most one pending ask per member (enforced in repository).
+ */
 export default function SpecialRewardRequestScreen() {
   const insets = useSafeAreaInsets();
   const { household, permissions, requestSpecialReward } = useOrbit();
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
-  const [cost, setCost] = useState('150');
   const [busy, setBusy] = useState(false);
 
   const caps = resolveMemberCapabilities(household);
@@ -26,8 +30,13 @@ export default function SpecialRewardRequestScreen() {
     if (!title.trim() || !allowed) return;
     setBusy(true);
     try {
-      await requestSpecialReward(title.trim(), note.trim() || undefined, Number(cost) || 150);
+      await requestSpecialReward(title.trim(), note.trim() || undefined, 0);
       router.back();
+    } catch (error) {
+      Alert.alert(
+        'Couldn’t send',
+        error instanceof Error ? error.message : 'Try again in a moment.'
+      );
     } finally {
       setBusy(false);
     }
@@ -42,9 +51,10 @@ export default function SpecialRewardRequestScreen() {
         <View style={orbitScreen.header}>
           <ChoremaxxBadge />
           <Text style={[typography.footnote, { marginTop: 8 }]}>Rewards</Text>
-          <Text style={typography.title1}>Special requests off</Text>
+          <Text style={typography.title1}>Asking is off</Text>
           <Text style={typography.body}>
-            An admin needs to enable special reward requests in Settings → Member permissions.
+            An admin can allow asks for rewards that are not in the catalogue yet — Settings →
+            Member permissions.
           </Text>
         </View>
         <OrbitButton onPress={() => router.back()}>Go back</OrbitButton>
@@ -61,9 +71,10 @@ export default function SpecialRewardRequestScreen() {
       <View style={orbitScreen.header}>
         <ChoremaxxBadge />
         <Text style={[typography.footnote, { marginTop: 8 }]}>Ask the household</Text>
-        <Text style={typography.title1}>Special reward</Text>
+        <Text style={typography.title1}>Ask for a reward</Text>
         <Text style={typography.body}>
-          Send a one-off ask. Admins see it as a special-request origin in the redeem tally.
+          Ask for something that is not in the catalogue yet. A grown-up decides. You can only have
+          one waiting ask at a time.
         </Text>
       </View>
 
@@ -80,16 +91,10 @@ export default function SpecialRewardRequestScreen() {
           onChangeText={setNote}
           placeholder="Why this matters"
         />
-        <OrbitInput
-          label="Suggested XP cost"
-          value={cost}
-          onChangeText={setCost}
-          keyboardType="number-pad"
-        />
       </GlassCard>
 
       <OrbitButton disabled={!title.trim() || busy} onPress={() => void handleSubmit()}>
-        {busy ? 'Sending…' : 'Send request'}
+        {busy ? 'Sending…' : 'Send ask'}
       </OrbitButton>
     </ScrollView>
   );

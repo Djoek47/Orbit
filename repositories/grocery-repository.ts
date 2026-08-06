@@ -6,6 +6,10 @@ import type { CreateGroceryInput, GroceryItem } from '@/types/orbit';
 
 let mockGroceriesState: GroceryItem[] = clone(mockHousehold.groceries);
 
+export function __setMockGroceriesStateForTests(items: GroceryItem[]) {
+  mockGroceriesState = clone(items);
+}
+
 function resolveLocation(category: string, override?: GroceryItem['location']): GroceryItem['location'] {
   if (override) return override;
   return locationForGroceryCategory(category);

@@ -1,7 +1,8 @@
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { radius, space } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type ChoiceRowProps<T extends string> = {
   label: string;
@@ -29,9 +30,9 @@ export function ChoiceRow<T extends string>({ label, onChange, options, value }:
                   backgroundColor: selected
                     ? isDark
                       ? 'rgba(0, 194, 255, 0.16)'
-                      : `${c.novaCyan}22`
+                      : `${c.poppinsCyan}22`
                     : glass(0.06),
-                  borderColor: selected ? c.novaCyan : glassBorder(0.12),
+                  borderColor: selected ? c.poppinsCyan : glassBorder(0.12),
                 },
               ]}>
               <Text

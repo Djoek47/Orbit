@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { MomentumRing } from '@/components/orbit/momentum-ring';
@@ -8,9 +8,10 @@ import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function MomentumScreen() {
-  const { household, metrics, novaWeeklyBriefing } = useOrbit();
+  const { household, metrics, poppinsWeeklyBriefing } = useOrbit();
 
   return (
     <ScrollView
@@ -30,8 +31,8 @@ export default function MomentumScreen() {
           <StatusPill label={metrics.momentum >= 80 ? 'Strong' : metrics.momentum >= 60 ? 'Steady' : 'Needs lift'} tone="cyan" />
           <Text style={typography.title2}>{metrics.momentum}</Text>
           <Text style={typography.footnote}>
-            Weekly change {novaWeeklyBriefing.momentumChange >= 0 ? '+' : ''}
-            {novaWeeklyBriefing.momentumChange}
+            Weekly change {poppinsWeeklyBriefing.momentumChange >= 0 ? '+' : ''}
+            {poppinsWeeklyBriefing.momentumChange}
           </Text>
         </View>
         <MomentumRing score={metrics.momentum} />

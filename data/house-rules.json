@@ -1,0 +1,800 @@
+{
+  "schemaVersion": "2.0.0",
+  "contentVersion": "2026-08-05",
+  "_readme": "SINGLE SOURCE OF TRUTH. Every string shown on the House Rules screen comes from this file. Views must contain zero literal rule text. If a string is not in this file, it does not appear in the app.",
+  "constants": {
+    "_readme": "These values are read by BOTH the scoring engine and the House Rules screen. Never duplicate them anywhere else.",
+    "xpValues": [
+      5,
+      10,
+      15,
+      20,
+      25,
+      30
+    ],
+    "lateCredit": {
+      "5": 3,
+      "10": 7,
+      "15": 12,
+      "20": 16,
+      "25": 20,
+      "30": 25
+    },
+    "bundleBonusOnTime": 10,
+    "bundleBonusLate": 7,
+    "deadlines": {
+      "daily": "19:00",
+      "weekly": "SUNDAY 19:00",
+      "monthly": "LAST_SUNDAY 19:00",
+      "timezone": "HOUSEHOLD_LOCAL"
+    },
+    "expiryTime": "23:59",
+    "nudgeMinutesBefore": 30,
+    "streak": {
+      "consecutiveMissesToEnd": 3,
+      "rollingWindowDays": 7,
+      "missesInWindowToEnd": 3,
+      "qualifyingCadences": [
+        "daily",
+        "weekdays"
+      ]
+    },
+    "streakRescue": {
+      "afterOneMiss": 0.1,
+      "afterTwoConsecutive": 0.2,
+      "thirdConsecutive": "PERMANENT_LOSS",
+      "chargedAgainst": "CURRENT_WEEK_XP",
+      "monthlyToken": 1,
+      "_monthlyTokenNote": "Product override of lifetime first-free: 1 Rescue token per member per calendar month."
+    },
+    "topTrophy": {
+      "name": "Most Glorious",
+      "xp": 100000
+    },
+    "library": {
+      "totalTasks": 150,
+      "domains": 15,
+      "groups": 43,
+      "scoringTasks": 131,
+      "streakOnlyTasks": 19
+    },
+    "rewardModels": [
+      {
+        "key": "xp_only",
+        "label": "XP only"
+      },
+      {
+        "key": "allowance",
+        "label": "Allowance"
+      },
+      {
+        "key": "xp_rewards",
+        "label": "XP + Rewards"
+      },
+      {
+        "key": "xp_allowance",
+        "label": "XP + Allowance"
+      },
+      {
+        "key": "full_system",
+        "label": "ChoreMaxx Full System"
+      }
+    ]
+  },
+  "conditions": {
+    "_readme": "Closed enum. Cursor implements ONE resolver function isVisible(conditionKey, household) -> Bool with exactly these cases plus null. Do NOT build an expression parser or accept arbitrary strings.",
+    "ALWAYS": "Always visible.",
+    "ALLOWANCE_ON": "household.rewardModel is one of: allowance, xp_allowance, full_system",
+    "REWARDS_ON": "household.rewardModel is one of: xp_rewards, full_system",
+    "XP_ON": "household.rewardModel is one of: xp_only, xp_rewards, xp_allowance, full_system",
+    "MULTI_MEMBER": "household.helperCount >= 2",
+    "HOMEWORK_ON": "household.homeworkEnabled == true"
+  },
+  "phases": {
+    "_readme": "Closed enum, used by Direction 03 (The Track) to place a rule. EVERY rule must declare exactly one. Build fails if any rule has a phase outside this list. 'anytime' is the catch-all so a new rule can never be unplaceable.",
+    "assigned": {
+      "gutter": "Morning",
+      "kicker": "Assigned",
+      "block": "day",
+      "order": 1,
+      "tone": "normal"
+    },
+    "nudge": {
+      "gutter": "6:30 PM",
+      "kicker": "Nudge",
+      "block": "day",
+      "order": 2,
+      "tone": "normal"
+    },
+    "deadline": {
+      "gutter": "7:00 PM",
+      "kicker": "Deadline",
+      "block": "day",
+      "order": 3,
+      "tone": "hot"
+    },
+    "lateCredit": {
+      "gutter": "7:01 PM",
+      "kicker": "Late Credit",
+      "block": "day",
+      "order": 4,
+      "tone": "hot"
+    },
+    "expired": {
+      "gutter": "11:59 PM",
+      "kicker": "Expired",
+      "block": "day",
+      "order": 5,
+      "tone": "dead"
+    },
+    "counted": {
+      "gutter": "Midnight",
+      "kicker": "Counted",
+      "block": "day",
+      "order": 6,
+      "tone": "normal"
+    },
+    "weekly": {
+      "gutter": "Sunday",
+      "kicker": "Weekly",
+      "block": "beyond",
+      "order": 7,
+      "tone": "normal"
+    },
+    "crownWeek": {
+      "gutter": "Sunday",
+      "kicker": "Crown",
+      "block": "beyond",
+      "order": 8,
+      "tone": "gold"
+    },
+    "crownMonth": {
+      "gutter": "Last Sun.",
+      "kicker": "Monthly",
+      "block": "beyond",
+      "order": 9,
+      "tone": "gold"
+    },
+    "anytime": {
+      "gutter": "Any time",
+      "kicker": null,
+      "block": "beyond",
+      "order": 10,
+      "tone": "normal"
+    }
+  },
+  "visuals": {
+    "_readme": "Closed enum, used by Direction 02 (At a glance). 'none' renders the quiet outlined card. Data for each visual comes from constants above \u2014 never hardcode the numbers into the component.",
+    "none": "Quiet outlined card, text only.",
+    "xpRamp": "Six ascending bars labelled from constants.xpValues.",
+    "dayTimeline": "Single rail, three markers at 7:00 PM / late window / 11:59 PM.",
+    "lateCreditTable": "Two-column table built from constants.lateCredit.",
+    "streakDots": "Seven dots, first two filled, from constants.streak.",
+    "rescueTiers": "Three tiles from constants.streakRescue.",
+    "podium": "Three bars, 2nd / 1st / 3rd.",
+    "modelList": "Five rows from constants.rewardModels, household's active model highlighted."
+  },
+  "chapters": [
+    {
+      "key": "earning",
+      "order": 1,
+      "adultLabel": "Earning",
+      "kidLabel": "Points",
+      "accent": "ember",
+      "kidColor": "grape"
+    },
+    {
+      "key": "deadlines",
+      "order": 2,
+      "adultLabel": "Deadlines",
+      "kidLabel": "The bell",
+      "accent": "olive",
+      "kidColor": "mango"
+    },
+    {
+      "key": "streaks",
+      "order": 3,
+      "adultLabel": "Streaks",
+      "kidLabel": "Your streak",
+      "accent": "olive",
+      "kidColor": "mint"
+    },
+    {
+      "key": "crowns",
+      "order": 4,
+      "adultLabel": "Crowns",
+      "kidLabel": "Crowns",
+      "accent": "ember",
+      "kidColor": "punch"
+    },
+    {
+      "key": "rewards",
+      "order": 5,
+      "adultLabel": "Rewards",
+      "kidLabel": "Prizes",
+      "accent": "ember",
+      "kidColor": "ink"
+    },
+    {
+      "key": "proof",
+      "order": 6,
+      "adultLabel": "Proof",
+      "kidLabel": "Photos",
+      "accent": "olive",
+      "kidColor": "ink"
+    },
+    {
+      "key": "household",
+      "order": 7,
+      "adultLabel": "Household",
+      "kidLabel": "Who does what",
+      "accent": "olive",
+      "kidColor": "ink"
+    }
+  ],
+  "rules": [
+    {
+      "id": "EARN-01",
+      "chapter": "earning",
+      "order": 1,
+      "condition": "XP_ON",
+      "phase": "assigned",
+      "visual": "xpRamp",
+      "editable": false,
+      "adult": {
+        "headline": "Value follows difficulty",
+        "question": "How much is a task worth?",
+        "clause": "Every task carries an XP value from 5 to 30, set by difficulty. Finish before the deadline and the full value is awarded."
+      },
+      "kid": {
+        "headline": "Every job is worth points",
+        "question": "How many points do I get?",
+        "body": "Small jobs are worth 5 and the biggest ones are worth 30. Finish on time, get all of them."
+      }
+    },
+    {
+      "id": "EARN-02",
+      "chapter": "earning",
+      "order": 2,
+      "condition": "XP_ON",
+      "phase": "deadline",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "The bundle bonus",
+        "question": "What's the bundle bonus?",
+        "clause": "Finish every task in a domain group on time for a +10 XP bundle bonus. If any task in it ran late, the bonus is +7."
+      },
+      "kid": {
+        "headline": "Finish a whole set, get a bonus",
+        "question": "What's a bundle bonus?",
+        "body": "All the jobs in one group, done on time \u2014 that's 10 extra. If one was late, it's 7."
+      }
+    },
+    {
+      "id": "EARN-03",
+      "chapter": "earning",
+      "order": 3,
+      "condition": "XP_ON",
+      "phase": "deadline",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "XP lands on Complete",
+        "question": "When does XP actually land?",
+        "clause": "XP lands the moment a kid taps Complete \u2014 not on approval. You're notified and can verify afterward."
+      },
+      "kid": {
+        "headline": "Points show up right away",
+        "question": "Do I have to wait for my points?",
+        "body": "Tap Complete and they're yours. You don't have to wait for anyone."
+      }
+    },
+    {
+      "id": "EARN-04",
+      "chapter": "earning",
+      "order": 4,
+      "condition": "ALWAYS",
+      "phase": "assigned",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Hygiene builds streaks, not points",
+        "question": "Why did a task score zero?",
+        "clause": "Personal Hygiene tasks are tracked as streaks, not points. 19 of the 150 library tasks score zero XP by design."
+      },
+      "kid": {
+        "headline": "Hygiene jobs are different",
+        "question": "Why did brushing my teeth give me nothing?",
+        "body": "Hygiene jobs don't pay points on purpose. They build your streak instead \u2014 and the streak is the hard one to get."
+      }
+    },
+    {
+      "id": "EARN-05",
+      "chapter": "earning",
+      "order": 5,
+      "condition": "ALWAYS",
+      "phase": "assigned",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Admins only",
+        "question": "Who can assign and approve?",
+        "clause": "Only admins can assign tasks, approve completions, request proof, and approve allowance."
+      },
+      "kid": {
+        "headline": "A parent sets your list",
+        "question": "Who assigns my jobs?",
+        "body": "Only an admin can give out jobs, check them off, ask for a photo or approve allowance."
+      }
+    },
+    {
+      "id": "DEAD-01",
+      "chapter": "deadlines",
+      "order": 1,
+      "condition": "ALWAYS",
+      "phase": "deadline",
+      "visual": "dayTimeline",
+      "editable": true,
+      "settingKey": "deadlines",
+      "adult": {
+        "headline": "When everything is due",
+        "question": "When is everything due?",
+        "clause": "Daily tasks close at 7:00 PM household time. Weekly tasks close Sunday 7:00 PM, monthly on the last Sunday at 7:00 PM."
+      },
+      "kid": {
+        "headline": "The bell rings at 7:00 PM",
+        "question": "When do I have to be done?",
+        "body": "Weekly jobs are due Sunday. Monthly ones on the last Sunday."
+      }
+    },
+    {
+      "id": "DEAD-02",
+      "chapter": "deadlines",
+      "order": 2,
+      "condition": "ALWAYS",
+      "phase": "nudge",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Poppins reminds",
+        "question": "Does anyone get warned?",
+        "clause": "Poppins sends task notifications, including a final nudge 30 minutes before anything is due."
+      },
+      "kid": {
+        "headline": "Poppins warns you first",
+        "question": "Will I get a reminder?",
+        "body": "You get a nudge 30 minutes before anything is due."
+      }
+    },
+    {
+      "id": "DEAD-03",
+      "chapter": "deadlines",
+      "order": 3,
+      "condition": "XP_ON",
+      "phase": "lateCredit",
+      "visual": "lateCreditTable",
+      "editable": false,
+      "adult": {
+        "headline": "Late Credit",
+        "question": "They finished at 8 PM \u2014 what did they lose?",
+        "clause": "Late Credit is applied the instant Complete is tapped, and never recomputed. A late task still keeps the streak and carries a late indicator."
+      },
+      "kid": {
+        "headline": "Late still counts",
+        "question": "What if I'm late?",
+        "body": "You still get points, just a few less. A 10 turns into a 7. Your streak stays safe, so it's always worth finishing."
+      }
+    },
+    {
+      "id": "DEAD-04",
+      "chapter": "deadlines",
+      "order": 4,
+      "condition": "ALWAYS",
+      "phase": "expired",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "The day closes",
+        "question": "Can they still do yesterday's task?",
+        "clause": "At 11:59 PM anything unfinished becomes Expired and can no longer be completed."
+      },
+      "kid": {
+        "headline": "At 11:59 PM the day closes",
+        "question": "How late is too late?",
+        "body": "Anything left is gone. Tomorrow is a fresh list."
+      }
+    },
+    {
+      "id": "DEAD-05",
+      "chapter": "deadlines",
+      "order": 5,
+      "condition": "ALWAYS",
+      "phase": "weekly",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Weekly and monthly are safer",
+        "question": "Does a missed weekly task break the streak?",
+        "clause": "An expired weekly or monthly task costs its XP but never breaks a streak."
+      },
+      "kid": {
+        "headline": "Weekly jobs can't hurt your streak",
+        "question": "Does missing a weekly job break my streak?",
+        "body": "You lose the points, but the streak keeps going."
+      }
+    },
+    {
+      "id": "STRK-01",
+      "chapter": "streaks",
+      "order": 1,
+      "condition": "ALWAYS",
+      "phase": "counted",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "What feeds a streak",
+        "question": "Which tasks count toward a streak?",
+        "clause": "Only daily and weekday tasks feed the streak."
+      },
+      "kid": {
+        "headline": "Daily jobs keep it alive",
+        "question": "How do I keep my streak?",
+        "body": "Weekly and monthly jobs can't break it, ever."
+      }
+    },
+    {
+      "id": "STRK-02",
+      "chapter": "streaks",
+      "order": 2,
+      "condition": "ALWAYS",
+      "phase": "counted",
+      "visual": "streakDots",
+      "editable": false,
+      "adult": {
+        "headline": "Three misses and it's over",
+        "question": "What breaks a streak?",
+        "clause": "A streak ends after 3 misses in a row, or 3 misses inside any rolling 7 days."
+      },
+      "kid": {
+        "headline": "Three misses ends it",
+        "question": "What breaks my streak?",
+        "body": "Three days in a row, or three days in one week."
+      }
+    },
+    {
+      "id": "STRK-03",
+      "chapter": "streaks",
+      "order": 3,
+      "condition": "XP_ON",
+      "phase": "counted",
+      "visual": "rescueTiers",
+      "editable": false,
+      "adult": {
+        "headline": "What a save costs",
+        "question": "What does Streak Rescue cost?",
+        "clause": "Streak Rescue costs 10% of that week's XP after one missed day and 20% after two consecutive. A third consecutive miss loses the streak permanently. Decline and the XP stays, the streak goes."
+      },
+      "kid": {
+        "headline": "You can buy a day back",
+        "question": "Can I save my streak?",
+        "body": "One missed day costs 10% of the week's points. Two costs 20%. After three, the streak is gone for good."
+      }
+    },
+    {
+      "id": "STRK-04",
+      "chapter": "streaks",
+      "order": 4,
+      "condition": "ALWAYS",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "recess",
+      "adult": {
+        "headline": "Pause without losing ground",
+        "question": "What happens when we travel?",
+        "clause": "Recess switches tasks off and freezes streaks at their current value \u2014 leave on 12 days, return on 12 days."
+      },
+      "kid": {
+        "headline": "Recess pauses everything",
+        "question": "What if we go on holiday?",
+        "body": "On holiday your streak waits for you. Leave on 12 days, come back on 12 days."
+      }
+    },
+    {
+      "id": "CROWN-01",
+      "chapter": "crowns",
+      "order": 1,
+      "condition": "MULTI_MEMBER",
+      "phase": "crownWeek",
+      "visual": "podium",
+      "editable": false,
+      "adult": {
+        "headline": "The Week's Crown",
+        "question": "How is the weekly winner decided?",
+        "clause": "The Week's Crown goes to the highest XP each week. Monthly Sovereign is settled on the last Sunday."
+      },
+      "kid": {
+        "headline": "The Week's Crown",
+        "question": "How do I win a crown?",
+        "body": "Most points in the week wins it. The last Sunday of the month decides the Monthly Sovereign."
+      }
+    },
+    {
+      "id": "CROWN-02",
+      "chapter": "crowns",
+      "order": 2,
+      "condition": "MULTI_MEMBER",
+      "phase": "crownWeek",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Gold, silver, bronze",
+        "question": "How are places shown?",
+        "clause": "First place is gold, second silver, third bronze."
+      },
+      "kid": {
+        "headline": "Gold, silver, bronze",
+        "question": "What do the colours mean?",
+        "body": "First place is gold, second is silver, third is bronze."
+      }
+    },
+    {
+      "id": "CROWN-03",
+      "chapter": "crowns",
+      "order": 3,
+      "condition": "MULTI_MEMBER",
+      "phase": "crownWeek",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Ties share a rank",
+        "question": "What if two kids tie?",
+        "clause": "Ties produce duplicate ranks \u2014 two firsts, then two seconds."
+      },
+      "kid": {
+        "headline": "A tie means you both win",
+        "question": "What if we tie?",
+        "body": "Same points, same place. Nobody gets bumped down."
+      }
+    },
+    {
+      "id": "CROWN-04",
+      "chapter": "crowns",
+      "order": 4,
+      "condition": "MULTI_MEMBER",
+      "phase": "crownWeek",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Every sheet is open",
+        "question": "What's on the winner's sheet?",
+        "clause": "The winner's sheet shows tasks completed, on-time count and late tasks. Every member's sheet is viewable."
+      },
+      "kid": {
+        "headline": "You can see everyone's week",
+        "question": "Can I see how everyone did?",
+        "body": "The sheet shows jobs finished, how many were on time, and how many were late. Everyone's is open."
+      }
+    },
+    {
+      "id": "CROWN-05",
+      "chapter": "crowns",
+      "order": 5,
+      "condition": "MULTI_MEMBER",
+      "phase": "crownMonth",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Champion's Record",
+        "question": "Where do past wins live?",
+        "clause": "Champion's Record keeps every crown won, by member."
+      },
+      "kid": {
+        "headline": "Your Champion's Record",
+        "question": "Where do my old wins go?",
+        "body": "Every crown you've ever won is kept there. So are everyone else's."
+      }
+    },
+    {
+      "id": "CROWN-06",
+      "chapter": "crowns",
+      "order": 6,
+      "condition": "MULTI_MEMBER",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Trophies run on lifetime XP",
+        "question": "How do trophies work?",
+        "clause": "Trophies unlock on lifetime XP. The top tier, Most Glorious, sits at 100,000 XP."
+      },
+      "kid": {
+        "headline": "Trophies never reset",
+        "question": "What's a trophy?",
+        "body": "Trophies come from all the points you've ever earned. The biggest one is Most Glorious, at 100,000."
+      }
+    },
+    {
+      "id": "RWRD-01",
+      "chapter": "rewards",
+      "order": 1,
+      "condition": "ALWAYS",
+      "phase": "anytime",
+      "visual": "modelList",
+      "editable": true,
+      "settingKey": "rewardModel",
+      "adult": {
+        "headline": "How this household rewards",
+        "question": "What can we reward with?",
+        "clause": "The household runs one of five models: XP only, Allowance, XP + Rewards, XP + Allowance, or the full system."
+      },
+      "kid": {
+        "headline": "How your prizes work",
+        "question": "What do I get for finishing?",
+        "body": "Your family picks how prizes work \u2014 points, allowance, real rewards, or all of it together."
+      }
+    },
+    {
+      "id": "RWRD-02",
+      "chapter": "rewards",
+      "order": 2,
+      "condition": "REWARDS_ON",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "rewardFrequency",
+      "adult": {
+        "headline": "Rewards follow the day",
+        "question": "What earns a reward?",
+        "clause": "Rewards are tied to finishing that day's assigned tasks and homework. Each reward carries its own frequency."
+      },
+      "kid": {
+        "headline": "Prizes come from finishing the day",
+        "question": "How do I earn a prize?",
+        "body": "Your tasks and your homework. Your family chooses what the prize is."
+      }
+    },
+    {
+      "id": "RWRD-03",
+      "chapter": "rewards",
+      "order": 3,
+      "condition": "REWARDS_ON",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "rewardApproval",
+      "adult": {
+        "headline": "Instant or approved",
+        "question": "Does a reward need my approval?",
+        "clause": "A reward is either instant or requires approval, set per reward."
+      },
+      "kid": {
+        "headline": "Some prizes need a yes first",
+        "question": "Do I get a prize right away?",
+        "body": "Some are instant. Others wait for a parent to say yes."
+      }
+    },
+    {
+      "id": "RWRD-04",
+      "chapter": "rewards",
+      "order": 4,
+      "condition": "ALLOWANCE_ON",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "allowanceSchedule",
+      "adult": {
+        "headline": "Recorded, not transferred",
+        "question": "Does ChoreMaxx send the money?",
+        "clause": "Allowance is recorded in ChoreMaxx, not transferred \u2014 no money moves through the app. Approvals follow the household schedule, and Approve now always works."
+      },
+      "kid": {
+        "headline": "Allowance is counted here",
+        "question": "When do I get my allowance?",
+        "body": "ChoreMaxx keeps the score. The actual money comes from your family."
+      }
+    },
+    {
+      "id": "RWRD-05",
+      "chapter": "rewards",
+      "order": 5,
+      "condition": "REWARDS_ON",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Mint Reward",
+        "question": "Can I make my own reward?",
+        "clause": "Mint Reward creates one of your own, on any reward page."
+      },
+      "kid": {
+        "headline": "Your family can invent prizes",
+        "question": "Can we make up our own prize?",
+        "body": "Any prize you can think of can be added to the list."
+      }
+    },
+    {
+      "id": "PROOF-01",
+      "chapter": "proof",
+      "order": 1,
+      "condition": "ALWAYS",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "choreProof",
+      "adult": {
+        "headline": "Verify without gating",
+        "question": "Can I check they actually did it?",
+        "clause": "On chores, admins can request proof on a completed task. It's optional and per task \u2014 it verifies the work, it doesn't gate the reward."
+      },
+      "kid": {
+        "headline": "A parent might ask for a photo",
+        "question": "Why do I need a photo?",
+        "body": "Only on chores you've already finished. It's a check, not a test."
+      }
+    },
+    {
+      "id": "PROOF-02",
+      "chapter": "proof",
+      "order": 2,
+      "condition": "HOMEWORK_ON",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "homeworkProofPerChild",
+      "adult": {
+        "headline": "Homework proof is required",
+        "question": "How does homework proof work?",
+        "clause": "Homework keeps its own tab, and photo proof is required. It's configured per child, on by default, and an admin confirms it."
+      },
+      "kid": {
+        "headline": "Homework needs a photo",
+        "question": "Do I have to photograph my homework?",
+        "body": "Snap it when you're done so a parent can check it off."
+      }
+    },
+    {
+      "id": "HOUS-01",
+      "chapter": "household",
+      "order": 1,
+      "condition": "ALWAYS",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Admins and Helpers",
+        "question": "What can a Helper do?",
+        "clause": "Two roles: Admin and Helper. Helpers complete their own tasks and see their own record \u2014 everything in the admin list stays with admins."
+      },
+      "kid": {
+        "headline": "You're a Helper",
+        "question": "What can I do?",
+        "body": "You finish your own jobs and see your own record and crowns."
+      }
+    },
+    {
+      "id": "HOUS-02",
+      "chapter": "household",
+      "order": 2,
+      "condition": "ALWAYS",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "These rules are yours",
+        "question": "Can I change these rules?",
+        "clause": "Admins can change any rule here. The kid version rewrites itself to match, in their words."
+      },
+      "kid": {
+        "headline": "Rules can change",
+        "question": "Can rules change?",
+        "body": "If a parent changes something, this page updates too. Check back if the house feels different."
+      }
+    }
+  ],
+  "footnotes": {
+    "adult": "Deadlines run on household-local time. Rule changes take effect the next day, so nothing already in progress changes value mid-task.",
+    "kid": null
+  }
+}

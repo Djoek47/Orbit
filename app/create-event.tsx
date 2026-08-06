@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 
 import { ChoiceRow } from '@/components/orbit/choice-row';
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -11,6 +11,7 @@ import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 const CATEGORIES: HouseholdEvent['category'][] = ['School', 'Activity', 'Appointment', 'Family', 'Routine'];
 const DATE_PRESETS = ['Today', 'Tomorrow', 'This weekend', 'Next week'];

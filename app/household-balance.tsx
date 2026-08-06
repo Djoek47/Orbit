@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Stack, router } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { memberDisplayEmoji } from '@/lib/game-levels';
@@ -11,6 +11,7 @@ import {
 } from '@/lib/home-health-metrics';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function HouseholdBalanceScreen() {
   const insets = useSafeAreaInsets();
@@ -23,7 +24,6 @@ export default function HouseholdBalanceScreen() {
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
   const healthRole = resolveHomeHealthRole(currentMember, {
-    householdType: household.householdType,
     isAdmin: permissions.canManageHousehold,
   });
   const healthItems = useMemo(
