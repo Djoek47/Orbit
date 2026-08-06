@@ -64,12 +64,14 @@ export default function ShoppingModeScreen() {
   }, []);
 
   useEffect(() => {
-    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
-    const sub = AccessibilityInfo.addEventListener?.('reduceMotionChanged', setReduceMotion);
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((v) => {
+      if (mounted) setReduceMotion(v);
+    });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
     return () => {
-      // RN types vary by version
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (sub as any)?.remove?.();
+      mounted = false;
+      sub.remove();
     };
   }, []);
 
