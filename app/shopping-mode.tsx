@@ -1,26 +1,60 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+/**
+ * Shopping mode — HTML bible × ChoreMaxx amber glass.
+ * Checked items stay in-aisle (fade + strike) with undo toast.
+ */
+
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import * as Haptics from 'expo-haptics';
+import { AccessibilityInfo, LayoutAnimation, Platform, StyleSheet, UIManager, View } from 'react-native';
 import { router, Stack } from 'expo-router';
-import { useEffect, useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
-import { radius, space } from '@/constants/orbit-theme';
-import { groupByAisle } from '@/lib/grocery/classify';
-import { iconForGroceryName } from '@/lib/grocery/catalog';
+import { ShoppingAisleSection } from '@/components/orbit/grocery/shopping-aisle-section';
+import { ShoppingDock } from '@/components/orbit/grocery/shopping-dock';
+import { ShoppingRunHeader } from '@/components/orbit/grocery/shopping-run-header';
+import { ShoppingUndoToast } from '@/components/orbit/grocery/shopping-undo-toast';
+import { classifyGroceryItem, groupByAisle } from '@/lib/grocery/classify';
+import {
+  groupShoppingAisles,
+  resolveShoppingPalette,
+  shoppingProgress,
+  shoppingRunLabel,
+  type ShoppingListItem,
+} from '@/lib/grocery/shopping-palette';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 const KEEP_AWAKE_TAG = 'shopping-mode';
+const TOAST_MS = 2600;
 
-/**
- * Revision C §4.4 — aisle shopping view: group by aisle, hide empty cats,
- * header "N left", keep screen awake, large thumb targets.
- */
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 export default function ShoppingModeScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, household, orbitPalette, markGroceryPurchased } = useOrbit();
+  const { c } = useOrbitColors();
+  const {
+    household,
+    markGroceryPurchased,
+    markGroceryMissing,
+    addMissingGrocery,
+    canAddGroceryWishlist,
+  } = useOrbit();
+
+  const palette = useMemo(() => resolveShoppingPalette(c), [c]);
+  const runLabel = useMemo(() => shoppingRunLabel(), []);
+
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [toast, setToast] = useState<{ id: string; name: string } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastToggled = useRef<string | null>(null);
 
   useEffect(() => {
     void activateKeepAwakeAsync(KEEP_AWAKE_TAG);
@@ -29,142 +63,221 @@ export default function ShoppingModeScreen() {
     };
   }, []);
 
-  const items = useMemo(
-    () => household.groceries.filter((g) => g.status === 'Missing' || g.status === 'Low'),
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const sub = AccessibilityInfo.addEventListener?.('reduceMotionChanged', setReduceMotion);
+    return () => {
+      // RN types vary by version
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (sub as any)?.remove?.();
+    };
+  }, []);
+
+  const listItems: ShoppingListItem[] = useMemo(
+    () =>
+      household.groceries
+        .filter(
+          (g) => g.status === 'Missing' || g.status === 'Low' || g.status === 'Purchased'
+        )
+        .map((g) => ({
+          id: g.id,
+          name: g.name,
+          quantity: g.quantity,
+          category: g.category || 'Other',
+          categoryId: g.categoryId,
+          done: g.status === 'Purchased',
+        })),
     [household.groceries]
   );
 
-  const aisles = useMemo(() => groupByAisle(items), [items]);
-  const left = items.length;
+  const aisles = useMemo(
+    () => groupShoppingAisles(listItems, groupByAisle),
+    [listItems]
+  );
+  const progress = useMemo(() => shoppingProgress(listItems), [listItems]);
+
+  const guessLabel = useMemo(() => {
+    const v = draft.trim();
+    if (v.length < 2) return null;
+    return classifyGroceryItem(v, household.groceryCategoryOverrides).categoryName;
+  }, [draft, household.groceryCategoryOverrides]);
+
+  const clearToast = useCallback(() => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = null;
+    setToast(null);
+  }, []);
+
+  const showToast = useCallback(
+    (id: string, name: string) => {
+      lastToggled.current = id;
+      setToast({ id, name });
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToast(null), TOAST_MS);
+    },
+    []
+  );
+
+  const toggleItem = useCallback(
+    async (id: string) => {
+      const item = listItems.find((i) => i.id === id);
+      if (!item) return;
+      if (!reduceMotion) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      }
+      try {
+        if (item.done) {
+          await markGroceryMissing(id);
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          clearToast();
+        } else {
+          await markGroceryPurchased(id);
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          showToast(id, item.name);
+        }
+      } catch {
+        // store handles permissions; ignore
+      }
+    },
+    [listItems, markGroceryMissing, markGroceryPurchased, reduceMotion, clearToast, showToast]
+  );
+
+  const undo = useCallback(() => {
+    const id = lastToggled.current;
+    if (!id) return;
+    clearToast();
+    void toggleItem(id);
+  }, [clearToast, toggleItem]);
+
+  const addItem = useCallback(async () => {
+    if (!draft.trim() || !canAddGroceryWishlist) return;
+    setBusy(true);
+    try {
+      await addMissingGrocery({ name: draft.trim() });
+      setDraft('');
+      if (!reduceMotion) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }, [addMissingGrocery, canAddGroceryWishlist, draft, reduceMotion]);
+
+  const dockBottom = Math.max(insets.bottom, 12) + 8;
+  const toastBottom = dockBottom + 72;
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View
-        style={[
-          styles.root,
-          {
-            paddingTop: insets.top + 8,
-            paddingBottom: insets.bottom + 16,
-            backgroundColor: orbitPalette.background,
-          },
-        ]}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.back} hitSlop={8}>
-            <MaterialIcons name="arrow-back" size={20} color={orbitPalette.text} />
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <ChoremaxxBadge size="sm" />
-            <Text style={[styles.title, { color: orbitPalette.text }]}>Shopping</Text>
-          </View>
-          <Text style={[styles.leftCount, { color: accentTheme.primary }]}>
-            {left} left
-          </Text>
+      <View style={[styles.root, { backgroundColor: palette.canvas, paddingTop: insets.top }]}>
+        {/* Ambient washes so amber glass has something to catch */}
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <View
+            style={[
+              styles.wash,
+              {
+                top: -40,
+                left: -60,
+                backgroundColor: palette.ambientOlive,
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.wash,
+              {
+                bottom: 80,
+                right: -40,
+                backgroundColor: palette.ambientEmber,
+                width: 220,
+                height: 220,
+              },
+            ]}
+          />
         </View>
 
-        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-          {left === 0 ? (
-            <Text style={[styles.empty, { color: orbitPalette.textMuted }]}>
-              List is clear. Nice work.
-            </Text>
+        <ShoppingRunHeader
+          palette={palette}
+          runLabel={runLabel}
+          left={progress.left}
+          done={progress.done}
+          total={progress.total}
+          ratio={progress.ratio}
+          onBack={() => router.back()}
+        />
+
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator
+          keyboardShouldPersistTaps="handled">
+          {progress.total === 0 ? (
+            <View style={styles.empty}>
+              <Text style={[styles.emptyTitle, { color: palette.inkMuted }]}>
+                Nothing on the list
+              </Text>
+              <Text style={[styles.emptyBody, { color: palette.inkFaint }]}>
+                Type what you need below. It files itself into the right aisle.
+              </Text>
+            </View>
           ) : (
             aisles.map((aisle) => (
-              <View key={aisle.categoryId} style={styles.aisleBlock}>
-                <View style={styles.aisleHead}>
-                  <Text style={[styles.aisleTitle, { color: orbitPalette.textMuted }]}>
-                    {aisle.categoryName.toUpperCase()}
-                  </Text>
-                  <Text style={[styles.aisleCount, { color: orbitPalette.textSubtle }]}>
-                    {aisle.items.length}
-                  </Text>
-                </View>
-                {aisle.items.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => void markGroceryPurchased(item.id)}
-                    style={[
-                      styles.row,
-                      {
-                        backgroundColor: orbitPalette.card,
-                        borderColor: orbitPalette.border,
-                      },
-                    ]}>
-                    <View style={[styles.check, { borderColor: accentTheme.primary }]}>
-                      <MaterialIcons
-                        name="check-box-outline-blank"
-                        size={28}
-                        color={accentTheme.primary}
-                      />
-                    </View>
-                    <Text style={{ fontSize: 22, width: 30, textAlign: 'center' }}>
-                      {iconForGroceryName(item.name, item.categoryId)}
-                    </Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.itemName, { color: orbitPalette.text }]}>
-                        {item.name}
-                      </Text>
-                      {item.quantity && item.quantity !== '1' ? (
-                        <Text style={[styles.qty, { color: orbitPalette.textMuted }]}>
-                          {item.quantity}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
+              <ShoppingAisleSection
+                key={aisle.categoryId}
+                aisle={aisle}
+                palette={palette}
+                collapsed={collapsed.has(aisle.categoryId)}
+                reduceMotion={reduceMotion}
+                onToggleCollapse={() => {
+                  setCollapsed((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(aisle.categoryId)) next.delete(aisle.categoryId);
+                    else next.add(aisle.categoryId);
+                    return next;
+                  });
+                }}
+                onToggleItem={(id) => void toggleItem(id)}
+              />
             ))
           )}
         </ScrollView>
+
+        <ShoppingUndoToast
+          palette={palette}
+          visible={Boolean(toast)}
+          message={toast ? `${toast.name} in the cart` : ''}
+          bottomOffset={toastBottom}
+          onUndo={undo}
+        />
+
+        {canAddGroceryWishlist ? (
+          <ShoppingDock
+            palette={palette}
+            value={draft}
+            guessLabel={guessLabel}
+            bottomInset={insets.bottom}
+            busy={busy}
+            onChangeText={setDraft}
+            onAdd={() => void addItem()}
+          />
+        ) : null}
       </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: space.lg },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: space.sm,
-    marginBottom: space.md,
+  root: { flex: 1 },
+  wash: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    opacity: 0.55,
   },
-  back: {
-    alignItems: 'center',
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
-  title: { fontSize: 22, fontWeight: '800', marginTop: 2 },
-  leftCount: { fontSize: 16, fontWeight: '800' },
-  list: { gap: space.md, paddingBottom: space.xl },
-  aisleBlock: { gap: space.sm },
-  aisleHead: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-  },
-  aisleTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 0.6 },
-  aisleCount: { fontSize: 12, fontWeight: '700' },
-  row: {
-    alignItems: 'center',
-    borderRadius: radius.card,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: space.md,
-    minHeight: 64,
-    paddingHorizontal: space.md,
-    paddingVertical: space.md,
-  },
-  check: {
-    alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 0,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
-  itemName: { fontSize: 18, fontWeight: '700' },
-  qty: { fontSize: 13, fontWeight: '600', marginTop: 2 },
-  empty: { fontSize: 16, marginTop: 40, textAlign: 'center' },
+  list: { flex: 1 },
+  listContent: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 160 },
+  empty: { paddingTop: 56, paddingHorizontal: 26, alignItems: 'center' },
+  emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 6 },
+  emptyBody: { fontSize: 14, lineHeight: 21, textAlign: 'center' },
 });

@@ -65,7 +65,6 @@ export default function GroceriesScreen() {
 
   const active = listItems.filter((i) => i.status !== 'Purchased');
   const checked = listItems.filter((i) => i.status === 'Purchased');
-  const sorted = [...active, ...checked];
   const onListNames = active.map((i) => i.name);
 
   const favoriteProducts = useMemo(
@@ -305,8 +304,25 @@ export default function GroceriesScreen() {
         />
       ) : null}
 
-      {sorted.map((item) => {
-        const done = item.status === 'Purchased';
+      <Pressable
+        onPress={() => router.push('/shopping-mode' as never)}
+        style={[
+          styles.aisleBtn,
+          {
+            backgroundColor: `${accentTheme.primary}22`,
+            borderColor: `${accentTheme.primary}44`,
+          },
+        ]}>
+        <MaterialIcons name="storefront" size={18} color={accentTheme.primary} />
+        <Text style={{ color: accentTheme.primary, fontWeight: '700' }}>Start shopping</Text>
+      </Pressable>
+
+      {active.length ? (
+        <Text style={[styles.sectionLabel, { color: c.textMuted }]}>
+          To get · {active.length}
+        </Text>
+      ) : null}
+      {active.map((item) => {
         const needsCategorise = !item.category || item.category === 'Other';
         return (
           <Pressable
@@ -317,23 +333,19 @@ export default function GroceriesScreen() {
               { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) },
             ]}>
             <MaterialIcons
-              name={done ? 'check-circle' : 'radio-button-unchecked'}
+              name="radio-button-unchecked"
               size={22}
-              color={done ? '#34D399' : accentTheme.primary}
+              color={accentTheme.primary}
             />
             <Text style={{ fontSize: 20, width: 28, textAlign: 'center' }}>
               {iconForGroceryName(item.name, item.categoryId)}
             </Text>
             <View style={{ flex: 1 }}>
-              <Text
-                style={[
-                  styles.itemName,
-                  { color: c.text, textDecorationLine: done ? 'line-through' : 'none' },
-                ]}>
+              <Text style={[styles.itemName, { color: c.text }]}>
                 {item.name}
                 {item.quantity && item.quantity !== '1' ? `  · ${item.quantity}` : ''}
               </Text>
-              {needsCategorise && !done ? (
+              {needsCategorise ? (
                 <Text style={{ color: c.textSubtle, fontSize: 11 }}>Tap to categorise</Text>
               ) : null}
             </View>
@@ -351,18 +363,36 @@ export default function GroceriesScreen() {
         );
       })}
 
-      <Pressable
-        onPress={() => router.push('/shopping-mode' as never)}
-        style={[
-          styles.aisleBtn,
-          {
-            backgroundColor: `${accentTheme.primary}22`,
-            borderColor: `${accentTheme.primary}44`,
-          },
-        ]}>
-        <MaterialIcons name="storefront" size={18} color={accentTheme.primary} />
-        <Text style={{ color: accentTheme.primary, fontWeight: '700' }}>View list by aisle</Text>
-      </Pressable>
+      {checked.length ? (
+        <Text style={[styles.sectionLabel, { color: c.textMuted, marginTop: 8 }]}>
+          Got it · {checked.length}
+        </Text>
+      ) : null}
+      {checked.map((item) => (
+        <Pressable
+          key={item.id}
+          onPress={() => void toggleItem(item)}
+          style={[
+            styles.row,
+            { borderColor: glassBorder(0.1), backgroundColor: glass(0.04), opacity: 0.55 },
+          ]}>
+          <MaterialIcons name="check-circle" size={22} color="#34D399" />
+          <Text style={{ fontSize: 20, width: 28, textAlign: 'center' }}>
+            {iconForGroceryName(item.name, item.categoryId)}
+          </Text>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[
+                styles.itemName,
+                { color: c.text, textDecorationLine: 'line-through' },
+              ]}>
+              {item.name}
+              {item.quantity && item.quantity !== '1' ? `  · ${item.quantity}` : ''}
+            </Text>
+          </View>
+          <Text style={[styles.catTag, { color: c.textMuted }]}>{item.category || 'Other'}</Text>
+        </Pressable>
+      ))}
     </PersistentScrollView>
   );
 }
@@ -374,6 +404,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: { fontSize: 28, fontWeight: '800' },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginTop: 4,
+  },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     borderRadius: 999,
