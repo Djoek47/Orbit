@@ -67,6 +67,12 @@ __resetGrocerySearchIndex();
 }
 
 {
+  const unknown = classifyGroceryItem('xyzzy-unknown-widget-99');
+  assert.equal(unknown.confidence, 'fallback');
+  pass('GC6', 'Rev C classifier still fallback for unknown');
+}
+
+{
   assert.equal(emojiForGroceryItem('Banana'), '🍌');
   assert.equal(emojiForGroceryItem('2% Milk'), '🥛');
   assert.equal(emojiForGroceryItem('Chicken Breasts'), '🍗');
