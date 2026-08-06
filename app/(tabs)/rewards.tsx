@@ -8,6 +8,9 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Avatar } from '@/components/orbit/avatar';
 import { ChampionsRecordSheet } from '@/components/orbit/champions-record-sheet';
+import { XpLedgerView } from '@/components/orbit/xp-ledger-view';
+import { BottomSheet } from '@/components/orbit/bottom-sheet';
+import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { CrownLeaderboard } from '@/components/orbit/crown-leaderboard';
 import Icon from '@/components/orbit/design/Icon';
 import { achievementIconName, trophyIconName } from '@/components/orbit/design/icon-map';
@@ -38,6 +41,7 @@ import {
 } from '@/lib/rewards/ledgers';
 import { rankCrownPeriod, type ChampionsRecord } from '@/lib/scoring/crowns';
 import { formatLocalDate } from '@/lib/streaks/local-date';
+import type { XpLedgerEntry } from '@/lib/streaks/xp-ledger';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
@@ -169,6 +173,7 @@ export default function RewardsScreen() {
   const [allowanceBusy, setAllowanceBusy] = useState(false);
   const [championsRecord, setChampionsRecord] = useState<ChampionsRecord | null>(null);
   const [allowanceLedger, setAllowanceLedger] = useState<AllowanceLedgerEntry[]>([]);
+  const [ledgerMemberId, setLedgerMemberId] = useState<string | null>(null);
 
   const reloadAllowanceLedger = useCallback(async () => {
     if (!household.id) {
@@ -357,6 +362,45 @@ export default function RewardsScreen() {
     () => summarizeAllowanceLedger(allowanceLedger),
     [allowanceLedger]
   );
+
+  const ledgerEntries = useMemo((): XpLedgerEntry[] => {
+    if (!ledgerMemberId) return [];
+    const member = household.members.find((m) => m.id === ledgerMemberId);
+    if (!member) return [];
+    const rows: XpLedgerEntry[] = [];
+    let balance = 0;
+    const completed = [...household.tasks]
+      .filter(
+        (t) =>
+          t.status === 'Completed' &&
+          (t.assignee === member.name || t.assignees?.includes(member.name)) &&
+          t.completedAt
+      )
+      .sort((a, b) => String(a.completedAt).localeCompare(String(b.completedAt)));
+    for (const task of completed) {
+      const delta = task.awardedXp ?? task.baseXp ?? 0;
+      balance += delta;
+      rows.push({
+        id: `xp_${task.id}`,
+        memberId: member.id,
+        occurredAt: task.completedAt!,
+        type: task.completedLate ? 'late_credit' : 'task_completed',
+        delta,
+        balanceAfter: balance,
+        label: task.title,
+        occurrenceId: task.id,
+      });
+    }
+    return rows.reverse();
+  }, [household.members, household.tasks, ledgerMemberId]);
+
+  const fullXpByOccurrence = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const task of household.tasks) {
+      if (typeof task.baseXp === 'number') map[task.id] = task.baseXp;
+    }
+    return map;
+  }, [household.tasks]);
 
   const surfaceTabs = (
     [
@@ -1030,7 +1074,21 @@ export default function RewardsScreen() {
         }}
         periodLabel={VOCAB.weeksCrown}
         onClose={() => setChampionsRecord(null)}
+        onOpenLedger={() => {
+          if (championsRecord?.memberId) {
+            setLedgerMemberId(championsRecord.memberId);
+          }
+        }}
       />
+      <BottomSheet
+        visible={ledgerMemberId != null}
+        onDismiss={() => setLedgerMemberId(null)}
+        heightRatio={0.7}>
+        <Text style={[typography.title3, { color: c.text, marginBottom: 8 }]}>XP history</Text>
+        <PersistentScrollView contentContainerStyle={{ gap: 8, paddingBottom: 24 }}>
+          <XpLedgerView entries={ledgerEntries} fullXpByOccurrence={fullXpByOccurrence} />
+        </PersistentScrollView>
+      </BottomSheet>
     </>
   );
 }

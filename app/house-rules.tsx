@@ -35,15 +35,9 @@ function formatDailyDeadline(hhmm: string): string {
   return `${hour12}:${String(m || 0).padStart(2, '0')} ${suffix}`;
 }
 
-const SETTING_ROUTES: Record<string, string> = {
-  deadlines: '/settings',
+const SETTING_ROUTES: Partial<Record<string, string>> = {
   recess: '/recess',
   rewardModel: '/settings',
-  rewardFrequency: '/settings',
-  rewardApproval: '/settings',
-  allowanceSchedule: '/settings',
-  choreProof: '/settings',
-  homeworkProofPerChild: '/settings',
 };
 
 export default function HouseRulesScreen() {
@@ -71,9 +65,9 @@ export default function HouseRulesScreen() {
       visibleRules(doc, {
         rewardModel: household.rewardModel ?? 'full',
         helperCount,
-        homeworkEnabled: true,
+        homeworkEnabled: household.homeworkEnabled !== false,
       }),
-    [doc, household.rewardModel, helperCount]
+    [doc, household.homeworkEnabled, household.rewardModel, helperCount]
   );
 
   const dailyDeadlineLabel = formatDailyDeadline(doc.constants.deadlines.daily);
@@ -94,7 +88,8 @@ export default function HouseRulesScreen() {
 
   const openSetting = (settingKey?: string) => {
     if (!settingKey || !permissions.canManageHousehold) return;
-    const route = SETTING_ROUTES[settingKey] ?? '/settings';
+    const route = SETTING_ROUTES[settingKey];
+    if (!route) return;
     router.push(route as never);
   };
 
@@ -161,7 +156,7 @@ export default function HouseRulesScreen() {
                 {rules.map((rule) => {
                   const kidHeadline = substituteTokens(rule.kid.headline, {
                     dailyDeadline: dailyDeadlineLabel,
-                  }).replace('7:00 PM', dailyDeadlineLabel);
+                  });
                   const kidBody = substituteTokens(rule.kid.body, {
                     dailyDeadline: dailyDeadlineLabel,
                   });
@@ -178,7 +173,10 @@ export default function HouseRulesScreen() {
                             <Text style={[typography.caption2, { color: c.accent }]}>
                               {rule.displayNumber}
                             </Text>
-                            {rule.editable && permissions.canManageHousehold ? (
+                            {rule.editable &&
+                            permissions.canManageHousehold &&
+                            rule.settingKey &&
+                            SETTING_ROUTES[rule.settingKey] ? (
                               <Pressable onPress={() => openSetting(rule.settingKey)}>
                                 <Text style={[typography.caption2, { color: c.accent }]}>Edit</Text>
                               </Pressable>

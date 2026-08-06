@@ -3,10 +3,11 @@
  * Restricted metrics (late / expired / rescues) are omitted entirely for siblings.
  */
 
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
+import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { CROWN_COLORS } from '@/constants/crown-colors';
 import { VOCAB } from '@/constants/vocabulary';
 import { space, typography } from '@/constants/orbit-theme';
@@ -57,12 +58,7 @@ export function ChampionsRecordSheet({
 
   return (
     <BottomSheet visible={visible} onDismiss={onClose} heightRatio={0.62}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.body}
-        showsVerticalScrollIndicator
-        persistentScrollbar
-      >
+      <PersistentScrollView style={styles.scroll} contentContainerStyle={styles.body}>
         <Text style={[typography.caption1, { color: c.textMuted }]}>
           {VOCAB.championsRecord}
           {periodLabel ? ` · ${periodLabel}` : ''}
@@ -94,7 +90,7 @@ export function ChampionsRecordSheet({
             </Text>
           </Pressable>
         ) : null}
-      </ScrollView>
+      </PersistentScrollView>
     </BottomSheet>
   );
 }

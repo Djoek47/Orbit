@@ -619,6 +619,8 @@ export type HouseholdSnapshot = {
   groceryCategoryOverrides?: Record<string, string>;
   /** Last time an admin opened the groceries tab (for Home badge). */
   groceriesLastOpenedAt?: string;
+  /** When false, homework-gated House Rules chapters hide. Default true. */
+  homeworkEnabled?: boolean;
   /** Make accent theme id (ocean/aurora/…). */
   accentThemeId?: string;
   taskTemplates: TaskTemplate[];

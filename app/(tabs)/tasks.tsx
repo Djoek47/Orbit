@@ -13,7 +13,9 @@ import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { SearchBar } from '@/components/orbit/search-bar';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { StreakMarker } from '@/components/orbit/streak-marker';
+import { VOCAB } from '@/constants/vocabulary';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   normalizeRewardSettings,
@@ -242,7 +244,15 @@ function TaskItem({
                 styles.metaPill,
                 { backgroundColor: `${c.warning}22`, borderColor: `${c.warning}40` },
               ]}>
-              <Text style={[styles.metaPillText, { color: c.warning }]}>Completed late</Text>
+              <Text style={[styles.metaPillText, { color: c.warning }]}>
+                {VOCAB.lateCredit}
+                {typeof task.awardedXp === 'number' ? ` +${task.awardedXp}` : ''}
+                {typeof task.baseXp === 'number' &&
+                typeof task.awardedXp === 'number' &&
+                task.baseXp > task.awardedXp
+                  ? ` · was ${task.baseXp}`
+                  : ''}
+              </Text>
             </View>
           ) : null}
           {task.status === 'Missed' ? (
@@ -251,7 +261,7 @@ function TaskItem({
                 styles.metaPill,
                 { backgroundColor: `${c.danger}22`, borderColor: `${c.danger}40` },
               ]}>
-              <Text style={[styles.metaPillText, { color: c.danger }]}>Missed</Text>
+              <Text style={[styles.metaPillText, { color: c.danger }]}>{VOCAB.expired}</Text>
             </View>
           ) : null}
           {isSplitTask(task) ? (
@@ -595,7 +605,14 @@ export default function TasksScreen() {
     : grouped.today.length + grouped.upcoming.length + grouped.done.length === 0;
   const handleToggle = async (taskId: string) => {
     const task = household.tasks.find((item) => item.id === taskId);
-    if (!task || task.status === 'Completed' || task.status === 'Cancelled') return;
+    if (
+      !task ||
+      task.status === 'Completed' ||
+      task.status === 'Cancelled' ||
+      task.status === 'Missed'
+    ) {
+      return;
+    }
 
     if (isSplitTask(task)) {
       if (!currentMember || !taskMatchesAssignee(task, currentMember.name)) return;
@@ -624,10 +641,9 @@ export default function TasksScreen() {
 
   return (
     <>
-    <ScrollView
+    <PersistentScrollView
       style={orbitScreen.container}
       contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
-      showsVerticalScrollIndicator={false}
       contentInsetAdjustmentBehavior="never">
       <View style={styles.headerRow}>
         <View style={[orbitScreen.header, styles.tasksHeader]}>
@@ -857,7 +873,7 @@ export default function TasksScreen() {
           />
         </>
       )}
-    </ScrollView>
+    </PersistentScrollView>
 
     <PersonaSwitchPopup
       visible={personaSwitchOpen}

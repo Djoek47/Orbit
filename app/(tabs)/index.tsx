@@ -11,6 +11,7 @@ import { Leaderboard, type LeaderboardEntry } from '@/components/orbit/leaderboa
 import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { StreakRescueSheet } from '@/components/orbit/streak-rescue-sheet';
+import { StreakLostSheet } from '@/components/orbit/streak-lost-sheet';
 import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { VOCAB } from '@/constants/vocabulary';
@@ -175,6 +176,11 @@ export default function HomeScreen() {
     estimatedXpCost: number;
     freeEligible: boolean;
   } | null>(null);
+  const [streakLostVisible, setStreakLostVisible] = useState(false);
+  const [streakLost, setStreakLost] = useState<{
+    streakDays: number;
+    reason: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!currentMember) return;
@@ -187,6 +193,15 @@ export default function HomeScreen() {
           freeEligible: streak.pendingRescue.freeEligible,
         });
         setRescueVisible(true);
+        setStreakLostVisible(false);
+        return;
+      }
+      if (streak?.streakEndedAt && streak.current === 0 && !streak.pendingRescue) {
+        setStreakLost({
+          streakDays: Number(streak.longest ?? 0) || 0,
+          reason: streak.streakEndedReason ?? null,
+        });
+        setStreakLostVisible(true);
       }
     });
   }, [currentMember?.id, personalStreak]);
@@ -520,6 +535,15 @@ export default function HomeScreen() {
           });
         }}
         onDismiss={() => setRescueVisible(false)}
+      />
+      <StreakLostSheet
+        visible={streakLostVisible}
+        streakDays={streakLost?.streakDays ?? 0}
+        reason={streakLost?.reason}
+        onDismiss={() => {
+          setStreakLostVisible(false);
+          setStreakLost(null);
+        }}
       />
     </>
   );

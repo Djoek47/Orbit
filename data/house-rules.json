@@ -343,7 +343,7 @@
         "clause": "Daily tasks close at 7:00 PM household time. Weekly tasks close Sunday 7:00 PM, monthly on the last Sunday at 7:00 PM."
       },
       "kid": {
-        "headline": "The bell rings at 7:00 PM",
+        "headline": "The bell rings at {dailyDeadline}",
         "question": "When do I have to be done?",
         "body": "Weekly jobs are due Sunday. Monthly ones on the last Sunday."
       }
