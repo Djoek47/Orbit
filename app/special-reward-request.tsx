@@ -10,15 +10,17 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 /**
  * Q1 = B — Admin may allow members to ask for something not yet minted.
- * At most one pending ask per member (enforced in repository).
+ * At most one pending request per member (enforced in repository).
  */
 export default function SpecialRewardRequestScreen() {
   const insets = useSafeAreaInsets();
-  const { household, permissions, requestSpecialReward } = useOrbit();
+  const { household, orbitPalette, permissions, requestSpecialReward } = useOrbit();
+  const { c } = useOrbitColors();
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -45,15 +47,15 @@ export default function SpecialRewardRequestScreen() {
   if (!allowed) {
     return (
       <ScrollView
-        style={orbitScreen.container}
+        style={[orbitScreen.container, { backgroundColor: orbitPalette.background }]}
         contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={orbitScreen.header}>
           <ChoremaxxBadge />
-          <Text style={[typography.footnote, { marginTop: 8 }]}>Rewards</Text>
-          <Text style={typography.title1}>Asking is off</Text>
-          <Text style={typography.body}>
-            An admin can allow asks for rewards that are not in the catalogue yet — Settings →
+          <Text style={[typography.footnote, { marginTop: 8, color: c.textMuted }]}>Rewards</Text>
+          <Text style={[typography.title1, { color: c.text }]}>Requests are off</Text>
+          <Text style={[typography.body, { color: c.textSoft }]}>
+            A grown-up can allow reward requests that are not in the catalogue yet — Settings →
             Member permissions.
           </Text>
         </View>
@@ -64,17 +66,17 @@ export default function SpecialRewardRequestScreen() {
 
   return (
     <ScrollView
-      style={orbitScreen.container}
+      style={[orbitScreen.container, { backgroundColor: orbitPalette.background }]}
       contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}
       keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ headerShown: false }} />
       <View style={orbitScreen.header}>
         <ChoremaxxBadge />
-        <Text style={[typography.footnote, { marginTop: 8 }]}>Ask the household</Text>
-        <Text style={typography.title1}>Ask for a reward</Text>
-        <Text style={typography.body}>
+        <Text style={[typography.footnote, { marginTop: 8, color: c.textMuted }]}>Rewards</Text>
+        <Text style={[typography.title1, { color: c.text }]}>Ask for a reward</Text>
+        <Text style={[typography.body, { color: c.textSoft }]}>
           Ask for something that is not in the catalogue yet. A grown-up decides. You can only have
-          one waiting ask at a time.
+          one waiting request at a time.
         </Text>
       </View>
 
@@ -94,7 +96,10 @@ export default function SpecialRewardRequestScreen() {
       </GlassCard>
 
       <OrbitButton disabled={!title.trim() || busy} onPress={() => void handleSubmit()}>
-        {busy ? 'Sending…' : 'Send ask'}
+        {busy ? 'Sending…' : 'Send request'}
+      </OrbitButton>
+      <OrbitButton tone="secondary" onPress={() => router.back()}>
+        Cancel
       </OrbitButton>
     </ScrollView>
   );

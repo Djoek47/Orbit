@@ -8,7 +8,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet';
-import { buildSheetNotifications, needsAttentionCount } from '@/lib/poppins/notification-buckets';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
@@ -41,13 +40,7 @@ export function GlobalHeaderChips() {
     unreadNotificationCount,
   } = useOrbit();
   const [inboxOpen, setInboxOpen] = useState(false);
-  const badge = Math.min(
-    Math.max(
-      unreadNotificationCount,
-      needsAttentionCount(buildSheetNotifications(notifications, poppinsBriefing))
-    ),
-    9
-  );
+  const badge = Math.min(unreadNotificationCount, 9);
   const accent = accentTheme.primary;
   const secondary = accentTheme.secondary;
   const isDark = orbitPalette.isDark;

@@ -1,8 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -41,10 +41,15 @@ import {
   type RewardMode,
 } from '@/lib/rewards/reward-mode';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
+import {
+  getNotificationPermissionStatus,
+  isNotificationPermissionGranted,
+  openSystemNotificationSettings,
+  registerForPushNotifications,
+} from '@/lib/notifications/push';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
-import * as Linking from 'expo-linking';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 type Section = 'main' | 'members' | 'notifications';
@@ -176,6 +181,7 @@ export default function SettingsScreen() {
   const [sharedDeviceName, setSharedDeviceName] = useState('Kids tablet');
   const [creatingDevice, setCreatingDevice] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
+  const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const prefs = useMemo(
     () =>
       household.notificationPrefs ?? {
@@ -191,6 +197,13 @@ export default function SettingsScreen() {
       },
     [household.notificationPrefs]
   );
+
+  useEffect(() => {
+    if (section !== 'notifications') return;
+    void getNotificationPermissionStatus().then((permission) => {
+      setOsNotifStatus(isNotificationPermissionGranted(permission) ? 'granted' : 'denied');
+    });
+  }, [section]);
 
   const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
   const householdThemeId = migrateAccentThemeId(household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID);
@@ -459,8 +472,8 @@ export default function SettingsScreen() {
                 </Text>
                 {(
                   [
-                    ['allowRewardRedeem', 'Allow redeem XP rewards', 'Members can spend XP in the shop'],
-                    ['allowSpecialRewardRequest', 'Allow reward asks', 'Kids can ask for something not in the catalogue yet'],
+                    ['allowRewardRedeem', 'Allow redeeming rewards', 'Members can spend XP on catalogue rewards'],
+                    ['allowSpecialRewardRequest', 'Allow reward requests', 'Kids can request something not in the catalogue yet'],
                     ['allowAllowance', 'Allow allowance', 'Shows Allowance in Rewards Center'],
                     ['allowGroceryAdd', 'Allow grocery list adds', 'Non-admins can add items'],
                     ['allowCalendarCreate', 'Allow calendar event creates', 'Simplified create when enabled'],
@@ -1001,18 +1014,83 @@ export default function SettingsScreen() {
 
         {section === 'notifications' ? (
           <>
-            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>Poppins Monitor categories</Text>
+            <View
+              style={[
+                styles.prefRow,
+                {
+                  backgroundColor: glassFill(isDark),
+                  borderColor: glassBorder(0.08),
+                },
+              ]}>
+              <MaterialIcons
+                name={osNotifStatus === 'granted' ? 'notifications-active' : 'notifications-off'}
+                size={22}
+                color={osNotifStatus === 'granted' ? accentTheme.primary : orbitPalette.textMuted}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.memberName, { color: orbitPalette.text }]}>
+                  iPhone notifications
+                </Text>
+                <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
+                  {osNotifStatus === 'granted'
+                    ? 'Banners and lock screen are on for ChoreMaxx.'
+                    : 'Turn on banners in Apple Settings so alerts aren’t silent.'}
+                </Text>
+              </View>
+            </View>
+            {osNotifStatus !== 'granted' ? (
+              <Pressable
+                style={[
+                  styles.linkRow,
+                  {
+                    backgroundColor: `${accentTheme.primary}18`,
+                    borderRadius: 12,
+                    marginBottom: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 12,
+                  },
+                ]}
+                onPress={() => {
+                  void (async () => {
+                    const token = await registerForPushNotifications(currentUser?.id);
+                    const permission = await getNotificationPermissionStatus();
+                    const granted = isNotificationPermissionGranted(permission);
+                    setOsNotifStatus(granted ? 'granted' : 'denied');
+                    if (!granted || !token) {
+                      await openSystemNotificationSettings();
+                    }
+                  })();
+                }}>
+                <Text style={[styles.linkText, { color: accentTheme.primary }]}>
+                  Enable banners in Apple Settings
+                </Text>
+                <MaterialIcons name="open-in-new" size={16} color={accentTheme.primary} />
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.linkRow}
+                onPress={() => void openSystemNotificationSettings()}>
+                <Text style={[styles.linkText, { color: accentTheme.primary }]}>
+                  Open Apple notification settings
+                </Text>
+                <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
+              </Pressable>
+            )}
+
+            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>
+              Choose which Poppins alerts you want ({enabledCount} on)
+            </Text>
             {(
               [
-                ['tasks', 'Task Reminders', 'Overdue nudges and streak checks', '✅'],
-                ['itinerary', 'Itinerary legs', 'Arrived → next and trip nudges', '🗺️'],
-                ['groceries', 'Grocery & sales', 'Missing items and aisle deals', '🛒'],
-                ['rewards', 'Rewards', 'Redemptions and XP milestones', '🎁'],
-                ['deals', 'Deal alerts', 'Mock catalog: food, shoes, electronics, furniture', '🏷️'],
-                ['plans', 'Plan proposals', 'Errand loops and itinerary suggestions', '🗺️'],
-                ['xpFairness', 'XP fairness', 'Weekly balance assessments (propose only)', '⚖️'],
-                ['nearShop', 'Near shop', 'Local alert when you are close to a grocery stop', '📍'],
-                ['missingOnTheWay', 'Missing on the way', 'Nudge missing items before and during a run', '🧾'],
+                ['tasks', 'Tasks & streaks', 'Due tasks, photos, streak risk', '✅'],
+                ['rewards', 'Rewards & allowance', 'Claims, approvals, paid allowance', '🎁'],
+                ['groceries', 'Groceries', 'List updates that still use this channel', '🛒'],
+                ['itinerary', 'Plan & trips', 'Trip nudges when enabled', '🗺️'],
+                ['deals', 'Deal ideas', 'In-app suggestions only', '🏷️'],
+                ['plans', 'Plan ideas', 'In-app suggestions only', '🗺️'],
+                ['xpFairness', 'Fairness notes', 'In-app balance tips', '⚖️'],
+                ['nearShop', 'Near shop', 'Local reminder near a store', '📍'],
+                ['missingOnTheWay', 'Missing on the way', 'Local reminder during a run', '🧾'],
               ] as const
             ).map(([key, label, sub, emoji]) => (
               <View
@@ -1039,10 +1117,6 @@ export default function SettingsScreen() {
             ))}
             <Pressable style={styles.linkRow} onPress={() => router.push('/notifications' as never)}>
               <Text style={styles.linkText}>Open notifications inbox</Text>
-              <MaterialIcons name="chevron-right" size={16} color="#38BDF8" />
-            </Pressable>
-            <Pressable style={styles.linkRow} onPress={() => router.push('/(tabs)/poppins' as never)}>
-              <Text style={styles.linkText}>Open Poppins · Run check</Text>
               <MaterialIcons name="chevron-right" size={16} color="#38BDF8" />
             </Pressable>
           </>

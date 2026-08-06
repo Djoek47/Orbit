@@ -80,3 +80,46 @@ export async function scheduleLocalReminder(title: string, body: string, seconds
     },
   });
 }
+
+/** Immediate OS banner + lock-screen notification (not silent inbox-only). */
+export async function presentLocalBanner(
+  title: string,
+  body: string,
+  data?: Record<string, unknown>
+) {
+  const permission = await Notifications.getPermissionsAsync();
+  if (!isGranted(permission)) {
+    return null;
+  }
+  return Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      sound: true,
+      data: data ?? {},
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 1,
+    },
+  });
+}
+
+export async function syncAppBadge(count: number) {
+  try {
+    await Notifications.setBadgeCountAsync(Math.max(0, Math.floor(count)));
+  } catch {
+    // Badge unsupported on some platforms / Expo Go builds.
+  }
+}
+
+export async function getNotificationPermissionStatus() {
+  return Notifications.getPermissionsAsync();
+}
+
+export async function openSystemNotificationSettings() {
+  const { Linking } = await import('react-native');
+  await Linking.openSettings();
+}
+
+export { isGranted as isNotificationPermissionGranted };

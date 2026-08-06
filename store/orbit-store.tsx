@@ -29,7 +29,7 @@ import {
   PROOF_REVIEW_ROLES,
   REWARD_REVIEW_ROLES,
 } from '@/lib/notifications/audience';
-import { registerForPushNotifications, scheduleLocalReminder } from '@/lib/notifications/push';
+import { registerForPushNotifications, presentLocalBanner, syncAppBadge, scheduleLocalReminder } from '@/lib/notifications/push';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
 import { getV2Permissions } from '@/lib/permissions-v2';
 import { persistHouseholdScore } from '@/lib/momentum/score-writer';
@@ -504,6 +504,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     [visibleNotifications]
   );
 
+  useEffect(() => {
+    void syncAppBadge(unreadNotificationCount);
+  }, [unreadNotificationCount]);
+
   const analyticsContext = useMemo(
     () => ({ householdId: household.id, userId: currentUser?.id ?? null }),
     [currentUser?.id, household.id]
@@ -907,10 +911,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       await persistMockHouseholdSnapshot(joinedHousehold);
     }
     if (joinedHousehold.id) {
-      await poppinsNotifications.joinPending(pushNotification, {
-        memberName: currentUser.name,
-        inviteCode: input.inviteCode,
-      });
+      // Join-pending is not in the closed Rev E registry — admins see pending members in-app.
     }
     await trackAnalytics('household.joined', { inviteCode: input.inviteCode }, { householdId: joinedHousehold.id, userId: currentUser.id });
   };
@@ -1070,12 +1071,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
     const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    const assigneeMember = household.members.find((member) => member.name === currentTask.assignee);
-    await poppinsNotifications.proofApproved(pushNotification, prefs, {
-      title: currentTask.title,
-      taskId,
-      audienceRoles: assigneeMember ? [assigneeMember.role] : undefined,
-    });
+    void prefs;
+    // Confirmation is silent to the helper — XP already landed; no Rev E registry id for "proof approved".
     await trackAnalytics('task.verification_confirmed', { taskId }, analyticsContext);
     return true;
   };
@@ -1091,14 +1088,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
-    await pushNotification({
-      title: 'Poppins · Another photo please',
-      body: note?.trim()
-        ? `${currentMember.name}: ${note.trim()}`
-        : `${currentMember.name} asked for another photo of “${currentTask.title}”.`,
-      category: 'tasks',
-      priority: 'high',
-      data: { taskId, kind: 'proof_requested' },
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    await poppinsNotifications.proofRequested(pushNotification, prefs, {
+      title: currentTask.title,
+      adminName: currentMember.name,
+      taskId,
     });
     await trackAnalytics('task.proof_requested', { taskId }, analyticsContext);
     return true;
@@ -1146,14 +1140,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         };
       }),
     }));
-    await pushNotification({
-      title: 'Poppins · Not done yet',
-      body: note?.trim()
-        ? `${currentMember.name} marked “${currentTask.title}” as not done yet. ${note.trim()}`
-        : `${currentMember.name} marked “${currentTask.title}” as not done yet.`,
-      category: 'tasks',
-      priority: 'high',
-      data: { taskId, kind: 'marked_not_done', reversedXp: reversed },
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    await poppinsNotifications.taskNotDone(pushNotification, prefs, {
+      title: currentTask.title,
+      adminName: currentMember.name,
+      taskId,
     });
     await trackAnalytics('task.marked_not_done', { taskId, reversed }, analyticsContext);
     return true;
@@ -1290,12 +1281,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         },
       });
       for (const unlock of unlocks) {
-        await pushNotification({
-          title: 'Trophy unlocked',
-          body: unlock.name,
-          category: 'rewards',
-          priority: 'medium',
-          data: { kind: 'trophy_unlock', trophyId: unlock.id },
+        const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+        await poppinsNotifications.trophyUnlocked(pushNotification, prefs, {
+          trophy: unlock.name,
+          audienceMemberIds: [member.id],
         });
       }
       if (dataMode === 'mock') {
@@ -1571,13 +1560,6 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       tasks: current.tasks.map((item) => (item.id === taskId ? saved : item)),
     }));
 
-    await pushNotification({
-      title: 'Split task · penalty',
-      body: `${assigneeName} was docked ${dock} XP for not finishing “${currentTask.title}”.`,
-      category: 'tasks',
-      priority: 'medium',
-      data: { kind: 'split_penalty', taskId, assigneeName, dock },
-    });
     await trackAnalytics('task.share_penalized', { taskId, assigneeName, dock }, analyticsContext);
     return dock;
   };
@@ -1747,16 +1729,6 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     // v2 §5.2: cancel never spawns the next occurrence — time-based catch-up does.
 
     setHousehold((current) => ({ ...current, tasks: nextTasks }));
-    await pushNotification({
-      title: 'Poppins · Task cancelled',
-      body:
-        scope === 'future' && currentTask.repeat !== 'None'
-          ? `${currentTask.title} cancelled for this and all future occurrences.`
-          : `${currentTask.title} cancelled${currentTask.status === 'Overdue' ? ' (was overdue)' : ''}.`,
-      category: 'tasks',
-      priority: 'medium',
-      data: { taskId, kind: 'task_cancelled', scope },
-    });
     await trackAnalytics('task.cancelled', { taskId, scope }, analyticsContext);
   };
 
@@ -1786,12 +1758,6 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       groceries: [grocery, ...current.groceries],
     }));
-    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    await poppinsNotifications.groceryAdded(pushNotification, prefs, {
-      name: grocery.name,
-      onSale: grocery.salePrice != null && (grocery.typicalPrice ?? 0) > grocery.salePrice,
-      groceryId: grocery.id,
-    });
     await trackAnalytics('grocery.added', { groceryId: grocery.id }, analyticsContext);
   };
 
@@ -1952,6 +1918,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       userId: targetUserId,
     });
     setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
+    // Always surface an OS banner when permission allows — inbox-only is not enough (Rev E / iOS).
+    void presentLocalBanner(item.title, item.body, {
+      ...(item.data ?? {}),
+      notificationId: item.id,
+      category: item.category,
+    }).catch(() => undefined);
     return item;
   };
 
@@ -1965,13 +1937,6 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       events: [event, ...current.events.filter((item) => item.id !== event.id)],
     }));
-    await pushNotification({
-      title: event.title,
-      body: `${event.date} at ${event.time}${event.location ? ` · ${event.location}` : ''}. ${event.responsible} is responsible.`,
-      category: 'events',
-      priority: 'medium',
-      data: { eventId: event.id },
-    });
     if (input.remindMe) {
       await scheduleLocalReminder(
         event.title,
@@ -2006,13 +1971,6 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    await pushNotification({
-      title: `Reminder: ${event.title}`,
-      body: `${event.date} at ${event.time}. Assigned to ${event.responsible}.`,
-      category: 'events',
-      priority: 'high',
-      data: { eventId: event.id },
-    });
     await scheduleLocalReminder(event.title, `${event.time} · ${event.responsible}`, 15).catch((error) =>
       console.warn('Local reminder skipped', error)
     );
@@ -2055,12 +2013,6 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     const ordered = [...updated.stops].sort((a, b) => a.sortOrder - b.sortOrder);
     const nextActive = ordered.find((item) => item.status === 'active');
-    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    await poppinsNotifications.itineraryNextLeg(pushNotification, prefs, {
-      itinerary: updated,
-      stopLabel: stop?.label ?? 'Stop',
-      nextLabel: nextActive?.label,
-    });
 
     if (nextActive) {
       const previous = ordered.find((item) => item.id === stopId);
@@ -2426,13 +2378,6 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }));
     const result = await openMultiStopRoute(stops, preferredMapsApp);
     if (result.sequentialOnly && result.app === 'waze') {
-      await pushNotification({
-        title: 'Waze · one stop at a time',
-        body: 'Waze opened the first stop. Use Arrived → next in Choremaxx for the rest.',
-        category: 'events',
-        priority: 'low',
-        data: { kind: 'waze_sequential', itineraryId },
-      });
     }
   };
 
@@ -2641,13 +2586,6 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }));
       setActiveMemberId(null);
     }
-    await pushNotification({
-      title: 'Welcome to the household',
-      body: `${member?.name ?? 'A member'} was approved and now has full access.`,
-      category: 'members',
-      priority: 'medium',
-      data: { memberId },
-    });
     await trackAnalytics('member.approved', { memberId }, analyticsContext);
   };
 
@@ -2819,14 +2757,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
     }));
     if (reward.assignedMemberId && reward.assignedMemberId !== currentMember?.id) {
-      const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-      await poppinsNotifications.rewardAssigned(pushNotification, prefs, {
-        title: reward.title,
-        cost: reward.cost ?? 0,
-        rewardId: reward.id,
-        assignedByName: currentMember?.name ?? 'Admin',
-        audienceMemberIds: [reward.assignedMemberId],
-      });
+      // Assigned rewards surface in-app; no closed-registry notification for assignment.
     }
     await trackAnalytics('reward.created', { rewardId: reward.id }, analyticsContext);
   };
@@ -2920,17 +2851,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createdByName: currentMember.name,
     });
     setAllowances((current) => [grant, ...current.filter((item) => item.id !== grant.id)]);
-    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    const created = await poppinsNotifications.allowanceRequested(pushNotification, prefs, {
-      amountLabel: grant.amountLabel,
-      memberName: currentMember.name,
-      allowanceId: grant.id,
-    });
-    if (created) {
-      await scheduleLocalReminder(created.title, created.body, 2).catch((error) =>
-        console.warn('Allowance request reminder skipped', error)
-      );
-    }
+    // Member allowance requests surface in Allowance tab — no unlisted push (Rev E §2).
     await trackAnalytics('allowance.requested', { allowanceId: grant.id }, analyticsContext);
     return grant;
   };
@@ -3350,13 +3271,6 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       tasks: splitOpenTasksBetweenTwo(current.tasks, left!, right!),
     }));
-    await pushNotification({
-      title: 'Poppins · Tasks split',
-      body: `Open tasks are now shared between ${left} and ${right}.`,
-      category: 'tasks',
-      priority: 'medium',
-      data: { kind: 'tasks_split', nameA: left, nameB: right },
-    });
     await trackAnalytics('task.split_between_two', { nameA: left, nameB: right }, analyticsContext);
   };
 

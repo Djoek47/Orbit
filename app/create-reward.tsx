@@ -8,6 +8,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { VOCAB } from '@/constants/vocabulary';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import {
   REWARD_FREQUENCY_LABELS,
@@ -115,7 +116,7 @@ export default function CreateRewardScreen() {
       <View style={orbitScreen.header}>
         <ChoremaxxBadge />
         <Text style={[typography.footnote, { marginTop: 8, color: c.textMuted }]}>Rewards</Text>
-        <Text style={[typography.title1, { color: c.text }]}>Create reward</Text>
+        <Text style={[typography.title1, { color: c.text }]}>Mint a reward</Text>
         <Text style={[typography.body, { color: c.textSoft }]}>
           Add a catalogue reward with a frequency. No XP cost — rewards are granted for meeting chores.
         </Text>
@@ -265,7 +266,7 @@ export default function CreateRewardScreen() {
       </GlassCard>
 
       <OrbitButton disabled={busy || !title.trim()} onPress={() => void handleSave()}>
-        {busy ? 'Saving…' : assignMemberId ? 'Create & assign' : 'Save to catalogue'}
+        {busy ? 'Saving…' : assignMemberId ? 'Mint & assign' : VOCAB.mintAReward}
       </OrbitButton>
       <OrbitButton tone="secondary" onPress={() => router.back()}>
         Cancel

@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
@@ -30,6 +30,12 @@ import {
 } from '@/lib/household/shared-device';
 import { isOnRecess } from '@/lib/recess/recess-engine';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
+import {
+  formatMoney,
+  listAllowanceLedger,
+  summarizeAllowanceLedger,
+  type AllowanceLedgerEntry,
+} from '@/lib/rewards/ledgers';
 import { rankCrownPeriod, type ChampionsRecord } from '@/lib/scoring/crowns';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -123,7 +129,6 @@ export default function RewardsScreen() {
     membersWithProgress,
     orbitPalette,
     pendingAllowances,
-    allowances,
     pendingRedemptions,
     permissions,
     rejectAllowance,
@@ -163,6 +168,20 @@ export default function RewardsScreen() {
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [allowanceBusy, setAllowanceBusy] = useState(false);
   const [championsRecord, setChampionsRecord] = useState<ChampionsRecord | null>(null);
+  const [allowanceLedger, setAllowanceLedger] = useState<AllowanceLedgerEntry[]>([]);
+
+  const reloadAllowanceLedger = useCallback(async () => {
+    if (!household.id) {
+      setAllowanceLedger([]);
+      return;
+    }
+    const rows = await listAllowanceLedger(household.id);
+    setAllowanceLedger(rows);
+  }, [household.id]);
+
+  useEffect(() => {
+    if (surface === 'allowance') void reloadAllowanceLedger();
+  }, [surface, reloadAllowanceLedger, pendingAllowances]);
 
   const fallbackSurface = (): Surface => {
     if (showRewards) return 'rewards';
@@ -318,36 +337,26 @@ export default function RewardsScreen() {
 
   const allowanceRows = useMemo(() => {
     return vaultMembers.map((member) => {
-      const pending = allowances.filter(
-        (g) => g.memberId === member.id && g.status === 'pending'
+      const owed = allowanceLedger.filter(
+        (g) => g.memberId === member.id && g.status === 'owed'
       );
-      const approved = allowances.filter(
-        (g) => g.memberId === member.id && g.status === 'approved'
+      const paid = allowanceLedger.filter(
+        (g) => g.memberId === member.id && g.status === 'paid'
       );
       return {
         member,
-        pendingCount: pending.length,
-        approvedCount: approved.length,
-        latestPending: pending[0],
+        owedCount: owed.length,
+        paidCount: paid.length,
+        owedTotal: owed.reduce((sum, e) => sum + e.amount, 0),
+        latestOwed: owed[0],
       };
     });
-  }, [allowances, vaultMembers]);
+  }, [allowanceLedger, vaultMembers]);
 
-  const allowanceWeekStats = useMemo(() => {
-    const owed = allowances
-      .filter((g) => g.status === 'pending')
-      .reduce((sum, g) => {
-        const n = Number(String(g.amountLabel).replace(/[^0-9.]/g, ''));
-        return sum + (Number.isFinite(n) ? n : 0);
-      }, 0);
-    const paid = allowances
-      .filter((g) => g.status === 'approved')
-      .reduce((sum, g) => {
-        const n = Number(String(g.amountLabel).replace(/[^0-9.]/g, ''));
-        return sum + (Number.isFinite(n) ? n : 0);
-      }, 0);
-    return { owed, paid };
-  }, [allowances]);
+  const allowanceWeekStats = useMemo(
+    () => summarizeAllowanceLedger(allowanceLedger),
+    [allowanceLedger]
+  );
 
   const surfaceTabs = (
     [
@@ -524,7 +533,7 @@ export default function RewardsScreen() {
               ]}>
               <MaterialIcons name="add" size={18} color={c.textSubtle} />
               <Text style={[typography.subheadline, { color: c.textSubtle, fontWeight: '600' }]}>
-                Create Reward
+                {VOCAB.mintAReward}
               </Text>
             </Pressable>
           ) : null}
@@ -533,7 +542,7 @@ export default function RewardsScreen() {
             {isAdmin ? (
               <Pressable onPress={() => router.push('/reward-tally' as never)}>
                 <Text style={[typography.footnote, { color: accentTheme.primary }]}>
-                  Full tally →
+                  Reward history →
                 </Text>
               </Pressable>
             ) : null}
@@ -573,20 +582,20 @@ export default function RewardsScreen() {
                 <View style={styles.allowanceSummaryRow}>
                   <View>
                     <Text style={[typography.title2, { color: c.text }]}>
-                      ${allowanceWeekStats.owed}
+                      {formatMoney(allowanceWeekStats.owed, allowanceWeekStats.currency)}
                     </Text>
                     <Text style={[typography.caption1, { color: c.textSubtle }]}>Owed</Text>
                   </View>
                   <View>
                     <Text style={[typography.title2, { color: '#34D399' }]}>
-                      ${allowanceWeekStats.paid}
+                      {formatMoney(allowanceWeekStats.paid, allowanceWeekStats.currency)}
                     </Text>
                     <Text style={[typography.caption1, { color: c.textSubtle }]}>Paid this week</Text>
                   </View>
                 </View>
               </View>
 
-              {allowanceRows.map(({ member, pendingCount, latestPending }, i) => (
+              {allowanceRows.map(({ member, owedCount, owedTotal, latestOwed }, i) => (
                 <Animated.View
                   key={member.id}
                   entering={FadeInUp.delay(i * 50)}
@@ -607,30 +616,54 @@ export default function RewardsScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={[typography.headline, { color: c.text }]}>{member.name}</Text>
                       <Text style={[typography.caption1, { color: c.textSubtle }]}>
-                        {member.streak ?? 0}-day streak · {pendingCount} pending
+                        {member.streak ?? 0}-day streak
+                        {owedCount > 0
+                          ? ` · ${formatMoney(owedTotal, allowanceWeekStats.currency)} owed`
+                          : ''}
                       </Text>
                     </View>
                     <Text style={[typography.title3, { color: '#34D399' }]}>
-                      {latestPending?.amountLabel ?? '—'}
+                      {latestOwed?.amountLabel ??
+                        (owedTotal > 0
+                          ? formatMoney(owedTotal, allowanceWeekStats.currency)
+                          : '—')}
                     </Text>
                   </View>
                   <View style={styles.allowanceActions}>
                     <Pressable
-                      onPress={() => router.push('/grant-allowance' as never)}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/grant-allowance',
+                          params: { memberId: member.id },
+                        } as never)
+                      }
                       style={[styles.allowBtn, { backgroundColor: 'rgba(52,211,153,0.15)' }]}>
                       <Text style={{ color: '#34D399', fontWeight: '700', fontSize: 12 }}>
                         + Bonus
                       </Text>
                     </Pressable>
                     <Pressable
-                      onPress={() => router.push('/grant-allowance' as never)}
+                      onPress={() => {
+                        const pending = pendingAllowances.find(
+                          (g) => g.memberId === member.id && g.status === 'pending'
+                        );
+                        if (pending) {
+                          void approveAllowance(pending.id).then(() => reloadAllowanceLedger());
+                          return;
+                        }
+                        // No pending row — open prefilled grant (bonus / ad-hoc paid).
+                        router.push({
+                          pathname: '/grant-allowance',
+                          params: { memberId: member.id },
+                        } as never);
+                      }}
                       style={[styles.allowBtn, { backgroundColor: `${accentTheme.primary}22` }]}>
                       <Text style={{ color: accentTheme.primary, fontWeight: '700', fontSize: 12 }}>
-                        {VOCAB.approveNow}
+                        {VOCAB.markAsPaid}
                       </Text>
                     </Pressable>
                     <Pressable
-                      onPress={() => router.push('/reward-tally' as never)}
+                      onPress={() => router.push('/allowance-history' as never)}
                       style={[styles.allowBtn, { backgroundColor: glass(0.06) }]}>
                       <Text style={{ color: c.textMuted, fontWeight: '600', fontSize: 12 }}>
                         History
@@ -664,10 +697,12 @@ export default function RewardsScreen() {
                       </View>
                       <View style={styles.pendingActions}>
                         <Pressable
-                          onPress={() => void approveAllowance(grant.id)}
+                          onPress={() => {
+                            void approveAllowance(grant.id).then(() => reloadAllowanceLedger());
+                          }}
                           style={[styles.approveBtn, { backgroundColor: 'rgba(52,211,153,0.2)' }]}>
                           <Text style={{ color: '#34D399', fontWeight: '700', fontSize: 12 }}>
-                            Approve
+                            {VOCAB.markAsPaid}
                           </Text>
                         </Pressable>
                         <Pressable
@@ -685,7 +720,7 @@ export default function RewardsScreen() {
             <GlassCard style={styles.stack}>
               <Text style={[typography.headline, { color: c.text }]}>Your allowance</Text>
               <Text style={[typography.footnote, { color: c.textMuted }]}>
-                Ask an admin for cash or privilege allowances. They approve from the Allowance tab.
+                Ask a grown-up when allowance is due. They mark it paid here.
               </Text>
               <Pressable
                 disabled={allowanceBusy}
@@ -696,7 +731,7 @@ export default function RewardsScreen() {
                 ]}>
                 <MaterialIcons name="payments" size={18} color={accentTheme.primary} />
                 <Text style={{ color: accentTheme.primary, fontWeight: '700' }}>
-                  {allowanceBusy ? 'Sending…' : 'Ask for allowance'}
+                  {allowanceBusy ? 'Asking…' : 'Ask for allowance'}
                 </Text>
               </Pressable>
               {pendingAllowances

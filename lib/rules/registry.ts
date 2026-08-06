@@ -112,7 +112,8 @@ export const RULE_REGISTRY: RuleEntry[] = [
     appliesWhen: (h) => usesAllowance(h),
     adultText: () =>
       "ChoreMaxx tracks allowance — it never moves money. Allowance builds up on the household schedule, and an admin marks it paid once they've handed it over. An admin can mark allowance paid at any time.",
-    kidText: () => 'Grown-ups keep track of your allowance. They hand you the money themselves.',
+    kidText: () =>
+      'Your allowance adds up here. A grown-up gives it to you and ticks it off.',
   },
   {
     id: 'deadlines',

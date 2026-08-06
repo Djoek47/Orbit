@@ -29,7 +29,7 @@ export default function WelcomeEmail({ name, householdName, openUrl }: WelcomeEm
         Hi {firstName(name)},
       </Text>
       <Text style={{ fontFamily: emailFontStack, ...emailType.body, color: emailColors.body, margin: '0 0 24px' }}>
-        {householdName} is set up in ChoreMaxx. Assign chores, track XP, and let Nova keep things running
+        {householdName} is set up in ChoreMaxx. Assign chores, track XP, and let Poppins keep things running
         smoothly — all in one calm, shared place.
       </Text>
       <PrimaryButton href={openUrl}>Open ChoreMaxx</PrimaryButton>
@@ -49,7 +49,7 @@ export const textFor = ({ name, householdName, openUrl }: WelcomeEmailProps) =>
   [
     `Your household is ready, ${firstName(name)}!`,
     '',
-    `${householdName} is set up in ChoreMaxx. Assign chores, track XP, and let Nova keep things running smoothly.`,
+    `${householdName} is set up in ChoreMaxx. Assign chores, track XP, and let Poppins keep things running smoothly.`,
     '',
     `Open ChoreMaxx: ${openUrl}`,
   ].join('\n');

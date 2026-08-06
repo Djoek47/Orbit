@@ -1,8 +1,8 @@
-import type { HouseholdSnapshot, Itinerary, NotificationItem, PoppinsNotificationPrefs } from '@/types/orbit';
+import type { HouseholdSnapshot, NotificationItem, PoppinsNotificationPrefs } from '@/types/orbit';
 import {
   formatNotificationBody,
   getNotification,
-  toSentenceValue,
+  type NotificationId,
 } from '@/constants/notifications';
 
 export type { PoppinsNotificationPrefs };
@@ -27,6 +27,26 @@ type PushFn = (input: {
   data?: Record<string, unknown>;
 }) => Promise<NotificationItem | null>;
 
+async function pushRegistry(
+  push: PushFn,
+  id: NotificationId,
+  vars: Record<string, string | number>,
+  meta: {
+    category: NotificationItem['category'];
+    priority?: NotificationItem['priority'];
+    data?: Record<string, unknown>;
+  }
+) {
+  const def = getNotification(id);
+  return push({
+    title: def.title,
+    body: formatNotificationBody(def.body, vars),
+    category: meta.category,
+    priority: meta.priority ?? 'medium',
+    data: { ...meta.data, notificationId: def.id },
+  });
+}
+
 /** Quiet hours stub — suppress child spam when school window labels are present. */
 export function isQuietHoursForChildren(household: HouseholdSnapshot, now = new Date()): boolean {
   const hour = now.getHours();
@@ -36,104 +56,125 @@ export function isQuietHoursForChildren(household: HouseholdSnapshot, now = new 
   return hasSchoolToday && hour >= 8 && hour < 15;
 }
 
+/**
+ * Closed registry sends only — Revision E §2.
+ * Unlisted helpers removed (groceryAdded, taskOverdue, itineraryNextLeg, etc.).
+ */
 export const poppinsNotifications = {
   async taskCompleted(
     push: PushFn,
     prefs: PoppinsNotificationPrefs,
-    input: { title: string; assignee: string; awardedXp: number; penalty: number; late: boolean; taskId: string }
+    input: {
+      title: string;
+      assignee: string;
+      awardedXp: number;
+      penalty: number;
+      late: boolean;
+      taskId: string;
+    }
   ) {
     if (!prefs.tasks) return null;
-    const body = input.late
-      ? `${input.assignee} finished late · +${input.awardedXp} XP (−${input.penalty} late).`
-      : `${input.assignee} finished · +${input.awardedXp} XP.`;
-    return push({
-      title: `Poppins · ${input.title}`,
-      body,
-      category: 'ai',
-      priority: input.late ? 'high' : 'medium',
-      data: { taskId: input.taskId, kind: 'task_completed' },
-    });
-  },
-
-  async taskOverdue(push: PushFn, prefs: PoppinsNotificationPrefs, input: { title: string; assignee: string; taskId: string }) {
-    if (!prefs.tasks) return null;
-    return push({
-      title: 'Poppins · Task is late',
-      body: `${input.title} for ${input.assignee} is overdue. Want me to nudge or reassign?`,
-      category: 'ai',
-      priority: 'high',
-      data: { taskId: input.taskId, kind: 'task_overdue' },
-    });
+    return pushRegistry(
+      push,
+      'N18',
+      { name: input.assignee, task: input.title, xp: input.awardedXp },
+      {
+        category: 'ai',
+        priority: input.late ? 'high' : 'medium',
+        data: { taskId: input.taskId, kind: 'task_completed' },
+      }
+    );
   },
 
   async proofSubmitted(
     push: PushFn,
     prefs: PoppinsNotificationPrefs,
-    input: { title: string; assignee: string; taskId: string; proofUri?: string; audienceRoles?: string[] }
+    input: {
+      title: string;
+      assignee: string;
+      taskId: string;
+      proofUri?: string;
+      audienceRoles?: string[];
+    }
   ) {
     if (!prefs.tasks) return null;
-    return push({
-      title: 'Poppins · Proof ready to review',
-      body: `${input.assignee} attached proof for ${input.title}. Open the task to approve.`,
-      category: 'tasks',
-      priority: 'high',
-      data: {
-        taskId: input.taskId,
-        kind: 'proof_submitted',
-        proofUri: input.proofUri,
-        audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
-      },
-    });
+    return pushRegistry(
+      push,
+      'N20',
+      { name: input.assignee, task: input.title },
+      {
+        category: 'tasks',
+        priority: 'high',
+        data: {
+          taskId: input.taskId,
+          kind: 'proof_submitted',
+          proofUri: input.proofUri,
+          audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
+        },
+      }
+    );
   },
 
-  async proofApproved(
+  async proofRequested(
     push: PushFn,
     prefs: PoppinsNotificationPrefs,
-    input: { title: string; taskId: string; audienceRoles?: string[] }
+    input: { title: string; adminName: string; taskId: string; audienceMemberIds?: string[] }
   ) {
     if (!prefs.tasks) return null;
-    return push({
-      title: 'Poppins · Proof approved',
-      body: `Your proof for ${input.title} was approved. Nice verification.`,
-      category: 'tasks',
-      priority: 'medium',
-      data: {
-        taskId: input.taskId,
-        kind: 'proof_approved',
-        audienceRoles: input.audienceRoles,
-      },
-    });
+    return pushRegistry(
+      push,
+      'N03',
+      { admin: input.adminName, task: input.title },
+      {
+        category: 'tasks',
+        priority: 'high',
+        data: {
+          taskId: input.taskId,
+          kind: 'proof_requested',
+          audienceMemberIds: input.audienceMemberIds,
+        },
+      }
+    );
   },
 
-  async itineraryNextLeg(
+  async taskNotDone(
     push: PushFn,
     prefs: PoppinsNotificationPrefs,
-    input: { itinerary: Itinerary; stopLabel: string; nextLabel?: string }
+    input: { title: string; adminName: string; taskId: string; audienceMemberIds?: string[] }
   ) {
-    if (!prefs.itinerary) return null;
-    const body = input.nextLabel
-      ? `Arrived at ${input.stopLabel}. Next: ${input.nextLabel}. Opening Maps when you are ready.`
-      : `Arrived at ${input.stopLabel}. ${input.itinerary.title} is complete.`;
-    return push({
-      title: `Poppins · ${input.itinerary.title}`,
-      body,
-      category: 'ai',
-      priority: 'medium',
-      data: { itineraryId: input.itinerary.id, kind: 'itinerary_leg' },
-    });
+    if (!prefs.tasks) return null;
+    return pushRegistry(
+      push,
+      'N11',
+      { admin: input.adminName, task: input.title },
+      {
+        category: 'tasks',
+        priority: 'high',
+        data: {
+          taskId: input.taskId,
+          kind: 'task_not_done',
+          audienceMemberIds: input.audienceMemberIds,
+        },
+      }
+    );
   },
 
-  async groceryAdded(push: PushFn, prefs: PoppinsNotificationPrefs, input: { name: string; onSale: boolean; groceryId: string }) {
-    if (!prefs.groceries) return null;
-    return push({
-      title: input.onSale ? 'Poppins · On sale opportunity' : 'Poppins · Cart updated',
-      body: input.onSale
-        ? `${input.name} is on sale — worth grabbing on the next store stop.`
-        : `${input.name} was added to the shopping list.`,
-      category: 'ai',
-      priority: input.onSale ? 'medium' : 'low',
-      data: { groceryId: input.groceryId, kind: 'grocery_added' },
-    });
+  async trophyUnlocked(
+    push: PushFn,
+    prefs: PoppinsNotificationPrefs,
+    input: { trophy: string; audienceMemberIds?: string[] }
+  ) {
+    if (!prefs.rewards) return null;
+    return pushRegistry(
+      push,
+      'N12',
+      { trophy: input.trophy },
+      {
+        category: 'rewards',
+        priority: 'medium',
+        data: { kind: 'trophy_unlocked', audienceMemberIds: input.audienceMemberIds },
+      }
+    );
   },
 
   async rewardRequested(
@@ -149,106 +190,93 @@ export const poppinsNotifications = {
     }
   ) {
     if (!prefs.rewards) return null;
-    const def = getNotification(input.isNewAsk ? 'N27' : 'N26');
-    const body = formatNotificationBody(def.body, {
-      name: input.memberName,
-      reward: input.title,
-      detail: input.title,
-    });
-    return push({
-      title: def.title,
-      body,
-      category: 'rewards',
-      priority: 'medium',
-      data: {
-        redemptionId: input.redemptionId,
-        kind: 'reward_requested',
-        notificationId: def.id,
-        audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
-      },
-    });
+    const id: NotificationId = input.isNewAsk ? 'N27' : 'N26';
+    return pushRegistry(
+      push,
+      id,
+      { name: input.memberName, reward: input.title, detail: input.title },
+      {
+        category: 'rewards',
+        priority: 'medium',
+        data: {
+          redemptionId: input.redemptionId,
+          kind: 'reward_requested',
+          audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
+        },
+      }
+    );
   },
 
   async rewardClaimed(
     push: PushFn,
     prefs: PoppinsNotificationPrefs,
-    input: { title: string; memberName: string; cost: number; redemptionId: string; audienceRoles?: string[] }
+    input: {
+      title: string;
+      memberName: string;
+      cost: number;
+      redemptionId: string;
+      audienceRoles?: string[];
+      /** Instant earn → N07 helper; approval-gated → N21 admin. */
+      needsApproval?: boolean;
+    }
   ) {
     if (!prefs.rewards) return null;
-    return push({
-      title: 'Poppins · Reward claimed',
-      body: `${input.memberName} claimed ${input.title} for ${input.cost} XP.`,
-      category: 'rewards',
-      priority: 'medium',
-      data: {
-        redemptionId: input.redemptionId,
-        kind: 'reward_claimed',
-        audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
-      },
-    });
+    if (input.needsApproval) {
+      return pushRegistry(
+        push,
+        'N21',
+        { name: input.memberName, reward: input.title },
+        {
+          category: 'rewards',
+          priority: 'medium',
+          data: {
+            redemptionId: input.redemptionId,
+            kind: 'reward_claimed',
+            audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
+          },
+        }
+      );
+    }
+    return pushRegistry(
+      push,
+      'N07',
+      { reward: input.title },
+      {
+        category: 'rewards',
+        priority: 'medium',
+        data: {
+          redemptionId: input.redemptionId,
+          kind: 'reward_claimed',
+        },
+      }
+    );
   },
 
   async rewardApproved(
     push: PushFn,
     prefs: PoppinsNotificationPrefs,
-    input: { title: string; redemptionId: string; audienceMemberIds?: string[] }
-  ) {
-    if (!prefs.rewards) return null;
-    return push({
-      title: 'Poppins · Reward approved',
-      body: `${input.title} is good to go. Enjoy it.`,
-      category: 'rewards',
-      priority: 'medium',
-      data: {
-        redemptionId: input.redemptionId,
-        kind: 'reward_approved',
-        audienceMemberIds: input.audienceMemberIds,
-      },
-    });
-  },
-
-  async rewardAssigned(
-    push: PushFn,
-    prefs: PoppinsNotificationPrefs,
     input: {
       title: string;
-      cost: number;
-      rewardId: string;
-      assignedByName: string;
-      audienceMemberIds: string[];
+      redemptionId: string;
+      adminName?: string;
+      audienceMemberIds?: string[];
     }
   ) {
     if (!prefs.rewards) return null;
-    return push({
-      title: 'Poppins · Reward assigned',
-      body: `${input.assignedByName} added "${input.title}" for you. Open Ranks → Rewards when ready.`,
-      category: 'rewards',
-      priority: 'medium',
-      data: {
-        rewardId: input.rewardId,
-        kind: 'reward_assigned',
-        audienceMemberIds: input.audienceMemberIds,
-      },
-    });
-  },
-
-  async allowanceRequested(
-    push: PushFn,
-    prefs: PoppinsNotificationPrefs,
-    input: { amountLabel: string; memberName: string; allowanceId: string }
-  ) {
-    if (!prefs.rewards) return null;
-    return push({
-      title: 'Poppins · Allowance',
-      body: `${input.memberName} asked for ${toSentenceValue(input.amountLabel)}.`,
-      category: 'rewards',
-      priority: 'medium',
-      data: {
-        allowanceId: input.allowanceId,
-        kind: 'allowance_requested',
-        audienceRoles: ['owner', 'admin', 'adult'],
-      },
-    });
+    return pushRegistry(
+      push,
+      'N09',
+      { admin: input.adminName ?? 'A grown-up', reward: input.title },
+      {
+        category: 'rewards',
+        priority: 'medium',
+        data: {
+          redemptionId: input.redemptionId,
+          kind: 'reward_approved',
+          audienceMemberIds: input.audienceMemberIds,
+        },
+      }
+    );
   },
 
   async allowanceApproved(
@@ -257,18 +285,20 @@ export const poppinsNotifications = {
     input: { amountLabel: string; allowanceId: string; audienceMemberIds?: string[] }
   ) {
     if (!prefs.rewards) return null;
-    const def = getNotification('N14');
-    return push({
-      title: def.title,
-      body: formatNotificationBody(def.body, { amount: input.amountLabel }),
-      category: 'rewards',
-      priority: 'medium',
-      data: {
-        allowanceId: input.allowanceId,
-        kind: 'allowance_approved',
-        audienceMemberIds: input.audienceMemberIds,
-      },
-    });
+    return pushRegistry(
+      push,
+      'N14',
+      { amount: input.amountLabel },
+      {
+        category: 'rewards',
+        priority: 'medium',
+        data: {
+          allowanceId: input.allowanceId,
+          kind: 'allowance_approved',
+          audienceMemberIds: input.audienceMemberIds,
+        },
+      }
+    );
   },
 
   async allowanceGranted(
@@ -277,38 +307,55 @@ export const poppinsNotifications = {
     input: { amountLabel: string; allowanceId: string; audienceMemberIds?: string[] }
   ) {
     if (!prefs.rewards) return null;
-    const def = getNotification('N14');
-    return push({
-      title: def.title,
-      body: formatNotificationBody(def.body, { amount: input.amountLabel }),
-      category: 'rewards',
-      priority: 'medium',
-      data: {
-        allowanceId: input.allowanceId,
-        kind: 'allowance_granted',
-        audienceMemberIds: input.audienceMemberIds,
-      },
-    });
+    return pushRegistry(
+      push,
+      'N14',
+      { amount: input.amountLabel },
+      {
+        category: 'rewards',
+        priority: 'medium',
+        data: {
+          allowanceId: input.allowanceId,
+          kind: 'allowance_granted',
+          audienceMemberIds: input.audienceMemberIds,
+        },
+      }
+    );
   },
 
-  async streakAtRisk(push: PushFn, prefs: PoppinsNotificationPrefs, input: { memberName: string; streak: number }) {
+  async streakAtRisk(
+    push: PushFn,
+    prefs: PoppinsNotificationPrefs,
+    input: { memberName: string; streak: number; forAdmin?: boolean }
+  ) {
     if (!prefs.tasks) return null;
-    return push({
-      title: 'Poppins · Streak check',
-      body: `${input.memberName}'s ${input.streak}-day streak is at risk today. One small task keeps it alive.`,
-      category: 'ai',
-      priority: 'medium',
-      data: { kind: 'streak_risk' },
-    });
+    if (input.forAdmin) {
+      return pushRegistry(
+        push,
+        'N23',
+        { name: input.memberName, streak: input.streak },
+        { category: 'ai', priority: 'medium', data: { kind: 'streak_risk' } }
+      );
+    }
+    return pushRegistry(
+      push,
+      'N04',
+      { streak: input.streak },
+      { category: 'ai', priority: 'medium', data: { kind: 'streak_risk' } }
+    );
   },
 
-  async joinPending(push: PushFn, input: { memberName: string; inviteCode: string }) {
-    return push({
-      title: 'Poppins · Someone wants in',
-      body: `${input.memberName} requested access with ${input.inviteCode}. Review in Members.`,
-      category: 'ai',
-      priority: 'high',
-      data: { kind: 'join_pending' },
-    });
+  async streakEnded(
+    push: PushFn,
+    prefs: PoppinsNotificationPrefs,
+    input: { streak: number }
+  ) {
+    if (!prefs.tasks) return null;
+    return pushRegistry(
+      push,
+      'N06',
+      { streak: input.streak },
+      { category: 'ai', priority: 'high', data: { kind: 'streak_ended' } }
+    );
   },
 };

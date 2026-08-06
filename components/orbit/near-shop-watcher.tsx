@@ -85,15 +85,9 @@ export function NearShopWatcher() {
 
           if (prefs.nearShop && now - lastAlertAt.current > THROTTLE_MS) {
             lastAlertAt.current = now;
-            void pushNotification({
-              title: 'Choremaxx · Near the store',
-              body: `You're close to ${near.name}. Open shopping mode for ${missing.length} items.`,
-              category: 'groceries',
-              priority: 'high',
-              data: { kind: 'near_shop', storeId: near.id, href: '/shopping-mode' },
-            });
+            // Near-shop is not in the closed Rev E registry — open shopping mode only via deep link UX.
             void scheduleLocalReminder(
-              'Choremaxx · Near the store',
+              'Shopping list',
               `${near.name} · ${missing.length} items on your list`,
               1
             ).catch(() => undefined);
@@ -105,19 +99,7 @@ export function NearShopWatcher() {
             now - lastMissingNudgeAt.current > THROTTLE_MS
           ) {
             lastMissingNudgeAt.current = now;
-            const sample = missing
-              .slice(0, 3)
-              .map((g) => g.name)
-              .join(', ');
-            void pushNotification({
-              title: 'Poppins · Before you go in',
-              body: sample
-                ? `Still missing: ${sample}. Tap to open shopping mode.`
-                : 'List looks clear — check for anything else to add.',
-              category: 'groceries',
-              priority: 'medium',
-              data: { kind: 'missing_on_the_way', href: '/shopping-mode' },
-            });
+            // Missing-on-the-way push removed (unlisted). Local OS reminder only.
           }
         }
       );

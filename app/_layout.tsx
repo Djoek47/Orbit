@@ -112,14 +112,14 @@ export default function RootLayout() {
           <Stack.Screen name="scan-grocery" options={{ presentation: 'modal', headerShown: false, title: 'Scan Product' }} />
           <Stack.Screen name="create-event" options={{ presentation: 'modal', headerShown: false, title: 'Create Event' }} />
           <Stack.Screen name="create-itinerary" options={{ presentation: 'modal', headerShown: false, title: 'Create Itinerary' }} />
-          <Stack.Screen name="create-reward" options={{ presentation: 'modal', headerShown: false, title: 'Create Reward' }} />
+          <Stack.Screen name="create-reward" options={{ presentation: 'modal', headerShown: false, title: 'Mint a reward' }} />
           <Stack.Screen
             name="grant-allowance"
             options={{ presentation: 'modal', headerShown: false, title: 'Grant Allowance' }}
           />
           <Stack.Screen
             name="special-reward-request"
-            options={{ presentation: 'modal', headerShown: false, title: 'Special Request' }}
+            options={{ presentation: 'modal', headerShown: false, title: 'Ask for a reward' }}
           />
           <Stack.Screen
             name="shopping-mode"
@@ -127,7 +127,11 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="reward-tally"
-            options={{ presentation: 'modal', headerShown: false, title: 'Reward Tally' }}
+            options={{ presentation: 'modal', headerShown: false, title: 'Reward history' }}
+          />
+          <Stack.Screen
+            name="allowance-history"
+            options={{ presentation: 'modal', headerShown: false, title: 'Allowance history' }}
           />
         </Stack>
       </OrbitNavTheme>
