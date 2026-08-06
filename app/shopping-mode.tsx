@@ -16,6 +16,7 @@ import { ShoppingAisleSection } from '@/components/orbit/grocery/shopping-aisle-
 import { ShoppingDock } from '@/components/orbit/grocery/shopping-dock';
 import { ShoppingRunHeader } from '@/components/orbit/grocery/shopping-run-header';
 import { ShoppingUndoToast } from '@/components/orbit/grocery/shopping-undo-toast';
+import { typography } from '@/constants/orbit-theme';
 import { classifyGroceryItem, groupByAisle } from '@/lib/grocery/classify';
 import {
   groupShoppingAisles,
@@ -36,7 +37,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 export default function ShoppingModeScreen() {
   const insets = useSafeAreaInsets();
-  const { c } = useOrbitColors();
+  const { c, isDark } = useOrbitColors();
   const {
     household,
     markGroceryPurchased,
@@ -45,7 +46,7 @@ export default function ShoppingModeScreen() {
     canAddGroceryWishlist,
   } = useOrbit();
 
-  const palette = useMemo(() => resolveShoppingPalette(c), [c]);
+  const palette = useMemo(() => resolveShoppingPalette(c, isDark), [c, isDark]);
   const runLabel = useMemo(() => shoppingRunLabel(), []);
 
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
@@ -180,7 +181,7 @@ export default function ShoppingModeScreen() {
               {
                 top: -40,
                 left: -60,
-                backgroundColor: palette.ambientOlive,
+                backgroundColor: palette.ambientA,
               },
             ]}
           />
@@ -190,7 +191,7 @@ export default function ShoppingModeScreen() {
               {
                 bottom: 80,
                 right: -40,
-                backgroundColor: palette.ambientEmber,
+                backgroundColor: palette.ambientB,
                 width: 220,
                 height: 220,
               },
@@ -215,10 +216,10 @@ export default function ShoppingModeScreen() {
           keyboardShouldPersistTaps="handled">
           {progress.total === 0 ? (
             <View style={styles.empty}>
-              <Text style={[styles.emptyTitle, { color: palette.inkMuted }]}>
+              <Text style={[typography.title3, { color: palette.inkMuted }]}>
                 Nothing on the list
               </Text>
-              <Text style={[styles.emptyBody, { color: palette.inkFaint }]}>
+              <Text style={[typography.body, { color: palette.inkFaint, textAlign: 'center', marginTop: 6 }]}>
                 Type what you need below. It files itself into the right aisle.
               </Text>
             </View>
@@ -280,6 +281,4 @@ const styles = StyleSheet.create({
   list: { flex: 1 },
   listContent: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 160 },
   empty: { paddingTop: 56, paddingHorizontal: 26, alignItems: 'center' },
-  emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 6 },
-  emptyBody: { fontSize: 14, lineHeight: 21, textAlign: 'center' },
 });

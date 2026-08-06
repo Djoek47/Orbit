@@ -1,8 +1,9 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BlurView } from 'expo-blur';
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText as Text } from '@/components/orbit/app-text';
+import { AppText as Text, AppTextInput } from '@/components/orbit/app-text';
+import { typography } from '@/constants/orbit-theme';
 import type { ShoppingPalette } from '@/lib/grocery/shopping-palette';
 
 type Props = {
@@ -33,18 +34,20 @@ export function ShoppingDock({
             { backgroundColor: palette.guessBg, borderColor: palette.guessBorder },
           ]}>
           <MaterialIcons name="check" size={15} color={palette.guessText} />
-          <Text style={[styles.guessText, { color: palette.guessText }]}>{guessLabel}</Text>
+          <Text style={[typography.caption1, { color: palette.guessText, fontWeight: '700' }]}>
+            {guessLabel}
+          </Text>
         </View>
       ) : null}
 
       <View style={[styles.dock, { borderColor: palette.glassEdge }]}>
         <BlurView
           intensity={Platform.OS === 'ios' ? 30 : 50}
-          tint="dark"
+          tint={palette.isDark ? 'dark' : 'light'}
           style={StyleSheet.absoluteFill}
         />
         <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.dockBg }]} />
-        <TextInput
+        <AppTextInput
           value={value}
           onChangeText={onChangeText}
           placeholder="Add an item"
@@ -58,8 +61,11 @@ export function ShoppingDock({
           onPress={onAdd}
           disabled={busy || !value.trim()}
           accessibilityLabel="Add"
-          style={[styles.addBtn, { backgroundColor: palette.ember, opacity: value.trim() ? 1 : 0.5 }]}>
-          <MaterialIcons name="add" size={22} color="#fff" />
+          style={[
+            styles.addBtn,
+            { backgroundColor: palette.primary, opacity: value.trim() ? 1 : 0.5 },
+          ]}>
+          <MaterialIcons name="add" size={22} color={palette.isDark ? palette.canvas : '#fff'} />
         </Pressable>
       </View>
     </View>
@@ -84,9 +90,8 @@ const styles = StyleSheet.create({
     paddingLeft: 11,
     paddingRight: 14,
     borderRadius: 20,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  guessText: { fontSize: 13, fontWeight: '700' },
   dock: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -95,7 +100,7 @@ const styles = StyleSheet.create({
     paddingRight: 9,
     paddingVertical: 9,
     borderRadius: 30,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
   input: {

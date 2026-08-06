@@ -29,16 +29,20 @@ const MOCK: OrbitColorLike = {
   warning: '#FB923C',
   danger: '#F87171',
   accent: '#7DDBB0',
+  primary: '#59B2E1',
   card: 'rgba(255,255,255,0.05)',
   border: 'rgba(255,255,255,0.08)',
 };
 
 {
-  const p = resolveShoppingPalette(MOCK);
-  assert.ok(p.olive);
-  assert.ok(p.ember);
-  assert.ok(p.glass);
-  pass('SP1', 'palette maps olive/ember/glass roles');
+  const p = resolveShoppingPalette(MOCK, true);
+  assert.equal(p.accent, MOCK.accent);
+  assert.equal(p.primary, MOCK.primary);
+  assert.ok(p.glass.includes('255,255,255'));
+  assert.equal(p.checkGlyph, MOCK.background);
+  const light = resolveShoppingPalette(MOCK, false);
+  assert.ok(light.glass.includes('15,28,42'));
+  pass('SP1', 'palette uses orbit primary/accent + day/night glass');
 }
 
 {

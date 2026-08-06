@@ -1,7 +1,7 @@
 # Weekend ship automation — ChoreMaxx
 
-**Prepared:** 2026-08-06 (v10 — night specs finished)  
-**Start tomorrow from:** `cursor/choremaxx-make-v10-5f8f` @ latest tip (includes Rev D scoring, Rev E copy/ledgers, House Rules Direction 01, monthly Rescue token)  
+**Prepared:** 2026-08-06 (v10 — Smart Shopping aligned)  
+**Start tomorrow from:** `cursor/choremaxx-make-v10-5f8f` @ latest tip (House Rules 4-views, Canada grocery + emojis, Smart Shopping HTML bible × orbit tokens)  
 **PR:** https://github.com/Djoek47/Orbit/pull/29  
 
 This doc is the **automation-ready playbook**. Paste the block under [Automation prompt](#automation-prompt-paste-into-cursor-automation) into a Cursor Automation, or open this file in Agent mode and say: *Execute Phase A then Phase B from docs/weekend-ship-automation.md*.
@@ -15,12 +15,14 @@ This doc is the **automation-ready playbook**. Paste the block under [Automation
 | Revision D STOP GATES | Late Credit, expiry, streak cliffs/rescue, crowns, recess, notification batching |
 | Revision E | Intro slogans, closed notification registry wired, reward/allowance ledgers UI, vocab (no money-send language) |
 | Revision C grocery | Offline classifier, aisle shopping + keep-awake, Home cart card, admin-only clear |
-| House Rules Part 2 + Rev D UI | JSON SoT + Direction 01; Expired/Late Credit pills; XP ledger; streak-lost; PersistentScrollView |
+| House Rules 4-views | Chapters / Glance / Track / Ask Poppins × Adult/Kid; JSON SoT kept |
+| Canada grocery planner | ~2.5k catalog, search/browse, favorites/buy-again, per-item emoji |
+| Smart Shopping | HTML bible port: in-aisle done + undo toast, hairline progress, dock + aisle guess; orbit glass/Bricolage (not cream HTML hex) |
 | Monthly Rescue token | 1/month; not lifetime free-first |
 | Q1 = B special asks | Admin-gated; one pending ask; N26/N27 |
 | Notifications | Unread badge = inbox unread; OS banners on every send; Settings → Apple notification settings |
 | Allowance Mark as paid | One-tap approve pending row (no grant-form loop) |
-| Expo Go keep-alive + OTA | Channels `august-6` + `testflight` |
+| Expo Go keep-alive + OTA | Channel `testflight` |
 | Website live | https://choremaxx.vercel.app/ (privacy/terms exist) — still needs App Store URL wire-up + Master Brief alignment |
 | OpenAI ready | Connect Nova/Poppins via Supabase (A6) |
 

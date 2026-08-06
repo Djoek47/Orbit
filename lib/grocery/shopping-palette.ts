@@ -1,9 +1,9 @@
 /**
- * Shopping-mode palette — map HTML amber-glass / olive / ember roles
- * onto orbit tokens (no hard-locked espresso hex as product SoT).
+ * Shopping-mode palette — HTML structure, ChoreMaxx orbit materials.
+ * No cream/espresso hex; Day/Night via glassFill formula.
  */
 
-/** Duck-type so tests need not import RN StyleSheet via orbit-theme. */
+/** Duck-type so unit tests need not import RN. */
 export type OrbitColorLike = {
   background: string;
   backgroundSoft: string;
@@ -17,6 +17,7 @@ export type OrbitColorLike = {
   warning: string;
   danger: string;
   accent: string;
+  primary: string;
   card: string;
   border: string;
 };
@@ -27,40 +28,65 @@ export type ShoppingPalette = {
   inkSoft: string;
   inkMuted: string;
   inkFaint: string;
-  olive: string;
-  oliveLo: string;
-  ember: string;
+  /** Check / progress — brand mint. */
+  accent: string;
+  /** FAB / strong CTA — brand cyan. */
+  primary: string;
+  /** Checkmark glyph on filled box. */
+  checkGlyph: string;
   glass: string;
   glassHi: string;
   glassEdge: string;
   qtyBg: string;
   dockBg: string;
+  toastBtnBg: string;
+  ruleTrack: string;
   guessBg: string;
   guessBorder: string;
   guessText: string;
-  ambientOlive: string;
-  ambientEmber: string;
+  ambientA: string;
+  ambientB: string;
+  isDark: boolean;
 };
-export function resolveShoppingPalette(c: OrbitColorLike): ShoppingPalette {
+
+function glassFill(isDark: boolean, alpha: number): string {
+  return isDark
+    ? `rgba(255,255,255,${alpha})`
+    : `rgba(15,28,42,${Math.min(alpha * 1.15, 0.12)})`;
+}
+
+function glassBorder(isDark: boolean, alpha: number): string {
+  return isDark
+    ? `rgba(255,255,255,${alpha})`
+    : `rgba(15,28,42,${Math.min(alpha * 1.2, 0.14)})`;
+}
+
+export function resolveShoppingPalette(
+  c: OrbitColorLike,
+  isDark = true
+): ShoppingPalette {
   return {
     canvas: c.background,
     ink: c.text,
     inkSoft: c.textSoft,
     inkMuted: c.textMuted,
     inkFaint: c.textSubtle || c.textFaint,
-    olive: c.success,
-    oliveLo: c.accent,
-    ember: c.danger,
-    glass: 'rgba(255, 242, 220, 0.055)',
-    glassHi: 'rgba(255, 240, 214, 0.14)',
-    glassEdge: 'rgba(255, 236, 205, 0.13)',
-    qtyBg: 'rgba(255, 242, 220, 0.07)',
-    dockBg: 'rgba(30, 22, 16, 0.55)',
-    guessBg: `${c.success}33`,
-    guessBorder: `${c.success}59`,
-    guessText: c.success,
-    ambientOlive: `${c.success}6B`,
-    ambientEmber: `${c.danger}3D`,
+    accent: c.accent,
+    primary: c.primary,
+    checkGlyph: isDark ? c.background : '#FFFFFF',
+    glass: glassFill(isDark, 0.06),
+    glassHi: glassFill(isDark, 0.1),
+    glassEdge: glassBorder(isDark, 0.12),
+    qtyBg: glassFill(isDark, 0.08),
+    dockBg: isDark ? 'rgba(7,13,28,0.72)' : 'rgba(240,244,248,0.82)',
+    toastBtnBg: glassFill(isDark, 0.12),
+    ruleTrack: glassFill(isDark, 0.12),
+    guessBg: `${c.accent}28`,
+    guessBorder: `${c.accent}55`,
+    guessText: c.accent,
+    ambientA: `${c.accent}40`,
+    ambientB: `${c.primary}28`,
+    isDark,
   };
 }
 
@@ -82,7 +108,6 @@ export type ShoppingAisleGroup = {
 
 /**
  * Group shopping items by aisle; within each aisle undone first, then done.
- * Empty aisles omitted. Remaining count = undone only.
  */
 export function groupShoppingAisles(
   items: ShoppingListItem[],
@@ -122,7 +147,6 @@ export function shoppingProgress(items: ShoppingListItem[]): {
   };
 }
 
-/** Weekday run label for eyebrow, e.g. "Saturday run". */
 export function shoppingRunLabel(now = new Date()): string {
   const day = now.toLocaleDateString('en-CA', { weekday: 'long' });
   return `${day} run`;

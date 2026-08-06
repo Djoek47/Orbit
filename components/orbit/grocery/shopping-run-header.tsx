@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { typography } from '@/constants/orbit-theme';
 import type { ShoppingPalette } from '@/lib/grocery/shopping-palette';
 
 type Props = {
@@ -29,36 +30,42 @@ export function ShoppingRunHeader({
         <Pressable onPress={onBack} hitSlop={8} accessibilityLabel="Back" style={styles.back}>
           <MaterialIcons name="chevron-left" size={28} color={palette.ink} />
         </Pressable>
-        <Text style={[styles.eyebrowText, { color: palette.inkFaint }]}>{runLabel}</Text>
+        <Text style={[typography.eyebrow, { color: palette.inkFaint }]}>{runLabel}</Text>
       </View>
 
       <View style={styles.titleRow}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.title, { color: palette.ink }]}>Shopping</Text>
-          <Text style={[styles.sub, { color: palette.inkMuted }]}>
+          <Text style={[typography.largeTitle, { color: palette.ink }]}>Shopping</Text>
+          <Text style={[typography.subheadline, { color: palette.inkMuted, marginTop: 6 }]}>
             Sorted by aisle, in walking order
           </Text>
         </View>
         <View style={styles.count}>
-          <Text style={[styles.countNum, { color: palette.ink }]}>{left}</Text>
-          <Text style={[styles.countLabel, { color: palette.inkFaint }]}>left</Text>
+          <Text style={[typography.title1, { color: palette.ink, fontVariant: ['tabular-nums'] }]}>
+            {left}
+          </Text>
+          <Text style={[typography.caption2, { color: palette.inkFaint, letterSpacing: 1.2 }]}>
+            LEFT
+          </Text>
         </View>
       </View>
 
-      <View style={[styles.rule, { backgroundColor: 'rgba(244,234,218,0.12)' }]}>
+      <View style={[styles.rule, { backgroundColor: palette.ruleTrack }]}>
         <View
           style={[
             styles.ruleFill,
             {
               width: `${Math.round(ratio * 100)}%`,
-              backgroundColor: palette.olive,
+              backgroundColor: palette.accent,
             },
           ]}
         />
       </View>
       <View style={styles.ruleLab}>
-        <Text style={[styles.ruleLabText, { color: palette.inkFaint }]}>In the cart</Text>
-        <Text style={[styles.ruleLabText, { color: palette.inkMuted }]}>
+        <Text style={[typography.caption2, { color: palette.inkFaint, letterSpacing: 1 }]}>
+          IN THE CART
+        </Text>
+        <Text style={[typography.caption2, { color: palette.inkMuted, fontVariant: ['tabular-nums'] }]}>
           {done} of {total}
         </Text>
       </View>
@@ -70,34 +77,18 @@ const styles = StyleSheet.create({
   head: { paddingHorizontal: 22, paddingTop: 6 },
   eyebrow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
   back: { marginLeft: -8, paddingVertical: 4, paddingRight: 4 },
-  eyebrowText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    letterSpacing: 1.6,
-    textTransform: 'uppercase',
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 14,
   },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14 },
-  title: { fontSize: 40, fontWeight: '800', letterSpacing: -1.1, lineHeight: 40 },
-  sub: { marginTop: 7, fontSize: 14.5, fontWeight: '500' },
   count: { alignItems: 'flex-end', paddingBottom: 3 },
-  countNum: { fontSize: 27, fontWeight: '800', letterSpacing: -0.8, lineHeight: 28 },
-  countLabel: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    letterSpacing: 1.6,
-    textTransform: 'uppercase',
-  },
   rule: { marginTop: 18, height: 2, borderRadius: 2, overflow: 'hidden' },
   ruleFill: { height: 2, borderRadius: 2 },
   ruleLab: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 9,
-  },
-  ruleLabText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
   },
 });

@@ -3,6 +3,7 @@ import { LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View } fro
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { ShoppingTile } from '@/components/orbit/grocery/shopping-tile';
+import { typography } from '@/constants/orbit-theme';
 import type { ShoppingAisleGroup, ShoppingPalette } from '@/lib/grocery/shopping-palette';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -40,9 +41,13 @@ export function ShoppingAisleSection({
         style={styles.head}
         accessibilityRole="button"
         accessibilityState={{ expanded: !collapsed }}>
-        <MaterialIcons name="storefront" size={20} color={palette.olive} />
-        <Text style={[styles.title, { color: palette.ink }]}>{aisle.categoryName}</Text>
-        <Text style={[styles.count, { color: palette.inkFaint }]}>{remainingLabel}</Text>
+        <MaterialIcons name="storefront" size={20} color={palette.accent} />
+        <Text style={[typography.headline, { color: palette.ink, flex: 1 }]}>
+          {aisle.categoryName}
+        </Text>
+        <Text style={[typography.caption1, { color: palette.inkFaint, fontWeight: '700' }]}>
+          {remainingLabel}
+        </Text>
         <MaterialIcons
           name="expand-more"
           size={20}
@@ -75,7 +80,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingBottom: 11,
   },
-  title: { flex: 1, fontSize: 14.5, fontWeight: '700' },
-  count: { fontSize: 12.5, fontWeight: '700' },
   items: { gap: 9 },
 });

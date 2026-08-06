@@ -1,19 +1,23 @@
 # Next session — weekend App Store ship
 
-**Superseded for the big push by:** [`docs/weekend-ship-automation.md`](./weekend-ship-automation.md)
+**Playbook:** [`docs/weekend-ship-automation.md`](./weekend-ship-automation.md)  
+**Branch:** `cursor/choremaxx-make-v10-5f8f` → [PR #29](https://github.com/Djoek47/Orbit/pull/29)
 
-**Branch:** `cursor/choremaxx-make-v10-5f8f` → [PR #29](https://github.com/Djoek47/Orbit/pull/29)  
-**Tip baseline (v10):** Rev C grocery + Rev D/E closeout + House Rules UI gaps + notification banners/badge + allowance one-tap Mark as paid. Weekend A1–B7 still **unexecuted** — start from the playbook.
+## Tip baseline (when you wake up)
 
-## Tomorrow — start here
+v10 includes: Rev C/D/E, House Rules 4-views, Canada grocery catalog + emojis, **Smart Shopping** (HTML bible × ChoreMaxx tokens — in-aisle check + undo, amber-orbit glass, Start shopping). Weekend **A1–B7 still unexecuted**.
 
-1. Paste the **Automation prompt** from `docs/weekend-ship-automation.md` into a Cursor Automation, **or** Agent: *Execute Phase A then Phase B from docs/weekend-ship-automation.md*.
-2. Phase order is locked: **A (foundation) → B (craft)**. Do not skip to App Review.
-3. Native iOS build may be blocked on EAS Free plan monthly quota — upgrade at https://expo.dev/accounts/djoek47/settings/billing then `npm run build:ios:testflight`. Until then, TestFlight **build 19** still receives OTA on channel `testflight`.
+## Start here
 
-## Older 3-item list (folded into Phase A)
+1. Agent / Automation: *Execute Phase A then Phase B from docs/weekend-ship-automation.md*
+2. Order locked: **A (foundation) → B (craft)**. No App Review until B6 green.
+3. TestFlight gets OTA on channel `testflight`. Native iOS rebuild only if EAS quota allows (`npm run build:ios:testflight`).
 
-Website URLs + Resend auth templates + MVP close are now **A1, A2, and A7/B6** in the weekend playbook. Prefer the playbook so work is not duplicated.
+## Already on tip (do not redo)
 
-**Live marketing site today:** https://choremaxx.vercel.app/  
-**Custom domain notes (if still desired):** `mytikas73.com` — see prior checklist in git history of this file if needed.
+- House Rules 01–04 × Adult/Kid  
+- Canada grocery search/browse/favorites + per-item emoji  
+- Smart Shopping redesign (orbit colors / Bricolage / design-system glass)  
+- Night-spec Rev C/D/E closeout  
+
+**Live site:** https://choremaxx.vercel.app/

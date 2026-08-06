@@ -3,6 +3,7 @@ import { BlurView } from 'expo-blur';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { typography } from '@/constants/orbit-theme';
 import { iconForGroceryName } from '@/lib/grocery/catalog';
 import type { ShoppingListItem, ShoppingPalette } from '@/lib/grocery/shopping-palette';
 
@@ -28,38 +29,30 @@ export function ShoppingTile({ item, palette, onToggle }: Props) {
         styles.tile,
         {
           borderColor: palette.glassEdge,
-          opacity: done ? 0.42 : 1,
+          opacity: done ? 0.45 : 1,
           transform: [{ scale: pressed ? 0.975 : 1 }],
         },
       ]}>
       <View style={[StyleSheet.absoluteFill, styles.clip]}>
         <BlurView
           intensity={Platform.OS === 'ios' ? 22 : 40}
-          tint="dark"
+          tint={palette.isDark ? 'dark' : 'light'}
           style={StyleSheet.absoluteFill}
         />
         <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.glass }]} />
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: palette.glassHi,
-              opacity: 0.35,
-            },
-          ]}
-        />
       </View>
 
       <View
         style={[
           styles.box,
           {
-            borderColor: done ? palette.olive : palette.inkFaint,
-            backgroundColor: done ? palette.olive : 'transparent',
+            borderColor: done ? palette.accent : palette.inkFaint,
+            backgroundColor: done ? palette.accent : 'transparent',
           },
         ]}>
-        {done ? <MaterialIcons name="check" size={16} color="#1B140F" /> : null}
+        {done ? (
+          <MaterialIcons name="check" size={16} color={palette.checkGlyph} />
+        ) : null}
       </View>
 
       <Text style={styles.emoji}>{iconForGroceryName(item.name, item.categoryId)}</Text>
@@ -67,7 +60,7 @@ export function ShoppingTile({ item, palette, onToggle }: Props) {
       <View style={styles.body}>
         <Text
           style={[
-            styles.name,
+            typography.headline,
             {
               color: palette.ink,
               textDecorationLine: done ? 'line-through' : 'none',
@@ -79,8 +72,14 @@ export function ShoppingTile({ item, palette, onToggle }: Props) {
       </View>
 
       {qty ? (
-        <View style={[styles.qty, { backgroundColor: palette.qtyBg, borderColor: palette.glassEdge }]}>
-          <Text style={[styles.qtyText, { color: palette.inkMuted }]}>{qty}</Text>
+        <View
+          style={[
+            styles.qty,
+            { backgroundColor: palette.qtyBg, borderColor: palette.glassEdge },
+          ]}>
+          <Text style={[typography.caption1, { color: palette.inkMuted, fontWeight: '700' }]}>
+            {qty}
+          </Text>
         </View>
       ) : null}
     </Pressable>
@@ -95,7 +94,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 17,
     borderRadius: 26,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
     minHeight: 64,
   },
@@ -111,13 +110,11 @@ const styles = StyleSheet.create({
   },
   emoji: { fontSize: 22, width: 28, textAlign: 'center', zIndex: 1 },
   body: { flex: 1, minWidth: 0, zIndex: 1 },
-  name: { fontSize: 17.5, fontWeight: '700', letterSpacing: -0.2, lineHeight: 22 },
   qty: {
     paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: 11,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     zIndex: 1,
   },
-  qtyText: { fontSize: 12.5, fontWeight: '700' },
 });
