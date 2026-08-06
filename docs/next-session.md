@@ -2,8 +2,8 @@
 
 **Superseded for the big push by:** [`docs/weekend-ship-automation.md`](./weekend-ship-automation.md)
 
-**Branch:** `cursor/choremaxx-make-v9-5f8f` → [PR #28](https://github.com/Djoek47/Orbit/pull/28)  
-**Tip baseline after Aug 6 night:** Rev D + Rev E + House Rules Part 2 + monthly Rescue token + OTA on `testflight` / `august-6`.
+**Branch:** `cursor/choremaxx-make-v10-5f8f` → [PR #29](https://github.com/Djoek47/Orbit/pull/29)  
+**Tip baseline (v10):** Rev C grocery + Rev D/E closeout + House Rules UI gaps + notification banners/badge + allowance one-tap Mark as paid. Weekend A1–B7 still **unexecuted** — start from the playbook.
 
 ## Tomorrow — start here
 

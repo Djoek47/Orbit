@@ -1,8 +1,8 @@
 # Weekend ship automation — ChoreMaxx
 
-**Prepared:** 2026-08-06 (post Rev E + House Rules Part 2)  
-**Start tomorrow from:** `cursor/choremaxx-make-v9-5f8f` @ latest tip (includes Rev D scoring, Rev E copy/ledgers, House Rules Direction 01, monthly Rescue token)  
-**PR:** https://github.com/Djoek47/Orbit/pull/28  
+**Prepared:** 2026-08-06 (v10 — night specs finished)  
+**Start tomorrow from:** `cursor/choremaxx-make-v10-5f8f` @ latest tip (includes Rev D scoring, Rev E copy/ledgers, House Rules Direction 01, monthly Rescue token)  
+**PR:** https://github.com/Djoek47/Orbit/pull/29  
 
 This doc is the **automation-ready playbook**. Paste the block under [Automation prompt](#automation-prompt-paste-into-cursor-automation) into a Cursor Automation, or open this file in Agent mode and say: *Execute Phase A then Phase B from docs/weekend-ship-automation.md*.
 
@@ -13,15 +13,18 @@ This doc is the **automation-ready playbook**. Paste the block under [Automation
 | Done | Notes |
 |------|--------|
 | Revision D STOP GATES | Late Credit, expiry, streak cliffs/rescue, crowns, recess, notification batching |
-| Revision E | Intro slogans, notification registry, reward/allowance ledgers, vocab (no money-send language) |
-| House Rules Part 2 | JSON SoT + Direction 01 Chapters Adult/Kid |
+| Revision E | Intro slogans, closed notification registry wired, reward/allowance ledgers UI, vocab (no money-send language) |
+| Revision C grocery | Offline classifier, aisle shopping + keep-awake, Home cart card, admin-only clear |
+| House Rules Part 2 + Rev D UI | JSON SoT + Direction 01; Expired/Late Credit pills; XP ledger; streak-lost; PersistentScrollView |
 | Monthly Rescue token | 1/month; not lifetime free-first |
 | Q1 = B special asks | Admin-gated; one pending ask; N26/N27 |
-| Expo Go keep-alive + OTA | Channels `august-6` + `testflight` published from `75f5fac` |
+| Notifications | Unread badge = inbox unread; OS banners on every send; Settings → Apple notification settings |
+| Allowance Mark as paid | One-tap approve pending row (no grant-form loop) |
+| Expo Go keep-alive + OTA | Channels `august-6` + `testflight` |
 | Website live | https://choremaxx.vercel.app/ (privacy/terms exist) — still needs App Store URL wire-up + Master Brief alignment |
 | OpenAI ready | Connect Nova/Poppins via Supabase (A6) |
 
-**Do not** re-port Figma Make, switch off v9, or invent features outside Master Brief §3.
+**Do not** re-port Figma Make, switch off v10, or invent features outside Master Brief §3.
 
 ---
 
@@ -29,11 +32,11 @@ This doc is the **automation-ready playbook**. Paste the block under [Automation
 
 | Topic | Lock |
 |-------|------|
-| Branch | `cursor/choremaxx-make-v9-5f8f` only |
+| Branch | `cursor/choremaxx-make-v10-5f8f` only |
 | Rule Sheet | `docs/logic/choremaxx-MASTER-BRIEF.md` §3 wins conflicts |
 | AI name in product strings | **Poppins** (Master Brief §3.1) |
 | Families only | No roommate mode in shipping product (site still markets roommates — fix in A1/B4) |
-| Allowance | Tracker only — **Mark as paid** / **Approve now**; never send/pay/transfer |
+| Allowance | Tracker only — **Mark as paid**; never send/pay/transfer |
 | Pricing | 7-day trial · **$4.99/mo** · **$48/yr** (20% off $60) + tax via Apple |
 | Data mode | Expo Go may stay mock; TestFlight / store builds use `EXPO_PUBLIC_DATA_MODE=supabase` (eas.json) |
 
@@ -79,7 +82,7 @@ Do A fully before B. Do not start B7 until B6 is green.
 You are shipping ChoreMaxx for App Store readiness.
 
 BRANCH (mandatory):
-- git fetch && git checkout cursor/choremaxx-make-v9-5f8f && git pull
+- git fetch && git checkout cursor/choremaxx-make-v10-5f8f && git pull
 - Commit and push ONLY on this branch. Do not create cursor/*-c30d sprawl.
 
 READ FIRST:
@@ -92,7 +95,7 @@ HARD RULES:
 - Do not invent features. Do not re-port Figma Make.
 - Poppins in product strings (not Nova) per Master Brief.
 - Families only — no roommate mode in shipping product.
-- Allowance never sends money — Mark as paid / Approve now.
+- Allowance never sends money — Mark as paid.
 - Pricing: 7-day trial, $4.99/mo, $48/yr via Apple IAP.
 - Prefer Expo Go for UI checks; use TestFlight/supabase for store paths.
 - After each phase slice: commit, push, OTA to channel testflight (+ august-6 if that channel is still in use).
