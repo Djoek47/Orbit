@@ -5,22 +5,31 @@ import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { GroceryCategoryGrid } from '@/components/orbit/grocery-category-grid';
+import { GrocerySearchField } from '@/components/orbit/grocery-search-field';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
-import { classifyGroceryItem, listGroceryCategories } from '@/lib/grocery/classify';
+import { listGroceryCategories } from '@/lib/grocery/classify';
+import type { CatalogProduct } from '@/lib/grocery/catalog';
+import {
+  listBuyAgainProducts,
+  listComplementSuggestions,
+  listFavoriteProducts,
+} from '@/lib/grocery/suggest';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { GroceryItem } from '@/types/orbit';
 
 /**
- * Revision C §4 — one list, type-to-file, aisle tags, clear checked (admin).
- * Grocery Intelligence / budget / preferred store / storage removed.
+ * Canada-first grocery planner — search / browse / favorites / buy-again.
+ * Rev C list, aisle tags, clear, and shopping mode remain.
  */
 export default function GroceriesScreen() {
   const chromePad = useTabChromePaddingTop();
   const insets = useSafeAreaInsets();
   const {
     accentTheme,
+    addGroceryFromProduct,
     addMissingGrocery,
     canAddGroceryWishlist,
     clearCheckedGroceries,
@@ -31,15 +40,17 @@ export default function GroceriesScreen() {
     markGroceryPurchased,
     patchGroceryCategory,
     permissions,
+    toggleGroceryFavorite,
   } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showBrowse, setShowBrowse] = useState(false);
+  const [chip, setChip] = useState<'favorites' | 'buyAgain' | 'suggest' | null>(null);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     markGroceriesOpened();
-    // Intentionally once on mount — marks admin "last opened" for Home badge.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -54,10 +65,31 @@ export default function GroceriesScreen() {
   const active = listItems.filter((i) => i.status !== 'Purchased');
   const checked = listItems.filter((i) => i.status === 'Purchased');
   const sorted = [...active, ...checked];
+  const onListNames = active.map((i) => i.name);
 
-  const preview = draft.trim()
-    ? classifyGroceryItem(draft, household.groceryCategoryOverrides)
-    : null;
+  const favoriteProducts = useMemo(
+    () => listFavoriteProducts(household.groceryFavorites ?? []),
+    [household.groceryFavorites]
+  );
+  const buyAgainProducts = useMemo(
+    () => listBuyAgainProducts(household.groceryPurchaseHistory ?? [], 12),
+    [household.groceryPurchaseHistory]
+  );
+  const suggestProducts = useMemo(
+    () => listComplementSuggestions(onListNames, 10),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onListNames.join('|')]
+  );
+
+  const chipProducts =
+    chip === 'favorites'
+      ? favoriteProducts
+      : chip === 'buyAgain'
+        ? buyAgainProducts
+        : chip === 'suggest'
+          ? suggestProducts
+          : [];
+
   const isAdmin = permissions.canManageHousehold || permissions.canManageGroceries;
 
   const quickAdd = async () => {
@@ -67,6 +99,17 @@ export default function GroceriesScreen() {
       await addMissingGrocery({ name: draft.trim() });
       setDraft('');
       inputRef.current?.focus();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pickProduct = async (product: CatalogProduct) => {
+    if (!canAddGroceryWishlist) return;
+    setBusy(true);
+    try {
+      await addGroceryFromProduct(product.id);
+      setDraft('');
     } finally {
       setBusy(false);
     }
@@ -168,34 +211,97 @@ export default function GroceriesScreen() {
       </View>
 
       {canAddGroceryWishlist ? (
-        <View
+        <GrocerySearchField
+          value={draft}
+          onChangeText={setDraft}
+          onSubmitFreeText={() => void quickAdd()}
+          onPickProduct={(p) => void pickProduct(p)}
+          inputRef={inputRef}
+          disabled={busy}
+          placeholder="Search milk, shampoo…"
+        />
+      ) : null}
+
+      <View style={styles.chipRow}>
+        {(
+          [
+            { id: 'favorites' as const, label: 'Favorites', count: favoriteProducts.length },
+            { id: 'buyAgain' as const, label: 'Buy again', count: buyAgainProducts.length },
+            { id: 'suggest' as const, label: 'Suggest', count: suggestProducts.length },
+          ] as const
+        ).map((item) => {
+          const on = chip === item.id;
+          return (
+            <Pressable
+              key={item.id}
+              onPress={() => setChip(on ? null : item.id)}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: on ? `${accentTheme.primary}28` : glass(0.05),
+                  borderColor: on ? `${accentTheme.primary}55` : glassBorder(0.1),
+                },
+              ]}>
+              <Text
+                style={{
+                  color: on ? accentTheme.primary : c.textMuted,
+                  fontWeight: '700',
+                  fontSize: 12,
+                }}>
+                {item.label}
+                {item.count ? ` · ${item.count}` : ''}
+              </Text>
+            </Pressable>
+          );
+        })}
+        <Pressable
+          onPress={() => setShowBrowse((v) => !v)}
           style={[
-            styles.addRow,
-            { borderColor: glassBorder(0.12), backgroundColor: glass(0.04) },
+            styles.chip,
+            {
+              backgroundColor: showBrowse ? `${accentTheme.primary}28` : glass(0.05),
+              borderColor: showBrowse ? `${accentTheme.primary}55` : glassBorder(0.1),
+            },
           ]}>
-          <TextInput
-            ref={inputRef}
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Add an item…"
-            placeholderTextColor={c.textSubtle}
-            returnKeyType="done"
-            onSubmitEditing={() => void quickAdd()}
-            style={[styles.addInput, { color: c.text }]}
-          />
-          <Pressable
-            disabled={busy || !draft.trim()}
-            onPress={() => void quickAdd()}
-            style={[styles.addBtn, { backgroundColor: `${accentTheme.primary}22` }]}>
-            <MaterialIcons name="add" size={20} color={accentTheme.primary} />
-          </Pressable>
+          <Text
+            style={{
+              color: showBrowse ? accentTheme.primary : c.textMuted,
+              fontWeight: '700',
+              fontSize: 12,
+            }}>
+            Browse
+          </Text>
+        </Pressable>
+      </View>
+
+      {chip && chipProducts.length ? (
+        <View style={styles.suggestList}>
+          {chipProducts.map((p) => (
+            <Pressable
+              key={p.id}
+              onPress={() => void pickProduct(p)}
+              onLongPress={() => toggleGroceryFavorite(p.id)}
+              style={[
+                styles.suggestRow,
+                { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
+              ]}>
+              <Text style={{ fontSize: 18 }}>{p.icon}</Text>
+              <Text style={{ flex: 1, color: c.text, fontWeight: '600' }}>{p.name}</Text>
+              <Text style={{ color: accentTheme.primary, fontWeight: '700', fontSize: 12 }}>
+                Add
+              </Text>
+            </Pressable>
+          ))}
         </View>
       ) : null}
-      {preview ? (
-        <Text style={{ color: c.textMuted, fontSize: 12 }}>
-          → {preview.categoryName}
-          {preview.quantityDisplay ? ` · ${preview.quantityDisplay}` : ''}
-        </Text>
+
+      {showBrowse ? (
+        <GroceryCategoryGrid
+          onSelect={(browse) => {
+            setShowBrowse(false);
+            router.push({ pathname: '/grocery-browse', params: { browseId: browse.id } } as never);
+          }}
+        />
       ) : null}
 
       {sorted.map((item) => {
@@ -264,17 +370,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: { fontSize: 28, fontWeight: '800' },
-  addRow: {
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  suggestList: { gap: 6 },
+  suggestRow: {
     alignItems: 'center',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  addInput: { flex: 1, fontSize: 16, minHeight: 40, paddingVertical: 8 },
-  addBtn: { borderRadius: 10, padding: 8 },
   row: {
     alignItems: 'center',
     borderRadius: 14,

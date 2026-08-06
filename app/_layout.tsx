@@ -126,6 +126,10 @@ export default function RootLayout() {
             options={{ presentation: 'modal', headerShown: false, title: 'Shopping Mode' }}
           />
           <Stack.Screen
+            name="grocery-browse"
+            options={{ presentation: 'modal', headerShown: false, title: 'Browse groceries' }}
+          />
+          <Stack.Screen
             name="reward-tally"
             options={{ presentation: 'modal', headerShown: false, title: 'Reward history' }}
           />

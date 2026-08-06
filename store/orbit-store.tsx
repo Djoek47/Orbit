@@ -274,6 +274,10 @@ type OrbitContextValue = {
   /** Evenly reassign every open task between the two family admins (or two chosen members). */
   splitAllTasksBetweenTwo: (nameA?: string, nameB?: string) => Promise<void>;
   addMissingGrocery: (input: CreateGroceryInput) => void;
+  /** Add from Canada catalog product (aisle from product.categoryId). */
+  addGroceryFromProduct: (productId: string) => Promise<void>;
+  toggleGroceryFavorite: (productId: string) => void;
+  listGroceryBuyAgain: () => string[];
   setPreferredStore: (storeId: string) => void;
   preferredStore: PreferredStore;
   joinHousehold: (input: JoinHouseholdInput) => Promise<void>;
@@ -1741,16 +1745,29 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!canAdd) {
       return;
     }
-    const { classifyGroceryItem } = await import('@/lib/grocery/classify');
-    const classified = classifyGroceryItem(input.name, household.groceryCategoryOverrides);
+    const { classifyGroceryItem, categoryNameForId } = await import('@/lib/grocery/classify');
+    let categoryId = input.categoryId;
+    let categoryName = input.category?.trim();
+    let itemName = input.name.trim();
+    let quantity = input.quantity?.trim();
+
+    if (input.productId && categoryId) {
+      categoryName = categoryName || categoryNameForId(categoryId);
+    } else {
+      const classified = classifyGroceryItem(input.name, household.groceryCategoryOverrides);
+      itemName = classified.itemName;
+      categoryName = categoryName || classified.categoryName;
+      categoryId = categoryId || classified.categoryId;
+      quantity = quantity || classified.quantityDisplay || '1';
+    }
+
     const grocery = await groceryRepository.addGroceryItem(household.id, {
       ...input,
-      name: classified.itemName,
-      category: input.category?.trim() ? input.category : classified.categoryName,
-      quantity: input.quantity?.trim()
-        ? input.quantity
-        : classified.quantityDisplay ?? '1',
-      categoryId: classified.categoryId,
+      name: itemName,
+      category: categoryName || 'Other',
+      quantity: quantity || '1',
+      categoryId,
+      productId: input.productId,
       storeId: input.storeId ?? household.preferredStoreId,
       requestedBy: input.requestedBy ?? currentMember?.name,
     });
@@ -1760,6 +1777,31 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }));
     await trackAnalytics('grocery.added', { groceryId: grocery.id }, analyticsContext);
   };
+
+  const addGroceryFromProduct = async (productId: string) => {
+    const { getCatalogProduct } = await import('@/lib/grocery/catalog');
+    const { categoryNameForId } = await import('@/lib/grocery/classify');
+    const product = getCatalogProduct(productId);
+    if (!product) return;
+    await addMissingGrocery({
+      name: product.name,
+      productId: product.id,
+      categoryId: product.categoryId,
+      category: categoryNameForId(product.categoryId),
+    });
+  };
+
+  const toggleGroceryFavorite = (productId: string) => {
+    setHousehold((current) => {
+      const favs = current.groceryFavorites ?? [];
+      const next = favs.includes(productId)
+        ? favs.filter((id) => id !== productId)
+        : [productId, ...favs].slice(0, 80);
+      return { ...current, groceryFavorites: next };
+    });
+  };
+
+  const listGroceryBuyAgain = () => household.groceryPurchaseHistory ?? [];
 
   const setPreferredStore = (storeId: string) => {
     if (!permissions.canManageGroceries && currentMember?.role === 'child') {
@@ -1780,6 +1822,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setHousehold((current) => ({
       ...current,
       groceries: current.groceries.map((item) => (item.id === itemId ? purchasedItem : item)),
+      groceryPurchaseHistory: [
+        currentItem.name,
+        ...(current.groceryPurchaseHistory ?? []).filter((n) => n !== currentItem.name),
+      ].slice(0, 60),
     }));
     await trackAnalytics('grocery.purchased', { groceryId: itemId }, analyticsContext);
     const nextMetrics = calculateMetrics({
@@ -1850,15 +1896,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!permissions.canManageHousehold && !permissions.canManageGroceries) {
       return;
     }
-    const purchasedIds = household.groceries
-      .filter((item) => item.status === 'Purchased')
-      .map((item) => item.id);
+    const purchased = household.groceries.filter((item) => item.status === 'Purchased');
+    const purchasedIds = purchased.map((item) => item.id);
     if (!purchasedIds.length) return;
+    const historyNames = purchased.map((p) => p.name);
     await groceryRepository.removeGroceryItems(purchasedIds, household.id);
     const idSet = new Set(purchasedIds);
     setHousehold((current) => ({
       ...current,
       groceries: current.groceries.filter((item) => !idSet.has(item.id)),
+      groceryPurchaseHistory: [
+        ...historyNames,
+        ...(current.groceryPurchaseHistory ?? []),
+      ].slice(0, 60),
     }));
     await trackAnalytics('grocery.clear_checked', { count: purchasedIds.length }, analyticsContext);
   };
@@ -3444,6 +3494,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       cancelTask,
       splitAllTasksBetweenTwo,
       addMissingGrocery,
+      addGroceryFromProduct,
+      toggleGroceryFavorite,
+      listGroceryBuyAgain,
       setPreferredStore,
       joinHousehold,
       markGroceryPurchased,

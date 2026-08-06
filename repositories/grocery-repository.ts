@@ -64,6 +64,7 @@ export const groceryRepository = {
       storeId: input.storeId,
       requestedBy: input.requestedBy,
       note: input.note?.trim() || undefined,
+      productId: input.productId,
     };
 
     if (isMockMode()) {
@@ -105,6 +106,7 @@ export const groceryRepository = {
       requestedBy: item.requestedBy,
       note: item.note,
       categoryId: item.categoryId,
+      productId: item.productId,
     };
   },
 

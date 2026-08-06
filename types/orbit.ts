@@ -174,6 +174,8 @@ export type GroceryItem = {
   note?: string;
   /** Classifier category id (e.g. dairy_eggs) when known. */
   categoryId?: string;
+  /** Canada catalog product id when added from search/browse. */
+  productId?: string;
 };
 
 export type HouseholdEvent = {
@@ -466,6 +468,8 @@ export type CreateGroceryInput = {
   note?: string;
   /** Wishlist items for kids who met XP threshold. */
   wishlist?: boolean;
+  /** Canada catalog product id when known. */
+  productId?: string;
 };
 
 export type CreateItineraryInput = {
@@ -617,6 +621,10 @@ export type HouseholdSnapshot = {
   preferredStoreId?: string;
   /** Rev C §4.3 — household corrections for aisle classifier (normalized name → category id). */
   groceryCategoryOverrides?: Record<string, string>;
+  /** Catalog product ids marked favorite (mock AsyncStorage / household). */
+  groceryFavorites?: string[];
+  /** Recently purchased/cleared names for Buy again (newest first). */
+  groceryPurchaseHistory?: string[];
   /** Last time an admin opened the groceries tab (for Home badge). */
   groceriesLastOpenedAt?: string;
   /** When false, homework-gated House Rules chapters hide. Default true. */
