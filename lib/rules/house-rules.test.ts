@@ -6,8 +6,33 @@ import assert from 'node:assert/strict';
 import { LATE_CREDIT, MONTHLY_RESCUE_TOKENS, RESCUE_COST_PCT_PER_DAY } from '@/constants/scoring';
 import { getHouseRulesDoc, __resetHouseRulesCache } from '@/lib/rules/house-rules-data';
 import { decodeHouseRules } from '@/lib/rules/decode';
+import { resolveHouseRulesPalette, type OrbitColorLike } from '@/lib/rules/house-rules-palette';
+import { searchHouseRules } from '@/lib/rules/search';
 import { isVisible } from '@/lib/rules/visibility';
-import { visibleRuleCount, visibleRules } from '@/lib/rules/visible-rules';
+import { rulesByPhase, visibleRuleCount, visibleRules } from '@/lib/rules/visible-rules';
+
+const MOCK_COLORS: OrbitColorLike = {
+  background: '#070D1C',
+  backgroundSoft: '#0A1525',
+  shell: '#030810',
+  card: 'rgba(255,255,255,0.05)',
+  cardStrong: 'rgba(255,255,255,0.07)',
+  border: 'rgba(255,255,255,0.08)',
+  borderStrong: 'rgba(89,178,225,0.35)',
+  text: '#EEF2FF',
+  textSoft: '#C8D8F0',
+  textMuted: '#7C9CC0',
+  orbitBlue: '#59B2E1',
+  orbitBlueDeep: '#3A9BC8',
+  primary: '#59B2E1',
+  accent: '#7DDBB0',
+  success: '#34D399',
+  warning: '#FB923C',
+  danger: '#F87171',
+  planPurple: '#A78BFA',
+  poppinsCyan: '#06B6D4',
+  brandSlate: '#1E293B',
+};
 
 function pass(id: string, detail: string) {
   console.log(`PASS ${id} — ${detail}`);
@@ -154,6 +179,56 @@ const doc = getHouseRulesDoc();
     });
   }
   pass('HR12', 'clause numbers contiguous with no gaps');
+}
+
+{
+  const groups = visibleRules(doc, {
+    rewardModel: 'full',
+    helperCount: 2,
+    homeworkEnabled: true,
+  });
+  for (const ch of doc.chapters) {
+    assert.ok(ch.accent || ch.kidColor, `${ch.key} has accent or kidColor`);
+  }
+  pass('HR13', 'chapters decode accent / kidColor');
+}
+
+{
+  const groups = visibleRules(doc, {
+    rewardModel: 'full',
+    helperCount: 2,
+    homeworkEnabled: true,
+  });
+  const stops = rulesByPhase(groups, 'adult');
+  assert.ok(stops.length >= 4, `phase stops ${stops.length}`);
+  assert.ok(stops.every((s) => s.rules.length > 0), 'no empty phases');
+  const phases = stops.map((s) => s.phase);
+  assert.equal(new Set(phases).size, phases.length, 'unique phases');
+  pass('HR14', 'rulesByPhase merges stops and skips empty');
+}
+
+{
+  const groups = visibleRules(doc, {
+    rewardModel: 'full',
+    helperCount: 2,
+    homeworkEnabled: true,
+  });
+  const late = searchHouseRules(groups, 'late', 'adult');
+  assert.ok(late.length >= 1, 'late matches');
+  const streak = searchHouseRules(groups, 'streak', 'kid');
+  assert.ok(streak.length >= 1, 'streak kid matches');
+  assert.equal(searchHouseRules(groups, '', 'adult').length, 0);
+  pass('HR15', 'searchHouseRules matches + empty query');
+}
+
+{
+  const adult = resolveHouseRulesPalette(MOCK_COLORS, 'adult', 'chapters');
+  const kid = resolveHouseRulesPalette(MOCK_COLORS, 'kid', 'chapters');
+  const glance = resolveHouseRulesPalette(MOCK_COLORS, 'adult', 'glance');
+  assert.ok(adult.spine);
+  assert.notEqual(adult.accent, kid.accent);
+  assert.ok(glance.accent);
+  pass('HR16', 'palette maps Adult/Kid/direction to orbit tokens');
 }
 
 console.log('\nAll house-rules tests passed.');

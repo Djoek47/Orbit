@@ -87,11 +87,15 @@ export type RuleConstants = {
   rewardModels: { key: string; label: string }[];
 };
 
+export type ChapterAccent = 'ember' | 'olive' | string;
+
 export type Chapter = {
   key: ChapterKey;
   order: number;
   adultLabel: string;
   kidLabel: string;
+  /** Adult spine accent role from JSON (ember / olive). */
+  accent?: ChapterAccent;
   kidColor?: string;
 };
 

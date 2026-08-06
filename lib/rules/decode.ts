@@ -127,6 +127,7 @@ function decodeChapter(raw: unknown, index: number): Chapter {
     order: asNumber(row.order, 'chapter.order'),
     adultLabel: asString(row.adultLabel, 'chapter.adultLabel'),
     kidLabel: asString(row.kidLabel, 'chapter.kidLabel'),
+    accent: typeof row.accent === 'string' ? row.accent : undefined,
     kidColor: typeof row.kidColor === 'string' ? row.kidColor : undefined,
   };
 }
