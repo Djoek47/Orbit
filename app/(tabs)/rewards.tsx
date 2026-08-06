@@ -123,6 +123,7 @@ export default function RewardsScreen() {
     membersWithProgress,
     orbitPalette,
     pendingAllowances,
+    allowances,
     pendingRedemptions,
     permissions,
     rejectAllowance,
@@ -317,10 +318,10 @@ export default function RewardsScreen() {
 
   const allowanceRows = useMemo(() => {
     return vaultMembers.map((member) => {
-      const pending = pendingAllowances.filter(
+      const pending = allowances.filter(
         (g) => g.memberId === member.id && g.status === 'pending'
       );
-      const approved = pendingAllowances.filter(
+      const approved = allowances.filter(
         (g) => g.memberId === member.id && g.status === 'approved'
       );
       return {
@@ -330,7 +331,23 @@ export default function RewardsScreen() {
         latestPending: pending[0],
       };
     });
-  }, [pendingAllowances, vaultMembers]);
+  }, [allowances, vaultMembers]);
+
+  const allowanceWeekStats = useMemo(() => {
+    const owed = allowances
+      .filter((g) => g.status === 'pending')
+      .reduce((sum, g) => {
+        const n = Number(String(g.amountLabel).replace(/[^0-9.]/g, ''));
+        return sum + (Number.isFinite(n) ? n : 0);
+      }, 0);
+    const paid = allowances
+      .filter((g) => g.status === 'approved')
+      .reduce((sum, g) => {
+        const n = Number(String(g.amountLabel).replace(/[^0-9.]/g, ''));
+        return sum + (Number.isFinite(n) ? n : 0);
+      }, 0);
+    return { owed, paid };
+  }, [allowances]);
 
   const surfaceTabs = (
     [
@@ -523,7 +540,7 @@ export default function RewardsScreen() {
             {canRequestSpecial ? (
               <Pressable onPress={() => router.push('/special-reward-request' as never)}>
                 <Text style={[typography.footnote, { color: accentTheme.primary }]}>
-                  Special request →
+                  Ask for a reward →
                 </Text>
               </Pressable>
             ) : null}
@@ -538,7 +555,7 @@ export default function RewardsScreen() {
             <>
               <View
                 style={[
-                  styles.payrollCard,
+                  styles.allowanceSummaryCard,
                   {
                     backgroundColor: isDark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.1)',
                     borderColor: 'rgba(245,158,11,0.28)',
@@ -547,27 +564,24 @@ export default function RewardsScreen() {
                 <View style={styles.pendingHead}>
                   <MaterialIcons name="payments" size={16} color="#F59E0B" />
                   <Text style={[typography.headline, { color: '#F59E0B' }]}>
-                    This Week&apos;s Allowance
+                    This week
                   </Text>
                 </View>
-                <View style={styles.payrollRow}>
+                <Text style={[typography.caption1, { color: c.textSubtle, marginBottom: 8 }]}>
+                  ChoreMaxx keeps the record. You hand over the money however you normally do.
+                </Text>
+                <View style={styles.allowanceSummaryRow}>
                   <View>
                     <Text style={[typography.title2, { color: c.text }]}>
-                      {pendingAllowances.length}
+                      ${allowanceWeekStats.owed}
                     </Text>
-                    <Text style={[typography.caption1, { color: c.textSubtle }]}>Unpaid</Text>
+                    <Text style={[typography.caption1, { color: c.textSubtle }]}>Owed</Text>
                   </View>
                   <View>
                     <Text style={[typography.title2, { color: '#34D399' }]}>
-                      {pendingAllowances.filter((g) => g.status === 'approved').length}
+                      ${allowanceWeekStats.paid}
                     </Text>
-                    <Text style={[typography.caption1, { color: c.textSubtle }]}>Approved</Text>
-                  </View>
-                  <View>
-                    <Text style={[typography.title2, { color: '#FB923C' }]}>
-                      {pendingAllowances.filter((g) => g.status === 'pending').length}
-                    </Text>
-                    <Text style={[typography.caption1, { color: c.textSubtle }]}>Pending</Text>
+                    <Text style={[typography.caption1, { color: c.textSubtle }]}>Paid this week</Text>
                   </View>
                 </View>
               </View>
@@ -612,7 +626,7 @@ export default function RewardsScreen() {
                       onPress={() => router.push('/grant-allowance' as never)}
                       style={[styles.allowBtn, { backgroundColor: `${accentTheme.primary}22` }]}>
                       <Text style={{ color: accentTheme.primary, fontWeight: '700', fontSize: 12 }}>
-                        Send Allowance
+                        {VOCAB.approveNow}
                       </Text>
                     </Pressable>
                     <Pressable
@@ -1051,13 +1065,13 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingVertical: 4,
   },
-  payrollCard: {
+  allowanceSummaryCard: {
     borderRadius: radius.cardLarge,
     borderWidth: StyleSheet.hairlineWidth,
     padding: space.md,
     gap: 12,
   },
-  payrollRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  allowanceSummaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
   allowanceCard: {
     borderRadius: radius.cardLarge,
     borderWidth: StyleSheet.hairlineWidth,

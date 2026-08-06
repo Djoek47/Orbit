@@ -5,9 +5,9 @@
  */
 
 import {
-  FIRST_RESCUE_IS_FREE,
   LATE_CREDIT,
   MAX_RESCUABLE_CONSECUTIVE_DAYS,
+  MONTHLY_RESCUE_TOKENS,
   RESCUE_COST_PCT_PER_DAY,
   ROLLING_MISS_LIMIT,
   ROLLING_MISS_WINDOW_DAYS,
@@ -110,8 +110,9 @@ export const RULE_REGISTRY: RuleEntry[] = [
     section: 'rewards',
     order: 30,
     appliesWhen: (h) => usesAllowance(h),
-    adultText: () => 'Allowance can be sent on the household schedule. Manual Send always works.',
-    kidText: () => 'Grown-ups can send your allowance.',
+    adultText: () =>
+      "ChoreMaxx tracks allowance — it never moves money. Allowance builds up on the household schedule, and an admin marks it paid once they've handed it over. An admin can mark allowance paid at any time.",
+    kidText: () => 'Grown-ups keep track of your allowance. They hand you the money themselves.',
   },
   {
     id: 'deadlines',
@@ -167,12 +168,9 @@ export const RULE_REGISTRY: RuleEntry[] = [
     appliesWhen: (h) => usesXp(h) && h.streakEnabled !== false,
     adultText: () => {
       const pct = Math.round(RESCUE_COST_PCT_PER_DAY * 100);
-      const free = FIRST_RESCUE_IS_FREE
-        ? ` The first ${VOCAB.streakRescue} is free after the member confirms the prompt.`
-        : '';
-      return `${VOCAB.streakRescue}: ${pct}% of week-to-date gross XP per rescued day (max ${MAX_RESCUABLE_CONSECUTIVE_DAYS} days).${free}`;
+      return `${VOCAB.streakRescue}: ${pct}% of week-to-date gross XP per rescued day (max ${MAX_RESCUABLE_CONSECUTIVE_DAYS} days). Each member gets ${MONTHLY_RESCUE_TOKENS} free rescue token per calendar month.`;
     },
-    kidText: () => 'Miss once? You can trade some points to save it.',
+    kidText: () => 'Miss once? You can use your monthly rescue token, or trade some points.',
   },
   {
     id: 'hygiene-streak',

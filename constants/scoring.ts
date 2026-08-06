@@ -38,11 +38,14 @@ export const ROLLING_MISS_LIMIT = 3;
 export const ROLLING_MISS_WINDOW_DAYS = 7;
 
 /**
- * The first Streak Rescue a member ever accepts is free —
- * only after they press the confirmation prompt (UI).
- * See §1.5.6 / product decision on v9.
+ * Lifetime free-first rescue is OFF.
+ * Product (Master Brief Q2 override): each member gets
+ * MONTHLY_RESCUE_TOKENS token(s) per calendar month instead.
  */
-export const FIRST_RESCUE_IS_FREE = true;
+export const FIRST_RESCUE_IS_FREE = false;
+
+/** Rescue tokens granted at each calendar-month boundary (household-local). */
+export const MONTHLY_RESCUE_TOKENS = 1;
 
 /** Week runs Monday 00:00:00 → Sunday 23:59:59, household-local. */
 export const WEEK_STARTS_ON = 1; // 1 = Monday

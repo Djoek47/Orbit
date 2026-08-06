@@ -2597,11 +2597,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     const reward = household.rewards.find((item) => item.id === rewardId);
+    const origin =
+      reward?.specialRequest || reward?.origin === 'special-request' ? 'requested' : 'earned';
     const redemption = await rewardsRepository.requestRedemption({
       householdId: household.id,
       rewardId,
       memberId: currentMember.id,
       note,
+      rewardName: reward?.title,
+      origin,
     });
     setPendingRedemptions((current) => [redemption, ...current.filter((item) => item.id !== redemption.id)]);
     setRedemptions((current) => [redemption, ...current.filter((item) => item.id !== redemption.id)]);
@@ -2611,6 +2615,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       memberName: currentMember.name,
       redemptionId: redemption.id,
       audienceRoles: [...REWARD_REVIEW_ROLES],
+      isNewAsk: Boolean(reward?.specialRequest || reward?.origin === 'special-request'),
     });
     if (created) {
       await scheduleLocalReminder(created.title, created.body, 2).catch((error) =>
@@ -2653,6 +2658,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       rewardId,
       memberId: currentMember.id,
       note: 'Instant claim',
+      rewardName: reward.title,
+      origin: 'earned',
     });
     const updated = await rewardsRepository.approveRedemption(redemption.id);
     setPendingRedemptions((current) => current.filter((item) => item.id !== redemption.id));
@@ -2754,9 +2761,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const reward = household.rewards.find((item) => item.id === pending?.rewardId);
     const updated = await rewardsRepository.approveRedemption(redemptionId);
     setPendingRedemptions((current) => current.filter((item) => item.id !== redemptionId));
-    setRedemptions((current) =>
-      current.map((item) => (item.id === redemptionId ? updated : item))
-    );
+    setRedemptions((current) => {
+      const exists = current.some((item) => item.id === redemptionId);
+      if (exists) {
+        return current.map((item) => (item.id === redemptionId ? updated : item));
+      }
+      return [updated, ...current];
+    });
     if (pending && reward) {
       // v2 §6.1: approving a reward never deducts XP.
       if (reward.assignedMemberId) {

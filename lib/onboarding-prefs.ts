@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { INTRO_SLOGANS } from '@/constants/vocabulary';
 import {
   DEFAULT_REWARD_MODEL,
   migrateLegacyRewardModel,
@@ -81,11 +82,11 @@ export const ONBOARDING_MOTIVATIONS: {
   { id: 'allowance_rewards', emoji: '🏆', label: 'Full System', desc: 'Allowance, XP & rewards', wide: true },
 ];
 
-/** Splash micro-hooks (Design 8 glass onboarding). */
+/** Splash micro-hooks — Revision E §1.2 slogans (colors are chrome only). */
 export const ONBOARDING_SPLASH_HOOKS = [
-  { text: 'Zero clutter. Quiet rhythm.', color: '#3BB5F0' },
-  { text: 'Poppins co-manages the home.', color: '#2DD4BF' },
-  { text: 'Built for real households.', color: '#F59E0B' },
+  { text: INTRO_SLOGANS[0], color: '#3BB5F0' },
+  { text: INTRO_SLOGANS[1], color: '#2DD4BF' },
+  { text: INTRO_SLOGANS[2], color: '#F59E0B' },
 ] as const;
 
 const KEY = 'choremaxx.onboarding.v7';

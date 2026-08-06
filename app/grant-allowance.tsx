@@ -78,8 +78,10 @@ export default function GrantAllowanceScreen() {
       <View style={orbitScreen.header}>
         <ChoremaxxBadge />
         <Text style={[typography.footnote, { marginTop: 8 }]}>Admin</Text>
-        <Text style={typography.title1}>Send Allowance</Text>
-        <Text style={typography.body}>Person → amount → optional note.</Text>
+        <Text style={typography.title1}>Mark as paid</Text>
+        <Text style={typography.body}>
+          ChoreMaxx keeps the record. You hand over the money however you normally do.
+        </Text>
       </View>
 
       <GlassCard style={styles.card}>
@@ -142,7 +144,7 @@ export default function GrantAllowanceScreen() {
       </GlassCard>
 
       <OrbitButton disabled={busy || !selected || !amountLabel.trim()} onPress={() => void handleGrant()}>
-        {busy ? 'Sending…' : selected ? `Send Allowance to ${selected.name}` : 'Pick a person'}
+        {busy ? 'Saving…' : selected ? `Mark as paid for ${selected.name}` : 'Pick a person'}
       </OrbitButton>
       <OrbitButton tone="secondary" onPress={() => router.back()}>
         Cancel

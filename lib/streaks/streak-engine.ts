@@ -1,15 +1,15 @@
 /**
- * ChoreMaxx streak engine — Revision D §1.4–§1.5.
+ * ChoreMaxx streak engine — Revision D §1.4–§1.5 + monthly Rescue token (Master Brief Q2).
  *
  * DELETED (Rev D §0.2): single-miss break, 15%/30%/50% redemption ladder.
  * Cliffs: 3 consecutive misses OR 3 misses in a rolling 7-day window.
  * Rescue: 10% of week's gross XP per rescued day, max 2 consecutive days.
- * First rescue is free only after the member presses the confirmation prompt.
+ * Monthly token: 1 free Rescue per member per calendar month (not lifetime first-free).
  */
 
 import {
-  FIRST_RESCUE_IS_FREE,
   MAX_RESCUABLE_CONSECUTIVE_DAYS,
+  MONTHLY_RESCUE_TOKENS,
   RESCUE_COST_PCT_PER_DAY,
   ROLLING_MISS_LIMIT,
   ROLLING_MISS_WINDOW_DAYS,
@@ -30,7 +30,15 @@ export type MemberStreak = {
   rollingMissDates: string[];
   streakEndedAt: string | null;
   streakEndedReason: StreakEndedReason | null;
+  /**
+   * @deprecated Lifetime free-first flag. Prefer rescueTokensRemaining.
+   * Kept so older persisted state still loads; monthly token is authoritative.
+   */
   freeRescueUsed: boolean;
+  /** Calendar month (YYYY-MM) the token balance applies to. */
+  rescueTokenMonth: string | null;
+  /** Remaining free Rescue tokens this month. */
+  rescueTokensRemaining: number;
   /** Pending rescue offer for the most recent miss (not yet accepted/declined). */
   pendingRescue: PendingRescue | null;
 };
@@ -45,7 +53,7 @@ export type PendingRescue = {
   pctOwed: number;
   /** Absolute estimate shown in UI (week-to-date gross × pct). */
   estimatedXpCost: number;
-  /** True when FIRST_RESCUE_IS_FREE and freeRescueUsed is still false. */
+  /** True when a monthly Rescue token is available. */
   freeEligible: boolean;
 };
 
@@ -68,6 +76,27 @@ export function classifyMemberDay(input: {
   return classifyDay(input);
 }
 
+/** YYYY-MM from a household-local date string. */
+export function monthKeyForLocalDate(localDate: string): string {
+  return localDate.slice(0, 7);
+}
+
+/** Refresh monthly token balance when the calendar month rolls. */
+export function ensureMonthlyRescueTokens(
+  streak: MemberStreak,
+  localDate: string
+): MemberStreak {
+  const month = monthKeyForLocalDate(localDate);
+  if (streak.rescueTokenMonth === month) {
+    return streak;
+  }
+  return {
+    ...streak,
+    rescueTokenMonth: month,
+    rescueTokensRemaining: MONTHLY_RESCUE_TOKENS,
+  };
+}
+
 export function emptyStreak(memberId: string): MemberStreak {
   return {
     memberId,
@@ -78,6 +107,8 @@ export function emptyStreak(memberId: string): MemberStreak {
     streakEndedAt: null,
     streakEndedReason: null,
     freeRescueUsed: false,
+    rescueTokenMonth: null,
+    rescueTokensRemaining: MONTHLY_RESCUE_TOKENS,
     pendingRescue: null,
   };
 }
@@ -119,7 +150,10 @@ export function applyDayToStreak(
   weekToDateGrossXp: number
 ): MemberStreak {
   // Expire unanswered rescue from previous day → DECLINE (XP unchanged, streak already at risk).
-  let next: MemberStreak = { ...streak, rollingMissDates: [...streak.rollingMissDates] };
+  let next: MemberStreak = ensureMonthlyRescueTokens(
+    { ...streak, rollingMissDates: [...streak.rollingMissDates] },
+    localDate
+  );
   if (next.pendingRescue && localDate > next.pendingRescue.expiresOn) {
     // Inaction = decline. Streak ends (was held only while offer open for day 1–2).
     // Spec: default DECLINE → streak 0, XP unchanged.
@@ -175,8 +209,8 @@ export function applyDayToStreak(
     };
   }
 
-  // Offer rescue for consecutive 1 or 2.
-  const freeEligible = FIRST_RESCUE_IS_FREE && !next.freeRescueUsed;
+  // Offer rescue for consecutive 1 or 2 — token makes it free this month.
+  const freeEligible = next.rescueTokensRemaining > 0;
   const pctOwed = RESCUE_COST_PCT_PER_DAY;
   const estimatedXpCost = freeEligible
     ? 0
@@ -200,8 +234,8 @@ export function applyDayToStreak(
 /**
  * Accept a Streak Rescue.
  *
- * Free first rescue requires `confirmedViaPrompt: true` — the child must
- * press the prompt. Silent auto-accept of free rescue is forbidden.
+ * Token (or XP) rescue requires `confirmedViaPrompt: true` — the child must
+ * press the prompt. Silent auto-accept is forbidden.
  *
  * Bridge-not-credit: streak current is preserved (not incremented for the miss).
  * No refund at cliff — caller must not reverse prior accruals.
@@ -217,12 +251,12 @@ export function acceptStreakRescue(
     return { streak, accrual: null };
   }
   if (!opts.confirmedViaPrompt) {
-    // Must press the prompt — especially for free first rescue.
     return { streak, accrual: null };
   }
 
   const offer = streak.pendingRescue;
-  const free = offer.freeEligible && FIRST_RESCUE_IS_FREE;
+  const withTokens = ensureMonthlyRescueTokens(streak, offer.missedDate);
+  const free = offer.freeEligible && withTokens.rescueTokensRemaining > 0;
   const pct = free ? 0 : offer.pctOwed;
   const weekKey = weekKeyForLocalDate(offer.missedDate);
 
@@ -230,10 +264,13 @@ export function acceptStreakRescue(
   // They purchased days of preservation and received them.
   return {
     streak: {
-      ...streak,
+      ...withTokens,
       // Bridge — current unchanged (not credited for the missed day).
       pendingRescue: null,
-      freeRescueUsed: free ? true : streak.freeRescueUsed,
+      rescueTokensRemaining: free
+        ? Math.max(0, withTokens.rescueTokensRemaining - 1)
+        : withTokens.rescueTokensRemaining,
+      freeRescueUsed: free ? true : withTokens.freeRescueUsed,
       streakEndedAt: null,
       streakEndedReason: null,
     },

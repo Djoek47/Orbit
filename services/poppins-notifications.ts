@@ -1,4 +1,9 @@
 import type { HouseholdSnapshot, Itinerary, NotificationItem, PoppinsNotificationPrefs } from '@/types/orbit';
+import {
+  formatNotificationBody,
+  getNotification,
+  toSentenceValue,
+} from '@/constants/notifications';
 
 export type { PoppinsNotificationPrefs };
 
@@ -134,17 +139,31 @@ export const poppinsNotifications = {
   async rewardRequested(
     push: PushFn,
     prefs: PoppinsNotificationPrefs,
-    input: { title: string; memberName: string; redemptionId: string; audienceRoles?: string[] }
+    input: {
+      title: string;
+      memberName: string;
+      redemptionId: string;
+      audienceRoles?: string[];
+      /** True when asking for something not yet in the catalogue (N27). */
+      isNewAsk?: boolean;
+    }
   ) {
     if (!prefs.rewards) return null;
+    const def = getNotification(input.isNewAsk ? 'N27' : 'N26');
+    const body = formatNotificationBody(def.body, {
+      name: input.memberName,
+      reward: input.title,
+      detail: input.title,
+    });
     return push({
-      title: 'Poppins · Reward request',
-      body: `${input.memberName} requested ${input.title}. Approve when it feels fair.`,
+      title: def.title,
+      body,
       category: 'rewards',
       priority: 'medium',
       data: {
         redemptionId: input.redemptionId,
         kind: 'reward_requested',
+        notificationId: def.id,
         audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
       },
     });
@@ -220,8 +239,8 @@ export const poppinsNotifications = {
   ) {
     if (!prefs.rewards) return null;
     return push({
-      title: 'Poppins · Allowance request',
-      body: `${input.memberName} asked for ${input.amountLabel}. Approve when it feels fair.`,
+      title: 'Poppins · Allowance',
+      body: `${input.memberName} asked for ${toSentenceValue(input.amountLabel)}.`,
       category: 'rewards',
       priority: 'medium',
       data: {
@@ -238,9 +257,10 @@ export const poppinsNotifications = {
     input: { amountLabel: string; allowanceId: string; audienceMemberIds?: string[] }
   ) {
     if (!prefs.rewards) return null;
+    const def = getNotification('N14');
     return push({
-      title: 'Poppins · Allowance approved',
-      body: `${input.amountLabel} is approved. Enjoy it.`,
+      title: def.title,
+      body: formatNotificationBody(def.body, { amount: input.amountLabel }),
       category: 'rewards',
       priority: 'medium',
       data: {
@@ -257,9 +277,10 @@ export const poppinsNotifications = {
     input: { amountLabel: string; allowanceId: string; audienceMemberIds?: string[] }
   ) {
     if (!prefs.rewards) return null;
+    const def = getNotification('N14');
     return push({
-      title: 'Poppins · Allowance granted',
-      body: `You received ${input.amountLabel} from an admin.`,
+      title: def.title,
+      body: formatNotificationBody(def.body, { amount: input.amountLabel }),
       category: 'rewards',
       priority: 'medium',
       data: {

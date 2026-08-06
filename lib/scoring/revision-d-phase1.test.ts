@@ -296,7 +296,14 @@ function awardTask(opts: {
 
 {
   let s = emptyStreak('bridge');
-  s = { ...s, current: 12, longest: 12, freeRescueUsed: true };
+  s = {
+    ...s,
+    current: 12,
+    longest: 12,
+    freeRescueUsed: true,
+    rescueTokenMonth: '2026-08',
+    rescueTokensRemaining: 0,
+  };
   s = applyDayToStreak(s, 'missed', '2026-08-05', 260);
   const before = s.current;
   const { streak: after, accrual } = acceptStreakRescue(s, { confirmedViaPrompt: true });
@@ -308,27 +315,33 @@ function awardTask(opts: {
 
 {
   let s = emptyStreak('first');
-  s = { ...s, current: 5, freeRescueUsed: false };
+  s = { ...s, current: 5, rescueTokenMonth: null, rescueTokensRemaining: 1 };
   s = applyDayToStreak(s, 'missed', '2026-08-05', 100);
-  assert(s.pendingRescue?.freeEligible === true, 'free eligible');
+  assert(s.pendingRescue?.freeEligible === true, 'monthly token eligible');
   // Without prompt → no accept
   const blocked = acceptStreakRescue(s, { confirmedViaPrompt: false });
   assertEq(blocked.accrual, null, 'T1.24 needs prompt');
   const { streak: freed, accrual } = acceptStreakRescue(s, { confirmedViaPrompt: true });
   assertEq(accrual?.pct, 0, 'T1.24 free pct');
-  assertEq(freed.freeRescueUsed, true, 'T1.24 flag');
-  pass('T1.24', 'first rescue free only after prompt');
+  assertEq(freed.rescueTokensRemaining, 0, 'T1.24 token consumed');
+  pass('T1.24', 'monthly rescue token free only after prompt');
 
   let s2 = freed;
   s2 = applyDayToStreak(s2, 'missed', '2026-08-06', 100);
   const second = acceptStreakRescue(s2, { confirmedViaPrompt: true });
   assertEq(second.accrual?.pct, 0.1, 'T1.25');
-  pass('T1.25', 'second rescue charged normally');
+  pass('T1.25', 'second rescue same month charged normally');
 }
 
 {
   let s = emptyStreak('norefund');
-  s = { ...s, current: 20, freeRescueUsed: true };
+  s = {
+    ...s,
+    current: 20,
+    freeRescueUsed: true,
+    rescueTokenMonth: '2026-08',
+    rescueTokensRemaining: 0,
+  };
   let week: WeekRescueAccrual = {
     memberId: 'norefund',
     weekKey: weekKeyForLocalDate('2026-08-03'),
