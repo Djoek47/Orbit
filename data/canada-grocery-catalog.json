@@ -273,7 +273,7 @@
       "brand": "Kraft",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🍝",
+      "icon": "🫙",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -311,7 +311,7 @@
       "brand": "Nestlé",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍫",
+      "icon": "☕",
       "tags": [
         "sweets",
         "snacks"
@@ -367,7 +367,7 @@
       "brand": "Lay's",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🥔",
+      "icon": "🍅",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -388,7 +388,7 @@
       "brand": "St-Hubert",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍟",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -444,7 +444,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🟫",
+      "icon": "🍞",
       "tags": [
         "bakery treats",
         "bakery"
@@ -461,7 +461,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🥧",
+      "icon": "🧈",
       "tags": [
         "bakery treats",
         "bakery"
@@ -517,7 +517,7 @@
       ],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🥧",
+      "icon": "🧊",
       "tags": [
         "frozen meals",
         "frozen"
@@ -637,7 +637,7 @@
       "brand": "No Name",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -676,7 +676,7 @@
       "brand": "Classico",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍝",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -793,7 +793,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -829,7 +829,7 @@
       "brand": "Crush",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🥛",
       "tags": [
         "drinks",
         "beverages"
@@ -870,7 +870,7 @@
       "brand": "Hawkins",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🧀",
+      "icon": "🍿",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -889,7 +889,7 @@
       "brand": "Maynards",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍓",
+      "icon": "🍿",
       "tags": [
         "sweets",
         "snacks"
@@ -970,7 +970,7 @@
       "brand": "Tide",
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🫧",
+      "icon": "🧹",
       "tags": [
         "cleaning",
         "household"
@@ -1090,7 +1090,7 @@
       "brand": "Pampers",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧷",
       "tags": [
         "baby",
         "baby_kids"
@@ -1143,7 +1143,7 @@
       "aliases": [],
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "💊",
       "tags": [
         "pharmacy",
         "personal_care"
@@ -1266,7 +1266,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -1282,7 +1282,7 @@
       "aliases": [],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -1299,7 +1299,7 @@
       ],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥜",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -1318,7 +1318,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -1333,7 +1333,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -1366,7 +1366,7 @@
       ],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "📦",
       "tags": [
         "paper goods",
         "household"
@@ -1445,7 +1445,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍎",
       "tags": [
         "fruit",
         "produce"
@@ -1462,7 +1462,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry"
@@ -1497,7 +1497,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍎",
       "tags": [
         "bakery treats",
         "bakery"
@@ -1512,7 +1512,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍎",
       "tags": [
         "fruit",
         "produce"
@@ -1528,7 +1528,7 @@
       "aliases": [],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍎",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -1656,7 +1656,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥑",
       "tags": [
         "fruit",
         "produce"
@@ -1673,7 +1673,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥑",
       "tags": [
         "fruit",
         "produce"
@@ -1706,7 +1706,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🥣",
       "tags": [
         "baby",
         "baby_kids"
@@ -1723,7 +1723,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🫧",
       "tags": [
         "baby",
         "baby_kids"
@@ -1776,7 +1776,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids"
@@ -1813,7 +1813,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids"
@@ -1847,7 +1847,7 @@
       "aliases": [],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🍼",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -1864,7 +1864,7 @@
       "aliases": [],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🥓",
       "tags": [
         "meat",
         "meat_seafood"
@@ -1879,7 +1879,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery"
@@ -1895,7 +1895,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery"
@@ -1927,7 +1927,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery"
@@ -1943,7 +1943,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery"
@@ -1994,7 +1994,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🥤",
       "tags": [
         "baking",
         "pantry"
@@ -2061,7 +2061,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry"
@@ -2078,7 +2078,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍌",
       "tags": [
         "fruit",
         "produce"
@@ -2096,7 +2096,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍌",
       "tags": [
         "bread",
         "bakery"
@@ -2112,7 +2112,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍌",
       "tags": [
         "fruit",
         "produce"
@@ -2195,7 +2195,7 @@
       "aliases": [],
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🩹",
       "tags": [
         "pharmacy",
         "personal_care"
@@ -2212,7 +2212,7 @@
       ],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🧼",
       "tags": [
         "personal care",
         "personal_care"
@@ -2296,7 +2296,7 @@
       "aliases": [],
       "browseCategory": "herbs",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌿",
       "tags": [
         "herbs",
         "produce"
@@ -2476,7 +2476,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫘",
       "tags": [
         "vegetables",
         "produce"
@@ -2525,7 +2525,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -2543,7 +2543,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥩",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -2559,7 +2559,7 @@
       "aliases": [],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍺",
       "tags": [
         "drinks",
         "beverages"
@@ -2610,7 +2610,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫑",
       "tags": [
         "vegetables",
         "produce"
@@ -2759,7 +2759,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery"
@@ -2774,7 +2774,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery"
@@ -2807,7 +2807,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫘",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -2826,7 +2826,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫑",
       "tags": [
         "oils & spices",
         "pantry"
@@ -2844,7 +2844,7 @@
       ],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍵",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -2894,7 +2894,7 @@
       "aliases": [],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🧪",
       "tags": [
         "cleaning",
         "household"
@@ -2930,7 +2930,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -2947,7 +2947,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫐",
       "tags": [
         "fruit",
         "produce"
@@ -2962,7 +2962,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫐",
       "tags": [
         "fruit",
         "produce"
@@ -3151,7 +3151,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "💧",
       "tags": [
         "drinks",
         "beverages"
@@ -3236,7 +3236,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "baking",
         "pantry"
@@ -3252,7 +3252,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -3333,7 +3333,7 @@
       "aliases": [],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -3382,7 +3382,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥦",
       "tags": [
         "vegetables",
         "produce"
@@ -3461,7 +3461,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -3495,7 +3495,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍚",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -3512,7 +3512,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -3673,7 +3673,7 @@
       "aliases": [],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -3688,7 +3688,7 @@
       "aliases": [],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -3735,7 +3735,7 @@
       "aliases": [],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍰",
       "tags": [
         "bakery treats",
         "bakery"
@@ -3750,7 +3750,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍰",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -3815,7 +3815,7 @@
       "aliases": [],
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍬",
       "tags": [
         "sweets",
         "snacks"
@@ -3866,7 +3866,7 @@
       ],
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍗",
       "tags": [
         "canned goods",
         "canned"
@@ -3921,7 +3921,7 @@
       ],
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍍",
       "tags": [
         "canned goods",
         "canned"
@@ -4030,7 +4030,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "oils & spices",
         "pantry"
@@ -4047,7 +4047,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍈",
       "tags": [
         "fruit",
         "produce"
@@ -4078,7 +4078,7 @@
       "aliases": [],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🥤",
       "tags": [
         "deli meat",
         "deli"
@@ -4126,7 +4126,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥕",
       "tags": [
         "vegetables",
         "produce"
@@ -4142,7 +4142,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥕",
       "tags": [
         "vegetables",
         "produce"
@@ -4159,7 +4159,7 @@
       "aliases": [],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -4176,7 +4176,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -4191,7 +4191,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -4207,7 +4207,7 @@
       "aliases": [],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -4225,7 +4225,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -4244,7 +4244,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -4262,7 +4262,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -4281,7 +4281,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -4296,7 +4296,7 @@
       "aliases": [],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -4312,7 +4312,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥦",
       "tags": [
         "fruit",
         "produce"
@@ -4406,7 +4406,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍖",
       "tags": [
         "fruit",
         "produce"
@@ -4423,7 +4423,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍖",
       "tags": [
         "fruit",
         "produce"
@@ -4469,7 +4469,7 @@
       "aliases": [],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -4503,7 +4503,7 @@
       "aliases": [],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -4519,7 +4519,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍒",
       "tags": [
         "fruit",
         "produce"
@@ -4536,7 +4536,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍒",
       "tags": [
         "fruit",
         "produce"
@@ -4568,7 +4568,7 @@
       "aliases": [],
       "browseCategory": "poultry",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍗",
       "tags": [
         "poultry",
         "meat_seafood"
@@ -4585,7 +4585,7 @@
       ],
       "browseCategory": "poultry",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍗",
       "tags": [
         "poultry",
         "meat_seafood"
@@ -4604,7 +4604,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍗",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -4621,7 +4621,7 @@
       ],
       "browseCategory": "poultry",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍗",
       "tags": [
         "poultry",
         "meat_seafood"
@@ -4640,7 +4640,7 @@
       ],
       "browseCategory": "poultry",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍗",
       "tags": [
         "poultry",
         "meat_seafood"
@@ -4655,7 +4655,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫘",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -4687,7 +4687,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌶️",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -4704,7 +4704,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌶️",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -4719,7 +4719,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥔",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -4752,7 +4752,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥤",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -4767,7 +4767,7 @@
       "aliases": [],
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍫",
       "tags": [
         "sweets",
         "snacks"
@@ -4786,7 +4786,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍫",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -4883,7 +4883,7 @@
       "aliases": [],
       "browseCategory": "herbs",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌿",
       "tags": [
         "herbs",
         "produce"
@@ -4998,7 +4998,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍊",
       "tags": [
         "fruit",
         "produce"
@@ -5082,7 +5082,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🥤",
       "tags": [
         "drinks",
         "beverages"
@@ -5148,7 +5148,7 @@
       "aliases": [],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥥",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -5167,7 +5167,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🥥",
       "tags": [
         "oils & spices",
         "pantry"
@@ -5186,7 +5186,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🥥",
       "tags": [
         "drinks",
         "beverages"
@@ -5201,7 +5201,7 @@
       "aliases": [],
       "browseCategory": "seafood",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🐟",
       "tags": [
         "seafood",
         "meat_seafood"
@@ -5218,7 +5218,7 @@
       "aliases": [],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "☕",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -5237,7 +5237,7 @@
       ],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "☕",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -5469,7 +5469,7 @@
       "aliases": [],
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍪",
       "tags": [
         "sweets",
         "snacks"
@@ -5533,7 +5533,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌽",
       "tags": [
         "vegetables",
         "produce"
@@ -5550,7 +5550,7 @@
       ],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🌽",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -5567,7 +5567,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌽",
       "tags": [
         "vegetables",
         "produce"
@@ -5597,7 +5597,7 @@
       "aliases": [],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -5612,7 +5612,7 @@
       "aliases": [],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🌽",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -5629,7 +5629,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌽",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -5645,7 +5645,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌽",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -5677,7 +5677,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -5780,7 +5780,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍚",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -5795,7 +5795,7 @@
       "aliases": [],
       "browseCategory": "seafood",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🦀",
       "tags": [
         "seafood",
         "meat_seafood"
@@ -5811,7 +5811,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍘",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -5896,7 +5896,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -5915,7 +5915,7 @@
       ],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥛",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -6015,7 +6015,7 @@
       "aliases": [],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥐",
       "tags": [
         "bakery treats",
         "bakery"
@@ -6032,7 +6032,7 @@
       "aliases": [],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥐",
       "tags": [
         "bakery treats",
         "bakery"
@@ -6096,7 +6096,7 @@
       ],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍅",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -6160,7 +6160,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥒",
       "tags": [
         "vegetables",
         "produce"
@@ -6191,7 +6191,7 @@
       "aliases": [],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🧁",
       "tags": [
         "bakery treats",
         "bakery"
@@ -6207,7 +6207,7 @@
       "aliases": [],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🧁",
       "tags": [
         "bakery treats",
         "bakery"
@@ -6307,7 +6307,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -6440,7 +6440,7 @@
       "aliases": [],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🍚",
       "tags": [
         "personal care",
         "personal_care"
@@ -6487,7 +6487,7 @@
       "aliases": [],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🫧",
       "tags": [
         "cleaning",
         "household"
@@ -6502,7 +6502,7 @@
       "aliases": [],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧷",
       "tags": [
         "baby",
         "baby_kids"
@@ -6519,7 +6519,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧷",
       "tags": [
         "baby",
         "baby_kids"
@@ -6535,7 +6535,7 @@
       "aliases": [],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧷",
       "tags": [
         "baby",
         "baby_kids"
@@ -6570,7 +6570,7 @@
       ],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍅",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -6604,7 +6604,7 @@
       "aliases": [],
       "browseCategory": "herbs",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌿",
       "tags": [
         "herbs",
         "produce"
@@ -6690,7 +6690,7 @@
       ],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🫧",
       "tags": [
         "cleaning",
         "household"
@@ -6708,7 +6708,7 @@
       ],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🧼",
       "tags": [
         "cleaning",
         "household"
@@ -6743,7 +6743,7 @@
       ],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🫧",
       "tags": [
         "cleaning",
         "household"
@@ -6795,7 +6795,7 @@
       ],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🧻",
       "tags": [
         "cleaning",
         "household"
@@ -6812,7 +6812,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🐶",
       "tags": [
         "bread",
         "bakery"
@@ -6829,7 +6829,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐶",
       "tags": [
         "pet",
         "pet"
@@ -6847,7 +6847,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐶",
       "tags": [
         "pet",
         "pet"
@@ -6865,7 +6865,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐶",
       "tags": [
         "pet",
         "pet"
@@ -6882,7 +6882,7 @@
       "aliases": [],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🐶",
       "tags": [
         "meat",
         "meat_seafood"
@@ -6898,7 +6898,7 @@
       "aliases": [],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍩",
       "tags": [
         "bakery treats",
         "bakery"
@@ -6913,7 +6913,7 @@
       "aliases": [],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍩",
       "tags": [
         "bakery treats",
         "bakery"
@@ -6963,7 +6963,7 @@
       "aliases": [],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍩",
       "tags": [
         "bakery treats",
         "bakery"
@@ -7065,7 +7065,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫘",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -7101,7 +7101,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥭",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -7217,7 +7217,7 @@
       "aliases": [],
       "browseCategory": "poultry",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🦆",
       "tags": [
         "poultry",
         "meat_seafood"
@@ -7266,7 +7266,7 @@
       "aliases": [],
       "browseCategory": "yogurt_eggs",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥚",
       "tags": [
         "yogurt & eggs",
         "dairy_eggs"
@@ -7285,7 +7285,7 @@
       ],
       "browseCategory": "yogurt_eggs",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥚",
       "tags": [
         "yogurt & eggs",
         "dairy_eggs"
@@ -7302,7 +7302,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍆",
       "tags": [
         "fruit",
         "produce"
@@ -7319,7 +7319,7 @@
       "aliases": [],
       "browseCategory": "yogurt_eggs",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥚",
       "tags": [
         "yogurt & eggs",
         "dairy_eggs"
@@ -7400,7 +7400,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🧁",
       "tags": [
         "bakery treats",
         "bakery"
@@ -7447,7 +7447,7 @@
       "aliases": [],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "☕",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -7628,7 +7628,7 @@
       "aliases": [],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -7742,7 +7742,7 @@
       "aliases": [],
       "browseCategory": "seafood",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🐟",
       "tags": [
         "seafood",
         "meat_seafood"
@@ -7760,7 +7760,7 @@
       ],
       "browseCategory": "seafood",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🐟",
       "tags": [
         "seafood",
         "meat_seafood"
@@ -7779,7 +7779,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐟",
       "tags": [
         "pet",
         "pet"
@@ -7798,7 +7798,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🥫",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -7817,7 +7817,7 @@
       ],
       "browseCategory": "seafood",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🐟",
       "tags": [
         "seafood",
         "meat_seafood"
@@ -7948,7 +7948,7 @@
       "aliases": [],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -7979,7 +7979,7 @@
       "aliases": [],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "📦",
       "tags": [
         "paper goods",
         "household"
@@ -8126,7 +8126,7 @@
       ],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🍟",
       "tags": [
         "frozen meals",
         "frozen"
@@ -8157,7 +8157,7 @@
       "aliases": [],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🍟",
       "tags": [
         "frozen meals",
         "frozen"
@@ -8173,7 +8173,7 @@
       "aliases": [],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🍟",
       "tags": [
         "frozen meals",
         "frozen"
@@ -8240,7 +8240,7 @@
       ],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🍗",
       "tags": [
         "frozen meals",
         "frozen"
@@ -8365,7 +8365,7 @@
       ],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🍝",
       "tags": [
         "frozen meals",
         "frozen"
@@ -8403,7 +8403,7 @@
       ],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🥞",
       "tags": [
         "frozen meals",
         "frozen"
@@ -8613,7 +8613,7 @@
       "aliases": [],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🗑️",
       "tags": [
         "paper goods",
         "household"
@@ -8630,7 +8630,7 @@
       ],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🗑️",
       "tags": [
         "paper goods",
         "household"
@@ -8647,7 +8647,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🧄",
       "tags": [
         "vegetables",
         "produce"
@@ -8664,7 +8664,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧄",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -8679,7 +8679,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍵",
       "tags": [
         "bread",
         "bakery"
@@ -8758,7 +8758,7 @@
       "aliases": [],
       "browseCategory": "ice_cream",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🍨",
       "tags": [
         "ice cream",
         "frozen"
@@ -8889,7 +8889,7 @@
       "aliases": [],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥣",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -8908,7 +8908,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -8925,7 +8925,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🐟",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -8942,7 +8942,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍘",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -8990,7 +8990,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥣",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -9023,7 +9023,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍇",
       "tags": [
         "fruit",
         "produce"
@@ -9040,7 +9040,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍇",
       "tags": [
         "drinks",
         "beverages"
@@ -9055,7 +9055,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍇",
       "tags": [
         "fruit",
         "produce"
@@ -9072,7 +9072,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍇",
       "tags": [
         "fruit",
         "produce"
@@ -9141,7 +9141,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫘",
       "tags": [
         "vegetables",
         "produce"
@@ -9159,7 +9159,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🧅",
       "tags": [
         "vegetables",
         "produce"
@@ -9176,7 +9176,7 @@
       ],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍵",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -9247,7 +9247,7 @@
       ],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "☕",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -9283,7 +9283,7 @@
       ],
       "browseCategory": "poultry",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🦃",
       "tags": [
         "poultry",
         "meat_seafood"
@@ -9314,7 +9314,7 @@
       "aliases": [],
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍬",
       "tags": [
         "sweets",
         "snacks"
@@ -9467,7 +9467,7 @@
       "aliases": [],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍖",
       "tags": [
         "meat",
         "meat_seafood"
@@ -9484,7 +9484,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍔",
       "tags": [
         "bread",
         "bakery"
@@ -9502,7 +9502,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍔",
       "tags": [
         "bread",
         "bakery"
@@ -9517,7 +9517,7 @@
       "aliases": [],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🍖",
       "tags": [
         "pet",
         "pet"
@@ -9535,7 +9535,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🍖",
       "tags": [
         "pet",
         "pet"
@@ -9589,7 +9589,7 @@
       ],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🧼",
       "tags": [
         "personal care",
         "personal_care"
@@ -9710,7 +9710,7 @@
       "aliases": [],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🌿",
       "tags": [
         "drinks",
         "beverages"
@@ -9729,7 +9729,7 @@
       ],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🌿",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -9745,7 +9745,7 @@
       "aliases": [],
       "browseCategory": "herbs",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌿",
       "tags": [
         "herbs",
         "produce"
@@ -9777,7 +9777,7 @@
       "aliases": [],
       "browseCategory": "spreads",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🍯",
       "tags": [
         "spreads",
         "breakfast"
@@ -9796,7 +9796,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍫",
       "tags": [
         "drinks",
         "beverages"
@@ -9813,7 +9813,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🌭",
       "tags": [
         "bread",
         "bakery"
@@ -9830,7 +9830,7 @@
       ],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🌭",
       "tags": [
         "meat",
         "meat_seafood"
@@ -9883,7 +9883,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -9950,7 +9950,7 @@
       ],
       "browseCategory": "ice_cream",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🍦",
       "tags": [
         "ice cream",
         "frozen"
@@ -9968,7 +9968,7 @@
       ],
       "browseCategory": "ice_cream",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🍦",
       "tags": [
         "ice cream",
         "frozen"
@@ -10003,7 +10003,7 @@
       ],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍵",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -10036,7 +10036,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -10106,7 +10106,7 @@
       ],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "☕",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -10188,7 +10188,7 @@
       "aliases": [],
       "browseCategory": "spreads",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🫙",
       "tags": [
         "spreads",
         "breakfast"
@@ -10204,7 +10204,7 @@
       "aliases": [],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🫙",
       "tags": [
         "meat",
         "meat_seafood"
@@ -10236,7 +10236,7 @@
       "aliases": [],
       "browseCategory": "spreads",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🫙",
       "tags": [
         "spreads",
         "breakfast"
@@ -10350,7 +10350,7 @@
       "aliases": [],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍅",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -10398,7 +10398,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫘",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -10434,7 +10434,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "💊",
       "tags": [
         "baby",
         "baby_kids"
@@ -10484,7 +10484,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥝",
       "tags": [
         "fruit",
         "produce"
@@ -10566,7 +10566,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥛",
       "tags": [
         "fruit",
         "produce"
@@ -10615,7 +10615,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍝",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -10632,7 +10632,7 @@
       "aliases": [],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🫧",
       "tags": [
         "cleaning",
         "household"
@@ -10649,7 +10649,7 @@
       ],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🫧",
       "tags": [
         "cleaning",
         "household"
@@ -10668,7 +10668,7 @@
       ],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🫧",
       "tags": [
         "cleaning",
         "household"
@@ -10716,7 +10716,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍋",
       "tags": [
         "fruit",
         "produce"
@@ -10731,7 +10731,7 @@
       "aliases": [],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍋",
       "tags": [
         "drinks",
         "beverages"
@@ -10747,7 +10747,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍋",
       "tags": [
         "fruit",
         "produce"
@@ -10763,7 +10763,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫘",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -10827,7 +10827,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍚",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -10893,7 +10893,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍋",
       "tags": [
         "fruit",
         "produce"
@@ -10909,7 +10909,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍋",
       "tags": [
         "fruit",
         "produce"
@@ -11010,7 +11010,7 @@
       ],
       "browseCategory": "yogurt_eggs",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥚",
       "tags": [
         "yogurt & eggs",
         "dairy_eggs"
@@ -11041,7 +11041,7 @@
       "aliases": [],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -11057,7 +11057,7 @@
       "aliases": [],
       "browseCategory": "seafood",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🦞",
       "tags": [
         "seafood",
         "meat_seafood"
@@ -11089,7 +11089,7 @@
       "aliases": [],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids"
@@ -11154,7 +11154,7 @@
       "aliases": [],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🍝",
       "tags": [
         "deli meat",
         "deli"
@@ -11171,7 +11171,7 @@
       ],
       "browseCategory": "prepared",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🍝",
       "tags": [
         "prepared foods",
         "deli"
@@ -11272,7 +11272,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥭",
       "tags": [
         "fruit",
         "produce"
@@ -11287,7 +11287,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥭",
       "tags": [
         "fruit",
         "produce"
@@ -11302,7 +11302,7 @@
       "aliases": [],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🍁",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -11317,7 +11317,7 @@
       "aliases": [],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -11396,7 +11396,7 @@
       "aliases": [],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🫙",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -11412,7 +11412,7 @@
       "aliases": [],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🫙",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -11556,7 +11556,7 @@
       "aliases": [],
       "browseCategory": "herbs",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌿",
       "tags": [
         "herbs",
         "produce"
@@ -11590,7 +11590,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -11683,7 +11683,7 @@
       "aliases": [],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -11716,7 +11716,7 @@
       "aliases": [],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🧁",
       "tags": [
         "bakery treats",
         "bakery"
@@ -11732,7 +11732,7 @@
       "aliases": [],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🧁",
       "tags": [
         "bakery treats",
         "bakery"
@@ -11749,7 +11749,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍄",
       "tags": [
         "fruit",
         "produce"
@@ -11764,7 +11764,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍄",
       "tags": [
         "fruit",
         "produce"
@@ -11796,7 +11796,7 @@
       "aliases": [],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🟡",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -11812,7 +11812,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🫓",
       "tags": [
         "bread",
         "bakery"
@@ -11877,7 +11877,7 @@
       "aliases": [],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🥧",
       "tags": [
         "baby",
         "baby_kids"
@@ -11922,7 +11922,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍜",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -12026,7 +12026,7 @@
       ],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🧈",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -12042,7 +12042,7 @@
       "aliases": [],
       "browseCategory": "spreads",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🍫",
       "tags": [
         "spreads",
         "breakfast"
@@ -12109,7 +12109,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -12124,7 +12124,7 @@
       "aliases": [],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥣",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -12256,7 +12256,7 @@
       "aliases": [],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "oils & spices",
         "pantry"
@@ -12288,7 +12288,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -12306,7 +12306,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "oils & spices",
         "pantry"
@@ -12322,7 +12322,7 @@
       "aliases": [],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🫒",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -12339,7 +12339,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🧅",
       "tags": [
         "vegetables",
         "produce"
@@ -12358,7 +12358,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧅",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -12375,7 +12375,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🧅",
       "tags": [
         "vegetables",
         "produce"
@@ -12390,7 +12390,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍊",
       "tags": [
         "fruit",
         "produce"
@@ -12424,7 +12424,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍊",
       "tags": [
         "fruit",
         "produce"
@@ -12523,7 +12523,7 @@
       "aliases": [],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🦪",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -12541,7 +12541,7 @@
       ],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🦪",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -12558,7 +12558,7 @@
       "aliases": [],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🦪",
       "tags": [
         "meat",
         "meat_seafood"
@@ -12641,7 +12641,7 @@
       "aliases": [],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥞",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -12659,7 +12659,7 @@
       ],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥞",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -12676,7 +12676,7 @@
       "aliases": [],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🥞",
       "tags": [
         "frozen meals",
         "frozen"
@@ -12779,7 +12779,7 @@
       ],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🧻",
       "tags": [
         "paper goods",
         "household"
@@ -12795,7 +12795,7 @@
       "aliases": [],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🥧",
       "tags": [
         "cleaning",
         "household"
@@ -12812,7 +12812,7 @@
       ],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🥧",
       "tags": [
         "cleaning",
         "household"
@@ -12877,7 +12877,7 @@
       "aliases": [],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -12893,7 +12893,7 @@
       "aliases": [],
       "browseCategory": "herbs",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌿",
       "tags": [
         "herbs",
         "produce"
@@ -12973,7 +12973,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍝",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -12991,7 +12991,7 @@
       ],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍝",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -13107,7 +13107,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍑",
       "tags": [
         "fruit",
         "produce"
@@ -13123,7 +13123,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍑",
       "tags": [
         "fruit",
         "produce"
@@ -13139,7 +13139,7 @@
       "aliases": [],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥜",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -13156,7 +13156,7 @@
       ],
       "browseCategory": "spreads",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥜",
       "tags": [
         "spreads",
         "breakfast"
@@ -13173,7 +13173,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -13189,7 +13189,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍐",
       "tags": [
         "fruit",
         "produce"
@@ -13206,7 +13206,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍐",
       "tags": [
         "fruit",
         "produce"
@@ -13253,7 +13253,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍝",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -13269,7 +13269,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫑",
       "tags": [
         "vegetables",
         "produce"
@@ -13286,7 +13286,7 @@
       "aliases": [],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🫑",
       "tags": [
         "deli meat",
         "deli"
@@ -13302,7 +13302,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫑",
       "tags": [
         "vegetables",
         "produce"
@@ -13417,7 +13417,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🧴",
       "tags": [
         "pet",
         "pet"
@@ -13451,7 +13451,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🐾",
       "tags": [
         "bread",
         "bakery"
@@ -13499,7 +13499,7 @@
       "aliases": [],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥧",
       "tags": [
         "bakery treats",
         "bakery"
@@ -13515,7 +13515,7 @@
       "aliases": [],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🥧",
       "tags": [
         "frozen meals",
         "frozen"
@@ -13532,7 +13532,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍍",
       "tags": [
         "fruit",
         "produce"
@@ -13564,7 +13564,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🫓",
       "tags": [
         "bread",
         "bakery"
@@ -13581,7 +13581,7 @@
       "aliases": [],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🍕",
       "tags": [
         "frozen meals",
         "frozen"
@@ -13599,7 +13599,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍕",
       "tags": [
         "bread",
         "bakery"
@@ -13618,7 +13618,7 @@
       ],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🍕",
       "tags": [
         "frozen meals",
         "frozen"
@@ -13864,7 +13864,7 @@
       ],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥧",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -13896,7 +13896,7 @@
       "aliases": [],
       "browseCategory": "ice_cream",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🍧",
       "tags": [
         "ice cream",
         "frozen"
@@ -13981,7 +13981,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥔",
       "tags": [
         "vegetables",
         "produce"
@@ -13999,7 +13999,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥔",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -14018,7 +14018,7 @@
       ],
       "browseCategory": "prepared",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🥔",
       "tags": [
         "prepared foods",
         "deli"
@@ -14035,7 +14035,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥔",
       "tags": [
         "vegetables",
         "produce"
@@ -14133,7 +14133,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -14165,7 +14165,7 @@
       "aliases": [],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🦐",
       "tags": [
         "meat",
         "meat_seafood"
@@ -14232,7 +14232,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥨",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -14463,7 +14463,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍚",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -14525,7 +14525,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍜",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -14541,7 +14541,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍓",
       "tags": [
         "fruit",
         "produce"
@@ -14558,7 +14558,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍓",
       "tags": [
         "fruit",
         "produce"
@@ -14588,7 +14588,7 @@
       "aliases": [],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🪒",
       "tags": [
         "personal care",
         "personal_care"
@@ -14604,7 +14604,7 @@
       "aliases": [],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🪒",
       "tags": [
         "personal care",
         "personal_care"
@@ -14639,7 +14639,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🧅",
       "tags": [
         "vegetables",
         "produce"
@@ -14658,7 +14658,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍷",
       "tags": [
         "drinks",
         "beverages"
@@ -14755,7 +14755,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍚",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -14772,7 +14772,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍰",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -14889,7 +14889,7 @@
       ],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🫑",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -15004,7 +15004,7 @@
       "aliases": [],
       "browseCategory": "herbs",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌿",
       "tags": [
         "herbs",
         "produce"
@@ -15037,7 +15037,7 @@
       ],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🍗",
       "tags": [
         "deli meat",
         "deli"
@@ -15153,7 +15153,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥗",
       "tags": [
         "fruit",
         "produce"
@@ -15172,7 +15172,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥗",
       "tags": [
         "fruit",
         "produce"
@@ -15204,7 +15204,7 @@
       "aliases": [],
       "browseCategory": "seafood",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🐟",
       "tags": [
         "seafood",
         "meat_seafood"
@@ -15219,7 +15219,7 @@
       "aliases": [],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🫙",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -15236,7 +15236,7 @@
       "aliases": [],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧂",
       "tags": [
         "oils & spices",
         "pantry"
@@ -15253,7 +15253,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🧂",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -15317,7 +15317,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🥫",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -15383,7 +15383,7 @@
       "aliases": [],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🌭",
       "tags": [
         "meat",
         "meat_seafood"
@@ -15400,7 +15400,7 @@
       "aliases": [],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🌭",
       "tags": [
         "meat",
         "meat_seafood"
@@ -15714,7 +15714,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "oils & spices",
         "pantry"
@@ -15812,7 +15812,7 @@
       ],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🥛",
       "tags": [
         "personal care",
         "personal_care"
@@ -15896,7 +15896,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -15913,7 +15913,7 @@
       "aliases": [],
       "browseCategory": "seafood",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🦐",
       "tags": [
         "seafood",
         "meat_seafood"
@@ -16050,7 +16050,7 @@
       ],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🧀",
       "tags": [
         "deli meat",
         "deli"
@@ -16069,7 +16069,7 @@
       ],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🍖",
       "tags": [
         "deli meat",
         "deli"
@@ -16086,7 +16086,7 @@
       ],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🦃",
       "tags": [
         "deli meat",
         "deli"
@@ -16120,7 +16120,7 @@
       ],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🐟",
       "tags": [
         "deli meat",
         "deli"
@@ -16136,7 +16136,7 @@
       "aliases": [],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🧋",
       "tags": [
         "drinks",
         "beverages"
@@ -16237,7 +16237,7 @@
       "aliases": [],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🧼",
       "tags": [
         "personal care",
         "personal_care"
@@ -16253,7 +16253,7 @@
       "aliases": [],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🥤",
       "tags": [
         "drinks",
         "beverages"
@@ -16317,7 +16317,7 @@
       "aliases": [],
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍲",
       "tags": [
         "canned goods",
         "canned"
@@ -16415,7 +16415,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🥫",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -16447,7 +16447,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍝",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -16480,7 +16480,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "💧",
       "tags": [
         "drinks",
         "beverages"
@@ -16496,7 +16496,7 @@
       "aliases": [],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧂",
       "tags": [
         "oils & spices",
         "pantry"
@@ -16895,7 +16895,7 @@
       "aliases": [],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -16912,7 +16912,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -16928,7 +16928,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍓",
       "tags": [
         "fruit",
         "produce"
@@ -16945,7 +16945,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍓",
       "tags": [
         "fruit",
         "produce"
@@ -16995,7 +16995,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -17059,7 +17059,7 @@
       "aliases": [],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -17093,7 +17093,7 @@
       ],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍅",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -17191,7 +17191,7 @@
       "aliases": [],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🍣",
       "tags": [
         "deli meat",
         "deli"
@@ -17227,7 +17227,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍠",
       "tags": [
         "vegetables",
         "produce"
@@ -17260,7 +17260,7 @@
       ],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🧀",
       "tags": [
         "deli meat",
         "deli"
@@ -17355,7 +17355,7 @@
       "aliases": [],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥧",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -17406,7 +17406,7 @@
       "aliases": [],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍵",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -17423,7 +17423,7 @@
       ],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍵",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -17459,7 +17459,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🍪",
       "tags": [
         "baby",
         "baby_kids"
@@ -17569,7 +17569,7 @@
       "aliases": [],
       "browseCategory": "herbs",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌿",
       "tags": [
         "herbs",
         "produce"
@@ -17584,7 +17584,7 @@
       "aliases": [],
       "browseCategory": "seafood",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🐟",
       "tags": [
         "seafood",
         "meat_seafood"
@@ -17618,7 +17618,7 @@
       ],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "📦",
       "tags": [
         "paper goods",
         "household"
@@ -17635,7 +17635,7 @@
       "aliases": [],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🤧",
       "tags": [
         "paper goods",
         "household"
@@ -17719,7 +17719,7 @@
       "aliases": [],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🫒",
       "tags": [
         "paper goods",
         "household"
@@ -17756,7 +17756,7 @@
       ],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🧻",
       "tags": [
         "paper goods",
         "household"
@@ -17802,7 +17802,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍅",
       "tags": [
         "vegetables",
         "produce"
@@ -17820,7 +17820,7 @@
       ],
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍅",
       "tags": [
         "canned goods",
         "canned"
@@ -17839,7 +17839,7 @@
       ],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍅",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -17856,7 +17856,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍅",
       "tags": [
         "vegetables",
         "produce"
@@ -17891,7 +17891,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "💧",
       "tags": [
         "drinks",
         "beverages"
@@ -17906,7 +17906,7 @@
       "aliases": [],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🪥",
       "tags": [
         "personal care",
         "personal_care"
@@ -17921,7 +17921,7 @@
       "aliases": [],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🪥",
       "tags": [
         "personal care",
         "personal_care"
@@ -17938,7 +17938,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🫓",
       "tags": [
         "bread",
         "bakery"
@@ -17955,7 +17955,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🫓",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -17971,7 +17971,7 @@
       "aliases": [],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🫓",
       "tags": [
         "bread",
         "bakery"
@@ -18071,7 +18071,7 @@
       "aliases": [],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🗑️",
       "tags": [
         "cleaning",
         "household"
@@ -18089,7 +18089,7 @@
       ],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🗑️",
       "tags": [
         "paper goods",
         "household"
@@ -18151,7 +18151,7 @@
       "aliases": [],
       "browseCategory": "seafood",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🐟",
       "tags": [
         "seafood",
         "meat_seafood"
@@ -18166,7 +18166,7 @@
       "aliases": [],
       "browseCategory": "poultry",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🦃",
       "tags": [
         "poultry",
         "meat_seafood"
@@ -18185,7 +18185,7 @@
       ],
       "browseCategory": "poultry",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🦃",
       "tags": [
         "poultry",
         "meat_seafood"
@@ -18266,7 +18266,7 @@
       "aliases": [],
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "💊",
       "tags": [
         "pharmacy",
         "personal_care"
@@ -18382,7 +18382,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -18401,7 +18401,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "oils & spices",
         "pantry"
@@ -18433,7 +18433,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥚",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -18452,7 +18452,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥚",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -18536,7 +18536,7 @@
       "aliases": [],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry"
@@ -18553,7 +18553,7 @@
       "aliases": [],
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "💊",
       "tags": [
         "pharmacy",
         "personal_care"
@@ -18568,7 +18568,7 @@
       "aliases": [],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🧇",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -18585,7 +18585,7 @@
       ],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🧇",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -18601,7 +18601,7 @@
       "aliases": [],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🧊",
+      "icon": "🧇",
       "tags": [
         "frozen meals",
         "frozen"
@@ -18617,7 +18617,7 @@
       "aliases": [],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -18648,7 +18648,7 @@
       "aliases": [],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "💧",
       "tags": [
         "drinks",
         "beverages"
@@ -18665,7 +18665,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "💧",
       "tags": [
         "fruit",
         "produce"
@@ -18680,7 +18680,7 @@
       "aliases": [],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍉",
       "tags": [
         "fruit",
         "produce"
@@ -18884,7 +18884,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍚",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -18903,7 +18903,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry"
@@ -18921,7 +18921,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍷",
       "tags": [
         "drinks",
         "beverages"
@@ -18954,7 +18954,7 @@
       ],
       "browseCategory": "poultry",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍗",
       "tags": [
         "poultry",
         "meat_seafood"
@@ -19007,7 +19007,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -19041,7 +19041,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍚",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -19073,7 +19073,7 @@
       "aliases": [],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍷",
       "tags": [
         "drinks",
         "beverages"
@@ -19105,7 +19105,7 @@
       "aliases": [],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧻",
       "tags": [
         "baby",
         "baby_kids"
@@ -19285,7 +19285,7 @@
       "aliases": [],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥒",
       "tags": [
         "vegetables",
         "produce"
@@ -19619,7 +19619,7 @@
       "brand": "No Name",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🍝",
+      "icon": "🫙",
       "tags": [
         "pasta & rice",
         "pantry",
@@ -19638,7 +19638,7 @@
       "brand": "Selection",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🍝",
+      "icon": "🫙",
       "tags": [
         "pasta & rice",
         "pantry",
@@ -19658,7 +19658,7 @@
       "brand": "Kraft",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🍝",
+      "icon": "🫙",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -19676,7 +19676,7 @@
       "brand": "Kraft",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🍝",
+      "icon": "🫙",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -19694,7 +19694,7 @@
       "brand": "Kraft",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🍝",
+      "icon": "🫙",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -19714,7 +19714,7 @@
       "brand": "Kraft",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🍝",
+      "icon": "🫙",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -19851,7 +19851,7 @@
       "brand": "Lay's",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍫",
+      "icon": "☕",
       "tags": [
         "sweets",
         "snacks",
@@ -19871,7 +19871,7 @@
       "brand": "Ruffles",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍫",
+      "icon": "☕",
       "tags": [
         "sweets",
         "snacks",
@@ -19891,7 +19891,7 @@
       "brand": "Nestlé",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍫",
+      "icon": "☕",
       "tags": [
         "sweets",
         "snacks"
@@ -19909,7 +19909,7 @@
       "brand": "Nestlé",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍫",
+      "icon": "☕",
       "tags": [
         "sweets",
         "snacks"
@@ -19927,7 +19927,7 @@
       "brand": "Nestlé",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍫",
+      "icon": "☕",
       "tags": [
         "sweets",
         "snacks"
@@ -19947,7 +19947,7 @@
       "brand": "Nestlé",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍫",
+      "icon": "☕",
       "tags": [
         "sweets",
         "snacks"
@@ -20180,7 +20180,7 @@
       "brand": "Ruffles",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🥔",
+      "icon": "🍅",
       "tags": [
         "chips & snacks",
         "snacks",
@@ -20201,7 +20201,7 @@
       "brand": "Lay's",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🥔",
+      "icon": "🍅",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -20220,7 +20220,7 @@
       "brand": "Lay's",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🥔",
+      "icon": "🍅",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -20239,7 +20239,7 @@
       "brand": "Lay's",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🥔",
+      "icon": "🍅",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -20257,7 +20257,7 @@
       "brand": "Lay's",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🥔",
+      "icon": "🍅",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -20276,7 +20276,7 @@
       "brand": "Heinz",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍟",
       "tags": [
         "sauces & condiments",
         "canned",
@@ -20297,7 +20297,7 @@
       "brand": "Classico",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍟",
       "tags": [
         "sauces & condiments",
         "canned",
@@ -20316,7 +20316,7 @@
       "brand": "St-Hubert",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍟",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -20336,7 +20336,7 @@
       "brand": "St-Hubert",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍟",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -20356,7 +20356,7 @@
       "brand": "St-Hubert",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍟",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -20375,7 +20375,7 @@
       "brand": "St-Hubert",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍟",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -20624,7 +20624,7 @@
       "brand": "Canada Bread",
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🟫",
+      "icon": "🍞",
       "tags": [
         "bakery treats",
         "bakery",
@@ -20643,7 +20643,7 @@
       "brand": "Villaggio",
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🟫",
+      "icon": "🍞",
       "tags": [
         "bakery treats",
         "bakery",
@@ -20662,7 +20662,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🟫",
+      "icon": "🍞",
       "tags": [
         "bakery treats",
         "bakery"
@@ -20681,7 +20681,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🟫",
+      "icon": "🍞",
       "tags": [
         "bakery treats",
         "bakery"
@@ -20700,7 +20700,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🟫",
+      "icon": "🍞",
       "tags": [
         "bakery treats",
         "bakery"
@@ -20718,7 +20718,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🟫",
+      "icon": "🍞",
       "tags": [
         "bakery treats",
         "bakery"
@@ -20738,7 +20738,7 @@
       "brand": "Canada Bread",
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🥧",
+      "icon": "🧈",
       "tags": [
         "bakery treats",
         "bakery",
@@ -20757,7 +20757,7 @@
       "brand": "Villaggio",
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🥧",
+      "icon": "🧈",
       "tags": [
         "bakery treats",
         "bakery",
@@ -20776,7 +20776,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🥧",
+      "icon": "🧈",
       "tags": [
         "bakery treats",
         "bakery"
@@ -20795,7 +20795,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🥧",
+      "icon": "🧈",
       "tags": [
         "bakery treats",
         "bakery"
@@ -20814,7 +20814,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🥧",
+      "icon": "🧈",
       "tags": [
         "bakery treats",
         "bakery"
@@ -20832,7 +20832,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🥧",
+      "icon": "🧈",
       "tags": [
         "bakery treats",
         "bakery"
@@ -21054,7 +21054,7 @@
       "brand": "McCain",
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🥧",
+      "icon": "🧊",
       "tags": [
         "frozen meals",
         "frozen",
@@ -21074,7 +21074,7 @@
       "brand": "Pillsbury",
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🥧",
+      "icon": "🧊",
       "tags": [
         "frozen meals",
         "frozen",
@@ -21093,7 +21093,7 @@
       ],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🥧",
+      "icon": "🧊",
       "tags": [
         "frozen meals",
         "frozen"
@@ -21111,7 +21111,7 @@
       ],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🥧",
+      "icon": "🧊",
       "tags": [
         "frozen meals",
         "frozen"
@@ -21129,7 +21129,7 @@
       ],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🥧",
+      "icon": "🧊",
       "tags": [
         "frozen meals",
         "frozen"
@@ -21146,7 +21146,7 @@
       ],
       "browseCategory": "frozen_meals",
       "categoryId": "frozen",
-      "icon": "🥧",
+      "icon": "🧊",
       "tags": [
         "frozen meals",
         "frozen"
@@ -21620,7 +21620,7 @@
       "brand": "Beatrice",
       "browseCategory": "yogurt_eggs",
       "categoryId": "dairy_eggs",
-      "icon": "🥚",
+      "icon": "🍚",
       "tags": [
         "yogurt & eggs",
         "dairy_eggs",
@@ -21714,7 +21714,7 @@
       "brand": "Selection",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry",
@@ -21733,7 +21733,7 @@
       "brand": "No Name",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -21753,7 +21753,7 @@
       "brand": "No Name",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -21773,7 +21773,7 @@
       "brand": "No Name",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -21792,7 +21792,7 @@
       "brand": "No Name",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -21905,7 +21905,7 @@
       "brand": "Heinz",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍝",
       "tags": [
         "sauces & condiments",
         "canned",
@@ -21925,7 +21925,7 @@
       "brand": "Classico",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍝",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -21944,7 +21944,7 @@
       "brand": "Classico",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍝",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -21963,7 +21963,7 @@
       "brand": "Classico",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍝",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -21981,7 +21981,7 @@
       "brand": "Classico",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍝",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -22544,7 +22544,7 @@
       "brand": "No Name",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry",
@@ -22565,7 +22565,7 @@
       "brand": "Selection",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry",
@@ -22583,7 +22583,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -22602,7 +22602,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -22621,7 +22621,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -22639,7 +22639,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🧁",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -22778,7 +22778,7 @@
       "brand": "President's Choice",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🥛",
       "tags": [
         "drinks",
         "beverages",
@@ -22797,7 +22797,7 @@
       "brand": "Compliments",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🥛",
       "tags": [
         "drinks",
         "beverages",
@@ -22816,7 +22816,7 @@
       "brand": "Crush",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🥛",
       "tags": [
         "drinks",
         "beverages"
@@ -22835,7 +22835,7 @@
       "brand": "Crush",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🥛",
       "tags": [
         "drinks",
         "beverages"
@@ -22854,7 +22854,7 @@
       "brand": "Crush",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🥛",
       "tags": [
         "drinks",
         "beverages"
@@ -22872,7 +22872,7 @@
       "brand": "Crush",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🥛",
       "tags": [
         "drinks",
         "beverages"
@@ -22910,7 +22910,7 @@
       "brand": "Compliments",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍋",
       "tags": [
         "drinks",
         "beverages",
@@ -23004,7 +23004,7 @@
       "brand": "Lay's",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🧀",
+      "icon": "🍿",
       "tags": [
         "chips & snacks",
         "snacks",
@@ -23024,7 +23024,7 @@
       "brand": "Ruffles",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🧀",
+      "icon": "🍿",
       "tags": [
         "chips & snacks",
         "snacks",
@@ -23044,7 +23044,7 @@
       "brand": "Hawkins",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🧀",
+      "icon": "🍿",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -23062,7 +23062,7 @@
       "brand": "Hawkins",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🧀",
+      "icon": "🍿",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -23080,7 +23080,7 @@
       "brand": "Hawkins",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🧀",
+      "icon": "🍿",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -23100,7 +23100,7 @@
       "brand": "Hawkins",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🧀",
+      "icon": "🍿",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -23118,7 +23118,7 @@
       "brand": "Lay's",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍓",
+      "icon": "🍿",
       "tags": [
         "sweets",
         "snacks",
@@ -23138,7 +23138,7 @@
       "brand": "Ruffles",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍓",
+      "icon": "🍿",
       "tags": [
         "sweets",
         "snacks",
@@ -23158,7 +23158,7 @@
       "brand": "Maynards",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍓",
+      "icon": "🍿",
       "tags": [
         "sweets",
         "snacks"
@@ -23176,7 +23176,7 @@
       "brand": "Maynards",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍓",
+      "icon": "🍿",
       "tags": [
         "sweets",
         "snacks"
@@ -23194,7 +23194,7 @@
       "brand": "Maynards",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍓",
+      "icon": "🍿",
       "tags": [
         "sweets",
         "snacks"
@@ -23214,7 +23214,7 @@
       "brand": "Maynards",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍓",
+      "icon": "🍿",
       "tags": [
         "sweets",
         "snacks"
@@ -23559,7 +23559,7 @@
       "brand": "Cascade",
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🫧",
+      "icon": "🧹",
       "tags": [
         "cleaning",
         "household",
@@ -23578,7 +23578,7 @@
       "brand": "Tide",
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🫧",
+      "icon": "🧹",
       "tags": [
         "cleaning",
         "household"
@@ -23598,7 +23598,7 @@
       "brand": "Tide",
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🫧",
+      "icon": "🧹",
       "tags": [
         "cleaning",
         "household"
@@ -23618,7 +23618,7 @@
       "brand": "Tide",
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🫧",
+      "icon": "🧹",
       "tags": [
         "cleaning",
         "household"
@@ -23637,7 +23637,7 @@
       "brand": "Tide",
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🫧",
+      "icon": "🧹",
       "tags": [
         "cleaning",
         "household"
@@ -24231,7 +24231,7 @@
       "brand": "Huggies",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧷",
       "tags": [
         "baby",
         "baby_kids",
@@ -24250,7 +24250,7 @@
       "brand": "Pampers",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧷",
       "tags": [
         "baby",
         "baby_kids"
@@ -24269,7 +24269,7 @@
       "brand": "Pampers",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧷",
       "tags": [
         "baby",
         "baby_kids"
@@ -24288,7 +24288,7 @@
       "brand": "Pampers",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧷",
       "tags": [
         "baby",
         "baby_kids"
@@ -24306,7 +24306,7 @@
       "brand": "Pampers",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧷",
       "tags": [
         "baby",
         "baby_kids"
@@ -24555,7 +24555,7 @@
       "brand": "Dove",
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "💊",
       "tags": [
         "pharmacy",
         "personal_care",
@@ -24576,7 +24576,7 @@
       "brand": "Colgate",
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "💊",
       "tags": [
         "pharmacy",
         "personal_care",
@@ -24595,7 +24595,7 @@
       ],
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "💊",
       "tags": [
         "pharmacy",
         "personal_care"
@@ -24612,7 +24612,7 @@
       ],
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "💊",
       "tags": [
         "pharmacy",
         "personal_care"
@@ -24629,7 +24629,7 @@
       ],
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "💊",
       "tags": [
         "pharmacy",
         "personal_care"
@@ -24648,7 +24648,7 @@
       ],
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "💊",
       "tags": [
         "pharmacy",
         "personal_care"
@@ -25296,7 +25296,7 @@
       "brand": "No Name",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry",
@@ -25315,7 +25315,7 @@
       "brand": "Selection",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry",
@@ -25334,7 +25334,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -25351,7 +25351,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -25368,7 +25368,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -25387,7 +25387,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🌾",
       "tags": [
         "baking",
         "pantry"
@@ -25405,7 +25405,7 @@
       "brand": "Neilson",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -25425,7 +25425,7 @@
       "brand": "Beatrice",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -25443,7 +25443,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -25462,7 +25462,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -25481,7 +25481,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -25499,7 +25499,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -25519,7 +25519,7 @@
       "brand": "Kellogg",
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥜",
       "tags": [
         "cereal & oats",
         "breakfast",
@@ -25540,7 +25540,7 @@
       "brand": "Post",
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥜",
       "tags": [
         "cereal & oats",
         "breakfast",
@@ -25558,7 +25558,7 @@
       ],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥜",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -25576,7 +25576,7 @@
       ],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥜",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -25594,7 +25594,7 @@
       ],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥜",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -25611,7 +25611,7 @@
       ],
       "browseCategory": "cereal",
       "categoryId": "breakfast",
-      "icon": "🥣",
+      "icon": "🥜",
       "tags": [
         "cereal & oats",
         "breakfast"
@@ -25630,7 +25630,7 @@
       "brand": "Neilson",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -25650,7 +25650,7 @@
       "brand": "Beatrice",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -25668,7 +25668,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -25687,7 +25687,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -25706,7 +25706,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -25724,7 +25724,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -25744,7 +25744,7 @@
       "brand": "Lay's",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks",
@@ -25764,7 +25764,7 @@
       "brand": "Ruffles",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks",
@@ -25783,7 +25783,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -25800,7 +25800,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -25817,7 +25817,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -25836,7 +25836,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -25969,7 +25969,7 @@
       "brand": "Tide",
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "📦",
       "tags": [
         "paper goods",
         "household",
@@ -25990,7 +25990,7 @@
       "brand": "Cascade",
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "📦",
       "tags": [
         "paper goods",
         "household",
@@ -26008,7 +26008,7 @@
       ],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "📦",
       "tags": [
         "paper goods",
         "household"
@@ -26027,7 +26027,7 @@
       ],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "📦",
       "tags": [
         "paper goods",
         "household"
@@ -26046,7 +26046,7 @@
       ],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "📦",
       "tags": [
         "paper goods",
         "household"
@@ -26064,7 +26064,7 @@
       ],
       "browseCategory": "paper",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "📦",
       "tags": [
         "paper goods",
         "household"
@@ -26084,7 +26084,7 @@
       "brand": "Maple Leaf",
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍁",
       "tags": [
         "meat",
         "meat_seafood",
@@ -26507,7 +26507,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍎",
       "tags": [
         "fruit",
         "produce"
@@ -26526,7 +26526,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍎",
       "tags": [
         "fruit",
         "produce"
@@ -26545,7 +26545,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍎",
       "tags": [
         "fruit",
         "produce"
@@ -26563,7 +26563,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍎",
       "tags": [
         "fruit",
         "produce"
@@ -26583,7 +26583,7 @@
       "brand": "No Name",
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry",
@@ -26602,7 +26602,7 @@
       "brand": "Selection",
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry",
@@ -26621,7 +26621,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry"
@@ -26638,7 +26638,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry"
@@ -26655,7 +26655,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry"
@@ -26674,7 +26674,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry"
@@ -26807,7 +26807,7 @@
       "brand": "Canada Bread",
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍎",
       "tags": [
         "bakery treats",
         "bakery",
@@ -26826,7 +26826,7 @@
       "brand": "Villaggio",
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍎",
       "tags": [
         "bakery treats",
         "bakery",
@@ -26845,7 +26845,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍎",
       "tags": [
         "bakery treats",
         "bakery"
@@ -26864,7 +26864,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍎",
       "tags": [
         "bakery treats",
         "bakery"
@@ -26883,7 +26883,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍎",
       "tags": [
         "bakery treats",
         "bakery"
@@ -26901,7 +26901,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍎",
       "tags": [
         "bakery treats",
         "bakery"
@@ -26920,7 +26920,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍎",
       "tags": [
         "fruit",
         "produce"
@@ -26937,7 +26937,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍎",
       "tags": [
         "fruit",
         "produce"
@@ -26954,7 +26954,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍎",
       "tags": [
         "fruit",
         "produce"
@@ -26973,7 +26973,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍎",
       "tags": [
         "fruit",
         "produce"
@@ -26991,7 +26991,7 @@
       "brand": "Heinz",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍎",
       "tags": [
         "sauces & condiments",
         "canned",
@@ -27010,7 +27010,7 @@
       "brand": "Classico",
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍎",
       "tags": [
         "sauces & condiments",
         "canned",
@@ -27029,7 +27029,7 @@
       ],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍎",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -27046,7 +27046,7 @@
       ],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍎",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -27063,7 +27063,7 @@
       ],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍎",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -27082,7 +27082,7 @@
       ],
       "browseCategory": "sauces",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍎",
       "tags": [
         "sauces & condiments",
         "canned"
@@ -27717,7 +27717,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥑",
       "tags": [
         "fruit",
         "produce"
@@ -27735,7 +27735,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥑",
       "tags": [
         "fruit",
         "produce"
@@ -27753,7 +27753,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥑",
       "tags": [
         "fruit",
         "produce"
@@ -27770,7 +27770,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥑",
       "tags": [
         "fruit",
         "produce"
@@ -27788,7 +27788,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥑",
       "tags": [
         "fruit",
         "produce"
@@ -27807,7 +27807,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥑",
       "tags": [
         "fruit",
         "produce"
@@ -27826,7 +27826,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥑",
       "tags": [
         "fruit",
         "produce"
@@ -27844,7 +27844,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥑",
       "tags": [
         "fruit",
         "produce"
@@ -27976,7 +27976,7 @@
       "brand": "Pampers",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🥣",
       "tags": [
         "baby",
         "baby_kids",
@@ -27996,7 +27996,7 @@
       "brand": "Huggies",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🥣",
       "tags": [
         "baby",
         "baby_kids",
@@ -28015,7 +28015,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🥣",
       "tags": [
         "baby",
         "baby_kids"
@@ -28034,7 +28034,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🥣",
       "tags": [
         "baby",
         "baby_kids"
@@ -28053,7 +28053,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🥣",
       "tags": [
         "baby",
         "baby_kids"
@@ -28071,7 +28071,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🥣",
       "tags": [
         "baby",
         "baby_kids"
@@ -28091,7 +28091,7 @@
       "brand": "Pampers",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🫧",
       "tags": [
         "baby",
         "baby_kids",
@@ -28111,7 +28111,7 @@
       "brand": "Huggies",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🫧",
       "tags": [
         "baby",
         "baby_kids",
@@ -28130,7 +28130,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🫧",
       "tags": [
         "baby",
         "baby_kids"
@@ -28149,7 +28149,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🫧",
       "tags": [
         "baby",
         "baby_kids"
@@ -28168,7 +28168,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🫧",
       "tags": [
         "baby",
         "baby_kids"
@@ -28186,7 +28186,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🫧",
       "tags": [
         "baby",
         "baby_kids"
@@ -28430,7 +28430,7 @@
       "brand": "Pampers",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids",
@@ -28449,7 +28449,7 @@
       "brand": "Huggies",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids",
@@ -28467,7 +28467,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids"
@@ -28485,7 +28485,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids"
@@ -28503,7 +28503,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids"
@@ -28520,7 +28520,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids"
@@ -28651,7 +28651,7 @@
       "brand": "Pampers",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids",
@@ -28672,7 +28672,7 @@
       "brand": "Huggies",
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids",
@@ -28692,7 +28692,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids"
@@ -28709,7 +28709,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids"
@@ -28726,7 +28726,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids"
@@ -28745,7 +28745,7 @@
       ],
       "browseCategory": "baby",
       "categoryId": "baby_kids",
-      "icon": "🍼",
+      "icon": "🧴",
       "tags": [
         "baby",
         "baby_kids"
@@ -28875,7 +28875,7 @@
       "brand": "Neilson",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🍼",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -28894,7 +28894,7 @@
       "brand": "Beatrice",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🍼",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -28914,7 +28914,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🍼",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -28932,7 +28932,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🍼",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -28950,7 +28950,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🍼",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -28967,7 +28967,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🍼",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -28986,7 +28986,7 @@
       "brand": "Maple Leaf",
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🥓",
       "tags": [
         "meat",
         "meat_seafood",
@@ -29007,7 +29007,7 @@
       "brand": "Schneiders",
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🥓",
       "tags": [
         "meat",
         "meat_seafood",
@@ -29027,7 +29027,7 @@
       ],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🥓",
       "tags": [
         "meat",
         "meat_seafood"
@@ -29046,7 +29046,7 @@
       ],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🥓",
       "tags": [
         "meat",
         "meat_seafood"
@@ -29065,7 +29065,7 @@
       ],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🥓",
       "tags": [
         "meat",
         "meat_seafood"
@@ -29083,7 +29083,7 @@
       ],
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🥓",
       "tags": [
         "meat",
         "meat_seafood"
@@ -29103,7 +29103,7 @@
       "brand": "Canada Bread",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery",
@@ -29123,7 +29123,7 @@
       "brand": "Villaggio",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery",
@@ -29143,7 +29143,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery"
@@ -29160,7 +29160,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery"
@@ -29177,7 +29177,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery"
@@ -29196,7 +29196,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery"
@@ -29214,7 +29214,7 @@
       "brand": "Canada Bread",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery",
@@ -29235,7 +29235,7 @@
       "brand": "Villaggio",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery",
@@ -29253,7 +29253,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery"
@@ -29271,7 +29271,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery"
@@ -29289,7 +29289,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery"
@@ -29306,7 +29306,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥯",
       "tags": [
         "bread",
         "bakery"
@@ -29345,7 +29345,7 @@
       "brand": "Compliments",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍋",
       "tags": [
         "drinks",
         "beverages",
@@ -29440,7 +29440,7 @@
       "brand": "Canada Bread",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery",
@@ -29460,7 +29460,7 @@
       "brand": "Villaggio",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery",
@@ -29480,7 +29480,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery"
@@ -29497,7 +29497,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery"
@@ -29514,7 +29514,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery"
@@ -29533,7 +29533,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery"
@@ -29551,7 +29551,7 @@
       "brand": "Canada Bread",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery",
@@ -29572,7 +29572,7 @@
       "brand": "Villaggio",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery",
@@ -29590,7 +29590,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery"
@@ -29608,7 +29608,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery"
@@ -29626,7 +29626,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery"
@@ -29643,7 +29643,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🥖",
       "tags": [
         "bread",
         "bakery"
@@ -29892,7 +29892,7 @@
       "brand": "No Name",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🥤",
       "tags": [
         "baking",
         "pantry",
@@ -29913,7 +29913,7 @@
       "brand": "Selection",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🥤",
       "tags": [
         "baking",
         "pantry",
@@ -29931,7 +29931,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🥤",
       "tags": [
         "baking",
         "pantry"
@@ -29950,7 +29950,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🥤",
       "tags": [
         "baking",
         "pantry"
@@ -29969,7 +29969,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🥤",
       "tags": [
         "baking",
         "pantry"
@@ -29987,7 +29987,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🥤",
       "tags": [
         "baking",
         "pantry"
@@ -30338,7 +30338,7 @@
       "brand": "No Name",
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry",
@@ -30358,7 +30358,7 @@
       "brand": "Selection",
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry",
@@ -30378,7 +30378,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry"
@@ -30396,7 +30396,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry"
@@ -30414,7 +30414,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry"
@@ -30431,7 +30431,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍾",
       "tags": [
         "oils & spices",
         "pantry"
@@ -30449,7 +30449,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍌",
       "tags": [
         "fruit",
         "produce"
@@ -30466,7 +30466,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍌",
       "tags": [
         "fruit",
         "produce"
@@ -30483,7 +30483,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍌",
       "tags": [
         "fruit",
         "produce"
@@ -30502,7 +30502,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍌",
       "tags": [
         "fruit",
         "produce"
@@ -30520,7 +30520,7 @@
       "brand": "Canada Bread",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍌",
       "tags": [
         "bread",
         "bakery",
@@ -30540,7 +30540,7 @@
       "brand": "Villaggio",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍌",
       "tags": [
         "bread",
         "bakery",
@@ -30560,7 +30560,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍌",
       "tags": [
         "bread",
         "bakery"
@@ -30577,7 +30577,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍌",
       "tags": [
         "bread",
         "bakery"
@@ -30594,7 +30594,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍌",
       "tags": [
         "bread",
         "bakery"
@@ -30613,7 +30613,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍌",
       "tags": [
         "bread",
         "bakery"
@@ -30630,7 +30630,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍌",
       "tags": [
         "fruit",
         "produce"
@@ -30648,7 +30648,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍌",
       "tags": [
         "fruit",
         "produce"
@@ -30666,7 +30666,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍌",
       "tags": [
         "fruit",
         "produce"
@@ -30683,7 +30683,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍌",
       "tags": [
         "fruit",
         "produce"
@@ -31070,7 +31070,7 @@
       "brand": "Dove",
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🩹",
       "tags": [
         "pharmacy",
         "personal_care",
@@ -31090,7 +31090,7 @@
       "brand": "Colgate",
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🩹",
       "tags": [
         "pharmacy",
         "personal_care",
@@ -31108,7 +31108,7 @@
       ],
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🩹",
       "tags": [
         "pharmacy",
         "personal_care"
@@ -31127,7 +31127,7 @@
       ],
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🩹",
       "tags": [
         "pharmacy",
         "personal_care"
@@ -31146,7 +31146,7 @@
       ],
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🩹",
       "tags": [
         "pharmacy",
         "personal_care"
@@ -31164,7 +31164,7 @@
       ],
       "browseCategory": "pharmacy",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🩹",
       "tags": [
         "pharmacy",
         "personal_care"
@@ -31184,7 +31184,7 @@
       "brand": "Dove",
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🧼",
       "tags": [
         "personal care",
         "personal_care",
@@ -31205,7 +31205,7 @@
       "brand": "Colgate",
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🧼",
       "tags": [
         "personal care",
         "personal_care",
@@ -31224,7 +31224,7 @@
       ],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🧼",
       "tags": [
         "personal care",
         "personal_care"
@@ -31241,7 +31241,7 @@
       ],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🧼",
       "tags": [
         "personal care",
         "personal_care"
@@ -31258,7 +31258,7 @@
       ],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🧼",
       "tags": [
         "personal care",
         "personal_care"
@@ -31277,7 +31277,7 @@
       ],
       "browseCategory": "personal",
       "categoryId": "personal_care",
-      "icon": "🧴",
+      "icon": "🧼",
       "tags": [
         "personal care",
         "personal_care"
@@ -31735,7 +31735,7 @@
       ],
       "browseCategory": "herbs",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌿",
       "tags": [
         "herbs",
         "produce"
@@ -31753,7 +31753,7 @@
       ],
       "browseCategory": "herbs",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌿",
       "tags": [
         "herbs",
         "produce"
@@ -31771,7 +31771,7 @@
       ],
       "browseCategory": "herbs",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌿",
       "tags": [
         "herbs",
         "produce"
@@ -31788,7 +31788,7 @@
       ],
       "browseCategory": "herbs",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🌿",
       "tags": [
         "herbs",
         "produce"
@@ -31922,7 +31922,7 @@
       "brand": "Maple Leaf",
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍁",
       "tags": [
         "meat",
         "meat_seafood",
@@ -32893,7 +32893,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫘",
       "tags": [
         "vegetables",
         "produce"
@@ -32912,7 +32912,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫘",
       "tags": [
         "vegetables",
         "produce"
@@ -32931,7 +32931,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫘",
       "tags": [
         "vegetables",
         "produce"
@@ -32949,7 +32949,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫘",
       "tags": [
         "vegetables",
         "produce"
@@ -33079,7 +33079,7 @@
       "brand": "Maple Leaf",
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍁",
       "tags": [
         "meat",
         "meat_seafood",
@@ -33187,7 +33187,7 @@
       "brand": "No Name",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry",
@@ -33206,7 +33206,7 @@
       "brand": "Selection",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry",
@@ -33225,7 +33225,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -33242,7 +33242,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -33259,7 +33259,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -33278,7 +33278,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -33296,7 +33296,7 @@
       "brand": "Lay's",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥩",
       "tags": [
         "chips & snacks",
         "snacks",
@@ -33316,7 +33316,7 @@
       "brand": "Ruffles",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥩",
       "tags": [
         "chips & snacks",
         "snacks",
@@ -33335,7 +33335,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥩",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -33352,7 +33352,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥩",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -33369,7 +33369,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥩",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -33388,7 +33388,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥩",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -33406,7 +33406,7 @@
       "brand": "President's Choice",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍺",
       "tags": [
         "drinks",
         "beverages",
@@ -33427,7 +33427,7 @@
       "brand": "Compliments",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍺",
       "tags": [
         "drinks",
         "beverages",
@@ -33447,7 +33447,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍺",
       "tags": [
         "drinks",
         "beverages"
@@ -33464,7 +33464,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍺",
       "tags": [
         "drinks",
         "beverages"
@@ -33481,7 +33481,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍺",
       "tags": [
         "drinks",
         "beverages"
@@ -33500,7 +33500,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍺",
       "tags": [
         "drinks",
         "beverages"
@@ -33658,7 +33658,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫑",
       "tags": [
         "vegetables",
         "produce"
@@ -33677,7 +33677,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫑",
       "tags": [
         "vegetables",
         "produce"
@@ -33696,7 +33696,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫑",
       "tags": [
         "vegetables",
         "produce"
@@ -33714,7 +33714,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫑",
       "tags": [
         "vegetables",
         "produce"
@@ -33826,7 +33826,7 @@
       "brand": "Beatrice",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🍚",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -33937,7 +33937,7 @@
       "brand": "Compliments",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍋",
       "tags": [
         "drinks",
         "beverages",
@@ -34582,7 +34582,7 @@
       "brand": "Canada Bread",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery",
@@ -34601,7 +34601,7 @@
       "brand": "Villaggio",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery",
@@ -34620,7 +34620,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery"
@@ -34639,7 +34639,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery"
@@ -34658,7 +34658,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery"
@@ -34676,7 +34676,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery"
@@ -34696,7 +34696,7 @@
       "brand": "Canada Bread",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery",
@@ -34716,7 +34716,7 @@
       "brand": "Villaggio",
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery",
@@ -34736,7 +34736,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery"
@@ -34753,7 +34753,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery"
@@ -34770,7 +34770,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery"
@@ -34789,7 +34789,7 @@
       ],
       "browseCategory": "bread",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍪",
       "tags": [
         "bread",
         "bakery"
@@ -34922,7 +34922,7 @@
       "brand": "No Name",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫘",
       "tags": [
         "pasta & rice",
         "pantry",
@@ -34942,7 +34942,7 @@
       "brand": "Selection",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫘",
       "tags": [
         "pasta & rice",
         "pantry",
@@ -34962,7 +34962,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫘",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -34980,7 +34980,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫘",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -34998,7 +34998,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫘",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -35015,7 +35015,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫘",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -35034,7 +35034,7 @@
       "brand": "No Name",
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫑",
       "tags": [
         "oils & spices",
         "pantry",
@@ -35053,7 +35053,7 @@
       "brand": "Selection",
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫑",
       "tags": [
         "oils & spices",
         "pantry",
@@ -35072,7 +35072,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫑",
       "tags": [
         "oils & spices",
         "pantry"
@@ -35089,7 +35089,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫑",
       "tags": [
         "oils & spices",
         "pantry"
@@ -35106,7 +35106,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫑",
       "tags": [
         "oils & spices",
         "pantry"
@@ -35125,7 +35125,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫑",
       "tags": [
         "oils & spices",
         "pantry"
@@ -35143,7 +35143,7 @@
       "brand": "President's Choice",
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍵",
       "tags": [
         "coffee & tea",
         "beverages",
@@ -35162,7 +35162,7 @@
       "brand": "Compliments",
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍋",
       "tags": [
         "coffee & tea",
         "beverages",
@@ -35180,7 +35180,7 @@
       ],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍵",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -35198,7 +35198,7 @@
       ],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍵",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -35216,7 +35216,7 @@
       ],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍵",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -35233,7 +35233,7 @@
       ],
       "browseCategory": "coffee_tea",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍵",
       "tags": [
         "coffee & tea",
         "beverages"
@@ -35393,7 +35393,7 @@
       "brand": "Tide",
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🧪",
       "tags": [
         "cleaning",
         "household",
@@ -35413,7 +35413,7 @@
       "brand": "Cascade",
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🧪",
       "tags": [
         "cleaning",
         "household",
@@ -35433,7 +35433,7 @@
       ],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🧪",
       "tags": [
         "cleaning",
         "household"
@@ -35451,7 +35451,7 @@
       ],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🧪",
       "tags": [
         "cleaning",
         "household"
@@ -35469,7 +35469,7 @@
       ],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🧪",
       "tags": [
         "cleaning",
         "household"
@@ -35486,7 +35486,7 @@
       ],
       "browseCategory": "cleaning",
       "categoryId": "household",
-      "icon": "🧹",
+      "icon": "🧪",
       "tags": [
         "cleaning",
         "household"
@@ -35524,7 +35524,7 @@
       "brand": "Beatrice",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🍚",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -35616,7 +35616,7 @@
       "brand": "Neilson",
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs",
@@ -35635,7 +35635,7 @@
       "brand": "Beatrice",
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs",
@@ -35655,7 +35655,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -35673,7 +35673,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -35691,7 +35691,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -35708,7 +35708,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -35726,7 +35726,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫐",
       "tags": [
         "fruit",
         "produce"
@@ -35745,7 +35745,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫐",
       "tags": [
         "fruit",
         "produce"
@@ -35764,7 +35764,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫐",
       "tags": [
         "fruit",
         "produce"
@@ -35782,7 +35782,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫐",
       "tags": [
         "fruit",
         "produce"
@@ -35801,7 +35801,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫐",
       "tags": [
         "fruit",
         "produce"
@@ -35818,7 +35818,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫐",
       "tags": [
         "fruit",
         "produce"
@@ -35835,7 +35835,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫐",
       "tags": [
         "fruit",
         "produce"
@@ -35854,7 +35854,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🫐",
       "tags": [
         "fruit",
         "produce"
@@ -36094,7 +36094,7 @@
       "brand": "Maple Leaf",
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍁",
       "tags": [
         "meat",
         "meat_seafood",
@@ -36226,7 +36226,7 @@
       "brand": "Compliments",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍋",
       "tags": [
         "drinks",
         "beverages",
@@ -36338,7 +36338,7 @@
       "brand": "Compliments",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍋",
       "tags": [
         "drinks",
         "beverages",
@@ -36791,7 +36791,7 @@
       "brand": "Compliments",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍋",
       "tags": [
         "drinks",
         "beverages",
@@ -36882,7 +36882,7 @@
       "brand": "President's Choice",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "💧",
       "tags": [
         "drinks",
         "beverages",
@@ -36901,7 +36901,7 @@
       "brand": "Compliments",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "💧",
       "tags": [
         "drinks",
         "beverages",
@@ -36919,7 +36919,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "💧",
       "tags": [
         "drinks",
         "beverages"
@@ -36937,7 +36937,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "💧",
       "tags": [
         "drinks",
         "beverages"
@@ -36955,7 +36955,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "💧",
       "tags": [
         "drinks",
         "beverages"
@@ -36972,7 +36972,7 @@
       ],
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "💧",
       "tags": [
         "drinks",
         "beverages"
@@ -37215,7 +37215,7 @@
       "brand": "Maple Leaf",
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍁",
       "tags": [
         "meat",
         "meat_seafood",
@@ -37437,7 +37437,7 @@
       "brand": "No Name",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "baking",
         "pantry",
@@ -37456,7 +37456,7 @@
       "brand": "Selection",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "baking",
         "pantry",
@@ -37475,7 +37475,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "baking",
         "pantry"
@@ -37492,7 +37492,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "baking",
         "pantry"
@@ -37509,7 +37509,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "baking",
         "pantry"
@@ -37528,7 +37528,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "baking",
         "pantry"
@@ -37546,7 +37546,7 @@
       "brand": "No Name",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "pasta & rice",
         "pantry",
@@ -37565,7 +37565,7 @@
       "brand": "Selection",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "pasta & rice",
         "pantry",
@@ -37584,7 +37584,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -37601,7 +37601,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -37618,7 +37618,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -37637,7 +37637,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍞",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -37991,7 +37991,7 @@
       "brand": "Maple Leaf",
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍁",
       "tags": [
         "meat",
         "meat_seafood",
@@ -38108,7 +38108,7 @@
       "brand": "Neilson",
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs",
@@ -38127,7 +38127,7 @@
       "brand": "Beatrice",
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs",
@@ -38147,7 +38147,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -38165,7 +38165,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -38183,7 +38183,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -38200,7 +38200,7 @@
       ],
       "browseCategory": "cheese",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧀",
       "tags": [
         "cheese",
         "dairy_eggs"
@@ -38330,7 +38330,7 @@
       "brand": "Maple Leaf",
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍁",
       "tags": [
         "meat",
         "meat_seafood",
@@ -38437,7 +38437,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥦",
       "tags": [
         "vegetables",
         "produce"
@@ -38456,7 +38456,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥦",
       "tags": [
         "vegetables",
         "produce"
@@ -38475,7 +38475,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥦",
       "tags": [
         "vegetables",
         "produce"
@@ -38493,7 +38493,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥦",
       "tags": [
         "vegetables",
         "produce"
@@ -38922,7 +38922,7 @@
       "brand": "No Name",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry",
@@ -38941,7 +38941,7 @@
       "brand": "Selection",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry",
@@ -38960,7 +38960,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -38977,7 +38977,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -38994,7 +38994,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -39013,7 +39013,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍲",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -39140,7 +39140,7 @@
       "brand": "No Name",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍚",
       "tags": [
         "pasta & rice",
         "pantry",
@@ -39161,7 +39161,7 @@
       "brand": "Selection",
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍚",
       "tags": [
         "pasta & rice",
         "pantry",
@@ -39179,7 +39179,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍚",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -39198,7 +39198,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍚",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -39217,7 +39217,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍚",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -39235,7 +39235,7 @@
       ],
       "browseCategory": "pasta_rice",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🍚",
       "tags": [
         "pasta & rice",
         "pantry"
@@ -39255,7 +39255,7 @@
       "brand": "No Name",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry",
@@ -39274,7 +39274,7 @@
       "brand": "Selection",
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry",
@@ -39293,7 +39293,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -39310,7 +39310,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -39327,7 +39327,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -39346,7 +39346,7 @@
       ],
       "browseCategory": "baking",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🧂",
       "tags": [
         "baking",
         "pantry"
@@ -40295,7 +40295,7 @@
       "brand": "Neilson",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -40315,7 +40315,7 @@
       "brand": "Beatrice",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -40333,7 +40333,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -40352,7 +40352,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -40371,7 +40371,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -40389,7 +40389,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -40409,7 +40409,7 @@
       "brand": "Neilson",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -40429,7 +40429,7 @@
       "brand": "Beatrice",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -40447,7 +40447,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -40466,7 +40466,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -40485,7 +40485,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -40503,7 +40503,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🧈",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -40614,7 +40614,7 @@
       "brand": "Compliments",
       "browseCategory": "drinks",
       "categoryId": "beverages",
-      "icon": "🧃",
+      "icon": "🍋",
       "tags": [
         "drinks",
         "beverages",
@@ -40724,7 +40724,7 @@
       "brand": "Villaggio",
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍰",
       "tags": [
         "bakery treats",
         "bakery",
@@ -40743,7 +40743,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍰",
       "tags": [
         "bakery treats",
         "bakery"
@@ -40762,7 +40762,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍰",
       "tags": [
         "bakery treats",
         "bakery"
@@ -40781,7 +40781,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍰",
       "tags": [
         "bakery treats",
         "bakery"
@@ -40799,7 +40799,7 @@
       ],
       "browseCategory": "bakery_treats",
       "categoryId": "bakery",
-      "icon": "🍞",
+      "icon": "🍰",
       "tags": [
         "bakery treats",
         "bakery"
@@ -40819,7 +40819,7 @@
       "brand": "Lay's",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍰",
       "tags": [
         "chips & snacks",
         "snacks",
@@ -40839,7 +40839,7 @@
       "brand": "Ruffles",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍰",
       "tags": [
         "chips & snacks",
         "snacks",
@@ -40858,7 +40858,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍰",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -40875,7 +40875,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍰",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -40892,7 +40892,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍰",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -40911,7 +40911,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍰",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -40929,7 +40929,7 @@
       "brand": "Maple Leaf",
       "browseCategory": "meat",
       "categoryId": "meat_seafood",
-      "icon": "🥩",
+      "icon": "🍁",
       "tags": [
         "meat",
         "meat_seafood",
@@ -41060,7 +41060,7 @@
       "brand": "Beatrice",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🍚",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -41266,7 +41266,7 @@
       "brand": "Lay's",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍬",
       "tags": [
         "sweets",
         "snacks",
@@ -41285,7 +41285,7 @@
       "brand": "Ruffles",
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍬",
       "tags": [
         "sweets",
         "snacks",
@@ -41303,7 +41303,7 @@
       ],
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍬",
       "tags": [
         "sweets",
         "snacks"
@@ -41322,7 +41322,7 @@
       ],
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍬",
       "tags": [
         "sweets",
         "snacks"
@@ -41341,7 +41341,7 @@
       ],
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍬",
       "tags": [
         "sweets",
         "snacks"
@@ -41359,7 +41359,7 @@
       ],
       "browseCategory": "sweets",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🍬",
       "tags": [
         "sweets",
         "snacks"
@@ -41606,7 +41606,7 @@
       "brand": "Heinz",
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍗",
       "tags": [
         "canned goods",
         "canned",
@@ -41626,7 +41626,7 @@
       "brand": "Classico",
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍗",
       "tags": [
         "canned goods",
         "canned",
@@ -41646,7 +41646,7 @@
       ],
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍗",
       "tags": [
         "canned goods",
         "canned"
@@ -41664,7 +41664,7 @@
       ],
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍗",
       "tags": [
         "canned goods",
         "canned"
@@ -41682,7 +41682,7 @@
       ],
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍗",
       "tags": [
         "canned goods",
         "canned"
@@ -41699,7 +41699,7 @@
       ],
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍗",
       "tags": [
         "canned goods",
         "canned"
@@ -41945,7 +41945,7 @@
       "brand": "Heinz",
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍍",
       "tags": [
         "canned goods",
         "canned",
@@ -41964,7 +41964,7 @@
       "brand": "Classico",
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍍",
       "tags": [
         "canned goods",
         "canned",
@@ -41983,7 +41983,7 @@
       ],
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍍",
       "tags": [
         "canned goods",
         "canned"
@@ -42000,7 +42000,7 @@
       ],
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍍",
       "tags": [
         "canned goods",
         "canned"
@@ -42017,7 +42017,7 @@
       ],
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍍",
       "tags": [
         "canned goods",
         "canned"
@@ -42036,7 +42036,7 @@
       ],
       "browseCategory": "canned_goods",
       "categoryId": "canned",
-      "icon": "🥫",
+      "icon": "🍍",
       "tags": [
         "canned goods",
         "canned"
@@ -42617,7 +42617,7 @@
       "brand": "No Name",
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "oils & spices",
         "pantry",
@@ -42637,7 +42637,7 @@
       "brand": "Selection",
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "oils & spices",
         "pantry",
@@ -42657,7 +42657,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "oils & spices",
         "pantry"
@@ -42675,7 +42675,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "oils & spices",
         "pantry"
@@ -42693,7 +42693,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "oils & spices",
         "pantry"
@@ -42710,7 +42710,7 @@
       ],
       "browseCategory": "oils_spices",
       "categoryId": "pantry",
-      "icon": "🫙",
+      "icon": "🫒",
       "tags": [
         "oils & spices",
         "pantry"
@@ -42728,7 +42728,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍈",
       "tags": [
         "fruit",
         "produce"
@@ -42745,7 +42745,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍈",
       "tags": [
         "fruit",
         "produce"
@@ -42762,7 +42762,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍈",
       "tags": [
         "fruit",
         "produce"
@@ -42781,7 +42781,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🍈",
       "tags": [
         "fruit",
         "produce"
@@ -42914,7 +42914,7 @@
       "brand": "Schneiders",
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🥤",
       "tags": [
         "deli meat",
         "deli",
@@ -42932,7 +42932,7 @@
       ],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🥤",
       "tags": [
         "deli meat",
         "deli"
@@ -42949,7 +42949,7 @@
       ],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🥤",
       "tags": [
         "deli meat",
         "deli"
@@ -42966,7 +42966,7 @@
       ],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🥤",
       "tags": [
         "deli meat",
         "deli"
@@ -42985,7 +42985,7 @@
       ],
       "browseCategory": "deli_meat",
       "categoryId": "deli",
-      "icon": "🥪",
+      "icon": "🥤",
       "tags": [
         "deli meat",
         "deli"
@@ -43148,7 +43148,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥕",
       "tags": [
         "vegetables",
         "produce"
@@ -43165,7 +43165,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥕",
       "tags": [
         "vegetables",
         "produce"
@@ -43182,7 +43182,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥕",
       "tags": [
         "vegetables",
         "produce"
@@ -43201,7 +43201,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥕",
       "tags": [
         "vegetables",
         "produce"
@@ -43218,7 +43218,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥕",
       "tags": [
         "vegetables",
         "produce"
@@ -43236,7 +43236,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥕",
       "tags": [
         "vegetables",
         "produce"
@@ -43254,7 +43254,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥕",
       "tags": [
         "vegetables",
         "produce"
@@ -43271,7 +43271,7 @@
       ],
       "browseCategory": "vegetables",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥕",
       "tags": [
         "vegetables",
         "produce"
@@ -43290,7 +43290,7 @@
       "brand": "Neilson",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -43310,7 +43310,7 @@
       "brand": "Beatrice",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -43328,7 +43328,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -43347,7 +43347,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -43366,7 +43366,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -43384,7 +43384,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -43404,7 +43404,7 @@
       "brand": "Neilson",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -43424,7 +43424,7 @@
       "brand": "Beatrice",
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs",
@@ -43442,7 +43442,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -43461,7 +43461,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -43480,7 +43480,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -43498,7 +43498,7 @@
       ],
       "browseCategory": "milk",
       "categoryId": "dairy_eggs",
-      "icon": "🥛",
+      "icon": "🥜",
       "tags": [
         "milk & cream",
         "dairy_eggs"
@@ -43518,7 +43518,7 @@
       "brand": "Lay's",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks",
@@ -43538,7 +43538,7 @@
       "brand": "Ruffles",
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks",
@@ -43557,7 +43557,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -43574,7 +43574,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -43591,7 +43591,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -43610,7 +43610,7 @@
       ],
       "browseCategory": "chips_snacks",
       "categoryId": "snacks",
-      "icon": "🍿",
+      "icon": "🥜",
       "tags": [
         "chips & snacks",
         "snacks"
@@ -43628,7 +43628,7 @@
       "brand": "Purina",
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet",
@@ -43649,7 +43649,7 @@
       "brand": "Whiskas",
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet",
@@ -43668,7 +43668,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -43685,7 +43685,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -43702,7 +43702,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -43721,7 +43721,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -43739,7 +43739,7 @@
       "brand": "Purina",
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet",
@@ -43758,7 +43758,7 @@
       "brand": "Whiskas",
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet",
@@ -43778,7 +43778,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -43796,7 +43796,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -43814,7 +43814,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -43831,7 +43831,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -43850,7 +43850,7 @@
       "brand": "Purina",
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet",
@@ -43871,7 +43871,7 @@
       "brand": "Whiskas",
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet",
@@ -43890,7 +43890,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -43907,7 +43907,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -43924,7 +43924,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -43943,7 +43943,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -43961,7 +43961,7 @@
       "brand": "Purina",
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet",
@@ -43980,7 +43980,7 @@
       "brand": "Whiskas",
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet",
@@ -44000,7 +44000,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -44018,7 +44018,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -44036,7 +44036,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -44053,7 +44053,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -44072,7 +44072,7 @@
       "brand": "Purina",
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet",
@@ -44092,7 +44092,7 @@
       "brand": "Whiskas",
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet",
@@ -44110,7 +44110,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -44129,7 +44129,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -44148,7 +44148,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -44166,7 +44166,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -44186,7 +44186,7 @@
       "brand": "Purina",
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet",
@@ -44207,7 +44207,7 @@
       "brand": "Whiskas",
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet",
@@ -44226,7 +44226,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -44243,7 +44243,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -44260,7 +44260,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -44279,7 +44279,7 @@
       ],
       "browseCategory": "pet",
       "categoryId": "pet",
-      "icon": "🐾",
+      "icon": "🐱",
       "tags": [
         "pet",
         "pet"
@@ -44296,7 +44296,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥦",
       "tags": [
         "fruit",
         "produce"
@@ -44315,7 +44315,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥦",
       "tags": [
         "fruit",
         "produce"
@@ -44334,7 +44334,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥦",
       "tags": [
         "fruit",
         "produce"
@@ -44352,7 +44352,7 @@
       ],
       "browseCategory": "fruit",
       "categoryId": "produce",
-      "icon": "🥬",
+      "icon": "🥦",
       "tags": [
         "fruit",
         "produce"

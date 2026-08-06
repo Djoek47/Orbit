@@ -9,6 +9,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { radius, space } from '@/constants/orbit-theme';
 import { groupByAisle } from '@/lib/grocery/classify';
+import { iconForGroceryName } from '@/lib/grocery/catalog';
 import { useOrbit } from '@/store/orbit-store';
 
 const KEEP_AWAKE_TAG = 'shopping-mode';
@@ -95,6 +96,9 @@ export default function ShoppingModeScreen() {
                         color={accentTheme.primary}
                       />
                     </View>
+                    <Text style={{ fontSize: 22, width: 30, textAlign: 'center' }}>
+                      {iconForGroceryName(item.name, item.categoryId)}
+                    </Text>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.itemName, { color: orbitPalette.text }]}>
                         {item.name}

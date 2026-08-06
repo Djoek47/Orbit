@@ -2,6 +2,7 @@
  * Canada grocery catalog — offline loaders.
  */
 import catalogJson from '@/data/canada-grocery-catalog.json';
+import { emojiForGroceryItem } from '@/lib/grocery/item-emoji';
 
 export type BrowseCategory = {
   id: string;
@@ -31,9 +32,15 @@ type CatalogDoc = {
 
 const DOC = catalogJson as CatalogDoc;
 
-const BY_ID = new Map(DOC.products.map((p) => [p.id, p]));
+function withResolvedIcon(p: CatalogProduct): CatalogProduct {
+  const icon = emojiForGroceryItem(p.name, p.categoryId);
+  return icon === p.icon ? p : { ...p, icon };
+}
+
+const PRODUCTS = DOC.products.map(withResolvedIcon);
+const BY_ID = new Map(PRODUCTS.map((p) => [p.id, p]));
 const BY_BROWSE = new Map<string, CatalogProduct[]>();
-for (const p of DOC.products) {
+for (const p of PRODUCTS) {
   const list = BY_BROWSE.get(p.browseCategory) ?? [];
   list.push(p);
   BY_BROWSE.set(p.browseCategory, list);
@@ -56,9 +63,14 @@ export function aisleIdForBrowse(browseId: string): string {
 }
 
 export function allCatalogProducts(): CatalogProduct[] {
-  return DOC.products;
+  return PRODUCTS;
 }
 
 export function catalogSize(): number {
-  return DOC.products.length;
+  return PRODUCTS.length;
+}
+
+/** Icon for any grocery row (catalog or free-text). */
+export function iconForGroceryName(name: string, categoryId?: string | null): string {
+  return emojiForGroceryItem(name, categoryId);
 }

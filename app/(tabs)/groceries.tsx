@@ -11,6 +11,7 @@ import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view'
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { listGroceryCategories } from '@/lib/grocery/classify';
 import type { CatalogProduct } from '@/lib/grocery/catalog';
+import { iconForGroceryName } from '@/lib/grocery/catalog';
 import {
   listBuyAgainProducts,
   listComplementSuggestions,
@@ -320,6 +321,9 @@ export default function GroceriesScreen() {
               size={22}
               color={done ? '#34D399' : accentTheme.primary}
             />
+            <Text style={{ fontSize: 20, width: 28, textAlign: 'center' }}>
+              {iconForGroceryName(item.name, item.categoryId)}
+            </Text>
             <View style={{ flex: 1 }}>
               <Text
                 style={[

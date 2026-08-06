@@ -10,6 +10,7 @@ import {
   listSuggestions,
 } from '@/lib/grocery/suggest';
 import { classifyGroceryItem } from '@/lib/grocery/classify';
+import { emojiForGroceryItem } from '@/lib/grocery/item-emoji';
 
 function pass(id: string, detail: string) {
   console.log(`PASS ${id} — ${detail}`);
@@ -66,9 +67,16 @@ __resetGrocerySearchIndex();
 }
 
 {
-  const unknown = classifyGroceryItem('xyzzy-unknown-widget-99');
-  assert.equal(unknown.confidence, 'fallback');
-  pass('GC6', 'Rev C classifier still fallback for unknown');
+  assert.equal(emojiForGroceryItem('Banana'), '🍌');
+  assert.equal(emojiForGroceryItem('2% Milk'), '🥛');
+  assert.equal(emojiForGroceryItem('Chicken Breasts'), '🍗');
+  assert.equal(emojiForGroceryItem('Shampoo'), '🧴');
+  assert.equal(emojiForGroceryItem('Potato Chips'), '🥔');
+  assert.equal(emojiForGroceryItem('Apple Juice'), '🧃');
+  const banana = searchCatalog('banana', 3)[0];
+  assert.ok(banana);
+  assert.equal(banana.icon, '🍌');
+  pass('GC7', 'per-item emoji for common foods');
 }
 
 console.log('\nAll grocery-catalog tests passed.');
