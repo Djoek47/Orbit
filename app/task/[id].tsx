@@ -376,7 +376,9 @@ export default function TaskDetailScreen() {
             <View style={styles.chipRow}>
               <View style={[styles.statusChip, { backgroundColor: `${statusColor}22` }]}>
                 <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-                <Text style={[styles.statusText, { color: statusColor }]}>{task.status}</Text>
+                <Text style={[styles.statusText, { color: statusColor }]}>
+                  {task.status === 'Missed' ? VOCAB.expired : task.status}
+                </Text>
               </View>
               <View style={[styles.statusChip, { backgroundColor: `${accentTheme.primary}22` }]}>
                 <Text style={[styles.statusText, { color: accentTheme.primary }]}>
@@ -388,7 +390,19 @@ export default function TaskDetailScreen() {
                   <Text style={[styles.metaChipText, { color: c.textMuted }]}>{task.repeat}</Text>
                 </View>
               ) : null}
-              {late && task.status !== 'Completed' ? (
+              {task.completedLate && task.status === 'Completed' ? (
+                <View style={[styles.statusChip, { backgroundColor: 'rgba(251,146,60,0.18)' }]}>
+                  <Text style={[styles.statusText, { color: c.warning }]}>
+                    {VOCAB.lateCredit}
+                    {typeof task.awardedXp === 'number' ? ` +${task.awardedXp}` : ''}
+                    {typeof task.baseXp === 'number' &&
+                    typeof task.awardedXp === 'number' &&
+                    task.baseXp > task.awardedXp
+                      ? ` · was ${task.baseXp}`
+                      : ''}
+                  </Text>
+                </View>
+              ) : late && task.status !== 'Completed' ? (
                 <View style={[styles.statusChip, { backgroundColor: 'rgba(248,113,113,0.15)' }]}>
                   <Text style={[styles.statusText, { color: c.danger }]}>Late</Text>
                 </View>
@@ -403,7 +417,12 @@ export default function TaskDetailScreen() {
             <Text style={[styles.body, { color: c.textSoft }]}>
               +{celebration.awarded} XP
               {celebration.bonus ? ` (+${celebration.bonus} all-done bonus)` : ''}
-              {celebration.late ? ` · ${VOCAB.lateCredit} (was higher)` : ''}. Rankings week XP
+              {celebration.late
+                ? ` · ${VOCAB.lateCredit}${
+                    celebration.awarded != null ? ` +${celebration.awarded}` : ''
+                  }${celebration.penalty != null ? ` · was ${celebration.awarded + celebration.penalty}` : ''}`
+                : ''}
+              . Rankings week XP
               {celebration.late ? ' held streak' : ' and streak'} updated.
             </Text>
           </View>

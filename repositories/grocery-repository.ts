@@ -15,7 +15,7 @@ function resolveLocation(category: string, override?: GroceryItem['location']): 
   return locationForGroceryCategory(category);
 }
 
-function locationToDb(location: GroceryItem['location']) {
+function locationToDb(location: NonNullable<GroceryItem['location']>) {
   return location.toLowerCase() as 'fridge' | 'freezer' | 'pantry' | 'bathroom' | 'cleaning';
 }
 
