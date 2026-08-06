@@ -280,6 +280,18 @@ type OrbitContextValue = {
   markGroceryPurchased: (itemId: string) => void;
   markGroceryMissing: (itemId: string) => void;
   markGroceryLow: (itemId: string) => void;
+  /** Persist aisle correction + household override map (Rev C §4.3). */
+  patchGroceryCategory: (
+    itemId: string,
+    categoryId: string,
+    overrides: Record<string, string>
+  ) => Promise<void>;
+  /** Admin-only: remove Purchased rows from the list (Rev C §4.2 / §4.5). */
+  clearCheckedGroceries: () => Promise<void>;
+  /** Admin-only: wipe active shopping list. */
+  clearGroceryList: () => Promise<void>;
+  /** Mark groceries surface opened (clears "new since last open" badge). */
+  markGroceriesOpened: () => void;
   createEvent: (input: CreateEventInput) => Promise<void>;
   updateEvent: (event: HouseholdEvent) => Promise<void>;
   deleteEvent: (eventId: string) => Promise<void>;
@@ -1757,8 +1769,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!canAdd) {
       return;
     }
+    const { classifyGroceryItem } = await import('@/lib/grocery/classify');
+    const classified = classifyGroceryItem(input.name, household.groceryCategoryOverrides);
     const grocery = await groceryRepository.addGroceryItem(household.id, {
       ...input,
+      name: classified.itemName,
+      category: input.category?.trim() ? input.category : classified.categoryName,
+      quantity: input.quantity?.trim()
+        ? input.quantity
+        : classified.quantityDisplay ?? '1',
+      categoryId: classified.categoryId,
       storeId: input.storeId ?? household.preferredStoreId,
       requestedBy: input.requestedBy ?? currentMember?.name,
     });
@@ -1831,6 +1851,74 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       groceries: current.groceries.map((item) => (item.id === itemId ? updated : item)),
     }));
     await trackAnalytics('grocery.low', { groceryId: itemId }, analyticsContext);
+  };
+
+  const patchGroceryCategory = async (
+    itemId: string,
+    categoryId: string,
+    overrides: Record<string, string>
+  ) => {
+    const currentItem = household.groceries.find((item) => item.id === itemId);
+    if (!currentItem) return;
+    const { categoryNameForId } = await import('@/lib/grocery/classify');
+    const categoryName = categoryNameForId(categoryId);
+    const updated = await groceryRepository.updateGroceryCategory(
+      currentItem,
+      categoryName,
+      categoryId,
+      household.id
+    );
+    setHousehold((current) => ({
+      ...current,
+      groceryCategoryOverrides: overrides,
+      groceries: current.groceries.map((item) => (item.id === itemId ? updated : item)),
+    }));
+    await trackAnalytics(
+      'grocery.category_corrected',
+      { groceryId: itemId, categoryId },
+      analyticsContext
+    );
+  };
+
+  const clearCheckedGroceries = async () => {
+    if (!permissions.canManageHousehold && !permissions.canManageGroceries) {
+      return;
+    }
+    const purchasedIds = household.groceries
+      .filter((item) => item.status === 'Purchased')
+      .map((item) => item.id);
+    if (!purchasedIds.length) return;
+    await groceryRepository.removeGroceryItems(purchasedIds, household.id);
+    const idSet = new Set(purchasedIds);
+    setHousehold((current) => ({
+      ...current,
+      groceries: current.groceries.filter((item) => !idSet.has(item.id)),
+    }));
+    await trackAnalytics('grocery.clear_checked', { count: purchasedIds.length }, analyticsContext);
+  };
+
+  const clearGroceryList = async () => {
+    if (!permissions.canManageHousehold && !permissions.canManageGroceries) {
+      return;
+    }
+    const activeIds = household.groceries
+      .filter((item) => item.status === 'Missing' || item.status === 'Low' || item.status === 'Purchased')
+      .map((item) => item.id);
+    if (!activeIds.length) return;
+    await groceryRepository.removeGroceryItems(activeIds, household.id);
+    const idSet = new Set(activeIds);
+    setHousehold((current) => ({
+      ...current,
+      groceries: current.groceries.filter((item) => !idSet.has(item.id)),
+    }));
+    await trackAnalytics('grocery.clear_list', { count: activeIds.length }, analyticsContext);
+  };
+
+  const markGroceriesOpened = () => {
+    setHousehold((current) => ({
+      ...current,
+      groceriesLastOpenedAt: new Date().toISOString(),
+    }));
   };
 
   const pushNotification = async (input: {
@@ -3447,6 +3535,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       markGroceryPurchased,
       markGroceryMissing,
       markGroceryLow,
+      patchGroceryCategory,
+      clearCheckedGroceries,
+      clearGroceryList,
+      markGroceriesOpened,
       createEvent,
       updateEvent,
       deleteEvent,

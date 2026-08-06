@@ -1,66 +1,36 @@
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppText as Text } from '@/components/orbit/app-text';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
-import { GROCERY_CATEGORIES, GROCERY_LOCATIONS, locationForGroceryCategory } from '@/data/household-rooms';
-import { lookupGroceryProduct } from '@/lib/grocery/product-lookup';
-import { openDirections } from '@/lib/maps/directions';
+import { OrbitButton } from '@/components/orbit/orbit-button';
+import { classifyGroceryItem } from '@/lib/grocery/classify';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-import type { GroceryItem } from '@/types/orbit';
-import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
-type GroceryCategory = (typeof GROCERY_CATEGORIES)[number];
-type GroceryLocation = GroceryItem['location'];
-
+/** Revision C §4.2 — type it, it files itself. No category/location pickers. */
 export default function AddGroceryScreen() {
   const insets = useSafeAreaInsets();
-  const { addMissingGrocery, accentTheme, preferredStore, orbitPalette } = useOrbit();
+  const { addMissingGrocery, orbitPalette } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
   const [name, setName] = useState('');
-  const [category, setCategory] = useState<GroceryCategory>('Produce');
-  const [quantity, setQuantity] = useState('1');
-  const [location, setLocation] = useState<GroceryLocation>('Fridge');
-  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const inputRef = useRef<TextInputLike>(null);
 
-  const gradient = useMemo(
-    () => [accentTheme.primary, accentTheme.secondary] as const,
-    [accentTheme.primary, accentTheme.secondary],
-  );
-
-  const lookup = useMemo(
-    () => lookupGroceryProduct(name, preferredStore.id),
-    [name, preferredStore.id],
-  );
-
-  function selectCategory(next: GroceryCategory) {
-    setCategory(next);
-    setLocation(locationForGroceryCategory(next));
-  }
+  const preview = useMemo(() => (name.trim() ? classifyGroceryItem(name) : null), [name]);
 
   async function onSave() {
     if (!name.trim()) {
-      Alert.alert('Name required', 'What is missing from the household?');
+      Alert.alert('Name required', 'What should we add to the list?');
       return;
     }
-    const qty = Math.max(1, Number(quantity) || 1);
     setBusy(true);
     try {
-      await addMissingGrocery({
-        name: name.trim(),
-        category: lookup?.category ?? category,
-        quantity: `${qty}`,
-        location,
-        typicalPrice: lookup?.estimatedPackPrice,
-        storeId: lookup?.store.id ?? preferredStore.id,
-        note: [note.trim(), lookup?.note].filter(Boolean).join(' · ') || undefined,
-      });
-      router.back();
+      await addMissingGrocery({ name: name.trim() });
+      setName('');
+      inputRef.current?.focus?.();
     } catch (error) {
       Alert.alert('Could not add item', error instanceof Error ? error.message : 'Try again.');
     } finally {
@@ -69,219 +39,70 @@ export default function AddGroceryScreen() {
   }
 
   return (
-    <View
-      style={[
-        styles.root,
-        { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
-      ]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft }]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.handle, { backgroundColor: glass(0.18) }]} />
-      <View style={[styles.header, { borderBottomColor: glassBorder(0.08) }]}>
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.iconBtn, { backgroundColor: glass(0.06) }]}
-          hitSlop={8}>
-          <Ionicons name="close" size={20} color={c.text} />
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()}>
+          <Text style={{ color: c.accent, fontWeight: '600' }}>Cancel</Text>
         </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={[styles.kicker, { color: c.textMuted }]}>Grocery</Text>
-          <Text style={[styles.title, { color: c.text }]}>Missing Item</Text>
-        </View>
-        <View style={{ width: 40 }} />
+        <Text style={[styles.title, { color: c.text }]}>Add an item</Text>
+        <View style={{ width: 56 }} />
       </View>
 
-      <KeyboardScreen
-        offset={24}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}>
-        <Text style={[styles.label, { color: c.textMuted }]}>Item name</Text>
+      <KeyboardScreen contentContainerStyle={styles.body}>
         <TextInput
+          ref={inputRef as never}
           value={name}
           onChangeText={setName}
-          placeholder="e.g. Almond milk"
-          placeholderTextColor={c.textMuted}
+          placeholder="Milk, 2 lbs chicken…"
+          placeholderTextColor={c.textSubtle}
+          autoFocus
+          returnKeyType="done"
+          onSubmitEditing={() => void onSave()}
           style={[
             styles.input,
-            { color: c.text, backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
+            { color: c.text, borderColor: glassBorder(0.12), backgroundColor: glass(0.04) },
           ]}
         />
-
-        {lookup ? (
-          <View style={styles.lookupCard}>
-            <Text style={[styles.lookupTitle, { color: c.text }]}>Lookup · {lookup.store.name}</Text>
-            <Text style={[styles.lookupMeta, { color: c.textMuted }]}>
-              ${lookup.estimatedPackPrice.toFixed(2)} est. · {lookup.packSize}
-            </Text>
-            {lookup.pricePerLiter != null ? (
-              <Text style={[styles.lookupUnit, { color: accentTheme.primary }]}>
-                ${lookup.pricePerLiter.toFixed(2)}/L · ${lookup.pricePerGallon?.toFixed(2)}/gal
-              </Text>
-            ) : null}
-            <Pressable
-              onPress={() =>
-                void openDirections(undefined, {
-                  address: lookup.store.address,
-                  placeQuery: lookup.store.placeQuery,
-                })
-              }
-              style={styles.mapLink}>
-              <Ionicons name="map-outline" size={14} color={accentTheme.primary} />
-              <Text style={[styles.mapLinkText, { color: accentTheme.primary }]}>
-                Open {lookup.store.name} in Maps
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
-
-        <Text style={[styles.label, { color: c.textMuted }]}>Category</Text>
-        <View style={styles.chipWrap}>
-          {GROCERY_CATEGORIES.map((item) => {
-            const active = item === category;
-            return (
-              <Pressable
-                key={item}
-                onPress={() => selectCategory(item)}
-                style={[
-                  styles.chip,
-                  { backgroundColor: glass(0.04), borderColor: glassBorder(0.1) },
-                  active && {
-                    backgroundColor: `${accentTheme.primary}22`,
-                    borderColor: `${accentTheme.primary}55`,
-                  },
-                ]}>
-                <Text style={[styles.chipText, { color: active ? accentTheme.primary : c.textMuted }]}>
-                  {item}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <Text style={[styles.label, { color: c.textMuted }]}>Quantity</Text>
-        <TextInput
-          value={quantity}
-          onChangeText={setQuantity}
-          keyboardType="number-pad"
-          placeholder="1"
-          placeholderTextColor={c.textMuted}
-          style={[
-            styles.input,
-            { color: c.text, backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
-          ]}
-        />
-
-        <Text style={[styles.label, { color: c.textMuted }]}>Storage</Text>
-        <View style={styles.chipWrap}>
-          {GROCERY_LOCATIONS.map((item) => {
-            const active = item === location;
-            return (
-              <Pressable
-                key={item}
-                onPress={() => setLocation(item)}
-                style={[
-                  styles.chip,
-                  { backgroundColor: glass(0.04), borderColor: glassBorder(0.1) },
-                  active && {
-                    backgroundColor: `${accentTheme.primary}22`,
-                    borderColor: `${accentTheme.primary}55`,
-                  },
-                ]}>
-                <Text style={[styles.chipText, { color: active ? accentTheme.primary : c.textMuted }]}>
-                  {item}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <Text style={[styles.label, { color: c.textMuted }]}>Note</Text>
-        <TextInput
-          value={note}
-          onChangeText={setNote}
-          placeholder="Brand, size, dietary note…"
-          placeholderTextColor={c.textMuted}
-          multiline
-          style={[
-            styles.input,
-            styles.noteInput,
-            { color: c.text, backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
-          ]}
-        />
-
-        <Pressable onPress={() => void onSave()} disabled={busy} style={styles.saveWrap}>
-          <LinearGradient colors={[...gradient]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.save}>
-            <Text style={styles.saveText}>{busy ? 'Saving…' : 'Save'}</Text>
-          </LinearGradient>
-        </Pressable>
+        {preview ? (
+          <Text style={[styles.hint, { color: c.textMuted }]}>
+            {preview.quantityDisplay ? `${preview.quantityDisplay} · ` : ''}
+            Files under {preview.categoryName}
+            {preview.confidence === 'fallback' ? ' — tap the tag later to fix' : ''}
+          </Text>
+        ) : (
+          <Text style={[styles.hint, { color: c.textSubtle }]}>
+            Type and return — aisle is chosen automatically.
+          </Text>
+        )}
+        <OrbitButton disabled={busy || !name.trim()} onPress={() => void onSave()}>
+          {busy ? 'Adding…' : 'Add to list'}
+        </OrbitButton>
       </KeyboardScreen>
     </View>
   );
 }
 
+type TextInputLike = { focus: () => void };
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  handle: {
-    alignSelf: 'center',
-    borderRadius: 999,
-    height: 4,
-    marginBottom: 4,
-    marginTop: 8,
-    width: 40,
-  },
   header: {
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
-  iconBtn: {
-    alignItems: 'center',
-    borderRadius: 20,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
-  headerCopy: { alignItems: 'center', flex: 1 },
-  kicker: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  title: { fontSize: 18, fontWeight: '800', marginTop: 2 },
-  content: { gap: 10, padding: 16 },
-  label: { fontSize: 12, fontWeight: '700', marginTop: 4 },
+  title: { fontSize: 17, fontWeight: '700' },
+  body: { gap: 14, padding: 16 },
   input: {
     borderRadius: 14,
     borderWidth: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    paddingHorizontal: 12,
+    fontSize: 17,
+    minHeight: 52,
+    paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  noteInput: { minHeight: 72, textAlignVertical: 'top' },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  chipText: { fontSize: 12, fontWeight: '700' },
-  lookupCard: {
-    backgroundColor: 'rgba(89,178,225,0.08)',
-    borderColor: 'rgba(89,178,225,0.25)',
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 4,
-    padding: 12,
-  },
-  lookupTitle: { fontSize: 13, fontWeight: '700' },
-  lookupMeta: { fontSize: 12 },
-  lookupUnit: { fontSize: 13, fontWeight: '700' },
-  mapLink: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 6 },
-  mapLinkText: { fontSize: 12, fontWeight: '700' },
-  saveWrap: { borderRadius: 18, marginTop: 8, overflow: 'hidden' },
-  save: { alignItems: 'center', paddingVertical: 15 },
-  saveText: { color: '#04101F', fontSize: 15, fontWeight: '800' },
+  hint: { fontSize: 13, lineHeight: 18 },
 });

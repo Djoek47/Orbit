@@ -48,7 +48,8 @@
     "test:revision-d-phase4": "npx --yes tsx lib/rules/revision-d-phase4.test.ts",
     "test:revision-d-phase5": "npx --yes tsx lib/poppins/revision-d-phase5.test.ts",
     "test:house-rules": "npx --yes tsx lib/rules/house-rules.test.ts",
-    "test:revision-e": "npx --yes tsx lib/rewards/revision-e.test.ts"
+    "test:revision-e": "npx --yes tsx lib/rewards/revision-e.test.ts",
+    "test:grocery-classify": "npx --yes tsx lib/grocery/classify.test.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -72,6 +73,7 @@
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
     "expo-image-picker": "~17.0.11",
+    "expo-keep-awake": "~15.0.8",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.12",
     "expo-location": "~19.0.8",

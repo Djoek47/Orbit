@@ -97,7 +97,39 @@ export default function HomeScreen() {
     [healthRole, metrics, household, currentMember],
   );
 
-  const groceryAlerts = household.groceries.filter((g) => g.status === 'Missing' || g.status === 'Low');
+  const groceryListItems = useMemo(
+    () =>
+      household.groceries.filter(
+        (g) => g.status === 'Missing' || g.status === 'Low' || g.status === 'Purchased'
+      ),
+    [household.groceries]
+  );
+  const groceryActive = groceryListItems.filter((g) => g.status !== 'Purchased');
+  const groceryCategoryCount = useMemo(() => {
+    const cats = new Set(
+      groceryActive.map((g) => (g.category || 'Other').trim().toLowerCase()).filter(Boolean)
+    );
+    return cats.size;
+  }, [groceryActive]);
+  const grocerySubtitle =
+    groceryActive.length === 0
+      ? 'List is empty'
+      : `${groceryActive.length} item${groceryActive.length === 1 ? '' : 's'} · ${groceryCategoryCount} categor${
+          groceryCategoryCount === 1 ? 'y' : 'ies'
+        }`;
+  const groceryHasNewBadge = useMemo(() => {
+    if (!permissions.canManageHousehold && !permissions.canManageGroceries) return false;
+    const opened = household.groceriesLastOpenedAt
+      ? Date.parse(household.groceriesLastOpenedAt)
+      : 0;
+    // Badge when there are active items and admin hasn't opened list this session / ever
+    return groceryActive.length > 0 && (!opened || Number.isNaN(opened));
+  }, [
+    groceryActive.length,
+    household.groceriesLastOpenedAt,
+    permissions.canManageGroceries,
+    permissions.canManageHousehold,
+  ]);
   const nextEvent = [
     ...household.events.filter(
       (e) => e.date === 'Today' || (e.startsAt ?? '').startsWith(new Date().toISOString().slice(0, 10))
@@ -314,20 +346,41 @@ export default function HomeScreen() {
               void awardDailyStreak();
             }}
           />
-          <View style={styles.statRow}>
-            <Pressable style={styles.statItem} onPress={() => router.push('/(tabs)/groceries' as never)}>
-              <MaterialIcons
-                name="shopping-cart"
-                size={16}
-                color={groceryAlerts.length > 0 ? c.warning : c.textMuted}
-              />
-              <Text style={[typography.subheadline, { color: orbitPalette.textSoft }]}>
-                {groceryAlerts.length > 0 ? `${groceryAlerts.length} low or missing` : 'Groceries stocked'}
+          <View style={styles.destRow}>
+            <Pressable
+              style={[
+                styles.destCard,
+                {
+                  borderColor: glass(0.1),
+                  backgroundColor: glass(0.05),
+                },
+              ]}
+              onPress={() => router.push('/(tabs)/groceries' as never)}>
+              {groceryHasNewBadge ? (
+                <View style={[styles.destBadge, { backgroundColor: accentTheme.primary }]} />
+              ) : null}
+              <MaterialIcons name="shopping-cart" size={28} color={accentTheme.primary} />
+              <Text style={[typography.headline, { color: orbitPalette.text }]}>Groceries</Text>
+              <Text
+                style={[typography.footnote, { color: orbitPalette.textSoft, textAlign: 'center' }]}
+                numberOfLines={2}>
+                {grocerySubtitle}
               </Text>
             </Pressable>
-            <Pressable style={styles.statItem} onPress={() => router.push('/(tabs)/plan' as never)}>
-              <MaterialIcons name="calendar-today" size={16} color={c.textMuted} />
-              <Text style={[typography.subheadline, { color: orbitPalette.textSoft }]} numberOfLines={1}>
+            <Pressable
+              style={[
+                styles.destCard,
+                {
+                  borderColor: glass(0.1),
+                  backgroundColor: glass(0.05),
+                },
+              ]}
+              onPress={() => router.push('/(tabs)/plan' as never)}>
+              <MaterialIcons name="calendar-today" size={28} color={accentTheme.primary} />
+              <Text style={[typography.headline, { color: orbitPalette.text }]}>Plan</Text>
+              <Text
+                style={[typography.footnote, { color: orbitPalette.textSoft, textAlign: 'center' }]}
+                numberOfLines={2}>
                 {nextEvent ? `${nextEvent.title} · ${nextEvent.time}` : 'Nothing on the calendar'}
               </Text>
             </Pressable>
@@ -541,15 +594,30 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     gap: space.sm,
   },
-  statRow: {
+  destRow: {
     flexDirection: 'row',
     gap: space.md,
   },
-  statItem: {
+  destCard: {
     alignItems: 'center',
+    aspectRatio: 1,
+    borderCurve: 'continuous',
+    borderRadius: radius.card,
+    borderWidth: 1,
     flex: 1,
-    flexDirection: 'row',
     gap: space.xs,
+    justifyContent: 'center',
+    paddingHorizontal: space.sm,
+    paddingVertical: space.md,
+    position: 'relative',
+  },
+  destBadge: {
+    borderRadius: 5,
+    height: 10,
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    width: 10,
   },
   weekSection: {
     alignSelf: 'stretch',

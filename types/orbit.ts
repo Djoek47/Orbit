@@ -162,7 +162,8 @@ export type GroceryItem = {
   name: string;
   category: string;
   quantity: string;
-  location: 'Fridge' | 'Freezer' | 'Pantry' | 'Bathroom' | 'Cleaning';
+  /** @deprecated Rev C §4 — storage assignment removed from UI. Kept optional for legacy rows. */
+  location?: 'Fridge' | 'Freezer' | 'Pantry' | 'Bathroom' | 'Cleaning';
   status: 'Available' | 'Low' | 'Missing' | 'Purchased';
   barcode?: string;
   typicalPrice?: number;
@@ -171,6 +172,8 @@ export type GroceryItem = {
   storeId?: string;
   requestedBy?: string;
   note?: string;
+  /** Classifier category id (e.g. dairy_eggs) when known. */
+  categoryId?: string;
 };
 
 export type HouseholdEvent = {
@@ -448,7 +451,9 @@ export type CreateTaskInput = {
 
 export type CreateGroceryInput = {
   name: string;
-  category: string;
+  /** Optional — when omitted, offline classifier assigns aisle. */
+  category?: string;
+  categoryId?: string;
   barcode?: string;
   quantity?: string;
   typicalPrice?: number;
@@ -456,6 +461,7 @@ export type CreateGroceryInput = {
   aisle?: string;
   storeId?: string;
   requestedBy?: string;
+  /** @deprecated Rev C — storage removed from UI. */
   location?: GroceryItem['location'];
   note?: string;
   /** Wishlist items for kids who met XP threshold. */
@@ -609,6 +615,10 @@ export type HouseholdSnapshot = {
   /** Saved locations for multi-stop trips (home, work, school, shops…). */
   savedPlaces?: SavedPlace[];
   preferredStoreId?: string;
+  /** Rev C §4.3 — household corrections for aisle classifier (normalized name → category id). */
+  groceryCategoryOverrides?: Record<string, string>;
+  /** Last time an admin opened the groceries tab (for Home badge). */
+  groceriesLastOpenedAt?: string;
   /** Make accent theme id (ocean/aurora/…). */
   accentThemeId?: string;
   taskTemplates: TaskTemplate[];

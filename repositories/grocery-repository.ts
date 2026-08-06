@@ -48,12 +48,14 @@ export const groceryRepository = {
     householdId: string | null | undefined,
     input: CreateGroceryInput
   ): Promise<GroceryItem> {
+    const category = input.category?.trim() || 'Other';
     const item: GroceryItem = {
       id: createLocalId('grocery'),
       name: input.name.trim(),
-      category: input.category,
-      quantity: input.quantity?.trim() || '1 item',
-      location: resolveLocation(input.category, input.location),
+      category,
+      categoryId: input.categoryId,
+      quantity: input.quantity?.trim() || '1',
+      location: input.location,
       status: 'Missing',
       barcode: input.barcode,
       typicalPrice: input.typicalPrice,
@@ -81,7 +83,7 @@ export const groceryRepository = {
         name: item.name,
         category: item.category,
         quantity: item.quantity,
-        location: locationToDb(item.location),
+        location: item.location ? locationToDb(item.location) : 'pantry',
         status: 'missing',
         note: item.note ?? null,
       })
@@ -102,6 +104,7 @@ export const groceryRepository = {
       storeId: item.storeId,
       requestedBy: item.requestedBy,
       note: item.note,
+      categoryId: item.categoryId,
     };
   },
 
@@ -150,6 +153,57 @@ export const groceryRepository = {
 
   async markGroceryMissing(item: GroceryItem, householdId?: string | null): Promise<GroceryItem> {
     return this.updateGroceryStatus(item, 'Missing', householdId);
+  },
+
+  async updateGroceryCategory(
+    item: GroceryItem,
+    category: string,
+    categoryId?: string,
+    householdId?: string | null
+  ): Promise<GroceryItem> {
+    const updated: GroceryItem = {
+      ...item,
+      category,
+      categoryId: categoryId ?? item.categoryId,
+    };
+
+    if (isMockMode()) {
+      mockGroceriesState = mockGroceriesState.map((row) => (row.id === item.id ? updated : row));
+      return updated;
+    }
+
+    const supabase = getConfiguredSupabase('groceryRepository.updateGroceryCategory');
+    const { data, error } = await supabase
+      .from('grocery_items')
+      .update({ category })
+      .eq('id', item.id)
+      .select('*')
+      .single();
+    mapDbError('groceryRepository.updateGroceryCategory', error);
+    void householdId;
+    return data ? { ...mapGroceryRow(data), categoryId: updated.categoryId } : updated;
+  },
+
+  async removeGroceryItems(itemIds: string[], householdId?: string | null): Promise<void> {
+    if (!itemIds.length) return;
+
+    if (isMockMode()) {
+      const idSet = new Set(itemIds);
+      mockGroceriesState = mockGroceriesState.filter((row) => !idSet.has(row.id));
+      return;
+    }
+
+    if (!householdId) {
+      throw new Error('groceryRepository.removeGroceryItems: householdId is required in Supabase mode.');
+    }
+
+    const supabase = getConfiguredSupabase('groceryRepository.removeGroceryItems');
+    const { error } = await supabase
+      .from('grocery_items')
+      .delete()
+      .eq('household_id', householdId)
+      .in('id', itemIds);
+    mapDbError('groceryRepository.removeGroceryItems', error);
   },
 };
 

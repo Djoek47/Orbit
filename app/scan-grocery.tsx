@@ -27,8 +27,7 @@ function nutriTone(
 
 export default function ScanGroceryScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, addMissingGrocery, canAddGroceryWishlist, preferredStore, orbitPalette } =
-    useOrbit();
+  const { accentTheme, addMissingGrocery, canAddGroceryWishlist, orbitPalette } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
   const [scanning, setScanning] = useState(true);
   const [lookingUp, setLookingUp] = useState(false);
@@ -92,13 +91,11 @@ export default function ScanGroceryScreen() {
     }
     addMissingGrocery({
       name: product.name,
-      category: product.category,
       barcode: product.barcode,
       quantity: product.size ?? '1 item',
       typicalPrice: product.typicalPrice,
       salePrice: product.salePrice,
       aisle: product.aisle,
-      storeId: product.storeId ?? preferredStore.id,
       note:
         [
           product.nutriScore ? `Nutri-Score ${product.nutriScore}` : null,
@@ -126,7 +123,7 @@ export default function ScanGroceryScreen() {
           <MaterialIcons name="close" size={18} color={c.textMuted} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={[styles.kicker, { color: c.textMuted }]}>Grocery intelligence</Text>
+          <Text style={[styles.kicker, { color: c.textMuted }]}>Groceries</Text>
           <Text style={[styles.title, { color: c.text }]}>Scan product</Text>
         </View>
         <View style={{ width: 40 }} />
@@ -137,7 +134,7 @@ export default function ScanGroceryScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <Text style={[styles.subtitle, { color: c.textSoft }]}>
-          Preferred store: {preferredStore.name}
+          Scan a barcode or search — items file into the aisle list automatically.
         </Text>
 
         {scanning ? (
