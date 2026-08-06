@@ -198,7 +198,7 @@ export default function HomeScreen() {
       }
       if (streak?.streakEndedAt && streak.current === 0 && !streak.pendingRescue) {
         setStreakLost({
-          streakDays: Number(streak.longest ?? 0) || 0,
+          streakDays: Math.max(streak.longest ?? 0, 1),
           reason: streak.streakEndedReason ?? null,
         });
         setStreakLostVisible(true);
