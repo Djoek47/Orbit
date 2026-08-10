@@ -55,6 +55,13 @@ into the image), so it stays crisp even with images blocked.
 
 ## Catalog
 
+**Wired** — Auth Hook uses React Email templates via `emails/auth-hook-render.ts`
+and `supabase/functions/send-auth-email` (signup → verification, recovery →
+password-reset, magiclink/email → magic-link, email_change → email-changed).
+Deploy: `npx supabase functions deploy send-auth-email --no-verify-jwt`.
+Live signup still needs Resend secrets + Auth Hook enabled — see
+[resend-auth-email.md](./resend-auth-email.md).
+
 | # | Template | File | Subject | Trigger status |
 |---|----------|------|---------|-----------------|
 | 1 | Email Verification | `emails/verification.tsx` | Verify your ChoreMaxx account | **Wired** — Supabase Auth Send Email Hook, action `signup` |

@@ -63,25 +63,25 @@ Do A fully before B. Do not start B7 until B6 is green.
 
 | ID | Status | Task | Done when |
 |----|--------|------|-----------|
-| **A1** | ◐ PARTIAL | Website URLs + support email | App constants / `.env.example` / `app.json` / email theme → `https://choremaxx.vercel.app/privacy|terms`. Support still `support@choremaxx.app`. **Remaining:** ASC listing fields, EAS secrets refresh, site copy families-only + Poppins (not Nova). |
-| **A2** | ☐ TODO | Auth emails via Resend | Wire `emails/*` into `supabase/functions/send-auth-email`. Live test: signup → branded verify → `choremaxx://auth/callback`. |
-| **A3** | ☐ TODO | IAP scaffold | StoreKit / `expo-iap` (or RevenueCat): 7-day trial, $4.99/mo, $48/yr. ASC products. Entitlement stub. |
-| **A4** | ☐ TODO | Rewards smoke | Staging: mint → claim/Hold & Request → approve → ledger; allowance Mark as paid. |
-| **A5** | ☐ TODO | Notifications foundation | Prefs toggles, quiet hours 21:00–07:00, batching, push categories = registry IDs. |
-| **A6** | ☐ TODO | Poppins OpenAI connect | Live answers from Poppins tab with household context. |
-| **A7** | ☐ TODO | Account matrix | Parent/admin, helper/child, shared tablet — create/join, roles, child-safe surfaces. |
-| **A8** | ☐ TODO | Store package draft | ASC listing draft. **Do not submit** until B7. |
+| **A1** | ◐ PARTIAL | Website URLs + support email | In-repo legal + ASC draft + EAS privacy/terms env done. **Still external:** Vercel site roommate/Nova copy (`docs/site-copy-a1-patch.md`) + re-host privacy/terms HTML. |
+| **A2** | ◐ CODE | Auth emails via Resend | React Email wired in `send-auth-email`. **Live blocked** on Resend API key + Auth Hook deploy. |
+| **A3** | ◐ SCAFFOLD | IAP scaffold | Product IDs + mock entitlement in `constants/billing.ts`. ASC products + StoreKit still needed. |
+| **A4** | ✅ UNIT | Rewards smoke | Gate + Mark as paid ledger tests green. Staging device smoke optional. |
+| **A5** | ✅ | Notifications foundation | Quiet hours pref + banner deferral 21:00–07:00; Settings toggle. |
+| **A6** | ◐ CODE | Poppins OpenAI connect | Prompt + edge path ready. Confirm `OPENAI_API_KEY` + live chat. |
+| **A7** | ✅ UNIT | Account matrix | Role permission tests green. |
+| **A8** | ◐ DRAFT | Store package draft | ASC fields in `docs/app-store-checklist.md`. Do not submit until B7. |
 
 ### Phase B — craft
 
 | ID | Status | Task | Done when |
 |----|--------|------|-----------|
-| **B1** | ☐ TODO | Poppins as craft | Co-manager tone, existing tools only. |
-| **B2** | ☐ TODO | Poppins itineraries | Create/adjust Plan within existing models. |
-| **B3** | ☐ TODO | Notification actions | Approve / proof / reward deep links. |
-| **B4** | ☐ TODO | Site payment gates | CTAs match IAP; remove roommate promises. |
+| **B1** | ✅ | Poppins as craft | Co-manager tone, existing tools only. |
+| **B2** | ◐ EXISTING | Poppins itineraries | Create/adjust Plan within existing models. |
+| **B3** | ✅ | Notification actions | Approve / proof / reward deep links. |
+| **B4** | ☐ TODO | Site payment gates | CTAs match IAP; remove roommate promises — **external site**. |
 | **B5** | ☐ TODO | Billing emails | After A3 products exist. |
-| **B6** | ☐ TODO | Full retest | Auth → household → tasks → Plan → Rewards → Poppins → Rules → Recess → push. Expo Go + TestFlight. Suites green. |
+| **B6** | ◐ PARTIAL | Full retest | Suites via `npm run test:weekend-a`; device matrix still human. |
 | **B7** | ☐ TODO | App Review submit | Only after B6 green + A8 + legal URLs live. |
 
 ---

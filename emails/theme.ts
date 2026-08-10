@@ -55,14 +55,10 @@ export const emailRadius = {
 } as const;
 
 /**
- * Public logo URL. Email clients cannot load bundled Expo assets — host the
- * mark PNG (`assets/brand/choremaxx-logo-mark.png`) somewhere public (a
- * Supabase Storage public bucket, or `https://choremaxx.app/emails/logo.png`
- * once the marketing site can serve it) and set this before sending.
- *
- * TODO(wiring): replace with the real hosted URL.
+ * Public logo URL. Email clients cannot load bundled Expo assets.
+ * Prefer the live marketing host until custom domain cutover.
  */
-export const EMAIL_LOGO_URL = 'https://choremaxx.app/emails/logo-mark.png';
+export const EMAIL_LOGO_URL = 'https://choremaxx.vercel.app/emails/logo-mark.png';
 
 export const EMAIL_TAGLINE = 'AI Household Operating System';
 

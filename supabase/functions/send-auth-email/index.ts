@@ -1,5 +1,5 @@
 /**
- * Supabase Auth → Send Email Hook → Resend.
+ * Supabase Auth → Send Email Hook → Resend (branded React Email templates).
  *
  * Deploy with JWT verification disabled:
  *   npx supabase functions deploy send-auth-email --no-verify-jwt
@@ -9,10 +9,30 @@
  *   SEND_EMAIL_HOOK_SECRET   (full value from Dashboard, e.g. v1,whsec_…)
  *   RESEND_FROM_EMAIL        (optional, default Choremaxx <noreply@choremaxx.app>)
  *
- * See docs/resend-auth-email.md
+ * Templates: emails/verification | password-reset | magic-link | email-changed
+ * See docs/resend-auth-email.md and docs/email-templates.md
  */
 
 import { Webhook } from 'npm:standardwebhooks@1.0.0';
+import { render as renderToHtml } from 'npm:@react-email/render@2.1.0';
+import * as React from 'npm:react@19.1.0';
+
+import EmailChangedEmail, {
+  subjectFor as emailChangedSubject,
+  textFor as emailChangedText,
+} from '../../../emails/email-changed.tsx';
+import MagicLinkEmail, {
+  subjectFor as magicLinkSubject,
+  textFor as magicLinkText,
+} from '../../../emails/magic-link.tsx';
+import PasswordResetEmail, {
+  subjectFor as passwordResetSubject,
+  textFor as passwordResetText,
+} from '../../../emails/password-reset.tsx';
+import VerificationEmail, {
+  subjectFor as verificationSubject,
+  textFor as verificationText,
+} from '../../../emails/verification.tsx';
 
 type EmailActionType =
   | 'signup'
@@ -26,6 +46,8 @@ type EmailActionType =
 type HookPayload = {
   user: {
     email?: string;
+    user_metadata?: Record<string, unknown>;
+    email_new?: string;
   };
   email_data: {
     token: string;
@@ -41,59 +63,18 @@ type HookPayload = {
 const FROM = Deno.env.get('RESEND_FROM_EMAIL') ?? 'Choremaxx <noreply@choremaxx.app>';
 
 function stripHookSecret(raw: string): string {
-  // Dashboard copies "v1,whsec_<base64>"; standardwebhooks wants the base64 part.
   return raw.replace(/^v1,whsec_/, '').replace(/^whsec_/, '');
 }
 
-function subjectFor(action: EmailActionType): string {
-  switch (action) {
-    case 'recovery':
-      return 'Reset your Choremaxx password';
-    case 'magiclink':
-    case 'email':
-      return 'Your Choremaxx sign-in link';
-    case 'invite':
-      return 'You’re invited to Choremaxx';
-    case 'email_change':
-      return 'Confirm your new Choremaxx email';
-    case 'signup':
-    default:
-      return 'Confirm your Choremaxx email';
-  }
-}
-
-function headlineFor(action: EmailActionType): string {
-  switch (action) {
-    case 'recovery':
-      return 'Reset your password';
-    case 'magiclink':
-    case 'email':
-      return 'Sign in to Choremaxx';
-    case 'invite':
-      return 'Join your household';
-    case 'email_change':
-      return 'Confirm your new email';
-    case 'signup':
-    default:
-      return 'Confirm your email';
-  }
-}
-
-function bodyFor(action: EmailActionType): string {
-  switch (action) {
-    case 'recovery':
-      return 'Use the button below (or the code) to choose a new password. If you didn’t ask for this, you can ignore this email.';
-    case 'magiclink':
-    case 'email':
-      return 'Tap the button below to finish signing in. The link expires soon.';
-    case 'invite':
-      return 'Someone invited you to a Choremaxx household. Confirm your email to continue.';
-    case 'email_change':
-      return 'Confirm this address to finish updating your Choremaxx account email.';
-    case 'signup':
-    default:
-      return 'Thanks for joining Choremaxx. Confirm your email so your household can get started.';
-  }
+function displayName(email: string, meta?: Record<string, unknown>): string {
+  const fromMeta =
+    (typeof meta?.full_name === 'string' && meta.full_name) ||
+    (typeof meta?.name === 'string' && meta.name) ||
+    (typeof meta?.display_name === 'string' && meta.display_name) ||
+    '';
+  if (fromMeta.trim()) return fromMeta.trim();
+  const local = email.split('@')[0]?.trim();
+  return local || 'there';
 }
 
 function verifyUrl(
@@ -111,71 +92,76 @@ function verifyUrl(
   return url.toString();
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+function appendOtp(
+  rendered: { subject: string; html: string; text: string },
+  otp: string
+): { subject: string; html: string; text: string } {
+  const code = otp.trim();
+  if (!code) return rendered;
+  return {
+    ...rendered,
+    text: `${rendered.text}\n\nOr enter this code: ${code}`,
+    html: rendered.html.replace(
+      /<\/body>/i,
+      `<p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:#8A7A70;text-align:center;margin:24px 16px;">Or enter this code: <strong style="letter-spacing:0.12em;color:#712B13;">${code}</strong></p></body>`
+    ),
+  };
 }
 
-function renderEmail(opts: {
+async function renderBrandedEmail(opts: {
   action: EmailActionType;
   confirmUrl: string;
+  name: string;
   otp: string;
-}): { html: string; text: string } {
-  const headline = headlineFor(opts.action);
-  const body = bodyFor(opts.action);
-  const otp = opts.otp?.trim();
+  oldEmail?: string;
+  newEmail?: string;
+}): Promise<{ subject: string; html: string; text: string }> {
+  const { action, confirmUrl, name } = opts;
 
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(headline)}</title>
-</head>
-<body style="margin:0;padding:0;background:#0f1419;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e8eef4;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0f1419;padding:32px 16px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="100%" style="max-width:480px;background:#1a222c;border-radius:16px;padding:32px 28px;">
-          <tr>
-            <td>
-              <p style="margin:0 0 8px;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#8ba3b8;">Choremaxx</p>
-              <h1 style="margin:0 0 12px;font-size:24px;line-height:1.25;font-weight:650;color:#f4f7fa;">${escapeHtml(headline)}</h1>
-              <p style="margin:0 0 24px;font-size:16px;line-height:1.5;color:#c5d0da;">${escapeHtml(body)}</p>
-              <a href="${escapeHtml(opts.confirmUrl)}" style="display:inline-block;padding:14px 22px;background:#3d9bfd;color:#061018;text-decoration:none;border-radius:12px;font-size:16px;font-weight:600;">Continue</a>
-              ${
-                otp
-                  ? `<p style="margin:28px 0 0;font-size:14px;color:#8ba3b8;">Or enter this code:</p>
-              <p style="margin:8px 0 0;font-size:28px;letter-spacing:0.2em;font-weight:700;color:#f4f7fa;">${escapeHtml(otp)}</p>`
-                  : ''
-              }
-              <p style="margin:28px 0 0;font-size:12px;line-height:1.45;color:#6b7f90;">If the button doesn’t work, open this link:<br />
-                <span style="word-break:break-all;color:#9eb4c6;">${escapeHtml(opts.confirmUrl)}</span>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+  let subject: string;
+  let html: string;
+  let text: string;
 
-  const text = [
-    `Choremaxx — ${headline}`,
-    '',
-    body,
-    '',
-    `Continue: ${opts.confirmUrl}`,
-    otp ? `Code: ${otp}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n');
+  switch (action) {
+    case 'recovery': {
+      const props = { name, resetUrl: confirmUrl, expiresInMinutes: 60 };
+      subject = passwordResetSubject(props);
+      html = await renderToHtml(React.createElement(PasswordResetEmail, props));
+      text = passwordResetText(props);
+      break;
+    }
+    case 'magiclink':
+    case 'email': {
+      const props = { name, signInUrl: confirmUrl, expiresInMinutes: 15 };
+      subject = magicLinkSubject(props);
+      html = await renderToHtml(React.createElement(MagicLinkEmail, props));
+      text = magicLinkText(props);
+      break;
+    }
+    case 'email_change': {
+      const props = {
+        name,
+        oldEmail: opts.oldEmail?.trim() || 'previous address',
+        newEmail: opts.newEmail?.trim() || name,
+        confirmUrl,
+      };
+      subject = emailChangedSubject(props);
+      html = await renderToHtml(React.createElement(EmailChangedEmail, props));
+      text = emailChangedText(props);
+      break;
+    }
+    case 'signup':
+    case 'invite':
+    default: {
+      const props = { name, confirmUrl, expiresInHours: 24 };
+      subject = verificationSubject();
+      html = await renderToHtml(React.createElement(VerificationEmail, props));
+      text = verificationText(props);
+      break;
+    }
+  }
 
-  return { html, text };
+  return appendOtp({ subject, html, text }, opts.otp);
 }
 
 Deno.serve(async (req) => {
@@ -219,12 +205,16 @@ Deno.serve(async (req) => {
       supabaseUrl,
       email_data.token_hash,
       action,
-      email_data.redirect_to || ''
+      email_data.redirect_to || 'choremaxx://auth/callback'
     );
-    const { html, text } = renderEmail({
+    const name = displayName(to, user.user_metadata);
+    const { subject, html, text } = await renderBrandedEmail({
       action,
       confirmUrl,
+      name,
       otp: email_data.token || '',
+      oldEmail: to,
+      newEmail: typeof user.email_new === 'string' ? user.email_new : to,
     });
 
     const res = await fetch('https://api.resend.com/emails', {
@@ -236,7 +226,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: FROM,
         to: [to],
-        subject: subjectFor(action),
+        subject,
         html,
         text,
       }),

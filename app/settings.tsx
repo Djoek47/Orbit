@@ -1135,6 +1135,12 @@ export default function SettingsScreen() {
                 ['xpFairness', 'Fairness notes', 'In-app balance tips', '⚖️'],
                 ['nearShop', 'Near shop', 'Local reminder near a store', '📍'],
                 ['missingOnTheWay', 'Missing on the way', 'Local reminder during a run', '🧾'],
+                [
+                  'quietHoursEnabled',
+                  'Quiet hours',
+                  'Hold non-urgent banners 21:00–07:00 (deadlines still fire)',
+                  '🌙',
+                ],
               ] as const
             ).map(([key, label, sub, emoji]) => (
               <View
@@ -1152,7 +1158,11 @@ export default function SettingsScreen() {
                   <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>{sub}</Text>
                 </View>
                 <Switch
-                  value={Boolean(prefs[key])}
+                  value={
+                    key === 'quietHoursEnabled'
+                      ? prefs.quietHoursEnabled !== false
+                      : Boolean(prefs[key])
+                  }
                   onValueChange={(value) => updateNotificationPrefs({ [key]: value })}
                   trackColor={{ false: glassBorder(0.1), true: '#38BDF8' }}
                   thumbColor="#fff"

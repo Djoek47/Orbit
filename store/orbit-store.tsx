@@ -30,6 +30,7 @@ import {
   REWARD_REVIEW_ROLES,
 } from '@/lib/notifications/audience';
 import { registerForPushNotifications, presentLocalBanner, syncAppBadge, scheduleLocalReminder } from '@/lib/notifications/push';
+import { isQuietHour } from '@/lib/poppins/notification-batch';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
 import { getV2Permissions } from '@/lib/permissions-v2';
 import { persistHouseholdScore } from '@/lib/momentum/score-writer';
@@ -1995,12 +1996,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       userId: targetUserId,
     });
     setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
-    // Always surface an OS banner when permission allows — inbox-only is not enough (Rev E / iOS).
-    void presentLocalBanner(item.title, item.body, {
-      ...(item.data ?? {}),
-      notificationId: item.id,
-      category: item.category,
-    }).catch(() => undefined);
+
+    // A5 — quiet hours 21:00–07:00: keep inbox write, defer non-urgent OS banners.
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    const kind = typeof input.data?.kind === 'string' ? input.data.kind : '';
+    const urgent = kind === 'deadline_reminder' || input.priority === 'high';
+    const quietEnabled = prefs.quietHoursEnabled !== false;
+    const deferBanner = quietEnabled && isQuietHour(new Date().getHours()) && !urgent;
+
+    if (!deferBanner) {
+      // Always surface an OS banner when permission allows — inbox-only is not enough (Rev E / iOS).
+      void presentLocalBanner(item.title, item.body, {
+        ...(item.data ?? {}),
+        notificationId: item.id,
+        category: item.category,
+      }).catch(() => undefined);
+    }
     return item;
   };
 

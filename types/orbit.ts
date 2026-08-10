@@ -559,6 +559,11 @@ export type PoppinsNotificationPrefs = {
   nearShop?: boolean;
   /** Nudge missing items before / during a grocery run. */
   missingOnTheWay?: boolean;
+  /**
+   * Quiet hours 21:00–07:00 (weekend A5). When true, non-urgent OS banners
+   * are deferred; deadline reminders still fire.
+   */
+  quietHoursEnabled?: boolean;
 };
 
 /** Activity feed entry from Poppins Monitor Agent. */

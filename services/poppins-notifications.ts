@@ -17,6 +17,7 @@ export const DEFAULT_POPPINS_NOTIFICATION_PREFS: PoppinsNotificationPrefs = {
   xpFairness: true,
   nearShop: true,
   missingOnTheWay: true,
+  quietHoursEnabled: true,
 };
 
 type PushFn = (input: {
