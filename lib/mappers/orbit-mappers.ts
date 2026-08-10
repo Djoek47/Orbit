@@ -71,6 +71,8 @@ const taskStatusMap = {
   completed: 'Completed',
   overdue: 'Overdue',
   cancelled: 'Cancelled',
+  expired: 'Expired',
+  missed: 'Expired',
 } as const;
 
 const taskRepeatMap = {
@@ -108,6 +110,7 @@ export function mapTaskRow(row: {
   proof_rounds?: HouseholdTask['proofRounds'] | null;
   verified_by?: string | null;
   verified_at?: string | null;
+  expired_at?: string | null;
 }): HouseholdTask {
   const proofStatus =
     row.proof_status === 'none' ||
@@ -145,6 +148,7 @@ export function mapTaskRow(row: {
     proofRounds: Array.isArray(row.proof_rounds) ? row.proof_rounds : undefined,
     verifiedBy: row.verified_by ?? undefined,
     verifiedAt: row.verified_at ?? undefined,
+    expiredAt: row.expired_at ?? undefined,
   };
 }
 
@@ -159,8 +163,9 @@ export function taskStatusToDb(status: HouseholdTask['status']) {
     Completed: 'completed',
     Overdue: 'overdue',
     Cancelled: 'cancelled',
-    // DB enum not yet extended — persist missed as overdue until migration.
-    Missed: 'overdue',
+    Expired: 'expired',
+    // Legacy alias — prefer Expired going forward (Rev F).
+    Missed: 'expired',
   } as const;
   return map[status];
 }

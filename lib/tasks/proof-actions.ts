@@ -90,7 +90,7 @@ export function markTaskNotDone(task: HouseholdTask, now = new Date()): ProofAct
   if (task.dueAt) {
     const due = new Date(task.dueAt);
     if (due.getTime() < now.getTime()) {
-      nextStatus = isLateWindow(task.dueAt, now) ? 'Overdue' : 'Missed';
+      nextStatus = isLateWindow(task.dueAt, now) ? 'Overdue' : 'Expired';
     }
   }
 

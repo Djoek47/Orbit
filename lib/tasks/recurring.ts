@@ -1,5 +1,5 @@
 /**
- * Time-based occurrence generation (§5.2).
+ * Time-based occurrence generation (§5.2 / Rev F §1).
  * Completion never spawns — only midnight / foreground catch-up does.
  */
 
@@ -10,7 +10,7 @@ import { formatLocalDate } from '@/lib/streaks/local-date';
 
 /** @deprecated Prefer ensureOccurrencesForDay — kept for cancel-this cleanup only. */
 export function spawnNextOccurrence(task: HouseholdTask): HouseholdTask | null {
-  // v2 §5.2: completion/cancel must not spawn. Return null always.
+  // v2 §5.2 / Rev F §1.2.c: completion/cancel must not spawn. Return null always.
   void task;
   return null;
 }
@@ -43,6 +43,10 @@ function shouldGenerateOnDate(task: HouseholdTask, date: Date): boolean {
 /** Template rows = completed/cancelled with a repeat rule, keyed by series. */
 export function seriesDefinitionId(task: HouseholdTask): string {
   return task.definitionId || `series:${task.title}:${task.assignee}:${task.repeat}`;
+}
+
+export function isExpiredStatus(status: HouseholdTask['status']): boolean {
+  return status === 'Expired' || status === 'Missed';
 }
 
 /**
@@ -106,6 +110,7 @@ export function ensureOccurrencesForDay(
       awardedXp: undefined,
       completedLate: false,
       latenessMinutes: undefined,
+      expiredAt: undefined,
       verification: template.proofRequired ? 'not_required' : 'not_required',
       proofUri: undefined,
       proofStatus: template.proofRequired ? 'none' : undefined,
@@ -119,7 +124,7 @@ export function ensureOccurrencesForDay(
 }
 
 /**
- * At day rollover: pending/late from previous day → Missed.
+ * At day rollover: pending/late from previous day → Expired (Rev F §5).
  * Never touches completed (including unreviewed).
  */
 export function rolloverMissedOccurrences(
@@ -127,8 +132,13 @@ export function rolloverMissedOccurrences(
   previousDateKey: string,
   now = new Date()
 ): HouseholdTask[] {
+  const expiredAt = now.toISOString();
   return tasks.map((task) => {
-    if (task.status === 'Completed' || task.status === 'Cancelled' || task.status === 'Missed') {
+    if (
+      task.status === 'Completed' ||
+      task.status === 'Cancelled' ||
+      isExpiredStatus(task.status)
+    ) {
       return task;
     }
     if (task.occurrenceDate && task.occurrenceDate !== previousDateKey) {
@@ -144,6 +154,9 @@ export function rolloverMissedOccurrences(
     if (!belongsToPrevious) return task;
     if (due && due.getTime() > now.getTime()) return task;
 
-    return { ...task, status: 'Missed' as const };
+    return { ...task, status: 'Expired' as const, expiredAt: task.expiredAt ?? expiredAt };
   });
 }
+
+/** Alias matching Rev F vocabulary. */
+export const rolloverExpiredOccurrences = rolloverMissedOccurrences;

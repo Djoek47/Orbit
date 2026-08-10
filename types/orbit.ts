@@ -31,6 +31,11 @@ export type HouseholdMember = {
   loadShare: number;
   /** Personal accent look — follows the member when switching personas. */
   accentThemeId?: string;
+  /**
+   * Revision C §1 — homework photo required up front for this child.
+   * Default true on creation. Chores never pre-set proofRequired.
+   */
+  homeworkProofRequired?: boolean;
   /** ISO date YYYY-MM-DD — member away / on holiday (Poppins skips nudges). */
   awayFrom?: string;
   awayTo?: string;
@@ -129,8 +134,21 @@ export type HouseholdTask = {
   /** Local calendar day key YYYY-MM-DD for occurrence uniqueness. */
   occurrenceDate?: string;
   repeat: 'None' | 'Daily' | 'Weekly' | 'Weekdays';
-  status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue' | 'Cancelled' | 'Missed';
+  /**
+   * `Expired` = passed 23:59 uncompleted (Rev D/F). `Missed` kept as legacy alias
+   * for older rows; treat identically to Expired in UI and filters.
+   */
+  status:
+    | 'Pending'
+    | 'In Progress'
+    | 'Completed'
+    | 'Overdue'
+    | 'Cancelled'
+    | 'Expired'
+    | 'Missed';
   dueAt?: string;
+  /** Set by midnight rollover when status becomes Expired (Rev F §5.2). */
+  expiredAt?: string;
   /** ISO timestamp when the task was completed (household-local day checks). */
   completedAt?: string;
   /** Optional room for cleaning attribution. */

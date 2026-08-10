@@ -1,6 +1,10 @@
 import { mockHousehold } from '@/data/mock-household';
 import { mapTaskRow, taskRepeatToDb, taskStatusToDb } from '@/lib/mappers/orbit-mappers';
 import {
+  assertUniqueOccurrenceInsert,
+  dedupeOccurrences,
+} from '@/lib/tasks/occurrence-dedupe';
+import {
   buildShares,
   formatAssigneeLabel,
   getTaskAssignees,
@@ -161,6 +165,7 @@ export const taskRepository = {
     };
 
     if (isMockMode()) {
+      assertUniqueOccurrenceInsert(mockTasksState, task);
       mockTasksState = [task, ...mockTasksState];
       return task;
     }
@@ -347,6 +352,67 @@ export const taskRepository = {
       .eq('id', input.memberId)
       .eq('household_id', input.householdId);
     mapDbError('taskRepository.updateMemberStreak', error);
+  },
+
+  /**
+   * Rev F §1.2.b — occurrence insert as upsert on conflict do nothing.
+   * Returns the existing row when (definitionId, occurrenceDate) already exists.
+   */
+  async upsertOccurrence(
+    householdId: string | null | undefined,
+    input: CreateTaskInput
+  ): Promise<{ task: HouseholdTask; inserted: boolean }> {
+    if (!input.definitionId || !input.occurrenceDate) {
+      const task = await taskRepository.createTask(householdId, input);
+      return { task, inserted: true };
+    }
+
+    if (isMockMode()) {
+      const existing = mockTasksState.find(
+        (t) =>
+          t.definitionId === input.definitionId && t.occurrenceDate === input.occurrenceDate
+      );
+      if (existing) {
+        return { task: existing, inserted: false };
+      }
+      try {
+        const task = await taskRepository.createTask(householdId, input);
+        return { task, inserted: true };
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith('UNIQUE_VIOLATION')) {
+          const again = mockTasksState.find(
+            (t) =>
+              t.definitionId === input.definitionId && t.occurrenceDate === input.occurrenceDate
+          );
+          if (again) return { task: again, inserted: false };
+        }
+        throw error;
+      }
+    }
+
+    // Supabase: try insert; unique index rejects duplicates.
+    try {
+      const task = await taskRepository.createTask(householdId, input);
+      return { task, inserted: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/duplicate|unique|23505/i.test(message) && householdId) {
+        const all = await taskRepository.getTasks(householdId);
+        const existing = all.find(
+          (t) =>
+            t.definitionId === input.definitionId && t.occurrenceDate === input.occurrenceDate
+        );
+        if (existing) return { task: existing, inserted: false };
+      }
+      throw error;
+    }
+  },
+
+  /** Rev F §1.2.d — apply in-memory dedupe (mock / catch-up). */
+  applyOccurrenceDedupe(): { deletedCount: number; xpReconciled: number } {
+    const report = dedupeOccurrences(mockTasksState);
+    mockTasksState = report.kept;
+    return { deletedCount: report.deletedCount, xpReconciled: report.xpReconciled };
   },
 };
 

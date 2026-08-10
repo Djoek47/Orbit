@@ -42,8 +42,10 @@ import {
 } from '@/lib/rewards/reward-model';
 import { normalizeRewardSettings } from '@/lib/rewards/reward-mode';
 import { formatLocalDate } from '@/lib/streaks/local-date';
+import { dedupeOccurrences } from '@/lib/tasks/occurrence-dedupe';
 import {
   ensureOccurrencesForDay,
+  isExpiredStatus,
   rolloverMissedOccurrences,
   seriesDefinitionId,
 } from '@/lib/tasks/recurring';
@@ -1254,7 +1256,30 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const completeTask = async (taskId: string, options?: { forAssignee?: string }) => {
     const currentTask = household.tasks.find((item) => item.id === taskId);
 
-    if (!currentTask || currentTask.status === 'Completed' || currentTask.status === 'Cancelled') {
+    if (
+      !currentTask ||
+      currentTask.status === 'Completed' ||
+      currentTask.status === 'Cancelled' ||
+      isExpiredStatus(currentTask.status)
+    ) {
+      return null;
+    }
+
+    // Rev F §12.1 — only the assignee may complete. Admins cannot tick for others.
+    const actorName = options?.forAssignee?.trim() || currentMember?.name;
+    if (!actorName || !taskMatchesAssignee(currentTask, actorName)) {
+      console.warn('completeTask blocked: actor is not the assignee', {
+        actorName,
+        assignee: currentTask.assignee,
+      });
+      return null;
+    }
+    // Shared-device / admin viewing someone else: still require the actor be on the task.
+    if (
+      currentMember &&
+      !taskMatchesAssignee(currentTask, currentMember.name) &&
+      !options?.forAssignee
+    ) {
       return null;
     }
 
