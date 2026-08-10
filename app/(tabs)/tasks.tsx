@@ -30,6 +30,14 @@ import {
 } from '@/lib/household/shared-device';
 import { isSplitTask, taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { isDueToday } from '@/lib/tasks/today';
+import {
+  groupExpiredByDay,
+  isActiveTask,
+  isCompletedTask,
+  isExpiredTask,
+  isExpiredVisibleInTab,
+} from '@/lib/tasks/expired-tab';
+import { isExpiredStatus } from '@/lib/tasks/recurring';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -53,6 +61,7 @@ const PRIORITY_COLORS = {
 } as const;
 
 type TaskDomainTab = 'chores' | 'homework';
+type TaskStatusTab = 'active' | 'completed' | 'expired';
 
 const FILTER_TABS: { id: TaskFilter; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -156,6 +165,7 @@ function TaskItem({
   hygieneXpWhenRewarded,
   rewardSettings,
   xpEnabled,
+  interactive = true,
   onToggle,
   onDelete,
 }: {
@@ -167,6 +177,7 @@ function TaskItem({
   hygieneXpWhenRewarded?: number;
   rewardSettings: HouseholdRewardSettings;
   xpEnabled: boolean;
+  interactive?: boolean;
   onToggle: () => void;
   onDelete: () => void;
 }) {
@@ -194,16 +205,9 @@ function TaskItem({
     borderColor: glassBorder(0.12),
   } as const;
 
-  return (
-    <ContextMenu
-      actions={[
-        { key: 'open', label: 'Open task', icon: 'chevron-right', onPress: () => router.push(`/task/${task.id}` as never) },
-        ...(!done ? [{ key: 'complete', label: 'Mark complete', icon: 'check' as const, onPress: onToggle }] : []),
-        ...(canDelete
-          ? [{ key: 'delete', label: 'Delete', icon: 'delete-outline' as const, destructive: true, onPress: onDelete }]
-          : []),
-      ]}>
+  const row = (
       <View style={[styles.taskItem, done && styles.taskItemDone, done && { backgroundColor: glass(0.03) }]}>
+        {interactive ? (
         <Pressable
           onPress={onToggle}
           style={[
@@ -215,8 +219,14 @@ function TaskItem({
           ]}>
           {done ? <MaterialIcons name="check" size={12} color={c.ink} /> : null}
         </Pressable>
+        ) : (
+          <View style={[styles.checkbox, { borderColor: `${c.warning}66`, opacity: 0.5 }]} />
+        )}
 
-        <Pressable style={styles.taskBody} onPress={() => router.push(`/task/${task.id}` as never)}>
+        <Pressable
+          style={styles.taskBody}
+          disabled={!interactive}
+          onPress={interactive ? () => router.push(`/task/${task.id}` as never) : undefined}>
         <View style={styles.titleRow}>
           {isHomework(task) && sub ? (
             <View style={[styles.subjectPill, { backgroundColor: `${sub.color}18` }]}>
@@ -255,13 +265,13 @@ function TaskItem({
               </Text>
             </View>
           ) : null}
-          {task.status === 'Missed' ? (
+          {isExpiredStatus(task.status) ? (
             <View
               style={[
                 styles.metaPill,
-                { backgroundColor: `${c.danger}22`, borderColor: `${c.danger}40` },
+                { backgroundColor: `${c.warning}22`, borderColor: `${c.warning}40` },
               ]}>
-              <Text style={[styles.metaPillText, { color: c.danger }]}>{VOCAB.expired}</Text>
+              <Text style={[styles.metaPillText, { color: c.warning }]}>{VOCAB.expired}</Text>
             </View>
           ) : null}
           {isSplitTask(task) ? (
@@ -324,6 +334,22 @@ function TaskItem({
           )
         ) : null}
       </View>
+  );
+
+  if (!interactive) {
+    return row;
+  }
+
+  return (
+    <ContextMenu
+      actions={[
+        { key: 'open', label: 'Open task', icon: 'chevron-right', onPress: () => router.push(`/task/${task.id}` as never) },
+        ...(!done ? [{ key: 'complete', label: 'Mark complete', icon: 'check' as const, onPress: onToggle }] : []),
+        ...(canDelete
+          ? [{ key: 'delete', label: 'Delete', icon: 'delete-outline' as const, destructive: true, onPress: onDelete }]
+          : []),
+      ]}>
+      {row}
     </ContextMenu>
   );
 }
@@ -358,6 +384,7 @@ function TaskSection({
   hygieneXpWhenRewarded,
   rewardSettings,
   xpEnabled,
+  interactive = true,
   onToggle,
   onDelete,
 }: {
@@ -377,6 +404,7 @@ function TaskSection({
   hygieneXpWhenRewarded?: number;
   rewardSettings: HouseholdRewardSettings;
   xpEnabled: boolean;
+  interactive?: boolean;
   onToggle: (taskId: string) => void;
   onDelete: (taskId: string) => void;
 }) {
@@ -434,6 +462,7 @@ function TaskSection({
               hygieneXpWhenRewarded={hygieneXpWhenRewarded}
               rewardSettings={rewardSettings}
               xpEnabled={xpEnabled}
+              interactive={interactive}
               onToggle={() => onToggle(task.id)}
               onDelete={() => onDelete(task.id)}
             />
@@ -461,6 +490,7 @@ export default function TasksScreen() {
     v2Permissions,
   } = useOrbit();
   const [domainTab, setDomainTab] = useState<TaskDomainTab>('chores');
+  const [statusTab, setStatusTab] = useState<TaskStatusTab>('active');
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [focusMember, setFocusMember] = useState<string | null>(null);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
@@ -505,8 +535,12 @@ export default function TasksScreen() {
 
   const filtered = useMemo(() => {
     return household.tasks.filter((task) => {
+      if (task.status === 'Cancelled') return false;
       const homework = isHomework(task);
       if (domainTab === 'homework' ? !homework : homework) return false;
+      if (statusTab === 'active' && !isActiveTask(task)) return false;
+      if (statusTab === 'completed' && !isCompletedTask(task)) return false;
+      if (statusTab === 'expired' && !isExpiredVisibleInTab(task)) return false;
       // Shared-tablet accounts only ever see their own tasks (switch account to see the other person).
       if (sharedKidMode) {
         if (!taskMatchesAssignee(task, currentMember?.name)) return false;
@@ -529,16 +563,23 @@ export default function TasksScreen() {
     household.tasks,
     search,
     sharedKidMode,
-    sharedKidMode,
+    statusTab,
   ]);
 
   const grouped = useMemo(
     () => ({
-      today: filtered.filter(isDueToday),
-      upcoming: filtered.filter(isUpcoming),
-      done: filtered.filter((task) => task.status === 'Completed'),
+      today: filtered.filter((task) => isActiveTask(task) && isDueToday(task)),
+      upcoming: filtered.filter((task) => isActiveTask(task) && isUpcoming(task)),
+      done: filtered.filter(isCompletedTask),
+      expired: filtered.filter(isExpiredTask),
     }),
     [filtered]
+  );
+
+  const expiredGroups = useMemo(() => groupExpiredByDay(grouped.expired), [grouped.expired]);
+  const expiredCount = useMemo(
+    () => household.tasks.filter((t) => isExpiredVisibleInTab(t)).length,
+    [household.tasks]
   );
 
   /** Admins see All broken down by person (completion visible per member). */
@@ -602,15 +643,23 @@ export default function TasksScreen() {
   }, 0);
   const empty = showByMember
     ? (memberSections?.every((section) => section.total === 0) ?? true)
-    : grouped.today.length + grouped.upcoming.length + grouped.done.length === 0;
+    : statusTab === 'expired'
+      ? expiredGroups.length === 0
+      : statusTab === 'completed'
+        ? grouped.done.length === 0
+        : grouped.today.length + grouped.upcoming.length === 0;
   const handleToggle = async (taskId: string) => {
     const task = household.tasks.find((item) => item.id === taskId);
     if (
       !task ||
       task.status === 'Completed' ||
       task.status === 'Cancelled' ||
-      task.status === 'Missed'
+      isExpiredStatus(task.status)
     ) {
+      return;
+    }
+    // Rev F §12.1 — only assignee completes
+    if (!currentMember || !taskMatchesAssignee(task, currentMember.name)) {
       return;
     }
 
@@ -689,8 +738,8 @@ export default function TasksScreen() {
           <Pressable
             onPress={() =>
               router.push({
-                pathname: '/create-task',
-                params: { tab: domainTab },
+                pathname: '/assign-task',
+                params: focusMember ? { member: focusMember } : {},
               } as never)
             }
             style={styles.addButtonWrap}>
@@ -714,6 +763,21 @@ export default function TasksScreen() {
         onChange={(next) => {
           clearFocusMember();
           setDomainTab(next);
+        }}
+      />
+
+      <SegmentedControl
+        options={[
+          { value: 'active', label: 'Active' },
+          { value: 'completed', label: 'Completed' },
+          {
+            value: 'expired',
+            label: expiredCount > 0 ? `Expired · ${expiredCount}` : 'Expired',
+          },
+        ]}
+        value={statusTab}
+        onChange={(next) => {
+          setStatusTab(next);
         }}
       />
 
@@ -770,7 +834,13 @@ export default function TasksScreen() {
         <View>
           <EmptyState
             tone="allClear"
-            title={sharedKidMode ? 'No tasks for you right now' : 'Nothing in this view'}
+            title={
+              statusTab === 'expired'
+                ? 'Nothing expired this week.'
+                : sharedKidMode
+                  ? 'No tasks for you right now'
+                  : 'Nothing in this view'
+            }
             caption={
               sharedKidMode
                 ? 'Ask an adult to assign you something — or switch account if it’s someone else’s turn.'
@@ -791,7 +861,30 @@ export default function TasksScreen() {
         </View>
       ) : null}
 
-      {memberSections ? (
+      {statusTab === 'expired' ? (
+        expiredGroups.length === 0 ? null : (
+          expiredGroups.map((group) => (
+            <TaskSection
+              key={group.dayKey}
+              title={group.label}
+              dotColor={orbitColors.warning}
+              countLabel={`${group.tasks.length} items`}
+              tasks={group.tasks}
+              members={household.members}
+              accentPrimary={accentTheme.primary}
+              muted
+              interactive={false}
+              justCompletedId={null}
+              canDelete={false}
+              hygieneXpWhenRewarded={hygieneXpWhenRewarded}
+              rewardSettings={rewardSettings}
+              xpEnabled={rewardCapabilities.xpEnabled}
+              onToggle={() => undefined}
+              onDelete={() => undefined}
+            />
+          ))
+        )
+      ) : memberSections && statusTab === 'active' ? (
         memberSections.map((section) => (
           <TaskSection
             key={section.member.id}
@@ -816,6 +909,27 @@ export default function TasksScreen() {
             onDelete={handleDelete}
           />
         ))
+      ) : statusTab === 'completed' ? (
+        <TaskSection
+          title="Completed"
+          dotColor={orbitColors.success}
+          countLabel={
+            rewardCapabilities.xpEnabled
+              ? `+${grouped.done.reduce((sum, task) => sum + (task.awardedXp ?? resolveTaskXpFromHouseholdTask(task, rewardSettings)), 0)} XP earned`
+              : `${grouped.done.length} done`
+          }
+          tasks={grouped.done}
+          members={household.members}
+          accentPrimary={accentTheme.primary}
+          muted
+          justCompletedId={justCompletedId}
+          canDelete={permissions.canCreateTask}
+          hygieneXpWhenRewarded={hygieneXpWhenRewarded}
+          rewardSettings={rewardSettings}
+          xpEnabled={rewardCapabilities.xpEnabled}
+          onToggle={handleToggle}
+          onDelete={handleDelete}
+        />
       ) : (
         <>
           <TaskSection
@@ -842,27 +956,6 @@ export default function TasksScreen() {
             tasks={grouped.upcoming}
             members={household.members}
             accentPrimary={accentTheme.primary}
-            justCompletedId={justCompletedId}
-            canDelete={permissions.canCreateTask}
-            hygieneXpWhenRewarded={hygieneXpWhenRewarded}
-            rewardSettings={rewardSettings}
-            xpEnabled={rewardCapabilities.xpEnabled}
-            onToggle={handleToggle}
-            onDelete={handleDelete}
-          />
-
-          <TaskSection
-            title="Completed"
-            dotColor={orbitColors.success}
-            countLabel={
-              rewardCapabilities.xpEnabled
-                ? `+${grouped.done.reduce((sum, task) => sum + (task.awardedXp ?? resolveTaskXpFromHouseholdTask(task, rewardSettings)), 0)} XP earned`
-                : `${grouped.done.length} done`
-            }
-            tasks={grouped.done}
-            members={household.members}
-            accentPrimary={accentTheme.primary}
-            muted
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}

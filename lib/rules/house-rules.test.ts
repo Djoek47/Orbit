@@ -42,9 +42,9 @@ __resetHouseRulesCache();
 const doc = getHouseRulesDoc();
 
 {
-  assert.equal(doc.rules.length, 29, '29 rules');
+  assert.equal(doc.rules.length, 33, '33 rules');
   assert.equal(doc.chapters.length, 7, '7 chapters');
-  pass('HR1', 'JSON decodes; 29 rules, 7 chapters');
+  pass('HR1', 'JSON decodes; 33 rules, 7 chapters');
 }
 
 {

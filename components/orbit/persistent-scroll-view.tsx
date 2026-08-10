@@ -29,6 +29,7 @@ export function PersistentScrollView({
   const maxTravel = Math.max(1, viewport - thumbH);
   const travel = show ? Math.min(maxTravel, (offset / Math.max(1, content - viewport)) * maxTravel) : 0;
   const color = indicatorColor ?? c.accent;
+  const thumbColor = `${color}66`; // theme accent at ~40% opacity (Rev F §2.1)
 
   return (
     <View style={[styles.wrap, style]} onLayout={(e) => setViewport(e.nativeEvent.layout.height)}>
@@ -54,7 +55,7 @@ export function PersistentScrollView({
               {
                 height: thumbH,
                 transform: [{ translateY: travel }],
-                backgroundColor: color,
+                backgroundColor: thumbColor,
               },
             ]}
           />

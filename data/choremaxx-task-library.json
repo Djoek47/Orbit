@@ -257,7 +257,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Kitchen"
     },
     {
       "id": "trash_recycling",
@@ -394,7 +395,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Trash"
     },
     {
       "id": "bathroom",
@@ -550,7 +552,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Bathroom"
     },
     {
       "id": "laundry",
@@ -725,7 +728,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Laundry"
     },
     {
       "id": "bedroom",
@@ -847,7 +851,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Bedroom"
     },
     {
       "id": "living_shared",
@@ -1052,7 +1057,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Shared Spaces"
     },
     {
       "id": "floors_deep_cleaning",
@@ -1173,7 +1179,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Floors"
     },
     {
       "id": "pets",
@@ -1348,7 +1355,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Pets"
     },
     {
       "id": "car",
@@ -1470,7 +1478,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Car"
     },
     {
       "id": "yard_outdoors",
@@ -1651,7 +1660,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Outdoors"
     },
     {
       "id": "personal_hygiene",
@@ -1968,7 +1978,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Hygiene"
     },
     {
       "id": "daily_routine",
@@ -2089,7 +2100,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Routine"
     },
     {
       "id": "homework_education",
@@ -2280,7 +2292,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Homework"
     },
     {
       "id": "meals_groceries",
@@ -2457,7 +2470,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Groceries"
     },
     {
       "id": "home_maintenance",
@@ -2634,7 +2648,8 @@
             }
           ]
         }
-      ]
+      ],
+      "shortName": "Maintenance"
     }
   ]
 }

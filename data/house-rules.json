@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0.0",
-  "contentVersion": "2026-08-05",
+  "contentVersion": "2026-08-10",
   "_readme": "SINGLE SOURCE OF TRUTH. Every string shown on the House Rules screen comes from this file. Views must contain zero literal rule text. If a string is not in this file, it does not appear in the app.",
   "constants": {
     "_readme": "These values are read by BOTH the scoring engine and the House Rules screen. Never duplicate them anywhere else.",
@@ -164,7 +164,7 @@
     }
   },
   "visuals": {
-    "_readme": "Closed enum, used by Direction 02 (At a glance). 'none' renders the quiet outlined card. Data for each visual comes from constants above \u2014 never hardcode the numbers into the component.",
+    "_readme": "Closed enum, used by Direction 02 (At a glance). 'none' renders the quiet outlined card. Data for each visual comes from constants above — never hardcode the numbers into the component.",
     "none": "Quiet outlined card, text only.",
     "xpRamp": "Six ascending bars labelled from constants.xpValues.",
     "dayTimeline": "Single rail, three markers at 7:00 PM / late window / 11:59 PM.",
@@ -268,7 +268,7 @@
       "kid": {
         "headline": "Finish a whole set, get a bonus",
         "question": "What's a bundle bonus?",
-        "body": "All the jobs in one group, done on time \u2014 that's 10 extra. If one was late, it's 7."
+        "body": "All the jobs in one group, done on time — that's 10 extra. If one was late, it's 7."
       }
     },
     {
@@ -282,7 +282,7 @@
       "adult": {
         "headline": "XP lands on Complete",
         "question": "When does XP actually land?",
-        "clause": "XP lands the moment a kid taps Complete \u2014 not on approval. You're notified and can verify afterward."
+        "clause": "XP lands the moment a kid taps Complete — not on approval. You're notified and can verify afterward."
       },
       "kid": {
         "headline": "Points show up right away",
@@ -306,7 +306,7 @@
       "kid": {
         "headline": "Hygiene jobs are different",
         "question": "Why did brushing my teeth give me nothing?",
-        "body": "Hygiene jobs don't pay points on purpose. They build your streak instead \u2014 and the streak is the hard one to get."
+        "body": "Hygiene jobs don't pay points on purpose. They build your streak instead — and the streak is the hard one to get."
       }
     },
     {
@@ -377,7 +377,7 @@
       "editable": false,
       "adult": {
         "headline": "Late Credit",
-        "question": "They finished at 8 PM \u2014 what did they lose?",
+        "question": "They finished at 8 PM — what did they lose?",
         "clause": "Late Credit is applied the instant Complete is tapped, and never recomputed. A late task still keeps the streak and carries a late indicator."
       },
       "kid": {
@@ -493,7 +493,7 @@
       "adult": {
         "headline": "Pause without losing ground",
         "question": "What happens when we travel?",
-        "clause": "Recess switches tasks off and freezes streaks at their current value \u2014 leave on 12 days, return on 12 days."
+        "clause": "Recess switches tasks off and freezes streaks at their current value — leave on 12 days, return on 12 days."
       },
       "kid": {
         "headline": "Recess pauses everything",
@@ -550,7 +550,7 @@
       "adult": {
         "headline": "Ties share a rank",
         "question": "What if two kids tie?",
-        "clause": "Ties produce duplicate ranks \u2014 two firsts, then two seconds."
+        "clause": "Ties produce duplicate ranks — two firsts, then two seconds."
       },
       "kid": {
         "headline": "A tie means you both win",
@@ -632,7 +632,7 @@
       "kid": {
         "headline": "How your prizes work",
         "question": "What do I get for finishing?",
-        "body": "Your family picks how prizes work \u2014 points, allowance, real rewards, or all of it together."
+        "body": "Your family picks how prizes work — points, allowance, real rewards, or all of it together."
       }
     },
     {
@@ -687,7 +687,7 @@
       "adult": {
         "headline": "Recorded, not transferred",
         "question": "Does ChoreMaxx send the money?",
-        "clause": "Allowance is recorded in ChoreMaxx, not transferred \u2014 no money moves through the app. Approvals follow the household schedule, and Approve now always works."
+        "clause": "Allowance is recorded in ChoreMaxx, not transferred — no money moves through the app. Approvals follow the household schedule, and Approve now always works."
       },
       "kid": {
         "headline": "Allowance is counted here",
@@ -726,7 +726,7 @@
       "adult": {
         "headline": "Verify without gating",
         "question": "Can I check they actually did it?",
-        "clause": "On chores, admins can request proof on a completed task. It's optional and per task \u2014 it verifies the work, it doesn't gate the reward."
+        "clause": "On chores, admins can request proof on a completed task. It's optional and per task — it verifies the work, it doesn't gate the reward."
       },
       "kid": {
         "headline": "A parent might ask for a photo",
@@ -765,7 +765,7 @@
       "adult": {
         "headline": "Admins and Helpers",
         "question": "What can a Helper do?",
-        "clause": "Two roles: Admin and Helper. Helpers complete their own tasks and see their own record \u2014 everything in the admin list stays with admins."
+        "clause": "Two roles: Admin and Helper. Helpers complete their own tasks and see their own record — everything in the admin list stays with admins."
       },
       "kid": {
         "headline": "You're a Helper",
@@ -790,6 +790,82 @@
         "headline": "Rules can change",
         "question": "Can rules change?",
         "body": "If a parent changes something, this page updates too. Check back if the house feels different."
+      }
+    },
+    {
+      "id": "R30",
+      "chapter": "rewards",
+      "order": 6,
+      "condition": "REWARDS_ON",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Hold & Request",
+        "question": "When can a Helper ask for a reward?",
+        "clause": "A Helper can ask for a reward once their tasks and homework for the day are done. Rewards set to grant instantly are given straight away — the rest come to you to approve."
+      },
+      "kid": {
+        "headline": "Ask when you're done",
+        "question": "When can I ask for a reward?",
+        "body": "Finish today's tasks and homework, then you can ask for a reward."
+      }
+    },
+    {
+      "id": "R31",
+      "chapter": "rewards",
+      "order": 7,
+      "condition": "ALLOWANCE_ON",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Allowance is all-or-nothing",
+        "question": "How is allowance earned?",
+        "clause": "Allowance is earned by finishing every task in the period — daily, weekly or monthly. A progress bar shows how close they are. Nothing partial is paid."
+      },
+      "kid": {
+        "headline": "Finish the week for allowance",
+        "question": "How do I earn my allowance?",
+        "body": "Finish everything this week and your allowance is yours."
+      }
+    },
+    {
+      "id": "R32",
+      "chapter": "deadlines",
+      "order": 6,
+      "condition": "ALWAYS",
+      "phase": "expired",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Expired tasks have their own tab",
+        "question": "Where do expired tasks go?",
+        "clause": "Expired tasks move to their own tab and stay there for seven days, then clear from view."
+      },
+      "kid": {
+        "headline": "Missed jobs sit in Expired",
+        "question": "What happens if I miss a job?",
+        "body": "Missed tasks sit in the Expired tab for a week."
+      }
+    },
+    {
+      "id": "R33",
+      "chapter": "household",
+      "order": 3,
+      "condition": "ALWAYS",
+      "phase": "anytime",
+      "visual": "none",
+      "editable": false,
+      "adult": {
+        "headline": "Only the assignee completes",
+        "question": "Who can tick off a task?",
+        "clause": "Only the person a task belongs to can tick it off. You can unassign a task any time before it's done."
+      },
+      "kid": {
+        "headline": "Only you tick your jobs",
+        "question": "Can someone else finish my job?",
+        "body": "Only you can tick off your own tasks."
       }
     }
   ],

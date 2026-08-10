@@ -34,6 +34,7 @@ const statusTone: Record<HouseholdTask['status'], string> = {
   Completed: '#34D399',
   Overdue: '#F87171',
   Cancelled: '#94A3B8',
+  Expired: '#F59E0B',
   Missed: '#F59E0B',
 };
 
@@ -153,9 +154,16 @@ export default function TaskDetailScreen() {
   const showProofPreview = Boolean(
     myProofUri && (myProofStatus === 'submitted' || myProofStatus === 'approved')
   );
-  const canCompleteMine =
-    !split ||
-    (onThisSplit && myShare?.status === 'Pending');
+  const canCompleteMine = split
+    ? Boolean(onThisSplit && myShare?.status === 'Pending')
+    : Boolean(
+        currentMember &&
+          taskMatchesAssignee(task, currentMember.name) &&
+          task.status !== 'Completed' &&
+          task.status !== 'Cancelled' &&
+          task.status !== 'Expired' &&
+          task.status !== 'Missed'
+      );
 
   const handleAttachProof = async (forAssignee?: string) => {
     const uri = await promptPickProofPhoto();

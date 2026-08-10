@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/orbit/avatar';
+import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
+import type { MemberInvite } from '@/lib/household/member-invites';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
@@ -45,6 +47,7 @@ export default function HouseholdMembersScreen() {
     approveMember,
     createChildInvites,
     createSharedDevice,
+    currentMember,
     declineMember,
     household,
     permissions,
@@ -60,6 +63,8 @@ export default function HouseholdMembersScreen() {
   const [kidNameTwo, setKidNameTwo] = useState('');
   const [creatingKids, setCreatingKids] = useState(false);
   const [kidStatus, setKidStatus] = useState('');
+  const [memberInvites, setMemberInvites] = useState<MemberInvite[]>([]);
+  const [inviteMemberId, setInviteMemberId] = useState<string | null>(null);
 
   const pending = household.members.filter((member) => member.status === 'pending');
   const active = household.members.filter((member) => member.status !== 'pending');
@@ -180,6 +185,7 @@ export default function HouseholdMembersScreen() {
   };
 
   return (
+    <>
     <ScrollView
       style={orbitScreen.container}
       contentContainerStyle={orbitScreen.content}
@@ -198,9 +204,15 @@ export default function HouseholdMembersScreen() {
         <GlassCard style={styles.card}>
           <Text style={typography.headline}>Invite adult</Text>
           <Text style={typography.footnote}>
-            They create their own account with this invite and stay pending until you approve.
+            Pick who you&apos;re inviting. Each person gets their own QR and link.
           </Text>
-          <OrbitButton onPress={() => router.push('/invite-household' as never)}>
+          <OrbitButton
+            onPress={() => {
+              const first =
+                household.members.find((m) => m.status === 'active' && m.role !== 'owner') ??
+                household.members.find((m) => m.status === 'active');
+              if (first) setInviteMemberId(first.id);
+            }}>
             Share household invite
           </OrbitButton>
         </GlassCard>
@@ -403,10 +415,25 @@ export default function HouseholdMembersScreen() {
               onPress={() => handleRemove(member.id, member.name, member.role)}>
               Remove
             </OrbitButton>
+            {permissions.canManageHousehold ? (
+              <OrbitButton tone="secondary" onPress={() => setInviteMemberId(member.id)}>
+                Show invite code
+              </OrbitButton>
+            ) : null}
           </View>
         </GlassCard>
       ))}
     </ScrollView>
+      <MemberInviteSheet
+        visible={Boolean(inviteMemberId)}
+        member={household.members.find((m) => m.id === inviteMemberId) ?? null}
+        householdId={household.id ?? ''}
+        adminId={currentMember?.id ?? ''}
+        invites={memberInvites}
+        onChangeInvites={setMemberInvites}
+        onClose={() => setInviteMemberId(null)}
+      />
+    </>
   );
 }
 

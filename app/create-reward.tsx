@@ -21,7 +21,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 
 /**
  * Revision C §2 — Create Reward sheet (replaces Mint Reward).
- * No XP cost. No emoji. Frequency-based grants; optional assign + notes.
+ * Frequency-based grants. No emoji. Optional assign + notes.
  */
 export default function CreateRewardScreen() {
   const insets = useSafeAreaInsets();
@@ -118,7 +118,7 @@ export default function CreateRewardScreen() {
         <Text style={[typography.footnote, { marginTop: 8, color: c.textMuted }]}>Rewards</Text>
         <Text style={[typography.title1, { color: c.text }]}>Mint a reward</Text>
         <Text style={[typography.body, { color: c.textSoft }]}>
-          Add a catalogue reward with a frequency. No XP cost — rewards are granted for meeting chores.
+          Add a catalogue reward with a frequency. Rewards are granted for finishing chores.
         </Text>
       </View>
 

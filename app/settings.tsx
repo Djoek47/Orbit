@@ -1005,10 +1005,21 @@ export default function SettingsScreen() {
                 </View>
               );
             })}
-            <Pressable style={styles.linkRow} onPress={() => router.push('/household-members' as never)}>
-              <Text style={[styles.linkText, { color: accentTheme.primary }]}>Open full members screen</Text>
-              <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
+            <Pressable
+              style={[
+                styles.primaryInviteCta,
+                {
+                  backgroundColor: accentTheme.primary,
+                },
+              ]}
+              onPress={() => router.push('/household-members' as never)}>
+              <Text style={[styles.primaryInviteCtaText, { color: '#041018' }]}>
+                Share household invite
+              </Text>
             </Pressable>
+            <Text style={[styles.caption, { color: orbitPalette.textSubtle, marginTop: 8 }]}>
+              Pick who you&apos;re inviting.
+            </Text>
           </>
         ) : null}
 
@@ -1522,4 +1533,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   linkText: { color: '#38BDF8', fontSize: 14, fontWeight: '600' },
+  primaryInviteCta: {
+    alignItems: 'center',
+    borderRadius: 14,
+    justifyContent: 'center',
+    marginTop: 8,
+    paddingVertical: 14,
+    width: '100%',
+  },
+  primaryInviteCtaText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
 });

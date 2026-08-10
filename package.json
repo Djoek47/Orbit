@@ -52,7 +52,8 @@
     "test:grocery-classify": "npx --yes tsx lib/grocery/classify.test.ts",
     "test:grocery-catalog": "npx --yes tsx lib/grocery/catalog.test.ts",
     "test:shopping": "npx --yes tsx lib/grocery/shopping-palette.test.ts",
-    "test:revision-f": "npx --yes tsx lib/tasks/revision-f.test.ts"
+    "test:revision-f": "npx --yes tsx lib/tasks/revision-f.test.ts",
+    "test:revision-f-features": "npx --yes tsx lib/revision-f-features.test.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

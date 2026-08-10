@@ -164,6 +164,7 @@ export const mockHousehold: HouseholdSnapshot = {
       loadShare: 8,
       accentThemeId: 'berry',
       profileInviteCode: 'CMX-EMMA',
+      homeworkProofRequired: true,
     },
     {
       id: 'm4',
@@ -177,6 +178,7 @@ export const mockHousehold: HouseholdSnapshot = {
       loadShare: 6,
       accentThemeId: 'coral',
       profileInviteCode: 'CMX-LIAM',
+      homeworkProofRequired: true,
     },
     {
       id: 'm5',

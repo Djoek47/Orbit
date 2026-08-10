@@ -39,6 +39,8 @@ export type TaskGroup = {
 export type TaskDomain = {
   id: string;
   name: string;
+  /** Tile label — Rev F §10.3. Falls back to name when absent. */
+  shortName?: string;
   tab: 'chores' | 'homework';
   tracking: 'xp' | 'streak';
   groups: TaskGroup[];

@@ -34,6 +34,10 @@ import {
 import { isOnRecess } from '@/lib/recess/recess-engine';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import {
+  blockedRequestCopy,
+  canRequestReward,
+} from '@/lib/rewards/can-request-reward';
+import {
   formatMoney,
   listAllowanceLedger,
   summarizeAllowanceLedger,
@@ -148,7 +152,7 @@ export default function RewardsScreen() {
   const canRedeem =
     rewardCapabilities.rewardsEnabled && (isAdmin || caps.allowRewardRedeem);
   const canRequestSpecial =
-    rewardCapabilities.rewardsEnabled && (isAdmin || caps.allowSpecialRewardRequest);
+    rewardCapabilities.rewardsEnabled && !isAdmin && caps.allowSpecialRewardRequest;
   const canApprove = isAdmin || permissions.canApproveReward;
   const showAllowance = rewardCapabilities.allowanceEnabled && caps.allowAllowance;
   const showRewards = rewardCapabilities.rewardsEnabled;
@@ -411,6 +415,24 @@ export default function RewardsScreen() {
   ).filter((t) => t.show);
 
   const handleClaim = async (rewardId: string) => {
+    if (!isAdmin && currentMember) {
+      const gate = canRequestReward(currentMember.name, household.tasks);
+      if (!gate.allowed) {
+        const copy = blockedRequestCopy(gate);
+        Alert.alert(copy.title, [copy.body, '', ...copy.lines].filter(Boolean).join('\n'), [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: copy.cta,
+            onPress: () =>
+              router.push({
+                pathname: '/(tabs)/tasks',
+                params: { member: currentMember.name },
+              } as never),
+          },
+        ]);
+        return;
+      }
+    }
     setClaimingId(rewardId);
     try {
       const result = await claimReward(rewardId);
@@ -582,6 +604,20 @@ export default function RewardsScreen() {
             </Pressable>
           ) : null}
 
+          {isAdmin && showAllowance ? (
+            <Pressable
+              onPress={() => router.push('/create-allowance' as never)}
+              style={[
+                styles.createDashed,
+                { borderColor: glassBorder(0.14), backgroundColor: glass(0.04) },
+              ]}>
+              <MaterialIcons name="payments" size={18} color={c.textSubtle} />
+              <Text style={[typography.subheadline, { color: c.textSubtle, fontWeight: '600' }]}>
+                Create allowance
+              </Text>
+            </Pressable>
+          ) : null}
+
           <View style={styles.secondaryLinks}>
             {isAdmin ? (
               <Pressable onPress={() => router.push('/reward-tally' as never)}>
@@ -593,7 +629,7 @@ export default function RewardsScreen() {
             {canRequestSpecial ? (
               <Pressable onPress={() => router.push('/special-reward-request' as never)}>
                 <Text style={[typography.footnote, { color: accentTheme.primary }]}>
-                  Ask for a reward →
+                  Hold & Request →
                 </Text>
               </Pressable>
             ) : null}
