@@ -3,7 +3,13 @@ import * as React from 'react';
 
 import { EmailFooter } from '../components/EmailFooter';
 import { EmailHeader } from '../components/EmailHeader';
-import { emailColors, emailFontStack, emailRadius, emailSpace } from '../theme';
+import {
+  EMAIL_FONT_IMPORT,
+  emailColors,
+  emailFontStack,
+  emailRadius,
+  emailSpace,
+} from '../theme';
 
 type EmailLayoutProps = {
   previewText: string;
@@ -22,6 +28,9 @@ export function EmailLayout({ previewText, children }: EmailLayoutProps) {
       <Head>
         <meta name="color-scheme" content="light dark" />
         <meta name="supported-color-schemes" content="light dark" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link href={EMAIL_FONT_IMPORT} rel="stylesheet" />
         <style>{`
           @media (prefers-color-scheme: dark) {
             .cm-bg { background-color: #1C1512 !important; }

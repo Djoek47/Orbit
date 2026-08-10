@@ -77,7 +77,7 @@ export async function renderAuthHookEmail(
       text: `${result.text}\n\nOr enter this code: ${otp}`,
       html: result.html.replace(
         /<\/body>/i,
-        `<p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:#8A7A70;text-align:center;margin:24px 16px;">Or enter this code: <strong style="letter-spacing:0.12em;color:#712B13;">${otp}</strong></p></body>`
+        `<p style="font-family:&quot;Bricolage Grotesque&quot;,BricolageGrotesque,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:#8B8AA0;text-align:center;margin:24px 16px;">Or enter this code: <strong style="letter-spacing:0.12em;color:#0F0E17;">${otp}</strong></p></body>`
       ),
     };
   }

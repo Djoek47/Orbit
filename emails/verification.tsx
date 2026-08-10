@@ -19,17 +19,18 @@ export type VerificationEmailProps = {
 
 export default function VerificationEmail({ name, confirmUrl, expiresInHours = 24 }: VerificationEmailProps) {
   return (
-    <EmailLayout previewText="Verify your email to activate your ChoreMaxx household.">
+    <EmailLayout previewText="Confirm your email to activate your Choremaxx household.">
       <Heading style={{ fontFamily: emailFontStack, ...emailType.title, color: emailColors.darkText, margin: '8px 0 16px' }}>
-        Welcome to ChoreMaxx
+        Confirm your email
       </Heading>
       <Text style={{ fontFamily: emailFontStack, ...emailType.body, color: emailColors.body, margin: '0 0 8px' }}>
         Hi {firstName(name)},
       </Text>
       <Text style={{ fontFamily: emailFontStack, ...emailType.body, color: emailColors.body, margin: '0 0 24px' }}>
-        Thanks for creating your household. Verify your email to activate your account.
+        Open this link on your phone to verify your household account, then continue in Choremaxx —
+        same step as the Confirm your email screen in the app.
       </Text>
-      <PrimaryButton href={confirmUrl}>Verify Email</PrimaryButton>
+      <PrimaryButton href={confirmUrl}>Confirm email</PrimaryButton>
       <Text
         style={{
           fontFamily: emailFontStack,
@@ -50,15 +51,15 @@ VerificationEmail.PreviewProps = {
   expiresInHours: 24,
 } satisfies VerificationEmailProps;
 
-export const subjectFor = () => 'Verify your ChoreMaxx account';
+export const subjectFor = () => 'Confirm your email';
 
 export const textFor = ({ name, confirmUrl, expiresInHours = 24 }: VerificationEmailProps) =>
   [
-    `Welcome to ChoreMaxx, ${firstName(name)}!`,
+    `Confirm your email, ${firstName(name)}`,
     '',
-    'Thanks for creating your household. Verify your email to activate your account.',
+    'Open this link on your phone to verify your household account, then continue in Choremaxx.',
     '',
-    `Verify Email: ${confirmUrl}`,
+    `Confirm email: ${confirmUrl}`,
     '',
     `Link expires in ${expiresInHours} hours.`,
   ].join('\n');

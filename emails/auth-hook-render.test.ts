@@ -10,8 +10,10 @@ test('auth hook maps signup → verification template', async () => {
     confirmUrl: 'https://example.com/verify',
     otp: '123456',
   });
-  assert.match(out.subject, /Verify your ChoreMaxx account/i);
-  assert.match(out.html, /Verify Email/);
+  assert.match(out.subject, /Confirm your email|Verify your ChoreMaxx account/i);
+  assert.match(out.html, /Confirm email|Verify Email/);
+  assert.match(out.html, /choremaxx-email-logo-mark|choremaxx-mark-coral/);
+  assert.match(out.html, /Bricolage/);
   assert.match(out.html, /123456/);
   assert.match(out.text, /123456/);
 });
