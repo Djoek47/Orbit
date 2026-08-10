@@ -971,13 +971,29 @@ export default function SettingsScreen() {
                       </Text>
                     ) : null}
                     {permissions.canManageHousehold && member.role === 'child' ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                        <Text style={[styles.caption, { color: orbitPalette.textMuted, flex: 1 }]}>
-                          Homework photo proof
-                        </Text>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 12,
+                          marginTop: 10,
+                          paddingTop: 10,
+                          borderTopWidth: StyleSheet.hairlineWidth,
+                          borderTopColor: glassBorder(0.08),
+                        }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.caption, { color: orbitPalette.textSoft, fontWeight: '600' }]}>
+                            Homework photo proof
+                          </Text>
+                          <Text style={[styles.caption, { color: orbitPalette.textSubtle, marginTop: 2 }]}>
+                            Required when they mark homework done
+                          </Text>
+                        </View>
                         <Switch
                           value={member.homeworkProofRequired !== false}
                           onValueChange={(v) => void updateMemberHomeworkProof(member.id, v)}
+                          trackColor={{ false: glassBorder(0.2), true: `${accentTheme.primary}88` }}
+                          thumbColor="#FFFFFF"
                         />
                       </View>
                     ) : null}
@@ -1022,14 +1038,19 @@ export default function SettingsScreen() {
                 styles.primaryInviteCta,
                 {
                   backgroundColor: accentTheme.primary,
+                  borderCurve: 'continuous',
                 },
               ]}
               onPress={() => router.push('/household-members' as never)}>
-              <Text style={[styles.primaryInviteCtaText, { color: '#041018' }]}>
+              <Text style={[styles.primaryInviteCtaText, { color: orbitPalette.ink }]}>
                 Share household invite
               </Text>
             </Pressable>
-            <Text style={[styles.caption, { color: orbitPalette.textSubtle, marginTop: 8 }]}>
+            <Text
+              style={[
+                styles.caption,
+                { color: orbitPalette.textMuted, marginTop: 10, textAlign: 'center' },
+              ]}>
               Pick who you&apos;re inviting.
             </Text>
           </>
@@ -1547,14 +1568,15 @@ const styles = StyleSheet.create({
   linkText: { color: '#38BDF8', fontSize: 14, fontWeight: '600' },
   primaryInviteCta: {
     alignItems: 'center',
-    borderRadius: 14,
+    borderRadius: 20,
     justifyContent: 'center',
-    marginTop: 8,
-    paddingVertical: 14,
+    marginTop: 12,
+    paddingVertical: 15,
     width: '100%',
   },
   primaryInviteCtaText: {
     fontSize: 16,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
 });

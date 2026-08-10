@@ -852,9 +852,14 @@ export default function TaskDetailScreen() {
               </View>
             ) : null}
             {permissions.canManageHousehold && canAdminUnassign(task) ? (
-              <Pressable onPress={confirmUnassign} style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-                <Text style={[styles.secondaryText, { color: c.warning }]}>
-                  Unassign / remove
+              <Pressable
+                onPress={confirmUnassign}
+                style={[
+                  styles.secondaryBtn,
+                  { borderColor: glassBorder(0.08), backgroundColor: glass(0.03) },
+                ]}>
+                <Text style={[styles.secondaryText, { color: c.textSoft }]}>
+                  Unassign
                 </Text>
               </Pressable>
             ) : null}

@@ -1,5 +1,6 @@
 /**
  * Revision F §3 — per-member invite sheet.
+ * One QR, one action, quiet expiry — no shouting.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Clipboard from 'expo-clipboard';
@@ -9,7 +10,7 @@ import QRCode from 'react-native-qrcode-svg';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
-import { typography } from '@/constants/orbit-theme';
+import { radius, space, typography } from '@/constants/orbit-theme';
 import {
   activeInviteForMember,
   buildMemberInviteDeepLink,
@@ -40,7 +41,7 @@ export function MemberInviteSheet({
   onChangeInvites,
   onClose,
 }: Props) {
-  const { c, glassBorder } = useOrbitColors();
+  const { c, glass, glassBorder } = useOrbitColors();
 
   useEffect(() => {
     if (!visible || !member) return;
@@ -54,7 +55,6 @@ export function MemberInviteSheet({
       token,
     });
     onChangeInvites([...revoked, next]);
-    // Intentionally only when opening for a member without an invite.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, member?.id]);
 
@@ -93,39 +93,69 @@ export function MemberInviteSheet({
   };
 
   return (
-    <BottomSheet visible={visible} onDismiss={onClose} heightRatio={0.72}>
+    <BottomSheet visible={visible} onDismiss={onClose} heightRatio={0.7}>
       <View style={styles.body}>
-        <Text style={[typography.headline, { color: c.text, textAlign: 'center' }]}>
-          {member.name.toUpperCase()}
+        <Text style={[typography.caption1, { color: c.textMuted, textAlign: 'center' }]}>
+          Invite
         </Text>
+        <Text style={[typography.title2, { color: c.text, textAlign: 'center', marginTop: 4 }]}>
+          {member.name}
+        </Text>
+
         {displayLink ? (
-          <View style={[styles.qrWrap, { backgroundColor: '#fff', borderColor: glassBorder(0.12) }]}>
-            <QRCode value={displayLink} size={180} />
+          <View
+            style={[
+              styles.qrWrap,
+              {
+                backgroundColor: '#FFFFFF',
+                borderColor: glassBorder(0.08),
+                shadowColor: '#000',
+              },
+            ]}>
+            <QRCode value={displayLink} size={168} backgroundColor="#FFFFFF" color="#0F1C2A" />
           </View>
-        ) : null}
-        <Text style={[typography.body, { color: c.textSoft, textAlign: 'center' }]}>
+        ) : (
+          <View style={[styles.qrPlaceholder, { backgroundColor: glass(0.05) }]} />
+        )}
+
+        <Text
+          style={[
+            typography.body,
+            { color: c.textMuted, textAlign: 'center', lineHeight: 22, paddingHorizontal: space.sm },
+          ]}>
           Scan this on {member.name}&apos;s device to add them to the household.
         </Text>
-        <Pressable onPress={() => void share()} style={[styles.primary, { backgroundColor: c.primary }]}>
-          <Text style={[typography.headline, { color: '#041018' }]}>Share invite link</Text>
+
+        <Pressable
+          onPress={() => void share()}
+          style={[styles.primary, { backgroundColor: c.primary }]}>
+          <Text style={[typography.headline, { color: c.ink, fontWeight: '700' }]}>
+            Share invite link
+          </Text>
         </Pressable>
-        <Pressable onPress={regenerate}>
-          <Text style={[typography.subheadline, { color: c.primary, textAlign: 'center' }]}>
+
+        <Pressable onPress={regenerate} hitSlop={10} style={styles.secondary}>
+          <Text style={[typography.subheadline, { color: c.textSoft, fontWeight: '600' }]}>
             Generate a new code
           </Text>
         </Pressable>
+
         <Text style={[typography.caption1, { color: c.textSubtle, textAlign: 'center' }]}>
           Expires in 7 days · works once
         </Text>
+
         {displayLink ? (
           <Pressable
             onPress={() => {
               void Clipboard.setStringAsync(displayLink);
               Alert.alert('Copied', 'Invite link copied.');
             }}
-            style={styles.copyRow}>
-            <MaterialIcons name="content-copy" size={16} color={c.textMuted} />
-            <Text style={[typography.caption1, { color: c.textMuted }]} numberOfLines={1}>
+            style={[styles.copyRow, { backgroundColor: glass(0.04) }]}
+            hitSlop={6}>
+            <MaterialIcons name="link" size={15} color={c.textSubtle} />
+            <Text
+              style={[typography.caption1, { color: c.textSubtle, flex: 1 }]}
+              numberOfLines={1}>
               {displayLink}
             </Text>
           </Pressable>
@@ -136,21 +166,50 @@ export function MemberInviteSheet({
 }
 
 const styles = StyleSheet.create({
-  body: { gap: 14, paddingBottom: 8, paddingHorizontal: 4 },
+  body: {
+    alignItems: 'stretch',
+    gap: space.md,
+    paddingBottom: space.sm,
+    paddingHorizontal: space.xs,
+  },
   qrWrap: {
     alignSelf: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
+    borderCurve: 'continuous',
+    borderRadius: radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginVertical: space.sm,
+    padding: space.lg,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+  },
+  qrPlaceholder: {
+    alignSelf: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.card,
+    height: 200,
+    marginVertical: space.sm,
+    width: 200,
   },
   primary: {
     alignItems: 'center',
-    borderRadius: 14,
-    paddingVertical: 14,
+    borderCurve: 'continuous',
+    borderRadius: radius.card,
+    marginTop: space.xs,
+    paddingVertical: 15,
+  },
+  secondary: {
+    alignItems: 'center',
+    paddingVertical: space.xs,
   },
   copyRow: {
     alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.control,
     flexDirection: 'row',
-    gap: 8,
+    gap: space.xs,
+    marginTop: space.xs,
+    paddingHorizontal: space.md,
+    paddingVertical: 10,
   },
 });

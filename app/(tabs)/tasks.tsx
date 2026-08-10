@@ -754,6 +754,7 @@ export default function TasksScreen() {
         ) : null}
       </View>
 
+      <View style={{ gap: 10, marginBottom: 4 }}>
       <SegmentedControl
         options={[
           { value: 'chores', label: 'Chores' },
@@ -780,6 +781,7 @@ export default function TasksScreen() {
           setStatusTab(next);
         }}
       />
+      </View>
 
       {rewardCapabilities.xpEnabled ? (
         <LinearGradient
@@ -842,11 +844,13 @@ export default function TasksScreen() {
                   : 'Nothing in this view'
             }
             caption={
-              sharedKidMode
-                ? 'Ask an adult to assign you something — or switch account if it’s someone else’s turn.'
-                : permissions.canCreateTask
-                  ? "Create a preset or custom task to fill Today's Work."
-                  : 'Ask an adult to assign you something, or switch filters.'
+              statusTab === 'expired'
+                ? 'Expired tasks clear from this view after seven days.'
+                : sharedKidMode
+                  ? 'Ask an adult to assign you something — or switch account if it’s someone else’s turn.'
+                  : permissions.canCreateTask
+                    ? 'Assign tasks to fill today’s work.'
+                    : 'Ask an adult to assign you something, or switch filters.'
             }
           />
           {sharedKidMode ? (

@@ -659,36 +659,49 @@ export default function RewardsScreen() {
                 tasks: household.tasks,
               });
               const pct = Math.round(progress.ratio * 100);
+              const freqLabel =
+                rule.frequency === 'daily'
+                  ? 'daily'
+                  : rule.frequency === 'weekly'
+                    ? 'weekly'
+                    : 'monthly';
               return (
                 <View
                   key={rule.id}
                   style={[
                     styles.allowanceCard,
-                    { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.08) },
+                    { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.06) },
                   ]}>
-                  <Text style={[typography.headline, { color: c.text }]}>
-                    {rule.memberName} · {formatMoney(rule.amount, rule.currency)} {rule.frequency}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+                    <Text style={[typography.headline, { color: c.text, flex: 1 }]} numberOfLines={1}>
+                      {rule.memberName}
+                    </Text>
+                    <Text style={[typography.subheadline, { color: c.textSoft, fontWeight: '600' }]}>
+                      {formatMoney(rule.amount, rule.currency)}
+                      <Text style={{ color: c.textMuted, fontWeight: '500' }}> · {freqLabel}</Text>
+                    </Text>
+                  </View>
                   <View
                     style={{
-                      height: 8,
+                      height: 4,
                       borderRadius: 999,
-                      backgroundColor: glass(0.1),
-                      marginTop: 10,
+                      backgroundColor: glass(0.12),
+                      marginTop: 14,
                       overflow: 'hidden',
                     }}>
                     <View
                       style={{
                         width: `${pct}%`,
                         height: '100%',
-                        backgroundColor: progress.earned ? '#34D399' : accentTheme.primary,
+                        borderRadius: 999,
+                        backgroundColor: progress.earned ? c.success : accentTheme.primary,
                       }}
                     />
                   </View>
-                  <Text style={[typography.caption1, { color: c.textSubtle, marginTop: 6 }]}>
-                    {progress.label}
-                  </Text>
-                  <Text style={[typography.caption1, { color: c.textMuted }]}>{progress.helper}</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                    <Text style={[typography.caption1, { color: c.textMuted }]}>{progress.label}</Text>
+                    <Text style={[typography.caption1, { color: c.textSubtle }]}>{progress.helper}</Text>
+                  </View>
                 </View>
               );
             })

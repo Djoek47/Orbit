@@ -1,15 +1,16 @@
 /**
- * Revision F §11.2 — Create allowance (Daily / Weekly / Monthly only).
+ * Revision F §11.2 — Create allowance.
+ * Quiet form: amount, period, person — no decoration.
  */
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
-import { GlassCard } from '@/components/orbit/glass-card';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
-import { orbitColors, orbitScreen, typography } from '@/constants/orbit-theme';
+import { radius, space, typography } from '@/constants/orbit-theme';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import {
   type AllowanceFrequency,
@@ -18,6 +19,12 @@ import {
 import { upsertAllowanceRule } from '@/lib/rewards/allowance-rules-store';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+
+const FREQS: { id: AllowanceFrequency; label: string }[] = [
+  { id: 'daily', label: 'Daily' },
+  { id: 'weekly', label: 'Weekly' },
+  { id: 'monthly', label: 'Monthly' },
+];
 
 export default function CreateAllowanceScreen() {
   const insets = useSafeAreaInsets();
@@ -75,59 +82,76 @@ export default function CreateAllowanceScreen() {
     }
   };
 
+  const canSubmit = Boolean(memberId) && !busy;
+
   return (
-    <PersistentScrollView
-      style={[orbitScreen.container, { backgroundColor: c.background }]}
-      contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}>
+    <View style={[styles.shell, { backgroundColor: c.background, paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={orbitScreen.header}>
-        <Text style={[typography.footnote, { color: c.textMuted }]}>Allowance</Text>
-        <Text style={[typography.title1, { color: c.text }]}>Create an allowance</Text>
-        <Text style={[typography.body, { color: c.textSoft }]}>
+
+      <View style={styles.nav}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={14}
+          style={[styles.iconBtn, { backgroundColor: glass(0.06) }]}>
+          <MaterialIcons name="close" size={20} color={c.textSoft} />
+        </Pressable>
+      </View>
+
+      <PersistentScrollView contentContainerStyle={styles.content}>
+        <Text style={[typography.caption1, { color: c.textMuted, letterSpacing: 0.4 }]}>
+          ALLOWANCE
+        </Text>
+        <Text style={[typography.title1, { color: c.text, marginTop: space.xs }]}>
+          Create an allowance
+        </Text>
+        <Text style={[typography.body, { color: c.textMuted, marginTop: space.sm, lineHeight: 22 }]}>
           Set an amount and how often it&apos;s earned. ChoreMaxx keeps the record — you hand over
           the money yourself.
         </Text>
-      </View>
 
-      <GlassCard style={styles.card}>
-        <Text style={[styles.label, { color: c.textMuted }]}>Amount</Text>
-        <TextInput
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="decimal-pad"
-          placeholder="$ 5.00"
-          placeholderTextColor={c.textSubtle}
+        <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Amount</Text>
+        <View
           style={[
-            styles.input,
-            { color: c.text, borderColor: glassBorder(0.12), backgroundColor: glass(0.05) },
-          ]}
-        />
+            styles.amountField,
+            { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
+          ]}>
+          <Text style={[styles.currency, { color: c.textSubtle }]}>$</Text>
+          <TextInput
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="decimal-pad"
+            placeholder="5.00"
+            placeholderTextColor={c.textSubtle}
+            style={[styles.amountInput, { color: c.text }]}
+          />
+        </View>
 
-        <Text style={[styles.label, { color: c.textMuted }]}>How often</Text>
-        <View style={styles.row}>
-          {(['daily', 'weekly', 'monthly'] as AllowanceFrequency[]).map((f) => {
-            const active = frequency === f;
+        <Text style={[styles.fieldLabel, { color: c.textMuted }]}>How often</Text>
+        <View style={[styles.segment, { backgroundColor: glass(0.05) }]}>
+          {FREQS.map((f) => {
+            const active = frequency === f.id;
             return (
               <Pressable
-                key={f}
-                onPress={() => setFrequency(f)}
+                key={f.id}
+                onPress={() => setFrequency(f.id)}
                 style={[
-                  styles.chip,
-                  {
-                    backgroundColor: active ? `${accentTheme.primary}33` : glass(0.06),
-                    borderColor: active ? `${accentTheme.primary}88` : glassBorder(0.12),
-                  },
+                  styles.segmentItem,
+                  active && { backgroundColor: `${accentTheme.primary}28` },
                 ]}>
-                <Text style={{ color: active ? accentTheme.primary : c.textSoft, fontWeight: '600' }}>
-                  {f[0]!.toUpperCase() + f.slice(1)}
+                <Text
+                  style={[
+                    styles.segmentText,
+                    { color: active ? accentTheme.primary : c.textSoft },
+                  ]}>
+                  {f.label}
                 </Text>
               </Pressable>
             );
           })}
         </View>
 
-        <Text style={[styles.label, { color: c.textMuted }]}>Assign to</Text>
-        <View style={styles.row}>
+        <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Assign to</Text>
+        <View style={styles.people}>
           {members.map((m) => {
             const active = memberId === m.id;
             return (
@@ -135,53 +159,131 @@ export default function CreateAllowanceScreen() {
                 key={m.id}
                 onPress={() => setMemberId(m.id)}
                 style={[
-                  styles.chip,
+                  styles.person,
                   {
-                    backgroundColor: active ? `${accentTheme.primary}33` : glass(0.06),
-                    borderColor: active ? `${accentTheme.primary}88` : glassBorder(0.12),
+                    backgroundColor: active ? `${accentTheme.primary}22` : glass(0.04),
+                    borderColor: active ? `${accentTheme.primary}55` : glassBorder(0.08),
                   },
                 ]}>
-                <Text style={{ color: active ? accentTheme.primary : c.textSoft, fontWeight: '600' }}>
+                <Text
+                  style={[
+                    typography.subheadline,
+                    { color: active ? accentTheme.primary : c.textSoft, fontWeight: '600' },
+                  ]}>
                   {m.name}
                 </Text>
               </Pressable>
             );
           })}
         </View>
+      </PersistentScrollView>
 
+      <View
+        style={[
+          styles.footer,
+          {
+            paddingBottom: Math.max(insets.bottom, space.md),
+            borderTopColor: glassBorder(0.08),
+          },
+        ]}>
         <Pressable
-          disabled={busy}
+          disabled={!canSubmit}
           onPress={() => void create()}
-          style={[styles.cta, { backgroundColor: accentTheme.primary, opacity: busy ? 0.7 : 1 }]}>
-          <Text style={[typography.headline, { color: orbitColors.ink }]}>Create allowance</Text>
+          style={[
+            styles.cta,
+            {
+              backgroundColor: canSubmit ? accentTheme.primary : glass(0.08),
+              opacity: busy ? 0.65 : 1,
+            },
+          ]}>
+          <Text
+            style={[
+              typography.headline,
+              { color: canSubmit ? c.ink : c.textSubtle, fontWeight: '700' },
+            ]}>
+            Create allowance
+          </Text>
         </Pressable>
-      </GlassCard>
-    </PersistentScrollView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { gap: 12 },
-  label: { fontSize: 13, fontWeight: '600', marginTop: 4 },
-  input: {
-    borderRadius: 12,
-    borderWidth: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  shell: { flex: 1 },
+  nav: {
+    paddingHorizontal: space.md,
+    paddingTop: space.xs,
+    paddingBottom: space.sm,
   },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 14,
+  iconBtn: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.full,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  content: {
+    paddingBottom: space.section,
+    paddingHorizontal: space.xl,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    marginBottom: space.sm,
+    marginTop: space.xxl,
+  },
+  amountField: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: space.lg,
+    paddingVertical: 4,
+  },
+  currency: { fontSize: 28, fontWeight: '300' },
+  amountInput: {
+    flex: 1,
+    fontSize: 34,
+    fontWeight: '600',
+    letterSpacing: -0.5,
+    paddingVertical: 14,
+  },
+  segment: {
+    borderCurve: 'continuous',
+    borderRadius: radius.control,
+    flexDirection: 'row',
+    padding: 3,
+  },
+  segmentItem: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 10,
+    flex: 1,
+    paddingVertical: 11,
+  },
+  segmentText: { fontSize: 14, fontWeight: '600' },
+  people: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },
+  person: {
+    borderCurve: 'continuous',
+    borderRadius: radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
     paddingVertical: 10,
+  },
+  footer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: space.xl,
+    paddingTop: space.md,
   },
   cta: {
     alignItems: 'center',
-    borderRadius: 14,
-    marginTop: 8,
-    paddingVertical: 14,
+    borderCurve: 'continuous',
+    borderRadius: radius.card,
+    paddingVertical: 16,
   },
 });
