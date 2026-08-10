@@ -13,7 +13,7 @@
 | **A3** | ◐ SCAFFOLD | `constants/billing.ts` + `lib/billing/iap.ts` (7-day trial, $4.99/mo, $48/yr, mock entitlement). **Blocked:** ASC subscription products + native `expo-iap`/StoreKit on device builds. |
 | **A4** | ✅ PASS (unit) | Gate + Mark as paid ledger smoke (`lib/rewards/a4-smoke.test.ts`). Full staging mint→approve still needs TestFlight/supabase session. |
 | **A5** | ◐ DONE foundation | Quiet hours pref + defer OS banners 21:00–07:00 in `pushNotification`; Settings toggle. Batching engine already tested. |
-| **A6** | ◐ CODE READY | Poppins OpenAI path exists; EAS sets `EXPO_PUBLIC_POPPINS_AI=openai`. System prompt updated (families / co-manager). **Blocked:** confirm `OPENAI_API_KEY` in Supabase secrets + live chat smoke. |
+| **A6** | ◐ DEPLOYED — NEEDS KEY | Edge functions deployed on staging (`poppins-chat`, `briefing`, `voice`, `realtime-session`, `monitor`, `join-household`). TestFlight / EAS already set `EXPO_PUBLIC_POPPINS_AI=openai`. **Blocked live:** set `OPENAI_API_KEY` then `bash scripts/smoke-poppins-openai.sh` + device chat. |
 | **A7** | ✅ PASS (unit) | Role matrix tests (`lib/account/a7-matrix.test.ts`). |
 | **A8** | ◐ DRAFT | ASC listing fields filled in checklist. **Do not submit** until B6/B7. |
 

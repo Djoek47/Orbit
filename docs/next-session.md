@@ -9,7 +9,7 @@
 1. **A1 site** — apply [`site-copy-a1-patch.md`](./site-copy-a1-patch.md) on Vercel; re-host privacy/terms from `docs/legal/*`
 2. **A2 live** — set Resend secrets, deploy `send-auth-email --no-verify-jwt`, enable Auth Hook, signup smoke → `choremaxx://auth/callback`
 3. **A3 ASC** — create IAP products from `constants/billing.ts`, then wire StoreKit
-4. **A6** — confirm `OPENAI_API_KEY` in Supabase; live Poppins chat
+4. **A6** — functions deployed; set `OPENAI_API_KEY` then `bash scripts/smoke-poppins-openai.sh` + live Poppins chat
 5. **B4–B7** — site CTAs, billing emails, full device retest, App Review
 
 ## Do not redo

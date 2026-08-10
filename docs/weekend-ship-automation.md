@@ -68,7 +68,7 @@ Do A fully before B. Do not start B7 until B6 is green.
 | **A3** | ◐ SCAFFOLD | IAP scaffold | Product IDs + mock entitlement in `constants/billing.ts`. ASC products + StoreKit still needed. |
 | **A4** | ✅ UNIT | Rewards smoke | Gate + Mark as paid ledger tests green. Staging device smoke optional. |
 | **A5** | ✅ | Notifications foundation | Quiet hours pref + banner deferral 21:00–07:00; Settings toggle. |
-| **A6** | ◐ CODE | Poppins OpenAI connect | Prompt + edge path ready. Confirm `OPENAI_API_KEY` + live chat. |
+| **A6** | ◐ DEPLOYED | Poppins OpenAI connect | Functions deployed. Set `OPENAI_API_KEY` → `bash scripts/smoke-poppins-openai.sh` → device chat. |
 | **A7** | ✅ UNIT | Account matrix | Role permission tests green. |
 | **A8** | ◐ DRAFT | Store package draft | ASC fields in `docs/app-store-checklist.md`. Do not submit until B7. |
 
