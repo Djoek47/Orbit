@@ -11,29 +11,22 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { orbitColors, orbitScreen, typography } from '@/constants/orbit-theme';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
+import {
+  type AllowanceFrequency,
+  type AllowanceRule,
+} from '@/lib/rewards/allowance-progress';
+import { upsertAllowanceRule } from '@/lib/rewards/allowance-rules-store';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-
-type Freq = 'daily' | 'weekly' | 'monthly';
-
-export type AllowanceRule = {
-  id: string;
-  householdId: string;
-  memberId: string;
-  amount: number;
-  currency: string;
-  frequency: Freq;
-  active: boolean;
-  createdAt: string;
-};
 
 export default function CreateAllowanceScreen() {
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
   const { household, permissions, accentTheme } = useOrbit();
   const [amount, setAmount] = useState('5.00');
-  const [frequency, setFrequency] = useState<Freq>('weekly');
+  const [frequency, setFrequency] = useState<AllowanceFrequency>('weekly');
   const [memberId, setMemberId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const members = useMemo(
     () =>
@@ -43,7 +36,7 @@ export default function CreateAllowanceScreen() {
     [household.members]
   );
 
-  const create = () => {
+  const create = async () => {
     if (!permissions.canManageHousehold) {
       Alert.alert('Admins only', 'Only an admin can create an allowance.');
       return;
@@ -53,16 +46,33 @@ export default function CreateAllowanceScreen() {
       Alert.alert('Amount needed', 'Enter a positive amount.');
       return;
     }
-    if (!memberId) {
+    const member = members.find((m) => m.id === memberId);
+    if (!member || !household.id) {
       Alert.alert('Assign to', 'Pick who earns this allowance.');
       return;
     }
-    // Persist via allowance request pathway — record rule locally for mock.
-    Alert.alert(
-      'Allowance created',
-      'ChoreMaxx keeps the record — you hand over the money yourself.',
-      [{ text: 'OK', onPress: () => router.back() }]
-    );
+    setBusy(true);
+    try {
+      const rule: AllowanceRule = {
+        id: `allow-${member.id}-${Date.now()}`,
+        householdId: household.id,
+        memberId: member.id,
+        memberName: member.name,
+        amount: parsed,
+        currency: 'CAD',
+        frequency,
+        active: true,
+        createdAt: new Date().toISOString(),
+      };
+      await upsertAllowanceRule(household.id, rule);
+      Alert.alert(
+        'Allowance created',
+        'ChoreMaxx keeps the record — you hand over the money yourself.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -87,12 +97,15 @@ export default function CreateAllowanceScreen() {
           keyboardType="decimal-pad"
           placeholder="$ 5.00"
           placeholderTextColor={c.textSubtle}
-          style={[styles.input, { color: c.text, borderColor: glassBorder(0.12), backgroundColor: glass(0.05) }]}
+          style={[
+            styles.input,
+            { color: c.text, borderColor: glassBorder(0.12), backgroundColor: glass(0.05) },
+          ]}
         />
 
         <Text style={[styles.label, { color: c.textMuted }]}>How often</Text>
         <View style={styles.row}>
-          {(['daily', 'weekly', 'monthly'] as Freq[]).map((f) => {
+          {(['daily', 'weekly', 'monthly'] as AllowanceFrequency[]).map((f) => {
             const active = frequency === f;
             return (
               <Pressable
@@ -137,8 +150,9 @@ export default function CreateAllowanceScreen() {
         </View>
 
         <Pressable
-          onPress={create}
-          style={[styles.cta, { backgroundColor: accentTheme.primary }]}>
+          disabled={busy}
+          onPress={() => void create()}
+          style={[styles.cta, { backgroundColor: accentTheme.primary, opacity: busy ? 0.7 : 1 }]}>
           <Text style={[typography.headline, { color: orbitColors.ink }]}>Create allowance</Text>
         </Pressable>
       </GlassCard>

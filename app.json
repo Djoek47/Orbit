@@ -186,8 +186,8 @@
     },
     "extra": {
       "router": {},
-      "privacyPolicyUrl": "https://choremaxx.app/privacy",
-      "termsUrl": "https://choremaxx.app/terms",
+      "privacyPolicyUrl": "https://choremaxx.vercel.app/privacy",
+      "termsUrl": "https://choremaxx.vercel.app/terms",
       "eas": {
         "projectId": "01af7128-865e-4d2e-b0b1-836f03105fc8"
       }

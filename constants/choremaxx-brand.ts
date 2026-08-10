@@ -33,8 +33,9 @@ export const CHOREMAXX_COPYRIGHT_YEAR = 2026;
 export const CHOREMAXX_LEGAL = {
   copyright: `© ${CHOREMAXX_COPYRIGHT_YEAR} Choremaxx. All rights reserved.`,
   shortCopyright: `Choremaxx © ${CHOREMAXX_COPYRIGHT_YEAR}`,
-  privacyUrl: 'https://choremaxx.app/privacy',
-  termsUrl: 'https://choremaxx.app/terms',
+  /** Live until custom domain cutover (weekend A1). */
+  privacyUrl: 'https://choremaxx.vercel.app/privacy',
+  termsUrl: 'https://choremaxx.vercel.app/terms',
   supportEmail: 'support@choremaxx.app',
   privacyEmail: 'privacy@choremaxx.app',
 } as const;

@@ -1,7 +1,7 @@
 # Choremaxx Terms of Service
 
 **Last updated:** 2026-07-20  
-**Public URL (host this page):** https://choremaxx.app/terms
+**Public URL (host this page):** https://choremaxx.vercel.app/terms
 
 © 2026 Choremaxx. All rights reserved.
 

@@ -150,6 +150,7 @@ export default function SettingsScreen() {
     updateMemberDisplayName,
     updatePalette,
     updateMemberAvatar,
+    updateMemberHomeworkProof,
     updateNotificationPrefs,
     updateMemberCapabilities,
     updatePreferredMapsApp,
@@ -968,6 +969,17 @@ export default function SettingsScreen() {
                       <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
                         Profile {ensureProfileInviteCode(member)}
                       </Text>
+                    ) : null}
+                    {permissions.canManageHousehold && member.role === 'child' ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                        <Text style={[styles.caption, { color: orbitPalette.textMuted, flex: 1 }]}>
+                          Homework photo proof
+                        </Text>
+                        <Switch
+                          value={member.homeworkProofRequired !== false}
+                          onValueChange={(v) => void updateMemberHomeworkProof(member.id, v)}
+                        />
+                      </View>
                     ) : null}
                   </Pressable>
                   {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}

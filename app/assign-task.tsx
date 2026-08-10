@@ -35,9 +35,16 @@ const FREQ_LABEL: Record<string, string> = {
 function mapLibraryRepeat(freq: LibraryTask['defaultFrequency']): 'None' | 'Daily' | 'Weekly' | 'Weekdays' {
   if (freq === 'daily') return 'Daily';
   if (freq === 'weekdays') return 'Weekdays';
-  if (freq === 'weekly' || freq === '2x_weekly' || freq === 'biweekly') return 'Weekly';
+  if (freq === 'weekly' || freq === '2x_weekly' || freq === 'biweekly' || freq === 'monthly' || freq === 'quarterly') {
+    return 'Weekly';
+  }
+  if (freq === 'seasonal' || freq === 'as_needed' || freq === 'none') return 'None';
   return 'None';
 }
+
+const PRIMARY_FREQS = ['daily', 'weekly', 'monthly'] as const;
+const MORE_FREQS = ['weekdays', '2x_weekly', 'biweekly', 'quarterly', 'seasonal', 'as_needed'] as const;
+
 
 export default function AssignTaskScreen() {
   const insets = useSafeAreaInsets();
@@ -57,6 +64,8 @@ export default function AssignTaskScreen() {
   const [domainId, setDomainId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selected[]>([]);
   const [busy, setBusy] = useState(false);
+  const [freqPickerTaskId, setFreqPickerTaskId] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const domains = useMemo(() => choreDomains(), []);
   const domain: TaskDomain | undefined = domains.find((d) => d.id === domainId);
@@ -196,14 +205,91 @@ export default function AssignTaskScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[typography.body, { color: c.text }]}>{task.name}</Text>
-                <Text style={[typography.caption1, { color: c.textSubtle }]}>
-                  {task.xp} XP · {FREQ_LABEL[sel?.frequency ?? task.defaultFrequency] ?? 'Daily'}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                  <Text style={[typography.caption1, { color: c.textSubtle }]}>{task.xp} XP</Text>
+                  <Text style={[typography.caption1, { color: c.textSubtle }]}>·</Text>
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      const openMore = MORE_FREQS.includes(
+                        (sel?.frequency ?? task.defaultFrequency) as (typeof MORE_FREQS)[number]
+                      );
+                      setMoreOpen(openMore);
+                      setFreqPickerTaskId(task.id);
+                    }}
+                    hitSlop={8}>
+                    <Text style={[typography.caption1, { color: accentTheme.primary, fontWeight: '700' }]}>
+                      {FREQ_LABEL[sel?.frequency ?? task.defaultFrequency] ?? 'Daily'} ▾
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
             </Pressable>
           );
         })}
       </PersistentScrollView>
+
+
+      {freqPickerTaskId ? (
+        <View style={[styles.pickerOverlay, { backgroundColor: 'rgba(0,0,0,0.55)' }]}>
+          <View style={[styles.pickerCard, { backgroundColor: c.background, borderColor: glassBorder(0.14) }]}>
+            <Text style={[typography.headline, { color: c.text, marginBottom: 10 }]}>Frequency</Text>
+            <View style={styles.pickerRow}>
+              {PRIMARY_FREQS.map((f) => (
+                <Pressable
+                  key={f}
+                  onPress={() => {
+                    setSelected((cur) =>
+                      cur.map((s) =>
+                        s.task.id === freqPickerTaskId ? { ...s, frequency: f } : s
+                      )
+                    );
+                    // ensure selected
+                    if (!selected.some((s) => s.task.id === freqPickerTaskId)) {
+                      const t = visibleTasks.find((x) => x.id === freqPickerTaskId);
+                      if (t) setSelected((cur) => [...cur, { task: t, frequency: f }]);
+                    }
+                    setFreqPickerTaskId(null);
+                  }}
+                  style={[styles.pickerChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.06) }]}>
+                  <Text style={{ color: c.textSoft, fontWeight: '600' }}>{FREQ_LABEL[f]}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable onPress={() => setMoreOpen((v) => !v)} style={{ marginTop: 12, marginBottom: 6 }}>
+              <Text style={{ color: accentTheme.primary, fontWeight: '600' }}>
+                More {moreOpen ? '▴' : '▾'}
+              </Text>
+            </Pressable>
+            {moreOpen
+              ? MORE_FREQS.map((f) => (
+                  <Pressable
+                    key={f}
+                    onPress={() => {
+                      setSelected((cur) => {
+                        const has = cur.some((s) => s.task.id === freqPickerTaskId);
+                        if (!has) {
+                          const t = visibleTasks.find((x) => x.id === freqPickerTaskId);
+                          if (!t) return cur;
+                          return [...cur, { task: t, frequency: f }];
+                        }
+                        return cur.map((s) =>
+                          s.task.id === freqPickerTaskId ? { ...s, frequency: f } : s
+                        );
+                      });
+                      setFreqPickerTaskId(null);
+                    }}
+                    style={{ paddingVertical: 10 }}>
+                    <Text style={{ color: c.textSoft }}>{FREQ_LABEL[f]}</Text>
+                  </Pressable>
+                ))
+              : null}
+            <Pressable onPress={() => setFreqPickerTaskId(null)} style={{ marginTop: 8 }}>
+              <Text style={{ color: c.textSubtle, textAlign: 'center' }}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       <View
         style={[
@@ -330,5 +416,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 14,
     paddingVertical: 14,
+  },
+  pickerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    zIndex: 20,
+  },
+  pickerCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    width: '100%',
+  },
+  pickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pickerChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
 });

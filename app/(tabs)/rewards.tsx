@@ -38,6 +38,11 @@ import {
   canRequestReward,
 } from '@/lib/rewards/can-request-reward';
 import {
+  allowanceProgressForMember,
+  type AllowanceRule,
+} from '@/lib/rewards/allowance-progress';
+import { loadAllowanceRules } from '@/lib/rewards/allowance-rules-store';
+import {
   formatMoney,
   listAllowanceLedger,
   summarizeAllowanceLedger,
@@ -178,6 +183,7 @@ export default function RewardsScreen() {
   const [championsRecord, setChampionsRecord] = useState<ChampionsRecord | null>(null);
   const [allowanceLedger, setAllowanceLedger] = useState<AllowanceLedgerEntry[]>([]);
   const [ledgerMemberId, setLedgerMemberId] = useState<string | null>(null);
+  const [allowanceRules, setAllowanceRules] = useState<AllowanceRule[]>([]);
 
   const reloadAllowanceLedger = useCallback(async () => {
     if (!household.id) {
@@ -191,6 +197,11 @@ export default function RewardsScreen() {
   useEffect(() => {
     if (surface === 'allowance') void reloadAllowanceLedger();
   }, [surface, reloadAllowanceLedger, pendingAllowances]);
+
+  useEffect(() => {
+    if (surface !== 'allowance' || !household.id) return;
+    void loadAllowanceRules(household.id).then(setAllowanceRules);
+  }, [surface, household.id]);
 
   const fallbackSurface = (): Surface => {
     if (showRewards) return 'rewards';
@@ -640,6 +651,48 @@ export default function RewardsScreen() {
       {/* ── ALLOWANCE ── */}
       {surface === 'allowance' && showAllowance ? (
         <Animated.View entering={FadeInDown.duration(220)} style={styles.stack}>
+          {allowanceRules.length > 0 ? (
+            allowanceRules.map((rule) => {
+              const progress = allowanceProgressForMember({
+                memberName: rule.memberName,
+                frequency: rule.frequency,
+                tasks: household.tasks,
+              });
+              const pct = Math.round(progress.ratio * 100);
+              return (
+                <View
+                  key={rule.id}
+                  style={[
+                    styles.allowanceCard,
+                    { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.08) },
+                  ]}>
+                  <Text style={[typography.headline, { color: c.text }]}>
+                    {rule.memberName} · {formatMoney(rule.amount, rule.currency)} {rule.frequency}
+                  </Text>
+                  <View
+                    style={{
+                      height: 8,
+                      borderRadius: 999,
+                      backgroundColor: glass(0.1),
+                      marginTop: 10,
+                      overflow: 'hidden',
+                    }}>
+                    <View
+                      style={{
+                        width: `${pct}%`,
+                        height: '100%',
+                        backgroundColor: progress.earned ? '#34D399' : accentTheme.primary,
+                      }}
+                    />
+                  </View>
+                  <Text style={[typography.caption1, { color: c.textSubtle, marginTop: 6 }]}>
+                    {progress.label}
+                  </Text>
+                  <Text style={[typography.caption1, { color: c.textMuted }]}>{progress.helper}</Text>
+                </View>
+              );
+            })
+          ) : null}
           {isAdmin ? (
             <>
               <View

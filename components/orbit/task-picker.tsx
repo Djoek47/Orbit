@@ -322,8 +322,8 @@ export function TaskPicker({
                 { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) },
               ]}>
               <Icon name={domainIconName(domain.id)} size={28} />
-              <Text style={[styles.tileLabel, { color: c.text }]} numberOfLines={2}>
-                {domain.name}
+              <Text style={[styles.tileLabel, { color: c.text }]} numberOfLines={1}>
+                {domain.shortName ?? domain.name}
               </Text>
             </Pressable>
           ))}
@@ -332,7 +332,7 @@ export function TaskPicker({
 
       {onRequestCustom && !query.trim() && tab === 'chores' ? (
         <Pressable onPress={() => onRequestCustom('')} style={styles.createLink}>
-          <Text style={[typography.footnote, { color: c.textSoft }]}>Create a task</Text>
+          <Text style={[typography.footnote, { color: c.textSoft }]}>Create custom task</Text>
         </Pressable>
       ) : null}
 

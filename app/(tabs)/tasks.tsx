@@ -854,8 +854,15 @@ export default function TasksScreen() {
               <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Switch account</Text>
             </Pressable>
           ) : permissions.canCreateTask ? (
-            <Pressable onPress={() => router.push('/create-task' as never)} style={styles.emptyCta}>
-              <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Create task</Text>
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/assign-task',
+                  params: focusMember ? { member: focusMember } : {},
+                } as never)
+              }
+              style={styles.emptyCta}>
+              <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Assign tasks</Text>
             </Pressable>
           ) : null}
         </View>

@@ -81,24 +81,24 @@
 | Gate | Result | Notes |
 |---|---|---|
 | F9 Assign page sticky footer | PASS | `app/assign-task.tsx`; Tasks `+` opens it |
-| F9.1 Remove Custom/Create/Quick presets from primary | PARTIAL | Primary `+` no longer opens create-task; create-task remains reachable for custom |
+| F9.1 Remove Custom/Create/Quick presets from primary | PASS | Tasks `+` / empty CTA → Assign; task-picker says Create custom task; create-task remains for custom only |
 | F10.3 shortName | PASS | All 15 domains in `choremaxx-task-library.json` |
-| F10.1–F10.2 Frequency picker on rows | PARTIAL | Assign shows XP · frequency; full More picker UI deferred |
+| F10.1–F10.2 Frequency picker on rows | PASS | Assign row `XP · Daily ▾` with More freqs |
 
 ## ITEM 10 · No XP cost + Create allowance (§11)
 
 | Gate | Result | Notes |
 |---|---|---|
 | F11.1 Mint copy | PASS | Exact Rev F sentence |
-| F11.2 Create allowance screen | PASS | `app/create-allowance.tsx` Daily/Weekly/Monthly |
-| F11.3–F11.4 Progress bar / all-or-nothing payout | PARTIAL | Screen + copy shipped; period-close engine still uses existing allowance ledger hooks |
+| F11.2 Create allowance screen | PASS | `app/create-allowance.tsx` Daily/Weekly/Monthly + AsyncStorage rules |
+| F11.3–F11.4 Progress bar / all-or-nothing payout | PARTIAL | Progress bar on Rewards allowance surface; period-close ledger write still follow-up |
 
 ## ITEM 11 · Assignee-only complete (§12)
 
 | Gate | Result | Notes |
 |---|---|---|
 | F12.1 Own only | PASS | `completeTask` + Tasks toggle + task detail checkbox |
-| F12.2 Unassign incomplete | PENDING | Remove for today / permanently UI not finished |
+| F12.2 Unassign incomplete | PASS | Task detail: Remove for today / Remove permanently |
 | F12.3 Permission matrix | DOCUMENTED | Rev F §12.3; code paths align for complete / Hold & Request / invites |
 
 ## ITEM · House Rules (§13)
@@ -110,10 +110,14 @@
 
 ## Leftovers from C / E
 
-- `homeworkProofRequired` on child members (default true in mock).
+- `homeworkProofRequired` on child members (default true) + Settings per-child Switch.
 - Chore create path keeps `proofRequired: false` (homework only).
 - Mint “No XP cost” removed.
 - Missed → Expired vocabulary in rollover + UI.
+
+## Weekend ship (missed → restored)
+
+Playbook restored in `docs/weekend-ship-automation.md`. **A1–B7** are the active queue. A1 app URL sync started (`choremaxx.vercel.app`).
 
 ## Product overrides preserved (Master Brief / v10)
 

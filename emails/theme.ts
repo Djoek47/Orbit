@@ -67,10 +67,10 @@ export const EMAIL_LOGO_URL = 'https://choremaxx.app/emails/logo-mark.png';
 export const EMAIL_TAGLINE = 'AI Household Operating System';
 
 export const EMAIL_LINKS = {
-  website: 'https://choremaxx.app',
-  manageAccount: 'https://choremaxx.app/account',
-  privacy: 'https://choremaxx.app/privacy',
-  terms: 'https://choremaxx.app/terms',
+  website: 'https://choremaxx.vercel.app',
+  manageAccount: 'https://choremaxx.vercel.app/account',
+  privacy: 'https://choremaxx.vercel.app/privacy',
+  terms: 'https://choremaxx.vercel.app/terms',
   support: 'support@choremaxx.app',
 } as const;
 

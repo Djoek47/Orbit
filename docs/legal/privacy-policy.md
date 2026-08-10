@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-07-20  
 **Contact:** privacy@choremaxx.app  
-**Public URL (host this page):** https://choremaxx.app/privacy
+**Public URL (host this page):** https://choremaxx.vercel.app/privacy
 
 © 2026 Choremaxx. All rights reserved.
 

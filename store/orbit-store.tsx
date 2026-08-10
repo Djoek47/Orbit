@@ -361,6 +361,8 @@ type OrbitContextValue = {
   upsertSavedPlace: (place: SavedPlace) => void;
   removeSavedPlace: (placeId: string) => void;
   updateMemberAvatar: (memberId: string, avatar: string) => Promise<void>;
+  /** Revision C §1 — per-child homework photo proof toggle. */
+  updateMemberHomeworkProof: (memberId: string, required: boolean) => Promise<void>;
   upsertRoom: (room: HouseholdRoom) => void;
   removeRoom: (roomId: string) => void;
   runPoppinsMonitor: () => Promise<PoppinsMonitorAction[]>;
@@ -2472,6 +2474,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
   };
 
+  const updateMemberHomeworkProof = async (memberId: string, required: boolean) => {
+    if (!permissions.canManageHousehold) return;
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((item) =>
+        item.id === memberId ? { ...item, homeworkProofRequired: required } : item
+      ),
+    }));
+    await trackAnalytics('member.homework_proof_toggled', { memberId, required }, analyticsContext);
+  };
+
   const upsertRoom = (room: HouseholdRoom) => {
     setHousehold((current) => {
       const rooms = current.rooms ?? [];
@@ -3571,6 +3584,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       upsertSavedPlace,
       removeSavedPlace,
       updateMemberAvatar,
+      updateMemberHomeworkProof,
       upsertRoom,
       removeRoom,
       runPoppinsMonitor,
@@ -3653,6 +3667,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       upsertSavedPlace,
       removeSavedPlace,
       updateMemberAvatar,
+      updateMemberHomeworkProof,
       upsertRoom,
       removeRoom,
       updateMemberCapabilities,

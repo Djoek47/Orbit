@@ -24,6 +24,7 @@ import {
   normalizeRewardSettings,
 } from '@/lib/rewards/reward-mode';
 import { isTaskLate } from '@/lib/tasks/xp';
+import { canAdminUnassign, unassignNotifyCopy } from '@/lib/tasks/unassign';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
@@ -284,6 +285,51 @@ export default function TaskDetailScreen() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const confirmUnassign = () => {
+    if (!permissions.canManageHousehold) {
+      Alert.alert('Admins only', 'Only household admins can unassign tasks.');
+      return;
+    }
+    if (!canAdminUnassign(task)) {
+      Alert.alert(
+        'Cannot unassign',
+        task.status === 'Completed'
+          ? 'Use Mark not done for a completed task.'
+          : 'Expired tasks cannot be unassigned.'
+      );
+      return;
+    }
+    const adminName = currentMember?.name ?? 'Admin';
+    Alert.alert(`Remove “${task.title}”?`, 'Unassigning deletes this occurrence and awards nothing.', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Remove for today',
+        onPress: () => {
+          void (async () => {
+            await deleteTask(task.id);
+            Alert.alert('Removed', unassignNotifyCopy(adminName, task.title));
+            router.back();
+          })();
+        },
+      },
+      {
+        text: 'Remove permanently',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            // Stop the series first, then delete this occurrence.
+            if (task.repeat !== 'None') {
+              await cancelTask(task.id, 'future');
+            }
+            await deleteTask(task.id);
+            Alert.alert('Removed', unassignNotifyCopy(adminName, task.title));
+            router.back();
+          })();
+        },
+      },
+    ]);
   };
 
   const confirmDelete = () => {
@@ -805,7 +851,14 @@ export default function TaskDetailScreen() {
                 </Text>
               </View>
             ) : null}
-            {permissions.canManageHousehold && task.status !== 'Completed' && task.status !== 'Cancelled' ? (
+            {permissions.canManageHousehold && canAdminUnassign(task) ? (
+              <Pressable onPress={confirmUnassign} style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
+                <Text style={[styles.secondaryText, { color: c.warning }]}>
+                  Unassign / remove
+                </Text>
+              </Pressable>
+            ) : null}
+            {permissions.canManageHousehold && task.status !== 'Completed' && task.status !== 'Cancelled' && !canAdminUnassign(task) ? (
               <Pressable onPress={confirmCancel} style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
                 <Text style={[styles.secondaryText, { color: c.warning }]}>
                   Cancel task{task.status === 'Overdue' ? ' (overdue ok)' : ''}
