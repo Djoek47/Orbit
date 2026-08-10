@@ -30,13 +30,10 @@ never changes color. Tokens live in [`emails/theme.ts`](../emails/theme.ts):
 outer / 32px inner spacing, system font stack only (no external fonts, no
 emojis, no inline SVG icons other than the logo).
 
-**Logo hosting (action needed before any live send):** email clients can't
-load bundled Expo assets. `EMAIL_LOGO_URL` in `emails/theme.ts` currently
-points at a placeholder (`https://choremaxx.app/emails/logo-mark.png`).
-Upload `assets/brand/choremaxx-logo-mark.png` to a public Supabase Storage
-bucket (or the marketing site) and update that constant before the first
-real send. The wordmark itself is rendered as colored HTML text (not baked
-into the image), so it stays crisp even with images blocked.
+**Logo (live):** `EMAIL_LOGO_URL` points at the official coral house mark
+(`assets/brand/choremaxx-email-logo-mark.png` on the Orbit tip). Wordmark is
+HTML **chore** / **maxx** in Bricolage (same family as confirm-email). Inbox
+sender avatar is a separate step — see [`email-sender-avatar.md`](./email-sender-avatar.md).
 
 ## Component library
 
