@@ -49,7 +49,9 @@ RULES OF ENGAGEMENT
 
 ## §0.1 — 🔴 ASK BEFORE BUILDING
 
-> ### QUESTION 1 — Does a "reward request" feature exist on purpose?
+> ### QUESTION 1 — ✅ ANSWERED: **B — the feature is wanted.** Build `N26` and `N27`. Full spec in Revision F §4. The original question is kept below for context only.
+>
+> ### ~~QUESTION 1 — Does a "reward request" feature exist on purpose?~~
 >
 > A notification currently in the app reads:
 >
@@ -69,7 +71,7 @@ RULES OF ENGAGEMENT
 > | **B** | It is wanted and should stay | Keep it, and it must be specified properly — who can request, how often, what stops a child requesting twenty times a day |
 > | **C** | It is a mislabelled version of the approval flow | Rename it. A reward *earned* and awaiting approval is not a *request*. |
 >
-> **DO NOT PROCEED past §2 without an answer.** The notification copy in §2 depends entirely on which of these is true. Placeholder copy is provided for both A and B, clearly marked.
+> **RESOLVED — proceed.** Answer is **B**. Build `N26` and `N27` exactly as written in §2.3.
 
 ## §0.2 — Already answered. Do not ask again.
 
@@ -560,8 +562,8 @@ VOCABULARY
 CHOREMAXX REVISION E — COMPLETION REPORT
 
 QUESTION 1 (reward requests)
-  Answer received from product owner ......... [ A / B / C / NOT ANSWERED ]
-  If NOT ANSWERED, §2 must not be marked done.
+  ANSWERED: B — feature is wanted. Build N26 and N27.
+  Full specification is in Revision F §4.
 
 ITEMS
   §1 Slogans ................................. [ DONE / PARTIAL / NOT STARTED ]

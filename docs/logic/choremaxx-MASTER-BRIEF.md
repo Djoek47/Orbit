@@ -59,21 +59,11 @@ STEP 6   Before declaring anything finished, run §6 — THE FINAL
 
 # §1 — 🔴 BLOCKING QUESTIONS
 
-## Q1 — Does a "reward request" feature exist on purpose?
+## Q1 — Reward requests — ✅ ANSWERED: **B, keep it**
 
-**STATUS: UNANSWERED. THIS BLOCKS REVISION E §2.**
+Confirmed wanted. Children can request rewards via **Hold & Request**, gated on completing all of the day's tasks and homework. Revision E notifications `N26` and `N27` are **live** — build them.
 
-The app currently sends a notification reading *"Ci requested Additional screen time,"* and a screen describes *"mint vs special request."* This implies children can request rewards, and can request rewards that don't exist yet.
-
-**No approved specification contains this.** Revisions B, C and D all describe rewards as **earned** by completing assigned work, then either granted instantly or held for admin approval. There is no request flow in any of them.
-
-| Answer | Meaning | Action |
-|---|---|---|
-| **A** | Invented without instruction | Delete the feature, its notifications (`N26`, `N27`), and all related copy |
-| **B** | Wanted, keep it | Keep — but it must be specified first: who may request, how often, what rate-limits it |
-| **C** | It's the approval flow, mislabelled | Rename throughout. A reward *earned* and awaiting approval is not a *request*. |
-
-**Do not proceed past Revision E §1 without an answer.**
+Full specification: **Revision F §4.**
 
 ## Q2 — Is the free first Streak Rescue confirmed?
 
@@ -102,8 +92,9 @@ A member's first-ever Streak Rescue costs 0 XP. This was recommended, not explic
 | 2 | `choremaxx-revision-c-spec.md` | Proof model, reward data-flow bug, role rename, grocery rebuild | In force |
 | 3 | `choremaxx-revision-d-spec.md` | Late Credit, Expiry, Streak Rescue, Crowns, Recess, House Rules, notifications, scroll | In force |
 | 4 | `choremaxx-revision-e-spec.md` | Intro slogans, notification copy, history bug, vocabulary audit | In force |
-| 5 | `choremaxx-task-library.json` | 150 tasks · 15 domains · 43 groups | Seed data — do not edit |
-| 6 | `choremaxx-grocery-categories.json` | 16 aisle categories · 1,120 terms | Seed data — do not edit |
+| 5 | `choremaxx-revision-f-spec.md` | Per-member invites, Hold & Request, expired tab, task page rebuild, allowance rules, permissions | In force — **newest** |
+| 6 | `choremaxx-task-library.json` | 150 tasks · 15 domains · 43 groups | Seed data — **gains `shortName`, Rev F §10.3** |
+| 7 | `choremaxx-grocery-categories.json` | 16 aisle categories · 1,120 terms | Seed data — do not edit |
 
 > **Document 1 is the dangerous one.** It is the oldest and the largest, and four of its rules have since been reversed. It contains warning boxes pointing at the newer documents, but **§4 of this brief is the authoritative list.** Check §4 before implementing anything you read in document 1.
 
@@ -351,6 +342,11 @@ Poppins keeps the whole house in step.
 | R18 | AI assistant | Nova | **Poppins** | Rev B §1.1 |
 | R19 | Grocery feature | "Grocery Intelligence" + budget + store + storage | **Simple auto-categorised list** | Rev C §4 |
 | R20 | Vacation mode | — | **Recess** | Rev D §3 |
+| R21 | Invite scope | Household-level QR + link | **Per member**, 7-day, single-use | Rev F §3 |
+| R22 | Completing a task | Admin could complete for others | **Assignee only** | Rev F §12 |
+| R23 | Task page controls | Custom task / Create a task / Quick presets buttons | **All three removed**, Assign is sticky | Rev F §9 |
+| R24 | Expired tasks | Mixed into the active list | **Own tab, 7-day view window** | Rev F §5 |
+| R25 | "No XP cost" copy | Present on Mint a reward | **Deleted** | Rev F §11.1 |
 
 **Task R.a** — [ ] For every row above, grep the codebase for the OLD behaviour and confirm zero occurrences. Report the count for each.
 
@@ -473,7 +469,7 @@ STREAK MATH
 CHOREMAXX — MASTER COMPLETION REPORT
 
 BLOCKING QUESTIONS
-  Q1 reward requests ....... [ A / B / C / UNANSWERED ]
+  Q1 reward requests ....... ANSWERED: B (see Rev F §4)
   Q2 free first rescue ..... [ CONFIRMED / REMOVED / UNANSWERED ]
 
 PHASES
@@ -487,7 +483,8 @@ REVERSAL TABLE (§4)
   Old behaviour found and deleted, by row:
   R1 __  R2 __  R3 __  R4 __  R5 __  R6 __  R7 __
   R8 __  R9 __  R10 __ R11 __ R12 __ R13 __ R14 __
-  R15 __ R16 __ R17 __ R18 __ R19 __ R20 __
+  R15 __ R16 __ R17 __ R18 __ R19 __ R20 __ R21 __
+  R22 __ R23 __ R24 __ R25 __
   (report the count found; all should now be 0)
 
 FINAL SWEEP
