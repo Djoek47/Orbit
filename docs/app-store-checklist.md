@@ -9,10 +9,12 @@
 - [x] Expo account + `eas login` + `eas init` (writes `extra.eas.projectId` in `app.json`)
 - [x] App Store Connect app created for `app.choremaxx.household` (ASC App ID `6796850110`)
 - [x] `ascAppId` set in `eas.json`
-- [ ] Supabase staging/production + RLS + edge functions deployed (incl. `send-auth-email`)
-- [ ] `OPENAI_API_KEY` in Supabase secrets (Poppins)
+- [x] Supabase staging edge functions deployed (`send-auth-email`, Poppins suite)
+- [x] `OPENAI_API_KEY` in Supabase secrets (Poppins) — rotate after B7 if exposed in terminal history
+- [x] Resend secrets on staging — rotate after B7 if exposed in terminal history
 - [x] EAS project env: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
-- [ ] EAS env: `EXPO_PUBLIC_PRIVACY_URL`, `EXPO_PUBLIC_TERMS_URL` → `https://choremaxx.vercel.app/privacy|terms`
+- [x] EAS env: `EXPO_PUBLIC_PRIVACY_URL`, `EXPO_PUBLIC_TERMS_URL` (still on choremaxx.vercel.app until site cutover)
+- [ ] ASC IAP products created — see `docs/asc-iap-setup.md`
 - [x] Privacy + Terms source in `docs/legal/*` (re-host on Vercel after Nova→Poppins edit)
 - [x] `npm run testflight:preflight` passes
 

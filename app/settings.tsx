@@ -47,6 +47,14 @@ import {
   openSystemNotificationSettings,
   registerForPushNotifications,
 } from '@/lib/notifications/push';
+import {
+  fetchEntitlement,
+  IAP_PRODUCTS,
+  premiumCopy,
+  purchasePremium,
+  restorePurchases,
+  type EntitlementState,
+} from '@/lib/billing/iap';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
@@ -169,6 +177,8 @@ export default function SettingsScreen() {
   );
 
   const [section, setSection] = useState<Section>('main');
+  const [entitlement, setEntitlement] = useState<EntitlementState | null>(null);
+  const [billingBusy, setBillingBusy] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(household.householdName);
   const [editingDisplayName, setEditingDisplayName] = useState(false);
@@ -204,6 +214,11 @@ export default function SettingsScreen() {
     void getNotificationPermissionStatus().then((permission) => {
       setOsNotifStatus(isNotificationPermissionGranted(permission) ? 'granted' : 'denied');
     });
+  }, [section]);
+
+  useEffect(() => {
+    if (section !== 'main') return;
+    void fetchEntitlement().then(setEntitlement);
   }, [section]);
 
   const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
@@ -710,6 +725,63 @@ export default function SettingsScreen() {
                   { value: 'waze', label: 'Waze' },
                 ]}
               />
+            </SectionCard>
+
+            <SectionCard title="Premium">
+              <Text style={[styles.caption, { color: c.textSoft, marginBottom: 10 }]}>
+                {entitlement ? premiumCopy(entitlement) : 'Loading…'}
+              </Text>
+              <Text style={[styles.caption, { color: c.textSubtle, marginBottom: 12 }]}>
+                Apple IAP · 7-day trial · ${IAP_PRODUCTS.monthly.priceUsd}/mo or $
+                {IAP_PRODUCTS.yearly.priceUsd}/yr. Expo Go uses a mock trial until ASC products
+                are live on TestFlight.
+              </Text>
+              <Pressable
+                style={[styles.accountBtn, { backgroundColor: glass(0.06), opacity: billingBusy ? 0.6 : 1 }]}
+                disabled={billingBusy}
+                onPress={() => {
+                  setBillingBusy(true);
+                  void purchasePremium('monthly')
+                    .then((next) => {
+                      setEntitlement(next);
+                      Alert.alert('Premium', premiumCopy(next));
+                    })
+                    .finally(() => setBillingBusy(false));
+                }}>
+                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
+                  Start monthly trial · ${IAP_PRODUCTS.monthly.priceUsd}/mo
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.accountBtn, { backgroundColor: glass(0.06), opacity: billingBusy ? 0.6 : 1 }]}
+                disabled={billingBusy}
+                onPress={() => {
+                  setBillingBusy(true);
+                  void purchasePremium('yearly')
+                    .then((next) => {
+                      setEntitlement(next);
+                      Alert.alert('Premium', premiumCopy(next));
+                    })
+                    .finally(() => setBillingBusy(false));
+                }}>
+                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
+                  Start yearly trial · ${IAP_PRODUCTS.yearly.priceUsd}/yr
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.accountBtn, { backgroundColor: glass(0.06), opacity: billingBusy ? 0.6 : 1 }]}
+                disabled={billingBusy}
+                onPress={() => {
+                  setBillingBusy(true);
+                  void restorePurchases()
+                    .then((next) => {
+                      setEntitlement(next);
+                      Alert.alert('Restore', premiumCopy(next));
+                    })
+                    .finally(() => setBillingBusy(false));
+                }}>
+                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>Restore purchases</Text>
+              </Pressable>
             </SectionCard>
 
             <SectionCard title="Account">

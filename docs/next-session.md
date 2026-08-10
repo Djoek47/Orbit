@@ -4,15 +4,18 @@
 **Report:** [`WEEKEND_SHIP_COMPLETION_REPORT.md`](./WEEKEND_SHIP_COMPLETION_REPORT.md)  
 **Branch:** `cursor/choremaxx-make-v10-5f8f` → [PR #29](https://github.com/Djoek47/Orbit/pull/29)
 
-## Continue here (human secrets)
+## Continue here (order)
 
-1. **A1 site** — apply [`site-copy-a1-patch.md`](./site-copy-a1-patch.md) on Vercel; re-host privacy/terms from `docs/legal/*`
-2. **A2 live** — set Resend secrets, deploy `send-auth-email --no-verify-jwt`, enable Auth Hook, signup smoke → `choremaxx://auth/callback`
-3. **A3 ASC** — create IAP products from `constants/billing.ts`, then wire StoreKit
-4. **A6** — functions deployed; set `OPENAI_API_KEY` then `bash scripts/smoke-poppins-openai.sh` + live Poppins chat
-5. **B4–B7** — site CTAs, billing emails, full device retest, App Review
+1. **A3 ASC** — create IAP products from [`asc-iap-setup.md`](./asc-iap-setup.md) (human in App Store Connect)
+2. **A2 live smoke** — enable Auth Send Email Hook; signup → `choremaxx://auth/callback`
+3. **A6 device** — Poppins chat in TestFlight #27 (edge already green)
+4. **A1 / B4 site** — push `Choremaxx-Website` from a machine with write access; redeploy Vercel
+5. **B5** — wire billing emails after A3 products fire events
+6. **B6** — full device retest
+7. **B7** — App Review submit
+8. **LAST — key rotations** — Resend + OpenAI (+ hook secret if needed); see playbook Final section
 
 ## Do not redo
 
 - Final Revision F core gates · House Rules · Canada grocery · Smart Shopping
-- In-repo A1 legal/EAS URL refresh · A2 template wiring · A3–A5/A7 scaffolds already landed
+- In-repo A1 legal · A2/A6 edge deploys · A4/A5/A7 unit greens

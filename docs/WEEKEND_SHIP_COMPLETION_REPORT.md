@@ -8,32 +8,39 @@
 
 | ID | Result | Notes |
 |----|--------|-------|
-| **A1** | ◐ PARTIAL → in-repo DONE | Legal Nova→Poppins + families-only (`docs/legal/*`). ASC listing draft in `docs/app-store-checklist.md`. EAS env set: `EXPO_PUBLIC_PRIVACY_URL` / `TERMS_URL` on production/preview/development. Brand constants read env with vercel.app fallbacks. **Blocked external:** marketing site still has roommate mode + Nova FAQ — apply `docs/site-copy-a1-patch.md` in Vercel repo; re-host privacy/terms HTML. |
-| **A2** | ◐ CODE DONE | React Email wired into `send-auth-email` + `emails/auth-hook-render.ts` + tests. **Blocked live:** needs `RESEND_API_KEY`, `SEND_EMAIL_HOOK_SECRET`, Auth Hook enable, deploy `--no-verify-jwt`, then signup → `choremaxx://auth/callback`. Logo host: upload mark to `choremaxx.vercel.app/emails/logo-mark.png`. |
-| **A3** | ◐ SCAFFOLD | `constants/billing.ts` + `lib/billing/iap.ts` (7-day trial, $4.99/mo, $48/yr, mock entitlement). **Blocked:** ASC subscription products + native `expo-iap`/StoreKit on device builds. |
-| **A4** | ✅ PASS (unit) | Gate + Mark as paid ledger smoke (`lib/rewards/a4-smoke.test.ts`). Full staging mint→approve still needs TestFlight/supabase session. |
-| **A5** | ◐ DONE foundation | Quiet hours pref + defer OS banners 21:00–07:00 in `pushNotification`; Settings toggle. Batching engine already tested. |
-| **A6** | ◐ DEPLOYED — NEEDS KEY | Edge functions deployed on staging (`poppins-chat`, `briefing`, `voice`, `realtime-session`, `monitor`, `join-household`). TestFlight / EAS already set `EXPO_PUBLIC_POPPINS_AI=openai`. **Blocked live:** set `OPENAI_API_KEY` then `bash scripts/smoke-poppins-openai.sh` + device chat. |
-| **A7** | ✅ PASS (unit) | Role matrix tests (`lib/account/a7-matrix.test.ts`). |
-| **A8** | ◐ DRAFT | ASC listing fields filled in checklist. **Do not submit** until B6/B7. |
+| **A1** | ◐ PARTIAL | In-repo legal + ASC draft + EAS privacy/terms. Site branding done locally under `/workspace/site` — **push blocked** (GitHub 403 on `Choremaxx-Website`). Live www may still be stale until you push/redeploy. |
+| **A2** | ◐ CONNECTED | Resend secrets + `send-auth-email` ACTIVE. **Still:** enable Auth Send Email Hook in Supabase dashboard + signup smoke. |
+| **A3** | ◐ IN APP | Catalog + Settings → Premium mock trial/restore. ASC product creation: `docs/asc-iap-setup.md`. StoreKit native path after products exist. |
+| **A4** | ✅ PASS (unit) | Gate + Mark as paid ledger smoke. |
+| **A5** | ✅ | Quiet hours + Settings toggle. |
+| **A6** | ✅ EDGE | `OPENAI_API_KEY` set; Poppins functions ACTIVE; `smoke-poppins-openai.sh` PASS. Device chat smoke still human (TestFlight #27). |
+| **A7** | ✅ PASS (unit) | Role permission tests. |
+| **A8** | ◐ DRAFT | ASC listing draft — do not submit until B7. |
 
 ## Phase B
 
 | ID | Result | Notes |
 |----|--------|-------|
-| **B1** | ◐ DONE | Poppins co-manager system prompt (client + `poppins-chat`). |
-| **B2** | ◐ EXISTING | Itinerary suggest tools already in store; no new invention. |
-| **B3** | ◐ DONE | Deep links hardened in `lib/notifications/navigate.ts` + action helper/tests. |
-| **B4** | ☐ BLOCKED | Site outside repo — see `docs/site-copy-a1-patch.md`. |
-| **B5** | ☐ BLOCKED | Needs A3 ASC products live. Billing email templates already exist. |
-| **B6** | ◐ PARTIAL | `npm run test:weekend-a` + typecheck; full Expo Go + TestFlight manual matrix still human. |
-| **B7** | ☐ BLOCKED | Wait for B6 green + A8 + live legal URLs on site. |
+| **B1** | ✅ | Poppins co-manager prompt. |
+| **B2** | ◐ EXISTING | Itinerary tools already in store. |
+| **B3** | ✅ | Notification deep links. |
+| **B4** | ☐ BLOCKED | Site CTAs — needs site push + A3 ASC. |
+| **B5** | ☐ BLOCKED | Billing email templates exist; need A3 purchase events. |
+| **B6** | ◐ PARTIAL | `npm run test:weekend-a`; device matrix human. |
+| **B7** | ☐ LAST (before key rotations) | App Review after B6 + A8 + live legal URLs. |
+
+## Final (after B7)
+
+- [ ] Rotate Resend API key → update Supabase secret
+- [ ] Rotate OpenAI API key → update Supabase secret
+- [ ] Rotate `SEND_EMAIL_HOOK_SECRET` if exposed
+- [ ] Confirm Auth Hook + Poppins still work after rotation
 
 ## Commands
 
 ```bash
 npm run test:weekend-a
 npm run typecheck
-# Live A2 (human secrets):
-npx supabase functions deploy send-auth-email --no-verify-jwt
+bash scripts/smoke-poppins-openai.sh
+# A3 ASC: docs/asc-iap-setup.md
 ```

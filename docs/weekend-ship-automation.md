@@ -63,12 +63,12 @@ Do A fully before B. Do not start B7 until B6 is green.
 
 | ID | Status | Task | Done when |
 |----|--------|------|-----------|
-| **A1** | ◐ PARTIAL | Website URLs + support email | In-repo legal + ASC draft + EAS privacy/terms env done. **Still external:** Vercel site roommate/Nova copy (`docs/site-copy-a1-patch.md`) + re-host privacy/terms HTML. |
-| **A2** | ◐ CODE | Auth emails via Resend | React Email wired in `send-auth-email`. **Live blocked** on Resend API key + Auth Hook deploy. |
-| **A3** | ◐ SCAFFOLD | IAP scaffold | Product IDs + mock entitlement in `constants/billing.ts`. ASC products + StoreKit still needed. |
+| **A1** | ◐ PARTIAL | Website URLs + support email | In-repo legal + ASC draft + EAS privacy/terms env done. **Still external:** push/redeploy `Choremaxx-Website` + live privacy/terms. |
+| **A2** | ◐ CONNECTED | Auth emails via Resend | Secrets + `send-auth-email` deployed. **Still:** Auth Hook in dashboard + signup smoke → `choremaxx://auth/callback`. |
+| **A3** | ◐ IN APP | IAP scaffold + Settings Premium | Catalog + mock trial UI. **Blocked:** ASC products (`docs/asc-iap-setup.md`) then StoreKit on next native build. |
 | **A4** | ✅ UNIT | Rewards smoke | Gate + Mark as paid ledger tests green. Staging device smoke optional. |
 | **A5** | ✅ | Notifications foundation | Quiet hours pref + banner deferral 21:00–07:00; Settings toggle. |
-| **A6** | ◐ DEPLOYED | Poppins OpenAI connect | Functions deployed. Set `OPENAI_API_KEY` → `bash scripts/smoke-poppins-openai.sh` → device chat. |
+| **A6** | ✅ EDGE | Poppins OpenAI connect | Key set + functions ACTIVE + smoke PASS. **Still human:** device chat in TestFlight #27. |
 | **A7** | ✅ UNIT | Account matrix | Role permission tests green. |
 | **A8** | ◐ DRAFT | Store package draft | ASC fields in `docs/app-store-checklist.md`. Do not submit until B7. |
 
@@ -83,6 +83,17 @@ Do A fully before B. Do not start B7 until B6 is green.
 | **B5** | ☐ TODO | Billing emails | After A3 products exist. |
 | **B6** | ◐ PARTIAL | Full retest | Suites via `npm run test:weekend-a`; device matrix still human. |
 | **B7** | ☐ TODO | App Review submit | Only after B6 green + A8 + legal URLs live. |
+
+### Final — key rotations (LAST, after B7 / ship)
+
+Do **not** rotate mid-weekend while hooks are being tested. After App Review package is stable:
+
+| Secret | Where | Why |
+|--------|-------|-----|
+| Resend API key | Resend dashboard → Supabase `RESEND_API_KEY` | Appeared in agent terminal history |
+| OpenAI API key | OpenAI dashboard → Supabase `OPENAI_API_KEY` | Appeared in agent terminal history |
+| `SEND_EMAIL_HOOK_SECRET` | Supabase Auth Hook + secrets | Rotate if hook URL was shared |
+| Any pasted tokens | Terminal history / chat | Prefer dashboard recreate + `secrets set` |
 
 ---
 
