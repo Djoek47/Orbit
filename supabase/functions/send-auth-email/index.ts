@@ -1,5 +1,5 @@
 /**
- * Supabase Auth → Send Email Hook → Resend (branded React Email templates).
+ * Supabase Auth → Send Email Hook → Resend (branded HTML).
  *
  * Deploy with JWT verification disabled:
  *   npx supabase functions deploy send-auth-email --no-verify-jwt
@@ -9,30 +9,15 @@
  *   SEND_EMAIL_HOOK_SECRET   (full value from Dashboard, e.g. v1,whsec_…)
  *   RESEND_FROM_EMAIL        (optional, default Choremaxx <noreply@choremaxx.app>)
  *
- * Templates: emails/verification | password-reset | magic-link | email-changed
- * See docs/resend-auth-email.md and docs/email-templates.md
+ * Brand HTML lives in ./branded-html.ts (must stay inside this folder for deploy).
+ * Node preview templates remain in repo-root emails/*.tsx.
+ *
+ * See docs/resend-auth-email.md
  */
 
 import { Webhook } from 'npm:standardwebhooks@1.0.0';
-import { render as renderToHtml } from 'npm:@react-email/render@2.1.0';
-import * as React from 'npm:react@19.1.0';
 
-import EmailChangedEmail, {
-  subjectFor as emailChangedSubject,
-  textFor as emailChangedText,
-} from '../../../emails/email-changed.tsx';
-import MagicLinkEmail, {
-  subjectFor as magicLinkSubject,
-  textFor as magicLinkText,
-} from '../../../emails/magic-link.tsx';
-import PasswordResetEmail, {
-  subjectFor as passwordResetSubject,
-  textFor as passwordResetText,
-} from '../../../emails/password-reset.tsx';
-import VerificationEmail, {
-  subjectFor as verificationSubject,
-  textFor as verificationText,
-} from '../../../emails/verification.tsx';
+import { renderBrandedAuthEmail } from './branded-html.ts';
 
 type EmailActionType =
   | 'signup'
@@ -92,78 +77,6 @@ function verifyUrl(
   return url.toString();
 }
 
-function appendOtp(
-  rendered: { subject: string; html: string; text: string },
-  otp: string
-): { subject: string; html: string; text: string } {
-  const code = otp.trim();
-  if (!code) return rendered;
-  return {
-    ...rendered,
-    text: `${rendered.text}\n\nOr enter this code: ${code}`,
-    html: rendered.html.replace(
-      /<\/body>/i,
-      `<p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:#8A7A70;text-align:center;margin:24px 16px;">Or enter this code: <strong style="letter-spacing:0.12em;color:#712B13;">${code}</strong></p></body>`
-    ),
-  };
-}
-
-async function renderBrandedEmail(opts: {
-  action: EmailActionType;
-  confirmUrl: string;
-  name: string;
-  otp: string;
-  oldEmail?: string;
-  newEmail?: string;
-}): Promise<{ subject: string; html: string; text: string }> {
-  const { action, confirmUrl, name } = opts;
-
-  let subject: string;
-  let html: string;
-  let text: string;
-
-  switch (action) {
-    case 'recovery': {
-      const props = { name, resetUrl: confirmUrl, expiresInMinutes: 60 };
-      subject = passwordResetSubject(props);
-      html = await renderToHtml(React.createElement(PasswordResetEmail, props));
-      text = passwordResetText(props);
-      break;
-    }
-    case 'magiclink':
-    case 'email': {
-      const props = { name, signInUrl: confirmUrl, expiresInMinutes: 15 };
-      subject = magicLinkSubject(props);
-      html = await renderToHtml(React.createElement(MagicLinkEmail, props));
-      text = magicLinkText(props);
-      break;
-    }
-    case 'email_change': {
-      const props = {
-        name,
-        oldEmail: opts.oldEmail?.trim() || 'previous address',
-        newEmail: opts.newEmail?.trim() || name,
-        confirmUrl,
-      };
-      subject = emailChangedSubject(props);
-      html = await renderToHtml(React.createElement(EmailChangedEmail, props));
-      text = emailChangedText(props);
-      break;
-    }
-    case 'signup':
-    case 'invite':
-    default: {
-      const props = { name, confirmUrl, expiresInHours: 24 };
-      subject = verificationSubject();
-      html = await renderToHtml(React.createElement(VerificationEmail, props));
-      text = verificationText(props);
-      break;
-    }
-  }
-
-  return appendOtp({ subject, html, text }, opts.otp);
-}
-
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -208,7 +121,7 @@ Deno.serve(async (req) => {
       email_data.redirect_to || 'choremaxx://auth/callback'
     );
     const name = displayName(to, user.user_metadata);
-    const { subject, html, text } = await renderBrandedEmail({
+    const { subject, html, text } = renderBrandedAuthEmail({
       action,
       confirmUrl,
       name,

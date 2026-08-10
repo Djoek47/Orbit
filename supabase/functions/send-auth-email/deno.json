@@ -1,15 +1,5 @@
 {
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "react",
-    "lib": ["deno.window", "deno.unstable"],
-    "strict": true
-  },
   "imports": {
-    "react": "npm:react@19.1.0",
-    "react/jsx-runtime": "npm:react@19.1.0/jsx-runtime",
-    "@react-email/components": "npm:@react-email/components@1.0.12",
-    "@react-email/render": "npm:@react-email/render@2.1.0",
     "standardwebhooks": "npm:standardwebhooks@1.0.0"
   }
 }
