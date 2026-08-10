@@ -9,7 +9,17 @@ BASE="https://${PROJECT_REF}.supabase.co/functions/v1"
 echo "== A6 Poppins OpenAI smoke =="
 echo "project: $PROJECT_REF"
 
-if ! npx supabase secrets list --project-ref "$PROJECT_REF" 2>/dev/null | grep -q '"name":"OPENAI_API_KEY"'; then
+has_key=0
+for _ in 1 2 3 4 5; do
+  if npx supabase secrets list --project-ref "$PROJECT_REF" 2>/dev/null \
+    | python3 -c 'import sys, json; d = json.load(sys.stdin); sys.exit(0 if any(s.get("name") == "OPENAI_API_KEY" for s in d.get("secrets", [])) else 1)'; then
+    has_key=1
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$has_key" != "1" ]]; then
   echo "FAIL OPENAI_API_KEY missing from Supabase secrets"
   echo "Set it with:"
   echo "  npx supabase secrets set OPENAI_API_KEY=sk-... --project-ref $PROJECT_REF"
@@ -22,7 +32,7 @@ for fn in poppins-chat poppins-briefing poppins-voice poppins-realtime-session p
     -X POST "$BASE/$fn" \
     -H 'Content-Type: application/json' \
     -d '{}')
-  # Unauthenticated should be 401 once JWT verify is on; 401/403 means the function is up.
+  # Unauthenticated should be 401 once JWT verify is on; 401/403/400 means the function is up.
   if [[ "$code" == "401" || "$code" == "403" || "$code" == "400" ]]; then
     echo "ok  $fn reachable (HTTP $code without auth)"
   else
