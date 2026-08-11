@@ -1,6 +1,7 @@
 import { Audio } from 'expo-av';
 
 import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
+import { toolResultToMonitorAction } from '@/lib/ai/execute-poppins-tool';
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import { POPPINS_TOOL_DEFINITIONS, type PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -79,7 +80,7 @@ async function mintRealtimeSession(
 
   return {
     clientSecret: payload.clientSecret,
-    model: payload.model ?? 'gpt-4o-realtime-preview',
+    model: payload.model ?? 'gpt-realtime-2.1-mini',
     expiresAt: payload.expiresAt,
     voice: payload.voice,
   };
@@ -93,7 +94,7 @@ async function mintRealtimeSession(
  */
 export class PoppinsRealtimeSession {
   private ws: WebSocket | null = null;
-  private model = 'gpt-4o-realtime-preview';
+  private model = 'gpt-realtime-2.1-mini';
   private assistantBuffer = '';
   private connected = false;
   private responseWaiters: Array<(text: string) => void> = [];
@@ -337,67 +338,10 @@ export class PoppinsRealtimeSession {
 /** Map tool results into monitor-style activity labels for the Poppins Activity feed. */
 export function toolCallToMonitorAction(
   name: PoppinsToolName,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  result?: Record<string, unknown>
 ): PoppinsMonitorAction {
-  const now = new Date().toISOString();
-  switch (name) {
-    case 'nudge_member':
-      return {
-        id: `rt-nudge-${now}`,
-        kind: 'nudge',
-        label: `Nudged ${args.memberName ?? 'member'}`,
-        detail: String(args.reason ?? ''),
-        createdAt: now,
-      };
-    case 'scan_deals':
-      return {
-        id: `rt-deals-${now}`,
-        kind: 'deals',
-        label: 'Scanned deals',
-        detail: 'Checked mock catalog for household matches',
-        createdAt: now,
-      };
-    case 'propose_plan':
-      return {
-        id: `rt-plan-${now}`,
-        kind: 'plan',
-        label: String(args.title ?? 'Proposed plan'),
-        detail: String(args.detail ?? ''),
-        createdAt: now,
-      };
-    case 'assess_xp_fairness':
-      return {
-        id: `rt-xp-${now}`,
-        kind: 'xp_fairness',
-        label: 'Assessed XP fairness',
-        detail: 'Reviewed weekly XP balance',
-        createdAt: now,
-      };
-    case 'ask_for_info':
-      return {
-        id: `rt-ask-${now}`,
-        kind: 'ask_info',
-        label: `Asked ${args.memberName ?? 'member'}`,
-        detail: String(args.question ?? ''),
-        createdAt: now,
-      };
-    case 'list_holidays':
-      return {
-        id: `rt-holiday-${now}`,
-        kind: 'holiday',
-        label: 'Checked holidays',
-        detail: 'Reviewed who is away',
-        createdAt: now,
-      };
-    default:
-      return {
-        id: `rt-${name}-${now}`,
-        kind: 'monitor',
-        label: name.replace(/_/g, ' '),
-        detail: JSON.stringify(args),
-        createdAt: now,
-      };
-  }
+  return toolResultToMonitorAction(name, args, result ?? {});
 }
 
 export { speakPoppins, stopSpeaking };

@@ -1,8 +1,26 @@
 /** Shared Poppins tool registry + majordomo prompt (mirrors lib/ai/poppins-tools.ts). */
 
-export const POPPINS_MAJORDOMO_SYSTEM = `You are Poppins, the calm AI majordomo for Orbit households (like a family butler).
-Your job: (1) notify clearly, (2) help everyone finish fair tasks, (3) keep XP fair, (4) surface deals (food and household goods), (5) know the calendar and holidays, (6) free time for the household lead.
-Be brief, actionable, never guilt-inducing. Propose consequential changes — never silently reassign tasks, approve rewards, or spend money.`;
+export const POPPINS_MAJORDOMO_SYSTEM = `You are Poppins, the calm AI co-manager for Choremaxx family households.
+
+Mission: (1) notify clearly, (2) help everyone finish fair tasks, (3) keep XP fair, (4) surface deals for food and household goods, (5) know the calendar and holidays, (6) free time for the household lead.
+
+Hard locks:
+- Existing tools only (tasks, Plan/itineraries, groceries, rewards, house rules). Never invent product surfaces or tabs.
+- Families only — no roommate mode.
+- Allowance is tracker-only (Mark as paid). Never imply sending, transferring, or paying money.
+- Propose consequential changes — never silently reassign tasks, approve rewards, or spend.
+- Never route grocery aisle classification through AI.
+- Be brief, actionable, never guilt-inducing. No cute baby talk. No emoji spam.
+
+Playbooks (pick tools cunningly):
+- Morning desk: list_overdue_tasks + read_calendar + assess_xp_fairness when load looks uneven.
+- Fairness audit: assess_xp_fairness first; only then soft rebalance language — never edit XP.
+- Weekend / outing: propose_plan with a clear title, detail, and dayLabel for the lead to review.
+- Away-aware: call list_holidays before nudge_member; never nudge someone who is away.
+- Kid viewers: encourage and clarify next step; never shame. Adults/admins: clearer tradeoffs.
+- Deals: scan_deals when groceries are Missing/Low or the user asks about shopping.
+
+Use tools when they improve the answer. Cap yourself to a few useful calls. Speak like a trusted household majordomo.`;
 
 export type PoppinsToolName =
   | 'list_overdue_tasks'
@@ -18,12 +36,14 @@ export type PoppinsToolName =
 export const POPPINS_TOOL_DEFINITIONS = [
   {
     name: 'list_overdue_tasks' as const,
-    description: 'List overdue or late open household tasks.',
+    description:
+      'List overdue or late open household tasks. Use first when assessing load, morning desk, or before nudging.',
     parameters: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
     name: 'nudge_member' as const,
-    description: 'Create a Poppins notification nudging a member about a late or at-risk task/streak.',
+    description:
+      'Create a calm Poppins notification nudging a member about a late or at-risk task/streak. Call list_holidays first — never nudge someone who is away. Never guilt.',
     parameters: {
       type: 'object',
       properties: {
@@ -37,12 +57,14 @@ export const POPPINS_TOOL_DEFINITIONS = [
   },
   {
     name: 'assess_xp_fairness' as const,
-    description: 'Assess weekly XP / load balance and recommend rebalancing (do not edit XP).',
+    description:
+      'Assess weekly XP / load balance and recommend soft rebalancing. Does not edit XP. Use for “who’s overloaded?” / fairness questions.',
     parameters: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
     name: 'award_completion_xp' as const,
-    description: 'Confirm XP for a just-completed verified task using late-penalty rules. Only when not yet awarded.',
+    description:
+      'Confirm XP rules for a just-completed verified task. App owns the actual award — this only confirms eligibility.',
     parameters: {
       type: 'object',
       properties: { taskId: { type: 'string' } },
@@ -52,7 +74,8 @@ export const POPPINS_TOOL_DEFINITIONS = [
   },
   {
     name: 'scan_deals' as const,
-    description: 'Scan mock deals for groceries and household goods (shoes, electronics, furniture).',
+    description:
+      'Scan the household deal catalog for groceries and household goods matching Missing/Low lists or asked categories.',
     parameters: {
       type: 'object',
       properties: {
@@ -66,7 +89,8 @@ export const POPPINS_TOOL_DEFINITIONS = [
   },
   {
     name: 'read_calendar' as const,
-    description: 'Read upcoming household calendar events.',
+    description:
+      'Read upcoming household calendar events for the next N days (default 7). Use for planning and morning desk.',
     parameters: {
       type: 'object',
       properties: { days: { type: 'number' } },
@@ -75,12 +99,13 @@ export const POPPINS_TOOL_DEFINITIONS = [
   },
   {
     name: 'list_holidays' as const,
-    description: 'List members currently away / on holiday so Poppins avoids nudging them.',
+    description: 'List members currently away / on holiday. Always check before nudge_member.',
     parameters: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
     name: 'propose_plan' as const,
-    description: 'Propose a plan or itinerary recommendation for the household lead to review.',
+    description:
+      'Propose a Plan / itinerary for the household lead to review (not auto-created). Include dayLabel when the user names a day (e.g. Saturday).',
     parameters: {
       type: 'object',
       properties: {
@@ -94,7 +119,8 @@ export const POPPINS_TOOL_DEFINITIONS = [
   },
   {
     name: 'ask_for_info' as const,
-    description: 'Ask a household member for missing information via notification.',
+    description:
+      'Ask a household member for a missing detail via notification when you cannot proceed without it.',
     parameters: {
       type: 'object',
       properties: {
@@ -118,7 +144,6 @@ export function poppinsToolsAsOpenAIFunctions() {
   }));
 }
 
-/** OpenAI Realtime session tool schema. */
 export function poppinsToolsAsRealtimeTools() {
   return POPPINS_TOOL_DEFINITIONS.map((tool) => ({
     type: 'function' as const,
@@ -128,7 +153,6 @@ export function poppinsToolsAsRealtimeTools() {
   }));
 }
 
-/** Compact mock deal catalog for edge monitor (mirrors data/mock-deals.ts). */
 export const MOCK_DEALS = [
   {
     id: 'deal-milk',

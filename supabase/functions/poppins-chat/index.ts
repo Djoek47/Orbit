@@ -1,4 +1,4 @@
-// Deno Edge Function — Poppins conversational answers via OpenAI.
+// Deno Edge Function — Poppins conversational answers via gpt-4o-mini + tool loop.
 
 import {
   buildCompactHouseholdContext,
@@ -6,6 +6,17 @@ import {
   jsonResponse,
   requireActiveMember,
 } from '../_shared/poppins-auth.ts';
+import {
+  effectsToClientActions,
+  executePoppinsTool,
+  type HouseholdSnapshotEdge,
+} from '../_shared/execute-poppins-tool.ts';
+import {
+  POPPINS_MAJORDOMO_SYSTEM,
+  poppinsToolsAsOpenAIFunctions,
+} from '../_shared/poppins-tools.ts';
+
+const MAX_TOOL_ROUNDS = 4;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -22,14 +33,18 @@ Deno.serve(async (req) => {
     }
 
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
-    const context = buildCompactHouseholdContext(household);
+    const snapshot = (household ?? {}) as HouseholdSnapshotEdge;
+    const metricsObj = (metrics ?? {}) as Record<string, unknown>;
+    const context = buildCompactHouseholdContext(snapshot as Record<string, unknown>);
     const memberRole = auth.membership?.role ?? 'adult';
+    const desk = snapshot.desk ?? {};
 
     if (!openaiKey) {
       return jsonResponse({
         question,
-        answer: `Momentum is ${metrics?.momentum ?? '—'}% with ${metrics?.openTasks ?? 0} open tasks. Configure OPENAI_API_KEY for full Poppins answers.`,
+        answer: `Momentum is ${metricsObj?.momentum ?? '—'}% with ${metricsObj?.openTasks ?? 0} open tasks. Configure OPENAI_API_KEY for full Poppins answers.`,
         source: 'fallback',
+        actions: [],
       });
     }
 
@@ -43,35 +58,86 @@ Deno.serve(async (req) => {
           }))
       : [];
 
-    const completion = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${openaiKey}`,
-        'Content-Type': 'application/json',
+    const messages: Array<Record<string, unknown>> = [
+      {
+        role: 'system',
+        content:
+          `${POPPINS_MAJORDOMO_SYSTEM}\n` +
+          `Viewer role: ${memberRole}.\n` +
+          `Desk brief: ${JSON.stringify(desk).slice(0, 2500)}\n` +
+          `Household context: ${JSON.stringify({ metrics: metricsObj, ...context }).slice(0, 6000)}`,
       },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are Poppins, the calm AI co-manager for Choremaxx family households. ' +
-              'Notify clearly, help finish fair tasks, keep XP fair, surface deals, know calendar/holidays, and free time for the household lead. ' +
-              'Use existing tools only (tasks, Plan/itineraries, groceries, rewards, house rules). Families only — no roommate mode. ' +
-              'Allowance is Mark as paid only — never imply sending money. ' +
-              'Propose consequential changes — never silently reassign tasks, approve rewards, or spend money. Be brief, never guilt-inducing. ' +
-              `Viewer role: ${memberRole}. Household context: ${JSON.stringify({ metrics, ...context })}`,
-          },
-          ...historyMessages,
-          { role: 'user', content: String(question ?? '') },
-        ],
-      }),
+      ...historyMessages,
+      { role: 'user', content: String(question ?? '') },
+    ];
+
+    const effects: Array<{
+      tool: string;
+      args: Record<string, unknown>;
+      result: Record<string, unknown>;
+    }> = [];
+    let answer = '';
+
+    for (let step = 0; step < MAX_TOOL_ROUNDS; step++) {
+      const completion = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${openaiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages,
+          tools: poppinsToolsAsOpenAIFunctions(),
+          tool_choice: 'auto',
+        }),
+      });
+
+      const payload = await completion.json();
+      const message = payload.choices?.[0]?.message;
+      if (!message) {
+        answer = 'I could not answer that just now. Try again in a moment.';
+        break;
+      }
+
+      messages.push(message);
+      const toolCalls = message.tool_calls ?? [];
+      if (!toolCalls.length) {
+        answer = String(message.content ?? '').trim() || 'Done.';
+        break;
+      }
+
+      for (const call of toolCalls) {
+        const name = String(call.function?.name ?? '');
+        let args: Record<string, unknown> = {};
+        try {
+          args = JSON.parse(call.function?.arguments ?? '{}');
+        } catch {
+          args = {};
+        }
+        const result = executePoppinsTool(name, args, snapshot, metricsObj);
+        effects.push({ tool: name, args, result });
+        messages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          content: JSON.stringify(result),
+        });
+      }
+    }
+
+    if (!answer) {
+      answer = 'I checked the household and left notes in Activity.';
+    }
+
+    const actions = effectsToClientActions(effects);
+
+    return jsonResponse({
+      question,
+      answer,
+      source: 'openai',
+      actions,
+      effectCount: effects.length,
     });
-
-    const payload = await completion.json();
-    const answer = payload.choices?.[0]?.message?.content ?? 'I could not answer that just now. Try again in a moment.';
-
-    return jsonResponse({ question, answer, source: 'openai' });
   } catch (error) {
     return jsonResponse({ error: String(error) }, 500);
   }

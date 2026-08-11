@@ -44,6 +44,7 @@ export default function PoppinsScreen() {
     appendPoppinsTurn,
     askPoppins,
     askPoppinsVoice,
+    executePoppinsToolCall,
     household,
     markNotificationRead,
     metrics,
@@ -108,8 +109,12 @@ export default function PoppinsScreen() {
       onStateChange: setVoiceState,
       onTranscript: applyTranscript,
       onToolCall: async (name, args) => {
-        setLocalMonitorActions((current) => [toolCallToMonitorAction(name, args), ...current]);
-        return { ok: true, tool: name, args };
+        const result = await executePoppinsToolCall(name, args);
+        setLocalMonitorActions((current) => [
+          toolCallToMonitorAction(name, args, result),
+          ...current,
+        ]);
+        return result;
       },
       onError: (message) => setError(message),
     });
@@ -135,6 +140,9 @@ export default function PoppinsScreen() {
       const result = await askPoppins(trimmed);
       setVoiceState('speaking');
       setPoppinsTranscript(result.answer);
+      if (result.actions?.length) {
+        setLocalMonitorActions((current) => [...result.actions!, ...current]);
+      }
     } catch {
       setError('Poppins could not answer right now. Try again in a moment.');
     } finally {

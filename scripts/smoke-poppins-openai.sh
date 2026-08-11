@@ -41,8 +41,13 @@ for fn in poppins-chat poppins-briefing poppins-voice poppins-realtime-session p
 done
 
 echo
-echo "Next (device): open TestFlight build #27+ or Expo Go with"
+echo "Models (craft):"
+echo "  chat/briefing/monitor/voice → gpt-4o-mini"
+echo "  realtime session           → gpt-realtime-2.1-mini"
+echo
+echo "Next (device): open TestFlight or Expo Go with"
 echo "  EXPO_PUBLIC_POPPINS_AI=openai"
+echo "  EXPO_PUBLIC_POPPINS_REALTIME=1"
 echo "  EXPO_PUBLIC_SUPABASE_URL / ANON_KEY set"
-echo "then send a Poppins chat and confirm answer source is live GPT (not mock)."
+echo "then: ask “Who’s overloaded?” (tool-backed) and “Plan Saturday” (propose_plan → Activity)."
 echo "PASS secrets + functions reachable"

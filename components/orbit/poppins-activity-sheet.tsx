@@ -48,6 +48,8 @@ type ActivityItem = {
   trigger: TriggerKey;
   impact?: string;
   tripLabel?: string;
+  /** Deep-link for propose_plan → create-itinerary */
+  planDraft?: { title?: string; detail?: string; dayLabel?: string };
 };
 
 type TriggerKey = 'gps' | 'pattern' | 'schedule' | 'streak' | 'reward' | 'alert';
@@ -235,6 +237,15 @@ export function PoppinsActivitySheet({
       category: action.kind,
       trigger: triggerFor(action.kind),
       impact: impactFrom(`${action.label} ${action.detail}`),
+      planDraft:
+        action.kind === 'plan'
+          ? {
+              title: String(action.data?.planTitle ?? action.label),
+              detail: String(action.data?.planDetail ?? action.detail),
+              dayLabel:
+                typeof action.data?.dayLabel === 'string' ? action.data.dayLabel : undefined,
+            }
+          : undefined,
     }));
     const fromNotes: ActivityItem[] = notifications
       .slice()
@@ -603,6 +614,29 @@ export function PoppinsActivitySheet({
                               <Text style={[typography.footnote, { color: c.textSoft }]}>
                                 {item.detail}
                               </Text>
+                              {item.planDraft ? (
+                                <Pressable
+                                  onPress={() => {
+                                    onClose();
+                                    router.push({
+                                      pathname: '/create-itinerary',
+                                      params: {
+                                        title: item.planDraft?.title ?? '',
+                                        detail: item.planDraft?.detail ?? '',
+                                        dayLabel: item.planDraft?.dayLabel ?? '',
+                                      },
+                                    } as never);
+                                  }}
+                                  style={[
+                                    styles.reviewBtn,
+                                    { backgroundColor: `${cfg.color}22`, borderColor: `${cfg.color}44` },
+                                  ]}>
+                                  <Text style={{ color: cfg.color, fontWeight: '700', fontSize: 12 }}>
+                                    Review in Plan
+                                  </Text>
+                                  <MaterialIcons name="arrow-forward" size={14} color={cfg.color} />
+                                </Pressable>
+                              ) : null}
                               <View style={styles.pills}>
                                 {item.impact ? (
                                   <View
@@ -852,6 +886,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  reviewBtn: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
   },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },

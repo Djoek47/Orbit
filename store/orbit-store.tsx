@@ -1,9 +1,17 @@
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { dataMode } from '@/config/data-mode';
+import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
 import { loadActiveMemberId, loadMockSession, saveActiveMemberId } from '@/lib/auth/mock-session';
 import type { PoppinsChatMessage } from '@/lib/ai/ai-provider';
+import {
+  executePoppinsTool,
+  toolResultToMonitorAction,
+} from '@/lib/ai/execute-poppins-tool';
+import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
+import type { PoppinsToolName } from '@/lib/ai/poppins-tools';
+import { getSupabaseClient } from '@/lib/supabase/client';
 import { trackAnalytics } from '@/lib/analytics';
 import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, memberDisplayEmoji, xpProgress } from '@/lib/game-levels';
 import { getLocationAwareGrocerySuggestions, buildStoreRecommendations } from '@/lib/grocery/location-suggestions';
@@ -367,6 +375,11 @@ type OrbitContextValue = {
   upsertRoom: (room: HouseholdRoom) => void;
   removeRoom: (roomId: string) => void;
   runPoppinsMonitor: () => Promise<PoppinsMonitorAction[]>;
+  /** Execute a Poppins tool from Realtime / chat and apply Activity + notifications. */
+  executePoppinsToolCall: (
+    name: PoppinsToolName,
+    args: Record<string, unknown>
+  ) => Promise<Record<string, unknown>>;
   requestRewardRedemption: (rewardId: string, note?: string) => Promise<void>;
   /** Hold-to-claim: Instant spends XP now; Approval submits a pending request. */
   claimReward: (rewardId: string) => Promise<'claimed' | 'requested' | null>;
@@ -2524,16 +2537,76 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const runPoppinsMonitor = useCallback(async () => {
     const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    const result = runMonitorPass(household, metrics, prefs);
+    const quietEnabled = prefs.quietHoursEnabled !== false;
+    const inQuiet = quietEnabled && isQuietHour(new Date().getHours());
 
-    setPoppinsMonitorActions(result.actions);
+    // Live edge monitor when OpenAI path is on; always merge local rule pass.
+    const local = runMonitorPass(household, metrics, prefs);
+    let actions = [...local.actions];
+    let recommendations = [...local.recommendations];
+    let notifications = [...local.notifications];
+
+    if (useLivePoppinsAi && household.id) {
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          const { data } = await supabase.functions.invoke('poppins-monitor', {
+            body: {
+              householdId: household.id,
+              metrics,
+              household: buildPoppinsHouseholdPayload(
+                household,
+                metrics,
+                poppinsRecommendations
+              ),
+            },
+          });
+          if (data && typeof data === 'object' && Array.isArray((data as { actions?: unknown }).actions)) {
+            const edgeActions = (data as { actions: Array<Record<string, unknown>> }).actions.map(
+              (row, index) =>
+                ({
+                  id: `edge-${String(row.kind ?? 'monitor')}-${index}-${Date.now()}`,
+                  kind: (String(row.kind ?? 'monitor') as PoppinsMonitorAction['kind']) || 'monitor',
+                  label: String(row.label ?? 'Poppins'),
+                  detail: String(row.detail ?? ''),
+                  createdAt: new Date().toISOString(),
+                  data: (row.data as Record<string, unknown> | undefined) ?? undefined,
+                }) satisfies PoppinsMonitorAction
+            );
+            actions = [...edgeActions, ...actions];
+          }
+          if (typeof (data as { summary?: string } | null)?.summary === 'string') {
+            recommendations = [
+              {
+                id: `edge-summary-${Date.now()}`,
+                title: 'Poppins check-in',
+                detail: String((data as { summary: string }).summary),
+                tone: 'cyan',
+              },
+              ...recommendations,
+            ];
+          }
+        }
+      } catch (error) {
+        console.warn('Poppins edge monitor skipped', error);
+      }
+    }
+
+    // Quiet hours: keep Activity/recommendations; suppress non-urgent pushes.
+    if (inQuiet) {
+      notifications = notifications.filter(
+        (n) => n.priority === 'high' || String(n.data?.kind ?? '') === 'deadline_reminder'
+      );
+    }
+
+    setPoppinsMonitorActions(actions);
     setPoppinsRecommendations((current) => {
-      const ids = new Set(result.recommendations.map((item) => item.id));
-      return [...result.recommendations, ...current.filter((item) => !ids.has(item.id))];
+      const ids = new Set(recommendations.map((item) => item.id));
+      return [...recommendations, ...current.filter((item) => !ids.has(item.id))];
     });
 
     const existing = await notificationsRepository.list(household.id);
-    for (const note of result.notifications) {
+    for (const note of notifications) {
       const kind = String(note.data?.kind ?? '');
       const already = existing.some(
         (item) =>
@@ -2549,9 +2622,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
     }
 
-    await trackAnalytics('poppins.monitor_pass', { actions: result.actions.length }, analyticsContext);
-    return result.actions;
-  }, [analyticsContext, household, metrics]);
+    await trackAnalytics('poppins.monitor_pass', { actions: actions.length }, analyticsContext);
+    return actions;
+  }, [analyticsContext, household, metrics, poppinsRecommendations, pushNotification]);
 
   // Initial Monitor Agent pass once household + metrics are ready (mock-first).
   useEffect(() => {
@@ -2563,6 +2636,49 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }, 800);
     return () => clearTimeout(timer);
   }, [household.id, isLoading, poppinsMonitorActions.length, runPoppinsMonitor]);
+
+  const executePoppinsToolCall = useCallback(
+    async (name: PoppinsToolName, args: Record<string, unknown>) => {
+      const result = executePoppinsTool(name, args, household, metrics);
+      const action = toolResultToMonitorAction(name, args, result);
+      setPoppinsMonitorActions((current) => [action, ...current]);
+
+      if (result.recommendation && typeof result.recommendation === 'object') {
+        const rec = result.recommendation as {
+          title: string;
+          detail: string;
+          tone?: string;
+        };
+        setPoppinsRecommendations((current) => [
+          {
+            id: `tool-rec-${Date.now()}`,
+            title: rec.title,
+            detail: rec.detail,
+            tone: (rec.tone as PoppinsRecommendation['tone']) ?? 'cyan',
+          },
+          ...current,
+        ]);
+      }
+
+      if (result.notification && typeof result.notification === 'object' && !result.skipped) {
+        const note = result.notification as {
+          title: string;
+          body: string;
+          data?: Record<string, unknown>;
+        };
+        await pushNotification({
+          title: note.title,
+          body: note.body,
+          category: 'ai',
+          priority: 'medium',
+          data: note.data,
+        });
+      }
+
+      return result;
+    },
+    [household, metrics, pushNotification]
+  );
 
   const askPoppins = async (question: string) => {
     setPoppinsAskCount((count) => count + 1);
@@ -2578,6 +2694,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       { role: 'user', content: answer.question },
       { role: 'assistant', content: answer.answer },
     ]);
+    if (answer.actions?.length) {
+      setPoppinsMonitorActions((current) => [...answer.actions!, ...current]);
+    }
     await trackAnalytics('poppins.asked', { questionLength: question.length }, analyticsContext);
     return answer;
   };
@@ -3599,6 +3718,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       upsertRoom,
       removeRoom,
       runPoppinsMonitor,
+      executePoppinsToolCall,
       requestRewardRedemption,
       claimReward,
       requestSpecialReward,
@@ -3660,6 +3780,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       refreshInviteLinks,
       refreshSmartHome,
       runPoppinsMonitor,
+      executePoppinsToolCall,
       accentTheme,
       resolvedPaletteId,
       updateAccentTheme,

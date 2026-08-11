@@ -9,19 +9,15 @@ import {
   requireActiveMember,
 } from '../_shared/poppins-auth.ts';
 import {
+  executePoppinsTool,
+  type HouseholdSnapshotEdge,
+} from '../_shared/execute-poppins-tool.ts';
+import {
   POPPINS_MAJORDOMO_SYSTEM,
   poppinsToolsAsOpenAIFunctions,
-  scanMockDeals,
 } from '../_shared/poppins-tools.ts';
 
-type Snapshot = {
-  tasks?: Array<Record<string, unknown>>;
-  groceries?: Array<Record<string, unknown>>;
-  events?: Array<Record<string, unknown>>;
-  members?: Array<Record<string, unknown>>;
-  householdName?: string;
-  greetingName?: string;
-};
+type Snapshot = HouseholdSnapshotEdge;
 
 function serviceClient() {
   const url = Deno.env.get('SUPABASE_URL')!;
@@ -68,127 +64,25 @@ async function writeRecommendation(
   });
 }
 
-function executeTool(
-  name: string,
-  args: Record<string, unknown>,
-  household: Snapshot,
-  metrics: Record<string, unknown>
-) {
-  const tasks = household.tasks ?? [];
-  const groceries = household.groceries ?? [];
-  const events = household.events ?? [];
-  const members = household.members ?? [];
-
-  switch (name) {
-    case 'list_overdue_tasks': {
-      const overdue = tasks.filter(
-        (t) => t.status === 'Overdue' || t.status === 'overdue' || /overdue/i.test(String(t.due ?? ''))
-      );
-      return { overdue: overdue.slice(0, 10) };
-    }
-    case 'nudge_member': {
-      return {
-        action: 'nudge',
-        memberName: args.memberName,
-        taskId: args.taskId,
-        reason: args.reason,
-        notification: {
-          title: 'Poppins · Nudge',
-          body: `${args.memberName}: ${args.reason}`,
-          data: { kind: 'nudge', taskId: args.taskId },
-        },
-      };
-    }
-    case 'assess_xp_fairness': {
-      const active = members.filter((m) => m.status === 'active' && m.role !== 'guest');
-      const sorted = [...active].sort(
-        (a, b) => Number(b.weekXp ?? b.week_xp ?? 0) - Number(a.weekXp ?? a.week_xp ?? 0)
-      );
-      if (sorted.length < 2) return { gap: 0, recommendation: null };
-      const top = sorted[0];
-      const bottom = sorted[sorted.length - 1];
-      const gap = Number(top.weekXp ?? top.week_xp ?? 0) - Number(bottom.weekXp ?? bottom.week_xp ?? 0);
-      const detail = `${top.name} earned ${top.weekXp ?? top.week_xp ?? 0} XP this week vs ${bottom.name}'s ${bottom.weekXp ?? bottom.week_xp ?? 0}. Consider rebalancing tasks.`;
-      return {
-        gap,
-        recommendation:
-          gap >= 40
-            ? { title: 'Balance weekly XP', detail, tone: 'amber' }
-            : null,
-      };
-    }
-    case 'award_completion_xp': {
-      return {
-        action: 'award_completion_xp',
-        taskId: args.taskId,
-        note: 'XP awards are owned by the app on verified completion — Monitor only confirms.',
-      };
-    }
-    case 'scan_deals': {
-      const groceryNames = groceries
-        .filter((g) => g.status === 'Missing' || g.status === 'Low' || g.status === 'missing' || g.status === 'low')
-        .map((g) => String(g.name ?? ''));
-      const categories = Array.isArray(args.categories) ? (args.categories as string[]) : undefined;
-      const deals = scanMockDeals(groceryNames, categories);
-      return { deals };
-    }
-    case 'read_calendar': {
-      const limit = typeof args.days === 'number' ? Math.min(14, args.days) : 7;
-      return { events: events.slice(0, limit) };
-    }
-    case 'list_holidays': {
-      const away = members.filter((m) => m.away === true || m.awayFrom || m.away_from);
-      return {
-        holidays: away.map((m) => ({
-          name: m.name,
-          awayFrom: m.awayFrom ?? m.away_from,
-          awayTo: m.awayTo ?? m.away_to,
-        })),
-      };
-    }
-    case 'propose_plan': {
-      return {
-        recommendation: {
-          title: String(args.title ?? 'Proposed plan'),
-          detail: String(args.detail ?? ''),
-          tone: 'cyan',
-        },
-        notification: {
-          title: 'Poppins · Plan suggestion',
-          body: String(args.detail ?? args.title ?? 'Poppins proposed a plan.'),
-          data: { kind: 'propose_plan', dayLabel: args.dayLabel },
-        },
-      };
-    }
-    case 'ask_for_info': {
-      return {
-        notification: {
-          title: 'Poppins needs a detail',
-          body: `${args.memberName}, ${args.question}`,
-          data: { kind: 'ask_for_info' },
-        },
-      };
-    }
-    default:
-      return { error: `Unknown tool: ${name}`, metrics };
-  }
-}
-
 async function runToolLoop(
   openaiKey: string,
   household: Snapshot,
   metrics: Record<string, unknown>
 ) {
   const context = buildCompactHouseholdContext(household as Record<string, unknown>);
+  const desk = household.desk ?? {};
   const messages: Array<Record<string, unknown>> = [
     {
       role: 'system',
-      content: `${POPPINS_MAJORDOMO_SYSTEM}\nHousehold snapshot: ${JSON.stringify({ metrics, ...context })}`,
+      content:
+        `${POPPINS_MAJORDOMO_SYSTEM}\n` +
+        `Desk brief: ${JSON.stringify(desk).slice(0, 2500)}\n` +
+        `Household snapshot: ${JSON.stringify({ metrics, ...context }).slice(0, 6000)}`,
     },
     {
       role: 'user',
       content:
-        'Run a Monitor pass. Use tools to assess overdue tasks, streaks, XP fairness, deals, calendar/holidays, and propose at most 2–4 concrete actions. Prefer notifying over mutating. Then summarize what you did.',
+        'Run a Monitor pass. Use tools to assess overdue tasks, streaks, XP fairness, deals, calendar/holidays, and propose at most 2–4 concrete actions. Call list_holidays before any nudge. Prefer notifying over mutating. Then summarize what you did.',
     },
   ];
 
@@ -229,7 +123,7 @@ async function runToolLoop(
       } catch {
         args = {};
       }
-      const result = executeTool(name, args, household, metrics);
+      const result = executePoppinsTool(name, args, household, metrics);
       effects.push({ tool: name, args, result });
       messages.push({
         role: 'tool',
@@ -247,16 +141,34 @@ async function persistEffects(
   householdId: string,
   effects: Array<Record<string, unknown>>
 ) {
-  const actions: Array<{ kind: string; label: string; detail: string }> = [];
+  const actions: Array<{
+    kind: string;
+    label: string;
+    detail: string;
+    data?: Record<string, unknown>;
+  }> = [];
 
   for (const effect of effects) {
     const result = effect.result as Record<string, unknown>;
     const tool = String(effect.tool);
 
-    if (result?.notification && typeof result.notification === 'object') {
+    if (result?.notification && typeof result.notification === 'object' && !result.skipped) {
       const n = result.notification as { title: string; body: string; data?: Record<string, unknown> };
       await writeNotification(supabase, householdId, n.title, n.body, n.data ?? {});
-      actions.push({ kind: tool, label: n.title, detail: n.body });
+      const planDraft = result.planDraft as Record<string, unknown> | undefined;
+      actions.push({
+        kind: tool === 'propose_plan' ? 'plan' : tool,
+        label: n.title,
+        detail: n.body,
+        data: planDraft
+          ? {
+              dayLabel: planDraft.dayLabel,
+              planTitle: planDraft.title,
+              planDetail: planDraft.detail,
+              href: '/create-itinerary',
+            }
+          : n.data,
+      });
     }
 
     if (result?.recommendation && typeof result.recommendation === 'object') {
@@ -330,9 +242,9 @@ Deno.serve(async (req) => {
       summary = loop.summary;
     } else {
       // Deterministic fallback without OpenAI
-      const overdue = executeTool('list_overdue_tasks', {}, household, metrics);
-      const deals = executeTool('scan_deals', {}, household, metrics);
-      const fairness = executeTool('assess_xp_fairness', {}, household, metrics);
+      const overdue = executePoppinsTool('list_overdue_tasks', {}, household, metrics);
+      const deals = executePoppinsTool('scan_deals', {}, household, metrics);
+      const fairness = executePoppinsTool('assess_xp_fairness', {}, household, metrics);
       effects = [
         { tool: 'list_overdue_tasks', args: {}, result: overdue },
         { tool: 'scan_deals', args: {}, result: deals },

@@ -395,6 +395,9 @@ export type PoppinsWeeklyBriefing = {
 export type PoppinsConversationAnswer = {
   question: string;
   answer: string;
+  /** Tool-backed Activity rows from chat / voice tool loops. */
+  actions?: PoppinsMonitorAction[];
+  source?: string;
 };
 
 export type MemberProgress = HouseholdMember & {
@@ -573,6 +576,8 @@ export type PoppinsMonitorAction = {
   label: string;
   detail: string;
   createdAt: string;
+  /** Optional deep-link payload (e.g. propose_plan → create-itinerary). */
+  data?: Record<string, unknown>;
 };
 
 export type CreateEventInput = {

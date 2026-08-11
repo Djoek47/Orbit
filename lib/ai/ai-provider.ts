@@ -73,7 +73,7 @@ export const mockAIProvider: AIProvider = {
 
 export const openAIProvider: AIProvider = {
   async answerQuestion(question, household, metrics, history = []) {
-    return invokePoppinsFunction(
+    const live = await invokePoppinsFunction<PoppinsConversationAnswer>(
       'poppins-chat',
       {
         question,
@@ -84,6 +84,16 @@ export const openAIProvider: AIProvider = {
       },
       () => mockAIProvider.answerQuestion(question, household, metrics)
     );
+    // Preserve tool actions from the edge tool loop when present.
+    if (live && typeof live === 'object' && 'answer' in live) {
+      return {
+        question: String(live.question ?? question),
+        answer: String(live.answer ?? ''),
+        actions: Array.isArray(live.actions) ? live.actions : undefined,
+        source: live.source,
+      };
+    }
+    return live;
   },
   async generateDailyBriefing(household, metrics) {
     return invokePoppinsFunction(
