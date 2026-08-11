@@ -107,7 +107,6 @@
       [
         "@config-plugins/react-native-webrtc",
         {
-          "cameraPermission": false,
           "microphonePermission": "Choremaxx uses the microphone so you can talk to Poppins."
         }
       ],
