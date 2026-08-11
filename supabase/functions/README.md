@@ -8,10 +8,16 @@ npx supabase functions deploy poppins-chat
 npx supabase functions deploy poppins-voice
 npx supabase functions deploy poppins-monitor
 npx supabase functions deploy poppins-realtime-session
+npx supabase functions deploy poppins-realtime-sdp
+npx supabase functions deploy poppins-voice-tool
 npx supabase functions deploy join-household
 # Auth emails via Resend (optional if Custom SMTP is enough — see docs/resend-auth-email.md)
 npx supabase functions deploy send-auth-email --no-verify-jwt
 npx supabase secrets set OPENAI_API_KEY=sk-...
+# Optional model overrides (defaults: gpt-realtime-2.1, gpt-5.6-luna)
+# npx supabase secrets set OPENAI_REALTIME_MODEL=gpt-realtime-2.1
+# npx supabase secrets set OPENAI_POPPINS_CHAT_MODEL=gpt-5.6-luna
+# npx supabase secrets set POPPINS_VOICE_GRANT_ALL=1
 # Service role required for cron → poppins-monitor
 npx supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
 # Resend (Send Email Hook path only)
@@ -21,15 +27,18 @@ npx supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
 See [docs/supabase-staging-setup.md](../docs/supabase-staging-setup.md) for full staging steps.  
-Auth email delivery: [docs/resend-auth-email.md](../docs/resend-auth-email.md).
+Auth email delivery: [docs/resend-auth-email.md](../docs/resend-auth-email.md).  
+Post-tool spoken response ADR: [docs/adr-poppins-post-tool-response-create.md](../docs/adr-poppins-post-tool-response-create.md).
 
 | Function | Purpose |
 |----------|---------|
 | `poppins-briefing` | Daily/weekly briefings + recommendation payloads (JWT + active member) |
-| `poppins-chat` | Conversational Poppins with household context + history |
+| `poppins-chat` | Conversational Poppins (Luna) with household context + history |
 | `poppins-voice` | Whisper STT + short GPT reply for Talk to Poppins (Whisper fallback) |
 | `poppins-monitor` | Monitor Agent tool loop → `notifications` + `ai_recommendations` |
-| `poppins-realtime-session` | Mints ephemeral OpenAI Realtime client secret (never ships long-lived key) |
+| `poppins-realtime-session` | Mints ephemeral OpenAI Realtime client secret (Expo Go WS fallback) |
+| `poppins-realtime-sdp` | Server SDP for WebRTC duplex (`POST /v1/realtime/calls`) |
+| `poppins-voice-tool` | Tool executor for live voice (`forceRiskyConfirmation: true`) |
 | `join-household` | Invite-code join with pending membership |
 | `send-auth-email` | Auth Send Email Hook → Resend (confirm / recovery / magic link); deploy with `--no-verify-jwt` |
 

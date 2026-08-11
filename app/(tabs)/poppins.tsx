@@ -1,7 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet';
@@ -22,6 +30,12 @@ import {
   toolCallToMonitorAction,
   type PoppinsRealtimeVisualState,
 } from '@/lib/voice/poppins-realtime';
+import {
+  isPoppinsNativeVoiceAvailable,
+  PoppinsVoiceSession,
+  type PoppinsPendingConfirmation,
+  type PoppinsVoiceVisualState,
+} from '@/lib/voice/poppins-voice-session';
 import { useOrbit } from '@/store/orbit-store';
 import type { PoppinsMonitorAction } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
@@ -29,10 +43,8 @@ import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/a
 type PoppinsVisualState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'success';
 
 /**
- * Make v9 Poppins — voice-first orb + live transcript + Poppins Activity sheet.
- * Realtime: set EXPO_PUBLIC_POPPINS_REALTIME=1 with live Poppins AI + supabase edge
- * `poppins-realtime-session`. Falls back to Whisper + askPoppins when gated off.
- * Majordomo profile (Settings) swaps Character → Personality → Voice; tools stay shared.
+ * Poppins Divine Voice — Connect/End continuous WebRTC on TestFlight;
+ * Expo Go keeps text twin + optional Whisper tap fallback.
  */
 export default function PoppinsScreen() {
   const chromePad = useTabChromePaddingTop();
@@ -62,24 +74,40 @@ export default function PoppinsScreen() {
     return getMajordomoProfile(id);
   }, [currentMember?.majordomoProfileId, household.majordomoProfileId]);
 
+  const nativeVoice = isPoppinsNativeVoiceAvailable();
+
   const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
-    idle: { label: `${majordomo.displayName} · Ready`, color: majordomo.accent },
+    idle: {
+      label: nativeVoice
+        ? `${majordomo.displayName} · Tap when you need me`
+        : `${majordomo.displayName} · Ready`,
+      color: majordomo.accent,
+    },
     listening: { label: `${majordomo.displayName} · Listening…`, color: '#34D399' },
     thinking: { label: `${majordomo.displayName} · Thinking…`, color: '#A78BFA' },
     speaking: { label: `${majordomo.displayName} · Speaking`, color: '#38BDF8' },
     success: { label: `${majordomo.displayName} · Done`, color: '#34D399' },
   };
-  const [showText, setShowText] = useState(false);
+
+  const [showText, setShowText] = useState(true);
   const [showActivity, setShowActivity] = useState(false);
   const [draft, setDraft] = useState('');
   const [asking, setAsking] = useState(false);
   const [listening, setListening] = useState(false);
+  const [liveConnected, setLiveConnected] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState('');
-  const [voiceState, setVoiceState] = useState<PoppinsRealtimeVisualState>('idle');
+  const [voiceState, setVoiceState] = useState<PoppinsRealtimeVisualState | PoppinsVoiceVisualState>(
+    'idle'
+  );
   const [userTranscript, setUserTranscript] = useState('');
   const [poppinsTranscript, setPoppinsTranscript] = useState('');
   const [localMonitorActions, setLocalMonitorActions] = useState<PoppinsMonitorAction[]>([]);
   const [toolFlash, setToolFlash] = useState<string | null>(null);
+  const [pendingConfirmations, setPendingConfirmations] = useState<PoppinsPendingConfirmation[]>(
+    []
+  );
+  const voiceRef = useRef<PoppinsVoiceSession | null>(null);
   const realtimeRef = useRef<PoppinsRealtimeSession | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,30 +117,40 @@ export default function PoppinsScreen() {
     flashTimerRef.current = setTimeout(() => setToolFlash(null), 1600);
   };
 
+  const mapVisual = (state: typeof voiceState): PoppinsVisualState => {
+    if (state === 'needs_attention' || state === 'connecting') return 'thinking';
+    if (state === 'listening' || state === 'thinking' || state === 'speaking') return state;
+    return 'idle';
+  };
+
   const visualState: PoppinsVisualState = toolFlash
     ? 'success'
-    : voiceState !== 'idle'
-      ? voiceState
+    : mapVisual(voiceState) !== 'idle'
+      ? mapVisual(voiceState)
       : listening
         ? 'listening'
-        : asking
+        : asking || connecting
           ? 'thinking'
           : 'idle';
   const cfg = STATE_CONFIG[visualState];
-  const isActive = visualState !== 'idle';
+  const isActive = visualState !== 'idle' || liveConnected;
 
   useEffect(() => {
     return () => {
+      voiceRef.current?.disconnect();
+      voiceRef.current = null;
       realtimeRef.current?.disconnect();
       realtimeRef.current = null;
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, []);
 
-  // Remint Realtime session when majordomo (voice) changes.
   useEffect(() => {
+    voiceRef.current?.disconnect();
+    voiceRef.current = null;
     realtimeRef.current?.disconnect();
     realtimeRef.current = null;
+    setLiveConnected(false);
   }, [majordomo.id]);
 
   const monitorFeed = useMemo(
@@ -132,15 +170,84 @@ export default function PoppinsScreen() {
     }
   };
 
-  const ensureRealtime = async () => {
+  const applyUiActions = (actions: Array<Record<string, unknown>>) => {
+    for (const action of actions) {
+      if (action.type === 'navigate' && typeof action.route === 'string') {
+        try {
+          router.push(action.route as never);
+        } catch {
+          /* ignore bad routes */
+        }
+      }
+    }
+  };
+
+  const connectNativeVoice = async () => {
+    if (voiceRef.current?.isConnected) return voiceRef.current;
+    setConnecting(true);
+    setError('');
+    const session = new PoppinsVoiceSession({
+      onStateChange: (state) => {
+        setVoiceState(state);
+        setLiveConnected(state !== 'idle');
+      },
+      onTranscript: applyTranscript,
+      onPendingConfirmations: (items) => {
+        setPendingConfirmations(items);
+        setVoiceState('needs_attention');
+      },
+      onUiActions: applyUiActions,
+      onSessionEnd: () => {
+        setLiveConnected(false);
+        setVoiceState('idle');
+      },
+      onSoftIdlePrompt: () => {
+        setLocalMonitorActions((current) => [
+          {
+            id: `idle-${Date.now()}`,
+            kind: 'monitor',
+            label: 'Soft idle check-in',
+            detail: 'Still there?',
+            createdAt: new Date().toISOString(),
+          },
+          ...current,
+        ]);
+      },
+      onError: (message) => setError(message),
+    });
+    const ok = await session.connect(household, metrics, currentMember?.majordomoProfileId, {
+      pageContext: 'poppins tab',
+      capabilityProfile: 'Daily',
+    });
+    setConnecting(false);
+    if (!ok) {
+      session.disconnect();
+      return null;
+    }
+    voiceRef.current = session;
+    setLiveConnected(true);
+    return session;
+  };
+
+  const endNativeVoice = async () => {
+    await voiceRef.current?.end('manual');
+    voiceRef.current = null;
+    setLiveConnected(false);
+    setVoiceState('idle');
+    setListening(false);
+  };
+
+  const ensureWhisperRealtime = async () => {
     if (!isPoppinsRealtimeEnabled()) return null;
     if (realtimeRef.current?.isConnected) return realtimeRef.current;
     const session = new PoppinsRealtimeSession({
       onStateChange: setVoiceState,
       onTranscript: applyTranscript,
       onToolCall: async (name, args) => {
-        const result = await executePoppinsToolCall(name, args);
-        const action = toolCallToMonitorAction(name, args, result);
+        const result = await executePoppinsToolCall(name, args, {
+          forceRiskyConfirmation: true,
+        });
+        const action = toolCallToMonitorAction(name, args, result as Record<string, unknown>);
         setLocalMonitorActions((current) => [action, ...current]);
         flashToolSuccess(action.label || name.replace(/_/g, ' '));
         return result;
@@ -158,17 +265,26 @@ export default function PoppinsScreen() {
 
   const handleSend = async () => {
     const trimmed = draft.trim();
-    if (!trimmed || asking || listening) return;
+    if (!trimmed || asking) return;
     setDraft('');
     setUserTranscript(trimmed);
     setPoppinsTranscript('');
-    setAsking(true);
     setError('');
+
+    // Live duplex: inject into the same WebRTC conversation.
+    if (voiceRef.current?.isConnected) {
+      voiceRef.current.sendUserText(trimmed);
+      appendPoppinsTurn(trimmed, '(live voice)');
+      return;
+    }
+
+    setAsking(true);
     setVoiceState('thinking');
     try {
       const result = await askPoppins(trimmed);
       setVoiceState('speaking');
       setPoppinsTranscript(result.answer);
+      appendPoppinsTurn(trimmed, result.answer);
       if (result.actions?.length) {
         setLocalMonitorActions((current) => [...result.actions!, ...current]);
         flashToolSuccess(result.actions[0]!.label);
@@ -181,9 +297,19 @@ export default function PoppinsScreen() {
     }
   };
 
-  const toggleMic = async () => {
+  const toggleConnect = async () => {
+    if (liveConnected || voiceRef.current?.isConnected) {
+      await endNativeVoice();
+      return;
+    }
+
+    if (nativeVoice) {
+      await connectNativeVoice();
+      return;
+    }
+
+    // Expo Go / no WebRTC: tap-to-talk Whisper fallback.
     if (isActive && listening) {
-      // Cancel / end listen
       setAsking(true);
       try {
         const session = realtimeRef.current;
@@ -214,13 +340,17 @@ export default function PoppinsScreen() {
       return;
     }
 
-    if (asking || listening) return;
-    setError('');
+    if (asking || listening || connecting) return;
+    setError(
+      nativeVoice
+        ? ''
+        : 'Continuous voice needs the TestFlight build. Type below, or tap-to-talk Whisper.'
+    );
     setUserTranscript('');
     setPoppinsTranscript('');
     setListening(true);
     try {
-      const session = await ensureRealtime();
+      const session = await ensureWhisperRealtime();
       if (session) {
         await session.beginListen();
       } else {
@@ -232,6 +362,15 @@ export default function PoppinsScreen() {
       setListening(false);
       setVoiceState('idle');
       setError('Could not access the microphone.');
+    }
+  };
+
+  const confirmPending = (approved: boolean) => {
+    const ids = pendingConfirmations.map((p) => p.id);
+    voiceRef.current?.notifyConfirmationResolved(ids, approved);
+    setPendingConfirmations([]);
+    if (approved) {
+      flashToolSuccess('Confirmed');
     }
   };
 
@@ -264,22 +403,20 @@ export default function PoppinsScreen() {
       ? toolFlash
       : visualState === 'speaking' && poppinsTranscript
         ? poppinsTranscript
-        : userTranscript ||
-          (visualState === 'idle'
-            ? ''
-            : '');
+        : userTranscript || '';
 
-  const idleHint = `${greetingWord()}. Tap to speak with ${majordomo.displayName}`;
+  const idleHint = nativeVoice
+    ? `${greetingWord()}. Tap Connect for a live conversation with ${majordomo.displayName}`
+    : `${greetingWord()}. Type below — continuous voice needs TestFlight`;
+
+  const primaryConnected = liveConnected || (listening && !nativeVoice);
 
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: isDark ? '#000000' : orbitPalette.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={24}>
-      <View
-        style={[styles.ambient, { backgroundColor: ambient }]}
-        pointerEvents="none"
-      />
+      <View style={[styles.ambient, { backgroundColor: ambient }]} pointerEvents="none" />
 
       <View style={[styles.header, { paddingTop: chromePad }]}>
         <Text style={[styles.kicker, { color: isDark ? 'rgba(255,255,255,0.3)' : c.textSubtle }]}>
@@ -315,19 +452,23 @@ export default function PoppinsScreen() {
               {visualState === 'thinking' ? (
                 <View style={styles.dots}>
                   {[0, 1, 2].map((i) => (
-                    <View key={i} style={[styles.dot, { backgroundColor: cfg.color, opacity: 0.5 + i * 0.2 }]} />
+                    <View
+                      key={i}
+                      style={[styles.dot, { backgroundColor: cfg.color, opacity: 0.5 + i * 0.2 }]}
+                    />
                   ))}
                 </View>
               ) : null}
             </>
           ) : (
-            <Text style={[styles.idleHint, { color: isDark ? 'rgba(255,255,255,0.25)' : c.textMuted }]}>
+            <Text
+              style={[styles.idleHint, { color: isDark ? 'rgba(255,255,255,0.25)' : c.textMuted }]}>
               {idleHint}
             </Text>
           )}
         </View>
 
-        <Pressable onPress={() => void toggleMic()} accessibilityRole="button">
+        <Pressable onPress={() => void toggleConnect()} accessibilityRole="button">
           <PoppinsOrb size={176} state={visualState} speaking={visualState === 'speaking'} />
         </Pressable>
 
@@ -339,9 +480,7 @@ export default function PoppinsScreen() {
         </View>
       </View>
 
-      {error ? (
-        <Text style={[styles.error, { color: c.danger }]}>{error}</Text>
-      ) : null}
+      {error ? <Text style={[styles.error, { color: c.danger }]}>{error}</Text> : null}
 
       <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
         {showText ? (
@@ -356,7 +495,11 @@ export default function PoppinsScreen() {
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder={`Type to ${majordomo.displayName}…`}
+              placeholder={
+                liveConnected
+                  ? `Type into the live session…`
+                  : `Type to ${majordomo.displayName}…`
+              }
               placeholderTextColor={c.textSubtle}
               style={[styles.textInput, { color: c.text }]}
               onSubmitEditing={() => void handleSend()}
@@ -397,36 +540,36 @@ export default function PoppinsScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => void toggleMic()}
+            onPress={() => void toggleConnect()}
             style={styles.micWrap}
-            accessibilityLabel={listening ? 'Stop listening' : `Talk to ${majordomo.displayName}`}>
-            {visualState === 'listening' ? (
+            accessibilityLabel={
+              primaryConnected ? 'End conversation' : `Connect to ${majordomo.displayName}`
+            }>
+            {primaryConnected ? (
               <View style={[styles.micPulse, { backgroundColor: 'rgba(52,211,153,0.2)' }]} />
             ) : null}
             <LinearGradient
               colors={
-                visualState === 'listening'
-                  ? ['rgba(52,211,153,0.95)', 'rgba(16,185,129,0.85)']
-                  : isActive
-                    ? ['rgba(56,189,248,0.9)', 'rgba(14,165,233,0.8)']
+                primaryConnected
+                  ? ['rgba(248,113,113,0.95)', 'rgba(239,68,68,0.85)']
+                  : connecting
+                    ? ['rgba(167,139,250,0.9)', 'rgba(139,92,246,0.8)']
                     : isDark
-                      ? ['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.06)']
-                      : [`${c.primary}33`, `${c.primary}18`]
+                      ? ['rgba(52,211,153,0.9)', 'rgba(16,185,129,0.8)']
+                      : [`${c.primary}55`, `${c.primary}33`]
               }
               style={[
                 styles.micBtn,
                 {
-                  borderColor: isActive ? 'rgba(255,255,255,0.25)' : glassBorder(0.14),
+                  borderColor: primaryConnected ? 'rgba(255,255,255,0.25)' : glassBorder(0.14),
                 },
               ]}>
-              {visualState === 'idle' ? (
-                <MaterialIcons name="mic" size={32} color={isDark ? '#fff' : c.text} />
-              ) : visualState === 'listening' ? (
+              {primaryConnected ? (
                 <View style={styles.stopSquare} />
-              ) : visualState === 'success' ? (
-                <MaterialIcons name="check" size={30} color="#fff" />
-              ) : (
+              ) : connecting ? (
                 <MaterialIcons name="graphic-eq" size={28} color="#fff" />
+              ) : (
+                <MaterialIcons name="call" size={30} color={isDark ? '#fff' : c.text} />
               )}
             </LinearGradient>
           </Pressable>
@@ -445,9 +588,63 @@ export default function PoppinsScreen() {
         </View>
 
         <Text style={[styles.stateLabel, { color: isActive ? cfg.color : c.textSubtle }]}>
-          {cfg.label}
+          {primaryConnected
+            ? nativeVoice
+              ? 'End · always available'
+              : cfg.label
+            : nativeVoice
+              ? 'Connect'
+              : cfg.label}
         </Text>
       </View>
+
+      <Modal
+        visible={pendingConfirmations.length > 0}
+        transparent
+        animationType="fade"
+        onRequestClose={() => confirmPending(false)}>
+        <View style={styles.confirmBackdrop}>
+          <View
+            style={[
+              styles.confirmSheet,
+              {
+                backgroundColor: isDark ? '#12141A' : '#F7F5F2',
+                borderColor: glassBorder(0.14),
+                paddingBottom: Math.max(insets.bottom, 16),
+              },
+            ]}>
+            <Text style={[styles.confirmTitle, { color: c.text }]}>Confirm with Poppins</Text>
+            <Text style={[styles.confirmSub, { color: c.textMuted }]}>
+              Risky actions stay approval-first.
+            </Text>
+            {pendingConfirmations.map((item) => (
+              <View
+                key={item.id}
+                style={[
+                  styles.confirmCard,
+                  { borderColor: glassBorder(0.12), backgroundColor: glass(0.05) },
+                ]}>
+                <Text style={[styles.confirmTool, { color: c.text }]}>
+                  {item.tool.replace(/_/g, ' ')}
+                </Text>
+                <Text style={[styles.confirmDetail, { color: c.textMuted }]}>{item.summary}</Text>
+              </View>
+            ))}
+            <View style={styles.confirmRow}>
+              <Pressable
+                onPress={() => confirmPending(false)}
+                style={[styles.confirmBtn, { backgroundColor: glass(0.08) }]}>
+                <Text style={{ color: c.text, fontWeight: '600' }}>Decline</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => confirmPending(true)}
+                style={[styles.confirmBtn, { backgroundColor: '#38BDF8' }]}>
+                <Text style={{ color: '#041018', fontWeight: '700' }}>Approve</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <PoppinsActivitySheet
         visible={showActivity}
@@ -626,92 +823,35 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
   },
-  sheetBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  sheet: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    borderWidth: 1,
-    bottom: 0,
-    left: 0,
-    maxHeight: '80%',
-    position: 'absolute',
-    right: 0,
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    backgroundColor: 'rgba(128,128,128,0.35)',
-    borderRadius: 999,
-    height: 4,
-    marginTop: 10,
-    width: 40,
-  },
-  sheetHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.lg,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  sheetTitle: { fontSize: 16, fontWeight: '700' },
-  sheetSub: { fontSize: 12, marginTop: 2 },
-  sheetClose: {
+  confirmBackdrop: {
     alignItems: 'center',
-    borderRadius: 999,
-    height: 32,
-    justifyContent: 'center',
-    width: 32,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    flex: 1,
+    justifyContent: 'flex-end',
   },
-  sheetScroll: { flexGrow: 0 },
-  sheetContent: {
+  confirmSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
     gap: 10,
-    paddingHorizontal: space.md,
-    paddingBottom: space.lg,
+    paddingHorizontal: space.lg,
+    paddingTop: space.lg,
+    width: '100%',
   },
-  activityCard: {
+  confirmTitle: { fontSize: 18, fontWeight: '700' },
+  confirmSub: { fontSize: 13, marginBottom: 4 },
+  confirmCard: {
     borderRadius: radius.card,
     borderWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    padding: 14,
+    padding: 12,
   },
-  activityIcon: {
+  confirmTool: { fontSize: 14, fontWeight: '700', textTransform: 'capitalize' },
+  confirmDetail: { fontSize: 12, marginTop: 4 },
+  confirmRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  confirmBtn: {
     alignItems: 'center',
     borderRadius: 14,
-    borderWidth: 1,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
-  activityCopy: { flex: 1, minWidth: 0 },
-  activityMeta: { alignItems: 'center', flexDirection: 'row', gap: 4 },
-  activityAction: { fontSize: 12, fontWeight: '700' },
-  activityTime: { fontSize: 12 },
-  activityDetail: { fontSize: 13, lineHeight: 18, marginTop: 2 },
-  activityEmoji: { fontSize: 18 },
-  weekCard: {
-    borderRadius: radius.card,
-    borderWidth: 1,
-    marginTop: 4,
-    padding: 14,
-  },
-  weekLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 10,
-  },
-  weekRow: { flexDirection: 'row', gap: 8 },
-  weekStat: {
-    alignItems: 'center',
-    borderRadius: 16,
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
-  weekEmoji: { fontSize: 16 },
-  weekVal: { fontSize: 15, fontWeight: '800', marginTop: 2 },
-  weekStatLabel: { fontSize: 9, marginTop: 2 },
 });

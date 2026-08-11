@@ -42,6 +42,8 @@ npx supabase functions deploy poppins-chat
 npx supabase functions deploy poppins-voice
 npx supabase functions deploy poppins-monitor
 npx supabase functions deploy poppins-realtime-session
+npx supabase functions deploy poppins-realtime-sdp
+npx supabase functions deploy poppins-voice-tool
 npx supabase functions deploy join-household
 # Optional: branded Auth emails via Resend (Send Email Hook) — see docs/resend-auth-email.md
 npx supabase functions deploy send-auth-email --no-verify-jwt
@@ -53,7 +55,12 @@ Apply `20260716200000_nova_majordomo.sql` for away windows + `notification_prefs
 
 | Secret | Purpose |
 |--------|---------|
-| `OPENAI_API_KEY` | Nova chat, briefings, voice STT, Monitor, Realtime session mint |
+| `OPENAI_API_KEY` | Poppins chat (Luna), briefings, voice STT, Monitor, Realtime SDP / session mint |
+| `OPENAI_REALTIME_MODEL` | Optional override (default `gpt-realtime-2.1`) |
+| `OPENAI_POPPINS_CHAT_MODEL` | Optional override (default `gpt-5.6-luna`) |
+| `OPENAI_INPUT_TRANSCRIBE_MODEL` | Optional override (default `gpt-4o-mini-transcribe`) |
+| `OPENAI_REALTIME_REASONING` | `auto` / `on` / `off` |
+| `POPPINS_VOICE_GRANT_ALL` | `1` to soft-open duplex voice in TestFlight |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side joins, briefing writes, Monitor cron |
 | `RESEND_API_KEY` | Resend API (only if using `send-auth-email` hook; SMTP path uses the key as SMTP password in Auth settings) |
 | `SEND_EMAIL_HOOK_SECRET` | Auth Send Email Hook webhook secret (`v1,whsec_…`) |

@@ -90,21 +90,21 @@ async function mintRealtimeSession(
 
   return {
     clientSecret: payload.clientSecret,
-    model: payload.model ?? 'gpt-realtime-2.1-mini',
+    model: payload.model ?? 'gpt-realtime-2.1',
     expiresAt: payload.expiresAt,
     voice: payload.voice,
   };
 }
 
 /**
- * OpenAI Realtime voice layer for Expo Go (WebSocket).
+ * OpenAI Realtime voice layer for Expo Go (WebSocket fallback).
  * Mic audio is transcribed via Whisper (PCM streaming is limited in Expo Go),
  * then injected as a text turn into Realtime for tool-aware replies.
- * Falls back to full Whisper + TTS via poppins-voice when session mint/connect fails.
+ * Prefer lib/voice/poppins-voice-session.ts (WebRTC) on TestFlight native builds.
  */
 export class PoppinsRealtimeSession {
   private ws: WebSocket | null = null;
-  private model = 'gpt-realtime-2.1-mini';
+  private model = 'gpt-realtime-2.1';
   private assistantBuffer = '';
   private connected = false;
   private responseWaiters: Array<(text: string) => void> = [];
@@ -280,7 +280,11 @@ export class PoppinsRealtimeSession {
           output: JSON.stringify(result),
         },
       });
-      this.send({ type: 'response.create' });
+      // Non-negotiable for spoken tools (Divine Voice footgun).
+      this.send({
+        type: 'response.create',
+        response: { modalities: ['audio', 'text'] },
+      });
     }
 
     if (type === 'error') {

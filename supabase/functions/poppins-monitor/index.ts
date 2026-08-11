@@ -12,6 +12,7 @@ import {
   executePoppinsTool,
   type HouseholdSnapshotEdge,
 } from '../_shared/execute-poppins-tool.ts';
+import { getOpenAIPoppinsChatModel } from '../_shared/openai-models.ts';
 import {
   buildMajordomoSystemPrompt,
   poppinsToolsAsOpenAIFunctions,
@@ -98,7 +99,7 @@ async function runToolLoop(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: getOpenAIPoppinsChatModel(),
         messages,
         tools: poppinsToolsAsOpenAIFunctions(),
         tool_choice: step === 0 ? 'required' : 'auto',

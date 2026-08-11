@@ -6,13 +6,12 @@ import {
   jsonResponse,
   requireActiveMember,
 } from '../_shared/poppins-auth.ts';
+import { getOpenAIRealtimeModel } from '../_shared/openai-models.ts';
 import {
   buildMajordomoSystemPrompt,
   getMajordomoProfile,
   poppinsToolsAsRealtimeTools,
 } from '../_shared/poppins-tools.ts';
-
-const REALTIME_MODEL = 'gpt-realtime-2.1-mini';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -45,6 +44,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'OPENAI_API_KEY not configured', fallback: 'whisper' }, 503);
     }
 
+    const realtimeModel = getOpenAIRealtimeModel();
     const memberRole = auth.membership?.role ?? 'adult';
     const instructions =
       `${buildMajordomoSystemPrompt(profileId, memberRole)}` +
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       deskHint +
       householdHint;
 
-    // GA Realtime only — POST /v1/realtime/client_secrets (beta /sessions + OpenAI-Beta shut down).
+    // Legacy ephemeral mint kept for Expo Go WS fallback. Live duplex uses poppins-realtime-sdp.
     const sessionRes = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
       method: 'POST',
       headers: {
@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         session: {
           type: 'realtime',
-          model: REALTIME_MODEL,
+          model: realtimeModel,
           instructions,
           tools: poppinsToolsAsRealtimeTools(),
           tool_choice: 'auto',
@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
           error: session?.error?.message ?? 'Failed to mint Realtime session',
           fallback: 'whisper',
           details: session,
-          model: REALTIME_MODEL,
+          model: realtimeModel,
         },
         sessionRes.status >= 400 ? sessionRes.status : 502
       );
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
       session.client_secret?.expires_at ??
       session.session?.client_secret?.expires_at ??
       null;
-    const model = session.session?.model ?? session.model ?? REALTIME_MODEL;
+    const model = session.session?.model ?? session.model ?? realtimeModel;
 
     if (!clientSecret) {
       return jsonResponse(

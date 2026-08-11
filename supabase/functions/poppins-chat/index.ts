@@ -1,4 +1,4 @@
-// Deno Edge Function — Poppins conversational answers via gpt-4o-mini + tool loop.
+// Deno Edge Function — Poppins conversational answers via gpt-5.6-luna + tool loop.
 
 import {
   buildCompactHouseholdContext,
@@ -11,6 +11,7 @@ import {
   executePoppinsTool,
   type HouseholdSnapshotEdge,
 } from '../_shared/execute-poppins-tool.ts';
+import { getOpenAIPoppinsChatModel } from '../_shared/openai-models.ts';
 import {
   buildMajordomoSystemPrompt,
   poppinsToolsAsOpenAIFunctions,
@@ -90,7 +91,7 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: getOpenAIPoppinsChatModel(),
           messages,
           tools: poppinsToolsAsOpenAIFunctions(),
           tool_choice: 'auto',

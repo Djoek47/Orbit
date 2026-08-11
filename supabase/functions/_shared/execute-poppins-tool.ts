@@ -1,27 +1,65 @@
-/** Shared tool executor for chat + monitor edge functions. */
+/** Shared tool executor for chat + monitor + voice-tool edge functions. */
 
-import { scanMockDeals } from './poppins-tools.ts';
+import { isRiskyPoppinsTool, scanMockDeals } from './poppins-tools.ts';
 
 export type HouseholdSnapshotEdge = {
   tasks?: Array<Record<string, unknown>>;
   groceries?: Array<Record<string, unknown>>;
   events?: Array<Record<string, unknown>>;
   members?: Array<Record<string, unknown>>;
+  rewards?: Array<Record<string, unknown>>;
+  itineraries?: Array<Record<string, unknown>>;
   householdName?: string;
   greetingName?: string;
   desk?: Record<string, unknown>;
+  rewardModel?: string;
+  homeworkEnabled?: boolean;
+  majordomoProfileId?: string;
 };
+
+export type ExecutePoppinsToolOptions = {
+  forceRiskyConfirmation?: boolean;
+};
+
+function pendingConfirm(
+  name: string,
+  args: Record<string, unknown>,
+  summary: string
+): Record<string, unknown> {
+  return {
+    pending_confirmations: [
+      {
+        id: `pc-${name}-${Date.now()}`,
+        tool: name,
+        args,
+        summary,
+      },
+    ],
+    note: 'Awaiting user confirmation before executing.',
+  };
+}
 
 export function executePoppinsTool(
   name: string,
   args: Record<string, unknown>,
   household: HouseholdSnapshotEdge,
-  metrics: Record<string, unknown>
+  metrics: Record<string, unknown>,
+  options: ExecutePoppinsToolOptions = {}
 ): Record<string, unknown> {
   const tasks = household.tasks ?? [];
   const groceries = household.groceries ?? [];
   const events = household.events ?? [];
   const members = household.members ?? [];
+  const rewards = household.rewards ?? [];
+  const itineraries = household.itineraries ?? [];
+
+  if (options.forceRiskyConfirmation && isRiskyPoppinsTool(name)) {
+    return pendingConfirm(
+      name,
+      args,
+      `${name.replace(/_/g, ' ')}: ${JSON.stringify(args).slice(0, 120)}`
+    );
+  }
 
   switch (name) {
     case 'list_overdue_tasks': {
@@ -33,8 +71,21 @@ export function executePoppinsTool(
       );
       return { overdue: overdue.slice(0, 10) };
     }
+    case 'list_tasks': {
+      const limit = typeof args.limit === 'number' ? Math.min(20, Math.max(1, args.limit)) : 12;
+      const assignee = args.assignee ? String(args.assignee).toLowerCase() : '';
+      const status = args.status ? String(args.status).toLowerCase() : '';
+      const open = tasks
+        .filter((t) => t.status !== 'Done' && t.status !== 'Completed' && t.status !== 'done')
+        .filter(
+          (t) => !assignee || String(t.assignee ?? '').toLowerCase().includes(assignee)
+        )
+        .filter((t) => !status || String(t.status ?? '').toLowerCase().includes(status))
+        .slice(0, limit);
+      return { tasks: open };
+    }
     case 'nudge_member': {
-      const memberName = String(args.memberName ?? '');
+      const memberName = String(args.memberName ?? args.member_id ?? '');
       const away = members.some((m) => {
         const same = String(m.name ?? '').toLowerCase() === memberName.toLowerCase();
         return same && (m.away === true || m.awayFrom || m.away_from);
@@ -45,11 +96,11 @@ export function executePoppinsTool(
       return {
         action: 'nudge',
         memberName,
-        taskId: args.taskId,
-        reason: args.reason,
+        taskId: args.taskId ?? args.related_task_id,
+        reason: args.reason ?? args.message,
         notification: {
           title: 'Poppins · Nudge',
-          body: `${memberName}: ${args.reason}`,
+          body: `${memberName}: ${args.reason ?? args.message}`,
           data: { kind: 'nudge', taskId: args.taskId },
         },
       };
@@ -94,11 +145,65 @@ export function executePoppinsTool(
       const categories = Array.isArray(args.categories) ? (args.categories as string[]) : undefined;
       return { deals: scanMockDeals(groceryNames, categories) };
     }
-    case 'read_calendar': {
-      const limit = typeof args.days === 'number' ? Math.min(14, Math.max(1, args.days)) : 7;
+    case 'list_groceries':
+    case 'get_grocery_gaps': {
+      const status = args.status ? String(args.status) : '';
+      const filtered = groceries.filter((g) => {
+        if (!status || status === 'any') {
+          return g.status === 'Missing' || g.status === 'Low' || !status;
+        }
+        return String(g.status) === status;
+      });
+      return {
+        groceries: filtered.slice(0, 30).map((g) => ({
+          id: g.id,
+          name: g.name,
+          status: g.status,
+          category: g.category,
+        })),
+      };
+    }
+    case 'add_grocery':
+    case 'add_grocery_item': {
+      const groceryName = String(args.name ?? '').trim();
+      if (!groceryName) return { error: 'name_required' };
+      return {
+        ui_actions: [
+          {
+            type: 'add_grocery',
+            name: groceryName,
+            category: args.category ? String(args.category) : undefined,
+            status: args.status ? String(args.status) : 'Missing',
+          },
+        ],
+        note: `Staged add grocery: ${groceryName}`,
+      };
+    }
+    case 'set_grocery_status':
+    case 'update_grocery_status': {
+      return {
+        ui_actions: [
+          {
+            type: 'set_grocery_status',
+            itemId: args.item_id ?? args.itemId,
+            name: String(args.name ?? ''),
+            status: String(args.status ?? 'Purchased'),
+          },
+        ],
+      };
+    }
+    case 'read_calendar':
+    case 'get_calendar_agenda': {
+      const limit =
+        typeof args.days === 'number'
+          ? Math.min(14, Math.max(1, args.days))
+          : typeof args.days_ahead === 'number'
+            ? Math.min(14, Math.max(1, args.days_ahead))
+            : 7;
       return { events: events.slice(0, limit) };
     }
-    case 'list_holidays': {
+    case 'list_holidays':
+    case 'get_recess_status': {
       const away = members.filter((m) => m.away === true || m.awayFrom || m.away_from);
       return {
         holidays: away.map((m) => ({
@@ -137,12 +242,214 @@ export function executePoppinsTool(
       };
     }
     case 'ask_for_info': {
+      const memberName = String(args.memberName ?? args.member_id ?? 'member');
       return {
         notification: {
           title: 'Poppins needs a detail',
-          body: `${args.memberName}, ${args.question}`,
+          body: `${memberName}, ${args.question}`,
           data: { kind: 'ask_for_info' },
         },
+      };
+    }
+    case 'list_members': {
+      return {
+        members: members
+          .filter((m) => m.status === 'active')
+          .map((m) => ({
+            id: m.id,
+            name: m.name,
+            role: m.role,
+            weekXp: m.weekXp ?? m.week_xp ?? 0,
+          })),
+      };
+    }
+    case 'list_rewards': {
+      return {
+        rewards: rewards.slice(0, 20).map((r) => ({
+          id: r.id,
+          title: r.title ?? r.name,
+          cost: r.cost,
+        })),
+      };
+    }
+    case 'search_house_rules': {
+      return {
+        hits: [],
+        note: 'House rules search is resolved on-device; ask the user to open House Rules if needed.',
+        query: String(args.query ?? ''),
+      };
+    }
+    case 'get_pending_approvals': {
+      return {
+        pendingProofs: tasks
+          .filter((t) => /proof|pending.?review|awaiting/i.test(String(t.status ?? '')))
+          .slice(0, 10),
+        pendingRedemptions: rewards.filter((r) => r.pending === true).slice(0, 10),
+        pendingAllowances: [],
+      };
+    }
+    case 'get_briefing_snapshot': {
+      return {
+        householdName: household.householdName,
+        greetingName: household.greetingName,
+        desk: household.desk ?? {},
+        metrics,
+        openTasks: metrics.openTasks,
+        upcomingEvents: events.slice(0, 5),
+      };
+    }
+    case 'get_unread_notifications': {
+      return {
+        notifications: [],
+        note: 'Unread notifications are resolved by the live app session.',
+      };
+    }
+    case 'list_itineraries': {
+      const limit = typeof args.limit === 'number' ? Math.min(20, Math.max(1, args.limit)) : 8;
+      return { itineraries: itineraries.slice(0, limit) };
+    }
+    case 'get_smart_home_state': {
+      return { linked: false, scenes: [], note: 'Smart home is optional.' };
+    }
+    case 'create_task_draft':
+    case 'create_task': {
+      return {
+        ui_actions: [
+          {
+            type: 'navigate',
+            route: '/create-task',
+            prefill: {
+              title: String(args.title ?? ''),
+              assignee: args.assignee ?? args.assignee_id,
+              due: args.due ?? args.due_at,
+              detail: args.detail ?? args.description,
+            },
+          },
+        ],
+        note: 'Opened create-task with draft prefill.',
+      };
+    }
+    case 'update_task': {
+      return {
+        ui_actions: [
+          {
+            type: 'update_task',
+            taskId: args.taskId ?? args.task_id,
+            patch: args,
+          },
+        ],
+      };
+    }
+    case 'complete_task': {
+      const taskId = String(args.taskId ?? args.task_id ?? '');
+      const title = String(args.title ?? '').toLowerCase();
+      const match =
+        tasks.find((t) => String(t.id) === taskId) ||
+        tasks.find((t) => title && String(t.title ?? '').toLowerCase().includes(title));
+      if (!match) return { error: 'task_not_found' };
+      return {
+        ui_actions: [{ type: 'complete_task', taskId: match.id, title: match.title }],
+        note: `Staged complete: ${match.title}`,
+      };
+    }
+    case 'create_calendar_event': {
+      return {
+        ui_actions: [
+          {
+            type: 'navigate',
+            route: '/create-event',
+            prefill: {
+              title: String(args.title ?? ''),
+              date: args.date ?? args.starts_at,
+              time: args.time,
+              location: args.location,
+              notes: args.notes,
+            },
+          },
+        ],
+      };
+    }
+    case 'create_itinerary': {
+      return {
+        ui_actions: [
+          {
+            type: 'navigate',
+            route: '/create-itinerary',
+            prefill: {
+              title: String(args.title ?? ''),
+              startsAt: args.startsAt ?? args.starts_at,
+              notes: args.notes,
+            },
+          },
+        ],
+      };
+    }
+    case 'advance_itinerary_stop': {
+      return {
+        ui_actions: [
+          {
+            type: 'advance_itinerary_stop',
+            itineraryId: args.itineraryId ?? args.itinerary_id,
+          },
+        ],
+      };
+    }
+    case 'claim_reward': {
+      return {
+        ui_actions: [
+          {
+            type: 'claim_reward',
+            rewardName: args.rewardName,
+            rewardId: args.reward_id ?? args.rewardId,
+          },
+        ],
+      };
+    }
+    case 'navigate_to': {
+      return {
+        ui_actions: [
+          {
+            type: 'navigate',
+            route: String(args.route ?? ''),
+            reason: args.reason,
+            params: args.params,
+          },
+        ],
+      };
+    }
+    case 'delete_task':
+    case 'clear_grocery_list':
+    case 'wipe_grocery_list':
+    case 'delete_event':
+    case 'delete_calendar_event':
+    case 'approve_redemption':
+    case 'reject_redemption':
+    case 'approve_allowance':
+    case 'reject_allowance':
+    case 'grant_allowance':
+    case 'remove_member':
+    case 'change_member_role':
+    case 'mass_reassign_tasks':
+    case 'recess_everyone':
+    case 'run_smart_home_scene':
+    case 'update_reward_model': {
+      return pendingConfirm(name, args, `${name.replace(/_/g, ' ')} requires confirmation`);
+    }
+    case 'ui_confirm_pending': {
+      return {
+        acknowledged: true,
+        confirmationIds: Array.isArray(args.confirmationIds)
+          ? args.confirmationIds
+          : Array.isArray(args.confirmation_ids)
+            ? args.confirmation_ids
+            : [],
+      };
+    }
+    case 'end_session': {
+      return {
+        session_control: 'end',
+        reason: args.reason ? String(args.reason) : 'done',
+        farewell: args.farewell,
       };
     }
     default:
@@ -196,7 +503,7 @@ export function effectsToClientActions(
           id: `chat-nudge-${now}-${actions.length}`,
           kind: 'nudge',
           label: `Nudged ${args.memberName ?? 'member'}`,
-          detail: String(args.reason ?? ''),
+          detail: String(args.reason ?? args.message ?? ''),
           createdAt: now,
         });
       }
@@ -239,6 +546,27 @@ export function effectsToClientActions(
           .slice(0, 3)
           .map((t: { title?: string; assignee?: string }) => `${t.title} · ${t.assignee}`)
           .join(' · '),
+        createdAt: now,
+      });
+      continue;
+    }
+    if (result.pending_confirmations) {
+      actions.push({
+        id: `chat-pending-${now}-${actions.length}`,
+        kind: 'monitor',
+        label: `Needs confirmation · ${tool}`,
+        detail: JSON.stringify(args).slice(0, 160),
+        createdAt: now,
+        data: { pending_confirmations: result.pending_confirmations },
+      });
+      continue;
+    }
+    if (tool === 'end_session') {
+      actions.push({
+        id: `chat-end-${now}-${actions.length}`,
+        kind: 'monitor',
+        label: 'Ended voice session',
+        detail: String(args.reason ?? result.reason ?? ''),
         createdAt: now,
       });
     }

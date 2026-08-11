@@ -7,6 +7,7 @@ import {
   jsonResponse,
   requireActiveMember,
 } from '../_shared/poppins-auth.ts';
+import { getOpenAIPoppinsChatModel } from '../_shared/openai-models.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -41,7 +42,7 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: getOpenAIPoppinsChatModel(),
           response_format: { type: 'json_object' },
           messages: [
             {
