@@ -1,19 +1,36 @@
 /**
- * Revision F §9 — Assign task page.
- * Sticky footer, domain tiles, multi-select — quiet, precise, Apple-calm.
+ * Assign tasks — person first, then tasks.
+ * Apple-calm: choose who, pick what, one clear CTA.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { radius, space, typography } from '@/constants/orbit-theme';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  findSharedDeviceForMember,
+  isSharedDeviceRole,
+} from '@/lib/household/shared-device';
 import { choreDomains, type LibraryTask, type TaskDomain } from '@/lib/tasks/task-library';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import type { HouseholdMember } from '@/types/orbit';
+
+/** Real people only — shared tablet shells are not assign targets. */
+function assignablePeople(members: HouseholdMember[]): HouseholdMember[] {
+  return members.filter(
+    (member) =>
+      member.status === 'active' &&
+      member.role !== 'guest' &&
+      !isSharedDeviceRole(member.role)
+  );
+}
 
 type Selected = {
   task: LibraryTask;
@@ -68,6 +85,63 @@ function applyFrequency(
   return selected.map((s) => (s.task.id === taskId ? { ...s, frequency } : s));
 }
 
+function PersonChip({
+  member,
+  active,
+  onSharedDevice,
+  onPress,
+}: {
+  member: HouseholdMember;
+  active: boolean;
+  onSharedDevice?: boolean;
+  onPress: () => void;
+}) {
+  const { c, glass } = useOrbitColors();
+  const { accentTheme } = useOrbit();
+  const photo = isAvatarImageUri(member.avatar);
+  const a11y = onSharedDevice
+    ? `Assign to ${member.name} on shared device`
+    : `Assign to ${member.name}`;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={a11y}
+      style={styles.personChip}>
+      <View
+        style={[
+          styles.personAvatarRing,
+          {
+            borderColor: active ? accentTheme.primary : 'transparent',
+            backgroundColor: active ? `${accentTheme.primary}18` : 'transparent',
+          },
+        ]}>
+        <View style={[styles.personAvatar, { backgroundColor: glass(0.1) }]}>
+          {photo ? (
+            <Image source={{ uri: member.avatar }} style={styles.personAvatarImage} />
+          ) : (
+            <Text style={styles.personEmoji}>{memberDisplayEmoji(member)}</Text>
+          )}
+        </View>
+      </View>
+      <Text
+        style={[
+          typography.caption1,
+          {
+            color: active ? c.text : c.textMuted,
+            fontWeight: active ? '700' : '500',
+            textAlign: 'center',
+          },
+        ]}
+        numberOfLines={1}>
+        {member.name}
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function AssignTaskScreen() {
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
@@ -77,17 +151,39 @@ export default function AssignTaskScreen() {
   const canAssign = v2Permissions.canAssignOrEditTask || permissions.canCreateTask;
   const isAdmin = permissions.canManageHousehold;
 
-  const assignee =
-    household.members.find((m) => m.name === memberName) ??
-    household.members.find((m) => m.role === 'child' && m.status === 'active') ??
-    household.members.find((m) => m.status === 'active');
+  const people = useMemo(() => assignablePeople(household.members), [household.members]);
+  const sharedDeviceIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const member of people) {
+      if (findSharedDeviceForMember(member.id, household.members)) ids.add(member.id);
+    }
+    return ids;
+  }, [people, household.members]);
 
+  const initialId = useMemo(() => {
+    const fromParam = people.find((m) => m.name === memberName)?.id;
+    if (fromParam) return fromParam;
+    return people[0]?.id ?? null;
+  }, [people, memberName]);
+
+  const [assigneeId, setAssigneeId] = useState<string | null>(initialId);
   const [search, setSearch] = useState('');
   const [domainId, setDomainId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selected[]>([]);
   const [busy, setBusy] = useState(false);
   const [freqPickerTaskId, setFreqPickerTaskId] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+
+  useEffect(() => {
+    if (!people.length) {
+      if (assigneeId) setAssigneeId(null);
+      return;
+    }
+    if (assigneeId && people.some((m) => m.id === assigneeId)) return;
+    setAssigneeId(initialId);
+  }, [people, assigneeId, initialId]);
+
+  const assignee = people.find((m) => m.id === assigneeId) ?? null;
 
   const domains = useMemo(() => choreDomains(), []);
   const domain: TaskDomain | undefined = domains.find((d) => d.id === domainId);
@@ -154,8 +250,12 @@ export default function AssignTaskScreen() {
 
   const ctaLabel =
     selected.length === 0
-      ? 'Pick some tasks'
-      : `Assign ${selected.length} · ${assignee?.name ?? ''}`;
+      ? 'Select tasks'
+      : !assignee
+        ? 'Choose who'
+        : selected.length === 1
+          ? `Assign to ${assignee.name}`
+          : `Assign ${selected.length} to ${assignee.name}`;
 
   return (
     <View style={[styles.shell, { paddingTop: insets.top, backgroundColor: c.background }]}>
@@ -169,15 +269,33 @@ export default function AssignTaskScreen() {
           accessibilityLabel="Close">
           <MaterialIcons name="close" size={20} color={c.textSoft} />
         </Pressable>
-        <View style={styles.headerCenter}>
-          <Text style={[typography.caption1, { color: c.textMuted, letterSpacing: 0.3 }]}>
-            Assigning to
-          </Text>
-          <Text style={[typography.headline, { color: c.text }]} numberOfLines={1}>
-            {assignee?.name ?? '…'}
-          </Text>
-        </View>
+        <Text style={[typography.headline, { color: c.text, fontWeight: '700' }]}>Assign</Text>
         <View style={{ width: 36 }} />
+      </View>
+
+      {/* Who — always choosable (route param only seeds the selection) */}
+      <View style={styles.whoBlock}>
+        <Text style={[styles.sectionLabel, styles.sectionPad, { color: c.textMuted }]}>Who</Text>
+        {people.length === 0 ? (
+          <Text style={[typography.footnote, { color: c.textSubtle, paddingHorizontal: space.md }]}>
+            Add household members in Settings first.
+          </Text>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.peopleRow}>
+            {people.map((member) => (
+              <PersonChip
+                key={member.id}
+                member={member}
+                active={assigneeId === member.id}
+                onSharedDevice={sharedDeviceIds.has(member.id)}
+                onPress={() => setAssigneeId(member.id)}
+              />
+            ))}
+          </ScrollView>
+        )}
       </View>
 
       <View style={styles.searchPad}>
@@ -204,8 +322,29 @@ export default function AssignTaskScreen() {
       </View>
 
       <PersistentScrollView contentContainerStyle={styles.scrollBody}>
-        <Text style={[styles.sectionLabel, { color: c.textMuted }]}>Domains</Text>
-        <View style={styles.tileGrid}>
+        <Text style={[styles.sectionLabel, { color: c.textMuted }]}>Category</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.domainRow}
+          style={styles.domainScroll}>
+          <Pressable
+            onPress={() => setDomainId(null)}
+            style={[
+              styles.domainChip,
+              {
+                backgroundColor: domainId === null ? `${accentTheme.primary}22` : glass(0.04),
+                borderColor: domainId === null ? accentTheme.primary : glassBorder(0.08),
+              },
+            ]}>
+            <Text
+              style={[
+                styles.domainChipLabel,
+                { color: domainId === null ? accentTheme.primary : c.textSoft },
+              ]}>
+              All
+            </Text>
+          </Pressable>
           {domains.map((d) => {
             const active = domainId === d.id;
             return (
@@ -213,15 +352,15 @@ export default function AssignTaskScreen() {
                 key={d.id}
                 onPress={() => setDomainId(active ? null : d.id)}
                 style={[
-                  styles.tile,
+                  styles.domainChip,
                   {
                     backgroundColor: active ? `${accentTheme.primary}22` : glass(0.04),
-                    borderColor: active ? `${accentTheme.primary}55` : glassBorder(0.08),
+                    borderColor: active ? accentTheme.primary : glassBorder(0.08),
                   },
                 ]}>
                 <Text
                   style={[
-                    styles.tileLabel,
+                    styles.domainChipLabel,
                     { color: active ? accentTheme.primary : c.textSoft },
                   ]}
                   numberOfLines={1}>
@@ -230,20 +369,28 @@ export default function AssignTaskScreen() {
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
 
         {isAdmin ? (
           <Pressable
-            onPress={() => router.push('/create-task?custom=1' as never)}
+            onPress={() =>
+              router.push({
+                pathname: '/create-task',
+                params: {
+                  custom: '1',
+                  ...(assignee ? { assignee: assignee.name } : {}),
+                },
+              } as never)
+            }
             style={styles.customLink}>
             <Text style={[typography.subheadline, { color: accentTheme.primary, fontWeight: '600' }]}>
-              Create custom task
+              Custom task
             </Text>
           </Pressable>
         ) : null}
 
-        <Text style={[styles.sectionLabel, { color: c.textMuted, marginTop: space.xl }]}>
-          {domain ? domain.name : 'All tasks'}
+        <Text style={[styles.sectionLabel, { color: c.textMuted, marginTop: space.lg }]}>
+          {domain ? domain.name : 'Tasks'}
         </Text>
 
         <View
@@ -419,6 +566,7 @@ export default function AssignTaskScreen() {
           <View style={styles.footerTop}>
             <Text style={[typography.footnote, { color: c.textMuted }]}>
               {selected.length} selected
+              {assignee ? ` · ${assignee.name}` : ''}
             </Text>
             <Pressable onPress={() => setSelected([])} hitSlop={10}>
               <Text style={[typography.footnote, { color: accentTheme.primary, fontWeight: '600' }]}>
@@ -428,30 +576,14 @@ export default function AssignTaskScreen() {
           </View>
         ) : null}
 
-        {selected.length > 0 ? (
-          <View style={styles.chips}>
-            {selected.map((s) => (
-              <Pressable
-                key={s.task.id}
-                onPress={() => toggleTask(s.task)}
-                style={[styles.chip, { backgroundColor: glass(0.08) }]}>
-                <Text style={[typography.caption1, { color: c.textSoft }]} numberOfLines={1}>
-                  {s.task.name}
-                </Text>
-                <MaterialIcons name="close" size={12} color={c.textMuted} />
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-
         <Pressable
-          disabled={selected.length === 0 || busy || !canAssign}
+          disabled={selected.length === 0 || busy || !canAssign || !assignee}
           onPress={() => void assign()}
           style={[
             styles.assignBtn,
             {
               backgroundColor:
-                selected.length === 0 ? glass(0.08) : accentTheme.primary,
+                selected.length === 0 || !assignee ? glass(0.08) : accentTheme.primary,
               opacity: busy ? 0.65 : 1,
             },
           ]}>
@@ -459,7 +591,7 @@ export default function AssignTaskScreen() {
             style={[
               typography.headline,
               {
-                color: selected.length === 0 ? c.textSubtle : c.ink,
+                color: selected.length === 0 || !assignee ? c.textSubtle : c.ink,
                 fontWeight: '700',
               },
             ]}>
@@ -489,7 +621,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 36,
   },
-  headerCenter: { alignItems: 'center', flex: 1, gap: 2 },
+  whoBlock: { gap: space.sm, marginBottom: space.md },
+  peopleRow: {
+    gap: space.md,
+    paddingHorizontal: space.md,
+    paddingBottom: 2,
+  },
+  personChip: {
+    alignItems: 'center',
+    gap: 6,
+    width: 64,
+  },
+  personAvatarRing: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.full,
+    borderWidth: 2,
+    height: 56,
+    justifyContent: 'center',
+    padding: 2,
+    width: 56,
+  },
+  personAvatar: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.full,
+    height: 48,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: 48,
+  },
+  personAvatarImage: { height: 48, width: 48 },
+  personEmoji: { fontSize: 22 },
   searchPad: { paddingHorizontal: space.md, paddingBottom: space.sm },
   searchField: {
     alignItems: 'center',
@@ -506,24 +669,25 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 12,
     fontWeight: '600',
-    letterSpacing: 0.4,
+    letterSpacing: 0.6,
     marginBottom: space.sm,
     textTransform: 'uppercase',
   },
-  tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },
-  tile: {
+  sectionPad: { paddingHorizontal: space.md },
+  domainScroll: { marginHorizontal: -space.md },
+  domainRow: { gap: space.xs, paddingHorizontal: space.md },
+  domainChip: {
     borderCurve: 'continuous',
-    borderRadius: radius.control,
+    borderRadius: radius.full,
     borderWidth: StyleSheet.hairlineWidth,
-    minWidth: '31%',
-    paddingHorizontal: space.sm,
-    paddingVertical: 11,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
   },
-  tileLabel: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  domainChipLabel: { fontSize: 14, fontWeight: '600' },
   customLink: {
     alignItems: 'center',
     marginTop: space.md,
-    paddingVertical: space.sm,
+    paddingVertical: space.xs,
   },
   listCard: {
     borderCurve: 'continuous',
@@ -561,17 +725,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },
-  chip: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: radius.full,
-    flexDirection: 'row',
-    gap: 4,
-    maxWidth: '100%',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
   },
   assignBtn: {
     alignItems: 'center',
