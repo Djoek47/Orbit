@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -190,18 +190,32 @@ export default function RewardsScreen() {
       setAllowanceLedger([]);
       return;
     }
-    const rows = await listAllowanceLedger(household.id);
+    const rows = await listAllowanceLedger(household.id, { thisWeekOnly: true });
     setAllowanceLedger(rows);
   }, [household.id]);
 
-  useEffect(() => {
-    if (surface === 'allowance') void reloadAllowanceLedger();
-  }, [surface, reloadAllowanceLedger, pendingAllowances]);
+  const reloadAllowanceRules = useCallback(async () => {
+    if (!household.id) {
+      setAllowanceRules([]);
+      return;
+    }
+    setAllowanceRules(await loadAllowanceRules(household.id));
+  }, [household.id]);
 
   useEffect(() => {
-    if (surface !== 'allowance' || !household.id) return;
-    void loadAllowanceRules(household.id).then(setAllowanceRules);
-  }, [surface, household.id]);
+    if (surface === 'allowance') {
+      void reloadAllowanceLedger();
+      void reloadAllowanceRules();
+    }
+  }, [surface, reloadAllowanceLedger, reloadAllowanceRules, pendingAllowances]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (surface !== 'allowance') return;
+      void reloadAllowanceLedger();
+      void reloadAllowanceRules();
+    }, [surface, reloadAllowanceLedger, reloadAllowanceRules])
+  );
 
   const fallbackSurface = (): Surface => {
     if (showRewards) return 'rewards';
@@ -355,6 +369,14 @@ export default function RewardsScreen() {
   const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
   const podiumHeights = [100, 130, 80];
 
+  const allowanceCurrency = useMemo(() => {
+    return (
+      allowanceRules.find((r) => r.active)?.currency ??
+      allowanceLedger[0]?.currency ??
+      'CAD'
+    );
+  }, [allowanceLedger, allowanceRules]);
+
   const allowanceRows = useMemo(() => {
     return vaultMembers.map((member) => {
       const owed = allowanceLedger.filter(
@@ -363,20 +385,28 @@ export default function RewardsScreen() {
       const paid = allowanceLedger.filter(
         (g) => g.memberId === member.id && g.status === 'paid'
       );
+      const owedTotal = owed.reduce((sum, e) => sum + e.amount, 0);
+      const paidTotal = paid.reduce((sum, e) => sum + e.amount, 0);
       return {
         member,
         owedCount: owed.length,
         paidCount: paid.length,
-        owedTotal: owed.reduce((sum, e) => sum + e.amount, 0),
-        latestOwed: owed[0],
+        owedTotal,
+        paidTotal,
+        /** Always a number — never a bare dash that reads as a green bar. */
+        amountValue: owedTotal > 0 ? owedTotal : paidTotal,
+        amountTone: (owedTotal > 0 ? 'owed' : paidTotal > 0 ? 'paid' : 'clear') as
+          | 'owed'
+          | 'paid'
+          | 'clear',
       };
     });
   }, [allowanceLedger, vaultMembers]);
 
-  const allowanceWeekStats = useMemo(
-    () => summarizeAllowanceLedger(allowanceLedger),
-    [allowanceLedger]
-  );
+  const allowanceWeekStats = useMemo(() => {
+    const stats = summarizeAllowanceLedger(allowanceLedger);
+    return { ...stats, currency: stats.currency || allowanceCurrency };
+  }, [allowanceLedger, allowanceCurrency]);
 
   const ledgerEntries = useMemo((): XpLedgerEntry[] => {
     if (!ledgerMemberId) return [];
@@ -615,20 +645,6 @@ export default function RewardsScreen() {
             </Pressable>
           ) : null}
 
-          {isAdmin && showAllowance ? (
-            <Pressable
-              onPress={() => router.push('/create-allowance' as never)}
-              style={[
-                styles.createDashed,
-                { borderColor: glassBorder(0.14), backgroundColor: glass(0.04) },
-              ]}>
-              <MaterialIcons name="payments" size={18} color={c.textSubtle} />
-              <Text style={[typography.subheadline, { color: c.textSubtle, fontWeight: '600' }]}>
-                Create allowance
-              </Text>
-            </Pressable>
-          ) : null}
-
           <View style={styles.secondaryLinks}>
             {isAdmin ? (
               <Pressable onPress={() => router.push('/reward-tally' as never)}>
@@ -658,13 +674,12 @@ export default function RewardsScreen() {
                 frequency: rule.frequency,
                 tasks: household.tasks,
               });
-              const pct = Math.round(progress.ratio * 100);
               const freqLabel =
                 rule.frequency === 'daily'
-                  ? 'daily'
+                  ? 'Daily'
                   : rule.frequency === 'weekly'
-                    ? 'weekly'
-                    : 'monthly';
+                    ? 'Weekly'
+                    : 'Monthly';
               return (
                 <View
                   key={rule.id}
@@ -672,36 +687,37 @@ export default function RewardsScreen() {
                     styles.allowanceCard,
                     { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.06) },
                   ]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-                    <Text style={[typography.headline, { color: c.text, flex: 1 }]} numberOfLines={1}>
-                      {rule.memberName}
-                    </Text>
-                    <Text style={[typography.subheadline, { color: c.textSoft, fontWeight: '600' }]}>
-                      {formatMoney(rule.amount, rule.currency)}
-                      <Text style={{ color: c.textMuted, fontWeight: '500' }}> · {freqLabel}</Text>
-                    </Text>
+                  <View style={styles.ruleHead}>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={[typography.headline, { color: c.text }]} numberOfLines={1}>
+                        {rule.memberName}
+                      </Text>
+                      <Text style={[typography.footnote, { color: c.textMuted }]}>
+                        {formatMoney(rule.amount, rule.currency)} · {freqLabel}
+                      </Text>
+                    </View>
+                    <View style={styles.ruleCount}>
+                      <Text
+                        style={[
+                          typography.title2,
+                          {
+                            color: progress.earned ? c.success : c.text,
+                            fontWeight: '700',
+                            fontVariant: ['tabular-nums'],
+                          },
+                        ]}>
+                        {progress.completed}
+                        <Text style={[typography.title3, { color: c.textMuted, fontWeight: '500' }]}>
+                          {' '}
+                          / {progress.total}
+                        </Text>
+                      </Text>
+                      <Text style={[typography.caption2, { color: c.textSubtle }]}>tasks</Text>
+                    </View>
                   </View>
-                  <View
-                    style={{
-                      height: 4,
-                      borderRadius: 999,
-                      backgroundColor: glass(0.12),
-                      marginTop: 14,
-                      overflow: 'hidden',
-                    }}>
-                    <View
-                      style={{
-                        width: `${pct}%`,
-                        height: '100%',
-                        borderRadius: 999,
-                        backgroundColor: progress.earned ? c.success : accentTheme.primary,
-                      }}
-                    />
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                    <Text style={[typography.caption1, { color: c.textMuted }]}>{progress.label}</Text>
-                    <Text style={[typography.caption1, { color: c.textSubtle }]}>{progress.helper}</Text>
-                  </View>
+                  <Text style={[typography.caption1, { color: c.textSubtle }]}>
+                    {progress.helper}
+                  </Text>
                 </View>
               );
             })
@@ -712,36 +728,48 @@ export default function RewardsScreen() {
                 style={[
                   styles.allowanceSummaryCard,
                   {
-                    backgroundColor: isDark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.1)',
-                    borderColor: 'rgba(245,158,11,0.28)',
+                    backgroundColor: glassFill(isDark),
+                    borderColor: glassBorder(0.08),
                   },
                 ]}>
-                <View style={styles.pendingHead}>
-                  <MaterialIcons name="payments" size={16} color="#F59E0B" />
-                  <Text style={[typography.headline, { color: '#F59E0B' }]}>
-                    This week
-                  </Text>
-                </View>
-                <Text style={[typography.caption1, { color: c.textSubtle, marginBottom: 8 }]}>
+                <Text style={[typography.headline, { color: c.text }]}>This week</Text>
+                <Text style={[typography.footnote, { color: c.textMuted }]}>
                   ChoreMaxx keeps the record. You hand over the money however you normally do.
                 </Text>
                 <View style={styles.allowanceSummaryRow}>
-                  <View>
-                    <Text style={[typography.title2, { color: c.text }]}>
-                      {formatMoney(allowanceWeekStats.owed, allowanceWeekStats.currency)}
+                  <View style={styles.summaryStat}>
+                    <Text
+                      style={[
+                        typography.title2,
+                        { color: c.text, fontVariant: ['tabular-nums'] },
+                      ]}>
+                      {formatMoney(allowanceWeekStats.owed, allowanceCurrency)}
                     </Text>
                     <Text style={[typography.caption1, { color: c.textSubtle }]}>Owed</Text>
                   </View>
-                  <View>
-                    <Text style={[typography.title2, { color: '#34D399' }]}>
-                      {formatMoney(allowanceWeekStats.paid, allowanceWeekStats.currency)}
+                  <View style={styles.summaryStat}>
+                    <Text
+                      style={[
+                        typography.title2,
+                        { color: c.success, fontVariant: ['tabular-nums'] },
+                      ]}>
+                      {formatMoney(allowanceWeekStats.paid, allowanceCurrency)}
                     </Text>
-                    <Text style={[typography.caption1, { color: c.textSubtle }]}>Paid this week</Text>
+                    <Text style={[typography.caption1, { color: c.textSubtle }]}>Paid</Text>
                   </View>
                 </View>
               </View>
 
-              {allowanceRows.map(({ member, owedCount, owedTotal, latestOwed }, i) => (
+              {allowanceRows.map(({ member, owedCount, owedTotal, paidTotal, amountValue, amountTone }, i) => {
+                const amountColor =
+                  amountTone === 'owed'
+                    ? accentTheme.primary
+                    : amountTone === 'paid'
+                      ? c.success
+                      : c.textSoft;
+                const amountCaption =
+                  amountTone === 'owed' ? 'owed' : amountTone === 'paid' ? 'paid' : 'clear';
+                return (
                 <Animated.View
                   key={member.id}
                   entering={FadeInUp.delay(i * 50)}
@@ -759,21 +787,36 @@ export default function RewardsScreen() {
                       imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
                       size="m"
                     />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[typography.headline, { color: c.text }]}>{member.name}</Text>
-                      <Text style={[typography.caption1, { color: c.textSubtle }]}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={[typography.headline, { color: c.text }]} numberOfLines={1}>
+                        {member.name}
+                      </Text>
+                      <Text style={[typography.caption1, { color: c.textSubtle }]} numberOfLines={1}>
                         {member.streak ?? 0}-day streak
                         {owedCount > 0
-                          ? ` · ${formatMoney(owedTotal, allowanceWeekStats.currency)} owed`
-                          : ''}
+                          ? ` · ${formatMoney(owedTotal, allowanceCurrency)} owed`
+                          : paidTotal > 0
+                            ? ` · ${formatMoney(paidTotal, allowanceCurrency)} paid`
+                            : ''}
                       </Text>
                     </View>
-                    <Text style={[typography.title3, { color: '#34D399' }]}>
-                      {latestOwed?.amountLabel ??
-                        (owedTotal > 0
-                          ? formatMoney(owedTotal, allowanceWeekStats.currency)
-                          : '—')}
-                    </Text>
+                    <View style={styles.amountBlock}>
+                      <Text
+                        style={[
+                          typography.title3,
+                          {
+                            color: amountColor,
+                            fontWeight: '700',
+                            fontVariant: ['tabular-nums'],
+                          },
+                        ]}
+                        accessibilityLabel={`${formatMoney(amountValue, allowanceCurrency)} ${amountCaption}`}>
+                        {formatMoney(amountValue, allowanceCurrency)}
+                      </Text>
+                      <Text style={[typography.caption2, { color: c.textSubtle }]}>
+                        {amountCaption}
+                      </Text>
+                    </View>
                   </View>
                   <View style={styles.allowanceActions}>
                     <Pressable
@@ -783,9 +826,9 @@ export default function RewardsScreen() {
                           params: { memberId: member.id },
                         } as never)
                       }
-                      style={[styles.allowBtn, { backgroundColor: 'rgba(52,211,153,0.15)' }]}>
-                      <Text style={{ color: '#34D399', fontWeight: '700', fontSize: 12 }}>
-                        + Bonus
+                      style={[styles.allowBtn, { backgroundColor: glass(0.06) }]}>
+                      <Text style={{ color: c.textSoft, fontWeight: '600', fontSize: 13 }}>
+                        Bonus
                       </Text>
                     </Pressable>
                     <Pressable
@@ -797,27 +840,27 @@ export default function RewardsScreen() {
                           void approveAllowance(pending.id).then(() => reloadAllowanceLedger());
                           return;
                         }
-                        // No pending row — open prefilled grant (bonus / ad-hoc paid).
                         router.push({
                           pathname: '/grant-allowance',
                           params: { memberId: member.id },
                         } as never);
                       }}
                       style={[styles.allowBtn, { backgroundColor: `${accentTheme.primary}22` }]}>
-                      <Text style={{ color: accentTheme.primary, fontWeight: '700', fontSize: 12 }}>
+                      <Text style={{ color: accentTheme.primary, fontWeight: '700', fontSize: 13 }}>
                         {VOCAB.markAsPaid}
                       </Text>
                     </Pressable>
                     <Pressable
                       onPress={() => router.push('/allowance-history' as never)}
                       style={[styles.allowBtn, { backgroundColor: glass(0.06) }]}>
-                      <Text style={{ color: c.textMuted, fontWeight: '600', fontSize: 12 }}>
+                      <Text style={{ color: c.textMuted, fontWeight: '600', fontSize: 13 }}>
                         History
                       </Text>
                     </Pressable>
                   </View>
                 </Animated.View>
-              ))}
+                );
+              })}
 
               {canApprove &&
                 pendingAllowances
@@ -861,6 +904,19 @@ export default function RewardsScreen() {
                       </View>
                     </View>
                   ))}
+
+              <Pressable
+                onPress={() => router.push('/create-allowance' as never)}
+                style={[
+                  styles.createDashed,
+                  { borderColor: glassBorder(0.14), backgroundColor: glass(0.04) },
+                ]}
+                accessibilityLabel="Create allowance">
+                <MaterialIcons name="add" size={18} color={c.textSubtle} />
+                <Text style={[typography.subheadline, { color: c.textSubtle, fontWeight: '600' }]}>
+                  Create allowance
+                </Text>
+              </Pressable>
             </>
           ) : (
             <GlassCard style={styles.stack}>
@@ -1263,17 +1319,29 @@ const styles = StyleSheet.create({
   allowanceSummaryCard: {
     borderRadius: radius.cardLarge,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: space.md,
-    gap: 12,
+    padding: space.lg,
+    gap: space.sm,
   },
-  allowanceSummaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  allowanceSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: space.xs,
+  },
+  summaryStat: { gap: 2, minWidth: 120 },
   allowanceCard: {
     borderRadius: radius.cardLarge,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: space.md,
-    gap: 12,
+    padding: space.lg,
+    gap: space.md,
   },
+  ruleHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: space.md,
+  },
+  ruleCount: { alignItems: 'flex-end', gap: 2 },
   allowanceHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  amountBlock: { alignItems: 'flex-end', gap: 2, minWidth: 72 },
   allowanceActions: { flexDirection: 'row', gap: 8 },
   allowBtn: {
     flex: 1,
