@@ -30,6 +30,7 @@ export const mockHousehold: HouseholdSnapshot = {
   upcomingEvents: 3,
   preferredStoreId: 'store-freshmart',
   accentThemeId: DEFAULT_ACCENT_THEME_ID,
+  majordomoProfileId: 'poppins',
   rewardMode: 'weighted',
   rewardModel: 'full',
   setupComplete: true,

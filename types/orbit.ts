@@ -31,6 +31,8 @@ export type HouseholdMember = {
   loadShare: number;
   /** Personal accent look — follows the member when switching personas. */
   accentThemeId?: string;
+  /** Optional majordomo override (falls back to household default). */
+  majordomoProfileId?: string;
   /**
    * Revision C §1 — homework photo required up front for this child.
    * Default true on creation. Chores never pre-set proofRequired.
@@ -659,6 +661,11 @@ export type HouseholdSnapshot = {
   homeworkEnabled?: boolean;
   /** Make accent theme id (ocean/aurora/…). */
   accentThemeId?: string;
+  /**
+   * Household default majordomo profile (Character → Personality → Voice).
+   * See lib/ai/majordomo-profiles.ts. Tab surface stays Poppins; voice/persona swap.
+   */
+  majordomoProfileId?: string;
   taskTemplates: TaskTemplate[];
   notificationPrefs: PoppinsNotificationPrefs;
   /** What non-admin members may do (admin-controlled). */

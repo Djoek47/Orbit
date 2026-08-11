@@ -12,7 +12,7 @@ import {
   type HouseholdSnapshotEdge,
 } from '../_shared/execute-poppins-tool.ts';
 import {
-  POPPINS_MAJORDOMO_SYSTEM,
+  buildMajordomoSystemPrompt,
   poppinsToolsAsOpenAIFunctions,
 } from '../_shared/poppins-tools.ts';
 
@@ -25,7 +25,8 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
-    const { question, metrics, householdId, household, history } = await req.json();
+    const { question, metrics, householdId, household, history, majordomoProfileId } =
+      await req.json();
 
     const auth = await requireActiveMember(authHeader, householdId);
     if (auth.error) {
@@ -38,11 +39,15 @@ Deno.serve(async (req) => {
     const context = buildCompactHouseholdContext(snapshot as Record<string, unknown>);
     const memberRole = auth.membership?.role ?? 'adult';
     const desk = snapshot.desk ?? {};
+    const profileId =
+      (majordomoProfileId as string | undefined) ??
+      (snapshot.majordomoProfileId as string | undefined) ??
+      'poppins';
 
     if (!openaiKey) {
       return jsonResponse({
         question,
-        answer: `Momentum is ${metricsObj?.momentum ?? '—'}% with ${metricsObj?.openTasks ?? 0} open tasks. Configure OPENAI_API_KEY for full Poppins answers.`,
+        answer: `Momentum is ${metricsObj?.momentum ?? '—'}% with ${metricsObj?.openTasks ?? 0} open tasks. Configure OPENAI_API_KEY for full answers.`,
         source: 'fallback',
         actions: [],
       });
@@ -62,8 +67,7 @@ Deno.serve(async (req) => {
       {
         role: 'system',
         content:
-          `${POPPINS_MAJORDOMO_SYSTEM}\n` +
-          `Viewer role: ${memberRole}.\n` +
+          `${buildMajordomoSystemPrompt(profileId, memberRole)}\n` +
           `Desk brief: ${JSON.stringify(desk).slice(0, 2500)}\n` +
           `Household context: ${JSON.stringify({ metrics: metricsObj, ...context }).slice(0, 6000)}`,
       },

@@ -79,6 +79,7 @@ export const openAIProvider: AIProvider = {
         question,
         householdId: household.id,
         metrics,
+        majordomoProfileId: household.majordomoProfileId ?? 'poppins',
         household: buildPoppinsHouseholdPayload(household, metrics),
         history,
       },

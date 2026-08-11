@@ -13,7 +13,7 @@ import {
   type HouseholdSnapshotEdge,
 } from '../_shared/execute-poppins-tool.ts';
 import {
-  POPPINS_MAJORDOMO_SYSTEM,
+  buildMajordomoSystemPrompt,
   poppinsToolsAsOpenAIFunctions,
 } from '../_shared/poppins-tools.ts';
 
@@ -71,11 +71,12 @@ async function runToolLoop(
 ) {
   const context = buildCompactHouseholdContext(household as Record<string, unknown>);
   const desk = household.desk ?? {};
+  const profileId = (household.majordomoProfileId as string | undefined) ?? 'poppins';
   const messages: Array<Record<string, unknown>> = [
     {
       role: 'system',
       content:
-        `${POPPINS_MAJORDOMO_SYSTEM}\n` +
+        `${buildMajordomoSystemPrompt(profileId)}\n` +
         `Desk brief: ${JSON.stringify(desk).slice(0, 2500)}\n` +
         `Household snapshot: ${JSON.stringify({ metrics, ...context }).slice(0, 6000)}`,
     },

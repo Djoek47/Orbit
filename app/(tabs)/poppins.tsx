@@ -11,6 +11,10 @@ import { PoppinsWaveform } from '@/components/orbit/poppins-waveform';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius, space } from '@/constants/orbit-theme';
 import { greetingWord } from '@/lib/time/greeting';
+import {
+  getMajordomoProfile,
+  resolveMajordomoProfileId,
+} from '@/lib/ai/majordomo-profiles';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
   isPoppinsRealtimeEnabled,
@@ -24,18 +28,11 @@ import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/a
 
 type PoppinsVisualState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'success';
 
-const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
-  idle: { label: 'Poppins · Ready', color: '#06B6D4' },
-  listening: { label: 'Poppins · Listening…', color: '#34D399' },
-  thinking: { label: 'Poppins · Thinking…', color: '#A78BFA' },
-  speaking: { label: 'Poppins · Speaking', color: '#38BDF8' },
-  success: { label: 'Poppins · Done', color: '#34D399' },
-};
-
 /**
  * Make v9 Poppins — voice-first orb + live transcript + Poppins Activity sheet.
  * Realtime: set EXPO_PUBLIC_POPPINS_REALTIME=1 with live Poppins AI + supabase edge
  * `poppins-realtime-session`. Falls back to Whisper + askPoppins when gated off.
+ * Majordomo profile (Settings) swaps Character → Personality → Voice; tools stay shared.
  */
 export default function PoppinsScreen() {
   const chromePad = useTabChromePaddingTop();
@@ -47,6 +44,7 @@ export default function PoppinsScreen() {
     askPoppinsVoice,
     executePoppinsToolCall,
     household,
+    currentMember,
     markNotificationRead,
     metrics,
     notifications,
@@ -56,6 +54,21 @@ export default function PoppinsScreen() {
     orbitPalette,
   } = useOrbit();
 
+  const majordomo = useMemo(() => {
+    const id = resolveMajordomoProfileId({
+      householdProfileId: household.majordomoProfileId,
+      memberProfileId: currentMember?.majordomoProfileId,
+    });
+    return getMajordomoProfile(id);
+  }, [currentMember?.majordomoProfileId, household.majordomoProfileId]);
+
+  const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
+    idle: { label: `${majordomo.displayName} · Ready`, color: majordomo.accent },
+    listening: { label: `${majordomo.displayName} · Listening…`, color: '#34D399' },
+    thinking: { label: `${majordomo.displayName} · Thinking…`, color: '#A78BFA' },
+    speaking: { label: `${majordomo.displayName} · Speaking`, color: '#38BDF8' },
+    success: { label: `${majordomo.displayName} · Done`, color: '#34D399' },
+  };
   const [showText, setShowText] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
   const [draft, setDraft] = useState('');
@@ -96,6 +109,12 @@ export default function PoppinsScreen() {
     };
   }, []);
 
+  // Remint Realtime session when majordomo (voice) changes.
+  useEffect(() => {
+    realtimeRef.current?.disconnect();
+    realtimeRef.current = null;
+  }, [majordomo.id]);
+
   const monitorFeed = useMemo(
     () =>
       [...localMonitorActions, ...poppinsMonitorActions].sort(
@@ -128,7 +147,7 @@ export default function PoppinsScreen() {
       },
       onError: (message) => setError(message),
     });
-    const ok = await session.connect(household, metrics);
+    const ok = await session.connect(household, metrics, currentMember?.majordomoProfileId);
     if (!ok) {
       session.disconnect();
       return null;
@@ -233,7 +252,7 @@ export default function PoppinsScreen() {
     visualState === 'success'
       ? 'DONE'
       : visualState === 'speaking' && poppinsTranscript
-        ? 'POPPINS'
+        ? majordomo.displayName.toUpperCase()
         : visualState === 'thinking'
           ? 'PROCESSING'
           : userTranscript
@@ -250,7 +269,7 @@ export default function PoppinsScreen() {
             ? ''
             : '');
 
-  const idleHint = `${greetingWord()}. Tap to speak with Poppins`;
+  const idleHint = `${greetingWord()}. Tap to speak with ${majordomo.displayName}`;
 
   return (
     <KeyboardAvoidingView
@@ -264,7 +283,7 @@ export default function PoppinsScreen() {
 
       <View style={[styles.header, { paddingTop: chromePad }]}>
         <Text style={[styles.kicker, { color: isDark ? 'rgba(255,255,255,0.3)' : c.textSubtle }]}>
-          POPPINS AI
+          {majordomo.displayName.toUpperCase()}
         </Text>
         <Pressable
           style={[
@@ -337,7 +356,7 @@ export default function PoppinsScreen() {
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder="Type to Poppins…"
+              placeholder={`Type to ${majordomo.displayName}…`}
               placeholderTextColor={c.textSubtle}
               style={[styles.textInput, { color: c.text }]}
               onSubmitEditing={() => void handleSend()}
@@ -380,7 +399,7 @@ export default function PoppinsScreen() {
           <Pressable
             onPress={() => void toggleMic()}
             style={styles.micWrap}
-            accessibilityLabel={listening ? 'Stop listening' : 'Talk to Poppins'}>
+            accessibilityLabel={listening ? 'Stop listening' : `Talk to ${majordomo.displayName}`}>
             {visualState === 'listening' ? (
               <View style={[styles.micPulse, { backgroundColor: 'rgba(52,211,153,0.2)' }]} />
             ) : null}

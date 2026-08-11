@@ -14,7 +14,12 @@ import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { PaletteWheel } from '@/components/orbit/palette-wheel';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
+import { MajordomoProfileSheet } from '@/components/orbit/majordomo-profile-sheet';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
+import {
+  getMajordomoProfile,
+  resolveMajordomoProfileId,
+} from '@/lib/ai/majordomo-profiles';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { BUILD_INFO } from '@/constants/build-info';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
@@ -160,11 +165,21 @@ export default function SettingsScreen() {
     updateMemberAvatar,
     updateMemberHomeworkProof,
     updateNotificationPrefs,
+    updateMajordomoProfile,
+    updateMemberMajordomoProfile,
     updateMemberCapabilities,
     updatePreferredMapsApp,
     updateSharedDeviceLinks,
   } = useOrbit();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
+
+  const majordomo = useMemo(() => {
+    const id = resolveMajordomoProfileId({
+      householdProfileId: household.majordomoProfileId,
+      memberProfileId: currentMember?.majordomoProfileId,
+    });
+    return getMajordomoProfile(id);
+  }, [currentMember?.majordomoProfileId, household.majordomoProfileId]);
 
   const rewardSettings = useMemo(
     () =>
@@ -189,6 +204,7 @@ export default function SettingsScreen() {
   const [renamingMemberInput, setRenamingMemberInput] = useState('');
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [personalizeMemberId, setPersonalizeMemberId] = useState<string | null>(null);
+  const [majordomoOpen, setMajordomoOpen] = useState(false);
   const [sharedDeviceName, setSharedDeviceName] = useState('Kids tablet');
   const [creatingDevice, setCreatingDevice] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
@@ -474,6 +490,14 @@ export default function SettingsScreen() {
                 </View>
               ) : null}
             </SectionCard>
+
+            <SettingsRow
+              icon="record-voice-over"
+              iconColor={majordomo.accent}
+              label="Majordomo"
+              subtitle={`${majordomo.displayName} · ${majordomo.role}`}
+              onPress={() => setMajordomoOpen(true)}
+            />
 
             <SettingsRow
               emoji="👥"
@@ -1267,7 +1291,17 @@ export default function SettingsScreen() {
         await updateMemberAvatar(personalizeMember.id, avatar);
       }}
     />
-    </>
+    <MajordomoProfileSheet
+      visible={majordomoOpen}
+      onDismiss={() => setMajordomoOpen(false)}
+      householdProfileId={household.majordomoProfileId}
+      memberProfileId={currentMember?.majordomoProfileId}
+      memberName={currentMember?.name}
+      canManageHousehold={permissions.canManageHousehold}
+      onSelectHousehold={(id) => updateMajordomoProfile(id)}
+      onSelectPersonal={(id) => updateMemberMajordomoProfile(id)}
+    />
+  </>
   );
 }
 

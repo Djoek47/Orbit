@@ -7,7 +7,8 @@ import {
   requireActiveMember,
 } from '../_shared/poppins-auth.ts';
 import {
-  POPPINS_MAJORDOMO_SYSTEM,
+  buildMajordomoSystemPrompt,
+  getMajordomoProfile,
   poppinsToolsAsRealtimeTools,
 } from '../_shared/poppins-tools.ts';
 
@@ -22,6 +23,11 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     const body = await req.json().catch(() => ({}));
     const householdId = body.householdId as string | undefined;
+    const profileId =
+      (body.majordomoProfileId as string | undefined) ??
+      (body.householdContext?.majordomoProfileId as string | undefined) ??
+      'poppins';
+    const profile = getMajordomoProfile(profileId);
     const deskHint = body.householdContext?.desk
       ? ` Desk brief: ${JSON.stringify(body.householdContext.desk).slice(0, 2000)}.`
       : '';
@@ -41,7 +47,7 @@ Deno.serve(async (req) => {
 
     const memberRole = auth.membership?.role ?? 'adult';
     const instructions =
-      `${POPPINS_MAJORDOMO_SYSTEM} Viewer role: ${memberRole}.` +
+      `${buildMajordomoSystemPrompt(profileId, memberRole)}` +
       ' Speak calmly and briefly (1–3 short sentences). Use tools when helpful; propose consequential changes for confirmation.' +
       deskHint +
       householdHint;
@@ -61,7 +67,7 @@ Deno.serve(async (req) => {
           tools: poppinsToolsAsRealtimeTools(),
           tool_choice: 'auto',
           audio: {
-            output: { voice: 'coral' },
+            output: { voice: profile.voice },
           },
           reasoning: { effort: 'low' },
         },
@@ -80,7 +86,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           model: REALTIME_MODEL,
-          voice: 'coral',
+          voice: profile.voice,
           modalities: ['text', 'audio'],
           instructions,
           tools: poppinsToolsAsRealtimeTools(),
@@ -126,7 +132,9 @@ Deno.serve(async (req) => {
       clientSecret,
       model,
       expiresAt,
-      voice: 'coral',
+      voice: profile.voice,
+      majordomoProfileId: profile.id,
+      displayName: profile.displayName,
     });
   } catch (error) {
     return jsonResponse({ error: String(error), fallback: 'whisper' }, 500);

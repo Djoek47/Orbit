@@ -3,6 +3,7 @@ import { Audio } from 'expo-av';
 import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
 import { toolResultToMonitorAction } from '@/lib/ai/execute-poppins-tool';
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
+import { resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
 import { POPPINS_TOOL_DEFINITIONS, type PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import {
@@ -42,7 +43,8 @@ type SessionPayload = {
 
 async function mintRealtimeSession(
   household: HouseholdSnapshot,
-  metrics: OrbitMetrics
+  metrics: OrbitMetrics,
+  memberProfileId?: string | null
 ): Promise<SessionPayload | null> {
   const supabase = getSupabaseClient();
   const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -56,6 +58,11 @@ async function mintRealtimeSession(
     return null;
   }
 
+  const majordomoProfileId = resolveMajordomoProfileId({
+    householdProfileId: household.majordomoProfileId,
+    memberProfileId,
+  });
+
   const res = await fetch(`${baseUrl}/functions/v1/poppins-realtime-session`, {
     method: 'POST',
     headers: {
@@ -65,7 +72,10 @@ async function mintRealtimeSession(
     },
     body: JSON.stringify({
       householdId: household.id,
-      householdContext: buildPoppinsHouseholdPayload(household, metrics),
+      majordomoProfileId,
+      householdContext: buildPoppinsHouseholdPayload(household, metrics, [], {
+        memberProfileId,
+      }),
     }),
   });
 
@@ -105,13 +115,17 @@ export class PoppinsRealtimeSession {
     return this.connected && this.ws?.readyState === WebSocket.OPEN;
   }
 
-  async connect(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<boolean> {
+  async connect(
+    household: HouseholdSnapshot,
+    metrics: OrbitMetrics,
+    memberProfileId?: string | null
+  ): Promise<boolean> {
     if (!isPoppinsRealtimeEnabled()) {
       return false;
     }
 
     try {
-      const session = await mintRealtimeSession(household, metrics);
+      const session = await mintRealtimeSession(household, metrics, memberProfileId);
       if (!session) {
         return false;
       }

@@ -1,3 +1,4 @@
+import { resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
 import type { HouseholdSnapshot, OrbitMetrics, PoppinsRecommendation } from '@/types/orbit';
 
 function isAway(member: { awayFrom?: string; awayTo?: string }, now = new Date()) {
@@ -104,12 +105,18 @@ export function buildPoppinsDeskBrief(
 export function buildPoppinsHouseholdPayload(
   household: HouseholdSnapshot,
   metrics: OrbitMetrics,
-  recommendations: PoppinsRecommendation[] = []
+  recommendations: PoppinsRecommendation[] = [],
+  options?: { majordomoProfileId?: string | null; memberProfileId?: string | null }
 ) {
   const desk = buildPoppinsDeskBrief(household, metrics, recommendations);
+  const majordomoProfileId = resolveMajordomoProfileId({
+    householdProfileId: options?.majordomoProfileId ?? household.majordomoProfileId,
+    memberProfileId: options?.memberProfileId,
+  });
   return {
     householdName: household.householdName,
     greetingName: household.greetingName,
+    majordomoProfileId,
     metrics,
     desk,
     tasks: household.tasks

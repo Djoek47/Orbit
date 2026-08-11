@@ -11,6 +11,15 @@ import {
 } from '@/lib/ai/execute-poppins-tool';
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import type { PoppinsToolName } from '@/lib/ai/poppins-tools';
+import {
+  isMajordomoProfileId,
+  resolveMajordomoProfileId,
+} from '@/lib/ai/majordomo-profiles';
+import {
+  applyStoredMajordomoProfiles,
+  saveMajordomoProfileId,
+  saveMemberMajordomoProfileId,
+} from '@/lib/ai/majordomo-prefs';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { trackAnalytics } from '@/lib/analytics';
 import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, memberDisplayEmoji, xpProgress } from '@/lib/game-levels';
@@ -338,6 +347,10 @@ type OrbitContextValue = {
     userId?: string | null;
   }) => Promise<NotificationItem | null>;
   updateNotificationPrefs: (prefs: Partial<PoppinsNotificationPrefs>) => void;
+  /** Household default majordomo (Character → Personality → Voice). */
+  updateMajordomoProfile: (profileId: string) => void;
+  /** Optional personal majordomo override for the current member. */
+  updateMemberMajordomoProfile: (profileId: string | null) => void;
   updateMemberCapabilities: (prefs: Partial<MemberCapabilities>) => void;
   /** Parent/admin: Meritocracy vs Equity + hygiene XP opt-in (household-scoped). */
   updateHouseholdRewardSettings: (prefs: {
@@ -616,16 +629,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
           );
           const themedMembers = await applyStoredMemberThemes(mockHousehold.id, withAvatars);
+          const majordomo = await applyStoredMajordomoProfiles(
+            mockHousehold.id,
+            themedMembers,
+            mockHousehold.majordomoProfileId
+          );
           setHousehold((current) => ({
             ...current,
             notificationPrefs: prefs,
             accentThemeId: themeId,
+            majordomoProfileId: majordomo.householdProfileId,
             rooms: savedRooms?.length
               ? savedRooms
               : current.rooms?.length
                 ? current.rooms
                 : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
-            members: themedMembers.length ? themedMembers : current.members,
+            members: majordomo.members.length ? majordomo.members : current.members,
           }));
           setStoreRecommendations(buildStoreRecommendations(mockHousehold.id, mockHousehold.groceries));
           const items = await notificationsRepository.list(mockHousehold.id);
@@ -669,11 +688,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         setPaletteId(palette);
         setPreferredMapsApp(mapsApp);
         setCurrentUser(session.user);
+        const majordomo = await applyStoredMajordomoProfiles(
+          hydratedHousehold.id,
+          hydratedHousehold.members,
+          hydratedHousehold.majordomoProfileId
+        );
         setHousehold({
           ...hydratedHousehold,
           greetingName: session.user.name || hydratedHousehold.greetingName,
           notificationPrefs: prefs,
           accentThemeId: themeId,
+          majordomoProfileId: majordomo.householdProfileId,
+          members: majordomo.members,
           rooms: hydratedHousehold.rooms?.length
             ? hydratedHousehold.rooms
             : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
@@ -2184,6 +2210,35 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
   };
 
+  const updateMajordomoProfile = (profileId: string) => {
+    if (!isMajordomoProfileId(profileId)) return;
+    setHousehold((current) => {
+      void saveMajordomoProfileId(current.id, profileId);
+      return { ...current, majordomoProfileId: profileId };
+    });
+  };
+
+  const updateMemberMajordomoProfile = (profileId: string | null) => {
+    const memberId = activeMemberId;
+    if (!memberId) return;
+    if (profileId !== null && !isMajordomoProfileId(profileId)) return;
+    setHousehold((current) => {
+      void saveMemberMajordomoProfileId(
+        current.id,
+        memberId,
+        profileId && isMajordomoProfileId(profileId) ? profileId : null
+      );
+      return {
+        ...current,
+        members: current.members.map((member) =>
+          member.id === memberId
+            ? { ...member, majordomoProfileId: profileId ?? undefined }
+            : member
+        ),
+      };
+    });
+  };
+
   const updateMemberCapabilities = (prefs: Partial<MemberCapabilities>) => {
     if (!permissions.canManageHousehold) {
       return;
@@ -2682,9 +2737,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const askPoppins = async (question: string) => {
     setPoppinsAskCount((count) => count + 1);
+    const profileId = resolveMajordomoProfileId({
+      householdProfileId: household.majordomoProfileId,
+      memberProfileId: currentMember?.majordomoProfileId,
+    });
     const answer = await poppinsRepository.askPoppins(
       question,
-      household,
+      { ...household, majordomoProfileId: profileId },
       metrics,
       poppinsConversation,
       currentUser?.id
@@ -3693,6 +3752,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       markAllNotificationsRead,
       pushNotification,
       updateNotificationPrefs,
+      updateMajordomoProfile,
+      updateMemberMajordomoProfile,
       updateMemberCapabilities,
       updateHouseholdRewardSettings,
       updateHouseholdRewardModel,
@@ -3809,6 +3870,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateMemberDisplayName,
       addOnboardingMembers,
       redeemStreak,
+      updateMajordomoProfile,
+      updateMemberMajordomoProfile,
     ]
   );
 
@@ -3833,9 +3896,14 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
   );
   const members = await applyStoredMemberThemes(householdId, withAvatars);
+  const majordomo = await applyStoredMajordomoProfiles(
+    householdId,
+    members,
+    baseHousehold.majordomoProfileId
+  );
   const initialHousehold: HouseholdSnapshot = await applyStoredHouseholdLogicPrefs({
     ...baseHousehold,
-    members,
+    members: majordomo.members,
     badges,
     events,
     groceries,
@@ -3846,6 +3914,7 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     notificationPrefs: baseHousehold.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS,
     preferredStoreId: baseHousehold.preferredStoreId ?? 'store-freshmart',
     accentThemeId: themeId || baseHousehold.accentThemeId || DEFAULT_ACCENT_THEME_ID,
+    majordomoProfileId: majordomo.householdProfileId,
     rooms:
       savedRooms?.length
         ? savedRooms

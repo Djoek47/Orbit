@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 
 import { executePoppinsTool, toolResultToMonitorAction } from './execute-poppins-tool';
 import { buildPoppinsDeskBrief } from './household-context';
-import { POPPINS_MAJORDOMO_SYSTEM, POPPINS_TOOL_DEFINITIONS } from './poppins-tools';
+import {
+  buildMajordomoSystemPrompt,
+  getMajordomoProfile,
+  MAJORDOMO_PROFILES,
+  POPPINS_MAJORDOMO_SYSTEM,
+  POPPINS_TOOL_DEFINITIONS,
+} from './poppins-tools';
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
 
 const household = {
@@ -72,6 +78,14 @@ const metrics = {
 assert.match(POPPINS_MAJORDOMO_SYSTEM, /Poppins/);
 assert.match(POPPINS_MAJORDOMO_SYSTEM, /propose_plan/);
 assert.equal(POPPINS_TOOL_DEFINITIONS.length, 9);
+assert.equal(MAJORDOMO_PROFILES.length, 10);
+assert.equal(getMajordomoProfile('steward').voice, 'marin');
+assert.equal(getMajordomoProfile('intelligence').voice, 'cedar');
+assert.match(buildMajordomoSystemPrompt('wit'), /Household Wit/);
+assert.match(buildMajordomoSystemPrompt('sentinel'), /extremely concise/);
+// Shipping names never expose licensed character trademarks in prompts.
+assert.doesNotMatch(buildMajordomoSystemPrompt('steward'), /Alfred Pennyworth|JARVIS|Jeeves/);
+assert.doesNotMatch(buildMajordomoSystemPrompt('intelligence'), /\bJARVIS\b/);
 
 const desk = buildPoppinsDeskBrief(household, metrics);
 assert.equal(desk.overdueCount, 1);
