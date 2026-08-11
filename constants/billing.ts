@@ -89,8 +89,8 @@ export function startMockTrial(productKey: IapProductKey = 'monthly', now = new 
 }
 
 export const ASC_IAP_SETUP_NOTES = [
-  'App Store Connect → Subscriptions → create Premium group',
+  'ASC Premium group — monthly product live as Choremaxx Premium Monthly',
   `Monthly: ${IAP_PRODUCTS.monthly.productId} @ $4.99 with ${BILLING_TRIAL_DAYS}-day free trial`,
-  `Yearly: ${IAP_PRODUCTS.yearly.productId} @ $48 with ${BILLING_TRIAL_DAYS}-day free trial`,
-  'Wire expo-iap or StoreKit 2 on next native TestFlight after products are Approved',
+  `Yearly: ${IAP_PRODUCTS.yearly.productId} @ $48 with ${BILLING_TRIAL_DAYS}-day free trial (catalog; not onboarding CTA)`,
+  'Paywall: /premium after email confirm; StoreKit via expo-iap on next TestFlight native build',
 ] as const;

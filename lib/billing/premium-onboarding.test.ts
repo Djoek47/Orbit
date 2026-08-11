@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { IAP_PRODUCTS } from '@/constants/billing';
-import { premiumOnboardingHref } from '@/lib/billing/premium-onboarding';
-import { purchasePremium, premiumCopy } from '@/lib/billing/iap';
 import { clearMockEntitlement } from '@/constants/billing';
+import { premiumCopy, purchasePremium } from '@/lib/billing/iap';
+import { premiumOnboardingHref } from '@/lib/billing/premium-onboarding';
 
 test('premium onboarding href defaults to onboarding source', () => {
   const href = premiumOnboardingHref();

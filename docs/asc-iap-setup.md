@@ -1,33 +1,43 @@
 # App Store Connect — IAP setup (weekend A3)
 
-Create these **before** wiring native StoreKit / `expo-iap` on a TestFlight build.
-
 ## Products (locked)
 
-| Plan | Product ID | Price | Trial |
-|------|------------|-------|-------|
-| Monthly | `app.choremaxx.household.premium.monthly` | $4.99 | 7-day free |
-| Yearly | `app.choremaxx.household.premium.yearly` | $48 | 7-day free |
+| Plan | Product ID | Price | Trial | Status |
+|------|------------|-------|-------|--------|
+| Monthly | `app.choremaxx.household.premium.monthly` | $4.99 | 7-day free | Live in ASC (Choremaxx Premium Monthly) |
+| Yearly | `app.choremaxx.household.premium.yearly` | $48 | 7-day free | Catalog ready; not on onboarding sheet |
 
 Source of truth: `constants/billing.ts`.
+
+## App paywall
+
+- **Route:** `/premium` — Apple-caliber sheet after email confirm (soft gate).
+- **Onboarding:** Start Free Trial (monthly) · Restore · Not now → welcome setup.
+- **Settings:** Open Premium + Restore (shared sheet with `source=settings`).
+- **Facade:** `lib/billing/iap.ts`
+  - Expo Go → mock trial
+  - Native TestFlight/production → StoreKit via `expo-iap`
 
 ## ASC steps
 
 1. App Store Connect → **Choremaxx** (`6796850110`) → **Subscriptions**
-2. Create subscription group **Premium**
-3. Add monthly + yearly with the product IDs above
-4. Attach 7-day introductory offer (free) on each
-5. Localizations: English — “Choremaxx Premium”
-6. Submit products for review with the next binary (or attach to existing version)
+2. Subscription group **Premium**
+3. Monthly product id above with 7-day introductory offer
+4. Localization: English — “Choremaxx Premium”
+5. Attach products to the next binary for review
 
-## App code
+## Native build required for StoreKit
 
-- Settings → **Premium** uses `lib/billing/iap.ts`
-- Expo Go / until StoreKit ships: mock trial via `startMockTrial`
-- After products are **Ready to Submit / Approved**: install StoreKit path on next native build (do not invent Stripe)
+`expo-iap` is a native module. After merging paywall code:
 
-## Blocked until ASC
+```bash
+npm run build:ios:testflight
+```
 
-- Real charge / restore from Apple
-- **B5** billing emails (templates exist; send after purchase events exist)
-- **B4** site CTAs that promise live checkout
+OTA alone updates JS UI; StoreKit purchases need a binary that includes `expo-iap`.
+
+## Still later
+
+- **B5** billing emails after purchase events
+- Server-side App Store Server API receipt verification
+- Yearly CTA on onboarding (Settings footnote only for now)

@@ -56,7 +56,6 @@ import {
   fetchEntitlement,
   IAP_PRODUCTS,
   premiumCopy,
-  purchasePremium,
   restorePurchases,
   type EntitlementState,
 } from '@/lib/billing/iap';
@@ -756,51 +755,22 @@ export default function SettingsScreen() {
                 {entitlement ? premiumCopy(entitlement) : 'Loading…'}
               </Text>
               <Text style={[styles.caption, { color: c.textSubtle, marginBottom: 12 }]}>
-                Apple IAP · 7-day trial · ${IAP_PRODUCTS.monthly.priceUsd}/mo or $
-                {IAP_PRODUCTS.yearly.priceUsd}/yr. Expo Go uses a mock trial until ASC products
-                are live on TestFlight.
+                7-day free trial, then ${IAP_PRODUCTS.monthly.priceUsd}/mo via Apple.
               </Text>
               <Pressable
                 style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
-                onPress={() => router.push({ pathname: '/premium', params: { source: 'settings' } } as never)}>
+                onPress={() =>
+                  router.push({ pathname: '/premium', params: { source: 'settings' } } as never)
+                }>
                 <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
                   Open Premium
                 </Text>
               </Pressable>
               <Pressable
-                style={[styles.accountBtn, { backgroundColor: glass(0.06), opacity: billingBusy ? 0.6 : 1 }]}
-                disabled={billingBusy}
-                onPress={() => {
-                  setBillingBusy(true);
-                  void purchasePremium('monthly')
-                    .then((next) => {
-                      setEntitlement(next);
-                      Alert.alert('Premium', premiumCopy(next));
-                    })
-                    .finally(() => setBillingBusy(false));
-                }}>
-                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
-                  Start monthly trial · ${IAP_PRODUCTS.monthly.priceUsd}/mo
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.accountBtn, { backgroundColor: glass(0.06), opacity: billingBusy ? 0.6 : 1 }]}
-                disabled={billingBusy}
-                onPress={() => {
-                  setBillingBusy(true);
-                  void purchasePremium('yearly')
-                    .then((next) => {
-                      setEntitlement(next);
-                      Alert.alert('Premium', premiumCopy(next));
-                    })
-                    .finally(() => setBillingBusy(false));
-                }}>
-                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
-                  Start yearly trial · ${IAP_PRODUCTS.yearly.priceUsd}/yr
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.accountBtn, { backgroundColor: glass(0.06), opacity: billingBusy ? 0.6 : 1 }]}
+                style={[
+                  styles.accountBtn,
+                  { backgroundColor: glass(0.06), opacity: billingBusy ? 0.6 : 1 },
+                ]}
                 disabled={billingBusy}
                 onPress={() => {
                   setBillingBusy(true);
@@ -811,7 +781,9 @@ export default function SettingsScreen() {
                     })
                     .finally(() => setBillingBusy(false));
                 }}>
-                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>Restore purchases</Text>
+                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
+                  Restore purchases
+                </Text>
               </Pressable>
             </SectionCard>
 
