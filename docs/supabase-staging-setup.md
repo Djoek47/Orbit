@@ -73,7 +73,8 @@ EXPO_PUBLIC_SUPABASE_URL=https://YOUR_REF.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 
 # Optional: live GPT while household repos stay mock
-EXPO_PUBLIC_NOVA_AI=openai
+EXPO_PUBLIC_POPPINS_AI=openai
+EXPO_PUBLIC_POPPINS_REALTIME=1
 ```
 
 ## 6. Verify in Expo Go

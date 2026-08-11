@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-export type PoppinsOrbState = 'idle' | 'listening' | 'thinking' | 'speaking';
+export type PoppinsOrbState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'success';
 
 type PoppinsOrbProps = {
   size?: number;
@@ -22,6 +22,7 @@ const STATE_GLOW: Record<PoppinsOrbState, string> = {
   listening: 'rgba(52,211,153,0.28)',
   thinking: 'rgba(167,139,250,0.28)',
   speaking: 'rgba(56,189,248,0.3)',
+  success: 'rgba(52,211,153,0.38)',
 };
 
 /** Make Poppins glass orb — iridescent core + state glow rings. */

@@ -22,13 +22,14 @@ import { useOrbit } from '@/store/orbit-store';
 import type { PoppinsMonitorAction } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
-type PoppinsVisualState = 'idle' | 'listening' | 'thinking' | 'speaking';
+type PoppinsVisualState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'success';
 
 const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
   idle: { label: 'Poppins · Ready', color: '#06B6D4' },
   listening: { label: 'Poppins · Listening…', color: '#34D399' },
   thinking: { label: 'Poppins · Thinking…', color: '#A78BFA' },
   speaking: { label: 'Poppins · Speaking', color: '#38BDF8' },
+  success: { label: 'Poppins · Done', color: '#34D399' },
 };
 
 /**
@@ -65,10 +66,19 @@ export default function PoppinsScreen() {
   const [userTranscript, setUserTranscript] = useState('');
   const [poppinsTranscript, setPoppinsTranscript] = useState('');
   const [localMonitorActions, setLocalMonitorActions] = useState<PoppinsMonitorAction[]>([]);
+  const [toolFlash, setToolFlash] = useState<string | null>(null);
   const realtimeRef = useRef<PoppinsRealtimeSession | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const visualState: PoppinsVisualState =
-    voiceState !== 'idle'
+  const flashToolSuccess = (label: string) => {
+    setToolFlash(label);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => setToolFlash(null), 1600);
+  };
+
+  const visualState: PoppinsVisualState = toolFlash
+    ? 'success'
+    : voiceState !== 'idle'
       ? voiceState
       : listening
         ? 'listening'
@@ -82,6 +92,7 @@ export default function PoppinsScreen() {
     return () => {
       realtimeRef.current?.disconnect();
       realtimeRef.current = null;
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, []);
 
@@ -110,10 +121,9 @@ export default function PoppinsScreen() {
       onTranscript: applyTranscript,
       onToolCall: async (name, args) => {
         const result = await executePoppinsToolCall(name, args);
-        setLocalMonitorActions((current) => [
-          toolCallToMonitorAction(name, args, result),
-          ...current,
-        ]);
+        const action = toolCallToMonitorAction(name, args, result);
+        setLocalMonitorActions((current) => [action, ...current]);
+        flashToolSuccess(action.label || name.replace(/_/g, ' '));
         return result;
       },
       onError: (message) => setError(message),
@@ -142,6 +152,7 @@ export default function PoppinsScreen() {
       setPoppinsTranscript(result.answer);
       if (result.actions?.length) {
         setLocalMonitorActions((current) => [...result.actions!, ...current]);
+        flashToolSuccess(result.actions[0]!.label);
       }
     } catch {
       setError('Poppins could not answer right now. Try again in a moment.');
@@ -212,26 +223,32 @@ export default function PoppinsScreen() {
         ? 'rgba(56,189,248,0.14)'
         : visualState === 'thinking'
           ? 'rgba(167,139,250,0.12)'
-          : isDark
-            ? 'rgba(56,189,248,0.06)'
-            : `${orbitPalette.primary}18`;
+          : visualState === 'success'
+            ? 'rgba(52,211,153,0.16)'
+            : isDark
+              ? 'rgba(56,189,248,0.06)'
+              : `${orbitPalette.primary}18`;
 
   const transcriptRoleLabel =
-    visualState === 'speaking' && poppinsTranscript
-      ? 'POPPINS'
-      : visualState === 'thinking'
-        ? 'PROCESSING'
-        : userTranscript
-          ? 'YOU'
-          : null;
+    visualState === 'success'
+      ? 'DONE'
+      : visualState === 'speaking' && poppinsTranscript
+        ? 'POPPINS'
+        : visualState === 'thinking'
+          ? 'PROCESSING'
+          : userTranscript
+            ? 'YOU'
+            : null;
 
   const transcriptBody =
-    visualState === 'speaking' && poppinsTranscript
-      ? poppinsTranscript
-      : userTranscript ||
-        (visualState === 'idle'
-          ? ''
-          : '');
+    visualState === 'success' && toolFlash
+      ? toolFlash
+      : visualState === 'speaking' && poppinsTranscript
+        ? poppinsTranscript
+        : userTranscript ||
+          (visualState === 'idle'
+            ? ''
+            : '');
 
   const idleHint = `${greetingWord()}. Tap to speak with Poppins`;
 
@@ -387,6 +404,8 @@ export default function PoppinsScreen() {
                 <MaterialIcons name="mic" size={32} color={isDark ? '#fff' : c.text} />
               ) : visualState === 'listening' ? (
                 <View style={styles.stopSquare} />
+              ) : visualState === 'success' ? (
+                <MaterialIcons name="check" size={30} color="#fff" />
               ) : (
                 <MaterialIcons name="graphic-eq" size={28} color="#fff" />
               )}

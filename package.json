@@ -59,7 +59,9 @@
     "test:grocery-catalog": "npx --yes tsx lib/grocery/catalog.test.ts",
     "test:shopping": "npx --yes tsx lib/grocery/shopping-palette.test.ts",
     "test:revision-f": "npx --yes tsx lib/tasks/revision-f.test.ts",
-    "test:revision-f-features": "npx --yes tsx lib/revision-f-features.test.ts"
+    "test:revision-f-features": "npx --yes tsx lib/revision-f-features.test.ts",
+    "test:poppins-craft": "npx --yes tsx lib/ai/poppins-craft.test.ts",
+    "smoke:poppins": "bash ./scripts/smoke-poppins-openai.sh"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

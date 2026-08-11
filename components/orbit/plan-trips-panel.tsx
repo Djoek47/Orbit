@@ -267,6 +267,7 @@ function TripCard({
 export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string }) {
   const {
     accentTheme,
+    askPoppins,
     household,
     openFullItineraryInMaps,
     rerunItinerary,
@@ -277,6 +278,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
   const [mode, setMode] = useState<SuggestMode>('efficient');
   const [busy, setBusy] = useState(false);
   const [highlightPreferred, setHighlightPreferred] = useState(false);
+  const [askHint, setAskHint] = useState('');
 
   const itineraries = household.itineraries ?? [];
   const activeTrips = itineraries.filter((t) => t.status !== 'completed');
@@ -295,6 +297,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
 
   const runSuggest = async (opts?: { date?: string; eventIds?: string[] }) => {
     setBusy(true);
+    setAskHint('');
     try {
       const created = await suggestPoppinsItinerary({
         mode,
@@ -302,6 +305,43 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
         eventIds: opts?.eventIds,
       });
       if (created) router.push(`/itinerary/${created.id}` as never);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Live AI: propose_plan → Activity / create-itinerary draft. Mock: heuristic itinerary. */
+  const runAskPoppins = async () => {
+    setBusy(true);
+    setAskHint('');
+    try {
+      const { useLivePoppinsAi } = await import('@/config/poppins-ai-mode');
+      if (useLivePoppinsAi) {
+        const dayLabel = selectedDateKey || 'this weekend';
+        const answer = await askPoppins(
+          `Propose a household plan for ${dayLabel}. Use propose_plan with a clear title, detail, and dayLabel — do not create the itinerary yourself.`
+        );
+        const planAction = answer.actions?.find((a) => a.kind === 'plan');
+        const draft = planAction?.data as
+          | { planTitle?: string; planDetail?: string; dayLabel?: string; title?: string; detail?: string }
+          | undefined;
+        if (planAction && draft) {
+          router.push({
+            pathname: '/create-itinerary',
+            params: {
+              title: String(draft.planTitle ?? draft.title ?? planAction.label ?? ''),
+              detail: String(draft.planDetail ?? draft.detail ?? planAction.detail ?? ''),
+              dayLabel: String(draft.dayLabel ?? dayLabel),
+            },
+          } as never);
+          return;
+        }
+        setAskHint(answer.answer || 'Poppins proposed ideas — check Activity for a Plan draft.');
+        return;
+      }
+      await runSuggest();
+    } catch {
+      setAskHint('Poppins could not propose a plan. Try Calendar bundle instead.');
     } finally {
       setBusy(false);
     }
@@ -468,7 +508,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
               label="Ask Poppins"
               accent={accentTheme.primary}
               busy={busy}
-              onPress={() => void runSuggest()}
+              onPress={() => void runAskPoppins()}
             />
             <ComposeChip
               icon="event"
@@ -487,6 +527,10 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
             />
           </View>
 
+          {askHint ? (
+            <Text style={[styles.emptyTripsBody, { color: c.textMuted, marginBottom: 8 }]}>{askHint}</Text>
+          ) : null}
+
           <View style={{ gap: 12 }}>
             {activeTrips.length === 0 ? (
               <View
@@ -496,7 +540,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
                 ]}>
                 <Text style={[styles.emptyTripsTitle, { color: c.text }]}>No active trips yet</Text>
                 <Text style={[styles.emptyTripsBody, { color: c.textMuted }]}>
-                  Ask Poppins to bundle today, or build one from your calendar.
+                  Ask Poppins to propose a Plan draft, or build one from your calendar.
                 </Text>
               </View>
             ) : (
