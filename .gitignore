@@ -46,3 +46,6 @@ app-example
 /ios
 /android
 site/
+
+# Supabase CLI local cache
+supabase/.temp/
