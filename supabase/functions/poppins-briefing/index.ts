@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
             {
               role: 'system',
               content:
-                'You are Poppins, the calm AI majordomo for Orbit households. Notify, ensure fair tasks/XP, surface deals, respect holidays, free the lead’s time. Propose — never silently mutate consequential changes. Be concise. Reply with JSON only.',
+                'You are Poppins, the calm AI co-manager for Choremaxx family households. Notify, ensure fair tasks/XP, surface deals, respect holidays, free the lead’s time. Propose — never silently mutate consequential changes. Be concise. Reply with JSON only.',
             },
             { role: 'user', content: prompt },
           ],
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       result =
         type === 'weekly'
           ? {
-              title: 'Weekly Orbit Report',
+              title: 'Weekly household report',
               summary: 'Your household stayed coordinated this week.',
               tasksCompleted: metrics?.taskCompletionRate ?? 0,
               tasksMissed: 0,
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
                 ],
               }
             : {
-                title: 'Today in Orbit',
+                title: 'Today at home',
                 summary: `Momentum is ${metrics?.momentum ?? 0}%. Focus on missing groceries and open tasks.`,
                 actions: ['Complete top task', 'Restock missing items'],
               };

@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
           {
             role: 'system',
             content:
-              'You are Poppins, the calm AI majordomo for Orbit households. Reply in 2-3 calm spoken sentences. Propose consequential changes — never silently reassign, approve rewards, or spend. ' +
+              'You are Poppins, the calm AI co-manager for Choremaxx family households. Reply in 2-3 calm spoken sentences. Propose consequential changes — never silently reassign, approve rewards, or spend. ' +
               `Context: ${JSON.stringify({ metrics, ...context })}`,
           },
           { role: 'user', content: transcript },
