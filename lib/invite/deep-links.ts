@@ -1,4 +1,8 @@
 /** Parse choremaxx://join/CODE, orbit://join/CODE, or https://…/join/CODE URLs. */
+
+import { inviteWebPath } from '@/lib/invites/invite-host';
+import { normalizeInviteCode } from '@/lib/invites/parse-invite';
+
 export function parseInviteCodeFromUrl(url: string): string | null {
   if (!url) return null;
 
@@ -7,17 +11,19 @@ export function parseInviteCodeFromUrl(url: string): string | null {
 
     const schemeMatch = trimmed.match(/(?:choremaxx|orbit):\/\/join\/([^/?#]+)/i);
     if (schemeMatch?.[1]) {
-      return decodeURIComponent(schemeMatch[1]).trim().toUpperCase();
+      return normalizeInviteCode(decodeURIComponent(schemeMatch[1]));
     }
 
-    const webMatch = trimmed.match(/(?:choremaxx|orbit)\.app\/join\/([^/?#]+)/i);
+    const webMatch = trimmed.match(
+      /(?:choremaxx|orbit)\.(?:app|vercel\.app)\/join\/([^/?#]+)/i
+    );
     if (webMatch?.[1]) {
-      return decodeURIComponent(webMatch[1]).trim().toUpperCase();
+      return normalizeInviteCode(decodeURIComponent(webMatch[1]));
     }
 
     const pathMatch = trimmed.match(/\/join\/([^/?#]+)/i);
     if (pathMatch?.[1] && !trimmed.includes('expo')) {
-      return decodeURIComponent(pathMatch[1]).trim().toUpperCase();
+      return normalizeInviteCode(decodeURIComponent(pathMatch[1]));
     }
   } catch {
     return null;
@@ -27,11 +33,11 @@ export function parseInviteCodeFromUrl(url: string): string | null {
 }
 
 export function inviteDeepLink(code: string) {
-  return `choremaxx://join/${code}`;
+  return `choremaxx://join/${normalizeInviteCode(code)}`;
 }
 
 export function inviteWebLink(code: string) {
-  return `https://choremaxx.app/join/${code}`;
+  return inviteWebPath(normalizeInviteCode(code));
 }
 
 /** Legacy Orbit links — still parseable via parseInviteCodeFromUrl. */

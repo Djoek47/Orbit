@@ -1113,7 +1113,7 @@ export default function SettingsScreen() {
                   borderCurve: 'continuous',
                 },
               ]}
-              onPress={() => router.push('/household-members' as never)}>
+              onPress={() => router.push('/invite-household' as never)}>
               <Text style={[styles.primaryInviteCtaText, { color: orbitPalette.ink }]}>
                 Share household invite
               </Text>
@@ -1123,7 +1123,7 @@ export default function SettingsScreen() {
                 styles.caption,
                 { color: orbitPalette.textMuted, marginTop: 10, textAlign: 'center' },
               ]}>
-              Pick who you&apos;re inviting.
+              AirDrop or Messages — they open Choremaxx with your code.
             </Text>
           </>
         ) : null}

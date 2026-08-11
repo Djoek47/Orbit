@@ -164,6 +164,27 @@ export default function WelcomeOnboardingScreen() {
     [selectedRole],
   );
 
+  // AirDrop / deep link: pull stashed invite into join flow.
+  useEffect(() => {
+    let cancelled = false;
+    void import('@/lib/invite/invite-code-store').then(async ({ peekInviteCode }) => {
+      const pending = await peekInviteCode();
+      if (cancelled || !pending) return;
+      setInviteCode(pending);
+      setHouseholdMode('join');
+      if (!isSignedIn) {
+        // Stay on welcome — user signs in / signs up, then sees join with code filled.
+        return;
+      }
+      if (!hasHousehold) {
+        setStep('household');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isSignedIn, hasHousehold]);
+
   // Resume mid-flow for signed-in users; hydrate prefs.
   useEffect(() => {
     if (isLoading || resumed) return;

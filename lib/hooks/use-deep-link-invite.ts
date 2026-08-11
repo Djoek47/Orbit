@@ -22,7 +22,7 @@ async function handleInviteUrl(url: string, isSignedIn: boolean) {
   router.push('/welcome' as never);
 }
 
-/** Listens for orbit://join/CODE and https://orbit.app/join/CODE deep links. */
+/** Listens for choremaxx://join/CODE and https://www.choremaxx.app/join/CODE. */
 export function useDeepLinkInvite() {
   const { isSignedIn } = useOrbit();
 
