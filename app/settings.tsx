@@ -1,35 +1,29 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as ImagePicker from 'expo-image-picker';
 import { router, Stack } from 'expo-router';
-import { useMemo, useState } from 'react';
-import {
-  Alert,
-  Image,
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
-  AVATAR_EMOJIS,
   DEFAULT_ACCENT_THEME_ID,
   migrateAccentThemeId,
-  ROOM_EMOJIS,
   type AccentThemeId,
 } from '@/constants/accent-themes';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { PaletteWheel } from '@/components/orbit/palette-wheel';
+import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
+import { MajordomoProfileSheet } from '@/components/orbit/majordomo-profile-sheet';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
+import {
+  getMajordomoProfile,
+  resolveMajordomoProfileId,
+} from '@/lib/ai/majordomo-profiles';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { BUILD_INFO } from '@/constants/build-info';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
-import { createLocalId } from '@/repositories/repository-utils';
+import { VOCAB } from '@/constants/vocabulary';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
@@ -42,40 +36,52 @@ import { ensureProfileInviteCode } from '@/lib/household/profile-codes';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import {
+  DEFAULT_REWARD_MODEL,
+  REWARD_MODEL_OPTIONS,
+  type RewardModel,
+} from '@/lib/rewards/reward-model';
+import {
   normalizeRewardSettings,
   REWARD_MODE_COPY,
   type RewardMode,
 } from '@/lib/rewards/reward-mode';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
+import {
+  getNotificationPermissionStatus,
+  isNotificationPermissionGranted,
+  openSystemNotificationSettings,
+  registerForPushNotifications,
+} from '@/lib/notifications/push';
+import {
+  fetchEntitlement,
+  IAP_PRODUCTS,
+  premiumCopy,
+  restorePurchases,
+  type EntitlementState,
+} from '@/lib/billing/iap';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdMember, HouseholdRoom } from '@/types/orbit';
-import * as Linking from 'expo-linking';
+import type { HouseholdMember } from '@/types/orbit';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
-type Section = 'main' | 'members' | 'notifications' | 'rooms';
+type Section = 'main' | 'members' | 'notifications';
 
 function SharedAccountRow({
   person,
   active,
   accent,
-  picking,
   canManage,
   onSwitch,
-  onTogglePick,
-  onPickEmoji,
-  onPickPhoto,
+  onPersonalize,
   onUnlink,
   onRemove,
 }: {
   person: HouseholdMember;
   active: boolean;
   accent: string;
-  picking: boolean;
   canManage: boolean;
   onSwitch: () => void;
-  onTogglePick: () => void;
-  onPickEmoji: (emoji: string) => void;
-  onPickPhoto: () => void;
+  onPersonalize: () => void;
   onUnlink?: () => void;
   onRemove?: () => void;
 }) {
@@ -85,7 +91,8 @@ function SharedAccountRow({
     <View style={[styles.sharedAccountBlock, { borderTopColor: glassBorder(0.08) }]}>
       <View style={styles.memberCardInner}>
         <Pressable
-          onPress={onTogglePick}
+          onPress={onPersonalize}
+          accessibilityLabel={`Personalize look for ${person.name}`}
           style={[
             styles.memberAvatar,
             { backgroundColor: `${active ? accent : c.textSubtle}33` },
@@ -125,31 +132,6 @@ function SharedAccountRow({
           ) : null}
         </View>
       ) : null}
-      {picking ? (
-        <View style={styles.emojiGrid}>
-          <Pressable
-            style={[styles.emojiChip, styles.photoChip, { borderColor: `${accent}88`, backgroundColor: glass(0.06) }]}
-            onPress={onPickPhoto}>
-            <MaterialIcons name="photo-camera" size={18} color={accent} />
-            <Text style={[styles.photoChipText, { color: accent }]}>Photo / Memoji</Text>
-          </Pressable>
-          {AVATAR_EMOJIS.map((emoji) => (
-            <Pressable
-              key={emoji}
-              style={[
-                styles.emojiChip,
-                { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) },
-                person.avatar === emoji && {
-                  borderColor: `${accent}88`,
-                  backgroundColor: `${accent}22`,
-                },
-              ]}
-              onPress={() => onPickEmoji(emoji)}>
-              <Text style={{ fontSize: 22 }}>{emoji}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -170,21 +152,33 @@ export default function SettingsScreen() {
     permissions,
     preferredMapsApp,
     removeMember,
-    removeRoom,
     signOut,
     switchPersona,
     updateAppearanceMode,
     updateHouseholdAccentTheme,
     updateHouseholdRewardSettings,
+    updateHouseholdRewardModel,
+    updateDisplayName,
+    updateMemberDisplayName,
     updatePalette,
     updateMemberAvatar,
+    updateMemberHomeworkProof,
     updateNotificationPrefs,
+    updateMajordomoProfile,
+    updateMemberMajordomoProfile,
     updateMemberCapabilities,
     updatePreferredMapsApp,
     updateSharedDeviceLinks,
-    upsertRoom,
   } = useOrbit();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
+
+  const majordomo = useMemo(() => {
+    const id = resolveMajordomoProfileId({
+      householdProfileId: household.majordomoProfileId,
+      memberProfileId: currentMember?.majordomoProfileId,
+    });
+    return getMajordomoProfile(id);
+  }, [currentMember?.majordomoProfileId, household.majordomoProfileId]);
 
   const rewardSettings = useMemo(
     () =>
@@ -197,16 +191,23 @@ export default function SettingsScreen() {
   );
 
   const [section, setSection] = useState<Section>('main');
+  const [entitlement, setEntitlement] = useState<EntitlementState | null>(null);
+  const [billingBusy, setBillingBusy] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(household.householdName);
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
+  const [displayNameInput, setDisplayNameInput] = useState(
+    currentMember?.name ?? currentUser?.name ?? ''
+  );
+  const [renamingMemberId, setRenamingMemberId] = useState<string | null>(null);
+  const [renamingMemberInput, setRenamingMemberInput] = useState('');
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
-  const [pickingAvatarFor, setPickingAvatarFor] = useState<string | null>(null);
+  const [personalizeMemberId, setPersonalizeMemberId] = useState<string | null>(null);
+  const [majordomoOpen, setMajordomoOpen] = useState(false);
   const [sharedDeviceName, setSharedDeviceName] = useState('Kids tablet');
   const [creatingDevice, setCreatingDevice] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
-  const [roomDraft, setRoomDraft] = useState('');
-  const [roomEmoji, setRoomEmoji] = useState('🚪');
-  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const prefs = useMemo(
     () =>
       household.notificationPrefs ?? {
@@ -223,9 +224,20 @@ export default function SettingsScreen() {
     [household.notificationPrefs]
   );
 
+  useEffect(() => {
+    if (section !== 'notifications') return;
+    void getNotificationPermissionStatus().then((permission) => {
+      setOsNotifStatus(isNotificationPermissionGranted(permission) ? 'granted' : 'denied');
+    });
+  }, [section]);
+
+  useEffect(() => {
+    if (section !== 'main') return;
+    void fetchEntitlement().then(setEntitlement);
+  }, [section]);
+
   const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
   const householdThemeId = migrateAccentThemeId(household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID);
-  const rooms = household.rooms ?? [];
   const nestedAccountIds = useMemo(
     () => nestedSharedAccountIds(household.members),
     [household.members]
@@ -307,22 +319,10 @@ export default function SettingsScreen() {
     ]);
   };
 
-  const pickMemojiPhoto = async (memberId: string) => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Photos needed', 'Allow photo library access to use a Memoji or portrait.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
-    });
-    if (result.canceled || !result.assets?.[0]?.uri) return;
-    await updateMemberAvatar(memberId, result.assets[0].uri);
-    setPickingAvatarFor(null);
-  };
+  const personalizeMember = useMemo(
+    () => household.members.find((member) => member.id === personalizeMemberId) ?? null,
+    [household.members, personalizeMemberId]
+  );
 
   return (
     <>
@@ -394,6 +394,55 @@ export default function SettingsScreen() {
               </Text>
             </SectionCard>
 
+            <SectionCard title="Your name">
+              <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 8 }]}>
+                Shown on Home and in your household — not your Apple email code.
+              </Text>
+              <View style={styles.rowBetween}>
+                {editingDisplayName ? (
+                  <TextInput
+                    value={displayNameInput}
+                    onChangeText={setDisplayNameInput}
+                    style={[styles.nameInput, { color: orbitPalette.text, flex: 1 }]}
+                    autoFocus
+                    placeholder="Your name"
+                    placeholderTextColor={orbitPalette.textSubtle}
+                    onSubmitEditing={() => {
+                      const next = displayNameInput.trim();
+                      if (next.length >= 2) {
+                        void updateDisplayName(next);
+                        setEditingDisplayName(false);
+                      }
+                    }}
+                  />
+                ) : (
+                  <Text style={[styles.nameText, { color: orbitPalette.text }]}>
+                    {currentMember?.name ?? currentUser?.name ?? 'Add your name'}
+                  </Text>
+                )}
+                <Pressable
+                  style={styles.iconBtn}
+                  onPress={() => {
+                    if (editingDisplayName) {
+                      const next = displayNameInput.trim();
+                      if (next.length >= 2) {
+                        void updateDisplayName(next);
+                      }
+                      setEditingDisplayName(false);
+                    } else {
+                      setDisplayNameInput(currentMember?.name ?? currentUser?.name ?? '');
+                      setEditingDisplayName(true);
+                    }
+                  }}>
+                  <MaterialIcons
+                    name={editingDisplayName ? 'check' : 'edit'}
+                    size={14}
+                    color={editingDisplayName ? '#34D399' : '#38BDF8'}
+                  />
+                </Pressable>
+              </View>
+            </SectionCard>
+
             <SectionCard title="Your look">
               <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 8 }]}>
                 Color for {currentMember?.name ?? 'you'} · each palette has Day and Night
@@ -442,16 +491,18 @@ export default function SettingsScreen() {
             </SectionCard>
 
             <SettingsRow
+              icon="record-voice-over"
+              iconColor={majordomo.accent}
+              label="Majordomo"
+              subtitle={`${majordomo.displayName} · ${majordomo.role}`}
+              onPress={() => setMajordomoOpen(true)}
+            />
+
+            <SettingsRow
               emoji="👥"
               label="Manage Members"
               subtitle={`${household.members.length} members · add new · customize avatars`}
               onPress={() => setSection('members')}
-            />
-            <SettingsRow
-              emoji="🚪"
-              label="Rooms"
-              subtitle={`${rooms.length} rooms for cleaning attribution`}
-              onPress={() => setSection('rooms')}
             />
             {permissions.canManageHousehold ? (
               <SectionCard title="Member permissions">
@@ -460,8 +511,9 @@ export default function SettingsScreen() {
                 </Text>
                 {(
                   [
-                    ['allowRewardRedeem', 'Allow redeem XP rewards', 'Members can spend XP in the shop'],
-                    ['allowSpecialRewardRequest', 'Allow special reward requests', 'Kids/adults can ask for one-offs'],
+                    ['allowRewardRedeem', 'Allow redeeming rewards', 'Members can spend XP on catalogue rewards'],
+                    ['allowSpecialRewardRequest', 'Allow reward requests', 'Kids can request something not in the catalogue yet'],
+                    ['allowAllowance', 'Allow allowance', 'Shows Allowance in Rewards Center'],
                     ['allowGroceryAdd', 'Allow grocery list adds', 'Non-admins can add items'],
                     ['allowCalendarCreate', 'Allow calendar event creates', 'Simplified create when enabled'],
                   ] as const
@@ -495,6 +547,48 @@ export default function SettingsScreen() {
             {permissions.canManageHousehold ? (
               <SectionCard title="Rewards & XP">
                 <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
+                  XP system — which parts of ChoreMaxx are on
+                </Text>
+                <View style={{ gap: 8, marginBottom: 16 }}>
+                  {REWARD_MODEL_OPTIONS.map((opt) => {
+                    const active =
+                      (household.rewardModel ?? DEFAULT_REWARD_MODEL) === opt.id;
+                    return (
+                      <Pressable
+                        key={opt.id}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: active }}
+                        onPress={() => updateHouseholdRewardModel(opt.id as RewardModel)}
+                        style={[
+                          styles.prefRow,
+                          {
+                            backgroundColor: active
+                              ? `${accentTheme.primary}22`
+                              : glassFill(isDark),
+                            borderColor: active
+                              ? `${accentTheme.primary}55`
+                              : glassBorder(0.08),
+                          },
+                        ]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.memberName, { color: c.text }]}>
+                            {opt.title}
+                            {opt.recommended ? ' · Recommended' : ''}
+                          </Text>
+                          <Text style={[styles.caption, { color: c.textSubtle }]}>
+                            {opt.subtitle}
+                          </Text>
+                        </View>
+                        {active ? (
+                          <MaterialIcons name="check-circle" size={20} color={accentTheme.primary} />
+                        ) : (
+                          <MaterialIcons name="radio-button-unchecked" size={20} color={c.textSubtle} />
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
                   How chores score points for this household
                 </Text>
                 <SegmentedControl
@@ -508,6 +602,9 @@ export default function SettingsScreen() {
                 />
                 <Text style={[styles.caption, { color: c.textSubtle, marginTop: 6, marginBottom: 12 }]}>
                   {REWARD_MODE_COPY[rewardSettings.rewardMode].blurb}
+                  {rewardSettings.rewardMode === 'flat'
+                    ? ' Every eligible chore shows and awards 10 XP.'
+                    : ''}
                 </Text>
                 <View
                   style={[
@@ -587,6 +684,22 @@ export default function SettingsScreen() {
               onPress={() => setSection('notifications')}
             />
             <SettingsRow
+              icon="menu-book"
+              iconColor="#FAC775"
+              label={VOCAB.houseRules}
+              subtitle="How XP, streaks, and rewards work here"
+              onPress={() => router.push('/house-rules' as never)}
+            />
+            {permissions.canManageHousehold ? (
+              <SettingsRow
+                icon="beach-access"
+                iconColor="#38BDF8"
+                label={VOCAB.recess}
+                subtitle="Pause tasks · freeze streaks"
+                onPress={() => router.push('/recess' as never)}
+              />
+            ) : null}
+            <SettingsRow
               icon="shield"
               iconColor="#34D399"
               label="Privacy & Data"
@@ -635,6 +748,43 @@ export default function SettingsScreen() {
                   { value: 'waze', label: 'Waze' },
                 ]}
               />
+            </SectionCard>
+
+            <SectionCard title="Premium">
+              <Text style={[styles.caption, { color: c.textSoft, marginBottom: 10 }]}>
+                {entitlement ? premiumCopy(entitlement) : 'Loading…'}
+              </Text>
+              <Text style={[styles.caption, { color: c.textSubtle, marginBottom: 12 }]}>
+                7-day free trial, then ${IAP_PRODUCTS.monthly.priceUsd}/mo via Apple.
+              </Text>
+              <Pressable
+                style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
+                onPress={() =>
+                  router.push({ pathname: '/premium', params: { source: 'settings' } } as never)
+                }>
+                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
+                  Open Premium
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.accountBtn,
+                  { backgroundColor: glass(0.06), opacity: billingBusy ? 0.6 : 1 },
+                ]}
+                disabled={billingBusy}
+                onPress={() => {
+                  setBillingBusy(true);
+                  void restorePurchases()
+                    .then((next) => {
+                      setEntitlement(next);
+                      Alert.alert('Restore', premiumCopy(next));
+                    })
+                    .finally(() => setBillingBusy(false));
+                }}>
+                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
+                  Restore purchases
+                </Text>
+              </Pressable>
             </SectionCard>
 
             <SectionCard title="Account">
@@ -794,7 +944,7 @@ export default function SettingsScreen() {
                                 { color: orbitPalette.textMuted },
                                 linked && styles.linkChipTextActive,
                               ]}>
-                              {person.avatar} {person.name}
+                              {memberDisplayEmoji(person)} {person.name}
                             </Text>
                           </Pressable>
                         );
@@ -807,17 +957,9 @@ export default function SettingsScreen() {
                       person={person}
                       active={currentMember?.id === person.id}
                       accent={accentTheme.primary}
-                      picking={pickingAvatarFor === person.id}
                       canManage={permissions.canManageHousehold}
                       onSwitch={() => switchPersona(person.id)}
-                      onTogglePick={() =>
-                        setPickingAvatarFor(pickingAvatarFor === person.id ? null : person.id)
-                      }
-                      onPickEmoji={async (emoji) => {
-                        await updateMemberAvatar(person.id, emoji);
-                        setPickingAvatarFor(null);
-                      }}
-                      onPickPhoto={() => void pickMemojiPhoto(person.id)}
+                      onPersonalize={() => setPersonalizeMemberId(person.id)}
                       onUnlink={() =>
                         toggleSharedLink(
                           device.id,
@@ -843,7 +985,6 @@ export default function SettingsScreen() {
 
             {topLevelMembers.map((member) => {
               const active = currentMember?.id === member.id;
-              const picking = pickingAvatarFor === member.id;
               const photo = isAvatarImageUri(member.avatar);
               return (
                 <View
@@ -856,7 +997,8 @@ export default function SettingsScreen() {
                     },
                   ]}>
                   <Pressable
-                    onPress={() => setPickingAvatarFor(picking ? null : member.id)}
+                    onPress={() => setPersonalizeMemberId(member.id)}
+                    accessibilityLabel={`Personalize look for ${member.name}`}
                     style={[
                       styles.memberAvatar,
                       { backgroundColor: `${active ? accentTheme.primary : orbitPalette.textSubtle}33` },
@@ -875,7 +1017,23 @@ export default function SettingsScreen() {
                     </View>
                   </Pressable>
                   <Pressable style={{ flex: 1 }} onPress={() => switchPersona(member.id)}>
-                    <Text style={[styles.memberName, { color: orbitPalette.text }]}>{member.name}</Text>
+                    {renamingMemberId === member.id ? (
+                      <TextInput
+                        value={renamingMemberInput}
+                        onChangeText={setRenamingMemberInput}
+                        style={[styles.nameInput, { color: orbitPalette.text }]}
+                        autoFocus
+                        onSubmitEditing={() => {
+                          const next = renamingMemberInput.trim();
+                          if (next.length >= 2) {
+                            void updateMemberDisplayName(member.id, next);
+                          }
+                          setRenamingMemberId(null);
+                        }}
+                      />
+                    ) : (
+                      <Text style={[styles.memberName, { color: orbitPalette.text }]}>{member.name}</Text>
+                    )}
                     <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
                       {formatHouseholdRole(member.role)}
                     </Text>
@@ -887,8 +1045,58 @@ export default function SettingsScreen() {
                         Profile {ensureProfileInviteCode(member)}
                       </Text>
                     ) : null}
+                    {permissions.canManageHousehold && member.role === 'child' ? (
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 12,
+                          marginTop: 10,
+                          paddingTop: 10,
+                          borderTopWidth: StyleSheet.hairlineWidth,
+                          borderTopColor: glassBorder(0.08),
+                        }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.caption, { color: orbitPalette.textSoft, fontWeight: '600' }]}>
+                            Homework photo proof
+                          </Text>
+                          <Text style={[styles.caption, { color: orbitPalette.textSubtle, marginTop: 2 }]}>
+                            Required when they mark homework done
+                          </Text>
+                        </View>
+                        <Switch
+                          value={member.homeworkProofRequired !== false}
+                          onValueChange={(v) => void updateMemberHomeworkProof(member.id, v)}
+                          trackColor={{ false: glassBorder(0.2), true: `${accentTheme.primary}88` }}
+                          thumbColor="#FFFFFF"
+                        />
+                      </View>
+                    ) : null}
                   </Pressable>
                   {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
+                  {permissions.canManageHousehold || currentMember?.id === member.id ? (
+                    <Pressable
+                      onPress={() => {
+                        if (renamingMemberId === member.id) {
+                          const next = renamingMemberInput.trim();
+                          if (next.length >= 2) {
+                            void updateMemberDisplayName(member.id, next);
+                          }
+                          setRenamingMemberId(null);
+                          return;
+                        }
+                        setRenamingMemberId(member.id);
+                        setRenamingMemberInput(member.name);
+                      }}
+                      hitSlop={8}
+                      accessibilityLabel={`Rename ${member.name}`}>
+                      <MaterialIcons
+                        name={renamingMemberId === member.id ? 'check' : 'badge'}
+                        size={18}
+                        color={renamingMemberId === member.id ? '#34D399' : '#38BDF8'}
+                      />
+                    </Pressable>
+                  ) : null}
                   {permissions.canManageHousehold && member.role !== 'owner' ? (
                     <Pressable
                       onPress={() => handleRemoveMember(member)}
@@ -897,105 +1105,34 @@ export default function SettingsScreen() {
                       <MaterialIcons name="person-remove" size={20} color="#F87171" />
                     </Pressable>
                   ) : null}
-                  {picking ? (
-                    <View style={styles.emojiGrid}>
-                      <Pressable
-                        style={[
-                          styles.emojiChip,
-                          styles.photoChip,
-                          {
-                            borderColor: `${accentTheme.primary}88`,
-                            backgroundColor: glass(0.06),
-                          },
-                        ]}
-                        onPress={() => void pickMemojiPhoto(member.id)}>
-                        <MaterialIcons name="photo-camera" size={18} color={accentTheme.primary} />
-                        <Text style={[styles.photoChipText, { color: accentTheme.primary }]}>Photo / Memoji</Text>
-                      </Pressable>
-                      {AVATAR_EMOJIS.map((emoji) => (
-                        <Pressable
-                          key={emoji}
-                          style={[
-                            styles.emojiChip,
-                            { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) },
-                            member.avatar === emoji && {
-                              borderColor: `${accentTheme.primary}88`,
-                              backgroundColor: `${accentTheme.primary}22`,
-                            },
-                          ]}
-                          onPress={async () => {
-                            await updateMemberAvatar(member.id, emoji);
-                            setPickingAvatarFor(null);
-                          }}>
-                          <Text style={{ fontSize: 22 }}>{emoji}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  ) : null}
                 </View>
               );
             })}
-            <Pressable style={styles.linkRow} onPress={() => router.push('/household-members' as never)}>
-              <Text style={[styles.linkText, { color: accentTheme.primary }]}>Open full members screen</Text>
-              <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
+            <Pressable
+              style={[
+                styles.primaryInviteCta,
+                {
+                  backgroundColor: accentTheme.primary,
+                  borderCurve: 'continuous',
+                },
+              ]}
+              onPress={() => router.push('/invite-household' as never)}>
+              <Text style={[styles.primaryInviteCtaText, { color: orbitPalette.ink }]}>
+                Invite
+              </Text>
             </Pressable>
+            <Text
+              style={[
+                styles.caption,
+                { color: orbitPalette.textMuted, marginTop: 10, textAlign: 'center' },
+              ]}>
+              AirDrop or Messages
+            </Text>
           </>
         ) : null}
 
-        {section === 'rooms' ? (
+        {section === 'notifications' ? (
           <>
-            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>
-              Rooms power cleaning presets and attribution
-            </Text>
-            {rooms.map((room) => (
-              <View
-                key={room.id}
-                style={[
-                  styles.prefRow,
-                  {
-                    backgroundColor: glassFill(isDark),
-                    borderColor: glassBorder(0.08),
-                  },
-                ]}>
-                <Text style={{ fontSize: 22 }}>{room.emoji}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.memberName, { color: orbitPalette.text }]}>{room.name}</Text>
-                  <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>{room.kind}</Text>
-                </View>
-                <Pressable
-                  onPress={() => {
-                    setEditingRoomId(room.id);
-                    setRoomDraft(room.name);
-                    setRoomEmoji(room.emoji);
-                  }}
-                  style={{ marginRight: 10 }}>
-                  <MaterialIcons name="edit" size={18} color={accentTheme.primary} />
-                </Pressable>
-                <Pressable onPress={() => removeRoom(room.id)}>
-                  <MaterialIcons name="delete-outline" size={18} color="#F87171" />
-                </Pressable>
-              </View>
-            ))}
-            <View style={styles.emojiRow}>
-              {ROOM_EMOJIS.map((emoji) => {
-                const active = roomEmoji === emoji;
-                return (
-                  <Pressable
-                    key={emoji}
-                    onPress={() => setRoomEmoji(emoji)}
-                    style={[
-                      styles.emojiChip,
-                      { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) },
-                      active && {
-                        borderColor: `${accentTheme.primary}88`,
-                        backgroundColor: `${accentTheme.primary}22`,
-                      },
-                    ]}>
-                    <Text style={{ fontSize: 18 }}>{emoji}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
             <View
               style={[
                 styles.prefRow,
@@ -1004,66 +1141,81 @@ export default function SettingsScreen() {
                   borderColor: glassBorder(0.08),
                 },
               ]}>
-              <TextInput
-                value={roomDraft}
-                onChangeText={setRoomDraft}
-                placeholder={editingRoomId ? 'Rename room' : 'Add room name'}
-                placeholderTextColor={orbitPalette.textSubtle}
-                style={[styles.roomInput, { color: orbitPalette.text }]}
+              <MaterialIcons
+                name={osNotifStatus === 'granted' ? 'notifications-active' : 'notifications-off'}
+                size={22}
+                color={osNotifStatus === 'granted' ? accentTheme.primary : orbitPalette.textMuted}
               />
-              <Pressable
-                style={[styles.addRoomBtn, { backgroundColor: `${accentTheme.primary}22` }]}
-                onPress={() => {
-                  const name = roomDraft.trim();
-                  if (!name) return;
-                  if (editingRoomId) {
-                    const existing = rooms.find((item) => item.id === editingRoomId);
-                    if (!existing) return;
-                    upsertRoom({ ...existing, name, emoji: roomEmoji });
-                    setEditingRoomId(null);
-                  } else {
-                    const room: HouseholdRoom = {
-                      id: createLocalId('room'),
-                      name,
-                      emoji: roomEmoji,
-                      kind: 'custom',
-                    };
-                    upsertRoom(room);
-                  }
-                  setRoomDraft('');
-                  setRoomEmoji('🚪');
-                }}>
-                <MaterialIcons name={editingRoomId ? 'check' : 'add'} size={18} color={accentTheme.primary} />
-              </Pressable>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.memberName, { color: orbitPalette.text }]}>
+                  iPhone notifications
+                </Text>
+                <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
+                  {osNotifStatus === 'granted'
+                    ? 'Banners and lock screen are on for ChoreMaxx.'
+                    : 'Turn on banners in Apple Settings so alerts aren’t silent.'}
+                </Text>
+              </View>
             </View>
-            {editingRoomId ? (
+            {osNotifStatus !== 'granted' ? (
               <Pressable
+                style={[
+                  styles.linkRow,
+                  {
+                    backgroundColor: `${accentTheme.primary}18`,
+                    borderRadius: 12,
+                    marginBottom: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 12,
+                  },
+                ]}
                 onPress={() => {
-                  setEditingRoomId(null);
-                  setRoomDraft('');
-                  setRoomEmoji('🚪');
-                }}
-                style={styles.linkRow}>
-                <Text style={[styles.linkText, { color: accentTheme.primary }]}>Cancel edit</Text>
+                  void (async () => {
+                    const token = await registerForPushNotifications(currentUser?.id);
+                    const permission = await getNotificationPermissionStatus();
+                    const granted = isNotificationPermissionGranted(permission);
+                    setOsNotifStatus(granted ? 'granted' : 'denied');
+                    if (!granted || !token) {
+                      await openSystemNotificationSettings();
+                    }
+                  })();
+                }}>
+                <Text style={[styles.linkText, { color: accentTheme.primary }]}>
+                  Enable banners in Apple Settings
+                </Text>
+                <MaterialIcons name="open-in-new" size={16} color={accentTheme.primary} />
               </Pressable>
-            ) : null}
-          </>
-        ) : null}
+            ) : (
+              <Pressable
+                style={styles.linkRow}
+                onPress={() => void openSystemNotificationSettings()}>
+                <Text style={[styles.linkText, { color: accentTheme.primary }]}>
+                  Open Apple notification settings
+                </Text>
+                <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
+              </Pressable>
+            )}
 
-        {section === 'notifications' ? (
-          <>
-            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>Nova Monitor categories</Text>
+            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>
+              Choose which Poppins alerts you want ({enabledCount} on)
+            </Text>
             {(
               [
-                ['tasks', 'Task Reminders', 'Overdue nudges and streak checks', '✅'],
-                ['itinerary', 'Itinerary legs', 'Arrived → next and trip nudges', '🗺️'],
-                ['groceries', 'Grocery & sales', 'Missing items and aisle deals', '🛒'],
-                ['rewards', 'Rewards', 'Redemptions and XP milestones', '🎁'],
-                ['deals', 'Deal alerts', 'Mock catalog: food, shoes, electronics, furniture', '🏷️'],
-                ['plans', 'Plan proposals', 'Errand loops and itinerary suggestions', '🗺️'],
-                ['xpFairness', 'XP fairness', 'Weekly balance assessments (propose only)', '⚖️'],
-                ['nearShop', 'Near shop', 'Local alert when you are close to a grocery stop', '📍'],
-                ['missingOnTheWay', 'Missing on the way', 'Nudge missing items before and during a run', '🧾'],
+                ['tasks', 'Tasks & streaks', 'Due tasks, photos, streak risk', '✅'],
+                ['rewards', 'Rewards & allowance', 'Claims, approvals, paid allowance', '🎁'],
+                ['groceries', 'Groceries', 'List updates that still use this channel', '🛒'],
+                ['itinerary', 'Plan & trips', 'Trip nudges when enabled', '🗺️'],
+                ['deals', 'Deal ideas', 'In-app suggestions only', '🏷️'],
+                ['plans', 'Plan ideas', 'In-app suggestions only', '🗺️'],
+                ['xpFairness', 'Fairness notes', 'In-app balance tips', '⚖️'],
+                ['nearShop', 'Near shop', 'Local reminder near a store', '📍'],
+                ['missingOnTheWay', 'Missing on the way', 'Local reminder during a run', '🧾'],
+                [
+                  'quietHoursEnabled',
+                  'Quiet hours',
+                  'Hold non-urgent banners 21:00–07:00 (deadlines still fire)',
+                  '🌙',
+                ],
               ] as const
             ).map(([key, label, sub, emoji]) => (
               <View
@@ -1081,7 +1233,11 @@ export default function SettingsScreen() {
                   <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>{sub}</Text>
                 </View>
                 <Switch
-                  value={Boolean(prefs[key])}
+                  value={
+                    key === 'quietHoursEnabled'
+                      ? prefs.quietHoursEnabled !== false
+                      : Boolean(prefs[key])
+                  }
                   onValueChange={(value) => updateNotificationPrefs({ [key]: value })}
                   trackColor={{ false: glassBorder(0.1), true: '#38BDF8' }}
                   thumbColor="#fff"
@@ -1090,10 +1246,6 @@ export default function SettingsScreen() {
             ))}
             <Pressable style={styles.linkRow} onPress={() => router.push('/notifications' as never)}>
               <Text style={styles.linkText}>Open notifications inbox</Text>
-              <MaterialIcons name="chevron-right" size={16} color="#38BDF8" />
-            </Pressable>
-            <Pressable style={styles.linkRow} onPress={() => router.push('/(tabs)/nova' as never)}>
-              <Text style={styles.linkText}>Open Nova · Run check</Text>
               <MaterialIcons name="chevron-right" size={16} color="#38BDF8" />
             </Pressable>
           </>
@@ -1108,7 +1260,27 @@ export default function SettingsScreen() {
       currentMemberId={currentMember?.id ?? ''}
       onSwitch={switchPersona}
     />
-    </>
+    <PersonalizeLookSheet
+      visible={Boolean(personalizeMember)}
+      memberName={personalizeMember?.name ?? 'you'}
+      currentAvatar={personalizeMember?.avatar}
+      onDismiss={() => setPersonalizeMemberId(null)}
+      onSelect={async (avatar) => {
+        if (!personalizeMember) return;
+        await updateMemberAvatar(personalizeMember.id, avatar);
+      }}
+    />
+    <MajordomoProfileSheet
+      visible={majordomoOpen}
+      onDismiss={() => setMajordomoOpen(false)}
+      householdProfileId={household.majordomoProfileId}
+      memberProfileId={currentMember?.majordomoProfileId}
+      memberName={currentMember?.name}
+      canManageHousehold={permissions.canManageHousehold}
+      onSelectHousehold={(id) => updateMajordomoProfile(id)}
+      onSelectPersonal={(id) => updateMemberMajordomoProfile(id)}
+    />
+  </>
   );
 }
 
@@ -1473,33 +1645,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
-  emojiRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  emojiChip: {
-    alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
-  roomInput: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    paddingVertical: 4,
-  },
-  addRoomBtn: {
-    alignItems: 'center',
-    borderRadius: 12,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
   prefRow: {
     alignItems: 'center',
     borderRadius: 24,
@@ -1516,4 +1661,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   linkText: { color: '#38BDF8', fontSize: 14, fontWeight: '600' },
+  primaryInviteCta: {
+    alignItems: 'center',
+    borderRadius: 20,
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingVertical: 15,
+    width: '100%',
+  },
+  primaryInviteCtaText: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
 });

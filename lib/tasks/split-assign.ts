@@ -1,3 +1,8 @@
+import {
+  resolveTaskXpFromHouseholdTask,
+  type HouseholdRewardSettings,
+} from '@/lib/rewards/reward-mode';
+import { bundleBonusXp } from '@/lib/scoring/bundle-bonus';
 import type { HouseholdTask, TaskAssigneeShare } from '@/types/orbit';
 
 export function getTaskAssignees(task: Pick<HouseholdTask, 'assignee' | 'assignees' | 'shares'>): string[] {
@@ -37,24 +42,54 @@ export function getShare(
   return task.shares?.find((share) => share.name === name);
 }
 
-export function splitShareXp(task: HouseholdTask): number {
+/**
+ * XP for one split share. When household settings are provided, Equity (flat)
+ * awards the resolved chore XP per completer instead of ladder splitXpEach.
+ */
+export function splitShareXp(
+  task: HouseholdTask,
+  settings?: HouseholdRewardSettings
+): number {
+  if (settings) {
+    const resolved = resolveTaskXpFromHouseholdTask(task, settings);
+    if (settings.rewardMode === 'flat') {
+      return Math.max(1, resolved);
+    }
+    return Math.max(1, task.splitXpEach ?? resolved);
+  }
   return Math.max(1, task.splitXpEach ?? task.xp);
 }
 
-/** Extra XP each completer gets when every assignee finishes. */
-export function splitAllDoneBonus(task: HouseholdTask): number {
+/**
+ * Bundle / all-done bonus — Revision D §1.2.
+ * BUNDLE_BONUS_FULL (10) or BUNDLE_BONUS_LATE (7) when any share was late.
+ */
+export function splitAllDoneBonus(
+  task: HouseholdTask,
+  settings?: HouseholdRewardSettings,
+  anyCompletedLate = false
+): number {
   if (typeof task.splitBonusXp === 'number') {
     return Math.max(0, task.splitBonusXp);
   }
-  return Math.max(5, Math.round(task.xp * 0.25));
+  void settings;
+  return bundleBonusXp(anyCompletedLate);
 }
 
 /** XP deducted when an admin penalizes a non-finisher. */
-export function splitPenaltyAmount(task: HouseholdTask): number {
+export function splitPenaltyAmount(
+  task: HouseholdTask,
+  settings?: HouseholdRewardSettings
+): number {
   if (typeof task.splitPenaltyXp === 'number') {
     return Math.max(0, task.splitPenaltyXp);
   }
-  return Math.max(5, Math.round(task.xp * 0.5));
+  if (settings?.rewardMode === 'flat') {
+    const resolved = resolveTaskXpFromHouseholdTask(task, settings);
+    return Math.max(0, Math.round(resolved * 0.5));
+  }
+  const base = settings ? resolveTaskXpFromHouseholdTask(task, settings) : task.xp;
+  return Math.max(5, Math.round(base * 0.5));
 }
 
 export function allSharesSettled(task: HouseholdTask): boolean {

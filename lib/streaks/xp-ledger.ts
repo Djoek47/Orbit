@@ -1,114 +1,120 @@
 /**
- * In-memory XP ledger helpers for mock mode.
- * Weekly XP is SUM(amount); penalties are negative streak_penalty entries.
- * Enforces at most one streak_penalty per (childId, weekKey).
+ * XP Ledger — Revision D §1.6.
+ * Every XP mutation routes through applyXpChange(). No silent balance edits.
  */
 
-import type { XpLedgerEntry } from '@/lib/streaks/streak-engine';
+export type XpLedgerType =
+  | 'task_completed'
+  | 'late_credit'
+  | 'bundle_bonus'
+  | 'streak_rescue'
+  | 'reversal'
+  | 'adjustment';
+
+export type XpLedgerEntry = {
+  id: string;
+  memberId: string;
+  occurredAt: string; // ISO UTC
+  type: XpLedgerType;
+  /** Signed. −26 for a rescue. */
+  delta: number;
+  balanceAfter: number;
+  /** Human-readable, kid-appropriate. */
+  label: string;
+  occurrenceId?: string;
+  weekKey?: string;
+};
 
 let seq = 0;
 
+export function resetLedgerIdSeq(): void {
+  seq = 0;
+}
+
 function nextId(): string {
   seq += 1;
-  return `xp_${seq}`;
+  return `xpl_${seq}`;
 }
 
 export function createEmptyLedger(): XpLedgerEntry[] {
   return [];
 }
 
-export function appendLedgerEntry(
-  ledger: XpLedgerEntry[],
-  entry: Omit<XpLedgerEntry, 'id'> & { id?: string }
-): XpLedgerEntry[] {
-  if (entry.type === 'streak_penalty') {
-    const existing = ledger.find(
-      (e) =>
-        e.childId === entry.childId &&
-        e.weekKey === entry.weekKey &&
-        e.type === 'streak_penalty'
-    );
-    if (existing) {
-      // Idempotent: do not write a second penalty for the same week.
-      return ledger;
-    }
+export function balanceOf(ledger: XpLedgerEntry[], memberId: string): number {
+  for (let i = ledger.length - 1; i >= 0; i--) {
+    if (ledger[i].memberId === memberId) return ledger[i].balanceAfter;
   }
-
-  const full: XpLedgerEntry = {
-    id: entry.id ?? nextId(),
-    childId: entry.childId,
-    weekKey: entry.weekKey,
-    type: entry.type,
-    amount: entry.amount,
-    sourceId: entry.sourceId ?? null,
-    occurredAt: entry.occurredAt,
-  };
-  return [...ledger, full];
-}
-
-/** Sum positive award amounts for a child in a week (gross XP). */
-export function sumGrossAwards(
-  ledger: XpLedgerEntry[],
-  childId: string,
-  weekKey: string
-): number {
-  return ledger
-    .filter((e) => e.childId === childId && e.weekKey === weekKey && e.type === 'award')
-    .reduce((sum, e) => sum + e.amount, 0);
-}
-
-/** Sum all ledger amounts (net) for a child in a week. */
-export function sumNetWeek(
-  ledger: XpLedgerEntry[],
-  childId: string,
-  weekKey: string
-): number {
-  return ledger
-    .filter((e) => e.childId === childId && e.weekKey === weekKey)
-    .reduce((sum, e) => sum + e.amount, 0);
-}
-
-export function hasStreakPenalty(
-  ledger: XpLedgerEntry[],
-  childId: string,
-  weekKey: string
-): boolean {
-  return ledger.some(
-    (e) =>
-      e.childId === childId && e.weekKey === weekKey && e.type === 'streak_penalty'
-  );
+  return 0;
 }
 
 /**
- * Apply week-close penalty once. Returns unchanged ledger if already applied
- * or if deducted would be 0.
+ * Single write path for all XP mutations.
+ * Returns the new ledger and the entry written.
  */
-export function applyWeekClosePenalty(
+export function applyXpChange(
   ledger: XpLedgerEntry[],
   input: {
-    childId: string;
-    weekKey: string;
-    grossXp: number;
-    rate: number;
+    memberId: string;
+    type: XpLedgerType;
+    delta: number;
+    label: string;
     occurredAt: string;
+    occurrenceId?: string;
+    weekKey?: string;
   }
-): XpLedgerEntry[] {
-  if (hasStreakPenalty(ledger, input.childId, input.weekKey)) {
-    return ledger;
-  }
-  const deducted = Math.round(Math.max(0, input.grossXp) * input.rate);
-  if (deducted <= 0) return ledger;
-  return appendLedgerEntry(ledger, {
-    childId: input.childId,
-    weekKey: input.weekKey,
-    type: 'streak_penalty',
-    amount: -deducted,
-    sourceId: null,
+): { ledger: XpLedgerEntry[]; entry: XpLedgerEntry } {
+  const prev = balanceOf(ledger, input.memberId);
+  const balanceAfter = prev + input.delta;
+  const entry: XpLedgerEntry = {
+    id: nextId(),
+    memberId: input.memberId,
     occurredAt: input.occurredAt,
-  });
+    type: input.type,
+    delta: input.delta,
+    balanceAfter,
+    label: input.label,
+    occurrenceId: input.occurrenceId,
+    weekKey: input.weekKey,
+  };
+  return { ledger: [...ledger, entry], entry };
 }
 
-/** Reset helper for tests / mock mode. */
-export function resetLedgerIdSeq(): void {
-  seq = 0;
+/** Gross XP for a week = sum of positive task_completed + late_credit + bundle_bonus. */
+export function sumWeekGross(
+  ledger: XpLedgerEntry[],
+  memberId: string,
+  weekKey: string
+): number {
+  return ledger
+    .filter(
+      (e) =>
+        e.memberId === memberId &&
+        e.weekKey === weekKey &&
+        e.delta > 0 &&
+        (e.type === 'task_completed' || e.type === 'late_credit' || e.type === 'bundle_bonus')
+    )
+    .reduce((sum, e) => sum + e.delta, 0);
+}
+
+/** Net XP for a period (all types). */
+export function sumPeriodNet(
+  ledger: XpLedgerEntry[],
+  memberId: string,
+  fromIso: string,
+  toIso: string
+): number {
+  return ledger
+    .filter(
+      (e) =>
+        e.memberId === memberId && e.occurredAt >= fromIso && e.occurredAt <= toIso
+    )
+    .reduce((sum, e) => sum + e.delta, 0);
+}
+
+export function entriesForWeek(
+  ledger: XpLedgerEntry[],
+  memberId: string,
+  weekKey: string
+): XpLedgerEntry[] {
+  return ledger.filter((e) => e.memberId === memberId && e.weekKey === weekKey);
 }

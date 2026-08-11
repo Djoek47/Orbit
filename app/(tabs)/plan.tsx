@@ -1,9 +1,9 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { NovaCard } from '@/components/orbit/nova-card';
+import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
@@ -26,6 +26,7 @@ import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type PlanSubTab = 'calendar' | 'itinerary';
 type CalView = 'month' | 'week';
@@ -50,7 +51,7 @@ function locationShort(location: string): string | null {
 
 export default function PlanScreen() {
   const chromePad = useTabChromePaddingTop();
-  const { household, suggestNovaItinerary, currentMember, permissions, accentTheme, orbitPalette } = useOrbit();
+  const { household, suggestPoppinsItinerary, currentMember, permissions, accentTheme, orbitPalette } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
   const [buildingTrip, setBuildingTrip] = useState(false);
   const [subTab, setSubTab] = useState<PlanSubTab>('calendar');
@@ -89,7 +90,7 @@ export default function PlanScreen() {
     if (buildingTrip) return;
     setBuildingTrip(true);
     try {
-      const created = await suggestNovaItinerary({
+      const created = await suggestPoppinsItinerary({
         date: selectedKey,
         mode: 'efficient',
         eventIds: selectedEvents.map((e) => e.id),
@@ -101,7 +102,6 @@ export default function PlanScreen() {
       setBuildingTrip(false);
     }
   };
-
 
   return (
     <ScrollView
@@ -135,7 +135,6 @@ export default function PlanScreen() {
           );
         })}
       </View>
-
 
       {subTab === 'calendar' ? (
         <>
@@ -301,7 +300,7 @@ export default function PlanScreen() {
           </View>
 
           {canBuildTrip ? (
-            <NovaCard
+            <PoppinsCard
               kind="recommendation"
               message={
                 missingGroceries > 0 && locationEvents.length >= 1
@@ -443,8 +442,6 @@ export default function PlanScreen() {
     </ScrollView>
   );
 }
-
-
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

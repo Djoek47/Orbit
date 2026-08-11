@@ -10,7 +10,7 @@ export const motion = {
   snappy: { damping: 20, stiffness: 300, mass: 0.8 } satisfies WithSpringConfig,
   /** ~300ms feel — card state changes, sheet content, list insert/remove. */
   smooth: { damping: 18, stiffness: 180, mass: 1 } satisfies WithSpringConfig,
-  /** ~600ms feel — momentum ring fill, XP/badge reveal, Nova orb, onboarding hero. */
+  /** ~600ms feel — momentum ring fill, XP/badge reveal, Poppins orb, onboarding hero. */
   settle: { damping: 22, stiffness: 90, mass: 1.2 } satisfies WithSpringConfig,
 } as const;
 

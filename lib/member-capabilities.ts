@@ -5,6 +5,7 @@ export type { MemberCapabilities };
 export const DEFAULT_MEMBER_CAPABILITIES: MemberCapabilities = {
   allowRewardRedeem: true,
   allowSpecialRewardRequest: false,
+  allowAllowance: true,
   allowGroceryAdd: false,
   allowCalendarCreate: false,
 };

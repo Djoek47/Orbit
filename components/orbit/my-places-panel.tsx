@@ -2,23 +2,14 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import {
-  LayoutAnimation,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  UIManager,
-  View,
-} from 'react-native';
+import { LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, UIManager, View } from 'react-native';
 
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { SavedPlace, SavedPlaceKind } from '@/types/orbit';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -59,7 +50,7 @@ export function MyPlacesPanel({
     accentTheme,
     household,
     removeSavedPlace,
-    suggestNovaItinerary,
+    suggestPoppinsItinerary,
     upsertSavedPlace,
   } = useOrbit();
   const { c, glass } = useOrbitColors();
@@ -120,7 +111,7 @@ export function MyPlacesPanel({
     }
     setSuggestBusy(true);
     try {
-      const created = await suggestNovaItinerary();
+      const created = await suggestPoppinsItinerary();
       if (created) {
         router.push(`/itinerary/${created.id}` as never);
       } else {
@@ -144,9 +135,9 @@ export function MyPlacesPanel({
               <MaterialIcons name="auto-awesome" size={18} color="#A78BFA" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.trainTitle, { color: c.text }]}>Train Nova</Text>
+              <Text style={[styles.trainTitle, { color: c.text }]}>Train Poppins</Text>
               <Text style={[styles.trainBody, { color: c.textMuted }]}>
-                Add stores, schools & activities so Nova can plan optimised routes and pickup
+                Add stores, schools & activities so Poppins can plan optimised routes and pickup
                 reminders.
               </Text>
             </View>
@@ -265,7 +256,7 @@ export function MyPlacesPanel({
             <MaterialIcons name="route" size={16} color={accentTheme.primary} />
             <Text style={[styles.summaryCtaText, { color: accentTheme.primary }]}>
               {suggestBusy
-                ? 'Asking Nova…'
+                ? 'Asking Poppins…'
                 : summary.groups.some((g) => g.groceryLinked)
                   ? 'Open shopping list'
                   : 'Plan a pickup trip'}
@@ -400,7 +391,7 @@ function PlaceCard({
             </View>
           ) : (
             <Text style={[styles.pickupEmpty, { color: c.textFaint }]}>
-              No items yet — Nova will remind you when passing by.
+              No items yet — Poppins will remind you when passing by.
             </Text>
           )}
 

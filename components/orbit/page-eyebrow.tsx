@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, type StyleProp, type TextStyle } from 'react-native';
+import { StyleSheet, type StyleProp, type TextStyle } from 'react-native';
 
 import { typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type PageEyebrowProps = {
   children: ReactNode;

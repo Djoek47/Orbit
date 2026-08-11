@@ -72,9 +72,20 @@ export function getPermissionsForRole(role: HouseholdRole): HouseholdPermissions
   return permissionsByRole[role];
 }
 
+/**
+ * Display label for a household role.
+ * Revision C §3: v2 `member` (stored as `child`) shows as **Helper**.
+ * Permission keys / `toV2Role` are unchanged.
+ */
 export function formatHouseholdRole(role: HouseholdRole) {
+  if (role === 'child') return 'Helper';
   return role
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+/** Revision C §3 — Admin vs Helper (draft / v2 role display). */
+export function formatV2RoleLabel(role: 'admin' | 'member'): string {
+  return role === 'admin' ? 'Admin' : 'Helper';
 }

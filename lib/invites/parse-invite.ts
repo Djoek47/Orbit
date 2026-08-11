@@ -1,8 +1,11 @@
 /** Parse invite payloads from typed codes, deep links, or scanned QR URLs. */
 
+import { inviteWebPath } from '@/lib/invites/invite-host';
+
 const CODE_RE = /\b((?:CMX|ORBIT|CHOREMAXX)[- ]?[A-Z0-9]{3,12})\b/i;
 const PATH_RE = /(?:choremaxx|orbit):\/\/join\/([^/?#\s]+)/i;
-const WEB_RE = /https?:\/\/(?:www\.)?(?:choremaxx|orbit)\.app\/join\/([^/?#\s]+)/i;
+const WEB_RE =
+  /https?:\/\/(?:www\.)?(?:choremaxx|orbit)\.(?:app|vercel\.app)\/join\/([^/?#\s]+)/i;
 
 export function normalizeInviteCode(raw: string): string {
   return raw
@@ -24,6 +27,11 @@ export function parseInvitePayload(payload: string): string | null {
   const web = trimmed.match(WEB_RE)?.[1];
   if (web) return normalizeInviteCode(decodeURIComponent(web));
 
+  const generic = trimmed.match(/\/join\/([^/?#\s]+)/i)?.[1];
+  if (generic && !/expo/i.test(trimmed)) {
+    return normalizeInviteCode(decodeURIComponent(generic));
+  }
+
   const code = trimmed.match(CODE_RE)?.[1];
   if (code) return normalizeInviteCode(code);
 
@@ -40,7 +48,7 @@ export function buildInviteLinks(code: string): { code: string; deepLink: string
   return {
     code: normalized,
     deepLink: `choremaxx://join/${normalized}`,
-    webLink: `https://choremaxx.app/join/${normalized}`,
+    webLink: inviteWebPath(normalized),
   };
 }
 

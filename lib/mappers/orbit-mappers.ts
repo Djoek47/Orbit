@@ -1,10 +1,11 @@
+import { isProfileNameComplete } from '@/lib/auth/display-name';
 import type {
   Badge,
   GroceryItem,
   HouseholdEvent,
   HouseholdMember,
   HouseholdTask,
-  NovaBriefing,
+  PoppinsBriefing,
   OrbitUser,
   Reward,
 } from '@/types/orbit';
@@ -21,7 +22,8 @@ export function mapProfileToUser(row: {
     email: row.email,
     name,
     avatar: name.charAt(0).toUpperCase() || row.email.charAt(0).toUpperCase() || 'O',
-    profileComplete: Boolean(name),
+    // Apple private-relay local-parts must not count as a finished name.
+    profileComplete: isProfileNameComplete(name, row.email),
   };
 }
 
@@ -69,6 +71,8 @@ const taskStatusMap = {
   completed: 'Completed',
   overdue: 'Overdue',
   cancelled: 'Cancelled',
+  expired: 'Expired',
+  missed: 'Expired',
 } as const;
 
 const taskRepeatMap = {
@@ -95,6 +99,18 @@ export function mapTaskRow(row: {
   proof_required?: boolean | null;
   proof_uri?: string | null;
   proof_status?: 'none' | 'submitted' | 'approved' | 'rejected' | null;
+  definition_id?: string | null;
+  occurrence_date?: string | null;
+  due_at?: string | null;
+  completed_at?: string | null;
+  awarded_xp?: number | null;
+  completed_late?: boolean | null;
+  verification?: HouseholdTask['verification'] | null;
+  proof_photo_urls?: string[] | null;
+  proof_rounds?: HouseholdTask['proofRounds'] | null;
+  verified_by?: string | null;
+  verified_at?: string | null;
+  expired_at?: string | null;
 }): HouseholdTask {
   const proofStatus =
     row.proof_status === 'none' ||
@@ -121,6 +137,18 @@ export function mapTaskRow(row: {
     proofRequired: row.proof_required ?? undefined,
     proofUri: row.proof_uri ?? undefined,
     proofStatus,
+    definitionId: row.definition_id ?? undefined,
+    occurrenceDate: row.occurrence_date ?? undefined,
+    dueAt: row.due_at ?? undefined,
+    completedAt: row.completed_at ?? undefined,
+    awardedXp: row.awarded_xp ?? undefined,
+    completedLate: row.completed_late ?? undefined,
+    verification: row.verification ?? undefined,
+    proofPhotoUrls: Array.isArray(row.proof_photo_urls) ? row.proof_photo_urls : undefined,
+    proofRounds: Array.isArray(row.proof_rounds) ? row.proof_rounds : undefined,
+    verifiedBy: row.verified_by ?? undefined,
+    verifiedAt: row.verified_at ?? undefined,
+    expiredAt: row.expired_at ?? undefined,
   };
 }
 
@@ -135,6 +163,9 @@ export function taskStatusToDb(status: HouseholdTask['status']) {
     Completed: 'completed',
     Overdue: 'overdue',
     Cancelled: 'cancelled',
+    Expired: 'expired',
+    // Legacy alias — prefer Expired going forward (Rev F).
+    Missed: 'expired',
   } as const;
   return map[status];
 }
@@ -234,7 +265,7 @@ export function mapBriefingRow(row: {
   title: string;
   summary: string;
   actions: string[] | null;
-}): NovaBriefing {
+}): PoppinsBriefing {
   return {
     title: row.title,
     summary: row.summary,

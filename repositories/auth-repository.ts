@@ -1,5 +1,12 @@
 import { dataMode } from '@/config/data-mode';
-import { EmailNotConfirmedError } from '@/lib/auth/auth-errors';
+import {
+  AuthRateLimitError,
+  EmailNotConfirmedError,
+  isAuthRateLimitMessage,
+  throwAuthIssue,
+  throwMappedAuthError,
+} from '@/lib/auth/auth-errors';
+import { isProfileNameComplete } from '@/lib/auth/display-name';
 import {
   clearPendingSignup,
   getEmailConfirmRedirectUrl,
@@ -94,16 +101,17 @@ export const authRepository = {
         setPendingSignup(input.email.trim(), input.password);
         throw new EmailNotConfirmedError(input.email.trim());
       }
-      if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
-        throw new Error(
-          'Email or password is incorrect — or the account isn’t confirmed yet. Tap Get Started to create an account. (sarah@orbit.test only works in Expo Go.)'
-        );
+      if (isAuthRateLimitMessage(error.message) || error.status === 429) {
+        throw new AuthRateLimitError();
       }
-      throw new Error(error.message || 'Sign in failed. Try again.');
+      if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+        throwAuthIssue('invalid_credentials');
+      }
+      throwMappedAuthError(error);
     }
 
     if (!data.user || !data.session) {
-      throw new Error('Sign in failed. Try again.');
+      throwAuthIssue('generic', { message: 'Sign in didn’t complete. Please try again.' });
     }
 
     const user = await loadProfileUser(supabase, data.user.id, data.user.email ?? input.email.trim());
@@ -136,26 +144,33 @@ export const authRepository = {
     });
     if (error) {
       const msg = (error.message ?? '').toLowerCase();
+      if (isAuthRateLimitMessage(error.message) || error.status === 429) {
+        // Account may already exist from an earlier attempt — keep credentials for confirm flow.
+        setPendingSignup(email, input.password);
+        throw new AuthRateLimitError();
+      }
       if (msg.includes('already registered') || msg.includes('already been registered')) {
-        throw new Error('That email already has an account. Sign in instead.');
+        throwAuthIssue('email_taken');
       }
       if (msg.includes('password')) {
-        throw new Error(error.message || 'Choose a stronger password and try again.');
+        throwAuthIssue('weak_password', {
+          message: error.message || undefined,
+        });
       }
-      throw new Error(error.message || 'Could not create account. Try again.');
+      throwMappedAuthError(error);
     }
 
     // Confirm email on: user row exists but session is null until the inbox link is used.
     if (!data.session) {
       if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
-        throw new Error('That email already has an account. Sign in instead.');
+        throwAuthIssue('email_taken');
       }
       setPendingSignup(email, input.password);
       return { status: 'needs_confirmation', email };
     }
 
     if (!data.user) {
-      throw new Error('Could not create account. Try again.');
+      throwAuthIssue('generic', { message: 'We couldn’t create your account. Please try again.' });
     }
 
     clearPendingSignup();
@@ -170,7 +185,9 @@ export const authRepository = {
 
     const supabase = getConfiguredSupabase('authRepository.forgotPassword');
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
-    mapDbError('authRepository.forgotPassword', error);
+    if (error) {
+      throwMappedAuthError(error);
+    }
   },
 
   async createProfile(user: OrbitUser, input: CreateProfileInput): Promise<OrbitUser> {
@@ -183,7 +200,7 @@ export const authRepository = {
       ...user,
       name: trimmedName,
       avatar,
-      profileComplete: true,
+      profileComplete: isProfileNameComplete(trimmedName, user.email),
     };
 
     if (isMockMode()) {
@@ -197,6 +214,15 @@ export const authRepository = {
       .update({ display_name: trimmedName } satisfies Partial<ProfileRow>)
       .eq('id', user.id);
     mapDbError('authRepository.createProfile', error);
+
+    // Keep the owner's household_members.display_name in sync with the profile.
+    const { error: memberError } = await supabase
+      .from('household_members')
+      .update({ display_name: trimmedName, avatar_symbol: avatar })
+      .eq('user_id', user.id);
+    if (memberError) {
+      console.warn('authRepository.createProfile: member name sync skipped', memberError.message);
+    }
 
     return nextUser;
   },

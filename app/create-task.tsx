@@ -1,25 +1,19 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { StreakMarker } from '@/components/orbit/streak-marker';
+import { TaskPicker } from '@/components/orbit/task-picker';
 import { XpWheel } from '@/components/orbit/xp-wheel';
+import Icon from '@/components/orbit/design/Icon';
+import type { IconName } from '@/components/orbit/design/icons';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
@@ -47,11 +41,13 @@ import {
 } from '@/lib/rewards/reward-mode';
 import { formatAssigneeLabel } from '@/lib/tasks/split-assign';
 import { computeTaskXp, weightForDifficulty } from '@/lib/tasks/xp';
+import { allLibraryTasks } from '@/lib/tasks/task-library';
+import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask, TaskDifficulty } from '@/types/orbit';
 
 type TaskType = 'task' | 'homework';
-type ScreenMode = 'presets' | 'custom' | 'library';
+type ScreenMode = 'picker' | 'presets' | 'custom' | 'library';
 
 export type TaskPreset = {
   id: string;
@@ -72,6 +68,8 @@ export type TaskPreset = {
 
 function libraryToPreset(task: ChoremaxxLibraryTask): TaskPreset {
   const hygiene = isHygieneLibraryTask(task);
+  const isHomework =
+    task.domain === 'Homework & Education' || task.domain === 'Homework' || task.group === 'Homework';
   const difficulty: TaskDifficulty = hygiene
     ? 'easy'
     : task.baseXp >= 20
@@ -87,7 +85,8 @@ function libraryToPreset(task: ChoremaxxLibraryTask): TaskPreset {
     difficulty,
     weight: weightForDifficulty(difficulty),
     repeat: inferLibraryRepeat(task),
-    proofRequired: hygiene ? false : task.proofDefault,
+    // Revision C §1: proof is not a create-time chore flag; homework requires it by default.
+    proofRequired: hygiene ? false : isHomework,
     roomKind: task.roomKind,
     domain: task.domain,
     group: task.group,
@@ -129,25 +128,26 @@ const priorities = [
 
 const repeatOptions: HouseholdTask['repeat'][] = ['None', 'Daily', 'Weekly', 'Weekdays'];
 
-/** Catalog chips — emoji + short label (filter id stays the full domain). */
-const CATALOG_CHIP_META: Record<string, { emoji: string; label: string }> = {
-  presets: { emoji: '⚡', label: 'Presets' },
-  all: { emoji: '✨', label: 'All' },
-  'Kitchen & Dining': { emoji: '🍽️', label: 'Kitchen' },
-  'Trash & Recycling': { emoji: '♻️', label: 'Trash' },
-  Bathroom: { emoji: '🚿', label: 'Bathroom' },
-  Laundry: { emoji: '🧺', label: 'Laundry' },
-  Bedroom: { emoji: '🛏️', label: 'Bedroom' },
-  'Living Room & Shared Spaces': { emoji: '🛋️', label: 'Living' },
-  'Floors & Deep Cleaning': { emoji: '🧹', label: 'Floors' },
-  Pets: { emoji: '🐾', label: 'Pets' },
-  Car: { emoji: '🚗', label: 'Car' },
-  'Yard & Outdoors': { emoji: '🌿', label: 'Yard' },
-  Hygiene: { emoji: '🪥', label: 'Hygiene' },
-  'Daily Routine': { emoji: '🌅', label: 'Routine' },
-  'Homework & Education': { emoji: '📚', label: 'Homework' },
-  'Meals, Groceries & Errands': { emoji: '🛒', label: 'Meals' },
-  'Home Maintenance & Organization': { emoji: '🧰', label: 'Home' },
+/** Catalog chips — ChoreMaxx Icon where a domain mark exists; label only otherwise. */
+const CATALOG_CHIP_META: Record<string, { icon?: IconName; label: string }> = {
+  presets: { label: 'Presets' },
+  all: { label: 'All' },
+  'Kitchen & Dining': { icon: 'kitchen', label: 'Kitchen' },
+  'Trash & Recycling': { icon: 'trash', label: 'Trash' },
+  Bathroom: { icon: 'bathroom', label: 'Bathroom' },
+  Laundry: { icon: 'laundry', label: 'Laundry' },
+  Bedroom: { icon: 'bedroom', label: 'Bedroom' },
+  'Living Room & Shared Spaces': { icon: 'livingRoom', label: 'Living' },
+  'Floors & Deep Cleaning': { icon: 'floors', label: 'Floors' },
+  Pets: { icon: 'pets', label: 'Pets' },
+  Car: { icon: 'car', label: 'Car' },
+  'Yard & Outdoors': { icon: 'yard', label: 'Yard' },
+  Hygiene: { icon: 'hygiene', label: 'Hygiene' },
+  'Personal Hygiene': { icon: 'hygiene', label: 'Hygiene' },
+  'Daily Routine': { icon: 'dailyRoutine', label: 'Routine' },
+  'Homework & Education': { icon: 'homework', label: 'Homework' },
+  'Meals, Groceries & Errands': { icon: 'groceries', label: 'Meals' },
+  'Home Maintenance & Organization': { icon: 'maintenance', label: 'Home' },
 };
 
 const GRADIENT_BY_COLOR: Record<string, [string, string]> = {
@@ -258,8 +258,11 @@ function AssignEmojiGrid({
 
 export default function CreateTaskScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ tab?: string | string[] }>();
   const { accentTheme, createTask, household, orbitPalette, permissions } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
+  const initialTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
+  const initialType: TaskType = initialTab === 'homework' ? 'homework' : 'task';
 
   const rewardSettings = useMemo(
     () =>
@@ -294,19 +297,18 @@ export default function CreateTaskScreen() {
     return ids;
   }, [activeMembers, household.members]);
 
-  const rooms = useMemo(() => household.rooms ?? [], [household.rooms]);
-  const libraryAudience: LibraryAudience =
-    household.householdType === 'roommates' ? 'roommate' : 'family';
+  const libraryAudience: LibraryAudience = 'family';
   const childMembers = useMemo(
     () => activeMembers.filter(isChildMember),
     [activeMembers],
   );
-  /** Hygiene is kids-only — never roommates / guests / adult-only homes. */
+  /** Hygiene is kids-only — never adult-only homes. */
   const showHygieneLibrary =
     libraryAudience === 'family' && childMembers.length > 0;
 
-  const [mode, setMode] = useState<ScreenMode>('presets');
-  const [type, setType] = useState<TaskType>('task');
+  const [mode, setMode] = useState<ScreenMode>('picker');
+  const [pickerIds, setPickerIds] = useState<string[]>([]);
+  const [type, setType] = useState<TaskType>(initialType);
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState<(typeof subjects)[number]['label']>('Math');
   const defaultAssigneeId = activeMembers[0]?.id ?? '';
@@ -315,10 +317,12 @@ export default function CreateTaskScreen() {
   const [splitMode, setSplitMode] = useState(false);
   const [due, setDue] = useState<(typeof dueOptions)[number]>('Today');
   const [priority, setPriority] = useState(1);
+
+  useEffect(() => {
+    setType(initialType);
+  }, [initialType]);
   const [repeat, setRepeat] = useState<HouseholdTask['repeat']>('None');
   const [difficulty, setDifficulty] = useState<TaskDifficulty>('medium');
-  const [proofRequired, setProofRequired] = useState(false);
-  const [roomId, setRoomId] = useState<string | undefined>();
   const [presetQuery, setPresetQuery] = useState('');
   const [baseXp, setBaseXp] = useState(10);
   const [category, setCategory] = useState('General');
@@ -449,17 +453,14 @@ export default function CreateTaskScreen() {
     return order
       .filter((kind) => (buckets.get(kind)?.length ?? 0) > 0)
       .map((kind) => {
-        const householdRoom = rooms.find((room) => room.kind === kind);
         const fallback = labels[kind];
         return {
           kind,
-          title: householdRoom
-            ? `${householdRoom.emoji} ${householdRoom.name}`
-            : `${fallback.emoji} ${fallback.name}`,
+          title: `${fallback.emoji} ${fallback.name}`,
           items: buckets.get(kind) ?? [],
         };
       });
-  }, [libraryResults, rooms]);
+  }, [libraryResults]);
 
   const isHygieneDraft = tracking === 'streak' || category === 'Hygiene';
 
@@ -479,8 +480,14 @@ export default function CreateTaskScreen() {
     });
     setSplitMode(false);
     setBaseXp(0);
-    setProofRequired(false);
   }, [isHygieneDraft, childMembers]);
+
+  // Seed assignee when household members load (picker/custom can mount before roster is ready).
+  useEffect(() => {
+    if (selectedIds.length > 0) return;
+    const pool = isHygieneDraft ? childMembers : activeMembers;
+    if (pool[0]) setSelectedIds([pool[0].id]);
+  }, [activeMembers, childMembers, isHygieneDraft, selectedIds.length]);
 
   const selectedMembers = useMemo(
     () => assigneeChoices.filter((member) => selectedIds.includes(member.id)),
@@ -549,11 +556,6 @@ export default function CreateTaskScreen() {
     );
   }
 
-    function roomIdForKind(kind?: TaskPreset['roomKind']) {
-    if (!kind) return undefined;
-    return rooms.find((room) => room.kind === kind)?.id;
-  }
-
   async function persistQuickConfig(nextIds: string[], nextOverrides: Record<string, QuickPresetOverride>) {
     setQuickIds(nextIds);
     setQuickOverrides(nextOverrides);
@@ -598,7 +600,6 @@ export default function CreateTaskScreen() {
     difficulty: TaskDifficulty;
     weight: number;
     proofRequired: boolean;
-    roomId?: string;
     tracking?: LibraryTracking;
   }) {
     const hygiene = base.tracking === 'streak' || base.category === 'Hygiene';
@@ -622,7 +623,6 @@ export default function CreateTaskScreen() {
   }
 
   function applyPreset(preset: TaskPreset, createNow: boolean) {
-    const nextRoomId = roomIdForKind(preset.roomKind);
     const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
     const nextXp = hygiene ? 0 : computeTaskXp(preset.baseXp, preset.weight, preset.difficulty);
 
@@ -656,8 +656,7 @@ export default function CreateTaskScreen() {
         repeat: preset.repeat,
         difficulty: preset.difficulty,
         weight: preset.weight,
-        proofRequired: hygiene ? false : preset.proofRequired,
-        roomId: nextRoomId,
+        proofRequired: hygiene ? false : Boolean(preset.proofRequired),
         tracking: hygiene ? 'streak' : 'xp',
         assignee: names[0] ?? household.greetingName,
         assignees: names.length > 1 ? names : undefined,
@@ -674,9 +673,7 @@ export default function CreateTaskScreen() {
     setDescription(preset.description);
     setRepeat(preset.repeat);
     setDifficulty(preset.difficulty);
-    setProofRequired(hygiene ? false : preset.proofRequired);
     setBaseXp(hygiene ? 0 : preset.baseXp);
-    setRoomId(nextRoomId);
     const priorityIndex = Math.max(
       0,
       priorities.findIndex((item) => item.difficulty === preset.difficulty),
@@ -725,8 +722,8 @@ export default function CreateTaskScreen() {
           repeat,
           difficulty: 'medium',
           weight: weightForDifficulty('medium'),
-          proofRequired,
-          roomId,
+          // Revision C §1: homework requires proof by default.
+          proofRequired: true,
         })
       );
     } else {
@@ -741,8 +738,8 @@ export default function CreateTaskScreen() {
           repeat,
           difficulty: isHygieneDraft ? 'easy' : difficulty,
           weight: isHygieneDraft ? 1 : weight,
-          proofRequired: isHygieneDraft ? false : proofRequired,
-          roomId,
+          // Revision C §1: chores never pre-set proof — admins request it after complete.
+          proofRequired: false,
           tracking: isHygieneDraft ? 'streak' : 'xp',
         })
       );
@@ -750,6 +747,203 @@ export default function CreateTaskScreen() {
 
     router.back();
   };
+
+  const assignFromPicker = async () => {
+    if (!permissions.canAssignTask || pickerIds.length === 0) return;
+    if (resolvedAssigneeNames.length === 0) {
+      Alert.alert('Pick someone', 'Choose who should do these tasks before assigning.');
+      return;
+    }
+    const library = allLibraryTasks();
+    const byId = new Map(library.map((t) => [t.id, t]));
+    let createdCount = 0;
+    let blocked = false;
+    let lastError = '';
+    for (const id of pickerIds) {
+      const task = byId.get(id);
+      if (!task) continue;
+      const dueAt = dueAtForFrequency(task.defaultFrequency);
+      const occurrenceDate = dueAt ? dueAt.toISOString().slice(0, 10) : undefined;
+      const payload = buildTaskPayload({
+        title: task.name,
+        category: task.domainId,
+        due: dueAt ? 'Today' : 'As needed',
+        xp: task.xp,
+        repeat:
+          task.defaultFrequency === 'daily'
+            ? 'Daily'
+            : task.defaultFrequency === 'weekdays'
+              ? 'Weekdays'
+              : task.defaultFrequency === 'weekly' || task.defaultFrequency === '2x_weekly'
+                ? 'Weekly'
+                : 'None',
+        difficulty: 'medium',
+        weight: 1,
+        // Revision C §1: homework proof by default; chores on-demand after complete.
+        proofRequired: type === 'homework' || task.domainId === 'homework_education',
+        tracking: task.tracking,
+      });
+      const definitionId = `lib:${task.id}:${payload.assignee}`;
+      try {
+        if (task.tracking === 'streak') {
+          const kids = childMembers.map((m) => m.name);
+          if (kids.length === 0) continue;
+          const kidNames = payload.assignees?.length
+            ? payload.assignees.filter((n) => kids.includes(n))
+            : kids.includes(payload.assignee)
+              ? [payload.assignee]
+              : [kids[0]];
+          const created = await createTask({
+            ...payload,
+            assignee: kidNames[0],
+            assignees: kidNames.length > 1 ? kidNames : undefined,
+            dueAt: dueAt?.toISOString(),
+            baseXp: 0,
+            xpEligible: false,
+            definitionId: `lib:${task.id}:${kidNames[0]}`,
+            occurrenceDate,
+          });
+          if (created) createdCount += 1;
+          else blocked = true;
+          continue;
+        }
+        const created = await createTask({
+          ...payload,
+          dueAt: dueAt?.toISOString(),
+          baseXp: task.xp,
+          xpEligible: true,
+          definitionId,
+          occurrenceDate,
+        });
+        if (created) createdCount += 1;
+        else blocked = true;
+      } catch (error) {
+        blocked = true;
+        lastError = error instanceof Error ? error.message : 'Unknown error';
+      }
+    }
+
+    if (createdCount === 0) {
+      Alert.alert(
+        'Nothing assigned',
+        lastError
+          ? `Could not save tasks: ${lastError}`
+          : blocked
+            ? 'Could not save tasks to the household. Check you are signed in as an admin and try again.'
+            : 'No matching tasks were created. Try selecting tasks again.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Assigned',
+      createdCount === 1
+        ? `1 task assigned to ${resolvedAssigneeName}.`
+        : `${createdCount} tasks assigned to ${resolvedAssigneeName}.`,
+      [{ text: 'OK', onPress: () => router.back() }]
+    );
+  };
+
+  if (mode === 'picker') {
+    return (
+      <View
+        style={[
+          orbitScreen.container,
+          { paddingBottom: insets.bottom, backgroundColor: orbitPalette.background },
+        ]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.handleWrap, { paddingTop: insets.top + 8 }]}>
+          <View style={[styles.handle, { backgroundColor: glass(0.2) }]} />
+        </View>
+        <ScrollView
+          style={orbitScreen.container}
+          contentContainerStyle={styles.tripContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
+          <View style={orbitScreen.header}>
+            <View style={styles.tripNavRow}>
+              <Pressable
+                onPress={() => router.back()}
+                style={[styles.backPill, { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) }]}
+                hitSlop={8}>
+                <MaterialIcons name="chevron-left" size={20} color={orbitPalette.text} />
+                <Text style={[styles.backPillText, { color: orbitPalette.text }]}>Close</Text>
+              </Pressable>
+            </View>
+            <Text style={[typography.footnote, { color: orbitPalette.textMuted }]}>Create task</Text>
+            <Text style={[typography.title1, { color: orbitPalette.text }]}>Assign chores</Text>
+            <Text style={[styles.summary, { color: orbitPalette.textMuted }]}>
+              Pick who first, then browse domains. {pickerIds.length} selected.
+            </Text>
+          </View>
+
+          {permissions.canAssignTask ? (
+            <GlassCard style={styles.heroCard}>
+              <Text style={[styles.poppinsLabel, { color: c.poppinsCyan }]}>WHO&apos;S DOING IT</Text>
+              <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
+                Tap a person for these tasks. Hold a second profile to split.
+              </Text>
+              {activeMembers.length === 0 ? (
+                <Text style={[typography.footnote, { color: c.warning }]}>
+                  No household members yet — add people in Settings, then come back.
+                </Text>
+              ) : (
+                <AssignEmojiGrid
+                  members={assigneeChoices}
+                  selectedIds={selectedIds}
+                  splitMode={splitMode}
+                  sharedDeviceIds={sharedDeviceMemberIds}
+                  onSelect={selectAssignee}
+                  onLongPress={longPressAssignee}
+                />
+              )}
+              {resolvedAssigneeName ? (
+                <Text style={[typography.footnote, { color: orbitPalette.textMuted }]}>
+                  Assigning to {resolvedAssigneeName}
+                  {isSplitAssign ? ' · split XP when each finishes' : ''}
+                </Text>
+              ) : null}
+            </GlassCard>
+          ) : (
+            <GlassCard style={styles.heroCard}>
+              <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
+                Only an admin can assign chores. Ask a parent to switch profiles.
+              </Text>
+            </GlassCard>
+          )}
+
+          <TaskPicker
+            selectedIds={pickerIds}
+            onChange={setPickerIds}
+            tab={type === 'homework' ? 'homework' : 'chores'}
+            onRequestCustom={() => setMode('custom')}
+          />
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+            <Pressable onPress={() => setMode('presets')} style={{ flex: 1 }}>
+              <Text style={{ color: orbitPalette.textMuted, textAlign: 'center', fontWeight: '600' }}>
+                Quick presets
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => setMode('custom')} style={{ flex: 1 }}>
+              <Text style={{ color: orbitPalette.textMuted, textAlign: 'center', fontWeight: '600' }}>
+                Custom task
+              </Text>
+            </Pressable>
+          </View>
+          <OrbitButton
+            disabled={
+              !permissions.canAssignTask ||
+              pickerIds.length === 0 ||
+              resolvedAssigneeNames.length === 0
+            }
+            onPress={() => void assignFromPicker()}>
+            Assign {pickerIds.length || ''} task{pickerIds.length === 1 ? '' : 's'}
+            {resolvedAssigneeName ? ` · ${resolvedAssigneeName}` : ''}
+          </OrbitButton>
+        </ScrollView>
+      </View>
+    );
+  }
 
   if (mode === 'presets') {
     const activeMeta = CATALOG_CHIP_META[catalogChip];
@@ -803,7 +997,7 @@ export default function CreateTaskScreen() {
 
           {permissions.canAssignTask ? (
             <GlassCard style={styles.heroCard}>
-              <Text style={[styles.novaLabel, { color: c.novaCyan }]}>WHO&apos;S DOING IT</Text>
+              <Text style={[styles.poppinsLabel, { color: c.poppinsCyan }]}>WHO&apos;S DOING IT</Text>
               <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
                 Pick one person, or hold a second profile to split the chore.
               </Text>
@@ -824,9 +1018,9 @@ export default function CreateTaskScreen() {
           ) : null}
 
           <GlassCard style={styles.heroCard}>
-            <Text style={[styles.novaLabel, { color: c.novaCyan }]}>BROWSE</Text>
+            <Text style={[styles.poppinsLabel, { color: c.poppinsCyan }]}>BROWSE</Text>
             <Text style={[typography.body, { color: orbitPalette.textSoft }]}>
-              Presets, the full library, or a room category from the Choremaxx catalog.
+              Presets, the full library, or a domain from the Choremaxx catalog.
             </Text>
             <View style={[styles.searchFieldWrap, { backgroundColor: glass(0.04), borderColor: glassBorder(0.1) }]}>
               <MaterialIcons name="search" size={18} color={orbitPalette.textSubtle} />
@@ -851,7 +1045,7 @@ export default function CreateTaskScreen() {
                   ...domains.map((domain) => ({ id: domain })),
                 ] as { id: string }[]
               ).map((chip) => {
-                const meta = CATALOG_CHIP_META[chip.id] ?? { emoji: '•', label: chip.id };
+                const meta = CATALOG_CHIP_META[chip.id] ?? { label: chip.id };
                 const active = catalogChip === chip.id;
                 return (
                   <Pressable
@@ -864,11 +1058,11 @@ export default function CreateTaskScreen() {
                         backgroundColor: `${accentTheme.primary}22`,
                       },
                     ]}>
-                    <Text style={styles.filterPillEmoji}>{meta.emoji}</Text>
+                    {meta.icon ? <Icon name={meta.icon} size={20} /> : null}
                     <Text
                       style={[
                         styles.filterPillLabel,
-                        { color: c.novaCyan },
+                        { color: c.poppinsCyan },
                         active && { color: accentTheme.primary },
                       ]}>
                       {meta.label}
@@ -891,10 +1085,8 @@ export default function CreateTaskScreen() {
                   setCategory('General');
                   setRepeat('None');
                   setDifficulty('medium');
-                  setProofRequired(false);
                   setBaseXp(10);
                   setTracking('xp');
-                  setRoomId(undefined);
                 }}>
                 Custom task
               </OrbitButton>
@@ -918,10 +1110,9 @@ export default function CreateTaskScreen() {
                   { baseXp: preset.baseXp, xpEligible: !hygiene },
                   xpCtx
                 );
-                const domainEmoji =
-                  CATALOG_CHIP_META[preset.category ?? '']?.emoji ??
-                  CATALOG_CHIP_META[preset.domain ?? '']?.emoji ??
-                  '✓';
+                const domainIcon =
+                  CATALOG_CHIP_META[preset.category ?? '']?.icon ??
+                  CATALOG_CHIP_META[preset.domain ?? '']?.icon;
                 const metaLine = [
                   preset.group ?? preset.category,
                   preset.repeat !== 'None' ? preset.repeat : null,
@@ -933,7 +1124,11 @@ export default function CreateTaskScreen() {
                   <GlassCard key={preset.id} style={styles.stopCard}>
                     <View style={styles.stopRow}>
                       <View style={styles.dot}>
-                        <Text style={styles.dotEmoji}>{domainEmoji}</Text>
+                        {domainIcon ? (
+                          <Icon name={domainIcon} size={20} />
+                        ) : (
+                          <Icon name="maintenance" size={20} />
+                        )}
                       </View>
                       <View style={styles.stopBody}>
                         <Text style={[typography.headline, { color: orbitPalette.text }]}>
@@ -1251,45 +1446,12 @@ export default function CreateTaskScreen() {
           </Pressable>
         </View>
 
-        <View style={[styles.typeToggle, { backgroundColor: glass(0.06) }]}>
-          {(['task', 'homework'] as const).map((option) => {
-            const active = type === option;
-            const isHomework = option === 'homework';
-            return (
-              <Pressable
-                key={option}
-                onPress={() => setType(option)}
-                style={[
-                  styles.typeOption,
-                  active && {
-                    backgroundColor: isHomework ? 'rgba(167,139,250,0.2)' : `${accentTheme.primary}33`,
-                    borderColor: isHomework ? 'rgba(167,139,250,0.2)' : `${accentTheme.primary}33`,
-                  },
-                ]}>
-                <MaterialIcons
-                  color={active ? (isHomework ? '#A78BFA' : accentTheme.primary) : c.textSubtle }
-                  name={isHomework ? 'menu-book' : 'check-box'}
-                  size={15}
-                />
-                <Text
-                  style={[
-                    styles.typeLabel,
-                    { color: c.textSubtle },
-                    active && { color: isHomework ? '#A78BFA' : accentTheme.primary },
-                  ]}>
-                  {option}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
         <View style={styles.field}>
           <Text style={[styles.label, { color: c.textMuted }]}>{type === 'homework' ? 'ASSIGNMENT' : 'TASK'}</Text>
           <TextInput
             autoFocus
             onChangeText={setTitle}
-            placeholder={type === 'homework' ? 'e.g. Chapter 5 worksheet' : 'e.g. Call plumber about sink'}
+            placeholder={type === 'homework' ? 'e.g. Chapter 5 worksheet' : 'e.g. Clean bedroom'}
             placeholderTextColor={orbitPalette.textSubtle}
             style={[styles.titleInput, { color: orbitPalette.text, backgroundColor: glass(0.07), borderColor: glassBorder(0.1) }]}
             value={title}
@@ -1322,36 +1484,7 @@ export default function CreateTaskScreen() {
               })}
             </View>
           </View>
-        ) : (
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: c.textMuted }]}>PRIORITY</Text>
-            <View style={styles.priorityRow}>
-              {priorities.map((item, index) => {
-                const active = priority === index;
-                return (
-                  <Pressable
-                    key={item.label}
-                    onPress={() => {
-                      setPriority(index);
-                      setDifficulty(item.difficulty);
-                      setBaseXp(item.xp);
-                    }}
-                    style={[
-                      styles.priorityChip,
-                      {
-                        backgroundColor: active ? `${item.color}22` : glass(0.06),
-                        borderColor: active ? `${item.color}44` : glassBorder(0.08),
-                      },
-                    ]}>
-                    <Text style={[styles.priorityText, { color: active ? item.color : c.textMuted }]}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        )}
+        ) : null}
 
         <View style={styles.field}>
           <Text style={[styles.label, { color: c.textMuted }]}>REPEAT</Text>
@@ -1377,58 +1510,6 @@ export default function CreateTaskScreen() {
             })}
           </View>
         </View>
-
-        {rooms.length ? (
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: c.textMuted }]}>ROOM (OPTIONAL)</Text>
-            <View style={styles.subjectRow}>
-              <Pressable
-                onPress={() => setRoomId(undefined)}
-                style={[
-                  styles.subjectChip,
-                  {
-                    backgroundColor: !roomId ? `${accentTheme.primary}22` : glass(0.06),
-                    borderColor: !roomId ? `${accentTheme.primary}44` : glassBorder(0.08),
-                  },
-                ]}>
-                <Text style={[styles.subjectText, { color: !roomId ? accentTheme.primary : c.textMuted }]}>
-                  None
-                </Text>
-              </Pressable>
-              {rooms.map((room) => {
-                const active = roomId === room.id;
-                return (
-                  <Pressable
-                    key={room.id}
-                    onPress={() => setRoomId(room.id)}
-                    style={[
-                      styles.subjectChip,
-                      {
-                        backgroundColor: active ? `${accentTheme.primary}22` : glass(0.06),
-                        borderColor: active ? `${accentTheme.primary}44` : glassBorder(0.08),
-                      },
-                    ]}>
-                    <Text style={styles.subjectEmoji}>{room.emoji}</Text>
-                    <Text style={[styles.subjectText, { color: active ? accentTheme.primary : c.textMuted }]}>
-                      {room.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        ) : null}
-
-        {!isHygieneDraft ? (
-          <Pressable onPress={() => setProofRequired((value) => !value)} style={styles.proofToggle}>
-            <MaterialIcons
-              name={proofRequired ? 'check-box' : 'check-box-outline-blank'}
-              size={18}
-              color={proofRequired ? accentTheme.primary : c.textSubtle }
-            />
-            <Text style={[styles.proofToggleText, { color: c.textSoft }]}>Require photo proof after complete</Text>
-          </Pressable>
-        ) : null}
 
         {permissions.canAssignTask ? (
           <View style={styles.field}>
@@ -1491,7 +1572,7 @@ export default function CreateTaskScreen() {
             <Text style={[styles.sharedPickHint, { color: c.textMuted }]}>
               Each person earns +
               {resolveTaskXp({ baseXp: baseXp || 10, xpEligible: true }, xpCtx)} XP when they finish
-              {proofRequired ? ' (proof requested after)' : ''}. If everyone finishes, each gets a bonus.
+              {type === 'homework' ? ' (photo proof required)' : ''}. If everyone finishes, each gets a bonus.
               Admins can penalize anyone who doesn’t.
             </Text>
           </View>
@@ -1632,8 +1713,8 @@ const styles = StyleSheet.create({
   heroCard: {
     gap: 10
   },
-  novaLabel: {
-    color: orbitColors.novaCyan,
+  poppinsLabel: {
+    color: orbitColors.poppinsCyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.6
@@ -1669,7 +1750,7 @@ const styles = StyleSheet.create({
     lineHeight: 16
   },
   filterPillLabel: {
-    color: orbitColors.novaCyan,
+    color: orbitColors.poppinsCyan,
     fontSize: 12,
     fontWeight: '700'
   },

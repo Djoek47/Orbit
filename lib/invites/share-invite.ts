@@ -13,7 +13,9 @@ type ShareInviteInput = {
 };
 
 /**
- * Opens the system share sheet. On iOS this surfaces AirDrop for nearby people.
+ * Opens the system share sheet. On iOS, `url` is the custom scheme so AirDrop
+ * opens Choremaxx immediately when the app is installed. The https link stays
+ * in the message for Messages / Mail / web fallback.
  */
 export async function shareInvite({
   householdName,
@@ -32,32 +34,23 @@ export async function shareInvite({
   const message =
     kind === 'kid'
       ? [
-          childName
-            ? `${childName}, you're invited to ${home} on Choremaxx.`
-            : `You're invited to ${home} on Choremaxx.`,
-          ``,
-          `No sign-in needed — open this invite on your phone.`,
-          `In the app: Get Started → Child → paste this code.`,
-          ``,
-          `Kid invite code: ${code}`,
-          `Open: ${url}`,
-          Platform.OS === 'ios' ? `Or AirDrop / open: ${appLink}` : `Or open in Choremaxx: ${appLink}`,
+          childName ? `${childName} — join ${home} on Choremaxx.` : `Join ${home} on Choremaxx.`,
+          `Code: ${code}`,
+          appLink,
         ].join('\n')
-      : [
-          `You're invited to join ${home} on Choremaxx.`,
-          ``,
-          `Invite code: ${code}`,
-          `Open: ${url}`,
-          Platform.OS === 'ios' ? `Or AirDrop / open: ${appLink}` : `Or open in Choremaxx: ${appLink}`,
-        ].join('\n');
+      : [`Join ${home} on Choremaxx.`, `Code: ${code}`, appLink, url].join('\n');
 
   const result = await Share.share(
     Platform.OS === 'ios'
-      ? { message, url }
-      : {
+      ? {
+          // AirDrop / Contacts: custom scheme opens the app when installed.
+          url: appLink,
           message,
+        }
+      : {
+          message: `${message}\n${appLink}`,
           title: kind === 'kid' ? 'Choremaxx kid invite' : 'Join us on Choremaxx',
-        },
+        }
   );
 
   if (result.action === Share.sharedAction) {

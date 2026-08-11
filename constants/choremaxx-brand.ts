@@ -30,11 +30,15 @@ export const CHOREMAXX_TAGLINE = 'AI Household OS';
 export const CHOREMAXX_VERSION = '1.0.0';
 export const CHOREMAXX_COPYRIGHT_YEAR = 2026;
 
+const DEFAULT_PRIVACY_URL = 'https://choremaxx.vercel.app/privacy';
+const DEFAULT_TERMS_URL = 'https://choremaxx.vercel.app/terms';
+
 export const CHOREMAXX_LEGAL = {
   copyright: `© ${CHOREMAXX_COPYRIGHT_YEAR} Choremaxx. All rights reserved.`,
   shortCopyright: `Choremaxx © ${CHOREMAXX_COPYRIGHT_YEAR}`,
-  privacyUrl: 'https://choremaxx.app/privacy',
-  termsUrl: 'https://choremaxx.app/terms',
+  /** Live until custom domain cutover (weekend A1). Overridable via EAS/env. */
+  privacyUrl: process.env.EXPO_PUBLIC_PRIVACY_URL?.trim() || DEFAULT_PRIVACY_URL,
+  termsUrl: process.env.EXPO_PUBLIC_TERMS_URL?.trim() || DEFAULT_TERMS_URL,
   supportEmail: 'support@choremaxx.app',
   privacyEmail: 'privacy@choremaxx.app',
 } as const;

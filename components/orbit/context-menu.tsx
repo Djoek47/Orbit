@@ -2,21 +2,12 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRef, useState } from 'react';
-import {
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type LayoutRectangle,
-  type NativeSyntheticEvent,
-  type NativeTouchEvent,
-} from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, View, type LayoutRectangle, type NativeSyntheticEvent, type NativeTouchEvent } from 'react-native';
 
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export type ContextMenuAction = {
   key: string;

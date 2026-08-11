@@ -15,22 +15,16 @@ export type HealthMetricItem = {
   kind: HealthMetricKind;
 };
 
-export type HomeHealthRole = 'admin' | 'kid' | 'roommate';
+export type HomeHealthRole = 'admin' | 'kid';
 
 export function resolveHomeHealthRole(
   member: HouseholdMember | undefined,
-  opts?: { householdType?: HouseholdSnapshot['householdType'] | null; isAdmin?: boolean },
+  opts?: { isAdmin?: boolean },
 ): HomeHealthRole {
   if (member?.role === 'child' || isSharedDeviceRole(member?.role ?? 'guest')) {
     return 'kid';
   }
-  if (opts?.householdType === 'roommates') {
-    return 'roommate';
-  }
-  if (opts?.isAdmin || member?.role === 'owner' || member?.role === 'admin') {
-    return 'admin';
-  }
-  return 'roommate';
+  return 'admin';
 }
 
 /** Fairness: how evenly week XP is spread (100 = equal, lower = skewed). */
@@ -110,40 +104,9 @@ export function buildHomeHealthMetrics(opts: {
     ];
   }
 
-  if (role === 'roommate') {
-    return [
-      {
-        key: 'completion',
-        label: 'Completion',
-        val: metrics.taskCompletionRate,
-        valueLabel: `${metrics.taskCompletionRate}%`,
-        color: '#34D399',
-        icon: 'check-circle',
-        kind: 'pct',
-      },
-      {
-        key: 'openChores',
-        label: 'Open chores',
-        val: Math.min(100, metrics.openTasks === 0 ? 100 : Math.max(5, 100 - metrics.openTasks * 8)),
-        valueLabel: String(metrics.openTasks),
-        color: '#A78BFA',
-        icon: 'cleaning-services',
-        kind: 'count',
-      },
-      {
-        key: 'groceryLoad',
-        label: 'Grocery',
-        val: metrics.groceryReadiness,
-        valueLabel: `${metrics.groceryReadiness}%`,
-        color: '#38BDF8',
-        icon: 'shopping-cart',
-        kind: 'pct',
-      },
-    ];
-  }
-
-  // admin / parent
-  const fairness = metrics.fairnessScore ?? fairnessFromWeekXp(household.members);
+  // Household Health shows Completion + Streak only (§7.1 — Fairness removed).
+  // Household streak: increments on any day where 100% of that day's due occurrences
+  // across all members were completed by their deadlines (§7.2).
   const streak = metrics.householdStreak ?? householdStreakDays(household.members);
   return [
     {
@@ -153,15 +116,6 @@ export function buildHomeHealthMetrics(opts: {
       valueLabel: `${metrics.taskCompletionRate}%`,
       color: '#34D399',
       icon: 'check-circle',
-      kind: 'pct',
-    },
-    {
-      key: 'fairness',
-      label: 'Fairness',
-      val: fairness,
-      valueLabel: `${fairness}%`,
-      color: '#FBBF24',
-      icon: 'balance',
       kind: 'pct',
     },
     {

@@ -1,16 +1,18 @@
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
+import { VOCAB } from '@/constants/vocabulary';
 import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function WeeklyReportScreen() {
-  const { household, novaWeeklyBriefing } = useOrbit();
-  const report = novaWeeklyBriefing;
+  const { household, poppinsWeeklyBriefing } = useOrbit();
+  const report = poppinsWeeklyBriefing;
 
   return (
     <ScrollView
@@ -25,7 +27,7 @@ export default function WeeklyReportScreen() {
 
       <View style={styles.grid}>
         <StatCard label="Completed" value={`${report.tasksCompleted}`} tone="green" />
-        <StatCard label="Missed" value={`${report.tasksMissed}`} tone="red" />
+        <StatCard label={VOCAB.expired} value={`${report.tasksMissed}`} tone="red" />
         <StatCard label="Groceries" value={`${report.groceriesPurchased}`} tone="cyan" />
         <StatCard label="XP earned" value={`${report.xpEarned}`} tone="amber" />
       </View>
@@ -41,7 +43,7 @@ export default function WeeklyReportScreen() {
       </GlassCard>
 
       <GlassCard style={styles.card}>
-        <Text style={typography.headline}>Nova recommendations</Text>
+        <Text style={typography.headline}>Poppins recommendations</Text>
         {report.recommendations.map((item) => (
           <Text key={item} style={typography.footnote}>
             • {item}

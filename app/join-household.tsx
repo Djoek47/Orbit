@@ -1,28 +1,32 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { StyleSheet } from 'react-native';
 
+import { AppText as Text } from '@/components/orbit/app-text';
 import { AuthShell } from '@/components/orbit/auth-shell';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { orbitColors } from '@/constants/orbit-theme';
+import { typography } from '@/constants/orbit-theme';
+import { consumeInviteCode, peekInviteCode } from '@/lib/invite/invite-code-store';
 import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function JoinHouseholdScreen() {
+  const params = useLocalSearchParams<{ code?: string }>();
   const { joinHousehold } = useOrbit();
   const { c } = useOrbitColors();
-  const [inviteCode, setInviteCode] = useState('CMX-7429');
+  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const autoJoinCode = useRef<string | null>(null);
 
   const handleJoinHousehold = async (code = inviteCode) => {
     const parsed = parseInvitePayload(code) ?? (code.trim() ? normalizeInviteCode(code) : null);
     if (!parsed) {
-      setError('Enter or scan a valid invite code.');
+      setError('Enter a valid invite code.');
       return;
     }
 
@@ -30,35 +34,66 @@ export default function JoinHouseholdScreen() {
     setError('');
     try {
       setInviteCode(parsed);
+      await consumeInviteCode();
       await joinHousehold({ inviteCode: parsed });
       router.replace('/' as never);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not join household.');
+      setError(err instanceof Error ? err.message : 'Couldn’t join.');
     } finally {
       setBusy(false);
     }
   };
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const fromParam =
+        typeof params.code === 'string' && params.code.trim()
+          ? parseInvitePayload(params.code) ?? normalizeInviteCode(params.code)
+          : null;
+      const fromStash = fromParam ? null : await peekInviteCode();
+      const next = fromParam || (fromStash ? normalizeInviteCode(fromStash) : '');
+      if (cancelled || !next) return;
+      setInviteCode(next);
+      if (!autoJoinCode.current) {
+        autoJoinCode.current = next;
+        void handleJoinHousehold(next);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount / param hydrate only
+  }, [params.code]);
+
   return (
     <>
       <AuthShell
         showBack
-        kicker="Join a household"
-        title="Invite code"
-        subtitle="Scan a QR or enter an invite code. Access stays pending until an owner or admin approves you.">
-        <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
+        kicker="Join"
+        title="Enter code"
+        subtitle="Paste a code, or scan the household QR.">
         <OrbitInput
           autoCapitalize="characters"
           label="Invite code"
           value={inviteCode}
-          onChangeText={setInviteCode}
+          onChangeText={(value) => {
+            setInviteCode(value);
+            setError('');
+          }}
+          placeholder="CMX-0000"
         />
-        <Text style={[styles.hint, { color: c.textSubtle }]}>
-          Demo code: CMX-7429 — or scan a household QR from an invite.
-        </Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {error ? (
+          <Text style={[typography.footnote, styles.error, { color: c.danger }]}>{error}</Text>
+        ) : null}
+
         <OrbitButton disabled={busy} onPress={() => void handleJoinHousehold()}>
-          {busy ? 'Joining…' : 'Join household'}
+          {busy ? 'Joining…' : 'Continue'}
+        </OrbitButton>
+
+        <OrbitButton tone="secondary" onPress={() => setScannerOpen(true)}>
+          Scan QR
         </OrbitButton>
       </AuthShell>
 
@@ -76,12 +111,6 @@ export default function JoinHouseholdScreen() {
 
 const styles = StyleSheet.create({
   error: {
-    color: orbitColors.danger,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  hint: {
-    fontSize: 12,
-    lineHeight: 16,
+    textAlign: 'center',
   },
 });

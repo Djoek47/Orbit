@@ -33,7 +33,8 @@
       },
       "env": {
         "EXPO_PUBLIC_DATA_MODE": "supabase",
-        "EXPO_PUBLIC_NOVA_AI": "openai"
+        "EXPO_PUBLIC_POPPINS_AI": "openai",
+        "EXPO_PUBLIC_POPPINS_REALTIME": "1"
       }
     },
     "production": {
@@ -45,7 +46,8 @@
       },
       "env": {
         "EXPO_PUBLIC_DATA_MODE": "supabase",
-        "EXPO_PUBLIC_NOVA_AI": "openai"
+        "EXPO_PUBLIC_POPPINS_AI": "openai",
+        "EXPO_PUBLIC_POPPINS_REALTIME": "1"
       }
     }
   },

@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
@@ -11,6 +11,7 @@ import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { orbitColors, radius, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type AuthShellProps = {
   children: ReactNode;

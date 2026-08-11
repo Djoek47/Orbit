@@ -1,13 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { INTRO_SLOGANS } from '@/constants/vocabulary';
+import {
+  DEFAULT_REWARD_MODEL,
+  migrateLegacyRewardModel,
+  type RewardModel,
+} from '@/lib/rewards/reward-model';
 import type { RewardMode } from '@/lib/rewards/reward-mode';
-import type { HouseholdRole, HouseholdType } from '@/types/orbit';
+import type { HouseholdRole } from '@/types/orbit';
 
-export type OnboardingRole = 'parent' | 'child' | 'roommate' | 'shared-tablet';
+export type OnboardingRole = 'parent' | 'child' | 'shared-tablet';
 
-/** Legacy role kept only so old AsyncStorage prefs can be migrated. */
-type LegacyOnboardingRole = OnboardingRole | 'caregiver';
+/** Legacy roles kept only so old AsyncStorage prefs can be migrated. */
+type LegacyOnboardingRole = OnboardingRole | 'caregiver' | 'roommate';
 
+/** @deprecated Prefer RewardModel — kept for AsyncStorage migration. */
 export type MotivationMode =
   | 'none'
   | 'allowance'
@@ -19,7 +26,8 @@ export type MotivationMode =
 
 export type OnboardingPrefs = {
   role: OnboardingRole;
-  motivation: MotivationMode;
+  /** ChoreMaxx v2 §2 reward model. */
+  rewardModel: RewardModel;
   /** Meritocracy (`weighted`) vs Equity (`flat`). Defaults to weighted when missing. */
   rewardMode?: RewardMode;
   completedAt: string;
@@ -50,14 +58,6 @@ export const ONBOARDING_ROLES: {
     perks: ['My tasks', 'Earn XP', 'Unlock rewards', 'Build habits'],
   },
   {
-    id: 'roommate',
-    emoji: '🏠',
-    title: 'Roommate',
-    subtitle: 'Shared living, simplified',
-    color: '#A78BFA',
-    perks: ['Shared chores', 'Groceries', 'Rotations', 'No parenting tone'],
-  },
-  {
     id: 'shared-tablet',
     emoji: '📱',
     title: 'Shared / tablet',
@@ -67,6 +67,7 @@ export const ONBOARDING_ROLES: {
   },
 ];
 
+/** @deprecated Use REWARD_MODEL_OPTIONS from reward-model.ts */
 export const ONBOARDING_MOTIVATIONS: {
   id: MotivationMode;
   emoji: string;
@@ -74,34 +75,53 @@ export const ONBOARDING_MOTIVATIONS: {
   desc: string;
   wide?: boolean;
 }[] = [
-  { id: 'none', emoji: '🧘', label: 'No rewards', desc: 'Quiet focus, no points' },
   { id: 'xp', emoji: '⚡', label: 'XP only', desc: 'Levels that celebrate effort' },
-  { id: 'xp_rewards', emoji: '🎁', label: 'XP + Rewards', desc: 'Points unlock fun prizes' },
   { id: 'allowance', emoji: '💰', label: 'Allowance', desc: 'Real money for real help' },
+  { id: 'xp_rewards', emoji: '🎁', label: 'XP + Rewards', desc: 'Points unlock fun prizes' },
   { id: 'allowance_xp', emoji: '🌟', label: 'Allowance + XP', desc: 'Money and levels together' },
   { id: 'allowance_rewards', emoji: '🏆', label: 'Full System', desc: 'Allowance, XP & rewards', wide: true },
-  { id: 'custom', emoji: '✏️', label: 'Custom', desc: 'Tune it later in Settings', wide: true },
 ];
 
-/** Splash micro-hooks (Design 8 glass onboarding). */
+/** Splash micro-hooks — Revision E §1.2 slogans (colors are chrome only). */
 export const ONBOARDING_SPLASH_HOOKS = [
-  { text: 'Zero clutter. Quiet rhythm.', color: '#3BB5F0' },
-  { text: 'Nova co-manages the home.', color: '#2DD4BF' },
-  { text: 'Built for real households.', color: '#F59E0B' },
+  { text: INTRO_SLOGANS[0], color: '#3BB5F0' },
+  { text: INTRO_SLOGANS[1], color: '#2DD4BF' },
+  { text: INTRO_SLOGANS[2], color: '#F59E0B' },
 ] as const;
 
 const KEY = 'choremaxx.onboarding.v7';
 
 function normalizeOnboardingRole(role: LegacyOnboardingRole | string | undefined): OnboardingRole {
-  if (role === 'child' || role === 'roommate' || role === 'parent' || role === 'shared-tablet') {
+  if (role === 'child' || role === 'parent' || role === 'shared-tablet') {
     return role;
   }
-  // Former "Caregiver" choice → Parent. Never surface as a greeting name.
+  // Former "Caregiver" / "Roommate" choices → Parent.
   return 'parent';
 }
 
 function normalizeRewardMode(value: string | undefined): RewardMode {
   return value === 'flat' ? 'flat' : 'weighted';
+}
+
+function motivationToRewardModel(motivation: MotivationMode | string | undefined): RewardModel {
+  switch (motivation) {
+    case 'none':
+      return 'xp_only';
+    case 'xp':
+      return 'xp_only';
+    case 'allowance':
+      return 'allowance';
+    case 'xp_rewards':
+      return 'xp_rewards';
+    case 'allowance_xp':
+      return 'xp_allowance';
+    case 'allowance_rewards':
+      return 'full';
+    case 'custom':
+      return migrateLegacyRewardModel({ legacy: 'custom' });
+    default:
+      return DEFAULT_REWARD_MODEL;
+  }
 }
 
 export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
@@ -111,19 +131,28 @@ export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
     const parsed = JSON.parse(raw) as {
       role?: string;
       motivation?: MotivationMode;
+      rewardModel?: RewardModel | string;
       rewardMode?: RewardMode | string;
       completedAt?: string;
     };
     const role = normalizeOnboardingRole(parsed.role);
-    const motivation = parsed.motivation ?? 'xp';
+    const rewardModel =
+      (parsed.rewardModel as RewardModel | undefined) ??
+      motivationToRewardModel(parsed.motivation) ??
+      DEFAULT_REWARD_MODEL;
     const rewardMode = normalizeRewardMode(parsed.rewardMode);
     const prefs: OnboardingPrefs = {
       role,
-      motivation,
+      rewardModel: migrateLegacyRewardModel({ legacy: rewardModel }),
       rewardMode,
       completedAt: parsed.completedAt ?? new Date().toISOString(),
     };
-    if (parsed.role === 'caregiver' || parsed.rewardMode == null) {
+    if (
+      parsed.role === 'caregiver' ||
+      parsed.role === 'roommate' ||
+      parsed.rewardMode == null ||
+      parsed.rewardModel == null
+    ) {
       await AsyncStorage.setItem(KEY, JSON.stringify(prefs));
     }
     return prefs;
@@ -133,11 +162,14 @@ export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
 }
 
 export async function saveOnboardingPrefs(
-  prefs: Omit<OnboardingPrefs, 'completedAt'>,
+  prefs: Omit<OnboardingPrefs, 'completedAt'> & { motivation?: MotivationMode }
 ): Promise<OnboardingPrefs> {
+  const rewardModel =
+    prefs.rewardModel ??
+    (prefs.motivation ? motivationToRewardModel(prefs.motivation) : DEFAULT_REWARD_MODEL);
   const next: OnboardingPrefs = {
     role: normalizeOnboardingRole(prefs.role),
-    motivation: prefs.motivation,
+    rewardModel: migrateLegacyRewardModel({ legacy: rewardModel }),
     rewardMode: normalizeRewardMode(prefs.rewardMode),
     completedAt: new Date().toISOString(),
   };
@@ -156,8 +188,6 @@ export function onboardingRoleToHouseholdRole(role: OnboardingRole): HouseholdRo
       return 'owner';
     case 'child':
       return 'child';
-    case 'roommate':
-      return 'adult';
     case 'shared-tablet':
       return 'shared-device';
     default:
@@ -165,19 +195,8 @@ export function onboardingRoleToHouseholdRole(role: OnboardingRole): HouseholdRo
   }
 }
 
-export function onboardingRoleToHouseholdType(role: OnboardingRole): HouseholdType {
-  switch (role) {
-    case 'roommate':
-    case 'shared-tablet':
-      return 'roommates';
-    case 'parent':
-    case 'child':
-      return 'family';
-    default:
-      return 'family';
-  }
+export function skipsMotivation(role: OnboardingRole) {
+  return role === 'child' || role === 'shared-tablet';
 }
 
-export function skipsMotivation(role: OnboardingRole) {
-  return role === 'child' || role === 'roommate' || role === 'shared-tablet';
-}
+export { motivationToRewardModel };

@@ -1,11 +1,15 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { Avatar } from '@/components/orbit/avatar';
+import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
+import type { MemberInvite } from '@/lib/household/member-invites';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   canPromoteToAdmin,
   familyAdminSeatsLabel,
@@ -22,6 +26,7 @@ import { formatHouseholdRole } from '@/lib/permissions';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdRole } from '@/types/orbit';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 const ROLE_CYCLE: HouseholdRole[] = ['adult', 'admin', 'child', 'guest', 'shared-device'];
 
@@ -42,6 +47,7 @@ export default function HouseholdMembersScreen() {
     approveMember,
     createChildInvites,
     createSharedDevice,
+    currentMember,
     declineMember,
     household,
     permissions,
@@ -57,12 +63,14 @@ export default function HouseholdMembersScreen() {
   const [kidNameTwo, setKidNameTwo] = useState('');
   const [creatingKids, setCreatingKids] = useState(false);
   const [kidStatus, setKidStatus] = useState('');
+  const [memberInvites, setMemberInvites] = useState<MemberInvite[]>([]);
+  const [inviteMemberId, setInviteMemberId] = useState<string | null>(null);
 
   const pending = household.members.filter((member) => member.status === 'pending');
   const active = household.members.filter((member) => member.status !== 'pending');
-  const adminSeats = familyAdminSeatsLabel(household.members, household.householdType);
+  const adminSeats = familyAdminSeatsLabel(household.members);
   const admins = getAdminMembers(household.members);
-  const familyCap = usesFamilyAdminCap(household.householdType);
+  const familyCap = usesFamilyAdminCap();
   const linkCandidates = sharedDeviceLinkCandidates(household.members);
 
   const handleChangeRole = (memberId: string, currentRole: HouseholdRole) => {
@@ -177,6 +185,7 @@ export default function HouseholdMembersScreen() {
   };
 
   return (
+    <>
     <ScrollView
       style={orbitScreen.container}
       contentContainerStyle={orbitScreen.content}
@@ -193,11 +202,17 @@ export default function HouseholdMembersScreen() {
 
       {permissions.canInviteMembers ? (
         <GlassCard style={styles.card}>
-          <Text style={typography.headline}>Invite adult / roommate</Text>
+          <Text style={typography.headline}>Invite adult</Text>
           <Text style={typography.footnote}>
-            They create their own account with this invite and stay pending until you approve.
+            Pick who you&apos;re inviting. Each person gets their own QR and link.
           </Text>
-          <OrbitButton onPress={() => router.push('/invite-household' as never)}>
+          <OrbitButton
+            onPress={() => {
+              const first =
+                household.members.find((m) => m.status === 'active' && m.role !== 'owner') ??
+                household.members.find((m) => m.status === 'active');
+              if (first) setInviteMemberId(first.id);
+            }}>
             Share household invite
           </OrbitButton>
         </GlassCard>
@@ -273,7 +288,12 @@ export default function HouseholdMembersScreen() {
           {pending.map((member) => (
             <GlassCard key={member.id} style={styles.card}>
               <View style={styles.memberHeader}>
-                <Text style={[styles.avatar, { color: c.text }]}>{member.avatar}</Text>
+                <Avatar
+                  name={member.name}
+                  emoji={memberDisplayEmoji(member)}
+                  imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
+                  size="m"
+                />
                 <View style={styles.memberCopy}>
                   <Text style={typography.headline}>{member.name}</Text>
                   <Text style={typography.footnote}>
@@ -312,7 +332,12 @@ export default function HouseholdMembersScreen() {
       {active.map((member) => (
         <GlassCard key={member.id} style={styles.card}>
           <View style={styles.memberHeader}>
-            <Text style={[styles.avatar, { color: c.text }]}>{member.avatar}</Text>
+            <Avatar
+              name={member.name}
+              emoji={memberDisplayEmoji(member)}
+              imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
+              size="m"
+            />
             <View style={styles.memberCopy}>
               <Text style={typography.headline}>{member.name}</Text>
               <Text style={typography.footnote}>
@@ -360,7 +385,7 @@ export default function HouseholdMembersScreen() {
                           { color: c.textMuted },
                           linked && styles.linkChipTextActive,
                         ]}>
-                        {person.avatar} {person.name}
+                        {memberDisplayEmoji(person)} {person.name}
                       </Text>
                     </Pressable>
                   );
@@ -390,10 +415,25 @@ export default function HouseholdMembersScreen() {
               onPress={() => handleRemove(member.id, member.name, member.role)}>
               Remove
             </OrbitButton>
+            {permissions.canManageHousehold ? (
+              <OrbitButton tone="secondary" onPress={() => setInviteMemberId(member.id)}>
+                Show invite code
+              </OrbitButton>
+            ) : null}
           </View>
         </GlassCard>
       ))}
     </ScrollView>
+      <MemberInviteSheet
+        visible={Boolean(inviteMemberId)}
+        member={household.members.find((m) => m.id === inviteMemberId) ?? null}
+        householdId={household.id ?? ''}
+        adminId={currentMember?.id ?? ''}
+        invites={memberInvites}
+        onChangeInvites={setMemberInvites}
+        onClose={() => setInviteMemberId(null)}
+      />
+    </>
   );
 }
 

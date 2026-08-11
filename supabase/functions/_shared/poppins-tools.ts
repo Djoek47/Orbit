@@ -1,0 +1,203 @@
+/** Shared Poppins tool registry (mirrors lib/ai/poppins-tools.ts). Prompt → majordomo-profiles. */
+
+export {
+  POPPINS_MAJORDOMO_SYSTEM,
+  buildMajordomoSystemPrompt,
+  getMajordomoProfile,
+  resolveMajordomoProfileId,
+  DEFAULT_MAJORDOMO_PROFILE_ID,
+  MAJORDOMO_PROFILES,
+} from './majordomo-profiles.ts';
+
+export type PoppinsToolName =
+  | 'list_overdue_tasks'
+  | 'nudge_member'
+  | 'assess_xp_fairness'
+  | 'award_completion_xp'
+  | 'scan_deals'
+  | 'read_calendar'
+  | 'list_holidays'
+  | 'propose_plan'
+  | 'ask_for_info';
+
+export const POPPINS_TOOL_DEFINITIONS = [
+  {
+    name: 'list_overdue_tasks' as const,
+    description:
+      'List overdue or late open household tasks. Use first when assessing load, morning desk, or before nudging.',
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'nudge_member' as const,
+    description:
+      'Create a calm Poppins notification nudging a member about a late or at-risk task/streak. Call list_holidays first — never nudge someone who is away. Never guilt.',
+    parameters: {
+      type: 'object',
+      properties: {
+        memberName: { type: 'string' },
+        taskId: { type: 'string' },
+        reason: { type: 'string' },
+      },
+      required: ['memberName', 'reason'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'assess_xp_fairness' as const,
+    description:
+      'Assess weekly XP / load balance and recommend soft rebalancing. Does not edit XP. Use for “who’s overloaded?” / fairness questions.',
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'award_completion_xp' as const,
+    description:
+      'Confirm XP rules for a just-completed verified task. App owns the actual award — this only confirms eligibility.',
+    parameters: {
+      type: 'object',
+      properties: { taskId: { type: 'string' } },
+      required: ['taskId'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'scan_deals' as const,
+    description:
+      'Scan the household deal catalog for groceries and household goods matching Missing/Low lists or asked categories.',
+    parameters: {
+      type: 'object',
+      properties: {
+        categories: {
+          type: 'array',
+          items: { type: 'string', enum: ['grocery', 'shoes', 'electronics', 'furniture'] },
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'read_calendar' as const,
+    description:
+      'Read upcoming household calendar events for the next N days (default 7). Use for planning and morning desk.',
+    parameters: {
+      type: 'object',
+      properties: { days: { type: 'number' } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'list_holidays' as const,
+    description: 'List members currently away / on holiday. Always check before nudge_member.',
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'propose_plan' as const,
+    description:
+      'Propose a Plan / itinerary for the household lead to review (not auto-created). Include dayLabel when the user names a day (e.g. Saturday).',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        detail: { type: 'string' },
+        dayLabel: { type: 'string' },
+      },
+      required: ['title', 'detail'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'ask_for_info' as const,
+    description:
+      'Ask a household member for a missing detail via notification when you cannot proceed without it.',
+    parameters: {
+      type: 'object',
+      properties: {
+        memberName: { type: 'string' },
+        question: { type: 'string' },
+      },
+      required: ['memberName', 'question'],
+      additionalProperties: false,
+    },
+  },
+];
+
+export function poppinsToolsAsOpenAIFunctions() {
+  return POPPINS_TOOL_DEFINITIONS.map((tool) => ({
+    type: 'function' as const,
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+    },
+  }));
+}
+
+export function poppinsToolsAsRealtimeTools() {
+  return POPPINS_TOOL_DEFINITIONS.map((tool) => ({
+    type: 'function' as const,
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.parameters,
+  }));
+}
+
+export const MOCK_DEALS = [
+  {
+    id: 'deal-milk',
+    category: 'grocery',
+    title: 'Organic whole milk 1gal',
+    store: 'FreshMart',
+    typicalPrice: 5.49,
+    salePrice: 3.99,
+    keywords: ['milk', 'dairy'],
+  },
+  {
+    id: 'deal-berries',
+    category: 'grocery',
+    title: 'Blueberries 1 pint',
+    store: 'FreshMart',
+    typicalPrice: 4.5,
+    salePrice: 2.5,
+    keywords: ['blueberry', 'blueberries', 'produce'],
+  },
+  {
+    id: 'deal-sneakers',
+    category: 'shoes',
+    title: 'Kids running sneakers',
+    store: 'Stride Outlet',
+    typicalPrice: 64,
+    salePrice: 39,
+    keywords: ['shoes', 'sneakers', 'kids'],
+  },
+  {
+    id: 'deal-headphones',
+    category: 'electronics',
+    title: 'Wireless headphones',
+    store: 'ByteBarn',
+    typicalPrice: 129,
+    salePrice: 79,
+    keywords: ['headphones', 'electronics', 'audio'],
+  },
+  {
+    id: 'deal-desk',
+    category: 'furniture',
+    title: 'Compact study desk',
+    store: 'Nest & Form',
+    typicalPrice: 189,
+    salePrice: 129,
+    keywords: ['desk', 'furniture', 'study'],
+  },
+];
+
+export function scanMockDeals(groceryNames: string[], categories?: string[]) {
+  const names = groceryNames.map((n) => n.toLowerCase());
+  return MOCK_DEALS.filter((deal) => {
+    if (categories?.length && !categories.includes(deal.category)) return false;
+    if (deal.category === 'grocery') {
+      return deal.keywords.some((kw) => names.some((n) => n.includes(kw) || kw.includes(n)));
+    }
+    return true;
+  }).map((deal) => ({
+    ...deal,
+    savings: Math.round((deal.typicalPrice - deal.salePrice) * 100) / 100,
+  }));
+}

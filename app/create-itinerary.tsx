@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -14,6 +14,7 @@ import { shopNearStops, findNearbyStores } from '@/lib/places/nearby-stores';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent, ItineraryStopKind, PreferredStore, SavedPlace } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type DraftStop = {
   key: string;
@@ -112,7 +113,18 @@ function eventToStop(event: HouseholdEvent): DraftStop {
 export default function CreateItineraryScreen() {
   const { createItinerary, household, preferredStore, accentTheme } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
-  const [title, setTitle] = useState('Family run');
+  const params = useLocalSearchParams<{
+    title?: string | string[];
+    detail?: string | string[];
+    dayLabel?: string | string[];
+  }>();
+  const paramTitle = Array.isArray(params.title) ? params.title[0] : params.title;
+  const paramDetail = Array.isArray(params.detail) ? params.detail[0] : params.detail;
+  const paramDay = Array.isArray(params.dayLabel) ? params.dayLabel[0] : params.dayLabel;
+  const [title, setTitle] = useState(
+    paramTitle?.trim() ||
+      (paramDay?.trim() ? `${paramDay.trim()} run` : 'Family run')
+  );
   const [selected, setSelected] = useState<DraftStop[]>([]);
   const [nearby, setNearby] = useState<PreferredStore[]>([]);
   const [nearbySource, setNearbySource] = useState<string>('');
@@ -274,7 +286,9 @@ export default function CreateItineraryScreen() {
         <Text style={[typography.footnote, { color: c.textMuted }]}>Plan</Text>
         <Text style={[typography.title1, { color: c.text }]}>New trip</Text>
         <Text style={[typography.body, { color: c.textSoft }]}>
-          Add stops from places, today’s calendar, or nearby stores.
+          {paramDetail?.trim()
+            ? paramDetail.trim()
+            : 'Add stops from places, today’s calendar, or nearby stores.'}
         </Text>
       </View>
 
@@ -393,7 +407,7 @@ export default function CreateItineraryScreen() {
             <Text style={[typography.headline, { color: c.text }]}>Stop order</Text>
             <Pressable onPress={handleOptimize} hitSlop={8}>
               <Text style={[styles.optimizeLink, { color: accentTheme.primary }]}>
-                Optimize with Nova
+                Optimize with Poppins
               </Text>
             </Pressable>
           </View>

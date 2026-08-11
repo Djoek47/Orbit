@@ -5,7 +5,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { getPreferredStore } from '@/data/preferred-stores';
 import { scheduleLocalReminder } from '@/lib/notifications/push';
 import { haversineMeters } from '@/lib/places/nearby-stores';
-import { DEFAULT_NOVA_NOTIFICATION_PREFS } from '@/services/nova-notifications';
+import { DEFAULT_POPPINS_NOTIFICATION_PREFS } from '@/services/poppins-notifications';
 import { useOrbit } from '@/store/orbit-store';
 
 const ENTER_RADIUS_M = 220;
@@ -29,7 +29,7 @@ export function NearShopWatcher() {
   useEffect(() => {
     if (appState !== 'active') return;
 
-    const prefs = household.notificationPrefs ?? DEFAULT_NOVA_NOTIFICATION_PREFS;
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
     if (!prefs.nearShop && !prefs.missingOnTheWay) return;
 
     const activeGroceryTrip = (household.itineraries ?? []).some(
@@ -85,15 +85,9 @@ export function NearShopWatcher() {
 
           if (prefs.nearShop && now - lastAlertAt.current > THROTTLE_MS) {
             lastAlertAt.current = now;
-            void pushNotification({
-              title: 'Choremaxx · Near the store',
-              body: `You're close to ${near.name}. Open shopping mode for ${missing.length} items.`,
-              category: 'groceries',
-              priority: 'high',
-              data: { kind: 'near_shop', storeId: near.id, href: '/shopping-mode' },
-            });
+            // Near-shop is not in the closed Rev E registry — open shopping mode only via deep link UX.
             void scheduleLocalReminder(
-              'Choremaxx · Near the store',
+              'Shopping list',
               `${near.name} · ${missing.length} items on your list`,
               1
             ).catch(() => undefined);
@@ -105,19 +99,7 @@ export function NearShopWatcher() {
             now - lastMissingNudgeAt.current > THROTTLE_MS
           ) {
             lastMissingNudgeAt.current = now;
-            const sample = missing
-              .slice(0, 3)
-              .map((g) => g.name)
-              .join(', ');
-            void pushNotification({
-              title: 'Nova · Before you go in',
-              body: sample
-                ? `Still missing: ${sample}. Tap to open shopping mode.`
-                : 'List looks clear — check for anything else to add.',
-              category: 'groceries',
-              priority: 'medium',
-              data: { kind: 'missing_on_the_way', href: '/shopping-mode' },
-            });
+            // Missing-on-the-way push removed (unlisted). Local OS reminder only.
           }
         }
       );

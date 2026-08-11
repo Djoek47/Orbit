@@ -3,7 +3,7 @@
     "name": "Choremaxx",
     "slug": "choremaxx",
     "version": "1.0.0",
-    "description": "Choremaxx is an AI household operating system — tasks, rewards, groceries, and Nova your calm co-manager.",
+    "description": "Choremaxx is an AI household operating system — tasks, rewards, groceries, and Poppins your calm co-manager.",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "choremaxx",
@@ -13,6 +13,7 @@
       "prefixes": [
         "choremaxx://",
         "https://choremaxx.app",
+        "https://www.choremaxx.app",
         "orbit://",
         "https://orbit.app"
       ],
@@ -29,11 +30,16 @@
       "bundleIdentifier": "app.choremaxx.household",
       "buildNumber": "1",
       "usesAppleSignIn": true,
+      "icon": {
+        "light": "./assets/images/icon-light.png",
+        "dark": "./assets/images/icon-dark.png",
+        "tinted": "./assets/images/icon-tinted.png"
+      },
       "config": {
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Choremaxx uses the microphone so you can talk to Nova.",
+        "NSMicrophoneUsageDescription": "Choremaxx uses the microphone so you can talk to Poppins.",
         "NSLocationWhenInUseUsageDescription": "Choremaxx uses your location for nearby grocery suggestions.",
         "NSCameraUsageDescription": "Choremaxx uses the camera to scan invite QR codes and attach task proof photos.",
         "NSPhotoLibraryUsageDescription": "Choremaxx uses your photos for profile pictures and task proof attachments.",
@@ -59,6 +65,25 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "choremaxx.app",
+              "pathPrefix": "/join"
+            },
+            {
+              "scheme": "https",
+              "host": "www.choremaxx.app",
+              "pathPrefix": "/join"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
@@ -78,6 +103,7 @@
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
+      "expo-iap",
       [
         "expo-notifications",
         {
@@ -93,7 +119,7 @@
       [
         "expo-av",
         {
-          "microphonePermission": "Choremaxx uses the microphone so you can talk to Nova."
+          "microphonePermission": "Choremaxx uses the microphone so you can talk to Poppins."
         }
       ],
       [
@@ -120,6 +146,59 @@
             "backgroundColor": "#070D1C"
           }
         }
+      ],
+      [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "Sky",
+            "ios": {
+              "light": "./assets/brand/icons/icon-sky.png",
+              "dark": "./assets/brand/icons/icon-sky-dark.png",
+              "tinted": "./assets/brand/icons/icon-sky-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/brand/icons/icon-sky-foreground.png",
+              "backgroundColor": "#378ADD"
+            }
+          },
+          {
+            "name": "Citrus",
+            "ios": {
+              "light": "./assets/brand/icons/icon-citrus.png",
+              "dark": "./assets/brand/icons/icon-citrus-dark.png",
+              "tinted": "./assets/brand/icons/icon-citrus-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/brand/icons/icon-citrus-foreground.png",
+              "backgroundColor": "#EF9F27"
+            }
+          },
+          {
+            "name": "Coral",
+            "ios": {
+              "light": "./assets/brand/icons/icon-coral.png",
+              "dark": "./assets/brand/icons/icon-coral-dark.png",
+              "tinted": "./assets/brand/icons/icon-coral-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/brand/icons/icon-coral-foreground.png",
+              "backgroundColor": "#D85A30"
+            }
+          },
+          {
+            "name": "Berry",
+            "ios": {
+              "light": "./assets/brand/icons/icon-berry.png",
+              "dark": "./assets/brand/icons/icon-berry-dark.png",
+              "tinted": "./assets/brand/icons/icon-berry-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/brand/icons/icon-berry-foreground.png",
+              "backgroundColor": "#7F77DD"
+            }
+          }
+        ]
       ]
     ],
     "experiments": {
@@ -128,8 +207,8 @@
     },
     "extra": {
       "router": {},
-      "privacyPolicyUrl": "https://choremaxx.app/privacy",
-      "termsUrl": "https://choremaxx.app/terms",
+      "privacyPolicyUrl": "https://choremaxx.vercel.app/privacy",
+      "termsUrl": "https://choremaxx.vercel.app/terms",
       "eas": {
         "projectId": "01af7128-865e-4d2e-b0b1-836f03105fc8"
       }

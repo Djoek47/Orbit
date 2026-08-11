@@ -5,15 +5,48 @@
 
 ## Preconditions
 
-- [ ] Apple Developer Program membership active
-- [ ] Expo account + `eas login` + `eas init` (writes `extra.eas.projectId` in `app.json`)
-- [ ] App Store Connect app created for `app.choremaxx.household`
-- [ ] `REPLACE_ASC_APP_ID` in `eas.json` → numeric App Store Connect App ID
-- [ ] Supabase staging/production + RLS + edge functions deployed
-- [ ] `OPENAI_API_KEY` in Supabase secrets (Nova)
-- [ ] EAS project secrets: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
-- [ ] Privacy + Terms hosted at URLs in `app.json` (`docs/legal/*` source)
-- [ ] `npm run testflight:preflight` passes
+- [x] Apple Developer Program membership active
+- [x] Expo account + `eas login` + `eas init` (writes `extra.eas.projectId` in `app.json`)
+- [x] App Store Connect app created for `app.choremaxx.household` (ASC App ID `6796850110`)
+- [x] `ascAppId` set in `eas.json`
+- [x] Supabase staging edge functions deployed (`send-auth-email`, Poppins suite)
+- [x] `OPENAI_API_KEY` in Supabase secrets (Poppins) — rotate after B7 if exposed in terminal history
+- [x] Resend secrets on staging — rotate after B7 if exposed in terminal history
+- [x] EAS project env: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- [x] EAS env: `EXPO_PUBLIC_PRIVACY_URL`, `EXPO_PUBLIC_TERMS_URL` (still on choremaxx.vercel.app until site cutover)
+- [ ] ASC IAP products created — see `docs/asc-iap-setup.md`
+- [x] Privacy + Terms source in `docs/legal/*` (re-host on Vercel after Nova→Poppins edit)
+- [x] `npm run testflight:preflight` passes
+
+## ASC listing draft (A8 — do not submit until B7)
+
+| Field | Draft |
+|-------|--------|
+| **Name** | Choremaxx |
+| **Subtitle** | Family chores, rewards & Poppins |
+| **Promotional text** | Calm household OS for families — tasks, Plan, groceries, rewards, and Poppins your co-manager. |
+| **Description** | Choremaxx is an AI household operating system for families. Assign chores, track Plan and itineraries, run groceries and Smart Shopping, mint rewards and allowances (Mark as paid — never transfers money), and ask Poppins for calm, household-aware help. Parents stay in control; kids get clear tasks and rewards under guardian rules. |
+| **Keywords** | family,chores,tasks,rewards,allowance,grocery,calendar,kids,household,AI |
+| **Support URL** | mailto:support@choremaxx.app (or https://choremaxx.vercel.app when /support exists) |
+| **Marketing URL** | https://choremaxx.vercel.app/ |
+| **Privacy Policy URL** | https://choremaxx.vercel.app/privacy |
+| **Category** | Lifestyle (secondary: Productivity) |
+| **Age rating** | 4+ / family utility; child role under guardian |
+| **Pricing** | Auto-renewable: 7-day free trial · $4.99/mo · $48/yr (product IDs in `constants/billing.ts`) |
+
+## App Review notes (suggested)
+
+- Demo admin account for a staged household with Child + Adult roles
+- Explain Child role is parental-gated
+- Settings → Delete account / Export data
+- Microphone (Poppins voice) and location (optional groceries) rationale
+- Sign in with Apple enabled on native builds
+- Allowance is tracker-only (**Mark as paid**); no money movement
+
+## Age rating / kids
+
+- Family utility with optional child users under guardian accounts
+- No unrestricted public social chat or UGC feeds
 
 ## Build / submit
 
@@ -23,19 +56,6 @@ npm run build:ios:testflight
 npm run submit:ios:testflight
 # or: eas build --platform ios --profile testflight --auto-submit
 ```
-
-## App Review notes (suggested)
-
-- Demo admin account for a staged household with Child + Adult roles
-- Explain Child role is parental-gated
-- Settings → Delete account / Export data
-- Microphone (Nova voice) and location (optional groceries) rationale
-- Sign in with Apple enabled on native builds
-
-## Age rating / kids
-
-- Family utility with optional child users under guardian accounts
-- No unrestricted public social chat or UGC feeds
 
 ## Post-submit
 

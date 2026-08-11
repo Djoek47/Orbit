@@ -2,7 +2,8 @@ export type HouseholdRole = 'owner' | 'admin' | 'adult' | 'child' | 'guest' | 's
 
 export type HouseholdMemberStatus = 'pending' | 'active' | 'inactive';
 
-export type HouseholdType = 'family' | 'single-parent' | 'roommates' | 'multi-generational' | 'custom';
+/** ChoreMaxx v2: every household is a family. Legacy DB values are normalized to `family`. */
+export type HouseholdType = 'family';
 
 export type OrbitUser = {
   id: string;
@@ -30,9 +31,18 @@ export type HouseholdMember = {
   loadShare: number;
   /** Personal accent look — follows the member when switching personas. */
   accentThemeId?: string;
-  /** ISO date YYYY-MM-DD — member away / on holiday (Nova skips nudges). */
+  /** Optional majordomo override (falls back to household default). */
+  majordomoProfileId?: string;
+  /**
+   * Revision C §1 — homework photo required up front for this child.
+   * Default true on creation. Chores never pre-set proofRequired.
+   */
+  homeworkProofRequired?: boolean;
+  /** ISO date YYYY-MM-DD — member away / on holiday (Poppins skips nudges). */
   awayFrom?: string;
   awayTo?: string;
+  /** Revision D — first Streak Rescue accepted (free when FIRST_RESCUE_IS_FREE). */
+  freeRescueUsed?: boolean;
   /**
    * For `shared-device` profiles: household member ids who use this phone/tablet.
    * Tasks assigned via the device must pick one of these people.
@@ -102,10 +112,47 @@ export type HouseholdTask = {
   tracking?: 'xp' | 'streak';
   proofRequired?: boolean;
   proofUri?: string;
+  /** @deprecated Prefer `verification` + `proofRounds` (v2 §1.7). */
   proofStatus?: 'none' | 'submitted' | 'approved' | 'rejected';
+  /**
+   * Oversight layer — separate from status. XP awards on Complete tap.
+   * `not_required` | `unreviewed` | `confirmed` | `proof_requested` | `rejected`
+   */
+  verification?:
+    | 'not_required'
+    | 'unreviewed'
+    | 'confirmed'
+    | 'proof_requested'
+    | 'rejected';
+  proofPhotoUrls?: string[];
+  proofRounds?: { note?: string; requestedAt: string; requestedByMemberId?: string }[];
+  verifiedBy?: string;
+  verifiedAt?: string;
+  /** True when completedAt > dueAt (informational; never reduces XP). */
+  completedLate?: boolean;
+  latenessMinutes?: number;
+  /** Recurring rule id when Definition/Occurrence split is active. */
+  definitionId?: string;
+  /** Local calendar day key YYYY-MM-DD for occurrence uniqueness. */
+  occurrenceDate?: string;
   repeat: 'None' | 'Daily' | 'Weekly' | 'Weekdays';
-  status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue' | 'Cancelled';
+  /**
+   * `Expired` = passed 23:59 uncompleted (Rev D/F). `Missed` kept as legacy alias
+   * for older rows; treat identically to Expired in UI and filters.
+   */
+  status:
+    | 'Pending'
+    | 'In Progress'
+    | 'Completed'
+    | 'Overdue'
+    | 'Cancelled'
+    | 'Expired'
+    | 'Missed';
   dueAt?: string;
+  /** Set by midnight rollover when status becomes Expired (Rev F §5.2). */
+  expiredAt?: string;
+  /** ISO timestamp when the task was completed (household-local day checks). */
+  completedAt?: string;
   /** Optional room for cleaning attribution. */
   roomId?: string;
   /** When set, task was created via this shared-device profile. */
@@ -135,7 +182,8 @@ export type GroceryItem = {
   name: string;
   category: string;
   quantity: string;
-  location: 'Fridge' | 'Freezer' | 'Pantry' | 'Bathroom' | 'Cleaning';
+  /** @deprecated Rev C §4 — storage assignment removed from UI. Kept optional for legacy rows. */
+  location?: 'Fridge' | 'Freezer' | 'Pantry' | 'Bathroom' | 'Cleaning';
   status: 'Available' | 'Low' | 'Missing' | 'Purchased';
   barcode?: string;
   typicalPrice?: number;
@@ -144,6 +192,10 @@ export type GroceryItem = {
   storeId?: string;
   requestedBy?: string;
   note?: string;
+  /** Classifier category id (e.g. dairy_eggs) when known. */
+  categoryId?: string;
+  /** Canada catalog product id when added from search/browse. */
+  productId?: string;
 };
 
 export type HouseholdEvent = {
@@ -194,7 +246,7 @@ export type Itinerary = {
   date: string;
   status: 'draft' | 'active' | 'completed';
   stops: ItineraryStop[];
-  suggestedByNova?: boolean;
+  suggestedByPoppins?: boolean;
   summary?: string;
   /** Saved as a preferred / reusable trip template. */
   favorite?: boolean;
@@ -262,8 +314,13 @@ export type RewardOrigin = 'minted' | 'special-request';
 export type Reward = {
   id: string;
   title: string;
-  cost: number;
+  /**
+   * @deprecated v2 §6.1 — rewards are not purchased with XP.
+   * Kept optional for legacy rows; treat missing/0 as free grant.
+   */
+  cost?: number;
   approvalRequired: boolean;
+  /** @deprecated v2 §6.2 — no emoji on reward surfaces. */
   emoji?: string;
   category?: string;
   color?: string;
@@ -276,6 +333,14 @@ export type Reward = {
   /** When set, only this member (and admins) see the reward in the vault. */
   assignedMemberId?: string;
   assignedMemberName?: string;
+  /** Grant cadence — daily / weekly / monthly (§6.2). */
+  frequency?: 'daily' | 'weekly' | 'monthly';
+  /** e.g. "30 min" for screen-time tiers. */
+  quantity?: string;
+  subtitle?: string;
+  isCustom?: boolean;
+  /** Library preset id when minted from REWARD_PRESETS. */
+  presetId?: string;
 };
 
 /** Cash / privilege allowance — admin grants or member requests, admin approves. */
@@ -304,20 +369,20 @@ export type Badge = {
   progress: number;
 };
 
-export type NovaBriefing = {
+export type PoppinsBriefing = {
   title: string;
   summary: string;
   actions: string[];
 };
 
-export type NovaRecommendation = {
+export type PoppinsRecommendation = {
   id: string;
   title: string;
   detail: string;
   tone: 'blue' | 'cyan' | 'green' | 'amber' | 'red';
 };
 
-export type NovaWeeklyBriefing = {
+export type PoppinsWeeklyBriefing = {
   title: string;
   summary: string;
   tasksCompleted: number;
@@ -329,9 +394,12 @@ export type NovaWeeklyBriefing = {
   recommendations: string[];
 };
 
-export type NovaConversationAnswer = {
+export type PoppinsConversationAnswer = {
   question: string;
   answer: string;
+  /** Tool-backed Activity rows from chat / voice tool loops. */
+  actions?: PoppinsMonitorAction[];
+  source?: string;
 };
 
 export type MemberProgress = HouseholdMember & {
@@ -368,6 +436,8 @@ export type OrbitMetrics = {
 export type MemberCapabilities = {
   allowRewardRedeem: boolean;
   allowSpecialRewardRequest: boolean;
+  /** When true, Rewards Center shows the Allowance surface. */
+  allowAllowance: boolean;
   allowGroceryAdd: boolean;
   allowCalendarCreate: boolean;
 };
@@ -383,6 +453,8 @@ export type CreateTaskInput = {
   splitPenaltyXp?: number;
   due: string;
   xp: number;
+  baseXp?: number;
+  xpEligible?: boolean;
   repeat: HouseholdTask['repeat'];
   description?: string;
   weight?: number;
@@ -396,11 +468,17 @@ export type CreateTaskInput = {
   sharedDeviceId?: string;
   /** When true, also save into household custom catalog (admin mint). */
   saveAsTemplate?: boolean;
+  /** Recurrence series id — pairs with occurrenceDate for uniqueness (§5.2). */
+  definitionId?: string;
+  /** Local calendar day key YYYY-MM-DD for this occurrence. */
+  occurrenceDate?: string;
 };
 
 export type CreateGroceryInput = {
   name: string;
-  category: string;
+  /** Optional — when omitted, offline classifier assigns aisle. */
+  category?: string;
+  categoryId?: string;
   barcode?: string;
   quantity?: string;
   typicalPrice?: number;
@@ -408,23 +486,27 @@ export type CreateGroceryInput = {
   aisle?: string;
   storeId?: string;
   requestedBy?: string;
+  /** @deprecated Rev C — storage removed from UI. */
   location?: GroceryItem['location'];
   note?: string;
   /** Wishlist items for kids who met XP threshold. */
   wishlist?: boolean;
+  /** Canada catalog product id when known. */
+  productId?: string;
 };
 
 export type CreateItineraryInput = {
   title: string;
   date: string;
   stops: Omit<ItineraryStop, 'id' | 'status'>[];
-  suggestedByNova?: boolean;
+  suggestedByPoppins?: boolean;
   summary?: string;
 };
 
 export type CreateRewardInput = {
   title: string;
-  cost: number;
+  /** @deprecated v2 §6.1 — always pass 0. */
+  cost?: number;
   approvalRequired?: boolean;
   emoji?: string;
   specialRequest?: boolean;
@@ -435,6 +517,11 @@ export type CreateRewardInput = {
   createdByName?: string;
   assignedMemberId?: string;
   assignedMemberName?: string;
+  frequency?: 'daily' | 'weekly' | 'monthly';
+  quantity?: string;
+  subtitle?: string;
+  isCustom?: boolean;
+  presetId?: string;
 };
 
 export type CreateAllowanceInput = {
@@ -462,7 +549,7 @@ export type TaskTemplate = {
   householdScoped: boolean;
 };
 
-export type NovaNotificationPrefs = {
+export type PoppinsNotificationPrefs = {
   tasks: boolean;
   itinerary: boolean;
   groceries: boolean;
@@ -477,15 +564,22 @@ export type NovaNotificationPrefs = {
   nearShop?: boolean;
   /** Nudge missing items before / during a grocery run. */
   missingOnTheWay?: boolean;
+  /**
+   * Quiet hours 21:00–07:00 (weekend A5). When true, non-urgent OS banners
+   * are deferred; deadline reminders still fire.
+   */
+  quietHoursEnabled?: boolean;
 };
 
-/** Activity feed entry from Nova Monitor Agent. */
-export type NovaMonitorAction = {
+/** Activity feed entry from Poppins Monitor Agent. */
+export type PoppinsMonitorAction = {
   id: string;
   kind: 'nudge' | 'deals' | 'plan' | 'xp_fairness' | 'holiday' | 'ask_info' | 'monitor';
   label: string;
   detail: string;
   createdAt: string;
+  /** Optional deep-link payload (e.g. propose_plan → create-itinerary). */
+  data?: Record<string, unknown>;
 };
 
 export type CreateEventInput = {
@@ -517,9 +611,18 @@ export type CreateProfileInput = {
 
 export type CreateHouseholdInput = {
   name: string;
-  type: HouseholdType;
-  /** Selected during create (name → type → rooms). Defaults applied when omitted. */
+  /** Ignored — all households are created as `family` (ChoreMaxx v2). */
+  type?: HouseholdType;
+  /** Selected during create. Defaults applied when omitted. */
   rooms?: HouseholdRoom[];
+  rewardModel?:
+    | 'xp_only'
+    | 'allowance'
+    | 'xp_rewards'
+    | 'xp_allowance'
+    | 'full';
+  rewardMode?: 'weighted' | 'flat';
+  setupComplete?: boolean;
 };
 
 export type JoinHouseholdInput = {
@@ -546,17 +649,45 @@ export type HouseholdSnapshot = {
   /** Saved locations for multi-stop trips (home, work, school, shops…). */
   savedPlaces?: SavedPlace[];
   preferredStoreId?: string;
+  /** Rev C §4.3 — household corrections for aisle classifier (normalized name → category id). */
+  groceryCategoryOverrides?: Record<string, string>;
+  /** Catalog product ids marked favorite (mock AsyncStorage / household). */
+  groceryFavorites?: string[];
+  /** Recently purchased/cleared names for Buy again (newest first). */
+  groceryPurchaseHistory?: string[];
+  /** Last time an admin opened the groceries tab (for Home badge). */
+  groceriesLastOpenedAt?: string;
+  /** When false, homework-gated House Rules chapters hide. Default true. */
+  homeworkEnabled?: boolean;
   /** Make accent theme id (ocean/aurora/…). */
   accentThemeId?: string;
+  /**
+   * Household default majordomo profile (Character → Personality → Voice).
+   * See lib/ai/majordomo-profiles.ts. Tab surface stays Poppins; voice/persona swap.
+   */
+  majordomoProfileId?: string;
   taskTemplates: TaskTemplate[];
-  notificationPrefs: NovaNotificationPrefs;
+  notificationPrefs: PoppinsNotificationPrefs;
   /** What non-admin members may do (admin-controlled). */
   memberCapabilities?: MemberCapabilities;
   /**
    * Household-scoped XP scoring (Meritocracy vs Equity + hygiene opt-in).
    * Defaults: weighted, hygieneRewarded false, hygieneXp 5.
+   * `weighted` ≡ meritocracy, `flat` ≡ equity (§2 / §3.2).
    */
   rewardMode?: 'weighted' | 'flat';
+  /**
+   * How chores feel — XP / allowance / rewards subsystems (§2.2).
+   * Screens must read CAPABILITIES via `capabilitiesFor(rewardModel)`.
+   */
+  rewardModel?:
+    | 'xp_only'
+    | 'allowance'
+    | 'xp_rewards'
+    | 'xp_allowance'
+    | 'full';
+  /** False until roster Create household / finish-later path settles (§3.4). */
+  setupComplete?: boolean;
   hygieneRewarded?: boolean;
   hygieneXp?: 5 | 10;
   /** IANA timezone for streak/day boundaries. Default America/Toronto. */
@@ -565,13 +696,28 @@ export type HouseholdSnapshot = {
   dayEndsAt?: string;
   /** 0 = Sunday … 1 = Monday (default). */
   weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
-  /** When true, streak redemption requires parent approval. Default false. */
+  /** When true, streak rescue requires parent approval. Default false. */
   redemptionRequiresApproval?: boolean;
   /** Local hour 0–23 for queued streak-break notifications. Default 8. */
   notificationHour?: number;
+  /**
+   * Revision D Recess periods (per member). Prefer this over awayFrom/awayTo.
+   * Stored in supabase `recess_periods` when data mode is supabase.
+   */
+  recessPeriods?: {
+    id: string;
+    memberId: string;
+    startDate: string;
+    endDate: string | null;
+    createdBy: string;
+    createdAt: string;
+    isBackdated: boolean;
+  }[];
+  /** Custom house rules — display only; never alter mechanics. */
+  customHouseRules?: { id: string; body: string; sortOrder: number }[];
   rewards: Reward[];
   badges: Badge[];
-  nova: NovaBriefing;
+  poppins: PoppinsBriefing;
 };
 
 export type NotificationItem = {

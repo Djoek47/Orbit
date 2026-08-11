@@ -1,164 +1,170 @@
+/**
+ * Household invite — one calm composition: code, QR, Share.
+ * Apple-level restraint: no noise, one primary action.
+ */
 import * as Clipboard from 'expo-clipboard';
-import { useEffect, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
+import { AppText as Text } from '@/components/orbit/app-text';
 import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { orbitColors, radius, space } from '@/constants/orbit-theme';
+import { radius, space, typography } from '@/constants/orbit-theme';
 import { buildInviteLinks } from '@/lib/invites/parse-invite';
 import { shareInvite } from '@/lib/invites/share-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { householdRepository } from '@/repositories';
 import { useOrbit } from '@/store/orbit-store';
-import type { InviteLinks } from '@/types/orbit';
 
 export default function InviteHouseholdScreen() {
-  const { household, inviteLinks, orbitPalette, permissions, refreshInviteLinks } = useOrbit();
-  const { c } = useOrbitColors();
-  const [links, setLinks] = useState<InviteLinks | null>(inviteLinks);
-  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
-  const [shareStatus, setShareStatus] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
+  const { c, glass, glassBorder } = useOrbitColors();
+  const { household, inviteLinks, refreshInviteLinks, accentTheme } = useOrbit();
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const ensureLinks = useCallback(async () => {
+    setLoading(true);
+    try {
+      return inviteLinks ?? (await refreshInviteLinks());
+    } finally {
+      setLoading(false);
+    }
+  }, [inviteLinks, refreshInviteLinks]);
 
   useEffect(() => {
-    let mounted = true;
-    async function load() {
-      if (inviteLinks) {
-        setLinks(inviteLinks);
-        return;
-      }
-      if (!household.id) {
-        return;
-      }
-      const next = await householdRepository.getInviteLink(household.id);
-      if (mounted) {
-        setLinks(next);
-      }
+    void ensureLinks();
+  }, [ensureLinks]);
+
+  const code = inviteLinks?.code || household.inviteCode || '';
+  const links = code ? buildInviteLinks(code) : null;
+
+  const onShare = async () => {
+    if (!links) {
+      setStatus('Invite isn’t ready yet.');
+      return;
     }
-    load().catch(console.warn);
-    return () => {
-      mounted = false;
-    };
-  }, [household.id, inviteLinks]);
-
-  const fallback = buildInviteLinks(links?.code || household.inviteCode || 'CMX-0000');
-  const inviteCode = links?.code || fallback.code;
-  const deepLink = links?.deepLink || fallback.deepLink;
-  const webLink = links?.webLink || fallback.webLink;
-
-  if (!permissions.canInviteMembers) {
-    return (
-      <AuthShell
-        title="Add member locked"
-        subtitle="Only owners and admins can add new household members.">
-        <Text style={[styles.body, { color: c.textSoft }]}>
-          Ask an owner or admin to share an invite from Manage Members.
-        </Text>
-      </AuthShell>
-    );
-  }
-
-  const handleCopyCode = async () => {
-    await Clipboard.setStringAsync(inviteCode);
-    setCopied('code');
-  };
-
-  const handleCopyLink = async () => {
-    await Clipboard.setStringAsync(webLink);
-    setCopied('link');
-  };
-
-  const handleAirDropShare = async () => {
-    setShareStatus('');
+    setBusy(true);
+    setStatus('');
     try {
       const result = await shareInvite({
         householdName: household.householdName,
-        inviteCode,
-        deepLink,
-        webLink,
+        inviteCode: links.code,
+        deepLink: links.deepLink,
+        webLink: links.webLink,
       });
-      setShareStatus(
-        result === 'shared'
-          ? Platform.OS === 'ios'
-            ? 'Shared — use AirDrop, Messages, or Mail from the sheet.'
-            : 'Shared via your device share sheet.'
-          : 'Share dismissed.',
-      );
+      if (result === 'shared') {
+        setStatus('Sent.');
+      }
     } catch {
-      setShareStatus('Could not open the share sheet.');
+      setStatus('Couldn’t share. Try again.');
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      const next =
-        (await refreshInviteLinks()) ?? (household.id ? await householdRepository.refreshInvite(household.id) : null);
-      if (next) {
-        setLinks(next);
-      }
-    } finally {
-      setRefreshing(false);
-    }
+  const onCopy = async () => {
+    if (!links) return;
+    await Clipboard.setStringAsync(links.code);
+    setStatus('Code copied.');
   };
 
   return (
     <AuthShell
       showBack
-      kicker={household.householdName || 'Household'}
-      title="Add new member"
-      subtitle="Share a code, link, or QR so they can create an account and join. New members wait for owner/admin approval before full access.">
-      <View style={styles.qrWrap}>
-        <QRCode value={webLink} size={160} backgroundColor="#FFFFFF" color={orbitPalette.ink} />
+      kicker="Household"
+      title="Invite"
+      subtitle="Share with AirDrop or Messages. They open Choremaxx and join."
+      footer={
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Text style={[styles.footerLink, { color: c.textMuted }]}>Done</Text>
+        </Pressable>
+      }>
+      <View
+        style={[
+          styles.stage,
+          {
+            backgroundColor: glass(0.04),
+            borderColor: glassBorder(0.08),
+          },
+        ]}>
+        {loading && !links ? (
+          <ActivityIndicator color={accentTheme.primary} style={styles.loader} />
+        ) : (
+          <>
+            <View style={styles.qrPlate}>
+              {links ? (
+                <QRCode
+                  value={links.deepLink}
+                  size={168}
+                  backgroundColor="transparent"
+                  color={c.text}
+                />
+              ) : null}
+            </View>
+
+            <Pressable onPress={() => void onCopy()} accessibilityLabel="Copy invite code" hitSlop={8}>
+              <Text style={[typography.caption1, styles.codeLabel, { color: c.textMuted }]}>
+                Code
+              </Text>
+              <Text selectable style={[styles.code, { color: c.text }]}>
+                {links?.code ?? '—'}
+              </Text>
+            </Pressable>
+          </>
+        )}
       </View>
-      <Text selectable style={[styles.code, { color: c.text }]}>
-        {inviteCode}
-      </Text>
-      <OrbitButton onPress={handleAirDropShare}>
-        {Platform.OS === 'ios' ? 'AirDrop / Share invite' : 'Share invite'}
+
+      <OrbitButton disabled={busy || !links} onPress={() => void onShare()}>
+        {busy ? 'Sharing…' : 'Share Invite'}
       </OrbitButton>
-      {shareStatus ? <Text style={styles.hint}>{shareStatus}</Text> : null}
-      <OrbitButton onPress={handleCopyCode}>{copied === 'code' ? 'Copied' : 'Copy invite code'}</OrbitButton>
-      <OrbitButton tone="secondary" onPress={handleCopyLink}>
-        {copied === 'link' ? 'Link copied' : 'Copy web link'}
-      </OrbitButton>
-      <OrbitButton disabled={refreshing || !household.id} tone="secondary" onPress={handleRefresh}>
-        {refreshing ? 'Refreshing…' : 'Refresh code'}
-      </OrbitButton>
-      <Text selectable style={[styles.linkCaption, { color: c.textSubtle }]}>
-        {webLink}
-      </Text>
+
+      {status ? (
+        <Text style={[typography.footnote, styles.status, { color: c.textMuted }]}>{status}</Text>
+      ) : (
+        <Text style={[typography.footnote, styles.status, { color: c.textSubtle }]}>
+          Tap the code to copy
+        </Text>
+      )}
     </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  body: {
-    fontSize: 14,
-    lineHeight: 20,
+  stage: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.cardLarge,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: space.md,
+    paddingVertical: space.xl,
+    paddingHorizontal: space.lg,
+  },
+  loader: { marginVertical: space.xxl },
+  qrPlate: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: space.sm,
+  },
+  codeLabel: {
+    letterSpacing: 0.6,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
   code: {
-    fontSize: 28,
-    fontVariant: ['tabular-nums'],
-    fontWeight: '900',
-    letterSpacing: 1,
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: 2,
     textAlign: 'center',
   },
-  hint: {
-    color: orbitColors.primary,
-    fontSize: 13,
+  status: {
+    textAlign: 'center',
+  },
+  footerLink: {
+    fontSize: 15,
     fontWeight: '600',
-  },
-  linkCaption: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  qrWrap: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: radius.card,
-    padding: space.md,
+    textAlign: 'center',
   },
 });

@@ -119,6 +119,31 @@ export function resolveTaskXpFromHouseholdTask(
   );
 }
 
+/**
+ * Display XP for badges/lists. Prefer awarded amount when already completed;
+ * otherwise resolve Meritocracy/Equity at read time (never mutate baseXp).
+ */
+export function displayTaskXp(
+  task: {
+    xp: number;
+    baseXp?: number;
+    tracking?: 'xp' | 'streak';
+    category?: string;
+    xpEligible?: boolean;
+    awardedXp?: number;
+    status?: string;
+  },
+  settings: HouseholdRewardSettings
+): number {
+  if (typeof task.awardedXp === 'number' && task.status === 'Completed') {
+    return task.awardedXp;
+  }
+  if (typeof task.awardedXp === 'number' && task.awardedXp > 0) {
+    return task.awardedXp;
+  }
+  return resolveTaskXpFromHouseholdTask(task, settings);
+}
+
 export function normalizeHygieneXp(value: number): HygieneXp {
   return value >= 10 ? 10 : 5;
 }

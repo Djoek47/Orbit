@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { orbitColors, radius } from '@/constants/orbit-theme';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type StatusPillProps = {
   label: string;
@@ -9,7 +10,7 @@ type StatusPillProps = {
 
 const toneColors = {
   blue: orbitColors.orbitBlue,
-  cyan: orbitColors.novaCyan,
+  cyan: orbitColors.poppinsCyan,
   green: orbitColors.success,
   amber: orbitColors.warning,
   red: orbitColors.danger,

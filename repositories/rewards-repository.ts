@@ -1,5 +1,18 @@
 import { mockHousehold } from '@/data/mock-household';
+import { loadAllowances, saveAllowances } from '@/lib/household/allowance-prefs';
+import { loadRedemptions, saveRedemptions } from '@/lib/household/redemption-prefs';
 import { mapBadgeRow, mapRewardRow } from '@/lib/mappers/orbit-mappers';
+import {
+  applyAllowanceChange,
+  applyRewardChange,
+  parseAmountLabel,
+  type RewardLedgerOrigin,
+} from '@/lib/rewards/ledgers';
+import {
+  loadRewardFieldOverlay,
+  mergeRewardOverlay,
+  saveRewardFieldOverlay,
+} from '@/lib/rewards/reward-field-overlay';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type {
   AllowanceGrant,
@@ -13,6 +26,12 @@ import type {
 let mockRewardsState: Reward[] = clone(mockHousehold.rewards);
 let mockRedemptionsState: RewardRedemption[] = [];
 let mockAllowancesState: AllowanceGrant[] = [];
+let allowancesHydratedFor: string | null = null;
+let redemptionsHydratedFor: string | null = null;
+
+export function __setMockRewardsStateForTests(items: Reward[]) {
+  mockRewardsState = clone(items);
+}
 
 function mapRedemptionRow(row: {
   id: string;
@@ -50,7 +69,9 @@ export const rewardsRepository = {
     const { data, error } = await supabase.from('rewards').select('*').eq('household_id', householdId);
     mapDbError('rewardsRepository.getRewards', error);
 
-    return (data ?? []).map((row) => mapRewardRow(row));
+    const mapped = (data ?? []).map((row) => mapRewardRow(row));
+    const overlay = await loadRewardFieldOverlay(householdId);
+    return mergeRewardOverlay(mapped, overlay);
   },
 
   async getBadges(householdId: string | null | undefined): Promise<Badge[]> {
@@ -70,19 +91,28 @@ export const rewardsRepository = {
   },
 
   async getRedemptions(householdId: string | null | undefined): Promise<RewardRedemption[]> {
-    if (isMockMode()) {
-      return clone(mockRedemptionsState.filter((item) => item.householdId === (householdId ?? mockHousehold.id)));
-    }
+    const id = householdId ?? mockHousehold.id;
+    if (!id) return [];
 
-    if (!householdId) {
-      return [];
+    if (isMockMode()) {
+      if (redemptionsHydratedFor !== id) {
+        const stored = await loadRedemptions(id);
+        if (stored.length) {
+          mockRedemptionsState = [
+            ...stored,
+            ...mockRedemptionsState.filter((item) => item.householdId !== id),
+          ];
+        }
+        redemptionsHydratedFor = id;
+      }
+      return clone(mockRedemptionsState.filter((item) => item.householdId === id));
     }
 
     const supabase = getConfiguredSupabase('rewardsRepository.getRedemptions');
     const { data, error } = await supabase
       .from('reward_redemptions')
       .select('*')
-      .eq('household_id', householdId)
+      .eq('household_id', id)
       .order('requested_at', { ascending: false });
     mapDbError('rewardsRepository.getRedemptions', error);
 
@@ -94,9 +124,9 @@ export const rewardsRepository = {
     const reward: Reward = {
       id: createLocalId('reward'),
       title: input.title.trim(),
-      cost: Math.max(1, Math.round(input.cost)),
+      cost: Math.max(0, Math.round(input.cost ?? 0)),
       approvalRequired: input.approvalRequired ?? true,
-      emoji: input.emoji,
+      emoji: undefined,
       category: input.category ?? (input.specialRequest ? 'Special' : 'Privilege'),
       color: input.color,
       specialRequest: input.specialRequest ?? origin === 'special-request',
@@ -105,6 +135,11 @@ export const rewardsRepository = {
       createdByName: input.createdByName,
       assignedMemberId: input.assignedMemberId,
       assignedMemberName: input.assignedMemberName,
+      frequency: input.frequency,
+      quantity: input.quantity,
+      subtitle: input.subtitle,
+      isCustom: input.isCustom,
+      presetId: input.presetId,
       archived: false,
     };
 
@@ -129,7 +164,7 @@ export const rewardsRepository = {
       .select('*')
       .single();
     mapDbError('rewardsRepository.createReward', error);
-    return data
+    const created = data
       ? {
           ...mapRewardRow(data),
           emoji: reward.emoji,
@@ -141,18 +176,47 @@ export const rewardsRepository = {
           createdByName: reward.createdByName,
           assignedMemberId: reward.assignedMemberId,
           assignedMemberName: reward.assignedMemberName,
+          frequency: reward.frequency,
+          quantity: reward.quantity,
+          subtitle: reward.subtitle,
+          isCustom: reward.isCustom,
+          presetId: reward.presetId,
         }
       : reward;
+    await saveRewardFieldOverlay(householdId, created.id, {
+      emoji: created.emoji,
+      category: created.category,
+      color: created.color,
+      specialRequest: created.specialRequest,
+      origin: created.origin,
+      createdByMemberId: created.createdByMemberId,
+      createdByName: created.createdByName,
+      assignedMemberId: created.assignedMemberId,
+      assignedMemberName: created.assignedMemberName,
+      frequency: created.frequency,
+      quantity: created.quantity,
+      subtitle: created.subtitle,
+      isCustom: created.isCustom,
+      presetId: created.presetId,
+      archived: created.archived,
+    });
+    return created;
   },
 
   async getAllowances(householdId: string | null | undefined): Promise<AllowanceGrant[]> {
-    if (isMockMode()) {
-      return clone(
-        mockAllowancesState.filter((item) => item.householdId === (householdId ?? mockHousehold.id))
-      );
+    const id = householdId ?? mockHousehold.id;
+    if (!id) return [];
+    if (allowancesHydratedFor !== id) {
+      const stored = await loadAllowances(id);
+      if (stored.length) {
+        mockAllowancesState = [
+          ...stored,
+          ...mockAllowancesState.filter((item) => item.householdId !== id),
+        ];
+      }
+      allowancesHydratedFor = id;
     }
-    // Allowance is mock-first until a Supabase table ships.
-    return [];
+    return clone(mockAllowancesState.filter((item) => item.householdId === id));
   },
 
   async createAllowance(
@@ -175,12 +239,23 @@ export const rewardsRepository = {
       createdByName: input.createdByName,
     };
 
-    if (isMockMode()) {
-      mockAllowancesState = [grant, ...mockAllowancesState];
-      return clone(grant);
-    }
-
     mockAllowancesState = [grant, ...mockAllowancesState];
+    await saveAllowances(
+      grant.householdId,
+      mockAllowancesState.filter((item) => item.householdId === grant.householdId)
+    );
+    const parsed = parseAmountLabel(grant.amountLabel);
+    await applyAllowanceChange({
+      id: grant.id,
+      householdId: grant.householdId,
+      memberId: grant.memberId,
+      amount: parsed.amount,
+      currency: parsed.currency,
+      status: grant.status === 'approved' ? 'paid' : 'owed',
+      note: grant.note,
+      amountLabel: grant.amountLabel,
+      markedPaidBy: grant.status === 'approved' ? grant.createdByMemberId : undefined,
+    });
     return clone(grant);
   },
 
@@ -231,8 +306,19 @@ export const rewardsRepository = {
     rewardId: string;
     memberId: string;
     note?: string;
+    rewardName?: string;
+    origin?: RewardLedgerOrigin;
   }): Promise<RewardRedemption> {
     if (isMockMode()) {
+      const pendingForMember = mockRedemptionsState.find(
+        (item) =>
+          item.householdId === input.householdId &&
+          item.memberId === input.memberId &&
+          item.status === 'pending'
+      );
+      if (pendingForMember) {
+        throw new Error('You already have a waiting ask. Wait until it is decided.');
+      }
       const redemption: RewardRedemption = {
         id: createLocalId('redemption'),
         householdId: input.householdId,
@@ -243,6 +329,20 @@ export const rewardsRepository = {
         requestedAt: new Date().toISOString(),
       };
       mockRedemptionsState = [redemption, ...mockRedemptionsState];
+      await saveRedemptions(
+        input.householdId,
+        mockRedemptionsState.filter((item) => item.householdId === input.householdId)
+      );
+      await applyRewardChange({
+        id: redemption.id,
+        householdId: input.householdId,
+        memberId: input.memberId,
+        rewardId: input.rewardId,
+        rewardName: input.rewardName ?? 'Reward',
+        origin: input.origin ?? 'earned',
+        status: 'pending',
+        note: input.note,
+      });
       return redemption;
     }
 
@@ -264,7 +364,18 @@ export const rewardsRepository = {
       throw new Error('rewardsRepository.requestRedemption: Insert returned no row.');
     }
 
-    return mapRedemptionRow(data);
+    const redemption = mapRedemptionRow(data);
+    await applyRewardChange({
+      id: redemption.id,
+      householdId: input.householdId,
+      memberId: input.memberId,
+      rewardId: input.rewardId,
+      rewardName: input.rewardName ?? 'Reward',
+      origin: input.origin ?? 'earned',
+      status: 'pending',
+      note: input.note,
+    });
+    return redemption;
   },
 
   async approveRedemption(redemptionId: string): Promise<RewardRedemption> {
@@ -280,6 +391,8 @@ async function decideRedemption(
   redemptionId: string,
   status: 'approved' | 'rejected'
 ): Promise<RewardRedemption> {
+  const ledgerStatus = status === 'rejected' ? 'declined' : 'approved';
+
   if (isMockMode()) {
     const existing = mockRedemptionsState.find((item) => item.id === redemptionId);
     const updated: RewardRedemption = {
@@ -293,7 +406,23 @@ async function decideRedemption(
       status,
       decidedAt: new Date().toISOString(),
     };
-    mockRedemptionsState = mockRedemptionsState.map((item) => (item.id === redemptionId ? updated : item));
+    mockRedemptionsState = mockRedemptionsState.map((item) =>
+      item.id === redemptionId ? updated : item
+    );
+    await saveRedemptions(
+      updated.householdId,
+      mockRedemptionsState.filter((item) => item.householdId === updated.householdId)
+    );
+    const reward = mockRewardsState.find((r) => r.id === updated.rewardId);
+    await applyRewardChange({
+      id: redemptionId,
+      householdId: updated.householdId,
+      memberId: updated.memberId,
+      rewardId: updated.rewardId,
+      rewardName: reward?.title ?? 'Reward',
+      origin: reward?.specialRequest || reward?.origin === 'special-request' ? 'requested' : 'earned',
+      status: ledgerStatus,
+    });
     return updated;
   }
 
@@ -362,7 +491,18 @@ async function decideRedemption(
     throw new Error(`rewardsRepository.${status}: Update returned no row.`);
   }
 
-  return mapRedemptionRow(data);
+  const mapped = mapRedemptionRow(data);
+  await applyRewardChange({
+    id: redemptionId,
+    householdId: mapped.householdId,
+    memberId: mapped.memberId,
+    rewardId: mapped.rewardId,
+    rewardName: 'Reward',
+    origin: 'earned',
+    status: ledgerStatus,
+    resolvedBy: authData.user?.id ?? undefined,
+  });
+  return mapped;
 }
 
 async function decideAllowance(
@@ -387,6 +527,22 @@ async function decideAllowance(
   mockAllowancesState = mockAllowancesState.map((item) =>
     item.id === allowanceId ? updated : item
   );
+  await saveAllowances(
+    updated.householdId,
+    mockAllowancesState.filter((item) => item.householdId === updated.householdId)
+  );
+  const parsed = parseAmountLabel(updated.amountLabel);
+  await applyAllowanceChange({
+    id: allowanceId,
+    householdId: updated.householdId,
+    memberId: updated.memberId,
+    amount: parsed.amount,
+    currency: parsed.currency,
+    status: status === 'approved' ? 'paid' : 'owed',
+    amountLabel: updated.amountLabel,
+    note: updated.note,
+    markedPaidBy: status === 'approved' ? updated.createdByMemberId : undefined,
+  });
   return clone(updated);
 }
 
@@ -399,4 +555,6 @@ export function __resetRewardsMockStateForTests() {
   mockRewardsState = clone(mockHousehold.rewards);
   mockRedemptionsState = [];
   mockAllowancesState = [];
+  allowancesHydratedFor = null;
+  redemptionsHydratedFor = null;
 }

@@ -17,6 +17,7 @@
   "exclude": [
     "supabase/functions/**",
     "node_modules",
-    "design/make/source/**"
+    "design/make/source/**",
+    "site/**"
   ]
 }

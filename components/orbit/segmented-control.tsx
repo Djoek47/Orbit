@@ -1,4 +1,4 @@
-import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import { useState } from 'react';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
@@ -6,6 +6,7 @@ import { motion } from '@/constants/motion-tokens';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type SegmentedControlProps<T extends string> = {
   label?: string;
