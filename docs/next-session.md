@@ -9,7 +9,7 @@
 1. **A3 ASC** — create IAP products from [`asc-iap-setup.md`](./asc-iap-setup.md) (human in App Store Connect)
 2. **A2 live smoke** — enable Auth Send Email Hook; signup → `choremaxx://auth/callback`
 3. **A6 device** — Poppins chat in TestFlight #27 (edge already green)
-4. **A1 / B4 site** — push `Choremaxx-Website` from a machine with write access; redeploy Vercel
+4. **A1 / B4 site** — website agent handoff: [`website-agent-handoff.md`](./website-agent-handoff.md) + brand kit `/opt/cursor/artifacts/choremaxx-website-brand-kit.zip`. Push `Choremaxx-Website` from a machine with write access; redeploy Vercel
 5. **B5** — wire billing emails after A3 products fire events
 6. **B6** — full device retest
 7. **B7** — App Review submit
