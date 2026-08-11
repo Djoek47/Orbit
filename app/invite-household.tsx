@@ -1,23 +1,23 @@
 /**
- * Household invite share — AirDrop / Messages / QR.
- * Uses the DB-backed CMX-#### code (not in-memory member tokens).
+ * Household invite — one calm composition: code, QR, Share.
+ * Apple-level restraint: no noise, one primary action.
  */
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { router, Stack } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
+import { radius, space, typography } from '@/constants/orbit-theme';
 import { buildInviteLinks } from '@/lib/invites/parse-invite';
 import { shareInvite } from '@/lib/invites/share-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function InviteHouseholdScreen() {
-  const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
   const { household, inviteLinks, refreshInviteLinks, accentTheme } = useOrbit();
   const [busy, setBusy] = useState(false);
@@ -27,8 +27,7 @@ export default function InviteHouseholdScreen() {
   const ensureLinks = useCallback(async () => {
     setLoading(true);
     try {
-      const links = inviteLinks ?? (await refreshInviteLinks());
-      return links;
+      return inviteLinks ?? (await refreshInviteLinks());
     } finally {
       setLoading(false);
     }
@@ -43,7 +42,7 @@ export default function InviteHouseholdScreen() {
 
   const onShare = async () => {
     if (!links) {
-      setStatus('Invite code not ready yet — try again.');
+      setStatus('Invite isn’t ready yet.');
       return;
     }
     setBusy(true);
@@ -55,83 +54,117 @@ export default function InviteHouseholdScreen() {
         deepLink: links.deepLink,
         webLink: links.webLink,
       });
-      setStatus(
-        result === 'shared'
-          ? 'Invite shared — AirDrop opens Choremaxx on their iPhone when the app is installed.'
-          : 'Share dismissed.'
-      );
+      if (result === 'shared') {
+        setStatus('Sent.');
+      }
     } catch {
-      setStatus('Could not open the share sheet.');
+      setStatus('Couldn’t share. Try again.');
     } finally {
       setBusy(false);
     }
   };
 
+  const onCopy = async () => {
+    if (!links) return;
+    await Clipboard.setStringAsync(links.code);
+    setStatus('Code copied.');
+  };
+
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 8, backgroundColor: c.background }]}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <Pressable style={styles.back} onPress={() => router.back()} hitSlop={8}>
-        <MaterialIcons name="chevron-left" size={22} color={accentTheme.primary} />
-        <Text style={[styles.backText, { color: accentTheme.primary }]}>Back</Text>
-      </Pressable>
-
-      <Text style={[styles.kicker, { color: accentTheme.secondary }]}>INVITE</Text>
-      <Text style={[styles.title, { color: c.text }]}>Share household invite</Text>
-      <Text style={[styles.sub, { color: c.textSoft }]}>
-        AirDrop to a nearby iPhone, or send via Messages. They open Choremaxx and join with this
-        code.
-      </Text>
-
+    <AuthShell
+      showBack
+      kicker="Household"
+      title="Invite"
+      subtitle="Share with AirDrop or Messages. They open Choremaxx and join."
+      footer={
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Text style={[styles.footerLink, { color: c.textMuted }]}>Done</Text>
+        </Pressable>
+      }>
       <View
         style={[
-          styles.card,
-          { backgroundColor: c.cardStrong, borderColor: glassBorder(0.1) },
+          styles.stage,
+          {
+            backgroundColor: glass(0.04),
+            borderColor: glassBorder(0.08),
+          },
         ]}>
         {loading && !links ? (
-          <ActivityIndicator color={accentTheme.primary} />
+          <ActivityIndicator color={accentTheme.primary} style={styles.loader} />
         ) : (
           <>
-            <View style={[styles.qrWrap, { backgroundColor: glass(0.04) }]}>
+            <View style={styles.qrPlate}>
               {links ? (
-                <QRCode value={links.deepLink} size={180} backgroundColor="transparent" color={c.text} />
+                <QRCode
+                  value={links.deepLink}
+                  size={168}
+                  backgroundColor="transparent"
+                  color={c.text}
+                />
               ) : null}
             </View>
-            <Text style={[styles.codeLabel, { color: c.textMuted }]}>Invite code</Text>
-            <Text selectable style={[styles.code, { color: c.text }]}>
-              {links?.code ?? '—'}
-            </Text>
-            <Text selectable style={[styles.link, { color: c.textSubtle }]}>
-              {links?.webLink}
-            </Text>
+
+            <Pressable onPress={() => void onCopy()} accessibilityLabel="Copy invite code" hitSlop={8}>
+              <Text style={[typography.caption1, styles.codeLabel, { color: c.textMuted }]}>
+                Code
+              </Text>
+              <Text selectable style={[styles.code, { color: c.text }]}>
+                {links?.code ?? '—'}
+              </Text>
+            </Pressable>
           </>
         )}
       </View>
 
       <OrbitButton disabled={busy || !links} onPress={() => void onShare()}>
-        {busy ? 'Opening share…' : 'AirDrop / Share invite'}
+        {busy ? 'Sharing…' : 'Share Invite'}
       </OrbitButton>
-      {status ? <Text style={[styles.status, { color: c.textMuted }]}>{status}</Text> : null}
-    </View>
+
+      {status ? (
+        <Text style={[typography.footnote, styles.status, { color: c.textMuted }]}>{status}</Text>
+      ) : (
+        <Text style={[typography.footnote, styles.status, { color: c.textSubtle }]}>
+          Tap the code to copy
+        </Text>
+      )}
+    </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: 20, gap: 12 },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: 4 },
-  backText: { fontSize: 15, fontWeight: '700' },
-  kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2 },
-  title: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-  sub: { fontSize: 15, lineHeight: 22, marginBottom: 8 },
-  card: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 20,
+  stage: {
     alignItems: 'center',
-    gap: 8,
+    borderCurve: 'continuous',
+    borderRadius: radius.cardLarge,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: space.md,
+    paddingVertical: space.xl,
+    paddingHorizontal: space.lg,
   },
-  qrWrap: { padding: 16, borderRadius: 20, marginBottom: 8 },
-  codeLabel: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 },
-  code: { fontSize: 28, fontWeight: '800', letterSpacing: 1 },
-  link: { fontSize: 12, textAlign: 'center' },
-  status: { fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 4 },
+  loader: { marginVertical: space.xxl },
+  qrPlate: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: space.sm,
+  },
+  codeLabel: {
+    letterSpacing: 0.6,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  code: {
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textAlign: 'center',
+  },
+  status: {
+    textAlign: 'center',
+  },
+  footerLink: {
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });

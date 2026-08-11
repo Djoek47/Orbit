@@ -1115,7 +1115,7 @@ export default function SettingsScreen() {
               ]}
               onPress={() => router.push('/invite-household' as never)}>
               <Text style={[styles.primaryInviteCtaText, { color: orbitPalette.ink }]}>
-                Share household invite
+                Invite
               </Text>
             </Pressable>
             <Text
@@ -1123,7 +1123,7 @@ export default function SettingsScreen() {
                 styles.caption,
                 { color: orbitPalette.textMuted, marginTop: 10, textAlign: 'center' },
               ]}>
-              AirDrop or Messages — they open Choremaxx with your code.
+              AirDrop or Messages
             </Text>
           </>
         ) : null}

@@ -34,25 +34,11 @@ export async function shareInvite({
   const message =
     kind === 'kid'
       ? [
-          childName
-            ? `${childName}, you're invited to ${home} on Choremaxx.`
-            : `You're invited to ${home} on Choremaxx.`,
-          ``,
-          `No account needed — open the invite on this phone.`,
-          `In the app: Get Started → Child → paste the code.`,
-          ``,
-          `Kid invite code: ${code}`,
-          `Open in app: ${appLink}`,
-          `Web: ${url}`,
+          childName ? `${childName} — join ${home} on Choremaxx.` : `Join ${home} on Choremaxx.`,
+          `Code: ${code}`,
+          appLink,
         ].join('\n')
-      : [
-          `You're invited to join ${home} on Choremaxx.`,
-          ``,
-          `Invite code: ${code}`,
-          ``,
-          `Open in Choremaxx: ${appLink}`,
-          `Or tap: ${url}`,
-        ].join('\n');
+      : [`Join ${home} on Choremaxx.`, `Code: ${code}`, appLink, url].join('\n');
 
   const result = await Share.share(
     Platform.OS === 'ios'

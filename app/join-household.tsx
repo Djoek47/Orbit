@@ -2,16 +2,16 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
+import { AppText as Text } from '@/components/orbit/app-text';
 import { AuthShell } from '@/components/orbit/auth-shell';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { orbitColors } from '@/constants/orbit-theme';
+import { typography } from '@/constants/orbit-theme';
 import { consumeInviteCode, peekInviteCode } from '@/lib/invite/invite-code-store';
 import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function JoinHouseholdScreen() {
   const params = useLocalSearchParams<{ code?: string }>();
@@ -26,7 +26,7 @@ export default function JoinHouseholdScreen() {
   const handleJoinHousehold = async (code = inviteCode) => {
     const parsed = parseInvitePayload(code) ?? (code.trim() ? normalizeInviteCode(code) : null);
     if (!parsed) {
-      setError('Enter or scan a valid invite code.');
+      setError('Enter a valid invite code.');
       return;
     }
 
@@ -38,7 +38,7 @@ export default function JoinHouseholdScreen() {
       await joinHousehold({ inviteCode: parsed });
       router.replace('/' as never);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not join household.');
+      setError(err instanceof Error ? err.message : 'Couldn’t join.');
     } finally {
       setBusy(false);
     }
@@ -55,7 +55,6 @@ export default function JoinHouseholdScreen() {
       const next = fromParam || (fromStash ? normalizeInviteCode(fromStash) : '');
       if (cancelled || !next) return;
       setInviteCode(next);
-      // AirDrop / universal link: join immediately once (not when user types manually).
       if (!autoJoinCode.current) {
         autoJoinCode.current = next;
         void handleJoinHousehold(next);
@@ -71,24 +70,30 @@ export default function JoinHouseholdScreen() {
     <>
       <AuthShell
         showBack
-        brandHero
-        kicker="Join a household"
-        title="Invite code"
-        subtitle="AirDrop, QR, or paste a code. You’ll land in the household once an owner or admin approves (if required).">
-        <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
+        kicker="Join"
+        title="Enter code"
+        subtitle="Paste a code, or scan the household QR.">
         <OrbitInput
           autoCapitalize="characters"
           label="Invite code"
           value={inviteCode}
-          onChangeText={setInviteCode}
-          placeholder="CMX-1234"
+          onChangeText={(value) => {
+            setInviteCode(value);
+            setError('');
+          }}
+          placeholder="CMX-0000"
         />
-        <Text style={[styles.hint, { color: c.textSubtle }]}>
-          Tip: on iPhone, AirDrop the invite from Settings → Members → Share household invite.
-        </Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {error ? (
+          <Text style={[typography.footnote, styles.error, { color: c.danger }]}>{error}</Text>
+        ) : null}
+
         <OrbitButton disabled={busy} onPress={() => void handleJoinHousehold()}>
-          {busy ? 'Joining…' : 'Join household'}
+          {busy ? 'Joining…' : 'Continue'}
+        </OrbitButton>
+
+        <OrbitButton tone="secondary" onPress={() => setScannerOpen(true)}>
+          Scan QR
         </OrbitButton>
       </AuthShell>
 
@@ -106,12 +111,6 @@ export default function JoinHouseholdScreen() {
 
 const styles = StyleSheet.create({
   error: {
-    color: orbitColors.danger,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  hint: {
-    fontSize: 12,
-    lineHeight: 16,
+    textAlign: 'center',
   },
 });
