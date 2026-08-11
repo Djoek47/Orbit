@@ -1,8 +1,9 @@
 # Weekend ship automation — ChoreMaxx
 
-**Prepared:** 2026-08-06 · **Restored:** 2026-08-10 (after Final Revision F)  
-**Start from:** `cursor/choremaxx-make-v10-5f8f` @ latest tip  
-**PR:** https://github.com/Djoek47/Orbit/pull/29  
+**Prepared:** 2026-08-06 · **Restored:** 2026-08-10 · **Updated:** 2026-08-11 (v11 + Phase C)  
+**Start from:** `cursor/choremaxx-make-v11` @ latest tip ([PR #33](https://github.com/Djoek47/Orbit/pull/33))  
+**Tonight:** TestFlight **1.1.0 build 32** — full stack (v10 + auth + house rules + Divine Voice)  
+**Tomorrow:** [Realtime Interactive Menus](./realtime-interactive-menus.md) — Phase **C1**  
 
 > ## ⚠️ THIS WEEKEND WAS MISSED — EXECUTE NOW
 >
@@ -28,7 +29,8 @@ This doc is the **automation-ready playbook**. Paste the block under [Automation
 | Q1 = B Hold & Request | Gate + N26/N27 path |
 | Expo Go keep-alive + OTA | Channel `testflight` |
 | Website live | https://choremaxx.vercel.app/ — **A1 still must wire app/ASC URLs** |
-| OpenAI ready | Connect via Supabase (**A6**) |
+| Divine Voice + v11 aggregate | WebRTC duplex, Luna, expanded tools, pre-final TestFlight 1.1.0 — see `docs/choremaxx-make-v11.md` |
+| OpenAI ready | Connect via Supabase (**A6**) + `poppins-realtime-sdp` / `poppins-voice-tool` on staging |
 
 **Do not** re-port Figma Make, switch off v10, or invent features outside Master Brief §3.
 
@@ -42,7 +44,7 @@ Contrast audit F7 · Add-member 4-step wizard F8 · invite RLS F3.6 · full Pers
 
 | Topic | Lock |
 |-------|------|
-| Branch | `cursor/choremaxx-make-v10-5f8f` only |
+| Branch | `cursor/choremaxx-make-v11` only (v11 pre-final aggregate) |
 | Rule Sheet | `docs/logic/choremaxx-MASTER-BRIEF.md` §3 wins conflicts |
 | AI name in product strings | **Poppins** (Master Brief §3.1) |
 | Families only | No roommate mode in shipping product (site still markets roommates — fix in A1/B4) |
@@ -55,8 +57,9 @@ Contrast audit F7 · Add-member 4-step wizard F8 · invite RLS F3.6 · full Pers
 ## Phase order (anti-redundant)
 
 ```
-Phase A (foundation) → Phase B (craft) → stop
+Phase A (foundation) → Phase B (craft) → Phase C (interactive menus) → stop
 Do A fully before B. Do not start B7 until B6 is green.
+After v11 TestFlight smoke tonight: Phase C1 (tomorrow).
 ```
 
 ### Phase A — foundation  ← **MISSED — START HERE**
@@ -84,6 +87,21 @@ Do A fully before B. Do not start B7 until B6 is green.
 | **B6** | ◐ PARTIAL | Full retest | Suites via `npm run test:weekend-a`; device matrix still human. |
 | **B7** | ☐ TODO | App Review submit | Only after B6 green + A8 + legal URLs live. |
 
+### Phase C — Realtime Interactive Menus (tomorrow, post–v11 smoke)
+
+Poppins drives **visible** Tasks / Plan menus while speaking — assignment pickers, itinerary stop advances, row highlights. Full spec: [`docs/realtime-interactive-menus.md`](./realtime-interactive-menus.md).
+
+| ID | Status | Task | Done when |
+|----|--------|------|-----------|
+| **C1** | ☐ TODO | Realtime Interactive Menus v1 | `PoppinsUiOrchestrator` + Tasks assignment animation + Plan itinerary advance + mini rail; voice **and** text twin paths; device acceptance in spec |
+| **C1.1** | ☐ | UI orchestrator + session bus | `ui_actions[]` from voice-tool / executor → tab subscribers |
+| **C1.2** | ☐ | Tasks & assignment menus | Create-task prefill stagger, row highlight, assignment sheet |
+| **C1.3** | ☐ | Plan & itinerary menus | Stop advance animation, calendar agenda highlight |
+| **C1.4** | ☐ | Poppins presence rail | Bottom banner + orb sync on driven screens |
+| **C1.5** | ☐ | Smoke + matrix | Rows added to `docs/expo-go-test-matrix.md` |
+
+**Branch:** stay on `cursor/choremaxx-make-v11` (or tip v12 from same line). **Requires** TestFlight build with Divine Voice + WebRTC for full duplex demo; Expo Go gets text-path choreography only.
+
 ### Final — key rotations (LAST, after B7 / ship)
 
 Do **not** rotate mid-weekend while hooks are being tested. After App Review package is stable:
@@ -103,11 +121,13 @@ Do **not** rotate mid-weekend while hooks are being tested. After App Review pac
 You are shipping ChoreMaxx for App Store readiness.
 
 BRANCH (mandatory):
-- git fetch && git checkout cursor/choremaxx-make-v10-5f8f && git pull
+- git fetch && git checkout cursor/choremaxx-make-v11 && git pull
 - Commit and push ONLY on this branch. Do not create cursor/*-c30d sprawl.
 
 READ FIRST:
-- docs/weekend-ship-automation.md  (this playbook — Phase A then Phase B)
+- docs/weekend-ship-automation.md  (this playbook — Phase A then B, then C tomorrow)
+- docs/realtime-interactive-menus.md  (Phase C1 spec)
+- docs/choremaxx-make-v11.md  (TestFlight smoke + aggregated stack)
 - docs/logic/choremaxx-MASTER-BRIEF.md §3 (wins all conflicts)
 - docs/logic/REVISION_F_COMPLETION_REPORT.md (Final Revision already landed — do not redo)
 - docs/product-context.md, docs/technical-blueprint.md
@@ -124,9 +144,10 @@ HARD RULES:
 - Fill a short completion report per A/B item (pass/fail + what you skipped).
 
 EXECUTE IN ORDER:
-1. Phase A1 → A8 completely.
+1. Phase A1 → A8 completely (finish remaining ◐ items).
 2. Then Phase B1 → B7.
-3. Stop and report if blocked on secrets (Resend API key, OpenAI, ASC IAP products, EAS iOS build quota).
+3. After v11 TestFlight smoke: Phase C1 Realtime Interactive Menus (docs/realtime-interactive-menus.md).
+4. Stop and report if blocked on secrets (Resend API key, OpenAI, ASC IAP products, EAS iOS build quota).
 
 START: Confirm branch tip SHA, then begin A1.
 ```
@@ -144,6 +165,8 @@ START: Confirm branch tip SHA, then begin A1.
 ## Related docs
 
 - [next-session.md](./next-session.md) — short pointer to this playbook  
+- [choremaxx-make-v11.md](./choremaxx-make-v11.md) — tonight TestFlight aggregate  
+- [realtime-interactive-menus.md](./realtime-interactive-menus.md) — **tomorrow Phase C1**  
 - [logic/REVISION_F_COMPLETION_REPORT.md](./logic/REVISION_F_COMPLETION_REPORT.md)  
 - [testflight-setup.md](./testflight-setup.md)  
 - [logic/choremaxx-MASTER-BRIEF.md](./logic/choremaxx-MASTER-BRIEF.md)
