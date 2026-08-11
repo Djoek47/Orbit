@@ -131,11 +131,11 @@ export class PoppinsRealtimeSession {
       }
 
       this.model = session.model;
+      // GA Realtime: no openai-beta.realtime-v1 subprotocol (beta API shut down).
       const url = `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(this.model)}`;
       this.ws = new WebSocket(url, [
         'realtime',
         `openai-insecure-api-key.${session.clientSecret}`,
-        'openai-beta.realtime-v1',
       ]);
 
       await new Promise<void>((resolve, reject) => {
@@ -167,7 +167,7 @@ export class PoppinsRealtimeSession {
       this.send({
         type: 'session.update',
         session: {
-          modalities: ['text', 'audio'],
+          type: 'realtime',
           tools: POPPINS_TOOL_DEFINITIONS.map((tool) => ({
             type: 'function',
             name: tool.name,
@@ -175,7 +175,6 @@ export class PoppinsRealtimeSession {
             parameters: tool.parameters,
           })),
           tool_choice: 'auto',
-          turn_detection: null,
         },
       });
 
@@ -223,7 +222,13 @@ export class PoppinsRealtimeSession {
 
     const type = String(event.type ?? '');
 
-    if (type === 'response.audio_transcript.delta' || type === 'response.text.delta') {
+    // GA event names (+ legacy beta aliases during transition).
+    if (
+      type === 'response.output_audio_transcript.delta' ||
+      type === 'response.output_text.delta' ||
+      type === 'response.audio_transcript.delta' ||
+      type === 'response.text.delta'
+    ) {
       const delta = String(event.delta ?? '');
       this.assistantBuffer += delta;
       this.callbacks.onStateChange?.('speaking');
@@ -233,7 +238,12 @@ export class PoppinsRealtimeSession {
       }
     }
 
-    if (type === 'response.audio_transcript.done' || type === 'response.text.done') {
+    if (
+      type === 'response.output_audio_transcript.done' ||
+      type === 'response.output_text.done' ||
+      type === 'response.audio_transcript.done' ||
+      type === 'response.text.done'
+    ) {
       const text = String(event.transcript ?? event.text ?? this.assistantBuffer).trim();
       if (text) {
         this.callbacks.onTranscript?.('assistant', text);

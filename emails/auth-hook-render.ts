@@ -65,21 +65,26 @@ export async function renderAuthHookEmail(
       result = await render(verification, {
         name,
         confirmUrl: input.confirmUrl,
+        otp: input.otp,
         expiresInHours: 24,
       });
       break;
   }
 
-  const otp = input.otp?.trim();
-  if (otp) {
-    result = {
-      ...result,
-      text: `${result.text}\n\nOr enter this code: ${otp}`,
-      html: result.html.replace(
-        /<\/body>/i,
-        `<p style="font-family:&quot;Bricolage Grotesque&quot;,BricolageGrotesque,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:#8B8AA0;text-align:center;margin:24px 16px;">Or enter this code: <strong style="letter-spacing:0.12em;color:#0F0E17;">${otp}</strong></p></body>`
-      ),
-    };
+  // OTP is rendered inside VerificationEmail when provided.
+  // Other templates still append a plain fallback for magic-link / recovery codes.
+  if (action !== 'signup' && action !== 'invite') {
+    const otp = input.otp?.trim();
+    if (otp) {
+      result = {
+        ...result,
+        text: `${result.text}\n\nOr enter this code: ${otp}`,
+        html: result.html.replace(
+          /<\/body>/i,
+          `<p style="font-family:&quot;Bricolage Grotesque&quot;,BricolageGrotesque,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:#8B8AA0;text-align:center;margin:24px 16px;">Or enter this code: <strong style="letter-spacing:0.12em;color:#0F0E17;">${otp}</strong></p></body>`
+        ),
+      };
+    }
   }
 
   return result;

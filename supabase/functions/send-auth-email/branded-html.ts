@@ -110,7 +110,7 @@ function contentFor(input: {
       return {
         subject: 'Confirm your email',
         headline: 'Confirm your email',
-        body: `Hi ${name}, we sent this so you can verify your household account. Open the link on your phone, then continue in Choremaxx.`,
+        body: `Hi ${name}, tap Confirm email on this phone — we’ll open Choremaxx and finish verifying your household account. Or enter the code below in the app.`,
         ctaLabel: 'Confirm email',
         confirmUrl: input.confirmUrl,
         footnote: 'Link expires in 24 hours.',
@@ -173,10 +173,20 @@ export function renderBrandedAuthEmail(input: {
               <h1 style="margin:8px 0 16px;font-family:${FONT_STACK};font-size:28px;line-height:34px;font-weight:700;color:${COLORS.darkText};">${escapeHtml(c.headline)}</h1>
               <p style="margin:0 0 24px;font-family:${FONT_STACK};font-size:16px;line-height:24px;font-weight:400;color:${COLORS.body};">${escapeHtml(c.body)}</p>
               ${rowsHtml(c.rows)}
-              <a href="${escapeHtml(c.confirmUrl)}" style="display:inline-block;padding:16px 22px;background:${COLORS.coral};color:#FFFFFF;text-decoration:none;border-radius:16px;font-family:${FONT_STACK};font-size:16px;font-weight:700;">${escapeHtml(c.ctaLabel)}</a>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 8px;">
+                <tr>
+                  <td align="center" style="border-radius:16px;background:${COLORS.coral};">
+                    <a href="${escapeHtml(c.confirmUrl)}" style="display:inline-block;padding:16px 28px;background:${COLORS.coral};color:#FFFFFF;text-decoration:none;border-radius:16px;font-family:${FONT_STACK};font-size:16px;font-weight:700;mso-padding-alt:0;">
+                      <!--[if mso]><i style="letter-spacing:28px;mso-font-width:-100%;mso-text-raise:21pt">&nbsp;</i><![endif]-->
+                      <span style="color:#FFFFFF;">${escapeHtml(c.ctaLabel)}</span>
+                      <!--[if mso]><i style="letter-spacing:28px;mso-font-width:-100%">&nbsp;</i><![endif]-->
+                    </a>
+                  </td>
+                </tr>
+              </table>
               ${
                 otp
-                  ? `<p style="margin:28px 0 0;font-family:${FONT_STACK};font-size:14px;color:${COLORS.muted};">Or enter this code:</p>
+                  ? `<p style="margin:28px 0 0;font-family:${FONT_STACK};font-size:14px;color:${COLORS.muted};">Or enter this code in Choremaxx:</p>
               <p style="margin:8px 0 0;font-family:${FONT_STACK};font-size:28px;letter-spacing:0.16em;font-weight:700;color:${COLORS.darkText};">${escapeHtml(otp)}</p>`
                   : ''
               }
@@ -186,7 +196,7 @@ export function renderBrandedAuthEmail(input: {
                   : ''
               }
               <p style="margin:28px 0 0;font-family:${FONT_STACK};font-size:12px;line-height:1.45;color:${COLORS.muted};">If the button does not work, open this link:<br />
-                <span style="word-break:break-all;color:${COLORS.body};">${escapeHtml(c.confirmUrl)}</span>
+                <a href="${escapeHtml(c.confirmUrl)}" style="word-break:break-all;color:${COLORS.coral};text-decoration:underline;">${escapeHtml(c.confirmUrl)}</a>
               </p>
               <hr style="border:none;border-top:1px solid ${COLORS.divider};margin:28px 0 16px;" />
               <p style="margin:0;font-family:${FONT_STACK};font-size:12px;line-height:1.5;color:${COLORS.muted};text-align:center;">

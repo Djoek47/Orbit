@@ -52,8 +52,8 @@ Deno.serve(async (req) => {
       deskHint +
       householdHint;
 
-    // Prefer modern client_secrets endpoint; fall back to legacy sessions mint.
-    let sessionRes = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
+    // GA Realtime only — POST /v1/realtime/client_secrets (beta /sessions + OpenAI-Beta shut down).
+    const sessionRes = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${openaiKey}`,
@@ -74,28 +74,7 @@ Deno.serve(async (req) => {
       }),
     });
 
-    let session = await sessionRes.json();
-
-    if (!sessionRes.ok) {
-      sessionRes = await fetch('https://api.openai.com/v1/realtime/sessions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${openaiKey}`,
-          'Content-Type': 'application/json',
-          'OpenAI-Beta': 'realtime=v1',
-        },
-        body: JSON.stringify({
-          model: REALTIME_MODEL,
-          voice: profile.voice,
-          modalities: ['text', 'audio'],
-          instructions,
-          tools: poppinsToolsAsRealtimeTools(),
-          tool_choice: 'auto',
-          input_audio_transcription: { model: 'whisper-1' },
-        }),
-      });
-      session = await sessionRes.json();
-    }
+    const session = await sessionRes.json();
 
     if (!sessionRes.ok) {
       return jsonResponse(

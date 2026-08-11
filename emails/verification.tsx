@@ -14,10 +14,17 @@ import { firstName } from './utils/format';
 export type VerificationEmailProps = {
   name: string;
   confirmUrl: string;
+  /** Numeric OTP from Auth hook — enter in-app when the link fails. */
+  otp?: string;
   expiresInHours?: number;
 };
 
-export default function VerificationEmail({ name, confirmUrl, expiresInHours = 24 }: VerificationEmailProps) {
+export default function VerificationEmail({
+  name,
+  confirmUrl,
+  otp,
+  expiresInHours = 24,
+}: VerificationEmailProps) {
   return (
     <EmailLayout previewText="Confirm your email to activate your Choremaxx household.">
       <Heading style={{ fontFamily: emailFontStack, ...emailType.title, color: emailColors.darkText, margin: '8px 0 16px' }}>
@@ -27,10 +34,34 @@ export default function VerificationEmail({ name, confirmUrl, expiresInHours = 2
         Hi {firstName(name)},
       </Text>
       <Text style={{ fontFamily: emailFontStack, ...emailType.body, color: emailColors.body, margin: '0 0 24px' }}>
-        Open this link on your phone to verify your household account, then continue in Choremaxx —
-        same step as the Confirm your email screen in the app.
+        Tap Confirm email on this phone — we’ll open Choremaxx and finish verifying your household
+        account. Or enter the code below in the app.
       </Text>
       <PrimaryButton href={confirmUrl}>Confirm email</PrimaryButton>
+      {otp ? (
+        <>
+          <Text
+            style={{
+              fontFamily: emailFontStack,
+              ...emailType.caption,
+              color: emailColors.muted,
+              margin: '28px 0 0',
+            }}>
+            Or enter this code in Choremaxx:
+          </Text>
+          <Text
+            style={{
+              fontFamily: emailFontStack,
+              fontSize: 28,
+              fontWeight: 700,
+              letterSpacing: '0.16em',
+              color: emailColors.darkText,
+              margin: '8px 0 0',
+            }}>
+            {otp}
+          </Text>
+        </>
+      ) : null}
       <Text
         style={{
           fontFamily: emailFontStack,
@@ -47,22 +78,26 @@ export default function VerificationEmail({ name, confirmUrl, expiresInHours = 2
 
 VerificationEmail.PreviewProps = {
   name: 'Sarah',
-  confirmUrl: 'https://choremaxx.app/auth/verify?token=preview',
+  confirmUrl: 'https://www.choremaxx.app/auth/callback?token_hash=preview&type=signup',
+  otp: '83538952',
   expiresInHours: 24,
 } satisfies VerificationEmailProps;
 
 export const subjectFor = () => 'Confirm your email';
 
-export const textFor = ({ name, confirmUrl, expiresInHours = 24 }: VerificationEmailProps) =>
+export const textFor = ({ name, confirmUrl, otp, expiresInHours = 24 }: VerificationEmailProps) =>
   [
     `Confirm your email, ${firstName(name)}`,
     '',
-    'Open this link on your phone to verify your household account, then continue in Choremaxx.',
+    'Tap Confirm email on this phone — we’ll open Choremaxx and finish verifying your household account.',
     '',
     `Confirm email: ${confirmUrl}`,
+    otp ? `Or enter this code in Choremaxx: ${otp}` : '',
     '',
     `Link expires in ${expiresInHours} hours.`,
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 
 export const _module: EmailModule<VerificationEmailProps> = {
   default: VerificationEmail,

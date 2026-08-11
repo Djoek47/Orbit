@@ -30,7 +30,8 @@ import { useOrbit } from '@/store/orbit-store';
 
 type Phase = 'working' | 'success' | 'needs_continue' | 'error';
 
-const WAIT_FOR_LINK_MS = 4_000;
+const WAIT_FOR_LINK_MS = 3_500;
+const VERIFY_TIMEOUT_MS = 12_000;
 const SUCCESS_HOLD_MS = 900;
 
 function buildUrlFromParams(params: Record<string, string | string[] | undefined>): string | null {
@@ -59,6 +60,20 @@ function buildUrlFromParams(params: Record<string, string | string[] | undefined
   return `choremaxx://auth/callback?${q.toString()}`;
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(label)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export default function AuthCallbackScreen() {
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
@@ -80,7 +95,7 @@ export default function AuthCallbackScreen() {
       router.replace({ pathname: '/confirm-email', params: { email } } as never);
       return;
     }
-    router.replace('/sign-in' as never);
+    router.replace('/confirm-email' as never);
   };
 
   const finishSuccess = async () => {
@@ -112,7 +127,11 @@ export default function AuthCallbackScreen() {
       setMessage('Confirming your email…');
 
       try {
-        const session = await createSessionFromUrl(incoming);
+        const session = await withTimeout(
+          createSessionFromUrl(incoming),
+          VERIFY_TIMEOUT_MS,
+          'Confirmation timed out. Enter the code from your email instead.'
+        );
         if (cancelled || finished.current) return;
 
         if (!session) {
@@ -124,7 +143,7 @@ export default function AuthCallbackScreen() {
           }
           setPhase('needs_continue');
           setMessage(
-            'Your email may already be confirmed. Continue to sign in and finish setup.'
+            'Your email may already be confirmed. Continue to enter your code or sign in.'
           );
           return;
         }
@@ -137,17 +156,19 @@ export default function AuthCallbackScreen() {
       } catch (err) {
         if (cancelled || finished.current) return;
         const text = err instanceof Error ? err.message : 'Confirmation failed.';
-        // Already-used / expired links — offer a calm continue path.
         const lower = text.toLowerCase();
         if (
           lower.includes('expired') ||
           lower.includes('invalid') ||
           lower.includes('already') ||
-          lower.includes('otp')
+          lower.includes('otp') ||
+          lower.includes('timed out')
         ) {
           setPhase('needs_continue');
           setMessage(
-            'This link was already used or expired. If you confirmed earlier, continue to sign in.'
+            lower.includes('timed out')
+              ? text
+              : 'This link was already used or expired. Enter the code from your email, or continue to sign in.'
           );
           return;
         }
@@ -183,7 +204,7 @@ export default function AuthCallbackScreen() {
         }
         setPhase('needs_continue');
         setMessage(
-          'Waiting for the confirmation link. If you already tapped it, continue to sign in.'
+          'Enter the code from your email, or tap Continue if you already confirmed.'
         );
       })();
     }, WAIT_FOR_LINK_MS);
@@ -253,9 +274,9 @@ export default function AuthCallbackScreen() {
             },
           ]}>
           {phase === 'success'
-            ? 'You\'re in'
+            ? "You're in"
             : phase === 'error'
-              ? 'Couldn\'t confirm'
+              ? "Couldn't confirm"
               : phase === 'needs_continue'
                 ? 'One more step'
                 : 'Confirming'}
@@ -265,10 +286,10 @@ export default function AuthCallbackScreen() {
 
       {phase === 'needs_continue' || phase === 'error' ? (
         <Animated.View entering={FadeInUp.delay(120).duration(280)} style={styles.actions}>
-          <OrbitButton onPress={goConfirmOrSignIn}>Continue</OrbitButton>
-          <Pressable onPress={() => router.replace('/confirm-email' as never)} hitSlop={12}>
+          <OrbitButton onPress={goConfirmOrSignIn}>Enter code</OrbitButton>
+          <Pressable onPress={() => router.replace('/sign-in' as never)} hitSlop={12}>
             <Text style={[typography.subheadline, { color: accentTheme.primary, fontWeight: '600' }]}>
-              Resend confirmation
+              Sign in instead
             </Text>
           </Pressable>
         </Animated.View>

@@ -63,19 +63,11 @@ function displayName(email: string, meta?: Record<string, unknown>): string {
 }
 
 /**
- * Deep link with token_hash — the app calls verifyOtp.
- * Avoids Supabase /auth/v1/verify → custom-scheme redirects that drop #access_token
- * (Chrome/iOS often open choremaxx://auth/callback with an empty payload → infinite spinner).
+ * Always use the HTTPS website bridge in email CTAs.
+ * Custom schemes (`choremaxx://…`) often render as plain text in Mail — users cannot tap them.
+ * Site `/auth/callback` forwards query params into the app (Universal Link or `choremaxx://` open).
+ * Avoids Supabase /auth/v1/verify → custom-scheme redirects that drop `#access_token`.
  */
-function appConfirmUrl(tokenHash: string, type: EmailActionType): string {
-  const params = new URLSearchParams({
-    token_hash: tokenHash,
-    type: type || 'signup',
-  });
-  return `choremaxx://auth/callback?${params.toString()}`;
-}
-
-/** HTTPS bridge (Universal Link / browser) — same query, site page opens the app. */
 function webConfirmUrl(tokenHash: string, type: EmailActionType): string {
   const params = new URLSearchParams({
     token_hash: tokenHash,
@@ -84,13 +76,8 @@ function webConfirmUrl(tokenHash: string, type: EmailActionType): string {
   return `https://www.choremaxx.app/auth/callback?${params.toString()}`;
 }
 
-function confirmUrlForEmail(tokenHash: string, type: EmailActionType, redirectTo: string): string {
-  // Prefer HTTPS when Auth already asked for a web redirect — survives Mail → Chrome.
-  if (redirectTo.startsWith('https://') && redirectTo.includes('choremaxx.app')) {
-    return webConfirmUrl(tokenHash, type);
-  }
-  // Default: open the app directly with token_hash (TestFlight / Mail).
-  return appConfirmUrl(tokenHash, type);
+function confirmUrlForEmail(tokenHash: string, type: EmailActionType, _redirectTo: string): string {
+  return webConfirmUrl(tokenHash, type);
 }
 
 Deno.serve(async (req) => {

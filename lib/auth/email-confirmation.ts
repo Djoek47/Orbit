@@ -1,5 +1,5 @@
-import * as Linking from 'expo-linking';
-import type { EmailOtpType } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { EmailOtpType, Session } from '@supabase/supabase-js';
 
 import { throwMappedAuthError } from '@/lib/auth/auth-errors';
 import { paramsFromUrl } from '@/lib/auth/auth-url-params';
@@ -12,7 +12,13 @@ type PendingSignup = {
   password: string;
 };
 
+const PENDING_SIGNUP_KEY = 'choremaxx.pendingSignup.v1';
+
+/** HTTPS bridge on the marketing site — clickable in Mail; opens the app via Universal Link / page forward. */
+export const EMAIL_CONFIRM_WEB_URL = 'https://www.choremaxx.app/auth/callback';
+
 let pendingSignup: PendingSignup | null = null;
+let pendingHydrated = false;
 
 /** Client-side cooldown so resend / signup retries don't spam Auth email (Resend/SMTP). */
 const RESEND_COOLDOWN_MS = 60_000;
@@ -37,19 +43,56 @@ export function markAuthEmailSent(now = Date.now()) {
 
 export function setPendingSignup(email: string, password: string) {
   pendingSignup = { email: email.trim(), password };
+  void AsyncStorage.setItem(PENDING_SIGNUP_KEY, JSON.stringify(pendingSignup)).catch(() => undefined);
 }
 
 export function getPendingSignup(): PendingSignup | null {
   return pendingSignup;
 }
 
-export function clearPendingSignup() {
-  pendingSignup = null;
+/** Load pending signup from disk (call once on confirm-email mount). */
+export async function hydratePendingSignup(): Promise<PendingSignup | null> {
+  if (pendingSignup) {
+    pendingHydrated = true;
+    return pendingSignup;
+  }
+  if (pendingHydrated) return null;
+  pendingHydrated = true;
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_SIGNUP_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PendingSignup;
+    if (!parsed?.email || !parsed?.password) return null;
+    pendingSignup = { email: parsed.email.trim(), password: parsed.password };
+    return pendingSignup;
+  } catch {
+    return null;
+  }
 }
 
-/** Deep link target for Supabase email confirmation redirects. */
+export function clearPendingSignup() {
+  pendingSignup = null;
+  void AsyncStorage.removeItem(PENDING_SIGNUP_KEY).catch(() => undefined);
+}
+
+/**
+ * Redirect target for Supabase Auth emails.
+ * Prefer HTTPS so inbox clients treat the CTA as a real link (custom schemes often render as plain text).
+ * Website `/auth/callback` forwards into `choremaxx://auth/callback?…`.
+ */
 export function getEmailConfirmRedirectUrl() {
-  return Linking.createURL('auth/callback');
+  const override = process.env.EXPO_PUBLIC_EMAIL_CONFIRM_REDIRECT?.trim();
+  if (override) return override;
+  return EMAIL_CONFIRM_WEB_URL;
+}
+
+/** App deep link with the same query — used as a secondary fallback in email copy. */
+export function getEmailConfirmAppUrl(tokenHash: string, type = 'signup') {
+  const params = new URLSearchParams({
+    token_hash: tokenHash,
+    type: type || 'signup',
+  });
+  return `choremaxx://auth/callback?${params.toString()}`;
 }
 
 function otpTypeFromParam(raw: string | undefined): EmailOtpType {
@@ -65,7 +108,7 @@ function otpTypeFromParam(raw: string | undefined): EmailOtpType {
  * - PKCE (?code=)
  * - implicit tokens (#access_token / query)
  */
-export async function createSessionFromUrl(url: string) {
+export async function createSessionFromUrl(url: string): Promise<Session | null> {
   const supabase = getSupabaseClient();
   if (!supabase) return null;
 
@@ -108,6 +151,27 @@ export async function createSessionFromUrl(url: string) {
   }
 
   return null;
+}
+
+/** Confirm signup with the numeric code from the email (“Or enter this code”). */
+export async function verifySignupEmailOtp(email: string, token: string): Promise<Session | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error('Live auth is not configured.');
+  }
+  const cleaned = token.replace(/\s+/g, '').trim();
+  if (!cleaned) {
+    throw new Error('Enter the code from your email.');
+  }
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: email.trim(),
+    token: cleaned,
+    type: 'signup',
+  });
+  if (error) {
+    throwMappedAuthError(error);
+  }
+  return data.session;
 }
 
 export async function resendSignupConfirmation(email: string) {
