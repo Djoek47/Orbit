@@ -47,8 +47,9 @@ In Apple Developer → Identifiers → `app.choremaxx.household`:
 
 - **Sign In with Apple**
 - **Push Notifications**
+- **Associated Domains** — only when `ios.associatedDomains` is set in `app.json` (Universal Links). Auth deep links use `choremaxx://` and do **not** require this.
 
-EAS can enable these on first build if you allow credential setup when prompted.
+EAS can enable supported capabilities on build when Apple authentication is available (look for **✔ Synced capabilities**). Non-interactive CI builds that skip Apple login reuse the remote provisioning profile as-is — if entitlements and the profile disagree, the archive fails.
 
 ### 4. Fill `eas.json` submit config
 
@@ -200,6 +201,7 @@ Trigger manually: **Actions → iOS TestFlight → Run workflow**
 |-------|-----|
 | `No bundle identifier` | Run `eas init`; confirm `app.choremaxx.household` in `app.json` |
 | `ASC App ID invalid` | Use numeric ID from App Store Connect, not bundle id |
+| Provisioning profile doesn't support **Associated Domains** / missing `com.apple.developer.associated-domains` | Entitlements and the App Store profile disagree. Either (A) remove `ios.associatedDomains` from `app.json` and rebuild (custom scheme still works), or (B) enable **Associated Domains** on the App ID → Confirm → run an **interactive** `eas build -p ios --profile testflight` (or `eas credentials` → delete the App Store provisioning profile) so EAS regenerates a profile that includes the capability. Non-interactive builds that skip Apple login will keep the stale profile. |
 | Push not working on TestFlight | Ensure Push Notifications capability + APNs key in EAS credentials |
 | Sign in with Apple fails (`Provider apple not installed` / issuer not enabled) | Enable **Apple** under Supabase Auth → Providers (Services ID, Team ID, Key ID, `.p8`). App ID capability alone is not enough. |
 | `Invalid login credentials` / `sarah@orbit.test` | Mock-only email. Create a Supabase Auth user or use Get Started on device. |
