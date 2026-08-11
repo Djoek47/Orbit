@@ -1,5 +1,6 @@
+import { BlurView } from 'expo-blur';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -19,7 +20,9 @@ const CYCLE_MS = 2800;
 const FADE_MS = 380;
 
 /**
- * Get Started splash hooks — shows one of the three phrases at a time and cycles.
+ * Get Started splash hooks — one phrase at a time.
+ * Blur pill behind the line (TestFlight: text was lost on the glow).
+ * Position sits lower under the brand tagline (screenshot_02).
  */
 export function SplashHooks({ visible }: SplashHooksProps) {
   const { c } = useOrbitColors();
@@ -70,9 +73,26 @@ export function SplashHooks({ visible }: SplashHooksProps) {
 
   return (
     <View style={styles.wrap} pointerEvents="none">
-      <Animated.View style={[styles.row, style]}>
-        <View style={[styles.dot, { backgroundColor: hook.color }]} />
-        <Text style={[styles.text, { color: c.textMuted }]}>{hook.text}</Text>
+      <Animated.View style={[styles.pillOuter, style]}>
+        {Platform.OS === 'web' ? (
+          <View style={[styles.pillFill, { backgroundColor: c.isDark ? 'rgba(12,14,20,0.72)' : 'rgba(255,255,255,0.78)' }]} />
+        ) : (
+          <BlurView
+            intensity={48}
+            tint={c.isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFillObject}
+          />
+        )}
+        <View
+          style={[
+            styles.pillScrim,
+            { backgroundColor: c.isDark ? 'rgba(8,10,16,0.45)' : 'rgba(255,252,248,0.55)' },
+          ]}
+        />
+        <View style={styles.row}>
+          <View style={[styles.dot, { backgroundColor: hook.color }]} />
+          <Text style={[styles.text, { color: c.text }]}>{hook.text}</Text>
+        </View>
       </Animated.View>
       <View style={styles.pips}>
         {ONBOARDING_SPLASH_HOOKS.map((item, i) => (
@@ -95,17 +115,33 @@ export function SplashHooks({ visible }: SplashHooksProps) {
 const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
-    gap: 14,
-    minHeight: 48,
+    gap: 16,
+    marginTop: 28,
+    minHeight: 56,
+    paddingHorizontal: 12,
     width: '100%',
+  },
+  pillOuter: {
+    alignItems: 'center',
+    borderRadius: 999,
+    maxWidth: '100%',
+    overflow: 'hidden',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  pillFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  pillScrim: {
+    ...StyleSheet.absoluteFillObject,
   },
   row: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 10,
     justifyContent: 'center',
-    minHeight: 24,
-    paddingHorizontal: 16,
+    maxWidth: '100%',
+    zIndex: 1,
   },
   dot: {
     borderRadius: 999,
@@ -113,8 +149,9 @@ const styles = StyleSheet.create({
     width: 7,
   },
   text: {
+    flexShrink: 1,
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
     lineHeight: 22,
     textAlign: 'center',
   },

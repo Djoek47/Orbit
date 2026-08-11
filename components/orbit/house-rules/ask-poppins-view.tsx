@@ -14,8 +14,14 @@ type Props = {
   tokens: Record<string, string>;
 };
 
-const SUGGESTIONS = ['late', 'streak', 'crown', 'xp', 'homework'];
+const KID_CHIPS = [
+  "What's a bundle bonus?",
+  "What's a trophy?",
+  'Who assigns my jobs?',
+  'Can rules change?',
+];
 
+/** Direction 04 — Ask Poppins. Adult: searchable Q&A. Kid: chat cards. */
 export function AskPoppinsView({ groups, voice, palette, tokens }: Props) {
   const [query, setQuery] = useState('');
   const hits = useMemo(
@@ -23,22 +29,22 @@ export function AskPoppinsView({ groups, voice, palette, tokens }: Props) {
     [groups, query, voice]
   );
 
-  // Adult: grouped Q&A for all visible when empty; filtered when typing
-  const adultRows = useMemo(() => {
-    if (voice !== 'adult') return [];
-    if (query.trim()) return hits;
-    return groups.flatMap((g) =>
-      g.rules.map((rule) => ({ ...rule, chapterLabel: g.chapter.adultLabel }))
-    );
-  }, [groups, hits, query, voice]);
-
   if (voice === 'kid') {
+    const rows = query.trim()
+      ? hits
+      : groups.flatMap((g) => g.rules).slice(0, 10);
     return (
       <View style={styles.stack}>
+        <View style={styles.pageTitle}>
+          <Text style={[styles.kidH3, { color: palette.title }]}>Ask Poppins</Text>
+          <Text style={[typography.footnote, { color: palette.muted, marginTop: 5 }]}>
+            Tap a question. Or just ask your own.
+          </Text>
+        </View>
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Ask Poppins…"
+          placeholder="Ask your own…"
           placeholderTextColor={palette.muted}
           style={[
             styles.input,
@@ -50,11 +56,11 @@ export function AskPoppinsView({ groups, voice, palette, tokens }: Props) {
           ]}
         />
         <View style={styles.chips}>
-          {SUGGESTIONS.map((s) => (
+          {KID_CHIPS.map((s) => (
             <Pressable
               key={s}
               onPress={() => setQuery(s)}
-              style={[styles.chip, { backgroundColor: palette.chipBg }]}>
+              style={[styles.chip, { borderColor: palette.accent, backgroundColor: palette.chipBg }]}>
               <Text style={[typography.caption1, { color: palette.accent, fontWeight: '600' }]}>
                 {s}
               </Text>
@@ -62,7 +68,7 @@ export function AskPoppinsView({ groups, voice, palette, tokens }: Props) {
           ))}
         </View>
         <View style={styles.chat}>
-          {(query.trim() ? hits : groups.flatMap((g) => g.rules).slice(0, 6)).map((rule) => {
+          {rows.map((rule) => {
             const ask = substituteTokens(rule.kid.question, tokens);
             const ans = substituteTokens(rule.kid.body, tokens);
             return (
@@ -70,8 +76,16 @@ export function AskPoppinsView({ groups, voice, palette, tokens }: Props) {
                 <View style={[styles.ask, { backgroundColor: palette.askBubble }]}>
                   <Text style={[typography.footnote, { color: '#fff', fontWeight: '600' }]}>{ask}</Text>
                 </View>
-                <View style={[styles.ans, { backgroundColor: palette.ansBubble, borderColor: palette.cardBorder }]}>
-                  <Text style={[typography.caption2, { color: palette.accent, fontWeight: '800', marginBottom: 4 }]}>
+                <View
+                  style={[
+                    styles.ans,
+                    { backgroundColor: palette.ansBubble, borderColor: palette.cardBorder },
+                  ]}>
+                  <Text
+                    style={[
+                      typography.caption2,
+                      { color: palette.accent, fontWeight: '800', marginBottom: 4, letterSpacing: 1 },
+                    ]}>
                     POPPINS
                   </Text>
                   <Text style={[typography.body, { color: palette.ink }]}>{ans}</Text>
@@ -86,10 +100,13 @@ export function AskPoppinsView({ groups, voice, palette, tokens }: Props) {
 
   return (
     <View style={styles.stack}>
+      <View style={styles.pageTitle}>
+        <Text style={[styles.adultH3, { color: palette.title }]}>House Rules</Text>
+      </View>
       <TextInput
         value={query}
         onChangeText={setQuery}
-        placeholder="Search house rules…"
+        placeholder="Search the rules"
         placeholderTextColor={palette.muted}
         style={[
           styles.input,
@@ -100,20 +117,24 @@ export function AskPoppinsView({ groups, voice, palette, tokens }: Props) {
           },
         ]}
       />
-      {adultRows.map((rule) => {
-        const q = substituteTokens(rule.adult.question, tokens);
-        const a = substituteTokens(rule.adult.clause, tokens);
+      {groups.map(({ chapter, rules }) => {
+        const chapterHits = query.trim()
+          ? rules.filter((r) => hits.some((h) => h.id === r.id))
+          : rules;
+        if (!chapterHits.length) return null;
         return (
-          <View
-            key={rule.id}
-            style={[styles.qa, { backgroundColor: palette.card, borderColor: palette.cardBorder }]}>
-            <Text style={[typography.caption2, { color: palette.muted }]}>
-              {rule.chapterLabel ?? rule.displayNumber}
-            </Text>
-            <Text style={[typography.subheadline, { color: palette.accent, marginTop: 4, fontWeight: '700' }]}>
-              {q}
-            </Text>
-            <Text style={[typography.body, { color: palette.ink, marginTop: 6 }]}>{a}</Text>
+          <View key={chapter.key} style={styles.group}>
+            <Text style={[styles.groupLab, { color: palette.groupHead }]}>{chapter.adultLabel}</Text>
+            {chapterHits.map((rule) => {
+              const q = substituteTokens(rule.adult.question, tokens);
+              const a = substituteTokens(rule.adult.clause, tokens);
+              return (
+                <View key={rule.id} style={[styles.qa, { borderBottomColor: palette.quietBorder }]}>
+                  <Text style={[styles.q, { color: palette.ink }]}>{q}</Text>
+                  <Text style={[styles.a, { color: palette.inkSoft }]}>{a}</Text>
+                </View>
+              );
+            })}
           </View>
         );
       })}
@@ -123,37 +144,71 @@ export function AskPoppinsView({ groups, voice, palette, tokens }: Props) {
 
 const styles = StyleSheet.create({
   stack: { gap: space.md, paddingBottom: space.xl },
+  pageTitle: { marginBottom: 2 },
+  adultH3: {
+    fontSize: 30,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+  },
+  kidH3: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
   input: {
-    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    fontSize: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 16,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+  chip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
   chat: { gap: space.md },
   pair: { gap: 8 },
   ask: {
     alignSelf: 'flex-end',
-    maxWidth: '82%',
-    borderRadius: 18,
     borderBottomRightRadius: 5,
+    borderRadius: 18,
+    maxWidth: '82%',
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   ans: {
     alignSelf: 'flex-start',
-    maxWidth: '90%',
-    borderRadius: 18,
     borderBottomLeftRadius: 5,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
+    maxWidth: '90%',
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
+  group: { gap: 0 },
+  groupLab: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginBottom: 6,
+    marginTop: 8,
+    textTransform: 'uppercase',
+  },
   qa: {
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: space.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 14,
+  },
+  q: {
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  a: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 6,
   },
 });

@@ -1595,8 +1595,9 @@ const styles = StyleSheet.create({
   splashCenter: {
     alignItems: 'center',
     flex: 1,
-    gap: 28,
+    gap: 12,
     justifyContent: 'center',
+    paddingBottom: 24,
     width: '100%',
   },
   splashHooks: {
