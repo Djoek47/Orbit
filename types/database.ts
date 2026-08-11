@@ -461,6 +461,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: undefined;
       };
+      submit_account_deletion_feedback: {
+        Args: { p_reason: string; p_detail?: string | null };
+        Returns: undefined;
+      };
       is_household_member: {
         Args: { target_household: string };
         Returns: boolean;

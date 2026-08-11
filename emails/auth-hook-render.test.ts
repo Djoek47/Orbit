@@ -16,6 +16,7 @@ test('auth hook maps signup → verification template', async () => {
   assert.match(out.html, /Bricolage/);
   assert.match(out.html, /123456/);
   assert.match(out.text, /123456/);
+  assert.match(out.html, /enter this code in Choremaxx/i);
 });
 
 test('auth hook maps recovery → password reset', async () => {

@@ -145,7 +145,6 @@ export default function SettingsScreen() {
     createSharedDevice,
     currentMember,
     currentUser,
-    deleteAccount,
     household,
     orbitPalette,
     paletteId,
@@ -306,17 +305,7 @@ export default function SettingsScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete account', 'This permanently removes your Choremaxx account.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteAccount();
-          router.replace('/welcome' as never);
-        },
-      },
-    ]);
+    router.push('/delete-account' as never);
   };
 
   const personalizeMember = useMemo(

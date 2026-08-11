@@ -244,13 +244,25 @@ export const authRepository = {
     mapDbError('authRepository.signOut', error);
   },
 
-  async deleteAccount(): Promise<void> {
+  async deleteAccount(feedback?: { reason: string; detail?: string }): Promise<void> {
     if (isMockMode()) {
       await clearMockSession();
       return;
     }
 
     const supabase = getConfiguredSupabase('authRepository.deleteAccount');
+
+    if (feedback?.reason?.trim()) {
+      const { error: feedbackError } = await supabase.rpc('submit_account_deletion_feedback', {
+        p_reason: feedback.reason.trim(),
+        p_detail: feedback.detail?.trim() || null,
+      });
+      // Feedback is best-effort — never block account deletion on analytics insert.
+      if (feedbackError) {
+        console.warn('authRepository.deleteAccount.feedback', feedbackError.message);
+      }
+    }
+
     const { error } = await supabase.rpc('delete_own_account');
     mapDbError('authRepository.deleteAccount', error);
   },

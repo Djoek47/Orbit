@@ -83,8 +83,8 @@ curl -X PATCH "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
 
 1. Sign up a non-team email from the app (TestFlight or staging).
 2. Confirm delivery in [Resend → Emails](https://resend.com/emails).
-3. Open the link → app opens `choremaxx://auth/callback?token_hash=…&type=signup` (verifyOtp in-app).  
-   Optional HTTPS bridge: `https://www.choremaxx.app/auth/callback` (site page forwards into the app).
+3. Open the link → `https://www.choremaxx.app/auth/callback?token_hash=…&type=signup` (website bridge) → app `choremaxx://auth/callback?…` → `verifyOtp` in-app.  
+   Or enter the email code on Confirm your email.
 
 ---
 
@@ -130,7 +130,7 @@ Same as Path A — signup / resend / forgot-password should appear in Resend wit
 ## What stays in Supabase
 
 - Email + password (and Apple) providers
-- Confirm email on/off, redirect allow-list (`choremaxx://auth/callback`)
+- Confirm email on/off, redirect allow-list (`https://www.choremaxx.app/auth/callback`, `choremaxx://auth/callback`)
 - Auth templates **if** you stay on Path A (Dashboard → Authentication → Email Templates)
 - Rate-limit knobs (raise after custom SMTP or when hook + Resend is live)
 

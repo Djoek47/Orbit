@@ -440,7 +440,7 @@ type OrbitContextValue = {
     deviceLabel?: string,
   ) => Promise<{ members: HouseholdMember[]; needsProfilePick: boolean }>;
   removeMember: (memberId: string) => Promise<void>;
-  deleteAccount: () => Promise<void>;
+  deleteAccount: (feedback?: { reason: string; detail?: string }) => Promise<void>;
   exportUserData: () => Promise<string>;
   toggleSmartDevice: (deviceId: string) => Promise<void>;
   activateSmartScene: (sceneId: string) => Promise<void>;
@@ -3579,9 +3579,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('member.removed', { memberId }, analyticsContext);
   };
 
-  const deleteAccount = async () => {
-    await authRepository.deleteAccount();
-    await trackAnalytics('auth.account_deleted', {}, analyticsContext);
+  const deleteAccount = async (feedback?: { reason: string; detail?: string }) => {
+    await authRepository.deleteAccount(feedback);
+    await trackAnalytics(
+      'auth.account_deleted',
+      {
+        reason: feedback?.reason ?? null,
+        has_detail: Boolean(feedback?.detail?.trim()),
+      },
+      analyticsContext
+    );
     setCurrentUser(null);
     setHousehold(mockHousehold);
     setPendingRedemptions([]);
