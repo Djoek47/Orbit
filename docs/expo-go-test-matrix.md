@@ -76,8 +76,9 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 18 | Streaks / achievements | Complete task · streak bumps · achievements grid live | ☐ |
 | 19 | Poppins notifications | Settings toggles · inbox Poppins filter · deep link to task/itinerary | ☐ |
 | 20 | Rewards shop | Hold-to-claim Instant (auto-spend XP + notify) · Approval queues request · admin Approve/Reject | ☐ |
-| 21 | Poppins text | Ask 3 questions · thread persists after leaving Poppins tab · tool actions in Activity | ☐ |
-| 22 | Poppins voice | Hold mic on Poppins · spoken reply (Whisper fallback; Realtime when `EXPO_PUBLIC_POPPINS_REALTIME=1`) | ☐ |
+| 21 | Poppins text | Ask 3 questions · thread persists after leaving Poppins tab · tool actions in Activity · Luna (`gpt-5.6-luna`) when live | ☐ |
+| 22 | Poppins voice (Expo Go) | Text twin works · optional tap-to-talk Whisper · Connect shows “needs TestFlight” for duplex | ☐ |
+| 22b | Poppins Divine Voice (TestFlight) | Connect → greet without second mic tap · barge-in · tool → spoken summary · risky confirm sheet · idle hangup ~2 min · type into live session | ☐ |
 | 23 | Notifications | Unread badge on Home · open item · mark read | ☐ |
 | 24 | Realtime | Complete task on A · B sees update without manual refresh (supabase) | ☐ |
 | 25 | Poppins Monitor | Open Poppins → Activity shows nudges/deals/plans · Settings toggles deals/plans/XP fairness | ☐ |
@@ -95,6 +96,8 @@ npm run lint
 ## Known Expo Go limits
 
 - Voice uses Whisper via `poppins-voice` edge function when `EXPO_PUBLIC_POPPINS_AI=openai` or supabase mode.
-- OpenAI Realtime (`EXPO_PUBLIC_POPPINS_REALTIME=1`) uses WebSocket + Whisper STT bridge in Expo Go; model `gpt-realtime-2.1-mini` via `poppins-realtime-session`. PCM mic streaming needs a custom Dev Client later if native audio quality is insufficient.
+- Expo Go Realtime (`EXPO_PUBLIC_POPPINS_REALTIME=1`) uses WebSocket + Whisper STT bridge via `poppins-realtime-session` (ephemeral client secret). Model default: `gpt-realtime-2.1`.
+- **Full-duplex Divine Voice** requires a native TestFlight/EAS build with `react-native-webrtc` and `EXPO_PUBLIC_POPPINS_VOICE_WEBRTC=1`. Server SDP: `poppins-realtime-sdp` → OpenAI `/v1/realtime/calls`. Tools: `poppins-voice-tool` (always `forceRiskyConfirmation`). See [adr-poppins-post-tool-response-create.md](./adr-poppins-post-tool-response-create.md).
+- Text twin / monitor / briefing use `gpt-5.6-luna` (`OPENAI_POPPINS_CHAT_MODEL`).
 - Monitor Agent mock pass runs locally; live `poppins-monitor` edge + cron needs service role + OpenAI secret.
 - Universal links (`https://orbit.app/join/*`) need hosted redirect + EAS associated domains for production; custom scheme `orbit://join/CODE` works in dev.

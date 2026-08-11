@@ -4,10 +4,22 @@
  */
 
 import { scanDealsForHousehold } from '@/data/mock-deals';
-import type { PoppinsToolName } from '@/lib/ai/poppins-tools';
+import {
+  isRiskyPoppinsTool,
+  POPPINS_NAV_ROUTES,
+  type PoppinsToolName,
+} from '@/lib/ai/poppins-tools';
+import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
+import { searchHouseRules } from '@/lib/rules/search';
+import { visibleRules } from '@/lib/rules/visible-rules';
 import type { HouseholdSnapshot, OrbitMetrics, PoppinsMonitorAction } from '@/types/orbit';
 
 export type PoppinsToolResult = Record<string, unknown>;
+
+export type ExecutePoppinsToolOptions = {
+  /** Voice path: stage risky tools as pending_confirmations instead of executing. */
+  forceRiskyConfirmation?: boolean;
+};
 
 function isAway(member: { awayFrom?: string; awayTo?: string }, now = new Date()) {
   if (!member.awayFrom || !member.awayTo) return false;
@@ -15,15 +27,39 @@ function isAway(member: { awayFrom?: string; awayTo?: string }, now = new Date()
   return t >= member.awayFrom && t <= member.awayTo;
 }
 
+function pendingConfirm(
+  name: string,
+  args: Record<string, unknown>,
+  summary: string
+): PoppinsToolResult {
+  return {
+    pending_confirmations: [
+      {
+        id: `pc-${name}-${Date.now()}`,
+        tool: name,
+        args,
+        summary,
+      },
+    ],
+    note: 'Awaiting user confirmation before executing.',
+  };
+}
+
 export function executePoppinsTool(
   name: PoppinsToolName | string,
   args: Record<string, unknown>,
   household: HouseholdSnapshot,
-  metrics: OrbitMetrics
+  metrics: OrbitMetrics,
+  options: ExecutePoppinsToolOptions = {}
 ): PoppinsToolResult {
   const tasks = household.tasks;
   const events = household.events;
   const members = household.members;
+
+  if (options.forceRiskyConfirmation && isRiskyPoppinsTool(name)) {
+    const summary = `${name.replace(/_/g, ' ')}: ${JSON.stringify(args).slice(0, 120)}`;
+    return pendingConfirm(name, args, summary);
+  }
 
   switch (name) {
     case 'list_overdue_tasks': {
@@ -45,17 +81,31 @@ export function executePoppinsTool(
         }));
       return { overdue };
     }
+    case 'list_tasks': {
+      const limit = typeof args.limit === 'number' ? Math.min(20, Math.max(1, args.limit)) : 12;
+      const assignee = args.assignee ? String(args.assignee).toLowerCase() : '';
+      const status = args.status ? String(args.status).toLowerCase() : '';
+      const open = tasks
+        .filter((t) => t.status !== 'Completed' && t.status !== 'Cancelled')
+        .filter((t) => !assignee || t.assignee?.toLowerCase().includes(assignee))
+        .filter((t) => !status || String(t.status).toLowerCase().includes(status))
+        .slice(0, limit)
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          assignee: t.assignee,
+          due: t.due,
+          status: t.status,
+        }));
+      return { tasks: open };
+    }
     case 'nudge_member': {
       const memberName = String(args.memberName ?? '');
       const away = members.some(
         (m) => m.name.toLowerCase() === memberName.toLowerCase() && isAway(m)
       );
       if (away) {
-        return {
-          skipped: true,
-          reason: 'member_away',
-          memberName,
-        };
+        return { skipped: true, reason: 'member_away', memberName };
       }
       return {
         action: 'nudge',
@@ -83,10 +133,7 @@ export function executePoppinsTool(
         gap,
         top: { name: top.name, weekXp: top.weekXp ?? 0 },
         bottom: { name: bottom.name, weekXp: bottom.weekXp ?? 0 },
-        recommendation:
-          gap >= 40
-            ? { title: 'Balance weekly XP', detail, tone: 'amber' }
-            : null,
+        recommendation: gap >= 40 ? { title: 'Balance weekly XP', detail, tone: 'amber' } : null,
       };
     }
     case 'award_completion_xp': {
@@ -103,13 +150,47 @@ export function executePoppinsTool(
       const groceryNames = household.groceries
         .filter((g) => g.status === 'Missing' || g.status === 'Low')
         .map((g) => g.name);
-      const deals = scanDealsForHousehold({ groceryNames, categories });
-      return { deals };
+      return { deals: scanDealsForHousehold({ groceryNames, categories }) };
+    }
+    case 'list_groceries': {
+      const status = args.status ? String(args.status) : '';
+      return {
+        groceries: household.groceries
+          .filter((g) => !status || g.status === status)
+          .slice(0, 30)
+          .map((g) => ({ id: g.id, name: g.name, status: g.status, category: g.category })),
+      };
+    }
+    case 'add_grocery': {
+      const groceryName = String(args.name ?? '').trim();
+      if (!groceryName) return { error: 'name_required' };
+      return {
+        ui_actions: [
+          {
+            type: 'add_grocery',
+            name: groceryName,
+            category: args.category ? String(args.category) : undefined,
+          },
+        ],
+        note: `Staged add grocery: ${groceryName}`,
+      };
+    }
+    case 'set_grocery_status': {
+      return {
+        ui_actions: [
+          {
+            type: 'set_grocery_status',
+            name: String(args.name ?? ''),
+            status: String(args.status ?? 'Purchased'),
+          },
+        ],
+      };
     }
     case 'read_calendar': {
       const limit = typeof args.days === 'number' ? Math.min(14, Math.max(1, args.days)) : 7;
       return {
         events: events.slice(0, limit).map((e) => ({
+          id: e.id,
           title: e.title,
           date: e.date,
           time: e.time,
@@ -122,11 +203,7 @@ export function executePoppinsTool(
       return {
         holidays: members
           .filter((m) => isAway(m))
-          .map((m) => ({
-            name: m.name,
-            awayFrom: m.awayFrom,
-            awayTo: m.awayTo,
-          })),
+          .map((m) => ({ name: m.name, awayFrom: m.awayFrom, awayTo: m.awayTo })),
       };
     }
     case 'propose_plan': {
@@ -142,19 +219,9 @@ export function executePoppinsTool(
         notification: {
           title: 'Poppins · Plan suggestion',
           body: detail || title,
-          data: {
-            kind: 'propose_plan',
-            dayLabel,
-            planTitle: title,
-            planDetail: detail,
-          },
+          data: { kind: 'propose_plan', dayLabel, planTitle: title, planDetail: detail },
         },
-        planDraft: {
-          title,
-          detail,
-          dayLabel,
-          href: '/create-itinerary',
-        },
+        planDraft: { title, detail, dayLabel, href: '/create-itinerary' },
       };
     }
     case 'ask_for_info': {
@@ -165,6 +232,250 @@ export function executePoppinsTool(
           data: { kind: 'ask_for_info' },
         },
       };
+    }
+    case 'list_members': {
+      return {
+        members: members
+          .filter((m) => m.status === 'active')
+          .map((m) => ({ id: m.id, name: m.name, role: m.role, weekXp: m.weekXp ?? 0 })),
+      };
+    }
+    case 'list_rewards': {
+      return {
+        rewards: (household.rewards ?? []).slice(0, 20).map((r) => ({
+          id: r.id,
+          title: r.title ?? (r as { name?: string }).name,
+          cost: r.cost,
+        })),
+      };
+    }
+    case 'get_pending_approvals': {
+      const pendingRedemptions = (household.rewards ?? [])
+        .filter((r) => (r as { pending?: boolean }).pending)
+        .slice(0, 10)
+        .map((r) => ({ id: r.id, title: r.title ?? (r as { name?: string }).name }));
+      const pendingProofs = tasks
+        .filter((t) => /proof|pending.?review|awaiting/i.test(String(t.status ?? '')))
+        .slice(0, 10)
+        .map((t) => ({ id: t.id, title: t.title, status: t.status }));
+      return {
+        pendingProofs,
+        pendingRedemptions,
+        pendingAllowances: [],
+        note: 'Allowances pending review are confirmed in-app when available.',
+      };
+    }
+    case 'get_briefing_snapshot': {
+      const overdue = tasks.filter(
+        (t) =>
+          t.status === 'Overdue' ||
+          t.status === 'Expired' ||
+          t.status === 'Missed' ||
+          /overdue|expired/i.test(String(t.due ?? ''))
+      ).length;
+      return {
+        householdName: household.householdName,
+        greetingName: household.greetingName,
+        openTasks: metrics.openTasks,
+        overdue,
+        upcomingEvents: events.slice(0, 5).map((e) => ({
+          title: e.title,
+          date: e.date,
+          time: e.time,
+        })),
+        groceryGaps: household.groceries
+          .filter((g) => g.status === 'Missing' || g.status === 'Low')
+          .slice(0, 8)
+          .map((g) => ({ name: g.name, status: g.status })),
+        momentum: metrics.momentum,
+      };
+    }
+    case 'get_unread_notifications': {
+      return {
+        notifications: [],
+        note: 'Unread notifications are resolved by the live app session.',
+        limit: typeof args.limit === 'number' ? args.limit : 10,
+      };
+    }
+    case 'list_itineraries': {
+      const limit = typeof args.limit === 'number' ? Math.min(20, Math.max(1, args.limit)) : 8;
+      const status = args.status ? String(args.status).toLowerCase() : 'any';
+      return {
+        itineraries: (household.itineraries ?? [])
+          .filter((it) => {
+            if (status === 'any') return true;
+            return String((it as { status?: string }).status ?? '')
+              .toLowerCase()
+              .includes(status);
+          })
+          .slice(0, limit)
+          .map((it) => ({
+            id: it.id,
+            title: it.title,
+            status: (it as { status?: string }).status,
+          })),
+      };
+    }
+    case 'get_smart_home_state': {
+      return {
+        linked: false,
+        scenes: [],
+        note: 'Smart home is optional — connect in Settings when available.',
+      };
+    }
+    case 'search_house_rules': {
+      try {
+        const doc = getHouseRulesDoc();
+        const groups = visibleRules(doc, {
+          rewardModel: household.rewardModel ?? 'full',
+          helperCount: members.filter((m) => m.status === 'active').length,
+          homeworkEnabled: household.homeworkEnabled !== false,
+        });
+        const voice = args.voice === 'kid' ? 'kid' : 'adult';
+        const hits = searchHouseRules(groups, String(args.query ?? ''), voice).slice(0, 6);
+        return {
+          hits: hits.map((r) => ({
+            id: r.id,
+            displayNumber: r.displayNumber,
+            question: voice === 'kid' ? r.kid.question : r.adult.question,
+            answer: voice === 'kid' ? r.kid.body : r.adult.clause,
+          })),
+        };
+      } catch (error) {
+        return { error: String(error), hits: [] };
+      }
+    }
+    case 'create_task_draft': {
+      return {
+        ui_actions: [
+          {
+            type: 'navigate',
+            route: '/create-task',
+            prefill: {
+              title: String(args.title ?? ''),
+              assignee: args.assignee ? String(args.assignee) : undefined,
+              due: args.due ? String(args.due) : undefined,
+              detail: args.detail ? String(args.detail) : undefined,
+            },
+          },
+        ],
+        note: 'Opened create-task with draft prefill.',
+      };
+    }
+    case 'update_task': {
+      const taskId = String(args.taskId ?? '');
+      const match = tasks.find((t) => t.id === taskId);
+      if (!match) return { error: 'task_not_found' };
+      return {
+        ui_actions: [
+          {
+            type: 'update_task',
+            taskId: match.id,
+            patch: {
+              title: args.title,
+              assignee: args.assignee,
+              due: args.due,
+              status: args.status,
+              detail: args.detail,
+            },
+          },
+        ],
+        note: `Staged update: ${match.title}`,
+      };
+    }
+    case 'complete_task': {
+      const taskId = args.taskId ? String(args.taskId) : '';
+      const title = args.title ? String(args.title).toLowerCase() : '';
+      const match =
+        tasks.find((t) => t.id === taskId) ||
+        tasks.find((t) => title && t.title.toLowerCase().includes(title));
+      if (!match) return { error: 'task_not_found' };
+      return {
+        ui_actions: [{ type: 'complete_task', taskId: match.id, title: match.title }],
+        note: `Staged complete: ${match.title}`,
+      };
+    }
+    case 'create_calendar_event': {
+      return {
+        ui_actions: [
+          {
+            type: 'navigate',
+            route: '/create-event',
+            prefill: {
+              title: String(args.title ?? ''),
+              date: args.date ? String(args.date) : undefined,
+              time: args.time ? String(args.time) : undefined,
+              location: args.location ? String(args.location) : undefined,
+              notes: args.notes ? String(args.notes) : undefined,
+            },
+          },
+        ],
+        note: 'Opened create-event with draft prefill.',
+      };
+    }
+    case 'create_itinerary': {
+      return {
+        ui_actions: [
+          {
+            type: 'navigate',
+            route: '/create-itinerary',
+            prefill: {
+              title: String(args.title ?? ''),
+              startsAt: args.startsAt ? String(args.startsAt) : undefined,
+              notes: args.notes ? String(args.notes) : undefined,
+            },
+          },
+        ],
+        note: 'Opened create-itinerary with draft prefill.',
+      };
+    }
+    case 'advance_itinerary_stop': {
+      return {
+        ui_actions: [
+          {
+            type: 'advance_itinerary_stop',
+            itineraryId: String(args.itineraryId ?? ''),
+          },
+        ],
+      };
+    }
+    case 'claim_reward': {
+      return {
+        ui_actions: [{ type: 'claim_reward', rewardName: String(args.rewardName ?? '') }],
+      };
+    }
+    case 'navigate_to': {
+      const route = String(args.route ?? '');
+      const allowed = (POPPINS_NAV_ROUTES as readonly string[]).includes(route);
+      if (!allowed) {
+        return { error: 'route_not_allowed', route, allowed: POPPINS_NAV_ROUTES };
+      }
+      return { ui_actions: [{ type: 'navigate', route, reason: args.reason }] };
+    }
+    case 'delete_task':
+    case 'clear_grocery_list':
+    case 'delete_event':
+    case 'approve_redemption':
+    case 'reject_redemption':
+    case 'approve_allowance':
+    case 'reject_allowance':
+    case 'grant_allowance':
+    case 'remove_member':
+    case 'change_member_role':
+    case 'mass_reassign_tasks':
+    case 'recess_everyone':
+    case 'run_smart_home_scene':
+    case 'update_reward_model': {
+      return pendingConfirm(name, args, `${name.replace(/_/g, ' ')} requires confirmation`);
+    }
+    case 'ui_confirm_pending': {
+      return {
+        acknowledged: true,
+        confirmationIds: Array.isArray(args.confirmationIds) ? args.confirmationIds : [],
+      };
+    }
+    case 'end_session': {
+      return { session_control: 'end', reason: args.reason ? String(args.reason) : 'done' };
     }
     default:
       return { error: `Unknown tool: ${name}`, metrics };
@@ -216,66 +527,32 @@ export function toolResultToMonitorAction(
     };
   }
 
-  if (name === 'assess_xp_fairness') {
-    const rec = result.recommendation as { detail?: string } | null;
+  if (name === 'navigate_to') {
     return {
-      id: `tool-xp-${now}`,
-      kind: 'xp_fairness',
-      label: 'Assessed XP fairness',
-      detail: rec?.detail ?? `Gap ${String(result.gap ?? 0)} XP this week`,
-      createdAt: now,
-    };
-  }
-
-  if (name === 'scan_deals') {
-    const deals = Array.isArray(result.deals) ? result.deals : [];
-    return {
-      id: `tool-deals-${now}`,
-      kind: 'deals',
-      label: deals.length ? `Found ${deals.length} deals` : 'Scanned deals',
-      detail: deals.length
-        ? deals
-            .slice(0, 3)
-            .map((d: { title?: string; store?: string }) => `${d.title} @ ${d.store}`)
-            .join(' · ')
-        : 'No strong matches right now',
-      createdAt: now,
-    };
-  }
-
-  if (name === 'ask_for_info') {
-    return {
-      id: `tool-ask-${now}`,
-      kind: 'ask_info',
-      label: `Asked ${args.memberName ?? 'member'}`,
-      detail: String(args.question ?? ''),
-      createdAt: now,
-    };
-  }
-
-  if (name === 'list_holidays') {
-    const holidays = Array.isArray(result.holidays) ? result.holidays : [];
-    return {
-      id: `tool-holiday-${now}`,
-      kind: 'holiday',
-      label: 'Checked holidays',
-      detail: holidays.length
-        ? holidays.map((h: { name?: string }) => h.name).join(', ')
-        : 'Nobody away',
-      createdAt: now,
-    };
-  }
-
-  if (name === 'list_overdue_tasks') {
-    const overdue = Array.isArray(result.overdue) ? result.overdue : [];
-    return {
-      id: `tool-overdue-${now}`,
+      id: `tool-nav-${now}`,
       kind: 'monitor',
-      label: overdue.length ? `${overdue.length} overdue` : 'No overdue tasks',
-      detail: overdue
-        .slice(0, 3)
-        .map((t: { title?: string; assignee?: string }) => `${t.title} · ${t.assignee}`)
-        .join(' · '),
+      label: `Navigate ${String(args.route ?? '')}`,
+      detail: String(args.reason ?? ''),
+      createdAt: now,
+    };
+  }
+
+  if (name === 'end_session') {
+    return {
+      id: `tool-end-${now}`,
+      kind: 'monitor',
+      label: 'Ended voice session',
+      detail: String(args.reason ?? result.reason ?? ''),
+      createdAt: now,
+    };
+  }
+
+  if (result.pending_confirmations) {
+    return {
+      id: `tool-pending-${now}`,
+      kind: 'monitor',
+      label: `Needs confirmation · ${name}`,
+      detail: JSON.stringify(args).slice(0, 160),
       createdAt: now,
     };
   }

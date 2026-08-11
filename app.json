@@ -105,6 +105,13 @@
       "expo-apple-authentication",
       "expo-iap",
       [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": false,
+          "microphonePermission": "Choremaxx uses the microphone so you can talk to Poppins."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "color": "#D85A30"

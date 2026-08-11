@@ -391,7 +391,8 @@ type OrbitContextValue = {
   /** Execute a Poppins tool from Realtime / chat and apply Activity + notifications. */
   executePoppinsToolCall: (
     name: PoppinsToolName,
-    args: Record<string, unknown>
+    args: Record<string, unknown>,
+    options?: { forceRiskyConfirmation?: boolean }
   ) => Promise<Record<string, unknown>>;
   requestRewardRedemption: (rewardId: string, note?: string) => Promise<void>;
   /** Hold-to-claim: Instant spends XP now; Approval submits a pending request. */
@@ -2693,8 +2694,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   }, [household.id, isLoading, poppinsMonitorActions.length, runPoppinsMonitor]);
 
   const executePoppinsToolCall = useCallback(
-    async (name: PoppinsToolName, args: Record<string, unknown>) => {
-      const result = executePoppinsTool(name, args, household, metrics);
+    async (
+      name: PoppinsToolName,
+      args: Record<string, unknown>,
+      options?: { forceRiskyConfirmation?: boolean }
+    ) => {
+      const result = executePoppinsTool(name, args, household, metrics, {
+        forceRiskyConfirmation: options?.forceRiskyConfirmation,
+      });
       const action = toolResultToMonitorAction(name, args, result);
       setPoppinsMonitorActions((current) => [action, ...current]);
 

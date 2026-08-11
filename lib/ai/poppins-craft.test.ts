@@ -77,7 +77,10 @@ const metrics = {
 
 assert.match(POPPINS_MAJORDOMO_SYSTEM, /Poppins/);
 assert.match(POPPINS_MAJORDOMO_SYSTEM, /propose_plan/);
-assert.equal(POPPINS_TOOL_DEFINITIONS.length, 9);
+assert.ok(POPPINS_TOOL_DEFINITIONS.length >= 25);
+assert.ok(POPPINS_TOOL_DEFINITIONS.some((t) => t.name === 'end_session'));
+assert.ok(POPPINS_TOOL_DEFINITIONS.some((t) => t.name === 'navigate_to'));
+assert.ok(POPPINS_TOOL_DEFINITIONS.some((t) => t.risk === 'risky'));
 assert.equal(MAJORDOMO_PROFILES.length, 10);
 assert.equal(getMajordomoProfile('steward').voice, 'marin');
 assert.equal(getMajordomoProfile('intelligence').voice, 'cedar');
