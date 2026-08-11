@@ -56,3 +56,18 @@ npm run submit:ios:testflight
 ```
 
 EAS `autoIncrement` assigns the next iOS build number (32+ after build 31).
+
+## Tomorrow — Realtime Interactive Menus (Phase C1)
+
+After tonight’s v11 smoke, next craft slice: **Poppins drives visible Tasks / Plan menus while speaking** — assignment pickers animate, itinerary stops advance, rows highlight in sync with voice.
+
+- **Spec:** [`docs/realtime-interactive-menus.md`](./realtime-interactive-menus.md)
+- **Playbook slot:** Phase C in [`docs/weekend-ship-automation.md`](./weekend-ship-automation.md)
+- **Branch:** continue on `cursor/choremaxx-make-v11`
+
+| Area | Example |
+|------|---------|
+| Tasks | “Create dishwasher task for Alex” → Create Task fields type in while Poppins talks |
+| Assignment | Assignee sheet opens; member chip pulses; preview until confirm |
+| Plan | “Advance the trip” → current stop collapses, next location pin bounces |
+| Presence | Mini rail: “Poppins · assigning Dishes to Alex…” on driven tabs |

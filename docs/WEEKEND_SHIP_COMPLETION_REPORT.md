@@ -29,6 +29,12 @@
 | **B6** | ◐ PARTIAL | `npm run test:weekend-a`; device matrix human. |
 | **B7** | ☐ LAST (before key rotations) | App Review after B6 + A8 + live legal URLs. |
 
+## Phase C (tomorrow)
+
+| ID | Result | Notes |
+|----|--------|-------|
+| **C1** | ☐ TODO | Realtime Interactive Menus — see `docs/realtime-interactive-menus.md` |
+
 ## Final (after B7)
 
 - [ ] Rotate Resend API key → update Supabase secret
