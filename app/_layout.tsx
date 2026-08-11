@@ -50,6 +50,10 @@ export default function RootLayout() {
             options={{ headerShown: false, title: 'Confirm Email' }}
           />
           <Stack.Screen
+            name="premium"
+            options={{ headerShown: false, title: 'Premium' }}
+          />
+          <Stack.Screen
             name="auth/callback"
             options={{ headerShown: false, title: 'Confirming' }}
           />

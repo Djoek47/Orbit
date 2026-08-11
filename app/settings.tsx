@@ -761,6 +761,13 @@ export default function SettingsScreen() {
                 are live on TestFlight.
               </Text>
               <Pressable
+                style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
+                onPress={() => router.push({ pathname: '/premium', params: { source: 'settings' } } as never)}>
+                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
+                  Open Premium
+                </Text>
+              </Pressable>
+              <Pressable
                 style={[styles.accountBtn, { backgroundColor: glass(0.06), opacity: billingBusy ? 0.6 : 1 }]}
                 disabled={billingBusy}
                 onPress={() => {

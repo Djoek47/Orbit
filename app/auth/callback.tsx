@@ -20,6 +20,10 @@ import {
   getPendingSignup,
   urlHasAuthPayload,
 } from '@/lib/auth/email-confirmation';
+import {
+  markPremiumGatePending,
+  premiumOnboardingHref,
+} from '@/lib/billing/premium-onboarding';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { authRepository } from '@/repositories/auth-repository';
 import { useOrbit } from '@/store/orbit-store';
@@ -85,8 +89,9 @@ export default function AuthCallbackScreen() {
     setPhase('success');
     setMessage('Email confirmed');
     clearPendingSignup();
+    await markPremiumGatePending();
     await new Promise((r) => setTimeout(r, SUCCESS_HOLD_MS));
-    router.replace('/welcome' as never);
+    router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
   };
 
   useEffect(() => {

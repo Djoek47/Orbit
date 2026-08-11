@@ -20,6 +20,10 @@ import {
   getResendCooldownRemainingMs,
   resendSignupConfirmation,
 } from '@/lib/auth/email-confirmation';
+import {
+  markPremiumGatePending,
+  premiumOnboardingHref,
+} from '@/lib/billing/premium-onboarding';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -51,7 +55,8 @@ export default function ConfirmEmailScreen() {
 
   const finishOnboarding = async () => {
     clearPendingSignup();
-    router.replace('/welcome' as never);
+    await markPremiumGatePending();
+    router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
   };
 
   useEffect(() => {
