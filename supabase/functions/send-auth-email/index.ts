@@ -62,19 +62,35 @@ function displayName(email: string, meta?: Record<string, unknown>): string {
   return local || 'there';
 }
 
-function verifyUrl(
-  supabaseUrl: string,
-  tokenHash: string,
-  type: EmailActionType,
-  redirectTo: string
-): string {
-  const url = new URL(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/verify`);
-  url.searchParams.set('token', tokenHash);
-  url.searchParams.set('type', type);
-  if (redirectTo) {
-    url.searchParams.set('redirect_to', redirectTo);
+/**
+ * Deep link with token_hash — the app calls verifyOtp.
+ * Avoids Supabase /auth/v1/verify → custom-scheme redirects that drop #access_token
+ * (Chrome/iOS often open choremaxx://auth/callback with an empty payload → infinite spinner).
+ */
+function appConfirmUrl(tokenHash: string, type: EmailActionType): string {
+  const params = new URLSearchParams({
+    token_hash: tokenHash,
+    type: type || 'signup',
+  });
+  return `choremaxx://auth/callback?${params.toString()}`;
+}
+
+/** HTTPS bridge (Universal Link / browser) — same query, site page opens the app. */
+function webConfirmUrl(tokenHash: string, type: EmailActionType): string {
+  const params = new URLSearchParams({
+    token_hash: tokenHash,
+    type: type || 'signup',
+  });
+  return `https://www.choremaxx.app/auth/callback?${params.toString()}`;
+}
+
+function confirmUrlForEmail(tokenHash: string, type: EmailActionType, redirectTo: string): string {
+  // Prefer HTTPS when Auth already asked for a web redirect — survives Mail → Chrome.
+  if (redirectTo.startsWith('https://') && redirectTo.includes('choremaxx.app')) {
+    return webConfirmUrl(tokenHash, type);
   }
-  return url.toString();
+  // Default: open the app directly with token_hash (TestFlight / Mail).
+  return appConfirmUrl(tokenHash, type);
 }
 
 Deno.serve(async (req) => {
@@ -114,8 +130,7 @@ Deno.serve(async (req) => {
     }
 
     const action = email_data.email_action_type || 'signup';
-    const confirmUrl = verifyUrl(
-      supabaseUrl,
+    const confirmUrl = confirmUrlForEmail(
       email_data.token_hash,
       action,
       email_data.redirect_to || 'choremaxx://auth/callback'

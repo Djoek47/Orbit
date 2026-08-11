@@ -1,7 +1,11 @@
 import * as Linking from 'expo-linking';
+import type { EmailOtpType } from '@supabase/supabase-js';
 
 import { throwMappedAuthError } from '@/lib/auth/auth-errors';
+import { paramsFromUrl } from '@/lib/auth/auth-url-params';
 import { getSupabaseClient } from '@/lib/supabase/client';
+
+export { paramsFromUrl, urlHasAuthPayload } from '@/lib/auth/auth-url-params';
 
 type PendingSignup = {
   email: string;
@@ -13,6 +17,15 @@ let pendingSignup: PendingSignup | null = null;
 /** Client-side cooldown so resend / signup retries don't spam Auth email (Resend/SMTP). */
 const RESEND_COOLDOWN_MS = 60_000;
 let lastResendAt = 0;
+
+const OTP_TYPES = new Set<string>([
+  'signup',
+  'invite',
+  'magiclink',
+  'recovery',
+  'email_change',
+  'email',
+]);
 
 export function getResendCooldownRemainingMs(now = Date.now()): number {
   return Math.max(0, lastResendAt + RESEND_COOLDOWN_MS - now);
@@ -39,24 +52,18 @@ export function getEmailConfirmRedirectUrl() {
   return Linking.createURL('auth/callback');
 }
 
-function paramsFromUrl(url: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  const hash = url.includes('#') ? url.split('#')[1] : '';
-  const query = url.includes('?') ? url.split('?')[1]?.split('#')[0] : '';
-  for (const part of [query, hash]) {
-    if (!part) continue;
-    for (const pair of part.split('&')) {
-      const [rawKey, rawValue = ''] = pair.split('=');
-      if (!rawKey) continue;
-      out[decodeURIComponent(rawKey)] = decodeURIComponent(rawValue);
-    }
-  }
-  return out;
+function otpTypeFromParam(raw: string | undefined): EmailOtpType {
+  const value = (raw || 'signup').toLowerCase();
+  if (OTP_TYPES.has(value)) return value as EmailOtpType;
+  return 'signup';
 }
 
 /**
  * Establish a Supabase session from an email-confirm / magic-link redirect URL.
- * Supports implicit tokens (#access_token) and PKCE (?code=).
+ * Supports:
+ * - token_hash + type (preferred mobile deep link — no hash fragment)
+ * - PKCE (?code=)
+ * - implicit tokens (#access_token / query)
  */
 export async function createSessionFromUrl(url: string) {
   const supabase = getSupabaseClient();
@@ -65,6 +72,25 @@ export async function createSessionFromUrl(url: string) {
   const params = paramsFromUrl(url);
   if (params.error_description || params.error) {
     throw new Error(params.error_description || params.error || 'Email confirmation failed.');
+  }
+
+  if (params.token_hash) {
+    const { data, error } = await supabase.auth.verifyOtp({
+      token_hash: params.token_hash,
+      type: otpTypeFromParam(params.type),
+    });
+    if (error) throw error;
+    return data.session;
+  }
+
+  // Some clients pass `token` as the hash (hook token_hash).
+  if (params.token && !params.code && !params.access_token) {
+    const { data, error } = await supabase.auth.verifyOtp({
+      token_hash: params.token,
+      type: otpTypeFromParam(params.type),
+    });
+    if (error) throw error;
+    return data.session;
   }
 
   if (params.code) {

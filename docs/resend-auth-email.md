@@ -83,7 +83,8 @@ curl -X PATCH "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
 
 1. Sign up a non-team email from the app (TestFlight or staging).
 2. Confirm delivery in [Resend → Emails](https://resend.com/emails).
-3. Open the link → `choremaxx://auth/callback` (allow-listed in Auth → URL configuration).
+3. Open the link → app opens `choremaxx://auth/callback?token_hash=…&type=signup` (verifyOtp in-app).  
+   Optional HTTPS bridge: `https://www.choremaxx.app/auth/callback` (site page forwards into the app).
 
 ---
 
