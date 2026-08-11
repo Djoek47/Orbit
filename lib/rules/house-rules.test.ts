@@ -225,10 +225,11 @@ const doc = getHouseRulesDoc();
   const adult = resolveHouseRulesPalette(MOCK_COLORS, 'adult', 'chapters');
   const kid = resolveHouseRulesPalette(MOCK_COLORS, 'kid', 'chapters');
   const glance = resolveHouseRulesPalette(MOCK_COLORS, 'adult', 'glance');
-  assert.ok(adult.spine);
+  assert.equal(adult.surface, '#1B1410', 'adult chapters espresso');
+  assert.equal(kid.surface, '#FFF7EC', 'kid chapters paper');
+  assert.equal(glance.surface, '#16233A', 'adult glance navy');
   assert.notEqual(adult.accent, kid.accent);
-  assert.ok(glance.accent);
-  pass('HR16', 'palette maps Adult/Kid/direction to orbit tokens');
+  pass('HR16', 'palette uses HTML direction/voice surfaces');
 }
 
 console.log('\nAll house-rules tests passed.');

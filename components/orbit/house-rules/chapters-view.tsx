@@ -5,12 +5,12 @@ import { RuleVisual } from '@/components/orbit/house-rules/visuals';
 import { space, typography } from '@/constants/orbit-theme';
 import {
   chapterAccentColor,
+  HR,
   type HouseRulesPalette,
   type HouseRulesVoice,
 } from '@/lib/rules/house-rules-palette';
 import type { RuleConstants } from '@/lib/rules/types';
 import { substituteTokens, type VisibleChapter } from '@/lib/rules/visible-rules';
-import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type Props = {
   groups: VisibleChapter[];
@@ -22,6 +22,7 @@ type Props = {
   onEdit?: (settingKey?: string) => void;
 };
 
+/** Direction 01 — Chapters. Adult: espresso spine cards. Kid: paper + color tabs. */
 export function ChaptersView({
   groups,
   voice,
@@ -31,35 +32,38 @@ export function ChaptersView({
   canEdit,
   onEdit,
 }: Props) {
-  const { c } = useOrbitColors();
-
   if (voice === 'kid') {
     return (
       <View style={styles.stack}>
+        <View style={styles.pageTitle}>
+          <Text style={[styles.kidH3, { color: palette.title }]}>How it works</Text>
+          <Text style={[typography.footnote, { color: palette.muted, marginTop: 5 }]}>
+            Everything, in order. Nothing hidden.
+          </Text>
+        </View>
         {groups.map(({ chapter, rules }) => {
-          const tab = chapterAccentColor(c, chapter.accent, chapter.kidColor, 'kid');
+          const tab = chapterAccentColor(undefined, chapter.accent, chapter.kidColor, 'kid');
           return (
-            <View
-              key={chapter.key}
-              style={[styles.kidCard, { backgroundColor: palette.surfaceSoft, borderColor: palette.cardBorder }]}>
+            <View key={chapter.key} style={[styles.kidCard, { shadowColor: HR.kidInk }]}>
               <View style={[styles.kidTab, { backgroundColor: tab }]}>
-                <Text style={[typography.caption1, { color: '#fff', fontWeight: '800' }]}>
-                  {chapter.kidLabel}
-                </Text>
+                <Text style={styles.kidTabLabel}>{chapter.kidLabel}</Text>
               </View>
-              {rules.map((rule) => {
+              {rules.map((rule, index) => {
                 const headline = substituteTokens(rule.kid.headline, tokens);
                 const body = substituteTokens(rule.kid.body, tokens);
                 return (
-                  <View key={rule.id} style={styles.kidRule}>
-                    <Text style={[typography.title3, { color: palette.ink }]}>{headline}</Text>
-                    <Text style={[typography.body, { color: palette.inkSoft, marginTop: 4 }]}>{body}</Text>
-                    <RuleVisual
-                      visual={rule.visual}
-                      constants={constants}
-                      palette={palette}
-                      voice="kid"
-                    />
+                  <View key={rule.id}>
+                    {index > 0 ? <View style={styles.kidDivider} /> : null}
+                    <View style={styles.kidRule}>
+                      <Text style={[styles.kidHeadline, { color: palette.ink }]}>{headline}</Text>
+                      <Text style={[styles.kidBody, { color: palette.inkSoft }]}>{body}</Text>
+                      <RuleVisual
+                        visual={rule.visual}
+                        constants={constants}
+                        palette={palette}
+                        voice="kid"
+                      />
+                    </View>
                   </View>
                 );
               })}
@@ -72,61 +76,48 @@ export function ChaptersView({
 
   return (
     <View style={styles.stack}>
+      <View style={styles.pageTitle}>
+        <Text style={[styles.adultH3, { color: palette.title }]}>House Rules</Text>
+        <Text style={[typography.caption1, { color: palette.muted, marginTop: 5 }]}>
+          {groups.length} chapters · {groups.reduce((n, g) => n + g.rules.length, 0)} rules
+        </Text>
+      </View>
       {groups.map(({ chapter, rules }) => {
-        const spine = chapterAccentColor(c, chapter.accent, chapter.kidColor, 'adult');
+        const spine = chapterAccentColor(undefined, chapter.accent, chapter.kidColor, 'adult');
         return (
-          <View key={chapter.key} style={styles.chapterBlock}>
-            <View style={styles.chapterHead}>
-              <View style={[styles.spine, { backgroundColor: `${spine}33` }]}>
-                <Text style={[styles.spineLabel, { color: spine }]}>{chapter.adultLabel}</Text>
-              </View>
-              <View style={[styles.spineLine, { backgroundColor: `${spine}44` }]} />
+          <View
+            key={chapter.key}
+            style={[styles.chapter, { backgroundColor: palette.card, borderColor: palette.cardBorder }]}>
+            <View style={[styles.spine, { backgroundColor: palette.spineBg }]}>
+              <Text style={[styles.spineLabel, { color: spine }]}>{chapter.adultLabel}</Text>
             </View>
-            {rules.map((rule) => {
-              const clause = substituteTokens(rule.adult.clause, tokens);
-              const isLateCredit = rule.id.includes('DEAD') || rule.phase === 'lateCredit';
-              return (
-                <View
-                  key={rule.id}
-                  style={[styles.ruleCard, { backgroundColor: palette.card, borderColor: palette.cardBorder }]}>
-                  <View style={styles.ruleTop}>
-                    <Text style={[typography.caption2, { color: palette.muted }]}>
-                      {rule.displayNumber}
-                    </Text>
-                    {canEdit && rule.editable ? (
-                      <Pressable onPress={() => onEdit?.(rule.settingKey)} hitSlop={8}>
-                        <Text style={[typography.caption1, { color: palette.accent }]}>Edit</Text>
-                      </Pressable>
-                    ) : null}
+            <View style={styles.inner}>
+              <Text style={[styles.count, { color: palette.foot }]}>
+                Chapter · {rules.length} {rules.length === 1 ? 'rule' : 'rules'}
+              </Text>
+              {rules.map((rule) => {
+                const clause = substituteTokens(rule.adult.clause, tokens);
+                return (
+                  <View key={rule.id} style={[styles.clause, { borderBottomColor: '#3A2D22' }]}>
+                    <View style={styles.clauseTop}>
+                      <Text style={[styles.clauseN, { color: HR.ember }]}>{rule.displayNumber}</Text>
+                      {canEdit && rule.editable ? (
+                        <Pressable onPress={() => onEdit?.(rule.settingKey)} hitSlop={8}>
+                          <Text style={[typography.caption1, { color: palette.nav }]}>Edit</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                    <Text style={[styles.clauseP, { color: palette.clause }]}>{clause}</Text>
+                    <RuleVisual
+                      visual={rule.visual}
+                      constants={constants}
+                      palette={palette}
+                      voice="adult"
+                    />
                   </View>
-                  <Text style={[typography.body, { color: palette.ink }]}>{clause}</Text>
-                  {isLateCredit && rule.phase === 'lateCredit' ? (
-                    <View style={styles.pillRow}>
-                      <View style={[styles.pill, { backgroundColor: `${palette.warn}28` }]}>
-                        <Text style={[typography.caption2, { color: palette.warn, fontWeight: '700' }]}>
-                          Late Credit
-                        </Text>
-                      </View>
-                    </View>
-                  ) : null}
-                  {rule.phase === 'expired' ? (
-                    <View style={styles.pillRow}>
-                      <View style={[styles.pill, { backgroundColor: `${palette.danger}28` }]}>
-                        <Text style={[typography.caption2, { color: palette.danger, fontWeight: '700' }]}>
-                          Expired
-                        </Text>
-                      </View>
-                    </View>
-                  ) : null}
-                  <RuleVisual
-                    visual={rule.visual}
-                    constants={constants}
-                    palette={palette}
-                    voice="adult"
-                  />
-                </View>
-              );
-            })}
+                );
+              })}
+            </View>
           </View>
         );
       })}
@@ -135,41 +126,113 @@ export function ChaptersView({
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: space.md, paddingBottom: space.xl },
-  chapterBlock: { gap: space.sm },
-  chapterHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  stack: { gap: 14, paddingBottom: space.xl },
+  pageTitle: { marginBottom: 4 },
+  adultH3: {
+    fontSize: 30,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+  },
+  kidH3: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  chapter: {
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    overflow: 'hidden',
+  },
   spine: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 38,
   },
   spineLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.6,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 2.4,
     textTransform: 'uppercase',
+    transform: [{ rotate: '-90deg' }],
+    width: 120,
+    textAlign: 'center',
   },
-  spineLine: { flex: 1, height: 2, borderRadius: 1 },
-  ruleCard: {
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: space.md,
-    gap: 4,
+  inner: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 16,
+    paddingBottom: 18,
+    paddingTop: 16,
   },
-  ruleTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  pillRow: { flexDirection: 'row', gap: 6, marginTop: 6 },
-  pill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  count: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  clause: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+    paddingVertical: 11,
+  },
+  clauseTop: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  clauseN: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    minWidth: 26,
+  },
+  clauseP: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
   kidCard: {
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: HR.kidCard,
+    borderRadius: 20,
     overflow: 'hidden',
-    paddingBottom: space.md,
+    paddingBottom: 14,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 0,
+    elevation: 2,
   },
   kidTab: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
     borderBottomRightRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
   },
-  kidRule: { paddingHorizontal: space.md, paddingTop: space.md },
+  kidTabLabel: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  kidDivider: {
+    backgroundColor: '#F0E7DA',
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 18,
+    marginTop: 13,
+  },
+  kidRule: {
+    paddingHorizontal: 18,
+    paddingTop: 13,
+  },
+  kidHeadline: {
+    fontSize: 16.5,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+    marginBottom: 3,
+  },
+  kidBody: {
+    fontSize: 13.5,
+    lineHeight: 20,
+  },
 });
