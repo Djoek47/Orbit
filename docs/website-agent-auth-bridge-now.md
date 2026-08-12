@@ -1,5 +1,8 @@
 # Website agent — auth email bridge (do now)
 
+> **Full paste-ready brief for the website agent:**  
+> [`docs/website-agent-email-confirmation.md`](./website-agent-email-confirmation.md)
+
 The Orbit app + Resend Auth emails now point confirmation CTAs at:
 
 `https://www.choremaxx.app/auth/callback?token_hash=…&type=signup`

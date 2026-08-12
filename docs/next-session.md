@@ -24,12 +24,13 @@ Say: *Implement Phase C1 from docs/realtime-interactive-menus.md on cursor/chore
 
 ## Still open from weekend playbook (when not blocked on C1)
 
-1. **A3 ASC** — IAP products from [`asc-iap-setup.md`](./asc-iap-setup.md)  
-2. **A2 live smoke** — Auth Send Email Hook  
-3. **A1 / B4 site** — [`website-agent-handoff.md`](./website-agent-handoff.md)  
-4. **B5** — billing emails after A3  
-5. **B6** — full device retest  
-6. **B7** — App Review submit  
+1. **A1 site — email confirm bridge** — paste [`website-agent-email-confirmation.md`](./website-agent-email-confirmation.md) to the website agent (`/auth/callback` + AASA)  
+2. **A3 ASC** — IAP products from [`asc-iap-setup.md`](./asc-iap-setup.md)  
+3. **A2 live smoke** — Auth Send Email Hook  
+4. **A1 / B4 site** — full marketing handoff: [`website-agent-handoff.md`](./website-agent-handoff.md)  
+5. **B5** — billing emails after A3  
+6. **B6** — full device retest  
+7. **B7** — App Review submit  
 
 ## Do not redo
 
