@@ -33,3 +33,7 @@ Beats are the grammar: SHOW → NARROW → UNFOLD → HOLD → SETTLE → CHAIN.
 - Playlist map: `lib/poppins/ui-tool-map.ts`
 - Bus / HOLD / barge-in: `lib/poppins/ui-orchestrator.ts`
 - Stage: `components/orbit/poppins-stage.tsx`
+
+## Rework list
+
+See [`poppins-rework.md`](./poppins-rework.md). Highest new item: **memory so Speak does not start brand new every time**.

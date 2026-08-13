@@ -14,6 +14,16 @@
 
 Say: *Cut v13 from cursor/choremaxx-make-v12 and ship the final TestFlight.*
 
+## Poppins major rework (after this TestFlight)
+
+Full list: [`poppins-rework.md`](./poppins-rework.md). IUI is the product. Do not start until asked.
+
+- **Memory** — do not start brand new every Speak session; persist household + conversation across hangup
+- Stage as the primary surface (not chat around the orb)
+- Beats / HOLD / barge-in reliable on TestFlight voice
+- Strip mixed leftover (stacked transcripts, duplicate rails)
+- Settings / billing / account: Coach only, never HOLD-commit
+
 ## Do not redo
 
 - v12 aggregate (IUI, Luna, Assign/Event, Poppins quality, House Rules HTML Admin/Sidekick)
