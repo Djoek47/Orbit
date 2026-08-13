@@ -85,6 +85,16 @@ const doc = getHouseRulesDoc();
 
 {
   const groups = visibleRules(doc, {
+    rewardModel: 'allowance',
+    helperCount: 2,
+    homeworkEnabled: true,
+  });
+  assert.ok(!groups.some((g) => g.chapter.key === 'crowns'), 'no crowns on allowance');
+  pass('HR8b', 'allowance household hides Crowns even with multiple helpers');
+}
+
+{
+  const groups = visibleRules(doc, {
     rewardModel: 'full',
     helperCount: 2,
     homeworkEnabled: false,

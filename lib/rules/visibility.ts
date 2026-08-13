@@ -25,7 +25,7 @@ export function isVisible(
     case 'REWARDS_ON':
       return model === 'xp_rewards' || model === 'full_system';
     case 'MULTI_MEMBER':
-      return household.helperCount >= 2;
+      return household.helperCount >= 2 && model !== 'allowance';
     case 'HOMEWORK_ON':
       return household.homeworkEnabled === true;
     default: {

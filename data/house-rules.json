@@ -87,7 +87,7 @@
     "ALLOWANCE_ON": "household.rewardModel is one of: allowance, xp_allowance, full_system",
     "REWARDS_ON": "household.rewardModel is one of: xp_rewards, full_system",
     "XP_ON": "household.rewardModel is one of: xp_only, xp_rewards, xp_allowance, full_system",
-    "MULTI_MEMBER": "household.helperCount >= 2",
+    "MULTI_MEMBER": "household.helperCount >= 2 and XP is on (Crowns are an XP mechanic)",
     "HOMEWORK_ON": "household.homeworkEnabled == true"
   },
   "phases": {

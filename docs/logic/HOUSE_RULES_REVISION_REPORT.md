@@ -13,7 +13,7 @@ The 4-tab explorer (Chapters / At a glance / The Track / Ask Poppins) is **retir
 | Kid | One-screen **How it works** card from Home. **No ScrollView** |
 | Custom | Our House Rules at top of both views (10 × 500). Display only — does not change scoring/XP/allowance |
 
-Copy lives in `data/house-rules.json`. `RWRD-04` matches Rev E (tracks / never moves money / marks it paid). Deadlines and the 30-minute nudge are tokenized from `constants`.
+Copy lives in `data/house-rules.json`. `RWRD-04` matches Rev E (tracks / never moves money / marks it paid). Deadlines and the 30-minute nudge are tokenized from `constants`. Crowns (`MULTI_MEMBER`) hide when XP is off so an allowance household never sees XP copy.
 
 ## Kid one-screen (T4.5 / Rev F §13.b)
 

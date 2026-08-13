@@ -826,6 +826,13 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
   const mappedTasks = (tasks ?? []).map((row) => mapTaskRow(row));
   const mappedGroceries = (groceries ?? []).map((row) => mapGroceryRow(row));
   const mappedEvents = (events ?? []).map((row) => mapEventRow(row));
+  const mappedCustomRules = (
+    (customRules ?? []) as { id?: string; body?: string; sort_order?: number }[]
+  ).map((row) => ({
+    id: String(row.id),
+    body: String(row.body ?? ''),
+    sortOrder: Number(row.sort_order ?? 0),
+  }));
 
   const greetingName =
     mappedMembers.find((member) => members?.find((row) => row.id === member.id)?.user_id === userId)?.name ||
@@ -873,11 +880,7 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
       plans: true,
       xpFairness: true,
     },
-    customHouseRules: (customRules ?? []).map((row) => ({
-      id: String(row.id),
-      body: String(row.body ?? ''),
-      sortOrder: Number(row.sort_order ?? 0),
-    })),
+    customHouseRules: mappedCustomRules,
     rewards: (rewards ?? []).map((row) => mapRewardRow(row)),
     badges: (badges ?? []).map((row) => mapBadgeRow(row)),
     poppins: briefing
@@ -909,7 +912,7 @@ export async function persistCustomHouseRulesRows(
       household_id: householdId,
       body: rule.body,
       sort_order: rule.sortOrder,
-    }))
+    })) as never
   );
   mapDbError('householdRepository.persistCustomHouseRules.insert', insertError);
 }
