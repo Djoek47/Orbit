@@ -91,6 +91,7 @@ export const openAIProvider: AIProvider = {
         question: String(live.question ?? question),
         answer: String(live.answer ?? ''),
         actions: Array.isArray(live.actions) ? live.actions : undefined,
+        ui_actions: Array.isArray(live.ui_actions) ? live.ui_actions : undefined,
         source: live.source,
       };
     }

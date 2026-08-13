@@ -26,16 +26,52 @@ function pendingConfirm(
   args: Record<string, unknown>,
   summary: string
 ): Record<string, unknown> {
+  const id = `pc-${name}-${Date.now()}`;
   return {
     pending_confirmations: [
       {
-        id: `pc-${name}-${Date.now()}`,
+        id,
         tool: name,
         args,
         summary,
       },
     ],
+    ui_actions: [
+      {
+        type: 'confirm',
+        confirmSummary: summary,
+        confirmationIds: [id],
+      },
+    ],
     note: 'Awaiting user confirmation before executing.',
+  };
+}
+
+const IUI_SCENES = [
+  'thinking',
+  'task_compose',
+  'calendar_zoom',
+  'itinerary_stage',
+  'grocery_add',
+  'reward_mint',
+  'list_peek',
+  'member_pick',
+  'confirm',
+  'navigate_coach',
+] as const;
+
+function peekAction(
+  rows: Array<Record<string, unknown>>,
+  thinkingLine: string
+) {
+  return {
+    type: 'list_peek',
+    thinkingLine,
+    rows: rows.slice(0, 3).map((row) => ({
+      id: row.id,
+      title: row.title ?? row.name,
+      assignee: row.assignee ?? row.responsible,
+    })),
   };
 }
 
@@ -69,7 +105,8 @@ export function executePoppinsTool(
           t.status === 'overdue' ||
           /overdue|expired/i.test(String(t.due ?? ''))
       );
-      return { overdue: overdue.slice(0, 10) };
+      const sliced = overdue.slice(0, 10);
+      return { overdue: sliced, ui_actions: [peekAction(sliced, 'Overdue')] };
     }
     case 'list_tasks': {
       const limit = typeof args.limit === 'number' ? Math.min(20, Math.max(1, args.limit)) : 12;
@@ -82,7 +119,7 @@ export function executePoppinsTool(
         )
         .filter((t) => !status || String(t.status ?? '').toLowerCase().includes(status))
         .slice(0, limit);
-      return { tasks: open };
+      return { tasks: open, ui_actions: [peekAction(open, 'Open tasks')] };
     }
     case 'nudge_member': {
       const memberName = String(args.memberName ?? args.member_id ?? '');
@@ -200,7 +237,10 @@ export function executePoppinsTool(
           : typeof args.days_ahead === 'number'
             ? Math.min(14, Math.max(1, args.days_ahead))
             : 7;
-      return { events: events.slice(0, limit) };
+      return {
+        events: events.slice(0, limit),
+        ui_actions: [peekAction(events.slice(0, 3), 'Upcoming')],
+      };
     }
     case 'list_holidays':
     case 'get_recess_status': {
@@ -239,6 +279,7 @@ export function executePoppinsTool(
           dayLabel,
           href: '/create-itinerary',
         },
+        ui_actions: [{ type: 'create_itinerary', title }],
       };
     }
     case 'ask_for_info': {
@@ -252,15 +293,22 @@ export function executePoppinsTool(
       };
     }
     case 'list_members': {
+      const active = members
+        .filter((m) => m.status === 'active')
+        .map((m) => ({
+          id: m.id,
+          name: m.name,
+          role: m.role,
+          weekXp: m.weekXp ?? m.week_xp ?? 0,
+        }));
       return {
-        members: members
-          .filter((m) => m.status === 'active')
-          .map((m) => ({
-            id: m.id,
-            name: m.name,
-            role: m.role,
-            weekXp: m.weekXp ?? m.week_xp ?? 0,
-          })),
+        members: active,
+        ui_actions: [
+          {
+            type: 'member_pick',
+            faces: active.slice(0, 3).map((m) => ({ id: m.id, name: m.name })),
+          },
+        ],
       };
     }
     case 'list_rewards': {
@@ -316,17 +364,14 @@ export function executePoppinsTool(
       return {
         ui_actions: [
           {
-            type: 'navigate',
-            route: '/create-task',
-            prefill: {
-              title: String(args.title ?? ''),
-              assignee: args.assignee ?? args.assignee_id,
-              due: args.due ?? args.due_at,
-              detail: args.detail ?? args.description,
-            },
+            type: 'create_task_draft',
+            title: String(args.title ?? ''),
+            assignee: args.assignee ?? args.assignee_id,
+            due: args.due ?? args.due_at,
+            detail: args.detail ?? args.description,
           },
         ],
-        note: 'Opened create-task with draft prefill.',
+        note: 'Staged task on the IUI stage. HOLD silence commits.',
       };
     }
     case 'update_task': {
@@ -356,32 +401,28 @@ export function executePoppinsTool(
       return {
         ui_actions: [
           {
-            type: 'navigate',
-            route: '/create-event',
-            prefill: {
-              title: String(args.title ?? ''),
-              date: args.date ?? args.starts_at,
-              time: args.time,
-              location: args.location,
-              notes: args.notes,
-            },
+            type: 'create_calendar_event',
+            title: String(args.title ?? ''),
+            date: args.date ?? args.starts_at,
+            time: args.time,
+            location: args.location,
+            notes: args.notes,
           },
         ],
+        note: 'Staged event on the IUI stage. HOLD silence commits.',
       };
     }
     case 'create_itinerary': {
       return {
         ui_actions: [
           {
-            type: 'navigate',
-            route: '/create-itinerary',
-            prefill: {
-              title: String(args.title ?? ''),
-              startsAt: args.startsAt ?? args.starts_at,
-              notes: args.notes,
-            },
+            type: 'create_itinerary',
+            title: String(args.title ?? ''),
+            startsAt: args.startsAt ?? args.starts_at,
+            notes: args.notes,
           },
         ],
+        note: 'Staged itinerary stop on the IUI stage. HOLD silence commits.',
       };
     }
     case 'advance_itinerary_stop': {
@@ -411,8 +452,24 @@ export function executePoppinsTool(
           {
             type: 'navigate',
             route: String(args.route ?? ''),
-            reason: args.reason,
+            reason: args.reason ?? 'I can open that for you.',
             params: args.params,
+          },
+        ],
+      };
+    }
+    case 'present_ui_scene': {
+      const scene = String(args.scene ?? 'thinking');
+      if (!(IUI_SCENES as readonly string[]).includes(scene)) {
+        return { error: 'unknown_scene', scene, allowed: IUI_SCENES };
+      }
+      return {
+        ui_actions: [
+          {
+            type: 'present_ui_scene',
+            scene,
+            payload: args.payload && typeof args.payload === 'object' ? args.payload : {},
+            commit: args.commit,
           },
         ],
       };

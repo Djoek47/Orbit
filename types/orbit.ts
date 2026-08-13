@@ -399,6 +399,8 @@ export type PoppinsConversationAnswer = {
   answer: string;
   /** Tool-backed Activity rows from chat / voice tool loops. */
   actions?: PoppinsMonitorAction[];
+  /** Closed IUI scene graph for the Activity stage (not generated JSX). */
+  ui_actions?: Array<Record<string, unknown>>;
   source?: string;
 };
 

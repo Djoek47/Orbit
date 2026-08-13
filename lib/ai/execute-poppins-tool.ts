@@ -9,6 +9,7 @@ import {
   POPPINS_NAV_ROUTES,
   type PoppinsToolName,
 } from '@/lib/ai/poppins-tools';
+import { isIuiScene, IUI_SCENES } from '@/lib/poppins/ui-scenes';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { searchHouseRules } from '@/lib/rules/search';
 import { visibleRules } from '@/lib/rules/visible-rules';
@@ -32,16 +33,39 @@ function pendingConfirm(
   args: Record<string, unknown>,
   summary: string
 ): PoppinsToolResult {
+  const id = `pc-${name}-${Date.now()}`;
   return {
     pending_confirmations: [
       {
-        id: `pc-${name}-${Date.now()}`,
+        id,
         tool: name,
         args,
         summary,
       },
     ],
+    ui_actions: [
+      {
+        type: 'confirm',
+        confirmSummary: summary,
+        confirmationIds: [id],
+      },
+    ],
     note: 'Awaiting user confirmation before executing.',
+  };
+}
+
+function peekAction(
+  rows: Array<{ id?: unknown; title?: unknown; name?: unknown; assignee?: unknown }>,
+  thinkingLine: string
+) {
+  return {
+    type: 'list_peek' as const,
+    thinkingLine,
+    rows: rows.slice(0, 3).map((row) => ({
+      id: row.id,
+      title: row.title ?? row.name,
+      assignee: row.assignee,
+    })),
   };
 }
 
@@ -79,7 +103,7 @@ export function executePoppinsTool(
           due: t.due,
           status: t.status,
         }));
-      return { overdue };
+      return { overdue, ui_actions: [peekAction(overdue, 'Overdue')] };
     }
     case 'list_tasks': {
       const limit = typeof args.limit === 'number' ? Math.min(20, Math.max(1, args.limit)) : 12;
@@ -97,7 +121,7 @@ export function executePoppinsTool(
           due: t.due,
           status: t.status,
         }));
-      return { tasks: open };
+      return { tasks: open, ui_actions: [peekAction(open, 'Open tasks')] };
     }
     case 'nudge_member': {
       const memberName = String(args.memberName ?? '');
@@ -154,11 +178,13 @@ export function executePoppinsTool(
     }
     case 'list_groceries': {
       const status = args.status ? String(args.status) : '';
+      const groceries = household.groceries
+        .filter((g) => !status || g.status === status)
+        .slice(0, 30)
+        .map((g) => ({ id: g.id, name: g.name, status: g.status, category: g.category }));
       return {
-        groceries: household.groceries
-          .filter((g) => !status || g.status === status)
-          .slice(0, 30)
-          .map((g) => ({ id: g.id, name: g.name, status: g.status, category: g.category })),
+        groceries,
+        ui_actions: [peekAction(groceries, 'Groceries')],
       };
     }
     case 'add_grocery': {
@@ -197,6 +223,12 @@ export function executePoppinsTool(
           responsible: e.responsible,
           category: e.category,
         })),
+        ui_actions: [
+          peekAction(
+            events.slice(0, 3).map((e) => ({ id: e.id, title: e.title, assignee: e.responsible })),
+            'Upcoming'
+          ),
+        ],
       };
     }
     case 'list_holidays': {
@@ -222,6 +254,12 @@ export function executePoppinsTool(
           data: { kind: 'propose_plan', dayLabel, planTitle: title, planDetail: detail },
         },
         planDraft: { title, detail, dayLabel, href: '/create-itinerary' },
+        ui_actions: [
+          {
+            type: 'create_itinerary',
+            title,
+          },
+        ],
       };
     }
     case 'ask_for_info': {
@@ -234,10 +272,17 @@ export function executePoppinsTool(
       };
     }
     case 'list_members': {
+      const active = members
+        .filter((m) => m.status === 'active')
+        .map((m) => ({ id: m.id, name: m.name, role: m.role, weekXp: m.weekXp ?? 0 }));
       return {
-        members: members
-          .filter((m) => m.status === 'active')
-          .map((m) => ({ id: m.id, name: m.name, role: m.role, weekXp: m.weekXp ?? 0 })),
+        members: active,
+        ui_actions: [
+          {
+            type: 'member_pick',
+            faces: active.slice(0, 3).map((m) => ({ id: m.id, name: m.name })),
+          },
+        ],
       };
     }
     case 'list_rewards': {
@@ -349,17 +394,14 @@ export function executePoppinsTool(
       return {
         ui_actions: [
           {
-            type: 'navigate',
-            route: '/create-task',
-            prefill: {
-              title: String(args.title ?? ''),
-              assignee: args.assignee ? String(args.assignee) : undefined,
-              due: args.due ? String(args.due) : undefined,
-              detail: args.detail ? String(args.detail) : undefined,
-            },
+            type: 'create_task_draft',
+            title: String(args.title ?? ''),
+            assignee: args.assignee ? String(args.assignee) : undefined,
+            due: args.due ? String(args.due) : undefined,
+            detail: args.detail ? String(args.detail) : undefined,
           },
         ],
-        note: 'Opened create-task with draft prefill.',
+        note: 'Staged task on the IUI stage. HOLD silence commits.',
       };
     }
     case 'update_task': {
@@ -399,34 +441,28 @@ export function executePoppinsTool(
       return {
         ui_actions: [
           {
-            type: 'navigate',
-            route: '/create-event',
-            prefill: {
-              title: String(args.title ?? ''),
-              date: args.date ? String(args.date) : undefined,
-              time: args.time ? String(args.time) : undefined,
-              location: args.location ? String(args.location) : undefined,
-              notes: args.notes ? String(args.notes) : undefined,
-            },
+            type: 'create_calendar_event',
+            title: String(args.title ?? ''),
+            date: args.date ? String(args.date) : undefined,
+            time: args.time ? String(args.time) : undefined,
+            location: args.location ? String(args.location) : undefined,
+            notes: args.notes ? String(args.notes) : undefined,
           },
         ],
-        note: 'Opened create-event with draft prefill.',
+        note: 'Staged event on the IUI stage. HOLD silence commits.',
       };
     }
     case 'create_itinerary': {
       return {
         ui_actions: [
           {
-            type: 'navigate',
-            route: '/create-itinerary',
-            prefill: {
-              title: String(args.title ?? ''),
-              startsAt: args.startsAt ? String(args.startsAt) : undefined,
-              notes: args.notes ? String(args.notes) : undefined,
-            },
+            type: 'create_itinerary',
+            title: String(args.title ?? ''),
+            startsAt: args.startsAt ? String(args.startsAt) : undefined,
+            notes: args.notes ? String(args.notes) : undefined,
           },
         ],
-        note: 'Opened create-itinerary with draft prefill.',
+        note: 'Staged itinerary stop on the IUI stage. HOLD silence commits.',
       };
     }
     case 'advance_itinerary_stop': {
@@ -450,7 +486,31 @@ export function executePoppinsTool(
       if (!allowed) {
         return { error: 'route_not_allowed', route, allowed: POPPINS_NAV_ROUTES };
       }
-      return { ui_actions: [{ type: 'navigate', route, reason: args.reason }] };
+      return {
+        ui_actions: [
+          {
+            type: 'navigate',
+            route,
+            reason: args.reason ?? 'I can open that for you.',
+          },
+        ],
+      };
+    }
+    case 'present_ui_scene': {
+      const scene = String(args.scene ?? 'thinking');
+      if (!isIuiScene(scene)) {
+        return { error: 'unknown_scene', scene, allowed: IUI_SCENES };
+      }
+      return {
+        ui_actions: [
+          {
+            type: 'present_ui_scene',
+            scene,
+            payload: args.payload && typeof args.payload === 'object' ? args.payload : {},
+            commit: args.commit,
+          },
+        ],
+      };
     }
     case 'delete_task':
     case 'clear_grocery_list':

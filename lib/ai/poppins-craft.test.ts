@@ -80,6 +80,7 @@ assert.match(POPPINS_MAJORDOMO_SYSTEM, /propose_plan/);
 assert.ok(POPPINS_TOOL_DEFINITIONS.length >= 25);
 assert.ok(POPPINS_TOOL_DEFINITIONS.some((t) => t.name === 'end_session'));
 assert.ok(POPPINS_TOOL_DEFINITIONS.some((t) => t.name === 'navigate_to'));
+assert.ok(POPPINS_TOOL_DEFINITIONS.some((t) => t.name === 'present_ui_scene'));
 assert.ok(POPPINS_TOOL_DEFINITIONS.some((t) => t.risk === 'risky'));
 assert.equal(MAJORDOMO_PROFILES.length, 10);
 assert.equal(getMajordomoProfile('steward').voice, 'marin');
@@ -94,6 +95,15 @@ const desk = buildPoppinsDeskBrief(household, metrics);
 assert.equal(desk.overdueCount, 1);
 assert.ok(desk.xpSkew.gap >= 0);
 assert.ok(Array.isArray(desk.next48hEvents));
+
+const draft = executePoppinsTool(
+  'create_task_draft',
+  { title: 'Dishwasher', assignee: 'Alex' },
+  household,
+  metrics
+);
+assert.equal((draft.ui_actions as Array<{ type?: string }>)[0]?.type, 'create_task_draft');
+assert.ok(!JSON.stringify(draft).includes('/create-task'));
 
 const fairness = executePoppinsTool('assess_xp_fairness', {}, household, metrics);
 assert.equal(fairness.gap, 70);

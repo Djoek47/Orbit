@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Dimensions, PanResponder, Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -21,23 +22,29 @@ type BottomSheetProps = {
   heightRatio?: number;
   children: React.ReactNode;
   style?: ViewStyle;
+  /** Theme / character accent wash on glass (hex). */
+  accentColor?: string;
 };
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const DISMISS_THRESHOLD_RATIO = 0.4;
 
 /**
- * Partial-height, drag-dismissible sheet for quick single-decision moments —
- * see docs/design-system/03-motion-interaction.md §9 and
- * docs/design-system/05-component-library.md "Bottom Sheet".
- *
- * Distinct from Expo Router's full-screen `presentation: 'modal'` stack
- * screens (used for create/edit flows) — this is for confirmations only.
+ * Partial-height, drag-dismissible sheet — glass chrome, flat content.
+ * Backdrop is real blur + dim so tab-bar glass does not stack.
  */
-export function BottomSheet({ visible, onDismiss, heightRatio = 0.45, children, style }: BottomSheetProps) {
+export function BottomSheet({
+  visible,
+  onDismiss,
+  heightRatio = 0.45,
+  children,
+  style,
+  accentColor,
+}: BottomSheetProps) {
   const insets = useSafeAreaInsets();
   const orbit = useOrbitOptional();
   const isDark = orbit?.orbitPalette.isDark ?? true;
+  const accent = accentColor ?? orbit?.accentTheme.primary ?? '#38BDF8';
   const sheetHeight = SCREEN_HEIGHT * heightRatio;
 
   const translateY = useSharedValue(sheetHeight);
@@ -84,7 +91,19 @@ export function BottomSheet({ visible, onDismiss, heightRatio = 0.45, children, 
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
+      <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
+        <BlurView
+          intensity={Platform.OS === 'ios' ? material.liquidGlass.intensity : material.liquidGlass.androidIntensity}
+          tint={resolveBlurTint(isDark)}
+          experimentalBlurMethod={androidBlurMethod}
+          style={StyleSheet.absoluteFill}
+        />
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: isDark ? 'rgba(7,13,28,0.55)' : 'rgba(15,28,42,0.28)' },
+          ]}
+        />
         <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} accessibilityLabel="Dismiss" />
       </Animated.View>
       <Animated.View
@@ -97,9 +116,20 @@ export function BottomSheet({ visible, onDismiss, heightRatio = 0.45, children, 
         {...panResponder.panHandlers}>
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <BlurView
-            intensity={Platform.OS === 'ios' ? material.ultraThin.intensity : material.ultraThin.androidIntensity}
+            intensity={Platform.OS === 'ios' ? 72 : 90}
             tint={resolveBlurTint(isDark)}
             experimentalBlurMethod={androidBlurMethod}
+            style={StyleSheet.absoluteFill}
+          />
+          <LinearGradient
+            colors={[
+              `${accent}${isDark ? '66' : '55'}`,
+              `${accent}00`,
+              isDark ? 'rgba(7,13,28,0.55)' : 'rgba(255,255,255,0.35)',
+            ]}
+            locations={[0, 0.45, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
         </View>
@@ -111,9 +141,6 @@ export function BottomSheet({ visible, onDismiss, heightRatio = 0.45, children, 
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
   sheet: {
     borderTopLeftRadius: radius.cardLarge,
     borderTopRightRadius: radius.cardLarge,
@@ -131,9 +158,11 @@ const styles = StyleSheet.create({
     height: 4,
     marginTop: space.xs,
     width: 36,
+    zIndex: 2,
   },
   content: {
     flex: 1,
     padding: space.lg,
+    zIndex: 2,
   },
 });

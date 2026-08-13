@@ -14,6 +14,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
+import { PoppinsStage } from '@/components/orbit/poppins-stage';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { getNotificationRoute } from '@/lib/notifications/navigate';
@@ -25,6 +26,7 @@ import {
   needsAttentionCount,
   type NotifBucket,
 } from '@/lib/poppins/notification-buckets';
+import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type {
   PoppinsBriefing,
@@ -203,15 +205,21 @@ export function PoppinsActivitySheet({
 }: PoppinsActivitySheetProps) {
   const insets = useSafeAreaInsets();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
+  const drive = usePoppinsUiDrive();
   const activityOnly = variant === 'activity';
   const [tab, setTab] = useState<SheetTab>(activityOnly ? 'activity' : 'notifications');
   const [dismissed, setDismissed] = useState<string[]>([]);
-  const showingActivity = activityOnly || tab === 'activity';
+  const showingActivity = drive.live || activityOnly || tab === 'activity';
 
   useEffect(() => {
     if (!visible) return;
-    setTab(activityOnly ? 'activity' : 'notifications');
-  }, [activityOnly, visible]);
+    setTab(activityOnly || drive.live ? 'activity' : 'notifications');
+  }, [activityOnly, drive.live, visible]);
+
+  const handleRequestClose = () => {
+    if (drive.live) poppinsUiOrchestrator.veto();
+    onClose();
+  };
 
   const cards = useMemo(
     () =>
@@ -326,8 +334,8 @@ export function PoppinsActivitySheet({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleRequestClose}>
+      <Pressable style={styles.backdrop} onPress={handleRequestClose} />
       <View
         style={[
           styles.sheet,
@@ -361,27 +369,35 @@ export function PoppinsActivitySheet({
             </View>
             <View>
               <Text style={[typography.headline, { color: c.text }]}>
-                {showingActivity ? 'Poppins Activity' : 'Notifications'}
+                {drive.live
+                  ? 'Poppins'
+                  : showingActivity
+                    ? 'Poppins Activity'
+                    : 'Notifications'}
               </Text>
               <Text style={[typography.caption1, { color: c.textMuted }]}>
-                {showingActivity
-                  ? poppinsActive
-                    ? 'Poppins is active in the background'
-                    : 'All quiet'
-                  : unread > 0
-                    ? `${unread} need${unread === 1 ? 's' : ''} your attention`
-                    : "You're all caught up"}
+                {drive.live
+                  ? drive.thinkingLine ||
+                    drive.playlist[drive.index]?.payload.title ||
+                    'Listening throughout'
+                  : showingActivity
+                    ? poppinsActive
+                      ? 'Poppins is active in the background'
+                      : 'All quiet'
+                    : unread > 0
+                      ? `${unread} need${unread === 1 ? 's' : ''} your attention`
+                      : "You're all caught up"}
               </Text>
             </View>
           </View>
           <Pressable
-            onPress={onClose}
+            onPress={handleRequestClose}
             style={[styles.close, { backgroundColor: glass(0.08) }]}>
             <MaterialIcons name="close" size={16} color={c.textMuted} />
           </Pressable>
         </View>
 
-        {!activityOnly ? (
+        {!activityOnly && !drive.live ? (
         <View style={[styles.tabs, { backgroundColor: glass(0.05) }]}>
           {(['notifications', 'activity'] as const).map((t) => {
             const active = tab === t;
@@ -427,6 +443,11 @@ export function PoppinsActivitySheet({
         </View>
         ) : null}
 
+        {drive.live && showingActivity ? (
+          <View style={styles.stageLive}>
+            <PoppinsStage />
+          </View>
+        ) : (
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.content}
@@ -709,6 +730,7 @@ export function PoppinsActivitySheet({
             </Animated.View>
           )}
         </ScrollView>
+        )}
       </View>
     </Modal>
   );
@@ -819,6 +841,12 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   scroll: { flexGrow: 0 },
+  stageLive: {
+    minHeight: 420,
+    paddingHorizontal: 16,
+    paddingBottom: 28,
+    flexGrow: 1,
+  },
   content: { paddingHorizontal: space.md, paddingBottom: space.xl, gap: 4 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sectionLabel: {

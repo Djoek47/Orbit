@@ -1,9 +1,14 @@
 # Realtime Interactive Menus (Poppins-driven UI)
 
-**Codename:** Realtime Interactive Menus  
-**Target:** Post–v11 TestFlight smoke (tomorrow)  
-**Branch:** `cursor/choremaxx-make-v11` (then v12 tip if needed)  
-**Depends on:** Poppins Divine Voice (#32) — live session + `ui_actions` / tool plane already shipping
+**Codename:** IUI (Interactive AI-controlled window) — Phase C1  
+**Branch:** `cursor/realtime-interactive-menus-5f8f` from Make v11  
+**Depends on:** Poppins Divine Voice — live session + `ui_actions` / tool plane
+
+The earlier draft opened human screens and puppeteered them. **That default is reversed.** The Activity window is the AI’s hands. Human screens open only when the user asks for help, or for **Settings** (navigate-only).
+
+See [iui-method-note.md](./iui-method-note.md) for the method stub.
+
+---
 
 ---
 
@@ -93,11 +98,12 @@ Keep using existing tools first; add these only if orchestrator needs explicit m
 
 ## Acceptance (device)
 
-1. Connect Poppins → “Create a dishwasher task for Alex due tomorrow” → **Create Task opens**, fields animate in, Poppins speaks summary **while** UI fills.
-2. “Show overdue tasks” → Tasks tab highlights overdue rows **in order** as Poppins lists them.
-3. “Advance the trip stop” (active itinerary) → Plan screen **animates** to next stop; spoken confirmation.
-4. Risky assign/reassign → menu animates to **preview**; confirm sheet before commit.
-5. End session / navigate away → animations cancel cleanly; no stuck overlays.
+1. Connect Poppins → no `response.modalities` error.
+2. “Add a dishwasher task for Alex” plays in the **Activity window** and **commits on silence** (HOLD). Full editor only if asked.
+3. “Add a store to the itinerary, then a dentist appointment” **chains** itinerary_stage → calendar_zoom in the same window, no tap.
+4. “Not Alex, Maya” mid-HOLD steers without restarting.
+5. Settings requests Coach-navigate only (no HOLD-commit).
+6. Voice and Luna (Expo Go text twin) both hit the orchestrator.
 
 ---
 
@@ -105,12 +111,13 @@ Keep using existing tools first; add these only if orchestrator needs explicit m
 
 | Step | Task |
 |------|------|
-| C1.1 | `PoppinsUiOrchestrator` + store hook `usePoppinsUiDrive()` |
-| C1.2 | Tasks: highlight rows, assignment sheet, create-task prefill animation |
-| C1.3 | Plan: itinerary stop advance + calendar agenda highlight |
-| C1.4 | Mini rail component + wire orb states on driven tabs |
-| C1.5 | Voice + text paths both emit `ui_actions` through orchestrator |
-| C1.6 | Docs + TestFlight smoke rows in expo-go matrix |
+| C1.0 | Strip `response.modalities`; Majordomo theme-tinted blur |
+| C1.1 | `PoppinsUiOrchestrator` + closed `ui-scenes` + `usePoppinsUiDrive()` |
+| C1.2 | Activity sheet morphs into `PoppinsStage` (one window, listening throughout) |
+| C1.3 | Scenes: thinking, task_compose, calendar_zoom, itinerary_stage, member_pick, navigate_coach |
+| C1.4 | grocery_add, reward_mint, list_peek, confirm; Settings navigate-only |
+| C1.5 | Voice + Luna `ui_actions` through orchestrator; `present_ui_scene` closed enum |
+| C1.6 | HOLD silence = commit; barge-in revise; `docs/iui-method-note.md` |
 
 **Out of scope tomorrow:** new tabs, Figma Make sync, roommate mode, paying allowance via AI.
 
