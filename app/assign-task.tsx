@@ -35,6 +35,24 @@ function assignablePeople(members: HouseholdMember[]): HouseholdMember[] {
   );
 }
 
+function assignErrorMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : '';
+  const stripped = raw.replace(/^[A-Za-z]+Repository\.\w+:\s*/i, '').trim();
+  if (/null value in column ["']?difficulty/i.test(stripped)) {
+    return 'Could not save the task. Try again.';
+  }
+  if (/invalid input syntax for type uuid/i.test(stripped)) {
+    return 'Household is still signing in. Try again in a moment.';
+  }
+  if (/duplicate key|unique constraint|23505/i.test(stripped)) {
+    return 'That task is already assigned for today.';
+  }
+  if (/row-level security|permission denied|42501/i.test(stripped)) {
+    return 'You need permission to assign tasks.';
+  }
+  return 'Could not save to the household. Check you are online and try again.';
+}
+
 type Selected = {
   task: LibraryTask;
   frequency: LibraryTask['defaultFrequency'];
@@ -233,14 +251,14 @@ export default function AssignTaskScreen() {
         Alert.alert(
           'Could not assign',
           failed.length
-            ? `Could not save: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}`
+            ? `Could not save ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}. Try again.`
             : 'Try again.'
         );
         return;
       }
       router.back();
     } catch (error) {
-      Alert.alert('Could not assign', error instanceof Error ? error.message : 'Try again.');
+      Alert.alert('Could not assign', assignErrorMessage(error));
     } finally {
       setBusy(false);
     }

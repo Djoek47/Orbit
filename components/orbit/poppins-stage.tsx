@@ -274,18 +274,24 @@ export function PoppinsStage() {
       const p = beat.payload;
       const write = p.write ?? 'none';
       if (write === 'create_task' && p.title) {
-        await createTask({
-          title: p.title,
-          category: p.category ?? p.selectedChipId ?? 'home_maintenance',
-          assignee: p.assignee || currentMember?.name || household.members[0]?.name || 'Me',
-          due: p.due ?? 'Today',
-          xp: 10,
-          repeat: 'None',
-          definitionId: p.libraryTaskId
-            ? `lib:${p.libraryTaskId}:${p.assignee || currentMember?.name || 'Me'}`
-            : undefined,
-          occurrenceDate: occurrenceDateForDueLabel(p.due ?? 'Today'),
-        });
+        try {
+          await createTask({
+            title: p.title,
+            category: p.category ?? p.selectedChipId ?? 'home_maintenance',
+            assignee: p.assignee || currentMember?.name || household.members[0]?.name || 'Me',
+            due: p.due ?? 'Today',
+            xp: 10,
+            repeat: 'None',
+            difficulty: 'medium',
+            weight: 1,
+            definitionId: p.libraryTaskId
+              ? `lib:${p.libraryTaskId}:${p.assignee || currentMember?.name || 'Me'}`
+              : undefined,
+            occurrenceDate: occurrenceDateForDueLabel(p.due ?? 'Today'),
+          });
+        } catch (error) {
+          console.warn('IUI create_task failed', error);
+        }
       }
       if (write === 'create_event' && p.title) {
         await createEvent({

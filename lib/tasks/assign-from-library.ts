@@ -29,6 +29,8 @@ export function buildLibraryAssignInput(
     xpEligible: task.tracking === 'xp',
     tracking: task.tracking,
     repeat: mapLibraryRepeat(frequency),
+    difficulty: 'medium',
+    weight: 1,
     proofRequired: task.domainId === 'homework_education',
     definitionId: libraryDefinitionId(task.id, assigneeName),
     occurrenceDate,

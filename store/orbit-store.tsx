@@ -1072,7 +1072,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return task;
     } catch (error) {
       console.warn('createTask failed', error);
-      return null;
+      throw error instanceof Error ? error : new Error('Could not save the task.');
     }
   };
 

@@ -25,6 +25,8 @@ assert.equal(weekly.occurrenceDate, formatLocalDate(now));
 assert.equal(weekly.repeat, 'Weekly');
 assert.equal(weekly.definitionId, 'lib:load_the_dishwasher:Emma');
 assert.equal(weekly.assignee, 'Emma');
+assert.equal(weekly.difficulty, 'medium');
+assert.equal(weekly.weight, 1);
 assert.ok(isDueToday({ status: 'Pending', due: weekly.due }), 'Today list must include a fresh assign');
 
 const nextSunday = dueAtForFrequency('weekly', now);

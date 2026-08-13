@@ -33,5 +33,7 @@ const assigned = buildLibraryAssignInput(sample, 'Maya', 'weekly', now);
 assert.equal(assigned.due, 'Today');
 assert.equal(assigned.occurrenceDate, '2026-08-13');
 assert.equal(assigned.repeat, 'Weekly');
+assert.equal(assigned.difficulty, 'medium');
+assert.equal(assigned.weight, 1);
 
 console.log('library-repeat + due-label: ok');

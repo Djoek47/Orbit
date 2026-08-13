@@ -48,8 +48,10 @@ function buildCoreTaskInsert(input: {
     xp_value: input.task.xp,
     repeat_rule: taskRepeatToDb(input.task.repeat),
     status: 'pending' as const,
-    weight: input.task.weight ?? null,
-    difficulty: input.task.difficulty ?? null,
+    weight: input.task.weight ?? 1,
+    // NOT NULL on live Postgres (`default 'medium'`). Explicit null skips the
+    // default and every Assign save fails with "Could not save: …".
+    difficulty: input.task.difficulty ?? 'medium',
     proof_required: input.task.proofRequired ?? false,
     room_id: input.task.roomId ?? null,
   };
@@ -170,7 +172,7 @@ export const taskRepository = {
       return task;
     }
 
-    if (!householdId) {
+    if (!isPersistedHouseholdId(householdId)) {
       throw new Error('taskRepository.createTask: householdId is required in Supabase mode.');
     }
 
