@@ -1,12 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
 import { Stack, router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
+import { PlaceMap } from '@/components/orbit/place-map';
 import { radius, space } from '@/constants/orbit-theme';
+import { openDirections } from '@/lib/maps/directions';
+import { searchAddresses, type AddressSuggestion } from '@/lib/places/address-search';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { getCurrentCoords } from '@/lib/places/nearby-stores';
@@ -91,6 +94,7 @@ export default function PlacesScreen() {
     removeSavedPlace,
     suggestPoppinsItinerary,
     upsertSavedPlace,
+    preferredMapsApp,
   } = useOrbit();
   const { glass } = useOrbitColors();
   const places = useMemo(() => household.savedPlaces ?? [], [household.savedPlaces]);
@@ -98,6 +102,8 @@ export default function PlacesScreen() {
   const [locating, setLocating] = useState(false);
   const [itemInput, setItemInput] = useState('');
   const [suggestBusy, setSuggestBusy] = useState(false);
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [searching, setSearching] = useState(false);
 
   const home = places.find((p) => p.kind === 'home') ?? places.find((p) => p.id === HOME_ID);
   const work = places.find((p) => p.kind === 'work') ?? places.find((p) => p.id === WORK_ID);
@@ -110,6 +116,49 @@ export default function PlacesScreen() {
     () => buildPickupSummary(places, household.groceries, household.preferredStoreId),
     [places, household.groceries, household.preferredStoreId]
   );
+
+  const itineraryPins = useMemo(
+    () =>
+      (household.itineraries ?? []).flatMap((trip) =>
+        (trip.stops ?? [])
+          .filter((stop) => typeof stop.lat === 'number' && typeof stop.lng === 'number')
+          .map((stop) => ({
+            id: `stop-${trip.id}-${stop.id}`,
+            title: stop.label,
+            lat: stop.lat as number,
+            lng: stop.lng as number,
+            color: '#A78BFA',
+          }))
+      ),
+    [household.itineraries]
+  );
+
+  useEffect(() => {
+    if (!editor) {
+      setSuggestions([]);
+      return;
+    }
+    const q = editor.address.trim();
+    if (q.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setSearching(true);
+      void searchAddresses(q)
+        .then((rows) => {
+          if (!cancelled) setSuggestions(rows);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, 320);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [editor?.address, editor]);
 
   const openSlot = (kind: 'home' | 'work', existing?: SavedPlace) => {
     const meta = kindMeta(kind);
@@ -379,7 +428,63 @@ export default function PlacesScreen() {
               ]}
               multiline
             />
+            {searching ? (
+              <Text style={[styles.label, { color: orbitPalette.textSubtle, marginTop: 8 }]}>
+                Looking up addresses…
+              </Text>
+            ) : null}
+            {suggestions.length > 0 ? (
+              <View style={{ gap: 6, marginTop: 8 }}>
+                {suggestions.map((row) => (
+                  <Pressable
+                    key={row.id}
+                    onPress={() => {
+                      setEditor({
+                        ...editor,
+                        address: row.address,
+                        lat: row.lat,
+                        lng: row.lng,
+                        name: editor.name || row.label,
+                      });
+                      setSuggestions([]);
+                    }}
+                    style={[
+                      styles.locateBtn,
+                      { borderColor: orbitPalette.border, backgroundColor: glass(0.04) },
+                    ]}>
+                    <MaterialIcons name="place" size={16} color={accentTheme.primary} />
+                    <Text style={[styles.locateText, { color: orbitPalette.text, flex: 1 }]}>
+                      {row.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
           </View>
+
+          <PlaceMap
+            height={176}
+            markers={
+              editor.lat != null && editor.lng != null
+                ? [{ id: editor.id, title: editor.name || 'Place', lat: editor.lat, lng: editor.lng }]
+                : []
+            }
+          />
+
+          {editor.lat != null && editor.lng != null ? (
+            <Pressable
+              onPress={() =>
+                void openDirections(
+                  undefined,
+                  { address: editor.address, lat: editor.lat, lng: editor.lng },
+                  preferredMapsApp
+                )
+              }
+              style={[styles.locateBtn, { borderColor: `${accentTheme.primary}55`, backgroundColor: glass(0.04) }]}>
+              <MaterialIcons name="directions" size={18} color={accentTheme.primary} />
+              <Text style={[styles.locateText, { color: accentTheme.primary }]}>Open in Maps</Text>
+            </Pressable>
+          ) : null}
 
           <Pressable
             onPress={() => void fillFromCurrentLocation()}
@@ -452,6 +557,25 @@ export default function PlacesScreen() {
           <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
             Train Poppins with home, work, stores, and pickup spots — Plan trips reuse them.
           </Text>
+
+          <PlaceMap
+            height={200}
+            markers={[
+              ...places
+                .filter((p) => p.lat != null && p.lng != null)
+                .map((p) => ({
+                  id: p.id,
+                  title: p.name,
+                  lat: p.lat as number,
+                  lng: p.lng as number,
+                })),
+              ...itineraryPins,
+            ]}
+            onMarkerPress={(id) => {
+              const place = places.find((p) => p.id === id);
+              if (place) openExtra(place);
+            }}
+          />
 
           <PlaceRow
             palette={orbitPalette}

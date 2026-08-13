@@ -11,6 +11,7 @@ import {
   type IuiScene,
   type IuiWriteKind,
 } from '@/lib/poppins/ui-scenes';
+import { withComposeProgress } from '@/lib/poppins/iui-compose';
 
 function beat(
   scene: IuiScene,
@@ -57,7 +58,8 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'navigate') {
-      const route = String(action.route ?? '');
+      let route = String(action.route ?? '');
+      if (route.startsWith('/assign-task')) route = '/create-task';
       playlist.push(
         beat(
           'navigate_coach',
@@ -106,22 +108,30 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'create_task' || type === 'create_task_draft') {
-      playlist.push(
-        beat(
-          'task_compose',
-          {
-            title: String(action.title ?? prefill.title ?? ''),
-            assignee: action.assignee
-              ? String(action.assignee)
-              : prefill.assignee
-                ? String(prefill.assignee)
-                : undefined,
-            due: action.due ? String(action.due) : prefill.due ? String(prefill.due) : undefined,
-          },
-          'hold',
-          'create_task'
-        )
-      );
+      const draft = type === 'create_task_draft';
+      const payload = withComposeProgress({
+        title: String(action.title ?? prefill.title ?? ''),
+        assignee: action.assignee
+          ? String(action.assignee)
+          : prefill.assignee
+            ? String(prefill.assignee)
+            : undefined,
+        due: action.due ? String(action.due) : prefill.due ? String(prefill.due) : undefined,
+        category: action.category
+          ? String(action.category)
+          : prefill.category
+            ? String(prefill.category)
+            : undefined,
+        libraryTaskId: action.libraryTaskId
+          ? String(action.libraryTaskId)
+          : prefill.libraryTaskId
+            ? String(prefill.libraryTaskId)
+            : undefined,
+        showEmoji: true,
+        composeReady: draft ? false : undefined,
+      });
+      if (draft) payload.composeReady = false;
+      playlist.push(beat('task_compose', payload, 'hold', 'create_task'));
       continue;
     }
 
@@ -232,7 +242,7 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
         beat(
           'member_pick',
           {
-            faces: faces.slice(0, 3).map((face, i) => {
+            faces: faces.map((face, i) => {
               const f = asRecord(face);
               return {
                 id: String(f.id ?? i),

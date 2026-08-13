@@ -75,10 +75,25 @@ export function TodayTasksCard({
 
   const scoped = useMemo(() => {
     const today = tasks.filter((task) => isTodayTask(task));
+    const isAdmin =
+      currentMember?.role === 'admin' || currentMember?.role === 'owner';
+    const withoutAdminHomework = isAdmin
+      ? today.filter((task) => {
+          const homework =
+            task.category === 'homework_education' || /homework/i.test(task.category);
+          if (!homework) return true;
+          return taskMatchesAssignee(task, currentMember?.name);
+        })
+      : today;
     if (mineOnly && currentMember) {
-      return today.filter((task) => taskMatchesAssignee(task, currentMember.name));
+      return withoutAdminHomework.filter((task) => {
+        const homework =
+          task.category === 'homework_education' || /homework/i.test(task.category);
+        if (isAdmin && homework && !taskMatchesAssignee(task, currentMember.name)) return false;
+        return taskMatchesAssignee(task, currentMember.name);
+      });
     }
-    return today;
+    return withoutAdminHomework;
   }, [currentMember, mineOnly, tasks]);
 
   const done = scoped.filter((task) => task.status === 'Completed').length;

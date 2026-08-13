@@ -21,6 +21,7 @@ import {
   resolveMajordomoProfileId,
 } from '@/lib/ai/majordomo-profiles';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
+import { MapsAppMark } from '@/components/orbit/maps-app-mark';
 import { BUILD_INFO } from '@/constants/build-info';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { VOCAB } from '@/constants/vocabulary';
@@ -726,17 +727,41 @@ export default function SettingsScreen() {
             />
 
             <SectionCard title="Maps">
-              <SegmentedControl
-                label="Preferred maps app"
-                value={preferredMapsApp}
-                onChange={(app) => updatePreferredMapsApp(app)}
-                options={[
-                  { value: 'auto', label: 'Auto' },
-                  { value: 'apple', label: 'Apple' },
-                  { value: 'google', label: 'Google' },
-                  { value: 'waze', label: 'Waze' },
-                ]}
-              />
+              <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
+                Preferred maps app
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {(
+                  [
+                    { value: 'auto' as const, label: 'Auto' },
+                    { value: 'apple' as const, label: 'Apple' },
+                    { value: 'google' as const, label: 'Google' },
+                    { value: 'waze' as const, label: 'Waze' },
+                  ] as const
+                ).map((opt) => {
+                  const active = preferredMapsApp === opt.value;
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      onPress={() => updatePreferredMapsApp(opt.value)}
+                      style={{
+                        flex: 1,
+                        alignItems: 'center',
+                        gap: 6,
+                        paddingVertical: 10,
+                        borderRadius: 14,
+                        borderWidth: 1,
+                        borderColor: active ? `${accentTheme.primary}66` : glassBorder(0.1),
+                        backgroundColor: active ? `${accentTheme.primary}18` : glass(0.04),
+                      }}>
+                      <MapsAppMark app={opt.value} size={22} />
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: active ? accentTheme.primary : c.textMuted }}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </SectionCard>
 
             <SectionCard title="Premium">

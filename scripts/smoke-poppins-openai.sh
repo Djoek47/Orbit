@@ -42,12 +42,13 @@ done
 
 echo
 echo "Models (craft):"
-echo "  chat/briefing/monitor/voice → gpt-4o-mini"
-echo "  realtime session           → gpt-realtime-2.1-mini"
+echo "  chat/briefing/monitor/notify → gpt-5.6-luna"
+echo "  realtime duplex              → gpt-realtime-2.1"
+echo "  live STT                     → gpt-4o-mini-transcribe"
 echo
-echo "Next (device): open TestFlight or Expo Go with"
+echo "Next (device): TestFlight with"
 echo "  EXPO_PUBLIC_POPPINS_AI=openai"
-echo "  EXPO_PUBLIC_POPPINS_REALTIME=1"
+echo "  EXPO_PUBLIC_POPPINS_VOICE_WEBRTC=1"
 echo "  EXPO_PUBLIC_SUPABASE_URL / ANON_KEY set"
 echo "then: ask “Who’s overloaded?” (tool-backed) and “Plan Saturday” (propose_plan → Activity)."
 echo "PASS secrets + functions reachable"

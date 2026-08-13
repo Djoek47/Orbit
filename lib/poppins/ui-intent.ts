@@ -3,6 +3,8 @@
  * Live Luna/Realtime still win when they already returned ui_actions.
  */
 
+import { formatLocalDate } from '@/lib/streaks/local-date';
+
 export function parseHouseholdIntent(utterance: string): Array<Record<string, unknown>> {
   const text = utterance.trim();
   if (!text) return [];
@@ -44,7 +46,7 @@ export function parseHouseholdIntent(utterance: string): Array<Record<string, un
     actions.push({
       type: 'create_calendar_event',
       title: wantsDentist ? 'Dentist' : 'Appointment',
-      date: new Date().toISOString().slice(0, 10),
+      date: formatLocalDate(new Date()),
     });
   }
   if (wantsItineraryStop && (wantsDentist || wantsAppointment)) {

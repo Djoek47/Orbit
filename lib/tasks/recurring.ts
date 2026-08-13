@@ -7,6 +7,7 @@ import type { HouseholdTask } from '@/types/orbit';
 import { buildShares, getTaskAssignees, isSplitTask } from '@/lib/tasks/split-assign';
 import { DEFAULT_DUE_TIME_LOCAL, parseLocalHm } from '@/lib/tasks/recurrence-defaults';
 import { formatLocalDate } from '@/lib/streaks/local-date';
+import { dueLabelForDate } from '@/lib/tasks/due-label';
 
 /** @deprecated Prefer ensureOccurrencesForDay — kept for cancel-this cleanup only. */
 export function spawnNextOccurrence(task: HouseholdTask): HouseholdTask | null {
@@ -49,6 +50,20 @@ export function isExpiredStatus(status: HouseholdTask['status']): boolean {
   return status === 'Expired' || status === 'Missed';
 }
 
+/** First chosen due / earliest occurrence — catch-up must not invent days before this. */
+export function seriesStartDateKey(tasks: HouseholdTask[], defId: string): string | null {
+  const keys = tasks
+    .filter((t) => seriesDefinitionId(t) === defId)
+    .map((t) => {
+      if (t.occurrenceDate) return t.occurrenceDate;
+      if (t.dueAt) return formatLocalDate(new Date(t.dueAt));
+      return null;
+    })
+    .filter((key): key is string => Boolean(key))
+    .sort();
+  return keys[0] ?? null;
+}
+
 /**
  * Materialise today's pending occurrences for active repeating series.
  * Idempotent: skips if (definitionId, occurrenceDate) already exists.
@@ -71,6 +86,9 @@ export function ensureOccurrencesForDay(
   for (const [defId, template] of templates) {
     if (!shouldGenerateOnDate(template, day)) continue;
 
+    const startKey = seriesStartDateKey(tasks, defId);
+    if (startKey && dateKey < startKey) continue;
+
     const exists = tasks.some((t) => {
       if (seriesDefinitionId(t) !== defId) return false;
       if (t.occurrenceDate === dateKey) return true;
@@ -78,7 +96,7 @@ export function ensureOccurrencesForDay(
       if (
         !t.occurrenceDate &&
         t.status !== 'Cancelled' &&
-        (!t.dueAt || t.dueAt.slice(0, 10) === dateKey) &&
+        (!t.dueAt || formatLocalDate(new Date(t.dueAt)) === dateKey) &&
         (t.status === 'Pending' ||
           t.status === 'In Progress' ||
           t.status === 'Overdue' ||
@@ -87,7 +105,7 @@ export function ensureOccurrencesForDay(
       ) {
         // Only match "today-ish" labels when asking for today.
         if (dateKey === formatLocalDate(new Date()) && /today/i.test(t.due)) return true;
-        if (t.dueAt && t.dueAt.slice(0, 10) === dateKey) return true;
+        if (t.dueAt && formatLocalDate(new Date(t.dueAt)) === dateKey) return true;
         if (t.completedAt && formatLocalDate(new Date(t.completedAt)) === dateKey) return true;
       }
       return false;
@@ -104,7 +122,7 @@ export function ensureOccurrencesForDay(
       definitionId: defId,
       occurrenceDate: dateKey,
       status: 'Pending',
-      due: 'Today',
+      due: dueLabelForDate(dateKey, day),
       dueAt: localDueAt(dateKey),
       completedAt: undefined,
       awardedXp: undefined,

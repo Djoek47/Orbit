@@ -83,10 +83,18 @@ export type IuiPayload = {
   itineraryId?: string;
   itineraryTitle?: string;
   taskId?: string;
+  /** Library task id when composing from the chore catalog. */
+  libraryTaskId?: string;
   /** Last member name heard in the assistant transcript (Face pulse). */
   spokenName?: string;
   /** Store write kind when HOLD/confirm settles. */
   write?: IuiWriteKind;
+  /** False until who/category/task/when are chosen — HOLD must not start. */
+  composeReady?: boolean;
+  /** Current one-beat compose step. */
+  composeStep?: 'who' | 'category' | 'task' | 'when' | 'ready';
+  /** Optional: show emoji next to library chips. */
+  showEmoji?: boolean;
 };
 
 export type IuiWriteKind =

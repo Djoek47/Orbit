@@ -297,7 +297,7 @@ export default function TaskDetailScreen() {
         'Cannot unassign',
         task.status === 'Completed'
           ? 'Use Mark not done for a completed task.'
-          : 'Expired tasks cannot be unassigned.'
+          : 'Expired tasks cannot be unassigned. Delete them instead.'
       );
       return;
     }
@@ -863,7 +863,12 @@ export default function TaskDetailScreen() {
                 </Text>
               </Pressable>
             ) : null}
-            {permissions.canManageHousehold && task.status !== 'Completed' && task.status !== 'Cancelled' && !canAdminUnassign(task) ? (
+            {permissions.canManageHousehold &&
+            task.status !== 'Completed' &&
+            task.status !== 'Cancelled' &&
+            !canAdminUnassign(task) &&
+            task.status !== 'Expired' &&
+            task.status !== 'Missed' ? (
               <Pressable onPress={confirmCancel} style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
                 <Text style={[styles.secondaryText, { color: c.warning }]}>
                   Cancel task{task.status === 'Overdue' ? ' (overdue ok)' : ''}

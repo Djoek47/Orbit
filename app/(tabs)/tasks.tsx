@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { ContextMenu } from '@/components/orbit/context-menu';
 import { EmptyState } from '@/components/orbit/empty-state';
@@ -23,6 +23,7 @@ import {
   type HouseholdRewardSettings,
 } from '@/lib/rewards/reward-mode';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { householdHasChildren } from '@/lib/household/has-children';
 import {
   findSharedDeviceForMember,
   isSharedDeviceAccount,
@@ -207,7 +208,7 @@ function TaskItem({
 
   const row = (
       <View style={[styles.taskItem, done && styles.taskItemDone, done && { backgroundColor: glass(0.03) }]}>
-        {interactive ? (
+        {interactive && !isExpiredStatus(task.status) ? (
         <Pressable
           onPress={onToggle}
           style={[
@@ -223,10 +224,7 @@ function TaskItem({
           <View style={[styles.checkbox, { borderColor: `${c.warning}66`, opacity: 0.5 }]} />
         )}
 
-        <Pressable
-          style={styles.taskBody}
-          disabled={!interactive}
-          onPress={interactive ? () => router.push(`/task/${task.id}` as never) : undefined}>
+        <View style={styles.taskBody}>
         <View style={styles.titleRow}>
           {isHomework(task) && sub ? (
             <View style={[styles.subjectPill, { backgroundColor: `${sub.color}18` }]}>
@@ -309,7 +307,7 @@ function TaskItem({
             </LinearGradient>
           ) : null}
         </View>
-      </Pressable>
+      </View>
 
         {xpEnabled ? (
           justCompleted ? (
@@ -336,17 +334,32 @@ function TaskItem({
       </View>
   );
 
-  if (!interactive) {
-    return row;
-  }
+  const expired = isExpiredStatus(task.status);
+  const openTask = () => router.push(`/task/${task.id}` as never);
 
   return (
     <ContextMenu
+      onPress={openTask}
       actions={[
-        { key: 'open', label: 'Open task', icon: 'chevron-right', onPress: () => router.push(`/task/${task.id}` as never) },
-        ...(!done ? [{ key: 'complete', label: 'Mark complete', icon: 'check' as const, onPress: onToggle }] : []),
+        { key: 'open', label: 'Open task', icon: 'chevron-right', onPress: openTask },
+        ...(!done && !expired && interactive
+          ? [{ key: 'complete', label: 'Mark complete', icon: 'check' as const, onPress: onToggle }]
+          : []),
         ...(canDelete
-          ? [{ key: 'delete', label: 'Delete', icon: 'delete-outline' as const, destructive: true, onPress: onDelete }]
+          ? [
+              {
+                key: 'delete',
+                label: 'Delete',
+                icon: 'delete-outline' as const,
+                destructive: true,
+                onPress: () => {
+                  Alert.alert('Delete task', `Remove “${task.title}”?`, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: onDelete },
+                  ]);
+                },
+              },
+            ]
           : []),
       ]}>
       {row}
@@ -528,10 +541,22 @@ export default function TasksScreen() {
   const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
-  const childNames = useMemo(
-    () => new Set(household.members.filter((member) => member.role === 'child').map((member) => member.name)),
-    [household.members]
-  );
+  const hasKids = householdHasChildren(household.members);
+  const isAdmin = permissions.canManageHousehold || currentMember?.role === 'admin';
+
+  useEffect(() => {
+    if (!hasKids && domainTab === 'homework') setDomainTab('chores');
+  }, [domainTab, hasKids]);
+
+  const homeworkReview = useMemo(() => {
+    if (!isAdmin || hasKids) return [];
+    return household.tasks.filter(
+      (task) =>
+        isHomework(task) &&
+        task.status !== 'Cancelled' &&
+        task.status !== 'Completed'
+    );
+  }, [hasKids, household.tasks, isAdmin]);
 
   const filtered = useMemo(() => {
     return household.tasks.filter((task) => {
@@ -755,6 +780,7 @@ export default function TasksScreen() {
       </View>
 
       <View style={{ gap: 10, marginBottom: 4 }}>
+      {hasKids ? (
       <SegmentedControl
         options={[
           { value: 'chores', label: 'Chores' },
@@ -766,6 +792,24 @@ export default function TasksScreen() {
           setDomainTab(next);
         }}
       />
+      ) : isAdmin && homeworkReview.length > 0 ? (
+        <View style={{ paddingVertical: 8, gap: 6 }}>
+          <Text style={[typography.footnote, { color: c.textMuted }]}>
+            Review homework · {homeworkReview.length} open
+            {(() => {
+              const names = [...new Set(homeworkReview.map((t) => t.assignee))];
+              return names.length ? ` · ${names.join(', ')}` : '';
+            })()}
+          </Text>
+          {homeworkReview.slice(0, 4).map((task) => (
+            <Pressable key={task.id} onPress={() => router.push(`/task/${task.id}` as never)}>
+              <Text style={[typography.footnote, { color: c.text }]}>
+                {task.title} · {task.assignee}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       <SegmentedControl
         options={[
@@ -884,14 +928,14 @@ export default function TasksScreen() {
               members={household.members}
               accentPrimary={accentTheme.primary}
               muted
-              interactive={false}
+              interactive
               justCompletedId={null}
-              canDelete={false}
+              canDelete={isAdmin}
               hygieneXpWhenRewarded={hygieneXpWhenRewarded}
               rewardSettings={rewardSettings}
               xpEnabled={rewardCapabilities.xpEnabled}
               onToggle={() => undefined}
-              onDelete={() => undefined}
+              onDelete={handleDelete}
             />
           ))
         )

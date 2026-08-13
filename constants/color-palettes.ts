@@ -82,11 +82,28 @@ const MIST: ColorPaletteSlice = {
   ink: '#0F1C2A',
 };
 
+function mixHex(hex: string, toward: string, amount: number): string {
+  const parse = (value: string) => {
+    const h = value.replace('#', '');
+    return [
+      Number.parseInt(h.slice(0, 2), 16),
+      Number.parseInt(h.slice(2, 4), 16),
+      Number.parseInt(h.slice(4, 6), 16),
+    ] as const;
+  };
+  const a = parse(hex);
+  const b = parse(toward);
+  const ch = (i: number) => Math.round(a[i]! + (b[i]! - a[i]!) * amount);
+  const to = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${to(ch(0))}${to(ch(1))}${to(ch(2))}`;
+}
+
 function tintNight(base: ColorPaletteSlice, tint: string, borderAccent: string): ColorPaletteSlice {
   return {
     ...base,
     background: tint,
-    backgroundSoft: base.backgroundSoft,
+    backgroundSoft: mixHex(tint, '#FFFFFF', 0.08),
+    shell: mixHex(tint, '#000000', 0.35),
     border: borderAccent,
     borderStrong: `${borderAccent.replace('0.18', '0.35').replace('0.12', '0.35').replace('0.2', '0.4')}`,
   };
@@ -96,7 +113,8 @@ function tintDay(base: ColorPaletteSlice, wash: string): ColorPaletteSlice {
   return {
     ...base,
     background: wash,
-    backgroundSoft: base.backgroundSoft,
+    backgroundSoft: mixHex(wash, '#FFFFFF', 0.28),
+    shell: mixHex(wash, '#C5D0DC', 0.45),
   };
 }
 

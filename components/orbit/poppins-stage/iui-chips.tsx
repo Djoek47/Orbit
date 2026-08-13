@@ -2,6 +2,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import Icon from '@/components/orbit/design/Icon';
+import { domainIconName } from '@/components/orbit/design/icon-map';
 import type { IuiChip } from '@/lib/poppins/ui-scenes';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
@@ -10,14 +12,32 @@ type Props = {
   selectedId?: string;
   onSelect?: (id: string) => void;
   accent: string;
+  showEmoji?: boolean;
+  showIcons?: boolean;
 };
 
-export function IuiChips({ chips, selectedId, onSelect, accent }: Props) {
+export function IuiChips({
+  chips,
+  selectedId,
+  onSelect,
+  accent,
+  showEmoji = true,
+  showIcons = false,
+}: Props) {
   const { c, glassBorder } = useOrbitColors();
   return (
     <View style={styles.row}>
-      {chips.slice(0, 3).map((chip) => {
+      {chips.map((chip) => {
         const selected = chip.id === selectedId;
+        const icon = showIcons
+          ? (() => {
+              try {
+                return domainIconName(chip.id);
+              } catch {
+                return null;
+              }
+            })()
+          : null;
         return (
           <Animated.View key={chip.id} entering={FadeIn.duration(220)}>
             <Pressable
@@ -29,7 +49,8 @@ export function IuiChips({ chips, selectedId, onSelect, accent }: Props) {
                   backgroundColor: selected ? `${accent}22` : 'transparent',
                 },
               ]}>
-              {chip.emoji ? <Text style={styles.emoji}>{chip.emoji}</Text> : null}
+              {icon ? <Icon name={icon} size={22} /> : null}
+              {showEmoji && chip.emoji && !icon ? <Text style={styles.emoji}>{chip.emoji}</Text> : null}
               <Text style={[styles.label, { color: c.text }]}>{chip.label}</Text>
             </Pressable>
           </Animated.View>
