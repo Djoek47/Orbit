@@ -1,6 +1,7 @@
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoiceRow } from '@/components/orbit/choice-row';
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -9,6 +10,7 @@ import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitScreen, typography } from '@/constants/orbit-theme';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -17,7 +19,9 @@ const CATEGORIES: HouseholdEvent['category'][] = ['School', 'Activity', 'Appoint
 const DATE_PRESETS = ['Today', 'Tomorrow', 'This weekend', 'Next week'];
 
 export default function CreateEventScreen() {
-  const { createEvent, household, currentMember, permissions } = useOrbit();
+  const insets = useSafeAreaInsets();
+  const { createEvent, household, currentMember, orbitPalette, permissions } = useOrbit();
+  const { c } = useOrbitColors();
   const caps = resolveMemberCapabilities(household);
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
@@ -63,12 +67,15 @@ export default function CreateEventScreen() {
 
   if (!canCreate) {
     return (
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={orbitScreen.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={[orbitScreen.container, { backgroundColor: orbitPalette.backgroundSoft, paddingTop: insets.top }]}>
+        <Stack.Screen options={{ headerShown: false }} />
         <ScrollView contentContainerStyle={orbitScreen.content}>
           <View style={orbitScreen.header}>
-            <Text style={typography.footnote}>Plan</Text>
-            <Text style={typography.title1}>Create event locked</Text>
-            <Text style={typography.body}>
+            <Text style={[typography.footnote, { color: c.textMuted }]}>Plan</Text>
+            <Text style={[typography.title1, { color: c.text }]}>Create event locked</Text>
+            <Text style={[typography.body, { color: c.textSoft }]}>
               An admin can enable calendar creates in Settings → Member permissions.
             </Text>
           </View>
@@ -79,12 +86,17 @@ export default function CreateEventScreen() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={orbitScreen.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[orbitScreen.container, { backgroundColor: orbitPalette.backgroundSoft, paddingTop: insets.top }]}>
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={orbitScreen.content} contentInsetAdjustmentBehavior="automatic">
         <View style={orbitScreen.header}>
-          <Text style={typography.footnote}>{simplified ? 'My event' : 'Family logistics'}</Text>
-          <Text style={typography.title1}>Create Event</Text>
-          <Text style={typography.body}>
+          <Text style={[typography.footnote, { color: c.textMuted }]}>
+            {simplified ? 'My event' : 'Family logistics'}
+          </Text>
+          <Text style={[typography.title1, { color: c.text }]}>Create Event</Text>
+          <Text style={[typography.body, { color: c.textSoft }]}>
             {simplified
               ? 'Title, when, and optional place — keep it simple.'
               : 'Add a calendar event, assign responsibility, and optionally schedule a local reminder.'}

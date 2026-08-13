@@ -16,6 +16,7 @@ import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import { resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
 import { orderPoppinsToolCalls, type PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
 
 export type PoppinsVoiceVisualState =
@@ -42,6 +43,8 @@ export type PoppinsVoiceSessionCallbacks = {
   onError?: (message: string) => void;
   /** Soft idle check-in fired once before hangup. */
   onSoftIdlePrompt?: () => void;
+  /** Remote WebRTC stream URL for a hidden RTCView (audio sink). */
+  onRemoteStream?: (url: string | null) => void;
 };
 
 type WebRtcModule = {
@@ -252,6 +255,8 @@ export class PoppinsVoiceSession {
         return false;
       }
 
+      await configurePoppinsSpeakerAudio();
+
       this.localStream = await webrtc.mediaDevices.getUserMedia({
         audio: true,
         video: false,
@@ -264,6 +269,14 @@ export class PoppinsVoiceSession {
 
       this.pc.ontrack = (event) => {
         this.remoteStream = event.streams[0] ?? null;
+        const url = this.remoteStream?.toURL?.() ?? null;
+        this.callbacks.onRemoteStream?.(url);
+        void configurePoppinsSpeakerAudio();
+      };
+      this.pc.oniceconnectionstatechange = () => {
+        if (this.pc?.iceConnectionState === 'connected' || this.pc?.iceConnectionState === 'completed') {
+          void configurePoppinsSpeakerAudio();
+        }
       };
 
       this.dc = this.pc.createDataChannel('oai-events');
@@ -666,6 +679,8 @@ export class PoppinsVoiceSession {
     this.localStream = null;
     this.remoteStream = null;
     this.pausedForTools = false;
+    this.callbacks.onRemoteStream?.(null);
     this.setState('idle');
+    void restorePoppinsAudio();
   }
 }

@@ -258,10 +258,19 @@ function AssignEmojiGrid({
 
 export default function CreateTaskScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ tab?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    tab?: string | string[];
+    custom?: string | string[];
+    assignee?: string | string[];
+    from?: string | string[];
+  }>();
   const { accentTheme, createTask, household, orbitPalette, permissions } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
   const initialTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
+  const customParam = Array.isArray(params.custom) ? params.custom[0] : params.custom;
+  const assigneeParam = Array.isArray(params.assignee) ? params.assignee[0] : params.assignee;
+  const fromParam = Array.isArray(params.from) ? params.from[0] : params.from;
+  const isCustom = customParam === '1' || customParam === 'true';
   const initialType: TaskType = initialTab === 'homework' ? 'homework' : 'task';
 
   const rewardSettings = useMemo(
@@ -306,7 +315,7 @@ export default function CreateTaskScreen() {
   const showHygieneLibrary =
     libraryAudience === 'family' && childMembers.length > 0;
 
-  const [mode, setMode] = useState<ScreenMode>('picker');
+  const [mode, setMode] = useState<ScreenMode>(isCustom ? 'custom' : 'picker');
   const [pickerIds, setPickerIds] = useState<string[]>([]);
   const [type, setType] = useState<TaskType>(initialType);
   const [title, setTitle] = useState('');
@@ -321,6 +330,17 @@ export default function CreateTaskScreen() {
   useEffect(() => {
     setType(initialType);
   }, [initialType]);
+
+  useEffect(() => {
+    if (isCustom || initialType === 'homework' || mode !== 'picker') return;
+    router.replace({
+      pathname: '/assign-task',
+      params: {
+        ...(assigneeParam ? { member: assigneeParam } : {}),
+        ...(fromParam ? { from: fromParam } : {}),
+      },
+    } as never);
+  }, [assigneeParam, fromParam, initialType, isCustom, mode]);
   const [repeat, setRepeat] = useState<HouseholdTask['repeat']>('None');
   const [difficulty, setDifficulty] = useState<TaskDifficulty>('medium');
   const [presetQuery, setPresetQuery] = useState('');
@@ -485,9 +505,16 @@ export default function CreateTaskScreen() {
   // Seed assignee when household members load (picker/custom can mount before roster is ready).
   useEffect(() => {
     if (selectedIds.length > 0) return;
+    const named = assigneeParam
+      ? (isHygieneDraft ? childMembers : activeMembers).find((m) => m.name === assigneeParam)
+      : undefined;
+    if (named) {
+      setSelectedIds([named.id]);
+      return;
+    }
     const pool = isHygieneDraft ? childMembers : activeMembers;
     if (pool[0]) setSelectedIds([pool[0].id]);
-  }, [activeMembers, childMembers, isHygieneDraft, selectedIds.length]);
+  }, [activeMembers, assigneeParam, childMembers, isHygieneDraft, selectedIds.length]);
 
   const selectedMembers = useMemo(
     () => assigneeChoices.filter((member) => selectedIds.includes(member.id)),
@@ -845,6 +872,11 @@ export default function CreateTaskScreen() {
   };
 
   if (mode === 'picker') {
+    if (!isCustom && initialType !== 'homework') {
+      return (
+        <View style={[orbitScreen.container, { backgroundColor: orbitPalette.background }]} />
+      );
+    }
     return (
       <View
         style={[

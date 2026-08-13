@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -42,6 +42,21 @@ import type { PoppinsMonitorAction } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 type PoppinsVisualState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'success';
+
+function PoppinsRemoteAudio({ streamURL }: { streamURL: string | null }) {
+  if (!streamURL || Platform.OS === 'web') return null;
+  try {
+    // Native-only audio sink so WebRTC remote audio is attached.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { RTCView } = require('react-native-webrtc') as {
+      RTCView?: ComponentType<{ streamURL: string; style?: object }>;
+    };
+    if (!RTCView) return null;
+    return <RTCView streamURL={streamURL} style={styles.remoteAudio} />;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Poppins Divine Voice — Connect/End continuous WebRTC on TestFlight;
@@ -112,6 +127,7 @@ export default function PoppinsScreen() {
   const voiceRef = useRef<PoppinsVoiceSession | null>(null);
   const realtimeRef = useRef<PoppinsRealtimeSession | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [remoteStreamUrl, setRemoteStreamUrl] = useState<string | null>(null);
   const drive = usePoppinsUiDrive();
   const kidSession = currentMember?.role === 'child';
   const memberNames = useMemo(
@@ -163,6 +179,7 @@ export default function PoppinsScreen() {
     realtimeRef.current?.disconnect();
     realtimeRef.current = null;
     setLiveConnected(false);
+    setRemoteStreamUrl(null);
   }, [majordomo.id]);
 
   useEffect(() => {
@@ -248,6 +265,7 @@ export default function PoppinsScreen() {
           ...current,
         ]);
       },
+      onRemoteStream: setRemoteStreamUrl,
       onError: (message) => setError(message),
     });
     const ok = await session.connect(household, metrics, currentMember?.majordomoProfileId, {
@@ -270,6 +288,7 @@ export default function PoppinsScreen() {
     setLiveConnected(false);
     setVoiceState('idle');
     setListening(false);
+    setRemoteStreamUrl(null);
   };
 
   const ensureWhisperRealtime = async () => {
@@ -459,6 +478,7 @@ export default function PoppinsScreen() {
       style={[styles.container, { backgroundColor: isDark ? '#000000' : orbitPalette.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={24}>
+      <PoppinsRemoteAudio streamURL={remoteStreamUrl} />
       <View style={[styles.ambient, { backgroundColor: ambient }]} pointerEvents="none" />
 
       <View style={[styles.header, { paddingTop: chromePad }]}>
@@ -925,5 +945,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     flex: 1,
     paddingVertical: 14,
+  },
+  remoteAudio: {
+    height: 0,
+    opacity: 0,
+    width: 0,
   },
 });

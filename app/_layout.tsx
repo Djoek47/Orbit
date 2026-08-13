@@ -112,10 +112,11 @@ export default function RootLayout() {
           />
           <Stack.Screen name="smart-home" options={{ title: 'Smart Home' }} />
           <Stack.Screen name="analytics" options={{ title: 'Analytics' }} />
-          <Stack.Screen name="task/[id]" options={{ title: 'Task' }} />
-          <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
+          <Stack.Screen name="task/[id]" options={{ headerShown: false, title: 'Task' }} />
+          <Stack.Screen name="event/[id]" options={{ headerShown: false, title: 'Event' }} />
           <Stack.Screen name="itinerary/[id]" options={{ headerShown: false, title: 'Trip' }} />
           <Stack.Screen name="create-task" options={{ presentation: 'modal', headerShown: false }} />
+          <Stack.Screen name="assign-task" options={{ presentation: 'modal', headerShown: false, title: 'Assign' }} />
           <Stack.Screen name="add-grocery" options={{ presentation: 'modal', headerShown: false, title: 'Missing Item' }} />
           <Stack.Screen name="scan-grocery" options={{ presentation: 'modal', headerShown: false, title: 'Scan Product' }} />
           <Stack.Screen name="create-event" options={{ presentation: 'modal', headerShown: false, title: 'Create Event' }} />

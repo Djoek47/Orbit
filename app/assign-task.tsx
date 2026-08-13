@@ -10,6 +10,8 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
+import Icon from '@/components/orbit/design/Icon';
+import { domainIconName } from '@/components/orbit/design/icon-map';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
@@ -168,7 +170,7 @@ export default function AssignTaskScreen() {
 
   const [assigneeId, setAssigneeId] = useState<string | null>(initialId);
   const [search, setSearch] = useState('');
-  const [domainId, setDomainId] = useState<string | null>(null);
+  const [domainSheet, setDomainSheet] = useState<TaskDomain | null>(null);
   const [selected, setSelected] = useState<Selected[]>([]);
   const [busy, setBusy] = useState(false);
   const [freqPickerTaskId, setFreqPickerTaskId] = useState<string | null>(null);
@@ -186,22 +188,32 @@ export default function AssignTaskScreen() {
   const assignee = people.find((m) => m.id === assigneeId) ?? null;
 
   const domains = useMemo(() => choreDomains(), []);
-  const domain: TaskDomain | undefined = domains.find((d) => d.id === domainId);
+  const allTasks = useMemo(
+    () => domains.flatMap((d) => d.groups.flatMap((g) => g.tasks)),
+    [domains]
+  );
 
-  const visibleTasks = useMemo(() => {
+  const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const pool = domain
-      ? domain.groups.flatMap((g) => g.tasks)
-      : domains.flatMap((d) => d.groups.flatMap((g) => g.tasks));
-    if (!q) return pool;
-    return pool.filter(
+    if (!q) return [];
+    return allTasks.filter(
       (t) =>
         t.name.toLowerCase().includes(q) ||
         t.searchTerms.some((term) => term.toLowerCase().includes(q))
     );
-  }, [domain, domains, search]);
+  }, [allTasks, search]);
 
-  const pickerTask = visibleTasks.find((t) => t.id === freqPickerTaskId);
+  const selectedCountByDomain = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of selected) {
+      map.set(item.task.domainId, (map.get(item.task.domainId) ?? 0) + 1);
+    }
+    return map;
+  }, [selected]);
+
+  const sheetTasks = domainSheet?.groups.flatMap((g) => g.tasks) ?? [];
+
+  const pickerTask = allTasks.find((t) => t.id === freqPickerTaskId);
   const pickerCurrent =
     selected.find((s) => s.task.id === freqPickerTaskId)?.frequency ??
     pickerTask?.defaultFrequency;
@@ -216,7 +228,7 @@ export default function AssignTaskScreen() {
 
   const chooseFrequency = (f: LibraryTask['defaultFrequency']) => {
     if (!freqPickerTaskId) return;
-    setSelected((cur) => applyFrequency(cur, freqPickerTaskId, f, visibleTasks));
+    setSelected((cur) => applyFrequency(cur, freqPickerTaskId, f, allTasks));
     setFreqPickerTaskId(null);
   };
 
@@ -247,6 +259,72 @@ export default function AssignTaskScreen() {
       setBusy(false);
     }
   };
+
+  const renderTaskCard = (tasks: LibraryTask[]) => (
+    <View
+      style={[
+        styles.listCard,
+        { backgroundColor: glass(0.04), borderColor: glassBorder(0.08) },
+      ]}>
+      {tasks.map((task, index) => {
+        const sel = selected.find((s) => s.task.id === task.id);
+        const freq = sel?.frequency ?? task.defaultFrequency;
+        return (
+          <View key={task.id}>
+            {index > 0 ? (
+              <View style={[styles.hairline, { backgroundColor: glassBorder(0.1) }]} />
+            ) : null}
+            <Pressable onPress={() => toggleTask(task)} style={styles.row}>
+              <View
+                style={[
+                  styles.check,
+                  {
+                    borderColor: sel ? accentTheme.primary : c.textFaint,
+                    backgroundColor: sel ? accentTheme.primary : 'transparent',
+                  },
+                ]}>
+                {sel ? <MaterialIcons name="check" size={13} color={c.ink} /> : null}
+              </View>
+              <View style={styles.rowBody}>
+                <Text style={[typography.body, { color: c.text, fontWeight: '500' }]}>
+                  {task.name}
+                </Text>
+                <View style={styles.metaRow}>
+                  <Text style={[typography.caption1, { color: c.textMuted }]}>
+                    {task.xp} XP
+                  </Text>
+                  <Text style={[typography.caption1, { color: c.textFaint }]}>·</Text>
+                  <Pressable
+                    onPress={() => {
+                      const openMore = MORE_FREQS.includes(freq as (typeof MORE_FREQS)[number]);
+                      setMoreOpen(openMore);
+                      setFreqPickerTaskId(task.id);
+                      if (!sel) toggleTask(task);
+                    }}
+                    hitSlop={10}
+                    style={styles.freqHit}>
+                    <Text
+                      style={[
+                        typography.caption1,
+                        { color: accentTheme.primary, fontWeight: '600' },
+                      ]}>
+                      {FREQ_LABEL[freq] ?? 'Daily'}
+                    </Text>
+                    <MaterialIcons name="expand-more" size={14} color={accentTheme.primary} />
+                  </Pressable>
+                </View>
+              </View>
+            </Pressable>
+          </View>
+        );
+      })}
+      {tasks.length === 0 ? (
+        <Text style={[typography.body, { color: c.textSubtle, padding: space.xl }]}>
+          No tasks match.
+        </Text>
+      ) : null}
+    </View>
+  );
 
   const ctaLabel =
     selected.length === 0
@@ -322,55 +400,6 @@ export default function AssignTaskScreen() {
       </View>
 
       <PersistentScrollView contentContainerStyle={styles.scrollBody}>
-        <Text style={[styles.sectionLabel, { color: c.textMuted }]}>Category</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.domainRow}
-          style={styles.domainScroll}>
-          <Pressable
-            onPress={() => setDomainId(null)}
-            style={[
-              styles.domainChip,
-              {
-                backgroundColor: domainId === null ? `${accentTheme.primary}22` : glass(0.04),
-                borderColor: domainId === null ? accentTheme.primary : glassBorder(0.08),
-              },
-            ]}>
-            <Text
-              style={[
-                styles.domainChipLabel,
-                { color: domainId === null ? accentTheme.primary : c.textSoft },
-              ]}>
-              All
-            </Text>
-          </Pressable>
-          {domains.map((d) => {
-            const active = domainId === d.id;
-            return (
-              <Pressable
-                key={d.id}
-                onPress={() => setDomainId(active ? null : d.id)}
-                style={[
-                  styles.domainChip,
-                  {
-                    backgroundColor: active ? `${accentTheme.primary}22` : glass(0.04),
-                    borderColor: active ? accentTheme.primary : glassBorder(0.08),
-                  },
-                ]}>
-                <Text
-                  style={[
-                    styles.domainChipLabel,
-                    { color: active ? accentTheme.primary : c.textSoft },
-                  ]}
-                  numberOfLines={1}>
-                  {d.shortName ?? d.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
         {isAdmin ? (
           <Pressable
             onPress={() =>
@@ -389,84 +418,93 @@ export default function AssignTaskScreen() {
           </Pressable>
         ) : null}
 
-        <Text style={[styles.sectionLabel, { color: c.textMuted, marginTop: space.lg }]}>
-          {domain ? domain.name : 'Tasks'}
-        </Text>
-
-        <View
-          style={[
-            styles.listCard,
-            { backgroundColor: glass(0.04), borderColor: glassBorder(0.08) },
-          ]}>
-          {visibleTasks.map((task, index) => {
-            const sel = selected.find((s) => s.task.id === task.id);
-            const freq = sel?.frequency ?? task.defaultFrequency;
-            return (
-              <View key={task.id}>
-                {index > 0 ? (
-                  <View style={[styles.hairline, { backgroundColor: glassBorder(0.1) }]} />
-                ) : null}
-                <Pressable onPress={() => toggleTask(task)} style={styles.row}>
-                  <View
+        {search.trim() ? (
+          <>
+            <Text style={[styles.sectionLabel, { color: c.textMuted, marginTop: space.sm }]}>
+              Tasks
+            </Text>
+            {renderTaskCard(searchResults)}
+          </>
+        ) : (
+          <>
+            <Text style={[styles.sectionLabel, { color: c.textMuted, marginTop: space.sm }]}>
+              Category
+            </Text>
+            <View style={styles.grid}>
+              {domains.map((d) => {
+                const count = selectedCountByDomain.get(d.id) ?? 0;
+                return (
+                  <Pressable
+                    key={d.id}
+                    onPress={() => setDomainSheet(d)}
+                    accessibilityRole="button"
+                    accessibilityLabel={d.shortName ?? d.name}
                     style={[
-                      styles.check,
+                      styles.tile,
                       {
-                        borderColor: sel ? accentTheme.primary : c.textFaint,
-                        backgroundColor: sel ? accentTheme.primary : 'transparent',
+                        backgroundColor: count ? `${accentTheme.primary}18` : glass(0.06),
+                        borderColor: count ? accentTheme.primary : glassBorder(0.1),
                       },
                     ]}>
-                    {sel ? <MaterialIcons name="check" size={13} color={c.ink} /> : null}
-                  </View>
-                  <View style={styles.rowBody}>
-                    <Text style={[typography.body, { color: c.text, fontWeight: '500' }]}>
-                      {task.name}
+                    <Icon name={domainIconName(d.id)} size={26} />
+                    <Text style={[styles.tileLabel, { color: c.text }]} numberOfLines={1}>
+                      {d.shortName ?? d.name}
                     </Text>
-                    <View style={styles.metaRow}>
-                      <Text style={[typography.caption1, { color: c.textMuted }]}>
-                        {task.xp} XP
-                      </Text>
-                      <Text style={[typography.caption1, { color: c.textFaint }]}>·</Text>
-                      <Pressable
-                        onPress={() => {
-                          const openMore = MORE_FREQS.includes(
-                            freq as (typeof MORE_FREQS)[number]
-                          );
-                          setMoreOpen(openMore);
-                          setFreqPickerTaskId(task.id);
-                          if (!sel) toggleTask(task);
-                        }}
-                        hitSlop={10}
-                        style={styles.freqHit}>
-                        <Text
-                          style={[
-                            typography.caption1,
-                            { color: accentTheme.primary, fontWeight: '600' },
-                          ]}>
-                          {FREQ_LABEL[freq] ?? 'Daily'}
-                        </Text>
-                        <MaterialIcons
-                          name="expand-more"
-                          size={14}
-                          color={accentTheme.primary}
-                        />
-                      </Pressable>
-                    </View>
-                  </View>
-                </Pressable>
-              </View>
-            );
-          })}
-          {visibleTasks.length === 0 ? (
-            <Text style={[typography.body, { color: c.textSubtle, padding: space.xl }]}>
-              No tasks match.
-            </Text>
-          ) : null}
-        </View>
+                    {count > 0 ? (
+                      <View style={[styles.tileBadge, { backgroundColor: accentTheme.primary }]}>
+                        <Text style={[styles.tileBadgeText, { color: c.ink }]}>{count}</Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
       </PersistentScrollView>
+
+      {domainSheet ? (
+        <Pressable
+          style={[styles.pickerOverlay, { backgroundColor: 'rgba(3,8,16,0.55)', zIndex: 20 }]}
+          onPress={() => setDomainSheet(null)}>
+          <Pressable
+            style={[
+              styles.domainSheet,
+              {
+                backgroundColor: c.backgroundSoft,
+                borderColor: glassBorder(0.1),
+                paddingBottom: Math.max(insets.bottom, space.md),
+              },
+            ]}
+            onPress={(e) => e.stopPropagation?.()}>
+            <View style={[styles.pickerHandle, { backgroundColor: glass(0.18) }]} />
+            <View style={styles.sheetHead}>
+              <Text style={[typography.title3, { color: c.text }]}>{domainSheet.name}</Text>
+              <Pressable onPress={() => setDomainSheet(null)} hitSlop={12} accessibilityLabel="Close">
+                <MaterialIcons name="close" size={22} color={c.textMuted} />
+              </Pressable>
+            </View>
+            <ScrollView
+              style={styles.sheetScroll}
+              contentContainerStyle={{ paddingBottom: space.md }}
+              keyboardShouldPersistTaps="handled">
+              {renderTaskCard(sheetTasks)}
+            </ScrollView>
+            <Pressable
+              onPress={() => setDomainSheet(null)}
+              style={[
+                styles.doneBtn,
+                { backgroundColor: glass(0.1), borderColor: glassBorder(0.12) },
+              ]}>
+              <Text style={[typography.headline, { color: c.text }]}>Done</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      ) : null}
 
       {freqPickerTaskId ? (
         <Pressable
-          style={[styles.pickerOverlay, { backgroundColor: 'rgba(3,8,16,0.55)' }]}
+          style={[styles.pickerOverlay, { backgroundColor: 'rgba(3,8,16,0.55)', zIndex: 40 }]}
           onPress={() => setFreqPickerTaskId(null)}>
           <Pressable
             style={[
@@ -674,20 +712,68 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   sectionPad: { paddingHorizontal: space.md },
-  domainScroll: { marginHorizontal: -space.md },
-  domainRow: { gap: space.xs, paddingHorizontal: space.md },
-  domainChip: {
-    borderCurve: 'continuous',
-    borderRadius: radius.full,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-  domainChipLabel: { fontSize: 14, fontWeight: '600' },
   customLink: {
     alignItems: 'center',
-    marginTop: space.md,
+    marginBottom: space.xs,
     paddingVertical: space.xs,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  tile: {
+    alignItems: 'center',
+    aspectRatio: 1,
+    borderCurve: 'continuous',
+    borderRadius: radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexGrow: 1,
+    gap: 4,
+    justifyContent: 'center',
+    maxWidth: '24%',
+    minWidth: 72,
+    padding: 6,
+    width: '22%',
+  },
+  tileLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
+  tileBadge: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.full,
+    height: 18,
+    justifyContent: 'center',
+    minWidth: 18,
+    paddingHorizontal: 5,
+    position: 'absolute',
+    right: 6,
+    top: 6,
+  },
+  tileBadgeText: { fontSize: 10, fontWeight: '700' },
+  domainSheet: {
+    borderCurve: 'continuous',
+    borderTopLeftRadius: radius.cardLarge,
+    borderTopRightRadius: radius.cardLarge,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    maxHeight: '78%',
+    paddingHorizontal: space.md,
+    paddingTop: space.sm,
+  },
+  sheetHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: space.sm,
+    paddingHorizontal: space.xs,
+  },
+  sheetScroll: { maxHeight: 420 },
+  doneBtn: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginTop: space.sm,
+    paddingVertical: 14,
   },
   listCard: {
     borderCurve: 'continuous',

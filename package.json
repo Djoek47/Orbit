@@ -64,6 +64,7 @@
     "test:iui": "npx --yes tsx lib/poppins/ui-orchestrator.test.ts",
     "test:inbox": "npx --yes tsx lib/poppins/notification-policy.test.ts",
     "test:confirm-callback": "npx --yes tsx lib/auth/confirm-callback.test.ts",
+    "test:webrtc-speaker": "npx --yes tsx lib/voice/webrtc-speaker-plugin.test.ts",
     "smoke:poppins": "bash ./scripts/smoke-poppins-openai.sh"
   },
   "dependencies": {
