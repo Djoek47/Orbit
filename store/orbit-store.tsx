@@ -11,6 +11,7 @@ import {
 } from '@/lib/ai/execute-poppins-tool';
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import type { PoppinsToolName } from '@/lib/ai/poppins-tools';
+import { attachIntentActions } from '@/lib/poppins/ui-intent';
 import {
   isMajordomoProfileId,
   resolveMajordomoProfileId,
@@ -2836,7 +2837,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       setPoppinsMonitorActions((current) => [...answer.actions!, ...current]);
     }
     await trackAnalytics('poppins.asked', { questionLength: question.length }, analyticsContext);
-    return answer;
+    return attachIntentActions(question, answer) as typeof answer;
   };
 
   const askPoppinsVoice = async (audioUri: string | null) => {
@@ -2855,7 +2856,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       answer.answer
     );
     await trackAnalytics('poppins.voice_asked', {}, analyticsContext);
-    return answer;
+    return attachIntentActions(answer.question, answer) as typeof answer;
   };
 
   const appendPoppinsTurn = (question: string, answer: string) => {

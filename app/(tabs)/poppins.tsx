@@ -1,6 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -23,6 +22,8 @@ import {
   getMajordomoProfile,
   resolveMajordomoProfileId,
 } from '@/lib/ai/majordomo-profiles';
+import { flattenUiActions } from '@/lib/poppins/ui-tool-map';
+import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
   isPoppinsRealtimeEnabled,
@@ -110,6 +111,16 @@ export default function PoppinsScreen() {
   const voiceRef = useRef<PoppinsVoiceSession | null>(null);
   const realtimeRef = useRef<PoppinsRealtimeSession | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const drive = usePoppinsUiDrive();
+  const kidSession = currentMember?.role === 'child';
+  const memberNames = useMemo(
+    () => household.members.map((member) => member.name),
+    [household.members]
+  );
+  const memberNamesRef = useRef(memberNames);
+  memberNamesRef.current = memberNames;
+  const kidSessionRef = useRef(kidSession);
+  kidSessionRef.current = kidSession;
 
   const flashToolSuccess = (label: string) => {
     setToolFlash(label);
@@ -153,6 +164,19 @@ export default function PoppinsScreen() {
     setLiveConnected(false);
   }, [majordomo.id]);
 
+  useEffect(() => {
+    if (drive.live) setShowActivity(true);
+  }, [drive.live]);
+
+  useEffect(() => {
+    poppinsUiOrchestrator.setPendingHandler((approved, ids) => {
+      voiceRef.current?.notifyConfirmationResolved(ids, approved);
+      setPendingConfirmations((current) => current.filter((item) => !ids.includes(item.id)));
+      if (approved) flashToolSuccess('Confirmed');
+    });
+    return () => poppinsUiOrchestrator.setPendingHandler(null);
+  }, []);
+
   const monitorFeed = useMemo(
     () =>
       [...localMonitorActions, ...poppinsMonitorActions].sort(
@@ -165,21 +189,18 @@ export default function PoppinsScreen() {
     if (role === 'user') {
       setUserTranscript(text);
       setPoppinsTranscript('');
+      if (poppinsUiOrchestrator.applySpeech(text, memberNamesRef.current)) {
+        setShowActivity(true);
+      }
     } else {
       setPoppinsTranscript(text);
     }
   };
 
-  const applyUiActions = (actions: Array<Record<string, unknown>>) => {
-    for (const action of actions) {
-      if (action.type === 'navigate' && typeof action.route === 'string') {
-        try {
-          router.push(action.route as never);
-        } catch {
-          /* ignore bad routes */
-        }
-      }
-    }
+  const applyUiActions = (actions: Array<Record<string, unknown>>, replace = false) => {
+    if (!actions.length) return;
+    poppinsUiOrchestrator.drive(actions, { kid: kidSessionRef.current, replace });
+    setShowActivity(true);
   };
 
   const connectNativeVoice = async () => {
@@ -195,11 +216,19 @@ export default function PoppinsScreen() {
       onPendingConfirmations: (items) => {
         setPendingConfirmations(items);
         setVoiceState('needs_attention');
+        applyUiActions(
+          items.map((item) => ({
+            type: 'confirm',
+            confirmSummary: item.summary,
+            confirmationIds: [item.id],
+          }))
+        );
       },
       onUiActions: applyUiActions,
       onSessionEnd: () => {
         setLiveConnected(false);
         setVoiceState('idle');
+        poppinsUiOrchestrator.clear();
       },
       onSoftIdlePrompt: () => {
         setLocalMonitorActions((current) => [
@@ -250,6 +279,8 @@ export default function PoppinsScreen() {
         const action = toolCallToMonitorAction(name, args, result as Record<string, unknown>);
         setLocalMonitorActions((current) => [action, ...current]);
         flashToolSuccess(action.label || name.replace(/_/g, ' '));
+        const ui = flattenUiActions([result as Record<string, unknown>]);
+        if (ui.length) applyUiActions(ui);
         return result;
       },
       onError: (message) => setError(message),
@@ -288,6 +319,9 @@ export default function PoppinsScreen() {
       if (result.actions?.length) {
         setLocalMonitorActions((current) => [...result.actions!, ...current]);
         flashToolSuccess(result.actions[0]!.label);
+      }
+      if (result.ui_actions?.length) {
+        applyUiActions(result.ui_actions, true);
       }
     } catch {
       setError('Poppins could not answer right now. Try again in a moment.');
@@ -328,6 +362,7 @@ export default function PoppinsScreen() {
           applyTranscript('user', result.question);
           setVoiceState('speaking');
           applyTranscript('assistant', result.answer);
+          if (result.ui_actions?.length) applyUiActions(result.ui_actions, true);
         }
       } catch {
         setError('Poppins voice failed. Try again or type your question.');
@@ -435,6 +470,21 @@ export default function PoppinsScreen() {
           <PoppinsHourglass size={18} color="#2DD4BF" active={isActive || monitorFeed.length > 0} />
         </Pressable>
       </View>
+
+      {drive.live ? (
+        <View
+          style={[
+            styles.rail,
+            { borderColor: glassBorder(0.1), backgroundColor: glass(0.06) },
+          ]}>
+          <Text style={[styles.railText, { color: c.text }]} numberOfLines={1}>
+            {majordomo.displayName} ·{' '}
+            {drive.playlist[drive.index]?.payload.title ||
+              drive.thinkingLine ||
+              'working…'}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={styles.stage}>
         <View style={styles.transcriptBlock}>
@@ -599,7 +649,7 @@ export default function PoppinsScreen() {
       </View>
 
       <Modal
-        visible={pendingConfirmations.length > 0}
+        visible={pendingConfirmations.length > 0 && !drive.live}
         transparent
         animationType="fade"
         onRequestClose={() => confirmPending(false)}>
@@ -686,6 +736,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 1.2,
+  },
+  rail: {
+    marginHorizontal: space.lg,
+    marginBottom: 8,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  railText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   activityBtn: {
     alignItems: 'center',

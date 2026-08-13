@@ -283,7 +283,6 @@ export class PoppinsRealtimeSession {
       // Non-negotiable for spoken tools (Divine Voice footgun).
       this.send({
         type: 'response.create',
-        response: { modalities: ['audio', 'text'] },
       });
     }
 

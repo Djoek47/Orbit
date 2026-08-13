@@ -3,7 +3,7 @@
  *
  * Footguns (non-negotiable):
  * 1. Server SDP via poppins-realtime-sdp → POST /v1/realtime/calls (sk- stays on edge).
- * 2. After every tool: function_call_output THEN response.create with modalities audio.
+ * 2. After every tool: function_call_output THEN response.create (session audio; never response.modalities).
  * 3. Tool order: parallel reads → serial mutations → end_session last.
  * 4. Voice path uses poppins-voice-tool with forceRiskyConfirmation.
  *
@@ -203,7 +203,6 @@ export class PoppinsVoiceSession {
         this.sendEvent({
           type: 'response.create',
           response: {
-            modalities: ['audio', 'text'],
             instructions:
               'Soft idle check-in only: ask once, briefly, if they are still there. Do not list options.',
           },
@@ -276,7 +275,6 @@ export class PoppinsVoiceSession {
         this.sendEvent({
           type: 'response.create',
           response: {
-            modalities: ['audio', 'text'],
             instructions:
               'Greet briefly as the household majordomo and listen. One short sentence. Do not list tools.',
           },
@@ -380,7 +378,6 @@ export class PoppinsVoiceSession {
     });
     this.sendEvent({
       type: 'response.create',
-      response: { modalities: ['audio', 'text'] },
     });
     return true;
   }
@@ -397,7 +394,6 @@ export class PoppinsVoiceSession {
       this.sendEvent({
         type: 'response.create',
         response: {
-          modalities: ['audio', 'text'],
           instructions:
             'You went quiet after tools. Speak a one-sentence status update now. Do not call more tools unless needed.',
         },
@@ -544,7 +540,6 @@ export class PoppinsVoiceSession {
           this.sendEvent({
             type: 'response.create',
             response: {
-              modalities: ['audio', 'text'],
               instructions: 'Say a brief goodbye in one short sentence, then stop.',
             },
           });
@@ -556,7 +551,6 @@ export class PoppinsVoiceSession {
       // NON-NEGOTIABLE: always request spoken response after tools.
       this.sendEvent({
         type: 'response.create',
-        response: { modalities: ['audio', 'text'] },
       });
       this.armThinkingRecovery();
       this.pausedForTools = false;
@@ -635,7 +629,6 @@ export class PoppinsVoiceSession {
     });
     this.sendEvent({
       type: 'response.create',
-      response: { modalities: ['audio', 'text'] },
     });
     this.setState('thinking');
   }

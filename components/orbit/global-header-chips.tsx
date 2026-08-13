@@ -2,12 +2,13 @@ import { BlurView } from 'expo-blur';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet';
+import { usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
@@ -40,6 +41,7 @@ export function GlobalHeaderChips() {
     unreadNotificationCount,
   } = useOrbit();
   const [inboxOpen, setInboxOpen] = useState(false);
+  const drive = usePoppinsUiDrive();
   const badge = Math.min(unreadNotificationCount, 9);
   const accent = accentTheme.primary;
   const secondary = accentTheme.secondary;
@@ -54,6 +56,10 @@ export function GlobalHeaderChips() {
       ),
     [poppinsMonitorActions]
   );
+
+  useEffect(() => {
+    if (drive.live) setInboxOpen(true);
+  }, [drive.live]);
 
   return (
     <View

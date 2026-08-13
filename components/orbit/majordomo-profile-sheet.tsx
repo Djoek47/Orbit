@@ -1,9 +1,12 @@
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
 import { AppText as Text } from '@/components/orbit/app-text';
+import { androidBlurMethod, resolveBlurTint } from '@/constants/material-tokens';
 import { radius, space } from '@/constants/orbit-theme';
 import {
   MAJORDOMO_PROFILES,
@@ -49,7 +52,7 @@ export function MajordomoProfileSheet({
   const rows = useMemo(() => MAJORDOMO_PROFILES, []);
 
   return (
-    <BottomSheet visible={visible} onDismiss={onDismiss} heightRatio={0.82}>
+    <BottomSheet visible={visible} onDismiss={onDismiss} heightRatio={0.82} accentColor={active.accent}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -64,15 +67,24 @@ export function MajordomoProfileSheet({
 
         <Animated.View
           entering={FadeInDown.delay(60).duration(320)}
-          style={[
-            styles.hero,
-            {
-              backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : glass(0.5),
-              borderColor: glassBorder(0.08),
-            },
-          ]}>
+          style={[styles.hero, { borderColor: `${active.accent}55` }]}>
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <BlurView
+              intensity={Platform.OS === 'ios' ? 56 : 80}
+              tint={resolveBlurTint(isDark)}
+              experimentalBlurMethod={androidBlurMethod}
+              style={StyleSheet.absoluteFill}
+            />
+            <LinearGradient
+              colors={[`${active.accent}${isDark ? '99' : '77'}`, `${active.accent}22`, 'transparent']}
+              locations={[0, 0.55, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
           <View style={[styles.heroDot, { backgroundColor: active.accent }]} />
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, zIndex: 1 }}>
             <Text style={[styles.heroName, { color: c.text }]}>{active.displayName}</Text>
             <Text style={[styles.heroRole, { color: c.textMuted }]}>{active.role}</Text>
             <Text style={[styles.heroVoice, { color: c.textSubtle }]}>
@@ -244,6 +256,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 18,
     marginBottom: 18,
+    overflow: 'hidden',
   },
   heroDot: {
     width: 14,

@@ -135,12 +135,17 @@ Deno.serve(async (req) => {
     }
 
     const actions = effectsToClientActions(effects);
+    const ui_actions = effects.flatMap((effect) => {
+      const items = effect.result.ui_actions;
+      return Array.isArray(items) ? items : [];
+    });
 
     return jsonResponse({
       question,
       answer,
       source: 'openai',
       actions,
+      ui_actions,
       effectCount: effects.length,
     });
   } catch (error) {

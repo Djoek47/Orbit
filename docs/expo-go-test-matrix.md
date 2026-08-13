@@ -79,7 +79,7 @@ Manual verification for Orbit MVP loops. Run with `npm run start:tunnel` when Me
 | 21 | Poppins text | Ask 3 questions · thread persists after leaving Poppins tab · tool actions in Activity · Luna (`gpt-5.6-luna`) when live | ☐ |
 | 22 | Poppins voice (Expo Go) | Text twin works · optional tap-to-talk Whisper · Connect shows “needs TestFlight” for duplex | ☐ |
 | 22b | Poppins Divine Voice (TestFlight) | Connect → greet without second mic tap · barge-in · tool → spoken summary · risky confirm sheet · idle hangup ~2 min · type into live session | ☐ |
-| 23 | Realtime Interactive Menus | Poppins live session drives Tasks assignment sheet + Plan itinerary stop animation while speaking; mini rail on driven tabs | ☐ |
+| 23 | IUI stage (C1) | Type “Add a dishwasher task for Alex” → Activity window plays task_compose + HOLD (no Create Task). “Add a store to the itinerary then a dentist appointment” chains scenes. Settings → coach only. | ☐ |
 | 23 | Notifications | Unread badge on Home · open item · mark read | ☐ |
 | 24 | Realtime | Complete task on A · B sees update without manual refresh (supabase) | ☐ |
 | 25 | Poppins Monitor | Open Poppins → Activity shows nudges/deals/plans · Settings toggles deals/plans/XP fairness | ☐ |

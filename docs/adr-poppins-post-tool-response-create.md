@@ -13,7 +13,7 @@ OpenAI Realtime function calling does **not** automatically continue speaking af
 After every tool round on the live voice path (`lib/voice/poppins-voice-session.ts` and the Expo Go WS fallback in `lib/voice/poppins-realtime.ts`):
 
 1. Send `conversation.item.create` with `type: 'function_call_output'` (and a valid `call_id` when present).
-2. **Always** send `{ type: 'response.create', response: { modalities: ['audio', 'text'] } }`.
+2. **Always** send `{ type: 'response.create' }` (optionally `response.instructions`). Never send `response.modalities` — GA Realtime (`gpt-realtime-2.1`) rejects it. Session audio is configured at SDP time.
 3. If `call_id` is missing, inject a text context item, then still `response.create`.
 4. If the assistant stays silent ~14s after tools, inject a recovery `response.create`.
 

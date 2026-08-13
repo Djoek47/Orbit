@@ -39,6 +39,7 @@ export type PoppinsToolName =
   | 'advance_itinerary_stop'
   | 'claim_reward'
   | 'navigate_to'
+  | 'present_ui_scene'
   | 'delete_task'
   | 'clear_grocery_list'
   | 'delete_event'
@@ -315,7 +316,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'create_task_draft',
     description:
-      'Stage a new task draft (title, assignee, due). Returns ui_action for the app to open create-task with prefill. Does not silently create.',
+      'Stage a new task on the IUI stage (title, assignee, due). HOLD silence commits. Do not open Create Task unless the user asked for the full editor — then use navigate_to /create-task.',
     parameters: {
       type: 'object',
       properties: {
@@ -362,7 +363,8 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   },
   {
     name: 'create_calendar_event',
-    description: 'Stage a calendar event draft for the lead to confirm.',
+    description:
+      'Stage a calendar event on the IUI stage (lattice → card). HOLD silence commits. Use navigate_to /create-event only if they asked for the full editor.',
     parameters: {
       type: 'object',
       properties: {
@@ -379,7 +381,8 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   },
   {
     name: 'create_itinerary',
-    description: 'Stage a Plan/itinerary stub for review.',
+    description:
+      'Stage a Plan stop on the IUI itinerary stage. HOLD silence commits. Use navigate_to /create-itinerary only if they asked for the full editor.',
     parameters: {
       type: 'object',
       properties: {
@@ -416,7 +419,8 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   },
   {
     name: 'navigate_to',
-    description: 'Navigate the app to an allowlisted route (tabs, create screens, settings, etc.).',
+    description:
+      'Coach-navigate to an allowlisted human screen when the user asked for help, or for Settings/account/billing. Never HOLD-commit Settings. Prefer create_* tools for add-task/event/itinerary.',
     parameters: {
       type: 'object',
       properties: {
@@ -424,6 +428,36 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
         reason: { type: 'string' },
       },
       required: ['route'],
+      additionalProperties: false,
+    },
+    risk: 'safe_serial',
+  },
+  {
+    name: 'present_ui_scene',
+    description:
+      'Advance a closed IUI beat (thinking, task_compose, calendar_zoom, itinerary_stage, grocery_add, reward_mint, list_peek, member_pick, confirm, navigate_coach). Never invent widgets.',
+    parameters: {
+      type: 'object',
+      properties: {
+        scene: {
+          type: 'string',
+          enum: [
+            'thinking',
+            'task_compose',
+            'calendar_zoom',
+            'itinerary_stage',
+            'grocery_add',
+            'reward_mint',
+            'list_peek',
+            'member_pick',
+            'confirm',
+            'navigate_coach',
+          ],
+        },
+        payload: { type: 'object' },
+        commit: { type: 'string', enum: ['hold', 'confirm', 'none'] },
+      },
+      required: ['scene'],
       additionalProperties: false,
     },
     risk: 'safe_serial',
