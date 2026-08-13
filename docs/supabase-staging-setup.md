@@ -1,0 +1,124 @@
+# Supabase staging setup (Orbit)
+
+Use this when moving from Expo Go mock mode to live household sync + Nova GPT.
+
+## 1. Create project
+
+1. Create a Supabase project at [supabase.com](https://supabase.com).
+2. Copy **Project URL** and **anon public** key.
+
+## 2. Apply schema (order matters)
+
+**Use the SQL Editor. Run one file at a time, in this order:**
+
+1. `supabase/schema.sql` ← **start here** (creates `household_members` then helper functions)
+2. `supabase/migrations/20260716000000_ai_conversations.sql`
+3. `supabase/migrations/20260716180000_family_time_os.sql`
+4. `supabase/migrations/20260716200000_nova_majordomo.sql`
+5. `supabase/migrations/20260716210000_rooms_and_grocery_notes.sql`
+6. `supabase/migrations/20260720230000_shared_device_role.sql`
+7. `supabase/migrations/20260802000000_household_reward_settings.sql` — Meritocracy/Equity + hygiene
+8. `supabase/migrations/20260802120000_household_family_only.sql`
+9. `supabase/migrations/20260803010000_task_occurrence_uniqueness.sql` — occurrence/proof columns
+10. `supabase/migrations/20260804220000_household_reward_model.sql` — XP system (`reward_model`)
+
+Skip `20260802230000_rooms_to_domains.sql` (placeholder no-op).
+
+Do **not** run a later migration first — you’ll get `relation "public.household_members" does not exist`.
+
+If a previous run failed halfway: open **Table Editor** and check whether `household_members` exists. If not, re-run the fixed `schema.sql` from a clean New query (tables use `IF NOT EXISTS`, so re-running is safe).
+
+```bash
+# Option B: CLI (applies migrations in dated order)
+npx supabase link --project-ref YOUR_REF
+npx supabase db push
+```
+
+## 3. Deploy edge functions
+
+```bash
+npx supabase functions deploy poppins-briefing
+npx supabase functions deploy poppins-chat
+npx supabase functions deploy poppins-voice
+npx supabase functions deploy poppins-monitor
+npx supabase functions deploy poppins-realtime-session
+npx supabase functions deploy poppins-realtime-sdp
+npx supabase functions deploy poppins-voice-tool
+npx supabase functions deploy join-household
+# Optional: branded Auth emails via Resend (Send Email Hook) — see docs/resend-auth-email.md
+npx supabase functions deploy send-auth-email --no-verify-jwt
+```
+
+Apply `20260716200000_nova_majordomo.sql` for away windows + `notification_prefs`. See [supabase/functions/README.md](../supabase/functions/README.md) for Monitor cron.
+
+## 4. Set secrets (Dashboard → Edge Functions → Secrets, or CLI)
+
+| Secret | Purpose |
+|--------|---------|
+| `OPENAI_API_KEY` | Poppins chat (Luna), briefings, voice STT, Monitor, Realtime SDP / session mint |
+| `OPENAI_REALTIME_MODEL` | Optional override (default `gpt-realtime-2.1`) |
+| `OPENAI_POPPINS_CHAT_MODEL` | Optional override (default `gpt-5.6-luna`) |
+| `OPENAI_INPUT_TRANSCRIBE_MODEL` | Optional override (default `gpt-4o-mini-transcribe`) |
+| `OPENAI_REALTIME_REASONING` | `auto` / `on` / `off` |
+| `POPPINS_VOICE_GRANT_ALL` | `1` to soft-open duplex voice in TestFlight |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side joins, briefing writes, Monitor cron |
+| `RESEND_API_KEY` | Resend API (only if using `send-auth-email` hook; SMTP path uses the key as SMTP password in Auth settings) |
+| `SEND_EMAIL_HOOK_SECRET` | Auth Send Email Hook webhook secret (`v1,whsec_…`) |
+| `RESEND_FROM_EMAIL` | Optional From header, e.g. `Choremaxx <noreply@choremaxx.app>` |
+
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically for edge functions.
+
+## 5. Client `.env` (do not commit)
+
+```bash
+cp .env.example .env
+```
+
+```env
+EXPO_PUBLIC_DATA_MODE=supabase
+EXPO_PUBLIC_SUPABASE_URL=https://YOUR_REF.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+
+# Optional: live GPT while household repos stay mock
+EXPO_PUBLIC_POPPINS_AI=openai
+EXPO_PUBLIC_POPPINS_REALTIME=1
+```
+
+## 6. Verify in Expo Go
+
+```bash
+npm run start:tunnel   # Cloud Agent / remote VM
+# or
+npm run start:lan      # same Wi‑Fi as laptop
+```
+
+See [expo-go-test-matrix.md](./expo-go-test-matrix.md) for the full manual checklist.
+
+## 7. Auth note
+
+Enable **Email** auth in Supabase → Authentication → Providers.
+
+**Confirm email** can stay **on**. The app has `confirm-email` + `choremaxx://auth/callback` deep link handling. In Supabase → Authentication → URL configuration, add redirect allow-list entries:
+
+- `choremaxx://auth/callback`
+- `exp://127.0.0.1:8081/--/auth/callback` (Expo Go local, if needed)
+
+Site URL can remain your web origin; confirmation emails use `emailRedirectTo` from the app.
+
+### Auth email delivery (Resend) — required for production
+
+Supabase’s built-in mailer is ~2 emails/hour and team-only. Point Auth at **Resend** so signup / confirm / reset work for real testers:
+
+1. Prefer **Custom SMTP** (Dashboard → Authentication → SMTP): host `smtp.resend.com`, port `465`, user `resend`, password = Resend API key, from `noreply@your-verified-domain`.
+2. Raise **Authentication → Rate Limits** for email after SMTP is on.
+3. Optional branded templates: deploy `send-auth-email` (Send Email Hook) — see [resend-auth-email.md](./resend-auth-email.md).
+
+Login still uses Supabase Auth; only the mail transport changes.
+
+For **Sign in with Apple** (required for TestFlight Apple button):
+
+1. Enable the Apple provider in Supabase (Services ID, Team ID, Key ID, `.p8` — see [Supabase Apple login](https://supabase.com/docs/guides/auth/social-login/auth-apple)).
+2. Callback / Site URL host: `https://YOUR_PROJECT.supabase.co`
+3. App ID `app.choremaxx.household` must also have Sign in with Apple capability (EAS / Apple Developer).
+
+`sarah@orbit.test` exists only in Expo Go mock mode — create real Auth users for staging/TestFlight.

@@ -1,6 +1,31 @@
 import { dataMode } from '@/config/data-mode';
-import { requireMockOrSupabaseReady } from '@/repositories/repository-utils';
+import {
+  AuthRateLimitError,
+  EmailNotConfirmedError,
+  isAuthRateLimitMessage,
+  throwAuthIssue,
+  throwMappedAuthError,
+} from '@/lib/auth/auth-errors';
+import { isProfileNameComplete } from '@/lib/auth/display-name';
+import {
+  clearPendingSignup,
+  getEmailConfirmRedirectUrl,
+  setPendingSignup,
+} from '@/lib/auth/email-confirmation';
+import {
+  clearMockSession,
+  loadMockSession,
+  saveMockSession,
+  toAuthSession,
+} from '@/lib/auth/mock-session';
+import { mapProfileToUser } from '@/lib/mappers/orbit-mappers';
+import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type { AuthSession, CreateProfileInput, OrbitUser, SignInInput, SignUpInput } from '@/types/orbit';
+import type { ProfileRow } from '@/types/database';
+
+export type SignUpOutcome =
+  | { status: 'ready'; session: AuthSession }
+  | { status: 'needs_confirmation'; email: string };
 
 const mockSarah: OrbitUser = {
   id: 'user-sarah',
@@ -10,77 +35,279 @@ const mockSarah: OrbitUser = {
   profileComplete: true,
 };
 
+async function loadProfileUser(
+  supabase: ReturnType<typeof getConfiguredSupabase>,
+  userId: string,
+  emailFallback: string
+): Promise<OrbitUser> {
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+  mapDbError('authRepository.loadProfile', error);
+
+  if (data) {
+    return mapProfileToUser({
+      id: data.id,
+      email: data.email || emailFallback,
+      display_name: data.display_name,
+      avatar_url: data.avatar_url,
+    });
+  }
+
+  return mapProfileToUser({
+    id: userId,
+    email: emailFallback,
+    display_name: null,
+    avatar_url: null,
+  });
+}
+
 export const authRepository = {
   async getCurrentSession(): Promise<AuthSession | null> {
-    if (dataMode === 'mock') {
+    if (isMockMode()) {
+      const stored = await loadMockSession();
+      return stored ? toAuthSession(stored.user) : null;
+    }
+
+    const supabase = getConfiguredSupabase('authRepository.getCurrentSession');
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    mapDbError('authRepository.getCurrentSession', sessionError);
+
+    const session = sessionData.session;
+    if (!session?.user) {
       return null;
     }
 
-    requireMockOrSupabaseReady('authRepository.getCurrentSession');
-    return null;
+    const user = await loadProfileUser(supabase, session.user.id, session.user.email ?? '');
+    return { user };
   },
 
   async signIn(input: SignInInput): Promise<AuthSession> {
-    if (dataMode === 'mock') {
-      return {
-        user: {
-          ...mockSarah,
-          email: input.email.trim() || mockSarah.email,
-        },
+    if (isMockMode()) {
+      const user: OrbitUser = {
+        ...mockSarah,
+        email: input.email.trim() || mockSarah.email,
       };
+      await saveMockSession(user, 'm1');
+      return { user };
     }
 
-    requireMockOrSupabaseReady('authRepository.signIn');
-    return { user: mockSarah };
-  },
-
-  async signUp(input: SignUpInput): Promise<AuthSession> {
-    if (dataMode === 'mock') {
-      return {
-        user: {
-          id: `user-${Date.now()}`,
-          email: input.email.trim(),
-          name: '',
-          avatar: 'O',
-          profileComplete: false,
-        },
-      };
+    const supabase = getConfiguredSupabase('authRepository.signIn');
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: input.email.trim(),
+      password: input.password,
+    });
+    if (error) {
+      const msg = (error.message ?? '').toLowerCase();
+      if (msg.includes('email not confirmed') || msg.includes('email_not_confirmed')) {
+        setPendingSignup(input.email.trim(), input.password);
+        throw new EmailNotConfirmedError(input.email.trim());
+      }
+      if (isAuthRateLimitMessage(error.message) || error.status === 429) {
+        throw new AuthRateLimitError();
+      }
+      if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+        throwAuthIssue('invalid_credentials');
+      }
+      throwMappedAuthError(error);
     }
 
-    requireMockOrSupabaseReady('authRepository.signUp');
-    return { user: mockSarah };
+    if (!data.user || !data.session) {
+      throwAuthIssue('generic', { message: 'Sign in didn’t complete. Please try again.' });
+    }
+
+    const user = await loadProfileUser(supabase, data.user.id, data.user.email ?? input.email.trim());
+    return { user };
   },
 
-  async forgotPassword(_email: string): Promise<void> {
-    if (dataMode === 'mock') {
+  async signUp(input: SignUpInput): Promise<SignUpOutcome> {
+    const email = input.email.trim();
+
+    if (isMockMode()) {
+      const user: OrbitUser = {
+        id: createLocalId('user'),
+        email,
+        name: '',
+        avatar: 'O',
+        profileComplete: false,
+      };
+      await saveMockSession(user, null);
+      clearPendingSignup();
+      return { status: 'ready', session: { user } };
+    }
+
+    const supabase = getConfiguredSupabase('authRepository.signUp');
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password: input.password,
+      options: {
+        emailRedirectTo: getEmailConfirmRedirectUrl(),
+      },
+    });
+    if (error) {
+      const msg = (error.message ?? '').toLowerCase();
+      if (isAuthRateLimitMessage(error.message) || error.status === 429) {
+        // Account may already exist from an earlier attempt — keep credentials for confirm flow.
+        setPendingSignup(email, input.password);
+        throw new AuthRateLimitError();
+      }
+      if (msg.includes('already registered') || msg.includes('already been registered')) {
+        throwAuthIssue('email_taken');
+      }
+      if (msg.includes('password')) {
+        throwAuthIssue('weak_password', {
+          message: error.message || undefined,
+        });
+      }
+      throwMappedAuthError(error);
+    }
+
+    // Confirm email on: user row exists but session is null until the inbox link is used.
+    if (!data.session) {
+      if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+        throwAuthIssue('email_taken');
+      }
+      setPendingSignup(email, input.password);
+      return { status: 'needs_confirmation', email };
+    }
+
+    if (!data.user) {
+      throwAuthIssue('generic', { message: 'We couldn’t create your account. Please try again.' });
+    }
+
+    clearPendingSignup();
+    const user = await loadProfileUser(supabase, data.user.id, data.user.email ?? email);
+    return { status: 'ready', session: { user } };
+  },
+
+  async forgotPassword(email: string): Promise<void> {
+    if (isMockMode()) {
       return;
     }
 
-    requireMockOrSupabaseReady('authRepository.forgotPassword');
+    const supabase = getConfiguredSupabase('authRepository.forgotPassword');
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    if (error) {
+      throwMappedAuthError(error);
+    }
   },
 
   async createProfile(user: OrbitUser, input: CreateProfileInput): Promise<OrbitUser> {
     const trimmedName = input.name.trim();
-    const nextUser = {
+    const avatar =
+      input.avatar?.trim() ||
+      trimmedName.charAt(0).toUpperCase() ||
+      'O';
+    const nextUser: OrbitUser = {
       ...user,
       name: trimmedName,
-      avatar: trimmedName.charAt(0).toUpperCase() || 'O',
-      profileComplete: true,
+      avatar,
+      profileComplete: isProfileNameComplete(trimmedName, user.email),
     };
 
-    if (dataMode === 'mock') {
+    if (isMockMode()) {
+      await saveMockSession(nextUser);
       return nextUser;
     }
 
-    requireMockOrSupabaseReady('authRepository.createProfile');
+    const supabase = getConfiguredSupabase('authRepository.createProfile');
+    const { error } = await supabase
+      .from('profiles')
+      .update({ display_name: trimmedName } satisfies Partial<ProfileRow>)
+      .eq('id', user.id);
+    mapDbError('authRepository.createProfile', error);
+
+    // Keep the owner's household_members.display_name in sync with the profile.
+    const { error: memberError } = await supabase
+      .from('household_members')
+      .update({ display_name: trimmedName, avatar_symbol: avatar })
+      .eq('user_id', user.id);
+    if (memberError) {
+      console.warn('authRepository.createProfile: member name sync skipped', memberError.message);
+    }
+
     return nextUser;
   },
 
+  /** Persist an in-memory user (kid/tablet invite, persona switch) for mock reloads. */
+  async persistLocalSession(user: OrbitUser, activeMemberId?: string | null): Promise<void> {
+    if (!isMockMode()) return;
+    await saveMockSession(user, activeMemberId);
+  },
+
   async signOut(): Promise<void> {
-    if (dataMode === 'mock') {
+    if (isMockMode()) {
+      await clearMockSession();
       return;
     }
 
-    requireMockOrSupabaseReady('authRepository.signOut');
+    const supabase = getConfiguredSupabase('authRepository.signOut');
+    const { error } = await supabase.auth.signOut();
+    mapDbError('authRepository.signOut', error);
+  },
+
+  async deleteAccount(feedback?: { reason: string; detail?: string }): Promise<void> {
+    if (isMockMode()) {
+      await clearMockSession();
+      return;
+    }
+
+    const supabase = getConfiguredSupabase('authRepository.deleteAccount');
+
+    if (feedback?.reason?.trim()) {
+      const { error: feedbackError } = await supabase.rpc('submit_account_deletion_feedback', {
+        p_reason: feedback.reason.trim(),
+        p_detail: feedback.detail?.trim() || null,
+      });
+      // Feedback is best-effort — never block account deletion on analytics insert.
+      if (feedbackError) {
+        console.warn('authRepository.deleteAccount.feedback', feedbackError.message);
+      }
+    }
+
+    const { error } = await supabase.rpc('delete_own_account');
+    mapDbError('authRepository.deleteAccount', error);
+  },
+
+  async exportUserData(): Promise<string> {
+    if (isMockMode()) {
+      const stored = await loadMockSession();
+      return JSON.stringify(
+        {
+          profile: stored?.user ?? mockSarah,
+          memberships: [],
+          exportedAt: new Date().toISOString(),
+          mode: dataMode,
+        },
+        null,
+        2
+      );
+    }
+
+    const supabase = getConfiguredSupabase('authRepository.exportUserData');
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    mapDbError('authRepository.exportUserData.auth', authError);
+
+    const userId = authData.user?.id;
+    if (!userId) {
+      throw new Error('authRepository.exportUserData: No authenticated user.');
+    }
+
+    const [{ data: profile, error: profileError }, { data: memberships, error: membershipError }] =
+      await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.from('household_members').select('*').eq('user_id', userId),
+      ]);
+
+    mapDbError('authRepository.exportUserData.profile', profileError);
+    mapDbError('authRepository.exportUserData.memberships', membershipError);
+
+    return JSON.stringify(
+      {
+        profile,
+        memberships: memberships ?? [],
+        exportedAt: new Date().toISOString(),
+      },
+      null,
+      2
+    );
   },
 };
