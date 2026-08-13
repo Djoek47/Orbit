@@ -9,10 +9,10 @@ import { LATE_CREDIT, MONTHLY_RESCUE_TOKENS, RESCUE_COST_PCT_PER_DAY } from '@/c
 import { getHouseRulesDoc, __resetHouseRulesCache } from '@/lib/rules/house-rules-data';
 import { decodeHouseRules } from '@/lib/rules/decode';
 import { interpolateHouseRulesCopy } from '@/lib/rules/interpolate';
-import { KID_CARD_RULE_IDS } from '@/lib/rules/kid-card';
 import { validateCustomHouseRule } from '@/lib/rules/custom-house-rules';
+import { PHASE_KEYS } from '@/lib/rules/types';
 import { isVisible } from '@/lib/rules/visibility';
-import { visibleRuleCount, visibleRules } from '@/lib/rules/visible-rules';
+import { rulesByPhase, visibleRuleCount, visibleRules } from '@/lib/rules/visible-rules';
 
 function pass(id: string, detail: string) {
   console.log(`PASS ${id} — ${detail}`);
@@ -24,7 +24,17 @@ const doc = getHouseRulesDoc();
 {
   assert.equal(doc.rules.length, 33, '33 rules');
   assert.equal(doc.chapters.length, 7, '7 chapters');
-  pass('HR1', 'JSON decodes; 33 rules, 7 chapters');
+  assert.equal(Object.keys(doc.phases).length, 10, '10 phases');
+  for (const key of PHASE_KEYS) {
+    assert.ok(doc.phases[key], `phase ${key}`);
+    assert.ok(doc.phases[key].gutter.length, `phase ${key} gutter`);
+  }
+  assert.ok(doc.rules.every((r) => r.phase != null), 'no nil phase');
+  assert.ok(
+    doc.rules.filter((r) => r.editable).every((r) => Boolean(r.settingKey)),
+    'editable rules have settingKey'
+  );
+  pass('HR1', 'JSON decodes; 33 rules, 7 chapters, 10 phases');
 }
 
 {
@@ -43,7 +53,9 @@ const doc = getHouseRulesDoc();
   assert.equal(isVisible('XP_ON', hh), true);
   assert.equal(isVisible('ALLOWANCE_ON', hh), false);
   assert.equal(isVisible('REWARDS_ON', hh), false);
-  pass('HR5', 'isVisible covers condition keys');
+  assert.equal(isVisible('MULTI_MEMBER', hh), true);
+  assert.equal(isVisible('HOMEWORK_ON', hh), true);
+  pass('HR5', 'isVisible covers all 6 condition keys');
 }
 
 {
@@ -202,26 +214,62 @@ function adultManual(model: string, homework = true, helpers = 2) {
     helperCount: 2,
     homeworkEnabled: true,
   });
-  const byId = new Map(groups.flatMap((g) => g.rules.map((r) => [r.id, r] as const)));
-  const kid = KID_CARD_RULE_IDS.map((id) => byId.get(id))
-    .filter((r): r is NonNullable<typeof r> => Boolean(r))
-    .map((r) => interpolateHouseRulesCopy(r.kid.body, doc.constants));
-  const joined = kid.join('\n\n');
-  assert(joined.length <= 900, `T4.5 too long: ${joined.length}`);
-  assert(!joined.includes('%'), 'T4.5 no percentages');
-  pass('T4.5', `Kid HOW IT WORKS card copy budget (${joined.length} chars)`);
+  const ids = groups.flatMap((g) => g.rules.map((r) => r.id));
+  const kidCopy = groups.flatMap((g) =>
+    g.rules.map((r) => interpolateHouseRulesCopy(r.kid.body, doc.constants))
+  );
+  assert.equal(kidCopy.length, ids.length, 'Sidekick uses the same visible set');
+  pass('T4.5', `Sidekick mode renders all ${ids.length} visible rules, not a kid-card subset`);
 }
 
 {
+  const groups = visibleRules(doc, {
+    rewardModel: 'full',
+    helperCount: 2,
+    homeworkEnabled: true,
+  });
+  const stops = rulesByPhase(doc, groups);
+  assert.ok(stops.every((s) => s.rules.length > 0), 'no empty stops');
+  const blocks = stops.map((s) => s.block);
+  const firstBeyond = blocks.indexOf('beyond');
+  if (firstBeyond >= 0) {
+    assert.ok(blocks.slice(0, firstBeyond).every((b) => b === 'day'), 'day then beyond');
+  }
+  pass('T4.5b', 'Track: no empty stops; day then beyond');
+}
+
+{
+  const viewFiles = [
+    'app/house-rules.tsx',
+    'components/orbit/house-rules/chapters-view.tsx',
+    'components/orbit/house-rules/at-a-glance-view.tsx',
+    'components/orbit/house-rules/track-view.tsx',
+    'components/orbit/house-rules/ask-poppins-view.tsx',
+    'components/orbit/house-rules/rule-copy.tsx',
+    'components/orbit/house-rules/visuals/xp-ramp.tsx',
+    'components/orbit/house-rules/visuals/day-timeline.tsx',
+    'components/orbit/house-rules/visuals/late-credit-table.tsx',
+    'components/orbit/house-rules/visuals/streak-dots.tsx',
+    'components/orbit/house-rules/visuals/rescue-tiers.tsx',
+    'components/orbit/house-rules/visuals/podium.tsx',
+    'components/orbit/house-rules/visuals/model-list.tsx',
+    'components/orbit/house-rules/visuals/index.tsx',
+  ];
+  const joined = viewFiles.map((f) => readFileSync(join(process.cwd(), f), 'utf8')).join('\n');
+  assert(!joined.includes('7:00 PM'), 'no 7:00 PM in views');
+  assert(!joined.includes('100,000'), 'no 100,000 in views');
+  assert(!joined.includes('Late Credit'), 'no Late Credit literal in views');
+  assert(!joined.includes('Approve now'), 'no Approve now in views');
   const screen = readFileSync(join(process.cwd(), 'app/house-rules.tsx'), 'utf8');
-  assert(!screen.includes('Late Credit'), 'no Late Credit in view');
-  assert(!screen.includes('7:00 PM'), 'no 7:00 PM in view');
-  assert(!screen.includes('Approve now'), 'no Approve now in view');
-  assert(!screen.includes('DIRECTIONS'), '4-tab explorer retired');
+  assert(screen.includes('DIRECTIONS'), '4-tab explorer present');
+  assert(screen.includes('Admin'), 'Admin mode label');
+  assert(screen.includes('Sidekick'), 'Sidekick mode label');
+  assert(!screen.includes("'Kid'") && !screen.includes('"Kid"'), 'no Kid chrome');
+  assert(!/\bChild\b/.test(screen.replaceAll('homeworkProofPerChild', '')), 'no Child chrome');
   for (const rule of doc.rules.filter((r) => r.editable && r.settingKey)) {
     assert(screen.includes(rule.settingKey!), `T4.6 missing settingKey ${rule.settingKey}`);
   }
-  pass('T4.6', 'Zero hardcoded rule prose in house-rules screen');
+  pass('T4.6', 'Zero hardcoded rule prose; Admin/Sidekick 4-direction shell');
 }
 
 {

@@ -1,7 +1,9 @@
 import {
   CHAPTER_KEYS,
   CONDITION_KEYS,
+  PHASE_BLOCK_KEYS,
   PHASE_KEYS,
+  PHASE_TONE_KEYS,
   VISUAL_KEYS,
   type Chapter,
   type ChapterKey,
@@ -9,6 +11,7 @@ import {
   type HouseRule,
   type HouseRulesDoc,
   type PhaseKey,
+  type PhaseMeta,
   type RuleConstants,
   type VisualKey,
 } from '@/lib/rules/types';
@@ -120,6 +123,26 @@ function decodeConstants(raw: unknown): RuleConstants {
   };
 }
 
+function decodePhases(raw: unknown): Record<PhaseKey, PhaseMeta> {
+  const root = asObject(raw, 'phases');
+  const result = {} as Record<PhaseKey, PhaseMeta>;
+  for (const key of PHASE_KEYS) {
+    const row = asObject(root[key], `phases.${key}`);
+    const kickerRaw = row.kicker;
+    if (kickerRaw != null && typeof kickerRaw !== 'string') {
+      throw new Error(`house-rules decode: phases.${key}.kicker must be a string or null`);
+    }
+    result[key] = {
+      gutter: asString(row.gutter, `phases.${key}.gutter`),
+      kicker: kickerRaw == null ? null : kickerRaw,
+      block: assertEnum(row.block, PHASE_BLOCK_KEYS, `phases.${key}.block`),
+      order: asNumber(row.order, `phases.${key}.order`),
+      tone: assertEnum(row.tone, PHASE_TONE_KEYS, `phases.${key}.tone`),
+    };
+  }
+  return result;
+}
+
 function decodeChapter(raw: unknown, index: number): Chapter {
   const row = asObject(raw, `chapters[${index}]`);
   return {
@@ -188,6 +211,7 @@ export function decodeHouseRules(raw: unknown): HouseRulesDoc {
     constants: decodeConstants(root.constants),
     chapters,
     rules,
+    phases: decodePhases(root.phases),
     footnotes:
       root.footnotes && typeof root.footnotes === 'object'
         ? (root.footnotes as HouseRulesDoc['footnotes'])

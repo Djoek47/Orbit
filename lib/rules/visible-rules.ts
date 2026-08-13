@@ -4,7 +4,9 @@ import type {
   HouseRule,
   HouseRulesDoc,
   HouseRulesHouseholdView,
+  PhaseBlock,
   PhaseKey,
+  PhaseTone,
 } from '@/lib/rules/types';
 import { PHASE_KEYS } from '@/lib/rules/types';
 
@@ -17,36 +19,11 @@ export type VisibleChapter = {
 
 export type PhaseStop = {
   phase: PhaseKey;
-  label: string;
+  gutter: string;
+  kicker: string | null;
+  tone: PhaseTone;
+  block: PhaseBlock;
   rules: NumberedRule[];
-};
-
-/** Adult Track phase labels (spec / HTML). */
-export const PHASE_LABELS: Record<PhaseKey, string> = {
-  assigned: 'Assigned',
-  nudge: 'Nudge',
-  deadline: 'Deadline',
-  lateCredit: 'Late Credit',
-  expired: 'Expired',
-  counted: 'Counted',
-  weekly: 'Weekly',
-  crownWeek: 'Crown · Week',
-  crownMonth: 'Crown · Month',
-  anytime: 'Anytime',
-};
-
-/** Kid-friendly phase when labels. */
-export const PHASE_LABELS_KID: Record<PhaseKey, string> = {
-  assigned: 'You get it',
-  nudge: 'Reminder',
-  deadline: 'Due',
-  lateCredit: 'Still counts',
-  expired: 'Too late',
-  counted: 'It counts',
-  weekly: 'This week',
-  crownWeek: 'Week crown',
-  crownMonth: 'Month crown',
-  anytime: 'Anytime',
 };
 
 /**
@@ -98,12 +75,9 @@ export function substituteTokens(
 /**
  * Flatten visible rules into Track phase stops.
  * Multi-rule stops merge; empty phases are skipped.
- * Order follows PHASE_KEYS.
+ * Order / gutter / kicker / tone / block come from JSON `phases`.
  */
-export function rulesByPhase(
-  groups: VisibleChapter[],
-  voice: 'adult' | 'kid' = 'adult'
-): PhaseStop[] {
+export function rulesByPhase(doc: HouseRulesDoc, groups: VisibleChapter[]): PhaseStop[] {
   const flat = groups.flatMap((g) => g.rules);
   const byPhase = new Map<PhaseKey, NumberedRule[]>();
   for (const rule of flat) {
@@ -112,14 +86,20 @@ export function rulesByPhase(
     byPhase.set(rule.phase, list);
   }
 
-  const labels = voice === 'kid' ? PHASE_LABELS_KID : PHASE_LABELS;
+  const ordered = [...PHASE_KEYS].sort(
+    (a, b) => doc.phases[a].order - doc.phases[b].order
+  );
   const stops: PhaseStop[] = [];
-  for (const phase of PHASE_KEYS) {
+  for (const phase of ordered) {
     const rules = byPhase.get(phase);
     if (!rules?.length) continue;
+    const meta = doc.phases[phase];
     stops.push({
       phase,
-      label: labels[phase],
+      gutter: meta.gutter,
+      kicker: meta.kicker,
+      tone: meta.tone,
+      block: meta.block,
       rules: [...rules].sort((a, b) => a.order - b.order),
     });
   }
