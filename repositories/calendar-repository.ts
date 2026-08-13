@@ -1,6 +1,6 @@
 import { mockHousehold } from '@/data/mock-household';
 import { mapEventRow } from '@/lib/mappers/orbit-mappers';
-import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
+import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, mapDbError } from '@/repositories/repository-utils';
 import type { CreateEventInput, HouseholdEvent } from '@/types/orbit';
 
 let mockEventsState: HouseholdEvent[] = clone(mockHousehold.events);
@@ -26,7 +26,7 @@ export const calendarRepository = {
       return clone(mockEventsState);
     }
 
-    if (!householdId) {
+    if (!isPersistedHouseholdId(householdId)) {
       return [];
     }
 

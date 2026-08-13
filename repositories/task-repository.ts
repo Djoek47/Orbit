@@ -11,7 +11,7 @@ import {
   isSplitTask,
 } from '@/lib/tasks/split-assign';
 import { isTaskLate } from '@/lib/tasks/xp';
-import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
+import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, mapDbError } from '@/repositories/repository-utils';
 import type { CreateTaskInput, HouseholdTask } from '@/types/orbit';
 
 let mockTasksState: HouseholdTask[] = clone(mockHousehold.tasks);
@@ -112,7 +112,7 @@ export const taskRepository = {
       return clone(mockTasksState);
     }
 
-    if (!householdId) {
+    if (!isPersistedHouseholdId(householdId)) {
       return [];
     }
 

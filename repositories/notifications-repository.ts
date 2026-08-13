@@ -1,4 +1,4 @@
-import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
+import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, mapDbError } from '@/repositories/repository-utils';
 import type { NotificationItem } from '@/types/orbit';
 
 export type CreateNotificationInput = {
@@ -110,6 +110,9 @@ export const notificationsRepository = {
     let query = supabase.from('notifications').select('*').order('created_at', { ascending: false });
 
     if (householdId) {
+      if (!isPersistedHouseholdId(householdId)) {
+        return [];
+      }
       query = query.eq('household_id', householdId);
     }
 

@@ -85,8 +85,13 @@ export default function ConfirmEmailScreen() {
           m.authRepository.getCurrentSession()
         );
         if (next) {
-          await hydrateFromSession(next);
-          await finishOnboarding();
+          try {
+            await hydrateFromSession(next);
+            await finishOnboarding();
+          } catch (hydrateErr) {
+            console.warn('confirm-email auth listener hydrate', hydrateErr);
+            await finishOnboarding();
+          }
         }
       } catch {
         // stay on screen — user can enter code or continue
@@ -142,7 +147,11 @@ export default function ConfirmEmailScreen() {
         m.authRepository.getCurrentSession()
       );
       if (next) {
-        await hydrateFromSession(next);
+        try {
+          await hydrateFromSession(next);
+        } catch (hydrateErr) {
+          console.warn('confirm-email hydrateFromSession', hydrateErr);
+        }
       }
       await finishOnboarding();
     } catch (err) {

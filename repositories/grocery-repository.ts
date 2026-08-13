@@ -1,7 +1,7 @@
 import { locationForGroceryCategory } from '@/data/household-rooms';
 import { mockHousehold } from '@/data/mock-household';
 import { mapGroceryRow } from '@/lib/mappers/orbit-mappers';
-import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
+import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, mapDbError } from '@/repositories/repository-utils';
 import type { CreateGroceryInput, GroceryItem } from '@/types/orbit';
 
 let mockGroceriesState: GroceryItem[] = clone(mockHousehold.groceries);
@@ -29,7 +29,7 @@ export const groceryRepository = {
       return clone(mockGroceriesState);
     }
 
-    if (!householdId) {
+    if (!isPersistedHouseholdId(householdId)) {
       return [];
     }
 

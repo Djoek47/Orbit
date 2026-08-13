@@ -13,7 +13,7 @@ import {
   mergeRewardOverlay,
   saveRewardFieldOverlay,
 } from '@/lib/rewards/reward-field-overlay';
-import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
+import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, mapDbError } from '@/repositories/repository-utils';
 import type {
   AllowanceGrant,
   Badge,
@@ -61,7 +61,7 @@ export const rewardsRepository = {
       return clone(mockRewardsState.filter((item) => !item.archived));
     }
 
-    if (!householdId) {
+    if (!isPersistedHouseholdId(householdId)) {
       return [];
     }
 
@@ -79,7 +79,7 @@ export const rewardsRepository = {
       return clone(mockHousehold.badges);
     }
 
-    if (!householdId) {
+    if (!isPersistedHouseholdId(householdId)) {
       return [];
     }
 
@@ -91,10 +91,9 @@ export const rewardsRepository = {
   },
 
   async getRedemptions(householdId: string | null | undefined): Promise<RewardRedemption[]> {
-    const id = householdId ?? mockHousehold.id;
-    if (!id) return [];
-
     if (isMockMode()) {
+      const id = householdId ?? mockHousehold.id;
+      if (!id) return [];
       if (redemptionsHydratedFor !== id) {
         const stored = await loadRedemptions(id);
         if (stored.length) {
@@ -108,11 +107,15 @@ export const rewardsRepository = {
       return clone(mockRedemptionsState.filter((item) => item.householdId === id));
     }
 
+    if (!isPersistedHouseholdId(householdId)) {
+      return [];
+    }
+
     const supabase = getConfiguredSupabase('rewardsRepository.getRedemptions');
     const { data, error } = await supabase
       .from('reward_redemptions')
       .select('*')
-      .eq('household_id', id)
+      .eq('household_id', householdId)
       .order('requested_at', { ascending: false });
     mapDbError('rewardsRepository.getRedemptions', error);
 

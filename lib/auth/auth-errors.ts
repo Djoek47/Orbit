@@ -226,8 +226,13 @@ export function resolveAuthIssue(err: unknown): AuthIssue {
   ) {
     return AUTH_ISSUES.apple_unavailable;
   }
-  // Strip repo prefixes if something leaked through.
-  if (lower.startsWith('authrepository.') || lower.includes('provider (issuer')) {
+  // Strip repo prefixes / Postgres dumps if something leaked through.
+  if (
+    lower.startsWith('authrepository.') ||
+    /[a-z]+repository\./i.test(message) ||
+    lower.includes('invalid input syntax') ||
+    lower.includes('provider (issuer')
+  ) {
     return AUTH_ISSUES.generic;
   }
   if (message.trim()) {

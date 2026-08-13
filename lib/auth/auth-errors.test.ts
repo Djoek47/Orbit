@@ -40,6 +40,14 @@ export function runAuthErrorsTests(): string[] {
   assert(structured.title === 'Couldn’t sign in', 'structured title');
   pass('5 AuthUserError passthrough');
 
+  const leaked = resolveAuthIssue(
+    new Error('rewardsRepository.getRedemptions : invalid input syntax for type uuid: "hh-rivera"')
+  );
+  assert(leaked.code === 'generic', 'repo leak is generic');
+  assert(!leaked.message.includes('hh-rivera'), 'no mock household id in banner');
+  assert(!leaked.message.includes('getRedemptions'), 'no repository prefix in banner');
+  pass('6 hide postgres uuid dump on confirm');
+
   return logs;
 }
 

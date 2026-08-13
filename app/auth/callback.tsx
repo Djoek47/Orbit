@@ -102,6 +102,18 @@ export default function AuthCallbackScreen() {
     router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
   };
 
+  const hydrateQuietly = async (session: Parameters<typeof hydrateFromSession>[0]) => {
+    try {
+      await withTimeout(
+        hydrateRef.current(session),
+        VERIFY_TIMEOUT_MS,
+        'Confirmation timed out. Enter the code from your email instead.'
+      );
+    } catch (error) {
+      console.warn('auth/callback hydrateFromSession', error);
+    }
+  };
+
   const escapeWorking = async (copy: string) => {
     const controller = controllerRef.current;
     if (!controller.canEscape()) return;
@@ -112,11 +124,7 @@ export default function AuthCallbackScreen() {
         'Confirmation timed out. Enter the code from your email instead.'
       );
       if (existing) {
-        await withTimeout(
-          hydrateRef.current(existing),
-          VERIFY_TIMEOUT_MS,
-          'Confirmation timed out. Enter the code from your email instead.'
-        );
+        await hydrateQuietly(existing);
         await finishSuccess();
         return;
       }
@@ -172,11 +180,7 @@ export default function AuthCallbackScreen() {
             'Confirmation timed out. Enter the code from your email instead.'
           );
           if (existing) {
-            await withTimeout(
-              hydrateRef.current(existing),
-              VERIFY_TIMEOUT_MS,
-              'Confirmation timed out. Enter the code from your email instead.'
-            );
+            await hydrateQuietly(existing);
             await finishSuccess();
             return;
           }
@@ -195,11 +199,7 @@ export default function AuthCallbackScreen() {
           'Confirmation timed out. Enter the code from your email instead.'
         );
         if (next) {
-          await withTimeout(
-            hydrateRef.current(next),
-            VERIFY_TIMEOUT_MS,
-            'Confirmation timed out. Enter the code from your email instead.'
-          );
+          await hydrateQuietly(next);
         }
         await finishSuccess();
       } catch (err) {
