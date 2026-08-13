@@ -758,6 +758,7 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     { data: badges, error: badgesError },
     { data: briefing, error: briefingError },
     { data: profile, error: profileError },
+    { data: customRules, error: customRulesError },
   ] = await Promise.all([
     supabase.from('households').select('*').eq('id', householdId).single(),
     supabase.from('household_members').select('*').eq('household_id', householdId),
@@ -793,6 +794,11 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
       .limit(1)
       .maybeSingle(),
     supabase.from('profiles').select('display_name').eq('id', userId).maybeSingle(),
+    supabase
+      .from('custom_house_rules')
+      .select('id, body, sort_order')
+      .eq('household_id', householdId)
+      .order('sort_order', { ascending: true }),
   ]);
 
   mapDbError('householdRepository.loadHousehold.household', householdError);
@@ -806,6 +812,9 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
   mapDbError('householdRepository.loadHousehold.badges', badgesError);
   mapDbError('householdRepository.loadHousehold.briefing', briefingError);
   mapDbError('householdRepository.loadHousehold.profile', profileError);
+  if (customRulesError) {
+    console.warn('householdRepository.loadHousehold.customHouseRules', customRulesError);
+  }
 
   if (!household) {
     throw new Error('householdRepository.loadHouseholdSnapshot: Household not found.');
@@ -864,6 +873,11 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
       plans: true,
       xpFairness: true,
     },
+    customHouseRules: (customRules ?? []).map((row) => ({
+      id: String(row.id),
+      body: String(row.body ?? ''),
+      sortOrder: Number(row.sort_order ?? 0),
+    })),
     rewards: (rewards ?? []).map((row) => mapRewardRow(row)),
     badges: (badges ?? []).map((row) => mapBadgeRow(row)),
     poppins: briefing
@@ -874,6 +888,30 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
           actions: ['Create task', 'Check groceries'],
         },
   };
+}
+
+/** Replace custom house rules for a household. Display-only — never alters mechanics. */
+export async function persistCustomHouseRulesRows(
+  householdId: string,
+  rules: { id: string; body: string; sortOrder: number }[]
+) {
+  if (isMockMode()) return;
+  const supabase = getConfiguredSupabase('householdRepository.persistCustomHouseRules');
+  const { error: deleteError } = await supabase
+    .from('custom_house_rules')
+    .delete()
+    .eq('household_id', householdId);
+  mapDbError('householdRepository.persistCustomHouseRules.delete', deleteError);
+  if (!rules.length) return;
+  const { error: insertError } = await supabase.from('custom_house_rules').insert(
+    rules.map((rule) => ({
+      id: rule.id,
+      household_id: householdId,
+      body: rule.body,
+      sort_order: rule.sortOrder,
+    }))
+  );
+  mapDbError('householdRepository.persistCustomHouseRules.insert', insertError);
 }
 
 /** Persist mock household snapshot (members/settings/tasks) across Expo Go reload. */

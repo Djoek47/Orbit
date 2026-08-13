@@ -267,6 +267,20 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        {sharedKidMode ? (
+          <Pressable
+            onPress={() => router.push('/house-rules' as never)}
+            accessibilityRole="button"
+            accessibilityLabel={VOCAB.houseRules}>
+            <GlassCard>
+              <Text style={[typography.headline, { color: orbitPalette.text }]}>{VOCAB.houseRules}</Text>
+              <Text style={[typography.footnote, { color: orbitPalette.textSoft, marginTop: 4 }]}>
+                How it works
+              </Text>
+            </GlassCard>
+          </Pressable>
+        ) : null}
+
         {selfOnRecess ? (
           <GlassCard>
             <Text style={[typography.body, { color: orbitPalette.text }]}>

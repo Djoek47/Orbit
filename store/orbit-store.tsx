@@ -37,6 +37,7 @@ import {
   saveMemberCapabilitiesPrefs,
   saveRewardSettings,
 } from '@/lib/household/reward-settings-prefs';
+import { newCustomHouseRuleId, validateCustomHouseRule } from '@/lib/rules/custom-house-rules';
 import { saveActiveMockHousehold } from '@/lib/household/mock-active-household';
 import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
@@ -102,6 +103,7 @@ import {
 } from '@/lib/member-capabilities';
 import {
   clearMockHouseholdSnapshot,
+  persistCustomHouseRulesRows,
   persistMockHouseholdSnapshot,
 } from '@/repositories/household-repository';
 import {
@@ -360,6 +362,12 @@ type OrbitContextValue = {
   }) => void;
   /** Parent/admin: XP system (xp_only / allowance / rewards / full) — changeable in Settings. */
   updateHouseholdRewardModel: (model: RewardModel) => void;
+  /**
+   * Custom house rules — display only; never alter scoring / XP / allowance.
+   */
+  addCustomHouseRule: (body: string) => { ok: true } | { ok: false; message: string };
+  updateCustomHouseRule: (id: string, body: string) => { ok: true } | { ok: false; message: string };
+  removeCustomHouseRule: (id: string) => void;
   /** Updates the current member’s personal look (follows persona switches). */
   updateAccentTheme: (themeId: AccentThemeId) => void;
   /** Unified palette wheel — day/night pairs live on the palette. */
@@ -2337,6 +2345,70 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
   };
 
+  const persistCustomHouseRules = (next: HouseholdSnapshot) => {
+    if (dataMode === 'mock') {
+      void persistMockHouseholdSnapshot(next);
+    }
+    if (dataMode === 'supabase' && next.id) {
+      void persistCustomHouseRulesRows(next.id, next.customHouseRules ?? []).catch((error) => {
+        console.warn('persistCustomHouseRules supabase skipped', error);
+      });
+    }
+  };
+
+  const addCustomHouseRule = (body: string) => {
+    const existing = household.customHouseRules ?? [];
+    const check = validateCustomHouseRule(body, existing.length);
+    if (!check.ok) return check;
+    if (!canEditHouseholdRewardLogic(household)) {
+      return { ok: false as const, message: 'Only an admin can add house rules.' };
+    }
+    const rule = {
+      id: newCustomHouseRuleId(),
+      body: check.body,
+      sortOrder: existing.length,
+    };
+    setHousehold((current) => {
+      const list = [...(current.customHouseRules ?? []), rule];
+      const next = { ...current, customHouseRules: list };
+      persistCustomHouseRules(next);
+      return next;
+    });
+    return { ok: true as const };
+  };
+
+  const updateCustomHouseRule = (id: string, body: string) => {
+    const existing = household.customHouseRules ?? [];
+    const check = validateCustomHouseRule(body, Math.max(0, existing.length - 1));
+    if (!check.ok) return check;
+    if (!canEditHouseholdRewardLogic(household)) {
+      return { ok: false as const, message: 'Only an admin can edit house rules.' };
+    }
+    setHousehold((current) => {
+      const next = {
+        ...current,
+        customHouseRules: (current.customHouseRules ?? []).map((item) =>
+          item.id === id ? { ...item, body: check.body } : item
+        ),
+      };
+      persistCustomHouseRules(next);
+      return next;
+    });
+    return { ok: true as const };
+  };
+
+  const removeCustomHouseRule = (id: string) => {
+    if (!canEditHouseholdRewardLogic(household)) return;
+    setHousehold((current) => {
+      const next = {
+        ...current,
+        customHouseRules: (current.customHouseRules ?? []).filter((item) => item.id !== id),
+      };
+      persistCustomHouseRules(next);
+      return next;
+    });
+  };
+
   const updateHouseholdRewardModel = (model: RewardModel) => {
     setHousehold((current) => {
       if (!canEditHouseholdRewardLogic(current)) {
@@ -3771,6 +3843,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateMemberCapabilities,
       updateHouseholdRewardSettings,
       updateHouseholdRewardModel,
+      addCustomHouseRule,
+      updateCustomHouseRule,
+      removeCustomHouseRule,
       updateAccentTheme,
       updatePalette,
       updateHouseholdAccentTheme,
@@ -3880,6 +3955,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateMemberCapabilities,
       updateHouseholdRewardSettings,
       updateHouseholdRewardModel,
+      addCustomHouseRule,
+      updateCustomHouseRule,
+      removeCustomHouseRule,
       updateDisplayName,
       updateMemberDisplayName,
       addOnboardingMembers,

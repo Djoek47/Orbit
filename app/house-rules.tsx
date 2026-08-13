@@ -1,70 +1,83 @@
 /**
- * House Rules — 4 directions × Adult/Kid.
- * Colors/layout from choremaxx-house-rules-full.html; typeface = Bricolage (AppText).
- * Admins see Adult (can preview Kid). Children / non-admins see Kid only.
+ * House Rules — Final Revision D/E/F.
+ * Adult: sectioned JSON manual. Kid: one-screen HOW IT WORKS card, no scroll.
+ * Copy comes from data/house-rules.json. Custom rules never alter mechanics.
  */
 
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText as Text } from '@/components/orbit/app-text';
-import { AskPoppinsView } from '@/components/orbit/house-rules/ask-poppins-view';
-import { AtAGlanceView } from '@/components/orbit/house-rules/at-a-glance-view';
-import { ChaptersView } from '@/components/orbit/house-rules/chapters-view';
-import { TrackView } from '@/components/orbit/house-rules/track-view';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
+import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { space, typography } from '@/constants/orbit-theme';
-import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
-import {
-  resolveHouseRulesPalette,
-  type HouseRulesDirection,
-  type HouseRulesVoice,
-} from '@/lib/rules/house-rules-palette';
+import { VOCAB } from '@/constants/vocabulary';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
-import { rulesByPhase, visibleRuleCount, visibleRules } from '@/lib/rules/visible-rules';
+import {
+  CUSTOM_HOUSE_RULE_MAX_COUNT,
+  CUSTOM_HOUSE_RULE_MAX_LEN,
+} from '@/lib/rules/custom-house-rules';
+import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
+import { formatHouseRulesTime, interpolateHouseRulesCopy } from '@/lib/rules/interpolate';
+import { KID_CARD_RULE_IDS } from '@/lib/rules/kid-card';
+import type { RuleConstants } from '@/lib/rules/types';
+import { visibleRules } from '@/lib/rules/visible-rules';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-
-function formatDailyDeadline(hhmm: string): string {
-  const [hStr, mStr] = hhmm.split(':');
-  const h = Number(hStr);
-  const m = Number(mStr);
-  if (!Number.isFinite(h)) return hhmm;
-  const suffix = h >= 12 ? 'PM' : 'AM';
-  const hour12 = ((h + 11) % 12) + 1;
-  return `${hour12}:${String(m || 0).padStart(2, '0')} ${suffix}`;
-}
+import type { HouseholdSnapshot } from '@/types/orbit';
 
 const SETTING_ROUTES: Partial<Record<string, string>> = {
+  deadlines: '/settings',
   recess: '/recess',
   rewardModel: '/settings',
+  rewardFrequency: '/(tabs)/rewards',
+  rewardApproval: '/(tabs)/rewards',
+  allowanceSchedule: '/create-allowance',
+  choreProof: '/settings',
+  homeworkProofPerChild: '/household-members',
 };
 
-const DIRECTIONS: { id: HouseRulesDirection; num: string; label: string }[] = [
-  { id: 'chapters', num: '01', label: 'Chapters' },
-  { id: 'glance', num: '02', label: 'At a glance' },
-  { id: 'track', num: '03', label: 'The Track' },
-  { id: 'ask', num: '04', label: 'Ask Poppins' },
-];
+function currentSettingValue(
+  settingKey: string,
+  household: HouseholdSnapshot,
+  constants: RuleConstants
+): string | undefined {
+  switch (settingKey) {
+    case 'deadlines':
+      return formatHouseRulesTime(constants.deadlines.daily);
+    case 'rewardModel': {
+      const model = household.rewardModel ?? 'full';
+      const jsonKey = model === 'full' ? 'full_system' : model;
+      return constants.rewardModels.find((row) => row.key === jsonKey)?.label;
+    }
+    default:
+      return undefined;
+  }
+}
 
 export default function HouseRulesScreen() {
   const insets = useSafeAreaInsets();
-  const { household, currentMember, permissions } = useOrbit();
+  const { c, glass, glassBorder } = useOrbitColors();
+  const {
+    household,
+    currentMember,
+    permissions,
+    addCustomHouseRule,
+    updateCustomHouseRule,
+    removeCustomHouseRule,
+  } = useOrbit();
   const isManager = Boolean(permissions.canManageHousehold);
-  // Admins/owners → Adult (can preview Kid). Children + non-admin helpers → Kid only.
   const kidOnly = !isManager;
-  const [voice, setVoice] = useState<HouseRulesVoice>(isManager ? 'adult' : 'kid');
-  const [direction, setDirection] = useState<HouseRulesDirection>('chapters');
-
-  const effectiveVoice: HouseRulesVoice = kidOnly ? 'kid' : voice;
-  const palette = useMemo(
-    () => resolveHouseRulesPalette(undefined, effectiveVoice, direction),
-    [effectiveVoice, direction]
-  );
+  const [previewKid, setPreviewKid] = useState(false);
+  const showKid = kidOnly || previewKid;
+  const [draft, setDraft] = useState('');
+  const [formError, setFormError] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
 
   const doc = useMemo(() => getHouseRulesDoc(), []);
-
   const helperCount = useMemo(
     () =>
       household.members.filter(
@@ -72,243 +85,256 @@ export default function HouseRulesScreen() {
       ).length,
     [household.members]
   );
+  const homeworkEnabled =
+    currentMember?.homeworkProofRequired !== false && household.homeworkEnabled !== false;
 
   const groups = useMemo(
     () =>
       visibleRules(doc, {
         rewardModel: household.rewardModel ?? 'full',
         helperCount,
-        homeworkEnabled: household.homeworkEnabled !== false,
+        homeworkEnabled,
       }),
-    [doc, household.homeworkEnabled, household.rewardModel, helperCount]
+    [doc, household.rewardModel, helperCount, homeworkEnabled]
   );
 
-  const stops = useMemo(() => rulesByPhase(groups, effectiveVoice), [groups, effectiveVoice]);
-  const dailyDeadlineLabel = formatDailyDeadline(doc.constants.deadlines.daily);
-  const tokens = useMemo(() => ({ dailyDeadline: dailyDeadlineLabel }), [dailyDeadlineLabel]);
-  const ruleCount = visibleRuleCount(groups);
-  const canFlipVoice = !kidOnly;
-  const canEdit = isManager && effectiveVoice === 'adult';
+  const custom = [...(household.customHouseRules ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
 
-  const openSetting = (settingKey?: string) => {
-    if (!canEdit) return;
-    const route = SETTING_ROUTES[settingKey ?? ''];
-    if (!route) return;
-    router.push(route as never);
+  const kidLines = useMemo(() => {
+    const byId = new Map(groups.flatMap((g) => g.rules.map((r) => [r.id, r] as const)));
+    return KID_CARD_RULE_IDS.flatMap((id) => {
+      const rule = byId.get(id);
+      if (!rule) return [];
+      return [{ id, body: interpolateHouseRulesCopy(rule.kid.body, doc.constants) }];
+    });
+  }, [groups, doc.constants]);
+
+  const handleAdd = () => {
+    const result = addCustomHouseRule(draft);
+    if (!result.ok) {
+      setFormError(result.message);
+      return;
+    }
+    setDraft('');
+    setFormError('');
   };
 
-  const leftNav =
-    effectiveVoice === 'kid' ? (
-      <Pressable onPress={() => router.back()}>
-        <Text style={[typography.subheadline, { color: palette.nav, fontWeight: '600' }]}>‹ Back</Text>
-      </Pressable>
-    ) : (
-      <Pressable onPress={() => router.back()}>
-        <Text style={[typography.subheadline, { color: palette.nav }]}>‹ Settings</Text>
-      </Pressable>
-    );
+  const handleSaveEdit = () => {
+    if (!editingId) return;
+    const result = updateCustomHouseRule(editingId, editDraft);
+    if (!result.ok) {
+      setFormError(result.message);
+      return;
+    }
+    setEditingId(null);
+    setEditDraft('');
+    setFormError('');
+  };
 
-  const rightNav =
-    effectiveVoice === 'kid' ? (
-      direction === 'ask' ? (
-        <Pressable onPress={() => setDirection('chapters')}>
-          <Text style={[typography.subheadline, { color: palette.nav, fontWeight: '600' }]}>Rules</Text>
-        </Pressable>
-      ) : (
-        <Pressable onPress={() => setDirection('ask')}>
-          <Text style={[typography.subheadline, { color: palette.nav, fontWeight: '600' }]}>
-            Ask Poppins
-          </Text>
-        </Pressable>
-      )
-    ) : canEdit ? (
-      <Pressable onPress={() => openSetting('rewardModel')}>
-        <Text style={[typography.subheadline, { color: palette.nav }]}>Edit</Text>
-      </Pressable>
-    ) : (
-      <View style={{ width: 48 }} />
-    );
+  const handleCustomEdit = (id: string, body: string) => {
+    Alert.alert('Our House Rules', body, [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Edit',
+        onPress: () => {
+          setEditingId(id);
+          setEditDraft(body);
+          setFormError('');
+        },
+      },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => removeCustomHouseRule(id),
+      },
+    ]);
+  };
 
   return (
-    <View style={[styles.shell, { backgroundColor: palette.surface, paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        {leftNav}
-        <View style={{ width: 48 }} />
-        {rightNav}
+    <View style={[styles.root, { backgroundColor: c.background, paddingTop: insets.top }]}>
+      <View style={styles.topBar}>
+        <Pressable onPress={() => router.back()} accessibilityLabel="Settings">
+          <Text style={[typography.headline, { color: c.primary }]}>Settings</Text>
+        </Pressable>
+        {isManager ? (
+          <Pressable onPress={() => setPreviewKid((v) => !v)}>
+            <Text style={[typography.headline, { color: c.textMuted }]}>
+              {previewKid ? 'Adult' : 'Kid'}
+            </Text>
+          </Pressable>
+        ) : (
+          <View />
+        )}
       </View>
+      <Text style={[typography.largeTitle, styles.title, { color: c.text }]}>{VOCAB.houseRules}</Text>
 
-      {direction === 'chapters' && effectiveVoice === 'adult' ? (
-        <Text
-          style={[
-            typography.caption1,
-            { color: palette.muted, textAlign: 'center', marginBottom: 8, paddingHorizontal: 16 },
-          ]}>
-          {groups.length} chapters · {ruleCount} rules
-        </Text>
-      ) : null}
-
-      <View style={[styles.tabs, { borderColor: `${palette.ink}22` }]}>
-        {DIRECTIONS.map((d) => {
-          const on = direction === d.id;
-          return (
-            <Pressable
-              key={d.id}
-              onPress={() => setDirection(d.id)}
-              style={[
-                styles.tab,
-                {
-                  backgroundColor: on ? palette.tabOnBg : 'transparent',
-                  borderColor: on ? palette.tabOnBg : `${palette.muted}55`,
-                },
-              ]}>
-              <Text
-                style={[
-                  styles.tabNum,
-                  { color: on ? palette.tabOnInk : palette.muted },
-                ]}>
-                {d.num}
+      {showKid ? (
+        <View style={styles.kidCard} pointerEvents="box-none">
+          {custom.length ? (
+            <View style={styles.kidCustom}>
+              <Text style={[typography.caption1, styles.kicker, { color: c.textMuted }]}>
+                Our House Rules
               </Text>
-              <Text
-                style={[
-                  styles.tabLabel,
-                  { color: on ? palette.tabOnInk : palette.muted },
-                ]}
-                numberOfLines={1}>
-                {d.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {canFlipVoice ? (
-        <View style={[styles.toggle, { backgroundColor: `${palette.ink}14` }]}>
-          {(['adult', 'kid'] as const).map((v) => (
-            <Pressable
-              key={v}
-              onPress={() => setVoice(v)}
-              style={[
-                styles.toggleBtn,
-                voice === v && { backgroundColor: palette.modeOnBg },
-              ]}>
-              <Text
-                style={[
-                  typography.footnote,
-                  {
-                    color: voice === v ? '#fff' : palette.muted,
-                    fontWeight: voice === v ? '700' : '600',
-                  },
-                ]}>
-                {v === 'adult' ? 'Adult' : 'Kid'}
-              </Text>
-            </Pressable>
+              {custom.map((rule) => (
+                <Text key={rule.id} style={[typography.body, { color: c.text, marginBottom: 8 }]}>
+                  {rule.body}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+          <Text style={[typography.caption1, styles.kicker, { color: c.textMuted }]}>How it works</Text>
+          {kidLines.map((line) => (
+            <Text key={line.id} style={[typography.body, styles.kidLine, { color: c.text }]}>
+              {line.body}
+            </Text>
           ))}
         </View>
-      ) : null}
+      ) : (
+        <PersistentScrollView
+          style={styles.scroll}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: space.lg }}>
+          <View
+            style={[
+              styles.section,
+              { borderColor: glassBorder(0.12), backgroundColor: glass(0.04) },
+            ]}>
+            <Text style={[typography.title3, { color: c.text }]}>Our House Rules</Text>
+            {custom.map((rule) => (
+              <View key={rule.id} style={styles.customRow}>
+                {editingId === rule.id ? (
+                  <View style={{ flex: 1, gap: 8 }}>
+                    <TextInput
+                      value={editDraft}
+                      onChangeText={setEditDraft}
+                      maxLength={CUSTOM_HOUSE_RULE_MAX_LEN}
+                      style={[
+                        styles.input,
+                        { color: c.text, borderColor: glassBorder(0.14), backgroundColor: glass(0.06) },
+                      ]}
+                    />
+                    <Pressable onPress={handleSaveEdit}>
+                      <Text style={[typography.footnote, { color: c.primary }]}>Edit</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={[typography.body, { color: c.text, flex: 1 }]}>{rule.body}</Text>
+                    {isManager ? (
+                      <Pressable onPress={() => handleCustomEdit(rule.id, rule.body)}>
+                        <Text style={[typography.footnote, { color: c.primary }]}>Edit</Text>
+                      </Pressable>
+                    ) : null}
+                  </>
+                )}
+              </View>
+            ))}
+            {isManager && custom.length < CUSTOM_HOUSE_RULE_MAX_COUNT ? (
+              <View style={{ marginTop: space.sm, gap: 8 }}>
+                <TextInput
+                  value={draft}
+                  onChangeText={(v) => {
+                    setDraft(v);
+                    setFormError('');
+                  }}
+                  placeholder="Screens off at 8:30"
+                  placeholderTextColor={c.textSubtle}
+                  maxLength={CUSTOM_HOUSE_RULE_MAX_LEN}
+                  style={[
+                    styles.input,
+                    { color: c.text, borderColor: glassBorder(0.14), backgroundColor: glass(0.06) },
+                  ]}
+                />
+                {formError ? (
+                  <Text style={[typography.footnote, { color: c.danger }]}>{formError}</Text>
+                ) : null}
+                <OrbitButton onPress={handleAdd} tone="secondary">
+                  Edit
+                </OrbitButton>
+              </View>
+            ) : null}
+          </View>
 
-      <PersistentScrollView contentContainerStyle={styles.content}>
-        {direction === 'chapters' ? (
-          <ChaptersView
-            groups={groups}
-            voice={effectiveVoice}
-            palette={palette}
-            constants={doc.constants}
-            tokens={tokens}
-            canEdit={canEdit}
-            onEdit={openSetting}
-          />
-        ) : null}
-        {direction === 'glance' ? (
-          <AtAGlanceView
-            groups={groups}
-            voice={effectiveVoice}
-            palette={palette}
-            constants={doc.constants}
-            tokens={tokens}
-            canEdit={canEdit}
-            onEdit={openSetting}
-          />
-        ) : null}
-        {direction === 'track' ? (
-          <TrackView
-            stops={stops}
-            voice={effectiveVoice}
-            palette={palette}
-            tokens={tokens}
-            constants={doc.constants}
-          />
-        ) : null}
-        {direction === 'ask' ? (
-          <AskPoppinsView
-            groups={groups}
-            voice={effectiveVoice}
-            palette={palette}
-            tokens={tokens}
-          />
-        ) : null}
-
-        {doc.footnotes?.[effectiveVoice] ? (
-          <Text style={[typography.caption2, { color: palette.foot, marginTop: space.md }]}>
-            {doc.footnotes[effectiveVoice]}
-          </Text>
-        ) : null}
-      </PersistentScrollView>
+          {groups.map((group) => (
+            <View key={group.chapter.key} style={styles.chapter}>
+              <Text style={[typography.title3, { color: c.text }]}>{group.chapter.adultLabel}</Text>
+              {group.rules.map((rule) => {
+                const clause = interpolateHouseRulesCopy(rule.adult.clause, doc.constants);
+                const route = rule.editable && rule.settingKey ? SETTING_ROUTES[rule.settingKey] : undefined;
+                const setting =
+                  rule.settingKey && rule.editable
+                    ? currentSettingValue(rule.settingKey, household, doc.constants)
+                    : undefined;
+                return (
+                  <View
+                    key={rule.id}
+                    style={[
+                      styles.rule,
+                      { borderColor: glassBorder(0.1), backgroundColor: glass(0.03) },
+                    ]}>
+                    <Text style={[typography.caption1, { color: c.textMuted }]}>{rule.displayNumber}</Text>
+                    <Text style={[typography.headline, { color: c.text }]}>{rule.adult.question}</Text>
+                    <Text style={[typography.body, { color: c.textSoft, marginTop: 4 }]}>{clause}</Text>
+                    {setting ? (
+                      <Text style={[typography.footnote, { color: c.textMuted, marginTop: 6 }]}>{setting}</Text>
+                    ) : null}
+                    {route ? (
+                      <Pressable onPress={() => router.push(route as never)} style={styles.editLink}>
+                        <Text style={[typography.footnote, { color: c.primary }]}>Edit</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          ))}
+        </PersistentScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  shell: { flex: 1 },
-  header: {
-    alignItems: 'center',
+  root: { flex: 1 },
+  topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingBottom: 4,
-    paddingHorizontal: space.md,
+    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
   },
-  tabs: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 10,
-    marginHorizontal: space.md,
-  },
-  tab: {
-    borderRadius: 10,
+  title: { paddingHorizontal: space.lg, marginTop: 8, marginBottom: 12 },
+  scroll: { flex: 1 },
+  section: {
     borderWidth: 1,
-    flex: 1,
-    paddingHorizontal: 4,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 20,
+    gap: 10,
+  },
+  customRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
     paddingVertical: 10,
+    minHeight: 44,
   },
-  tabNum: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.6,
-    textAlign: 'center',
-    textTransform: 'uppercase',
+  chapter: { marginBottom: 24, gap: 10 },
+  rule: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
   },
-  tabLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 3,
-    textAlign: 'center',
-  },
-  toggle: {
-    alignSelf: 'center',
-    borderRadius: 999,
-    flexDirection: 'row',
-    gap: 4,
-    marginBottom: 10,
-    padding: 4,
-    width: 230,
-  },
-  toggleBtn: {
-    borderRadius: 999,
+  editLink: { marginTop: 8, alignSelf: 'flex-start' },
+  kidCard: {
     flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
+    paddingHorizontal: space.lg,
+    paddingBottom: space.lg,
   },
-  content: {
-    paddingBottom: 48,
-    paddingHorizontal: space.md,
+  kidCustom: { marginBottom: 16 },
+  kicker: {
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 10,
   },
+  kidLine: { marginBottom: 12, lineHeight: 22 },
 });

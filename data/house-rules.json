@@ -294,7 +294,7 @@
       "id": "EARN-04",
       "chapter": "earning",
       "order": 4,
-      "condition": "ALWAYS",
+      "condition": "XP_ON",
       "phase": "assigned",
       "visual": "none",
       "editable": false,
@@ -320,12 +320,12 @@
       "adult": {
         "headline": "Admins only",
         "question": "Who can assign and approve?",
-        "clause": "Only admins can assign tasks, approve completions, request proof, and approve allowance."
+        "clause": "Only admins can assign tasks, approve completions, and request proof."
       },
       "kid": {
         "headline": "A parent sets your list",
         "question": "Who assigns my jobs?",
-        "body": "Only an admin can give out jobs, check them off, ask for a photo or approve allowance."
+        "body": "Only an admin can give out jobs, check them off, and ask for a photo."
       }
     },
     {
@@ -340,12 +340,12 @@
       "adult": {
         "headline": "When everything is due",
         "question": "When is everything due?",
-        "clause": "Daily tasks close at 7:00 PM household time. Weekly tasks close Sunday 7:00 PM, monthly on the last Sunday at 7:00 PM."
+        "clause": "Daily tasks close at {dailyDeadline} household time. Weekly tasks close Sunday {dailyDeadline}, monthly on the last Sunday at {dailyDeadline}."
       },
       "kid": {
         "headline": "The bell rings at {dailyDeadline}",
         "question": "When do I have to be done?",
-        "body": "Weekly jobs are due Sunday. Monthly ones on the last Sunday."
+        "body": "Finish your tasks by {dailyDeadline} to get all your points."
       }
     },
     {
@@ -359,12 +359,12 @@
       "adult": {
         "headline": "Poppins reminds",
         "question": "Does anyone get warned?",
-        "clause": "Poppins sends task notifications, including a final nudge 30 minutes before anything is due."
+        "clause": "Poppins sends task notifications, including a final nudge {nudgeMinutesBefore} minutes before anything is due."
       },
       "kid": {
         "headline": "Poppins warns you first",
         "question": "Will I get a reminder?",
-        "body": "You get a nudge 30 minutes before anything is due."
+        "body": "You get a nudge {nudgeMinutesBefore} minutes before anything is due."
       }
     },
     {
@@ -383,7 +383,7 @@
       "kid": {
         "headline": "Late still counts",
         "question": "What if I'm late?",
-        "body": "You still get points, just a few less. A 10 turns into a 7. Your streak stays safe, so it's always worth finishing."
+        "body": "Finish late and you still get most of them."
       }
     },
     {
@@ -397,19 +397,19 @@
       "adult": {
         "headline": "The day closes",
         "question": "Can they still do yesterday's task?",
-        "clause": "At 11:59 PM anything unfinished becomes Expired and can no longer be completed."
+        "clause": "At {expiryTime} anything unfinished becomes Expired and can no longer be completed."
       },
       "kid": {
-        "headline": "At 11:59 PM the day closes",
+        "headline": "At {expiryTime} the day closes",
         "question": "How late is too late?",
-        "body": "Anything left is gone. Tomorrow is a fresh list."
+        "body": "After midnight, the task is gone."
       }
     },
     {
       "id": "DEAD-05",
       "chapter": "deadlines",
       "order": 5,
-      "condition": "ALWAYS",
+      "condition": "XP_ON",
       "phase": "weekly",
       "visual": "none",
       "editable": false,
@@ -440,7 +440,7 @@
       "kid": {
         "headline": "Daily jobs keep it alive",
         "question": "How do I keep my streak?",
-        "body": "Weekly and monthly jobs can't break it, ever."
+        "body": "Do every task, every day, and your streak grows."
       }
     },
     {
@@ -459,7 +459,7 @@
       "kid": {
         "headline": "Three misses ends it",
         "question": "What breaks my streak?",
-        "body": "Three days in a row, or three days in one week."
+        "body": "Three misses and your streak is gone — in a row, or in a week."
       }
     },
     {
@@ -478,7 +478,7 @@
       "kid": {
         "headline": "You can buy a day back",
         "question": "Can I save my streak?",
-        "body": "One missed day costs 10% of the week's points. Two costs 20%. After three, the streak is gone for good."
+        "body": "Miss once? You can trade some points to save it."
       }
     },
     {
@@ -627,12 +627,12 @@
       "adult": {
         "headline": "How this household rewards",
         "question": "What can we reward with?",
-        "clause": "The household runs one of five models: XP only, Allowance, XP + Rewards, XP + Allowance, or the full system."
+        "clause": "The Settings for this house decide how finishing work is rewarded."
       },
       "kid": {
         "headline": "How your prizes work",
         "question": "What do I get for finishing?",
-        "body": "Your family picks how prizes work — points, allowance, real rewards, or all of it together."
+        "body": "Your family picks how prizes work."
       }
     },
     {
@@ -687,12 +687,12 @@
       "adult": {
         "headline": "Recorded, not transferred",
         "question": "Does ChoreMaxx send the money?",
-        "clause": "Allowance is recorded in ChoreMaxx, not transferred — no money moves through the app. Approvals follow the household schedule, and Approve now always works."
+        "clause": "ChoreMaxx tracks allowance — it never moves money. Allowance builds up on the household schedule, and an admin marks it paid once they've handed it over. An admin can mark allowance paid at any time."
       },
       "kid": {
         "headline": "Allowance is counted here",
         "question": "When do I get my allowance?",
-        "body": "ChoreMaxx keeps the score. The actual money comes from your family."
+        "body": "Your allowance adds up here. A grown-up gives it to you and ticks it off."
       }
     },
     {
