@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {
   classifyConfirmError,
   createConfirmController,
+  shouldResumeSignedInOnConfirmLink,
   withTimeout,
 } from './confirm-callback';
 
@@ -68,6 +69,12 @@ async function main() {
     const other = classifyConfirmError(new Error('network down'));
     assert.equal(other.phase, 'error');
     pass('classifyConfirmError maps timeout/expired to continue');
+  }
+
+  {
+    assert.equal(shouldResumeSignedInOnConfirmLink(true), true);
+    assert.equal(shouldResumeSignedInOnConfirmLink(false), false);
+    pass('used inbox link resumes the signed-in app instead of Enter code');
   }
 
   {

@@ -27,6 +27,7 @@ import {
   SUCCESS_HOLD_MS,
   classifyConfirmError,
   createConfirmController,
+  shouldResumeSignedInOnConfirmLink,
   withTimeout,
 } from '@/lib/auth/confirm-callback';
 import {
@@ -102,6 +103,17 @@ export default function AuthCallbackScreen() {
     router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
   };
 
+  const enterSignedInApp = async (session: Parameters<typeof hydrateFromSession>[0]) => {
+    const controller = controllerRef.current;
+    if (controller.finished) return;
+    controller.markFinished();
+    await hydrateQuietly(session);
+    setPhase('success');
+    setMessage("You're in");
+    await new Promise((r) => setTimeout(r, SUCCESS_HOLD_MS));
+    router.replace('/');
+  };
+
   const hydrateQuietly = async (session: Parameters<typeof hydrateFromSession>[0]) => {
     try {
       await withTimeout(
@@ -124,8 +136,7 @@ export default function AuthCallbackScreen() {
         'Confirmation timed out. Enter the code from your email instead.'
       );
       if (existing) {
-        await hydrateQuietly(existing);
-        await finishSuccess();
+        await enterSignedInApp(existing);
         return;
       }
     } catch {
@@ -165,6 +176,16 @@ export default function AuthCallbackScreen() {
       setMessage('Confirming your email…');
 
       try {
+        const existingUpFront = await withTimeout(
+          authRepository.getCurrentSession(),
+          4_000,
+          'Confirmation timed out. Enter the code from your email instead.'
+        );
+        if (shouldResumeSignedInOnConfirmLink(Boolean(existingUpFront)) && existingUpFront) {
+          await enterSignedInApp(existingUpFront);
+          return;
+        }
+
         const session = await withTimeout(
           createSessionFromUrl(incoming),
           VERIFY_TIMEOUT_MS,
@@ -180,8 +201,7 @@ export default function AuthCallbackScreen() {
             'Confirmation timed out. Enter the code from your email instead.'
           );
           if (existing) {
-            await hydrateQuietly(existing);
-            await finishSuccess();
+            await enterSignedInApp(existing);
             return;
           }
           if (controller.finished) return;
@@ -204,6 +224,15 @@ export default function AuthCallbackScreen() {
         await finishSuccess();
       } catch (err) {
         if (controller.finished) return;
+        try {
+          const existing = await authRepository.getCurrentSession();
+          if (existing) {
+            await enterSignedInApp(existing);
+            return;
+          }
+        } catch {
+          /* show continue if we cannot read a session */
+        }
         const classified = classifyConfirmError(err);
         controller.markFinished();
         setPhase(classified.phase);

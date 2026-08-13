@@ -89,3 +89,11 @@ export function classifyConfirmError(err: unknown): { phase: ConfirmPhase; messa
   }
   return { phase: 'error', message: text };
 }
+
+/**
+ * Inbox links stay clickable after the first confirm. If a session already
+ * exists, skip verify and do not show “Enter code” — send them into the app.
+ */
+export function shouldResumeSignedInOnConfirmLink(hasSession: boolean): boolean {
+  return hasSession;
+}
