@@ -185,6 +185,10 @@ export default function PoppinsScreen() {
     [localMonitorActions, poppinsMonitorActions]
   );
 
+  useEffect(() => {
+    poppinsUiOrchestrator.setSpeaking(visualState === 'speaking');
+  }, [visualState]);
+
   const applyTranscript = (role: 'user' | 'assistant', text: string) => {
     if (role === 'user') {
       setUserTranscript(text);
@@ -194,6 +198,7 @@ export default function PoppinsScreen() {
       }
     } else {
       setPoppinsTranscript(text);
+      poppinsUiOrchestrator.syncSpoken(text, memberNamesRef.current);
     }
   };
 
@@ -323,6 +328,7 @@ export default function PoppinsScreen() {
       if (result.ui_actions?.length) {
         applyUiActions(result.ui_actions, true);
       }
+      poppinsUiOrchestrator.syncSpoken(result.answer, memberNamesRef.current);
     } catch {
       setError('Poppins could not answer right now. Try again in a moment.');
     } finally {
@@ -363,6 +369,7 @@ export default function PoppinsScreen() {
           setVoiceState('speaking');
           applyTranscript('assistant', result.answer);
           if (result.ui_actions?.length) applyUiActions(result.ui_actions, true);
+          poppinsUiOrchestrator.syncSpoken(result.answer, memberNamesRef.current);
         }
       } catch {
         setError('Poppins voice failed. Try again or type your question.');

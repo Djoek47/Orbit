@@ -3,7 +3,7 @@
  */
 
 import {
-  defaultCommitForScene,
+  coerceCommit,
   isIuiScene,
   type IuiBeat,
   type IuiCommitKind,
@@ -50,9 +50,9 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     if (type === 'present_ui_scene') {
       const raw = String(action.scene ?? 'thinking');
       const scene = isIuiScene(raw) ? raw : 'thinking';
-      const commit =
-        (action.commit as IuiCommitKind | undefined) ?? defaultCommitForScene(scene);
-      playlist.push(beat(scene, asRecord(action.payload) as IuiPayload, commit));
+      const payload = asRecord(action.payload) as IuiPayload;
+      const commit = coerceCommit(scene, action.commit as IuiCommitKind | undefined, payload.route);
+      playlist.push(beat(scene, payload, commit));
       continue;
     }
 
@@ -96,8 +96,9 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
             title: String(action.title ?? 'Task'),
             taskId: String(action.taskId ?? ''),
             peek: [{ id: String(action.taskId ?? 't'), title: String(action.title ?? 'Task') }],
+            confirmSummary: `Mark ${String(action.title ?? 'this task')} done?`,
           },
-          'hold',
+          'confirm',
           'complete_task'
         )
       );
@@ -164,8 +165,9 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
           {
             itineraryId: String(action.itineraryId ?? ''),
             thinkingLine: 'Advancing the next stop.',
+            confirmSummary: 'Advance to the next stop?',
           },
-          'hold',
+          'confirm',
           'advance_itinerary'
         )
       );
@@ -181,7 +183,8 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
             title: String(action.rewardName ?? 'Reward'),
             confirmSummary: `Mint ${String(action.rewardName ?? 'this reward')}?`,
           },
-          'confirm'
+          'confirm',
+          'claim_reward'
         )
       );
       continue;
@@ -197,8 +200,10 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
               ? String(asRecord(action.patch).assignee)
               : undefined,
             taskId: String(action.taskId ?? ''),
+            confirmSummary: 'Update this task?',
           },
-          'confirm'
+          'confirm',
+          'update_task'
         )
       );
       continue;

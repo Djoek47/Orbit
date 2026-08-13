@@ -1,19 +1,24 @@
 /**
- * IUI session bus — playlist, HOLD assent, barge-in revise.
+ * IUI session bus — playlist, speech-gated HOLD, barge-in revise, lip-sync.
  */
 
 import { useSyncExternalStore } from 'react';
 
-import { interpretStageSpeech } from '@/lib/poppins/ui-speech';
+import { interpretStageSpeech, matchSpokenTokens } from '@/lib/poppins/ui-speech';
 import { mapUiActionsToPlaylist } from '@/lib/poppins/ui-tool-map';
 import {
   HOLD_MS_DEFAULT,
   HOLD_MS_KID,
   SHOW_MS,
+  SPEECH_QUIET_MS,
+  UNFOLD_MS,
+  sceneNeedsUnfold,
   type IuiBeat,
   type IuiPayload,
   type IuiPhase,
 } from '@/lib/poppins/ui-scenes';
+
+export type IuiHapticKind = 'show' | 'hold' | 'settle' | 'veto';
 
 export type IuiDriveState = {
   live: boolean;
@@ -25,6 +30,8 @@ export type IuiDriveState = {
   holdStartedAt: number | null;
   thinkingLine: string;
   frozen: boolean;
+  speaking: boolean;
+  spoken: string;
 };
 
 const EMPTY: IuiDriveState = {
@@ -37,14 +44,19 @@ const EMPTY: IuiDriveState = {
   holdStartedAt: null,
   thinkingLine: '',
   frozen: false,
+  speaking: false,
+  spoken: '',
 };
 
 let state: IuiDriveState = EMPTY;
 const listeners = new Set<() => void>();
 let holdTimer: ReturnType<typeof setTimeout> | null = null;
+let unfoldTimer: ReturnType<typeof setTimeout> | null = null;
+let quietTimer: ReturnType<typeof setTimeout> | null = null;
 let commitHandler: ((beat: IuiBeat) => void | Promise<void>) | null = null;
 let coachHandler: ((route: string) => void) | null = null;
 let pendingHandler: ((approved: boolean, ids: string[]) => void) | null = null;
+let hapticHandler: ((kind: IuiHapticKind) => void) | null = null;
 
 function emit() {
   for (const listener of listeners) listener();
@@ -60,8 +72,33 @@ function clearHoldTimer() {
   holdTimer = null;
 }
 
+function clearUnfoldTimer() {
+  if (unfoldTimer) clearTimeout(unfoldTimer);
+  unfoldTimer = null;
+}
+
+function clearQuietTimer() {
+  if (quietTimer) clearTimeout(quietTimer);
+  quietTimer = null;
+}
+
+function clearAllTimers() {
+  clearHoldTimer();
+  clearUnfoldTimer();
+  clearQuietTimer();
+}
+
 function currentBeat(): IuiBeat | null {
   return state.playlist[state.index] ?? null;
+}
+
+function patchCurrentPayload(patch: Partial<IuiPayload>) {
+  const beat = currentBeat();
+  if (!beat) return;
+  const next = { ...beat, payload: { ...beat.payload, ...patch } };
+  setState({
+    playlist: state.playlist.map((item, i) => (i === state.index ? next : item)),
+  });
 }
 
 async function settleCurrent() {
@@ -70,7 +107,9 @@ async function settleCurrent() {
     clear();
     return;
   }
+  if (state.speaking && beat.commit === 'hold') return;
   setState({ phase: 'settle', holding: false, holdStartedAt: null });
+  hapticHandler?.('settle');
   if (beat.scene === 'confirm' && beat.payload.confirmationIds?.length) {
     pendingHandler?.(true, beat.payload.confirmationIds);
   }
@@ -86,6 +125,7 @@ async function settleCurrent() {
       phase: 'show',
       holding: false,
       thinkingLine: state.playlist[next]?.payload.thinkingLine ?? '',
+      spoken: '',
     });
     armBeat();
     return;
@@ -93,39 +133,83 @@ async function settleCurrent() {
   setTimeout(() => clear(), 700);
 }
 
-function armBeat() {
+function startHoldClock(beat: IuiBeat) {
+  if (state.frozen || state.speaking || currentBeat()?.id !== beat.id) return;
+  if (state.holding) return;
+  setState({ holding: true, phase: 'hold', holdStartedAt: Date.now() });
+  hapticHandler?.('hold');
   clearHoldTimer();
+  holdTimer = setTimeout(() => {
+    if (state.speaking || state.frozen || currentBeat()?.id !== beat.id) return;
+    void settleCurrent();
+  }, state.holdMs);
+}
+
+function maybeArmHold() {
+  const beat = currentBeat();
+  if (!beat || beat.commit !== 'hold' || state.frozen || state.speaking) return;
+  if (state.holding) return;
+  if (sceneNeedsUnfold(beat.scene) && state.phase === 'show') return;
+  clearQuietTimer();
+  quietTimer = setTimeout(() => {
+    if (state.speaking || state.frozen) return;
+    startHoldClock(beat);
+  }, SPEECH_QUIET_MS);
+}
+
+function scheduleUnfold() {
   const beat = currentBeat();
   if (!beat || state.frozen) return;
-  setState({ phase: 'show', holding: false });
-
-  if (beat.commit === 'hold') {
-    holdTimer = setTimeout(() => {
-      if (state.frozen || currentBeat()?.id !== beat.id) return;
-      setState({ holding: true, phase: 'hold', holdStartedAt: Date.now() });
-      holdTimer = setTimeout(() => {
-        if (state.frozen || currentBeat()?.id !== beat.id) return;
-        void settleCurrent();
-      }, state.holdMs);
-    }, SHOW_MS);
+  if (!sceneNeedsUnfold(beat.scene)) {
+    maybeArmHold();
     return;
   }
+  clearUnfoldTimer();
+  unfoldTimer = setTimeout(() => {
+    if (currentBeat()?.id !== beat.id || state.frozen) return;
+    if (state.phase === 'show') setState({ phase: 'unfold' });
+    maybeArmHold();
+  }, SHOW_MS);
+}
+
+function armBeat() {
+  clearAllTimers();
+  const beat = currentBeat();
+  if (!beat || state.frozen) return;
+  setState({ phase: 'show', holding: false, holdStartedAt: null });
+  hapticHandler?.('show');
 
   if (beat.commit === 'confirm') {
-    setState({ phase: 'show', holding: false });
+    if (sceneNeedsUnfold(beat.scene)) scheduleUnfold();
     return;
   }
 
-  const linger = beat.scene === 'list_peek' || beat.scene === 'member_pick' ? 1600 : 900;
+  if (beat.commit === 'none') {
+    const linger = beat.scene === 'list_peek' || beat.scene === 'member_pick' ? 1600 : 900;
+    holdTimer = setTimeout(() => {
+      if (state.frozen || currentBeat()?.id !== beat.id) return;
+      void settleCurrent();
+    }, linger);
+    return;
+  }
+
+  scheduleUnfold();
+}
+
+function resetHoldProgressOnly() {
+  const beat = currentBeat();
+  if (!beat || !state.holding || beat.commit !== 'hold') return;
+  setState({ holdStartedAt: Date.now() });
+  clearHoldTimer();
   holdTimer = setTimeout(() => {
-    if (state.frozen || currentBeat()?.id !== beat.id) return;
+    if (state.speaking || state.frozen || currentBeat()?.id !== beat.id) return;
     void settleCurrent();
-  }, linger);
+  }, state.holdMs);
 }
 
 function startPlaylist(playlist: IuiBeat[], kid?: boolean) {
   if (!playlist.length) return;
-  clearHoldTimer();
+  clearAllTimers();
   setState({
     live: true,
     playlist,
@@ -133,9 +217,10 @@ function startPlaylist(playlist: IuiBeat[], kid?: boolean) {
     phase: 'show',
     holding: false,
     holdMs: kid ? HOLD_MS_KID : HOLD_MS_DEFAULT,
-    holdStartedAt: Date.now(),
+    holdStartedAt: null,
     thinkingLine: playlist[0]?.payload.thinkingLine ?? '',
     frozen: false,
+    spoken: '',
   });
   armBeat();
 }
@@ -157,6 +242,20 @@ export const poppinsUiOrchestrator = {
   setPendingHandler(handler: ((approved: boolean, ids: string[]) => void) | null) {
     pendingHandler = handler;
   },
+  setHapticHandler(handler: ((kind: IuiHapticKind) => void) | null) {
+    hapticHandler = handler;
+  },
+  setSpeaking(speaking: boolean) {
+    if (state.speaking === speaking) return;
+    if (speaking && state.holding) {
+      clearHoldTimer();
+      clearQuietTimer();
+      setState({ speaking: true, holding: false, phase: 'unfold' });
+      return;
+    }
+    setState({ speaking });
+    if (!speaking) maybeArmHold();
+  },
   drive(actions: Array<Record<string, unknown>>, opts?: { kid?: boolean; replace?: boolean }) {
     let playlist = mapUiActionsToPlaylist(actions);
     if (opts?.kid) playlist = playlist.filter((beat) => beat.scene !== 'reward_mint');
@@ -177,19 +276,45 @@ export const poppinsUiOrchestrator = {
   revise(patch: Partial<IuiPayload>) {
     const beat = currentBeat();
     if (!beat) return;
-    const next = {
-      ...beat,
-      payload: { ...beat.payload, ...patch },
-    };
-    const playlist = state.playlist.map((item, i) => (i === state.index ? next : item));
-    setState({ playlist, frozen: false, phase: 'show' });
-    armBeat();
+    patchCurrentPayload(patch);
+    setState({ frozen: false });
+    if (state.holding) {
+      resetHoldProgressOnly();
+      return;
+    }
+    if (state.phase === 'show' || state.phase === 'unfold' || state.phase === 'hold') {
+      return;
+    }
+  },
+  syncSpoken(text: string, memberNames: string[] = []) {
+    if (!state.live) return;
+    setState({ spoken: text });
+    const beat = currentBeat();
+    if (!beat) return;
+    const names =
+      memberNames.length > 0 ? memberNames : (beat.payload.faces ?? []).map((face) => face.name);
+    const patch = matchSpokenTokens(text, { memberNames: names, title: beat.payload.title });
+    if (Object.keys(patch).length) {
+      patchCurrentPayload(patch);
+    }
+    if (state.phase === 'show' && (patch.spokenName || patch.date || patch.due)) {
+      setState({ phase: 'unfold' });
+      maybeArmHold();
+    }
   },
   applySpeech(text: string, memberNames: string[] = []) {
     if (!state.live) return false;
-    const steer = interpretStageSpeech(text, { memberNames, live: true });
+    const steer = interpretStageSpeech(text, {
+      memberNames,
+      live: true,
+      frozen: state.frozen,
+    });
     if (steer.kind === 'freeze') {
       poppinsUiOrchestrator.freeze();
+      return true;
+    }
+    if (steer.kind === 'unfreeze') {
+      poppinsUiOrchestrator.unfreeze();
       return true;
     }
     if (steer.kind === 'veto') {
@@ -211,11 +336,15 @@ export const poppinsUiOrchestrator = {
     return false;
   },
   freeze() {
-    clearHoldTimer();
-    setState({ frozen: true, holding: false, phase: 'show' });
+    clearAllTimers();
+    setState({ frozen: true, holding: false, phase: state.phase === 'hold' ? 'unfold' : state.phase });
+  },
+  unfreeze() {
+    setState({ frozen: false });
+    maybeArmHold();
   },
   confirm() {
-    clearHoldTimer();
+    clearAllTimers();
     void settleCurrent();
   },
   veto() {
@@ -223,15 +352,17 @@ export const poppinsUiOrchestrator = {
     if (beat?.scene === 'confirm' && beat.payload.confirmationIds?.length) {
       pendingHandler?.(false, beat.payload.confirmationIds);
     }
-    clearHoldTimer();
+    hapticHandler?.('veto');
+    clearAllTimers();
     clear();
   },
   clear,
 };
 
 function clear() {
-  clearHoldTimer();
-  state = { ...EMPTY };
+  clearAllTimers();
+  const speaking = state.speaking;
+  state = { ...EMPTY, speaking };
   emit();
 }
 

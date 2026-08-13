@@ -83,6 +83,8 @@ export type IuiPayload = {
   itineraryId?: string;
   itineraryTitle?: string;
   taskId?: string;
+  /** Last member name heard in the assistant transcript (Face pulse). */
+  spokenName?: string;
   /** Store write kind when HOLD/confirm settles. */
   write?: IuiWriteKind;
 };
@@ -93,8 +95,18 @@ export type IuiWriteKind =
   | 'create_itinerary_stop'
   | 'add_grocery'
   | 'complete_task'
+  | 'update_task'
+  | 'claim_reward'
   | 'advance_itinerary'
   | 'none';
+
+/** Scenes allowed to HOLD-commit a store write. */
+export const HOLD_SCENES: readonly IuiScene[] = [
+  'task_compose',
+  'calendar_zoom',
+  'itinerary_stage',
+  'grocery_add',
+];
 
 export type IuiBeat = {
   id: string;
@@ -106,20 +118,34 @@ export type IuiBeat = {
 
 export const HOLD_MS_DEFAULT = 1500;
 export const HOLD_MS_KID = 2200;
-/** SHOW beat before HOLD so GhostField / Lattice can land. */
+/** SHOW beat before UNFOLD so GhostField / Lattice can land. */
 export const SHOW_MS = 480;
+/** UNFOLD (card / road / day) before HOLD. Matches motion.settle. */
+export const UNFOLD_MS = 600;
+/** Quiet gap after speech before HOLD may start. */
+export const SPEECH_QUIET_MS = 400;
 
 export function defaultCommitForScene(scene: IuiScene): IuiCommitKind {
-  if (
-    scene === 'task_compose' ||
-    scene === 'calendar_zoom' ||
-    scene === 'itinerary_stage' ||
-    scene === 'grocery_add'
-  ) {
-    return 'hold';
-  }
+  if ((HOLD_SCENES as readonly string[]).includes(scene)) return 'hold';
   if (scene === 'reward_mint' || scene === 'confirm') return 'confirm';
   return 'none';
+}
+
+export function coerceCommit(
+  scene: IuiScene,
+  commit: IuiCommitKind | undefined,
+  route?: string
+): IuiCommitKind {
+  const next = commit ?? defaultCommitForScene(scene);
+  if (scene === 'navigate_coach' || (route && isCoachRoute(route))) return 'none';
+  if (next === 'hold' && !(HOLD_SCENES as readonly string[]).includes(scene)) {
+    return defaultCommitForScene(scene);
+  }
+  return next;
+}
+
+export function sceneNeedsUnfold(scene: IuiScene): boolean {
+  return scene === 'task_compose' || scene === 'calendar_zoom' || scene === 'itinerary_stage';
 }
 
 export const COACH_ROUTES = [

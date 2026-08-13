@@ -7,14 +7,20 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 type Props = {
   text: string;
   accent: string;
+  /** Jump to full title when the spoken clause already named it. */
+  catchUp?: boolean;
 };
 
 /** Title types itself — speak a correction mid-type. */
-export function IuiGhostField({ text, accent }: Props) {
+export function IuiGhostField({ text, accent, catchUp }: Props) {
   const { c } = useOrbitColors();
   const [shown, setShown] = useState('');
 
   useEffect(() => {
+    if (catchUp) {
+      setShown(text);
+      return;
+    }
     setShown('');
     if (!text) return;
     let i = 0;
@@ -24,7 +30,7 @@ export function IuiGhostField({ text, accent }: Props) {
       if (i >= text.length) clearInterval(timer);
     }, 28);
     return () => clearInterval(timer);
-  }, [text]);
+  }, [catchUp, text]);
 
   return (
     <Text style={[styles.field, { color: c.text, borderBottomColor: `${accent}66` }]}>

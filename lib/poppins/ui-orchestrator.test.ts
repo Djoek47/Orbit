@@ -154,5 +154,64 @@ poppinsUiOrchestrator.drive(
 );
 assert.equal(poppinsUiOrchestrator.getState().holdMs, HOLD_MS_KID);
 poppinsUiOrchestrator.clear();
+poppinsUiOrchestrator.setSpeaking(false);
+
+const complete = mapUiActionsToPlaylist([{ type: 'complete_task', taskId: 't1', title: 'Dishes' }]);
+assert.equal(complete[0]?.commit, 'confirm');
+assert.notEqual(complete[0]?.commit, 'hold');
+assert.equal(complete[0]?.payload.write, 'complete_task');
+
+const settingsHold = mapUiActionsToPlaylist([
+  {
+    type: 'present_ui_scene',
+    scene: 'navigate_coach',
+    commit: 'hold',
+    payload: { route: '/settings', coachLine: 'Opening Settings.' },
+  },
+]);
+assert.equal(settingsHold[0]?.commit, 'none');
+assert.equal(settingsHold[0]?.scene, 'navigate_coach');
+
+const settingsViaRoute = mapUiActionsToPlaylist([
+  {
+    type: 'present_ui_scene',
+    scene: 'task_compose',
+    commit: 'hold',
+    payload: { route: '/settings', title: 'Nope' },
+  },
+]);
+assert.equal(settingsViaRoute[0]?.commit, 'none');
+
+poppinsUiOrchestrator.setSpeaking(true);
+poppinsUiOrchestrator.drive(
+  [{ type: 'create_task_draft', title: 'Dishwasher', assignee: 'Alex' }],
+  { replace: true }
+);
+assert.equal(poppinsUiOrchestrator.getState().speaking, true);
+assert.equal(poppinsUiOrchestrator.getState().holding, false);
+assert.notEqual(poppinsUiOrchestrator.getState().phase, 'hold');
+
+poppinsUiOrchestrator.syncSpoken('I will add the dishwasher for Alex', ['Alex', 'Maya']);
+assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.assignee, 'Alex');
+assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.spokenName, 'Alex');
+assert.equal(poppinsUiOrchestrator.getState().playlist.length, 1);
+assert.equal(poppinsUiOrchestrator.getState().holding, false);
+
+poppinsUiOrchestrator.revise({ assignee: 'Maya' });
+assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.assignee, 'Maya');
+assert.equal(poppinsUiOrchestrator.getState().holding, false);
+
+poppinsUiOrchestrator.setSpeaking(false);
+assert.equal(poppinsUiOrchestrator.getState().holding, false);
+
+const steeredMaya = interpretStageSpeech('Maya', { memberNames: ['Alex', 'Maya'], live: true });
+assert.equal(steeredMaya.kind, 'revise');
+if (steeredMaya.kind === 'revise') assert.equal(steeredMaya.patch.assignee, 'Maya');
+
+const frozenGo = interpretStageSpeech('go', { live: true, frozen: true });
+assert.equal(frozenGo.kind, 'unfreeze');
+
+poppinsUiOrchestrator.clear();
+poppinsUiOrchestrator.setSpeaking(false);
 
 console.log('iui orchestrator tests passed');

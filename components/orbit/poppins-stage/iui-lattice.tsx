@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { motionDuration } from '@/constants/motion-tokens';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type Props = {
@@ -31,7 +32,7 @@ export function IuiLattice({ monthLabel, dayNumber, accent }: Props) {
           return (
             <Animated.View
               key={n}
-              entering={selected ? ZoomIn.duration(320) : FadeIn.duration(180)}
+              entering={selected ? ZoomIn.duration(motionDuration.settle) : FadeIn.duration(motionDuration.smooth)}
               style={[
                 styles.cell,
                 selected && {
