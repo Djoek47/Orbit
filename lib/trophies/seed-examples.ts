@@ -1,24 +1,19 @@
 /**
- * EXAMPLE trophy definitions for engine verification.
- *
- * Part 1 (`choremaxx-100-trophies-part1.md`) is NOT available yet.
- * These ≤8 stubs prove each of the eight evaluator types works.
- * Replace with the real 100 when Part 1 lands — do not invent production names/thresholds here.
- *
- * EXAMPLE ONLY — not shipping trophy copy.
+ * Eight live evaluator trophies (Part 2 names).
+ * Part 1 (`choremaxx-100-trophies-part1.md`) will replace this catalog —
+ * keep evaluator ids/thresholds stable until then.
  */
 
 import type { TrophyDefinition } from './types';
 
-/** Marked EXAMPLES until Part 1 definitions land. */
 export const EXAMPLE_TROPHY_DEFINITIONS: TrophyDefinition[] = [
   // 1. counter_gte
   {
     id: 'example-first-step',
-    name: 'EXAMPLE: First Step',
+    name: 'First Step',
     tier: 'bronze',
     category: 'volume',
-    description: 'EXAMPLE — complete 1 task (counter_gte).',
+    description: 'Complete your first task.',
     iconKey: 'example-first-step',
     evaluator: 'counter_gte',
     counter: 'tasksCompletedTotal',
@@ -31,10 +26,10 @@ export const EXAMPLE_TROPHY_DEFINITIONS: TrophyDefinition[] = [
   // 2. max_value_gte
   {
     id: 'example-banked-day',
-    name: 'EXAMPLE: Banked Day',
+    name: 'Banked Day',
     tier: 'bronze',
     category: 'xp',
-    description: 'EXAMPLE — single-day XP high-water ≥ 100 (max_value_gte).',
+    description: 'Bank 100 XP in a single day.',
     iconKey: 'example-banked-day',
     evaluator: 'max_value_gte',
     counter: 'xpDayMax',
@@ -47,10 +42,10 @@ export const EXAMPLE_TROPHY_DEFINITIONS: TrophyDefinition[] = [
   // 3. set_size_gte (popcount of domainsTouchedMask)
   {
     id: 'example-jack-of-trades',
-    name: 'EXAMPLE: Jack of Trades',
+    name: 'Jack of Trades',
     tier: 'silver',
     category: 'variety',
-    description: 'EXAMPLE — touch 3 distinct domains (set_size_gte).',
+    description: 'Touch three different domains.',
     iconKey: 'example-jack-of-trades',
     evaluator: 'set_size_gte',
     counter: 'domainsTouchedMask',
@@ -63,10 +58,10 @@ export const EXAMPLE_TROPHY_DEFINITIONS: TrophyDefinition[] = [
   // 4. bitmask_complete (all 7 weekday bits = 127)
   {
     id: 'example-full-house',
-    name: 'EXAMPLE: Full House',
+    name: 'Full House',
     tier: 'gold',
     category: 'perfection',
-    description: 'EXAMPLE — perfect every weekday once (bitmask_complete).',
+    description: 'Perfect every weekday once.',
     iconKey: 'example-full-house',
     evaluator: 'bitmask_complete',
     counter: 'perfectWeekdayMask',
@@ -80,10 +75,10 @@ export const EXAMPLE_TROPHY_DEFINITIONS: TrophyDefinition[] = [
   // 5. boolean_flag
   {
     id: 'example-quick-draw',
-    name: 'EXAMPLE: Quick Draw',
+    name: 'Quick Draw',
     tier: 'silver',
     category: 'speed',
-    description: 'EXAMPLE — quick-draw flag fired (boolean_flag).',
+    description: 'Finish a task the moment it opens.',
     iconKey: 'example-quick-draw',
     evaluator: 'boolean_flag',
     counter: 'quickDrawFlag',
@@ -96,10 +91,10 @@ export const EXAMPLE_TROPHY_DEFINITIONS: TrophyDefinition[] = [
   // 6. ratio_gte (tasksOnDueDay / tasksCompletedTotal)
   {
     id: 'example-on-time-share',
-    name: 'EXAMPLE: On-Time Share',
+    name: 'On-Time Share',
     tier: 'silver',
     category: 'speed',
-    description: 'EXAMPLE — ≥50% of completions on due day (ratio_gte).',
+    description: 'Complete at least half of your tasks on the due day.',
     iconKey: 'example-on-time-share',
     evaluator: 'ratio_gte',
     counter: 'tasksOnDueDay',
@@ -113,10 +108,10 @@ export const EXAMPLE_TROPHY_DEFINITIONS: TrophyDefinition[] = [
   // 7. consecutive_gte
   {
     id: 'example-well-earned',
-    name: 'EXAMPLE: Well Earned',
+    name: 'Well Earned',
     tier: 'gold',
     category: 'rewards',
-    description: 'EXAMPLE — 4 consecutive weeks with a reward (consecutive_gte).',
+    description: 'Earn a reward four weeks in a row.',
     iconKey: 'example-well-earned',
     evaluator: 'consecutive_gte',
     counter: 'consecutiveWeeksWithReward',
@@ -129,11 +124,10 @@ export const EXAMPLE_TROPHY_DEFINITIONS: TrophyDefinition[] = [
   // 8. composite_and
   {
     id: 'example-eternal-starter',
-    name: 'EXAMPLE: Eternal Starter',
+    name: 'Eternal Starter',
     tier: 'platinum',
     category: 'longevity',
-    description:
-      'EXAMPLE — accountAgeDays ≥ 30 AND monthsWithStreak ≥ 1 (composite_and).',
+    description: 'Stay active for a month with a streak on the board.',
     iconKey: 'example-eternal-starter',
     evaluator: 'composite_and',
     counter: 'accountAgeDays',
@@ -159,5 +153,5 @@ export const EXAMPLE_TROPHY_DEFINITIONS: TrophyDefinition[] = [
   },
 ];
 
-/** Alias — EXAMPLE seed only until Part 1 lands. */
+/** Alias — eight live evaluators until Part 1 lands. */
 export const SEED_EXAMPLE_TROPHIES = EXAMPLE_TROPHY_DEFINITIONS;

@@ -204,6 +204,36 @@ export const notificationsRepository = {
     return mapNotificationRow(data);
   },
 
+  async updateCopy(
+    notificationId: string,
+    title: string,
+    body: string,
+    data?: Record<string, unknown>
+  ): Promise<NotificationItem | null> {
+    if (isMockMode()) {
+      mockNotificationState = mockNotificationState.map((item) =>
+        item.id === notificationId
+          ? { ...item, title, body, data: data ? { ...item.data, ...data } : item.data }
+          : item
+      );
+      return mockNotificationState.find((item) => item.id === notificationId) ?? null;
+    }
+
+    const supabase = getConfiguredSupabase('notificationsRepository.updateCopy');
+    const { data: row, error } = await supabase
+      .from('notifications')
+      .update({
+        title,
+        body,
+        ...(data ? { data: data as import('@/types/database').Json } : {}),
+      })
+      .eq('id', notificationId)
+      .select('*')
+      .maybeSingle();
+    mapDbError('notificationsRepository.updateCopy', error);
+    return row ? mapNotificationRow(row) : null;
+  },
+
   /** @deprecated Prefer create() — kept for older callers. */
   async createMock(notification: Omit<NotificationItem, 'id' | 'createdAt' | 'isRead'> & { id?: string }) {
     return this.create({

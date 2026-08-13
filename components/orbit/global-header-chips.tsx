@@ -37,6 +37,7 @@ export function GlobalHeaderChips() {
     orbitPalette,
     poppinsBriefing,
     poppinsMonitorActions,
+    poppinsActivityFacts,
     poppinsWeeklyBriefing,
     unreadNotificationCount,
   } = useOrbit();
@@ -144,6 +145,7 @@ export function GlobalHeaderChips() {
         variant="inbox"
         notifications={notifications}
         monitorActions={monitorFeed}
+        activityFacts={poppinsActivityFacts}
         briefing={poppinsBriefing}
         weekly={poppinsWeeklyBriefing}
         metrics={metrics}

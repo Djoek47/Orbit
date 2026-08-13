@@ -1,3 +1,5 @@
+import { displayTrophyName } from '@/lib/trophies/display-name';
+
 /**
  * Closed notification registry — Revision E §2.
  *
@@ -74,7 +76,8 @@ export function formatNotificationBody(
     if (raw == null) return '';
     const str = String(raw);
     // People's names and leading sentence starts stay as provided.
-    if (key === 'name' || key === 'admin' || key === 'trophy') return str;
+    if (key === 'name' || key === 'admin') return str;
+    if (key === 'trophy') return displayTrophyName(str);
     return toSentenceValue(str);
   });
 }

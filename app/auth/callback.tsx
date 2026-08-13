@@ -21,6 +21,15 @@ import {
   urlHasAuthPayload,
 } from '@/lib/auth/email-confirmation';
 import {
+  WALL_CLOCK_MS,
+  WAIT_FOR_LINK_MS,
+  VERIFY_TIMEOUT_MS,
+  SUCCESS_HOLD_MS,
+  classifyConfirmError,
+  createConfirmController,
+  withTimeout,
+} from '@/lib/auth/confirm-callback';
+import {
   markPremiumGatePending,
   premiumOnboardingHref,
 } from '@/lib/billing/premium-onboarding';
@@ -29,10 +38,6 @@ import { authRepository } from '@/repositories/auth-repository';
 import { useOrbit } from '@/store/orbit-store';
 
 type Phase = 'working' | 'success' | 'needs_continue' | 'error';
-
-const WAIT_FOR_LINK_MS = 3_500;
-const VERIFY_TIMEOUT_MS = 12_000;
-const SUCCESS_HOLD_MS = 900;
 
 function buildUrlFromParams(params: Record<string, string | string[] | undefined>): string | null {
   const pick = (key: string) => {
@@ -60,20 +65,6 @@ function buildUrlFromParams(params: Record<string, string | string[] | undefined
   return `choremaxx://auth/callback?${q.toString()}`;
 }
 
-async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(label)), ms);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-
 export default function AuthCallbackScreen() {
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
@@ -86,8 +77,9 @@ export default function AuthCallbackScreen() {
 
   const [phase, setPhase] = useState<Phase>('working');
   const [message, setMessage] = useState('Confirming your email…');
-  const handled = useRef<string | null>(null);
-  const finished = useRef(false);
+  const controllerRef = useRef(createConfirmController());
+  const hydrateRef = useRef(hydrateFromSession);
+  hydrateRef.current = hydrateFromSession;
 
   const goConfirmOrSignIn = () => {
     const email = getPendingSignup()?.email;
@@ -99,8 +91,9 @@ export default function AuthCallbackScreen() {
   };
 
   const finishSuccess = async () => {
-    if (finished.current) return;
-    finished.current = true;
+    const controller = controllerRef.current;
+    if (controller.finished) return;
+    controller.markFinished();
     setPhase('success');
     setMessage('Email confirmed');
     clearPendingSignup();
@@ -109,20 +102,57 @@ export default function AuthCallbackScreen() {
     router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
   };
 
+  const escapeWorking = async (copy: string) => {
+    const controller = controllerRef.current;
+    if (!controller.canEscape()) return;
+    try {
+      const existing = await withTimeout(
+        authRepository.getCurrentSession(),
+        4_000,
+        'Confirmation timed out. Enter the code from your email instead.'
+      );
+      if (existing) {
+        await withTimeout(
+          hydrateRef.current(existing),
+          VERIFY_TIMEOUT_MS,
+          'Confirmation timed out. Enter the code from your email instead.'
+        );
+        await finishSuccess();
+        return;
+      }
+    } catch {
+      /* fall through to continue */
+    }
+    if (!controller.canEscape()) return;
+    controller.markFinished();
+    setPhase('needs_continue');
+    setMessage(copy);
+  };
+
   useEffect(() => {
-    let cancelled = false;
+    const wall = setTimeout(() => {
+      void escapeWorking(
+        'Enter the code from your email, or tap Continue if you already confirmed.'
+      );
+    }, WALL_CLOCK_MS);
+    return () => clearTimeout(wall);
+    // Wall clock is mount-only — must fire even if verify already started.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const controller = controllerRef.current;
 
     const run = async (incoming: string | null) => {
-      if (cancelled || finished.current) return;
+      if (controller.finished) return;
       if (!incoming) return;
-      if (handled.current === incoming) return;
 
-      // Bare callback with no auth payload — wait briefly for a richer URL event.
       if (!urlHasAuthPayload(incoming) && !incoming.includes('error')) {
         return;
       }
 
-      handled.current = incoming;
+      if (!controller.shouldStartVerify(incoming)) return;
+      controller.markVerifyStarted(incoming);
       setPhase('working');
       setMessage('Confirming your email…');
 
@@ -132,15 +162,26 @@ export default function AuthCallbackScreen() {
           VERIFY_TIMEOUT_MS,
           'Confirmation timed out. Enter the code from your email instead.'
         );
-        if (cancelled || finished.current) return;
+        // Do not drop success because the effect remounted.
+        if (controller.finished) return;
 
         if (!session) {
-          const existing = await authRepository.getCurrentSession();
+          const existing = await withTimeout(
+            authRepository.getCurrentSession(),
+            4_000,
+            'Confirmation timed out. Enter the code from your email instead.'
+          );
           if (existing) {
-            await hydrateFromSession(existing);
+            await withTimeout(
+              hydrateRef.current(existing),
+              VERIFY_TIMEOUT_MS,
+              'Confirmation timed out. Enter the code from your email instead.'
+            );
             await finishSuccess();
             return;
           }
+          if (controller.finished) return;
+          controller.markFinished();
           setPhase('needs_continue');
           setMessage(
             'Your email may already be confirmed. Continue to enter your code or sign in.'
@@ -148,32 +189,25 @@ export default function AuthCallbackScreen() {
           return;
         }
 
-        const next = await authRepository.getCurrentSession();
+        const next = await withTimeout(
+          authRepository.getCurrentSession(),
+          4_000,
+          'Confirmation timed out. Enter the code from your email instead.'
+        );
         if (next) {
-          await hydrateFromSession(next);
+          await withTimeout(
+            hydrateRef.current(next),
+            VERIFY_TIMEOUT_MS,
+            'Confirmation timed out. Enter the code from your email instead.'
+          );
         }
         await finishSuccess();
       } catch (err) {
-        if (cancelled || finished.current) return;
-        const text = err instanceof Error ? err.message : 'Confirmation failed.';
-        const lower = text.toLowerCase();
-        if (
-          lower.includes('expired') ||
-          lower.includes('invalid') ||
-          lower.includes('already') ||
-          lower.includes('otp') ||
-          lower.includes('timed out')
-        ) {
-          setPhase('needs_continue');
-          setMessage(
-            lower.includes('timed out')
-              ? text
-              : 'This link was already used or expired. Enter the code from your email, or continue to sign in.'
-          );
-          return;
-        }
-        setPhase('error');
-        setMessage(text);
+        if (controller.finished) return;
+        const classified = classifyConfirmError(err);
+        controller.markFinished();
+        setPhase(classified.phase);
+        setMessage(classified.message);
       }
     };
 
@@ -187,35 +221,20 @@ export default function AuthCallbackScreen() {
       void run(next);
     });
 
-    // Never leave the spinner orphaned — Chrome often opens a bare callback.
     const timer = setTimeout(() => {
-      if (cancelled || finished.current || handled.current) return;
-      void (async () => {
-        const existing = await authRepository.getCurrentSession();
-        if (cancelled || finished.current) return;
-        if (existing) {
-          try {
-            await hydrateFromSession(existing);
-            await finishSuccess();
-            return;
-          } catch {
-            /* fall through */
-          }
-        }
-        setPhase('needs_continue');
-        setMessage(
-          'Enter the code from your email, or tap Continue if you already confirmed.'
-        );
-      })();
+      if (controller.finished || controller.verifyStarted) return;
+      void escapeWorking(
+        'Enter the code from your email, or tap Continue if you already confirmed.'
+      );
     }, WAIT_FOR_LINK_MS);
 
     return () => {
-      cancelled = true;
       sub.remove();
       clearTimeout(timer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount + url/params only
-  }, [hydrateFromSession, linkingUrl, routeUrl]);
+    // hydrateFromSession is read via ref so store identity changes cannot cancel verify.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkingUrl, routeUrl]);
 
   return (
     <View

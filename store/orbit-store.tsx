@@ -1,4 +1,4 @@
-import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { dataMode } from '@/config/data-mode';
 import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
@@ -50,6 +50,16 @@ import {
 } from '@/lib/notifications/audience';
 import { registerForPushNotifications, presentLocalBanner, syncAppBadge, scheduleLocalReminder } from '@/lib/notifications/push';
 import { isQuietHour } from '@/lib/poppins/notification-batch';
+import { composeWithLuna } from '@/lib/poppins/notification-composer';
+import {
+  GLANCE_FLUSH_MS,
+  coalesceFacts,
+  factFromNotificationInput,
+  laneForKind,
+  type ComposeDecision,
+  type HouseholdFact,
+} from '@/lib/poppins/notification-policy';
+import { bucketNotification } from '@/lib/poppins/notification-buckets';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
 import { getV2Permissions } from '@/lib/permissions-v2';
 import { persistHouseholdScore } from '@/lib/momentum/score-writer';
@@ -223,6 +233,7 @@ type OrbitContextValue = {
   poppinsBriefing: PoppinsBriefing;
   poppinsRecommendations: PoppinsRecommendation[];
   poppinsMonitorActions: PoppinsMonitorAction[];
+  poppinsActivityFacts: HouseholdFact[];
   poppinsWeeklyBriefing: PoppinsWeeklyBriefing;
   permissions: HouseholdPermissions;
   /** v2 Admin/Member capability matrix (§1.6). */
@@ -496,6 +507,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     poppinsService.generateRecommendations(mockHousehold, initialMetrics)
   );
   const [poppinsMonitorActions, setPoppinsMonitorActions] = useState<PoppinsMonitorAction[]>([]);
+  const [poppinsActivityFacts, setPoppinsActivityFacts] = useState<HouseholdFact[]>([]);
+  const glanceBufferRef = useRef<HouseholdFact[]>([]);
+  const glanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const glanceBannerMembersRef = useRef<Set<string>>(new Set());
+  const notificationsRef = useRef<NotificationItem[]>([]);
+  notificationsRef.current = notifications;
 
   const currentMember = useMemo(() => {
     if (activeMemberId) {
@@ -545,7 +562,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     [currentMember?.id, currentMember?.role, notifications]
   );
   const unreadNotificationCount = useMemo(
-    () => visibleNotifications.filter((item) => !item.isRead).length,
+    () =>
+      visibleNotifications.filter((item) => !item.isRead && bucketNotification(item) === 'critical')
+        .length,
     [visibleNotifications]
   );
 
@@ -783,7 +802,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     void refreshStoreRecommendations();
   }, [refreshStoreRecommendations]);
 
-  const hydrateFromSession = async (session: AuthSession) => {
+  const hydrateFromSession = useCallback(async (session: AuthSession) => {
     const baseHousehold = await householdRepository.getHousehold();
     const hydratedHousehold = await hydrateHousehold({
       ...baseHousehold,
@@ -815,7 +834,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     registerForPushNotifications(session.user.id).catch((error) => {
       console.warn('Push registration skipped', error);
     });
-  };
+  }, []);
 
   const signIn = async (input: SignInInput) => {
     const session = await authRepository.signIn(input);
@@ -1366,6 +1385,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         await poppinsNotifications.trophyUnlocked(pushNotification, prefs, {
           trophy: unlock.name,
           audienceMemberIds: [member.id],
+          memberName: member.name,
+          memberId: member.id,
         });
       }
       if (dataMode === 'mock') {
@@ -2014,6 +2035,139 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }));
   };
 
+  const persistInboxRow = async (
+    decision: ComposeDecision,
+    input: {
+      data?: Record<string, unknown>;
+      userId?: string | null;
+    }
+  ): Promise<NotificationItem | null> => {
+    if (!household.id) return null;
+    if (decision.decision === 'drop' || decision.decision === 'activity_only') return null;
+
+    const data = {
+      ...(input.data ?? {}),
+      urgency: decision.urgency,
+      kind: decision.kind,
+      mergeKey: decision.mergeKey,
+      factIds: decision.factIds,
+      cta: decision.cta,
+    };
+
+    if (decision.decision === 'merge' && decision.mergeKey) {
+      const existing = notificationsRef.current.find(
+        (row) => !row.isRead && String(row.data?.mergeKey ?? '') === decision.mergeKey
+      );
+      if (existing) {
+        const updated = await notificationsRepository.updateCopy(
+          existing.id,
+          decision.title,
+          decision.body,
+          data
+        );
+        if (updated) {
+          setNotifications((current) =>
+            current.map((row) => (row.id === updated.id ? updated : row))
+          );
+        }
+        return updated;
+      }
+    }
+
+    const audienceRoles = input.data?.audienceRoles;
+    const isAdminAudience =
+      Array.isArray(audienceRoles) &&
+      audienceRoles.some((role) => role === 'owner' || role === 'admin' || role === 'adult');
+    const targetUserId = input.userId !== undefined ? input.userId : isAdminAudience ? null : currentUser?.id;
+
+    const item = await notificationsRepository.create({
+      householdId: household.id,
+      title: decision.title,
+      body: decision.body,
+      category: decision.category,
+      priority: decision.priority,
+      data,
+      userId: targetUserId,
+    });
+    setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
+
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    const urgent = decision.urgency === 'needs_action' || decision.priority === 'high';
+    const quietEnabled = prefs.quietHoursEnabled !== false;
+    const deferBanner = quietEnabled && isQuietHour(new Date().getHours()) && !urgent;
+
+    if (!deferBanner && decision.banner) {
+      void presentLocalBanner(item.title, item.body, {
+        ...(item.data ?? {}),
+        notificationId: item.id,
+        category: item.category,
+      }).catch(() => undefined);
+    }
+    return item;
+  };
+
+  const maybeRewriteWithLuna = (
+    item: NotificationItem,
+    facts: HouseholdFact[],
+    fallback: ComposeDecision
+  ) => {
+    if (!useLivePoppinsAi || !household.id) return;
+    void composeWithLuna(facts, fallback, {
+      householdId: household.id,
+      role: currentMember?.role,
+      unreadCount: notificationsRef.current.filter((row) => !row.isRead).length,
+    }).then(async (next) => {
+      if (next.title === item.title && next.body === item.body) return;
+      const updated = await notificationsRepository.updateCopy(item.id, next.title, next.body);
+      if (!updated) return;
+      setNotifications((current) => current.map((row) => (row.id === updated.id ? updated : row)));
+    });
+  };
+
+  const flushGlanceFacts = async () => {
+    const facts = glanceBufferRef.current.splice(0);
+    if (!facts.length) return;
+    const now = Date.now();
+    const existing = notificationsRef.current.map((row) => ({
+      kind: typeof row.data?.kind === 'string' ? row.data.kind : undefined,
+      urgency: typeof row.data?.urgency === 'string' ? row.data.urgency : undefined,
+      createdAt: row.createdAt,
+      mergeKey: typeof row.data?.mergeKey === 'string' ? row.data.mergeKey : undefined,
+      isRead: row.isRead,
+    }));
+    const insightAlreadyToday = notificationsRef.current.some((row) => {
+      if (row.data?.urgency !== 'insight') return false;
+      const d = new Date(row.createdAt);
+      const n = new Date(now);
+      return (
+        d.getFullYear() === n.getFullYear() &&
+        d.getMonth() === n.getMonth() &&
+        d.getDate() === n.getDate()
+      );
+    });
+    const decisions = coalesceFacts(facts, {
+      now,
+      existing,
+      insightAlreadyToday,
+      bannerSentMembers: glanceBannerMembersRef.current,
+    });
+    for (const decision of decisions) {
+      const related = facts.filter((row) => decision.factIds.includes(row.id));
+      const item = await persistInboxRow(decision, {
+        data: {
+          name: related[0]?.memberName,
+          memberId: related[0]?.memberId,
+          memberName: related[0]?.memberName,
+        },
+      });
+      const bannerKey = related[0]?.memberId || related[0]?.memberName;
+      if (decision.banner && bannerKey) {
+        glanceBannerMembersRef.current.add(bannerKey);
+      }
+      if (item) maybeRewriteWithLuna(item, related, decision);
+    }
+  };
+
   const pushNotification = async (input: {
     title: string;
     body: string;
@@ -2026,42 +2180,44 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return null;
     }
 
-    const audienceRoles = input.data?.audienceRoles;
-    const isAdminAudience =
-      Array.isArray(audienceRoles) &&
-      audienceRoles.some((role) => role === 'owner' || role === 'admin' || role === 'adult');
+    const fact = factFromNotificationInput(input);
+    setPoppinsActivityFacts((current) => [fact, ...current].slice(0, 80));
+    const lane = laneForKind(fact.kind);
 
-    // Admin-targeted notes stay household-scoped (null user) so they are not
-    // attributed to the child/submitter in Supabase mode.
-    const targetUserId = input.userId !== undefined ? input.userId : isAdminAudience ? null : currentUser?.id;
+    if (lane === 'activity_only') {
+      return null;
+    }
 
-    const item = await notificationsRepository.create({
-      householdId: household.id,
+    if (lane === 'interrupt') {
+      await flushGlanceFacts();
+      const [decision] = coalesceFacts([fact], { now: Date.now() });
+      if (!decision) return null;
+      const item = await persistInboxRow(decision, input);
+      if (item) maybeRewriteWithLuna(item, [fact], decision);
+      return item;
+    }
+
+    if (lane === 'glance' || lane === 'insight') {
+      glanceBufferRef.current.push(fact);
+      if (glanceTimerRef.current) clearTimeout(glanceTimerRef.current);
+      glanceTimerRef.current = setTimeout(() => {
+        void flushGlanceFacts();
+      }, GLANCE_FLUSH_MS);
+      return null;
+    }
+
+    const passthrough: ComposeDecision = {
+      decision: 'send',
+      urgency: input.priority === 'high' || input.priority === 'critical' ? 'needs_action' : 'today',
       title: input.title,
       body: input.body,
       category: input.category,
-      priority: input.priority,
-      data: input.data,
-      userId: targetUserId,
-    });
-    setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
-
-    // A5 — quiet hours 21:00–07:00: keep inbox write, defer non-urgent OS banners.
-    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    const kind = typeof input.data?.kind === 'string' ? input.data.kind : '';
-    const urgent = kind === 'deadline_reminder' || input.priority === 'high';
-    const quietEnabled = prefs.quietHoursEnabled !== false;
-    const deferBanner = quietEnabled && isQuietHour(new Date().getHours()) && !urgent;
-
-    if (!deferBanner) {
-      // Always surface an OS banner when permission allows — inbox-only is not enough (Rev E / iOS).
-      void presentLocalBanner(item.title, item.body, {
-        ...(item.data ?? {}),
-        notificationId: item.id,
-        category: item.category,
-      }).catch(() => undefined);
-    }
-    return item;
+      priority: input.priority ?? 'medium',
+      kind: fact.kind,
+      factIds: [fact.id],
+      banner: true,
+    };
+    return persistInboxRow(passthrough, input);
   };
 
   const createEvent = async (input: CreateEventInput) => {
@@ -3761,6 +3917,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       poppinsBriefing,
       poppinsRecommendations,
       poppinsMonitorActions,
+      poppinsActivityFacts,
       poppinsWeeklyBriefing,
       permissions,
       v2Permissions,
@@ -3914,6 +4071,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       poppinsBriefing,
       poppinsRecommendations,
       poppinsMonitorActions,
+      poppinsActivityFacts,
       poppinsWeeklyBriefing,
       permissions,
       visibleNotifications,
