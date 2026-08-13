@@ -68,6 +68,7 @@
     "test:auth-errors": "npx --yes tsx lib/auth/auth-errors.test.ts",
     "test:repo-utils": "npx --yes tsx lib/household/persisted-household-id.test.ts",
     "test:webrtc-speaker": "npx --yes tsx lib/voice/webrtc-speaker-plugin.test.ts",
+    "test:transcript-merge": "npx --yes tsx lib/voice/transcript-merge.test.ts",
     "smoke:poppins": "bash ./scripts/smoke-poppins-openai.sh"
   },
   "dependencies": {

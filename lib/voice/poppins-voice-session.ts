@@ -443,6 +443,8 @@ export class PoppinsVoiceSession {
       this.setState('listening');
       this.pendingUserReplace = true;
       this.userTranscriptBuffer = '';
+      this.publishedAssistant = '';
+      this.callbacks.onTranscript?.('user', '', { replace: true });
     }
 
     if (type === 'conversation.item.input_audio_transcription.delta') {

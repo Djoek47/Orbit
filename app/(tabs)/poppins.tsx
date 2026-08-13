@@ -9,11 +9,11 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet';
 import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
+import { PoppinsLiveCaption } from '@/components/orbit/poppins-live-caption';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PoppinsWaveform } from '@/components/orbit/poppins-waveform';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
@@ -25,7 +25,11 @@ import {
 } from '@/lib/ai/majordomo-profiles';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { mergeTranscript } from '@/lib/voice/transcript-merge';
+import {
+  applyLiveCaptionTurn,
+  captionWindow,
+  type LiveCaption,
+} from '@/lib/voice/transcript-merge';
 import {
   isPoppinsNativeVoiceAvailable,
   PoppinsVoiceSession,
@@ -106,8 +110,7 @@ export default function PoppinsScreen() {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState('');
   const [voiceState, setVoiceState] = useState<PoppinsVoiceVisualState>('idle');
-  const [userTranscript, setUserTranscript] = useState('');
-  const [poppinsTranscript, setPoppinsTranscript] = useState('');
+  const [liveCaption, setLiveCaption] = useState<LiveCaption | null>(null);
   const [localMonitorActions, setLocalMonitorActions] = useState<PoppinsMonitorAction[]>([]);
   const [toolFlash, setToolFlash] = useState<string | null>(null);
   const [pendingConfirmations, setPendingConfirmations] = useState<PoppinsPendingConfirmation[]>(
@@ -196,13 +199,14 @@ export default function PoppinsScreen() {
     text: string,
     meta?: { replace?: boolean }
   ) => {
+    const speaker = role === 'user' ? 'you' : 'poppins';
+    setLiveCaption((prev) => applyLiveCaptionTurn(prev, speaker, text, meta?.replace));
+    if (!text.trim()) return;
     if (role === 'user') {
-      setUserTranscript((prev) => (meta?.replace ? text.trim() : mergeTranscript(prev, text)));
       if (poppinsUiOrchestrator.applySpeech(text, memberNamesRef.current)) {
         setShowActivity(true);
       }
     } else {
-      setPoppinsTranscript((prev) => (meta?.replace ? text.trim() : mergeTranscript(prev, text)));
       poppinsUiOrchestrator.syncSpoken(text, memberNamesRef.current);
     }
   };
@@ -217,6 +221,7 @@ export default function PoppinsScreen() {
     if (voiceRef.current?.isConnected) return voiceRef.current;
     setConnecting(true);
     setError('');
+    setLiveCaption(null);
     const session = new PoppinsVoiceSession({
       onStateChange: (state) => {
         setVoiceState(state);
@@ -238,6 +243,7 @@ export default function PoppinsScreen() {
       onSessionEnd: () => {
         setLiveConnected(false);
         setVoiceState('idle');
+        setLiveCaption(null);
         poppinsUiOrchestrator.clear();
       },
       onSoftIdlePrompt: () => {
@@ -276,13 +282,14 @@ export default function PoppinsScreen() {
     setVoiceState('idle');
     setListening(false);
     setRemoteStreamUrl(null);
+    setLiveCaption(null);
   };
 
   const handleSend = async () => {
     const trimmed = draft.trim();
     if (!trimmed || asking) return;
     setDraft('');
-    setUserTranscript(trimmed);
+    setLiveCaption(applyLiveCaptionTurn(null, 'you', trimmed, true));
     setError('');
 
     // Live duplex: inject into the same WebRTC conversation.
@@ -297,7 +304,7 @@ export default function PoppinsScreen() {
     try {
       const result = await askPoppins(trimmed);
       setVoiceState('speaking');
-      setPoppinsTranscript(result.answer);
+      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', result.answer, true));
       appendPoppinsTurn(trimmed, result.answer);
       if (result.actions?.length) {
         setLocalMonitorActions((current) => [...result.actions!, ...current]);
@@ -351,7 +358,38 @@ export default function PoppinsScreen() {
     ? `${greetingWord()}. Tap to speak.`
     : `${greetingWord()}. Type below.`;
 
-  const hasStrip = Boolean(userTranscript || poppinsTranscript || toolFlash);
+  const captionTextColor = isDark ? 'rgba(255,255,255,0.9)' : c.text;
+  const liveSpeaker = toolFlash
+    ? 'done'
+    : liveCaption
+      ? liveCaption.speaker
+      : visualState === 'thinking' || connecting
+        ? 'thinking'
+        : null;
+  const liveLabel =
+    liveSpeaker === 'you'
+      ? 'YOU'
+      : liveSpeaker === 'done'
+        ? 'DONE'
+        : liveSpeaker === 'thinking'
+          ? 'PROCESSING'
+          : majordomo.displayName.toUpperCase();
+  const liveText = toolFlash
+    ? toolFlash
+    : liveCaption?.text
+      ? captionWindow(liveCaption.text)
+      : liveSpeaker === 'thinking'
+        ? 'Working on your household…'
+        : '';
+  const liveAccent =
+    liveSpeaker === 'you' || liveSpeaker === 'done' ? '#34D399' : cfg.color;
+  const showCaptionDots =
+    liveSpeaker !== 'done' &&
+    !toolFlash &&
+    (visualState === 'thinking' ||
+      connecting ||
+      (visualState === 'listening' && !liveText));
+  const hasStrip = liveSpeaker !== null;
   const primaryConnected = liveConnected;
 
   return (
@@ -397,75 +435,16 @@ export default function PoppinsScreen() {
 
       <View style={styles.stage}>
         <View style={styles.transcriptBlock}>
-          {hasStrip ? (
-            <View style={styles.strip}>
-              {userTranscript ? (
-                <Animated.View entering={FadeIn.duration(250)} style={styles.stripTurn}>
-                  <Text style={[styles.roleLabel, { color: '#34D399' }]}>YOU</Text>
-                  <Text
-                    style={[
-                      styles.transcriptText,
-                      { color: isDark ? 'rgba(255,255,255,0.9)' : c.text },
-                    ]}>
-                    {userTranscript}
-                  </Text>
-                </Animated.View>
-              ) : null}
-              {poppinsTranscript ? (
-                <Animated.View entering={FadeIn.duration(250)} style={styles.stripTurn}>
-                  <Text style={[styles.roleLabel, { color: cfg.color }]}>
-                    {majordomo.displayName.toUpperCase()}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.transcriptText,
-                      { color: isDark ? 'rgba(255,255,255,0.9)' : c.text },
-                    ]}>
-                    {poppinsTranscript}
-                  </Text>
-                </Animated.View>
-              ) : null}
-              {toolFlash ? (
-                <Animated.View entering={FadeIn.duration(250)} style={styles.stripTurn}>
-                  <Text style={[styles.roleLabel, { color: '#34D399' }]}>DONE</Text>
-                  <Text
-                    style={[
-                      styles.transcriptText,
-                      { color: isDark ? 'rgba(255,255,255,0.9)' : c.text },
-                    ]}>
-                    {toolFlash}
-                  </Text>
-                </Animated.View>
-              ) : visualState === 'thinking' && !poppinsTranscript ? (
-                <View style={styles.dots}>
-                  {[0, 1, 2].map((i) => (
-                    <View
-                      key={i}
-                      style={[styles.dot, { backgroundColor: cfg.color, opacity: 0.5 + i * 0.2 }]}
-                    />
-                  ))}
-                </View>
-              ) : null}
-            </View>
-          ) : visualState === 'thinking' ? (
-            <>
-              <Text style={[styles.roleLabel, { color: cfg.color }]}>PROCESSING</Text>
-              <Text
-                style={[
-                  styles.transcriptText,
-                  { color: isDark ? 'rgba(255,255,255,0.9)' : c.text },
-                ]}>
-                Working on your household…
-              </Text>
-              <View style={styles.dots}>
-                {[0, 1, 2].map((i) => (
-                  <View
-                    key={i}
-                    style={[styles.dot, { backgroundColor: cfg.color, opacity: 0.5 + i * 0.2 }]}
-                  />
-                ))}
-              </View>
-            </>
+          {hasStrip && liveSpeaker ? (
+            <PoppinsLiveCaption
+              key={liveSpeaker}
+              speaker={liveSpeaker}
+              label={liveLabel}
+              text={liveText}
+              accent={liveAccent}
+              textColor={captionTextColor}
+              showDots={showCaptionDots}
+            />
           ) : (
             <Text
               style={[styles.idleHint, { color: isDark ? 'rgba(255,255,255,0.25)' : c.textMuted }]}>
@@ -731,46 +710,17 @@ const styles = StyleSheet.create({
   transcriptBlock: {
     alignItems: 'center',
     marginBottom: space.lg,
+    maxHeight: 128,
     minHeight: 96,
+    overflow: 'hidden',
     paddingHorizontal: space.sm,
     width: '100%',
-  },
-  strip: {
-    gap: 12,
-    width: '100%',
-  },
-  stripTurn: {
-    alignItems: 'center',
-  },
-  roleLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    marginBottom: 10,
-  },
-  transcriptText: {
-    fontSize: 20,
-    fontWeight: '300',
-    letterSpacing: -0.2,
-    lineHeight: 30,
-    textAlign: 'center',
   },
   idleHint: {
     fontSize: 14,
     fontWeight: '400',
     letterSpacing: 0.2,
     textAlign: 'center',
-  },
-  dots: {
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-    marginTop: 14,
-  },
-  dot: {
-    borderRadius: 999,
-    height: 6,
-    width: 6,
   },
   waveWrap: {
     marginTop: space.lg,
