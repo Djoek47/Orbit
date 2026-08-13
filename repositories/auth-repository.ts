@@ -265,6 +265,12 @@ export const authRepository = {
 
     const { error } = await supabase.rpc('delete_own_account');
     mapDbError('authRepository.deleteAccount', error);
+    // RPC removes the user row; the JWT can still sit in storage and hydrate
+    // the old household under a stacked Get Started screen. Always sign out.
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      console.warn('authRepository.deleteAccount.signOut', signOutError.message);
+    }
   },
 
   async exportUserData(): Promise<string> {

@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useNavigation } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +25,7 @@ import { MapsAppMark } from '@/components/orbit/maps-app-mark';
 import { BUILD_INFO } from '@/constants/build-info';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { VOCAB } from '@/constants/vocabulary';
+import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
@@ -140,6 +141,7 @@ function SharedAccountRow({
 /** Make AdminScreen.tsx — Settings sheet chrome. */
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const {
     accentTheme,
     appearanceMode,
@@ -806,7 +808,7 @@ export default function SettingsScreen() {
                 style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
                 onPress={async () => {
                   await signOut();
-                  router.replace('/welcome' as never);
+                  resetToGetStarted(navigation);
                 }}>
                 <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>Sign out</Text>
               </Pressable>

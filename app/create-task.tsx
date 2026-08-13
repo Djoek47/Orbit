@@ -812,12 +812,12 @@ export default function CreateTaskScreen() {
     for (const id of pickerIds) {
       const task = byId.get(id);
       if (!task) continue;
-      const dueAt = dueAtForFrequency(task.defaultFrequency);
-      const occurrenceDate = dueAt ? formatLocalDate(dueAt) : occurrenceDateForDueLabel('Today');
+      const dueAt = dueAtForFrequency('daily');
+      const occurrenceDate = formatLocalDate(new Date());
       const payload = buildTaskPayload({
         title: task.name,
         category: task.domainId,
-        due: dueAt ? dueLabelForDate(occurrenceDate) : 'As needed',
+        due: 'Today',
         xp: task.xp,
         repeat: mapLibraryRepeat(task.defaultFrequency),
         difficulty: 'medium',

@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useNavigation } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
@@ -9,6 +9,7 @@ import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/a
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { radius, space, typography } from '@/constants/orbit-theme';
+import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -24,6 +25,7 @@ const REASONS = [
 
 export default function DeleteAccountScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const { c, glass, glassBorder } = useOrbitColors();
   const { accentTheme, deleteAccount } = useOrbit();
   const [step, setStep] = useState<Step>('reason');
@@ -50,8 +52,8 @@ export default function DeleteAccountScreen() {
           : undefined
       );
       setStep('done');
-      await new Promise((r) => setTimeout(r, 1200));
-      router.replace('/welcome' as never);
+      await new Promise((r) => setTimeout(r, 900));
+      resetToGetStarted(navigation);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete your account.');
     } finally {

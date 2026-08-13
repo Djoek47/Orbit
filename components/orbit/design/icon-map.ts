@@ -36,11 +36,7 @@ export const ACHIEVEMENT_ICON_BY_ID: Record<string, IconName> = {
 };
 
 export function domainIconName(domainId: string): IconName {
-  const icon = DOMAIN_ICON_BY_ID[domainId];
-  if (!icon) {
-    throw new Error(`domainIconName: no IconName for domain "${domainId}"`);
-  }
-  return icon;
+  return DOMAIN_ICON_BY_ID[domainId] ?? 'maintenance';
 }
 
 export function achievementIconName(achievementId: string): IconName | null {

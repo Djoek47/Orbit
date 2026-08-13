@@ -72,7 +72,6 @@ import {
 } from '@/lib/rewards/reward-model';
 import { normalizeRewardSettings } from '@/lib/rewards/reward-mode';
 import { formatLocalDate } from '@/lib/streaks/local-date';
-import { assertUniqueOccurrenceInsert, dedupeOccurrences } from '@/lib/tasks/occurrence-dedupe';
 import {
   ensureOccurrencesForDay,
   isExpiredStatus,
@@ -993,19 +992,24 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('household.joined', { inviteCode: input.inviteCode }, { householdId: joinedHousehold.id, userId: currentUser.id });
   };
 
-  const signOut = async () => {
-    await authRepository.signOut();
-    await trackAnalytics('auth.sign_out', {}, analyticsContext);
-    await clearMockHouseholdSnapshot();
+  const clearSignedInState = () => {
     setCurrentUser(null);
     setHousehold(mockHousehold);
     setPendingRedemptions([]);
     setRedemptions([]);
+    setNotifications([]);
     setInviteLinks(null);
     setActiveMemberId(null);
     void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
       markNeedsProfilePick()
     );
+  };
+
+  const signOut = async () => {
+    await authRepository.signOut();
+    await trackAnalytics('auth.sign_out', {}, analyticsContext);
+    await clearMockHouseholdSnapshot();
+    clearSignedInState();
   };
 
   const createTask = async (
@@ -1028,35 +1032,32 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return null;
     }
     try {
-      assertUniqueOccurrenceInsert(household.tasks, {
-        definitionId: input.definitionId,
-        occurrenceDate: input.occurrenceDate,
-        id: '',
-      });
-      const task = await taskRepository.createTask(targetHouseholdId, input);
-      // Functional update so batched assigns don't clobber each other with a stale closure.
+      // Upsert so re-assigning the same library task today is not a silent UNIQUE no-op.
+      const { task, inserted } = await taskRepository.upsertOccurrence(targetHouseholdId, input);
       const nextHousehold = await new Promise<HouseholdSnapshot>((resolve) => {
         setHousehold((current) => {
-          const nextTemplates: TaskTemplate[] = input.saveAsTemplate
-            ? [
-                {
-                  id: `tpl-${task.id}`,
-                  title: task.title,
-                  category: task.category,
-                  baseXp: input.xp,
-                  difficulty: input.difficulty ?? 'easy',
-                  weight: input.weight ?? 1,
-                  repeat: task.repeat,
-                  proofRequired: Boolean(input.proofRequired),
-                  description: task.description,
-                  householdScoped: true,
-                },
-                ...(current.taskTemplates ?? []),
-              ]
-            : current.taskTemplates ?? [];
+          const already = current.tasks.some((item) => item.id === task.id);
+          const nextTemplates: TaskTemplate[] =
+            inserted && input.saveAsTemplate
+              ? [
+                  {
+                    id: `tpl-${task.id}`,
+                    title: task.title,
+                    category: task.category,
+                    baseXp: input.xp,
+                    difficulty: input.difficulty ?? 'easy',
+                    weight: input.weight ?? 1,
+                    repeat: task.repeat,
+                    proofRequired: Boolean(input.proofRequired),
+                    description: task.description,
+                    householdScoped: true,
+                  },
+                  ...(current.taskTemplates ?? []),
+                ]
+              : current.taskTemplates ?? [];
           const next: HouseholdSnapshot = {
             ...current,
-            tasks: [task, ...current.tasks],
+            tasks: already ? current.tasks : [task, ...current.tasks],
             taskTemplates: nextTemplates,
           };
           resolve(next);
@@ -1065,7 +1066,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       });
       // Persist so getHousehold() → seedMockDomains cannot wipe newly assigned tasks.
       await persistMockHouseholdSnapshot(nextHousehold);
-      await trackAnalytics('task.created', { taskId: task.id }, analyticsContext);
+      if (inserted) {
+        await trackAnalytics('task.created', { taskId: task.id }, analyticsContext);
+      }
       return task;
     } catch (error) {
       console.warn('createTask failed', error);
@@ -3830,11 +3833,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       },
       analyticsContext
     );
-    setCurrentUser(null);
-    setHousehold(mockHousehold);
-    setPendingRedemptions([]);
-    setRedemptions([]);
-    setNotifications([]);
+    await clearMockHouseholdSnapshot();
+    clearSignedInState();
   };
 
   const exportUserData = async () => {

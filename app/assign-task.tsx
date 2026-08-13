@@ -20,10 +20,7 @@ import {
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
 import { choreDomains, type LibraryTask, type TaskDomain } from '@/lib/tasks/task-library';
-import { dueLabelForDate, libraryDefinitionId } from '@/lib/tasks/due-label';
-import { mapLibraryRepeat } from '@/lib/tasks/library-repeat';
-import { formatLocalDate } from '@/lib/streaks/local-date';
-import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
+import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
@@ -223,24 +220,23 @@ export default function AssignTaskScreen() {
     if (!canAssign || !assignee || selected.length === 0) return;
     setBusy(true);
     try {
+      let created = 0;
+      const failed: string[] = [];
       for (const item of selected) {
-        const dueAt = dueAtForFrequency(item.frequency);
-        const occurrenceDate = dueAt ? formatLocalDate(dueAt) : formatLocalDate(new Date());
-        await createTask({
-          title: item.task.name,
-          category: item.task.domainId,
-          assignee: assignee.name,
-          due: dueLabelForDate(occurrenceDate),
-          dueAt: dueAt?.toISOString(),
-          xp: item.task.xp,
-          baseXp: item.task.xp,
-          xpEligible: item.task.tracking === 'xp',
-          tracking: item.task.tracking,
-          repeat: mapLibraryRepeat(item.frequency),
-          proofRequired: false,
-          definitionId: libraryDefinitionId(item.task.id, assignee.name),
-          occurrenceDate,
-        });
+        const task = await createTask(
+          buildLibraryAssignInput(item.task, assignee.name, item.frequency)
+        );
+        if (task) created += 1;
+        else failed.push(item.task.name);
+      }
+      if (created === 0) {
+        Alert.alert(
+          'Could not assign',
+          failed.length
+            ? `Could not save: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}`
+            : 'Try again.'
+        );
+        return;
       }
       router.back();
     } catch (error) {
