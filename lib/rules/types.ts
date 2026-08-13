@@ -50,6 +50,21 @@ export const CHAPTER_KEYS = [
 ] as const;
 export type ChapterKey = (typeof CHAPTER_KEYS)[number];
 
+export const PHASE_BLOCK_KEYS = ['day', 'beyond'] as const;
+export type PhaseBlock = (typeof PHASE_BLOCK_KEYS)[number];
+
+export const PHASE_TONE_KEYS = ['normal', 'hot', 'dead', 'gold'] as const;
+export type PhaseTone = (typeof PHASE_TONE_KEYS)[number];
+
+/** Direction 03 Track metadata — 1:1 with JSON `phases`. */
+export type PhaseMeta = {
+  gutter: string;
+  kicker: string | null;
+  block: PhaseBlock;
+  order: number;
+  tone: PhaseTone;
+};
+
 export type RuleConstants = {
   xpValues: number[];
   lateCredit: Record<string, number>;
@@ -137,6 +152,7 @@ export type HouseRulesDoc = {
   constants: RuleConstants;
   chapters: Chapter[];
   rules: HouseRule[];
+  phases: Record<PhaseKey, PhaseMeta>;
   footnotes?: Footnotes;
 };
 
