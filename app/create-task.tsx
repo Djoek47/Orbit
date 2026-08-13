@@ -43,6 +43,9 @@ import { formatAssigneeLabel } from '@/lib/tasks/split-assign';
 import { computeTaskXp, weightForDifficulty } from '@/lib/tasks/xp';
 import { allLibraryTasks } from '@/lib/tasks/task-library';
 import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
+import { dueLabelForDate, occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
+import { mapLibraryRepeat } from '@/lib/tasks/library-repeat';
+import { formatLocalDate } from '@/lib/streaks/local-date';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask, TaskDifficulty } from '@/types/orbit';
 
@@ -482,16 +485,24 @@ export default function CreateTaskScreen() {
       });
   }, [libraryResults]);
 
-  const isHygieneDraft = tracking === 'streak' || category === 'Hygiene';
+  const hasKids = childMembers.length > 0;
 
-  /** Assignees available for the current draft — Hygiene locks to children. */
+  const isHygieneDraft = tracking === 'streak' || category === 'Hygiene';
+  const homeworkLocked = type === 'homework';
+
+  /** Assignees available for the current draft — Hygiene/homework lock to children. */
   const assigneeChoices = useMemo(
-    () => (isHygieneDraft ? childMembers : activeMembers),
-    [isHygieneDraft, childMembers, activeMembers],
+    () => (isHygieneDraft || homeworkLocked ? childMembers : activeMembers),
+    [isHygieneDraft, homeworkLocked, childMembers, activeMembers],
   );
 
   useEffect(() => {
-    if (!isHygieneDraft) return;
+    if (hasKids) return;
+    if (type === 'homework') setType('task');
+  }, [hasKids, type]);
+
+  useEffect(() => {
+    if (!isHygieneDraft && !homeworkLocked) return;
     const childIds = new Set(childMembers.map((m) => m.id));
     setSelectedIds((prev) => {
       const next = prev.filter((id) => childIds.has(id));
@@ -499,8 +510,8 @@ export default function CreateTaskScreen() {
       return childMembers[0] ? [childMembers[0].id] : [];
     });
     setSplitMode(false);
-    setBaseXp(0);
-  }, [isHygieneDraft, childMembers]);
+    if (isHygieneDraft) setBaseXp(0);
+  }, [isHygieneDraft, homeworkLocked, childMembers]);
 
   // Seed assignee when household members load (picker/custom can mount before roster is ready).
   useEffect(() => {
@@ -739,37 +750,49 @@ export default function CreateTaskScreen() {
     const trimmedTitle = title.trim();
 
     if (type === 'homework') {
-      createTask(
-        buildTaskPayload({
-          title: trimmedTitle,
-          description: description ?? `Subject: ${subject}`,
-          category: 'Homework',
-          due,
-          xp: computeTaskXp(baseXp || 15, weightForDifficulty('medium'), 'medium'),
-          repeat,
-          difficulty: 'medium',
-          weight: weightForDifficulty('medium'),
-          // Revision C §1: homework requires proof by default.
-          proofRequired: true,
-        })
+      const kidNames = resolvedAssigneeNames.filter((name) =>
+        childMembers.some((m) => m.name === name)
       );
+      if (kidNames.length === 0) {
+        Alert.alert('Homework is for kids', 'Pick a child to assign this homework.');
+        return;
+      }
+      const occurrenceDate = occurrenceDateForDueLabel(due);
+      const payload = buildTaskPayload({
+        title: trimmedTitle,
+        description: description ?? `Subject: ${subject}`,
+        category: 'homework_education',
+        due: dueLabelForDate(occurrenceDate),
+        xp: computeTaskXp(baseXp || 15, weightForDifficulty('medium'), 'medium'),
+        repeat,
+        difficulty: 'medium',
+        weight: weightForDifficulty('medium'),
+        proofRequired: true,
+      });
+      createTask({
+        ...payload,
+        assignee: kidNames[0]!,
+        assignees: kidNames.length > 1 ? kidNames : undefined,
+        occurrenceDate,
+      });
     } else {
       const selectedPriority = priorities[priority];
-      createTask(
-        buildTaskPayload({
+      const occurrenceDate = occurrenceDateForDueLabel(due);
+      createTask({
+        ...buildTaskPayload({
           title: trimmedTitle,
           description,
           category,
-          due,
+          due: dueLabelForDate(occurrenceDate),
           xp: isHygieneDraft ? 0 : computeTaskXp(baseXp || selectedPriority.xp, weight, difficulty),
           repeat,
           difficulty: isHygieneDraft ? 'easy' : difficulty,
           weight: isHygieneDraft ? 1 : weight,
-          // Revision C §1: chores never pre-set proof — admins request it after complete.
           proofRequired: false,
           tracking: isHygieneDraft ? 'streak' : 'xp',
-        })
-      );
+        }),
+        occurrenceDate,
+      });
     }
 
     router.back();
@@ -790,23 +813,15 @@ export default function CreateTaskScreen() {
       const task = byId.get(id);
       if (!task) continue;
       const dueAt = dueAtForFrequency(task.defaultFrequency);
-      const occurrenceDate = dueAt ? dueAt.toISOString().slice(0, 10) : undefined;
+      const occurrenceDate = dueAt ? formatLocalDate(dueAt) : occurrenceDateForDueLabel('Today');
       const payload = buildTaskPayload({
         title: task.name,
         category: task.domainId,
-        due: dueAt ? 'Today' : 'As needed',
+        due: dueAt ? dueLabelForDate(occurrenceDate) : 'As needed',
         xp: task.xp,
-        repeat:
-          task.defaultFrequency === 'daily'
-            ? 'Daily'
-            : task.defaultFrequency === 'weekdays'
-              ? 'Weekdays'
-              : task.defaultFrequency === 'weekly' || task.defaultFrequency === '2x_weekly'
-                ? 'Weekly'
-                : 'None',
+        repeat: mapLibraryRepeat(task.defaultFrequency),
         difficulty: 'medium',
         weight: 1,
-        // Revision C §1: homework proof by default; chores on-demand after complete.
         proofRequired: type === 'homework' || task.domainId === 'homework_education',
         tracking: task.tracking,
       });
@@ -947,7 +962,7 @@ export default function CreateTaskScreen() {
           <TaskPicker
             selectedIds={pickerIds}
             onChange={setPickerIds}
-            tab={type === 'homework' ? 'homework' : 'chores'}
+            tab={hasKids && type === 'homework' ? 'homework' : 'chores'}
             onRequestCustom={() => setMode('custom')}
           />
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>

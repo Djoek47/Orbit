@@ -20,6 +20,10 @@ import {
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
 import { choreDomains, type LibraryTask, type TaskDomain } from '@/lib/tasks/task-library';
+import { dueLabelForDate, libraryDefinitionId } from '@/lib/tasks/due-label';
+import { mapLibraryRepeat } from '@/lib/tasks/library-repeat';
+import { formatLocalDate } from '@/lib/streaks/local-date';
+import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
@@ -54,23 +58,6 @@ const FREQ_LABEL: Record<string, string> = {
 
 const PRIMARY_FREQS = ['daily', 'weekly', 'monthly'] as const;
 const MORE_FREQS = ['weekdays', '2x_weekly', 'biweekly', 'quarterly', 'seasonal', 'as_needed'] as const;
-
-function mapLibraryRepeat(
-  freq: LibraryTask['defaultFrequency']
-): 'None' | 'Daily' | 'Weekly' | 'Weekdays' {
-  if (freq === 'daily') return 'Daily';
-  if (freq === 'weekdays') return 'Weekdays';
-  if (
-    freq === 'weekly' ||
-    freq === '2x_weekly' ||
-    freq === 'biweekly' ||
-    freq === 'monthly' ||
-    freq === 'quarterly'
-  ) {
-    return 'Weekly';
-  }
-  return 'None';
-}
 
 function applyFrequency(
   selected: Selected[],
@@ -237,19 +224,22 @@ export default function AssignTaskScreen() {
     setBusy(true);
     try {
       for (const item of selected) {
+        const dueAt = dueAtForFrequency(item.frequency);
+        const occurrenceDate = dueAt ? formatLocalDate(dueAt) : formatLocalDate(new Date());
         await createTask({
           title: item.task.name,
           category: item.task.domainId,
           assignee: assignee.name,
-          due: 'Today',
+          due: dueLabelForDate(occurrenceDate),
+          dueAt: dueAt?.toISOString(),
           xp: item.task.xp,
           baseXp: item.task.xp,
           xpEligible: item.task.tracking === 'xp',
           tracking: item.task.tracking,
           repeat: mapLibraryRepeat(item.frequency),
           proofRequired: false,
-          definitionId: `lib:${item.task.id}`,
-          occurrenceDate: new Date().toISOString().slice(0, 10),
+          definitionId: libraryDefinitionId(item.task.id, assignee.name),
+          occurrenceDate,
         });
       }
       router.back();

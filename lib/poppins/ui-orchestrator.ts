@@ -5,6 +5,7 @@
 import { useSyncExternalStore } from 'react';
 
 import { interpretStageSpeech, matchSpokenTokens } from '@/lib/poppins/ui-speech';
+import { withComposeProgress } from '@/lib/poppins/iui-compose';
 import { mapUiActionsToPlaylist } from '@/lib/poppins/ui-tool-map';
 import {
   HOLD_MS_DEFAULT,
@@ -95,7 +96,10 @@ function currentBeat(): IuiBeat | null {
 function patchCurrentPayload(patch: Partial<IuiPayload>) {
   const beat = currentBeat();
   if (!beat) return;
-  const next = { ...beat, payload: { ...beat.payload, ...patch } };
+  const merged = { ...beat.payload, ...patch };
+  const payload =
+    beat.scene === 'task_compose' ? withComposeProgress(merged) : merged;
+  const next = { ...beat, payload };
   setState({
     playlist: state.playlist.map((item, i) => (i === state.index ? next : item)),
   });
@@ -149,6 +153,7 @@ function maybeArmHold() {
   const beat = currentBeat();
   if (!beat || beat.commit !== 'hold' || state.frozen || state.speaking) return;
   if (state.holding) return;
+  if (beat.payload.composeReady === false) return;
   if (sceneNeedsUnfold(beat.scene) && state.phase === 'show') return;
   clearQuietTimer();
   quietTimer = setTimeout(() => {
@@ -280,11 +285,10 @@ export const poppinsUiOrchestrator = {
     setState({ frozen: false });
     if (state.holding) {
       resetHoldProgressOnly();
+      maybeArmHold();
       return;
     }
-    if (state.phase === 'show' || state.phase === 'unfold' || state.phase === 'hold') {
-      return;
-    }
+    maybeArmHold();
   },
   syncSpoken(text: string, memberNames: string[] = []) {
     if (!state.live) return;

@@ -9,6 +9,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet';
@@ -22,15 +23,9 @@ import {
   getMajordomoProfile,
   resolveMajordomoProfileId,
 } from '@/lib/ai/majordomo-profiles';
-import { flattenUiActions } from '@/lib/poppins/ui-tool-map';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import {
-  isPoppinsRealtimeEnabled,
-  PoppinsRealtimeSession,
-  toolCallToMonitorAction,
-  type PoppinsRealtimeVisualState,
-} from '@/lib/voice/poppins-realtime';
+import { mergeTranscript } from '@/lib/voice/transcript-merge';
 import {
   isPoppinsNativeVoiceAvailable,
   PoppinsVoiceSession,
@@ -59,8 +54,8 @@ function PoppinsRemoteAudio({ streamURL }: { streamURL: string | null }) {
 }
 
 /**
- * Poppins Divine Voice — Connect/End continuous WebRTC on TestFlight;
- * Expo Go keeps text twin + optional Whisper tap fallback.
+ * Poppins Divine Voice — Speak/Done continuous WebRTC on TestFlight.
+ * Expo Go is text + IUI only (no Whisper, no WS Realtime).
  */
 export default function PoppinsScreen() {
   const chromePad = useTabChromePaddingTop();
@@ -69,8 +64,6 @@ export default function PoppinsScreen() {
   const {
     appendPoppinsTurn,
     askPoppins,
-    askPoppinsVoice,
-    executePoppinsToolCall,
     household,
     currentMember,
     markNotificationRead,
@@ -95,12 +88,10 @@ export default function PoppinsScreen() {
 
   const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
     idle: {
-      label: nativeVoice
-        ? `${majordomo.displayName} · Tap when you need me`
-        : `${majordomo.displayName} · Ready`,
+      label: nativeVoice ? `${majordomo.displayName} · Tap to speak` : `${majordomo.displayName} · Ready`,
       color: majordomo.accent,
     },
-    listening: { label: `${majordomo.displayName} · Listening…`, color: '#34D399' },
+    listening: { label: `${majordomo.displayName} · Listening`, color: '#34D399' },
     thinking: { label: `${majordomo.displayName} · Thinking…`, color: '#A78BFA' },
     speaking: { label: `${majordomo.displayName} · Speaking`, color: '#38BDF8' },
     success: { label: `${majordomo.displayName} · Done`, color: '#34D399' },
@@ -114,9 +105,7 @@ export default function PoppinsScreen() {
   const [liveConnected, setLiveConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState('');
-  const [voiceState, setVoiceState] = useState<PoppinsRealtimeVisualState | PoppinsVoiceVisualState>(
-    'idle'
-  );
+  const [voiceState, setVoiceState] = useState<PoppinsVoiceVisualState>('idle');
   const [userTranscript, setUserTranscript] = useState('');
   const [poppinsTranscript, setPoppinsTranscript] = useState('');
   const [localMonitorActions, setLocalMonitorActions] = useState<PoppinsMonitorAction[]>([]);
@@ -125,7 +114,6 @@ export default function PoppinsScreen() {
     []
   );
   const voiceRef = useRef<PoppinsVoiceSession | null>(null);
-  const realtimeRef = useRef<PoppinsRealtimeSession | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [remoteStreamUrl, setRemoteStreamUrl] = useState<string | null>(null);
   const drive = usePoppinsUiDrive();
@@ -167,8 +155,6 @@ export default function PoppinsScreen() {
     return () => {
       voiceRef.current?.disconnect();
       voiceRef.current = null;
-      realtimeRef.current?.disconnect();
-      realtimeRef.current = null;
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, []);
@@ -176,8 +162,6 @@ export default function PoppinsScreen() {
   useEffect(() => {
     voiceRef.current?.disconnect();
     voiceRef.current = null;
-    realtimeRef.current?.disconnect();
-    realtimeRef.current = null;
     setLiveConnected(false);
     setRemoteStreamUrl(null);
   }, [majordomo.id]);
@@ -207,15 +191,18 @@ export default function PoppinsScreen() {
     poppinsUiOrchestrator.setSpeaking(visualState === 'speaking');
   }, [visualState]);
 
-  const applyTranscript = (role: 'user' | 'assistant', text: string) => {
+  const applyTranscript = (
+    role: 'user' | 'assistant',
+    text: string,
+    meta?: { replace?: boolean }
+  ) => {
     if (role === 'user') {
-      setUserTranscript(text);
-      setPoppinsTranscript('');
+      setUserTranscript((prev) => (meta?.replace ? text.trim() : mergeTranscript(prev, text)));
       if (poppinsUiOrchestrator.applySpeech(text, memberNamesRef.current)) {
         setShowActivity(true);
       }
     } else {
-      setPoppinsTranscript(text);
+      setPoppinsTranscript((prev) => (meta?.replace ? text.trim() : mergeTranscript(prev, text)));
       poppinsUiOrchestrator.syncSpoken(text, memberNamesRef.current);
     }
   };
@@ -291,40 +278,11 @@ export default function PoppinsScreen() {
     setRemoteStreamUrl(null);
   };
 
-  const ensureWhisperRealtime = async () => {
-    if (!isPoppinsRealtimeEnabled()) return null;
-    if (realtimeRef.current?.isConnected) return realtimeRef.current;
-    const session = new PoppinsRealtimeSession({
-      onStateChange: setVoiceState,
-      onTranscript: applyTranscript,
-      onToolCall: async (name, args) => {
-        const result = await executePoppinsToolCall(name, args, {
-          forceRiskyConfirmation: true,
-        });
-        const action = toolCallToMonitorAction(name, args, result as Record<string, unknown>);
-        setLocalMonitorActions((current) => [action, ...current]);
-        flashToolSuccess(action.label || name.replace(/_/g, ' '));
-        const ui = flattenUiActions([result as Record<string, unknown>]);
-        if (ui.length) applyUiActions(ui);
-        return result;
-      },
-      onError: (message) => setError(message),
-    });
-    const ok = await session.connect(household, metrics, currentMember?.majordomoProfileId);
-    if (!ok) {
-      session.disconnect();
-      return null;
-    }
-    realtimeRef.current = session;
-    return session;
-  };
-
   const handleSend = async () => {
     const trimmed = draft.trim();
     if (!trimmed || asking) return;
     setDraft('');
     setUserTranscript(trimmed);
-    setPoppinsTranscript('');
     setError('');
 
     // Live duplex: inject into the same WebRTC conversation.
@@ -358,73 +316,13 @@ export default function PoppinsScreen() {
   };
 
   const toggleConnect = async () => {
+    if (!nativeVoice) return;
     if (liveConnected || voiceRef.current?.isConnected) {
       await endNativeVoice();
       return;
     }
-
-    if (nativeVoice) {
-      await connectNativeVoice();
-      return;
-    }
-
-    // Expo Go / no WebRTC: tap-to-talk Whisper fallback.
-    if (isActive && listening) {
-      setAsking(true);
-      try {
-        const session = realtimeRef.current;
-        if (session?.isConnected) {
-          const result = await session.endListen(household, metrics);
-          if (result.answer) {
-            applyTranscript('user', result.answer.question);
-            applyTranscript('assistant', result.answer.answer);
-            appendPoppinsTurn(result.answer.question, result.answer.answer);
-          }
-        } else {
-          const { stopVoiceCapture } = await import('@/lib/voice/poppins-voice');
-          const uri = await stopVoiceCapture();
-          setVoiceState('thinking');
-          const result = await askPoppinsVoice(uri);
-          applyTranscript('user', result.question);
-          setVoiceState('speaking');
-          applyTranscript('assistant', result.answer);
-          if (result.ui_actions?.length) applyUiActions(result.ui_actions, true);
-          poppinsUiOrchestrator.syncSpoken(result.answer, memberNamesRef.current);
-        }
-      } catch {
-        setError('Poppins voice failed. Try again or type your question.');
-        setVoiceState('idle');
-      } finally {
-        setListening(false);
-        setAsking(false);
-        setTimeout(() => setVoiceState('idle'), 1600);
-      }
-      return;
-    }
-
-    if (asking || listening || connecting) return;
-    setError(
-      nativeVoice
-        ? ''
-        : 'Continuous voice needs the TestFlight build. Type below, or tap-to-talk Whisper.'
-    );
-    setUserTranscript('');
-    setPoppinsTranscript('');
-    setListening(true);
-    try {
-      const session = await ensureWhisperRealtime();
-      if (session) {
-        await session.beginListen();
-      } else {
-        const { startVoiceCapture } = await import('@/lib/voice/poppins-voice');
-        setVoiceState('listening');
-        await startVoiceCapture();
-      }
-    } catch {
-      setListening(false);
-      setVoiceState('idle');
-      setError('Could not access the microphone.');
-    }
+    if (asking || connecting) return;
+    await connectNativeVoice();
   };
 
   const confirmPending = (approved: boolean) => {
@@ -449,29 +347,12 @@ export default function PoppinsScreen() {
               ? 'rgba(56,189,248,0.06)'
               : `${orbitPalette.primary}18`;
 
-  const transcriptRoleLabel =
-    visualState === 'success'
-      ? 'DONE'
-      : visualState === 'speaking' && poppinsTranscript
-        ? majordomo.displayName.toUpperCase()
-        : visualState === 'thinking'
-          ? 'PROCESSING'
-          : userTranscript
-            ? 'YOU'
-            : null;
-
-  const transcriptBody =
-    visualState === 'success' && toolFlash
-      ? toolFlash
-      : visualState === 'speaking' && poppinsTranscript
-        ? poppinsTranscript
-        : userTranscript || '';
-
   const idleHint = nativeVoice
-    ? `${greetingWord()}. Tap Connect for a live conversation with ${majordomo.displayName}`
-    : `${greetingWord()}. Type below — continuous voice needs TestFlight`;
+    ? `${greetingWord()}. Tap to speak.`
+    : `${greetingWord()}. Type below.`;
 
-  const primaryConnected = liveConnected || (listening && !nativeVoice);
+  const hasStrip = Boolean(userTranscript || poppinsTranscript || toolFlash);
+  const primaryConnected = liveConnected;
 
   return (
     <KeyboardAvoidingView
@@ -516,18 +397,46 @@ export default function PoppinsScreen() {
 
       <View style={styles.stage}>
         <View style={styles.transcriptBlock}>
-          {transcriptRoleLabel && (transcriptBody || visualState === 'thinking') ? (
-            <>
-              <Text style={[styles.roleLabel, { color: cfg.color }]}>{transcriptRoleLabel}</Text>
-              <Text
-                style={[
-                  styles.transcriptText,
-                  { color: isDark ? 'rgba(255,255,255,0.9)' : c.text },
-                ]}>
-                {transcriptBody ||
-                  (visualState === 'thinking' ? 'Working on your household…' : '')}
-              </Text>
-              {visualState === 'thinking' ? (
+          {hasStrip ? (
+            <View style={styles.strip}>
+              {userTranscript ? (
+                <Animated.View entering={FadeIn.duration(250)} style={styles.stripTurn}>
+                  <Text style={[styles.roleLabel, { color: '#34D399' }]}>YOU</Text>
+                  <Text
+                    style={[
+                      styles.transcriptText,
+                      { color: isDark ? 'rgba(255,255,255,0.9)' : c.text },
+                    ]}>
+                    {userTranscript}
+                  </Text>
+                </Animated.View>
+              ) : null}
+              {poppinsTranscript ? (
+                <Animated.View entering={FadeIn.duration(250)} style={styles.stripTurn}>
+                  <Text style={[styles.roleLabel, { color: cfg.color }]}>
+                    {majordomo.displayName.toUpperCase()}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.transcriptText,
+                      { color: isDark ? 'rgba(255,255,255,0.9)' : c.text },
+                    ]}>
+                    {poppinsTranscript}
+                  </Text>
+                </Animated.View>
+              ) : null}
+              {toolFlash ? (
+                <Animated.View entering={FadeIn.duration(250)} style={styles.stripTurn}>
+                  <Text style={[styles.roleLabel, { color: '#34D399' }]}>DONE</Text>
+                  <Text
+                    style={[
+                      styles.transcriptText,
+                      { color: isDark ? 'rgba(255,255,255,0.9)' : c.text },
+                    ]}>
+                    {toolFlash}
+                  </Text>
+                </Animated.View>
+              ) : visualState === 'thinking' && !poppinsTranscript ? (
                 <View style={styles.dots}>
                   {[0, 1, 2].map((i) => (
                     <View
@@ -537,6 +446,25 @@ export default function PoppinsScreen() {
                   ))}
                 </View>
               ) : null}
+            </View>
+          ) : visualState === 'thinking' ? (
+            <>
+              <Text style={[styles.roleLabel, { color: cfg.color }]}>PROCESSING</Text>
+              <Text
+                style={[
+                  styles.transcriptText,
+                  { color: isDark ? 'rgba(255,255,255,0.9)' : c.text },
+                ]}>
+                Working on your household…
+              </Text>
+              <View style={styles.dots}>
+                {[0, 1, 2].map((i) => (
+                  <View
+                    key={i}
+                    style={[styles.dot, { backgroundColor: cfg.color, opacity: 0.5 + i * 0.2 }]}
+                  />
+                ))}
+              </View>
             </>
           ) : (
             <Text
@@ -546,9 +474,16 @@ export default function PoppinsScreen() {
           )}
         </View>
 
-        <Pressable onPress={() => void toggleConnect()} accessibilityRole="button">
+        {nativeVoice ? (
+          <Pressable
+            onPress={() => void toggleConnect()}
+            accessibilityRole="button"
+            accessibilityLabel={primaryConnected ? 'Done' : 'Speak'}>
+            <PoppinsOrb size={176} state={visualState} speaking={visualState === 'speaking'} />
+          </Pressable>
+        ) : (
           <PoppinsOrb size={176} state={visualState} speaking={visualState === 'speaking'} />
-        </Pressable>
+        )}
 
         <View style={styles.waveWrap}>
           <PoppinsWaveform
@@ -617,40 +552,42 @@ export default function PoppinsScreen() {
             />
           </Pressable>
 
-          <Pressable
-            onPress={() => void toggleConnect()}
-            style={styles.micWrap}
-            accessibilityLabel={
-              primaryConnected ? 'End conversation' : `Connect to ${majordomo.displayName}`
-            }>
-            {primaryConnected ? (
-              <View style={[styles.micPulse, { backgroundColor: 'rgba(52,211,153,0.2)' }]} />
-            ) : null}
-            <LinearGradient
-              colors={
-                primaryConnected
-                  ? ['rgba(248,113,113,0.95)', 'rgba(239,68,68,0.85)']
-                  : connecting
-                    ? ['rgba(167,139,250,0.9)', 'rgba(139,92,246,0.8)']
-                    : isDark
-                      ? ['rgba(52,211,153,0.9)', 'rgba(16,185,129,0.8)']
-                      : [`${c.primary}55`, `${c.primary}33`]
-              }
-              style={[
-                styles.micBtn,
-                {
-                  borderColor: primaryConnected ? 'rgba(255,255,255,0.25)' : glassBorder(0.14),
-                },
-              ]}>
+          {nativeVoice ? (
+            <Pressable
+              onPress={() => void toggleConnect()}
+              style={styles.micWrap}
+              accessibilityLabel={primaryConnected ? 'Done' : 'Speak'}>
               {primaryConnected ? (
-                <View style={styles.stopSquare} />
-              ) : connecting ? (
-                <MaterialIcons name="graphic-eq" size={28} color="#fff" />
-              ) : (
-                <MaterialIcons name="call" size={30} color={isDark ? '#fff' : c.text} />
-              )}
-            </LinearGradient>
-          </Pressable>
+                <View style={[styles.micPulse, { backgroundColor: 'rgba(52,211,153,0.2)' }]} />
+              ) : null}
+              <LinearGradient
+                colors={
+                  primaryConnected
+                    ? ['rgba(248,113,113,0.95)', 'rgba(239,68,68,0.85)']
+                    : connecting
+                      ? ['rgba(167,139,250,0.9)', 'rgba(139,92,246,0.8)']
+                      : isDark
+                        ? ['rgba(52,211,153,0.9)', 'rgba(16,185,129,0.8)']
+                        : [`${c.primary}55`, `${c.primary}33`]
+                }
+                style={[
+                  styles.micBtn,
+                  {
+                    borderColor: primaryConnected ? 'rgba(255,255,255,0.25)' : glassBorder(0.14),
+                  },
+                ]}>
+                {primaryConnected ? (
+                  <View style={styles.stopSquare} />
+                ) : connecting ? (
+                  <MaterialIcons name="graphic-eq" size={28} color="#fff" />
+                ) : (
+                  <MaterialIcons name="mic" size={30} color={isDark ? '#fff' : c.text} />
+                )}
+              </LinearGradient>
+            </Pressable>
+          ) : (
+            <View style={styles.micWrap} />
+          )}
 
           <Pressable
             onPress={() => setShowActivity(true)}
@@ -665,14 +602,11 @@ export default function PoppinsScreen() {
           </Pressable>
         </View>
 
+        {nativeVoice && primaryConnected ? (
+          <Text style={[styles.stateLabel, { color: cfg.color }]}>{cfg.label}</Text>
+        ) : null}
         <Text style={[styles.stateLabel, { color: isActive ? cfg.color : c.textSubtle }]}>
-          {primaryConnected
-            ? nativeVoice
-              ? 'End · always available'
-              : cfg.label
-            : nativeVoice
-              ? 'Connect'
-              : cfg.label}
+          {nativeVoice ? (primaryConnected ? 'Done' : 'Speak') : cfg.label}
         </Text>
       </View>
 
@@ -800,6 +734,13 @@ const styles = StyleSheet.create({
     minHeight: 96,
     paddingHorizontal: space.sm,
     width: '100%',
+  },
+  strip: {
+    gap: 12,
+    width: '100%',
+  },
+  stripTurn: {
+    alignItems: 'center',
   },
   roleLabel: {
     fontSize: 11,

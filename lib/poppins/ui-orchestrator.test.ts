@@ -45,10 +45,14 @@ assert.equal(taskPlaylist[0]?.scene, 'task_compose');
 assert.equal(taskPlaylist[0]?.commit, 'hold');
 assert.equal(taskPlaylist[0]?.payload.write, 'create_task');
 assert.equal(taskPlaylist[0]?.payload.assignee, 'Alex');
+assert.equal(taskPlaylist[0]?.payload.composeReady, false);
+assert.equal(taskPlaylist[0]?.payload.composeStep, 'category');
 
 const navCreate = mapUiActionsToPlaylist([{ type: 'navigate', route: '/create-task' }]);
 assert.equal(navCreate[0]?.scene, 'navigate_coach');
 assert.equal(navCreate[0]?.commit, 'none');
+const navAssign = mapUiActionsToPlaylist([{ type: 'navigate', route: '/assign-task' }]);
+assert.equal(navAssign[0]?.payload.route, '/create-task');
 
 const settings = mapUiActionsToPlaylist([{ type: 'navigate', route: '/settings' }]);
 assert.equal(settings[0]?.scene, 'navigate_coach');
@@ -210,6 +214,27 @@ if (steeredMaya.kind === 'revise') assert.equal(steeredMaya.patch.assignee, 'May
 
 const frozenGo = interpretStageSpeech('go', { live: true, frozen: true });
 assert.equal(frozenGo.kind, 'unfreeze');
+
+poppinsUiOrchestrator.clear();
+poppinsUiOrchestrator.setSpeaking(false);
+
+poppinsUiOrchestrator.clear();
+poppinsUiOrchestrator.setSpeaking(false);
+poppinsUiOrchestrator.drive(
+  [{ type: 'create_task_draft', title: 'Dishwasher', assignee: 'Alex' }],
+  { replace: true }
+);
+assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.composeReady, false);
+poppinsUiOrchestrator.revise({
+  category: 'kitchen_dining',
+  selectedChipId: 'kitchen_dining',
+  libraryTaskId: 'load_the_dishwasher',
+  title: 'Load the dishwasher',
+  due: 'Today',
+  assignee: 'Alex',
+});
+assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.composeReady, true);
+assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.composeStep, 'ready');
 
 poppinsUiOrchestrator.clear();
 poppinsUiOrchestrator.setSpeaking(false);

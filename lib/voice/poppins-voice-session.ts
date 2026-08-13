@@ -7,7 +7,7 @@
  * 3. Tool order: parallel reads → serial mutations → end_session last.
  * 4. Voice path uses poppins-voice-tool with forceRiskyConfirmation.
  *
- * Expo Go: react-native-webrtc is unavailable — callers must degrade to text / Whisper.
+ * Expo Go: react-native-webrtc is unavailable — callers degrade to text + IUI only.
  */
 
 import { AppState, type AppStateStatus, Platform } from 'react-native';
@@ -17,6 +17,7 @@ import { resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
 import { orderPoppinsToolCalls, type PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
+import { mergeTranscript } from '@/lib/voice/transcript-merge';
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
 
 export type PoppinsVoiceVisualState =
@@ -36,7 +37,11 @@ export type PoppinsPendingConfirmation = {
 
 export type PoppinsVoiceSessionCallbacks = {
   onStateChange?: (state: PoppinsVoiceVisualState) => void;
-  onTranscript?: (role: 'user' | 'assistant', text: string) => void;
+  onTranscript?: (
+    role: 'user' | 'assistant',
+    text: string,
+    meta?: { replace?: boolean }
+  ) => void;
   onPendingConfirmations?: (items: PoppinsPendingConfirmation[]) => void;
   onUiActions?: (actions: Array<Record<string, unknown>>) => void;
   onSessionEnd?: (reason: string) => void;
@@ -155,7 +160,9 @@ export class PoppinsVoiceSession {
   private connected = false;
   private state: PoppinsVoiceVisualState = 'idle';
   private assistantBuffer = '';
+  private publishedAssistant = '';
   private userTranscriptBuffer = '';
+  private pendingUserReplace = false;
   private pendingTools = new Map<string, PendingToolCall>();
   private softIdleFired = false;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -368,6 +375,14 @@ export class PoppinsVoiceSession {
     }
   };
 
+  private publishAssistant(text: string, replace = false) {
+    const next = replace ? text.trim() : mergeTranscript(this.publishedAssistant, text);
+    if (!next || next === this.publishedAssistant) return;
+    const isReplace = replace || !this.publishedAssistant;
+    this.publishedAssistant = next;
+    this.callbacks.onTranscript?.('assistant', next, { replace: isReplace });
+  }
+
   private sendEvent(payload: Record<string, unknown>) {
     if (this.dc?.readyState === 'open') {
       this.dc.send(JSON.stringify(payload));
@@ -379,7 +394,7 @@ export class PoppinsVoiceSession {
     const trimmed = text.trim();
     if (!trimmed || !this.isConnected) return false;
     this.noteUserActivity();
-    this.callbacks.onTranscript?.('user', trimmed);
+    this.callbacks.onTranscript?.('user', trimmed, { replace: true });
     this.setState('thinking');
     this.sendEvent({
       type: 'conversation.item.create',
@@ -423,19 +438,36 @@ export class PoppinsVoiceSession {
     }
     const type = String(event.type ?? '');
 
-    if (
-      type === 'input_audio_buffer.speech_started' ||
-      type === 'conversation.item.input_audio_transcription.delta'
-    ) {
+    if (type === 'input_audio_buffer.speech_started') {
       this.noteUserActivity();
       this.setState('listening');
+      this.pendingUserReplace = true;
+      this.userTranscriptBuffer = '';
+    }
+
+    if (type === 'conversation.item.input_audio_transcription.delta') {
+      this.noteUserActivity();
+      this.setState('listening');
+      const delta = String(event.delta ?? event.transcript ?? '').trim();
+      if (delta) {
+        const next = this.pendingUserReplace
+          ? delta
+          : mergeTranscript(this.userTranscriptBuffer, delta);
+        const replace = this.pendingUserReplace;
+        this.pendingUserReplace = false;
+        this.userTranscriptBuffer = next;
+        this.callbacks.onTranscript?.('user', next, { replace });
+      }
     }
 
     if (type === 'conversation.item.input_audio_transcription.completed') {
       const transcript = String(event.transcript ?? '').trim();
       if (transcript) {
-        this.userTranscriptBuffer = transcript;
-        this.callbacks.onTranscript?.('user', transcript);
+        const next = mergeTranscript(this.userTranscriptBuffer, transcript);
+        const replace = this.pendingUserReplace || !this.userTranscriptBuffer;
+        this.pendingUserReplace = false;
+        this.userTranscriptBuffer = next;
+        this.callbacks.onTranscript?.('user', next, { replace });
       }
       this.noteUserActivity();
     }
@@ -447,10 +479,13 @@ export class PoppinsVoiceSession {
       type === 'response.text.delta'
     ) {
       this.clearThinkingRecovery();
-      this.assistantBuffer += String(event.delta ?? '');
+      const delta = String(event.delta ?? '');
+      const starting = !this.assistantBuffer;
+      if (starting) this.publishedAssistant = '';
+      this.assistantBuffer += delta;
       this.setState('speaking');
       if (this.assistantBuffer.trim()) {
-        this.callbacks.onTranscript?.('assistant', this.assistantBuffer);
+        this.publishAssistant(this.assistantBuffer, starting);
       }
     }
 
@@ -461,14 +496,14 @@ export class PoppinsVoiceSession {
       type === 'response.text.done'
     ) {
       const text = String(event.transcript ?? event.text ?? this.assistantBuffer).trim();
-      if (text) this.callbacks.onTranscript?.('assistant', text);
+      if (text) this.publishAssistant(text);
       this.assistantBuffer = '';
     }
 
     if (type === 'response.done') {
       this.clearThinkingRecovery();
       if (this.assistantBuffer.trim()) {
-        this.callbacks.onTranscript?.('assistant', this.assistantBuffer.trim());
+        this.publishAssistant(this.assistantBuffer.trim());
         this.assistantBuffer = '';
       }
       if (this.connected) this.setState('listening');
@@ -679,6 +714,10 @@ export class PoppinsVoiceSession {
     this.localStream = null;
     this.remoteStream = null;
     this.pausedForTools = false;
+    this.publishedAssistant = '';
+    this.assistantBuffer = '';
+    this.userTranscriptBuffer = '';
+    this.pendingUserReplace = false;
     this.callbacks.onRemoteStream?.(null);
     this.setState('idle');
     void restorePoppinsAudio();

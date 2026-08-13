@@ -20,6 +20,7 @@ export type ContextMenuAction = {
 type ContextMenuProps = {
   actions: ContextMenuAction[];
   children: React.ReactNode;
+  onPress?: () => void;
 };
 
 /**
@@ -27,7 +28,7 @@ type ContextMenuProps = {
  * docs/design-system/03-motion-interaction.md §4 and
  * docs/design-system/05-component-library.md "Context Menu".
  */
-export function ContextMenu({ actions, children }: ContextMenuProps) {
+export function ContextMenu({ actions, children, onPress }: ContextMenuProps) {
   const { c, isDark } = useOrbitColors();
   const [visible, setVisible] = useState(false);
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number } | null>(null);
@@ -49,7 +50,7 @@ export function ContextMenu({ actions, children }: ContextMenuProps) {
         onLayout={(event) => {
           layoutRef.current = event.nativeEvent.layout;
         }}>
-        <Pressable onLongPress={open} delayLongPress={300}>
+        <Pressable onPress={onPress} onLongPress={open} delayLongPress={300}>
           {children}
         </Pressable>
       </View>

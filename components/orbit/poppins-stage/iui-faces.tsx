@@ -31,7 +31,7 @@ export function IuiFaces({ faces, selectedName, pulsingName, onSelect, accent }:
 
   return (
     <View style={styles.row}>
-      {faces.slice(0, 3).map((face) => {
+      {faces.map((face) => {
         const selected = selectedName ? face.name === selectedName : faces.length === 1;
         const pulsing = pulsingName ? face.name === pulsingName : false;
         return (
@@ -66,7 +66,7 @@ export function IuiFaces({ faces, selectedName, pulsingName, onSelect, accent }:
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 16 },
   item: { alignItems: 'center', gap: 8 },
   ring: {
     borderRadius: 999,

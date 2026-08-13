@@ -4,6 +4,7 @@
 
 import type { IuiPayload } from '@/lib/poppins/ui-scenes';
 import { parseHouseholdIntent } from '@/lib/poppins/ui-intent';
+import { formatLocalDate } from '@/lib/streaks/local-date';
 
 export type SpeechSteer =
   | { kind: 'freeze' }
@@ -33,7 +34,7 @@ export function nextDateForWeekday(name: string): string {
   const d = new Date();
   const diff = (target + 7 - d.getDay()) % 7 || 7;
   d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
+  return formatLocalDate(d);
 }
 
 function escapeRegExp(value: string) {
@@ -68,7 +69,7 @@ export function matchSpokenTokens(
     const d = new Date();
     d.setDate(d.getDate() + 1);
     patch.due = 'Tomorrow';
-    patch.date = d.toISOString().slice(0, 10);
+    patch.date = formatLocalDate(d);
     patch.dayNumber = d.getDate();
   }
   return patch;

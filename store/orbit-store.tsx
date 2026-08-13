@@ -72,7 +72,7 @@ import {
 } from '@/lib/rewards/reward-model';
 import { normalizeRewardSettings } from '@/lib/rewards/reward-mode';
 import { formatLocalDate } from '@/lib/streaks/local-date';
-import { dedupeOccurrences } from '@/lib/tasks/occurrence-dedupe';
+import { assertUniqueOccurrenceInsert, dedupeOccurrences } from '@/lib/tasks/occurrence-dedupe';
 import {
   ensureOccurrencesForDay,
   isExpiredStatus,
@@ -1028,6 +1028,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return null;
     }
     try {
+      assertUniqueOccurrenceInsert(household.tasks, {
+        definitionId: input.definitionId,
+        occurrenceDate: input.occurrenceDate,
+        id: '',
+      });
       const task = await taskRepository.createTask(targetHouseholdId, input);
       // Functional update so batched assigns don't clobber each other with a stale closure.
       const nextHousehold = await new Promise<HouseholdSnapshot>((resolve) => {

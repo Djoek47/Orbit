@@ -57,4 +57,38 @@ assert(seriesDefinitionId(legacyOpen).includes('Wipe counters'), 'legacy series 
 const legacyDay = ensureOccurrencesForDay([legacyOpen], new Date());
 assert(legacyDay.length === 0, 'legacy open Today counts as existing');
 
+const createdToday: HouseholdTask = {
+  id: 'new-daily',
+  title: 'New daily',
+  category: 'kitchen_dining',
+  assignee: 'Emma',
+  due: 'Today',
+  xp: 10,
+  repeat: 'Daily',
+  status: 'Pending',
+  definitionId: 'lib:new-daily:Emma',
+  occurrenceDate: '2026-08-02',
+  dueAt: new Date(2026, 7, 2, 19, 0, 0).toISOString(),
+};
+const yesterdayOfCreate = new Date(2026, 7, 1);
+const noYesterday = ensureOccurrencesForDay([createdToday], yesterdayOfCreate);
+assert(noYesterday.length === 0, 'new daily today must not expire/create yesterday');
+
+const weeklyNew: HouseholdTask = {
+  id: 'new-weekly',
+  title: 'Sunday bins',
+  category: 'trash_recycling',
+  assignee: 'Emma',
+  due: 'Today',
+  xp: 10,
+  repeat: 'Weekly',
+  status: 'Pending',
+  definitionId: 'lib:bins:Emma',
+  occurrenceDate: '2026-08-09', // this Sunday
+  dueAt: new Date(2026, 7, 9, 19, 0, 0).toISOString(),
+};
+const lastSunday = new Date(2026, 7, 2);
+const noLastSunday = ensureOccurrencesForDay([weeklyNew], lastSunday);
+assert(noLastSunday.length === 0, 'new weekly must not create last Sunday');
+
 console.log('test:recurring OK');
