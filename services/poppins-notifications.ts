@@ -4,6 +4,7 @@ import {
   getNotification,
   type NotificationId,
 } from '@/constants/notifications';
+import { displayTrophyName } from '@/lib/trophies/display-name';
 
 export type { PoppinsNotificationPrefs };
 
@@ -82,7 +83,14 @@ export const poppinsNotifications = {
       {
         category: 'ai',
         priority: input.late ? 'high' : 'medium',
-        data: { taskId: input.taskId, kind: 'task_completed' },
+        data: {
+          taskId: input.taskId,
+          kind: 'task_completed',
+          name: input.assignee,
+          memberName: input.assignee,
+          task: input.title,
+          xp: input.awardedXp,
+        },
       }
     );
   },
@@ -163,17 +171,30 @@ export const poppinsNotifications = {
   async trophyUnlocked(
     push: PushFn,
     prefs: PoppinsNotificationPrefs,
-    input: { trophy: string; audienceMemberIds?: string[] }
+    input: {
+      trophy: string;
+      audienceMemberIds?: string[];
+      memberName?: string;
+      memberId?: string;
+    }
   ) {
     if (!prefs.rewards) return null;
+    const trophy = displayTrophyName(input.trophy);
     return pushRegistry(
       push,
       'N12',
-      { trophy: input.trophy },
+      { trophy },
       {
         category: 'rewards',
         priority: 'medium',
-        data: { kind: 'trophy_unlocked', audienceMemberIds: input.audienceMemberIds },
+        data: {
+          kind: 'trophy_unlocked',
+          trophy,
+          name: input.memberName,
+          memberName: input.memberName,
+          memberId: input.memberId,
+          audienceMemberIds: input.audienceMemberIds,
+        },
       }
     );
   },
@@ -202,6 +223,8 @@ export const poppinsNotifications = {
         data: {
           redemptionId: input.redemptionId,
           kind: 'reward_requested',
+          name: input.memberName,
+          reward: input.title,
           audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
         },
       }

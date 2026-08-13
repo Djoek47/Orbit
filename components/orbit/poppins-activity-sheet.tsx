@@ -28,6 +28,7 @@ import {
 } from '@/lib/poppins/notification-buckets';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { factToActivityItem, type HouseholdFact } from '@/lib/poppins/notification-policy';
 import type {
   PoppinsBriefing,
   PoppinsMonitorAction,
@@ -182,6 +183,7 @@ type PoppinsActivitySheetProps = {
   variant?: PoppinsSheetVariant;
   notifications: NotificationItem[];
   monitorActions: PoppinsMonitorAction[];
+  activityFacts?: HouseholdFact[];
   briefing?: PoppinsBriefing | null;
   weekly: PoppinsWeeklyBriefing;
   metrics?: OrbitMetrics | null;
@@ -196,6 +198,7 @@ export function PoppinsActivitySheet({
   variant = 'inbox',
   notifications,
   monitorActions,
+  activityFacts = [],
   briefing,
   weekly,
   metrics,
@@ -255,28 +258,22 @@ export function PoppinsActivitySheet({
             }
           : undefined,
     }));
-    const fromNotes: ActivityItem[] = notifications
-      .slice()
+    const fromFacts: ActivityItem[] = activityFacts.map((fact) => {
+      const mapped = factToActivityItem(fact);
+      return {
+        id: mapped.id,
+        action: mapped.action,
+        detail: mapped.detail,
+        createdAt: mapped.createdAt,
+        category: mapped.category,
+        trigger: triggerFor(mapped.category),
+        impact: impactFrom(`${mapped.action} ${mapped.detail}`),
+      };
+    });
+    return [...fromMonitor, ...fromFacts]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 12)
-      .map((item) => {
-        const itineraryId =
-          typeof item.data?.itineraryId === 'string' ? item.data.itineraryId : null;
-        return {
-          id: item.id,
-          action: item.title,
-          detail: item.body,
-          createdAt: item.createdAt,
-          category: item.category,
-          trigger: triggerFor(item.category),
-          impact: impactFrom(`${item.title} ${item.body}`),
-          tripLabel: itineraryId ? 'Linked trip' : undefined,
-        };
-      });
-    return [...fromMonitor, ...fromNotes]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 20);
-  }, [monitorActions, notifications]);
+      .slice(0, 40);
+  }, [activityFacts, monitorActions]);
 
   const activityGroups = ['Now', 'This Hour', 'Yesterday', 'Earlier']
     .map((label) => ({

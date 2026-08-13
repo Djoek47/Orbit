@@ -63,6 +63,7 @@ export default function PoppinsScreen() {
     notifications,
     poppinsBriefing,
     poppinsMonitorActions,
+    poppinsActivityFacts,
     poppinsWeeklyBriefing,
     orbitPalette,
   } = useOrbit();
@@ -709,6 +710,7 @@ export default function PoppinsScreen() {
         variant="activity"
         notifications={notifications}
         monitorActions={monitorFeed}
+        activityFacts={poppinsActivityFacts}
         briefing={poppinsBriefing}
         weekly={poppinsWeeklyBriefing}
         metrics={metrics}

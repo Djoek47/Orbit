@@ -1,5 +1,5 @@
 /**
- * In-memory ChildStats + EXAMPLE trophy awards for completion wiring.
+ * In-memory ChildStats + trophy awards for completion wiring.
  * Persists awards/stats per child in AsyncStorage for Expo Go continuity.
  */
 
@@ -78,7 +78,7 @@ export type TrophyUnlock = {
 };
 
 /**
- * Apply completion delta + evaluate EXAMPLE trophies.
+ * Apply completion delta + evaluate live trophies.
  * Returns newly unlocked trophies (for toast / gallery).
  */
 export async function recordCompletionForTrophies(input: {

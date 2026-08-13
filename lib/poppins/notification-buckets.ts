@@ -1,3 +1,5 @@
+import { foldGlanceNotifications, laneForKind } from '@/lib/poppins/notification-policy';
+import { stripExampleCopy } from '@/lib/trophies/display-name';
 import type { PoppinsBriefing, NotificationItem } from '@/types/orbit';
 
 export type NotifBucket = 'critical' | 'urgent' | 'insight' | 'done';
@@ -62,7 +64,10 @@ function memberEmojiFrom(item: NotificationItem): string | undefined {
 
 function actionLabelFor(item: NotificationItem): string | undefined {
   const kind = typeof item.data?.kind === 'string' ? item.data.kind : '';
+  const cta = typeof item.data?.cta === 'string' ? item.data.cta : '';
+  if (cta) return cta;
   if (item.category === 'rewards' || kind.startsWith('reward_')) return 'Open Rewards';
+  if (kind === 'trophy_unlocked' || kind === 'glance' || kind === 'task_completed') return 'View';
   if (item.category === 'tasks' || kind.includes('proof')) return 'Open Task';
   if (item.category === 'events') return 'Open Plan';
   if (item.category === 'groceries') return 'Open Groceries';
@@ -70,24 +75,39 @@ function actionLabelFor(item: NotificationItem): string | undefined {
   return 'View';
 }
 
-/** Presentation-only bucketing — no new notification types. */
+/** Presentation-only bucketing — composer urgency wins; trophies never Needs Action. */
 export function bucketNotification(item: NotificationItem): NotifBucket {
   const kind = typeof item.data?.kind === 'string' ? item.data.kind : '';
-  const needsAction =
-    item.priority === 'critical' ||
-    item.priority === 'high' ||
-    kind.includes('overdue') ||
-    kind.includes('pending') ||
-    (!item.isRead && (item.category === 'rewards' || kind.includes('proof')));
-  if (needsAction && (!item.isRead || item.priority === 'critical' || item.priority === 'high')) {
+  const urgency = typeof item.data?.urgency === 'string' ? item.data.urgency : '';
+  const lane = laneForKind(kind);
+
+  if (item.isRead) {
+    if (kind.includes('complete') || kind.includes('approved') || item.category === 'tasks') {
+      return 'done';
+    }
+    return urgency === 'insight' || item.category === 'ai' ? 'insight' : 'done';
+  }
+
+  if (urgency === 'needs_action' || lane === 'interrupt') {
     return 'critical';
   }
+  if (urgency === 'insight' || lane === 'insight') {
+    return 'insight';
+  }
   if (
-    kind.includes('complete') ||
-    kind.includes('approved') ||
-    (item.isRead && item.category === 'tasks')
+    urgency === 'today' ||
+    lane === 'glance' ||
+    kind === 'glance' ||
+    kind === 'trophy_unlocked' ||
+    kind === 'task_completed'
   ) {
+    return 'urgent';
+  }
+  if (kind.includes('complete') || kind.includes('approved')) {
     return 'done';
+  }
+  if (item.priority === 'critical') {
+    return 'critical';
   }
   if (item.category === 'ai' || kind.includes('insight') || kind.includes('pattern')) {
     return 'insight';
@@ -95,7 +115,7 @@ export function bucketNotification(item: NotificationItem): NotifBucket {
   if (!item.isRead || isSameDay(item.createdAt)) {
     return 'urgent';
   }
-  return item.isRead ? 'done' : 'urgent';
+  return 'done';
 }
 
 export function buildSheetNotifications(
@@ -125,8 +145,8 @@ export function buildSheetNotifications(
     });
   }
 
-  const sorted = [...notifications].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  const sorted = foldGlanceNotifications(
+    [...notifications].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   );
 
   for (const item of sorted.slice(0, 40)) {
@@ -134,8 +154,8 @@ export function buildSheetNotifications(
     cards.push({
       id: item.id,
       bucket,
-      title: item.title,
-      body: item.body,
+      title: stripExampleCopy(item.title),
+      body: item.body ? stripExampleCopy(item.body) : undefined,
       timeLabel: formatRelative(item.createdAt),
       color: BUCKET_COLORS[bucket],
       actionLabel: actionLabelFor(item),
@@ -148,5 +168,5 @@ export function buildSheetNotifications(
 }
 
 export function needsAttentionCount(cards: SheetNotificationCard[]) {
-  return cards.filter((c) => c.bucket === 'critical' || c.bucket === 'urgent').length;
+  return cards.filter((c) => c.bucket === 'critical').length;
 }

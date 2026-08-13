@@ -156,7 +156,15 @@ async function persistEffects(
 
     if (result?.notification && typeof result.notification === 'object' && !result.skipped) {
       const n = result.notification as { title: string; body: string; data?: Record<string, unknown> };
-      await writeNotification(supabase, householdId, n.title, n.body, n.data ?? {});
+      const kind = String(n.data?.kind ?? tool);
+      const interrupt = kind === 'ask_for_info';
+      if (interrupt) {
+        await writeNotification(supabase, householdId, n.title, n.body, {
+          ...(n.data ?? {}),
+          urgency: 'needs_action',
+          kind,
+        });
+      }
       const planDraft = result.planDraft as Record<string, unknown> | undefined;
       actions.push({
         kind: tool === 'propose_plan' ? 'plan' : tool,
@@ -183,9 +191,6 @@ async function persistEffects(
       const deals = result.deals as Array<{ title: string; store: string; savings: number }>;
       const top = deals.slice(0, 3);
       const body = top.map((d) => `${d.title} at ${d.store} (save $${d.savings})`).join(' · ');
-      await writeNotification(supabase, householdId, `Poppins · ${top.length} deals found`, body, {
-        kind: 'deals',
-      });
       await writeRecommendation(supabase, householdId, 'Worth grabbing on the next run', body, 'green');
       actions.push({ kind: 'deals', label: `Found ${top.length} deals`, detail: body });
     }
@@ -195,14 +200,7 @@ async function persistEffects(
       for (const task of overdue.slice(0, 3)) {
         const title = String(task.title ?? 'Task');
         const assignee = String(task.assignee ?? 'someone');
-        await writeNotification(
-          supabase,
-          householdId,
-          'Poppins · Task is late',
-          `${title} for ${assignee} is overdue. Want me to nudge or reassign?`,
-          { kind: 'task_overdue', taskId: task.id }
-        );
-        actions.push({ kind: 'nudge', label: `Nudged ${assignee}`, detail: title });
+        actions.push({ kind: 'nudge', label: `${assignee} is late`, detail: title });
       }
     }
   }

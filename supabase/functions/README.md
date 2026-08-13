@@ -7,6 +7,7 @@ npx supabase functions deploy poppins-briefing
 npx supabase functions deploy poppins-chat
 npx supabase functions deploy poppins-voice
 npx supabase functions deploy poppins-monitor
+npx supabase functions deploy poppins-notify
 npx supabase functions deploy poppins-realtime-session
 npx supabase functions deploy poppins-realtime-sdp
 npx supabase functions deploy poppins-voice-tool
@@ -35,7 +36,8 @@ Post-tool spoken response ADR: [docs/adr-poppins-post-tool-response-create.md](.
 | `poppins-briefing` | Daily/weekly briefings + recommendation payloads (JWT + active member) |
 | `poppins-chat` | Conversational Poppins (Luna) with household context + history |
 | `poppins-voice` | Whisper STT + short GPT reply for Talk to Poppins (Whisper fallback) |
-| `poppins-monitor` | Monitor Agent tool loop → `notifications` + `ai_recommendations` |
+| `poppins-monitor` | Monitor Agent tool loop → Activity log; inbox only for blocking asks |
+| `poppins-notify` | Luna (`gpt-5.6-luna`) writes/summarizes one inbox sentence from facts |
 | `poppins-realtime-session` | Mints ephemeral OpenAI Realtime client secret (Expo Go WS fallback) |
 | `poppins-realtime-sdp` | Server SDP for WebRTC duplex (`POST /v1/realtime/calls`) |
 | `poppins-voice-tool` | Tool executor for live voice (`forceRiskyConfirmation: true`) |
