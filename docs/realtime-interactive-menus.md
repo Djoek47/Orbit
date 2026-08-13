@@ -125,7 +125,7 @@ Keep using existing tools first; add these only if orchestrator needs explicit m
 
 ## Related
 
-- [choremaxx-make-v11.md](./choremaxx-make-v11.md) — tonight TestFlight
+- [choremaxx-make-v12.md](./choremaxx-make-v12.md) — v12 aggregate + v13 ship
 - [weekend-ship-automation.md](./weekend-ship-automation.md) — Phase C slot
 - [adr-poppins-post-tool-response-create.md](./adr-poppins-post-tool-response-create.md) — spoken summary after tools
 - `lib/ai/execute-poppins-tool.ts` — existing `ui_actions` shapes

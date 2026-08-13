@@ -1,6 +1,8 @@
-# House Rules — Final Revision rewrite (v11)
+# House Rules — Final Revision rewrite (v11, superseded)
 
-**Branch:** `cursor/choremaxx-make-v11`  
+**Current shipping UI (v12):** HTML four directions × Admin / Sidekick — see `docs/choremaxx-make-v12.md`. This note is the v11 kid-card rewrite, kept for history.
+
+**Branch (historical):** `cursor/choremaxx-make-v11`  
 **Spec:** Master Brief §3 + Rev D §4 + Rev E §4.2 + Rev F §13
 
 ## What changed

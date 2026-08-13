@@ -1,9 +1,9 @@
 # Weekend ship automation — ChoreMaxx
 
-**Prepared:** 2026-08-06 · **Restored:** 2026-08-10 · **Updated:** 2026-08-11 (v11 + Phase C)  
-**Start from:** `cursor/choremaxx-make-v11` @ latest tip ([PR #33](https://github.com/Djoek47/Orbit/pull/33))  
-**Tonight:** TestFlight **1.1.0 build 32** — full stack (v10 + auth + house rules + Divine Voice)  
-**Tomorrow:** [Realtime Interactive Menus](./realtime-interactive-menus.md) — Phase **C1**  
+**Prepared:** 2026-08-06 · **Restored:** 2026-08-10 · **Updated:** 2026-08-13 (v12 aggregate)  
+**Start from:** `cursor/choremaxx-make-v12` @ latest tip  
+**Tonight:** TestFlight **1.2.0** — full stack (v11 + IUI + Luna + Assign/Event + Poppins quality + House Rules HTML)  
+**Tomorrow:** cut **v13** from v12 as the final app — [`docs/choremaxx-make-v12.md`](./choremaxx-make-v12.md)  
 
 > ## ⚠️ THIS WEEKEND WAS MISSED — EXECUTE NOW
 >
@@ -22,7 +22,7 @@ This doc is the **automation-ready playbook**. Paste the block under [Automation
 | Revision E | Intro slogans, closed notification registry wired, reward/allowance ledgers UI, vocab |
 | Revision C grocery | Offline classifier, aisle shopping + keep-awake, Home cart card, admin-only clear |
 | **Final Revision F** | Occurrence dedupe, Expired tab, per-member invites, Hold & Request gate, Assign sticky page, shortName, Create allowance + progress, assignee-only complete, R30–R33 — see `docs/logic/REVISION_F_COMPLETION_REPORT.md` |
-| House Rules 4-views | Chapters / Glance / Track / Ask Poppins × Adult/Kid |
+| House Rules 4-views | Chapters / Glance / Track / Ask Poppins × **Admin / Sidekick** (v12 restored HTML; no kid card) |
 | Canada grocery planner | ~2.5k catalog, search/browse, favorites/buy-again, per-item emoji |
 | Smart Shopping | HTML bible × orbit tokens |
 | Monthly Rescue token | 1/month product override |
@@ -44,7 +44,7 @@ Contrast audit F7 · Add-member 4-step wizard F8 · invite RLS F3.6 · full Pers
 
 | Topic | Lock |
 |-------|------|
-| Branch | `cursor/choremaxx-make-v11` only (v11 pre-final aggregate) |
+| Branch | `cursor/choremaxx-make-v12` (v13 cut from here tomorrow) |
 | Rule Sheet | `docs/logic/choremaxx-MASTER-BRIEF.md` §3 wins conflicts |
 | AI name in product strings | **Poppins** (Master Brief §3.1) |
 | Families only | No roommate mode in shipping product (site still markets roommates — fix in A1/B4) |
@@ -100,7 +100,7 @@ Poppins drives **visible** Tasks / Plan menus while speaking — assignment pick
 | **C1.4** | ☐ | Poppins presence rail | Bottom banner + orb sync on driven screens |
 | **C1.5** | ☐ | Smoke + matrix | Rows added to `docs/expo-go-test-matrix.md` |
 
-**Branch:** stay on `cursor/choremaxx-make-v11` (or tip v12 from same line). **Requires** TestFlight build with Divine Voice + WebRTC for full duplex demo; Expo Go gets text-path choreography only.
+**Branch:** stay on `cursor/choremaxx-make-v12`. **Requires** TestFlight build with Divine Voice + WebRTC for full duplex demo; Expo Go gets text-path choreography only.
 
 ### Final — key rotations (LAST, after B7 / ship)
 
@@ -121,13 +121,13 @@ Do **not** rotate mid-weekend while hooks are being tested. After App Review pac
 You are shipping ChoreMaxx for App Store readiness.
 
 BRANCH (mandatory):
-- git fetch && git checkout cursor/choremaxx-make-v11 && git pull
+- git fetch && git checkout cursor/choremaxx-make-v12 && git pull
 - Commit and push ONLY on this branch. Do not create cursor/*-c30d sprawl.
 
 READ FIRST:
 - docs/weekend-ship-automation.md  (this playbook — Phase A then B, then C tomorrow)
 - docs/realtime-interactive-menus.md  (Phase C1 spec)
-- docs/choremaxx-make-v11.md  (TestFlight smoke + aggregated stack)
+- docs/choremaxx-make-v12.md  (TestFlight aggregate + v13 checklist)
 - docs/logic/choremaxx-MASTER-BRIEF.md §3 (wins all conflicts)
 - docs/logic/REVISION_F_COMPLETION_REPORT.md (Final Revision already landed — do not redo)
 - docs/product-context.md, docs/technical-blueprint.md
@@ -165,7 +165,7 @@ START: Confirm branch tip SHA, then begin A1.
 ## Related docs
 
 - [next-session.md](./next-session.md) — short pointer to this playbook  
-- [choremaxx-make-v11.md](./choremaxx-make-v11.md) — tonight TestFlight aggregate  
+- [choremaxx-make-v12.md](./choremaxx-make-v12.md) — v12 aggregate + v13 checklist  
 - [realtime-interactive-menus.md](./realtime-interactive-menus.md) — **tomorrow Phase C1**  
 - [logic/REVISION_F_COMPLETION_REPORT.md](./logic/REVISION_F_COMPLETION_REPORT.md)  
 - [testflight-setup.md](./testflight-setup.md)  

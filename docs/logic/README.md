@@ -46,4 +46,4 @@ Data files:
 
 - Monthly Rescue token (`MONTHLY_RESCUE_TOKENS = 1`) instead of lifetime free-first — pending Master Brief Q2 confirmation
 - Canada grocery catalog + Smart Shopping — additive on Rev C classifier; do not strip to C-only list
-- House Rules 4-views (Chapters / Glance / Track / Ask Poppins)
+- House Rules 4-views (Chapters / Glance / Track / Ask Poppins) × Admin / Sidekick
