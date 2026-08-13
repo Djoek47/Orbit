@@ -110,6 +110,7 @@
           "microphonePermission": "Choremaxx uses the microphone so you can talk to Poppins."
         }
       ],
+      "./plugins/with-webrtc-speaker",
       [
         "expo-notifications",
         {

@@ -4,11 +4,13 @@ import { Audio } from 'expo-av';
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
 import { poppinsService } from '@/services/poppins-service';
 import type { HouseholdSnapshot, PoppinsConversationAnswer, OrbitMetrics } from '@/types/orbit';
 
 export async function speakPoppins(text: string) {
   Speech.stop();
+  await restorePoppinsAudio();
   Speech.speak(text, {
     language: 'en-US',
     rate: 0.96,
@@ -24,10 +26,7 @@ let recording: Audio.Recording | null = null;
 
 export async function startVoiceCapture() {
   await Audio.requestPermissionsAsync();
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: true,
-    playsInSilentModeIOS: true,
-  });
+  await configurePoppinsSpeakerAudio();
 
   recording = new Audio.Recording();
   await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
@@ -43,7 +42,7 @@ export async function stopVoiceCapture() {
   await recording.stopAndUnloadAsync();
   const uri = recording.getURI();
   recording = null;
-  await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+  await restorePoppinsAudio();
   return uri;
 }
 
