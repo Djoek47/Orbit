@@ -9,38 +9,39 @@ export function NoneCard(_props: VisualWidgetProps) {
   return null;
 }
 
-/** XP value ramp from constants.xpValues. Adult amber bars; Sidekick mint→punch stairs. */
+/** XP value ramp from constants.xpValues. */
 export function XpRamp({ constants, palette, voice }: VisualWidgetProps) {
   const values = constants.xpValues;
   const max = Math.max(...values, 1);
-  const barMax = voice === 'kid' ? 78 : 64;
+  const barMax = voice === 'sidekick' ? 78 : 64;
 
   return (
-    <View style={styles.row} accessible={false} importantForAccessibility="no-hide-descendants">
+    <View style={[styles.row, { height: barMax }]} accessible={false} importantForAccessibility="no-hide-descendants">
       {values.map((xp, i) => {
-        const height = Math.max(barMax * 0.24, (xp / max) * barMax);
-        const fill =
-          voice === 'kid' ? HR.kidStairs[i] ?? palette.success : palette.warn;
+        const height = Math.round(20 + (80 * xp) / max);
+        const fill = voice === 'sidekick' ? HR.skStairs[i] ?? palette.success : palette.warn;
         return (
           <View key={xp} style={[styles.col, { height: barMax }]}>
+            <View style={[styles.barWrap, { height: barMax }]}>
+              <View
+                style={[
+                  styles.bar,
+                  {
+                    height: `${height}%`,
+                    backgroundColor: fill,
+                    borderTopLeftRadius: voice === 'sidekick' ? 7 : 5,
+                    borderTopRightRadius: voice === 'sidekick' ? 7 : 5,
+                  },
+                ]}
+              />
+            </View>
             <Text
               style={[
                 styles.label,
-                { color: voice === 'kid' ? palette.ink : palette.inkSoft },
+                { color: voice === 'sidekick' ? palette.ink : '#C9D6E8', top: -17 },
               ]}>
               {xp}
             </Text>
-            <View
-              style={[
-                styles.bar,
-                {
-                  height,
-                  backgroundColor: fill,
-                  borderTopLeftRadius: 5,
-                  borderTopRightRadius: 5,
-                },
-              ]}
-            />
           </View>
         );
       })}
@@ -53,19 +54,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 6,
-    marginTop: 14,
-    marginBottom: 8,
+    marginTop: 16,
+    marginBottom: 10,
   },
   col: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    position: 'relative',
+  },
+  barWrap: {
+    alignSelf: 'stretch',
     justifyContent: 'flex-end',
   },
   label: {
     fontSize: 11,
     fontVariant: ['tabular-nums'],
     fontWeight: '800',
-    marginBottom: 4,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
   },
   bar: {
     alignSelf: 'stretch',

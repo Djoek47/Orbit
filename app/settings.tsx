@@ -65,6 +65,11 @@ import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
+import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
+import { houseRulesHouseholdView } from '@/lib/rules/household-view';
+import { formatHouseRulesTime } from '@/lib/rules/interpolate';
+import { hasAllowanceModel } from '@/lib/rules/visibility';
+import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
 
 type Section = 'main' | 'members' | 'notifications';
 
@@ -160,6 +165,8 @@ export default function SettingsScreen() {
     updateHouseholdAccentTheme,
     updateHouseholdRewardSettings,
     updateHouseholdRewardModel,
+    queueDailyDeadline,
+    setAllowanceRequestsEnabled,
     updateDisplayName,
     updateMemberDisplayName,
     updatePalette,
@@ -193,6 +200,9 @@ export default function SettingsScreen() {
   );
 
   const [section, setSection] = useState<Section>('main');
+  const [deadlineOpen, setDeadlineOpen] = useState(false);
+  const houseRulesDoc = useMemo(() => getHouseRulesDoc(), []);
+  const houseRulesView = useMemo(() => houseRulesHouseholdView(household), [household]);
   const [entitlement, setEntitlement] = useState<EntitlementState | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -682,6 +692,44 @@ export default function SettingsScreen() {
               subtitle="How XP, streaks, and rewards work here"
               onPress={() => router.push('/house-rules' as never)}
             />
+            {permissions.canManageHousehold ? (
+              <SettingsRow
+                icon="schedule"
+                iconColor="#E9B44C"
+                label={houseRulesDoc.settings.dailyDeadline.label}
+                subtitle={formatHouseRulesTime(
+                  houseRulesView.dailyDeadline ?? houseRulesDoc.settings.dailyDeadline.default,
+                  houseRulesView.use24h
+                )}
+                onPress={() => setDeadlineOpen(true)}
+              />
+            ) : null}
+            {permissions.canManageHousehold && hasAllowanceModel(household.rewardModel) ? (
+              <View
+                style={[
+                  styles.prefRow,
+                  {
+                    backgroundColor: glassFill(isDark),
+                    borderColor: glassBorder(0.08),
+                    marginBottom: 8,
+                  },
+                ]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.memberName, { color: c.text }]}>
+                    {houseRulesDoc.settings.allowanceRequests.label}
+                  </Text>
+                  <Text style={[styles.caption, { color: c.textSubtle }]}>
+                    {houseRulesDoc.settings.allowanceRequests.help}
+                  </Text>
+                </View>
+                <Switch
+                  value={household.allowanceRequestsEnabled !== false}
+                  onValueChange={(value) => setAllowanceRequestsEnabled(value)}
+                  trackColor={{ false: glassBorder(0.1), true: accentTheme.primary }}
+                  thumbColor="#fff"
+                />
+              </View>
+            ) : null}
             {permissions.canManageHousehold ? (
               <SettingsRow
                 icon="beach-access"
@@ -1295,6 +1343,16 @@ export default function SettingsScreen() {
       canManageHousehold={permissions.canManageHousehold}
       onSelectHousehold={(id) => updateMajordomoProfile(id)}
       onSelectPersonal={(id) => updateMemberMajordomoProfile(id)}
+    />
+    <DeadlinePickerSheet
+      visible={deadlineOpen}
+      doc={houseRulesDoc}
+      current={houseRulesView.dailyDeadline ?? houseRulesDoc.settings.dailyDeadline.default}
+      pending={household.dailyDeadlinePending}
+      appliesOn={household.dailyDeadlineAppliesOn}
+      use24h={houseRulesView.use24h}
+      onClose={() => setDeadlineOpen(false)}
+      onSelect={(hhmm) => queueDailyDeadline(hhmm)}
     />
   </>
   );

@@ -659,6 +659,12 @@ export type HouseholdSnapshot = {
   groceryPurchaseHistory?: string[];
   /** Last time an admin opened the groceries tab (for Home badge). */
   groceriesLastOpenedAt?: string;
+  /** Local HH:mm when daily tasks are due. Default 19:00. Change takes effect next day. */
+  dailyDeadline?: string | null;
+  dailyDeadlinePending?: string | null;
+  dailyDeadlineAppliesOn?: string | null;
+  /** When false, Sidekicks cannot request an allowance amount. Default true. Absent when the model has no allowance. */
+  allowanceRequestsEnabled?: boolean;
   /** When false, homework-gated House Rules chapters hide. Default true. */
   homeworkEnabled?: boolean;
   /** Make accent theme id (ocean/aurora/…). */

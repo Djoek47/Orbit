@@ -24,19 +24,19 @@ function fold(text: string): string {
 export function searchHouseRules(
   groups: VisibleChapter[],
   query: string,
-  voice: 'adult' | 'kid'
+  voice: 'admin' | 'sidekick'
 ): SearchableRule[] {
   const q = fold(query);
   if (!q) return [];
 
   const hits: SearchableRule[] = [];
   for (const { chapter, rules } of groups) {
-    const chapterLabel = voice === 'kid' ? chapter.kidLabel : chapter.adultLabel;
+    const chapterLabel = voice === 'sidekick' ? chapter.sidekickLabel : chapter.adminLabel;
     for (const rule of rules) {
       const hay =
-        voice === 'kid'
-          ? [rule.kid.question, rule.kid.body, rule.kid.headline, chapterLabel]
-          : [rule.adult.question, rule.adult.clause, rule.adult.headline, chapterLabel];
+        voice === 'sidekick'
+          ? [rule.sidekick.body, rule.sidekick.headline, chapterLabel]
+          : [rule.admin.clause, rule.admin.headline, chapterLabel];
       if (hay.some((part) => fold(part).includes(q))) {
         hits.push({ ...rule, chapterLabel });
       }

@@ -492,18 +492,65 @@ export default function RewardsScreen() {
     }
   };
 
+  const requestsOn = household.allowanceRequestsEnabled !== false;
+
+  const recordedBalanceFor = (memberId: string | null | undefined) => {
+    if (!memberId) return 0;
+    const mine = allowanceLedger.filter((e) => e.memberId === memberId);
+    return summarizeAllowanceLedger(mine).owed;
+  };
+
   const askAllowance = () => {
-    setAllowanceBusy(true);
-    void requestAllowance({
-      amountLabel: '$5',
-      note: isAdmin ? 'Admin test allowance ask' : 'Weekly allowance ask',
-    })
-      .then((grant) => {
-        if (grant) {
-          Alert.alert('Allowance requested', 'An admin was notified to approve.');
-        }
-      })
-      .finally(() => setAllowanceBusy(false));
+    if (!requestsOn) return;
+    if (!isAdmin && currentMember) {
+      const gate = canRequestReward(currentMember.name, household.tasks);
+      if (!gate.allowed) {
+        const copy = blockedRequestCopy(gate);
+        Alert.alert(copy.title, [copy.body, '', ...copy.lines].filter(Boolean).join('\n'), [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: copy.cta,
+            onPress: () =>
+              router.push({
+                pathname: '/(tabs)/tasks',
+                params: { member: currentMember.name },
+              } as never),
+          },
+        ]);
+        return;
+      }
+    }
+    const ceiling = recordedBalanceFor(currentMember?.id);
+    if (ceiling <= 0) {
+      Alert.alert('Not just yet', "Finish today's tasks and homework first.");
+      return;
+    }
+    const steps = [1, 2, 5, 10, 20, 50].filter((n) => n < ceiling);
+    const choices = [...steps, Math.round(ceiling * 100) / 100];
+    const unique = [...new Set(choices.map((n) => Number(n.toFixed(2))))];
+    Alert.alert(
+      'Ask for an amount',
+      `Up to ${formatMoney(ceiling, allowanceCurrency)}.`,
+      [
+        ...unique.map((amount) => ({
+          text: formatMoney(amount, allowanceCurrency),
+          onPress: () => {
+            setAllowanceBusy(true);
+            void requestAllowance({
+              amountLabel: formatMoney(amount, allowanceCurrency),
+              note: isAdmin ? 'Admin test allowance ask' : 'Amount request',
+            })
+              .then((grant) => {
+                if (grant) {
+                  Alert.alert('Requested', 'An admin will review it. Nothing moves until they approve.');
+                }
+              })
+              .finally(() => setAllowanceBusy(false));
+          },
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]
+    );
   };
 
   return (
@@ -891,7 +938,7 @@ export default function RewardsScreen() {
                           }}
                           style={[styles.approveBtn, { backgroundColor: 'rgba(52,211,153,0.2)' }]}>
                           <Text style={{ color: '#34D399', fontWeight: '700', fontSize: 12 }}>
-                            {VOCAB.markAsPaid}
+                            {VOCAB.approveNow}
                           </Text>
                         </Pressable>
                         <Pressable
@@ -922,8 +969,9 @@ export default function RewardsScreen() {
             <GlassCard style={styles.stack}>
               <Text style={[typography.headline, { color: c.text }]}>Your allowance</Text>
               <Text style={[typography.footnote, { color: c.textMuted }]}>
-                Ask a grown-up when allowance is due. They mark it paid here.
+                Allowance is recorded here. An admin uses Approve now — ChoreMaxx moves no money.
               </Text>
+              {requestsOn ? (
               <Pressable
                 disabled={allowanceBusy}
                 onPress={askAllowance}
@@ -933,9 +981,10 @@ export default function RewardsScreen() {
                 ]}>
                 <MaterialIcons name="payments" size={18} color={accentTheme.primary} />
                 <Text style={{ color: accentTheme.primary, fontWeight: '700' }}>
-                  {allowanceBusy ? 'Asking…' : 'Ask for allowance'}
+                  {allowanceBusy ? 'Asking…' : 'Ask for an amount'}
                 </Text>
               </Pressable>
+              ) : null}
               {pendingAllowances
                 .filter((g) => g.memberId === currentMember?.id)
                 .map((grant) => (

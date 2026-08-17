@@ -23,6 +23,9 @@ import {
 } from '@/lib/ai/majordomo-prefs';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { trackAnalytics } from '@/lib/analytics';
+import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
+import { queueDailyDeadlineChange, settleDeadlineState } from '@/lib/rules/deadline';
+import { householdDueTimeLocal } from '@/lib/rules/household-view';
 import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, memberDisplayEmoji, xpProgress } from '@/lib/game-levels';
 import { getLocationAwareGrocerySuggestions, buildStoreRecommendations } from '@/lib/grocery/location-suggestions';
 import { countUpcomingSoon } from '@/lib/calendar/event-groups';
@@ -373,6 +376,10 @@ type OrbitContextValue = {
   }) => void;
   /** Parent/admin: XP system (xp_only / allowance / rewards / full) — changeable in Settings. */
   updateHouseholdRewardModel: (model: RewardModel) => void;
+  /** Admin: queue a daily deadline change for tomorrow (in-progress tasks keep today's hour). */
+  queueDailyDeadline: (hhmm: string) => void;
+  /** Admin: Hold & Request for allowance amounts. Hidden when the model has no allowance. */
+  setAllowanceRequestsEnabled: (enabled: boolean) => void;
   /**
    * Custom house rules — display only; never alter scoring / XP / allowance.
    */
@@ -540,6 +547,64 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     () => capabilitiesFor(household.rewardModel ?? DEFAULT_REWARD_MODEL),
     [household.rewardModel]
   );
+
+  const persistHouseRulesHouseholdFields = (
+    householdId: string | null,
+    next: HouseholdSnapshot,
+    patch: {
+      daily_deadline?: string | null;
+      daily_deadline_pending?: string | null;
+      daily_deadline_applies_on?: string | null;
+      allowance_requests_enabled?: boolean;
+    }
+  ) => {
+    if (dataMode === 'mock') {
+      void persistMockHouseholdSnapshot(next);
+    }
+    if (dataMode === 'supabase' && householdId) {
+      void import('@/repositories/repository-utils').then(async ({ getConfiguredSupabase, mapDbError }) => {
+        try {
+          const supabase = getConfiguredSupabase('houseRulesSettings');
+          const { error } = await supabase.from('households').update(patch).eq('id', householdId);
+          mapDbError('houseRulesSettings', error);
+        } catch (error) {
+          console.warn('houseRulesSettings supabase skipped', error);
+        }
+      });
+    }
+  };
+
+  const queueDailyDeadline = (hhmm: string) => {
+    setHousehold((current) => {
+      if (!permissions.canManageHousehold) return current;
+      const queued = queueDailyDeadlineChange(hhmm);
+      const next: HouseholdSnapshot = {
+        ...current,
+        dailyDeadlinePending: queued.dailyDeadlinePending,
+        dailyDeadlineAppliesOn: queued.dailyDeadlineAppliesOn,
+      };
+      persistHouseRulesHouseholdFields(current.id, next, {
+        daily_deadline_pending: queued.dailyDeadlinePending,
+        daily_deadline_applies_on: queued.dailyDeadlineAppliesOn,
+      });
+      return next;
+    });
+  };
+
+  const setAllowanceRequestsEnabled = (enabled: boolean) => {
+    setHousehold((current) => {
+      if (!permissions.canManageHousehold) return current;
+      const next: HouseholdSnapshot = {
+        ...current,
+        allowanceRequestsEnabled: enabled,
+      };
+      persistHouseRulesHouseholdFields(current.id, next, {
+        allowance_requests_enabled: enabled,
+      });
+      return next;
+    });
+  };
+
   const metrics = useMemo(() => calculateMetrics(household), [household]);
   const membersWithProgress = useMemo(
     () => household.members.map((member) => calculateMemberProgress(member, household.tasks)),
@@ -1246,7 +1311,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       day.setDate(day.getDate() - offset);
       const dayKey = formatLocalDate(day);
       nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now);
-      const dayDrafts = ensureOccurrencesForDay(nextTasks, day);
+      const dayDrafts = ensureOccurrencesForDay(
+        nextTasks,
+        day,
+        householdDueTimeLocal(household, day)
+      );
       for (const draft of dayDrafts) {
         const exists = nextTasks.some(
           (t) =>
@@ -1279,7 +1348,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now);
     }
 
-    const todayDrafts = ensureOccurrencesForDay(nextTasks, now);
+    const todayDrafts = ensureOccurrencesForDay(nextTasks, now, householdDueTimeLocal(household, now));
     const created: HouseholdTask[] = [];
     for (const draft of todayDrafts) {
       const exists = nextTasks.some(
@@ -1331,6 +1400,27 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     // One catch-up per household session mount / id change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [household.id, isLoading]);
+
+  useEffect(() => {
+    if (!household.dailyDeadlinePending || !household.dailyDeadlineAppliesOn) return;
+    const settled = settleDeadlineState(getHouseRulesDoc(), household);
+    if (settled.dailyDeadlinePending !== null) return;
+    setHousehold((current) => {
+      if (!current.dailyDeadlinePending) return current;
+      const next: HouseholdSnapshot = {
+        ...current,
+        dailyDeadline: settled.dailyDeadline,
+        dailyDeadlinePending: null,
+        dailyDeadlineAppliesOn: null,
+      };
+      persistHouseRulesHouseholdFields(current.id, next, {
+        daily_deadline: settled.dailyDeadline,
+        daily_deadline_pending: null,
+        daily_deadline_applies_on: null,
+      });
+      return next;
+    });
+  }, [household.dailyDeadlinePending, household.dailyDeadlineAppliesOn, household.id]);
 
   const completeTask = async (taskId: string, options?: { forAssignee?: string }) => {
     const currentTask = household.tasks.find((item) => item.id === taskId);
@@ -4006,6 +4096,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateMemberCapabilities,
       updateHouseholdRewardSettings,
       updateHouseholdRewardModel,
+      queueDailyDeadline,
+      setAllowanceRequestsEnabled,
       addCustomHouseRule,
       updateCustomHouseRule,
       removeCustomHouseRule,
@@ -4119,6 +4211,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateMemberCapabilities,
       updateHouseholdRewardSettings,
       updateHouseholdRewardModel,
+      queueDailyDeadline,
+      setAllowanceRequestsEnabled,
       addCustomHouseRule,
       updateCustomHouseRule,
       removeCustomHouseRule,

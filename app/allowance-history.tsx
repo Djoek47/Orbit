@@ -107,7 +107,7 @@ export default function AllowanceHistoryScreen() {
                 </View>
               </View>
               <Text style={[typography.footnote, { color: c.textMuted }]}>
-                {member?.name ?? 'Helper'}
+                {member?.name ?? 'Sidekick'}
                 {` · ${entry.periodStart} → ${entry.periodEnd}`}
               </Text>
               <Text style={[styles.time, { color: c.textSubtle }]}>

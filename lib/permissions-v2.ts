@@ -1,7 +1,8 @@
 /**
  * ChoreMaxx v2 Admin vs Member permissions (§1.6).
  * Legacy roles map: owner/admin → admin; everyone else → member.
- * Revision C §3: Member displays as **Helper** in UI; role key stays `member`.
+ * Revision C §3: Member displays as **Sidekick** in UI; role key stays `member`.
+ * Persisted household role raw value for Sidekick is `child` — Appendix A.2.
  * Enforce in store actions — do not only hide UI.
  */
 

@@ -211,7 +211,7 @@ export function SetupMemberWizard({
                     },
                   ]}>
                   <Text style={{ color: active ? c.primary : c.textMuted, fontWeight: '600' }}>
-                    {role === 'admin' ? 'Admin' : 'Helper'}
+                    {role === 'admin' ? 'Admin' : 'Sidekick'}
                   </Text>
                 </Pressable>
               );
@@ -401,7 +401,7 @@ export function SetupMemberWizard({
               <View style={{ flex: 1 }}>
                 <Text style={[typography.headline, { color: c.text }]}>{member.name.trim()}</Text>
                 <Text style={[typography.caption1, { color: c.textMuted }]}>
-                  {member.role === 'admin' ? 'Admin' : 'Helper'}
+                  {member.role === 'admin' ? 'Admin' : 'Sidekick'}
                 </Text>
               </View>
               <Pressable onPress={() => setStep('A')}>

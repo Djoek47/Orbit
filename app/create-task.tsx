@@ -43,6 +43,7 @@ import { formatAssigneeLabel } from '@/lib/tasks/split-assign';
 import { computeTaskXp, weightForDifficulty } from '@/lib/tasks/xp';
 import { allLibraryTasks } from '@/lib/tasks/task-library';
 import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
+import { householdDueTimeLocal } from '@/lib/rules/household-view';
 import { dueLabelForDate, occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
 import { mapLibraryRepeat } from '@/lib/tasks/library-repeat';
 import { formatLocalDate } from '@/lib/streaks/local-date';
@@ -812,7 +813,7 @@ export default function CreateTaskScreen() {
     for (const id of pickerIds) {
       const task = byId.get(id);
       if (!task) continue;
-      const dueAt = dueAtForFrequency('daily');
+      const dueAt = dueAtForFrequency('daily', new Date(), householdDueTimeLocal(household));
       const occurrenceDate = formatLocalDate(new Date());
       const payload = buildTaskPayload({
         title: task.name,

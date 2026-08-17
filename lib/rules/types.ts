@@ -1,5 +1,5 @@
 /**
- * House Rules typed models — 1:1 with data/house-rules.json.
+ * House Rules typed models — 1:1 with data/house-rules.json v4.
  * Spec: docs/logic/CURSOR-SPEC-house-rules.md
  */
 
@@ -8,24 +8,12 @@ export const CONDITION_KEYS = [
   'XP_ON',
   'ALLOWANCE_ON',
   'REWARDS_ON',
-  'MULTI_MEMBER',
+  'MULTI_SIDEKICK',
+  'SOLO_SIDEKICK',
+  'ALLOWANCE_REQUESTS_ON',
   'HOMEWORK_ON',
 ] as const;
 export type ConditionKey = (typeof CONDITION_KEYS)[number];
-
-export const PHASE_KEYS = [
-  'assigned',
-  'nudge',
-  'deadline',
-  'lateCredit',
-  'expired',
-  'counted',
-  'weekly',
-  'crownWeek',
-  'crownMonth',
-  'anytime',
-] as const;
-export type PhaseKey = (typeof PHASE_KEYS)[number];
 
 export const VISUAL_KEYS = [
   'none',
@@ -36,6 +24,13 @@ export const VISUAL_KEYS = [
   'rescueTiers',
   'podium',
   'modelList',
+  'gateSteps',
+  'frequencyGrid',
+  'trophyScale',
+  'zeroXpShare',
+  'inviteFacts',
+  'expiryWindow',
+  'weekTrend',
 ] as const;
 export type VisualKey = (typeof VISUAL_KEYS)[number];
 
@@ -50,20 +45,7 @@ export const CHAPTER_KEYS = [
 ] as const;
 export type ChapterKey = (typeof CHAPTER_KEYS)[number];
 
-export const PHASE_BLOCK_KEYS = ['day', 'beyond'] as const;
-export type PhaseBlock = (typeof PHASE_BLOCK_KEYS)[number];
-
-export const PHASE_TONE_KEYS = ['normal', 'hot', 'dead', 'gold'] as const;
-export type PhaseTone = (typeof PHASE_TONE_KEYS)[number];
-
-/** Direction 03 Track metadata — 1:1 with JSON `phases`. */
-export type PhaseMeta = {
-  gutter: string;
-  kicker: string | null;
-  block: PhaseBlock;
-  order: number;
-  tone: PhaseTone;
-};
+export type HouseRulesVoice = 'admin' | 'sidekick';
 
 export type RuleConstants = {
   xpValues: number[];
@@ -71,13 +53,17 @@ export type RuleConstants = {
   bundleBonusOnTime: number;
   bundleBonusLate: number;
   deadlines: {
-    daily: string;
-    weekly: string;
-    monthly: string;
+    default: string;
+    weeklyDay: string;
+    monthlyDay: string;
     timezone: string;
+    configurable: boolean;
   };
   expiryTime: string;
+  expiredPurgeDays: number;
   nudgeMinutesBefore: number;
+  frequencyCount: number;
+  primaryFrequencies: string[];
   streak: {
     consecutiveMissesToEnd: number;
     rollingWindowDays: number;
@@ -89,9 +75,14 @@ export type RuleConstants = {
     afterTwoConsecutive: number;
     thirdConsecutive: string;
     chargedAgainst: string;
-    monthlyToken?: number;
   };
   topTrophy: { name: string; xp: number };
+  invites: {
+    expiryDays: number;
+    singleUse: boolean;
+    activePerMember: number;
+    regenerableByAdmin: boolean;
+  };
   library: {
     totalTasks: number;
     domains: number;
@@ -102,27 +93,22 @@ export type RuleConstants = {
   rewardModels: { key: string; label: string }[];
 };
 
-export type ChapterAccent = 'ember' | 'olive' | string;
-
 export type Chapter = {
   key: ChapterKey;
   order: number;
-  adultLabel: string;
-  kidLabel: string;
-  /** Adult spine accent role from JSON (ember / olive). */
-  accent?: ChapterAccent;
-  kidColor?: string;
+  adminLabel: string;
+  sidekickLabel: string;
+  accent?: string;
+  sidekickColor?: string;
 };
 
-export type AdultCopy = {
+export type AdminCopy = {
   headline: string;
-  question: string;
   clause: string;
 };
 
-export type KidCopy = {
+export type SidekickCopy = {
   headline: string;
-  question: string;
   body: string;
 };
 
@@ -131,19 +117,54 @@ export type HouseRule = {
   chapter: ChapterKey;
   order: number;
   condition: ConditionKey;
-  phase: PhaseKey;
   visual: VisualKey;
   editable: boolean;
   settingKey?: string;
-  adult: AdultCopy;
-  kid: KidCopy;
+  admin: AdminCopy;
+  sidekick: SidekickCopy;
+};
+
+export type HouseRulesModes = {
+  admin: {
+    defaultVersion: 'admin' | 'sidekick';
+    switcherVisible: boolean;
+    mayViewSidekickVersion: boolean;
+  };
+  sidekick: {
+    defaultVersion: 'admin' | 'sidekick';
+    switcherVisible: boolean;
+    mayViewAdminVersion: boolean;
+  };
+};
+
+export type DailyDeadlineSetting = {
+  label: string;
+  help: string;
+  default: string;
+  min: string;
+  max: string;
+  stepMinutes: number;
+  appliesTo: string[];
+  takesEffect: string;
+  editableBy: string;
+};
+
+export type AllowanceRequestsSetting = {
+  label: string;
+  help: string;
+  default: boolean;
+  editableBy: string;
+  requires: string;
+};
+
+export type HouseRulesSettings = {
+  dailyDeadline: DailyDeadlineSetting;
+  allowanceRequests: AllowanceRequestsSetting;
 };
 
 export type Footnotes = {
-  adult?: string;
-  kid?: string | null;
-  nextDay?: string;
-  [key: string]: string | null | undefined;
+  admin?: string | null;
+  sidekick?: string | null;
 };
 
 export type HouseRulesDoc = {
@@ -152,12 +173,16 @@ export type HouseRulesDoc = {
   constants: RuleConstants;
   chapters: Chapter[];
   rules: HouseRule[];
-  phases: Record<PhaseKey, PhaseMeta>;
+  modes: HouseRulesModes;
+  settings: HouseRulesSettings;
   footnotes?: Footnotes;
 };
 
 export type HouseRulesHouseholdView = {
   rewardModel?: string | null;
-  helperCount: number;
+  sidekickCount: number;
   homeworkEnabled: boolean;
+  allowanceRequestsEnabled: boolean;
+  dailyDeadline?: string | null;
+  use24h?: boolean;
 };

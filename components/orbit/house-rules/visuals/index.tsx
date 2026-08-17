@@ -7,17 +7,15 @@ import { NoneCard, XpRamp } from '@/components/orbit/house-rules/visuals/xp-ramp
 import { Podium } from '@/components/orbit/house-rules/visuals/podium';
 import { RescueTiers } from '@/components/orbit/house-rules/visuals/rescue-tiers';
 import { StreakDots } from '@/components/orbit/house-rules/visuals/streak-dots';
-
-export {
-  DayTimeline,
-  LateCreditTable,
-  ModelList,
-  NoneCard,
-  Podium,
-  RescueTiers,
-  StreakDots,
-  XpRamp,
-};
+import {
+  ExpiryWindow,
+  FrequencyGrid,
+  GateSteps,
+  InviteFacts,
+  TrophyScale,
+  WeekTrend,
+  ZeroXpShare,
+} from '@/components/orbit/house-rules/visuals/more-visuals';
 
 export function RuleVisual({
   visual,
@@ -38,6 +36,20 @@ export function RuleVisual({
       return <Podium {...props} />;
     case 'modelList':
       return <ModelList {...props} />;
+    case 'gateSteps':
+      return <GateSteps {...props} />;
+    case 'frequencyGrid':
+      return <FrequencyGrid {...props} />;
+    case 'trophyScale':
+      return <TrophyScale {...props} />;
+    case 'zeroXpShare':
+      return <ZeroXpShare {...props} />;
+    case 'inviteFacts':
+      return <InviteFacts {...props} />;
+    case 'expiryWindow':
+      return <ExpiryWindow {...props} />;
+    case 'weekTrend':
+      return <WeekTrend {...props} />;
     case 'none':
     default:
       return <NoneCard {...props} />;

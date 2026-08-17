@@ -260,12 +260,12 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   },
   {
     name: 'search_house_rules',
-    description: 'Search house rules by keyword (adult or kid voice).',
+    description: 'Search house rules by keyword (Admin or Sidekick voice).',
     parameters: {
       type: 'object',
       properties: {
         query: { type: 'string' },
-        voice: { type: 'string', enum: ['adult', 'kid'] },
+        voice: { type: 'string', enum: ['admin', 'sidekick'] },
       },
       required: ['query'],
       additionalProperties: false,

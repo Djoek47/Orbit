@@ -1,40 +1,79 @@
 /**
- * House Rules — JSON decode, visibility, Rev D STOP GATE T4.1–T4.8.
+ * House Rules v4 — decode, visibility, tokens, constants.
+ * Spec: docs/logic/CURSOR-SPEC-house-rules.md
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { LATE_CREDIT, MONTHLY_RESCUE_TOKENS, RESCUE_COST_PCT_PER_DAY } from '@/constants/scoring';
+import { LATE_CREDIT, RESCUE_COST_PCT_PER_DAY } from '@/constants/scoring';
 import { getHouseRulesDoc, __resetHouseRulesCache } from '@/lib/rules/house-rules-data';
 import { decodeHouseRules } from '@/lib/rules/decode';
-import { interpolateHouseRulesCopy } from '@/lib/rules/interpolate';
-import { validateCustomHouseRule } from '@/lib/rules/custom-house-rules';
-import { PHASE_KEYS } from '@/lib/rules/types';
+import {
+  deadlinePickerValues,
+  effectiveDailyDeadline,
+  queueDailyDeadlineChange,
+  settleDeadlineState,
+} from '@/lib/rules/deadline';
+import { interpolateHouseRulesCopy, tok } from '@/lib/rules/interpolate';
+import { CONDITION_KEYS, VISUAL_KEYS, type HouseRulesHouseholdView } from '@/lib/rules/types';
 import { isVisible } from '@/lib/rules/visibility';
-import { rulesByPhase, visibleRuleCount, visibleRules } from '@/lib/rules/visible-rules';
+import { visibleRuleCount, visibleRules } from '@/lib/rules/visible-rules';
+import { countSidekicks, houseRulesVoiceForRole } from '@/lib/rules/household-view';
+import { validateCustomHouseRule } from '@/lib/rules/custom-house-rules';
 
 function pass(id: string, detail: string) {
   console.log(`PASS ${id} — ${detail}`);
+}
+
+function hh(partial: Partial<HouseRulesHouseholdView> = {}): HouseRulesHouseholdView {
+  return {
+    rewardModel: 'full_system',
+    sidekickCount: 2,
+    homeworkEnabled: true,
+    allowanceRequestsEnabled: true,
+    ...partial,
+  };
+}
+
+function idsFor(model: string, extra: Partial<HouseRulesHouseholdView> = {}) {
+  return visibleRules(doc, hh({ rewardModel: model, ...extra })).flatMap((g) =>
+    g.rules.map((r) => r.id)
+  );
 }
 
 __resetHouseRulesCache();
 const doc = getHouseRulesDoc();
 
 {
-  assert.equal(doc.rules.length, 33, '33 rules');
+  assert.equal(doc.schemaVersion, '4.0.0');
+  assert.equal(doc.rules.length, 36, '36 rules');
   assert.equal(doc.chapters.length, 7, '7 chapters');
-  assert.equal(Object.keys(doc.phases).length, 10, '10 phases');
-  for (const key of PHASE_KEYS) {
-    assert.ok(doc.phases[key], `phase ${key}`);
-    assert.ok(doc.phases[key].gutter.length, `phase ${key} gutter`);
+  const conditions = new Set(doc.rules.map((r) => r.condition));
+  for (const key of CONDITION_KEYS) {
+    assert.ok(conditions.has(key) || key === 'ALWAYS', `condition ${key} used or ALWAYS`);
   }
-  assert.ok(doc.rules.every((r) => r.phase != null), 'no nil phase');
+  assert.equal(conditions.size, 8, '8 conditions in use');
+  const visuals = new Set(doc.rules.map((r) => r.visual));
+  assert.equal(VISUAL_KEYS.length, 15, '15 visual keys');
+  for (const key of VISUAL_KEYS) {
+    assert.ok(visuals.has(key), `visual ${key} used`);
+  }
+  const byChapter = Object.fromEntries(
+    doc.chapters.map((c) => [c.key, doc.rules.filter((r) => r.chapter === c.key).length])
+  );
+  assert.equal(byChapter.earning, 6);
+  assert.equal(byChapter.deadlines, 7);
+  assert.equal(byChapter.streaks, 4);
+  assert.equal(byChapter.crowns, 7);
+  assert.equal(byChapter.rewards, 7);
+  assert.equal(byChapter.proof, 2);
+  assert.equal(byChapter.household, 3);
   assert.ok(
     doc.rules.filter((r) => r.editable).every((r) => Boolean(r.settingKey)),
     'editable rules have settingKey'
   );
-  pass('HR1', 'JSON decodes; 33 rules, 7 chapters, 10 phases');
+  pass('HR1', 'JSON decodes: 36 rules, 7 chapters, 8 conditions, 15 visuals');
 }
 
 {
@@ -48,37 +87,32 @@ const doc = getHouseRulesDoc();
 }
 
 {
-  const hh = { rewardModel: 'xp_only', helperCount: 2, homeworkEnabled: true };
-  assert.equal(isVisible('ALWAYS', hh), true);
-  assert.equal(isVisible('XP_ON', hh), true);
-  assert.equal(isVisible('ALLOWANCE_ON', hh), false);
-  assert.equal(isVisible('REWARDS_ON', hh), false);
-  assert.equal(isVisible('MULTI_MEMBER', hh), true);
-  assert.equal(isVisible('HOMEWORK_ON', hh), true);
-  pass('HR5', 'isVisible covers all 6 condition keys');
+  const household = hh({ rewardModel: 'xp_only', sidekickCount: 2 });
+  assert.equal(isVisible('ALWAYS', household), true);
+  assert.equal(isVisible('XP_ON', household), true);
+  assert.equal(isVisible('ALLOWANCE_ON', household), false);
+  assert.equal(isVisible('REWARDS_ON', household), false);
+  assert.equal(isVisible('MULTI_SIDEKICK', household), true);
+  assert.equal(isVisible('SOLO_SIDEKICK', household), false);
+  assert.equal(isVisible('ALLOWANCE_REQUESTS_ON', household), false);
+  assert.equal(isVisible('HOMEWORK_ON', household), true);
+  assert.throws(() => isVisible('NOPE' as never, household), /Unknown condition/);
+  pass('HR5', 'isVisible covers all 8 condition keys');
 }
 
 {
-  const groups = visibleRules(doc, {
-    rewardModel: 'xp_only',
-    helperCount: 2,
-    homeworkEnabled: true,
-  });
-  const ids = groups.flatMap((g) => g.rules.map((r) => r.id));
+  const ids = idsFor('xp_only');
   const allowanceHidden = doc.rules
-    .filter((r) => r.condition === 'ALLOWANCE_ON')
+    .filter((r) => r.condition === 'ALLOWANCE_ON' || r.condition === 'ALLOWANCE_REQUESTS_ON')
     .every((r) => !ids.includes(r.id));
   assert.ok(allowanceHidden, 'allowance rules hidden');
-  pass('HR6', 'xp_only hides allowance rules');
+  const groups = visibleRules(doc, hh({ rewardModel: 'xp_only' }));
+  assert.ok(groups.some((g) => g.chapter.key === 'rewards'), 'Rewards chapter still renders');
+  pass('HR6', 'xp_only hides allowance rules; Rewards chapter remains');
 }
 
 {
-  const groups = visibleRules(doc, {
-    rewardModel: 'allowance',
-    helperCount: 2,
-    homeworkEnabled: true,
-  });
-  const ids = groups.flatMap((g) => g.rules.map((r) => r.id));
+  const ids = idsFor('allowance');
   for (const rule of doc.rules.filter((r) => r.condition === 'XP_ON')) {
     assert.ok(!ids.includes(rule.id), `${rule.id} should hide`);
   }
@@ -86,41 +120,43 @@ const doc = getHouseRulesDoc();
 }
 
 {
-  const groups = visibleRules(doc, {
-    rewardModel: 'full',
-    helperCount: 1,
-    homeworkEnabled: true,
-  });
-  assert.ok(!groups.some((g) => g.chapter.key === 'crowns'), 'no crowns chapter');
-  pass('HR8', 'one-helper household: Crowns chapter absent');
-}
-
-{
-  const groups = visibleRules(doc, {
-    rewardModel: 'allowance',
-    helperCount: 2,
-    homeworkEnabled: true,
-  });
-  assert.ok(!groups.some((g) => g.chapter.key === 'crowns'), 'no crowns on allowance');
-  pass('HR8b', 'allowance household hides Crowns even with multiple helpers');
-}
-
-{
-  const groups = visibleRules(doc, {
-    rewardModel: 'full',
-    helperCount: 2,
-    homeworkEnabled: false,
-  });
+  const groups = visibleRules(doc, hh({ sidekickCount: 1 }));
   const ids = groups.flatMap((g) => g.rules.map((r) => r.id));
-  assert.ok(!ids.includes('PROOF-02'), 'PROOF-02 hidden');
-  pass('HR9', 'homework off hides PROOF-02');
+  const crowns = groups.find((g) => g.chapter.key === 'crowns');
+  assert.ok(crowns, 'Crowns still renders for one Sidekick');
+  assert.ok(ids.includes('CROWN-02'));
+  assert.ok(ids.includes('CROWN-05'));
+  assert.ok(ids.includes('CROWN-06'));
+  assert.ok(ids.includes('CROWN-07'));
+  assert.ok(!ids.includes('CROWN-01'));
+  assert.ok(!ids.includes('CROWN-03'));
+  assert.ok(!ids.includes('CROWN-04'));
+  pass('HR8', 'one Sidekick: Crowns shows CROWN-02/05/06/07');
 }
 
 {
-  const count = visibleRuleCount(
-    visibleRules(doc, { rewardModel: 'allowance', helperCount: 1, homeworkEnabled: false })
+  const ids = idsFor('full_system', { sidekickCount: 2 });
+  assert.ok(ids.includes('CROWN-01'));
+  assert.ok(ids.includes('CROWN-03'));
+  assert.ok(ids.includes('CROWN-04'));
+  assert.ok(!ids.includes('CROWN-02'));
+  pass('HR8b', 'two Sidekicks: CROWN-02 gone, 01/03/04 appear');
+}
+
+{
+  const ids = idsFor('full_system', { homeworkEnabled: false });
+  const groups = visibleRules(doc, hh({ homeworkEnabled: false }));
+  assert.ok(!ids.includes('PROOF-02'), 'PROOF-02 hidden');
+  assert.ok(groups.some((g) => g.chapter.key === 'proof'), 'Proof chapter still renders');
+  pass('HR9', 'homework off hides PROOF-02; Proof remains');
+}
+
+{
+  const full = visibleRuleCount(visibleRules(doc, hh()));
+  const slim = visibleRuleCount(
+    visibleRules(doc, hh({ rewardModel: 'allowance', sidekickCount: 1, homeworkEnabled: false, allowanceRequestsEnabled: false }))
   );
-  assert.ok(count < 29, `visible ${count} < 29`);
+  assert.ok(slim < full, `visible ${slim} < ${full}`);
   pass('HR10', 'header count reflects visible set');
 }
 
@@ -130,121 +166,116 @@ const doc = getHouseRulesDoc();
     assert.equal(jsonLate, late, `lateCredit ${full}`);
   }
   assert.equal(doc.constants.streakRescue.afterOneMiss, RESCUE_COST_PCT_PER_DAY);
-  assert.equal(doc.constants.streakRescue.monthlyToken, MONTHLY_RESCUE_TOKENS);
+  assert.equal(doc.constants.nudgeMinutesBefore, 30);
   pass('HR11', 'lateCredit + rescue constants match scoring engine');
-}
-
-{
-  const rwrd = doc.rules.find((r) => r.id === 'RWRD-04');
-  assert.ok(rwrd);
-  assert.match(rwrd.adult.clause, /never moves money/);
-  assert.match(rwrd.adult.clause, /marks it paid/);
-  assert.doesNotMatch(rwrd.adult.clause, /Approve now/);
-  assert.match(rwrd.kid.body, /ticks it off/);
-  pass('HR-E', 'RWRD-04 matches Rev E §4.2');
 }
 
 {
   const dead01 = doc.rules.find((r) => r.id === 'DEAD-01');
   assert.ok(dead01);
-  assert.match(dead01.adult.clause, /\{dailyDeadline\}/);
-  const rendered = interpolateHouseRulesCopy(dead01.adult.clause, doc.constants);
-  assert.match(rendered, /7:00 PM/);
-  assert.doesNotMatch(dead01.adult.clause, /7:00 PM/);
-  pass('HR-T', 'DEAD-01 deadline is tokenized from constants');
+  assert.match(dead01.admin.clause, /\{dailyDeadline\}/);
+  const twelve = interpolateHouseRulesCopy(dead01.admin.clause, doc.constants, hh({ use24h: false }));
+  assert.match(twelve, /7:00 PM/);
+  const twenty = interpolateHouseRulesCopy(dead01.admin.clause, doc.constants, hh({ use24h: true }));
+  assert.match(twenty, /19:00/);
+  assert.doesNotMatch(dead01.admin.clause, /7:00 PM/);
+  assert.throws(() => tok('Hello {nope}', { dailyDeadline: '7:00 PM' }), /Unknown token/);
+  const custom = interpolateHouseRulesCopy(dead01.admin.clause, doc.constants, hh({ dailyDeadline: '21:00', use24h: false }));
+  assert.match(custom, /9:00 PM/);
+  pass('HR-T', 'DEAD-01 tokens: 12h, 24h, unknown raises, household deadline');
 }
 
 {
-  for (const id of ['R30', 'R31', 'R32', 'R33']) {
-    assert.ok(doc.rules.some((r) => r.id === id), id);
-  }
-  pass('HR-F', 'R30–R33 present');
-}
-
-function adultManual(model: string, homework = true, helpers = 2) {
-  const groups = visibleRules(doc, {
-    rewardModel: model,
-    helperCount: helpers,
-    homeworkEnabled: homework,
-  });
-  return groups
-    .flatMap((g) => g.rules.map((r) => interpolateHouseRulesCopy(r.adult.clause, doc.constants)))
-    .join(' ')
-    .toLowerCase();
+  assert.ok(!idsFor('xp_only').includes('RWRD-03'));
+  assert.ok(!idsFor('xp_only').includes('RWRD-07'));
+  assert.ok(idsFor('allowance').includes('RWRD-07'));
+  assert.ok(!idsFor('allowance').includes('RWRD-03'));
+  assert.ok(idsFor('xp_rewards').includes('RWRD-03'));
+  assert.ok(!idsFor('xp_rewards').includes('RWRD-07'));
+  assert.ok(!idsFor('xp_rewards').includes('RWRD-05'));
+  assert.ok(idsFor('xp_allowance').includes('RWRD-07'));
+  assert.ok(!idsFor('xp_allowance').includes('RWRD-03'));
+  assert.ok(idsFor('full_system').includes('RWRD-03'));
+  assert.ok(idsFor('full_system').includes('RWRD-07'));
+  assert.ok(!idsFor('full_system', { allowanceRequestsEnabled: false }).includes('RWRD-07'));
+  pass('HR-R', 'RWRD-03 / RWRD-07 by model + allowanceRequests off');
 }
 
 {
-  const t = adultManual('xp_only');
-  assert(!t.includes('allowance') && !t.includes('money'), 'T4.1');
-  pass('T4.1', 'Household on xp_only → manual mentions NO money or allowance');
+  const illustrated = doc.rules.filter((r) => r.visual !== 'none').length;
+  const quiet = doc.rules.filter((r) => r.visual === 'none').length;
+  assert.equal(illustrated, 14);
+  assert.equal(quiet, 22);
+  pass('HR-V', '14 illustrated, 22 quiet');
 }
 
 {
-  const t = adultManual('allowance');
-  assert(!/\bxp\b/.test(t), 'T4.2 no xp');
-  assert(t.includes('allowance'), 'T4.2 has allowance');
-  pass('T4.2', 'Household on allowance → manual mentions NO XP');
-}
-
-{
-  const ids = visibleRules(doc, {
-    rewardModel: 'full',
-    helperCount: 2,
-    homeworkEnabled: true,
-  }).flatMap((g) => g.rules.map((r) => r.id));
-  for (const need of ['EARN-01', 'DEAD-03', 'DEAD-04', 'STRK-02', 'STRK-03', 'STRK-04', 'CROWN-01', 'RWRD-04', 'PROOF-02', 'R30', 'R31', 'R32', 'R33']) {
-    assert.ok(ids.includes(need), `T4.3 missing ${need}`);
-  }
-  pass('T4.3', 'Household on full → every section present');
-}
-
-{
-  const ids = visibleRules(doc, {
-    rewardModel: 'full',
-    helperCount: 2,
-    homeworkEnabled: false,
-  }).flatMap((g) => g.rules.map((r) => r.id));
-  assert.ok(!ids.includes('PROOF-02'), 'T4.4');
-  pass('T4.4', 'Child with homework proof OFF → their manual omits the photo rule');
-}
-
-{
-  const groups = visibleRules(doc, {
-    rewardModel: 'full',
-    helperCount: 2,
-    homeworkEnabled: true,
-  });
-  const ids = groups.flatMap((g) => g.rules.map((r) => r.id));
-  const kidCopy = groups.flatMap((g) =>
-    g.rules.map((r) => interpolateHouseRulesCopy(r.kid.body, doc.constants))
+  const values = deadlinePickerValues(doc);
+  assert.equal(values[0], '15:00');
+  assert.equal(values[values.length - 1], '22:00');
+  assert.ok(values.includes('19:00'));
+  assert.equal(values.length, 29);
+  const unset = effectiveDailyDeadline(doc, {});
+  assert.equal(unset, '19:00');
+  const queued = queueDailyDeadlineChange('21:00', new Date(2026, 7, 13));
+  assert.equal(queued.dailyDeadlinePending, '21:00');
+  assert.equal(queued.dailyDeadlineAppliesOn, '2026-08-14');
+  const today = settleDeadlineState(
+    doc,
+    { dailyDeadline: '19:00', ...queued },
+    new Date(2026, 7, 13)
   );
-  assert.equal(kidCopy.length, ids.length, 'Sidekick uses the same visible set');
-  pass('T4.5', `Sidekick mode renders all ${ids.length} visible rules, not a kid-card subset`);
+  assert.equal(today.dailyDeadline, '19:00');
+  const tomorrow = settleDeadlineState(
+    doc,
+    { dailyDeadline: '19:00', ...queued },
+    new Date(2026, 7, 14)
+  );
+  assert.equal(tomorrow.dailyDeadline, '21:00');
+  assert.equal(tomorrow.dailyDeadlinePending, null);
+  pass('HR-D', 'deadline picker + next-day apply');
 }
 
 {
-  const groups = visibleRules(doc, {
-    rewardModel: 'full',
-    helperCount: 2,
-    homeworkEnabled: true,
-  });
-  const stops = rulesByPhase(doc, groups);
-  assert.ok(stops.every((s) => s.rules.length > 0), 'no empty stops');
-  const blocks = stops.map((s) => s.block);
-  const firstBeyond = blocks.indexOf('beyond');
-  if (firstBeyond >= 0) {
-    assert.ok(blocks.slice(0, firstBeyond).every((b) => b === 'day'), 'day then beyond');
+  const members = [
+    { role: 'admin' as const, status: 'active' as const },
+    { role: 'child' as const, status: 'active' as const },
+    { role: 'child' as const, status: 'active' as const },
+    { role: 'guest' as const, status: 'active' as const },
+  ];
+  assert.equal(countSidekicks(members), 2);
+  assert.equal(
+    houseRulesVoiceForRole('child', 'admin', doc.modes),
+    'sidekick'
+  );
+  assert.equal(houseRulesVoiceForRole('admin', 'sidekick', doc.modes), 'sidekick');
+  assert.equal(doc.modes.sidekick.switcherVisible, false);
+  assert.equal(doc.modes.sidekick.mayViewAdminVersion, false);
+  pass('HR-M', 'sidekickCount from persisted child token; Sidekick cannot hold Admin');
+}
+
+{
+  const locked = [
+    'Late Credit',
+    'Streak Rescue',
+    'Recess',
+    "The Week's Crown",
+    'Monthly Sovereign',
+    "Champion's Record",
+    'Hold & Request',
+    'Approve now',
+  ];
+  const blob = JSON.stringify(doc);
+  for (const term of locked) {
+    assert.ok(blob.includes(term), term);
   }
-  pass('T4.5b', 'Track: no empty stops; day then beyond');
+  pass('HR-L', 'locked vocabulary present in JSON');
 }
 
 {
   const viewFiles = [
     'app/house-rules.tsx',
-    'components/orbit/house-rules/chapters-view.tsx',
     'components/orbit/house-rules/at-a-glance-view.tsx',
-    'components/orbit/house-rules/track-view.tsx',
-    'components/orbit/house-rules/ask-poppins-view.tsx',
     'components/orbit/house-rules/rule-copy.tsx',
     'components/orbit/house-rules/visuals/xp-ramp.tsx',
     'components/orbit/house-rules/visuals/day-timeline.tsx',
@@ -253,23 +284,22 @@ function adultManual(model: string, homework = true, helpers = 2) {
     'components/orbit/house-rules/visuals/rescue-tiers.tsx',
     'components/orbit/house-rules/visuals/podium.tsx',
     'components/orbit/house-rules/visuals/model-list.tsx',
+    'components/orbit/house-rules/visuals/more-visuals.tsx',
     'components/orbit/house-rules/visuals/index.tsx',
   ];
   const joined = viewFiles.map((f) => readFileSync(join(process.cwd(), f), 'utf8')).join('\n');
   assert(!joined.includes('7:00 PM'), 'no 7:00 PM in views');
   assert(!joined.includes('100,000'), 'no 100,000 in views');
   assert(!joined.includes('Late Credit'), 'no Late Credit literal in views');
-  assert(!joined.includes('Approve now'), 'no Approve now in views');
   const screen = readFileSync(join(process.cwd(), 'app/house-rules.tsx'), 'utf8');
-  assert(screen.includes('DIRECTIONS'), '4-tab explorer present');
+  assert(!screen.includes('DIRECTIONS'), '4-tab explorer removed');
   assert(screen.includes('Admin'), 'Admin mode label');
   assert(screen.includes('Sidekick'), 'Sidekick mode label');
   assert(!screen.includes("'Kid'") && !screen.includes('"Kid"'), 'no Kid chrome');
-  assert(!/\bChild\b/.test(screen.replaceAll('homeworkProofPerChild', '')), 'no Child chrome');
-  for (const rule of doc.rules.filter((r) => r.editable && r.settingKey)) {
-    assert(screen.includes(rule.settingKey!), `T4.6 missing settingKey ${rule.settingKey}`);
-  }
-  pass('T4.6', 'Zero hardcoded rule prose; Admin/Sidekick 4-direction shell');
+  assert(!/\bChild\b/.test(screen), 'no Child chrome');
+  assert(!/\bHelper\b/.test(screen), 'no Helper chrome');
+  assert(!/\badult\b/.test(screen.replaceAll('householdDueTimeLocal', '')), 'no adult in screen');
+  pass('T4.6', 'Zero hardcoded rule prose; At a glance only');
 }
 
 {
@@ -284,8 +314,8 @@ function adultManual(model: string, homework = true, helpers = 2) {
   const settings = readFileSync(join(process.cwd(), 'app/settings.tsx'), 'utf8');
   const home = readFileSync(join(process.cwd(), 'app/(tabs)/index.tsx'), 'utf8');
   assert(settings.includes('/house-rules'), 'T4.8 settings');
-  assert(home.includes('/house-rules'), 'T4.8 kid home');
-  pass('T4.8', 'House Rules reachable from Settings and child Home');
+  assert(home.includes('/house-rules'), 'T4.8 home');
+  pass('T4.8', 'House Rules reachable from Settings and Home');
 }
 
 console.log('\nAll house-rules tests passed.');

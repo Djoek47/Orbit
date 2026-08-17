@@ -74,18 +74,17 @@ export function getPermissionsForRole(role: HouseholdRole): HouseholdPermissions
 
 /**
  * Display label for a household role.
- * Revision C §3: v2 `member` (stored as `child`) shows as **Helper**.
- * Permission keys / `toV2Role` are unchanged.
+ * Sidekick is stored as `child` — Appendix A.2. Do not rename the storage token.
  */
 export function formatHouseholdRole(role: HouseholdRole) {
-  if (role === 'child') return 'Helper';
+  if (role === 'child') return 'Sidekick';
   return role
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
 
-/** Revision C §3 — Admin vs Helper (draft / v2 role display). */
+/** Admin vs Sidekick (draft / v2 role display). Storage key for Sidekick remains `member` / `child`. */
 export function formatV2RoleLabel(role: 'admin' | 'member'): string {
-  return role === 'admin' ? 'Admin' : 'Helper';
+  return role === 'admin' ? 'Admin' : 'Sidekick';
 }

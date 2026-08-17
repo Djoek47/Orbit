@@ -43,7 +43,7 @@ function isOpenBlocking(task: HouseholdTask): boolean {
 }
 
 /**
- * Helper may request a reward only when every qualifying task/homework
+ * A Sidekick may request a reward only when every qualifying task/homework
  * due today is complete. Vacuous day → allowed.
  */
 export function canRequestReward(

@@ -1,7 +1,7 @@
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { libraryDefinitionId } from '@/lib/tasks/due-label';
 import { mapLibraryRepeat } from '@/lib/tasks/library-repeat';
-import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
+import { dueAtForFrequency, DEFAULT_DUE_TIME_LOCAL } from '@/lib/tasks/recurrence-defaults';
 import type { Frequency, LibraryTask } from '@/lib/tasks/task-library';
 import type { CreateTaskInput } from '@/types/orbit';
 
@@ -14,10 +14,11 @@ export function buildLibraryAssignInput(
   task: LibraryTask,
   assigneeName: string,
   frequency: Frequency,
-  now = new Date()
+  now = new Date(),
+  dueTimeLocal = DEFAULT_DUE_TIME_LOCAL
 ): CreateTaskInput {
   const occurrenceDate = formatLocalDate(now);
-  const dueAt = dueAtForFrequency('daily', now);
+  const dueAt = dueAtForFrequency('daily', now, dueTimeLocal);
   return {
     title: task.name,
     category: task.domainId,

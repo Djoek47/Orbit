@@ -125,7 +125,7 @@ export default function RewardTallyScreen() {
                 </View>
               </View>
               <Text style={[typography.footnote, { color: c.textMuted }]}>
-                {member?.name ?? 'Helper'}
+                {member?.name ?? 'Sidekick'}
                 {` · ${originLabel}`}
               </Text>
               <Text style={[styles.time, { color: c.textSubtle }]}>

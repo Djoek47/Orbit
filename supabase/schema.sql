@@ -38,6 +38,10 @@ create table if not exists public.households (
   hygiene_rewarded boolean not null default false,
   hygiene_xp integer not null default 5 check (hygiene_xp in (5, 10)),
   member_capabilities jsonb not null default '{}'::jsonb,
+  daily_deadline text,
+  daily_deadline_pending text,
+  daily_deadline_applies_on date,
+  allowance_requests_enabled boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

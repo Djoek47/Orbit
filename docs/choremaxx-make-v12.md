@@ -97,18 +97,9 @@ Cut `cursor/choremaxx-make-v13` from **this** tip. Do not start from v11 or v7.
 2. `npm run build:ios:testflight` then `npm run submit:ios:testflight`
 3. Device smoke on a **real** Supabase account (not `sarah@orbit.test`)
 4. Poppins Connect → Speak → IUI HOLD → spoken summary
-5. House Rules: all four directions, Admin and Sidekick
+5. House Rules: At a glance, Admin and Sidekick (JSON v4)
 6. Places map + homework roles + expired tasks
 
-**Still open** — single list: [`remaining.md`](./remaining.md) (Poppins IUI, v13/App Store, website/email/billing, Rev F polish, later Watch/Vision).
-
-| Item | Notes |
-|------|--------|
-| Edge model | Redeploy with `OPENAI_POPPINS_CHAT_MODEL=gpt-5.6-luna` if staging is still on the old id |
-| MapView native | Full `MapView` needs the TestFlight IPA; Expo Go uses the fallback |
-| A1 site | HTTPS email-confirm bridge (`docs/website-agent-email-confirmation.md`) |
-| A3 ASC | IAP products (`docs/asc-iap-setup.md`) |
-| A2 | Auth Send Email Hook live smoke |
-| B7 | App Review submit after device retest |
+**Still open** — single list: [`remaining.md`](./remaining.md).
 
 **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules back to the kid card.

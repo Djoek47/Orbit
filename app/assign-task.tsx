@@ -21,6 +21,7 @@ import {
 } from '@/lib/household/shared-device';
 import { choreDomains, type LibraryTask, type TaskDomain } from '@/lib/tasks/task-library';
 import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
+import { householdDueTimeLocal } from '@/lib/rules/household-view';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
@@ -242,7 +243,13 @@ export default function AssignTaskScreen() {
       const failed: string[] = [];
       for (const item of selected) {
         const task = await createTask(
-          buildLibraryAssignInput(item.task, assignee.name, item.frequency)
+          buildLibraryAssignInput(
+            item.task,
+            assignee.name,
+            item.frequency,
+            new Date(),
+            householdDueTimeLocal(household)
+          )
         );
         if (task) created += 1;
         else failed.push(item.task.name);

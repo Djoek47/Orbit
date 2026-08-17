@@ -1,4 +1,220 @@
-{
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChoreMaxx · House Rules — At a glance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#F2E7D4;--cream-dim:#BCA98F;--ember:#E4572E;--olive:#8E9C5C;
+  --navy:#16233A;--navy-card:#1E2E4A;--navy-deep:#101A2B;--amber:#E9B44C;
+  --sk-bg:#0E1A2E;--sk-card:#182842;--sk-line:#22385A;
+  --sk-grape:#8E7CFF;--sk-mango:#FF9F1C;--sk-mint:#17B9A0;--sk-punch:#FF5A5F;--sk-slate:#8595B5;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:'Bricolage Grotesque',system-ui,sans-serif;background:#14100D;color:var(--cream);-webkit-font-smoothing:antialiased;padding-bottom:64px}
+.wrap{max-width:520px;margin:0 auto;padding:0 16px}
+.pagehead{padding:28px 0 14px}
+.pagehead h1{font-size:22px;margin:0 0 6px;font-weight:700;font-variation-settings:'wdth' 80;letter-spacing:-.01em}
+.pagehead h1 span{color:var(--ember)}
+.pagehead p{margin:0;font-size:13.5px;line-height:1.55;color:var(--cream-dim)}
+.pagehead p.warn{margin-top:10px;padding:10px 12px;border-left:3px solid var(--ember);background:#211812;border-radius:0 8px 8px 0;color:#D9C7AB}
+.pagehead p.warn b{color:#fff}
+.controls{position:sticky;top:0;z-index:20;background:#14100D;padding:12px 0 12px}
+.modeswitch{display:flex;gap:4px;background:#221A14;border-radius:999px;padding:4px;margin:0 auto;width:260px}
+.modeswitch button{flex:1;appearance:none;border:0;background:transparent;color:var(--cream-dim);font-family:inherit;font-size:13px;font-weight:600;padding:9px 0;border-radius:999px;cursor:pointer}
+.modeswitch button[aria-pressed="true"]{background:var(--ember);color:#fff}
+.modeswitch button:focus-visible{outline:2px solid var(--cream);outline-offset:2px}
+.cfg{margin:12px 0 14px;border:1px solid #3A2E24;border-radius:12px;padding:12px 14px 14px;background:#1A1410}
+.cfg summary{cursor:pointer;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--olive);list-style:none}
+.cfg summary::-webkit-details-marker{display:none}
+.cfg .row{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.cfg label{font-size:12px;color:var(--cream-dim);min-width:96px}
+.cfg select,.cfg input[type=number]{font-family:inherit;font-size:12.5px;background:#2A211A;color:var(--cream);border:1px solid #3E3225;border-radius:8px;padding:7px 9px}
+.cfg .hint{margin-top:12px;font-size:11.5px;line-height:1.55;color:#8A7761}
+.cfg .hint b{color:var(--amber);font-weight:700}
+.phone{width:100%;max-width:390px;margin:0 auto 8px;aspect-ratio:390/800;border-radius:42px;padding:9px;background:#000;box-shadow:0 24px 60px rgba(0,0,0,.55),0 0 0 1px #35291f}
+.screen{width:100%;height:100%;border-radius:34px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
+.screen::-webkit-scrollbar{width:5px}
+.screen::-webkit-scrollbar-thumb{background:rgba(255,255,255,.28);border-radius:99px}
+.statusbar{display:flex;justify-content:space-between;padding:14px 26px 2px;font-size:13px;font-weight:600;opacity:.8}
+
+/* ---------- Admin ---------- */
+.admin{background:var(--navy);color:#E7EDF6}
+.admin .nav{display:flex;justify-content:space-between;padding:10px 20px 4px;font-size:14px;color:var(--amber)}
+.admin .hd{padding:8px 20px 0}
+.admin .hd h3{margin:0;font-size:29px;font-weight:700;font-variation-settings:'wdth' 80;letter-spacing:-.02em}
+.admin .hd p{margin:6px 0 0;font-size:12.5px;color:#8DA0BC}
+.admin .seg{display:flex;gap:4px;background:var(--navy-deep);border-radius:12px;padding:4px;margin:14px 20px 0}
+.admin .seg div{flex:1;text-align:center;font-size:13px;font-weight:600;padding:9px 0;border-radius:9px;color:#7E8DA6}
+.admin .seg div.on{background:var(--navy-card);color:#fff}
+.admin .body{padding:12px 20px 44px;display:flex;flex-direction:column;gap:12px}
+.grouphead{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);font-weight:700;padding:16px 2px 2px}
+.grouphead span{color:#6F819C;font-weight:600;letter-spacing:.02em;text-transform:none}
+.dcard{background:var(--navy-card);border-radius:16px;padding:15px 16px 17px}
+.dcard.quiet{background:transparent;border:1px solid #2A3A57}
+.dcard h4{margin:0 0 5px;font-size:16px;font-weight:700}
+.dcard p{margin:0;font-size:13px;line-height:1.5;color:#AEBDD2}
+.admin .foot{padding:6px 22px 44px;font-size:11.5px;line-height:1.6;color:#6F819C}
+
+.ramp{display:flex;align-items:flex-end;gap:6px;height:64px;margin:16px 0 10px}
+.ramp i{flex:1;background:linear-gradient(180deg,var(--amber),#B07E22);border-radius:5px 5px 3px 3px;position:relative;font-style:normal}
+.ramp i span{position:absolute;top:-17px;left:0;right:0;text-align:center;font-size:11px;color:#C9D6E8;font-variant-numeric:tabular-nums}
+.tl{margin:16px 0 8px;position:relative;height:56px}
+.tl .rail{position:absolute;top:14px;left:0;right:0;height:5px;border-radius:99px;background:linear-gradient(90deg,#2FA98C 0 52%,var(--amber) 52% 88%,#9C4433 88% 100%)}
+.tl .mk{position:absolute;top:0;transform:translateX(-50%);text-align:center;width:80px}
+.tl .mk b{display:block;width:11px;height:11px;border-radius:99px;background:#fff;margin:11px auto 5px;border:3px solid var(--navy-card)}
+.tl .mk span{font-size:10.5px;color:#AEBDD2;font-variant-numeric:tabular-nums;line-height:1.3;display:block}
+.lct{width:100%;border-collapse:collapse;margin:14px 0 4px;font-variant-numeric:tabular-nums}
+.lct td{padding:7px 0;font-size:13.5px;border-bottom:1px solid #2A3A57}
+.lct tr:last-child td{border-bottom:0}
+.lct td:first-child{color:#8DA0BC}
+.lct td:last-child{text-align:right;color:var(--amber);font-weight:700}
+.dots{display:flex;gap:7px;margin:14px 0 10px}
+.dots i{width:13px;height:13px;border-radius:99px;border:2px solid #4E6389;font-style:normal}
+.dots i.miss{background:#9C4433;border-color:#9C4433}
+.rescue{display:flex;gap:8px;margin:14px 0 10px}
+.rescue div{flex:1;background:var(--navy-deep);border-radius:11px;padding:10px 8px;text-align:center}
+.rescue div u{display:block;text-decoration:none;font-size:17px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums}
+.rescue div span{font-size:10.5px;color:#8DA0BC;line-height:1.3;display:block;margin-top:3px}
+.rescue div.gone u{color:#E07A63}
+.podium{display:flex;align-items:flex-end;gap:8px;height:70px;margin:18px 0 8px}
+.podium i{flex:1;border-radius:7px 7px 3px 3px;font-style:normal;position:relative}
+.podium i span{position:absolute;top:-17px;left:0;right:0;text-align:center;font-size:11px;color:#C9D6E8;font-weight:700}
+.podium i:nth-child(1){height:70%;background:#B9C2CF}
+.podium i:nth-child(2){height:100%;background:var(--amber)}
+.podium i:nth-child(3){height:52%;background:#A9713F}
+.models{display:flex;flex-direction:column;gap:6px;margin:14px 0 10px}
+.models b{font-size:12.5px;font-weight:600;background:var(--navy-deep);padding:9px 12px;border-radius:9px;color:#C9D6E8}
+.models b.on{background:var(--amber);color:var(--navy);font-weight:700}
+.gate{display:flex;align-items:stretch;gap:8px;margin:14px 0 10px}
+.gate div{flex:1;background:var(--navy-deep);border-radius:11px;padding:10px 11px}
+.gate div u{display:block;text-decoration:none;font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:var(--amber);margin-bottom:4px}
+.gate div span{font-size:12px;color:#AEBDD2;line-height:1.35;display:block}
+.gate em{align-self:center;font-style:normal;color:#5C6E8A;font-size:15px}
+.freq{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 10px}
+.freq b{font-size:12.5px;font-weight:700;background:var(--navy-deep);color:#C9D6E8;padding:7px 11px;border-radius:9px}
+.freq b.more{background:transparent;border:1px dashed #3C5075;color:#8DA0BC;font-weight:600}
+.bigfig{display:flex;align-items:baseline;gap:9px;margin:14px 0 10px}
+.bigfig u{text-decoration:none;font-size:27px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.bigfig span{font-size:12.5px;color:#8DA0BC;line-height:1.35}
+.share{margin:14px 0 10px}
+.share .bar{height:11px;border-radius:99px;background:var(--navy-deep);overflow:hidden;display:flex}
+.share .bar i{display:block;height:100%;background:var(--amber);font-style:normal}
+.share p.key{margin:8px 0 0;font-size:11.5px;color:#8DA0BC;font-variant-numeric:tabular-nums}
+.tiles{display:flex;gap:8px;margin:14px 0 10px}
+.tiles div{flex:1;background:var(--navy-deep);border-radius:11px;padding:10px 9px;text-align:center}
+.tiles div u{display:block;text-decoration:none;font-size:15px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums}
+.tiles div span{font-size:10.5px;color:#8DA0BC;line-height:1.3;display:block;margin-top:3px}
+.trend{display:flex;align-items:flex-end;gap:8px;height:72px;margin:18px 0 8px}
+.trend i{flex:1;border-radius:6px 6px 3px 3px;background:#2A3A57;font-style:normal;position:relative}
+.trend i.now{background:var(--amber)}
+.trend i span{position:absolute;top:-17px;left:0;right:0;text-align:center;font-size:10.5px;color:#8DA0BC}
+.trend i.now span{color:var(--amber);font-weight:700}
+
+/* ---------- Sidekick ---------- */
+.sidekick{background:var(--sk-bg);color:#EAF2FF}
+.sidekick .nav{display:flex;justify-content:space-between;padding:10px 20px 4px;font-size:14px;color:var(--sk-mango);font-weight:600}
+.sidekick .hd{padding:8px 20px 0}
+.sidekick .hd h3{margin:0;font-size:31px;font-weight:800;font-variation-settings:'wdth' 76;letter-spacing:-.025em}
+.sidekick .hd p{margin:6px 0 0;font-size:13px;color:#8FA4C4}
+.sidekick .body{padding:12px 20px 44px;display:flex;flex-direction:column;gap:12px}
+.skhead{font-size:13px;letter-spacing:.06em;text-transform:uppercase;font-weight:800;padding:16px 2px 2px}
+.skhead.grape{color:var(--sk-grape)}.skhead.mango{color:var(--sk-mango)}
+.skhead.mint{color:var(--sk-mint)}.skhead.punch{color:var(--sk-punch)}.skhead.ink{color:var(--sk-slate)}
+.kcard{background:var(--sk-card);border-radius:20px;padding:16px 17px 18px;border:2px solid var(--sk-line)}
+.kcard h4{margin:0 0 6px;font-size:18px;font-weight:800;letter-spacing:-.02em}
+.kcard p{margin:0;font-size:13.5px;line-height:1.5;color:#A5B9D6}
+.stairs{display:flex;align-items:flex-end;gap:5px;height:78px;margin:16px 0 10px}
+.stairs i{flex:1;border-radius:7px;font-style:normal;position:relative;background:var(--sk-mint)}
+.stairs i:nth-child(2){background:#3EC49F}.stairs i:nth-child(3){background:#8CC63F}
+.stairs i:nth-child(4){background:var(--sk-mango)}.stairs i:nth-child(5){background:#FF7A2F}
+.stairs i:nth-child(6){background:var(--sk-punch)}
+.stairs i span{position:absolute;top:-18px;left:0;right:0;text-align:center;font-size:11.5px;font-weight:800;color:#EAF2FF}
+.swap{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 10px}
+.swap b{font-size:12.5px;font-weight:700;background:var(--sk-line);padding:6px 10px;border-radius:9px;color:#CFE0F7;font-variant-numeric:tabular-nums}
+.swap b em{font-style:normal;color:var(--sk-mango)}
+.bell{display:flex;align-items:center;gap:11px;margin-top:12px;background:#101E36;border-radius:13px;padding:12px 13px}
+.bell u{text-decoration:none;font-size:20px;font-weight:800;color:var(--sk-mango);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bell span{font-size:12.5px;color:#A5B9D6;line-height:1.4}
+.kdots{display:flex;gap:8px;margin:14px 0 10px;align-items:center}
+.kdots i{width:24px;height:24px;border-radius:8px;background:var(--sk-line);font-style:normal}
+.kdots i.miss{background:var(--sk-punch)}
+.kpodium{display:flex;align-items:flex-end;gap:9px;height:84px;margin:18px 0 8px}
+.kpodium i{flex:1;border-radius:10px 10px 4px 4px;font-style:normal;display:flex;align-items:flex-start;justify-content:center;padding-top:7px;font-size:15px;font-weight:800;color:var(--sk-bg)}
+.kpodium i:nth-child(1){height:68%;background:#B9C2CF}
+.kpodium i:nth-child(2){height:100%;background:var(--sk-mango)}
+.kpodium i:nth-child(3){height:50%;background:#C4834B}
+.kgate{display:flex;flex-direction:column;gap:8px;margin:14px 0 10px}
+.kgate div{background:#101E36;border-radius:12px;padding:11px 13px;font-size:12.5px;color:#A5B9D6;line-height:1.45}
+.kgate div b{color:var(--sk-mango);font-weight:800;display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.kbig{display:flex;align-items:baseline;gap:9px;margin:14px 0 10px}
+.kbig u{text-decoration:none;font-size:30px;font-weight:800;color:var(--sk-mango);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kbig span{font-size:12.5px;color:#A5B9D6;line-height:1.35}
+.ktrend{display:flex;align-items:flex-end;gap:8px;height:84px;margin:18px 0 8px}
+.ktrend i{flex:1;border-radius:8px 8px 4px 4px;background:var(--sk-line);font-style:normal;position:relative}
+.ktrend i.now{background:var(--sk-mango)}
+.ktrend i span{position:absolute;top:-19px;left:0;right:0;text-align:center;font-size:11.5px;font-weight:800;color:var(--sk-mango)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="pagehead">
+    <h1>chore<span>maxx</span> · House Rules</h1>
+    <p>Direction 02, At a glance — the chosen layout, built out in full. A working reference renderer, not a mockup: every card below is drawn from <code>house-rules.json</code>, and none of it is hand-written markup. Adjust the household config and rules appear and disappear exactly as they will in the app.</p>
+    <p class="warn"><b>The Admin/Sidekick toggle below is a review control, not app UI.</b> In the app an Admin switches versions from the segmented control on their own screen; a Sidekick opens straight into their version and has no switcher anywhere. See §7.1 of the spec.</p>
+  </div>
+
+  <div class="controls">
+    <div class="modeswitch">
+      <button data-m="admin" aria-pressed="true">Admin</button>
+      <button data-m="sidekick" aria-pressed="false">Sidekick</button>
+    </div>
+  </div>
+
+  <details class="cfg">
+    <summary>Household config — see the visibility rules at work</summary>
+    <div class="row">
+      <label for="rm">Reward model</label>
+      <select id="rm">
+        <option value="xp_only">XP only</option>
+        <option value="allowance">Allowance</option>
+        <option value="xp_rewards">XP + Rewards</option>
+        <option value="xp_allowance">XP + Allowance</option>
+        <option value="full_system" selected>Full system</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="sc">Sidekicks</label>
+      <input id="sc" type="number" min="1" max="6" value="2" style="width:70px">
+      <label for="hw" style="min-width:auto;margin-left:8px">Homework</label>
+      <input id="hw" type="checkbox" checked>
+      <label for="h24" style="min-width:auto;margin-left:8px">24-hour clock</label>
+      <input id="h24" type="checkbox">
+    </div>
+    <div class="row">
+      <label for="dl">Daily deadline</label>
+      <select id="dl"></select>
+      <span id="dlnote" style="font-size:11.5px;color:#8A7761"></span>
+    </div>
+    <div class="row">
+      <label for="areq">Allowance requests</label>
+      <input id="areq" type="checkbox" checked>
+      <span id="areqnote" style="font-size:11.5px;color:#8A7761"></span>
+    </div>
+    <div class="hint" id="cfghint"></div>
+  </details>
+
+  <div class="phone"><div class="screen" id="screen"></div></div>
+</div>
+
+<script>
+const HOUSE_RULES = {
   "schemaVersion": "4.0.0",
   "contentVersion": "2026-08-13",
   "_readme": "Single source of truth for the House Rules screen. Every string the user reads originates here; no view file may contain rule text of its own. If a sentence is not in this file, it does not appear in the app. The two modes are 'admin' and 'sidekick' — the words 'adult', 'kid', 'child', 'member' and 'helper' appear nowhere in this product, including in code, enum cases and analytics. This schema serves one layout: At a glance.",
@@ -819,4 +1035,243 @@
       "_note": "This control only appears in a household running an allowance model. Where the model has no allowance, the setting is absent rather than shown switched off — there is nothing for it to govern."
     }
   }
+};
+
+const state = { mode: "admin",
+  household: { rewardModel: "full_system", sidekickCount: 2, homeworkEnabled: true, use24h: false, dailyDeadline: null, allowanceRequestsEnabled: true } };
+
+/* ---------- logic layer — mirror this exactly in the app ---------- */
+
+function isVisible(condition, h) {
+  switch (condition) {
+    case "ALWAYS": return true;
+    case "XP_ON": return h.rewardModel !== "allowance";
+    case "ALLOWANCE_ON": return ["allowance","xp_allowance","full_system"].includes(h.rewardModel);
+    case "REWARDS_ON": return ["xp_rewards","full_system"].includes(h.rewardModel);
+    case "MULTI_SIDEKICK": return h.sidekickCount >= 2;
+    case "SOLO_SIDEKICK": return h.sidekickCount === 1;
+    case "ALLOWANCE_REQUESTS_ON":
+      return ["allowance","xp_allowance","full_system"].includes(h.rewardModel)
+          && h.allowanceRequestsEnabled === true;
+    case "HOMEWORK_ON": return h.homeworkEnabled === true;
+    default: throw new Error("Unknown condition: " + condition);
+  }
 }
+
+function chapter(key) {
+  const c = HOUSE_RULES.chapters.find(c => c.key === key);
+  if (!c) throw new Error("Unknown chapter: " + key);
+  return c;
+}
+
+function visibleRules() {
+  return HOUSE_RULES.rules
+    .filter(r => isVisible(r.condition, state.household))
+    .sort((a,b) => chapter(a.chapter).order - chapter(b.chapter).order || a.order - b.order);
+}
+
+function groupByChapter(rules) {
+  const out = [];
+  for (const r of rules) {
+    let g = out.find(g => g.key === r.chapter);
+    if (!g) { g = { key: r.chapter, chapter: chapter(r.chapter), rules: [] }; out.push(g); }
+    g.rules.push(r);
+  }
+  return out;
+}
+
+function fmtTime(hhmm) {
+  const [H, M] = hhmm.split(":").map(Number);
+  if (state.household.use24h) return `${String(H).padStart(2,"0")}:${String(M).padStart(2,"0")}`;
+  const suffix = H >= 12 ? "PM" : "AM";
+  const h12 = H % 12 === 0 ? 12 : H % 12;
+  return `${h12}:${String(M).padStart(2,"0")} ${suffix}`;
+}
+
+function deadline() {
+  return state.household.dailyDeadline || HOUSE_RULES.constants.deadlines.default;
+}
+
+const TOKENS = () => ({
+  dailyDeadline: fmtTime(deadline()),
+  expiryTime: fmtTime(HOUSE_RULES.constants.expiryTime)
+});
+
+function tok(str) {
+  if (!str) return str;
+  const t = TOKENS();
+  return str.replace(/\{(\w+)\}/g, (_, k) => {
+    if (!(k in t)) throw new Error("Unknown token: " + k);
+    return t[k];
+  });
+}
+
+function copy(rule, field) { return tok(rule[state.mode][field]); }
+
+/* ---------- visuals: every figure comes from constants ---------- */
+const C = () => HOUSE_RULES.constants;
+
+const ADMIN_VISUALS = {
+  none: () => "",
+  xpRamp: () => { const v = C().xpValues, max = Math.max(...v);
+    return `<div class="ramp">${v.map(x => `<i style="height:${Math.round(20+80*x/max)}%"><span>${x}</span></i>`).join("")}</div>`; },
+  dayTimeline: () => {
+    const mins = t => { const [H,M] = t.split(":").map(Number); return H*60+M; };
+    const START = mins("12:00"), END = mins(HOUSE_RULES.constants.expiryTime);
+    const pct = t => Math.max(4, Math.min(94, ((mins(t)-START)/(END-START))*100));
+    const d = pct(deadline());
+    return `<div class="tl">
+      <div class="rail" style="background:linear-gradient(90deg,#2FA98C 0 ${d}%,var(--amber) ${d}% 97%,#9C4433 97% 100%)"></div>
+      <div class="mk" style="left:6%"><b></b><span>Full XP<br>until ${TOKENS().dailyDeadline}</span></div>
+      <div class="mk" style="left:${d}%"><b></b><span>Late Credit<br>${TOKENS().dailyDeadline}</span></div>
+      <div class="mk" style="left:94%"><b></b><span>Expired<br>${TOKENS().expiryTime}</span></div></div>`;
+  },
+  lateCreditTable: () => `<table class="lct">${Object.entries(C().lateCredit)
+      .map(([f,l]) => `<tr><td>${f} XP task</td><td>${l}</td></tr>`).join("")}</table>`,
+  streakDots: () => { const n = C().streak.rollingWindowDays, m = C().streak.missesInWindowToEnd - 1;
+    return `<div class="dots">${Array.from({length:n},(_,i)=>`<i class="${i<m?"miss":""}"></i>`).join("")}</div>`; },
+  rescueTiers: () => { const r = C().streakRescue;
+    return `<div class="rescue">
+      <div><u>${Math.round(r.afterOneMiss*100)}%</u><span>after one<br>missed day</span></div>
+      <div><u>${Math.round(r.afterTwoConsecutive*100)}%</u><span>after two<br>in a row</span></div>
+      <div class="gone"><u>Lost</u><span>after three<br>in a row</span></div></div>`; },
+  podium: () => `<div class="podium"><i><span>2nd</span></i><i><span>1st</span></i><i><span>3rd</span></i></div>`,
+  modelList: () => `<div class="models">${C().rewardModels
+      .map(m => `<b class="${m.key===state.household.rewardModel?"on":""}">${m.label}</b>`).join("")}</div>`,
+  gateSteps: () => `<div class="gate">
+      <div><u>Step 1</u><span>The day's tasks and homework all complete</span></div><em>&rarr;</em>
+      <div><u>Step 2</u><span>Instant grants; approval-required comes to you</span></div></div>`,
+  frequencyGrid: () => { const p = C().primaryFrequencies, rest = C().frequencyCount - p.length;
+    return `<div class="freq">${p.map(f => `<b>${f[0].toUpperCase()+f.slice(1)}</b>`).join("")}<b class="more">+${rest} behind More</b></div>`; },
+  trophyScale: () => `<div class="bigfig"><u>${C().topTrophy.xp.toLocaleString()}</u><span>lifetime XP<br>${C().topTrophy.name}</span></div>`,
+  zeroXpShare: () => { const s = C().library.streakOnlyTasks, t = C().library.totalTasks;
+    return `<div class="share"><div class="bar"><i style="width:${(s/t*100).toFixed(1)}%"></i></div>
+      <p class="key">${s} of ${t} library tasks score zero XP</p></div>`; },
+  inviteFacts: () => { const i = C().invites;
+    return `<div class="tiles">
+      <div><u>${i.expiryDays}</u><span>days<br>valid</span></div>
+      <div><u>1</u><span>use<br>only</span></div>
+      <div><u>${i.activePerMember}</u><span>active<br>per person</span></div></div>`; },
+  expiryWindow: () => `<div class="bigfig"><u>${C().expiredPurgeDays}</u><span>days visible<br>before clearing</span></div>`,
+  weekTrend: () => `<div class="trend">
+      <i style="height:46%"><span>3 wks</span></i><i style="height:62%"><span>2 wks</span></i>
+      <i style="height:55%"><span>last</span></i><i class="now" style="height:100%"><span>this</span></i></div>`
+};
+
+const SK_VISUALS = {
+  none: () => "",
+  xpRamp: () => { const v = C().xpValues, max = Math.max(...v);
+    return `<div class="stairs">${v.map(x => `<i style="height:${Math.round(20+80*x/max)}%"><span>${x}</span></i>`).join("")}</div>`; },
+  dayTimeline: () => `<div class="bell"><u>${TOKENS().dailyDeadline}</u><span>The bell. Poppins nudges you ${C().nudgeMinutesBefore} minutes before.</span></div>
+      <div class="bell"><u>${TOKENS().expiryTime}</u><span>The day closes. Anything left is gone.</span></div>`,
+  lateCreditTable: () => `<div class="swap">${Object.entries(C().lateCredit)
+      .map(([f,l]) => `<b>${f} &rarr; <em>${l}</em></b>`).join("")}</div>`,
+  streakDots: () => `<div class="kdots">${Array.from({length:C().streak.consecutiveMissesToEnd},
+      (_,i)=>`<i class="${i<2?"miss":""}"></i>`).join("")}</div>`,
+  rescueTiers: () => { const r = C().streakRescue;
+    return `<div class="swap"><b>1 day &rarr; <em>${Math.round(r.afterOneMiss*100)}%</em></b><b>2 days &rarr; <em>${Math.round(r.afterTwoConsecutive*100)}%</em></b><b>3 days &rarr; <em>gone</em></b></div>`; },
+  podium: () => `<div class="kpodium"><i>2</i><i>1</i><i>3</i></div>`,
+  modelList: () => "",
+  gateSteps: () => `<div class="kgate">
+      <div><b>If your day is done</b>The prize goes through on its own.</div>
+      <div><b>If it isn't</b>You'll be asked to finish today's tasks and homework first.</div></div>`,
+  frequencyGrid: () => { const p = C().primaryFrequencies;
+    return `<div class="swap">${p.map(f => `<b>${f[0].toUpperCase()+f.slice(1)}</b>`).join("")}</div>`; },
+  trophyScale: () => `<div class="kbig"><u>${C().topTrophy.xp.toLocaleString()}</u><span>points for<br>${C().topTrophy.name}</span></div>`,
+  zeroXpShare: () => "",
+  inviteFacts: () => `<div class="swap"><b>${C().invites.expiryDays} days</b><b>1 use</b></div>`,
+  expiryWindow: () => `<div class="kbig"><u>${C().expiredPurgeDays}</u><span>days in the<br>Expired tab</span></div>`,
+  weekTrend: () => `<div class="ktrend">
+      <i style="height:46%"></i><i style="height:62%"></i><i style="height:55%"></i>
+      <i class="now" style="height:100%"><span>beat it</span></i></div>`
+};
+
+/* ---------- screen ---------- */
+function renderAdmin() {
+  const groups = groupByChapter(visibleRules());
+  const total = visibleRules().length;
+  const body = groups.map(g => `
+    <div class="grouphead">${g.chapter.adminLabel} <span>· ${g.rules.length}</span></div>
+    ${g.rules.map(r => `
+      <div class="dcard ${r.visual === "none" ? "quiet" : ""}">
+        <h4>${copy(r,"headline")}</h4>
+        ${ADMIN_VISUALS[r.visual]()}
+        <p>${copy(r,"clause")}</p>
+      </div>`).join("")}`).join("");
+  return `<div class="pane admin">
+    <div class="statusbar"><span>8:52</span><span>&#xF83E; &#xF6E8;</span></div>
+    <div class="nav"><span>&lsaquo; Settings</span><span>Edit</span></div>
+    <div class="hd"><h3>House Rules</h3><p>${groups.length} chapters &middot; ${total} rules</p></div>
+    <div class="seg"><div class="on">Admin</div><div>Sidekick</div></div>
+    <div class="body">${body}</div>
+    <div class="foot">${tok(HOUSE_RULES.footnotes.admin)}</div></div>`;
+}
+
+function renderSidekick() {
+  const groups = groupByChapter(visibleRules());
+  const body = groups.map(g => `
+    <div class="skhead ${g.chapter.sidekickColor}">${g.chapter.sidekickLabel}</div>
+    ${g.rules.map(r => `
+      <div class="kcard">
+        <h4>${copy(r,"headline")}</h4>
+        ${SK_VISUALS[r.visual]()}
+        <p>${copy(r,"body")}</p>
+      </div>`).join("")}`).join("");
+  return `<div class="pane sidekick">
+    <div class="statusbar"><span>8:52</span><span>&#xF83E; &#xF6E8;</span></div>
+    <div class="nav"><span>&lsaquo; Back</span><span>Ask Poppins</span></div>
+    <div class="hd"><h3>The rules</h3><p>Everything you need to know, in pictures.</p></div>
+    <div class="body">${body}</div></div>`;
+}
+
+function draw() {
+  const total = HOUSE_RULES.rules.length, shown = visibleRules().length;
+  const hidden = HOUSE_RULES.rules.filter(r => !isVisible(r.condition, state.household)).map(r => r.id);
+  document.getElementById("cfghint").innerHTML =
+    `This household sees <b>${shown}</b> of ${total} rules.` +
+    (hidden.length ? ` Withheld by its configuration: ${hidden.join(", ")}.` : " Its configuration withholds nothing.");
+
+  const allowanceModel = ["allowance","xp_allowance","full_system"].includes(state.household.rewardModel);
+  document.getElementById("areq").disabled = !allowanceModel;
+  document.getElementById("areqnote").textContent = allowanceModel
+    ? "" : "no allowance in this model — setting would not appear";
+
+  const screen = document.getElementById("screen");
+  screen.innerHTML = state.mode === "admin" ? renderAdmin() : renderSidekick();
+  screen.className = "screen " + state.mode;
+}
+
+document.querySelectorAll(".modeswitch button").forEach(m => m.addEventListener("click", () => {
+  document.querySelectorAll(".modeswitch button").forEach(x => x.setAttribute("aria-pressed", String(x === m)));
+  state.mode = m.dataset.m; draw();
+}));
+document.getElementById("rm").addEventListener("change", e => { state.household.rewardModel = e.target.value; draw(); });
+document.getElementById("sc").addEventListener("input", e => { state.household.sidekickCount = Number(e.target.value); draw(); });
+document.getElementById("hw").addEventListener("change", e => { state.household.homeworkEnabled = e.target.checked; draw(); });
+document.getElementById("h24").addEventListener("change", e => { state.household.use24h = e.target.checked; buildDeadlineOptions(); draw(); });
+
+function buildDeadlineOptions() {
+  const cfg = HOUSE_RULES.settings.dailyDeadline;
+  const mins = t => { const [H,M] = t.split(":").map(Number); return H*60+M; };
+  const sel = document.getElementById("dl");
+  const current = state.household.dailyDeadline || cfg.default;
+  sel.innerHTML = "";
+  for (let m = mins(cfg.min); m <= mins(cfg.max); m += cfg.stepMinutes) {
+    const v = `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+    const o = document.createElement("option");
+    o.value = v; o.textContent = fmtTime(v) + (v === cfg.default ? "  (default)" : "");
+    if (v === current) o.selected = true;
+    sel.appendChild(o);
+  }
+  document.getElementById("dlnote").textContent =
+    `${fmtTime(cfg.min)}–${fmtTime(cfg.max)}, ${cfg.stepMinutes} min steps`;
+}
+
+document.getElementById("dl").addEventListener("change", e => { state.household.dailyDeadline = e.target.value; draw(); });
+document.getElementById("areq").addEventListener("change", e => { state.household.allowanceRequestsEnabled = e.target.checked; draw(); });
+
+buildDeadlineOptions();
+draw();
+</script>
+</body>
+</html>

@@ -70,7 +70,8 @@ export function seriesStartDateKey(tasks: HouseholdTask[], defId: string): strin
  */
 export function ensureOccurrencesForDay(
   tasks: HouseholdTask[],
-  day: Date = new Date()
+  day: Date = new Date(),
+  dueTimeLocal = DEFAULT_DUE_TIME_LOCAL
 ): HouseholdTask[] {
   const dateKey = formatLocalDate(day);
 
@@ -123,7 +124,7 @@ export function ensureOccurrencesForDay(
       occurrenceDate: dateKey,
       status: 'Pending',
       due: dueLabelForDate(dateKey, day),
-      dueAt: localDueAt(dateKey),
+      dueAt: localDueAt(dateKey, dueTimeLocal),
       completedAt: undefined,
       awardedXp: undefined,
       completedLate: false,

@@ -11,6 +11,7 @@ import {
 } from '@/lib/ai/poppins-tools';
 import { isIuiScene, IUI_SCENES } from '@/lib/poppins/ui-scenes';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
+import { houseRulesHouseholdView } from '@/lib/rules/household-view';
 import { searchHouseRules } from '@/lib/rules/search';
 import { visibleRules } from '@/lib/rules/visible-rules';
 import type { HouseholdSnapshot, OrbitMetrics, PoppinsMonitorAction } from '@/types/orbit';
@@ -371,19 +372,15 @@ export function executePoppinsTool(
     case 'search_house_rules': {
       try {
         const doc = getHouseRulesDoc();
-        const groups = visibleRules(doc, {
-          rewardModel: household.rewardModel ?? 'full',
-          helperCount: members.filter((m) => m.status === 'active').length,
-          homeworkEnabled: household.homeworkEnabled !== false,
-        });
-        const voice = args.voice === 'kid' ? 'kid' : 'adult';
+        const groups = visibleRules(doc, houseRulesHouseholdView(household));
+        const voice: 'admin' | 'sidekick' =
+          args.voice === 'sidekick' || args.voice === 'kid' ? 'sidekick' : 'admin';
         const hits = searchHouseRules(groups, String(args.query ?? ''), voice).slice(0, 6);
         return {
           hits: hits.map((r) => ({
             id: r.id,
-            displayNumber: r.displayNumber,
-            question: voice === 'kid' ? r.kid.question : r.adult.question,
-            answer: voice === 'kid' ? r.kid.body : r.adult.clause,
+            question: voice === 'sidekick' ? r.sidekick.headline : r.admin.headline,
+            answer: voice === 'sidekick' ? r.sidekick.body : r.admin.clause,
           })),
         };
       } catch (error) {

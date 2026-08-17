@@ -861,6 +861,12 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     hygieneRewarded: Boolean((household as { hygiene_rewarded?: boolean | null }).hygiene_rewarded),
     hygieneXp:
       (household as { hygiene_xp?: number | null }).hygiene_xp === 10 ? 10 : 5,
+    dailyDeadline: (household as { daily_deadline?: string | null }).daily_deadline ?? null,
+    dailyDeadlinePending: (household as { daily_deadline_pending?: string | null }).daily_deadline_pending ?? null,
+    dailyDeadlineAppliesOn:
+      (household as { daily_deadline_applies_on?: string | null }).daily_deadline_applies_on ?? null,
+    allowanceRequestsEnabled:
+      (household as { allowance_requests_enabled?: boolean | null }).allowance_requests_enabled !== false,
     memberCapabilities: ((household as { member_capabilities?: Record<string, boolean> | null })
       .member_capabilities ?? undefined) as HouseholdSnapshot['memberCapabilities'],
     members: mappedMembers,

@@ -21,7 +21,7 @@ test('A7 child cannot manage household or approve rewards', () => {
   assert.equal(p.canManageHousehold, false);
   assert.equal(p.canApproveReward, false);
   assert.equal(p.canInviteMembers, false);
-  assert.equal(formatHouseholdRole('child'), 'Helper');
+  assert.equal(formatHouseholdRole('child'), 'Sidekick');
 });
 
 test('A7 shared tablet is limited (no admin powers)', () => {

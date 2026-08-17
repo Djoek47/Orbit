@@ -25,6 +25,10 @@ export type HouseholdRow = {
   hygiene_rewarded?: boolean;
   hygiene_xp?: 5 | 10;
   member_capabilities?: Record<string, boolean> | null;
+  daily_deadline?: string | null;
+  daily_deadline_pending?: string | null;
+  daily_deadline_applies_on?: string | null;
+  allowance_requests_enabled?: boolean | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

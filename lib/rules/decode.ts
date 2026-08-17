@@ -1,19 +1,13 @@
 import {
   CHAPTER_KEYS,
   CONDITION_KEYS,
-  PHASE_BLOCK_KEYS,
-  PHASE_KEYS,
-  PHASE_TONE_KEYS,
   VISUAL_KEYS,
   type Chapter,
-  type ChapterKey,
-  type ConditionKey,
   type HouseRule,
   type HouseRulesDoc,
-  type PhaseKey,
-  type PhaseMeta,
+  type HouseRulesModes,
+  type HouseRulesSettings,
   type RuleConstants,
-  type VisualKey,
 } from '@/lib/rules/types';
 
 function assertEnum<T extends string>(
@@ -68,9 +62,14 @@ function decodeConstants(raw: unknown): RuleConstants {
   const deadlines = asObject(c.deadlines, 'constants.deadlines');
   const topTrophy = asObject(c.topTrophy, 'constants.topTrophy');
   const library = asObject(c.library, 'constants.library');
+  const invites = asObject(c.invites, 'constants.invites');
   const rewardModelsRaw = c.rewardModels;
   if (!Array.isArray(rewardModelsRaw)) {
     throw new Error('house-rules decode: constants.rewardModels must be an array');
+  }
+  const freqs = c.primaryFrequencies;
+  if (!Array.isArray(freqs)) {
+    throw new Error('house-rules decode: constants.primaryFrequencies must be an array');
   }
 
   return {
@@ -79,13 +78,17 @@ function decodeConstants(raw: unknown): RuleConstants {
     bundleBonusOnTime: asNumber(c.bundleBonusOnTime, 'bundleBonusOnTime'),
     bundleBonusLate: asNumber(c.bundleBonusLate, 'bundleBonusLate'),
     deadlines: {
-      daily: asString(deadlines.daily, 'deadlines.daily'),
-      weekly: asString(deadlines.weekly, 'deadlines.weekly'),
-      monthly: asString(deadlines.monthly, 'deadlines.monthly'),
+      default: asString(deadlines.default, 'deadlines.default'),
+      weeklyDay: asString(deadlines.weeklyDay, 'deadlines.weeklyDay'),
+      monthlyDay: asString(deadlines.monthlyDay, 'deadlines.monthlyDay'),
       timezone: asString(deadlines.timezone, 'deadlines.timezone'),
+      configurable: asBool(deadlines.configurable, 'deadlines.configurable'),
     },
     expiryTime: asString(c.expiryTime, 'expiryTime'),
+    expiredPurgeDays: asNumber(c.expiredPurgeDays, 'expiredPurgeDays'),
     nudgeMinutesBefore: asNumber(c.nudgeMinutesBefore, 'nudgeMinutesBefore'),
+    frequencyCount: asNumber(c.frequencyCount, 'frequencyCount'),
+    primaryFrequencies: freqs.map((f, i) => asString(f, `primaryFrequencies[${i}]`)),
     streak: {
       consecutiveMissesToEnd: asNumber(streak.consecutiveMissesToEnd, 'streak.consecutive'),
       rollingWindowDays: asNumber(streak.rollingWindowDays, 'streak.window'),
@@ -102,12 +105,16 @@ function decodeConstants(raw: unknown): RuleConstants {
       ),
       thirdConsecutive: asString(streakRescue.thirdConsecutive, 'streakRescue.third'),
       chargedAgainst: asString(streakRescue.chargedAgainst, 'streakRescue.chargedAgainst'),
-      monthlyToken:
-        typeof streakRescue.monthlyToken === 'number' ? streakRescue.monthlyToken : undefined,
     },
     topTrophy: {
       name: asString(topTrophy.name, 'topTrophy.name'),
       xp: asNumber(topTrophy.xp, 'topTrophy.xp'),
+    },
+    invites: {
+      expiryDays: asNumber(invites.expiryDays, 'invites.expiryDays'),
+      singleUse: asBool(invites.singleUse, 'invites.singleUse'),
+      activePerMember: asNumber(invites.activePerMember, 'invites.activePerMember'),
+      regenerableByAdmin: asBool(invites.regenerableByAdmin, 'invites.regenerableByAdmin'),
     },
     library: {
       totalTasks: asNumber(library.totalTasks, 'library.totalTasks'),
@@ -123,24 +130,59 @@ function decodeConstants(raw: unknown): RuleConstants {
   };
 }
 
-function decodePhases(raw: unknown): Record<PhaseKey, PhaseMeta> {
-  const root = asObject(raw, 'phases');
-  const result = {} as Record<PhaseKey, PhaseMeta>;
-  for (const key of PHASE_KEYS) {
-    const row = asObject(root[key], `phases.${key}`);
-    const kickerRaw = row.kicker;
-    if (kickerRaw != null && typeof kickerRaw !== 'string') {
-      throw new Error(`house-rules decode: phases.${key}.kicker must be a string or null`);
-    }
-    result[key] = {
-      gutter: asString(row.gutter, `phases.${key}.gutter`),
-      kicker: kickerRaw == null ? null : kickerRaw,
-      block: assertEnum(row.block, PHASE_BLOCK_KEYS, `phases.${key}.block`),
-      order: asNumber(row.order, `phases.${key}.order`),
-      tone: assertEnum(row.tone, PHASE_TONE_KEYS, `phases.${key}.tone`),
-    };
+function decodeModes(raw: unknown): HouseRulesModes {
+  const root = asObject(raw, 'modes');
+  const admin = asObject(root.admin, 'modes.admin');
+  const sidekick = asObject(root.sidekick, 'modes.sidekick');
+  return {
+    admin: {
+      defaultVersion: asString(admin.defaultVersion, 'modes.admin.defaultVersion') as
+        | 'admin'
+        | 'sidekick',
+      switcherVisible: asBool(admin.switcherVisible, 'modes.admin.switcherVisible'),
+      mayViewSidekickVersion: asBool(
+        admin.mayViewSidekickVersion,
+        'modes.admin.mayViewSidekickVersion'
+      ),
+    },
+    sidekick: {
+      defaultVersion: asString(sidekick.defaultVersion, 'modes.sidekick.defaultVersion') as
+        | 'admin'
+        | 'sidekick',
+      switcherVisible: asBool(sidekick.switcherVisible, 'modes.sidekick.switcherVisible'),
+      mayViewAdminVersion: asBool(sidekick.mayViewAdminVersion, 'modes.sidekick.mayViewAdminVersion'),
+    },
+  };
+}
+
+function decodeSettings(raw: unknown): HouseRulesSettings {
+  const root = asObject(raw, 'settings');
+  const daily = asObject(root.dailyDeadline, 'settings.dailyDeadline');
+  const req = asObject(root.allowanceRequests, 'settings.allowanceRequests');
+  const applies = daily.appliesTo;
+  if (!Array.isArray(applies)) {
+    throw new Error('house-rules decode: settings.dailyDeadline.appliesTo must be an array');
   }
-  return result;
+  return {
+    dailyDeadline: {
+      label: asString(daily.label, 'dailyDeadline.label'),
+      help: asString(daily.help, 'dailyDeadline.help'),
+      default: asString(daily.default, 'dailyDeadline.default'),
+      min: asString(daily.min, 'dailyDeadline.min'),
+      max: asString(daily.max, 'dailyDeadline.max'),
+      stepMinutes: asNumber(daily.stepMinutes, 'dailyDeadline.stepMinutes'),
+      appliesTo: applies.map((v, i) => asString(v, `appliesTo[${i}]`)),
+      takesEffect: asString(daily.takesEffect, 'dailyDeadline.takesEffect'),
+      editableBy: asString(daily.editableBy, 'dailyDeadline.editableBy'),
+    },
+    allowanceRequests: {
+      label: asString(req.label, 'allowanceRequests.label'),
+      help: asString(req.help, 'allowanceRequests.help'),
+      default: asBool(req.default, 'allowanceRequests.default'),
+      editableBy: asString(req.editableBy, 'allowanceRequests.editableBy'),
+      requires: asString(req.requires, 'allowanceRequests.requires'),
+    },
+  };
 }
 
 function decodeChapter(raw: unknown, index: number): Chapter {
@@ -148,20 +190,19 @@ function decodeChapter(raw: unknown, index: number): Chapter {
   return {
     key: assertEnum(row.key, CHAPTER_KEYS, 'chapter.key'),
     order: asNumber(row.order, 'chapter.order'),
-    adultLabel: asString(row.adultLabel, 'chapter.adultLabel'),
-    kidLabel: asString(row.kidLabel, 'chapter.kidLabel'),
+    adminLabel: asString(row.adminLabel, 'chapter.adminLabel'),
+    sidekickLabel: asString(row.sidekickLabel, 'chapter.sidekickLabel'),
     accent: typeof row.accent === 'string' ? row.accent : undefined,
-    kidColor: typeof row.kidColor === 'string' ? row.kidColor : undefined,
+    sidekickColor: typeof row.sidekickColor === 'string' ? row.sidekickColor : undefined,
   };
 }
 
 function decodeRule(raw: unknown, index: number): HouseRule {
   const row = asObject(raw, `rules[${index}]`);
-  const adult = asObject(row.adult, `rules[${index}].adult`);
-  const kid = asObject(row.kid, `rules[${index}].kid`);
+  const admin = asObject(row.admin, `rules[${index}].admin`);
+  const sidekick = asObject(row.sidekick, `rules[${index}].sidekick`);
   const editable = asBool(row.editable, `rules[${index}].editable`);
-  const settingKey =
-    typeof row.settingKey === 'string' ? row.settingKey : undefined;
+  const settingKey = typeof row.settingKey === 'string' ? row.settingKey : undefined;
   if (editable && !settingKey) {
     throw new Error(`house-rules decode: editable rule ${String(row.id)} missing settingKey`);
   }
@@ -170,19 +211,16 @@ function decodeRule(raw: unknown, index: number): HouseRule {
     chapter: assertEnum(row.chapter, CHAPTER_KEYS, 'rule.chapter'),
     order: asNumber(row.order, 'rule.order'),
     condition: assertEnum(row.condition, CONDITION_KEYS, 'rule.condition'),
-    phase: assertEnum(row.phase, PHASE_KEYS, 'rule.phase'),
     visual: assertEnum(row.visual, VISUAL_KEYS, 'rule.visual'),
     editable,
     settingKey,
-    adult: {
-      headline: asString(adult.headline, 'adult.headline'),
-      question: asString(adult.question, 'adult.question'),
-      clause: asString(adult.clause, 'adult.clause'),
+    admin: {
+      headline: asString(admin.headline, 'admin.headline'),
+      clause: asString(admin.clause, 'admin.clause'),
     },
-    kid: {
-      headline: asString(kid.headline, 'kid.headline'),
-      question: asString(kid.question, 'kid.question'),
-      body: asString(kid.body, 'kid.body'),
+    sidekick: {
+      headline: asString(sidekick.headline, 'sidekick.headline'),
+      body: asString(sidekick.body, 'sidekick.body'),
     },
   };
 }
@@ -199,24 +237,17 @@ export function decodeHouseRules(raw: unknown): HouseRulesDoc {
   const chapters = chaptersRaw.map(decodeChapter).sort((a, b) => a.order - b.order);
   const rules = rulesRaw.map(decodeRule);
 
-  for (const rule of rules) {
-    if (rule.phase == null) {
-      throw new Error(`house-rules decode: rule ${rule.id} has nil phase`);
-    }
-  }
-
   return {
     schemaVersion: asString(root.schemaVersion, 'schemaVersion'),
     contentVersion: asString(root.contentVersion, 'contentVersion'),
     constants: decodeConstants(root.constants),
     chapters,
     rules,
-    phases: decodePhases(root.phases),
+    modes: decodeModes(root.modes),
+    settings: decodeSettings(root.settings),
     footnotes:
       root.footnotes && typeof root.footnotes === 'object'
         ? (root.footnotes as HouseRulesDoc['footnotes'])
         : undefined,
   };
 }
-
-export type { ChapterKey, ConditionKey, PhaseKey, VisualKey };

@@ -14,7 +14,7 @@ export type GameLevel = {
 /** Progression ladder — final tier crowns Most Glorious at 100k XP. */
 export const LEVELS: GameLevel[] = [
   { name: 'Seedling', minXP: 0, maxXP: 99, color: '#34D399', emoji: '🌱' },
-  { name: 'Helper', minXP: 100, maxXP: 299, color: '#38BDF8', emoji: '⭐' },
+  { name: 'Sidekick', minXP: 100, maxXP: 299, color: '#38BDF8', emoji: '⭐' },
   { name: 'Contributor', minXP: 300, maxXP: 599, color: '#A78BFA', emoji: '💎' },
   { name: 'Champion', minXP: 600, maxXP: 999, color: '#FB923C', emoji: '🏆' },
   { name: 'Legend', minXP: 1000, maxXP: 1999, color: '#F59E0B', emoji: '👑' },
