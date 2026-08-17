@@ -1,31 +1,9 @@
-# Next session — v13 final push
+# Next session
 
-**Tonight’s aggregate:** [`choremaxx-make-v12.md`](./choremaxx-make-v12.md) — TestFlight **1.2.0**  
-**Tomorrow:** cut **v13** from `cursor/choremaxx-make-v12` and ship the final app.  
-**Branch:** `cursor/choremaxx-make-v12` → PR into `main`
+**Canonical remaining list:** [`remaining.md`](./remaining.md)
 
-## Tomorrow (v13)
+**Tip:** `cursor/choremaxx-make-v12` · TestFlight **1.2.0 (36)** · PR into `main`.  
+Do not start from v11 / v7.
 
-1. Branch `cursor/choremaxx-make-v13` off `cursor/choremaxx-make-v12` (do not start from v11 / v7).
-2. Bump `app.json` version to `1.3.0` and `BUILD_INFO` to `make-v13 · final`.
-3. `npm run testflight:preflight` then `npm run build:ios:testflight` / `submit:ios:testflight`.
-4. Device smoke: Poppins WebRTC, IUI HOLD, House Rules 4 directions × Admin/Sidekick, places, homework, expired tasks.
-5. Close leftover ops only: Luna edge model, MapView native IPA, email-confirm site bridge, ASC IAP, App Review.
-
-Say: *Cut v13 from cursor/choremaxx-make-v12 and ship the final TestFlight.*
-
-## Poppins major rework (after this TestFlight)
-
-Full list: [`poppins-rework.md`](./poppins-rework.md). IUI is the product. Do not start until asked.
-
-- **Memory** — do not start brand new every Speak session; persist household + conversation across hangup
-- Stage as the primary surface (not chat around the orb)
-- Beats / HOLD / barge-in reliable on TestFlight voice
-- Strip mixed leftover (stacked transcripts, duplicate rails)
-- Settings / billing / account: Coach only, never HOLD-commit
-
-## Do not redo
-
-- v12 aggregate (IUI, Luna, Assign/Event, Poppins quality, House Rules HTML Admin/Sidekick)
-- v11 Divine Voice + auth + v10 billing / grocery / Rev F gates
-- Re-porting Figma Make or collapsing House Rules to the kid card
+When shipping the store binary: cut **v13** from this tip (bump to 1.3.0).  
+When MYTIKAS says go on Poppins: IUI rework in `remaining.md` §1 — **memory first** so Speak does not start brand new.

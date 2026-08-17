@@ -1,5 +1,7 @@
 # Poppins rework (IUI is the product)
 
+Canonical remaining list: [`remaining.md`](./remaining.md) §1.
+
 Not this TestFlight pass. Do not start until MYTIKAS says go. IUI is the key: spoken intent + a constrained scene graph in **one Activity viewport**, not a chatbot around the orb.
 
 Beats: **SHOW → NARROW → UNFOLD → HOLD → SETTLE → CHAIN**. Silence is assent. Compound clauses become a playlist of scenes — they should not fall back into a transcript.

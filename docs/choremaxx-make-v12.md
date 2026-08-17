@@ -100,7 +100,7 @@ Cut `cursor/choremaxx-make-v13` from **this** tip. Do not start from v11 or v7.
 5. House Rules: all four directions, Admin and Sidekick
 6. Places map + homework roles + expired tasks
 
-**Still open (do on v13, do not redo v12 work)**
+**Still open** — single list: [`remaining.md`](./remaining.md) (Poppins IUI, v13/App Store, website/email/billing, Rev F polish, later Watch/Vision).
 
 | Item | Notes |
 |------|--------|
