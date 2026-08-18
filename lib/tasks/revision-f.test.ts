@@ -13,6 +13,7 @@ import {
   rolloverMissedOccurrences,
   spawnNextOccurrence,
 } from '@/lib/tasks/recurring';
+import { expireOpenTasksAtBoundary } from '@/lib/tasks/expire-at-boundary';
 import type { HouseholdTask } from '@/types/orbit';
 
 function pass(id: string, detail: string) {
@@ -185,6 +186,40 @@ function upsertOccurrence(
   const total = kept.length;
   assert.equal(`${done} of ${total} complete`, '2 of 2 complete');
   pass('F1.5', 'Task counter reads true count after dedupe');
+}
+
+// --- House Rules v4: expire at 23:59 same day, skip recess ---
+{
+  const pending = base({
+    id: 'same-day',
+    status: 'Pending',
+    occurrenceDate: '2026-08-18',
+    due: 'Today',
+    dueAt: new Date(2026, 7, 18, 19, 0, 0).toISOString(),
+  });
+  const before = expireOpenTasksAtBoundary([pending], new Date(2026, 7, 18, 23, 59, 0), {
+    expiryHm: '23:59',
+  });
+  assert.equal(before[0].status, 'Pending', 'still open at 23:59:00');
+  const justAfter = expireOpenTasksAtBoundary([pending], new Date(2026, 7, 19, 0, 0, 0), {
+    expiryHm: '23:59',
+  });
+  assert.equal(justAfter[0].status, 'Expired', 'DEAD-04 expires after 23:59');
+
+  const recessHeld = expireOpenTasksAtBoundary([pending], new Date(2026, 7, 19, 8, 0, 0), {
+    expiryHm: '23:59',
+    assigneeOnRecess: (name, dateKey) => name === 'Maya' && dateKey === '2026-08-18',
+  });
+  assert.equal(recessHeld[0].status, 'Pending', 'STRK-04 recess skips expiry');
+
+  const drafts = ensureOccurrencesForDay(
+    [base({ status: 'Completed', occurrenceDate: '2026-08-17' })],
+    new Date(2026, 7, 18),
+    '19:00',
+    { skipAssignees: ['Maya'] }
+  );
+  assert.equal(drafts.length, 0, 'recess skips occurrence spawn');
+  pass('F1.6', 'Same-day expiry at 23:59; recess skips expire + spawn');
 }
 
 console.log('test:revision-f OK');

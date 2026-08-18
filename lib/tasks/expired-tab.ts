@@ -2,11 +2,15 @@
  * Expired tab helpers — Rev F §5.
  */
 
+import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { isExpiredStatus } from '@/lib/tasks/recurring';
 import type { HouseholdTask } from '@/types/orbit';
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+function expiredPurgeMs(): number {
+  const days = getHouseRulesDoc().constants.expiredPurgeDays;
+  return days * 24 * 60 * 60 * 1000;
+}
 
 export function isExpiredTask(task: HouseholdTask): boolean {
   return isExpiredStatus(task.status);
@@ -35,7 +39,7 @@ export function isExpiredVisibleInTab(task: HouseholdTask, now = new Date()): bo
         ? new Date(task.dueAt)
         : null;
   if (!stamp || Number.isNaN(stamp.getTime())) return true;
-  return now.getTime() - stamp.getTime() <= SEVEN_DAYS_MS;
+  return now.getTime() - stamp.getTime() <= expiredPurgeMs();
 }
 
 export function expiredDayLabel(task: HouseholdTask, now = new Date()): string {

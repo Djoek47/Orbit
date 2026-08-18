@@ -71,9 +71,11 @@ export function seriesStartDateKey(tasks: HouseholdTask[], defId: string): strin
 export function ensureOccurrencesForDay(
   tasks: HouseholdTask[],
   day: Date = new Date(),
-  dueTimeLocal = DEFAULT_DUE_TIME_LOCAL
+  dueTimeLocal = DEFAULT_DUE_TIME_LOCAL,
+  options?: { skipAssignees?: Iterable<string> }
 ): HouseholdTask[] {
   const dateKey = formatLocalDate(day);
+  const skip = new Set(options?.skipAssignees ?? []);
 
   // Prefer open templates; also learn series from any repeating row.
   const templates = new Map<string, HouseholdTask>();
@@ -86,6 +88,8 @@ export function ensureOccurrencesForDay(
   const created: HouseholdTask[] = [];
   for (const [defId, template] of templates) {
     if (!shouldGenerateOnDate(template, day)) continue;
+    const names = getTaskAssignees(template);
+    if (names.length > 0 && names.every((name) => skip.has(name))) continue;
 
     const startKey = seriesStartDateKey(tasks, defId);
     if (startKey && dateKey < startKey) continue;
@@ -116,7 +120,6 @@ export function ensureOccurrencesForDay(
     // Skip seasonal / as-needed (encoded as None or missing dueAt with special due labels)
     if (/seasonal|as needed/i.test(template.due)) continue;
 
-    const names = getTaskAssignees(template);
     created.push({
       ...template,
       id: '', // repository assigns

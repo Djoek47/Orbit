@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { dataMode } from '@/config/data-mode';
@@ -74,7 +75,9 @@ import {
   type RewardModelCapabilities,
 } from '@/lib/rewards/reward-model';
 import { normalizeRewardSettings } from '@/lib/rewards/reward-mode';
+import { isOnRecess } from '@/lib/recess/recess-engine';
 import { formatLocalDate } from '@/lib/streaks/local-date';
+import { expireOpenTasksAtBoundary } from '@/lib/tasks/expire-at-boundary';
 import {
   ensureOccurrencesForDay,
   isExpiredStatus,
@@ -290,8 +293,8 @@ type OrbitContextValue = {
   requestAnotherProof: (taskId: string, note?: string) => Promise<boolean>;
   /** Admin: reverse XP and return task to pending/missed within 7 days. */
   markNotDone: (taskId: string, note?: string) => Promise<boolean>;
-  /** Foreground catch-up: auto-confirm, materialise occurrences, mark missed. */
-  runOccurrenceCatchUp: () => Promise<void>;
+  /** Foreground catch-up: auto-confirm, materialise occurrences, expire at 23:59. */
+  runOccurrenceCatchUp: (snapshot?: HouseholdSnapshot) => Promise<void>;
   /** Admin: dock XP from someone who did not finish their share of a split task. */
   penalizeSplitAssignee: (taskId: string, assigneeName: string) => Promise<number | null>;
   /** Reassign overdue / unfinished work — new assignee earns XP on complete. */
@@ -474,7 +477,7 @@ type OrbitContextValue = {
   refreshStoreRecommendations: () => Promise<void>;
   refreshInviteLinks: () => Promise<InviteLinks | null>;
   refreshSmartHome: () => Promise<void>;
-  refreshHousehold: () => Promise<void>;
+  refreshHousehold: () => Promise<HouseholdSnapshot>;
   canAddGroceryWishlist: boolean;
 };
 
@@ -483,6 +486,8 @@ const OrbitContext = createContext<OrbitContextValue | null>(null);
 export function OrbitProvider({ children }: PropsWithChildren) {
   const [currentUser, setCurrentUser] = useState<OrbitUser | null>(null);
   const [household, setHousehold] = useState<HouseholdSnapshot>(mockHousehold);
+  const householdRef = useRef(household);
+  householdRef.current = household;
   const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [pendingRedemptions, setPendingRedemptions] = useState<RewardRedemption[]>([]);
@@ -693,6 +698,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       smartHomeRepository.listScenes(hydratedHousehold.id).then(setSmartHomeScenes),
     ]);
     setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
+    return hydratedHousehold;
   }, []);
 
   useEffect(() => {
@@ -1300,9 +1306,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return true;
   };
 
-  const runOccurrenceCatchUp = async () => {
+  const recessSkipAssignees = (live: typeof household, dateKey: string) => {
+    const periods = live.recessPeriods ?? [];
+    return live.members
+      .filter((member) => isOnRecess(periods, member.id, dateKey))
+      .map((member) => member.name);
+  };
+
+  const runOccurrenceCatchUp = async (snapshot?: typeof household) => {
+    const live = snapshot ?? householdRef.current;
     const now = new Date();
-    let nextTasks = autoConfirmUnreviewed(household.tasks, now);
+    const expiryHm = getHouseRulesDoc().constants.expiryTime;
+    let nextTasks = autoConfirmUnreviewed(live.tasks, now);
 
     // Cold-start: resolve intervening days (up to 14) then materialise today.
     const LOOKBACK_DAYS = 7;
@@ -1314,7 +1329,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const dayDrafts = ensureOccurrencesForDay(
         nextTasks,
         day,
-        householdDueTimeLocal(household, day)
+        householdDueTimeLocal(live, day),
+        { skipAssignees: recessSkipAssignees(live, dayKey) }
       );
       for (const draft of dayDrafts) {
         const exists = nextTasks.some(
@@ -1322,8 +1338,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             t.definitionId === draft.definitionId &&
             t.occurrenceDate === draft.occurrenceDate
         );
-        if (exists || !household.id) continue;
-        const row = await taskRepository.createTask(household.id, {
+        if (exists || !live.id) continue;
+        const row = await taskRepository.createTask(live.id, {
           title: draft.title,
           description: draft.description,
           category: draft.category,
@@ -1348,7 +1364,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now);
     }
 
-    const todayDrafts = ensureOccurrencesForDay(nextTasks, now, householdDueTimeLocal(household, now));
+    const todayKey = formatLocalDate(now);
+    const todayDrafts = ensureOccurrencesForDay(
+      nextTasks,
+      now,
+      householdDueTimeLocal(live, now),
+      { skipAssignees: recessSkipAssignees(live, todayKey) }
+    );
     const created: HouseholdTask[] = [];
     for (const draft of todayDrafts) {
       const exists = nextTasks.some(
@@ -1356,8 +1378,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           t.definitionId === draft.definitionId &&
           t.occurrenceDate === draft.occurrenceDate
       );
-      if (exists || !household.id) continue;
-      const row = await taskRepository.createTask(household.id, {
+      if (exists || !live.id) continue;
+      const row = await taskRepository.createTask(live.id, {
         title: draft.title,
         description: draft.description,
         category: draft.category,
@@ -1379,14 +1401,24 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       created.push(row);
     }
 
-    const merged = [...created, ...nextTasks];
-    // Persist auto-confirm / missed transitions for changed rows
+    const merged = expireOpenTasksAtBoundary([...created, ...nextTasks], now, {
+      expiryHm,
+      assigneeOnRecess: (name, dateKey) =>
+        live.members.some(
+          (member) =>
+            member.name === name && isOnRecess(live.recessPeriods ?? [], member.id, dateKey)
+        ),
+    });
+    // Persist auto-confirm / missed / expiry transitions for changed rows
     for (const task of merged) {
-      const prev = household.tasks.find((t) => t.id === task.id);
-      if (
-        prev &&
-        (prev.verification !== task.verification || prev.status !== task.status)
-      ) {
+      const prev = live.tasks.find((t) => t.id === task.id);
+      if (!prev) {
+        if (isExpiredStatus(task.status)) {
+          await taskRepository.updateTask(task);
+        }
+        continue;
+      }
+      if (prev.verification !== task.verification || prev.status !== task.status) {
         await taskRepository.updateTask(task);
       }
     }
@@ -1400,6 +1432,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     // One catch-up per household session mount / id change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [household.id, isLoading]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active' && householdRef.current.id) {
+        void runOccurrenceCatchUp(householdRef.current);
+      }
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!household.dailyDeadlinePending || !household.dailyDeadlineAppliesOn) return;
@@ -2738,13 +2780,6 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const updatePalette = (next: ColorPaletteId) => {
     updateAccentTheme(next);
   };
-
-  // Keep home-screen icon aligned after hydrate / persona switch (native builds only).
-  useEffect(() => {
-    void import('@/lib/brand/sync-app-icon').then(({ syncHomeScreenIcon }) =>
-      syncHomeScreenIcon(resolvedPaletteId)
-    );
-  }, [resolvedPaletteId]);
 
   const updateHouseholdAccentTheme = (themeId: AccentThemeId) => {
     if (!permissions.canManageHousehold) {

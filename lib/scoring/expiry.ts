@@ -1,8 +1,19 @@
 /**
- * Task expiry at 23:59:59 household-local — Revision D §1.3.
+ * Task expiry at house-rules constants.expiryTime (DEAD-04), household-local.
  */
 
 import { EXPIRY_HOUR, EXPIRY_MINUTE } from '@/constants/scoring';
+import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
+import { parseLocalHm } from '@/lib/tasks/recurrence-defaults';
+
+function expiryHourMinute(): { hour: number; minute: number } {
+  try {
+    const { hours, minutes } = parseLocalHm(getHouseRulesDoc().constants.expiryTime);
+    return { hour: hours, minute: minutes };
+  } catch {
+    return { hour: EXPIRY_HOUR, minute: EXPIRY_MINUTE };
+  }
+}
 
 export type OccurrenceStatus = 'pending' | 'late' | 'completed' | 'expired';
 
@@ -47,7 +58,8 @@ export function endOfDueDayUtc(input: {
     const mi = Number(label.find((p) => p.type === 'minute')?.value ?? 0);
     const ss = Number(label.find((p) => p.type === 'second')?.value ?? 0);
     const dayMatch = `${hy}-${hm}-${hd}` === targetLabel;
-    if (dayMatch && hh === EXPIRY_HOUR && mi === EXPIRY_MINUTE && ss === 59) {
+    const { hour: expiryHour, minute: expiryMinute } = expiryHourMinute();
+    if (dayMatch && hh === expiryHour && mi === expiryMinute && ss === 59) {
       return new Date(guess);
     }
     if (!dayMatch) {
@@ -56,7 +68,7 @@ export function endOfDueDayUtc(input: {
       continue;
     }
     const deltaSec =
-      EXPIRY_HOUR * 3600 + EXPIRY_MINUTE * 60 + 59 - (hh * 3600 + mi * 60 + ss);
+      expiryHour * 3600 + expiryMinute * 60 + 59 - (hh * 3600 + mi * 60 + ss);
     guess += deltaSec * 1000;
   }
   return new Date(guess);
