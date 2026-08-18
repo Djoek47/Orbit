@@ -8,6 +8,7 @@ import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
 import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
 import { OrbitNavTheme } from '@/components/orbit/orbit-nav-theme';
 import { BRICOLAGE_FONT_MAP } from '@/constants/bricolage-font-assets';
+import { PoppinsLiveProvider } from '@/lib/poppins/live-context';
 import { OrbitProvider } from '@/store/orbit-store';
 
 export const unstable_settings = {
@@ -33,6 +34,7 @@ export default function RootLayout() {
 
   return (
     <OrbitProvider>
+      <PoppinsLiveProvider>
       <OrbitNavTheme>
         <DeepLinkBridge />
         <OrbitChromeBridge />
@@ -148,6 +150,7 @@ export default function RootLayout() {
           />
         </Stack>
       </OrbitNavTheme>
+      </PoppinsLiveProvider>
     </OrbitProvider>
   );
 }

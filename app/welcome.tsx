@@ -15,6 +15,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OnboardingProgress } from '@/components/orbit/onboarding-progress';
+import { OnboardingPlaces } from '@/components/orbit/onboarding-places';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
@@ -80,6 +81,7 @@ type Step =
   | 'account'
   | 'profile'
   | 'household'
+  | 'places'
   | 'roster'
   | 'member-wizard'
   | 'child-invite'
@@ -106,6 +108,7 @@ export default function WelcomeOnboardingScreen() {
     hydrateFromSession,
     joinHousehold,
     applyStashedInvite,
+    upsertSavedPlace,
     orbitPalette,
     redeemChildInvite,
     signUp,
@@ -297,6 +300,7 @@ export default function WelcomeOnboardingScreen() {
       case 'profile':
         return 2;
       case 'household':
+      case 'places':
       case 'roster':
       case 'member-wizard':
         return 3;
@@ -341,8 +345,11 @@ export default function WelcomeOnboardingScreen() {
       case 'household':
         setStep(currentUser?.profileComplete ? 'profile' : 'account');
         break;
-      case 'roster':
+      case 'places':
         setStep('household');
+        break;
+      case 'roster':
+        setStep('places');
         break;
       case 'member-wizard':
         setStep('roster');
@@ -593,7 +600,7 @@ export default function WelcomeOnboardingScreen() {
         scoringMode: selectedRewardMode ?? 'weighted',
       });
       setSetupDraft(nextDraft);
-      setStep('roster');
+      setStep('places');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Household setup failed.');
     } finally {
@@ -659,6 +666,28 @@ export default function WelcomeOnboardingScreen() {
           );
         }
       }
+    }
+    for (const place of draft.places ?? []) {
+      if (!place.address.trim()) continue;
+      upsertSavedPlace({
+        id: `place-${place.kind}`,
+        name: place.name || (place.kind === 'home' ? 'Home' : 'Place'),
+        kind: place.kind,
+        address: place.address.trim(),
+        placeQuery: place.address.trim(),
+        lat: place.lat,
+        lng: place.lng,
+        emoji:
+          place.kind === 'home'
+            ? '🏠'
+            : place.kind === 'school'
+              ? '🏫'
+              : place.kind === 'clothing'
+                ? '👕'
+                : '🛒',
+        isFavorite: place.kind === 'home',
+        pickupItemNames: [],
+      });
     }
     setCreatedHousehold(true);
     await clearSetupDraft();
@@ -1460,6 +1489,23 @@ export default function WelcomeOnboardingScreen() {
                     ? 'Join household'
                     : 'Continue'}
               </OrbitButton>
+            </KeyboardScreen>
+          ) : null}
+
+          {step === 'places' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <OnboardingPlaces
+                places={setupDraft.places ?? []}
+                accent={accent}
+                onChange={(next) => {
+                  const draft = { ...setupDraft, places: next };
+                  setSetupDraft(draft);
+                  void saveSetupDraft(draft);
+                }}
+                onContinue={() => setStep('roster')}
+                onSkip={() => setStep('roster')}
+              />
             </KeyboardScreen>
           ) : null}
 

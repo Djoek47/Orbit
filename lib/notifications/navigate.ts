@@ -5,7 +5,6 @@ export function getNotificationRoute(item: NotificationItem): string | null {
   const data = item.data ?? {};
   const taskId = typeof data.taskId === 'string' ? data.taskId : null;
   const eventId = typeof data.eventId === 'string' ? data.eventId : null;
-  const groceryId = typeof data.groceryId === 'string' ? data.groceryId : null;
   const itineraryId = typeof data.itineraryId === 'string' ? data.itineraryId : null;
   const kind = typeof data.kind === 'string' ? data.kind : null;
   const notificationId = typeof data.notificationId === 'string' ? data.notificationId : null;
@@ -25,8 +24,8 @@ export function getNotificationRoute(item: NotificationItem): string | null {
   if (item.category === 'events' && eventId) {
     return `/event/${eventId}`;
   }
-  if (item.category === 'groceries' || kind === 'grocery_added') {
-    return groceryId ? '/(tabs)/groceries' : '/(tabs)/groceries';
+  if (item.category === 'groceries' || kind === 'grocery_added' || kind === 'near_shop_deal') {
+    return '/shopping-mode';
   }
   if (kind?.includes('allowance') || notificationId === 'N24') {
     return '/allowance-history';

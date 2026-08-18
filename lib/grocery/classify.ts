@@ -234,7 +234,10 @@ export function withCategoryOverride(
   return { ...(overrides ?? {}), [norm]: categoryId };
 }
 
-/** Group items by aisle order; omit empty categories. */
+export function isClothingCategory(categoryIdOrName?: string | null): boolean {
+  const value = (categoryIdOrName ?? '').trim().toLowerCase();
+  return value === 'clothing' || value === 'clothing & shoes' || value.startsWith('clothing');
+}
 export function groupByAisle<T extends { category: string }>(
   items: T[]
 ): { categoryId: string; categoryName: string; order: number; items: T[] }[] {

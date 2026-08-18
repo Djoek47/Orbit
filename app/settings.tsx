@@ -1272,7 +1272,7 @@ export default function SettingsScreen() {
                 ['deals', 'Deal ideas', 'In-app suggestions only', '🏷️'],
                 ['plans', 'Plan ideas', 'In-app suggestions only', '🗺️'],
                 ['xpFairness', 'Fairness notes', 'In-app balance tips', '⚖️'],
-                ['nearShop', 'Near shop', 'Local reminder near a store', '📍'],
+                ['nearShop', 'Near shop', 'Ask before opening your list at a store', '📍'],
                 ['missingOnTheWay', 'Missing on the way', 'Local reminder during a run', '🧾'],
                 [
                   'quietHoursEnabled',

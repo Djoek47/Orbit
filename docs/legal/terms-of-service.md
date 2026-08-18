@@ -1,6 +1,6 @@
 # Choremaxx Terms of Service
 
-**Last updated:** 2026-08-10  
+**Last updated:** 2026-08-18  
 **Public URL (host this page):** https://choremaxx.vercel.app/terms
 
 © 2026 Choremaxx. All rights reserved.
@@ -23,7 +23,11 @@ Do not misuse Choremaxx to harass others, break the law, attempt unauthorized ac
 
 ## AI / Poppins
 
-Poppins suggestions are assistive. Consequential household changes should be reviewed by humans. AI output may be imperfect.
+Poppins (also called Nova in older copy) suggestions are assistive. Consequential household changes should be reviewed by humans. AI output may be imperfect.
+
+## Location
+
+When you allow Location, Choremaxx preloads maps, finds grocery and clothing stores near Home, and can ask whether to open your shopping list when you are physically near a store. The same GPS may be used by Poppins to geolocate nearby commerce. You can refuse each near-store prompt. You can deny Location and still type addresses. We do not sell location data.
 
 ## Subscriptions & billing
 

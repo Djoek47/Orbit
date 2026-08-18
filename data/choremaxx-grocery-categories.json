@@ -93,10 +93,16 @@
       "order": 15
     },
     {
+      "id": "clothing",
+      "name": "Clothing & Shoes",
+      "description": "Apparel, sneakers, kids clothes — in-store US/CA retail",
+      "order": 16
+    },
+    {
       "id": "other",
       "name": "Other",
       "description": "Unclassified — tap to assign",
-      "order": 16
+      "order": 17
     }
   ],
   "lexicon": {
@@ -1219,6 +1225,27 @@
     "yogurt": "dairy_eggs",
     "ziploc": "household",
     "ziploc bags": "household",
-    "zucchini": "produce"
+    "zucchini": "produce",
+    "adidas": "clothing",
+    "blouse": "clothing",
+    "boots": "clothing",
+    "coat": "clothing",
+    "denim": "clothing",
+    "dress": "clothing",
+    "hoodie": "clothing",
+    "jacket": "clothing",
+    "jeans": "clothing",
+    "leggings": "clothing",
+    "nike": "clothing",
+    "nike sneakers": "clothing",
+    "parka": "clothing",
+    "runners": "clothing",
+    "shirt": "clothing",
+    "sneakers": "clothing",
+    "socks": "clothing",
+    "sweatshirt": "clothing",
+    "t-shirt": "clothing",
+    "tshirt": "clothing",
+    "trainers": "clothing"
   }
 }

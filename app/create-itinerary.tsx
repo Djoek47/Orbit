@@ -63,6 +63,7 @@ function placeToStop(place: SavedPlace): DraftStop {
     family: 'family',
     cafe: 'custom',
     pickup: 'pickup',
+    clothing: 'shop',
     custom: 'custom',
   };
   return {

@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 
+import { shopKindFromOsmTag } from '@/lib/places/shop-kind';
 import type { PreferredStore } from '@/types/orbit';
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
@@ -21,10 +22,25 @@ export function haversineMeters(
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-export async function getCurrentCoords(): Promise<{ lat: number; lng: number } | null> {
+export async function getLocationPermission(): Promise<Location.PermissionStatus> {
+  const current = await Location.getForegroundPermissionsAsync();
+  return current.status;
+}
+
+export async function getCurrentCoords(options?: {
+  requestIfNeeded?: boolean;
+}): Promise<{ lat: number; lng: number } | null> {
   try {
-    const permission = await Location.requestForegroundPermissionsAsync();
-    if (!permission.granted) return null;
+    const existing = await Location.getForegroundPermissionsAsync();
+    if (!existing.granted) {
+      if (options?.requestIfNeeded === false) return null;
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (!permission.granted) return null;
+    }
+    const last = await Location.getLastKnownPositionAsync();
+    if (last?.coords) {
+      return { lat: last.coords.latitude, lng: last.coords.longitude };
+    }
     const pos = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
     });
@@ -47,12 +63,10 @@ async function fetchOsmStores(lat: number, lng: number): Promise<PreferredStore[
   const query = `
     [out:json][timeout:12];
     (
-      node["shop"="supermarket"](around:${RADIUS_M},${lat},${lng});
-      node["shop"="convenience"](around:${RADIUS_M},${lat},${lng});
-      way["shop"="supermarket"](around:${RADIUS_M},${lat},${lng});
-      way["shop"="convenience"](around:${RADIUS_M},${lat},${lng});
+      node["shop"~"supermarket|convenience|greengrocer|clothes|shoes|department_store|mall|fashion"](around:${RADIUS_M},${lat},${lng});
+      way["shop"~"supermarket|convenience|greengrocer|clothes|shoes|department_store|mall|fashion"](around:${RADIUS_M},${lat},${lng});
     );
-    out center 20;
+    out center 28;
   `;
   const response = await fetch(OVERPASS_URL, {
     method: 'POST',
@@ -69,7 +83,9 @@ async function fetchOsmStores(lat: number, lng: number): Promise<PreferredStore[
     const elLat = el.lat ?? el.center?.lat;
     const elLng = el.lon ?? el.center?.lon;
     if (elLat == null || elLng == null) continue;
-    const name = el.tags?.name || el.tags?.brand || 'Grocery store';
+    const kind = shopKindFromOsmTag(el.tags?.shop) ?? 'retail';
+    const name =
+      el.tags?.name || el.tags?.brand || (kind === 'clothing' ? 'Clothing store' : 'Store');
     const address =
       [el.tags?.['addr:housenumber'], el.tags?.['addr:street']].filter(Boolean).join(' ') ||
       `${elLat.toFixed(4)}, ${elLng.toFixed(4)}`;
@@ -82,35 +98,44 @@ async function fetchOsmStores(lat: number, lng: number): Promise<PreferredStore[
       lng: elLng,
       distanceMeters: Math.round(haversineMeters(lat, lng, elLat, elLng)),
       source: 'osm',
+      shopKind: kind,
     });
   }
   return stores.sort((a, b) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0));
 }
 
+export async function findNearbyStoresAt(
+  lat: number,
+  lng: number
+): Promise<{ stores: PreferredStore[]; source: 'osm' | 'none' }> {
+  try {
+    const osm = await fetchOsmStores(lat, lng);
+    if (osm.length > 0) return { stores: osm, source: 'osm' };
+  } catch (error) {
+    console.warn('findNearbyStoresAt OSM failed', error);
+  }
+  return { stores: [], source: 'none' };
+}
+
 /**
- * Nearby grocery stores via OSM Overpass. No curated FreshMart fallback.
- * Expo Go friendly — no API key.
+ * Nearby grocery + clothing/retail via OSM Overpass. No curated fallback.
+ * Pass home coords after Home is saved so we don't wait on GPS twice.
  */
-export async function findNearbyStores(): Promise<{
+export async function findNearbyStores(origin?: {
+  lat: number;
+  lng: number;
+} | null): Promise<{
   stores: PreferredStore[];
   coords: { lat: number; lng: number } | null;
   source: 'osm' | 'none' | 'denied';
 }> {
-  const coords = await getCurrentCoords();
+  const coords = origin ?? (await getCurrentCoords());
   if (!coords) {
     return { stores: [], coords: null, source: 'denied' };
   }
 
-  try {
-    const osm = await fetchOsmStores(coords.lat, coords.lng);
-    if (osm.length > 0) {
-      return { stores: osm, coords, source: 'osm' };
-    }
-  } catch (error) {
-    console.warn('findNearbyStores OSM failed', error);
-  }
-
-  return { stores: [], coords, source: 'none' };
+  const { stores, source } = await findNearbyStoresAt(coords.lat, coords.lng);
+  return { stores, coords, source };
 }
 
 /** True when a shop is within `withinMeters` of any stop that has coords. */

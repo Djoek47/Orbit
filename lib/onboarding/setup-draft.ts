@@ -35,6 +35,14 @@ export type DraftMember = {
   setupComplete: boolean;
 };
 
+export type DraftPlace = {
+  kind: 'home' | 'school' | 'shop' | 'clothing';
+  name: string;
+  address: string;
+  lat?: number;
+  lng?: number;
+};
+
 export type HouseholdSetupDraft = {
   version: 1;
   householdName: string;
@@ -42,6 +50,7 @@ export type HouseholdSetupDraft = {
   /** Meritocracy (weighted) vs Equity (flat). */
   scoringMode: RewardMode;
   members: DraftMember[];
+  places?: DraftPlace[];
   updatedAt: string;
 };
 
@@ -65,6 +74,7 @@ export function createEmptyDraft(
     rewardModel: partial?.rewardModel ?? 'full',
     scoringMode: partial?.scoringMode ?? 'weighted',
     members: [],
+    places: [],
     updatedAt: new Date().toISOString(),
   };
 }

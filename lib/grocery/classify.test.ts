@@ -21,6 +21,9 @@ function pass(id: string, detail: string) {
   const steak = classifyGroceryItem('Steak');
   assert.equal(steak.categoryName, 'Meat & Seafood', 'Steak');
   pass('C4.1', 'Milk → Dairy, Cake → Bakery, Steak → Meat & Seafood');
+  const jeans = classifyGroceryItem('Nike sneakers');
+  assert.equal(jeans.categoryName, 'Clothing & Shoes', 'Nike sneakers');
+  pass('C4.clothing', 'sneakers file under Clothing');
 }
 
 {

@@ -13,10 +13,14 @@ import { formatUsCaAddress } from '@/lib/places/address-format';
 import { searchAddresses, type AddressSuggestion } from '@/lib/places/address-search';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { getCurrentCoords } from '@/lib/places/nearby-stores';
+import {
+  findNearbyStores,
+  getCurrentCoords,
+  getLocationPermission,
+} from '@/lib/places/nearby-stores';
 import { createLocalId } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
-import type { SavedPlace, SavedPlaceKind } from '@/types/orbit';
+import type { PreferredStore, SavedPlace, SavedPlaceKind } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 const HOME_ID = 'place-home';
@@ -27,6 +31,7 @@ const KIND_OPTIONS: { id: SavedPlaceKind; label: string; emoji: string; color: s
   { id: 'work', label: 'Work', emoji: '💼', color: '#7C9CC0' },
   { id: 'school', label: 'School', emoji: '🏫', color: '#A78BFA' },
   { id: 'shop', label: 'Grocery', emoji: '🛒', color: '#34D399' },
+  { id: 'clothing', label: 'Clothing', emoji: '👕', color: '#F472B6' },
   { id: 'practice', label: 'Activity', emoji: '⚽', color: '#F59E0B' },
   { id: 'family', label: 'Family', emoji: '👵', color: '#EC4899' },
   { id: 'cafe', label: 'Café', emoji: '☕', color: '#FB923C' },
@@ -114,6 +119,10 @@ export default function PlacesScreen() {
   const [suggestBusy, setSuggestBusy] = useState(false);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
+  const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [nearby, setNearby] = useState<PreferredStore[]>([]);
+  const [nearbyBusy, setNearbyBusy] = useState(false);
 
   const home = places.find((p) => p.kind === 'home') ?? places.find((p) => p.id === HOME_ID);
   const work = places.find((p) => p.kind === 'work') ?? places.find((p) => p.id === WORK_ID);
@@ -142,6 +151,44 @@ export default function PlacesScreen() {
       ),
     [household.itineraries]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setLocating(true);
+      const status = await getLocationPermission();
+      const coords = await getCurrentCoords({ requestIfNeeded: status !== 'denied' });
+      if (cancelled) return;
+      setLocating(false);
+      if (!coords) {
+        setPermissionDenied(true);
+        return;
+      }
+      setGps(coords);
+      setPermissionDenied(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const origin =
+      home?.lat != null && home?.lng != null ? { lat: home.lat, lng: home.lng } : gps;
+    if (!origin) return;
+    let cancelled = false;
+    setNearbyBusy(true);
+    void findNearbyStores(origin)
+      .then((result) => {
+        if (!cancelled) setNearby(result.stores);
+      })
+      .finally(() => {
+        if (!cancelled) setNearbyBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [gps?.lat, gps?.lng, home?.lat, home?.lng]);
 
   useEffect(() => {
     if (!editor) {
@@ -474,6 +521,10 @@ export default function PlacesScreen() {
 
           <PlaceMap
             height={176}
+            locating={locating && editor.lat == null}
+            permissionDenied={permissionDenied}
+            userLocation={gps}
+            emptyHint="The map follows you. Type an address or use current location to drop a pin — Poppins uses this GPS to find nearby stores."
             markers={
               editor.lat != null && editor.lng != null
                 ? [{ id: editor.id, title: editor.name || 'Place', lat: editor.lat, lng: editor.lng }]
@@ -570,6 +621,10 @@ export default function PlacesScreen() {
 
           <PlaceMap
             height={200}
+            locating={locating && !gps}
+            permissionDenied={permissionDenied}
+            userLocation={gps ?? (home?.lat != null && home?.lng != null ? { lat: home.lat, lng: home.lng } : null)}
+            emptyHint="Allow location to preload the map. After you add Home, nearby stores appear here."
             markers={[
               ...places
                 .filter((p) => p.lat != null && p.lng != null)
@@ -579,6 +634,16 @@ export default function PlacesScreen() {
                   lat: p.lat as number,
                   lng: p.lng as number,
                 })),
+              ...nearby
+                .filter((s) => s.lat != null && s.lng != null && !places.some((p) => p.id === s.id))
+                .slice(0, 12)
+                .map((s) => ({
+                  id: s.id,
+                  title: s.name,
+                  lat: s.lat as number,
+                  lng: s.lng as number,
+                  color: s.shopKind === 'clothing' ? '#F472B6' : '#34D399',
+                })),
               ...itineraryPins,
             ]}
             onMarkerPress={(id) => {
@@ -586,6 +651,55 @@ export default function PlacesScreen() {
               if (place) openExtra(place);
             }}
           />
+
+          {home?.address && nearby.length > 0 ? (
+            <View style={{ gap: 8 }}>
+              <Text style={[styles.label, { color: orbitPalette.textSubtle }]}>
+                {nearbyBusy ? 'FINDING STORES NEAR HOME' : 'NEAR HOME'}
+              </Text>
+              {nearby.slice(0, 6).map((store) => {
+                const saved = places.some((p) => p.id === store.id);
+                return (
+                  <Pressable
+                    key={store.id}
+                    onPress={() => {
+                      if (saved) return;
+                      upsertSavedPlace({
+                        id: store.id,
+                        name: store.name,
+                        kind: store.shopKind === 'clothing' ? 'clothing' : 'shop',
+                        address: store.address,
+                        placeQuery: store.placeQuery,
+                        lat: store.lat,
+                        lng: store.lng,
+                        emoji: store.shopKind === 'clothing' ? '👕' : '🛒',
+                        isFavorite: false,
+                        pickupItemNames: [],
+                      });
+                    }}
+                    style={[
+                      styles.locateBtn,
+                      { borderColor: orbitPalette.border, backgroundColor: glass(0.04) },
+                    ]}>
+                    <MaterialIcons
+                      name={store.shopKind === 'clothing' ? 'checkroom' : 'storefront'}
+                      size={16}
+                      color={accentTheme.primary}
+                    />
+                    <Text style={[styles.locateText, { color: orbitPalette.text, flex: 1 }]}>
+                      {store.name}
+                      {store.distanceMeters != null
+                        ? ` · ${(store.distanceMeters / 1000).toFixed(1)} km`
+                        : ''}
+                    </Text>
+                    <Text style={[styles.locateText, { color: accentTheme.primary }]}>
+                      {saved ? 'Saved' : 'Add'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
 
           <PlaceRow
             palette={orbitPalette}
