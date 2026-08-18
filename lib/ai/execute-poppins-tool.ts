@@ -10,6 +10,7 @@ import {
   type PoppinsToolName,
 } from '@/lib/ai/poppins-tools';
 import { isIuiScene, IUI_SCENES } from '@/lib/poppins/ui-scenes';
+import { isAssignSurfaceRoute, isGrocerySurfaceRoute } from '@/lib/poppins/catalog-match';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { houseRulesHouseholdView } from '@/lib/rules/household-view';
 import { searchHouseRules } from '@/lib/rules/search';
@@ -191,15 +192,26 @@ export function executePoppinsTool(
     case 'add_grocery': {
       const groceryName = String(args.name ?? '').trim();
       if (!groceryName) return { error: 'name_required' };
+      const lane = args.lane === 'clothing' ? 'clothing' : undefined;
+      const releaseDate = args.releaseDate ? String(args.releaseDate) : undefined;
+      const ui_actions: Array<Record<string, unknown>> = [
+        {
+          type: 'add_grocery',
+          name: groceryName,
+          category: args.category ? String(args.category) : lane === 'clothing' ? 'Clothing' : undefined,
+          lane,
+        },
+      ];
+      if (releaseDate) {
+        ui_actions.push({
+          type: 'create_calendar_event',
+          title: `${groceryName} drop`,
+          date: releaseDate,
+        });
+      }
       return {
-        ui_actions: [
-          {
-            type: 'add_grocery',
-            name: groceryName,
-            category: args.category ? String(args.category) : undefined,
-          },
-        ],
-        note: `Staged add grocery: ${groceryName}`,
+        ui_actions,
+        note: `Staged add ${lane === 'clothing' ? 'shopping' : 'grocery'}: ${groceryName}`,
       };
     }
     case 'set_grocery_status': {
@@ -396,9 +408,12 @@ export function executePoppinsTool(
             assignee: args.assignee ? String(args.assignee) : undefined,
             due: args.due ? String(args.due) : undefined,
             detail: args.detail ? String(args.detail) : undefined,
+            category: args.category ? String(args.category) : undefined,
+            libraryTaskId: args.libraryTaskId ? String(args.libraryTaskId) : undefined,
+            taskQuery: args.taskQuery ? String(args.taskQuery) : undefined,
           },
         ],
-        note: 'Staged task on the IUI stage. HOLD silence commits.',
+        note: 'Staged Assign on the IUI stage. HOLD silence commits.',
       };
     }
     case 'update_task': {
@@ -479,6 +494,39 @@ export function executePoppinsTool(
     }
     case 'navigate_to': {
       const route = String(args.route ?? '');
+      const openEditor = args.openEditor === true;
+      if (isAssignSurfaceRoute(route) && !openEditor) {
+        return {
+          ui_actions: [
+            {
+              type: 'create_task_draft',
+              title: args.title ? String(args.title) : '',
+              assignee: args.assignee ? String(args.assignee) : undefined,
+              category: args.category ? String(args.category) : undefined,
+            },
+          ],
+          note: 'Staged Assign on the IUI stage instead of opening the full screen.',
+        };
+      }
+      if (isGrocerySurfaceRoute(route) && !openEditor) {
+        const groceryName = String(args.name ?? args.title ?? '').trim();
+        if (groceryName) {
+          return {
+            ui_actions: [{ type: 'add_grocery', name: groceryName }],
+            note: `Staged add grocery: ${groceryName}`,
+          };
+        }
+        return {
+          ui_actions: [
+            {
+              type: 'present_ui_scene',
+              scene: 'thinking',
+              payload: { thinkingLine: 'What should I add?' },
+            },
+          ],
+          note: 'Ask what to add — do not coach-navigate the grocery list.',
+        };
+      }
       const allowed = (POPPINS_NAV_ROUTES as readonly string[]).includes(route);
       if (!allowed) {
         return { error: 'route_not_allowed', route, allowed: POPPINS_NAV_ROUTES };
@@ -488,7 +536,8 @@ export function executePoppinsTool(
           {
             type: 'navigate',
             route,
-            reason: args.reason ?? 'I can open that for you.',
+            openEditor: openEditor || undefined,
+            reason: args.reason ?? 'Opening that now.',
           },
         ],
       };

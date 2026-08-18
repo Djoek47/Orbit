@@ -59,13 +59,34 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
 
     if (type === 'navigate') {
       let route = String(action.route ?? '');
-      if (route.startsWith('/assign-task')) route = '/create-task';
+      const openEditor = action.openEditor === true;
+      if (route.startsWith('/create-task') && openEditor) route = '/assign-task';
+      if (
+        (route.startsWith('/assign-task') || route.startsWith('/create-task')) &&
+        !openEditor
+      ) {
+        const payload = withComposeProgress({
+          title: String(action.title ?? prefill.title ?? ''),
+          assignee: action.assignee ? String(action.assignee) : undefined,
+          due: action.due ? String(action.due) : undefined,
+          category: action.category ? String(action.category) : undefined,
+          libraryTaskId: action.libraryTaskId ? String(action.libraryTaskId) : undefined,
+          taskQuery: action.taskQuery ? String(action.taskQuery) : undefined,
+          showEmoji: true,
+          thinkingLine: 'Assign',
+        });
+        playlist.push(beat('task_compose', payload, 'hold', 'create_task'));
+        playlist.push(
+          beat('result_mark', { markKind: 'assigned', title: payload.title || 'Task' }, 'none')
+        );
+        continue;
+      }
       playlist.push(
         beat(
           'navigate_coach',
           {
             route,
-            coachLine: String(action.reason ?? 'I can open that for you.'),
+            coachLine: String(action.reason ?? 'Opening that now.'),
             thinkingLine: String(action.reason ?? ''),
           },
           'none'
@@ -75,16 +96,30 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'add_grocery') {
+      const groceryName = String(action.name ?? '');
       playlist.push(
         beat(
           'grocery_add',
           {
-            groceryName: String(action.name ?? ''),
+            groceryName,
             aisle: action.category ? String(action.category) : undefined,
-            title: String(action.name ?? 'Grocery'),
+            title: groceryName || 'Grocery',
+            shoppingLane: action.lane === 'clothing' ? 'clothing' : 'grocery',
+            thinkingLine: action.lane === 'clothing' ? 'Shopping list' : 'Groceries',
           },
           'hold',
           'add_grocery'
+        )
+      );
+      playlist.push(
+        beat(
+          'result_mark',
+          {
+            markKind: 'added',
+            title: groceryName || 'Item',
+            groceryName,
+          },
+          'none'
         )
       );
       continue;
@@ -93,14 +128,14 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     if (type === 'complete_task') {
       playlist.push(
         beat(
-          'list_peek',
+          'task_done',
           {
             title: String(action.title ?? 'Task'),
             taskId: String(action.taskId ?? ''),
-            peek: [{ id: String(action.taskId ?? 't'), title: String(action.title ?? 'Task') }],
-            confirmSummary: `Mark ${String(action.title ?? 'this task')} done?`,
+            markKind: 'done',
+            thinkingLine: 'Done',
           },
-          'confirm',
+          'hold',
           'complete_task'
         )
       );
@@ -127,11 +162,16 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
           : prefill.libraryTaskId
             ? String(prefill.libraryTaskId)
             : undefined,
+        taskQuery: action.taskQuery ? String(action.taskQuery) : undefined,
         showEmoji: true,
         composeReady: draft ? false : undefined,
+        thinkingLine: 'Assign',
       });
       if (draft) payload.composeReady = false;
       playlist.push(beat('task_compose', payload, 'hold', 'create_task'));
+      playlist.push(
+        beat('result_mark', { markKind: 'assigned', title: payload.title || 'Task' }, 'none')
+      );
       continue;
     }
 

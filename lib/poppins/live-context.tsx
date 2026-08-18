@@ -2,6 +2,9 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState, type
 import { usePathname } from 'expo-router';
 
 import { useOrbitOptional } from '@/store/orbit-store';
+import { driveAiuic } from '@/lib/poppins/aiuic';
+import { parseHouseholdIntent } from '@/lib/poppins/ui-intent';
+import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import {
   isPoppinsNativeVoiceAvailable,
   PoppinsVoiceSession,
@@ -41,6 +44,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
   const voiceRef = useRef<PoppinsVoiceSession | null>(null);
+  const lastUtteranceRef = useRef('');
   const askPoppins = orbit?.askPoppins;
   const household = orbit?.household;
   const metrics = orbit?.metrics;
@@ -67,8 +71,20 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
         setVisual('connecting');
         const session = new PoppinsVoiceSession({
           onStateChange: (state) => setVisual(mapVisual(state)),
-          onTranscript: (_role, text) => {
-            if (text.trim()) setCaption(text);
+          onTranscript: (role, text) => {
+            if (!text.trim()) return;
+            setCaption(text);
+            if (role === 'user') {
+              lastUtteranceRef.current = text;
+              if (poppinsUiOrchestrator.applySpeech(text)) return;
+              const inferred = parseHouseholdIntent(text);
+              if (inferred.length) driveAiuic(inferred, text, { replace: true });
+            } else {
+              poppinsUiOrchestrator.syncSpoken(text);
+            }
+          },
+          onUiActions: (actions) => {
+            driveAiuic(actions, lastUtteranceRef.current, { replace: true });
           },
           onSessionEnd: () => {
             setVisual('idle');
@@ -102,9 +118,14 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || !askPoppins) return;
+      lastUtteranceRef.current = trimmed;
       if (voiceRef.current?.isConnected) {
         voiceRef.current.sendUserText(trimmed);
         setCaption(trimmed);
+        if (!poppinsUiOrchestrator.applySpeech(trimmed)) {
+          const inferred = parseHouseholdIntent(trimmed);
+          if (inferred.length) driveAiuic(inferred, trimmed, { replace: true });
+        }
         return;
       }
       setVisual('thinking');
@@ -113,6 +134,11 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
         const result = await askPoppins(trimmed);
         setCaption(result.answer);
         appendPoppinsTurn?.(trimmed, result.answer);
+        if (result.ui_actions?.length) {
+          driveAiuic(result.ui_actions, trimmed, { replace: true });
+        } else {
+          driveAiuic([], trimmed, { replace: true });
+        }
         setVisual('speaking');
         setTimeout(() => setVisual('idle'), 1600);
       } catch {
