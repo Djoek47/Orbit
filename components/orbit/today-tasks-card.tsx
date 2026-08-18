@@ -1,8 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, type ReactNode } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
@@ -36,10 +36,9 @@ type TodayTasksCardProps = {
 };
 
 function openTasksTab(memberName?: string) {
-  // Always pass `member` so a prior person focus does not stick on the Tasks tab.
-  router.push({
-    pathname: '/tasks',
-    params: { member: memberName ?? '' },
+  router.navigate({
+    pathname: '/(tabs)/tasks',
+    params: memberName ? { member: memberName } : { member: '' },
   } as never);
 }
 
@@ -71,7 +70,6 @@ export function TodayTasksCard({
   onAwardDailyStreak,
 }: TodayTasksCardProps) {
   const { c, isDark, glass, glassBorder } = useOrbitColors();
-  const [size, setSize] = useState({ width: 0, height: 0 });
 
   const scoped = useMemo(() => {
     const today = tasks.filter((task) => isTodayTask(task));
@@ -137,20 +135,9 @@ export function TodayTasksCard({
     }
   }, [complete, onAwardDailyStreak]);
 
-  const onLayout = (event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    if (width !== size.width || height !== size.height) {
-      setSize({ width, height });
-    }
-  };
-
   return (
-    <View onLayout={onLayout} style={styles.wrap}>
-      <FireEdgeProgress
-        progress={progress}
-        width={size.width || 1}
-        height={size.height || 1}
-        radius={24}>
+    <View style={styles.wrap}>
+      <FireEdgeProgress progress={progress} radius={24}>
         <GlassCard style={styles.card}>
           <View style={styles.sectionHead}>
             <View style={{ flex: 1 }}>
@@ -293,7 +280,7 @@ export function TodayTasksCard({
             onPress={() => openTasksTab()}
             style={styles.linkBtn}>
             <Text style={[styles.link, { color: accentTheme.primary, textAlign: 'center' }]}>
-              Open tasks →
+              Open tasks
             </Text>
             <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
           </Pressable>
@@ -305,7 +292,7 @@ export function TodayTasksCard({
 
 const styles = StyleSheet.create({
   wrap: { alignSelf: 'stretch', width: '100%' },
-  card: { gap: 10 },
+  card: { gap: 8, paddingBottom: 10 },
   sectionHead: {
     alignItems: 'flex-start',
     flexDirection: 'row',
@@ -395,8 +382,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 2,
     justifyContent: 'center',
-    marginTop: 2,
-    paddingVertical: 4,
+    marginBottom: 0,
+    marginTop: 0,
+    paddingVertical: 2,
   },
   link: { fontSize: 13, fontWeight: '700' },
 });

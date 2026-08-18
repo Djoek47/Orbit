@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
@@ -24,6 +24,7 @@ import {
 } from '@/lib/calendar/make-calendar';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
+import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -52,6 +53,7 @@ function locationShort(location: string): string | null {
 export default function PlanScreen() {
   const chromePad = useTabChromePaddingTop();
   const { household, suggestPoppinsItinerary, currentMember, permissions, accentTheme, orbitPalette } = useOrbit();
+  const { refreshing, onRefresh } = useHouseholdRefresh();
   const { c, glass, glassBorder } = useOrbitColors();
   const [buildingTrip, setBuildingTrip] = useState(false);
   const [subTab, setSubTab] = useState<PlanSubTab>('calendar');
@@ -108,7 +110,10 @@ export default function PlanScreen() {
       style={[styles.container, { backgroundColor: orbitPalette.background }]}
       contentContainerStyle={[styles.content, { paddingTop: chromePad }]}
       contentInsetAdjustmentBehavior="never"
-      showsVerticalScrollIndicator={false}>
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={accentTheme.primary} />
+      }>
       <View style={[styles.subNav, { backgroundColor: glass(0.06) }]}>
         {(
           [

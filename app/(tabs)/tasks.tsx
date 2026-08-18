@@ -2,7 +2,9 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 import { ContextMenu } from '@/components/orbit/context-menu';
 import { EmptyState } from '@/components/orbit/empty-state';
@@ -16,6 +18,9 @@ import { StreakMarker } from '@/components/orbit/streak-marker';
 import { VOCAB } from '@/constants/vocabulary';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
+import { motion } from '@/constants/motion-tokens';
+import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
+import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   normalizeRewardSettings,
@@ -188,6 +193,25 @@ function TaskItem({
       ? task.shares?.find((share) => share.name === member.name)?.status === 'Completed'
       : undefined;
   const done = shareDone ?? task.status === 'Completed';
+  const checkScale = useSharedValue(done ? 1 : 0.001);
+  const pillScale = useSharedValue(1);
+
+  useEffect(() => {
+    checkScale.value = withSpring(done ? 1 : 0.001, motion.snappy);
+  }, [checkScale, done]);
+
+  useEffect(() => {
+    if (!justCompleted) return;
+    pillScale.value = 0.96;
+    pillScale.value = withSpring(1, motion.smooth);
+  }, [justCompleted, pillScale]);
+
+  const checkAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: checkScale.value }],
+  }));
+  const pillAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: pillScale.value }],
+  }));
   const shareXp =
     member && isSplitTask(task)
       ? task.shares?.find((share) => share.name === member.name)?.awardedXp
@@ -207,7 +231,7 @@ function TaskItem({
   } as const;
 
   const row = (
-      <View style={[styles.taskItem, done && styles.taskItemDone, done && { backgroundColor: glass(0.03) }]}>
+      <Animated.View style={[styles.taskItem, done && styles.taskItemDone, done && { backgroundColor: glass(0.03) }, pillAnim]}>
         {interactive && !isExpiredStatus(task.status) ? (
         <Pressable
           onPress={onToggle}
@@ -218,7 +242,9 @@ function TaskItem({
               backgroundColor: done ? accent : 'transparent',
             },
           ]}>
-          {done ? <MaterialIcons name="check" size={12} color={c.ink} /> : null}
+          <Animated.View style={checkAnim}>
+            {done ? <MaterialIcons name="check" size={12} color={c.ink} /> : null}
+          </Animated.View>
         </Pressable>
         ) : (
           <View style={[styles.checkbox, { borderColor: `${c.warning}66`, opacity: 0.5 }]} />
@@ -331,7 +357,7 @@ function TaskItem({
             />
           )
         ) : null}
-      </View>
+      </Animated.View>
   );
 
   const expired = isExpiredStatus(task.status);
@@ -502,6 +528,7 @@ export default function TasksScreen() {
     switchPersona,
     v2Permissions,
   } = useOrbit();
+  const { refreshing, onRefresh } = useHouseholdRefresh();
   const [domainTab, setDomainTab] = useState<TaskDomainTab>('chores');
   const [statusTab, setStatusTab] = useState<TaskStatusTab>('active');
   const [filter, setFilter] = useState<TaskFilter>('all');
@@ -689,9 +716,9 @@ export default function TasksScreen() {
     }
 
     if (isSplitTask(task)) {
-      if (!currentMember || !taskMatchesAssignee(task, currentMember.name)) return;
       const share = task.shares?.find((item) => item.name === currentMember.name);
       if (!share || share.status !== 'Pending') return;
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setJustCompletedId(taskId);
       const result = await completeTask(taskId, { forAssignee: currentMember.name });
       setTimeout(() => setJustCompletedId(null), 1200);
@@ -701,6 +728,7 @@ export default function TasksScreen() {
       return;
     }
 
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setJustCompletedId(taskId);
     const result = await completeTask(taskId);
     setTimeout(() => setJustCompletedId(null), 1200);
@@ -718,7 +746,10 @@ export default function TasksScreen() {
     <PersistentScrollView
       style={orbitScreen.container}
       contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
-      contentInsetAdjustmentBehavior="never">
+      contentInsetAdjustmentBehavior="never"
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={accentTheme.primary} />
+      }>
       <View style={styles.headerRow}>
         <View style={[orbitScreen.header, styles.tasksHeader]}>
           <PageEyebrow>
@@ -889,7 +920,7 @@ export default function TasksScreen() {
             }
             caption={
               statusTab === 'expired'
-                ? 'Expired tasks clear from this view after seven days.'
+                ? `Expired tasks clear from this view after ${getHouseRulesDoc().constants.expiredPurgeDays} days.`
                 : sharedKidMode
                   ? 'Ask an adult to assign you something — or switch account if it’s someone else’s turn.'
                   : permissions.canCreateTask

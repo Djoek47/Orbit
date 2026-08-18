@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -32,6 +32,7 @@ import {
   normalizeRewardSettings,
 } from '@/lib/rewards/reward-mode';
 import { formatLocalDate } from '@/lib/streaks/local-date';
+import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { greetingWord } from '@/lib/time/greeting';
 import { useOrbit } from '@/store/orbit-store';
@@ -55,6 +56,7 @@ export default function HomeScreen() {
     v2Permissions,
     orbitPalette,
   } = useOrbit();
+  const { refreshing, onRefresh } = useHouseholdRefresh();
   const { c, glass } = useOrbitColors();
   const rewardSettings = useMemo(
     () =>
@@ -219,7 +221,10 @@ export default function HomeScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator
-        persistentScrollbar>
+        persistentScrollbar
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={accentTheme.primary} />
+        }>
         {/* Header — greeting + avatar (persona switch), date eyebrow. Kept per design-system/06. */}
         <View style={styles.headerRow}>
           <View style={styles.headerCopy}>
