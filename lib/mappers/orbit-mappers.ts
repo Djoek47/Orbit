@@ -38,6 +38,7 @@ export function mapMemberRow(row: {
   streak?: number | null;
   load_share: number;
   shared_with_member_ids?: string[] | null;
+  profile_invite_code?: string | null;
 }): HouseholdMember {
   const status =
     row.status === 'active' || row.status === 'pending' || row.status === 'inactive'
@@ -62,6 +63,7 @@ export function mapMemberRow(row: {
           ? row.shared_with_member_ids
           : []
         : undefined,
+    profileInviteCode: row.profile_invite_code?.trim() || undefined,
   };
 }
 

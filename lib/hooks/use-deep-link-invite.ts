@@ -4,46 +4,51 @@ import { router } from 'expo-router';
 
 import { parseInviteCodeFromUrl } from '@/lib/invite/deep-links';
 import { stashInviteCode } from '@/lib/invite/invite-code-store';
+import {
+  classifyInviteCode,
+  inviteHref,
+  nextInviteDestination,
+} from '@/lib/invites/invite-intent';
 import { useOrbit } from '@/store/orbit-store';
 
-async function handleInviteUrl(url: string, isSignedIn: boolean) {
+async function handleInviteUrl(
+  url: string,
+  session: { isSignedIn: boolean; isPendingMember: boolean; hasHousehold: boolean }
+) {
   const code = parseInviteCodeFromUrl(url);
   if (!code) {
     return;
   }
 
   await stashInviteCode(code);
-
-  if (isSignedIn) {
-    router.push(`/join-household?code=${encodeURIComponent(code)}` as never);
-    return;
-  }
-
-  router.push('/welcome' as never);
+  const kind = classifyInviteCode(code) ?? 'household';
+  const dest = nextInviteDestination(kind, session);
+  router.replace(inviteHref(dest, code) as never);
 }
 
 /** Listens for choremaxx://join/CODE and https://www.choremaxx.app/join/CODE. */
 export function useDeepLinkInvite() {
-  const { isSignedIn } = useOrbit();
+  const { isSignedIn, isPendingMember, hasHousehold } = useOrbit();
 
   useEffect(() => {
     let mounted = true;
+    const session = { isSignedIn, isPendingMember, hasHousehold };
 
     Linking.getInitialURL()
       .then((url) => {
         if (mounted && url) {
-          void handleInviteUrl(url, isSignedIn);
+          void handleInviteUrl(url, session);
         }
       })
       .catch(() => undefined);
 
     const subscription = Linking.addEventListener('url', ({ url }) => {
-      void handleInviteUrl(url, isSignedIn);
+      void handleInviteUrl(url, session);
     });
 
     return () => {
       mounted = false;
       subscription.remove();
     };
-  }, [isSignedIn]);
+  }, [hasHousehold, isPendingMember, isSignedIn]);
 }

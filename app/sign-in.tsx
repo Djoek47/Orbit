@@ -22,7 +22,7 @@ import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function SignInScreen() {
-  const { accentTheme, orbitPalette, signIn, hydrateFromSession } = useOrbit();
+  const { accentTheme, orbitPalette, signIn, hydrateFromSession, applyStashedInvite } = useOrbit();
   const { c } = useOrbitColors();
   const mock = isMockMode();
   const [email, setEmail] = useState('');
@@ -38,6 +38,11 @@ export default function SignInScreen() {
 
   const finishToHome = async () => {
     setShowSuccess(false);
+    const joined = await applyStashedInvite();
+    if (joined === 'pending') {
+      router.replace('/pending-approval' as never);
+      return;
+    }
     const session = await import('@/lib/device/device-session').then((m) => m.loadDeviceSession());
     if (session.mode === 'shared' && session.profileMemberIds.length > 0) {
       const { markNeedsProfilePick } = await import('@/lib/device/device-session');

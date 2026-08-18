@@ -6,14 +6,16 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors } from '@/constants/orbit-theme';
+import { stillWaitingCopy } from '@/lib/invites/invite-intent';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function PendingApprovalScreen() {
-  const { household, refreshHousehold } = useOrbit();
+  const { household, checkJoinApproval } = useOrbit();
   const { c } = useOrbitColors();
   const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
 
   return (
     <AuthShell
@@ -33,14 +35,25 @@ export default function PendingApprovalScreen() {
       <Text style={[styles.body, { color: c.textSoft }]}>
         You can browse calmly, but creating tasks, groceries, and invites stay locked until approval lands.
       </Text>
+      {note ? (
+        <Text style={[styles.body, { color: c.textMuted }]}>{note}</Text>
+      ) : null}
 
       <OrbitButton
         disabled={busy}
         onPress={async () => {
           setBusy(true);
           try {
-            await refreshHousehold();
-            router.replace('/' as never);
+            const status = await checkJoinApproval();
+            if (status === 'approved') {
+              router.replace('/' as never);
+              return;
+            }
+            if (status === 'missing') {
+              setNote('This join request is no longer on file. Ask an admin to send a new invite.');
+              return;
+            }
+            setNote(stillWaitingCopy(household.householdName));
           } finally {
             setBusy(false);
           }

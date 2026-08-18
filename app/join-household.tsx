@@ -34,9 +34,9 @@ export default function JoinHouseholdScreen() {
     setError('');
     try {
       setInviteCode(parsed);
+      const outcome = await joinHousehold({ inviteCode: parsed });
       await consumeInviteCode();
-      await joinHousehold({ inviteCode: parsed });
-      router.replace('/' as never);
+      router.replace((outcome === 'pending' ? '/pending-approval' : '/') as never);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Couldn’t join.');
     } finally {

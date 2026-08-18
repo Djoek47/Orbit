@@ -47,6 +47,8 @@ export type HouseholdMemberRow = {
   load_share: number;
   /** Member ids who use this shared phone/tablet profile. */
   shared_with_member_ids?: string[] | null;
+  /** Kid / shared-device invite, e.g. CMX-EMMA. */
+  profile_invite_code?: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

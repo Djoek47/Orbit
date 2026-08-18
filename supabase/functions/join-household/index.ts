@@ -1,4 +1,5 @@
 // Deno Edge Function — validate invite code and create pending membership.
+// Never overwrite an existing owner/admin/active row (own-invite loop).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
@@ -72,24 +73,40 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: member, error: memberError } = await admin
+    const { data: existing } = await admin
       .from('household_members')
-      .upsert(
-        {
-          household_id: invite.household_id,
-          user_id: user.id,
-          display_name: displayName ?? user.email?.split('@')[0] ?? 'Member',
-          role: 'adult',
-          status: 'pending',
-          avatar_symbol: (displayName ?? 'M').charAt(0).toUpperCase(),
-        },
-        { onConflict: 'household_id,user_id' }
-      )
       .select('*')
-      .single();
+      .eq('household_id', invite.household_id)
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (memberError) {
-      return new Response(JSON.stringify({ error: memberError.message }), {
+    if (existing && existing.status !== 'removed') {
+      return new Response(
+        JSON.stringify({
+          member: existing,
+          householdId: invite.household_id,
+          alreadyMember: existing.status === 'active',
+          alreadyPending: existing.status === 'pending' || existing.status === 'invited',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const row = {
+      household_id: invite.household_id,
+      user_id: user.id,
+      display_name: displayName ?? user.email?.split('@')[0] ?? 'Member',
+      role: 'adult',
+      status: 'pending',
+      avatar_symbol: (displayName ?? 'M').charAt(0).toUpperCase(),
+    };
+
+    const { data: member, error: memberError } = existing
+      ? await admin.from('household_members').update(row).eq('id', existing.id).select('*').single()
+      : await admin.from('household_members').insert(row).select('*').single();
+
+    if (memberError || !member) {
+      return new Response(JSON.stringify({ error: memberError?.message ?? 'Join failed' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

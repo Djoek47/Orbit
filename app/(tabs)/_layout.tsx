@@ -21,7 +21,7 @@ function resolveUiRole(
 }
 
 export default function TabLayout() {
-  const { currentUser, currentMember, hasHousehold, household, isLoading, isSignedIn, orbitPalette } =
+  const { currentUser, currentMember, hasHousehold, household, isLoading, isPendingMember, isSignedIn, orbitPalette } =
     useOrbit();
   const [onboardingRole, setOnboardingRole] = useState<OnboardingRole | null>(null);
   const [needsPick, setNeedsPick] = useState(false);
@@ -65,6 +65,10 @@ export default function TabLayout() {
 
   if (!hasHousehold) {
     return <Redirect href={'/welcome' as never} />;
+  }
+
+  if (isPendingMember) {
+    return <Redirect href={'/pending-approval' as never} />;
   }
 
   if (needsPick) {

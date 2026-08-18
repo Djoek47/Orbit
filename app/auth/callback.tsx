@@ -69,7 +69,7 @@ function buildUrlFromParams(params: Record<string, string | string[] | undefined
 export default function AuthCallbackScreen() {
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
-  const { hydrateFromSession, accentTheme } = useOrbit();
+  const { hydrateFromSession, accentTheme, applyStashedInvite } = useOrbit();
   const routeParams = useLocalSearchParams();
   const linkingUrl = Linking.useURL();
   const routeUrl = buildUrlFromParams(
@@ -98,8 +98,17 @@ export default function AuthCallbackScreen() {
     setPhase('success');
     setMessage('Email confirmed');
     clearPendingSignup();
-    await markPremiumGatePending();
+    const joined = await applyStashedInvite();
     await new Promise((r) => setTimeout(r, SUCCESS_HOLD_MS));
+    if (joined === 'pending') {
+      router.replace('/pending-approval' as never);
+      return;
+    }
+    if (joined === 'active') {
+      router.replace('/' as never);
+      return;
+    }
+    await markPremiumGatePending();
     router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
   };
 
@@ -110,7 +119,12 @@ export default function AuthCallbackScreen() {
     await hydrateQuietly(session);
     setPhase('success');
     setMessage("You're in");
+    const joined = await applyStashedInvite();
     await new Promise((r) => setTimeout(r, SUCCESS_HOLD_MS));
+    if (joined === 'pending') {
+      router.replace('/pending-approval' as never);
+      return;
+    }
     router.replace('/');
   };
 
