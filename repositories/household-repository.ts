@@ -82,15 +82,18 @@ export const householdRepository = {
       });
     }
 
-    const { data: membership, error: membershipError } = await supabase
+    const { data: memberships, error: membershipError } = await supabase
       .from('household_members')
       .select('*')
       .eq('user_id', userId)
-      .in('status', ['active', 'pending'])
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .in('status', ['active', 'pending', 'invited']);
     mapDbError('householdRepository.getHousehold.membership', membershipError);
+
+    const rows = memberships ?? [];
+    const membership =
+      rows.find((row) => row.status === 'active') ??
+      rows.find((row) => row.status === 'pending' || row.status === 'invited') ??
+      null;
 
     if (!membership) {
       const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', userId).maybeSingle();
@@ -260,13 +263,23 @@ export const householdRepository = {
       throw new Error(error.message ?? 'householdRepository.joinHousehold: Join failed.');
     }
 
-    const payload = data as { error?: string; householdId?: string; member?: { id: string } };
+    const payload = data as {
+      error?: string;
+      householdId?: string;
+      member?: { id: string; status?: string; role?: string };
+      alreadyMember?: boolean;
+      alreadyPending?: boolean;
+    };
     if (payload?.error) {
       throw new Error(payload.error);
     }
 
     if (!payload?.householdId) {
       throw new Error('householdRepository.joinHousehold: Missing household id from join response.');
+    }
+
+    if (payload.alreadyMember) {
+      return loadHouseholdSnapshot(payload.householdId, user.id);
     }
 
     return loadPendingJoinSnapshot(payload.householdId, user, code);
@@ -363,6 +376,121 @@ export const householdRepository = {
         summary: 'Waiting for an owner or admin to approve your access on Members.',
         actions: ['Check back soon', 'Message household owner'],
       },
+    };
+  },
+
+  async checkJoinApproval(
+    user: OrbitUser,
+    householdId: string | null | undefined
+  ): Promise<{ status: 'approved' | 'pending' | 'missing'; snapshot: HouseholdSnapshot | null }> {
+    if (isMockMode()) {
+      const active = await loadActiveMockHousehold();
+      const snapshot = active ?? mockHousehold;
+      const pending = snapshot.members.find(
+        (member) =>
+          member.status === 'pending' &&
+          member.name.toLowerCase() === user.name.toLowerCase()
+      );
+      if (pending) {
+        return { status: 'pending', snapshot: clone(snapshot) };
+      }
+      const activeSelf = snapshot.members.find(
+        (member) =>
+          member.status === 'active' &&
+          member.name.toLowerCase() === user.name.toLowerCase()
+      );
+      if (activeSelf) {
+        return { status: 'approved', snapshot: clone(snapshot) };
+      }
+      return { status: 'missing', snapshot: null };
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.checkJoinApproval');
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) {
+      return { status: 'missing', snapshot: null };
+    }
+
+    let query = supabase
+      .from('household_members')
+      .select('*')
+      .eq('user_id', userId)
+      .in('status', ['active', 'pending', 'invited']);
+    if (householdId) {
+      query = query.eq('household_id', householdId);
+    }
+    const { data: rows, error } = await query;
+    mapDbError('householdRepository.checkJoinApproval', error);
+    const memberships = rows ?? [];
+    const target = householdId
+      ? memberships.find((row) => row.household_id === householdId)
+      : memberships.find((row) => row.status === 'pending' || row.status === 'invited') ??
+        memberships.find((row) => row.status === 'active');
+    if (!target) {
+      return { status: 'missing', snapshot: null };
+    }
+    if (target.status === 'active') {
+      return {
+        status: 'approved',
+        snapshot: await loadHouseholdSnapshot(target.household_id, userId),
+      };
+    }
+    return {
+      status: 'pending',
+      snapshot: await loadPendingJoinSnapshot(target.household_id, user, ''),
+    };
+  },
+
+  async findChildByProfileCode(code: string): Promise<{
+    member: HouseholdMember;
+    householdId: string;
+    householdName: string;
+  } | null> {
+    const normalized = normalizeInviteCode(code);
+
+    if (isMockMode()) {
+      const active = await loadActiveMockHousehold();
+      const pools = [active?.members ?? [], mockHousehold.members];
+      for (const members of pools) {
+        const member = members.find(
+          (item) =>
+            item.status === 'active' &&
+            (item.role === 'child' || item.role === 'adult' || item.role === 'admin') &&
+            normalizeInviteCode(item.profileInviteCode ?? '') === normalized
+        );
+        if (member) {
+          const householdId = active?.id && active.members.some((m) => m.id === member.id)
+            ? active.id
+            : mockHousehold.id ?? 'hh-rivera';
+          const householdName =
+            active?.id === householdId ? active.householdName : mockHousehold.householdName;
+          return { member, householdId: householdId ?? 'hh-rivera', householdName };
+        }
+      }
+      return null;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.findChildByProfileCode');
+    const { data, error } = await supabase.functions.invoke('redeem-profile-invite', {
+      body: { code: normalized },
+    });
+    if (error || !data || typeof data !== 'object') {
+      return null;
+    }
+    const payload = data as {
+      error?: string;
+      member?: Parameters<typeof mapMemberRow>[0] & { household_id?: string };
+      householdId?: string;
+      householdName?: string;
+    };
+    if (payload.error || !payload.member || !payload.householdId) {
+      return null;
+    }
+    return {
+      member: mapMemberRow(payload.member),
+      householdId: payload.householdId,
+      householdName: payload.householdName ?? 'Household',
     };
   },
 
@@ -492,6 +620,7 @@ export const householdRepository = {
         week_xp: 0,
         streak: 0,
         load_share: 0,
+        profile_invite_code: member.profileInviteCode ?? null,
       })
       .select('*')
       .single();

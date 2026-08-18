@@ -57,6 +57,16 @@ import { newCustomHouseRuleId, validateCustomHouseRule } from '@/lib/rules/custo
 import { saveActiveMockHousehold } from '@/lib/household/mock-active-household';
 import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
+import {
+  classifyInviteCode,
+  householdInviteWrongForKidMessage,
+} from '@/lib/invites/invite-intent';
+import { consumeInviteCode, peekInviteCode } from '@/lib/invite/invite-code-store';
+import {
+  clearPendingJoinHouseholdId,
+  peekPendingJoinHouseholdId,
+  stashPendingJoinHouseholdId,
+} from '@/lib/invite/pending-join-store';
 import { suggestItineraryFromHousehold } from '@/lib/calendar/suggest-itinerary';
 import {
   isNotificationVisibleToMember,
@@ -331,7 +341,11 @@ type OrbitContextValue = {
   listGroceryBuyAgain: () => string[];
   setPreferredStore: (storeId: string) => void;
   preferredStore: PreferredStore;
-  joinHousehold: (input: JoinHouseholdInput) => Promise<void>;
+  joinHousehold: (input: JoinHouseholdInput) => Promise<'pending' | 'active' | void>;
+  /** After sign-in: consume a stashed household invite. */
+  applyStashedInvite: () => Promise<'pending' | 'active' | 'none'>;
+  /** Pending adult: reload that join, not the oldest household. */
+  checkJoinApproval: () => Promise<'approved' | 'pending' | 'missing'>;
   markGroceryPurchased: (itemId: string) => void;
   markGroceryMissing: (itemId: string) => void;
   markGroceryLow: (itemId: string) => void;
@@ -796,7 +810,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const baseHousehold = await householdRepository.getHousehold();
       let hydratedHousehold = await hydrateHousehold(baseHousehold);
 
-      if (!hydratedHousehold.id && session.user) {
+      const pendingJoinId = await peekPendingJoinHouseholdId();
+      if (pendingJoinId && session.user) {
+        const join = await householdRepository.checkJoinApproval(session.user, pendingJoinId);
+        if (join.snapshot && (join.status === 'pending' || join.status === 'approved')) {
+          hydratedHousehold = join.snapshot;
+          if (join.status === 'approved') {
+            await clearPendingJoinHouseholdId();
+          }
+        }
+      } else if (!hydratedHousehold.id && session.user) {
         const pending = await householdRepository.getPendingHouseholdSnapshot(session.user);
         if (pending) {
           hydratedHousehold = pending;
@@ -839,6 +862,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         const resumeMemberId =
           mockStored?.activeMemberId ||
           storedMemberId ||
+          hydratedHousehold.members.find(
+            (member) =>
+              member.status === 'pending' &&
+              member.name.toLowerCase() === session.user.name.toLowerCase(),
+          )?.id ||
           hydratedHousehold.members.find(
             (member) =>
               member.status === 'active' &&
@@ -1073,27 +1101,73 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return createdNext;
   };
 
-  const joinHousehold = async (input: JoinHouseholdInput) => {
-    if (!currentUser) {
-      return;
+  const joinHousehold = async (input: JoinHouseholdInput): Promise<'pending' | 'active'> => {
+    const user =
+      currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
+    if (!user) {
+      return 'active';
     }
 
-    const joinedHousehold = await householdRepository.joinHousehold(input, currentUser);
-    const pendingSelf =
-      joinedHousehold.members.find(
-        (member) => member.name === currentUser.name && member.status === 'pending'
-      ) ?? joinedHousehold.members.find((member) => member.status === 'pending');
+    const joinedHousehold = await householdRepository.joinHousehold(input, user);
+    const pendingSelf = joinedHousehold.members.find(
+      (member) => member.status === 'pending' && member.name === user.name
+    );
+    const activeSelf = joinedHousehold.members.find(
+      (member) =>
+        member.status === 'active' &&
+        (member.name === user.name || member.role === 'owner')
+    );
     setHousehold(joinedHousehold);
     if (pendingSelf) {
       setActiveMemberId(pendingSelf.id);
+      if (joinedHousehold.id) {
+        await stashPendingJoinHouseholdId(joinedHousehold.id);
+      }
+    } else if (activeSelf) {
+      setActiveMemberId(activeSelf.id);
+      await clearPendingJoinHouseholdId();
     }
     if (dataMode === 'mock') {
       await persistMockHouseholdSnapshot(joinedHousehold);
     }
-    if (joinedHousehold.id) {
-      // Join-pending is not in the closed Rev E registry — admins see pending members in-app.
+    await trackAnalytics('household.joined', { inviteCode: input.inviteCode }, { householdId: joinedHousehold.id, userId: user.id });
+    return pendingSelf ? 'pending' : 'active';
+  };
+
+  const applyStashedInvite = async (): Promise<'pending' | 'active' | 'none'> => {
+    const raw = await peekInviteCode();
+    if (!raw) return 'none';
+    const kind = classifyInviteCode(raw);
+    if (kind !== 'household') return 'none';
+    await consumeInviteCode();
+    const outcome = await joinHousehold({ inviteCode: raw });
+    return outcome;
+  };
+
+  const checkJoinApproval = async (): Promise<'approved' | 'pending' | 'missing'> => {
+    if (!currentUser) return 'missing';
+    const pendingId = (await peekPendingJoinHouseholdId()) ?? household.id;
+    const result = await householdRepository.checkJoinApproval(currentUser, pendingId);
+    if (result.status === 'approved' && result.snapshot) {
+      setHousehold(result.snapshot);
+      const self = result.snapshot.members.find(
+        (member) =>
+          member.status === 'active' && member.name.toLowerCase() === currentUser.name.toLowerCase()
+      );
+      if (self) setActiveMemberId(self.id);
+      await clearPendingJoinHouseholdId();
+      if (dataMode === 'mock') {
+        await persistMockHouseholdSnapshot(result.snapshot);
+      }
+      return 'approved';
     }
-    await trackAnalytics('household.joined', { inviteCode: input.inviteCode }, { householdId: joinedHousehold.id, userId: currentUser.id });
+    if (result.status === 'pending' && result.snapshot) {
+      setHousehold(result.snapshot);
+      const pendingSelf = result.snapshot.members.find((member) => member.status === 'pending');
+      if (pendingSelf) setActiveMemberId(pendingSelf.id);
+      return 'pending';
+    }
+    return 'missing';
   };
 
   const clearSignedInState = () => {
@@ -3844,11 +3918,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       throw new Error('Enter or scan a valid kid invite code.');
     }
 
+    if (classifyInviteCode(code) === 'household') {
+      throw new Error(householdInviteWrongForKidMessage(code));
+    }
+
     const record = await loadChildInviteRecord(code);
+    const lookedUp = await householdRepository.findChildByProfileCode(code);
     const fromHousehold =
       resolveMemberByProfileCode(code, household.members) ??
       resolveMemberByProfileCode(code, mockHousehold.members);
-    const member = record?.member ?? fromHousehold;
+    const member = record?.member ?? lookedUp?.member ?? fromHousehold;
 
     if (!member || member.role !== 'child' || member.status !== 'active') {
       throw new Error('Ask a parent to AirDrop or send your kid invite. No sign-in needed.');
@@ -3872,6 +3951,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           members: exists
             ? current.members.map((item) => (item.id === member.id ? { ...item, ...member } : item))
             : [...current.members, member],
+        };
+      });
+    } else if (lookedUp) {
+      setHousehold((current) => {
+        const exists = current.members.some((item) => item.id === member.id);
+        return {
+          ...current,
+          id: lookedUp.householdId,
+          householdName: lookedUp.householdName,
+          greetingName: member.name,
+          members: exists
+            ? current.members.map((item) => (item.id === member.id ? { ...item, ...member } : item))
+            : [member, ...current.members.filter((item) => item.role === 'owner')],
         };
       });
     } else if (mockHousehold.members.some((item) => item.id === member.id)) {
@@ -4210,6 +4302,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       listGroceryBuyAgain,
       setPreferredStore,
       joinHousehold,
+      applyStashedInvite,
+      checkJoinApproval,
       markGroceryPurchased,
       markGroceryMissing,
       markGroceryLow,
