@@ -1,10 +1,10 @@
 # Remaining work
 
-**Single list.** Everything still to do after TestFlight **1.2.0 (36)**.  
-**Branch:** `cursor/choremaxx-make-v12` → [PR #39](https://github.com/Djoek47/Orbit/pull/39)  
-**Do not** start from v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules to the kid card.
+**Single list.** Everything still to do after TestFlight **1.3.0** (v13 cut).  
+**Branch:** `cursor/choremaxx-make-v13`  
+**Do not** start from v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules to the kid card.
 
-Shipped on this tip (do not redo): Assign save (`difficulty` NOT NULL), live captions, delete → Get Started, assign-to-today, email confirm UUID, used-confirm-link resume, IUI stage, Luna inbox, House Rules Admin/Sidekick, Divine Voice WebRTC.
+Shipped on this tip (do not redo): v12 stack, House Rules expiry, invite join paths, GPS/places/shopping, AIUIC overlay (Assign / groceries / done / shopping drops).
 
 ---
 
@@ -30,12 +30,12 @@ Code today: `lib/poppins/ui-scenes.ts`, `ui-tool-map.ts`, `ui-orchestrator.ts`, 
 
 ## 2. v13 cut + App Store
 
-Cut `cursor/choremaxx-make-v13` from **this** v12 tip when ready to ship the final binary.
+Cut **done:** `cursor/choremaxx-make-v13` @ 1.3.0 (`make-v13 · final`). Continue smoke and Review from this tip.
 
 | # | Item | Notes |
 |---|------|--------|
-| S1 | Cut v13 | Branch off v12. Bump `app.json` to **1.3.0**, `BUILD_INFO` to `make-v13 · final`. |
-| S2 | Device smoke on **36** (then v13) | Real Supabase account (not `sarah@orbit.test`). Assign a library task. Poppins Speak → IUI HOLD. House Rules 4 directions × Admin/Sidekick. Places map. Homework roles. Expired tasks. Delete account → Get Started. |
+| S1 | Cut v13 | **Done.** Branch off today’s aggregate. `app.json` **1.3.0**, `BUILD_INFO` `make-v13 · final`. |
+| S2 | Device smoke | Real Supabase account (not `sarah@orbit.test`). Assign a library task. Poppins Speak → IUI HOLD. House Rules 4 directions × Admin/Sidekick. Places map. Homework roles. Expired tasks. Delete account → Get Started. |
 | S3 | Luna edge model | Redeploy with `OPENAI_POPPINS_CHAT_MODEL=gpt-5.6-luna` if staging is still on the old id. |
 | S4 | MapView on IPA | Full `MapView` needs the TestFlight binary; Expo Go uses the fallback. Verify on device. |
 | S5 | App Review (B7) | After S2 + live legal URLs + demo account. Draft: [`app-store-checklist.md`](./app-store-checklist.md). |

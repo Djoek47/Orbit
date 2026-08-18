@@ -1,9 +1,8 @@
 # Weekend ship automation — ChoreMaxx
 
 **Prepared:** 2026-08-06 · **Restored:** 2026-08-10 · **Updated:** 2026-08-13 (v12 aggregate)  
-**Start from:** `cursor/choremaxx-make-v12` @ latest tip  
-**Tonight:** TestFlight **1.2.0** — full stack (v11 + IUI + Luna + Assign/Event + Poppins quality + House Rules HTML)  
-**Tomorrow:** cut **v13** from v12 as the final app — [`docs/choremaxx-make-v12.md`](./choremaxx-make-v12.md)  
+**Start from:** `cursor/choremaxx-make-v13` @ latest tip  
+**Now:** TestFlight **1.3.0** — v12 + today’s invites, GPS/shopping, AIUIC. See [`docs/choremaxx-make-v13.md`](./choremaxx-make-v13.md).  
 
 > ## ⚠️ THIS WEEKEND WAS MISSED — EXECUTE NOW
 >
