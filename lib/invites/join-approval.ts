@@ -9,8 +9,24 @@ export type MembershipLike = {
   status: string;
 };
 
-function isPendingStatus(status: string) {
+export function isPendingStatus(status: string) {
   return status === 'pending' || status === 'invited';
+}
+
+/** Pending joiners get a preview snapshot — they cannot read tasks/groceries yet. */
+export function shouldLoadPendingPreview(status: string | null | undefined): boolean {
+  return isPendingStatus(status ?? '');
+}
+
+/** True when this household is only a waiting-to-be-approved join, not a live home. */
+export function isPendingJoinSnapshot(household: {
+  members?: { status?: string | null }[] | null;
+} | null | undefined): boolean {
+  const members = household?.members ?? [];
+  if (members.length === 0) return false;
+  const hasActive = members.some((member) => member.status === 'active');
+  const hasPending = members.some((member) => isPendingStatus(member.status ?? ''));
+  return hasPending && !hasActive;
 }
 
 /** Which household to show after sign-in / reload. */

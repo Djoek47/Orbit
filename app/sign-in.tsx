@@ -16,13 +16,14 @@ import {
   type AuthIssue,
 } from '@/lib/auth/auth-errors';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
+import { goToFreshLogin } from '@/lib/navigation/fresh-login';
 import { isMockMode } from '@/repositories/repository-utils';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function SignInScreen() {
-  const { accentTheme, orbitPalette, signIn, hydrateFromSession, applyStashedInvite } = useOrbit();
+  const { accentTheme, orbitPalette, signIn, hydrateFromSession, applyStashedInvite, isPendingMember } = useOrbit();
   const { c } = useOrbitColors();
   const mock = isMockMode();
   const [email, setEmail] = useState('');
@@ -39,7 +40,7 @@ export default function SignInScreen() {
   const finishToHome = async () => {
     setShowSuccess(false);
     const joined = await applyStashedInvite();
-    if (joined === 'pending') {
+    if (joined === 'pending' || isPendingMember) {
       router.replace('/pending-approval' as never);
       return;
     }
@@ -99,6 +100,7 @@ export default function SignInScreen() {
     <>
       <AuthShell
         showBack
+        onBack={() => void goToFreshLogin()}
         brandHero
         kicker="Welcome back"
         title="Sign in"
@@ -108,7 +110,7 @@ export default function SignInScreen() {
             <Pressable onPress={() => router.push('/forgot-password' as never)}>
               <Text style={[styles.link, { color: accentTheme.primary }]}>Forgot password?</Text>
             </Pressable>
-            <Pressable onPress={() => router.push('/welcome' as never)} style={styles.switchRow}>
+            <Pressable onPress={() => void goToFreshLogin()} style={styles.switchRow}>
               <Text style={[styles.switchMuted, { color: c.textMuted }]}>New here?</Text>
               <Text style={[styles.link, { color: accentTheme.primary }]}>Get Started</Text>
             </Pressable>

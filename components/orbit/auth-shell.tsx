@@ -22,6 +22,8 @@ type AuthShellProps = {
   /** Show Choremaxx brand mark above the title (welcome / primary entry). */
   brandHero?: boolean;
   showBack?: boolean;
+  /** Override Back. Default: navigator back, or Get Started if nothing to pop. */
+  onBack?: () => void;
   footer?: ReactNode;
   /** Append © / Privacy / Terms under the card (default on). */
   showLegal?: boolean;
@@ -35,6 +37,7 @@ export function AuthShell({
   subtitle,
   brandHero = false,
   showBack = false,
+  onBack,
   footer,
   showLegal = true,
 }: AuthShellProps) {
@@ -70,7 +73,22 @@ export function AuthShell({
           },
         ]}>
         {showBack ? (
-          <Pressable onPress={() => router.back()} style={styles.backRow} hitSlop={8}>
+          <Pressable
+            onPress={() => {
+              if (onBack) {
+                onBack();
+                return;
+              }
+              if (router.canGoBack()) {
+                router.back();
+                return;
+              }
+              router.replace('/welcome' as never);
+            }}
+            style={styles.backRow}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Go back">
             <MaterialIcons name="chevron-left" size={20} color={primary} />
             <Text style={[styles.backText, { color: primary }]}>Back</Text>
           </Pressable>

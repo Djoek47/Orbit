@@ -4,7 +4,12 @@
  */
 import assert from 'node:assert/strict';
 
-import { resolveHydrateMembership, resolveJoinApprovalMembership } from './join-approval';
+import {
+  isPendingJoinSnapshot,
+  resolveHydrateMembership,
+  resolveJoinApprovalMembership,
+  shouldLoadPendingPreview,
+} from './join-approval';
 
 function pass(name: string) {
   console.log(`PASS ${name}`);
@@ -57,6 +62,25 @@ const mugaboPending = { household_id: 'hh-mugabo', status: 'pending' };
   const hydrated = resolveHydrateMembership([ownHome, mugaboPending], null);
   assert.equal(hydrated?.household_id, 'hh-own');
   pass('Without a remembered join, owners keep their home');
+}
+
+{
+  assert.equal(shouldLoadPendingPreview('pending'), true);
+  assert.equal(shouldLoadPendingPreview('invited'), true);
+  assert.equal(shouldLoadPendingPreview('active'), false);
+  assert.equal(
+    isPendingJoinSnapshot({ members: [{ status: 'pending' }] }),
+    true,
+    'waiting joiner is a pending snapshot'
+  );
+  assert.equal(
+    isPendingJoinSnapshot({
+      members: [{ status: 'active' }, { status: 'pending' }],
+    }),
+    false,
+    'owner household with a pending adult is still a live home'
+  );
+  pass('pending preview vs live household');
 }
 
 console.log('\njoin-approval tests passed');

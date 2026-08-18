@@ -61,6 +61,7 @@ import {
   classifyInviteCode,
   householdInviteWrongForKidMessage,
 } from '@/lib/invites/invite-intent';
+import { isPendingJoinSnapshot } from '@/lib/invites/join-approval';
 import { consumeInviteCode, peekInviteCode } from '@/lib/invite/invite-code-store';
 import {
   clearPendingJoinHouseholdId,
@@ -808,7 +809,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
 
       const baseHousehold = await householdRepository.getHousehold();
-      let hydratedHousehold = await hydrateHousehold(baseHousehold);
+      let hydratedHousehold = isPendingJoinSnapshot(baseHousehold)
+        ? baseHousehold
+        : await hydrateHousehold(baseHousehold);
 
       const pendingJoinId = await peekPendingJoinHouseholdId();
       if (pendingJoinId && session.user) {
@@ -876,22 +879,27 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         if (resumeMemberId) {
           setActiveMemberId(resumeMemberId);
         }
-        const history = await poppinsRepository.getConversationHistory(
-          hydratedHousehold.id,
-          session.user.id
-        );
+        const history = isPendingJoinSnapshot(hydratedHousehold)
+          ? []
+          : await poppinsRepository.getConversationHistory(
+              hydratedHousehold.id,
+              session.user.id
+            );
         setPoppinsConversation(history);
         setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
-        const [items, redemptions, allowanceItems, devices, scenes, links] = await Promise.all([
-          notificationsRepository.list(hydratedHousehold.id),
-          rewardsRepository.getRedemptions(hydratedHousehold.id),
-          rewardsRepository.getAllowances(hydratedHousehold.id),
-          smartHomeRepository.listDevices(hydratedHousehold.id),
-          smartHomeRepository.listScenes(hydratedHousehold.id),
-          hydratedHousehold.id
-            ? householdRepository.getInviteLink(hydratedHousehold.id)
-            : Promise.resolve(null),
-        ]);
+        const emptyDomains = isPendingJoinSnapshot(hydratedHousehold);
+        const [items, redemptions, allowanceItems, devices, scenes, links] = emptyDomains
+          ? [[], [], [], [], [], null]
+          : await Promise.all([
+              notificationsRepository.list(hydratedHousehold.id),
+              rewardsRepository.getRedemptions(hydratedHousehold.id),
+              rewardsRepository.getAllowances(hydratedHousehold.id),
+              smartHomeRepository.listDevices(hydratedHousehold.id),
+              smartHomeRepository.listScenes(hydratedHousehold.id),
+              hydratedHousehold.id
+                ? householdRepository.getInviteLink(hydratedHousehold.id)
+                : Promise.resolve(null),
+            ]);
         setNotifications(items);
         setRedemptions(redemptions);
         setPendingRedemptions(redemptions.filter((item) => item.status === 'pending'));
@@ -905,8 +913,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
     }
 
-    hydrate().catch((error) => {
+    hydrate().catch(async (error) => {
       console.warn('Failed to hydrate Orbit data', error);
+      try {
+        const session = await authRepository.getCurrentSession();
+        if (isMounted && session?.user) {
+          setCurrentUser(session.user);
+          const pending = await householdRepository.getPendingHouseholdSnapshot(session.user);
+          if (pending) {
+            setHousehold(pending);
+            const self = pending.members.find((member) => member.status === 'pending');
+            if (self) setActiveMemberId(self.id);
+            if (pending.id) await stashPendingJoinHouseholdId(pending.id);
+          }
+        }
+      } catch (recoverError) {
+        console.warn('Failed to recover pending session', recoverError);
+      }
       if (isMounted) {
         setIsLoading(false);
       }
@@ -934,34 +957,69 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   }, [refreshStoreRecommendations]);
 
   const hydrateFromSession = useCallback(async (session: AuthSession) => {
-    const baseHousehold = await householdRepository.getHousehold();
-    const hydratedHousehold = await hydrateHousehold({
-      ...baseHousehold,
-      greetingName: session.user.name || baseHousehold.greetingName,
-    });
-
     setCurrentUser(session.user);
     await authRepository.persistLocalSession(session.user);
+
+    let hydratedHousehold = createEmptyHousehold(session.user);
+    try {
+      const baseHousehold = await householdRepository.getHousehold();
+      hydratedHousehold = isPendingJoinSnapshot(baseHousehold)
+        ? {
+            ...baseHousehold,
+            greetingName: session.user.name || baseHousehold.greetingName,
+          }
+        : await hydrateHousehold({
+            ...baseHousehold,
+            greetingName: session.user.name || baseHousehold.greetingName,
+          });
+    } catch (error) {
+      console.warn('hydrateFromSession.household', error);
+      try {
+        const pending = await householdRepository.getPendingHouseholdSnapshot(session.user);
+        if (pending) hydratedHousehold = pending;
+      } catch (pendingError) {
+        console.warn('hydrateFromSession.pending', pendingError);
+      }
+    }
+
     setHousehold(hydratedHousehold);
+    const pendingSelf = hydratedHousehold.members.find((member) => member.status === 'pending');
+    if (isPendingJoinSnapshot(hydratedHousehold)) {
+      if (pendingSelf) setActiveMemberId(pendingSelf.id);
+      if (hydratedHousehold.id) {
+        await stashPendingJoinHouseholdId(hydratedHousehold.id);
+      }
+      await trackAnalytics(
+        'auth.session_hydrate',
+        { email: session.user.email, pending_join: true },
+        { householdId: hydratedHousehold.id, userId: session.user.id }
+      );
+      return;
+    }
+
     await trackAnalytics(
       'auth.session_hydrate',
       { email: session.user.email },
       { householdId: hydratedHousehold.id, userId: session.user.id }
     );
-    const [items, redemptions, allowanceItems, devices, scenes] = await Promise.all([
-      notificationsRepository.list(hydratedHousehold.id),
-      rewardsRepository.getRedemptions(hydratedHousehold.id),
-      rewardsRepository.getAllowances(hydratedHousehold.id),
-      smartHomeRepository.listDevices(hydratedHousehold.id),
-      smartHomeRepository.listScenes(hydratedHousehold.id),
-    ]);
-    setNotifications(items);
-    setRedemptions(redemptions);
-    setPendingRedemptions(redemptions.filter((item) => item.status === 'pending'));
-    setAllowances(allowanceItems);
-    setSmartHomeDevices(devices);
-    setSmartHomeScenes(scenes);
-    setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
+    try {
+      const [items, redemptions, allowanceItems, devices, scenes] = await Promise.all([
+        notificationsRepository.list(hydratedHousehold.id),
+        rewardsRepository.getRedemptions(hydratedHousehold.id),
+        rewardsRepository.getAllowances(hydratedHousehold.id),
+        smartHomeRepository.listDevices(hydratedHousehold.id),
+        smartHomeRepository.listScenes(hydratedHousehold.id),
+      ]);
+      setNotifications(items);
+      setRedemptions(redemptions);
+      setPendingRedemptions(redemptions.filter((item) => item.status === 'pending'));
+      setAllowances(allowanceItems);
+      setSmartHomeDevices(devices);
+      setSmartHomeScenes(scenes);
+      setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
+    } catch (domainError) {
+      console.warn('hydrateFromSession.domains', domainError);
+    }
     registerForPushNotifications(session.user.id).catch((error) => {
       console.warn('Push registration skipped', error);
     });
@@ -1141,9 +1199,29 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!raw) return 'none';
     const kind = classifyInviteCode(raw);
     if (kind !== 'household') return 'none';
-    const outcome = await joinHousehold({ inviteCode: raw });
-    await consumeInviteCode();
-    return outcome;
+    try {
+      const outcome = await joinHousehold({ inviteCode: raw });
+      await consumeInviteCode();
+      return outcome;
+    } catch (error) {
+      console.warn('applyStashedInvite', error);
+      const pendingId = await peekPendingJoinHouseholdId();
+      const user = currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
+      if (user && pendingId) {
+        try {
+          const result = await householdRepository.checkJoinApproval(user, pendingId);
+          if (result.status === 'pending' || result.status === 'approved') {
+            await consumeInviteCode();
+            if (result.snapshot) setHousehold(result.snapshot);
+            return result.status === 'approved' ? 'active' : 'pending';
+          }
+        } catch (checkError) {
+          console.warn('applyStashedInvite.check', checkError);
+        }
+      }
+      await consumeInviteCode();
+      return 'none';
+    }
   };
 
   const checkJoinApproval = async (): Promise<'approved' | 'pending' | 'missing'> => {
@@ -4472,6 +4550,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 }
 
 async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<HouseholdSnapshot> {
+  if (isPendingJoinSnapshot(baseHousehold) || !baseHousehold.id) {
+    return baseHousehold;
+  }
   const householdId = baseHousehold.id;
   const [tasks, groceries, events, rewards, badges, itineraries, themeId, savedRooms, avatarOverrides] =
     await Promise.all([

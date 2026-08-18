@@ -68,6 +68,7 @@ import {
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { classifyInviteCode, householdInviteWrongForKidMessage } from '@/lib/invites/invite-intent';
 import { stashInviteCode } from '@/lib/invite/invite-code-store';
+import { goToFreshLogin } from '@/lib/navigation/fresh-login';
 import { shareInvite } from '@/lib/invites/share-invite';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -311,11 +312,19 @@ export default function WelcomeOnboardingScreen() {
     }
   })();
 
+  const skipInviteToFreshLogin = () => {
+    setError('');
+    setInviteCode('');
+    setHouseholdMode('create');
+    setStep('splash');
+    void goToFreshLogin();
+  };
+
   const goBack = () => {
     setError('');
     switch (step) {
       case 'invited':
-        setStep('splash');
+        skipInviteToFreshLogin();
         break;
       case 'role':
         setStep('splash');
@@ -935,7 +944,16 @@ export default function WelcomeOnboardingScreen() {
 
       {step === 'invited' ? (
         <View style={styles.splashScreen}>
-          <View style={[styles.splashCenter, { gap: 16, paddingHorizontal: 28 }]}>
+          <Pressable
+            onPress={skipInviteToFreshLogin}
+            style={[styles.backBtn, styles.inviteBack]}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Back to Get Started">
+            <MaterialIcons name="chevron-left" size={22} color={accent} />
+            <Text style={[styles.backLabel, { color: accent }]}>Back</Text>
+          </Pressable>
+          <View style={[styles.splashCenter, { gap: 16, paddingHorizontal: 8 }]}>
             <ChoremaxxLogo />
             <Text style={[typography.caption1, { color: orbitPalette.textMuted, letterSpacing: 1.4 }]}>
               YOU’RE INVITED
@@ -964,6 +982,13 @@ export default function WelcomeOnboardingScreen() {
                 }}>
                 Create account
               </OrbitButton>
+              <Pressable
+                onPress={skipInviteToFreshLogin}
+                style={styles.signInLink}>
+                <Text style={[styles.signInText, { color: orbitPalette.textMuted }]}>
+                  Sign in without this invite
+                </Text>
+              </Pressable>
               <Pressable
                 onPress={() => {
                   setSelectedRole('child');
@@ -2179,6 +2204,12 @@ const styles = StyleSheet.create({
     marginLeft: -6,
     paddingVertical: 4,
     paddingRight: 8,
+  },
+  inviteBack: {
+    alignSelf: 'flex-start',
+    marginLeft: -10,
+    marginBottom: 8,
+    width: '100%',
   },
   backLabel: {
     color: orbitColors.primary,

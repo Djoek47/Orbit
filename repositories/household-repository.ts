@@ -10,6 +10,7 @@ import { peekPendingJoinHouseholdId } from '@/lib/invite/pending-join-store';
 import {
   resolveHydrateMembership,
   resolveJoinApprovalMembership,
+  shouldLoadPendingPreview,
 } from '@/lib/invites/join-approval';
 import { buildInviteLinks, createInviteCode, normalizeInviteCode } from '@/lib/invites/parse-invite';
 import {
@@ -116,6 +117,22 @@ export const householdRepository = {
         avatar: profile?.display_name?.charAt(0).toUpperCase() || 'O',
         profileComplete: Boolean(profile?.display_name?.trim()),
       });
+    }
+
+    if (shouldLoadPendingPreview(membership.status)) {
+      const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', userId).maybeSingle();
+      const name = profile?.display_name?.trim() || authData.user?.email?.split('@')[0] || '';
+      return loadPendingJoinSnapshot(
+        membership.household_id,
+        {
+          id: userId,
+          email: authData.user?.email ?? '',
+          name,
+          avatar: name.charAt(0).toUpperCase() || 'O',
+          profileComplete: Boolean(name),
+        },
+        ''
+      );
     }
 
     return loadHouseholdSnapshot(membership.household_id, userId);

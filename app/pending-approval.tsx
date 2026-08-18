@@ -7,25 +7,37 @@ import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors } from '@/constants/orbit-theme';
 import { stillWaitingCopy } from '@/lib/invites/invite-intent';
+import { goToFreshLogin } from '@/lib/navigation/fresh-login';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function PendingApprovalScreen() {
-  const { household, checkJoinApproval } = useOrbit();
+  const { household, checkJoinApproval, signOut } = useOrbit();
   const { c } = useOrbitColors();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
 
   return (
     <AuthShell
+      showBack
+      onBack={() => {
+        void signOut().then(() => goToFreshLogin());
+      }}
       kicker="Almost there"
       title="Waiting for approval"
       subtitle={`Your request to join ${household.householdName} is pending. An owner or admin needs to approve you before full access unlocks.`}
       footer={
-        <Pressable onPress={() => router.push('/settings' as never)} style={styles.secondary}>
-          <Text style={[styles.secondaryText, { color: c.textMuted }]}>Open settings</Text>
-        </Pressable>
+        <View style={styles.footerStack}>
+          <Pressable onPress={() => router.push('/settings' as never)} style={styles.secondary}>
+            <Text style={[styles.secondaryText, { color: c.textMuted }]}>Open settings</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => void signOut().then(() => goToFreshLogin())}
+            style={styles.secondary}>
+            <Text style={[styles.secondaryText, { color: c.textMuted }]}>Use a different account</Text>
+          </Pressable>
+        </View>
       }>
       <View style={styles.pill}>
         <MaterialIcons name="hourglass-empty" size={14} color={orbitColors.warning} />
@@ -87,4 +99,5 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   secondaryText: { fontSize: 14, fontWeight: '700' },
+  footerStack: { gap: 10 },
 });
