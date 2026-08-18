@@ -58,7 +58,21 @@ const IUI_SCENES = [
   'member_pick',
   'confirm',
   'navigate_coach',
+  'task_done',
+  'result_mark',
 ] as const;
+
+function isAssignSurfaceRoute(route: string) {
+  return route.includes('assign-task') || route.includes('create-task');
+}
+
+function isGrocerySurfaceRoute(route: string) {
+  return (
+    route.includes('groceries') ||
+    route.includes('shopping-mode') ||
+    route.includes('grocery-browse')
+  );
+}
 
 function peekAction(
   rows: Array<Record<string, unknown>>,
@@ -204,16 +218,27 @@ export function executePoppinsTool(
     case 'add_grocery_item': {
       const groceryName = String(args.name ?? '').trim();
       if (!groceryName) return { error: 'name_required' };
+      const lane = args.lane === 'clothing' ? 'clothing' : undefined;
+      const releaseDate = args.releaseDate ? String(args.releaseDate) : undefined;
+      const ui_actions: Array<Record<string, unknown>> = [
+        {
+          type: 'add_grocery',
+          name: groceryName,
+          category: args.category ? String(args.category) : lane === 'clothing' ? 'Clothing' : undefined,
+          lane,
+          status: args.status ? String(args.status) : 'Missing',
+        },
+      ];
+      if (releaseDate) {
+        ui_actions.push({
+          type: 'create_calendar_event',
+          title: `${groceryName} drop`,
+          date: releaseDate,
+        });
+      }
       return {
-        ui_actions: [
-          {
-            type: 'add_grocery',
-            name: groceryName,
-            category: args.category ? String(args.category) : undefined,
-            status: args.status ? String(args.status) : 'Missing',
-          },
-        ],
-        note: `Staged add grocery: ${groceryName}`,
+        ui_actions,
+        note: `Staged add ${lane === 'clothing' ? 'shopping' : 'grocery'}: ${groceryName}`,
       };
     }
     case 'set_grocery_status':
@@ -369,9 +394,12 @@ export function executePoppinsTool(
             assignee: args.assignee ?? args.assignee_id,
             due: args.due ?? args.due_at,
             detail: args.detail ?? args.description,
+            category: args.category,
+            libraryTaskId: args.libraryTaskId ?? args.library_task_id,
+            taskQuery: args.taskQuery ?? args.task_query,
           },
         ],
-        note: 'Staged task on the IUI stage. HOLD silence commits.',
+        note: 'Staged Assign on the IUI stage. HOLD silence commits.',
       };
     }
     case 'update_task': {
@@ -447,12 +475,46 @@ export function executePoppinsTool(
       };
     }
     case 'navigate_to': {
+      const route = String(args.route ?? '');
+      const openEditor = args.openEditor === true;
+      if (isAssignSurfaceRoute(route) && !openEditor) {
+        return {
+          ui_actions: [
+            {
+              type: 'create_task_draft',
+              title: args.title ? String(args.title) : '',
+              assignee: args.assignee,
+              category: args.category,
+            },
+          ],
+          note: 'Staged Assign on the IUI stage instead of opening the full screen.',
+        };
+      }
+      if (isGrocerySurfaceRoute(route) && !openEditor) {
+        const groceryName = String(args.name ?? args.title ?? '').trim();
+        if (groceryName) {
+          return {
+            ui_actions: [{ type: 'add_grocery', name: groceryName }],
+            note: `Staged add grocery: ${groceryName}`,
+          };
+        }
+        return {
+          ui_actions: [
+            {
+              type: 'present_ui_scene',
+              scene: 'thinking',
+              payload: { thinkingLine: 'What should I add?' },
+            },
+          ],
+        };
+      }
       return {
         ui_actions: [
           {
             type: 'navigate',
-            route: String(args.route ?? ''),
-            reason: args.reason ?? 'I can open that for you.',
+            route,
+            openEditor: openEditor || undefined,
+            reason: args.reason ?? 'Opening that now.',
             params: args.params,
           },
         ],

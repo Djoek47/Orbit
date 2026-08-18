@@ -4,6 +4,7 @@
 
 import type { IuiPayload } from '@/lib/poppins/ui-scenes';
 import { parseHouseholdIntent } from '@/lib/poppins/ui-intent';
+import { matchLibraryIntent } from '@/lib/poppins/catalog-match';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 
 export type SpeechSteer =
@@ -128,6 +129,41 @@ export function interpretStageSpeech(
     const d = new Date();
     d.setDate(d.getDate() + 1);
     return { kind: 'revise', patch: { due: 'Tomorrow', date: d.toISOString().slice(0, 10) } };
+  }
+
+  const lib = matchLibraryIntent(text, names);
+  if (ctx.live && lib.domainId) {
+    const patch: Partial<IuiPayload> = {
+      category: lib.domainId,
+      selectedChipId: lib.domainId,
+    };
+    if (lib.assignee) {
+      patch.assignee = lib.assignee;
+      patch.spokenName = lib.assignee;
+    }
+    if (lib.task) {
+      patch.libraryTaskId = lib.task.id;
+      patch.title = lib.task.name;
+    } else if (lib.taskQuery) {
+      patch.taskQuery = lib.taskQuery;
+      patch.title = '';
+      patch.libraryTaskId = undefined;
+    }
+    return { kind: 'revise', patch };
+  }
+
+  if (ctx.live && /\b(this is the task|that one|this one|that task)\b/.test(lower)) {
+    if (lib.task) {
+      return {
+        kind: 'revise',
+        patch: {
+          libraryTaskId: lib.task.id,
+          title: lib.task.name,
+          category: lib.task.domainId,
+        },
+      };
+    }
+    return { kind: 'confirm' };
   }
 
   return { kind: 'none' };

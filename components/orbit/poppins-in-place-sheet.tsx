@@ -4,12 +4,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
+import { PoppinsStage } from '@/components/orbit/poppins-stage';
 import { usePoppinsLive } from '@/lib/poppins/live-context';
+import { usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 /** Compact Ask Poppins — stays on the current screen while the tab button animates. */
 export function PoppinsInPlaceSheet() {
   const live = usePoppinsLive();
+  const drive = usePoppinsUiDrive();
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
   const [draft, setDraft] = useState('');
@@ -55,10 +58,15 @@ export function PoppinsInPlaceSheet() {
             <Text style={{ color: c.accent, fontWeight: '700' }}>Done</Text>
           </Pressable>
         </View>
-        {live.caption ? (
+        {live.caption && !drive.live ? (
           <Text style={[styles.caption, { color: c.textMuted }]} numberOfLines={4}>
             {live.caption}
           </Text>
+        ) : null}
+        {drive.live ? (
+          <View style={styles.stage}>
+            <PoppinsStage />
+          </View>
         ) : null}
         {live.error ? (
           <Text style={[styles.caption, { color: c.danger }]}>{live.error}</Text>
@@ -117,6 +125,7 @@ const styles = StyleSheet.create({
   kicker: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
   status: { fontSize: 15, fontWeight: '700' },
   caption: { fontSize: 14, lineHeight: 20 },
+  stage: { minHeight: 220, width: '100%' },
   row: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   input: {
     borderRadius: 14,

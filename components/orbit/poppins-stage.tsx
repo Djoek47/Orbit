@@ -11,11 +11,13 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiChips } from '@/components/orbit/poppins-stage/iui-chips';
 import { IuiDay } from '@/components/orbit/poppins-stage/iui-day';
+import { IuiDomainGrid } from '@/components/orbit/poppins-stage/iui-domain-grid';
 import { IuiFaces } from '@/components/orbit/poppins-stage/iui-faces';
 import { IuiGhostField } from '@/components/orbit/poppins-stage/iui-ghost-field';
 import { IuiLattice } from '@/components/orbit/poppins-stage/iui-lattice';
 import { IuiObjectCard } from '@/components/orbit/poppins-stage/iui-object-card';
 import { IuiPeek } from '@/components/orbit/poppins-stage/iui-peek';
+import { IuiResultMark } from '@/components/orbit/poppins-stage/iui-result-mark';
 import { IuiRoad } from '@/components/orbit/poppins-stage/iui-road';
 import { IuiStepper } from '@/components/orbit/poppins-stage/iui-stepper';
 import { motionDuration } from '@/constants/motion-tokens';
@@ -23,9 +25,10 @@ import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { householdHasChildren } from '@/lib/household/has-children';
 import { composeStepLabel, IUI_DUE_CHIPS, nextComposeStep } from '@/lib/poppins/iui-compose';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
-import type { IuiBeat, IuiFace, IuiPayload } from '@/lib/poppins/ui-scenes';
+import type { IuiBeat, IuiFace, IuiPayload, IuiPhase } from '@/lib/poppins/ui-scenes';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
+import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
 import { allLibraryTasks, choreDomains, homeworkDomain } from '@/lib/tasks/task-library';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -63,6 +66,7 @@ function TaskComposeSteps({
   frozen,
   titleHeard,
   title,
+  phase,
 }: {
   payload: IuiPayload;
   faces: IuiFace[];
@@ -75,13 +79,23 @@ function TaskComposeSteps({
   frozen: boolean;
   titleHeard: boolean;
   title: string;
+  phase: IuiPhase;
 }) {
   const { c } = useOrbitColors();
   const { household } = useOrbit();
   const step = payload.composeStep ?? nextComposeStep(payload);
   const showEmoji = payload.showEmoji !== false;
   const categoryId = payload.category ?? payload.selectedChipId;
-  const libraryTasks = allLibraryTasks().filter((task) => task.domainId === categoryId);
+  const query = (payload.taskQuery ?? '').toLowerCase().trim();
+  const libraryTasks = allLibraryTasks()
+    .filter((task) => task.domainId === categoryId)
+    .filter((task) => {
+      if (!query) return true;
+      return (
+        task.name.toLowerCase().includes(query) ||
+        task.searchTerms.some((term) => term.toLowerCase().includes(query))
+      );
+    });
   const homework = categoryId === 'homework_education';
   const whoFaces = homework
     ? faces.filter((face) =>
@@ -127,68 +141,63 @@ function TaskComposeSteps({
       ) : null}
 
       {step === 'category' ? (
-        <>
-          <IuiChips
-            chips={domains}
-            selectedId={categoryId}
-            accent={accent}
-            showIcons
-            showEmoji={false}
-            onSelect={(id) => {
-              const childOnly = id === 'homework_education';
-              const assignee = selectedName;
-              const assigneeOk =
-                !childOnly ||
-                household.members.some((m) => m.name === assignee && m.role === 'child');
-              poppinsUiOrchestrator.revise({
-                selectedChipId: id,
-                category: id,
-                title: '',
-                libraryTaskId: undefined,
-                assignee: assigneeOk ? assignee : '',
-              });
-            }}
-          />
-          <Pressable
-            onPress={() => poppinsUiOrchestrator.revise({ showEmoji: !showEmoji })}
-            hitSlop={8}>
-            <Text style={[styles.hint, { color: c.textSubtle }]}>
-              {showEmoji ? 'Hide emoji' : 'Show emoji'}
-            </Text>
-          </Pressable>
-        </>
+        <IuiDomainGrid
+          domains={domains}
+          selectedId={categoryId}
+          accent={accent}
+          narrow={Boolean(categoryId)}
+          onSelect={(id) => {
+            const childOnly = id === 'homework_education';
+            const assignee = selectedName;
+            const assigneeOk =
+              !childOnly ||
+              household.members.some((m) => m.name === assignee && m.role === 'child');
+            poppinsUiOrchestrator.revise({
+              selectedChipId: id,
+              category: id,
+              title: '',
+              libraryTaskId: undefined,
+              assignee: assigneeOk ? assignee : '',
+            });
+          }}
+        />
       ) : null}
 
       {step === 'task' ? (
         <>
-          <IuiChips
-            chips={libraryTasks.map((task) => ({
-              id: task.id,
-              label: task.name,
-              emoji: showEmoji ? undefined : undefined,
-            }))}
-            selectedId={payload.libraryTaskId}
-            accent={accent}
-            showEmoji={showEmoji}
-            onSelect={(id) => {
-              const task = libraryTasks.find((item) => item.id === id);
-              poppinsUiOrchestrator.revise({
-                libraryTaskId: id,
-                title: task?.name ?? id,
-                category: task?.domainId ?? categoryId,
-              });
-            }}
-          />
+          {phase === 'show' && categoryId ? (
+            <IuiDomainGrid
+              domains={domains}
+              selectedId={categoryId}
+              accent={accent}
+              narrow
+            />
+          ) : (
+            <IuiChips
+              chips={(libraryTasks.length ? libraryTasks : allLibraryTasks().filter((t) => t.domainId === categoryId)).map(
+                (task) => ({
+                  id: task.id,
+                  label: task.name,
+                })
+              )}
+              selectedId={payload.libraryTaskId}
+              accent={accent}
+              showEmoji={showEmoji}
+              onSelect={(id) => {
+                const pool = allLibraryTasks().filter((item) => item.domainId === categoryId);
+                const task = pool.find((item) => item.id === id);
+                poppinsUiOrchestrator.revise({
+                  libraryTaskId: id,
+                  title: task?.name ?? id,
+                  category: task?.domainId ?? categoryId,
+                  taskQuery: undefined,
+                });
+              }}
+            />
+          )}
           {title && !payload.libraryTaskId ? (
             <IuiGhostField text={title} accent={accent} catchUp={titleHeard} />
           ) : null}
-          <Pressable
-            onPress={() => poppinsUiOrchestrator.revise({ showEmoji: !showEmoji })}
-            hitSlop={8}>
-            <Text style={[styles.hint, { color: c.textSubtle }]}>
-              {showEmoji ? 'Hide emoji' : 'Show emoji'}
-            </Text>
-          </Pressable>
         </>
       ) : null}
 
@@ -273,22 +282,29 @@ export function PoppinsStage() {
     poppinsUiOrchestrator.setCommitHandler(async (beat: IuiBeat) => {
       const p = beat.payload;
       const write = p.write ?? 'none';
-      if (write === 'create_task' && p.title) {
+      if (write === 'create_task' && (p.title || p.libraryTaskId)) {
         try {
-          await createTask({
-            title: p.title,
-            category: p.category ?? p.selectedChipId ?? 'home_maintenance',
-            assignee: p.assignee || currentMember?.name || household.members[0]?.name || 'Me',
-            due: p.due ?? 'Today',
-            xp: 10,
-            repeat: 'None',
-            difficulty: 'medium',
-            weight: 1,
-            definitionId: p.libraryTaskId
-              ? `lib:${p.libraryTaskId}:${p.assignee || currentMember?.name || 'Me'}`
-              : undefined,
-            occurrenceDate: occurrenceDateForDueLabel(p.due ?? 'Today'),
-          });
+          const library = p.libraryTaskId
+            ? allLibraryTasks().find((item) => item.id === p.libraryTaskId)
+            : undefined;
+          const assignee = p.assignee || currentMember?.name || household.members[0]?.name || 'Me';
+          if (library) {
+            await createTask(
+              buildLibraryAssignInput(library, assignee, library.defaultFrequency, new Date())
+            );
+          } else if (p.title) {
+            await createTask({
+              title: p.title,
+              category: p.category ?? p.selectedChipId ?? 'home_maintenance',
+              assignee,
+              due: p.due ?? 'Today',
+              xp: 10,
+              repeat: 'None',
+              difficulty: 'medium',
+              weight: 1,
+              occurrenceDate: occurrenceDateForDueLabel(p.due ?? 'Today'),
+            });
+          }
         } catch (error) {
           console.warn('IUI create_task failed', error);
         }
@@ -304,10 +320,22 @@ export function PoppinsStage() {
         });
       }
       if (write === 'add_grocery' && p.groceryName) {
-        await addMissingGrocery({ name: p.groceryName, category: p.aisle });
+        await addMissingGrocery({
+          name: p.groceryName,
+          category: p.aisle || (p.shoppingLane === 'clothing' ? 'Clothing' : undefined),
+          categoryId: p.shoppingLane === 'clothing' ? 'clothing' : undefined,
+        });
       }
-      if (write === 'complete_task' && p.taskId) {
-        await completeTask(p.taskId);
+      if (write === 'complete_task') {
+        const id =
+          p.taskId ||
+          household.tasks.find(
+            (item) =>
+              p.title &&
+              item.status !== 'Completed' &&
+              item.title.toLowerCase().includes(p.title.toLowerCase())
+          )?.id;
+        if (id) await completeTask(id);
       }
       if (write === 'update_task' && p.taskId) {
         const task = household.tasks.find((item) => item.id === p.taskId);
@@ -437,6 +465,7 @@ export function PoppinsStage() {
           frozen={drive.frozen}
           titleHeard={titleHeard}
           title={title}
+          phase={drive.phase}
         />
       ) : null}
 
@@ -498,7 +527,7 @@ export function PoppinsStage() {
 
       {beat.scene === 'grocery_add' ? (
         <IuiStepper
-          kicker="What"
+          kicker={payload.shoppingLane === 'clothing' ? 'Shopping' : 'What'}
           accent={accent}
           hold
           holdProgress={holdProgress}
@@ -507,10 +536,18 @@ export function PoppinsStage() {
           <IuiObjectCard
             title={payload.groceryName ?? payload.title ?? 'Item'}
             detail={payload.aisle}
-            emoji="🛒"
+            emoji={payload.shoppingLane === 'clothing' ? '👟' : '🛒'}
             accent={accent}
           />
         </IuiStepper>
+      ) : null}
+
+      {beat.scene === 'task_done' ? (
+        <IuiResultMark kind="done" title={payload.title} />
+      ) : null}
+
+      {beat.scene === 'result_mark' ? (
+        <IuiResultMark kind={payload.markKind ?? 'added'} title={payload.title ?? payload.groceryName} />
       ) : null}
 
       {beat.scene === 'reward_mint' ? (

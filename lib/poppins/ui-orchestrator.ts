@@ -190,7 +190,10 @@ function armBeat() {
   }
 
   if (beat.commit === 'none') {
-    const linger = beat.scene === 'list_peek' || beat.scene === 'member_pick' ? 1600 : 900;
+    const linger =
+      beat.scene === 'list_peek' || beat.scene === 'member_pick' || beat.scene === 'result_mark'
+        ? 1600
+        : 900;
     holdTimer = setTimeout(() => {
       if (state.frozen || currentBeat()?.id !== beat.id) return;
       void settleCurrent();

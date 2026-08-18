@@ -40,19 +40,24 @@ poppinsUiOrchestrator.clear();
 const taskPlaylist = mapUiActionsToPlaylist([
   { type: 'create_task_draft', title: 'Dishwasher', assignee: 'Alex', due: 'Tomorrow' },
 ]);
-assert.equal(taskPlaylist.length, 1);
 assert.equal(taskPlaylist[0]?.scene, 'task_compose');
 assert.equal(taskPlaylist[0]?.commit, 'hold');
 assert.equal(taskPlaylist[0]?.payload.write, 'create_task');
 assert.equal(taskPlaylist[0]?.payload.assignee, 'Alex');
 assert.equal(taskPlaylist[0]?.payload.composeReady, false);
 assert.equal(taskPlaylist[0]?.payload.composeStep, 'category');
+assert.equal(taskPlaylist.some((beat) => beat.scene === 'result_mark'), true);
 
 const navCreate = mapUiActionsToPlaylist([{ type: 'navigate', route: '/create-task' }]);
-assert.equal(navCreate[0]?.scene, 'navigate_coach');
-assert.equal(navCreate[0]?.commit, 'none');
+assert.equal(navCreate[0]?.scene, 'task_compose');
+assert.equal(navCreate[0]?.commit, 'hold');
 const navAssign = mapUiActionsToPlaylist([{ type: 'navigate', route: '/assign-task' }]);
-assert.equal(navAssign[0]?.payload.route, '/create-task');
+assert.equal(navAssign[0]?.scene, 'task_compose');
+const navAssignSelf = mapUiActionsToPlaylist([
+  { type: 'navigate', route: '/assign-task', openEditor: true },
+]);
+assert.equal(navAssignSelf[0]?.scene, 'navigate_coach');
+assert.equal(navAssignSelf[0]?.payload.route, '/assign-task');
 
 const settings = mapUiActionsToPlaylist([{ type: 'navigate', route: '/settings' }]);
 assert.equal(settings[0]?.scene, 'navigate_coach');
@@ -112,6 +117,36 @@ assert.equal(intent[0]?.type, 'create_task_draft');
 assert.equal(intent[0]?.assignee, 'Alex');
 assert.match(String(intent[0]?.title), /dishwasher/i);
 
+const dishes = parseHouseholdIntent('I want to clean dishes');
+assert.equal(dishes[0]?.type, 'create_task_draft');
+assert.equal(dishes[0]?.category, 'kitchen_dining');
+assert.ok(!JSON.stringify(dishes).includes('I can open that'));
+
+const openSelf = parseHouseholdIntent('Open it so I can assign it myself');
+assert.equal(openSelf[0]?.type, 'navigate');
+assert.equal(openSelf[0]?.route, '/assign-task');
+assert.equal(openSelf[0]?.openEditor, true);
+
+const milk = parseHouseholdIntent('Add milk to the list');
+assert.equal(milk[0]?.type, 'add_grocery');
+assert.match(String(milk[0]?.name), /milk/i);
+
+const jordan = parseHouseholdIntent('Add the new Jordan 1 that is releasing in two weeks');
+assert.equal(jordan[0]?.type, 'add_grocery');
+assert.equal(jordan[0]?.lane, 'clothing');
+assert.equal(jordan[1]?.type, 'create_calendar_event');
+
+const done = parseHouseholdIntent("I've done the dishes");
+assert.equal(done[0]?.type, 'complete_task');
+
+const coachedAway = executePoppinsTool(
+  'navigate_to',
+  { route: '/assign-task' },
+  household,
+  metrics
+);
+assert.equal((coachedAway.ui_actions as Array<Record<string, unknown>>)[0]?.type, 'create_task_draft');
+
 const compound = parseHouseholdIntent(
   'Add a store to the itinerary then add a dentist appointment'
 );
@@ -145,8 +180,7 @@ assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.assignee, 'Ma
 assert.equal(poppinsUiOrchestrator.getState().frozen, false);
 
 poppinsUiOrchestrator.drive([{ type: 'create_calendar_event', title: 'Dentist' }]);
-assert.equal(poppinsUiOrchestrator.getState().playlist.length, 2);
-assert.equal(poppinsUiOrchestrator.getState().playlist[1]?.scene, 'calendar_zoom');
+assert.ok(poppinsUiOrchestrator.getState().playlist.some((beat) => beat.scene === 'calendar_zoom'));
 
 poppinsUiOrchestrator.clear();
 poppinsUiOrchestrator.drive([{ type: 'claim_reward', rewardName: 'Ice cream' }], { kid: true });
@@ -161,8 +195,8 @@ poppinsUiOrchestrator.clear();
 poppinsUiOrchestrator.setSpeaking(false);
 
 const complete = mapUiActionsToPlaylist([{ type: 'complete_task', taskId: 't1', title: 'Dishes' }]);
-assert.equal(complete[0]?.commit, 'confirm');
-assert.notEqual(complete[0]?.commit, 'hold');
+assert.equal(complete[0]?.scene, 'task_done');
+assert.equal(complete[0]?.commit, 'hold');
 assert.equal(complete[0]?.payload.write, 'complete_task');
 
 const settingsHold = mapUiActionsToPlaylist([
@@ -198,7 +232,7 @@ assert.notEqual(poppinsUiOrchestrator.getState().phase, 'hold');
 poppinsUiOrchestrator.syncSpoken('I will add the dishwasher for Alex', ['Alex', 'Maya']);
 assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.assignee, 'Alex');
 assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.spokenName, 'Alex');
-assert.equal(poppinsUiOrchestrator.getState().playlist.length, 1);
+assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.scene, 'task_compose');
 assert.equal(poppinsUiOrchestrator.getState().holding, false);
 
 poppinsUiOrchestrator.revise({ assignee: 'Maya' });
@@ -212,8 +246,9 @@ const steeredMaya = interpretStageSpeech('Maya', { memberNames: ['Alex', 'Maya']
 assert.equal(steeredMaya.kind, 'revise');
 if (steeredMaya.kind === 'revise') assert.equal(steeredMaya.patch.assignee, 'Maya');
 
-const frozenGo = interpretStageSpeech('go', { live: true, frozen: true });
-assert.equal(frozenGo.kind, 'unfreeze');
+const kitchenSteer = interpretStageSpeech('kitchen', { live: true });
+assert.equal(kitchenSteer.kind, 'revise');
+if (kitchenSteer.kind === 'revise') assert.equal(kitchenSteer.patch.category, 'kitchen_dining');
 
 poppinsUiOrchestrator.clear();
 poppinsUiOrchestrator.setSpeaking(false);

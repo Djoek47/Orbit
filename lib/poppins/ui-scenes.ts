@@ -13,6 +13,8 @@ export const IUI_SCENES = [
   'member_pick',
   'confirm',
   'navigate_coach',
+  'task_done',
+  'result_mark',
 ] as const;
 
 export type IuiScene = (typeof IUI_SCENES)[number];
@@ -95,6 +97,14 @@ export type IuiPayload = {
   composeStep?: 'who' | 'category' | 'task' | 'when' | 'ready';
   /** Optional: show emoji next to library chips. */
   showEmoji?: boolean;
+  /** Narrow kitchen tasks to dish-related, etc. */
+  taskQuery?: string;
+  /** Green check kind after HOLD settle. */
+  markKind?: 'added' | 'done' | 'assigned';
+  /** Clothing vs grocery lane on the shared list. */
+  shoppingLane?: 'grocery' | 'clothing';
+  /** Future drop date (YYYY-MM-DD) for shopping items. */
+  releaseDate?: string;
 };
 
 export type IuiWriteKind =
@@ -114,6 +124,7 @@ export const HOLD_SCENES: readonly IuiScene[] = [
   'calendar_zoom',
   'itinerary_stage',
   'grocery_add',
+  'task_done',
 ];
 
 export type IuiBeat = {
@@ -136,6 +147,7 @@ export const SPEECH_QUIET_MS = 400;
 export function defaultCommitForScene(scene: IuiScene): IuiCommitKind {
   if ((HOLD_SCENES as readonly string[]).includes(scene)) return 'hold';
   if (scene === 'reward_mint' || scene === 'confirm') return 'confirm';
+  if (scene === 'task_done') return 'hold';
   return 'none';
 }
 
@@ -153,7 +165,12 @@ export function coerceCommit(
 }
 
 export function sceneNeedsUnfold(scene: IuiScene): boolean {
-  return scene === 'task_compose' || scene === 'calendar_zoom' || scene === 'itinerary_stage';
+  return (
+    scene === 'task_compose' ||
+    scene === 'calendar_zoom' ||
+    scene === 'itinerary_stage' ||
+    scene === 'grocery_add'
+  );
 }
 
 export const COACH_ROUTES = [

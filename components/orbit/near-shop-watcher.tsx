@@ -97,12 +97,24 @@ export function NearShopWatcher() {
             retailer: near.name,
             region,
           });
+          const clothing = missing.filter((item) =>
+            isClothingCategory(item.categoryId ?? item.category)
+          );
+          const groceriesOnly = missing.filter(
+            (item) => !isClothingCategory(item.categoryId ?? item.category)
+          );
           const dealLine = deals[0]
             ? `${deals[0].listItem} — ${deals[0].offer}`
-            : missing.length
-              ? `${missing.length} item${missing.length === 1 ? '' : 's'} on your list`
-              : 'Nothing needed — skip if you like';
-          const clothingNear = missing.some((item) => isClothingCategory(item.categoryId ?? item.category));
+            : groceriesOnly.length
+              ? `${groceriesOnly.length} grocery item${groceriesOnly.length === 1 ? '' : 's'} on your list`
+              : clothing.length
+                ? `${clothing[0]!.name} is on your shopping list`
+                : 'Nothing needed — skip if you like';
+          const clothingNear = clothing.length > 0;
+          const shopBit =
+            clothingNear && groceriesOnly.length
+              ? `. ${clothing.slice(0, 2).map((item) => item.name).join(', ')} on your shopping list`
+              : '';
 
           setPrompt({
             storeName: near.name,
@@ -111,8 +123,8 @@ export function NearShopWatcher() {
             lng: near.lng,
             hasDeal: deals.length > 0,
             body: clothingNear && !deals.length
-              ? `${dealLine}. Clothing stays in-store — not an online cart.`
-              : dealLine,
+              ? `${dealLine}${shopBit}. Clothing stays in-store — not an online cart.`
+              : `${dealLine}${shopBit}`,
           });
 
           void pushNotification({

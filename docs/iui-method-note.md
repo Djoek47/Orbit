@@ -15,6 +15,8 @@ Choremaxx IUI is a **dual-channel household OS**:
 
 Beats are the grammar: SHOW → NARROW → UNFOLD → HOLD → SETTLE → CHAIN. Unused beats skip when the utterance already named them. Compound clauses become a **playlist** of scenes without returning to a chat transcript.
 
+The architecture name is **AIUIC** (Artificial Intelligence Interface Control), also called IUI / EUI: a universal UI that Poppins controls. The overlay is not a chatbot caption — it is the Assign grid, grocery card, and done check, brought up and taken away by the model.
+
 **Silence is assent.** A visible temporal HOLD (~1.5s, longer for kids) sits on a previewed mutation. Saying nothing commits. Speech steers. “Wait” freezes. “I’ll do it” coaches into a human editor.
 
 **Barge-in rewinds a beat** (assignee, day) rather than discarding the whole act. Settings, billing, account, and reward-model never HOLD-commit; they Coach-navigate only.

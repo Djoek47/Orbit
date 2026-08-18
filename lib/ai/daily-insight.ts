@@ -4,8 +4,9 @@
  * Copy is factual; Luna may rewrite the sentence but must not invent stores or prices.
  */
 
-import { searchCatalog } from '@/lib/grocery/search-index';
+import { isClothingCategory } from '@/lib/grocery/classify';
 import type { CatalogProduct } from '@/lib/grocery/catalog';
+import { searchCatalog } from '@/lib/grocery/search-index';
 import type {
   GroceryItem,
   HouseholdSnapshot,
@@ -170,6 +171,10 @@ export function buildDailyInsightCandidates(
   now = new Date()
 ): DailyInsightCandidate[] {
   const candidates: DailyInsightCandidate[] = [];
+  const missing = (household.groceries ?? []).filter(
+    (item) => item.status === 'Missing' || item.status === 'Low'
+  );
+  const clothing = missing.filter((item) => isClothingCategory(item.categoryId ?? item.category));
   const shop = pickRealSavedShop(household.savedPlaces, household.preferredStoreId);
   const matches = matchListToCatalog(household.groceries ?? [], shop);
 
@@ -182,10 +187,13 @@ export function buildDailyInsightCandidates(
         ? ` Catalog listing is carried at ${store}.`
         : ` ${store} is the saved shop.`
       : '';
+    const shopBit = clothing.length
+      ? ` ${clothing[0]!.name} is on the shopping list if you pass a store.`
+      : '';
     candidates.push({
       kind: 'grocery_need',
       title: 'Poppins · Groceries',
-      body: `${listed} ${matches.length === 1 ? 'is' : 'are'} still on the list.${storeBit}`.replace(/\s+/g, ' ').trim(),
+      body: `${listed} ${matches.length === 1 ? 'is' : 'are'} still on the list.${storeBit}${shopBit}`.replace(/\s+/g, ' ').trim(),
       cta: 'Open Groceries',
       catalogNames: names,
       storeName: store ?? undefined,
@@ -193,6 +201,20 @@ export function buildDailyInsightCandidates(
         | 'saved'
         | 'catalog'
         | undefined,
+    });
+  } else if (clothing.length > 0) {
+    const listed =
+      clothing.length === 1
+        ? clothing[0]!.name
+        : `${clothing
+            .slice(0, -1)
+            .map((item) => item.name)
+            .join(', ')} and ${clothing[clothing.length - 1]!.name}`;
+    candidates.push({
+      kind: 'grocery_need',
+      title: 'Poppins · Shopping',
+      body: `${listed} ${clothing.length === 1 ? 'is' : 'are'} on your shopping list. If you pass a store that carries it, Poppins will ping you.`,
+      cta: 'Open shopping list',
     });
   }
 
@@ -214,7 +236,7 @@ export function buildDailyInsightCandidates(
     .flatMap((p) => p.pickupItemNames ?? [])
     .map((n) => n.trim())
     .filter(Boolean);
-  const needsRun = matches.length > 0 || pickupNames.length > 0;
+  const needsRun = matches.length > 0 || pickupNames.length > 0 || clothing.length > 0;
   if (needsRun && !hasGroceryStopToday(household.itineraries, ymd)) {
     const hint = matches[0] ? productLine(matches[0]) : pickupNames[0];
     candidates.push({

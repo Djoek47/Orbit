@@ -82,6 +82,7 @@ export const POPPINS_NAV_ROUTES = [
   '/(tabs)/groceries',
   '/shopping-mode',
   '/create-task',
+  '/assign-task',
   '/create-event',
   '/create-itinerary',
   '/create-reward',
@@ -182,12 +183,15 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   },
   {
     name: 'add_grocery',
-    description: 'Add an item to the grocery list as Missing.',
+    description:
+      'Stage an item on the IUI grocery/shopping card. HOLD silence commits. Clothing, sneakers, Jordan drops go on the shopping lane. If it releases in the future, also call create_calendar_event for that date. Never navigate_to Groceries unless they asked to open the list themselves.',
     parameters: {
       type: 'object',
       properties: {
         name: { type: 'string' },
         category: { type: 'string' },
+        lane: { type: 'string', enum: ['grocery', 'clothing'] },
+        releaseDate: { type: 'string' },
       },
       required: ['name'],
       additionalProperties: false,
@@ -323,7 +327,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'create_task_draft',
     description:
-      'Stage a new task on the IUI stage (title, assignee, due). HOLD silence commits. Do not open Create Task unless the user asked for the full editor — then use navigate_to /create-task.',
+      'AIUIC: stage Assign on the IUI overlay (who → category grid like Kitchen → tasks → when). Pass category kitchen_dining when they said dishes/kitchen so other tiles disappear. Pass libraryTaskId when they named a catalog chore. HOLD silence commits. NEVER navigate_to /assign-task or say “I can open that for you”. Only navigate_to /assign-task when they asked to assign it themselves on the full Assign screen (openEditor).',
     parameters: {
       type: 'object',
       properties: {
@@ -331,8 +335,10 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
         assignee: { type: 'string' },
         due: { type: 'string' },
         detail: { type: 'string' },
+        category: { type: 'string' },
+        libraryTaskId: { type: 'string' },
+        taskQuery: { type: 'string' },
       },
-      required: ['title'],
       additionalProperties: false,
     },
     risk: 'safe_serial',
@@ -357,7 +363,8 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   },
   {
     name: 'complete_task',
-    description: 'Mark a task complete by id or title match. Returns ui_action for the app.',
+    description:
+      'Mark a task complete by id or title. Stages the IUI Done check (green). Do not ask them to open Tasks.',
     parameters: {
       type: 'object',
       properties: {
@@ -427,12 +434,13 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'navigate_to',
     description:
-      'Coach-navigate to an allowlisted human screen when the user asked for help, or for Settings/account/billing. Never HOLD-commit Settings. Prefer create_* tools for add-task/event/itinerary.',
+      'Coach-navigate ONLY when they asked to drive a human screen (Settings, billing, House Rules, or “open Assign so I can pick it myself”). Never use this for add-task, dishes, kitchen, groceries, or shopping — those are create_task_draft / add_grocery / complete_task on the IUI stage. Never say “I can open that for you” as a substitute for staging UI.',
     parameters: {
       type: 'object',
       properties: {
         route: { type: 'string' },
         reason: { type: 'string' },
+        openEditor: { type: 'boolean' },
       },
       required: ['route'],
       additionalProperties: false,
@@ -442,7 +450,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'present_ui_scene',
     description:
-      'Advance a closed IUI beat (thinking, task_compose, calendar_zoom, itinerary_stage, grocery_add, reward_mint, list_peek, member_pick, confirm, navigate_coach). Never invent widgets.',
+      'Advance a closed IUI beat (thinking, task_compose, calendar_zoom, itinerary_stage, grocery_add, reward_mint, list_peek, member_pick, confirm, navigate_coach, task_done, result_mark). Never invent widgets. Prefer create_task_draft / add_grocery over navigate_coach.',
     parameters: {
       type: 'object',
       properties: {
@@ -459,6 +467,8 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
             'member_pick',
             'confirm',
             'navigate_coach',
+            'task_done',
+            'result_mark',
           ],
         },
         payload: { type: 'object' },

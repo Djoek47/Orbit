@@ -23,6 +23,8 @@ import {
   getMajordomoProfile,
   resolveMajordomoProfileId,
 } from '@/lib/ai/majordomo-profiles';
+import { driveAiuic } from '@/lib/poppins/aiuic';
+import { parseHouseholdIntent } from '@/lib/poppins/ui-intent';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
@@ -129,6 +131,7 @@ export default function PoppinsScreen() {
   memberNamesRef.current = memberNames;
   const kidSessionRef = useRef(kidSession);
   kidSessionRef.current = kidSession;
+  const lastUtteranceRef = useRef('');
 
   const flashToolSuccess = (label: string) => {
     setToolFlash(label);
@@ -203,7 +206,14 @@ export default function PoppinsScreen() {
     setLiveCaption((prev) => applyLiveCaptionTurn(prev, speaker, text, meta?.replace));
     if (!text.trim()) return;
     if (role === 'user') {
+      lastUtteranceRef.current = text;
       if (poppinsUiOrchestrator.applySpeech(text, memberNamesRef.current)) {
+        setShowActivity(true);
+        return;
+      }
+      const inferred = parseHouseholdIntent(text);
+      if (inferred.length) {
+        driveAiuic(inferred, text, { kid: kidSessionRef.current, replace: true });
         setShowActivity(true);
       }
     } else {
@@ -213,7 +223,7 @@ export default function PoppinsScreen() {
 
   const applyUiActions = (actions: Array<Record<string, unknown>>, replace = false) => {
     if (!actions.length) return;
-    poppinsUiOrchestrator.drive(actions, { kid: kidSessionRef.current, replace });
+    driveAiuic(actions, lastUtteranceRef.current, { kid: kidSessionRef.current, replace });
     setShowActivity(true);
   };
 
@@ -290,6 +300,7 @@ export default function PoppinsScreen() {
     if (!trimmed || asking) return;
     setDraft('');
     setLiveCaption(applyLiveCaptionTurn(null, 'you', trimmed, true));
+    lastUtteranceRef.current = trimmed;
     setError('');
 
     // Live duplex: inject into the same WebRTC conversation.
