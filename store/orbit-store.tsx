@@ -1110,12 +1110,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     const joinedHousehold = await householdRepository.joinHousehold(input, user);
     const pendingSelf = joinedHousehold.members.find(
-      (member) => member.status === 'pending' && member.name === user.name
+      (member) =>
+        member.status === 'pending' &&
+        member.name.trim().toLowerCase() === user.name.trim().toLowerCase()
     );
     const activeSelf = joinedHousehold.members.find(
       (member) =>
         member.status === 'active' &&
-        (member.name === user.name || member.role === 'owner')
+        member.name.trim().toLowerCase() === user.name.trim().toLowerCase()
     );
     setHousehold(joinedHousehold);
     if (pendingSelf) {
@@ -1139,8 +1141,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!raw) return 'none';
     const kind = classifyInviteCode(raw);
     if (kind !== 'household') return 'none';
-    await consumeInviteCode();
     const outcome = await joinHousehold({ inviteCode: raw });
+    await consumeInviteCode();
     return outcome;
   };
 

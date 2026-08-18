@@ -1,0 +1,67 @@
+/**
+ * Membership pickers for household join / Check status.
+ * A pending join must never be treated as "approved" just because the user
+ * still owns a different household.
+ */
+
+export type MembershipLike = {
+  household_id: string;
+  status: string;
+};
+
+function isPendingStatus(status: string) {
+  return status === 'pending' || status === 'invited';
+}
+
+/** Which household to show after sign-in / reload. */
+export function resolveHydrateMembership<T extends MembershipLike>(
+  rows: T[],
+  pendingJoinId?: string | null
+): T | null {
+  if (pendingJoinId) {
+    const targeted = rows.find((row) => row.household_id === pendingJoinId);
+    if (targeted) return targeted;
+  }
+  return (
+    rows.find((row) => row.status === 'active') ??
+    rows.find((row) => isPendingStatus(row.status)) ??
+    null
+  );
+}
+
+/**
+ * Check approval: if any pending join exists, that is the answer.
+ * Owning another household is not approval.
+ */
+export function resolveJoinApprovalMembership<T extends MembershipLike>(
+  rows: T[],
+  householdId?: string | null
+): { status: 'approved' | 'pending' | 'missing'; membership: T | null } {
+  const targeted = householdId
+    ? rows.find((row) => row.household_id === householdId)
+    : undefined;
+
+  if (targeted && isPendingStatus(targeted.status)) {
+    return { status: 'pending', membership: targeted };
+  }
+
+  const pendingElse = rows.find((row) => isPendingStatus(row.status));
+  if (pendingElse) {
+    return { status: 'pending', membership: pendingElse };
+  }
+
+  if (targeted?.status === 'active') {
+    return { status: 'approved', membership: targeted };
+  }
+
+  if (householdId) {
+    return { status: 'missing', membership: null };
+  }
+
+  const active = rows.find((row) => row.status === 'active');
+  if (active) {
+    return { status: 'approved', membership: active };
+  }
+
+  return { status: 'missing', membership: null };
+}

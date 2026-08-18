@@ -6,6 +6,11 @@ import {
   saveActiveMockHousehold,
 } from '@/lib/household/mock-active-household';
 import { seedMockDomainsFromHousehold } from '@/lib/household/seed-mock-domains';
+import { peekPendingJoinHouseholdId } from '@/lib/invite/pending-join-store';
+import {
+  resolveHydrateMembership,
+  resolveJoinApprovalMembership,
+} from '@/lib/invites/join-approval';
 import { buildInviteLinks, createInviteCode, normalizeInviteCode } from '@/lib/invites/parse-invite';
 import {
   mapBadgeRow,
@@ -40,7 +45,16 @@ function migrateLoadedRewardModel(value: string | null | undefined): RewardModel
 export const householdRepository = {
   async getHousehold(): Promise<HouseholdSnapshot> {
     if (isMockMode()) {
+      const pendingJoinId = await peekPendingJoinHouseholdId();
       const active = await loadActiveMockHousehold();
+      if (pendingJoinId && active?.id === pendingJoinId) {
+        seedMockDomainsFromHousehold(active);
+        return clone(active);
+      }
+      if (active?.members?.some((member) => member.status === 'pending')) {
+        seedMockDomainsFromHousehold(active);
+        return clone(active);
+      }
       if (active?.id && active.id !== mockHousehold.id) {
         seedMockDomainsFromHousehold(active);
         return clone(active);
@@ -90,10 +104,8 @@ export const householdRepository = {
     mapDbError('householdRepository.getHousehold.membership', membershipError);
 
     const rows = memberships ?? [];
-    const membership =
-      rows.find((row) => row.status === 'active') ??
-      rows.find((row) => row.status === 'pending' || row.status === 'invited') ??
-      null;
+    const pendingJoinId = await peekPendingJoinHouseholdId();
+    const membership = resolveHydrateMembership(rows, pendingJoinId);
 
     if (!membership) {
       const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', userId).maybeSingle();
@@ -242,6 +254,8 @@ export const householdRepository = {
       );
       return {
         ...mockHousehold,
+        id: `hh-join-${code.replace(/[^A-Z0-9]+/g, '') || 'invite'}`,
+        householdName: 'Invited household',
         inviteCode: code || mockHousehold.inviteCode,
         greetingName: user.name,
         members: [...existingWithoutDup, pendingMember],
@@ -399,7 +413,31 @@ export const householdRepository = {
           member.status === 'active' &&
           member.name.toLowerCase() === user.name.toLowerCase()
       );
-      if (activeSelf) {
+      if (householdId && snapshot.id !== householdId) {
+        return {
+          status: 'pending',
+          snapshot: {
+            ...clone(snapshot),
+            id: householdId,
+            householdName: 'Invited household',
+            greetingName: user.name,
+            members: [
+              {
+                id: createLocalId('member'),
+                name: user.name,
+                role: 'adult',
+                status: 'pending',
+                avatar: user.avatar || user.name.slice(0, 1).toUpperCase(),
+                xp: 0,
+                weekXp: 0,
+                streak: 0,
+                loadShare: 0,
+              },
+            ],
+          },
+        };
+      }
+      if (activeSelf && (!householdId || snapshot.id === householdId)) {
         return { status: 'approved', snapshot: clone(snapshot) };
       }
       return { status: 'missing', snapshot: null };
@@ -412,33 +450,25 @@ export const householdRepository = {
       return { status: 'missing', snapshot: null };
     }
 
-    let query = supabase
+    const { data: rows, error } = await supabase
       .from('household_members')
       .select('*')
       .eq('user_id', userId)
       .in('status', ['active', 'pending', 'invited']);
-    if (householdId) {
-      query = query.eq('household_id', householdId);
-    }
-    const { data: rows, error } = await query;
     mapDbError('householdRepository.checkJoinApproval', error);
-    const memberships = rows ?? [];
-    const target = householdId
-      ? memberships.find((row) => row.household_id === householdId)
-      : memberships.find((row) => row.status === 'pending' || row.status === 'invited') ??
-        memberships.find((row) => row.status === 'active');
-    if (!target) {
+    const resolved = resolveJoinApprovalMembership(rows ?? [], householdId);
+    if (resolved.status === 'missing' || !resolved.membership) {
       return { status: 'missing', snapshot: null };
     }
-    if (target.status === 'active') {
+    if (resolved.status === 'approved') {
       return {
         status: 'approved',
-        snapshot: await loadHouseholdSnapshot(target.household_id, userId),
+        snapshot: await loadHouseholdSnapshot(resolved.membership.household_id, userId),
       };
     }
     return {
       status: 'pending',
-      snapshot: await loadPendingJoinSnapshot(target.household_id, user, ''),
+      snapshot: await loadPendingJoinSnapshot(resolved.membership.household_id, user, ''),
     };
   },
 

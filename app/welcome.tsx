@@ -117,7 +117,22 @@ export default function WelcomeOnboardingScreen() {
   const bg = orbitPalette.background;
 
   const inviteParams = useLocalSearchParams<{ invite?: string; kind?: string }>();
-  const [step, setStep] = useState<Step>('splash');
+  const inviteFromRoute = (() => {
+    const raw = Array.isArray(inviteParams.invite) ? inviteParams.invite[0] : inviteParams.invite;
+    if (!raw?.trim()) return null;
+    return parseInvitePayload(raw) ?? normalizeInviteCode(raw);
+  })();
+  const inviteKindFromRoute =
+    inviteParams.kind === 'child'
+      ? 'profile'
+      : inviteFromRoute
+        ? classifyInviteCode(inviteFromRoute)
+        : null;
+  const [step, setStep] = useState<Step>(() => {
+    if (inviteKindFromRoute === 'profile') return 'child-invite';
+    if (inviteFromRoute) return 'invited';
+    return 'splash';
+  });
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [selectedRole, setSelectedRole] = useState<OnboardingRole | null>(null);
   const [selectedRewardModel, setSelectedRewardModel] = useState<RewardModel | null>(
@@ -130,8 +145,10 @@ export default function WelcomeOnboardingScreen() {
   const [draftAvatar, setDraftAvatar] = useState('');
   const [lookSheetOpen, setLookSheetOpen] = useState(false);
   const [householdName, setHouseholdName] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
-  const [householdMode, setHouseholdMode] = useState<'create' | 'join'>('create');
+  const [inviteCode, setInviteCode] = useState(inviteFromRoute ?? '');
+  const [householdMode, setHouseholdMode] = useState<'create' | 'join'>(
+    inviteFromRoute ? 'join' : 'create'
+  );
   const [createdHousehold, setCreatedHousehold] = useState(false);
   const [setupDraft, setSetupDraft] = useState<HouseholdSetupDraft>(() => createEmptyDraft());
   const [editingMember, setEditingMember] = useState<DraftMember | null>(null);
@@ -193,6 +210,10 @@ export default function WelcomeOnboardingScreen() {
         setStep('invited');
         return;
       }
+      if (isSignedIn && hasHousehold) {
+        router.replace(`/join-household?code=${encodeURIComponent(pending)}` as never);
+        return;
+      }
       if (isSignedIn && !hasHousehold) {
         setStep('household');
       }
@@ -221,6 +242,11 @@ export default function WelcomeOnboardingScreen() {
         if (draft.scoringMode) setSelectedRewardMode(draft.scoringMode);
       }
     });
+
+    if (inviteFromRoute || inviteParams.kind === 'child' || step === 'invited' || step === 'child-invite') {
+      setResumed(true);
+      return;
+    }
 
     if (isSignedIn && hasHousehold && currentUser?.profileComplete) {
       setResumed(true);
@@ -485,6 +511,15 @@ export default function WelcomeOnboardingScreen() {
       } else {
         setDisplayName('');
       }
+      const parsed =
+        parseInvitePayload(inviteCode) ??
+        (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
+      if (appleComplete && parsed && classifyInviteCode(parsed) === 'household') {
+        await stashInviteCode(parsed);
+        const joined = await applyStashedInvite();
+        router.replace((joined === 'pending' ? '/pending-approval' : '/') as never);
+        return;
+      }
       setStep(appleComplete ? 'household' : 'profile');
     } catch (err) {
       const issue = resolveAuthIssue(err);
@@ -515,8 +550,8 @@ export default function WelcomeOnboardingScreen() {
         parseInvitePayload(inviteCode) ??
         (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
       if (parsed && classifyInviteCode(parsed) === 'household') {
-        await joinHousehold({ inviteCode: parsed });
-        router.replace('/pending-approval' as never);
+        const outcome = await joinHousehold({ inviteCode: parsed });
+        router.replace((outcome === 'pending' ? '/pending-approval' : '/') as never);
         return;
       }
       setStep('household');
@@ -541,9 +576,9 @@ export default function WelcomeOnboardingScreen() {
           return;
         }
         setInviteCode(parsed);
-        await joinHousehold({ inviteCode: parsed });
+        const outcome = await joinHousehold({ inviteCode: parsed });
         setCreatedHousehold(false);
-        router.replace('/pending-approval' as never);
+        router.replace((outcome === 'pending' ? '/pending-approval' : '/') as never);
         return;
       }
       if (!householdName.trim()) {

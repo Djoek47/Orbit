@@ -34,7 +34,7 @@ import { useOrbit } from '@/store/orbit-store';
 
 export default function ConfirmEmailScreen() {
   const params = useLocalSearchParams<{ email?: string }>();
-  const { accentTheme, hydrateFromSession, signIn } = useOrbit();
+  const { accentTheme, hydrateFromSession, signIn, applyStashedInvite } = useOrbit();
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const [pendingPassword, setPendingPassword] = useState(getPendingSignup()?.password ?? '');
   const email = useMemo(
@@ -68,6 +68,15 @@ export default function ConfirmEmailScreen() {
 
   const finishOnboarding = async () => {
     clearPendingSignup();
+    const joined = await applyStashedInvite();
+    if (joined === 'pending') {
+      router.replace('/pending-approval' as never);
+      return;
+    }
+    if (joined === 'active') {
+      router.replace('/' as never);
+      return;
+    }
     await markPremiumGatePending();
     router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
   };
