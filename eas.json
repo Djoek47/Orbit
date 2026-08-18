@@ -1,0 +1,68 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_DATA_MODE": "supabase"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "ios": {
+        "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_DATA_MODE": "supabase"
+      }
+    },
+    "testflight": {
+      "extends": "production",
+      "channel": "testflight",
+      "distribution": "store",
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_DATA_MODE": "supabase",
+        "EXPO_PUBLIC_POPPINS_AI": "openai",
+        "EXPO_PUBLIC_POPPINS_REALTIME": "1",
+        "EXPO_PUBLIC_POPPINS_VOICE_WEBRTC": "1"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "distribution": "store",
+      "autoIncrement": true,
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_DATA_MODE": "supabase",
+        "EXPO_PUBLIC_POPPINS_AI": "openai",
+        "EXPO_PUBLIC_POPPINS_REALTIME": "1",
+        "EXPO_PUBLIC_POPPINS_VOICE_WEBRTC": "1"
+      }
+    }
+  },
+  "submit": {
+    "testflight": {
+      "ios": {
+        "ascAppId": "6796850110"
+      }
+    },
+    "production": {
+      "ios": {
+        "ascAppId": "6796850110"
+      }
+    }
+  }
+}
