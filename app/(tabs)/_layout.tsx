@@ -56,7 +56,9 @@ export default function TabLayout() {
   }
 
   if (!isSignedIn) {
-    return <Redirect href={'/welcome' as never} />;
+    // Do not Redirect to /welcome from inside tabs — that stacks Get Started
+    // on Home/Tasks after sign-out. Root index remounts to Get Started.
+    return null;
   }
 
   if (!currentUser?.profileComplete) {

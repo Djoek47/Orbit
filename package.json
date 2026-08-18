@@ -68,6 +68,7 @@
     "test:daily-insight": "npx --yes tsx lib/ai/daily-insight.test.ts",
     "test:in-store-promos": "npx --yes tsx lib/grocery/in-store-promos.test.ts",
     "test:invite-intent": "npx --yes tsx lib/invites/invite-intent.test.ts && npx --yes tsx lib/invites/join-approval.test.ts",
+    "test:session-restart": "npx --yes tsx lib/navigation/session-restart.test.ts",
     "test:confirm-callback": "npx --yes tsx lib/auth/confirm-callback.test.ts",
     "test:auth-errors": "npx --yes tsx lib/auth/auth-errors.test.ts",
     "test:repo-utils": "npx --yes tsx lib/household/persisted-household-id.test.ts",

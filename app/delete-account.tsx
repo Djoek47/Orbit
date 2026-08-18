@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { router, Stack, useNavigation } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
@@ -25,7 +25,6 @@ const REASONS = [
 
 export default function DeleteAccountScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
   const { c, glass, glassBorder } = useOrbitColors();
   const { accentTheme, deleteAccount } = useOrbit();
   const [step, setStep] = useState<Step>('reason');
@@ -53,7 +52,7 @@ export default function DeleteAccountScreen() {
       );
       setStep('done');
       await new Promise((r) => setTimeout(r, 900));
-      resetToGetStarted(navigation);
+      resetToGetStarted();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete your account.');
     } finally {

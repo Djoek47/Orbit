@@ -8,6 +8,7 @@ import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
 import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
 import { OrbitNavTheme } from '@/components/orbit/orbit-nav-theme';
 import { BRICOLAGE_FONT_MAP } from '@/constants/bricolage-font-assets';
+import { useSessionEpoch } from '@/lib/navigation/session-epoch';
 import { PoppinsLiveProvider } from '@/lib/poppins/live-context';
 import { OrbitProvider } from '@/store/orbit-store';
 
@@ -21,6 +22,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(BRICOLAGE_FONT_MAP);
+  const sessionEpoch = useSessionEpoch();
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -33,12 +35,12 @@ export default function RootLayout() {
   }
 
   return (
-    <OrbitProvider>
+    <OrbitProvider key={sessionEpoch}>
       <PoppinsLiveProvider>
       <OrbitNavTheme>
         <DeepLinkBridge />
         <OrbitChromeBridge />
-        <Stack>
+        <Stack key={sessionEpoch}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="join/[code]" options={{ headerShown: false }} />
           <Stack.Screen name="pending-approval" options={{ headerShown: false, title: 'Pending Approval' }} />

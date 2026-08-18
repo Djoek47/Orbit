@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack, useNavigation } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -146,7 +146,6 @@ function SharedAccountRow({
 /** Make AdminScreen.tsx — Settings sheet chrome. */
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
   const {
     accentTheme,
     appearanceMode,
@@ -856,7 +855,7 @@ export default function SettingsScreen() {
                 style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
                 onPress={async () => {
                   await signOut();
-                  resetToGetStarted(navigation);
+                  resetToGetStarted();
                 }}>
                 <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>Sign out</Text>
               </Pressable>
