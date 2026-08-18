@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { isActiveTask, isCompletedTask } from '../tasks/expired-tab';
 import { isTasksStatus, tasksTabHref } from './open-tasks-tab';
 
 function pass(name: string) {
@@ -32,6 +33,14 @@ function pass(name: string) {
     '/(tabs)/tasks?member=Rodri&status=completed',
   );
   pass('fully done today opens Completed');
+}
+
+{
+  const dishwasher = { status: 'Completed' } as { status: 'Completed' };
+  assert.equal(isActiveTask(dishwasher as never), false);
+  assert.equal(isCompletedTask(dishwasher as never), true);
+  assert.equal(tasksTabHref({ status: 'completed' }).includes('status=completed'), true);
+  pass('a finished today task is visible on Completed, not Active');
 }
 
 {
