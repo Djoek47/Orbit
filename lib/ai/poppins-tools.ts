@@ -156,7 +156,8 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   },
   {
     name: 'scan_deals',
-    description: 'Scan deal catalog vs Missing/Low groceries or categories.',
+    description:
+      'Match Missing/Low grocery names to the researched catalog (real product + banner). Never invent sale prices or fake stores.',
     parameters: {
       type: 'object',
       properties: {

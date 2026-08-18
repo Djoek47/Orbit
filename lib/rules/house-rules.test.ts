@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { LATE_CREDIT, RESCUE_COST_PCT_PER_DAY } from '@/constants/scoring';
+import { LATE_CREDIT, RESCUE_COST_PCT_PER_DAY, EXPIRY_HOUR, EXPIRY_MINUTE } from '@/constants/scoring';
 import { getHouseRulesDoc, __resetHouseRulesCache } from '@/lib/rules/house-rules-data';
 import { decodeHouseRules } from '@/lib/rules/decode';
 import {
@@ -167,7 +167,11 @@ const doc = getHouseRulesDoc();
   }
   assert.equal(doc.constants.streakRescue.afterOneMiss, RESCUE_COST_PCT_PER_DAY);
   assert.equal(doc.constants.nudgeMinutesBefore, 30);
-  pass('HR11', 'lateCredit + rescue constants match scoring engine');
+  const [eh, em] = doc.constants.expiryTime.split(':').map(Number);
+  assert.equal(eh, EXPIRY_HOUR);
+  assert.equal(em, EXPIRY_MINUTE);
+  assert.equal(doc.constants.expiredPurgeDays, 7);
+  pass('HR11', 'lateCredit + rescue + expiry constants match scoring engine');
 }
 
 {

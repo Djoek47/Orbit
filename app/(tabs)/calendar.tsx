@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -10,6 +10,7 @@ import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { StatusPill } from '@/components/orbit/status-pill';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { buildWeekStrip, groupHouseholdEvents } from '@/lib/calendar/event-groups';
+import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -33,7 +34,8 @@ const SAMPLE_ITINERARIES = [
 
 export default function PlanScreen() {
   const chromePad = useTabChromePaddingTop();
-  const { household, metrics } = useOrbit();
+  const { household, metrics, accentTheme } = useOrbit();
+  const { refreshing, onRefresh } = useHouseholdRefresh();
   const { c } = useOrbitColors();
   const [planTab, setPlanTab] = useState<PlanSubTab>('calendar');
   const [selectedDay, setSelectedDay] = useState(0);
@@ -50,7 +52,10 @@ export default function PlanScreen() {
     <ScrollView
       style={orbitScreen.container}
       contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
-      contentInsetAdjustmentBehavior="never">
+      contentInsetAdjustmentBehavior="never"
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={accentTheme.primary} />
+      }>
       <View style={orbitScreen.header}>
         <PageEyebrow>Plan</PageEyebrow>
         <Text style={typography.title1}>Family logistics</Text>

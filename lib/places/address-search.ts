@@ -1,3 +1,5 @@
+import { formatNominatimUsCa } from '@/lib/places/address-format';
+
 export type AddressSuggestion = {
   id: string;
   label: string;
@@ -10,11 +12,13 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
-/** Type-ahead street/city suggestions. Nominatim; never ship a Places API key in git. */
+/** Type-ahead street/city suggestions. Nominatim; US + Canada only. */
 export async function searchAddresses(query: string): Promise<AddressSuggestion[]> {
   const q = query.trim();
   if (q.length < 3) return [];
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&q=${encodeURIComponent(q)}`;
+  const url =
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1` +
+    `&limit=8&countrycodes=us,ca&q=${encodeURIComponent(q)}`;
   const res = await fetch(url, {
     headers: {
       Accept: 'application/json',
@@ -24,17 +28,27 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
   if (!res.ok) return [];
   const rows = (await res.json()) as unknown;
   if (!Array.isArray(rows)) return [];
-  return rows.map((row, i) => {
+
+  const out: AddressSuggestion[] = [];
+  const seen = new Set<string>();
+  for (const [i, row] of rows.entries()) {
     const r = asRecord(row);
-    const display = String(r.display_name ?? q);
     const lat = Number(r.lat);
     const lng = Number(r.lon);
-    return {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    const formatted = formatNominatimUsCa(r.address, q);
+    if (!formatted) continue;
+    if (seen.has(formatted)) continue;
+    seen.add(formatted);
+    const label = formatted.split(',').slice(0, 2).join(',').trim() || formatted;
+    out.push({
       id: String(r.place_id ?? `${lat},${lng},${i}`),
-      label: display.split(',').slice(0, 2).join(',').trim() || display,
-      address: display,
+      label,
+      address: formatted,
       lat,
       lng,
-    };
-  }).filter((row) => Number.isFinite(row.lat) && Number.isFinite(row.lng));
+    });
+    if (out.length >= 6) break;
+  }
+  return out;
 }

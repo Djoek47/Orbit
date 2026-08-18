@@ -1,6 +1,5 @@
 import * as Location from 'expo-location';
 
-import { PREFERRED_STORES } from '@/data/preferred-stores';
 import type { PreferredStore } from '@/types/orbit';
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
@@ -88,32 +87,18 @@ async function fetchOsmStores(lat: number, lng: number): Promise<PreferredStore[
   return stores.sort((a, b) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0));
 }
 
-function curatedNear(lat: number, lng: number): PreferredStore[] {
-  return PREFERRED_STORES.map((store) => ({
-    ...store,
-    distanceMeters:
-      store.lat != null && store.lng != null
-        ? Math.round(haversineMeters(lat, lng, store.lat, store.lng))
-        : undefined,
-  })).sort((a, b) => (a.distanceMeters ?? 999999) - (b.distanceMeters ?? 999999));
-}
-
 /**
- * Nearby grocery stores via OSM Overpass + curated mock fallback.
+ * Nearby grocery stores via OSM Overpass. No curated FreshMart fallback.
  * Expo Go friendly — no API key.
  */
 export async function findNearbyStores(): Promise<{
   stores: PreferredStore[];
   coords: { lat: number; lng: number } | null;
-  source: 'osm' | 'curated' | 'denied';
+  source: 'osm' | 'none' | 'denied';
 }> {
   const coords = await getCurrentCoords();
   if (!coords) {
-    return {
-      stores: PREFERRED_STORES.map((s) => ({ ...s })),
-      coords: null,
-      source: 'denied',
-    };
+    return { stores: [], coords: null, source: 'denied' };
   }
 
   try {
@@ -125,11 +110,7 @@ export async function findNearbyStores(): Promise<{
     console.warn('findNearbyStores OSM failed', error);
   }
 
-  return {
-    stores: curatedNear(coords.lat, coords.lng),
-    coords,
-    source: 'curated',
-  };
+  return { stores: [], coords, source: 'none' };
 }
 
 /** True when a shop is within `withinMeters` of any stop that has coords. */
