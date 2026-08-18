@@ -31,6 +31,7 @@ const KIND_META: Record<SavedPlaceKind, { label: string; emoji: string; color: s
   family: { label: 'Family', emoji: '👵', color: '#EC4899' },
   cafe: { label: 'Café', emoji: '☕', color: '#FB923C' },
   pickup: { label: 'Pickup', emoji: '📦', color: '#EC4899' },
+  clothing: { label: 'Clothing', emoji: '👕', color: '#F472B6' },
   custom: { label: 'Other', emoji: '📍', color: '#7C9CC0' },
 };
 

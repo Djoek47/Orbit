@@ -10,6 +10,7 @@ import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RouteSteps, type RouteStepItem } from '@/components/orbit/route-steps';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
+import { usePoppinsLive } from '@/lib/poppins/live-context';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { Itinerary, ItineraryStop, ItineraryStopKind } from '@/types/orbit';
@@ -273,6 +274,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
     rerunItinerary,
     suggestPoppinsItinerary,
   } = useOrbit();
+  const poppinsLive = usePoppinsLive();
   const { c, glass, glassBorder } = useOrbitColors();
   const [section, setSection] = useState<TripsSection>('trips');
   const [mode, setMode] = useState<SuggestMode>('efficient');
@@ -314,6 +316,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
   const runAskPoppins = async () => {
     setBusy(true);
     setAskHint('');
+    poppinsLive?.markThinking();
     try {
       const { useLivePoppinsAi } = await import('@/config/poppins-ai-mode');
       if (useLivePoppinsAi) {
@@ -344,6 +347,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
       setAskHint('Poppins could not propose a plan. Try Calendar bundle instead.');
     } finally {
       setBusy(false);
+      poppinsLive?.markIdle();
     }
   };
 

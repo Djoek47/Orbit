@@ -2,8 +2,8 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimatedTrophyTab } from '@/components/orbit/animated-trophy-tab';
@@ -12,6 +12,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { orbitTabColors, radius, shadow, space } from '@/constants/orbit-theme';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
+import { usePoppinsLive } from '@/lib/poppins/live-context';
 import { capabilitiesFor, DEFAULT_REWARD_MODEL } from '@/lib/rewards/reward-model';
 import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
@@ -43,6 +44,8 @@ const LABEL_CYCLE_MS = 3400;
 export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const orbit = useOrbitOptional();
+  const poppinsLive = usePoppinsLive();
+  const poppinsPulse = useRef(new Animated.Value(1)).current;
   const accentPrimary = orbit?.accentTheme.primary ?? '#38BDF8';
   const accentSecondary = orbit?.accentTheme.secondary ?? '#0EA5E9';
   const typeStyle = orbit?.accentTheme.typeStyle;
@@ -100,6 +103,21 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   }, [canAffordRedeem, rewardsCycle]);
 
   const rewardsLabel = rewardsCycle[cycleIndex] ?? rewardsCycle[0];
+
+  useEffect(() => {
+    if (!poppinsLive || poppinsLive.visual === 'idle') {
+      poppinsPulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(poppinsPulse, { toValue: 1.12, duration: 420, useNativeDriver: true }),
+        Animated.timing(poppinsPulse, { toValue: 1, duration: 420, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [poppinsLive, poppinsLive?.visual, poppinsPulse]);
 
   const visibleRoutes = TAB_ORDER.map((name) => {
     const route = state.routes.find((r) => r.name === name);
@@ -171,6 +189,10 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
             if (process.env.EXPO_OS === 'ios') {
               Haptics.selectionAsync();
             }
+            if (isPoppins && poppinsLive && poppinsLive.visual !== 'idle' && isFocused) {
+              void poppinsLive.stop();
+              return;
+            }
             const event = navigation.emit({
               type: 'tabPress',
               target: route.key,
@@ -198,6 +220,10 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           };
 
           const onLongPress = () => {
+            if (isPoppins) {
+              void poppinsLive?.startInPlace('tab');
+              return;
+            }
             navigation.emit({
               type: 'tabLongPress',
               target: route.key,
@@ -222,6 +248,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               onLongPress={onLongPress}
               style={[styles.tab, isPoppins && styles.poppinsTab]}>
               {isPoppins ? (
+                <Animated.View style={{ transform: [{ scale: poppinsPulse }] }}>
                 <LinearGradient
                   colors={isFocused ? [accentPrimary, accentSecondary] : [...poppinsIdleColors]}
                   start={{ x: 0, y: 0 }}
@@ -240,6 +267,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                     color={isFocused ? ink : accentPrimary}
                   />
                 </LinearGradient>
+                </Animated.View>
               ) : isRewards ? (
                 <View style={styles.iconColumn}>
                   <View

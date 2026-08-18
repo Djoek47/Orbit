@@ -47,7 +47,14 @@ for (const p of PRODUCTS) {
 }
 
 export function listBrowseCategories(): BrowseCategory[] {
-  return DOC.browseCategories;
+  const extra: BrowseCategory = {
+    id: 'clothing',
+    name: 'Clothing',
+    categoryId: 'clothing',
+    icon: '👕',
+  };
+  if (DOC.browseCategories.some((b) => b.id === 'clothing')) return DOC.browseCategories;
+  return [...DOC.browseCategories, extra];
 }
 
 export function getCatalogProduct(id: string): CatalogProduct | undefined {

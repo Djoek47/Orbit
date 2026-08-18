@@ -262,6 +262,7 @@ export type SavedPlaceKind =
   | 'family'
   | 'cafe'
   | 'pickup'
+  | 'clothing'
   | 'custom';
 
 export type SavedPlace = {
@@ -307,6 +308,7 @@ export type PreferredStore = {
   /** Distance in meters when resolved from nearby search. */
   distanceMeters?: number;
   source?: 'curated' | 'osm' | 'saved';
+  shopKind?: 'grocery' | 'clothing' | 'retail';
 };
 
 export type RewardOrigin = 'minted' | 'special-request';

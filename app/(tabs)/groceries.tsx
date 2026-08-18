@@ -9,7 +9,7 @@ import { GroceryCategoryGrid } from '@/components/orbit/grocery-category-grid';
 import { GrocerySearchField } from '@/components/orbit/grocery-search-field';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
-import { listGroceryCategories } from '@/lib/grocery/classify';
+import { isClothingCategory, listGroceryCategories } from '@/lib/grocery/classify';
 import type { CatalogProduct } from '@/lib/grocery/catalog';
 import { iconForGroceryName } from '@/lib/grocery/catalog';
 import {
@@ -48,6 +48,7 @@ export default function GroceriesScreen() {
   const [busy, setBusy] = useState(false);
   const [showBrowse, setShowBrowse] = useState(false);
   const [chip, setChip] = useState<'favorites' | 'buyAgain' | 'suggest' | null>(null);
+  const [lane, setLane] = useState<'grocery' | 'clothing'>('grocery');
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -57,10 +58,14 @@ export default function GroceriesScreen() {
 
   const listItems = useMemo(
     () =>
-      household.groceries.filter(
-        (item) => item.status === 'Missing' || item.status === 'Low' || item.status === 'Purchased'
-      ),
-    [household.groceries]
+      household.groceries.filter((item) => {
+        const onList =
+          item.status === 'Missing' || item.status === 'Low' || item.status === 'Purchased';
+        if (!onList) return false;
+        const clothing = isClothingCategory(item.categoryId ?? item.category);
+        return lane === 'clothing' ? clothing : !clothing;
+      }),
+    [household.groceries, lane]
   );
 
   const active = listItems.filter((i) => i.status !== 'Purchased');
@@ -202,12 +207,41 @@ export default function GroceriesScreen() {
       }}
       keyboardShouldPersistTaps="handled">
       <View style={styles.headerRow}>
-        <Text style={[styles.title, { color: c.text }]}>Groceries</Text>
+        <Text style={[styles.title, { color: c.text }]}>
+          {lane === 'clothing' ? 'Clothing' : 'Groceries'}
+        </Text>
         {isAdmin ? (
           <Pressable onPress={openMenu} hitSlop={8} accessibilityLabel="Grocery options">
             <MaterialIcons name="more-horiz" size={22} color={c.textMuted} />
           </Pressable>
         ) : null}
+      </View>
+
+      <View style={styles.chipRow}>
+        {(
+          [
+            { id: 'grocery' as const, label: 'Groceries' },
+            { id: 'clothing' as const, label: 'Clothing' },
+          ] as const
+        ).map((item) => {
+          const on = lane === item.id;
+          return (
+            <Pressable
+              key={item.id}
+              onPress={() => setLane(item.id)}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: on ? `${accentTheme.primary}22` : glass(0.05),
+                  borderColor: on ? `${accentTheme.primary}55` : glassBorder(0.1),
+                },
+              ]}>
+              <Text style={{ color: on ? accentTheme.primary : c.textMuted, fontWeight: '700' }}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {canAddGroceryWishlist ? (
@@ -218,7 +252,7 @@ export default function GroceriesScreen() {
           onPickProduct={(p) => void pickProduct(p)}
           inputRef={inputRef}
           disabled={busy}
-          placeholder="Search milk, shampoo…"
+          placeholder={lane === 'clothing' ? 'Jeans, Nike sneakers…' : 'Search milk, shampoo…'}
         />
       ) : null}
 
