@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
@@ -17,6 +17,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { isAvatarImageUri, MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
+import { tasksTabHref } from '@/lib/navigation/open-tasks-tab';
 import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { isTodayTask } from '@/lib/tasks/today';
 import type { AccentTheme } from '@/constants/accent-themes';
@@ -34,13 +35,6 @@ type TodayTasksCardProps = {
   streak: number;
   onAwardDailyStreak?: () => void;
 };
-
-function openTasksTab(memberName?: string) {
-  router.navigate({
-    pathname: '/(tabs)/tasks',
-    params: memberName ? { member: memberName } : { member: '' },
-  } as never);
-}
 
 function PersonChipEnter({ index, children }: { index: number; children: ReactNode }) {
   const opacity = useSharedValue(0);
@@ -203,20 +197,21 @@ export function TodayTasksCard({
                 return (
                   <PersonChipEnter key={row.member.id} index={index}>
                     {canFocusMembers ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Open ${row.member.name}'s tasks`}
-                        onPress={() => openTasksTab(row.member.name)}
-                        style={[
-                          styles.personChip,
-                          styles.personChipPressable,
-                          {
-                            borderColor: `${row.color}88`,
-                            backgroundColor: `${row.color}18`,
-                          },
-                        ]}>
-                        {chip}
-                      </Pressable>
+                      <Link href={tasksTabHref({ memberName: row.member.name }) as never} asChild>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Open ${row.member.name}'s tasks`}
+                          style={[
+                            styles.personChip,
+                            styles.personChipPressable,
+                            {
+                              borderColor: `${row.color}88`,
+                              backgroundColor: `${row.color}18`,
+                            },
+                          ]}>
+                          {chip}
+                        </Pressable>
+                      </Link>
                     ) : (
                       <View
                         style={[
@@ -273,17 +268,22 @@ export function TodayTasksCard({
             })
           )}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open tasks"
-            hitSlop={12}
-            onPress={() => openTasksTab()}
-            style={styles.linkBtn}>
-            <Text style={[styles.link, { color: accentTheme.primary, textAlign: 'center' }]}>
-              Open tasks
-            </Text>
-            <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
-          </Pressable>
+          <Link
+            href={tasksTabHref({
+              status: complete ? 'completed' : 'active',
+            }) as never}
+            asChild>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open tasks"
+              hitSlop={12}
+              style={styles.linkBtn}>
+              <Text style={[styles.link, { color: accentTheme.primary, textAlign: 'center' }]}>
+                Open tasks
+              </Text>
+              <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
+            </Pressable>
+          </Link>
         </GlassCard>
       </FireEdgeProgress>
     </View>
@@ -383,8 +383,9 @@ const styles = StyleSheet.create({
     gap: 2,
     justifyContent: 'center',
     marginBottom: 0,
-    marginTop: 0,
-    paddingVertical: 2,
+    marginTop: 4,
+    minHeight: 44,
+    paddingVertical: 10,
   },
   link: { fontSize: 13, fontWeight: '700' },
 });

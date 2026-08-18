@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -44,6 +44,7 @@ import {
   isExpiredVisibleInTab,
 } from '@/lib/tasks/expired-tab';
 import { isExpiredStatus } from '@/lib/tasks/recurring';
+import { isTasksStatus } from '@/lib/navigation/open-tasks-tab';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -514,7 +515,7 @@ function TaskSection({
 
 export default function TasksScreen() {
   const chromePad = useTabChromePaddingTop();
-  const params = useLocalSearchParams<{ member?: string | string[] }>();
+  const params = useLocalSearchParams<{ member?: string | string[]; status?: string | string[] }>();
   const { c, glass, glassBorder } = useOrbitColors();
   const {
     accentTheme,
@@ -551,6 +552,7 @@ export default function TasksScreen() {
     : undefined;
 
   const memberParam = Array.isArray(params.member) ? params.member[0] : params.member;
+  const statusParam = Array.isArray(params.status) ? params.status[0] : params.status;
 
   useEffect(() => {
     // undefined = opened via tab bar with no deep-link; leave local focus alone.
@@ -559,6 +561,14 @@ export default function TasksScreen() {
     setFocusMember(next || null);
     if (next) setFilter('all');
   }, [memberParam]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (statusParam === undefined) return;
+      const next = statusParam.trim();
+      if (isTasksStatus(next)) setStatusTab(next);
+    }, [statusParam])
+  );
 
   const clearFocusMember = () => {
     setFocusMember(null);

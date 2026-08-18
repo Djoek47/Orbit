@@ -65,11 +65,8 @@ export function FireEdgeProgress({
     <View onLayout={onLayout} style={[{ alignSelf: 'stretch', borderRadius: radius }, style]}>
       <View style={[styles.inner, { borderRadius: radius }]}>{children}</View>
       {box.width >= 8 && box.height >= 8 ? (
-        <Svg
-          width={box.width}
-          height={box.height}
-          style={styles.svg}
-          pointerEvents="none">
+        <View pointerEvents="none" style={styles.svg}>
+          <Svg width={box.width} height={box.height}>
           <Defs>
             <SvgGradient id="fireStroke" x1="0" y1="0" x2="1" y2="1">
               <Stop offset="0%" stopColor="#FB923C" stopOpacity="1" />
@@ -103,6 +100,7 @@ export function FireEdgeProgress({
             strokeLinecap="round"
           />
         </Svg>
+        </View>
       ) : null}
       {full ? <View style={[styles.fieryGlow, { borderRadius: radius }]} pointerEvents="none" /> : null}
     </View>
