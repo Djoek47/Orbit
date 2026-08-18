@@ -143,6 +143,7 @@ import {
   persistCustomHouseRulesRows,
   persistMockHouseholdSnapshot,
 } from '@/repositories/household-repository';
+import { mergeHydratedPlaces } from '@/lib/places/saved-places';
 import {
   authRepository,
   calendarRepository,
@@ -150,6 +151,7 @@ import {
   householdRepository,
   itineraryRepository,
   notificationsRepository,
+  placesRepository,
   poppinsRepository,
   rewardsRepository,
   smartHomeRepository,
@@ -3005,24 +3007,40 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     [appearanceMode, resolvedPaletteId]
   );
 
+  const persistSavedPlaces = async (
+    householdId: string | null | undefined,
+    places: SavedPlace[]
+  ) => {
+    await placesRepository.saveAll(householdId, places);
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot({ ...householdRef.current, savedPlaces: places });
+    }
+  };
+
   const upsertSavedPlace = (place: SavedPlace) => {
+    let nextPlaces: SavedPlace[] = [];
+    let householdId: string | null = null;
     setHousehold((current) => {
+      householdId = current.id;
       const places = current.savedPlaces ?? [];
       const exists = places.some((item) => item.id === place.id);
-      return {
-        ...current,
-        savedPlaces: exists
-          ? places.map((item) => (item.id === place.id ? place : item))
-          : [...places, place],
-      };
+      nextPlaces = exists
+        ? places.map((item) => (item.id === place.id ? place : item))
+        : [...places, place];
+      return { ...current, savedPlaces: nextPlaces };
     });
+    void persistSavedPlaces(householdId ?? householdRef.current.id, nextPlaces);
   };
 
   const removeSavedPlace = (placeId: string) => {
-    setHousehold((current) => ({
-      ...current,
-      savedPlaces: (current.savedPlaces ?? []).filter((item) => item.id !== placeId),
-    }));
+    let nextPlaces: SavedPlace[] = [];
+    let householdId: string | null = null;
+    setHousehold((current) => {
+      householdId = current.id;
+      nextPlaces = (current.savedPlaces ?? []).filter((item) => item.id !== placeId);
+      return { ...current, savedPlaces: nextPlaces };
+    });
+    void persistSavedPlaces(householdId ?? householdRef.current.id, nextPlaces);
   };
 
   const toggleItineraryFavorite = async (itineraryId: string) => {
@@ -4554,7 +4572,7 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     return baseHousehold;
   }
   const householdId = baseHousehold.id;
-  const [tasks, groceries, events, rewards, badges, itineraries, themeId, savedRooms, avatarOverrides] =
+  const [tasks, groceries, events, rewards, badges, itineraries, themeId, savedRooms, avatarOverrides, storedPlaces] =
     await Promise.all([
       taskRepository.getTasks(householdId),
       groceryRepository.getGroceries(householdId),
@@ -4565,6 +4583,7 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
       loadAccentThemeId(householdId),
       loadHouseholdRooms(householdId),
       loadMemberAvatarOverrides(householdId),
+      placesRepository.list(householdId),
     ]);
   const withAvatars = baseHousehold.members.map((member) =>
     avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
@@ -4584,6 +4603,7 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     rewards,
     tasks,
     itineraries: itineraries.length > 0 ? itineraries : baseHousehold.itineraries ?? [],
+    savedPlaces: mergeHydratedPlaces(storedPlaces, baseHousehold.savedPlaces),
     taskTemplates: baseHousehold.taskTemplates ?? [],
     notificationPrefs: baseHousehold.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS,
     preferredStoreId: baseHousehold.preferredStoreId ?? 'store-freshmart',

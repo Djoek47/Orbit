@@ -4,6 +4,7 @@ export { groceryRepository } from '@/repositories/grocery-repository';
 export { householdRepository } from '@/repositories/household-repository';
 export { itineraryRepository } from '@/repositories/itinerary-repository';
 export { notificationsRepository } from '@/repositories/notifications-repository';
+export { placesRepository } from '@/repositories/places-repository';
 export { poppinsRepository } from '@/repositories/poppins-repository';
 export { rewardsRepository } from '@/repositories/rewards-repository';
 export { smartHomeRepository } from '@/repositories/smart-home-repository';

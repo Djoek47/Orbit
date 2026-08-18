@@ -21,6 +21,7 @@ Use this when moving from Expo Go mock mode to live household sync + Nova GPT.
 8. `supabase/migrations/20260802120000_household_family_only.sql`
 9. `supabase/migrations/20260803010000_task_occurrence_uniqueness.sql` — occurrence/proof columns
 10. `supabase/migrations/20260804220000_household_reward_model.sql` — XP system (`reward_model`)
+11. Remaining dated files in `supabase/migrations/` in order (house rules, profile invites, **`20260818233000_household_saved_places.sql`** for My Places)
 
 Skip `20260802230000_rooms_to_domains.sql` (placeholder no-op).
 
