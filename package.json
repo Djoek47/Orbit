@@ -64,6 +64,7 @@
     "test:poppins-craft": "npx --yes tsx lib/ai/poppins-craft.test.ts",
     "test:iui": "npx --yes tsx lib/poppins/ui-orchestrator.test.ts",
     "test:inbox": "npx --yes tsx lib/poppins/notification-policy.test.ts",
+    "test:address": "npx --yes tsx lib/places/address-format.test.ts",
     "test:confirm-callback": "npx --yes tsx lib/auth/confirm-callback.test.ts",
     "test:auth-errors": "npx --yes tsx lib/auth/auth-errors.test.ts",
     "test:repo-utils": "npx --yes tsx lib/household/persisted-household-id.test.ts",

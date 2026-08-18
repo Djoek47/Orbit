@@ -9,6 +9,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PlaceMap } from '@/components/orbit/place-map';
 import { radius, space } from '@/constants/orbit-theme';
 import { openDirections } from '@/lib/maps/directions';
+import { formatUsCaAddress } from '@/lib/places/address-format';
 import { searchAddresses, type AddressSuggestion } from '@/lib/places/address-search';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -61,9 +62,18 @@ async function reverseGeocodeLabel(lat: number, lng: number): Promise<string> {
     const results = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
     const place = results[0];
     if (!place) return formatCoordsLabel(lat, lng);
+    const formatted = formatUsCaAddress({
+      countryCode: place.isoCountryCode,
+      houseNumber: place.streetNumber,
+      road: place.street,
+      city: place.city,
+      region: place.region,
+      postcode: place.postalCode,
+    });
+    if (formatted) return formatted;
     const line = [place.streetNumber, place.street].filter(Boolean).join(' ').trim();
     const cityBit = [place.city, place.region].filter(Boolean).join(', ');
-    return [line || place.name, cityBit].filter(Boolean).join(' · ') || formatCoordsLabel(lat, lng);
+    return [line || place.name, cityBit].filter(Boolean).join(', ') || formatCoordsLabel(lat, lng);
   } catch {
     return formatCoordsLabel(lat, lng);
   }
