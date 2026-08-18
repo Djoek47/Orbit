@@ -3,6 +3,9 @@
  * Run: npx --yes tsx lib/navigation/session-restart.test.ts
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { restartSignedOutSession, SESSION_RESTART_ROUTE } from './session-restart';
 import {
@@ -79,6 +82,25 @@ function main() {
     });
     assert.deepEqual(calls, ['replace:/welcome']);
     pass('restart falls back to /welcome if / replace throws');
+  }
+
+  {
+    const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
+    const tabs = readFileSync(join(root, 'app/(tabs)/_layout.tsx'), 'utf8');
+    const signedOut = tabs.split('if (!isSignedIn)')[1]?.split('if (!currentUser')[0] ?? '';
+    assert.ok(signedOut.includes('return null'), 'tabs must unmount when signed out');
+    assert.equal(
+      signedOut.includes('return <Redirect'),
+      false,
+      'tabs must not stack /welcome',
+    );
+    const layout = readFileSync(join(root, 'app/_layout.tsx'), 'utf8');
+    assert.ok(layout.includes('key={sessionEpoch}'), 'root must remount on session epoch');
+    const settings = readFileSync(join(root, 'app/settings.tsx'), 'utf8');
+    const del = readFileSync(join(root, 'app/delete-account.tsx'), 'utf8');
+    assert.ok(settings.includes('resetToGetStarted()'));
+    assert.ok(del.includes('resetToGetStarted()'));
+    pass('sign-out and delete remount instead of stacking welcome');
   }
 
   resetSessionEpochForTests();
