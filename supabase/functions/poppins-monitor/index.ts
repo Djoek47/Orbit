@@ -84,7 +84,7 @@ async function runToolLoop(
     {
       role: 'user',
       content:
-        'Run a Monitor pass. Use tools to assess overdue tasks, streaks, XP fairness, deals, calendar/holidays, and propose at most 2–4 concrete actions. Call list_holidays before any nudge. Prefer notifying over mutating. Then summarize what you did.',
+        'Run a Monitor pass. Use tools to assess overdue tasks, streaks, XP fairness, grocery gaps, calendar/holidays, and propose at most 2–4 concrete actions. Call list_holidays before any nudge. Prefer notifying over mutating. Do not invent stores, sale prices, or products that are not on the household list. Then summarize what you did.',
     },
   ];
 
@@ -188,11 +188,13 @@ async function persistEffects(
     }
 
     if (tool === 'scan_deals' && Array.isArray(result?.deals) && (result.deals as unknown[]).length) {
-      const deals = result.deals as Array<{ title: string; store: string; savings: number }>;
+      const deals = result.deals as Array<{ title: string; store?: string }>;
       const top = deals.slice(0, 3);
-      const body = top.map((d) => `${d.title} at ${d.store} (save $${d.savings})`).join(' · ');
-      await writeRecommendation(supabase, householdId, 'Worth grabbing on the next run', body, 'green');
-      actions.push({ kind: 'deals', label: `Found ${top.length} deals`, detail: body });
+      const body = top
+        .map((d) => (d.store ? `${d.title} (${d.store})` : d.title))
+        .join(' · ');
+      await writeRecommendation(supabase, householdId, 'Still on the list', body, 'green');
+      actions.push({ kind: 'deals', label: `Still needed: ${top.length}`, detail: body });
     }
 
     if (tool === 'list_overdue_tasks' && Array.isArray((result as { overdue?: unknown[] }).overdue)) {

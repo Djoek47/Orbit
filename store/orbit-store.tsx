@@ -1,4 +1,5 @@
 import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { dataMode } from '@/config/data-mode';
@@ -24,6 +25,16 @@ import {
 } from '@/lib/ai/majordomo-prefs';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { trackAnalytics } from '@/lib/analytics';
+import {
+  buildDailyInsightCandidates,
+  countAiInsightsToday,
+  DAILY_INSIGHT_CAP,
+  insightKindUsedToday,
+  isDismissedNotification,
+  isJunkMockInsight,
+  shouldSkipKindToday,
+} from '@/lib/ai/daily-insight';
+import { unreadInboxCount } from '@/lib/poppins/inbox-visibility';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { queueDailyDeadlineChange, settleDeadlineState } from '@/lib/rules/deadline';
 import { householdDueTimeLocal } from '@/lib/rules/household-view';
@@ -63,7 +74,6 @@ import {
   type ComposeDecision,
   type HouseholdFact,
 } from '@/lib/poppins/notification-policy';
-import { bucketNotification } from '@/lib/poppins/notification-buckets';
 import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissions';
 import { getV2Permissions } from '@/lib/permissions-v2';
 import { persistHouseholdScore } from '@/lib/momentum/score-writer';
@@ -236,6 +246,8 @@ type OrbitContextValue = {
   poppinsAskCount: number;
   poppinsConversation: PoppinsChatMessage[];
   poppinsBriefing: PoppinsBriefing;
+  /** Morning brief for the bell sheet; null after dismiss today. */
+  inboxBriefing: PoppinsBriefing | null;
   poppinsRecommendations: PoppinsRecommendation[];
   poppinsMonitorActions: PoppinsMonitorAction[];
   poppinsActivityFacts: HouseholdFact[];
@@ -355,6 +367,8 @@ type OrbitContextValue = {
   suggestedPoppinsQuestions: readonly string[];
   refreshNotifications: () => Promise<void>;
   markNotificationRead: (notificationId: string) => Promise<void>;
+  /** Persist swipe-away so the card does not come back on reopen. */
+  dismissInboxItem: (notificationId: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   pushNotification: (input: {
     title: string;
@@ -523,6 +537,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const glanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const glanceBannerMembersRef = useRef<Set<string>>(new Set());
   const notificationsRef = useRef<NotificationItem[]>([]);
+  const monitorKickRef = useRef<string | null>(null);
+  const [briefDismissedYmd, setBriefDismissedYmd] = useState<string | null>(null);
   notificationsRef.current = notifications;
 
   const currentMember = useMemo(() => {
@@ -620,22 +636,39 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     [household, poppinsAskCount, currentMember?.name]
   );
   const poppinsBriefing = useMemo(() => household.poppins, [household.poppins]);
+  const inboxBriefing = useMemo(() => {
+    const today = formatLocalDate(new Date());
+    if (briefDismissedYmd === today) return null;
+    return poppinsBriefing;
+  }, [briefDismissedYmd, poppinsBriefing]);
   const visibleNotifications = useMemo(
     () =>
-      notifications.filter((item) =>
-        isNotificationVisibleToMember(
-          item,
-          currentMember ? { id: currentMember.id, role: currentMember.role } : null
-        )
+      notifications.filter(
+        (item) =>
+          !isDismissedNotification(item) &&
+          !isJunkMockInsight(item) &&
+          isNotificationVisibleToMember(
+            item,
+            currentMember ? { id: currentMember.id, role: currentMember.role } : null
+          )
       ),
     [currentMember?.id, currentMember?.role, notifications]
   );
   const unreadNotificationCount = useMemo(
-    () =>
-      visibleNotifications.filter((item) => !item.isRead && bucketNotification(item) === 'critical')
-        .length,
+    () => unreadInboxCount(visibleNotifications),
     [visibleNotifications]
   );
+
+  useEffect(() => {
+    if (!household.id) {
+      setBriefDismissedYmd(null);
+      return;
+    }
+    const key = `orbit.poppins.brief-dismissed.${household.id}`;
+    void AsyncStorage.getItem(key).then((stored) => {
+      setBriefDismissedYmd(stored);
+    });
+  }, [household.id]);
 
   useEffect(() => {
     void syncAppBadge(unreadNotificationCount);
@@ -3026,17 +3059,65 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const existing = await notificationsRepository.list(household.id);
     for (const note of notifications) {
       const kind = String(note.data?.kind ?? '');
-      const already = existing.some(
-        (item) =>
-          item.category === 'ai' &&
-          !item.isRead &&
-          String(item.data?.kind ?? '') === kind &&
-          (kind !== 'task_overdue' || item.data?.taskId === note.data?.taskId)
-      );
-      if (already) continue;
+      if (
+        shouldSkipKindToday(existing, kind, {
+          taskId: note.data?.taskId,
+        })
+      ) {
+        continue;
+      }
       const created = await pushNotification(note);
       if (created) {
         existing.unshift(created);
+      }
+    }
+
+    if (!inQuiet) {
+      const remaining = Math.max(0, DAILY_INSIGHT_CAP - countAiInsightsToday(existing));
+      const candidates = buildDailyInsightCandidates(household)
+        .filter((row) => !insightKindUsedToday(existing, row.kind))
+        .slice(0, remaining);
+      for (const candidate of candidates) {
+        const fact: HouseholdFact = {
+          id: `insight-${candidate.kind}`,
+          at: Date.now(),
+          kind: 'unknown',
+          templateTitle: candidate.title,
+          templateBody: candidate.body,
+          extra: {
+            catalogNames: candidate.catalogNames,
+            storeName: candidate.storeName,
+            storeSource: candidate.storeSource,
+          },
+        };
+        const decision: ComposeDecision = {
+          decision: 'send',
+          urgency: 'insight',
+          title: candidate.title,
+          body: candidate.body,
+          cta: candidate.cta,
+          category: 'ai',
+          priority: 'low',
+          kind: candidate.kind,
+          factIds: [fact.id],
+          banner: false,
+        };
+        const item = await persistInboxRow(decision, {
+          data: {
+            kind: candidate.kind,
+            urgency: 'insight',
+            aiGenerated: true,
+            catalogNames: candidate.catalogNames,
+            storeName: candidate.storeName,
+            storeSource: candidate.storeSource,
+            audienceRoles: ['owner', 'admin', 'adult'],
+            cta: candidate.cta,
+          },
+        });
+        if (item) {
+          existing.unshift(item);
+          maybeRewriteWithLuna(item, [fact], decision);
+        }
       }
     }
 
@@ -3044,16 +3125,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return actions;
   }, [analyticsContext, household, metrics, poppinsRecommendations, pushNotification]);
 
-  // Initial Monitor Agent pass once household + metrics are ready (mock-first).
+  // One Monitor pass per household session — do not retrigger when Activity is empty.
   useEffect(() => {
-    if (isLoading || !household.id || poppinsMonitorActions.length > 0) {
-      return;
-    }
+    if (isLoading || !household.id) return;
+    if (monitorKickRef.current === household.id) return;
+    monitorKickRef.current = household.id;
     const timer = setTimeout(() => {
       void runPoppinsMonitor().catch((error) => console.warn('Poppins monitor pass skipped', error));
     }, 800);
     return () => clearTimeout(timer);
-  }, [household.id, isLoading, poppinsMonitorActions.length, runPoppinsMonitor]);
+  }, [household.id, isLoading, runPoppinsMonitor]);
 
   const executePoppinsToolCall = useCallback(
     async (
@@ -3250,6 +3331,34 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       current.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item))
     );
     await trackAnalytics('notification.read', { notificationId }, analyticsContext);
+  };
+
+  const dismissInboxItem = async (notificationId: string) => {
+    if (notificationId === 'morning-brief') {
+      if (!household.id) return;
+      const ymd = formatLocalDate(new Date());
+      await AsyncStorage.setItem(`orbit.poppins.brief-dismissed.${household.id}`, ymd);
+      setBriefDismissedYmd(ymd);
+      return;
+    }
+    const current = notificationsRef.current.find((item) => item.id === notificationId);
+    if (!current) return;
+    const data = { ...(current.data ?? {}), dismissed: true };
+    const updated = await notificationsRepository.updateCopy(
+      current.id,
+      current.title,
+      current.body,
+      data
+    );
+    await notificationsRepository.markRead(notificationId);
+    setNotifications((rows) =>
+      rows.map((item) =>
+        item.id === notificationId
+          ? { ...(updated ?? item), isRead: true, data }
+          : item
+      )
+    );
+    await trackAnalytics('notification.dismissed', { notificationId }, analyticsContext);
   };
 
   const markAllNotificationsRead = async () => {
@@ -4045,6 +4154,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       poppinsAskCount,
       poppinsConversation,
       poppinsBriefing,
+      inboxBriefing,
       poppinsRecommendations,
       poppinsMonitorActions,
       poppinsActivityFacts,
@@ -4123,6 +4233,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       suggestedPoppinsQuestions,
       refreshNotifications,
       markNotificationRead,
+      dismissInboxItem,
       markAllNotificationsRead,
       pushNotification,
       updateNotificationPrefs,
@@ -4201,6 +4312,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       poppinsAskCount,
       poppinsConversation,
       poppinsBriefing,
+      inboxBriefing,
       poppinsRecommendations,
       poppinsMonitorActions,
       poppinsActivityFacts,

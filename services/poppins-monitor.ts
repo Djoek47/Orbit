@@ -30,8 +30,8 @@ function isAway(member: { awayFrom?: string; awayTo?: string }, now = new Date()
 }
 
 /**
- * Mock Monitor Agent pass — Rev E §2 closed registry only.
- * Recommendations may still surface in Poppins UI; unlisted pushes are gone.
+ * Local Monitor pass — recommendations / Activity only.
+ * Admin insights are composed separately (≤3/day, catalog + real shops).
  */
 export function runMonitorPass(
   household: HouseholdSnapshot,
@@ -47,32 +47,6 @@ export function runMonitorPass(
     household.members.filter((m) => isAway(m, now)).map((m) => m.name.toLowerCase())
   );
 
-  // Streak at risk → N23 (admin)
-  if (prefs.tasks !== false) {
-    for (const member of household.members.filter((m) => m.status === 'active' && (m.streak ?? 0) >= 3)) {
-      if (awayNames.has(member.name.toLowerCase())) continue;
-      const completedToday = household.tasks.some(
-        (t) =>
-          t.status === 'Completed' &&
-          t.assignee === member.name &&
-          /completed today|today/i.test(t.due)
-      );
-      if (completedToday) continue;
-      const def = getNotification('N23');
-      notifications.push({
-        title: def.title,
-        body: formatNotificationBody(def.body, {
-          name: member.name,
-          streak: member.streak ?? 0,
-        }),
-        category: 'ai',
-        priority: 'medium',
-        data: { kind: 'streak_risk', notificationId: def.id, memberId: member.id },
-      });
-    }
-  }
-
-  // Fairness / deals / plan suggestions stay as in-app recommendations only (no push).
   if (prefs.xpFairness !== false && metrics.momentum < 40) {
     recommendations.push({
       id: `fairness-${now.toISOString()}`,
@@ -83,14 +57,19 @@ export function runMonitorPass(
   }
 
   if (prefs.deals !== false) {
-    const deals = scanDealsForHousehold({
-      groceryNames: household.groceries.map((g) => g.name),
+    const needs = scanDealsForHousehold({
+      groceryNames: household.groceries
+        .filter((g) => g.status === 'Missing' || g.status === 'Low')
+        .map((g) => g.name),
     }).slice(0, 3);
-    for (const deal of deals) {
+    if (needs.length) {
+      const listed = needs
+        .map((row) => (row.store ? `${row.title} (${row.store})` : row.title))
+        .join(' · ');
       recommendations.push({
-        id: `deal-${deal.id}`,
-        title: deal.title,
-        detail: `${deal.store} · save $${deal.savings}`,
+        id: `need-${needs.map((n) => n.id).join('-')}`,
+        title: 'Still on the list',
+        detail: listed,
         tone: 'green',
       });
     }
@@ -105,6 +84,30 @@ export function runMonitorPass(
     });
   }
 
+  if (prefs.tasks !== false) {
+    for (const member of household.members.filter((m) => m.status === 'active' && (m.streak ?? 0) >= 3)) {
+      if (awayNames.has(member.name.toLowerCase())) continue;
+      const completedToday = household.tasks.some(
+        (t) =>
+          t.status === 'Completed' &&
+          t.assignee === member.name &&
+          /completed today|today/i.test(t.due)
+      );
+      if (completedToday) continue;
+      const def = getNotification('N23');
+      recommendations.push({
+        id: `streak-${member.id}`,
+        title: def.title,
+        detail: formatNotificationBody(def.body, {
+          name: member.name,
+          streak: member.streak ?? 0,
+        }),
+        tone: 'amber',
+      });
+    }
+  }
+
   void actions;
+  void notifications;
   return { actions, recommendations, notifications };
 }

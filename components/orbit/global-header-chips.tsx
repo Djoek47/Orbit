@@ -31,11 +31,11 @@ export function GlobalHeaderChips() {
   const {
     accentTheme,
     household,
-    markNotificationRead,
+    dismissInboxItem,
     metrics,
     notifications,
     orbitPalette,
-    poppinsBriefing,
+    inboxBriefing,
     poppinsMonitorActions,
     poppinsActivityFacts,
     poppinsWeeklyBriefing,
@@ -146,12 +146,12 @@ export function GlobalHeaderChips() {
         notifications={notifications}
         monitorActions={monitorFeed}
         activityFacts={poppinsActivityFacts}
-        briefing={poppinsBriefing}
+        briefing={inboxBriefing}
         weekly={poppinsWeeklyBriefing}
         metrics={metrics}
         poppinsActive={monitorFeed.length > 0}
         taskCompletedFallback={household.tasks.filter((t) => t.status === 'Completed').length}
-        onDismissNotification={(id) => markNotificationRead(id)}
+        onDismissNotification={(id) => dismissInboxItem(id)}
       />
     </View>
   );

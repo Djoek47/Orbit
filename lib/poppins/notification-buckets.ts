@@ -1,3 +1,5 @@
+import { isSameLocalDay } from '@/lib/ai/daily-insight';
+import { isInboxSheetItem } from '@/lib/poppins/inbox-visibility';
 import { foldGlanceNotifications, laneForKind } from '@/lib/poppins/notification-policy';
 import { stripExampleCopy } from '@/lib/trophies/display-name';
 import type { PoppinsBriefing, NotificationItem } from '@/types/orbit';
@@ -120,7 +122,8 @@ export function bucketNotification(item: NotificationItem): NotifBucket {
 
 export function buildSheetNotifications(
   notifications: NotificationItem[],
-  briefing?: PoppinsBriefing | null
+  briefing?: PoppinsBriefing | null,
+  now = Date.now()
 ): SheetNotificationCard[] {
   const cards: SheetNotificationCard[] = [];
 
@@ -146,11 +149,19 @@ export function buildSheetNotifications(
   }
 
   const sorted = foldGlanceNotifications(
-    [...notifications].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    [...notifications]
+      .filter((item) => isInboxSheetItem(item, now))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   );
 
+  let insightCount = 0;
   for (const item of sorted.slice(0, 40)) {
     const bucket = bucketNotification(item);
+    if (bucket === 'insight') {
+      if (item.isRead || !isSameLocalDay(item.createdAt, now)) continue;
+      if (insightCount >= 3) continue;
+      insightCount += 1;
+    }
     cards.push({
       id: item.id,
       bucket,
@@ -168,5 +179,5 @@ export function buildSheetNotifications(
 }
 
 export function needsAttentionCount(cards: SheetNotificationCard[]) {
-  return cards.filter((c) => c.bucket === 'critical').length;
+  return cards.filter((c) => c.bucket !== 'done' && (!c.source || !c.source.isRead)).length;
 }

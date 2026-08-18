@@ -70,10 +70,10 @@ export default function PoppinsScreen() {
     askPoppins,
     household,
     currentMember,
-    markNotificationRead,
+    dismissInboxItem,
     metrics,
     notifications,
-    poppinsBriefing,
+    inboxBriefing,
     poppinsMonitorActions,
     poppinsActivityFacts,
     poppinsWeeklyBriefing,
@@ -644,12 +644,12 @@ export default function PoppinsScreen() {
         notifications={notifications}
         monitorActions={monitorFeed}
         activityFacts={poppinsActivityFacts}
-        briefing={poppinsBriefing}
+        briefing={inboxBriefing}
         weekly={poppinsWeeklyBriefing}
         metrics={metrics}
         poppinsActive={isActive || monitorFeed.length > 0}
         taskCompletedFallback={household.tasks.filter((t) => t.status === 'Completed').length}
-        onDismissNotification={(id) => markNotificationRead(id)}
+        onDismissNotification={(id) => dismissInboxItem(id)}
       />
     </KeyboardAvoidingView>
   );

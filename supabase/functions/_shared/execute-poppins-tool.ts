@@ -1,6 +1,6 @@
 /** Shared tool executor for chat + monitor + voice-tool edge functions. */
 
-import { isRiskyPoppinsTool, scanMockDeals } from './poppins-tools.ts';
+import { isRiskyPoppinsTool, scanGroceryNeeds } from './poppins-tools.ts';
 
 export type HouseholdSnapshotEdge = {
   tasks?: Array<Record<string, unknown>>;
@@ -180,7 +180,7 @@ export function executePoppinsTool(
         )
         .map((g) => String(g.name ?? ''));
       const categories = Array.isArray(args.categories) ? (args.categories as string[]) : undefined;
-      return { deals: scanMockDeals(groceryNames, categories) };
+      return { deals: scanGroceryNeeds(groceryNames, categories) };
     }
     case 'list_groceries':
     case 'get_grocery_gaps': {

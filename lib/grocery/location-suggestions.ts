@@ -1,31 +1,9 @@
-import * as Location from 'expo-location';
-
 import type { GroceryItem, StoreRecommendation } from '@/types/orbit';
-
-const STORE_TEMPLATES = [
-  {
-    id: 'store-freshmart',
-    title: 'FreshMart',
-    detail: 'Best for dairy, produce, and everyday staples',
-    etaMinutes: 18,
-  },
-  {
-    id: 'store-quickstop',
-    title: 'QuickStop',
-    detail: 'Closest for last-minute missing items',
-    etaMinutes: 8,
-  },
-  {
-    id: 'store-wholesale',
-    title: 'Orbit Wholesale',
-    detail: 'Better bulk pricing when you need several pantry items',
-    etaMinutes: 28,
-  },
-] as const;
+import { matchGroceryToCatalog } from '@/lib/ai/daily-insight';
 
 /**
- * Temporary: inlined here so Metro does not need `@/lib/grocery/recommendations`.
- * Re-split when the full grocery recommendations module is wired again.
+ * Honest list summary for grocery home — catalog names, no invented stores.
+ * Nearby OSM shops are attached later by shopping-mode / itinerary, not here.
  */
 export function buildStoreRecommendations(
   householdId: string | null | undefined,
@@ -47,37 +25,24 @@ export function buildStoreRecommendations(
     ];
   }
 
-  const produceCount = missing.filter((item) =>
-    /fruit|veg|produce|milk|egg|dairy|bread/i.test(`${item.name} ${item.category}`)
-  ).length;
-  const cleanupCount = missing.filter((item) =>
-    /clean|soap|paper|detergent|bathroom/i.test(`${item.name} ${item.category}`)
-  ).length;
+  const catalogNames = missing
+    .map((item) => {
+      const product = matchGroceryToCatalog(item.name);
+      return product ? [product.brand, product.name].filter(Boolean).join(' ') : item.name;
+    })
+    .slice(0, 3);
 
-  return STORE_TEMPLATES.map((store, index) => {
-    const share =
-      index === 0
-        ? Math.max(1, Math.ceil(missing.length * 0.55) + produceCount)
-        : index === 1
-          ? Math.max(1, Math.ceil(missing.length * 0.3))
-          : Math.max(1, missing.length - cleanupCount);
-
-    const sample = missing
-      .slice(0, Math.min(3, missing.length))
-      .map((item) => item.name)
-      .join(', ');
-
-    return {
-      id: `${id}-${store.id}`,
+  const extra = missing.length > 3 ? ` +${missing.length - 3} more` : '';
+  return [
+    {
+      id: `${id}-list`,
       householdId: id,
-      storeId: store.id,
-      title: store.title,
-      detail: store.detail,
-      description: `Suggested for: ${sample}${missing.length > 3 ? ` +${missing.length - 3} more` : ''}`,
-      etaMinutes: store.etaMinutes,
-      itemCount: Math.min(share, missing.length),
-    };
-  });
+      title: `${missing.length} item${missing.length === 1 ? '' : 's'} still needed`,
+      detail: catalogNames.join(', ') + extra,
+      description: catalogNames.join(', ') + extra,
+      itemCount: missing.length,
+    },
+  ];
 }
 
 export async function getLocationAwareGrocerySuggestions(
@@ -85,35 +50,5 @@ export async function getLocationAwareGrocerySuggestions(
   groceries: GroceryItem[]
 ): Promise<{ recommendations: StoreRecommendation[]; locationLabel: string | null }> {
   const recommendations = buildStoreRecommendations(householdId, groceries);
-
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  if (status !== 'granted') {
-    return {
-      recommendations,
-      locationLabel: null,
-    };
-  }
-
-  try {
-    const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-    const places = await Location.reverseGeocodeAsync({
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-    });
-    const place = places[0];
-    const locationLabel = [place?.city, place?.region].filter(Boolean).join(', ') || 'Near you';
-
-    const enriched = recommendations.map((item, index) => ({
-      ...item,
-      title: index === 0 ? `Stop near ${locationLabel}` : item.title,
-      detail: `${item.detail} Estimated drive from ${locationLabel}.`,
-      etaMinutes: item.etaMinutes ?? 12 + index * 5,
-    }));
-
-    return { recommendations: enriched, locationLabel };
-  } catch {
-    return { recommendations, locationLabel: null };
-  }
+  return { recommendations, locationLabel: null };
 }

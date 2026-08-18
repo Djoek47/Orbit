@@ -150,7 +150,8 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   },
   {
     name: 'scan_deals',
-    description: 'Scan deal catalog vs Missing/Low groceries or categories.',
+    description:
+      'Match Missing/Low grocery names to researched catalog products. Never invent sale prices or fake stores.',
     parameters: {
       type: 'object',
       properties: {
@@ -710,64 +711,18 @@ export function poppinsToolsAsRealtimeTools() {
   }));
 }
 
-export const MOCK_DEALS = [
-  {
-    id: 'deal-milk',
-    category: 'grocery',
-    title: 'Organic whole milk 1gal',
-    store: 'FreshMart',
-    typicalPrice: 5.49,
-    salePrice: 3.99,
-    keywords: ['milk', 'dairy'],
-  },
-  {
-    id: 'deal-berries',
-    category: 'grocery',
-    title: 'Blueberries 1 pint',
-    store: 'FreshMart',
-    typicalPrice: 4.5,
-    salePrice: 2.5,
-    keywords: ['blueberry', 'blueberries', 'produce'],
-  },
-  {
-    id: 'deal-sneakers',
-    category: 'shoes',
-    title: 'Kids running sneakers',
-    store: 'Stride Outlet',
-    typicalPrice: 64,
-    salePrice: 39,
-    keywords: ['shoes', 'sneakers', 'kids'],
-  },
-  {
-    id: 'deal-headphones',
-    category: 'electronics',
-    title: 'Wireless headphones',
-    store: 'ByteBarn',
-    typicalPrice: 129,
-    salePrice: 79,
-    keywords: ['headphones', 'electronics', 'audio'],
-  },
-  {
-    id: 'deal-desk',
-    category: 'furniture',
-    title: 'Compact study desk',
-    store: 'Nest & Form',
-    typicalPrice: 189,
-    salePrice: 129,
-    keywords: ['desk', 'furniture', 'study'],
-  },
-];
-
-export function scanMockDeals(groceryNames: string[], categories?: string[]) {
-  const names = groceryNames.map((n) => n.toLowerCase());
-  return MOCK_DEALS.filter((deal) => {
-    if (categories?.length && !categories.includes(deal.category)) return false;
-    if (deal.category === 'grocery') {
-      return deal.keywords.some((kw) => names.some((n) => n.includes(kw) || kw.includes(n)));
-    }
-    return true;
-  }).map((deal) => ({
-    ...deal,
-    savings: Math.round((deal.typicalPrice - deal.salePrice) * 100) / 100,
-  }));
+/** Household grocery names still needed — no invented stores or sale prices. */
+export function scanGroceryNeeds(groceryNames: string[], _categories?: string[]) {
+  return groceryNames
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .slice(0, 5)
+    .map((title) => ({
+      id: `need-${title.toLowerCase().replace(/\s+/g, '-')}`,
+      category: 'grocery',
+      title,
+      store: '',
+      keywords: [title.toLowerCase()],
+    }));
 }
+
