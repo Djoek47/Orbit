@@ -1,6 +1,6 @@
 # Remaining work
 
-**Single list.** Everything still to do after TestFlight **1.3.0 (38)**.  
+**Single list.** Everything still to do after TestFlight **1.3.0 (39)**.  
 **Branch:** `cursor/choremaxx-make-v13`  
 **Do not** start from v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules to the kid card.
 

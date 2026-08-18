@@ -2,9 +2,9 @@
 
 **Branch:** `cursor/choremaxx-make-v13`  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (38)** — uploaded to App Store Connect  
+**TestFlight:** **1.3.0 (39)** — uploaded to App Store Connect  
 **Settings tip:** `make-v13 · final`  
-**Content tip:** `7168b6c` — strict superset of v12 plus everything landed 18 Aug 2026.
+**Content tip:** `860a8d9` — v13 aggregate plus Open tasks, invite login, My Places persist, sign-out restart.
 
 This is the TestFlight / App Store cut. Nothing from today’s stacked `-5f8f` line is left behind.
 
