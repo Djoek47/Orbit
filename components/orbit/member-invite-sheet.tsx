@@ -19,6 +19,7 @@ import {
   revokePreviousInvites,
   type MemberInvite,
 } from '@/lib/household/member-invites';
+import { roleWrittenOnInvite } from '@/lib/household/admin-cap';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
 
@@ -27,6 +28,7 @@ type Props = {
   member: HouseholdMember | null;
   householdId: string;
   adminId: string;
+  actorIsOwner: boolean;
   invites: MemberInvite[];
   onChangeInvites: (next: MemberInvite[]) => void;
   onClose: () => void;
@@ -37,6 +39,7 @@ export function MemberInviteSheet({
   member,
   householdId,
   adminId,
+  actorIsOwner,
   invites,
   onChangeInvites,
   onClose,
@@ -53,6 +56,7 @@ export function MemberInviteSheet({
       memberId: member.id,
       createdBy: adminId,
       token,
+      role: roleWrittenOnInvite(actorIsOwner, member.role === 'child' ? 'sidekick' : 'admin'),
     });
     onChangeInvites([...revoked, next]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,6 +89,7 @@ export function MemberInviteSheet({
             memberId: member.id,
             createdBy: adminId,
             token,
+            role: roleWrittenOnInvite(actorIsOwner, member.role === 'child' ? 'sidekick' : 'admin'),
           });
           onChangeInvites([...revoked, next]);
         },

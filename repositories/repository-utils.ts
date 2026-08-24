@@ -31,4 +31,4 @@ export function mapDbError(scope: string, error: { message?: string } | null) {
   throw new Error(`${scope}: ${error.message ?? 'Unknown Supabase error'}`);
 }
 
-export { isPersistedHouseholdId } from '@/lib/household/persisted-household-id';
+export { isPersistedHouseholdId, assertHouseholdUuid, InvalidHouseholdIdError, liveHouseholdIdOrThrow } from '@/lib/household/persisted-household-id';

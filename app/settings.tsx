@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack } from 'expo-router';
+import { Redirect, router, Stack } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -175,6 +175,7 @@ export default function SettingsScreen() {
     updateMajordomoProfile,
     updateMemberMajordomoProfile,
     updateMemberCapabilities,
+    updateSidekickGroceryAdd,
     updatePreferredMapsApp,
     updateSharedDeviceLinks,
   } = useOrbit();
@@ -324,6 +325,10 @@ export default function SettingsScreen() {
     () => household.members.find((member) => member.id === personalizeMemberId) ?? null,
     [household.members, personalizeMemberId]
   );
+
+  if (currentMember?.role === 'child') {
+    return <Redirect href={'/(tabs)' as never} />;
+  }
 
   return (
     <>
@@ -513,7 +518,7 @@ export default function SettingsScreen() {
                 {(
                   [
                     ['allowRewardRedeem', 'Allow redeeming rewards', 'Members can spend XP on catalogue rewards'],
-                    ['allowSpecialRewardRequest', 'Allow reward requests', 'Kids can request something not in the catalogue yet'],
+                    ['allowSpecialRewardRequest', 'Allow reward suggestions', 'Kids can suggest something not in the catalogue yet'],
                     ['allowAllowance', 'Allow allowance', 'Shows Allowance in Rewards Center'],
                     ['allowGroceryAdd', 'Allow grocery list adds', 'Non-admins can add items'],
                     ['allowCalendarCreate', 'Allow calendar event creates', 'Simplified create when enabled'],
@@ -543,6 +548,29 @@ export default function SettingsScreen() {
                     </View>
                   );
                 })}
+                <View
+                  style={[
+                    styles.prefRow,
+                    {
+                      backgroundColor: glassFill(isDark),
+                      borderColor: glassBorder(0.08),
+                    },
+                  ]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.memberName, { color: orbitPalette.text }]}>
+                      Let sidekicks add to the grocery list
+                    </Text>
+                    <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
+                      Household-wide. Sidekicks can add items only — not check off or edit.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={household.sidekickGroceryAdd === true}
+                    onValueChange={(value) => updateSidekickGroceryAdd(value)}
+                    trackColor={{ false: glassBorder(0.1), true: accentTheme.primary }}
+                    thumbColor="#fff"
+                  />
+                </View>
               </SectionCard>
             ) : null}
             {permissions.canManageHousehold ? (

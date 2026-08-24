@@ -8,6 +8,7 @@ import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { typography } from '@/constants/orbit-theme';
+import { userFacingMessage } from '@/lib/auth/auth-errors';
 import { consumeInviteCode, peekInviteCode } from '@/lib/invite/invite-code-store';
 import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -38,7 +39,7 @@ export default function JoinHouseholdScreen() {
       await consumeInviteCode();
       router.replace((outcome === 'pending' ? '/pending-approval' : '/') as never);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Couldn’t join.');
+      setError(userFacingMessage(err, 'Couldn’t join. Check the code and try again.'));
     } finally {
       setBusy(false);
     }

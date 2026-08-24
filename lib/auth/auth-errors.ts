@@ -157,11 +157,123 @@ export function isAuthRateLimitMessage(message: string | null | undefined): bool
 }
 
 export function authIssue(code: AuthIssueCode, overrides?: Partial<AuthIssue>): AuthIssue {
-  return { ...AUTH_ISSUES[code], ...overrides, code };
+  const next = { ...AUTH_ISSUES[code], ...overrides, code };
+  if (!isSafeHumanMessage(next.message)) {
+    return { ...next, title: AUTH_ISSUES[code].title, message: AUTH_ISSUES[code].message };
+  }
+  return next;
 }
 
 export function throwAuthIssue(code: AuthIssueCode, overrides?: Partial<AuthIssue>): never {
   throw new AuthUserError(authIssue(code, overrides));
+}
+
+const DUMP_HINTS = [
+  'sb-gateway',
+  'sb-project-ref',
+  'x-sb-error-code',
+  'supabase.co',
+  'unexpected_failure',
+  'functionshttperror',
+  'auth/v1/',
+  'cf-ray',
+  'alt-svc',
+  'www-authenticate',
+  'cloudflare',
+  '"ok":false',
+  '"ok": false',
+  'statuscode',
+];
+
+/** True when a string is a provider dump / JSON blob, not a sentence for humans. */
+export function looksLikeTechnicalDump(text: string | null | undefined): boolean {
+  const t = (text ?? '').trim();
+  if (!t) return false;
+  if (t.length > 180) return true;
+  if (t.startsWith('{') || t.startsWith('[')) return true;
+  const lower = t.toLowerCase();
+  if (DUMP_HINTS.some((hint) => lower.includes(hint))) return true;
+  if (/[a-z]+repository\./i.test(t)) return true;
+  if (lower.includes('invalid input syntax')) return true;
+  if (lower.includes('provider (issuer')) return true;
+  return false;
+}
+
+export function isSafeHumanMessage(text: string | null | undefined): boolean {
+  const t = (text ?? '').trim();
+  if (!t || looksLikeTechnicalDump(t)) return false;
+  if (t.length > 160) return false;
+  if (/https?:\/\//i.test(t)) return false;
+  return true;
+}
+
+function rawAuthText(err: unknown): string {
+  if (err == null) return '';
+  if (typeof err === 'string') return err;
+  if (err instanceof Error) return err.message || '';
+  if (typeof err === 'object') {
+    const row = err as Record<string, unknown>;
+    if (typeof row.message === 'string' && row.message.trim()) return row.message;
+    if (typeof row.error_description === 'string' && row.error_description.trim()) {
+      return row.error_description;
+    }
+    if (typeof row.msg === 'string' && row.msg.trim()) return row.msg;
+    try {
+      return JSON.stringify(row);
+    } catch {
+      return '';
+    }
+  }
+  return String(err);
+}
+
+function tryParseJson(text: string): Record<string, unknown> | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function readStatus(err: unknown, text: string): number | undefined {
+  if (err && typeof err === 'object' && 'status' in err) {
+    const n = Number((err as { status?: number }).status);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  const parsed = tryParseJson(text);
+  if (parsed) {
+    const n = Number(parsed.status ?? parsed.statusCode);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  const match = text.match(/"status"\s*:\s*(\d{3})/i) || text.match(/"statusCode"\s*:\s*(\d{3})/i);
+  if (match?.[1]) return Number(match[1]);
+  return undefined;
+}
+
+function dumpLooksLikeSignup(text: string): boolean {
+  const lower = text.toLowerCase();
+  return lower.includes('/auth/v1/signup') || lower.includes('auth/v1/signup');
+}
+
+function cannedGeneric(text: string): AuthIssue {
+  if (dumpLooksLikeSignup(text)) {
+    return authIssue('generic', {
+      title: 'Couldn’t create account',
+      message: 'We couldn’t create your account. Please try again in a moment.',
+    });
+  }
+  return AUTH_ISSUES.generic;
+}
+
+function finalizeIssue(issue: AuthIssue): AuthIssue {
+  const canned = AUTH_ISSUES[issue.code] ?? AUTH_ISSUES.generic;
+  if (isSafeHumanMessage(issue.message)) return issue;
+  return { ...issue, title: canned.title, message: canned.message };
 }
 
 /** Map raw Supabase / Auth errors into short user-facing copy. */
@@ -173,9 +285,19 @@ export function throwMappedAuthError(error: { message?: string; status?: number 
   throw new AuthUserError(resolveAuthIssue(error));
 }
 
+/**
+ * Safe one-line copy for screens that are not the AuthErrorBanner.
+ * Never returns JSON, URLs, or provider dumps.
+ */
+export function userFacingMessage(err: unknown, fallback: string): string {
+  const issue = resolveAuthIssue(err);
+  if (issue.code === 'generic') return fallback;
+  return issue.message;
+}
+
 /** Resolve any thrown value into a displayable AuthIssue. */
 export function resolveAuthIssue(err: unknown): AuthIssue {
-  if (isAuthUserError(err)) return err.issue;
+  if (isAuthUserError(err)) return finalizeIssue(err.issue);
   if (isEmailNotConfirmedError(err)) {
     return authIssue('email_not_confirmed', { email: err.email });
   }
@@ -183,19 +305,17 @@ export function resolveAuthIssue(err: unknown): AuthIssue {
     return AUTH_ISSUES.apple_canceled;
   }
 
-  const message =
-    err && typeof err === 'object' && 'message' in err
-      ? String((err as { message?: string }).message ?? '')
-      : err instanceof Error
-        ? err.message
-        : '';
-  const status =
-    err && typeof err === 'object' && 'status' in err
-      ? Number((err as { status?: number }).status)
-      : undefined;
+  const message = rawAuthText(err);
+  const status = readStatus(err, message);
   const lower = message.toLowerCase();
+  const dump = looksLikeTechnicalDump(message);
 
   if (status === 429 || isAuthRateLimitMessage(message)) return AUTH_ISSUES.rate_limit;
+  if (status === 500 || status === 502 || status === 503 || lower.includes('unexpected_failure')) {
+    return cannedGeneric(message);
+  }
+  if (dump) return cannedGeneric(message);
+
   if (lower.includes('email not confirmed') || lower.includes('email_not_confirmed')) {
     return AUTH_ISSUES.email_not_confirmed;
   }
@@ -210,7 +330,9 @@ export function resolveAuthIssue(err: unknown): AuthIssue {
     return AUTH_ISSUES.email_taken;
   }
   if (lower.includes('password') && (lower.includes('weak') || lower.includes('least') || lower.includes('characters'))) {
-    return authIssue('weak_password', { message: message || AUTH_ISSUES.weak_password.message });
+    return finalizeIssue(
+      authIssue('weak_password', { message: message || AUTH_ISSUES.weak_password.message })
+    );
   }
   if (
     lower.includes('network') ||
@@ -226,7 +348,6 @@ export function resolveAuthIssue(err: unknown): AuthIssue {
   ) {
     return AUTH_ISSUES.apple_unavailable;
   }
-  // Strip repo prefixes / Postgres dumps if something leaked through.
   if (
     lower.startsWith('authrepository.') ||
     /[a-z]+repository\./i.test(message) ||
@@ -235,8 +356,8 @@ export function resolveAuthIssue(err: unknown): AuthIssue {
   ) {
     return AUTH_ISSUES.generic;
   }
-  if (message.trim()) {
+  if (isSafeHumanMessage(message)) {
     return authIssue('generic', { message: message.trim() });
   }
-  return AUTH_ISSUES.generic;
+  return cannedGeneric(message);
 }

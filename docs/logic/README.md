@@ -11,6 +11,7 @@
 | 4 | [Revision E](./choremaxx-revision-e-spec.md) | In force (slogans · notifications · history · vocabulary) |
 | 5 | [Revision F](./choremaxx-revision-f-spec.md) | In force (invites · Hold & Request · Expired tab · Assign rebuild) |
 | 6 | [House Rules renderer](./CURSOR-SPEC-house-rules.md) | JSON-driven; F adds R30–R33 |
+| 7 | [Revision G — Sidekick access](./CURSOR-SPEC-revision-G-sidekick-access.md) | In force (token role · two-admin cap · Hold & Request + homework) |
 
 Supporting:
 

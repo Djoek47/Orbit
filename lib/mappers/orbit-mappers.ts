@@ -195,6 +195,7 @@ export function mapGroceryRow(row: {
   location: keyof typeof groceryLocationMap;
   status: keyof typeof groceryStatusMap;
   note?: string | null;
+  requested_by?: string | null;
 }): GroceryItem {
   return {
     id: row.id,
@@ -204,6 +205,7 @@ export function mapGroceryRow(row: {
     location: groceryLocationMap[row.location] ?? 'Pantry',
     status: groceryStatusMap[row.status] ?? 'Missing',
     note: row.note ?? undefined,
+    requestedBy: row.requested_by ?? undefined,
   };
 }
 

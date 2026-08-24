@@ -19,14 +19,14 @@ import { useOrbit } from '@/store/orbit-store';
  */
 export default function SpecialRewardRequestScreen() {
   const insets = useSafeAreaInsets();
-  const { household, orbitPalette, permissions, requestSpecialReward } = useOrbit();
+  const { household, orbitPalette, permissions, requestSpecialReward, currentMember } = useOrbit();
   const { c } = useOrbitColors();
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
 
   const caps = resolveMemberCapabilities(household);
-  const allowed = permissions.canManageHousehold || caps.allowSpecialRewardRequest;
+  const allowed = permissions.canManageHousehold || caps.allowSpecialRewardRequest || currentMember?.role === 'child';
 
   const handleSubmit = async () => {
     if (!title.trim() || !allowed) return;
@@ -73,10 +73,10 @@ export default function SpecialRewardRequestScreen() {
       <View style={orbitScreen.header}>
         <ChoremaxxBadge />
         <Text style={[typography.footnote, { marginTop: 8, color: c.textMuted }]}>Rewards</Text>
-        <Text style={[typography.title1, { color: c.text }]}>Ask for a reward</Text>
+        <Text style={[typography.title1, { color: c.text }]}>Suggest a reward</Text>
         <Text style={[typography.body, { color: c.textSoft }]}>
-          Ask for something that is not in the catalogue yet. A grown-up decides. You can only have
-          one waiting request at a time.
+          Propose something that is not in the list yet. A grown-up approves or declines. Name and a
+          short note only.
         </Text>
       </View>
 
@@ -96,7 +96,7 @@ export default function SpecialRewardRequestScreen() {
       </GlassCard>
 
       <OrbitButton disabled={!title.trim() || busy} onPress={() => void handleSubmit()}>
-        {busy ? 'Sending…' : 'Send request'}
+        {busy ? 'Sending…' : 'Send suggestion'}
       </OrbitButton>
       <OrbitButton tone="secondary" onPress={() => router.back()}>
         Cancel

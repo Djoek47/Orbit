@@ -44,6 +44,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="join/[code]" options={{ headerShown: false }} />
           <Stack.Screen name="pending-approval" options={{ headerShown: false, title: 'Pending Approval' }} />
+          <Stack.Screen name="redeem-member-invite" options={{ headerShown: false, title: 'Join' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="welcome" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
@@ -132,7 +133,7 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="special-reward-request"
-            options={{ presentation: 'modal', headerShown: false, title: 'Ask for a reward' }}
+            options={{ presentation: 'modal', headerShown: false, title: 'Suggest a reward' }}
           />
           <Stack.Screen
             name="shopping-mode"

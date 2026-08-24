@@ -12,6 +12,14 @@ export function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+/** Revision G §4.g — Poppins is 403 for Sidekick. Hiding the tab is not the control. */
+export function requireNonSidekick(role: string | null | undefined) {
+  if (role === 'child' || role === 'sidekick') {
+    return jsonResponse({ error: 'Poppins is not available on this profile.' }, 403);
+  }
+  return null;
+}
+
 export async function requireActiveMember(
   authHeader: string | null,
   householdId: string | null | undefined
@@ -48,6 +56,11 @@ export async function requireActiveMember(
 
   if (memberError || !membership || membership.status !== 'active') {
     return { error: jsonResponse({ error: 'Active household membership required' }, 403) };
+  }
+
+  const sidekickBlock = requireNonSidekick(membership.role);
+  if (sidekickBlock) {
+    return { error: sidekickBlock };
   }
 
   return { user, membership, userClient };

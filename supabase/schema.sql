@@ -42,6 +42,7 @@ create table if not exists public.households (
   daily_deadline_pending text,
   daily_deadline_applies_on date,
   allowance_requests_enabled boolean not null default true,
+  sidekick_grocery_add boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -181,6 +182,7 @@ create table if not exists public.grocery_items (
   quantity text not null default '1 item',
   location text not null default 'pantry' check (location in ('fridge', 'freezer', 'pantry', 'bathroom', 'cleaning')),
   status text not null default 'missing' check (status in ('available', 'low', 'missing', 'purchased')),
+  requested_by text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -317,8 +319,35 @@ create table if not exists public.rewards (
   title text not null,
   cost integer not null default 0,
   approval_required boolean not null default true,
+  assigned_member_id uuid references public.household_members(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+create table if not exists public.member_invite_tokens (
+  id uuid primary key default gen_random_uuid(),
+  token text not null unique,
+  household_id uuid not null references public.households(id) on delete cascade,
+  member_id uuid not null references public.household_members(id) on delete cascade,
+  role text not null check (role in ('admin', 'sidekick')),
+  status text not null default 'active' check (status in ('active', 'redeemed', 'revoked', 'expired')),
+  created_by uuid references public.profiles(id) on delete set null,
+  expires_at timestamptz not null,
+  redeemed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.reward_proposals (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  member_id uuid not null references public.household_members(id) on delete cascade,
+  title text not null,
+  note text,
+  status text not null default 'open' check (status in ('open', 'approved', 'declined')),
+  created_at timestamptz not null default now(),
+  decided_at timestamptz,
+  decided_by uuid references public.profiles(id) on delete set null
 );
 
 create table if not exists public.reward_redemptions (
@@ -744,3 +773,9 @@ begin
   exception when others then null;
   end;
 end $$;
+
+-- Revision G RPCs (promote_member_to_admin, generate_member_invite,
+-- redeem_member_invite, submit_reward_proposal, decide_reward_proposal,
+-- enforce_admin_cap) live in
+-- supabase/migrations/20260820200000_revision_g_sidekick.sql
+

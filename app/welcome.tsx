@@ -57,6 +57,7 @@ import {
   authIssue,
   isAuthRateLimitError,
   resolveAuthIssue,
+  userFacingMessage,
   type AuthIssue,
 } from '@/lib/auth/auth-errors';
 import { isProfileNameComplete } from '@/lib/auth/display-name';
@@ -120,7 +121,11 @@ export default function WelcomeOnboardingScreen() {
   const ink = orbitPalette.ink;
   const bg = orbitPalette.background;
 
-  const inviteParams = useLocalSearchParams<{ invite?: string; kind?: string }>();
+  const inviteParams = useLocalSearchParams<{
+    invite?: string;
+    kind?: string;
+    memberInvite?: string;
+  }>();
   const inviteFromRoute = (() => {
     const raw = Array.isArray(inviteParams.invite) ? inviteParams.invite[0] : inviteParams.invite;
     if (!raw?.trim()) return null;
@@ -190,9 +195,27 @@ export default function WelcomeOnboardingScreen() {
     [selectedRole],
   );
 
+  // Per-member invite (Revision G): stash token and resume redeem after sign-in.
+  useEffect(() => {
+    const raw = Array.isArray(inviteParams.memberInvite)
+      ? inviteParams.memberInvite[0]
+      : inviteParams.memberInvite;
+    if (!raw?.trim()) return;
+    void import('@/lib/invite/member-invite-token-store').then(async ({ stashMemberInviteToken }) => {
+      await stashMemberInviteToken(raw);
+      if (isSignedIn) {
+        router.replace(`/redeem-member-invite?token=${encodeURIComponent(raw.trim())}` as never);
+      }
+    });
+  }, [inviteParams.memberInvite, isSignedIn]);
+
   // AirDrop / deep link: land on invited, kid join, or household join — never Get Started.
   useEffect(() => {
     let cancelled = false;
+    const memberInviteRaw = Array.isArray(inviteParams.memberInvite)
+      ? inviteParams.memberInvite[0]
+      : inviteParams.memberInvite;
+    if (memberInviteRaw?.trim()) return;
     void import('@/lib/invite/invite-code-store').then(async ({ peekInviteCode }) => {
       const fromParam =
         typeof inviteParams.invite === 'string' && inviteParams.invite.trim()
@@ -225,7 +248,7 @@ export default function WelcomeOnboardingScreen() {
     return () => {
       cancelled = true;
     };
-  }, [hasHousehold, inviteParams.invite, inviteParams.kind, isSignedIn]);
+  }, [hasHousehold, inviteParams.invite, inviteParams.kind, inviteParams.memberInvite, isSignedIn]);
 
   // Resume mid-flow for signed-in users; hydrate prefs.
   useEffect(() => {
@@ -406,6 +429,16 @@ export default function WelcomeOnboardingScreen() {
   }, []);
 
   if (!isLoading && isSignedIn && currentUser?.profileComplete && hasHousehold) {
+    const memberInviteRaw = Array.isArray(inviteParams.memberInvite)
+      ? inviteParams.memberInvite[0]
+      : inviteParams.memberInvite;
+    if (memberInviteRaw?.trim()) {
+      return (
+        <Redirect
+          href={`/redeem-member-invite?token=${encodeURIComponent(memberInviteRaw.trim())}` as never}
+        />
+      );
+    }
     return <Redirect href="/" />;
   }
 
@@ -572,7 +605,7 @@ export default function WelcomeOnboardingScreen() {
       }
       setStep('household');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save profile.');
+      setError(userFacingMessage(err, 'Could not save profile.'));
     } finally {
       setBusy(false);
     }
@@ -611,7 +644,7 @@ export default function WelcomeOnboardingScreen() {
       setSetupDraft(nextDraft);
       setStep('places');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Household setup failed.');
+      setError(userFacingMessage(err, 'Household setup failed.'));
     } finally {
       setBusy(false);
     }
@@ -711,7 +744,7 @@ export default function WelcomeOnboardingScreen() {
       await materializeDraft(setupDraft, true);
       setStep('ready');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create household.');
+      setError(userFacingMessage(err, 'Could not create household.'));
     } finally {
       setBusy(false);
     }
@@ -733,7 +766,7 @@ export default function WelcomeOnboardingScreen() {
       await materializeDraft(draft, false);
       setStep('ready');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save household.');
+      setError(userFacingMessage(err, 'Could not save household.'));
     } finally {
       setBusy(false);
     }
@@ -788,7 +821,7 @@ export default function WelcomeOnboardingScreen() {
       await redeemChildInvite(parsed);
       router.replace('/' as never);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not open kid invite.');
+      setError(userFacingMessage(err, 'Could not open kid invite.'));
     } finally {
       setBusy(false);
     }
@@ -824,7 +857,7 @@ export default function WelcomeOnboardingScreen() {
       const result = await connectSharedTabletProfiles(codes, tabletLabel);
       router.replace((result.needsProfilePick ? '/select-profile' : '/') as never);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not set up this tablet.');
+      setError(userFacingMessage(err, 'Could not set up this tablet.'));
     } finally {
       setBusy(false);
     }
@@ -853,7 +886,7 @@ export default function WelcomeOnboardingScreen() {
           : 'Kid profiles saved on your admin account. AirDrop each invite below.',
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create kid invites.');
+      setError(userFacingMessage(err, 'Could not create kid invites.'));
     } finally {
       setBusy(false);
     }

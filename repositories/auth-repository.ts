@@ -153,9 +153,7 @@ export const authRepository = {
         throwAuthIssue('email_taken');
       }
       if (msg.includes('password')) {
-        throwAuthIssue('weak_password', {
-          message: error.message || undefined,
-        });
+        throwAuthIssue('weak_password');
       }
       throwMappedAuthError(error);
     }

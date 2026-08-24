@@ -7,6 +7,9 @@ export type MemberInvite = {
   householdId: string;
   memberId: string;
   token: string;
+  /** Server-side token role. Never taken from the redeeming client. */
+  role: 'admin' | 'sidekick';
+  status: 'active' | 'redeemed' | 'revoked' | 'expired';
   createdAt: string;
   expiresAt: string;
   usedAt?: string;
@@ -92,6 +95,7 @@ export function createMemberInvite(input: {
   memberId: string;
   createdBy: string;
   token: string;
+  role?: 'admin' | 'sidekick';
   now?: Date;
 }): MemberInvite {
   const now = input.now ?? new Date();
@@ -101,6 +105,8 @@ export function createMemberInvite(input: {
     householdId: input.householdId,
     memberId: input.memberId,
     token: input.token,
+    role: input.role === 'admin' ? 'admin' : 'sidekick',
+    status: 'active',
     createdAt,
     expiresAt: inviteExpiresAt(createdAt),
     createdBy: input.createdBy,
@@ -140,5 +146,5 @@ export function alreadyOnDeviceMessage(memberName: string): string {
 }
 
 export function markInviteUsed(invite: MemberInvite, now = new Date()): MemberInvite {
-  return { ...invite, usedAt: now.toISOString() };
+  return { ...invite, usedAt: now.toISOString(), status: 'redeemed' };
 }

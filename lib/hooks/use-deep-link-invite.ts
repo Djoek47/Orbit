@@ -2,8 +2,9 @@ import { useEffect } from 'react';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 
-import { parseInviteCodeFromUrl } from '@/lib/invite/deep-links';
+import { parseInviteCodeFromUrl, parseMemberInviteTokenFromUrl } from '@/lib/invite/deep-links';
 import { stashInviteCode } from '@/lib/invite/invite-code-store';
+import { stashMemberInviteToken } from '@/lib/invite/member-invite-token-store';
 import {
   classifyInviteCode,
   inviteHref,
@@ -15,6 +16,13 @@ async function handleInviteUrl(
   url: string,
   session: { isSignedIn: boolean; isPendingMember: boolean; hasHousehold: boolean }
 ) {
+  const memberToken = parseMemberInviteTokenFromUrl(url);
+  if (memberToken) {
+    await stashMemberInviteToken(memberToken);
+    router.replace(`/redeem-member-invite?token=${encodeURIComponent(memberToken)}` as never);
+    return;
+  }
+
   const code = parseInviteCodeFromUrl(url);
   if (!code) {
     return;

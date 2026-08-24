@@ -681,6 +681,12 @@ export type HouseholdSnapshot = {
   /** What non-admin members may do (admin-controlled). */
   memberCapabilities?: MemberCapabilities;
   /**
+   * Revision G §7.2 — household-level, default OFF.
+   * // TODO(product): Should the grocery permission be per-member rather than household-level?
+   */
+  sidekickGroceryAdd?: boolean;
+  rewardProposals?: import('@/lib/rewards/reward-proposals').RewardProposal[];
+  /**
    * Household-scoped XP scoring (Meritocracy vs Equity + hygiene opt-in).
    * Defaults: weighted, hygieneRewarded false, hygieneXp 5.
    * `weighted` ≡ meritocracy, `flat` ≡ equity (§2 / §3.2).

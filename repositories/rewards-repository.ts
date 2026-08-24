@@ -13,7 +13,7 @@ import {
   mergeRewardOverlay,
   saveRewardFieldOverlay,
 } from '@/lib/rewards/reward-field-overlay';
-import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, mapDbError } from '@/repositories/repository-utils';
+import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, liveHouseholdIdOrThrow, mapDbError } from '@/repositories/repository-utils';
 import type {
   AllowanceGrant,
   Badge,
@@ -61,16 +61,14 @@ export const rewardsRepository = {
       return clone(mockRewardsState.filter((item) => !item.archived));
     }
 
-    if (!isPersistedHouseholdId(householdId)) {
-      return [];
-    }
+    const liveId = liveHouseholdIdOrThrow('rewardsRepository.getRewards', householdId, true);
 
     const supabase = getConfiguredSupabase('rewardsRepository.getRewards');
-    const { data, error } = await supabase.from('rewards').select('*').eq('household_id', householdId);
+    const { data, error } = await supabase.from('rewards').select('*').eq('household_id', liveId);
     mapDbError('rewardsRepository.getRewards', error);
 
     const mapped = (data ?? []).map((row) => mapRewardRow(row));
-    const overlay = await loadRewardFieldOverlay(householdId);
+    const overlay = await loadRewardFieldOverlay(liveId);
     return mergeRewardOverlay(mapped, overlay);
   },
 
@@ -79,12 +77,10 @@ export const rewardsRepository = {
       return clone(mockHousehold.badges);
     }
 
-    if (!isPersistedHouseholdId(householdId)) {
-      return [];
-    }
+    const liveId = liveHouseholdIdOrThrow('rewardsRepository.getBadges', householdId, true);
 
     const supabase = getConfiguredSupabase('rewardsRepository.getBadges');
-    const { data, error } = await supabase.from('badges').select('*').eq('household_id', householdId);
+    const { data, error } = await supabase.from('badges').select('*').eq('household_id', liveId);
     mapDbError('rewardsRepository.getBadges', error);
 
     return (data ?? []).map((row) => mapBadgeRow(row));
@@ -107,15 +103,13 @@ export const rewardsRepository = {
       return clone(mockRedemptionsState.filter((item) => item.householdId === id));
     }
 
-    if (!isPersistedHouseholdId(householdId)) {
-      return [];
-    }
+    const liveId = liveHouseholdIdOrThrow('rewardsRepository.getRedemptions', householdId, true);
 
     const supabase = getConfiguredSupabase('rewardsRepository.getRedemptions');
     const { data, error } = await supabase
       .from('reward_redemptions')
       .select('*')
-      .eq('household_id', householdId)
+      .eq('household_id', liveId)
       .order('requested_at', { ascending: false });
     mapDbError('rewardsRepository.getRedemptions', error);
 

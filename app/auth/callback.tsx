@@ -98,6 +98,13 @@ export default function AuthCallbackScreen() {
     setPhase('success');
     setMessage('Email confirmed');
     clearPendingSignup();
+    const memberHref = await import('@/lib/invite/member-invite-token-store').then((m) =>
+      m.memberInviteRedeemHref()
+    );
+    if (memberHref) {
+      router.replace(memberHref as never);
+      return;
+    }
     const joined = await applyStashedInvite();
     await new Promise((r) => setTimeout(r, SUCCESS_HOLD_MS));
     if (joined === 'pending') {
@@ -119,6 +126,13 @@ export default function AuthCallbackScreen() {
     await hydrateQuietly(session);
     setPhase('success');
     setMessage("You're in");
+    const memberHref = await import('@/lib/invite/member-invite-token-store').then((m) =>
+      m.memberInviteRedeemHref()
+    );
+    if (memberHref) {
+      router.replace(memberHref as never);
+      return;
+    }
     const joined = await applyStashedInvite();
     await new Promise((r) => setTimeout(r, SUCCESS_HOLD_MS));
     if (joined === 'pending') {

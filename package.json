@@ -74,6 +74,10 @@
     "test:confirm-callback": "npx --yes tsx lib/auth/confirm-callback.test.ts",
     "test:auth-errors": "npx --yes tsx lib/auth/auth-errors.test.ts",
     "test:repo-utils": "npx --yes tsx lib/household/persisted-household-id.test.ts",
+    "test:admin-cap": "npx --yes tsx lib/household/admin-cap.test.ts",
+    "test:redeem-invite": "npx --yes tsx lib/invites/redeem-member-invite.test.ts",
+    "test:sidekick": "npx --yes tsx lib/sidekick/permissions.test.ts",
+    "test:proposals": "npx --yes tsx lib/rewards/reward-proposals.test.ts",
     "test:webrtc-speaker": "npx --yes tsx lib/voice/webrtc-speaker-plugin.test.ts",
     "test:transcript-merge": "npx --yes tsx lib/voice/transcript-merge.test.ts",
     "smoke:poppins": "bash ./scripts/smoke-poppins-openai.sh"

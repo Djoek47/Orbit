@@ -5,7 +5,7 @@
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { isExpiredStatus } from '@/lib/tasks/recurring';
 import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
-import { isDueToday } from '@/lib/tasks/today';
+import { isCompletedToday, isDueToday, isDueTodayLabel } from '@/lib/tasks/today';
 import type { HouseholdTask } from '@/types/orbit';
 
 export type RewardRequestGate = {
@@ -43,8 +43,12 @@ function isOpenBlocking(task: HouseholdTask): boolean {
 }
 
 /**
- * A Sidekick may request a reward only when every qualifying task/homework
- * due today is complete. Vacuous day → allowed.
+ * A Sidekick may request a reward only when every assigned task and homework
+ * due today is complete (Revision G §7.3). Late Credit completions count.
+ * Expired items keep the gate closed.
+ *
+ * // TODO(product): Should a Sidekick with zero assigned items be able to ask
+ * for a reward? Default shipped: No — gate closed.
  */
 export function canRequestReward(
   memberName: string,
@@ -63,7 +67,15 @@ export function canRequestReward(
       const today = formatLocalDate(_now);
       return !day || day === today || isDueToday(t);
     }
-    return isDueToday(t) || (t.occurrenceDate === formatLocalDate(_now));
+    if (t.status === 'Completed') {
+      // Finished today still counts as the day's work (Late Credit included).
+      return (
+        isCompletedToday(t, _now) ||
+        isDueTodayLabel(t.due) ||
+        t.occurrenceDate === formatLocalDate(_now)
+      );
+    }
+    return isDueToday(t) || t.occurrenceDate === formatLocalDate(_now);
   });
 
   let tasksLeft = 0;
@@ -75,7 +87,7 @@ export function canRequestReward(
   }
 
   return {
-    allowed: tasksLeft === 0 && homeworkLeft === 0,
+    allowed: qualifying.length > 0 && tasksLeft === 0 && homeworkLeft === 0,
     remaining: { tasks: tasksLeft, homework: homeworkLeft },
   };
 }
@@ -104,7 +116,7 @@ export function blockedRequestCopy(gate: RewardRequestGate): {
   }
   return {
     title: 'Not just yet',
-    body: "Finish today's tasks and homework first.",
+    body: "Finish today's tasks and homework to ask for a reward.",
     lines,
     cta: "See what's left",
   };
