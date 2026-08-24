@@ -1,99 +1,79 @@
 # Remaining work
 
-**Single list.** Everything still to do after TestFlight **1.3.0 (40)** and the v14 Revision G aggregate.  
 **Branch:** `cursor/choremaxx-make-v14`  
+**TestFlight in ASC:** **1.3.0 (40)**  
 **Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules to the kid card.
 
-Shipped on this tip (do not redo): v13 aggregate (v12 stack, House Rules expiry, invite join, GPS/places/shopping, AIUIC), plus Revision G Sidekick access and login/signup dump sanitizer.
+Two lists only. Agents do not mix dashboard / Apple / device steps into coding work. No new TestFlight IPA until MYTIKAS says this You-do list is done.
 
 ---
 
-## 1. Poppins IUI rework (the product work)
+## You do (now)
 
-IUI is the key: spoken intent + a constrained scene graph in **one Activity viewport**, not a chatbot around the orb.
+On **TestFlight 40**, not Expo Go mock. Not `sarah@orbit.test`. Git tip may be ahead of 40 (Sidekick Get Started label, 23:59 expiry tick, Family iPad). Smoke 40 as shipped; those land on the **next** IPA after this pass.
 
-Beats: **SHOW → NARROW → UNFOLD → HOLD → SETTLE → CHAIN**. Silence is assent. Compound clauses become a playlist of scenes — they should not fall back into a transcript.
+1. **Apple processing** — wait until 1.3.0 (40) is Available in [TestFlight](https://appstoreconnect.apple.com/apps/6796850110/testflight/ios), then install 40 (39 is v13 without Revision G).
+2. **Supabase staging** — apply `supabase/migrations/20260820200000_revision_g_sidekick.sql` (Sidekick redeem / grocery / proposals). If Luna is still the old model id, set `OPENAI_POPPINS_CHAT_MODEL=gpt-5.6-luna` and redeploy Poppins functions (S3).
+3. **Auth email (W2)** — if the Send Email Hook is not on: enable it in the Supabase dashboard ([`resend-auth-email.md`](./resend-auth-email.md)). Signup on device → mail → confirm in app.
+4. **Device smoke (S2 + S4 + v14)** — real account:
+   - Assign a library task; Poppins Speak → IUI HOLD
+   - House Rules, 4 directions, Admin and Sidekick
+   - Places **MapView** on the IPA (Expo Go is the fallback)
+   - Homework roles, expired tasks
+   - Delete account → Get Started
+   - Sidekick invite: instant Home, tabs Home / Tasks / Plan / Ranks, no Poppins
+   - Hold & Request closed on an empty day
+   - Grocery-add toggle default off
+   - Failed signup shows short copy, not JSON
+5. **IAP on the binary (W5)** — ASC → Choremaxx → Subscriptions: monthly `app.choremaxx.household.premium.monthly` is already live; attach subscription products to this binary for Review. Yearly stays Settings-only ([`asc-iap-setup.md`](./asc-iap-setup.md)).
+6. **Demo account** — Supabase Auth user, auto-confirm, one staged household (admin + Sidekick). Put email/password in Review notes.
+7. **App Review (S5)** — after smoke: listing copy, privacy/terms URLs, demo account, submit. Draft: [`app-store-checklist.md`](./app-store-checklist.md). Legal URLs are still `choremaxx.vercel.app` until the website cutover.
+8. **Optional website** — when `Choremaxx-Website` push works: `/auth/callback` bridge, `/join/[code]`, AASA, families-only copy. Not required to install 40.
 
-Do not start until MYTIKAS says go. Detail: [`poppins-rework.md`](./poppins-rework.md), method: [`iui-method-note.md`](./iui-method-note.md).
-
-| # | Item | Notes |
-|---|------|--------|
-| P1 | **Memory / continuity** | Do not start brand new every Speak. Persist household + conversation across hangup, background, and the next Speak (who we are, what we just assigned, open HOLD, last beats). WebRTC `end()` currently wipes the realtime session (`lib/voice/poppins-voice-session.ts`). |
-| P2 | **Stage as the primary surface** | IUI Activity is what you look at while you speak. Captions become a thin live line, or go away. Stop treating YOU/POPPINS chat as the product. |
-| P3 | **Beats / HOLD / barge-in** | Grammar must be reliable on TestFlight voice. Barge-in rewinds a beat, not the whole act. |
-| P4 | **Strip mixed leftover** | Chat-style stacked transcripts, duplicate rails, hourglass-as-log, Assign/Create forms competing with HOLD-commit. |
-| P5 | **Settings / billing / account** | Coach-navigate only; never HOLD-commit. |
-
-Code today: `lib/poppins/ui-scenes.ts`, `ui-tool-map.ts`, `ui-orchestrator.ts`, `components/orbit/poppins-stage.tsx`.
-
----
-
-## 2. v13 / v14 cut + App Store
-
-v13 cut **done:** `cursor/choremaxx-make-v13` @ 1.3.0 (`make-v13 · final`), TestFlight **1.3.0 (39)**.  
-v14 cut **done:** `cursor/choremaxx-make-v14` = v13 + Revision G (`make-v14 · revision-g`), TestFlight **1.3.0 (40)**. Continue smoke and Review from v14.
-
-| # | Item | Notes |
-|---|------|--------|
-| S1 | Cut v13 | **Done.** Branch off today’s aggregate. `app.json` **1.3.0**, `BUILD_INFO` `make-v13 · final`. |
-| S1b | Cut v14 | **Done.** `cursor/choremaxx-make-v14`. Settings tip `make-v14 · revision-g`. Apply `20260820200000_revision_g_sidekick.sql` on staging before Sidekick smoke. |
-| S2 | Device smoke | Real Supabase account (not `sarah@orbit.test`). Assign a library task. Poppins Speak → IUI HOLD. House Rules 4 directions × Admin/Sidekick. Places map. Homework roles. Expired tasks. Delete account → Get Started. |
-| S3 | Luna edge model | Redeploy with `OPENAI_POPPINS_CHAT_MODEL=gpt-5.6-luna` if staging is still on the old id. |
-| S4 | MapView on IPA | Full `MapView` needs the TestFlight binary; Expo Go uses the fallback. Verify on device. |
-| S5 | App Review (B7) | After S2 + live legal URLs + demo account. Draft: [`app-store-checklist.md`](./app-store-checklist.md). |
-| S6 | Key rotation | After B7: rotate Resend, OpenAI, `SEND_EMAIL_HOOK_SECRET`; confirm Auth Hook + Poppins still work. |
+Cursor environment: add `EXPO_TOKEN` as a **dashboard secret** (do not paste in chat) so the next Cloud Agent can ship without re-login.
 
 ---
 
-## 3. Website, email, billing (ops leftovers)
+## Parked (leave aside)
 
-| # | Item | Notes |
-|---|------|--------|
-| W1 | **A1 — HTTPS email-confirm bridge** | Site `/auth/callback` must forward `token_hash` into `choremaxx://auth/callback`. Brief: [`website-agent-email-confirmation.md`](./website-agent-email-confirmation.md). Live host `https://www.choremaxx.app`. Website repo push was 403 last attempt. |
-| W2 | **A2 — Auth Send Email Hook smoke** | Enable hook in Supabase dashboard if not live; signup → Resend → confirm in app. [`resend-auth-email.md`](./resend-auth-email.md). |
-| W3 | Join + AASA | `/join/[code]` bridge + Apple AASA for Universal Links. [`website-agent-handoff.md`](./website-agent-handoff.md). |
-| W4 | Site copy / CTAs (B4) | Families only, Poppins not Nova, IAP $4.99 / $48. Remove roommate promises. |
-| W5 | **A3 — ASC IAP on the binary** | Monthly live in ASC; attach products to the next review binary. Yearly CTA still Settings-only. StoreKit needs native IPA (`expo-iap`). [`asc-iap-setup.md`](./asc-iap-setup.md). |
-| W6 | Billing emails (B5) | After real purchase events: started / receipt / failed / cancelled / trial ending. Templates exist in `emails/`; not dispatched. |
-| W7 | Server receipt verify | App Store Server API — not in app yet. |
-| W8 | Transactional emails not wired | Welcome, household invite, task assigned/completed, weekly summary, security alert. Templates only — [`email-templates.md`](./email-templates.md). |
+### Poppins IUI — wait for MYTIKAS to say go
 
----
+Detail: [`poppins-rework.md`](./poppins-rework.md), method: [`iui-method-note.md`](./iui-method-note.md). Code today: `lib/poppins/ui-scenes.ts`, `ui-tool-map.ts`, `ui-orchestrator.ts`, `components/orbit/poppins-stage.tsx`.
 
-## 4. Product polish still open (not blocking Review)
+Beats: SHOW → NARROW → UNFOLD → HOLD → SETTLE → CHAIN.
 
-From Rev F / weekend ship — do after Poppins IUI unless a bug blocks testers.
+- **P1** Memory / continuity — WebRTC `end()` currently wipes the realtime session (`lib/voice/poppins-voice-session.ts`)
+- **P2** Stage as the primary surface — captions thin or gone; stop treating chat as the product
+- **P3** Beats / HOLD / barge-in — reliable on TestFlight voice
+- **P4** Strip mixed leftover — stacked transcripts, duplicate rails, Assign/Create vs HOLD-commit
+- **P5** Settings / billing / account — coach-navigate only; never HOLD-commit
 
-| # | Item |
-|---|------|
-| F1 | Contrast audit (Rev F §7) |
-| F2 | Add-member 4-step wizard (Rev F §8) |
-| F3 | Invite RLS (Rev F §3.6) |
-| F4 | PersistentScrollView sweep on remaining lists |
-| F5 | Create Task Quick presets cleanup on the legacy screen |
-| F6 | Allowance period-close ledger write |
-| F7 | Trophy **Part 1** definitions (engine is example-seed only — do not invent 100 names) |
-| F8 | Master Brief **Q2** — monthly Rescue token vs lifetime free-first (already shipping monthly; confirm) |
+### After IUI (not Review-blocking)
 
----
+- **F1** Contrast audit (Rev F §7)
+- **F2** Add-member 4-step wizard (Rev F §8)
+- **F3** Invite RLS (Rev F §3.6 — UI gated; server RLS still needs the invite-table migration on Supabase)
+- **F4** PersistentScrollView sweep
+- **F5** Create Task Quick presets on the legacy screen
+- **F6** Allowance period-close ledger write
+- **F7** Trophy Part 1 names (engine is example-seed only — do not invent 100)
+- **F8** Master Brief Q2 — monthly Rescue vs lifetime free-first (already shipping monthly; confirm)
 
-## 5. Later (not this app-store pass)
+### Needs live ops / other repo / keys (cannot finish from Orbit alone)
 
-| Surface | What |
-|---------|------|
-| Apple Watch | Complication + today’s tasks / groceries; complete / purchased. After phone ships. [`ecosystem/watch-vision-roadmap.md`](./ecosystem/watch-vision-roadmap.md) |
-| iPad | Wider Home / analytics breakpoints; Stage Manager. |
-| Vision Pro | Windowed Home + Poppins later. Do not block iPhone. |
-| Smart home | Matter / Home Assistant adapters as edge functions. |
-| Design-system rebuild | `docs/design-system/10-cursor-tasks.md` (iOS 27 / Liquid Glass batches). Largely superseded by Make v7–v12 shipping UI — do not treat as the v13 checklist. |
+- **W1 / W3 / W4** — `Djoek47/Choremaxx-Website` (last push 403). Briefs: [`website-agent-email-confirmation.md`](./website-agent-email-confirmation.md), [`website-agent-handoff.md`](./website-agent-handoff.md)
+- **W6 / W8** — templates in `emails/` exist; dispatch needs Resend + Auth Hook live. [`email-templates.md`](./email-templates.md)
+- **W7** — App Store Server API (needs Apple keys)
+- **S6** — key rotation **after** App Review (Resend, OpenAI, `SEND_EMAIL_HOOK_SECRET`)
+- Watch / iPad / Vision / smart home / design-system batches ([`ecosystem/watch-vision-roadmap.md`](./ecosystem/watch-vision-roadmap.md), [`design-system/10-cursor-tasks.md`](./design-system/10-cursor-tasks.md))
 
 ---
 
-## Do not redo
+## Already done
 
-- v12 aggregate (IUI, Luna, Assign/Event, Poppins quality, House Rules HTML Admin/Sidekick)
-- Assign `difficulty` default, live captions, delete landing, email-confirm UUID, used-link resume
-- v11 Divine Voice + auth + v10 billing / grocery / Rev F gates
-- Re-porting Figma Make
-- Collapsing House Rules to the kid card
-- Welcome / sign-in splash rewrites unless explicitly asked
+- **S1** v13 cut — `cursor/choremaxx-make-v13` @ 1.3.0 (`make-v13 · final`), TestFlight **1.3.0 (39)**
+- **S1b** v14 cut — `cursor/choremaxx-make-v14` = v13 + Revision G (`make-v14 · revision-g`), TestFlight **1.3.0 (40)**
+- Revision G Sidekick access (storage role stays `child`)
+- Login/signup dump sanitizer
+
+Do not redo: v12 aggregate, Assign `difficulty` default, live captions, delete landing, email-confirm UUID, used-link resume, v11 Divine Voice + auth, v10 billing / grocery / Rev F gates, re-porting Figma Make, collapsing House Rules to the kid card, welcome / sign-in splash rewrites unless explicitly asked.
