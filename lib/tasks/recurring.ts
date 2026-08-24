@@ -146,15 +146,27 @@ export function ensureOccurrencesForDay(
 }
 
 /**
- * At day rollover: pending/late from previous day → Expired (Rev F §5).
+ * At day rollover: pending/late from previous day → Expired (Rev F §5 / DEAD-04).
+ * Uses House Rules expiryTime (23:59). Recess assignees are skipped (STRK-04).
  * Never touches completed (including unreviewed).
  */
 export function rolloverMissedOccurrences(
   tasks: HouseholdTask[],
   previousDateKey: string,
-  now = new Date()
+  now = new Date(),
+  options?: {
+    expiryHm?: string;
+    skipAssigneeNames?: string[];
+  }
 ): HouseholdTask[] {
   const expiredAt = now.toISOString();
+  const expiryHm = options?.expiryHm ?? '23:59';
+  const skip = new Set(options?.skipAssigneeNames ?? []);
+  const { hours, minutes } = parseLocalHm(expiryHm);
+  const [y, m, d] = previousDateKey.split('-').map(Number);
+  const boundary = new Date(y, (m ?? 1) - 1, d ?? 1, hours, minutes, 59, 999);
+  if (now.getTime() <= boundary.getTime()) return tasks;
+
   return tasks.map((task) => {
     if (
       task.status === 'Completed' ||
@@ -166,7 +178,6 @@ export function rolloverMissedOccurrences(
     if (task.occurrenceDate && task.occurrenceDate !== previousDateKey) {
       return task;
     }
-    // Date-keyed or dueAt before today
     const due = task.dueAt ? new Date(task.dueAt) : null;
     const belongsToPrevious =
       task.occurrenceDate === previousDateKey ||
@@ -174,7 +185,10 @@ export function rolloverMissedOccurrences(
       /yesterday|overdue/i.test(task.due);
 
     if (!belongsToPrevious) return task;
-    if (due && due.getTime() > now.getTime()) return task;
+    const names = getTaskAssignees(task);
+    if (names.length > 0 && names.every((name) => skip.has(name))) {
+      return task;
+    }
 
     return { ...task, status: 'Expired' as const, expiredAt: task.expiredAt ?? expiredAt };
   });

@@ -1641,7 +1641,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const day = new Date(now);
       day.setDate(day.getDate() - offset);
       const dayKey = formatLocalDate(day);
-      nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now);
+      nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now, {
+        expiryHm,
+        skipAssigneeNames: recessSkipAssignees(live, dayKey),
+      });
       const dayDrafts = ensureOccurrencesForDay(
         nextTasks,
         day,
@@ -1677,7 +1680,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         nextTasks = [row, ...nextTasks];
       }
       // After creating past-day open rows, mark them missed if still pending.
-      nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now);
+      nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now, {
+        expiryHm,
+        skipAssigneeNames: recessSkipAssignees(live, dayKey),
+      });
     }
 
     const todayKey = formatLocalDate(now);
@@ -1757,6 +1763,36 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
     return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const tickExpiry = () => {
+      const live = householdRef.current;
+      if (!live.id) return;
+      const now = new Date();
+      const expiryHm = getHouseRulesDoc().constants.expiryTime;
+      const nextTasks = expireOpenTasksAtBoundary(live.tasks, now, {
+        expiryHm,
+        assigneeOnRecess: (name, dateKey) =>
+          live.members.some(
+            (member) =>
+              member.name === name && isOnRecess(live.recessPeriods ?? [], member.id, dateKey)
+          ),
+      });
+      const changed = nextTasks.filter((task) => {
+        const prev = live.tasks.find((row) => row.id === task.id);
+        return prev && prev.status !== task.status;
+      });
+      if (changed.length === 0) return;
+      void (async () => {
+        for (const task of changed) {
+          await taskRepository.updateTask(task);
+        }
+        setHousehold((current) => ({ ...current, tasks: nextTasks }));
+      })();
+    };
+    const id = setInterval(tickExpiry, 30_000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -3578,7 +3614,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const member = household.members.find((m) => m.id === memberId);
     if (!member) return;
 
-    // Shared tablet is a device shell — land on a linked account (Josh/Todd) so XP/redeem work.
+    // Shared iPad is a device shell — land on a linked account so XP/redeem work.
     let target = member;
     if (member.role === 'shared-device') {
       const linked = (member.sharedWithMemberIds ?? [])
@@ -4470,7 +4506,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     );
     const session = await setupSharedDeviceSession({
       profileMemberIds: resolved.map((member) => member.id),
-      deviceLabel: deviceLabel?.trim() || 'Shared tablet',
+      deviceLabel: deviceLabel?.trim() || 'Family iPad',
     });
 
     const needsProfilePick = resolved.length > 1;

@@ -206,6 +206,14 @@ function upsertOccurrence(
   });
   assert.equal(justAfter[0].status, 'Expired', 'DEAD-04 expires after 23:59');
 
+  const recessRollover = rolloverMissedOccurrences(
+    [pending],
+    '2026-08-18',
+    new Date(2026, 7, 19, 8, 0, 0),
+    { expiryHm: '23:59', skipAssigneeNames: ['Maya'] }
+  );
+  assert.equal(recessRollover[0].status, 'Pending', 'rollover skips recess like DEAD-04');
+
   const recessHeld = expireOpenTasksAtBoundary([pending], new Date(2026, 7, 19, 8, 0, 0), {
     expiryHm: '23:59',
     assigneeOnRecess: (name, dateKey) => name === 'Maya' && dateKey === '2026-08-18',
