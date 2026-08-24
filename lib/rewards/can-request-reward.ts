@@ -5,7 +5,7 @@
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { isExpiredStatus } from '@/lib/tasks/recurring';
 import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
-import { isDueToday } from '@/lib/tasks/today';
+import { isCompletedToday, isDueToday, isDueTodayLabel } from '@/lib/tasks/today';
 import type { HouseholdTask } from '@/types/orbit';
 
 export type RewardRequestGate = {
@@ -67,7 +67,15 @@ export function canRequestReward(
       const today = formatLocalDate(_now);
       return !day || day === today || isDueToday(t);
     }
-    return isDueToday(t) || (t.occurrenceDate === formatLocalDate(_now));
+    if (t.status === 'Completed') {
+      // Finished today still counts as the day's work (Late Credit included).
+      return (
+        isCompletedToday(t, _now) ||
+        isDueTodayLabel(t.due) ||
+        t.occurrenceDate === formatLocalDate(_now)
+      );
+    }
+    return isDueToday(t) || t.occurrenceDate === formatLocalDate(_now);
   });
 
   let tasksLeft = 0;
