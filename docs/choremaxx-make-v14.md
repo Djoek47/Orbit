@@ -32,7 +32,7 @@ This is the next shipping cut after v13. Nothing from Revision G on `cursor/revi
 - Propose = quiet “Suggest a reward” (name + optional note). One open proposal + **7-day** cooldown. Approve mints catalogue reward, no XP write.
 - Two-admin cap counted **inside the same transaction as the write** (`SELECT … FOR UPDATE`).
 
-Apply `supabase/migrations/20260820200000_revision_g_sidekick.sql` on the TestFlight / staging Supabase project before exercising Sidekick redeem, grocery add, or proposals.
+Staging has `supabase/migrations/20260820200000_revision_g_sidekick.sql` applied (MYTIKAS, 2026-08-24). Sidekick redeem, grocery add, and proposals can be exercised on TestFlight 40.
 
 ---
 
