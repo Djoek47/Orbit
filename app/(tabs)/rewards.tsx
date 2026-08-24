@@ -150,6 +150,8 @@ export default function RewardsScreen() {
     currentMember,
     requestAllowance,
     rewardCapabilities,
+    approveRewardProposal,
+    declineRewardProposal,
   } = useOrbit();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
   const caps = resolveMemberCapabilities(household);
@@ -157,7 +159,9 @@ export default function RewardsScreen() {
   const canRedeem =
     rewardCapabilities.rewardsEnabled && (isAdmin || caps.allowRewardRedeem);
   const canRequestSpecial =
-    rewardCapabilities.rewardsEnabled && !isAdmin && caps.allowSpecialRewardRequest;
+    rewardCapabilities.rewardsEnabled &&
+    !isAdmin &&
+    (caps.allowSpecialRewardRequest || currentMember?.role === 'child');
   const canApprove = isAdmin || permissions.canApproveReward;
   const showAllowance = rewardCapabilities.allowanceEnabled && caps.allowAllowance;
   const showRewards = rewardCapabilities.rewardsEnabled;
@@ -274,6 +278,9 @@ export default function RewardsScreen() {
   const catalogRewards = useMemo(() => {
     return household.rewards.filter((reward) => {
       if (reward.archived) return false;
+      if (!isAdmin && (reward.specialRequest || reward.origin === 'special-request')) {
+        return false;
+      }
       if (
         !isAdmin &&
         reward.assignedMemberId &&
@@ -487,6 +494,11 @@ export default function RewardsScreen() {
           'An admin was notified. You’ll hear back when it’s approved.'
         );
       }
+    } catch (error) {
+      Alert.alert(
+        'Not just yet',
+        error instanceof Error ? error.message : "Finish today's tasks and homework to ask for a reward."
+      );
     } finally {
       setClaimingId(null);
     }
@@ -599,6 +611,46 @@ export default function RewardsScreen() {
       {/* ── REWARDS ── */}
       {surface === 'rewards' ? (
         <Animated.View entering={FadeInDown.duration(220)} style={styles.stack}>
+          {isAdmin
+            ? (household.rewardProposals ?? [])
+                .filter((item) => item.status === 'open')
+                .map((proposal) => (
+                  <View
+                    key={proposal.id}
+                    style={[
+                      styles.pendingBlock,
+                      {
+                        backgroundColor: isDark ? 'rgba(56,189,248,0.08)' : 'rgba(56,189,248,0.1)',
+                        borderColor: 'rgba(56,189,248,0.28)',
+                      },
+                    ]}>
+                    <Text style={[typography.headline, { color: c.text }]}>
+                      {proposal.memberName} suggested {proposal.title}
+                    </Text>
+                    {proposal.note ? (
+                      <Text style={[typography.footnote, { color: c.textMuted, marginTop: 4 }]}>
+                        {proposal.note}
+                      </Text>
+                    ) : null}
+                    <View style={[styles.pendingActions, { marginTop: 10 }]}>
+                      <Pressable
+                        onPress={() => void approveRewardProposal(proposal.id)}
+                        style={[styles.approveBtn, { backgroundColor: 'rgba(52,211,153,0.2)' }]}>
+                        <Text style={{ color: '#34D399', fontWeight: '700', fontSize: 12 }}>
+                          Add to catalogue
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => void declineRewardProposal(proposal.id)}
+                        style={[styles.approveBtn, { backgroundColor: 'rgba(248,113,113,0.15)' }]}>
+                        <Text style={{ color: '#F87171', fontWeight: '700', fontSize: 12 }}>
+                          Decline
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))
+            : null}
           {canApprove && pendingRedemptions.length > 0 ? (
             <View
               style={[
@@ -701,10 +753,10 @@ export default function RewardsScreen() {
               </Pressable>
             ) : null}
             {canRequestSpecial ? (
-              <Pressable onPress={() => router.push('/special-reward-request' as never)}>
-                <Text style={[typography.footnote, { color: accentTheme.primary }]}>
-                  Hold & Request →
-                </Text>
+              <Pressable
+                onPress={() => router.push('/special-reward-request' as never)}
+                style={styles.suggestRow}>
+                <Text style={[typography.footnote, { color: c.textMuted }]}>Suggest a reward</Text>
               </Pressable>
             ) : null}
           </View>
@@ -1364,6 +1416,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 16,
     paddingVertical: 4,
+  },
+  suggestRow: {
+    paddingVertical: 10,
+    alignItems: 'center',
   },
   allowanceSummaryCard: {
     borderRadius: radius.cardLarge,

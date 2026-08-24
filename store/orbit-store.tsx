@@ -62,6 +62,16 @@ import {
   householdInviteWrongForKidMessage,
 } from '@/lib/invites/invite-intent';
 import { isPendingJoinSnapshot } from '@/lib/invites/join-approval';
+import { isPersistedHouseholdId } from '@/lib/household/persisted-household-id';
+import { mapMemberRow, mapTaskRow } from '@/lib/mappers/orbit-mappers';
+import { promoteMemberToAdmin } from '@/lib/household/admin-cap';
+import { canRequestReward } from '@/lib/rewards/can-request-reward';
+import { canProposeReward, type RewardProposal } from '@/lib/rewards/reward-proposals';
+import { groceryAddAllowedForSidekick, isSidekickRole } from '@/lib/sidekick/permissions';
+import {
+  applyRedeemedMember,
+  redeemMockMemberInvite,
+} from '@/repositories/member-invite-repository';
 import { consumeInviteCode, peekInviteCode } from '@/lib/invite/invite-code-store';
 import {
   clearPendingJoinHouseholdId,
@@ -131,7 +141,6 @@ import { isTodayTask } from '@/lib/tasks/today';
 import { isTaskLate, resolveCompletionXp } from '@/lib/tasks/xp';
 import { recordCompletionForTrophies } from '@/lib/trophies/runtime';
 import {
-  canPromoteToAdmin,
   resolveSplitPair,
 } from '@/lib/household/admins';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
@@ -241,7 +250,6 @@ import type {
   StoreRecommendation,
   TaskTemplate,
 } from '@/types/orbit';
-import { CHILD_GROCERY_WISHLIST_XP } from '@/data/task-presets';
 import { getPreferredStore } from '@/data/preferred-stores';
 
 type OrbitContextValue = {
@@ -349,6 +357,10 @@ type OrbitContextValue = {
   applyStashedInvite: () => Promise<'pending' | 'active' | 'none'>;
   /** Pending adult: reload that join, not the oldest household. */
   checkJoinApproval: () => Promise<'approved' | 'pending' | 'missing'>;
+  redeemMemberInviteToken: (
+    token: string,
+    clientRole?: string
+  ) => Promise<{ ok: true; memberStatus: 'active' | 'pending' } | { ok: false; message: string }>;
   markGroceryPurchased: (itemId: string) => void;
   markGroceryMissing: (itemId: string) => void;
   markGroceryLow: (itemId: string) => void;
@@ -458,6 +470,9 @@ type OrbitContextValue = {
   /** Hold-to-claim: Instant spends XP now; Approval submits a pending request. */
   claimReward: (rewardId: string) => Promise<'claimed' | 'requested' | null>;
   requestSpecialReward: (title: string, note?: string, cost?: number) => Promise<void>;
+  approveRewardProposal: (proposalId: string) => Promise<void>;
+  declineRewardProposal: (proposalId: string) => Promise<void>;
+  updateSidekickGroceryAdd: (enabled: boolean) => void;
   createReward: (
     input: CreateRewardInput,
     options?: { householdId?: string | null }
@@ -569,7 +584,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     );
   }, [activeMemberId, currentUser?.name, household.members]);
   const hasHousehold = Boolean(currentUser && household.id);
-  const isPendingMember = currentMember?.status === 'pending';
+  const isPendingMember = currentMember?.status === 'pending' && currentMember.role !== 'child';
   const permissions = useMemo(() => {
     // Pending joiners wait for owner/admin approval — same surface limits as guests.
     if (currentMember?.status === 'pending') {
@@ -889,7 +904,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             );
         setPoppinsConversation(history);
         setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
-        const emptyDomains = isPendingJoinSnapshot(hydratedHousehold);
+        const emptyDomains =
+          isPendingJoinSnapshot(hydratedHousehold) ||
+          (dataMode !== 'mock' && !isPersistedHouseholdId(hydratedHousehold.id));
         const [items, redemptions, allowanceItems, devices, scenes, links] = emptyDomains
           ? [[], [], [], [], [], null]
           : await Promise.all([
@@ -1251,6 +1268,116 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     return 'missing';
   };
+
+  const redeemMemberInviteToken = async (
+    token: string,
+    clientRole?: string
+  ): Promise<{ ok: true; memberStatus: 'active' | 'pending' } | { ok: false; message: string }> => {
+    const user = currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
+    if (!user) {
+      return { ok: false, message: 'This invite is no longer valid. Ask an admin for a new one.' };
+    }
+
+    if (dataMode === 'mock') {
+      const roster = householdRef.current.members.length
+        ? householdRef.current.members
+        : mockHousehold.members;
+      const result = redeemMockMemberInvite({
+        token,
+        clientRole,
+        authUserHouseholdId: currentMember ? householdRef.current.id : null,
+        authUserMemberId: currentMember?.id ?? null,
+        members: roster,
+      });
+      if (!result.ok) return result;
+      const base = householdRef.current.members.length ? householdRef.current : mockHousehold;
+      const storageRole = result.invite.role === 'sidekick' ? 'child' : 'admin';
+      const next = applyRedeemedMember(base, result.invite.memberId, result.memberStatus, storageRole);
+      setHousehold(next);
+      setActiveMemberId(result.invite.memberId);
+      await saveActiveMemberId(result.invite.memberId);
+      await persistMockHouseholdSnapshot(next);
+      if (result.memberStatus === 'pending' && next.id) {
+        await stashPendingJoinHouseholdId(next.id);
+      } else {
+        await clearPendingJoinHouseholdId();
+      }
+      return { ok: true, memberStatus: result.memberStatus };
+    }
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return { ok: false, message: 'This invite is no longer valid. Ask an admin for a new one.' };
+    }
+    const { data, error } = await supabase.functions.invoke('redeem-member-invite', {
+      body: { token },
+    });
+    if (error) {
+      const message =
+        (typeof data === 'object' && data && 'error' in data && typeof (data as { error?: string }).error === 'string'
+          ? (data as { error: string }).error
+          : error.message) || 'This invite is no longer valid. Ask an admin for a new one.';
+      return { ok: false, message };
+    }
+    const payload = data as {
+      bootstrap?: {
+        member?: { id?: string; status?: string; displayName?: string; role?: string; avatar?: string };
+        household?: {
+          id?: string;
+          name?: string;
+          sidekickGroceryAdd?: boolean;
+          dailyDeadline?: string | null;
+          rewardModel?: string | null;
+        };
+        todaysTasks?: Parameters<typeof mapTaskRow>[0][];
+        members?: Parameters<typeof mapMemberRow>[0][];
+      };
+    };
+    const memberId = payload.bootstrap?.member?.id;
+    const householdId = payload.bootstrap?.household?.id;
+    const memberStatus =
+      payload.bootstrap?.member?.status === 'pending' ? 'pending' : 'active';
+    if (!memberId) {
+      return { ok: false, message: 'This invite is no longer valid. Ask an admin for a new one.' };
+    }
+    // A3.1 — bootstrap from this invoke is the only client round-trip. Do not hydrate.
+    const boot = payload.bootstrap;
+    if (boot?.household?.id) {
+      setHousehold((current) => {
+        let tasks = current.tasks;
+        let members = current.members;
+        try {
+          if (Array.isArray(boot.todaysTasks) && boot.todaysTasks.length) {
+            tasks = boot.todaysTasks.map((row) => mapTaskRow(row));
+          }
+          if (Array.isArray(boot.members) && boot.members.length) {
+            members = boot.members.map((row) => mapMemberRow(row));
+          }
+        } catch (mapError) {
+          console.warn('redeemMemberInviteToken bootstrap map', mapError);
+        }
+        return {
+          ...current,
+          id: boot.household?.id ?? current.id,
+          householdName: boot.household?.name ?? current.householdName,
+          sidekickGroceryAdd:
+            boot.household?.sidekickGroceryAdd ?? current.sidekickGroceryAdd,
+          dailyDeadline: boot.household?.dailyDeadline ?? current.dailyDeadline,
+          tasks,
+          members,
+        };
+      });
+    }
+    setActiveMemberId(memberId);
+    await saveActiveMemberId(memberId);
+    if (memberStatus === 'pending' && householdId) {
+      await stashPendingJoinHouseholdId(householdId);
+    } else {
+      await clearPendingJoinHouseholdId();
+    }
+    return { ok: true, memberStatus };
+  };
+
 
   const clearSignedInState = () => {
     setCurrentUser(null);
@@ -2165,11 +2292,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const addMissingGrocery = async (input: CreateGroceryInput) => {
     const caps = resolveMemberCapabilities(household);
+    const householdAllows = household.sidekickGroceryAdd === true;
     const canAdd =
       permissions.canManageGroceries ||
-      caps.allowGroceryAdd ||
-      (currentMember?.role === 'child' && (currentMember?.xp ?? 0) >= CHILD_GROCERY_WISHLIST_XP);
+      (!isSidekickRole(currentMember?.role) && caps.allowGroceryAdd) ||
+      groceryAddAllowedForSidekick({
+        role: currentMember?.role,
+        householdAllows,
+      });
     if (!canAdd) {
+      return;
+    }
+    if (isSidekickRole(currentMember?.role) && !householdAllows) {
       return;
     }
     const { classifyGroceryItem, categoryNameForId } = await import('@/lib/grocery/classify');
@@ -2238,6 +2372,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const markGroceryPurchased = async (itemId: string) => {
+    if (isSidekickRole(currentMember?.role)) {
+      return;
+    }
     const currentItem = household.groceries.find((item) => item.id === itemId);
 
     if (!currentItem) {
@@ -2265,6 +2402,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const markGroceryMissing = async (itemId: string) => {
+    if (isSidekickRole(currentMember?.role)) {
+      return;
+    }
     const currentItem = household.groceries.find((item) => item.id === itemId);
     if (!currentItem) {
       return;
@@ -2279,6 +2419,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const markGroceryLow = async (itemId: string) => {
+    if (isSidekickRole(currentMember?.role)) {
+      return;
+    }
     const currentItem = household.groceries.find((item) => item.id === itemId);
     if (!currentItem) {
       return;
@@ -2297,6 +2440,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     categoryId: string,
     overrides: Record<string, string>
   ) => {
+    if (isSidekickRole(currentMember?.role)) {
+      return;
+    }
     const currentItem = household.groceries.find((item) => item.id === itemId);
     if (!currentItem) return;
     const { categoryNameForId } = await import('@/lib/grocery/classify');
@@ -3358,6 +3504,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   );
 
   const askPoppins = async (question: string) => {
+    if (isSidekickRole(currentMember?.role)) {
+      return {
+        question,
+        answer: 'Poppins is not available on this profile.',
+      };
+    }
     setPoppinsAskCount((count) => count + 1);
     const profileId = resolveMajordomoProfileId({
       householdProfileId: household.majordomoProfileId,
@@ -3383,6 +3535,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const askPoppinsVoice = async (audioUri: string | null) => {
+    if (isSidekickRole(currentMember?.role)) {
+      return {
+        question: '',
+        answer: 'Poppins is not available on this profile.',
+      };
+    }
     const { transcribeAndAskPoppins } = await import('@/lib/voice/poppins-voice');
     setPoppinsAskCount((count) => count + 1);
     const answer = await transcribeAndAskPoppins(audioUri, household, metrics);
@@ -3543,6 +3701,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!household.id || !currentMember) {
       return;
     }
+    if (isSidekickRole(currentMember.role)) {
+      const gate = canRequestReward(currentMember.name, household.tasks);
+      if (!gate.allowed) {
+        throw new Error("Finish today's tasks and homework to ask for a reward.");
+      }
+    }
     const caps = resolveMemberCapabilities(household);
     // Users redeem; admins may also redeem for testing.
     if (!permissions.canManageHousehold && !caps.allowRewardRedeem) {
@@ -3581,6 +3745,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const claimReward = async (rewardId: string): Promise<'claimed' | 'requested' | null> => {
     if (!household.id || !currentMember) {
       return null;
+    }
+    if (isSidekickRole(currentMember.role)) {
+      const gate = canRequestReward(currentMember.name, household.tasks);
+      if (!gate.allowed) {
+        throw new Error("Finish today's tasks and homework to ask for a reward.");
+      }
     }
     const caps = resolveMemberCapabilities(household);
     if (!permissions.canManageHousehold && !caps.allowRewardRedeem) {
@@ -3638,8 +3808,54 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return 'claimed';
   };
 
-  const requestSpecialReward = async (title: string, note?: string, cost = 150) => {
+  const requestSpecialReward = async (title: string, note?: string, _cost = 0) => {
     if (!household.id || !currentMember) {
+      return;
+    }
+    if (isSidekickRole(currentMember.role)) {
+      const gate = canRequestReward(currentMember.name, household.tasks);
+      if (!gate.allowed) {
+        throw new Error("Finish today's tasks and homework to ask for a reward.");
+      }
+      const existing = household.rewardProposals ?? [];
+      const cadence = canProposeReward({
+        hasOpenProposal: existing.some(
+          (item) => item.memberId === currentMember.id && item.status === 'open'
+        ),
+        lastProposedAt: existing
+          .filter((item) => item.memberId === currentMember.id)
+          .map((item) => item.createdAt)
+          .filter(Boolean)
+          .sort()
+          .at(-1),
+      });
+      if (!cadence.ok) {
+        throw new Error(
+          cadence.reason === 'open'
+            ? 'You already have a suggestion waiting.'
+            : 'You can suggest another reward in a few days.'
+        );
+      }
+      const proposal: RewardProposal = {
+        id: `proposal-${currentMember.id}-${Date.now()}`,
+        householdId: household.id,
+        memberId: currentMember.id,
+        memberName: currentMember.name,
+        title: title.trim(),
+        note: note?.trim() || undefined,
+        status: 'open',
+        createdAt: new Date().toISOString(),
+      };
+      setHousehold((current) => ({
+        ...current,
+        rewardProposals: [proposal, ...(current.rewardProposals ?? [])],
+      }));
+      if (dataMode === 'supabase' && isPersistedHouseholdId(household.id)) {
+        await getSupabaseClient()?.rpc('submit_reward_proposal', {
+          p_title: proposal.title,
+          p_note: proposal.note ?? null,
+        });
+      }
       return;
     }
     const caps = resolveMemberCapabilities(household);
@@ -3648,7 +3864,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     const reward = await rewardsRepository.createReward(household.id, {
       title,
-      cost,
+      cost: 0,
       approvalRequired: true,
       emoji: '✨',
       specialRequest: true,
@@ -3662,6 +3878,72 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
     }));
     await requestRewardRedemption(reward.id, note || 'Special request');
+  };
+
+  const approveRewardProposal = async (proposalId: string) => {
+    if (!permissions.canManageHousehold) return;
+    const proposal = (household.rewardProposals ?? []).find((item) => item.id === proposalId);
+    if (!proposal || proposal.status !== 'open') return;
+    const reward = await rewardsRepository.createReward(household.id, {
+      title: proposal.title,
+      cost: 0,
+      approvalRequired: true,
+      assignedMemberId: proposal.memberId,
+      assignedMemberName: proposal.memberName,
+      origin: 'minted',
+      createdByMemberId: currentMember?.id,
+      createdByName: currentMember?.name,
+    });
+    setHousehold((current) => ({
+      ...current,
+      rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
+      rewardProposals: (current.rewardProposals ?? []).map((item) =>
+        item.id === proposalId
+          ? { ...item, status: 'approved' as const, decidedAt: new Date().toISOString() }
+          : item
+      ),
+    }));
+    if (dataMode === 'supabase' && isPersistedHouseholdId(household.id)) {
+      await getSupabaseClient()?.rpc('decide_reward_proposal', {
+        p_proposal_id: proposalId,
+        p_approve: true,
+      });
+    }
+  };
+
+  const declineRewardProposal = async (proposalId: string) => {
+    if (!permissions.canManageHousehold) return;
+    setHousehold((current) => ({
+      ...current,
+      rewardProposals: (current.rewardProposals ?? []).map((item) =>
+        item.id === proposalId
+          ? { ...item, status: 'declined' as const, decidedAt: new Date().toISOString() }
+          : item
+      ),
+    }));
+    if (dataMode === 'supabase' && isPersistedHouseholdId(household.id)) {
+      await getSupabaseClient()?.rpc('decide_reward_proposal', {
+        p_proposal_id: proposalId,
+        p_approve: false,
+      });
+    }
+  };
+
+  const updateSidekickGroceryAdd = (enabled: boolean) => {
+    if (!permissions.canManageHousehold) return;
+    setHousehold((current) => {
+      const next: HouseholdSnapshot = { ...current, sidekickGroceryAdd: enabled };
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      if (dataMode === 'supabase' && current.id && isPersistedHouseholdId(current.id)) {
+        void getSupabaseClient()
+          ?.from('households')
+          .update({ sidekick_grocery_add: enabled })
+          .eq('id', current.id);
+      }
+      return next;
+    });
   };
 
   const createReward = async (
@@ -3817,12 +4099,25 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!member) {
       return;
     }
-    if (role === 'admin' && !canPromoteToAdmin(household, memberId)) {
-      console.warn('Family admin seats are full (max 2).');
-      return;
+    let updated: HouseholdMember | null = null;
+    if (role === 'admin') {
+      const result = await promoteMemberToAdmin({
+        householdId: household.id ?? 'local',
+        actorIsOwner: currentMember?.role === 'owner',
+        targetId: memberId,
+        readMembers: () =>
+          dataMode === 'mock' ? mockHousehold.members : householdRef.current.members,
+        writeAdmin: async () => {
+          updated = await householdRepository.updateMemberRole(member, 'admin');
+        },
+      });
+      if (!result.ok) {
+        throw new Error(result.message);
+      }
+    } else {
+      updated = await householdRepository.updateMemberRole(member, role);
     }
-
-    const updated = await householdRepository.updateMemberRole(member, role);
+    if (!updated) return;
     const nextMember: HouseholdMember =
       role === 'shared-device'
         ? { ...updated, sharedWithMemberIds: updated.sharedWithMemberIds ?? [] }
@@ -4365,8 +4660,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       preferredStore: getPreferredStore(household.preferredStoreId),
       canAddGroceryWishlist:
         permissions.canManageGroceries ||
-        resolveMemberCapabilities(household).allowGroceryAdd ||
-        (currentMember?.role === 'child' && (currentMember?.xp ?? 0) >= CHILD_GROCERY_WISHLIST_XP),
+        (!isSidekickRole(currentMember?.role) &&
+          resolveMemberCapabilities(household).allowGroceryAdd) ||
+        groceryAddAllowedForSidekick({
+          role: currentMember?.role,
+          householdAllows: household.sidekickGroceryAdd === true,
+        }),
       askPoppins,
       askPoppinsVoice,
       appendPoppinsTurn,
@@ -4402,6 +4701,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       joinHousehold,
       applyStashedInvite,
       checkJoinApproval,
+      redeemMemberInviteToken,
       markGroceryPurchased,
       markGroceryMissing,
       markGroceryLow,
@@ -4465,6 +4765,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       requestRewardRedemption,
       claimReward,
       requestSpecialReward,
+      approveRewardProposal,
+      declineRewardProposal,
+      updateSidekickGroceryAdd,
       createReward,
       archiveReward,
       approveRedemption,
@@ -4561,6 +4864,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       redeemStreak,
       updateMajordomoProfile,
       updateMemberMajordomoProfile,
+      redeemMemberInviteToken,
+      approveRewardProposal,
+      declineRewardProposal,
+      updateSidekickGroceryAdd,
     ]
   );
 
@@ -4572,13 +4879,14 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     return baseHousehold;
   }
   const householdId = baseHousehold.id;
+  const skipLiveRewards = dataMode !== 'mock' && !isPersistedHouseholdId(householdId);
   const [tasks, groceries, events, rewards, badges, itineraries, themeId, savedRooms, avatarOverrides, storedPlaces] =
     await Promise.all([
       taskRepository.getTasks(householdId),
       groceryRepository.getGroceries(householdId),
       calendarRepository.getEvents(householdId),
-      rewardsRepository.getRewards(householdId),
-      rewardsRepository.getBadges(householdId),
+      skipLiveRewards ? Promise.resolve(baseHousehold.rewards ?? []) : rewardsRepository.getRewards(householdId),
+      skipLiveRewards ? Promise.resolve(baseHousehold.badges ?? []) : rewardsRepository.getBadges(householdId),
       itineraryRepository.list(householdId),
       loadAccentThemeId(householdId),
       loadHouseholdRooms(householdId),

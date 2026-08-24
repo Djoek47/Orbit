@@ -43,8 +43,12 @@ function isOpenBlocking(task: HouseholdTask): boolean {
 }
 
 /**
- * A Sidekick may request a reward only when every qualifying task/homework
- * due today is complete. Vacuous day → allowed.
+ * A Sidekick may request a reward only when every assigned task and homework
+ * due today is complete (Revision G §7.3). Late Credit completions count.
+ * Expired items keep the gate closed.
+ *
+ * // TODO(product): Should a Sidekick with zero assigned items be able to ask
+ * for a reward? Default shipped: No — gate closed.
  */
 export function canRequestReward(
   memberName: string,
@@ -75,7 +79,7 @@ export function canRequestReward(
   }
 
   return {
-    allowed: tasksLeft === 0 && homeworkLeft === 0,
+    allowed: qualifying.length > 0 && tasksLeft === 0 && homeworkLeft === 0,
     remaining: { tasks: tasksLeft, homework: homeworkLeft },
   };
 }
@@ -104,7 +108,7 @@ export function blockedRequestCopy(gate: RewardRequestGate): {
   }
   return {
     title: 'Not just yet',
-    body: "Finish today's tasks and homework first.",
+    body: "Finish today's tasks and homework to ask for a reward.",
     lines,
     cta: "See what's left",
   };

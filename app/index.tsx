@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { loadDeviceSession } from '@/lib/device/device-session';
 import { peekInviteCode } from '@/lib/invite/invite-code-store';
+import { peekMemberInviteToken } from '@/lib/invite/member-invite-token-store';
 import {
   classifyInviteCode,
   inviteHref,
@@ -33,8 +34,14 @@ export default function SplashEntry() {
 
   useEffect(() => {
     let mounted = true;
-    peekInviteCode()
-      .then((code) => {
+    peekMemberInviteToken()
+      .then(async (memberToken) => {
+        if (!mounted) return;
+        if (memberToken) {
+          setInviteRoute(`/redeem-member-invite?token=${encodeURIComponent(memberToken)}`);
+          return;
+        }
+        const code = await peekInviteCode();
         if (!mounted) return;
         if (!code) {
           setInviteRoute(null);

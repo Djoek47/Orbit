@@ -77,8 +77,9 @@ export default function TabLayout() {
     return <Redirect href={'/select-profile' as never} />;
   }
 
-  const showPlan = uiRole !== 'child';
-  const showRewards = uiRole !== 'child';
+  const showPlan = true;
+  const showRewards = true;
+  const showPoppins = uiRole !== 'child';
 
   return (
     <View style={[styles.shell, { backgroundColor: orbitPalette.background }]}>
@@ -116,10 +117,10 @@ export default function TabLayout() {
           name="rewards"
           options={{
             href: showRewards ? undefined : null,
-            title: 'Rewards',
+            title: uiRole === 'child' ? 'Ranks' : 'Rewards',
           }}
         />
-        <Tabs.Screen name="poppins" options={{ title: 'Poppins' }} />
+        <Tabs.Screen name="poppins" options={{ href: showPoppins ? undefined : null, title: 'Poppins' }} />
       </Tabs>
 
       <GlobalHeaderChips />

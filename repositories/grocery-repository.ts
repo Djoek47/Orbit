@@ -87,6 +87,7 @@ export const groceryRepository = {
         location: item.location ? locationToDb(item.location) : 'pantry',
         status: 'missing',
         note: item.note ?? null,
+        requested_by: item.requestedBy ?? null,
       })
       .select('*')
       .single();

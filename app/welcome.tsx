@@ -120,7 +120,11 @@ export default function WelcomeOnboardingScreen() {
   const ink = orbitPalette.ink;
   const bg = orbitPalette.background;
 
-  const inviteParams = useLocalSearchParams<{ invite?: string; kind?: string }>();
+  const inviteParams = useLocalSearchParams<{
+    invite?: string;
+    kind?: string;
+    memberInvite?: string;
+  }>();
   const inviteFromRoute = (() => {
     const raw = Array.isArray(inviteParams.invite) ? inviteParams.invite[0] : inviteParams.invite;
     if (!raw?.trim()) return null;
@@ -190,9 +194,27 @@ export default function WelcomeOnboardingScreen() {
     [selectedRole],
   );
 
+  // Per-member invite (Revision G): stash token and resume redeem after sign-in.
+  useEffect(() => {
+    const raw = Array.isArray(inviteParams.memberInvite)
+      ? inviteParams.memberInvite[0]
+      : inviteParams.memberInvite;
+    if (!raw?.trim()) return;
+    void import('@/lib/invite/member-invite-token-store').then(async ({ stashMemberInviteToken }) => {
+      await stashMemberInviteToken(raw);
+      if (isSignedIn) {
+        router.replace(`/redeem-member-invite?token=${encodeURIComponent(raw.trim())}` as never);
+      }
+    });
+  }, [inviteParams.memberInvite, isSignedIn]);
+
   // AirDrop / deep link: land on invited, kid join, or household join — never Get Started.
   useEffect(() => {
     let cancelled = false;
+    const memberInviteRaw = Array.isArray(inviteParams.memberInvite)
+      ? inviteParams.memberInvite[0]
+      : inviteParams.memberInvite;
+    if (memberInviteRaw?.trim()) return;
     void import('@/lib/invite/invite-code-store').then(async ({ peekInviteCode }) => {
       const fromParam =
         typeof inviteParams.invite === 'string' && inviteParams.invite.trim()
@@ -225,7 +247,7 @@ export default function WelcomeOnboardingScreen() {
     return () => {
       cancelled = true;
     };
-  }, [hasHousehold, inviteParams.invite, inviteParams.kind, isSignedIn]);
+  }, [hasHousehold, inviteParams.invite, inviteParams.kind, inviteParams.memberInvite, isSignedIn]);
 
   // Resume mid-flow for signed-in users; hydrate prefs.
   useEffect(() => {
@@ -406,6 +428,16 @@ export default function WelcomeOnboardingScreen() {
   }, []);
 
   if (!isLoading && isSignedIn && currentUser?.profileComplete && hasHousehold) {
+    const memberInviteRaw = Array.isArray(inviteParams.memberInvite)
+      ? inviteParams.memberInvite[0]
+      : inviteParams.memberInvite;
+    if (memberInviteRaw?.trim()) {
+      return (
+        <Redirect
+          href={`/redeem-member-invite?token=${encodeURIComponent(memberInviteRaw.trim())}` as never}
+        />
+      );
+    }
     return <Redirect href="/" />;
   }
 

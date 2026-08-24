@@ -256,9 +256,14 @@ export default function HomeScreen() {
             ) : null}
           </View>
           <Pressable
-            onPress={() => router.push('/settings' as never)}
+            onPress={() => {
+              if (currentMember?.role === 'child') return;
+              router.push('/settings' as never);
+            }}
             accessibilityRole="button"
-            accessibilityLabel="Open profile settings">
+            accessibilityLabel={
+              currentMember?.role === 'child' ? displayName : 'Open profile settings'
+            }>
             <Avatar
               name={displayName}
               emoji={currentMember ? memberDisplayEmoji(currentMember) : undefined}

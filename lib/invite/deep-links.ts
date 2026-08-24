@@ -3,6 +3,27 @@
 import { inviteWebPath } from '@/lib/invites/invite-host';
 import { normalizeInviteCode } from '@/lib/invites/parse-invite';
 
+/** Per-member invite (Revision G): choremaxx://invite/member?token= */
+export function parseMemberInviteTokenFromUrl(url: string): string | null {
+  if (!url) return null;
+  try {
+    const trimmed = url.trim();
+    const memberMatch = trimmed.match(
+      /(?:choremaxx|orbit):\/\/invite\/member(?:\?|#|&|\/)?.*?(?:token=)([^&?#]+)/i
+    );
+    if (memberMatch?.[1]) {
+      return decodeURIComponent(memberMatch[1]);
+    }
+    const webMatch = trimmed.match(/\/invite\/member\?[^#]*token=([^&?#]+)/i);
+    if (webMatch?.[1]) {
+      return decodeURIComponent(webMatch[1]);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export function parseInviteCodeFromUrl(url: string): string | null {
   if (!url) return null;
 

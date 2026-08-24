@@ -1,5 +1,8 @@
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
+import { AdminCapError, adminCapBlockedMessage } from '@/lib/household/admin-cap';
+import { countAdminSeats } from '@/lib/household/admins';
 import { childInviteEmoji } from '@/lib/household/child-invites';
+import { withHouseholdLock } from '@/lib/household/household-lock';
 import {
   clearActiveMockHousehold,
   loadActiveMockHousehold,
@@ -549,6 +552,17 @@ export const householdRepository = {
     };
 
     if (isMockMode()) {
+      if (role === 'admin') {
+        return withHouseholdLock(mockHousehold.id ?? 'mock', async () => {
+          if (countAdminSeats(mockHousehold.members) >= 2 && member.role !== 'admin' && member.role !== 'owner') {
+            throw new AdminCapError(adminCapBlockedMessage(mockHousehold.members, member.id));
+          }
+          mockHousehold.members = mockHousehold.members.map((item) =>
+            item.id === member.id ? updatedMember : item
+          );
+          return updatedMember;
+        });
+      }
       mockHousehold.members = mockHousehold.members.map((item) =>
         item.id === member.id ? updatedMember : item
       );
@@ -556,6 +570,13 @@ export const householdRepository = {
     }
 
     const supabase = getConfiguredSupabase('householdRepository.updateMemberRole');
+    if (role === 'admin') {
+      const { error: rpcError } = await supabase.rpc('promote_member_to_admin', {
+        p_member_id: member.id,
+      });
+      mapDbError('householdRepository.updateMemberRole', rpcError);
+      return updatedMember;
+    }
     const { error } = await supabase
       .from('household_members')
       .update({
@@ -818,6 +839,8 @@ export const householdRepository = {
   },
 
   async removeMember(memberId: string): Promise<void> {
+    // TODO(product): What happens to the household if the Owner leaves or the subscription
+    // lapses? Default shipped: nothing auto-promotes.
     if (isMockMode()) {
       mockHousehold.members = mockHousehold.members
         .filter((item) => item.id !== memberId)
@@ -1043,6 +1066,9 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
       (household as { daily_deadline_applies_on?: string | null }).daily_deadline_applies_on ?? null,
     allowanceRequestsEnabled:
       (household as { allowance_requests_enabled?: boolean | null }).allowance_requests_enabled !== false,
+    sidekickGroceryAdd: Boolean(
+      (household as { sidekick_grocery_add?: boolean | null }).sidekick_grocery_add
+    ),
     memberCapabilities: ((household as { member_capabilities?: Record<string, boolean> | null })
       .member_capabilities ?? undefined) as HouseholdSnapshot['memberCapabilities'],
     members: mappedMembers,

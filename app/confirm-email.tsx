@@ -68,6 +68,13 @@ export default function ConfirmEmailScreen() {
 
   const finishOnboarding = async () => {
     clearPendingSignup();
+    const memberHref = await import('@/lib/invite/member-invite-token-store').then((m) =>
+      m.memberInviteRedeemHref()
+    );
+    if (memberHref) {
+      router.replace(memberHref as never);
+      return;
+    }
     const joined = await applyStashedInvite();
     if (joined === 'pending') {
       router.replace('/pending-approval' as never);

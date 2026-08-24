@@ -39,6 +39,13 @@ export default function SignInScreen() {
 
   const finishToHome = async () => {
     setShowSuccess(false);
+    const memberHref = await import('@/lib/invite/member-invite-token-store').then((m) =>
+      m.memberInviteRedeemHref()
+    );
+    if (memberHref) {
+      router.replace(memberHref as never);
+      return;
+    }
     const joined = await applyStashedInvite();
     if (joined === 'pending' || isPendingMember) {
       router.replace('/pending-approval' as never);

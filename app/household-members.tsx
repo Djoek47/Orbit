@@ -17,6 +17,7 @@ import {
   MAX_FAMILY_ADMINS,
   usesFamilyAdminCap,
 } from '@/lib/household/admins';
+import { adminCapBlockedMessage } from '@/lib/household/admin-cap';
 import {
   isSharedDeviceMember,
   resolveSharedDevicePeople,
@@ -84,7 +85,7 @@ export default function HouseholdMembersScreen() {
       Alert.alert(
         'Admin seats full',
         familyCap
-          ? `Families can have ${MAX_FAMILY_ADMINS} admins (co-parents). Demote someone first or keep this member as Adult.`
+          ? adminCapBlockedMessage(household.members, memberId)
           : 'Cannot promote to admin right now.'
       );
       return;
@@ -96,7 +97,7 @@ export default function HouseholdMembersScreen() {
     if (!canPromoteToAdmin(household, memberId)) {
       Alert.alert(
         'Admin seats full',
-        `Families can have ${MAX_FAMILY_ADMINS} co-parent admins. You already have ${admins.map((m) => m.name).join(' & ')}.`
+        adminCapBlockedMessage(household.members, memberId)
       );
       return;
     }
@@ -105,7 +106,12 @@ export default function HouseholdMembersScreen() {
       {
         text: 'Make admin',
         onPress: () => {
-          void updateMemberRole(memberId, 'admin');
+        void updateMemberRole(memberId, 'admin').catch((error) => {
+          Alert.alert(
+            'Couldn’t promote',
+            error instanceof Error ? error.message : 'Only two admins per household. Demote someone first.'
+          );
+        });
         },
       },
     ]);
@@ -429,6 +435,7 @@ export default function HouseholdMembersScreen() {
         member={household.members.find((m) => m.id === inviteMemberId) ?? null}
         householdId={household.id ?? ''}
         adminId={currentMember?.id ?? ''}
+        actorIsOwner={currentMember?.role === 'owner'}
         invites={memberInvites}
         onChangeInvites={setMemberInvites}
         onClose={() => setInviteMemberId(null)}

@@ -29,6 +29,8 @@ export type HouseholdRow = {
   daily_deadline_pending?: string | null;
   daily_deadline_applies_on?: string | null;
   allowance_requests_enabled?: boolean | null;
+  /** Revision G — household-level, default off. */
+  sidekick_grocery_add?: boolean | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -482,6 +484,26 @@ export type Database = {
       is_household_admin: {
         Args: { target_household: string };
         Returns: boolean;
+      };
+      promote_member_to_admin: {
+        Args: { p_member_id: string };
+        Returns: Json;
+      };
+      generate_member_invite: {
+        Args: { p_member_id: string; p_requested_role: string };
+        Returns: Json;
+      };
+      redeem_member_invite: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      submit_reward_proposal: {
+        Args: { p_title: string; p_note?: string | null };
+        Returns: Json;
+      };
+      decide_reward_proposal: {
+        Args: { p_proposal_id: string; p_approve: boolean };
+        Returns: Json;
       };
     };
     Enums: Record<string, never>;
