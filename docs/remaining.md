@@ -1,6 +1,6 @@
 # Remaining work
 
-**Single list.** Everything still to do after TestFlight **1.3.0 (39)** and the v14 Revision G aggregate.  
+**Single list.** Everything still to do after TestFlight **1.3.0 (40)** and the v14 Revision G aggregate.  
 **Branch:** `cursor/choremaxx-make-v14`  
 **Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules to the kid card.
 
@@ -31,7 +31,7 @@ Code today: `lib/poppins/ui-scenes.ts`, `ui-tool-map.ts`, `ui-orchestrator.ts`, 
 ## 2. v13 / v14 cut + App Store
 
 v13 cut **done:** `cursor/choremaxx-make-v13` @ 1.3.0 (`make-v13 · final`), TestFlight **1.3.0 (39)**.  
-v14 cut **done:** `cursor/choremaxx-make-v14` = v13 + Revision G (`make-v14 · revision-g`). Continue smoke and Review from v14.
+v14 cut **done:** `cursor/choremaxx-make-v14` = v13 + Revision G (`make-v14 · revision-g`), TestFlight **1.3.0 (40)**. Continue smoke and Review from v14.
 
 | # | Item | Notes |
 |---|------|--------|

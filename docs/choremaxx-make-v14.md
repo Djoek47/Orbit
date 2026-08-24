@@ -3,6 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v14`  
 **Follows:** `cursor/choremaxx-make-v13` (TestFlight **1.3.0 (39)**)  
 **App version:** `1.3.0`  
+**TestFlight:** **1.3.0 (40)** — uploaded to App Store Connect  
 **Settings tip:** `make-v14 · revision-g`  
 **Content tip:** Revision G Sidekick access + login/signup dump sanitizer, on top of the v13 aggregate.
 
@@ -42,7 +43,7 @@ Apply `supabase/migrations/20260820200000_revision_g_sidekick.sql` on the TestFl
 - `EXPO_PUBLIC_POPPINS_REALTIME=1`
 - `EXPO_PUBLIC_POPPINS_VOICE_WEBRTC=1`
 
-EAS `autoIncrement` assigns the next iOS build number. Last uploaded cut remains **1.3.0 (39)** on v13 until a v14 IPA is submitted.
+EAS `autoIncrement` assigns the next iOS build number. Uploaded **1.3.0 (40)** to App Store Connect (EAS build `e3fb6dc6`, submission `c00b9b92` finished). Wait for Apple processing, then install 40 — 39 is the v13 cut without Revision G.
 
 ---
 
