@@ -2,17 +2,21 @@
 
 Canonical remaining list: [`remaining.md`](./remaining.md) §1.
 
-Not this TestFlight pass. Do not start until MYTIKAS says go. IUI is the key: spoken intent + a constrained scene graph in **one Activity viewport**, not a chatbot around the orb.
+Not visual restyle. MYTIKAS said go on TestFlight 40. Beats/HOLD stay. See [`iui-ux-architecture.md`](./iui-ux-architecture.md).
 
 Beats: **SHOW → NARROW → UNFOLD → HOLD → SETTLE → CHAIN**. Silence is assent. Compound clauses become a playlist of scenes — they should not fall back into a transcript.
 
-## To do
+## Done on this tip
 
-1. **Memory / continuity** — Poppins must not start brand new every Speak session. Persist household + conversation memory across hangup, app background, and the next tap of Speak (who we are, what we just assigned, open HOLD, last beats). WebRTC `end()` currently wipes the realtime session.
-2. **Stage as the primary surface** — IUI Activity is what you look at while you speak. Captions become a thin live line, or go away. Stop treating YOU/POPPINS chat as the product.
-3. **Beats / HOLD / barge-in** — make the grammar reliable on TestFlight voice. Barge-in rewinds a beat, not the whole act.
-4. **Strip mixed leftover** — chat-style stacked transcripts, duplicate rails, hourglass-as-log, Assign/Create forms competing with HOLD-commit.
-5. **Settings / billing / account** — Coach-navigate only; never HOLD-commit.
+1. **Memory / continuity** — last act + turns persist 4h. Hangup pauses; next Speak restores and does not greet.
+2. **Stage as the primary surface** — live IUI is the Poppins tab viewport. Captions idle-only. Keyboard tucked away on native voice.
+3. **Hangup is pause** — not veto. Activity log close is pause.
+4. **Activity is history** — no longer hosts the live stage.
+5. **Settings / billing / account** — coach-navigate only (unchanged grammar).
+
+## Still device-check
+
+Barge-in on TestFlight voice, mic-denied type path, frozen HOLD tap-to-confirm.
 
 ## Where it lives today
 

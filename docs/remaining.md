@@ -10,17 +10,17 @@ Two lists only. Agents do not mix dashboard / Apple / device steps into coding w
 
 ## Parked (leave aside)
 
-### Poppins IUI — wait for MYTIKAS to say go
+### Poppins IUI — shipping on this tip (beats / HOLD unchanged)
 
-Detail: [`poppins-rework.md`](./poppins-rework.md), method: [`iui-method-note.md`](./iui-method-note.md). Code today: `lib/poppins/ui-scenes.ts`, `ui-tool-map.ts`, `ui-orchestrator.ts`, `components/orbit/poppins-stage.tsx`.
+Architecture: [`iui-ux-architecture.md`](./iui-ux-architecture.md). Method: [`iui-method-note.md`](./iui-method-note.md).
 
-Beats: SHOW → NARROW → UNFOLD → HOLD → SETTLE → CHAIN.
+- **P1** Memory / continuity — Speak continues for 4h. Hangup pauses an open HOLD; next Speak restores. WebRTC still tears down.
+- **P2** Stage as the primary surface — live act is on the Poppins tab. Keyboard is a side door (shown by default only on Expo Go).
+- **P3** Beats / HOLD / barge-in — grammar unchanged; hangup/background is pause, not veto.
+- **P4** Strip mixed leftover — Activity sheet is history only; closing it does not cancel the act.
+- **P5** Settings / billing / account — coach-navigate only; never HOLD-commit.
 
-- **P1** Memory / continuity — WebRTC `end()` currently wipes the realtime session (`lib/voice/poppins-voice-session.ts`)
-- **P2** Stage as the primary surface — captions thin or gone; stop treating chat as the product
-- **P3** Beats / HOLD / barge-in — reliable on TestFlight voice
-- **P4** Strip mixed leftover — stacked transcripts, duplicate rails, Assign/Create vs HOLD-commit
-- **P5** Settings / billing / account — coach-navigate only; never HOLD-commit
+Still worth a TestFlight pass: barge-in on device, mic-denied type path, frozen HOLD tap-to-confirm.
 
 ### After IUI (not Review-blocking)
 

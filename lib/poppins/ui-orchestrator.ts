@@ -233,6 +233,11 @@ function startPlaylist(playlist: IuiBeat[], kid?: boolean) {
   armBeat();
 }
 
+export type IuiDriveSnapshot = Pick<
+  IuiDriveState,
+  'playlist' | 'index' | 'phase' | 'frozen' | 'holdMs' | 'thinkingLine'
+>;
+
 export const poppinsUiOrchestrator = {
   getState(): IuiDriveState {
     return state;
@@ -362,6 +367,45 @@ export const poppinsUiOrchestrator = {
     hapticHandler?.('veto');
     clearAllTimers();
     clear();
+  },
+  /** Hangup / swipe-away log: keep the act, stop the clock. Not a veto. */
+  pause() {
+    if (!state.live) return;
+    clearAllTimers();
+    setState({
+      frozen: true,
+      holding: false,
+      phase: state.phase === 'hold' ? 'unfold' : state.phase,
+    });
+  },
+  snapshot(): IuiDriveSnapshot {
+    return {
+      playlist: state.playlist,
+      index: state.index,
+      phase: state.phase,
+      frozen: state.frozen,
+      holdMs: state.holdMs,
+      thinkingLine: state.thinkingLine,
+    };
+  },
+  restore(snapshot: IuiDriveSnapshot, opts?: { resumeHold?: boolean }) {
+    if (!snapshot.playlist.length) return;
+    clearAllTimers();
+    setState({
+      live: true,
+      playlist: snapshot.playlist,
+      index: snapshot.index,
+      phase: snapshot.phase === 'hold' ? 'unfold' : snapshot.phase,
+      holding: false,
+      holdMs: snapshot.holdMs,
+      holdStartedAt: null,
+      thinkingLine: snapshot.thinkingLine,
+      frozen: opts?.resumeHold ? false : true,
+      spoken: '',
+    });
+    if (opts?.resumeHold) {
+      maybeArmHold();
+    }
   },
   clear,
 };

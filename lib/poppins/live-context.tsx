@@ -3,6 +3,15 @@ import { usePathname } from 'expo-router';
 
 import { useOrbitOptional } from '@/store/orbit-store';
 import { driveAiuic } from '@/lib/poppins/aiuic';
+import {
+  continuityListenPrompt,
+  hasOpenAct,
+  loadIuiContinuity,
+  rememberTurn,
+  saveIuiContinuity,
+  shouldGreet,
+  snapshotFromDrive,
+} from '@/lib/poppins/iui-continuity';
 import { parseHouseholdIntent } from '@/lib/poppins/ui-intent';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import {
@@ -45,19 +54,28 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const voiceRef = useRef<PoppinsVoiceSession | null>(null);
   const lastUtteranceRef = useRef('');
+  const continuityHouseholdRef = useRef<string | null>(null);
   const askPoppins = orbit?.askPoppins;
   const household = orbit?.household;
   const metrics = orbit?.metrics;
   const appendPoppinsTurn = orbit?.appendPoppinsTurn;
 
   const stop = useCallback(async () => {
+    const iui = poppinsUiOrchestrator.getState();
+    if (iui.live) poppinsUiOrchestrator.pause();
+    if (household?.id) {
+      const next = snapshotFromDrive(null, household.id, poppinsUiOrchestrator.getState());
+      void saveIuiContinuity(next);
+    }
     await voiceRef.current?.end('manual');
     voiceRef.current = null;
     setVisual('idle');
-    setSheetOpen(false);
-    setCaption('');
+    if (!poppinsUiOrchestrator.getState().live) {
+      setSheetOpen(false);
+      setCaption('');
+    }
     setError('');
-  }, []);
+  }, [household?.id]);
 
   const startInPlace = useCallback(
     async (pageContext = 'in-place') => {
@@ -69,6 +87,21 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
           return;
         }
         setVisual('connecting');
+        const prior = household.id ? await loadIuiContinuity(household.id) : null;
+        const greet = shouldGreet(prior, household.id);
+        if (hasOpenAct(prior) && prior?.openPlaylist) {
+          poppinsUiOrchestrator.restore(
+            {
+              playlist: prior.openPlaylist,
+              index: prior.openIndex ?? 0,
+              phase: 'unfold',
+              frozen: true,
+              holdMs: 1500,
+              thinkingLine: prior.lastTitle ?? '',
+            },
+            { resumeHold: true }
+          );
+        }
         const session = new PoppinsVoiceSession({
           onStateChange: (state) => setVisual(mapVisual(state)),
           onTranscript: (role, text) => {
@@ -76,10 +109,18 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
             setCaption(text);
             if (role === 'user') {
               lastUtteranceRef.current = text;
+              if (household.id) {
+                void saveIuiContinuity(rememberTurn(prior, household.id, { role: 'user', text }));
+              }
               if (poppinsUiOrchestrator.applySpeech(text)) return;
               const inferred = parseHouseholdIntent(text);
               if (inferred.length) driveAiuic(inferred, text, { replace: true });
             } else {
+              if (household.id) {
+                void saveIuiContinuity(
+                  rememberTurn(prior, household.id, { role: 'assistant', text })
+                );
+              }
               poppinsUiOrchestrator.syncSpoken(text);
             }
           },
@@ -87,8 +128,10 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
             driveAiuic(actions, lastUtteranceRef.current, { replace: true });
           },
           onSessionEnd: () => {
+            const iui = poppinsUiOrchestrator.getState();
+            if (iui.live) poppinsUiOrchestrator.pause();
             setVisual('idle');
-            setSheetOpen(false);
+            if (!iui.live) setSheetOpen(false);
           },
           onError: (message) => {
             setError(message);
@@ -98,6 +141,9 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
         const ok = await session.connect(household, metrics, orbit?.currentMember?.majordomoProfileId, {
           pageContext,
           capabilityProfile: 'Daily',
+          greet,
+          listenPrompt: prior && !greet ? continuityListenPrompt(prior) : undefined,
+          seedTurns: prior && !greet ? prior.turns : undefined,
         });
         if (!ok) {
           session.disconnect();

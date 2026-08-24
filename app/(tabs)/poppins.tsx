@@ -15,6 +15,7 @@ import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet'
 import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { PoppinsLiveCaption } from '@/components/orbit/poppins-live-caption';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
+import { PoppinsStage } from '@/components/orbit/poppins-stage';
 import { PoppinsWaveform } from '@/components/orbit/poppins-waveform';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius, space } from '@/constants/orbit-theme';
@@ -24,8 +25,19 @@ import {
   resolveMajordomoProfileId,
 } from '@/lib/ai/majordomo-profiles';
 import { driveAiuic } from '@/lib/poppins/aiuic';
+import {
+  continuityListenPrompt,
+  hasOpenAct,
+  loadIuiContinuity,
+  rememberTurn,
+  saveIuiContinuity,
+  shouldGreet,
+  snapshotFromDrive,
+  type IuiContinuity,
+} from '@/lib/poppins/iui-continuity';
 import { parseHouseholdIntent } from '@/lib/poppins/ui-intent';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
+import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
   applyLiveCaptionTurn,
@@ -103,7 +115,7 @@ export default function PoppinsScreen() {
     success: { label: `${majordomo.displayName} · Done`, color: '#34D399' },
   };
 
-  const [showText, setShowText] = useState(true);
+  const [showText, setShowText] = useState(() => !isPoppinsNativeVoiceAvailable());
   const [showActivity, setShowActivity] = useState(false);
   const [draft, setDraft] = useState('');
   const [asking, setAsking] = useState(false);
@@ -132,6 +144,17 @@ export default function PoppinsScreen() {
   const kidSessionRef = useRef(kidSession);
   kidSessionRef.current = kidSession;
   const lastUtteranceRef = useRef('');
+  const continuityRef = useRef<IuiContinuity | null>(null);
+
+  const persistContinuity = (patch?: IuiContinuity) => {
+    const householdId = household.id;
+    if (!householdId) return;
+    const next =
+      patch ??
+      snapshotFromDrive(continuityRef.current, householdId, poppinsUiOrchestrator.getState());
+    continuityRef.current = next;
+    void saveIuiContinuity(next);
+  };
 
   const flashToolSuccess = (label: string) => {
     setToolFlash(label);
@@ -173,8 +196,8 @@ export default function PoppinsScreen() {
   }, [majordomo.id]);
 
   useEffect(() => {
-    if (drive.live) setShowActivity(true);
-  }, [drive.live]);
+    poppinsUiOrchestrator.setSpeaking(visualState === 'speaking');
+  }, [visualState]);
 
   useEffect(() => {
     poppinsUiOrchestrator.setPendingHandler((approved, ids) => {
@@ -193,10 +216,6 @@ export default function PoppinsScreen() {
     [localMonitorActions, poppinsMonitorActions]
   );
 
-  useEffect(() => {
-    poppinsUiOrchestrator.setSpeaking(visualState === 'speaking');
-  }, [visualState]);
-
   const applyTranscript = (
     role: 'user' | 'assistant',
     text: string,
@@ -207,16 +226,24 @@ export default function PoppinsScreen() {
     if (!text.trim()) return;
     if (role === 'user') {
       lastUtteranceRef.current = text;
+      continuityRef.current = rememberTurn(continuityRef.current, household.id, {
+        role: 'user',
+        text,
+      });
+      void saveIuiContinuity(continuityRef.current);
       if (poppinsUiOrchestrator.applySpeech(text, memberNamesRef.current)) {
-        setShowActivity(true);
         return;
       }
       const inferred = parseHouseholdIntent(text);
       if (inferred.length) {
         driveAiuic(inferred, text, { kid: kidSessionRef.current, replace: true });
-        setShowActivity(true);
       }
     } else {
+      continuityRef.current = rememberTurn(continuityRef.current, household.id, {
+        role: 'assistant',
+        text,
+      });
+      void saveIuiContinuity(continuityRef.current);
       poppinsUiOrchestrator.syncSpoken(text, memberNamesRef.current);
     }
   };
@@ -224,7 +251,7 @@ export default function PoppinsScreen() {
   const applyUiActions = (actions: Array<Record<string, unknown>>, replace = false) => {
     if (!actions.length) return;
     driveAiuic(actions, lastUtteranceRef.current, { kid: kidSessionRef.current, replace });
-    setShowActivity(true);
+    persistContinuity();
   };
 
   const connectNativeVoice = async () => {
@@ -232,6 +259,22 @@ export default function PoppinsScreen() {
     setConnecting(true);
     setError('');
     setLiveCaption(null);
+    const prior = await loadIuiContinuity(household.id);
+    continuityRef.current = prior;
+    const greet = shouldGreet(prior, household.id);
+    if (hasOpenAct(prior) && prior?.openPlaylist) {
+      poppinsUiOrchestrator.restore(
+        {
+          playlist: prior.openPlaylist,
+          index: prior.openIndex ?? 0,
+          phase: 'unfold',
+          frozen: true,
+          holdMs: kidSessionRef.current ? HOLD_MS_KID : HOLD_MS_DEFAULT,
+          thinkingLine: prior.lastTitle ?? '',
+        },
+        { resumeHold: true }
+      );
+    }
     const session = new PoppinsVoiceSession({
       onStateChange: (state) => {
         setVoiceState(state);
@@ -254,7 +297,15 @@ export default function PoppinsScreen() {
         setLiveConnected(false);
         setVoiceState('idle');
         setLiveCaption(null);
-        poppinsUiOrchestrator.clear();
+        const iui = poppinsUiOrchestrator.getState();
+        if (iui.live && (iui.holding || iui.frozen || iui.phase === 'hold' || iui.phase === 'unfold')) {
+          poppinsUiOrchestrator.pause();
+          persistContinuity();
+        } else {
+          persistContinuity(
+            snapshotFromDrive(continuityRef.current, household.id, iui)
+          );
+        }
       },
       onSoftIdlePrompt: () => {
         setLocalMonitorActions((current) => [
@@ -274,6 +325,9 @@ export default function PoppinsScreen() {
     const ok = await session.connect(household, metrics, currentMember?.majordomoProfileId, {
       pageContext: 'poppins tab',
       capabilityProfile: 'Daily',
+      greet,
+      listenPrompt: prior && !greet ? continuityListenPrompt(prior) : undefined,
+      seedTurns: prior && !greet ? prior.turns : undefined,
     });
     setConnecting(false);
     if (!ok) {
@@ -286,6 +340,9 @@ export default function PoppinsScreen() {
   };
 
   const endNativeVoice = async () => {
+    const iui = poppinsUiOrchestrator.getState();
+    if (iui.live) poppinsUiOrchestrator.pause();
+    persistContinuity();
     await voiceRef.current?.end('manual');
     voiceRef.current = null;
     setLiveConnected(false);
@@ -430,20 +487,10 @@ export default function PoppinsScreen() {
       </View>
 
       {drive.live ? (
-        <View
-          style={[
-            styles.rail,
-            { borderColor: glassBorder(0.1), backgroundColor: glass(0.06) },
-          ]}>
-          <Text style={[styles.railText, { color: c.text }]} numberOfLines={1}>
-            {majordomo.displayName} ·{' '}
-            {drive.playlist[drive.index]?.payload.title ||
-              drive.thinkingLine ||
-              'working…'}
-          </Text>
+        <View style={styles.stageLive}>
+          <PoppinsStage />
         </View>
-      ) : null}
-
+      ) : (
       <View style={styles.stage}>
         <View style={styles.transcriptBlock}>
           {hasStrip && liveSpeaker ? (
@@ -459,7 +506,9 @@ export default function PoppinsScreen() {
           ) : (
             <Text
               style={[styles.idleHint, { color: isDark ? 'rgba(255,255,255,0.25)' : c.textMuted }]}>
-              {idleHint}
+              {continuityRef.current && !shouldGreet(continuityRef.current, household.id)
+                ? 'Tap to continue.'
+                : idleHint}
             </Text>
           )}
         </View>
@@ -482,6 +531,7 @@ export default function PoppinsScreen() {
           />
         </View>
       </View>
+      )}
 
       {error ? <Text style={[styles.error, { color: c.danger }]}>{error}</Text> : null}
 
@@ -592,10 +642,9 @@ export default function PoppinsScreen() {
           </Pressable>
         </View>
 
-        {nativeVoice && primaryConnected ? (
-          <Text style={[styles.stateLabel, { color: cfg.color }]}>{cfg.label}</Text>
-        ) : null}
-        <Text style={[styles.stateLabel, { color: isActive ? cfg.color : c.textSubtle }]}>
+        <Text
+          style={[styles.stateLabel, { color: isActive ? cfg.color : c.textSubtle }]}
+          accessibilityLiveRegion="polite">
           {nativeVoice ? (primaryConnected ? 'Done' : 'Speak') : cfg.label}
         </Text>
       </View>
@@ -716,6 +765,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: space.lg,
+    zIndex: 2,
+  },
+  stageLive: {
+    flex: 1,
+    paddingHorizontal: space.md,
     zIndex: 2,
   },
   transcriptBlock: {

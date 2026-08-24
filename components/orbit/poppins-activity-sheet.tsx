@@ -14,7 +14,6 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
-import { PoppinsStage } from '@/components/orbit/poppins-stage';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { getNotificationRoute } from '@/lib/notifications/navigate';
@@ -220,7 +219,7 @@ export function PoppinsActivitySheet({
   }, [activityOnly, drive.live, visible]);
 
   const handleRequestClose = () => {
-    if (drive.live) poppinsUiOrchestrator.veto();
+    if (drive.live) poppinsUiOrchestrator.pause();
     onClose();
   };
 
@@ -374,9 +373,7 @@ export function PoppinsActivitySheet({
               </Text>
               <Text style={[typography.caption1, { color: c.textMuted }]}>
                 {drive.live
-                  ? drive.thinkingLine ||
-                    drive.playlist[drive.index]?.payload.title ||
-                    'Listening throughout'
+                  ? 'Listening — the act is on the Poppins tab'
                   : showingActivity
                     ? poppinsActive
                       ? 'Poppins is active in the background'
@@ -440,11 +437,6 @@ export function PoppinsActivitySheet({
         </View>
         ) : null}
 
-        {drive.live && showingActivity ? (
-          <View style={styles.stageLive}>
-            <PoppinsStage />
-          </View>
-        ) : (
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.content}
@@ -727,7 +719,6 @@ export function PoppinsActivitySheet({
             </Animated.View>
           )}
         </ScrollView>
-        )}
       </View>
     </Modal>
   );

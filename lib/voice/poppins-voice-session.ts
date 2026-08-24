@@ -174,6 +174,9 @@ export class PoppinsVoiceSession {
   private metrics: OrbitMetrics | null = null;
   private memberProfileId: string | null = null;
   private pausedForTools = false;
+  private greetOnOpen = true;
+  private listenPrompt = '';
+  private seedTurns: Array<{ role: 'user' | 'assistant'; text: string }> = [];
 
   constructor(private callbacks: PoppinsVoiceSessionCallbacks = {}) {}
 
@@ -236,7 +239,14 @@ export class PoppinsVoiceSession {
     household: HouseholdSnapshot,
     metrics: OrbitMetrics,
     memberProfileId?: string | null,
-    opts?: { pageContext?: string; capabilityProfile?: string }
+    opts?: {
+      pageContext?: string;
+      capabilityProfile?: string;
+      /** Skip the first-session greeting when we already know this household. */
+      greet?: boolean;
+      listenPrompt?: string;
+      seedTurns?: Array<{ role: 'user' | 'assistant'; text: string }>;
+    }
   ): Promise<boolean> {
     const webrtc = loadReactNativeWebRtc();
     if (!webrtc) {
@@ -251,6 +261,9 @@ export class PoppinsVoiceSession {
     this.household = household;
     this.metrics = metrics;
     this.memberProfileId = memberProfileId ?? null;
+    this.greetOnOpen = opts?.greet !== false;
+    this.listenPrompt = opts?.listenPrompt?.trim() ?? '';
+    this.seedTurns = opts?.seedTurns?.filter((turn) => turn.text.trim()) ?? [];
     this.setState('connecting');
 
     try {
@@ -291,14 +304,25 @@ export class PoppinsVoiceSession {
         this.connected = true;
         this.setState('listening');
         this.armIdleTimers();
-        // Greet once connected.
-        this.sendEvent({
-          type: 'response.create',
-          response: {
-            instructions:
-              'Greet briefly as the household majordomo and listen. One short sentence. Do not list tools.',
-          },
-        });
+        for (const turn of this.seedTurns) {
+          this.sendEvent({
+            type: 'conversation.item.create',
+            item: {
+              type: 'message',
+              role: turn.role,
+              content: [{ type: 'input_text', text: turn.text }],
+            },
+          });
+        }
+        if (this.greetOnOpen) {
+          this.sendEvent({
+            type: 'response.create',
+            response: {
+              instructions:
+                'Greet briefly as the household majordomo and listen. One short sentence. Do not list tools.',
+            },
+          });
+        }
       };
       this.dc.onmessage = (event) => {
         void this.handleServerEvent(String(event.data));
@@ -324,7 +348,7 @@ export class PoppinsVoiceSession {
         householdContext: buildPoppinsHouseholdPayload(household, metrics, [], {
           memberProfileId,
         }),
-        pageContext: opts?.pageContext ?? 'poppins',
+        pageContext: [opts?.pageContext ?? 'poppins', this.listenPrompt].filter(Boolean).join('\n'),
         capabilityProfile: opts?.capabilityProfile ?? 'Daily',
         billingPending: true,
       };

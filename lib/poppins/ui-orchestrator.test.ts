@@ -274,4 +274,26 @@ assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.composeStep, 
 poppinsUiOrchestrator.clear();
 poppinsUiOrchestrator.setSpeaking(false);
 
+poppinsUiOrchestrator.drive(
+  [{ type: 'create_task_draft', title: 'Dishwasher', assignee: 'Maya' }],
+  { replace: true }
+);
+poppinsUiOrchestrator.pause();
+assert.equal(poppinsUiOrchestrator.getState().live, true, 'hangup keeps the act');
+assert.equal(poppinsUiOrchestrator.getState().frozen, true, 'hangup freezes');
+assert.equal(poppinsUiOrchestrator.getState().holding, false, 'clock stops');
+const frozen = poppinsUiOrchestrator.snapshot();
+poppinsUiOrchestrator.clear();
+assert.equal(poppinsUiOrchestrator.getState().live, false);
+poppinsUiOrchestrator.restore(frozen, { resumeHold: true });
+assert.equal(poppinsUiOrchestrator.getState().live, true, 'Speak restores');
+assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.title, 'Dishwasher');
+assert.equal(poppinsUiOrchestrator.getState().frozen, false, 'return unfreezes');
+
+assert.equal(isCoachRoute('/delete-account'), true);
+assert.equal(isCoachRoute('/premium'), true);
+
+poppinsUiOrchestrator.clear();
+poppinsUiOrchestrator.setSpeaking(false);
+
 console.log('iui orchestrator tests passed');
