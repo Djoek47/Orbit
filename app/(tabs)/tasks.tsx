@@ -188,6 +188,7 @@ function TaskItem({
   onToggle: () => void;
   onDelete: () => void;
 }) {
+  const { cancelTask } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
   const shareDone =
     member && isSplitTask(task)
@@ -371,6 +372,16 @@ function TaskItem({
         { key: 'open', label: 'Open task', icon: 'chevron-right', onPress: openTask },
         ...(!done && !expired && interactive
           ? [{ key: 'complete', label: 'Mark complete', icon: 'check' as const, onPress: onToggle }]
+          : []),
+        ...(!done && !expired && canDelete && task.repeat !== 'None'
+          ? [
+              {
+                key: 'skip',
+                label: 'Skip today',
+                icon: 'event-busy' as const,
+                onPress: () => void cancelTask(task.id, 'this'),
+              },
+            ]
           : []),
         ...(canDelete
           ? [

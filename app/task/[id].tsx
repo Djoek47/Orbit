@@ -24,7 +24,7 @@ import {
   normalizeRewardSettings,
 } from '@/lib/rewards/reward-mode';
 import { isTaskLate } from '@/lib/tasks/xp';
-import { canAdminUnassign, unassignNotifyCopy } from '@/lib/tasks/unassign';
+import { TASK_REPEAT_CHOICES } from '@/lib/tasks/series-edit';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
@@ -40,7 +40,11 @@ const statusTone: Record<HouseholdTask['status'], string> = {
 };
 
 const categories = ['Cleaning', 'Kitchen', 'Laundry', 'School', 'Homework', 'Groceries', 'Pets', 'Maintenance', 'General'];
-const repeats: HouseholdTask['repeat'][] = ['None', 'Daily', 'Weekly', 'Weekdays'];
+const repeats: HouseholdTask['repeat'][] = TASK_REPEAT_CHOICES;
+
+function repeatLabel(repeat: HouseholdTask['repeat']) {
+  return repeat === 'None' ? 'Doesn’t repeat' : repeat;
+}
 const difficulties: NonNullable<HouseholdTask['difficulty']>[] = ['easy', 'medium', 'hard'];
 
 function proofStatusLabel(status: HouseholdTask['proofStatus'], completed: boolean) {
@@ -104,13 +108,13 @@ export default function TaskDetailScreen() {
   const [title, setTitle] = useState(task?.title ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
   const [category, setCategory] = useState(task?.category ?? categories[0]);
-  const [assignee, setAssignee] = useState(task?.assignee ?? '');
   const [due, setDue] = useState(task?.due ?? '');
   const [xp, setXp] = useState(String(task?.xp ?? 15));
-  const [repeat, setRepeat] = useState<HouseholdTask['repeat']>(task?.repeat ?? 'None');
   const [difficulty, setDifficulty] = useState<HouseholdTask['difficulty']>(task?.difficulty ?? 'medium');
   const [busy, setBusy] = useState(false);
   const [proofBusy, setProofBusy] = useState(false);
+  const [repeatOpen, setRepeatOpen] = useState(false);
+  const [whoOpen, setWhoOpen] = useState(false);
   const [celebration, setCelebration] = useState<{
     awarded: number;
     penalty: number;
@@ -165,6 +169,13 @@ export default function TaskDetailScreen() {
           task.status !== 'Expired' &&
           task.status !== 'Missed'
       );
+
+  const canAdjust = Boolean(canEdit && task.status !== 'Cancelled');
+  const isOpenWork =
+    task.status !== 'Completed' &&
+    task.status !== 'Cancelled' &&
+    task.status !== 'Expired' &&
+    task.status !== 'Missed';
 
   const handleAttachProof = async (forAssignee?: string) => {
     const uri = await promptPickProofPhoto();
@@ -275,61 +286,73 @@ export default function TaskDetailScreen() {
         title: title.trim() || task.title,
         description,
         category,
-        assignee,
         due,
         xp: Number(xp) || task.xp,
-        repeat,
         difficulty,
       });
       setEditing(false);
+    } catch {
+      Alert.alert('Couldn’t save', 'Try again in a moment.');
     } finally {
       setBusy(false);
     }
   };
 
-  const confirmUnassign = () => {
-    if (!permissions.canManageHousehold) {
-      Alert.alert('Admins only', 'Only household admins can unassign tasks.');
+  const applyRepeat = async (next: HouseholdTask['repeat']) => {
+    if (next === task.repeat) {
+      setRepeatOpen(false);
       return;
     }
-    if (!canAdminUnassign(task)) {
+    const write = async () => {
+      setBusy(true);
+      try {
+        await updateTask({ ...task, repeat: next });
+        setRepeatOpen(false);
+      } catch {
+        Alert.alert('Couldn’t save', 'Try again in a moment.');
+      } finally {
+        setBusy(false);
+      }
+    };
+    if (next === 'None' && task.repeat !== 'None') {
       Alert.alert(
-        'Cannot unassign',
-        task.status === 'Completed'
-          ? 'Use Mark not done for a completed task.'
-          : 'Expired tasks cannot be unassigned. Delete them instead.'
+        'Stop repeating?',
+        'Today stays on the list. Nothing new will be added after this.',
+        [
+          { text: 'Keep repeating', style: 'cancel' },
+          { text: 'Stop', style: 'destructive', onPress: () => void write() },
+        ]
       );
       return;
     }
-    const adminName = currentMember?.name ?? 'Admin';
-    Alert.alert(`Remove “${task.title}”?`, 'Unassigning deletes this occurrence and awards nothing.', [
-      { text: 'Keep', style: 'cancel' },
-      {
-        text: 'Remove for today',
-        onPress: () => {
-          void (async () => {
-            await deleteTask(task.id);
-            Alert.alert('Removed', unassignNotifyCopy(adminName, task.title));
-            router.back();
-          })();
-        },
-      },
-      {
-        text: 'Remove permanently',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            // Stop the series first, then delete this occurrence.
-            if (task.repeat !== 'None') {
-              await cancelTask(task.id, 'future');
-            }
-            await deleteTask(task.id);
-            Alert.alert('Removed', unassignNotifyCopy(adminName, task.title));
-            router.back();
-          })();
-        },
-      },
-    ]);
+    await write();
+  };
+
+  const applyAssignee = async (name: string) => {
+    if (name === task.assignee) {
+      setWhoOpen(false);
+      return;
+    }
+    setBusy(true);
+    try {
+      await updateTask({ ...task, assignee: name });
+      setWhoOpen(false);
+    } catch {
+      Alert.alert('Couldn’t save', 'Try again in a moment.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const skipToday = async () => {
+    setBusy(true);
+    try {
+      await cancelTask(task.id, 'this');
+      router.back();
+    } catch {
+      Alert.alert('Couldn’t skip', 'Try again in a moment.');
+      setBusy(false);
+    }
   };
 
   const confirmDelete = () => {
@@ -344,53 +367,6 @@ export default function TaskDetailScreen() {
         },
       },
     ]);
-  };
-
-  const confirmCancel = () => {
-    if (!permissions.canManageHousehold) {
-      Alert.alert('Admins only', 'Only household admins can cancel tasks.');
-      return;
-    }
-    const recurring = task.repeat !== 'None';
-    const overdueNote = task.status === 'Overdue' ? ' This overdue task can still be cancelled.' : '';
-
-    if (!recurring) {
-      Alert.alert('Cancel task', `Cancel “${task.title}”?${overdueNote} This keeps a cancelled record (not a delete).`, [
-        { text: 'Keep', style: 'cancel' },
-        {
-          text: 'Cancel task',
-          style: 'destructive',
-          onPress: async () => {
-            await cancelTask(task.id, 'this');
-            router.back();
-          },
-        },
-      ]);
-      return;
-    }
-
-    Alert.alert(
-      'Cancel recurring task',
-      `“${task.title}” repeats ${task.repeat}.${overdueNote} Cancel just this occurrence, or this and all future ones?`,
-      [
-        { text: 'Keep', style: 'cancel' },
-        {
-          text: 'This occurrence',
-          onPress: async () => {
-            await cancelTask(task.id, 'this');
-            router.back();
-          },
-        },
-        {
-          text: 'This + all future',
-          style: 'destructive',
-          onPress: async () => {
-            await cancelTask(task.id, 'future');
-            router.back();
-          },
-        },
-      ]
-    );
   };
 
   return (
@@ -502,24 +478,10 @@ export default function TaskDetailScreen() {
                   <Pressable
                     key={item}
                     onPress={() => setCategory(item)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
                     style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
                     <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>{item}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <Text style={[styles.label, { color: c.textMuted }]}>Assignee</Text>
-            <View style={styles.chipWrap}>
-              {memberNames.map((name) => {
-                const active = assignee === name;
-                const member = household.members.find((item) => item.name === name);
-                return (
-                  <Pressable
-                    key={name}
-                    onPress={() => setAssignee(name)}
-                    style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
-                    <Text style={styles.choiceEmoji}>{member ? memberDisplayEmoji(member) : '👤'}</Text>
-                    <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>{name}</Text>
                   </Pressable>
                 );
               })}
@@ -548,33 +510,66 @@ export default function TaskDetailScreen() {
                 );
               })}
             </View>
-            <Text style={[styles.label, { color: c.textMuted }]}>Repeat</Text>
-            <View style={styles.chipWrap}>
-              {repeats.map((item) => {
-                const active = repeat === item;
-                return (
-                  <Pressable
-                    key={item}
-                    onPress={() => setRepeat(item)}
-                    style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
-                    <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>{item}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
           </View>
         ) : (
           <View style={[styles.card, { borderColor: glassBorder(0.08), backgroundColor: glass(0.05) }]}>
             <View style={styles.detailRow}>
-              <Text style={[styles.label, { color: c.textMuted }]}>{split ? 'Split between' : 'Assignee'}</Text>
-              <View style={styles.assigneeRow}>
-                {assigneeMember && !split ? (
-                  <View style={[styles.avatar, { backgroundColor: `${memberColor}33` }]}>
-                    <Text style={styles.avatarEmoji}>{memberDisplayEmoji(assigneeMember)}</Text>
+              <Text style={[styles.label, { color: c.textMuted }]}>{split ? 'Split between' : 'Who'}</Text>
+              {canAdjust && !split ? (
+                <Pressable
+                  onPress={() => setWhoOpen((open) => !open)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Assigned to ${task.assignee}. Change who does this.`}>
+                  <View style={styles.assigneeRow}>
+                    {assigneeMember ? (
+                      <View style={[styles.avatar, { backgroundColor: `${memberColor}33` }]}>
+                        <Text style={styles.avatarEmoji}>{memberDisplayEmoji(assigneeMember)}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={[styles.value, { color: c.text }]}>{task.assignee}</Text>
+                    <MaterialIcons name={whoOpen ? 'expand-less' : 'expand-more'} size={18} color={c.textMuted} />
                   </View>
-                ) : null}
-                <Text style={[styles.value, { color: c.text }]}>{task.assignee}</Text>
-              </View>
+                </Pressable>
+              ) : (
+                <View style={styles.assigneeRow}>
+                  {assigneeMember && !split ? (
+                    <View style={[styles.avatar, { backgroundColor: `${memberColor}33` }]}>
+                      <Text style={styles.avatarEmoji}>{memberDisplayEmoji(assigneeMember)}</Text>
+                    </View>
+                  ) : null}
+                  <Text style={[styles.value, { color: c.text }]}>{task.assignee}</Text>
+                </View>
+              )}
+              {whoOpen && canAdjust && !split ? (
+                <View style={styles.chipWrap}>
+                  {memberNames.map((name) => {
+                    const active = task.assignee === name;
+                    const member = household.members.find((item) => item.name === name);
+                    return (
+                      <Pressable
+                        key={`who-${name}`}
+                        disabled={busy}
+                        onPress={() => void applyAssignee(name)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        accessibilityLabel={`Assign to ${name}`}
+                        style={[
+                          styles.choiceChip,
+                          { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) },
+                          active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` },
+                        ]}>
+                        <Text style={styles.choiceEmoji}>{member ? memberDisplayEmoji(member) : '👤'}</Text>
+                        <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>
+                          {name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+              {whoOpen && canAdjust && !split ? (
+                <Text style={[styles.body, { color: c.textSoft }]}>Applies from this day on.</Text>
+              ) : null}
             </View>
             {(late || task.status === 'Overdue') &&
             task.status !== 'Completed' &&
@@ -663,6 +658,57 @@ export default function TaskDetailScreen() {
               </View>
             ) : null}
             <DetailRow label="Due" value={task.due} />
+            <View style={styles.detailRow}>
+              <Text style={[styles.label, { color: c.textMuted }]}>Repeats</Text>
+              {canAdjust ? (
+                <Pressable
+                  onPress={() => setRepeatOpen((open) => !open)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Repeats ${repeatLabel(task.repeat)}. Change how often.`}>
+                  <View style={styles.assigneeRow}>
+                    <Text style={[styles.value, { color: c.text }]}>{repeatLabel(task.repeat)}</Text>
+                    <MaterialIcons name={repeatOpen ? 'expand-less' : 'expand-more'} size={18} color={c.textMuted} />
+                  </View>
+                </Pressable>
+              ) : (
+                <Text style={[styles.value, { color: c.text }]}>{repeatLabel(task.repeat)}</Text>
+              )}
+              {repeatOpen && canAdjust ? (
+                <View style={styles.chipWrap}>
+                  {repeats.map((item) => {
+                    const active = task.repeat === item;
+                    return (
+                      <Pressable
+                        key={item}
+                        disabled={busy}
+                        onPress={() => void applyRepeat(item)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        accessibilityLabel={repeatLabel(item)}
+                        style={[
+                          styles.choiceChip,
+                          { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) },
+                          active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` },
+                        ]}>
+                        <Text
+                          style={[
+                            styles.choiceText,
+                            { color: c.textMuted },
+                            active && { color: accentTheme.primary },
+                          ]}>
+                          {repeatLabel(item)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+              {repeatOpen && canAdjust ? (
+                <Text style={[styles.body, { color: c.textSoft }]}>
+                  Applies from this day on. Skip today to keep the schedule.
+                </Text>
+              ) : null}
+            </View>
             <DetailRow
               label="XP"
               value={`${taskDisplayXp} XP${
@@ -679,7 +725,6 @@ export default function TaskDetailScreen() {
                   : ''
               }`}
             />
-            <DetailRow label="Repeat" value={task.repeat} />
             {needsProof && !split ? (
               <DetailRow
                 label="Proof"
@@ -851,28 +896,29 @@ export default function TaskDetailScreen() {
                 </Text>
               </View>
             ) : null}
-            {permissions.canManageHousehold && canAdminUnassign(task) ? (
+            {canAdjust && isOpenWork ? (
               <Pressable
-                onPress={confirmUnassign}
+                disabled={busy}
+                onPress={() => void skipToday()}
+                accessibilityRole="button"
+                accessibilityLabel={task.repeat !== 'None' ? 'Skip today' : 'Cancel this task'}
                 style={[
                   styles.secondaryBtn,
                   { borderColor: glassBorder(0.08), backgroundColor: glass(0.03) },
                 ]}>
                 <Text style={[styles.secondaryText, { color: c.textSoft }]}>
-                  Unassign
+                  {task.repeat !== 'None' ? 'Skip today' : 'Cancel task'}
                 </Text>
               </Pressable>
             ) : null}
-            {permissions.canManageHousehold &&
-            task.status !== 'Completed' &&
-            task.status !== 'Cancelled' &&
-            !canAdminUnassign(task) &&
-            task.status !== 'Expired' &&
-            task.status !== 'Missed' ? (
-              <Pressable onPress={confirmCancel} style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-                <Text style={[styles.secondaryText, { color: c.warning }]}>
-                  Cancel task{task.status === 'Overdue' ? ' (overdue ok)' : ''}
-                </Text>
+            {canAdjust && task.repeat !== 'None' ? (
+              <Pressable
+                disabled={busy}
+                onPress={() => void applyRepeat('None')}
+                accessibilityRole="button"
+                accessibilityLabel="Stop repeating this chore"
+                style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
+                <Text style={[styles.secondaryText, { color: c.warning }]}>Stop repeating</Text>
               </Pressable>
             ) : null}
             {task.status === 'Cancelled' ? (

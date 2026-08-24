@@ -1,19 +1,15 @@
 import type { CancelTaskScope, HouseholdTask } from '@/types/orbit';
+import { seriesDefinitionId } from '@/lib/tasks/recurring';
 
 /** Open work still needs doing — excludes completed and cancelled. */
 export function isOpenTask(task: Pick<HouseholdTask, 'status'>) {
   return task.status !== 'Completed' && task.status !== 'Cancelled';
 }
 
-/** Match other occurrences in the same recurring series. */
+/** Match other occurrences in the same recurring series (stable id, not the current repeat). */
 export function isSameTaskSeries(a: HouseholdTask, b: HouseholdTask) {
-  return (
-    a.title === b.title &&
-    a.assignee === b.assignee &&
-    a.category === b.category &&
-    a.repeat === b.repeat &&
-    a.repeat !== 'None'
-  );
+  if (a.definitionId && b.definitionId) return a.definitionId === b.definitionId;
+  return seriesDefinitionId(a) === seriesDefinitionId(b);
 }
 
 export function describeCancelScope(task: HouseholdTask, scope: CancelTaskScope) {

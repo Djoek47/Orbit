@@ -1,5 +1,6 @@
 import { mockHousehold } from '@/data/mock-household';
 import { mapTaskRow, taskRepeatToDb, taskStatusToDb } from '@/lib/mappers/orbit-mappers';
+import { fallbackSeriesDefinitionId } from '@/lib/tasks/recurring';
 import {
   assertUniqueOccurrenceInsert,
   dedupeOccurrences,
@@ -135,6 +136,11 @@ export const taskRepository = {
       .filter(Boolean);
     const uniqueNames = [...new Set(assigneeNames)];
     const split = uniqueNames.length > 1;
+    const definitionId =
+      input.definitionId ||
+      (input.repeat !== 'None'
+        ? fallbackSeriesDefinitionId(input.title.trim(), uniqueNames[0] ?? input.assignee.trim())
+        : undefined);
 
     const task: HouseholdTask = {
       id: createLocalId('task'),
@@ -160,7 +166,7 @@ export const taskRepository = {
       dueAt: input.dueAt,
       roomId: input.roomId,
       sharedDeviceId: input.sharedDeviceId,
-      definitionId: input.definitionId,
+      definitionId,
       occurrenceDate: input.occurrenceDate,
       repeat: input.repeat,
       status: 'Pending',
@@ -364,27 +370,37 @@ export const taskRepository = {
     householdId: string | null | undefined,
     input: CreateTaskInput
   ): Promise<{ task: HouseholdTask; inserted: boolean }> {
-    if (!input.definitionId || !input.occurrenceDate) {
-      const task = await taskRepository.createTask(householdId, input);
+    const definitionId =
+      input.definitionId ||
+      (input.repeat !== 'None'
+        ? fallbackSeriesDefinitionId(
+            input.title.trim(),
+            (input.assignees?.[0] ?? input.assignee).trim()
+          )
+        : undefined);
+    const resolved: CreateTaskInput = { ...input, definitionId };
+
+    if (!resolved.definitionId || !input.occurrenceDate) {
+      const task = await taskRepository.createTask(householdId, resolved);
       return { task, inserted: true };
     }
 
     if (isMockMode()) {
       const existing = mockTasksState.find(
         (t) =>
-          t.definitionId === input.definitionId && t.occurrenceDate === input.occurrenceDate
+          t.definitionId === resolved.definitionId && t.occurrenceDate === input.occurrenceDate
       );
       if (existing) {
         return { task: existing, inserted: false };
       }
       try {
-        const task = await taskRepository.createTask(householdId, input);
+        const task = await taskRepository.createTask(householdId, resolved);
         return { task, inserted: true };
       } catch (error) {
         if (error instanceof Error && error.message.startsWith('UNIQUE_VIOLATION')) {
           const again = mockTasksState.find(
             (t) =>
-              t.definitionId === input.definitionId && t.occurrenceDate === input.occurrenceDate
+              t.definitionId === resolved.definitionId && t.occurrenceDate === input.occurrenceDate
           );
           if (again) return { task: again, inserted: false };
         }
@@ -394,7 +410,7 @@ export const taskRepository = {
 
     // Supabase: try insert; unique index rejects duplicates.
     try {
-      const task = await taskRepository.createTask(householdId, input);
+      const task = await taskRepository.createTask(householdId, resolved);
       return { task, inserted: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -402,7 +418,7 @@ export const taskRepository = {
         const all = await taskRepository.getTasks(householdId);
         const existing = all.find(
           (t) =>
-            t.definitionId === input.definitionId && t.occurrenceDate === input.occurrenceDate
+            t.definitionId === resolved.definitionId && t.occurrenceDate === input.occurrenceDate
         );
         if (existing) return { task: existing, inserted: false };
       }

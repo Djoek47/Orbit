@@ -138,6 +138,7 @@ import {
 } from '@/lib/tasks/split-assign';
 import { splitOpenTasksBetweenTwo } from '@/lib/tasks/split-between';
 import { isOpenTask, isSameTaskSeries } from '@/lib/tasks/cancel';
+import { applySeriesPatch, defaultSeriesScope } from '@/lib/tasks/series-edit';
 import { isTodayTask } from '@/lib/tasks/today';
 import { isTaskLate, resolveCompletionXp } from '@/lib/tasks/xp';
 import { recordCompletionForTrophies } from '@/lib/trophies/runtime';
@@ -306,7 +307,10 @@ type OrbitContextValue = {
     input: CreateTaskInput,
     options?: { householdId?: string | null }
   ) => Promise<HouseholdTask | null>;
-  updateTask: (task: HouseholdTask) => Promise<void>;
+  updateTask: (
+    task: HouseholdTask,
+    options?: { scope?: 'this' | 'future' }
+  ) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   completeTask: (
     taskId: string,
@@ -1480,16 +1484,62 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
   };
 
-  const updateTask = async (task: HouseholdTask) => {
+  const updateTask = async (
+    task: HouseholdTask,
+    options?: { scope?: 'this' | 'future' }
+  ) => {
     if (!v2Permissions.canAssignOrEditTask && !permissions.canAssignTask) {
       return;
     }
-    const updated = await taskRepository.updateTask(task);
-    setHousehold((current) => ({
-      ...current,
-      tasks: current.tasks.map((item) => (item.id === updated.id ? updated : item)),
-    }));
-    await trackAnalytics('task.updated', { taskId: updated.id }, analyticsContext);
+    const live = householdRef.current;
+    const current = live.tasks.find((item) => item.id === task.id);
+    const scope = options?.scope ?? defaultSeriesScope(current, task);
+    const nextTasks = current
+      ? applySeriesPatch(
+          live.tasks,
+          current,
+          {
+            ...(task.repeat !== current.repeat ? { repeat: task.repeat } : {}),
+            ...(task.assignee !== current.assignee ? { assignee: task.assignee } : {}),
+            ...(task.title !== current.title ? { title: task.title } : {}),
+            ...(task.category !== current.category ? { category: task.category } : {}),
+          },
+          scope
+        ).map((row) =>
+          row.id === task.id ? { ...row, ...task, definitionId: row.definitionId } : row
+        )
+      : live.tasks.map((item) => (item.id === task.id ? task : item));
+
+    const before = new Map(live.tasks.map((item) => [item.id, item]));
+    const changed = nextTasks.filter((row) => {
+      const prev = before.get(row.id);
+      if (!prev) return true;
+      return (
+        prev.repeat !== row.repeat ||
+        prev.assignee !== row.assignee ||
+        prev.title !== row.title ||
+        prev.status !== row.status ||
+        prev.due !== row.due ||
+        prev.category !== row.category ||
+        prev.xp !== row.xp ||
+        prev.difficulty !== row.difficulty ||
+        prev.description !== row.description ||
+        prev.definitionId !== row.definitionId
+      );
+    });
+
+    let persisted = nextTasks;
+    for (const row of changed) {
+      const saved = await taskRepository.updateTask(row);
+      persisted = persisted.map((item) => (item.id === saved.id ? saved : item));
+    }
+
+    const nextHousehold = { ...live, tasks: persisted };
+    setHousehold(nextHousehold);
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot(nextHousehold);
+    }
+    await trackAnalytics('task.updated', { taskId: task.id, scope }, analyticsContext);
   };
 
   const submitTaskProof = async (

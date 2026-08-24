@@ -41,13 +41,45 @@ function shouldGenerateOnDate(task: HouseholdTask, date: Date): boolean {
   }
 }
 
-/** Template rows = completed/cancelled with a repeat rule, keyed by series. */
+/** Stable series key. Repeat is a field on the rule — never part of the id. */
+export function fallbackSeriesDefinitionId(title: string, assignee: string): string {
+  return `series:${title}:${assignee}`;
+}
+
 export function seriesDefinitionId(task: HouseholdTask): string {
-  return task.definitionId || `series:${task.title}:${task.assignee}:${task.repeat}`;
+  return task.definitionId || fallbackSeriesDefinitionId(task.title, task.assignee);
 }
 
 export function isExpiredStatus(status: HouseholdTask['status']): boolean {
   return status === 'Expired' || status === 'Missed';
+}
+
+function occurrenceDateKey(task: HouseholdTask): string {
+  return task.occurrenceDate || (task.dueAt ? formatLocalDate(new Date(task.dueAt)) : '');
+}
+
+/**
+ * The live household rule for a series.
+ * Walk newest → oldest. Skip-today (cancelled, still repeating) is ignored.
+ * Doesn’t repeat on the newest non-skip day stops the series — even if older
+ * completions are still Daily.
+ */
+export function pickSeriesTemplate(members: HouseholdTask[]): HouseholdTask | null {
+  if (!members.length) return null;
+  const sorted = [...members].sort((a, b) =>
+    occurrenceDateKey(b).localeCompare(occurrenceDateKey(a))
+  );
+  let skippedTemplate: HouseholdTask | null = null;
+  for (const row of sorted) {
+    const skippedDay = row.status === 'Cancelled' && row.repeat !== 'None';
+    if (skippedDay) {
+      skippedTemplate ??= row;
+      continue;
+    }
+    if (row.repeat === 'None') return null;
+    return row;
+  }
+  return skippedTemplate;
 }
 
 /** First chosen due / earliest occurrence — catch-up must not invent days before this. */
@@ -77,12 +109,19 @@ export function ensureOccurrencesForDay(
   const dateKey = formatLocalDate(day);
   const skip = new Set(options?.skipAssignees ?? []);
 
-  // Prefer open templates; also learn series from any repeating row.
+  // Prefer the latest open rule. A stopped series (latest open is Doesn’t repeat)
+  // must not resurrect from an old Daily completion.
   const templates = new Map<string, HouseholdTask>();
+  const bySeries = new Map<string, HouseholdTask[]>();
   for (const task of tasks) {
-    if (task.repeat === 'None') continue;
     const defId = seriesDefinitionId(task);
-    if (!templates.has(defId)) templates.set(defId, task);
+    const list = bySeries.get(defId) ?? [];
+    list.push(task);
+    bySeries.set(defId, list);
+  }
+  for (const [defId, members] of bySeries) {
+    const template = pickSeriesTemplate(members);
+    if (template) templates.set(defId, template);
   }
 
   const created: HouseholdTask[] = [];
