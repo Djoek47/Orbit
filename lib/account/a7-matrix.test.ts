@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { ONBOARDING_ROLES } from '@/lib/onboarding-prefs';
 import { formatHouseholdRole, getPermissionsForRole } from '@/lib/permissions';
 
 test('A7 owner/admin can manage household + approve rewards', () => {
@@ -22,6 +23,7 @@ test('A7 child cannot manage household or approve rewards', () => {
   assert.equal(p.canApproveReward, false);
   assert.equal(p.canInviteMembers, false);
   assert.equal(formatHouseholdRole('child'), 'Sidekick');
+  assert.equal(ONBOARDING_ROLES.find((role) => role.id === 'child')?.title, 'Sidekick');
 });
 
 test('A7 shared tablet is limited (no admin powers)', () => {

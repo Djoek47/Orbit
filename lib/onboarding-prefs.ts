@@ -52,7 +52,7 @@ export const ONBOARDING_ROLES: {
   {
     id: 'child',
     emoji: '⭐',
-    title: 'Child',
+    title: 'Sidekick',
     subtitle: 'Join with a parent invite',
     color: '#34D399',
     perks: ['My tasks', 'Earn XP', 'Unlock rewards', 'Build habits'],

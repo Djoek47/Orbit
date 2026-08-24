@@ -174,7 +174,7 @@ export default function HouseholdMembersScreen() {
           'Kid invites ready',
           created
             .map((member) => `${member.name}: ${member.profileInviteCode ?? 'code ready'}`)
-            .join('\n') + '\n\nAirDrop or share each code. Kids open Get Started → Child — no sign-in.',
+            .join('\n') + '\n\nAirDrop or share each code. Kids open Get Started → Sidekick — no sign-in.',
         );
       })
       .catch((err: unknown) => {
