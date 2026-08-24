@@ -1,6 +1,6 @@
 /** Injected tip marker so Expo Go / TestFlight can prove which commit is running. */
 export const BUILD_INFO = {
-  branch: 'cursor/revision-g-sidekick-5f8f',
-  commit: '235f9e8',
-  label: 'revision-g · sidekick',
+  branch: 'cursor/choremaxx-make-v14',
+  commit: '4de934a',
+  label: 'make-v14 · revision-g',
 } as const;

@@ -1,10 +1,10 @@
 # Remaining work
 
-**Single list.** Everything still to do after TestFlight **1.3.0 (39)**.  
-**Branch:** `cursor/choremaxx-make-v13`  
-**Do not** start from v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules to the kid card.
+**Single list.** Everything still to do after TestFlight **1.3.0 (39)** and the v14 Revision G aggregate.  
+**Branch:** `cursor/choremaxx-make-v14`  
+**Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules to the kid card.
 
-Shipped on this tip (do not redo): v12 stack, House Rules expiry, invite join paths, GPS/places/shopping, AIUIC overlay (Assign / groceries / done / shopping drops).
+Shipped on this tip (do not redo): v13 aggregate (v12 stack, House Rules expiry, invite join, GPS/places/shopping, AIUIC), plus Revision G Sidekick access and login/signup dump sanitizer.
 
 ---
 
@@ -28,13 +28,15 @@ Code today: `lib/poppins/ui-scenes.ts`, `ui-tool-map.ts`, `ui-orchestrator.ts`, 
 
 ---
 
-## 2. v13 cut + App Store
+## 2. v13 / v14 cut + App Store
 
-Cut **done:** `cursor/choremaxx-make-v13` @ 1.3.0 (`make-v13 · final`). Continue smoke and Review from this tip.
+v13 cut **done:** `cursor/choremaxx-make-v13` @ 1.3.0 (`make-v13 · final`), TestFlight **1.3.0 (39)**.  
+v14 cut **done:** `cursor/choremaxx-make-v14` = v13 + Revision G (`make-v14 · revision-g`). Continue smoke and Review from v14.
 
 | # | Item | Notes |
 |---|------|--------|
 | S1 | Cut v13 | **Done.** Branch off today’s aggregate. `app.json` **1.3.0**, `BUILD_INFO` `make-v13 · final`. |
+| S1b | Cut v14 | **Done.** `cursor/choremaxx-make-v14`. Settings tip `make-v14 · revision-g`. Apply `20260820200000_revision_g_sidekick.sql` on staging before Sidekick smoke. |
 | S2 | Device smoke | Real Supabase account (not `sarah@orbit.test`). Assign a library task. Poppins Speak → IUI HOLD. House Rules 4 directions × Admin/Sidekick. Places map. Homework roles. Expired tasks. Delete account → Get Started. |
 | S3 | Luna edge model | Redeploy with `OPENAI_POPPINS_CHAT_MODEL=gpt-5.6-luna` if staging is still on the old id. |
 | S4 | MapView on IPA | Full `MapView` needs the TestFlight binary; Expo Go uses the fallback. Verify on device. |

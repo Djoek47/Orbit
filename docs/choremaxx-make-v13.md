@@ -6,7 +6,9 @@
 **Settings tip:** `make-v13 · final`  
 **Content tip:** `860a8d9` — v13 aggregate plus Open tasks, invite login, My Places persist, sign-out restart.
 
-This is the TestFlight / App Store cut. Nothing from today’s stacked `-5f8f` line is left behind.
+Succeeded as the shipping tip by [`docs/choremaxx-make-v14.md`](./choremaxx-make-v14.md) (`cursor/choremaxx-make-v14` = this cut plus Revision G).
+
+This is the TestFlight **1.3.0 (39)** / App Store cut of the 18 Aug stack. Nothing from that day’s stacked `-5f8f` line is left behind.
 
 ---
 
