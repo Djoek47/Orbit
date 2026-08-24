@@ -1,10 +1,10 @@
 # Remaining work
 
 **Branch:** `cursor/choremaxx-make-v14`  
-**TestFlight in ASC:** **1.3.0 (40)**  
+**TestFlight in ASC:** **1.3.0 (41)** uploaded (Apple processing). **40** is Revision G without the post-40 IUI pass.  
 **Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules to the kid card.
 
-Two lists only. Agents do not mix dashboard / Apple / device steps into coding work. No new TestFlight IPA until MYTIKAS says this You-do list is done.
+Two lists only. Agents do not mix dashboard / Apple / device steps into coding work.
 
 ---
 
@@ -19,9 +19,9 @@ Architecture: [`iui-ux-architecture.md`](./iui-ux-architecture.md). Method: [`iu
 - **P3** Beats / HOLD / barge-in — grammar unchanged; hangup/background is pause, not veto.
 - **P4** Strip mixed leftover — Activity sheet is history only; closing it does not cancel the act.
 - **P5** Settings / billing / account — coach-navigate only; never HOLD-commit.
-- **Apple product logic (this tip, not in IPA 40)** — one Speak (orb is status); Activity is the hourglass only; returning to the tab shows a frozen act without arming HOLD; mic/network failure opens type-instead; commit failure keeps the preview.
+- **Apple product logic (in IPA 41)** — one Speak (orb is status); Activity is the hourglass only; returning to the tab shows a frozen act without arming HOLD; mic/network failure opens type-instead; commit failure keeps the preview.
 
-Still worth a TestFlight pass on the **next** IPA: barge-in, mic-denied type path, frozen HOLD tap-to-confirm, Speak continuity after hangup.
+Still worth a TestFlight pass on **41**: barge-in, mic-denied type path, frozen HOLD tap-to-confirm, Speak continuity after hangup.
 
 ### After IUI (not Review-blocking)
 
@@ -45,7 +45,7 @@ Still worth a TestFlight pass on the **next** IPA: barge-in, mic-denied type pat
 ### Already done
 
 - **S1** v13 cut — `cursor/choremaxx-make-v13` @ 1.3.0 (`make-v13 · final`), TestFlight **1.3.0 (39)**
-- **S1b** v14 cut — `cursor/choremaxx-make-v14` = v13 + Revision G (`make-v14 · revision-g`), TestFlight **1.3.0 (40)**
+- **S1b** v14 cut — `cursor/choremaxx-make-v14` = v13 + Revision G (`make-v14 · revision-g`), TestFlight **1.3.0 (40)** then **(41)**
 - Revision G Sidekick access (storage role stays `child`)
 - **Supabase staging** — `20260820200000_revision_g_sidekick.sql` applied (Sidekick redeem / grocery / proposals)
 - Login/signup dump sanitizer
@@ -56,9 +56,9 @@ Do not redo: v12 aggregate, Assign `difficulty` default, live captions, delete l
 
 ## You do (now)
 
-On **TestFlight 40**, not Expo Go mock. Not `sarah@orbit.test`. Git tip is ahead of 40 (Sidekick Get Started label, 23:59 expiry tick, Family iPad, IUI continuity + Apple product logic). Smoke 40 as shipped; those land on the **next** IPA after this pass.
+On **TestFlight 41**, not Expo Go mock. Not `sarah@orbit.test`. 41 is git tip `f70af99` (Sidekick Get Started, 23:59 expiry, Family iPad, onboarding photo, IUI continuity + one-Speak).
 
-1. **Apple processing** — **Done.** 1.3.0 (40) installed. IUI on 40 works. Continuity / one-Speak / type-instead are on git tip, not 40.
+1. **Apple processing** — wait until 1.3.0 (**41**) is Available in [TestFlight](https://appstoreconnect.apple.com/apps/6796850110/testflight/ios), then install 41 (40 is Revision G without the post-40 IUI pass).
 2. **Luna (S3)** — if Luna is still the old model id, set `OPENAI_POPPINS_CHAT_MODEL=gpt-5.6-luna` and redeploy Poppins functions. Revision G SQL is already on staging.
 3. **Auth email (W2)** — if the Send Email Hook is not on: enable it in the Supabase dashboard ([`resend-auth-email.md`](./resend-auth-email.md)). Signup on device → mail → confirm in app.
 4. **Device smoke (S2 + S4 + v14)** — real account:
@@ -74,6 +74,6 @@ On **TestFlight 40**, not Expo Go mock. Not `sarah@orbit.test`. Git tip is ahead
 5. **IAP on the binary (W5)** — ASC → Choremaxx → Subscriptions: monthly `app.choremaxx.household.premium.monthly` is already live; attach subscription products to this binary for Review. Yearly stays Settings-only ([`asc-iap-setup.md`](./asc-iap-setup.md)).
 6. **Demo account** — Supabase Auth user, auto-confirm, one staged household (admin + Sidekick). Put email/password in Review notes.
 7. **App Review (S5)** — after smoke: listing copy, privacy/terms URLs, demo account, submit. Draft: [`app-store-checklist.md`](./app-store-checklist.md). Legal URLs are still `choremaxx.vercel.app` until the website cutover.
-8. **Optional website** — when `Choremaxx-Website` push works: `/auth/callback` bridge, `/join/[code]`, AASA, families-only copy. Not required to install 40.
+8. **Optional website** — when `Choremaxx-Website` push works: `/auth/callback` bridge, `/join/[code]`, AASA, families-only copy. Not required to install 41.
 
 Cursor environment: add `EXPO_TOKEN` as a **dashboard secret** (do not paste in chat) so the next Cloud Agent can ship without re-login.
