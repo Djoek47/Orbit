@@ -56,6 +56,6 @@ EAS `autoIncrement` assigns the next iOS build number. Uploaded **1.3.0 (40)** t
 5. Suggest a reward → admin approve/decline (no XP)
 6. Failed signup shows short copy, not a JSON dump
 
-**Still open** — [`remaining.md`](./remaining.md) (IUI memory, App Review, website ops).
+**Still open** — [`remaining.md`](./remaining.md) (App Review, website ops). IUI product logic is on this git tip; TestFlight **40** still has the earlier IUI.
 
 **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules back to the kid card.

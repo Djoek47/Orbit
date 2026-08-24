@@ -19,8 +19,9 @@ Architecture: [`iui-ux-architecture.md`](./iui-ux-architecture.md). Method: [`iu
 - **P3** Beats / HOLD / barge-in — grammar unchanged; hangup/background is pause, not veto.
 - **P4** Strip mixed leftover — Activity sheet is history only; closing it does not cancel the act.
 - **P5** Settings / billing / account — coach-navigate only; never HOLD-commit.
+- **Apple product logic (this tip, not in IPA 40)** — one Speak (orb is status); Activity is the hourglass only; returning to the tab shows a frozen act without arming HOLD; mic/network failure opens type-instead; commit failure keeps the preview.
 
-Still worth a TestFlight pass: barge-in on device, mic-denied type path, frozen HOLD tap-to-confirm.
+Still worth a TestFlight pass on the **next** IPA: barge-in, mic-denied type path, frozen HOLD tap-to-confirm, Speak continuity after hangup.
 
 ### After IUI (not Review-blocking)
 
@@ -55,9 +56,9 @@ Do not redo: v12 aggregate, Assign `difficulty` default, live captions, delete l
 
 ## You do (now)
 
-On **TestFlight 40**, not Expo Go mock. Not `sarah@orbit.test`. Git tip may be ahead of 40 (Sidekick Get Started label, 23:59 expiry tick, Family iPad). Smoke 40 as shipped; those land on the **next** IPA after this pass.
+On **TestFlight 40**, not Expo Go mock. Not `sarah@orbit.test`. Git tip is ahead of 40 (Sidekick Get Started label, 23:59 expiry tick, Family iPad, IUI continuity + Apple product logic). Smoke 40 as shipped; those land on the **next** IPA after this pass.
 
-1. **Apple processing** — wait until 1.3.0 (40) is Available in [TestFlight](https://appstoreconnect.apple.com/apps/6796850110/testflight/ios), then install 40 (39 is v13 without Revision G).
+1. **Apple processing** — **Done.** 1.3.0 (40) installed. IUI on 40 works. Continuity / one-Speak / type-instead are on git tip, not 40.
 2. **Luna (S3)** — if Luna is still the old model id, set `OPENAI_POPPINS_CHAT_MODEL=gpt-5.6-luna` and redeploy Poppins functions. Revision G SQL is already on staging.
 3. **Auth email (W2)** — if the Send Email Hook is not on: enable it in the Supabase dashboard ([`resend-auth-email.md`](./resend-auth-email.md)). Signup on device → mail → confirm in app.
 4. **Device smoke (S2 + S4 + v14)** — real account:

@@ -120,7 +120,17 @@ async function settleCurrent() {
   if (beat.scene === 'navigate_coach' && beat.payload.route) {
     coachHandler?.(beat.payload.route);
   } else if (beat.commit !== 'none') {
-    await commitHandler?.(beat);
+    try {
+      await commitHandler?.(beat);
+    } catch {
+      setState({
+        frozen: true,
+        holding: false,
+        phase: 'unfold',
+        thinkingLine: "Couldn't save that. Tap to try again.",
+      });
+      return;
+    }
   }
   const next = state.index + 1;
   if (next < state.playlist.length) {
@@ -357,7 +367,7 @@ export const poppinsUiOrchestrator = {
   },
   confirm() {
     clearAllTimers();
-    void settleCurrent();
+    return settleCurrent();
   },
   veto() {
     const beat = currentBeat();

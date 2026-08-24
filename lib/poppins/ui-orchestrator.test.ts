@@ -290,10 +290,31 @@ assert.equal(poppinsUiOrchestrator.getState().live, true, 'Speak restores');
 assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.title, 'Dishwasher');
 assert.equal(poppinsUiOrchestrator.getState().frozen, false, 'return unfreezes');
 
+poppinsUiOrchestrator.restore(frozen);
+assert.equal(poppinsUiOrchestrator.getState().frozen, true, 'tab return stays frozen');
+poppinsUiOrchestrator.unfreeze();
+assert.equal(poppinsUiOrchestrator.getState().frozen, false, 'listening unfreezes');
+
 assert.equal(isCoachRoute('/delete-account'), true);
 assert.equal(isCoachRoute('/premium'), true);
 
 poppinsUiOrchestrator.clear();
 poppinsUiOrchestrator.setSpeaking(false);
-
-console.log('iui orchestrator tests passed');
+poppinsUiOrchestrator.setCommitHandler(async () => {
+  throw new Error('network');
+});
+poppinsUiOrchestrator.drive(
+  [{ type: 'create_task_draft', title: 'Trash', assignee: 'Alex', due: 'Today' }],
+  { replace: true }
+);
+void poppinsUiOrchestrator.confirm().then(() => {
+  assert.equal(poppinsUiOrchestrator.getState().live, true, 'failed commit keeps the act');
+  assert.equal(poppinsUiOrchestrator.getState().frozen, true, 'failed commit freezes');
+  assert.match(poppinsUiOrchestrator.getState().thinkingLine, /try again/i);
+  poppinsUiOrchestrator.setCommitHandler(null);
+  poppinsUiOrchestrator.clear();
+  console.log('iui orchestrator tests passed');
+}).catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

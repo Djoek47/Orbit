@@ -307,6 +307,7 @@ export function PoppinsStage() {
           }
         } catch (error) {
           console.warn('IUI create_task failed', error);
+          throw error;
         }
       }
       if (write === 'create_event' && p.title) {
@@ -582,7 +583,9 @@ export function PoppinsStage() {
 
       {beat.commit === 'hold' ? (
         <Pressable onPress={() => poppinsUiOrchestrator.confirm()} hitSlop={12}>
-          <Text style={[styles.fallback, { color: c.textSubtle }]}>or tap to confirm</Text>
+          <Text style={[styles.fallback, { color: c.textSubtle }]}>
+            {drive.frozen ? 'Tap to confirm' : 'or tap to confirm'}
+          </Text>
         </Pressable>
       ) : null}
 

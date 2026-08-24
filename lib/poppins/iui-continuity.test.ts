@@ -7,6 +7,7 @@ import {
   continuityListenPrompt,
   hasOpenAct,
   isContinuityFresh,
+  openActSnapshot,
   rememberTurn,
   shouldGreet,
   snapshotFromDrive,
@@ -66,6 +67,11 @@ const idle = snapshotFromDrive(merged, 'hh1', {
   phase: 'show',
 });
 assert(!hasOpenAct(idle), 'idle has no open act');
+
+const frozenSnap = openActSnapshot(snapped, 1500);
+assert(frozenSnap?.frozen === true, 'open act restores frozen');
+assert(frozenSnap?.thinkingLine === 'Dishes', 'title on restore');
+assert(openActSnapshot(idle, 1500) === null, 'idle has no snapshot');
 
 const prompt = continuityListenPrompt(snapped);
 assert(prompt.includes('Do not greet'), 'no greet');

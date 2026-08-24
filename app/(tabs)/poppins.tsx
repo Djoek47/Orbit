@@ -27,8 +27,8 @@ import {
 import { driveAiuic } from '@/lib/poppins/aiuic';
 import {
   continuityListenPrompt,
-  hasOpenAct,
   loadIuiContinuity,
+  openActSnapshot,
   rememberTurn,
   saveIuiContinuity,
   shouldGreet,
@@ -38,6 +38,7 @@ import {
 import { parseHouseholdIntent } from '@/lib/poppins/ui-intent';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
+import { copyIuiVoiceError } from '@/lib/poppins/iui-voice-error';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import {
   applyLiveCaptionTurn,
@@ -145,6 +146,7 @@ export default function PoppinsScreen() {
   kidSessionRef.current = kidSession;
   const lastUtteranceRef = useRef('');
   const continuityRef = useRef<IuiContinuity | null>(null);
+  const wasLiveRef = useRef(false);
 
   const persistContinuity = (patch?: IuiContinuity) => {
     const householdId = household.id;
@@ -154,6 +156,21 @@ export default function PoppinsScreen() {
       snapshotFromDrive(continuityRef.current, householdId, poppinsUiOrchestrator.getState());
     continuityRef.current = next;
     void saveIuiContinuity(next);
+  };
+
+  const holdMsForSession = () => (kidSessionRef.current ? HOLD_MS_KID : HOLD_MS_DEFAULT);
+
+  const restoreOpenAct = (record: IuiContinuity | null, opts?: { resumeHold?: boolean }) => {
+    const snap = openActSnapshot(record, holdMsForSession());
+    if (!snap) return false;
+    poppinsUiOrchestrator.restore(snap, { resumeHold: opts?.resumeHold === true });
+    return true;
+  };
+
+  const surfaceVoiceError = (raw: unknown) => {
+    const copy = copyIuiVoiceError(raw);
+    setError(copy.message);
+    if (copy.offerKeyboard) setShowText(true);
   };
 
   const flashToolSuccess = (label: string) => {
@@ -187,6 +204,28 @@ export default function PoppinsScreen() {
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const prior = await loadIuiContinuity(household.id);
+      if (cancelled || !prior) return;
+      continuityRef.current = prior;
+      if (!poppinsUiOrchestrator.getState().live) {
+        restoreOpenAct(prior);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [household.id]);
+
+  useEffect(() => {
+    if (wasLiveRef.current && !drive.live) {
+      persistContinuity();
+    }
+    wasLiveRef.current = drive.live;
+  }, [drive.live]);
 
   useEffect(() => {
     voiceRef.current?.disconnect();
@@ -262,19 +301,8 @@ export default function PoppinsScreen() {
     const prior = await loadIuiContinuity(household.id);
     continuityRef.current = prior;
     const greet = shouldGreet(prior, household.id);
-    if (hasOpenAct(prior) && prior?.openPlaylist) {
-      poppinsUiOrchestrator.restore(
-        {
-          playlist: prior.openPlaylist,
-          index: prior.openIndex ?? 0,
-          phase: 'unfold',
-          frozen: true,
-          holdMs: kidSessionRef.current ? HOLD_MS_KID : HOLD_MS_DEFAULT,
-          thinkingLine: prior.lastTitle ?? '',
-        },
-        { resumeHold: true }
-      );
-    }
+    restoreOpenAct(prior);
+    let reportedError = false;
     const session = new PoppinsVoiceSession({
       onStateChange: (state) => {
         setVoiceState(state);
@@ -308,19 +336,13 @@ export default function PoppinsScreen() {
         }
       },
       onSoftIdlePrompt: () => {
-        setLocalMonitorActions((current) => [
-          {
-            id: `idle-${Date.now()}`,
-            kind: 'monitor',
-            label: 'Soft idle check-in',
-            detail: 'Still there?',
-            createdAt: new Date().toISOString(),
-          },
-          ...current,
-        ]);
+        /* Stay listening. Do not dump a chat leftover into Activity. */
       },
       onRemoteStream: setRemoteStreamUrl,
-      onError: (message) => setError(message),
+      onError: (message) => {
+        reportedError = true;
+        surfaceVoiceError(message);
+      },
     });
     const ok = await session.connect(household, metrics, currentMember?.majordomoProfileId, {
       pageContext: 'poppins tab',
@@ -332,10 +354,12 @@ export default function PoppinsScreen() {
     setConnecting(false);
     if (!ok) {
       session.disconnect();
+      if (!reportedError) surfaceVoiceError('start_failed');
       return null;
     }
     voiceRef.current = session;
     setLiveConnected(true);
+    poppinsUiOrchestrator.unfreeze();
     return session;
   };
 
@@ -481,7 +505,8 @@ export default function PoppinsScreen() {
             },
           ]}
           onPress={() => setShowActivity(true)}
-          accessibilityLabel="Poppins Activity">
+          accessibilityRole="button"
+          accessibilityLabel="Activity">
           <PoppinsHourglass size={18} color="#2DD4BF" active={isActive || monitorFeed.length > 0} />
         </Pressable>
       </View>
@@ -514,12 +539,12 @@ export default function PoppinsScreen() {
         </View>
 
         {nativeVoice ? (
-          <Pressable
-            onPress={() => void toggleConnect()}
-            accessibilityRole="button"
-            accessibilityLabel={primaryConnected ? 'Done' : 'Speak'}>
+          <View
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={`${majordomo.displayName}, ${cfg.label}`}>
             <PoppinsOrb size={176} state={visualState} speaking={visualState === 'speaking'} />
-          </Pressable>
+          </View>
         ) : (
           <PoppinsOrb size={176} state={visualState} speaking={visualState === 'speaking'} />
         )}
@@ -578,6 +603,8 @@ export default function PoppinsScreen() {
         <View style={styles.controlRow}>
           <Pressable
             onPress={() => setShowText((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={showText ? 'Hide keyboard' : 'Type instead'}
             style={[
               styles.sideBtn,
               {
@@ -596,7 +623,14 @@ export default function PoppinsScreen() {
             <Pressable
               onPress={() => void toggleConnect()}
               style={styles.micWrap}
-              accessibilityLabel={primaryConnected ? 'Done' : 'Speak'}>
+              accessibilityRole="button"
+              accessibilityLabel={primaryConnected ? 'Done' : 'Speak'}
+              accessibilityHint={
+                primaryConnected
+                  ? 'Stops listening and keeps what is on screen'
+                  : 'Starts listening'
+              }
+              accessibilityState={{ busy: connecting, selected: primaryConnected }}>
               {primaryConnected ? (
                 <View style={[styles.micPulse, { backgroundColor: 'rgba(52,211,153,0.2)' }]} />
               ) : null}
@@ -629,17 +663,7 @@ export default function PoppinsScreen() {
             <View style={styles.micWrap} />
           )}
 
-          <Pressable
-            onPress={() => setShowActivity(true)}
-            style={[
-              styles.sideBtn,
-              {
-                backgroundColor: glass(0.07),
-                borderColor: glassBorder(0.1),
-              },
-            ]}>
-            <MaterialIcons name="keyboard-arrow-up" size={22} color={c.textMuted} />
-          </Pressable>
+          <View style={styles.speakBalance} pointerEvents="none" />
         </View>
 
         <Text
@@ -664,33 +688,31 @@ export default function PoppinsScreen() {
                 paddingBottom: Math.max(insets.bottom, 16),
               },
             ]}>
-            <Text style={[styles.confirmTitle, { color: c.text }]}>Confirm with Poppins</Text>
-            <Text style={[styles.confirmSub, { color: c.textMuted }]}>
-              Risky actions stay approval-first.
+            <Text style={[styles.confirmTitle, { color: c.text }]}>
+              {pendingConfirmations[0]?.summary ?? 'Confirm'}
             </Text>
-            {pendingConfirmations.map((item) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.confirmCard,
-                  { borderColor: glassBorder(0.12), backgroundColor: glass(0.05) },
-                ]}>
-                <Text style={[styles.confirmTool, { color: c.text }]}>
-                  {item.tool.replace(/_/g, ' ')}
-                </Text>
-                <Text style={[styles.confirmDetail, { color: c.textMuted }]}>{item.summary}</Text>
-              </View>
-            ))}
+            {pendingConfirmations.length > 1
+              ? pendingConfirmations.slice(1).map((item) => (
+                  <View
+                    key={item.id}
+                    style={[
+                      styles.confirmCard,
+                      { borderColor: glassBorder(0.12), backgroundColor: glass(0.05) },
+                    ]}>
+                    <Text style={[styles.confirmDetail, { color: c.text }]}>{item.summary}</Text>
+                  </View>
+                ))
+              : null}
             <View style={styles.confirmRow}>
               <Pressable
                 onPress={() => confirmPending(false)}
                 style={[styles.confirmBtn, { backgroundColor: glass(0.08) }]}>
-                <Text style={{ color: c.text, fontWeight: '600' }}>Decline</Text>
+                <Text style={{ color: c.text, fontWeight: '600' }}>Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={() => confirmPending(true)}
                 style={[styles.confirmBtn, { backgroundColor: '#38BDF8' }]}>
-                <Text style={{ color: '#041018', fontWeight: '700' }}>Approve</Text>
+                <Text style={{ color: '#041018', fontWeight: '700' }}>Confirm</Text>
               </Pressable>
             </View>
           </View>
@@ -837,6 +859,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 48,
     justifyContent: 'center',
+    width: 48,
+  },
+  speakBalance: {
+    height: 48,
     width: 48,
   },
   micWrap: {

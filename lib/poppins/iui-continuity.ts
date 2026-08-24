@@ -107,6 +107,29 @@ export function hasOpenAct(record: IuiContinuity | null | undefined): boolean {
   return Boolean(isContinuityFresh(record) && record?.openPlaylist?.length);
 }
 
+/** Frozen stage snapshot — do not arm HOLD until Speak is actually listening. */
+export function openActSnapshot(
+  record: IuiContinuity | null | undefined,
+  holdMs: number
+): {
+  playlist: NonNullable<IuiContinuity['openPlaylist']>;
+  index: number;
+  phase: 'unfold';
+  frozen: true;
+  holdMs: number;
+  thinkingLine: string;
+} | null {
+  if (!hasOpenAct(record) || !record?.openPlaylist?.length) return null;
+  return {
+    playlist: record.openPlaylist,
+    index: record.openIndex ?? 0,
+    phase: 'unfold',
+    frozen: true,
+    holdMs,
+    thinkingLine: record.lastTitle ?? '',
+  };
+}
+
 /** Instructions for the next realtime session — never a fresh “hi I’m Poppins”. */
 export function continuityListenPrompt(record: IuiContinuity): string {
   const bits: string[] = ['Do not greet. Continue this household session and listen.'];
