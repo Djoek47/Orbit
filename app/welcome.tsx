@@ -57,6 +57,7 @@ import {
   authIssue,
   isAuthRateLimitError,
   resolveAuthIssue,
+  userFacingMessage,
   type AuthIssue,
 } from '@/lib/auth/auth-errors';
 import { isProfileNameComplete } from '@/lib/auth/display-name';
@@ -604,7 +605,7 @@ export default function WelcomeOnboardingScreen() {
       }
       setStep('household');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save profile.');
+      setError(userFacingMessage(err, 'Could not save profile.'));
     } finally {
       setBusy(false);
     }
@@ -643,7 +644,7 @@ export default function WelcomeOnboardingScreen() {
       setSetupDraft(nextDraft);
       setStep('places');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Household setup failed.');
+      setError(userFacingMessage(err, 'Household setup failed.'));
     } finally {
       setBusy(false);
     }
@@ -743,7 +744,7 @@ export default function WelcomeOnboardingScreen() {
       await materializeDraft(setupDraft, true);
       setStep('ready');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create household.');
+      setError(userFacingMessage(err, 'Could not create household.'));
     } finally {
       setBusy(false);
     }
@@ -765,7 +766,7 @@ export default function WelcomeOnboardingScreen() {
       await materializeDraft(draft, false);
       setStep('ready');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save household.');
+      setError(userFacingMessage(err, 'Could not save household.'));
     } finally {
       setBusy(false);
     }
@@ -820,7 +821,7 @@ export default function WelcomeOnboardingScreen() {
       await redeemChildInvite(parsed);
       router.replace('/' as never);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not open kid invite.');
+      setError(userFacingMessage(err, 'Could not open kid invite.'));
     } finally {
       setBusy(false);
     }
@@ -856,7 +857,7 @@ export default function WelcomeOnboardingScreen() {
       const result = await connectSharedTabletProfiles(codes, tabletLabel);
       router.replace((result.needsProfilePick ? '/select-profile' : '/') as never);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not set up this tablet.');
+      setError(userFacingMessage(err, 'Could not set up this tablet.'));
     } finally {
       setBusy(false);
     }
@@ -885,7 +886,7 @@ export default function WelcomeOnboardingScreen() {
           : 'Kid profiles saved on your admin account. AirDrop each invite below.',
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create kid invites.');
+      setError(userFacingMessage(err, 'Could not create kid invites.'));
     } finally {
       setBusy(false);
     }

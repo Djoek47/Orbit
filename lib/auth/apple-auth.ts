@@ -2,6 +2,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { Platform } from 'react-native';
 
 import { isProfileNameComplete } from '@/lib/auth/display-name';
+import { throwAuthIssue, throwMappedAuthError } from '@/lib/auth/auth-errors';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { mapProfileToUser } from '@/lib/mappers/orbit-mappers';
 import type { AuthSession } from '@/types/orbit';
@@ -28,7 +29,7 @@ export async function signInWithApple(): Promise<AuthSession> {
   });
 
   if (!credential.identityToken) {
-    throw new Error('Apple Sign-In did not return an identity token.');
+    throwAuthIssue('generic', { message: 'Apple Sign-In did not finish. Try email and password instead.' });
   }
 
   const appleName = appleFullName(credential.fullName);
@@ -57,11 +58,9 @@ export async function signInWithApple(): Promise<AuthSession> {
       msg.includes('provider') ||
       msg.includes('appleid.apple.com')
     ) {
-      throw new Error(
-        'Sign in with Apple isn’t set up for this build yet. Use email and password, or tap Get Started.'
-      );
+      throwAuthIssue('apple_unavailable');
     }
-    throw new Error(error?.message ?? 'Apple Sign-In failed. Try email and password instead.');
+    throwMappedAuthError(error ?? { message: 'Apple Sign-In failed.' });
   }
 
   const email = data.user.email ?? credential.email ?? '';

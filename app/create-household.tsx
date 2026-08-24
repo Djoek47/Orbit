@@ -6,6 +6,7 @@ import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitColors } from '@/constants/orbit-theme';
+import { userFacingMessage } from '@/lib/auth/auth-errors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
@@ -27,7 +28,7 @@ export default function CreateHouseholdScreen() {
       await createHousehold({ name: name.trim() });
       router.replace('/invite-household' as never);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create household.');
+      setError(userFacingMessage(err, 'Could not create household.'));
     } finally {
       setBusy(false);
     }

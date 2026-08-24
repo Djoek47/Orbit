@@ -3,6 +3,7 @@ import {
   formatAuthError,
   isAuthRateLimitMessage,
   resolveAuthIssue,
+  userFacingMessage,
   AuthUserError,
 } from '@/lib/auth/auth-errors';
 
@@ -47,6 +48,39 @@ export function runAuthErrorsTests(): string[] {
   assert(!leaked.message.includes('hh-rivera'), 'no mock household id in banner');
   assert(!leaked.message.includes('getRedemptions'), 'no repository prefix in banner');
   pass('6 hide postgres uuid dump on confirm');
+
+  const signupDump = resolveAuthIssue(
+    new Error(
+      JSON.stringify({
+        ok: false,
+        status: 500,
+        url: 'https://dejrbufotcvcillnneo.supabase.co/auth/v1/signup?redirect_to=https://www.choremaxx.app/auth/callback',
+        headers: {
+          'sb-gateway-version': '1',
+          'x-sb-error-code': 'unexpected_failure',
+          'sb-project-ref': 'dejrbufotcvcillnneo',
+        },
+      })
+    )
+  );
+  assert(signupDump.title === 'Couldn’t create account', 'signup 500 title');
+  assert(!signupDump.message.includes('supabase.co'), 'no host in banner');
+  assert(!signupDump.message.includes('unexpected_failure'), 'no error code in banner');
+  assert(!signupDump.message.includes('{'), 'no json in banner');
+  assert(signupDump.message.length < 120, 'short copy');
+  pass('7 hide supabase signup 500 dump');
+
+  const statusDump = resolveAuthIssue({ status: 500, message: 'Internal Server Error' });
+  assert(statusDump.message === AUTH_ISSUES.generic.message, '500 uses generic copy');
+  assert(!statusDump.message.toLowerCase().includes('internal server'), 'no http phrase');
+  pass('8 status 500 is not raw http');
+
+  const blob = userFacingMessage(
+    new Error('{"ok":false,"status":500,"url":"https://example.supabase.co/auth/v1/token"}'),
+    'Couldn’t sign in right now.'
+  );
+  assert(blob === 'Couldn’t sign in right now.', 'userFacingMessage fallback');
+  pass('9 userFacingMessage swallows dumps');
 
   return logs;
 }

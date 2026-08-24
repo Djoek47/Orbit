@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { orbitScreen, typography } from '@/constants/orbit-theme';
+import { userFacingMessage } from '@/lib/auth/auth-errors';
 import { consumeMemberInviteToken, peekMemberInviteToken } from '@/lib/invite/member-invite-token-store';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -54,7 +55,7 @@ export default function RedeemMemberInviteScreen() {
         router.replace('/(tabs)' as never);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'This invite is no longer valid. Ask an admin for a new one.');
+          setError(userFacingMessage(err, 'This invite is no longer valid. Ask an admin for a new one.'));
         }
       }
     })();

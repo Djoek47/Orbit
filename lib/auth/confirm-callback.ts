@@ -3,6 +3,8 @@
  * Survives effect remounts: never discard a verify that already started.
  */
 
+import { resolveAuthIssue } from '@/lib/auth/auth-errors';
+
 export const WAIT_FOR_LINK_MS = 3_500;
 export const VERIFY_TIMEOUT_MS = 12_000;
 export const WALL_CLOCK_MS = 15_000;
@@ -71,8 +73,8 @@ export async function withTimeout<T>(promise: Promise<T>, ms: number, label: str
 }
 
 export function classifyConfirmError(err: unknown): { phase: ConfirmPhase; message: string } {
-  const text = err instanceof Error ? err.message : 'Confirmation failed.';
-  const lower = text.toLowerCase();
+  const issue = resolveAuthIssue(err);
+  const lower = `${issue.message} ${err instanceof Error ? err.message : ''}`.toLowerCase();
   if (
     lower.includes('expired') ||
     lower.includes('invalid') ||
@@ -83,11 +85,11 @@ export function classifyConfirmError(err: unknown): { phase: ConfirmPhase; messa
     return {
       phase: 'needs_continue',
       message: lower.includes('timed out')
-        ? text
+        ? 'This is taking too long. Enter the code from your email, or continue to sign in.'
         : 'This link was already used or expired. Enter the code from your email, or continue to sign in.',
     };
   }
-  return { phase: 'error', message: text };
+  return { phase: 'error', message: issue.message };
 }
 
 /**

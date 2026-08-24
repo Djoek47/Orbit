@@ -8,6 +8,7 @@ import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
+import { userFacingMessage } from '@/lib/auth/auth-errors';
 import { setupSharedDeviceSession } from '@/lib/device/device-session';
 import { memberDisplayEmoji } from '@/lib/game-levels';
 import {
@@ -107,7 +108,7 @@ export default function SetupKidDeviceScreen() {
 
       router.replace('/select-profile' as never);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not set up this device.');
+      setError(userFacingMessage(err, 'Could not set up this device.'));
     } finally {
       setBusy(false);
     }

@@ -37,7 +37,9 @@ export function AuthErrorBanner({ issue, actionParams, onDismiss }: AuthErrorBan
       </View>
       <View style={styles.body}>
         <Text style={[styles.title, { color: c.text }]}>{issue.title}</Text>
-        <Text style={[styles.message, { color: c.textMuted }]}>{issue.message}</Text>
+        <Text style={[styles.message, { color: c.textMuted }]} numberOfLines={4}>
+          {issue.message}
+        </Text>
         {issue.actions && issue.actions.length > 0 ? (
           <View style={styles.actions}>
             {issue.actions.map((action) => (

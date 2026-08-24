@@ -9,6 +9,7 @@ import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/a
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { radius, space, typography } from '@/constants/orbit-theme';
+import { userFacingMessage } from '@/lib/auth/auth-errors';
 import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -54,7 +55,7 @@ export default function DeleteAccountScreen() {
       await new Promise((r) => setTimeout(r, 900));
       resetToGetStarted();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not delete your account.');
+      setError(userFacingMessage(err, 'Could not delete your account.'));
     } finally {
       setBusy(false);
     }

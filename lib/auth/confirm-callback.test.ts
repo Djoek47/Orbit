@@ -66,9 +66,15 @@ async function main() {
     assert.equal(timed.phase, 'needs_continue');
     const expired = classifyConfirmError(new Error('Token has expired or is invalid'));
     assert.equal(expired.phase, 'needs_continue');
-    const other = classifyConfirmError(new Error('network down'));
-    assert.equal(other.phase, 'error');
-    pass('classifyConfirmError maps timeout/expired to continue');
+    const dump = classifyConfirmError(
+      new Error(
+        JSON.stringify({ ok: false, status: 500, url: 'https://x.supabase.co/auth/v1/verify' })
+      )
+    );
+    assert.equal(dump.phase, 'error');
+    assert.equal(dump.message.includes('supabase'), false);
+    assert.equal(dump.message.includes('{'), false);
+    pass('classifyConfirmError hides provider dumps');
   }
 
   {
