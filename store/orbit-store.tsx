@@ -39,6 +39,7 @@ import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { queueDailyDeadlineChange, settleDeadlineState } from '@/lib/rules/deadline';
 import { householdDueTimeLocal } from '@/lib/rules/household-view';
 import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, memberDisplayEmoji, xpProgress } from '@/lib/game-levels';
+import { hasChosenAvatar } from '@/lib/profile/chosen-avatar';
 import { getLocationAwareGrocerySuggestions, buildStoreRecommendations } from '@/lib/grocery/location-suggestions';
 import { countUpcomingSoon } from '@/lib/calendar/event-groups';
 import {
@@ -502,7 +503,7 @@ type OrbitContextValue = {
   /** Persist onboarding roster drafts into household_members (explicit household id). */
   addOnboardingMembers: (
     householdId: string,
-    drafts: { name: string; role: 'admin' | 'member' }[],
+    drafts: { name: string; role: 'admin' | 'member'; avatar?: string }[],
     options?: { householdName?: string }
   ) => Promise<HouseholdMember[]>;
   /** Child device: redeem invite code / QR with no sign-up. */
@@ -1186,30 +1187,46 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     const joinedHousehold = await householdRepository.joinHousehold(input, user);
-    const pendingSelf = joinedHousehold.members.find(
+    let nextHousehold = joinedHousehold;
+    if (hasChosenAvatar(user.avatar)) {
+      const self = joinedHousehold.members.find(
+        (member) => member.name.trim().toLowerCase() === user.name.trim().toLowerCase()
+      );
+      if (self && self.avatar !== user.avatar) {
+        const updated = await householdRepository.updateMemberAvatar(self, user.avatar);
+        nextHousehold = {
+          ...joinedHousehold,
+          members: joinedHousehold.members.map((member) =>
+            member.id === self.id ? updated : member
+          ),
+        };
+        void saveMemberAvatarOverride(joinedHousehold.id, self.id, user.avatar);
+      }
+    }
+    const pendingSelf = nextHousehold.members.find(
       (member) =>
         member.status === 'pending' &&
         member.name.trim().toLowerCase() === user.name.trim().toLowerCase()
     );
-    const activeSelf = joinedHousehold.members.find(
+    const activeSelf = nextHousehold.members.find(
       (member) =>
         member.status === 'active' &&
         member.name.trim().toLowerCase() === user.name.trim().toLowerCase()
     );
-    setHousehold(joinedHousehold);
+    setHousehold(nextHousehold);
     if (pendingSelf) {
       setActiveMemberId(pendingSelf.id);
-      if (joinedHousehold.id) {
-        await stashPendingJoinHouseholdId(joinedHousehold.id);
+      if (nextHousehold.id) {
+        await stashPendingJoinHouseholdId(nextHousehold.id);
       }
     } else if (activeSelf) {
       setActiveMemberId(activeSelf.id);
       await clearPendingJoinHouseholdId();
     }
     if (dataMode === 'mock') {
-      await persistMockHouseholdSnapshot(joinedHousehold);
+      await persistMockHouseholdSnapshot(nextHousehold);
     }
-    await trackAnalytics('household.joined', { inviteCode: input.inviteCode }, { householdId: joinedHousehold.id, userId: user.id });
+    await trackAnalytics('household.joined', { inviteCode: input.inviteCode }, { householdId: nextHousehold.id, userId: user.id });
     return pendingSelf ? 'pending' : 'active';
   };
 
@@ -4282,7 +4299,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const addOnboardingMembers = async (
     householdId: string,
-    drafts: { name: string; role: 'admin' | 'member' }[],
+    drafts: { name: string; role: 'admin' | 'member'; avatar?: string }[],
     options?: { householdName?: string }
   ) => {
     if (!currentUser || !householdId) {
@@ -4308,6 +4325,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const member = await householdRepository.createOnboardingMember(householdId, {
         name,
         role,
+        avatar: draft.avatar,
       });
       if (member.role === 'child') {
         await saveChildInviteRecord({

@@ -24,6 +24,11 @@ import { SetupRosterHub } from '@/components/orbit/setup-roster-hub';
 import { SplashHooks } from '@/components/orbit/splash-hooks';
 import { StreakFootnote } from '@/components/orbit/streak-marker';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  hasChosenAvatar,
+  onboardingStepAfterIdentity,
+  seedOnboardingAvatar,
+} from '@/lib/profile/chosen-avatar';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import {
   ONBOARDING_ROLES,
@@ -242,7 +247,15 @@ export default function WelcomeOnboardingScreen() {
         return;
       }
       if (isSignedIn && !hasHousehold) {
-        setStep('household');
+        const nameComplete = isProfileNameComplete(currentUser?.name, currentUser?.email);
+        setDisplayName(nameComplete ? currentUser?.name || '' : '');
+        setDraftAvatar(seedOnboardingAvatar(currentUser?.avatar));
+        setStep(
+          onboardingStepAfterIdentity({
+            nameComplete,
+            avatar: currentUser?.avatar,
+          })
+        );
       }
     });
     return () => {
@@ -254,50 +267,62 @@ export default function WelcomeOnboardingScreen() {
   useEffect(() => {
     if (isLoading || resumed) return;
 
-    loadOnboardingPrefs().then((prefs) => {
+    let cancelled = false;
+    void (async () => {
+      const [prefs, draft] = await Promise.all([loadOnboardingPrefs(), loadSetupDraft()]);
+      if (cancelled) return;
       if (prefs) {
         setSelectedRole(prefs.role);
         setSelectedRewardModel(prefs.rewardModel ?? DEFAULT_REWARD_MODEL);
         setSelectedRewardMode(prefs.rewardMode ?? 'weighted');
       }
-    });
-    loadSetupDraft().then((draft) => {
       if (draft) {
         setSetupDraft(draft);
         if (draft.householdName) setHouseholdName(draft.householdName);
         if (draft.rewardModel) setSelectedRewardModel(draft.rewardModel);
         if (draft.scoringMode) setSelectedRewardMode(draft.scoringMode);
       }
-    });
 
-    if (inviteFromRoute || inviteParams.kind === 'child' || step === 'invited' || step === 'child-invite') {
+      if (inviteFromRoute || inviteParams.kind === 'child' || step === 'invited' || step === 'child-invite') {
+        setResumed(true);
+        return;
+      }
+
+      if (isSignedIn && hasHousehold && currentUser?.profileComplete) {
+        setResumed(true);
+        return;
+      }
+
+      const nameComplete = isProfileNameComplete(currentUser?.name, currentUser?.email);
+
+      if (isSignedIn && (!nameComplete || !currentUser?.profileComplete)) {
+        setDisplayName(nameComplete ? currentUser?.name || '' : '');
+        setDraftAvatar(seedOnboardingAvatar(currentUser?.avatar));
+        setStep('profile');
+        setResumed(true);
+        return;
+      }
+
+      if (isSignedIn && !hasHousehold) {
+        setDisplayName(nameComplete ? currentUser?.name || '' : '');
+        setDraftAvatar(seedOnboardingAvatar(currentUser?.avatar));
+        setStep(
+          onboardingStepAfterIdentity({
+            nameComplete: true,
+            avatar: currentUser?.avatar,
+            householdDraftStarted: Boolean(draft?.householdName?.trim()),
+          })
+        );
+        setResumed(true);
+        return;
+      }
+
       setResumed(true);
-      return;
-    }
+    })();
 
-    if (isSignedIn && hasHousehold && currentUser?.profileComplete) {
-      setResumed(true);
-      return;
-    }
-
-    const nameComplete = isProfileNameComplete(currentUser?.name, currentUser?.email);
-
-    if (isSignedIn && nameComplete && !hasHousehold) {
-      setDisplayName(currentUser?.name || '');
-      setStep('household');
-      setResumed(true);
-      return;
-    }
-
-    if (isSignedIn && (!nameComplete || !currentUser?.profileComplete)) {
-      // Prefill only when the stored name is a real human name — not a relay code.
-      setDisplayName(nameComplete ? currentUser?.name || '' : '');
-      setStep('profile');
-      setResumed(true);
-      return;
-    }
-
-    setResumed(true);
+    return () => {
+      cancelled = true;
+    };
   }, [isLoading, isSignedIn, hasHousehold, currentUser, resumed]);
 
   const readyInvite = useMemo(() => {
@@ -442,6 +467,25 @@ export default function WelcomeOnboardingScreen() {
     return <Redirect href="/" />;
   }
 
+  const goToProfileOrHousehold = () => {
+    const nameComplete = isProfileNameComplete(
+      currentUser?.name || displayName,
+      currentUser?.email
+    );
+    const next = onboardingStepAfterIdentity({
+      nameComplete: nameComplete || Boolean(currentUser?.profileComplete),
+      avatar: currentUser?.avatar || draftAvatar,
+      householdDraftStarted: Boolean(setupDraft.householdName?.trim() || householdName.trim()),
+    });
+    if (next === 'profile') {
+      setDisplayName(nameComplete ? currentUser?.name || displayName : displayName);
+      setDraftAvatar(seedOnboardingAvatar(draftAvatar || currentUser?.avatar));
+      setStep('profile');
+      return;
+    }
+    setStep('household');
+  };
+
   const handleRoleContinue = () => {
     if (!selectedRole) return;
     setError('');
@@ -465,7 +509,11 @@ export default function WelcomeOnboardingScreen() {
     }
     if (skipsMotivation(selectedRole)) {
       setSelectedRewardModel(selectedRewardModel ?? DEFAULT_REWARD_MODEL);
-      setStep(isSignedIn ? (currentUser?.profileComplete ? 'household' : 'profile') : 'account');
+      if (isSignedIn) {
+        goToProfileOrHousehold();
+      } else {
+        setStep('account');
+      }
       return;
     }
     setStep('motivation');
@@ -478,7 +526,11 @@ export default function WelcomeOnboardingScreen() {
   };
 
   const advanceAfterPrefs = () => {
-    setStep(isSignedIn ? (currentUser?.profileComplete ? 'household' : 'profile') : 'account');
+    if (isSignedIn) {
+      goToProfileOrHousehold();
+      return;
+    }
+    setStep('account');
   };
 
   const handleRewardSystemContinue = async () => {
@@ -564,16 +616,21 @@ export default function WelcomeOnboardingScreen() {
       } else {
         setDisplayName('');
       }
+      setDraftAvatar(seedOnboardingAvatar(session.user.avatar));
       const parsed =
         parseInvitePayload(inviteCode) ??
         (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
-      if (appleComplete && parsed && classifyInviteCode(parsed) === 'household') {
+      const next = onboardingStepAfterIdentity({
+        nameComplete: appleComplete,
+        avatar: session.user.avatar,
+      });
+      if (next === 'household' && parsed && classifyInviteCode(parsed) === 'household') {
         await stashInviteCode(parsed);
         const joined = await applyStashedInvite();
         router.replace((joined === 'pending' ? '/pending-approval' : '/') as never);
         return;
       }
-      setStep(appleComplete ? 'household' : 'profile');
+      setStep(next);
     } catch (err) {
       const issue = resolveAuthIssue(err);
       if (issue.code === 'apple_canceled') return;
@@ -690,7 +747,7 @@ export default function WelcomeOnboardingScreen() {
     if (toPersist.length > 0) {
       created = await addOnboardingMembers(
         householdId,
-        toPersist.map((m) => ({ name: m.name.trim(), role: m.role })),
+        toPersist.map((m) => ({ name: m.name.trim(), role: m.role, avatar: m.avatar })),
         { householdName: draft.householdName.trim() }
       );
       for (const member of toPersist.filter((m) => m.setupComplete)) {
@@ -1447,7 +1504,11 @@ export default function WelcomeOnboardingScreen() {
                 onPress={() => setLookSheetOpen(true)}
                 style={styles.profileAvatarRow}
                 accessibilityRole="button"
-                accessibilityLabel="Personalize your look">
+                accessibilityLabel={
+                  hasChosenAvatar(draftAvatar)
+                    ? 'Change your profile picture'
+                    : 'Choose a profile picture'
+                }>
                 <Avatar
                   name={displayName.trim() || 'You'}
                   emoji={
@@ -1459,9 +1520,13 @@ export default function WelcomeOnboardingScreen() {
                   size="xl"
                 />
                 <View style={{ flex: 1 }}>
-                  <Text style={[typography.headline, { color: orbitPalette.text }]}>Photo</Text>
+                  <Text style={[typography.headline, { color: orbitPalette.text }]}>
+                    {hasChosenAvatar(draftAvatar) ? 'Change photo' : 'Choose a photo'}
+                  </Text>
                   <Text style={[typography.footnote, { color: orbitPalette.textMuted, marginTop: 2 }]}>
-                    Photos, Image Playground, or emoji — optional
+                    {hasChosenAvatar(draftAvatar)
+                      ? 'Photos, Image Playground, or emoji'
+                      : 'No photo yet — pick one from Photos, Image Playground, or emoji. You can skip.'}
                   </Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={22} color={orbitPalette.textSubtle} />
@@ -1555,6 +1620,7 @@ export default function WelcomeOnboardingScreen() {
               <SetupRosterHub
                 draft={setupDraft}
                 ownerName={displayName.trim() || currentUser?.name || 'You'}
+                ownerAvatar={draftAvatar || currentUser?.avatar}
                 busy={busy}
                 onEditName={() => setStep('household')}
                 onEditOwnerName={() => setStep('profile')}

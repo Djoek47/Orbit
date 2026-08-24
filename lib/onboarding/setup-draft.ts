@@ -28,6 +28,8 @@ export type DraftMember = {
   /** Admin / Helper (draft `member`) — first household creator is always admin in store. */
   role: 'admin' | 'member';
   avatarColor?: string;
+  /** Photo URI or emoji chosen during onboarding. */
+  avatar?: string;
   taskLibraryIds: string[];
   rewards: DraftMemberReward[];
   allowance?: DraftMemberAllowance | null;

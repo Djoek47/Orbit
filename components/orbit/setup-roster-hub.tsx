@@ -6,7 +6,10 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
+import { Avatar } from '@/components/orbit/avatar';
 import { radius, space, typography } from '@/constants/orbit-theme';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import { hasChosenAvatar } from '@/lib/profile/chosen-avatar';
 import {
   draftHasCompleteMember,
   memberIsComplete,
@@ -22,6 +25,7 @@ type SetupRosterHubProps = {
   draft: HouseholdSetupDraft;
   /** Confirmed admin display name (You) — not a draft child invite. */
   ownerName?: string;
+  ownerAvatar?: string;
   onEditName: () => void;
   onEditOwnerName?: () => void;
   onAddMember: () => void;
@@ -34,6 +38,7 @@ type SetupRosterHubProps = {
 export function SetupRosterHub({
   draft,
   ownerName,
+  ownerAvatar,
   onEditName,
   onEditOwnerName,
   onAddMember,
@@ -77,9 +82,12 @@ export function SetupRosterHub({
               borderColor: glassBorder(0.1),
             },
           ]}>
-          <View style={[styles.avatar, { backgroundColor: c.primary }]}>
-            <Text style={styles.avatarText}>{youName.charAt(0).toUpperCase()}</Text>
-          </View>
+          <Avatar
+            name={youName}
+            emoji={memberDisplayEmoji({ name: youName, avatar: ownerAvatar })}
+            imageUri={isAvatarImageUri(ownerAvatar) ? ownerAvatar : undefined}
+            size="s"
+          />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[typography.headline, { color: c.text }]} numberOfLines={1}>
               {youName}
@@ -106,15 +114,31 @@ export function SetupRosterHub({
                   borderColor: glassBorder(0.1),
                 },
               ]}>
-              <View
-                style={[
-                  styles.avatar,
-                  { backgroundColor: member.avatarColor ?? c.primary },
-                ]}>
-                <Text style={styles.avatarText}>
-                  {(member.name.trim() || '?').charAt(0).toUpperCase()}
-                </Text>
-              </View>
+              {hasChosenAvatar(member.avatar) ? (
+                <Avatar
+                  name={member.name.trim() || 'Unnamed'}
+                  emoji={
+                    member.avatar && !isAvatarImageUri(member.avatar)
+                      ? member.avatar
+                      : memberDisplayEmoji({
+                          name: member.name.trim() || 'Unnamed',
+                          avatar: member.avatar,
+                        })
+                  }
+                  imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
+                  size="s"
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.avatar,
+                    { backgroundColor: member.avatarColor ?? c.primary },
+                  ]}>
+                  <Text style={styles.avatarText}>
+                    {(member.name.trim() || '?').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[typography.headline, { color: c.text }]} numberOfLines={1}>
                   {member.name.trim() || 'Unnamed'}

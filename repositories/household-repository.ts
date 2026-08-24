@@ -606,7 +606,7 @@ export const householdRepository = {
    */
   async createOnboardingMember(
     householdId: string | null | undefined,
-    input: { name: string; role: HouseholdRole }
+    input: { name: string; role: HouseholdRole; avatar?: string }
   ): Promise<HouseholdMember> {
     const trimmed = input.name.trim();
     if (!trimmed) {
@@ -622,7 +622,9 @@ export const householdRepository = {
       name: trimmed,
       role,
       status: 'active',
-      avatar: role === 'child' ? childInviteEmoji(trimmed) : trimmed.charAt(0).toUpperCase(),
+      avatar:
+        input.avatar?.trim() ||
+        (role === 'child' ? childInviteEmoji(trimmed) : trimmed.charAt(0).toUpperCase()),
       xp: 0,
       weekXp: 0,
       streak: 0,

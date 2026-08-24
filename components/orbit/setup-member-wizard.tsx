@@ -7,8 +7,12 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
+import { Avatar } from '@/components/orbit/avatar';
+import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { TaskPicker } from '@/components/orbit/task-picker';
 import { radius, space, typography } from '@/constants/orbit-theme';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import { hasChosenAvatar } from '@/lib/profile/chosen-avatar';
 import {
   AVATAR_SWATCHES,
   newDraftMemberId,
@@ -68,6 +72,7 @@ export function SetupMemberWizard({
     initial ? { ...initial, rewards: [...initial.rewards] } : emptyMember()
   );
   const [step, setStep] = useState<WizardStep>('A');
+  const [lookSheetOpen, setLookSheetOpen] = useState(false);
 
   const visibleSteps = useMemo(
     () => (skipRewards ? (['A', 'B', 'D'] as WizardStep[]) : STEPS),
@@ -169,6 +174,37 @@ export function SetupMemberWizard({
       {step === 'A' ? (
         <View style={styles.block}>
           <Text style={[typography.title2, { color: c.text }]}>What&apos;s their name?</Text>
+          <Pressable
+            onPress={() => setLookSheetOpen(true)}
+            style={styles.photoRow}
+            accessibilityRole="button"
+            accessibilityLabel={
+              hasChosenAvatar(member.avatar)
+                ? `Change photo for ${member.name.trim() || 'this person'}`
+                : 'Choose a profile picture'
+            }>
+            <Avatar
+              name={member.name.trim() || 'New'}
+              emoji={
+                member.avatar && !isAvatarImageUri(member.avatar)
+                  ? member.avatar
+                  : memberDisplayEmoji({ name: member.name.trim() || 'New', avatar: member.avatar })
+              }
+              imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
+              size="l"
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.headline, { color: c.text }]}>
+                {hasChosenAvatar(member.avatar) ? 'Change photo' : 'Choose a photo'}
+              </Text>
+              <Text style={[typography.caption1, { color: c.textMuted, marginTop: 2 }]}>
+                {hasChosenAvatar(member.avatar)
+                  ? 'Photos, Image Playground, or emoji'
+                  : 'No photo yet — pick one if you have it'}
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={22} color={c.textSubtle} />
+          </Pressable>
           <TextInput
             value={member.name}
             onChangeText={(name) => setMember((m) => ({ ...m, name }))}
@@ -393,11 +429,16 @@ export function SetupMemberWizard({
               { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
             ]}>
             <View style={styles.reviewHead}>
-              <View style={[styles.reviewAvatar, { backgroundColor: member.avatarColor }]}>
-                <Text style={{ color: '#fff', fontWeight: '700' }}>
-                  {member.name.trim().charAt(0).toUpperCase()}
-                </Text>
-              </View>
+              <Avatar
+                name={member.name.trim() || 'New'}
+                emoji={
+                  member.avatar && !isAvatarImageUri(member.avatar)
+                    ? member.avatar
+                    : memberDisplayEmoji({ name: member.name.trim() || 'New', avatar: member.avatar })
+                }
+                imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
+                size="l"
+              />
               <View style={{ flex: 1 }}>
                 <Text style={[typography.headline, { color: c.text }]}>{member.name.trim()}</Text>
                 <Text style={[typography.caption1, { color: c.textMuted }]}>
@@ -462,6 +503,16 @@ export function SetupMemberWizard({
           </Pressable>
         </ScrollView>
       ) : null}
+
+      <PersonalizeLookSheet
+        visible={lookSheetOpen}
+        memberName={member.name.trim() || 'them'}
+        currentAvatar={member.avatar}
+        onDismiss={() => setLookSheetOpen(false)}
+        onSelect={(avatar) => {
+          setMember((current) => ({ ...current, avatar }));
+        }}
+      />
     </View>
   );
 }
@@ -471,6 +522,11 @@ const styles = StyleSheet.create({
   progress: { flexDirection: 'row', gap: 8, justifyContent: 'center', paddingVertical: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   block: { gap: 14, paddingBottom: 24 },
+  photoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   input: {
     borderWidth: 1,
     borderRadius: radius.card,
