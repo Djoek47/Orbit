@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 
-import { isPersistedHouseholdId } from './persisted-household-id';
+import {
+  isPersistedHouseholdId,
+  assertHouseholdUuid,
+  InvalidHouseholdIdError,
+  liveHouseholdIdOrThrow,
+} from './persisted-household-id';
 
 assert.equal(isPersistedHouseholdId(null), false);
 assert.equal(isPersistedHouseholdId(undefined), false);
@@ -12,5 +17,25 @@ assert.equal(
   true,
   'supabase household ids are uuids'
 );
+
+{
+  let threw = false;
+  try {
+    assertHouseholdUuid('rewardsRepository.getRedemptions', 'hh-rivera');
+  } catch (error) {
+    threw = error instanceof InvalidHouseholdIdError;
+    assert.match((error as Error).message, /rewardsRepository.getRedemptions/);
+    assert.match((error as Error).message, /hh-rivera/);
+  }
+  assert.equal(threw, true, 'A0.3 slug throws typed developer error');
+  assert.equal(liveHouseholdIdOrThrow('rewardsRepository.getRewards', 'hh-rivera', false), 'hh-rivera');
+  let liveThrew = false;
+  try {
+    liveHouseholdIdOrThrow('rewardsRepository.getRewards', 'hh-rivera', true);
+  } catch (error) {
+    liveThrew = error instanceof InvalidHouseholdIdError;
+  }
+  assert.equal(liveThrew, true);
+}
 
 console.log('isPersistedHouseholdId: ok');

@@ -81,8 +81,8 @@ function task(partial: Partial<HouseholdTask>): HouseholdTask {
 }
 
 {
-  assert.equal(canRequestReward('Maya', []).allowed, true);
-  pass('F4.7', 'Nothing due → gate passes');
+  assert.equal(canRequestReward('Maya', []).allowed, false);
+  pass('G7.3c', 'Zero assigned items → gate closed');
 }
 
 {
