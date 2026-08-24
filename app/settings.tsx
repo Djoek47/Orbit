@@ -115,7 +115,7 @@ function SharedAccountRow({
         </Pressable>
         <Pressable style={{ flex: 1 }} onPress={onSwitch}>
           <Text style={[styles.memberName, { color: c.text }]}>{person.name}</Text>
-          <Text style={[styles.caption, { color: c.textSubtle }]}>Switchable account · own XP & redeem</Text>
+          <Text style={[styles.caption, { color: c.textSubtle }]}>On this iPad · own XP & redeem</Text>
           <Text style={[styles.caption, { color: accent, fontWeight: '600' }]}>
             {person.xp} XP · week {person.weekXp ?? 0}
           </Text>
@@ -149,7 +149,6 @@ export default function SettingsScreen() {
   const {
     accentTheme,
     appearanceMode,
-    createSharedDevice,
     currentMember,
     currentUser,
     household,
@@ -216,8 +215,6 @@ export default function SettingsScreen() {
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [personalizeMemberId, setPersonalizeMemberId] = useState<string | null>(null);
   const [majordomoOpen, setMajordomoOpen] = useState(false);
-  const [sharedDeviceName, setSharedDeviceName] = useState('Kids tablet');
-  const [creatingDevice, setCreatingDevice] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
   const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const prefs = useMemo(
@@ -277,9 +274,9 @@ export default function SettingsScreen() {
     }
     const isDevice = member.role === 'shared-device';
     Alert.alert(
-      isDevice ? 'Remove shared device' : 'Remove member',
+      isDevice ? 'Remove this iPad' : 'Remove member',
       isDevice
-        ? `Remove ${member.name}? Linked profiles stay in the household but lose this device shell.`
+        ? `Remove ${member.name}? People stay in the household; this iPad just won’t list them.`
         : `Remove ${member.name} from this household?`,
       [
         { text: 'Cancel', style: 'cancel' },
@@ -292,22 +289,6 @@ export default function SettingsScreen() {
         },
       ]
     );
-  };
-
-  const handleCreateSharedDevice = () => {
-    if (!sharedDeviceName.trim()) return;
-    setCreatingDevice(true);
-    void createSharedDevice(sharedDeviceName.trim())
-      .then((created) => {
-        if (created) {
-          setSharedDeviceName('Kids tablet');
-          Alert.alert(
-            'Shared device added',
-            `Link people below, then set up the tablet with their profile codes (CMX-JOSH, etc.).`
-          );
-        }
-      })
-      .finally(() => setCreatingDevice(false));
   };
 
   const toggleSharedLink = (deviceId: string, personId: string, linkedIds: string[]) => {
@@ -906,8 +887,7 @@ export default function SettingsScreen() {
         {section === 'members' ? (
           <>
             <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>
-              Tap a name to switch · Shared devices host Netflix-style profiles · Admins can remove
-              people and add tablets
+              Tap a name to switch. A shared iPad asks who is using it before opening Choremaxx.
             </Text>
             {permissions.canInviteMembers ? (
               <SettingsRow
@@ -927,43 +907,20 @@ export default function SettingsScreen() {
                     borderColor: glassBorder(0.1),
                   },
                 ]}>
-                <Text style={[styles.memberName, { color: orbitPalette.text }]}>New shared device</Text>
+                <Text style={[styles.memberName, { color: orbitPalette.text }]}>This iPad</Text>
                 <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
-                  Kitchen tablet, kids iPad — one device, multiple profiles with codes/QR
+                  Scan each Sidekick’s profile QR. They pick their face when they open the app.
                 </Text>
-                <TextInput
-                  value={sharedDeviceName}
-                  onChangeText={setSharedDeviceName}
-                  placeholder="e.g. Kids tablet"
-                  placeholderTextColor={orbitPalette.textSubtle}
-                  style={[
-                    styles.deviceNameInput,
-                    {
-                      color: orbitPalette.text,
-                      backgroundColor: glass(0.06),
-                      borderColor: glassBorder(0.1),
-                    },
-                  ]}
-                />
                 <Pressable
                   style={[
                     styles.createDeviceBtn,
                     { backgroundColor: `${accentTheme.primary}22`, borderColor: `${accentTheme.primary}66` },
                   ]}
-                  disabled={creatingDevice || !sharedDeviceName.trim()}
-                  onPress={handleCreateSharedDevice}>
+                  onPress={() => router.push('/setup-kid-device' as never)}>
                   <MaterialIcons name="tablet-mac" size={16} color={accentTheme.primary} />
                   <Text style={[styles.createDeviceBtnText, { color: accentTheme.primary }]}>
-                    {creatingDevice ? 'Adding…' : 'Create shared device'}
+                    Set up this iPad
                   </Text>
-                </Pressable>
-                <Pressable
-                  style={styles.linkRow}
-                  onPress={() => router.push('/setup-kid-device' as never)}>
-                  <Text style={[styles.linkText, { color: accentTheme.primary }]}>
-                    Set up this phone/tablet with profile codes
-                  </Text>
-                  <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
                 </Pressable>
               </View>
             ) : null}
@@ -1003,15 +960,14 @@ export default function SettingsScreen() {
                           },
                         ]}>
                         <Text style={[styles.switchChipText, { color: accentTheme.primary }]}>
-                          Who&apos;s in?
+                          Switch person
                         </Text>
                         <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
                       </Pressable>
                     ) : null}
                   </View>
                   <Text style={[styles.sharedDeviceHint, { color: orbitPalette.textMuted }]}>
-                    Link people below. On the tablet, scan each profile code so kids pick who they
-                    are before opening the app.
+                    People on this iPad pick their face when they open Choremaxx.
                   </Text>
                   {permissions.canManageHousehold ? (
                     <View style={styles.linkWrap}>

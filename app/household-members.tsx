@@ -171,10 +171,10 @@ export default function HouseholdMembersScreen() {
             : '',
         );
         Alert.alert(
-          'Kid invites ready',
+          'Sidekick invites ready',
           created
             .map((member) => `${member.name}: ${member.profileInviteCode ?? 'code ready'}`)
-            .join('\n') + '\n\nAirDrop or share each code. Kids open Get Started → Sidekick — no sign-in.',
+            .join('\n') + '\n\nAirDrop or share each code. They open Get Started → Sidekick — no sign-in.',
         );
       })
       .catch((err: unknown) => {
@@ -226,29 +226,29 @@ export default function HouseholdMembersScreen() {
 
       {permissions.canInviteMembers || permissions.canManageHousehold ? (
         <GlassCard style={styles.card}>
-          <Text style={typography.headline}>Invite kids (no sign-in)</Text>
+          <Text style={typography.headline}>Invite Sidekicks (no sign-in)</Text>
           <Text style={typography.footnote}>
-            Create up to two kid profiles saved on your admin account. AirDrop or send their codes —
-            young kids never need email.
+            Create up to two Sidekick profiles saved on your admin account. AirDrop or send their codes —
+            they never need email.
           </Text>
           <TextInput
             value={kidNameOne}
             onChangeText={setKidNameOne}
-            placeholder="Kid 1 name"
+            placeholder="Sidekick 1 name"
             placeholderTextColor={c.textSubtle}
             style={[styles.deviceInput, { color: c.text }]}
           />
           <TextInput
             value={kidNameTwo}
             onChangeText={setKidNameTwo}
-            placeholder="Kid 2 name (optional)"
+            placeholder="Sidekick 2 name (optional)"
             placeholderTextColor={c.textSubtle}
             style={[styles.deviceInput, { color: c.text }]}
           />
           <OrbitButton
             disabled={creatingKids || (!kidNameOne.trim() && !kidNameTwo.trim())}
             onPress={handleCreateKidInvites}>
-            {creatingKids ? 'Saving…' : 'Create kid invites'}
+            {creatingKids ? 'Saving…' : 'Create Sidekick invites'}
           </OrbitButton>
           {kidStatus ? <Text style={[styles.hint, { color: c.textMuted }]}>{kidStatus}</Text> : null}
         </GlassCard>

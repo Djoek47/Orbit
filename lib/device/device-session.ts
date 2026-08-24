@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEY = 'orbit.deviceSession.v1';
 
-/** Physical-device binding: personal phone vs shared/kid tablet hosting multiple profiles. */
+/** Physical-device binding: personal phone vs shared iPad hosting multiple profiles. */
 export type DeviceSession = {
   mode: 'personal' | 'shared';
   /** Member ids hosted on this device (from scanned/entered profile codes). */
@@ -68,6 +68,24 @@ export async function markNeedsProfilePick(): Promise<DeviceSession> {
   return next;
 }
 
+export async function removeHostedProfile(memberId: string): Promise<DeviceSession> {
+  const current = await loadDeviceSession();
+  const nextIds = current.profileMemberIds.filter((id) => id !== memberId);
+  const next: DeviceSession = {
+    ...current,
+    profileMemberIds: nextIds,
+    activeMemberId: current.activeMemberId === memberId ? null : current.activeMemberId,
+    needsProfilePick: nextIds.length > 0,
+    mode: nextIds.length > 0 ? 'shared' : 'personal',
+  };
+  if (nextIds.length === 0) {
+    await clearDeviceSession();
+    return { ...EMPTY };
+  }
+  await saveDeviceSession(next);
+  return next;
+}
+
 export async function selectDeviceProfile(memberId: string): Promise<DeviceSession> {
   const current = await loadDeviceSession();
   const next: DeviceSession = {
@@ -94,7 +112,7 @@ export async function setupSharedDeviceSession(input: {
     profileMemberIds: unique,
     activeMemberId: null,
     needsProfilePick: unique.length > 0,
-    deviceLabel: input.deviceLabel?.trim() || 'Shared tablet',
+    deviceLabel: input.deviceLabel?.trim() || 'Family iPad',
     sharedDeviceId: input.sharedDeviceId ?? null,
   };
   await saveDeviceSession(next);

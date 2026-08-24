@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -12,11 +12,12 @@ import { getAccentTheme } from '@/constants/accent-themes';
 import { space } from '@/constants/orbit-theme';
 import {
   loadDeviceSession,
+  removeHostedProfile,
   selectDeviceProfile,
   type DeviceSession,
 } from '@/lib/device/device-session';
 import { memberDisplayEmoji, isAvatarImageUri } from '@/lib/game-levels';
-import { findSharedDeviceForMember, resolveSharedDevicePeople } from '@/lib/household/shared-device';
+import { DEFAULT_SHARED_IPAD_NAME, findSharedDeviceForMember, resolveSharedDevicePeople } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -42,7 +43,7 @@ function profilesForSession(
   return [];
 }
 
-/** Netflix-style “Who’s logging in?” before the main app on shared/kid devices. */
+/** Who’s using this iPad — pick a face, then Choremaxx. */
 export default function SelectProfileScreen() {
   const insets = useSafeAreaInsets();
   const { household, isLoading, isSignedIn, orbitPalette, switchPersona } = useOrbit();
@@ -70,7 +71,7 @@ export default function SelectProfileScreen() {
   const deviceLabel =
     session?.deviceLabel ||
     findSharedDeviceForMember(profiles[0]?.id, household.members)?.name ||
-    'This device';
+    DEFAULT_SHARED_IPAD_NAME;
 
   if (isLoading || !ready) {
     return null;
@@ -91,6 +92,24 @@ export default function SelectProfileScreen() {
     router.replace('/(tabs)' as never);
   };
 
+  const handleRemove = (member: HouseholdMember) => {
+    Alert.alert(`Remove ${member.name}?`, 'They can be added again with their profile QR.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          void removeHostedProfile(member.id).then((next) => {
+            setSession(next);
+            if (next.profileMemberIds.length === 0) {
+              router.replace('/setup-kid-device' as never);
+            }
+          });
+        },
+      },
+    ]);
+  };
+
   return (
     <View
       style={[
@@ -104,9 +123,9 @@ export default function SelectProfileScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ChoremaxxBadge size="lg" />
         <Text style={[styles.eyebrow, { color: orbitPalette.textMuted }]}>{deviceLabel}</Text>
-        <Text style={[styles.title, { color: orbitPalette.text }]}>Who&apos;s logging in?</Text>
+        <Text style={[styles.title, { color: orbitPalette.text }]}>Who&apos;s using this iPad?</Text>
         <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
-          Pick your profile on this shared device. You can switch anytime from Home.
+          Tap your face. Switch anytime from Home.
         </Text>
 
         <View style={styles.grid}>
@@ -117,9 +136,11 @@ export default function SelectProfileScreen() {
               <Pressable
                 key={member.id}
                 onPress={() => void handleSelect(member)}
+                onLongPress={() => handleRemove(member)}
+                delayLongPress={450}
                 style={styles.tile}
                 accessibilityRole="button"
-                accessibilityLabel={`Log in as ${member.name}`}>
+                accessibilityLabel={`Continue as ${member.name}. Long press to remove from this iPad.`}>
                 <LinearGradient
                   colors={[theme.primary, theme.secondary]}
                   start={{ x: 0, y: 0 }}
@@ -141,20 +162,20 @@ export default function SelectProfileScreen() {
                 <Text style={[styles.name, { color: orbitPalette.text }]} numberOfLines={1}>
                   {member.name}
                 </Text>
-                <Text style={[styles.xp, { color: theme.primary }]}>{member.xp} XP</Text>
               </Pressable>
             );
           })}
+          <Pressable
+            style={styles.tile}
+            onPress={() => router.push('/setup-kid-device' as never)}
+            accessibilityRole="button"
+            accessibilityLabel="Add someone to this iPad">
+            <View style={[styles.addRing, { borderColor: orbitPalette.border }]}>
+              <MaterialIcons name="add" size={36} color={orbitPalette.textMuted} />
+            </View>
+            <Text style={[styles.name, { color: orbitPalette.textMuted }]}>Add</Text>
+          </Pressable>
         </View>
-
-        <Pressable
-          style={styles.manageRow}
-          onPress={() => router.push('/setup-kid-device' as never)}>
-          <MaterialIcons name="add-circle-outline" size={20} color={orbitPalette.textMuted} />
-          <Text style={[styles.manageText, { color: orbitPalette.textMuted }]}>
-            Add another profile with a code or QR
-          </Text>
-        </Pressable>
       </ScrollView>
     </View>
   );
@@ -173,9 +194,8 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 13,
     fontWeight: '600',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
     marginTop: space.xl,
-    textTransform: 'uppercase',
   },
   title: {
     fontSize: 28,
@@ -183,7 +203,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
     maxWidth: 340,
     textAlign: 'center',
@@ -217,30 +237,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: 90,
   },
-  avatarEmoji: {
-    fontSize: 42,
-  },
-  avatarImage: {
-    height: '100%',
-    width: '100%',
+  addRing: {
+    alignItems: 'center',
+    borderRadius: 48,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    height: 96,
+    justifyContent: 'center',
+    width: 96,
   },
   name: {
     fontSize: 16,
     fontWeight: '700',
-  },
-  xp: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  manageRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: space.xxl,
-    paddingVertical: 12,
-  },
-  manageText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

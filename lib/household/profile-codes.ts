@@ -2,7 +2,7 @@ import { createInviteCode, normalizeInviteCode, parseInvitePayload } from '@/lib
 import type { HouseholdMember } from '@/types/orbit';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 
-/** Members that can be hosted on a shared/kid device via profile code. */
+/** Members that can be hosted on a shared iPad via profile code. */
 export function profileHostCandidates(members: HouseholdMember[]): HouseholdMember[] {
   return members.filter(
     (member) =>

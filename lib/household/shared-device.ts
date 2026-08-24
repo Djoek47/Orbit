@@ -1,5 +1,7 @@
 import type { HouseholdMember } from '@/types/orbit';
 
+export const DEFAULT_SHARED_IPAD_NAME = 'Family iPad';
+
 export function isSharedDeviceRole(role: HouseholdMember['role'] | undefined | null): boolean {
   return role === 'shared-device';
 }
@@ -53,7 +55,7 @@ export function findSharedDeviceForMember(
 
 /**
  * Nested switchable account on a shared tablet (e.g. Josh / Todd).
- * These profiles get a simplified kid-friendly Home/Tasks surface.
+ * These profiles get a simplified Sidekick Home/Tasks surface.
  */
 export function isSharedDeviceAccount(
   member: HouseholdMember | undefined | null,

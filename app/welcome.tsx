@@ -32,6 +32,7 @@ import {
   skipsMotivation,
   type OnboardingRole,
 } from '@/lib/onboarding-prefs';
+import { DEFAULT_SHARED_IPAD_NAME } from '@/lib/household/shared-device';
 import {
   clearSetupDraft,
   createEmptyDraft,
@@ -176,7 +177,6 @@ export default function WelcomeOnboardingScreen() {
   >([]);
   const [tabletCodes, setTabletCodes] = useState<string[]>([]);
   const [tabletCodeDraft, setTabletCodeDraft] = useState('');
-  const [tabletLabel, setTabletLabel] = useState('Shared tablet');
 
   const stepOpacity = useRef(new Animated.Value(1)).current;
 
@@ -445,15 +445,19 @@ export default function WelcomeOnboardingScreen() {
   const handleRoleContinue = () => {
     if (!selectedRole) return;
     setError('');
-    // Kids never create an account — they redeem a parent AirDrop / invite.
+    // Sidekicks never create an account — they redeem an admin AirDrop / invite.
     if (selectedRole === 'child') {
       setSelectedRewardModel(selectedRewardModel ?? DEFAULT_REWARD_MODEL);
       setHouseholdMode('join');
       setStep('child-invite');
       return;
     }
-    // Shared / tablet — invite codes or AirDrop, no tablet email.
+    // Shared iPad — one setup surface.
     if (selectedRole === 'shared-tablet') {
+      if (isSignedIn && hasHousehold) {
+        router.replace('/setup-kid-device' as never);
+        return;
+      }
       setSelectedRewardModel(selectedRewardModel ?? DEFAULT_REWARD_MODEL);
       setHouseholdMode('join');
       setStep('tablet-invite');
@@ -805,7 +809,7 @@ export default function WelcomeOnboardingScreen() {
       const parsed =
         parseInvitePayload(inviteCode) ?? (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
       if (!parsed) {
-        setError('Enter or scan the kid invite your parent sent.');
+        setError('Enter or scan the Sidekick invite an admin sent.');
         setBusy(false);
         return;
       }
@@ -821,7 +825,7 @@ export default function WelcomeOnboardingScreen() {
       await redeemChildInvite(parsed);
       router.replace('/' as never);
     } catch (err) {
-      setError(userFacingMessage(err, 'Could not open kid invite.'));
+      setError(userFacingMessage(err, 'Could not open Sidekick invite.'));
     } finally {
       setBusy(false);
     }
@@ -854,7 +858,7 @@ export default function WelcomeOnboardingScreen() {
           : inviteCode.trim()
             ? [inviteCode]
             : [];
-      const result = await connectSharedTabletProfiles(codes, tabletLabel);
+      const result = await connectSharedTabletProfiles(codes, DEFAULT_SHARED_IPAD_NAME);
       router.replace((result.needsProfilePick ? '/select-profile' : '/') as never);
     } catch (err) {
       setError(userFacingMessage(err, 'Could not set up this tablet.'));
@@ -882,8 +886,8 @@ export default function WelcomeOnboardingScreen() {
       setKidInvites(next);
       setShareStatus(
         next.length === 1
-          ? 'Kid profile saved on your admin account. AirDrop the invite below.'
-          : 'Kid profiles saved on your admin account. AirDrop each invite below.',
+          ? 'Sidekick profile saved on your admin account. AirDrop the invite below.'
+          : 'Sidekick profiles saved on your admin account. AirDrop each invite below.',
       );
     } catch (err) {
       setError(userFacingMessage(err, 'Could not create kid invites.'));
@@ -1279,13 +1283,12 @@ export default function WelcomeOnboardingScreen() {
                 Join with an invite
               </Text>
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                No email needed. Open the AirDrop your parent sent, scan their QR, or enter your kid
-                code.
+                No email needed. Scan the QR an admin sent, or enter your Sidekick code.
               </Text>
               <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
               <OrbitInput
                 autoCapitalize="characters"
-                label="Kid invite code"
+                label="Sidekick code"
                 value={inviteCode}
                 onChangeText={setInviteCode}
                 placeholder="e.g. CMX-EMMA"
@@ -1304,36 +1307,19 @@ export default function WelcomeOnboardingScreen() {
             <KeyboardScreen contentContainerStyle={styles.scroll}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
               <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
-                Connect this tablet
+                Set up this iPad
               </Text>
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                Add profiles via AirDrop or invite codes from a parent. No tablet email — the admin
-                account keeps everything saved.
+                Scan each person’s profile QR. No extra account — they pick their face next time.
               </Text>
+              <OrbitButton onPress={() => setScannerOpen(true)}>Scan profile QR</OrbitButton>
               <OrbitInput
-                label="Device name"
-                value={tabletLabel}
-                onChangeText={setTabletLabel}
-                placeholder="Shared tablet"
+                autoCapitalize="characters"
+                label="Or type a code"
+                value={tabletCodeDraft}
+                onChangeText={setTabletCodeDraft}
+                placeholder="CMX-MAYA"
               />
-              <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
-              <View style={styles.tabletCodeRow}>
-                <View style={styles.tabletCodeInput}>
-                  <OrbitInput
-                    autoCapitalize="characters"
-                    label="Profile invite code"
-                    value={tabletCodeDraft}
-                    onChangeText={setTabletCodeDraft}
-                    placeholder="e.g. CMX-JOSH"
-                  />
-                </View>
-                <OrbitButton
-                  tone="secondary"
-                  disabled={!tabletCodeDraft.trim()}
-                  onPress={() => addTabletCode(tabletCodeDraft)}>
-                  Add
-                </OrbitButton>
-              </View>
               {tabletCodes.length > 0 ? (
                 <View style={styles.tabletChipWrap}>
                   {tabletCodes.map((code) => (
@@ -1355,11 +1341,7 @@ export default function WelcomeOnboardingScreen() {
                     </Pressable>
                   ))}
                 </View>
-              ) : (
-                <Text style={[typography.footnote, { color: orbitPalette.textSubtle }]}>
-                  Demo: add CMX-JOSH and CMX-TODD for a two-profile tablet.
-                </Text>
-              )}
+              ) : null}
               {error ? <Text style={styles.error}>{error}</Text> : null}
               <OrbitButton
                 disabled={busy || (tabletCodes.length === 0 && !tabletCodeDraft.trim())}
@@ -1638,22 +1620,22 @@ export default function WelcomeOnboardingScreen() {
               {showKidInviteBox ? (
                 <GlassCard elevated style={styles.kidInviteBox}>
                   <Text style={[styles.kidInviteEyebrow, { color: orbitColors.success }]}>
-                    Kids
+                    Sidekicks
                   </Text>
                   <Text style={[typography.headline, { color: orbitPalette.text }]}>
-                    Invite kids (no sign-in)
+                    Invite Sidekicks (no sign-in)
                   </Text>
                   <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                    Create up to two kid profiles, then AirDrop each invite. Kids never need email.
+                    Create up to two Sidekick profiles, then AirDrop each invite. They never need email.
                   </Text>
                   <OrbitInput
-                    label="Kid 1 name"
+                    label="Sidekick 1 name"
                     value={kidNameOne}
                     onChangeText={setKidNameOne}
                     placeholder="e.g. Emma"
                   />
                   <OrbitInput
-                    label="Kid 2 name (optional)"
+                    label="Sidekick 2 name (optional)"
                     value={kidNameTwo}
                     onChangeText={setKidNameTwo}
                     placeholder="e.g. Liam"
@@ -1661,7 +1643,7 @@ export default function WelcomeOnboardingScreen() {
                   <OrbitButton
                     disabled={busy || (!kidNameOne.trim() && !kidNameTwo.trim())}
                     onPress={() => void handleCreateKidInvites()}>
-                    {busy ? 'Saving…' : 'Create kid invites'}
+                    {busy ? 'Saving…' : 'Create Sidekick invites'}
                   </OrbitButton>
 
                   {kidInvites.map((invite) => (

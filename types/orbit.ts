@@ -49,7 +49,7 @@ export type HouseholdMember = {
    */
   sharedWithMemberIds?: string[];
   /**
-   * Per-person invite code/QR used to host this profile on a shared/kid device
+   * Per-person invite code/QR used to host this profile on a shared iPad
    * (Netflix-style multi-profile tablet). Distinct from the household join code.
    */
   profileInviteCode?: string;

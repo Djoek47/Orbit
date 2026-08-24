@@ -60,10 +60,10 @@ export const ONBOARDING_ROLES: {
   {
     id: 'shared-tablet',
     emoji: '📱',
-    title: 'Shared / tablet',
-    subtitle: 'One device · several profiles',
+    title: 'Shared iPad',
+    subtitle: 'One device · several people',
     color: '#F59E0B',
-    perks: ['Multiple profiles', 'Quick switch', 'Kid-safe', 'No tablet email'],
+    perks: ['Several people', 'Pick a face to start', 'No extra account', 'No tablet email'],
   },
 ];
 
