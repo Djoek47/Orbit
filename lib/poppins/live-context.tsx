@@ -127,8 +127,9 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
           return;
         }
         setVisual('connecting');
-        void warmPoppinsMicrophone();
+        const warmed = nativeVoice ? warmPoppinsMicrophone() : Promise.resolve(false);
         const prep = await prepareSpeakOpen(household, metrics);
+        await warmed.catch(() => false);
         continuityRef.current = prep.continuity;
         const snap = openActSnapshot(prep.continuity, kid ? HOLD_MS_KID : HOLD_MS_DEFAULT);
         if (snap) poppinsUiOrchestrator.restore(snap);

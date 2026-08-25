@@ -305,6 +305,14 @@ type OrbitContextValue = {
   askPoppinsVoice: (audioUri: string | null) => Promise<PoppinsConversationAnswer>;
   /** Per-person Poppins spend. Admin surface; trips off at $4. */
   aiUsageEvents: import('@/lib/ai/credits').AiUsageEvent[];
+  recordPoppinsUsage: (
+    kind: import('@/lib/ai/credits').AiUsageKind,
+    answer: {
+      question: string;
+      answer: string;
+      usage?: { inputTokens?: number; outputTokens?: number; model?: string; usd?: number };
+    }
+  ) => Promise<void>;
   appendPoppinsTurn: (question: string, answer: string) => void;
   switchPersona: (memberId: string) => void;
   approveMember: (memberId: string) => Promise<void>;
@@ -4836,6 +4844,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       askPoppins,
       askPoppinsVoice,
       aiUsageEvents,
+      recordPoppinsUsage,
       appendPoppinsTurn,
       switchPersona,
       approveMember,
@@ -4974,6 +4983,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       achievements,
       poppinsAskCount,
       aiUsageEvents,
+      recordPoppinsUsage,
       poppinsConversation,
       poppinsBriefing,
       inboxBriefing,

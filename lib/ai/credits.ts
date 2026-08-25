@@ -152,6 +152,14 @@ export function personalUsd(summary: AiUsageSummary, memberId: string | null | u
   return summary.byMember.find((row) => row.memberId === memberId)?.usd ?? 0;
 }
 
+export function mergeUsageEvents(local: AiUsageEvent[], remote: AiUsageEvent[]): AiUsageEvent[] {
+  const byId = new Map<string, AiUsageEvent>();
+  for (const event of [...local, ...remote]) {
+    byId.set(event.id, event);
+  }
+  return [...byId.values()].sort((a, b) => a.at.localeCompare(b.at)).slice(-400);
+}
+
 export function formatUsd(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }

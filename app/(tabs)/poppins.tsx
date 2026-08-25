@@ -93,6 +93,7 @@ export default function PoppinsScreen() {
     currentMember,
     permissions,
     aiUsageEvents,
+    recordPoppinsUsage,
     dismissInboxItem,
     metrics,
     notifications,
@@ -162,6 +163,7 @@ export default function PoppinsScreen() {
   kidSessionRef.current = kidSession;
   const voiceFailedRef = useRef(false);
   const lastUtteranceRef = useRef('');
+  const billedSpeakRef = useRef(false);
   const continuityRef = useRef<IuiContinuity | null>(null);
   const wasLiveRef = useRef(false);
 
@@ -274,6 +276,25 @@ export default function PoppinsScreen() {
   }, [visualState]);
 
   useEffect(() => {
+    if (visualState === 'speaking') {
+      billedSpeakRef.current = true;
+      return;
+    }
+    if (
+      billedSpeakRef.current &&
+      (visualState === 'listening' || visualState === 'idle') &&
+      lastUtteranceRef.current.trim()
+    ) {
+      billedSpeakRef.current = false;
+      void recordPoppinsUsage('voice', {
+        question: lastUtteranceRef.current,
+        answer: liveCaption?.text ?? '',
+        usage: { model: 'gpt-realtime-2.1' },
+      });
+    }
+  }, [liveCaption?.text, recordPoppinsUsage, visualState]);
+
+  useEffect(() => {
     poppinsUiOrchestrator.setPendingHandler((approved, ids) => {
       voiceRef.current?.notifyConfirmationResolved(ids, approved);
       setPendingConfirmations((current) => current.filter((item) => !ids.includes(item.id)));
@@ -342,8 +363,9 @@ export default function PoppinsScreen() {
     setError('');
     setLiveCaption(null);
     voiceFailedRef.current = false;
-    void warmPoppinsMicrophone();
+    const warmed = nativeVoice ? warmPoppinsMicrophone() : Promise.resolve(false);
     const prep = await prepareSpeakOpen(household, metrics);
+    await warmed.catch(() => false);
     continuityRef.current = prep.continuity;
     restoreOpenAct(prep.continuity);
     let reportedError = false;

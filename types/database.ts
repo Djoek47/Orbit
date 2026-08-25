@@ -462,6 +462,45 @@ export type Database = {
         Pick<PushTokenRow, 'user_id' | 'token' | 'platform'> & Partial<Omit<PushTokenRow, 'user_id' | 'token' | 'platform'>>,
         Partial<Omit<PushTokenRow, 'id'>>
       >;
+      ai_usage_events: TableDef<
+        {
+          id: string;
+          household_id: string;
+          client_key: string;
+          member_id: string;
+          member_name: string;
+          kind: string;
+          model: string;
+          input_tokens: number;
+          output_tokens: number;
+          usd: number;
+          occurred_at: Timestamp;
+          created_at: Timestamp;
+        },
+        {
+          household_id: string;
+          client_key: string;
+          member_id: string;
+          usd: number;
+          member_name?: string;
+          kind?: string;
+          model?: string;
+          input_tokens?: number;
+          output_tokens?: number;
+          occurred_at?: Timestamp;
+          id?: string;
+          created_at?: Timestamp;
+        },
+        Partial<{
+          member_name: string;
+          kind: string;
+          model: string;
+          input_tokens: number;
+          output_tokens: number;
+          usd: number;
+          occurred_at: Timestamp;
+        }>
+      >;
     };
     Views: Record<string, never>;
     Functions: {

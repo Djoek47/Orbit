@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import {
   AI_TRIP_USD,
   buildUsageEvent,
+  mergeUsageEvents,
   meterCaption,
   personalUsd,
   summarizeAiUsage,
@@ -85,5 +86,11 @@ const under = summarizeAiUsage(
 assert.equal(under.tripped, false, 'under $4 is live');
 assertClose(under.remainingUsd, AI_TRIP_USD - 0.4, 'remaining');
 assert.equal(meterCaption(under, 0.4, true), '$0.40 of $4.00', 'admin running caption');
+
+const merged = mergeUsageEvents(
+  [events[0]!],
+  [events[0]!, events[1]!]
+);
+assert.equal(merged.length, 2, 'usage merge unions by id');
 
 console.log('PASS ai credits $4 trip + per-person');
