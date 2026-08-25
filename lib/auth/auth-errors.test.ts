@@ -69,6 +69,13 @@ export function runAuthErrorsTests(): string[] {
   assert(!signupDump.message.includes('unexpected_failure'), 'no error code in banner');
   assert(!signupDump.message.includes('{'), 'no json in banner');
   assert(signupDump.message.length < 180, 'short copy');
+  const support = resolveAuthIssue({
+    status: 500,
+    message: 'unexpected_failure',
+    headers: { 'sb-request-id': '01a0359f-2a8b-73a7-963b-6102b410db68' },
+  });
+  assert(support.supportCode === '01a0359f', '8-char support code');
+  assert(support.message === AUTH_ISSUES.generic.message || support.code === 'generic' || support.code === 'email_delivery', 'human copy with code');
   pass('7 hide supabase signup 500 dump');
 
   const hookFail = resolveAuthIssue({

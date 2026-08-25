@@ -22,7 +22,6 @@ import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet'
 import { SetupMemberWizard } from '@/components/orbit/setup-member-wizard';
 import { SetupRosterHub } from '@/components/orbit/setup-roster-hub';
 import { SplashHooks } from '@/components/orbit/splash-hooks';
-import { StreakFootnote } from '@/components/orbit/streak-marker';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   hasChosenAvatar,
@@ -52,11 +51,7 @@ import {
   REWARD_MODEL_OPTIONS,
   type RewardModel,
 } from '@/lib/rewards/reward-model';
-import {
-  REWARD_MODE_COPY,
-  REWARD_MODE_EXAMPLES,
-  type RewardMode,
-} from '@/lib/rewards/reward-mode';
+import { type RewardMode } from '@/lib/rewards/reward-mode';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
 import {
@@ -378,10 +373,8 @@ export default function WelcomeOnboardingScreen() {
         setStep('splash');
         break;
       case 'motivation':
-        setStep('role');
-        break;
       case 'reward-system':
-        setStep('motivation');
+        setStep('role');
         break;
       case 'child-invite':
       case 'tablet-invite':
@@ -393,7 +386,7 @@ export default function WelcomeOnboardingScreen() {
             ? 'invited'
             : selectedRole && skipsMotivation(selectedRole)
               ? 'role'
-              : 'reward-system'
+              : 'motivation'
         );
         break;
       case 'profile':
@@ -522,7 +515,8 @@ export default function WelcomeOnboardingScreen() {
   const handleMotivationContinue = () => {
     if (!selectedRewardModel) return;
     setError('');
-    setStep('reward-system');
+    setSelectedRewardMode('weighted');
+    void handleRewardSystemContinue();
   };
 
   const advanceAfterPrefs = () => {
@@ -535,7 +529,7 @@ export default function WelcomeOnboardingScreen() {
 
   const handleRewardSystemContinue = async () => {
     setError('');
-    const rewardMode = selectedRewardMode ?? 'weighted';
+    const rewardMode: RewardMode = 'weighted';
     const rewardModel = selectedRewardModel ?? DEFAULT_REWARD_MODEL;
     try {
       await saveOnboardingPrefs({
@@ -557,6 +551,11 @@ export default function WelcomeOnboardingScreen() {
     }
     advanceAfterPrefs();
   };
+
+  useEffect(() => {
+    if (step !== 'reward-system') return;
+    void handleRewardSystemContinue();
+  }, [step]);
 
   const persistPrefs = async () => {
     await saveOnboardingPrefs({
@@ -1090,7 +1089,7 @@ export default function WelcomeOnboardingScreen() {
                 }}
                 style={styles.signInLink}>
                 <Text style={[styles.signInText, { color: orbitPalette.textMuted }]}>
-                  I have a kid code instead
+                  I have a profile code instead
                 </Text>
               </Pressable>
             </View>
@@ -1144,7 +1143,7 @@ export default function WelcomeOnboardingScreen() {
                             borderColor: active ? `${role.color}44` : orbitPalette.border,
                           },
                         ]}>
-                        <Text style={styles.emoji}>{role.emoji}</Text>
+                        <MaterialIcons name={role.icon} size={24} color={role.color} />
                       </View>
                       <View style={styles.roleBody}>
                         <Text style={[styles.roleTitle, { color: orbitPalette.text }]}>
@@ -1256,80 +1255,6 @@ export default function WelcomeOnboardingScreen() {
               <OrbitButton disabled={!selectedRewardModel} onPress={handleMotivationContinue}>
                 Continue
               </OrbitButton>
-            </KeyboardScreen>
-          ) : null}
-
-          {step === 'reward-system' ? (
-            <KeyboardScreen contentContainerStyle={styles.scroll}>
-              <Header progress={progressIndex} accent={accent} onBack={goBack} />
-              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
-                What reward system would you like to put in place?
-              </Text>
-              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                You can change this in Settings.
-              </Text>
-              <View
-                style={styles.rewardModeList}
-                accessibilityRole="radiogroup"
-                accessibilityLabel="What reward system would you like to put in place?">
-                {(['weighted', 'flat'] as const).map((mode) => {
-                  const active = selectedRewardMode === mode;
-                  const copy = REWARD_MODE_COPY[mode];
-                  const examples = REWARD_MODE_EXAMPLES[mode];
-                  return (
-                    <Pressable
-                      key={mode}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: active }}
-                      onPress={() => setSelectedRewardMode(mode)}
-                      style={[
-                        styles.rewardModeCard,
-                        {
-                          backgroundColor: active ? `${accent}22` : orbitPalette.card,
-                          borderColor: active ? `${accent}55` : orbitPalette.border,
-                        },
-                      ]}>
-                      <View style={styles.rewardModeHeader}>
-                        <View style={{ flex: 1, gap: 4 }}>
-                          <Text style={[styles.motivationLabel, { color: orbitPalette.text }]}>
-                            {copy.label}
-                          </Text>
-                          <Text style={[styles.motivationDesc, { color: orbitPalette.textSubtle }]}>
-                            {copy.blurb}
-                          </Text>
-                        </View>
-                        <View
-                          style={[
-                            styles.radio,
-                            active && { backgroundColor: accent, borderColor: accent },
-                          ]}>
-                          {active ? (
-                            <Text style={[styles.radioCheck, { color: ink }]}>✓</Text>
-                          ) : null}
-                        </View>
-                      </View>
-                      <View style={styles.rewardExampleList}>
-                        {examples.map((row) => (
-                          <View key={row.task} style={styles.rewardExampleRow}>
-                            <Text
-                              style={[styles.rewardExampleTask, { color: orbitPalette.textSoft }]}
-                              numberOfLines={1}>
-                              {row.task}
-                            </Text>
-                            <Text style={[styles.rewardExampleXp, { color: orbitPalette.textMuted }]}>
-                              {selectedRewardModel === 'allowance'
-                                ? `$${(row.xp / 10).toFixed(0)}`
-                                : `${row.xp} XP`}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <StreakFootnote />
-              <OrbitButton onPress={() => void handleRewardSystemContinue()}>Continue</OrbitButton>
             </KeyboardScreen>
           ) : null}
 
@@ -1664,7 +1589,11 @@ export default function WelcomeOnboardingScreen() {
               contentContainerStyle={[styles.scroll, styles.readyScroll]}
               showsVerticalScrollIndicator={false}>
               <View style={[styles.readyBadge, { backgroundColor: accent }]}>
-                <Text style={styles.readyEmoji}>{roleMeta?.emoji ?? '🏠'}</Text>
+                <MaterialIcons
+                  name={roleMeta?.icon ?? 'home'}
+                  size={28}
+                  color={orbitPalette.ink}
+                />
               </View>
               <Text
                 style={[

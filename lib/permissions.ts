@@ -78,6 +78,8 @@ export function getPermissionsForRole(role: HouseholdRole): HouseholdPermissions
  */
 export function formatHouseholdRole(role: HouseholdRole) {
   if (role === 'child') return 'Sidekick';
+  if (role === 'owner' || role === 'admin') return 'Admin';
+  if (role === 'shared-device') return 'Shared device';
   return role
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

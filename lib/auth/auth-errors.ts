@@ -29,6 +29,8 @@ export type AuthIssue = {
   actions?: AuthIssueAction[];
   /** Optional email for confirm-email routing */
   email?: string;
+  /** First 8 characters of `sb-request-id`. The only technical string allowed on screen. */
+  supportCode?: string;
 };
 
 /** Thrown when Supabase Auth blocks sign-in until the inbox link is used. */
@@ -78,7 +80,7 @@ export const AUTH_ISSUES: Record<AuthIssueCode, AuthIssue> = {
   invalid_credentials: {
     code: 'invalid_credentials',
     title: 'Couldn’t sign in',
-    message: 'That email and password don’t match. Double-check both, or reset your password.',
+    message: "That email and password don't match.",
     actions: [
       { label: 'Forgot password?', href: '/forgot-password' },
       { label: 'Get Started', href: '/welcome' },
@@ -92,9 +94,8 @@ export const AUTH_ISSUES: Record<AuthIssueCode, AuthIssue> = {
   },
   rate_limit: {
     code: 'rate_limit',
-    title: 'Too many emails sent',
-    message:
-      'Please wait a few minutes, then try again. If no email arrived, Sign in with Apple also works.',
+    title: 'Too many attempts',
+    message: 'Too many attempts. Try again in a few minutes.',
     actions: [
       { label: 'Open confirmation', href: '/confirm-email' },
       { label: 'Sign in', href: '/sign-in' },
@@ -110,7 +111,7 @@ export const AUTH_ISSUES: Record<AuthIssueCode, AuthIssue> = {
   email_taken: {
     code: 'email_taken',
     title: 'Account already exists',
-    message: 'This email is already registered. Sign in instead, or reset your password.',
+    message: "There's already an account with this email. Try signing in.",
     actions: [
       { label: 'Sign in', href: '/sign-in' },
       { label: 'Forgot password?', href: '/forgot-password' },
@@ -119,7 +120,7 @@ export const AUTH_ISSUES: Record<AuthIssueCode, AuthIssue> = {
   weak_password: {
     code: 'weak_password',
     title: 'Choose a stronger password',
-    message: 'Use at least 6 characters. A mix of letters and numbers works best.',
+    message: 'Passwords need at least 8 characters.',
   },
   missing_fields: {
     code: 'missing_fields',
@@ -140,12 +141,12 @@ export const AUTH_ISSUES: Record<AuthIssueCode, AuthIssue> = {
   network: {
     code: 'network',
     title: 'Connection issue',
-    message: 'Check your internet connection and try again.',
+    message: "You're offline. Check your connection and try again.",
   },
   generic: {
     code: 'generic',
     title: 'Something went wrong',
-    message: 'We couldn’t complete that. Please try again in a moment.',
+    message: 'Something went wrong on our end. Please try again.',
   },
 };
 
@@ -289,11 +290,40 @@ function isEmailHookFailure(text: string, status: number | undefined, providerCo
   return false;
 }
 
-function cannedGeneric(text: string): AuthIssue {
-  if (dumpLooksLikeSignup(text) || text.toLowerCase().includes('returned from hook')) {
-    return AUTH_ISSUES.email_delivery;
+export function extractSupportCode(err: unknown, text = ''): string | undefined {
+  const fromObject = readRequestId(err);
+  const fromText = text.match(/sb-request-id["']?\s*[:=]\s*["']?([0-9a-f-]{8,})/i)?.[1];
+  const raw = fromObject || fromText || '';
+  const compact = raw.replace(/[^0-9a-f]/gi, '');
+  if (compact.length >= 8) return compact.slice(0, 8).toLowerCase();
+  if (raw.length >= 8) return raw.slice(0, 8).toLowerCase();
+  return undefined;
+}
+
+function readRequestId(err: unknown): string {
+  if (!err || typeof err !== 'object') return '';
+  const row = err as Record<string, unknown>;
+  if (typeof row.requestId === 'string') return row.requestId;
+  if (typeof row.request_id === 'string') return row.request_id;
+  const headers = row.headers;
+  if (headers && typeof headers === 'object') {
+    const map = headers as Record<string, unknown>;
+    const id = map['sb-request-id'] ?? map['Sb-Request-Id'];
+    if (typeof id === 'string') return id;
   }
-  return AUTH_ISSUES.generic;
+  return '';
+}
+
+function withSupportCode(issue: AuthIssue, err: unknown, text: string): AuthIssue {
+  const supportCode = extractSupportCode(err, text);
+  return supportCode ? { ...issue, supportCode } : issue;
+}
+
+function cannedGeneric(text: string, err?: unknown): AuthIssue {
+  if (dumpLooksLikeSignup(text) || text.toLowerCase().includes('returned from hook')) {
+    return withSupportCode(AUTH_ISSUES.email_delivery, err, text);
+  }
+  return withSupportCode(AUTH_ISSUES.generic, err, text);
 }
 
 function finalizeIssue(issue: AuthIssue): AuthIssue {
@@ -337,12 +367,16 @@ export function resolveAuthIssue(err: unknown): AuthIssue {
   const dump = looksLikeTechnicalDump(message);
   const providerCode = providerErrorCode(err);
 
-  if (status === 429 || isAuthRateLimitMessage(message)) return AUTH_ISSUES.rate_limit;
-  if (isEmailHookFailure(message, status, providerCode)) return AUTH_ISSUES.email_delivery;
-  if (status === 500 || status === 502 || status === 503 || lower.includes('unexpected_failure')) {
-    return cannedGeneric(message);
+  if (status === 429 || isAuthRateLimitMessage(message)) {
+    return withSupportCode(AUTH_ISSUES.rate_limit, err, message);
   }
-  if (dump) return cannedGeneric(message);
+  if (isEmailHookFailure(message, status, providerCode)) {
+    return withSupportCode(AUTH_ISSUES.email_delivery, err, message);
+  }
+  if (status === 500 || status === 502 || status === 503 || lower.includes('unexpected_failure')) {
+    return cannedGeneric(message, err);
+  }
+  if (dump) return cannedGeneric(message, err);
 
   if (lower.includes('email not confirmed') || lower.includes('email_not_confirmed')) {
     return AUTH_ISSUES.email_not_confirmed;
@@ -358,9 +392,7 @@ export function resolveAuthIssue(err: unknown): AuthIssue {
     return AUTH_ISSUES.email_taken;
   }
   if (lower.includes('password') && (lower.includes('weak') || lower.includes('least') || lower.includes('characters'))) {
-    return finalizeIssue(
-      authIssue('weak_password', { message: message || AUTH_ISSUES.weak_password.message })
-    );
+    return AUTH_ISSUES.weak_password;
   }
   if (
     lower.includes('network') ||
@@ -387,5 +419,5 @@ export function resolveAuthIssue(err: unknown): AuthIssue {
   if (isSafeHumanMessage(message)) {
     return authIssue('generic', { message: message.trim() });
   }
-  return cannedGeneric(message);
+  return cannedGeneric(message, err);
 }

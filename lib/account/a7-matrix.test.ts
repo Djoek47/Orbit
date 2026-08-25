@@ -24,6 +24,7 @@ test('A7 child cannot manage household or approve rewards', () => {
   assert.equal(p.canInviteMembers, false);
   assert.equal(formatHouseholdRole('child'), 'Sidekick');
   assert.equal(ONBOARDING_ROLES.find((role) => role.id === 'child')?.title, 'Sidekick');
+  assert.equal(ONBOARDING_ROLES.find((role) => role.id === 'parent')?.title, 'Admin');
 });
 
 test('A7 shared tablet is limited (no admin powers)', () => {

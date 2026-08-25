@@ -40,9 +40,9 @@ export const REWARD_MODE_COPY: Record<RewardMode, { label: string; blurb: string
   },
 };
 
-export const STREAK_FOOTNOTE = 'Hygiene tasks are tracked as streaks, not points.';
+export const STREAK_FOOTNOTE = 'Hygiene builds streaks rather than points.';
 export const STREAK_FOOTNOTE_REWARDED = (xp: number) =>
-  `Hygiene tasks are tracked as streaks and earn a flat ${xp} XP.`;
+  `Hygiene tasks build streaks and earn a flat ${xp} XP.`;
 
 export const REWARD_MODE_EXAMPLES: Record<
   RewardMode,

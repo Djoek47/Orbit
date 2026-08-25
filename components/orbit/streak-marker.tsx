@@ -52,7 +52,7 @@ export function StreakMarker({
       {xpWhenRewarded != null && xpWhenRewarded > 0 ? (
         <Text style={[styles.asteriskXp, { color: c.textSoft }]}>{xpWhenRewarded} XP</Text>
       ) : null}
-      <Text style={[styles.asterisk, { color: c.textMuted }]}>✳</Text>
+      <MaterialIcons name="local-fire-department" size={14} color={c.textMuted} />
     </View>
   );
 }
@@ -61,8 +61,8 @@ export function StreakFootnote({ rewardedXp }: { rewardedXp?: number }) {
   const { c } = useOrbitColors();
   const text =
     rewardedXp != null && rewardedXp > 0
-      ? `✳ Hygiene tasks are tracked as streaks and earn a flat ${rewardedXp} XP.`
-      : '✳ Hygiene tasks are tracked as streaks, not points.';
+      ? `Hygiene tasks build streaks and earn a flat ${rewardedXp} XP.`
+      : 'Hygiene builds streaks rather than points.';
   return <Text style={[styles.footnote, { color: c.textSubtle }]}>{text}</Text>;
 }
 

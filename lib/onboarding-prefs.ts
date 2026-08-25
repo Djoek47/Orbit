@@ -35,7 +35,7 @@ export type OnboardingPrefs = {
 
 export const ONBOARDING_ROLES: {
   id: OnboardingRole;
-  emoji: string;
+  icon: 'admin-panel-settings' | 'star' | 'tablet-mac';
   title: string;
   subtitle: string;
   color: string;
@@ -43,27 +43,27 @@ export const ONBOARDING_ROLES: {
 }[] = [
   {
     id: 'parent',
-    emoji: '👑',
-    title: 'Parent',
-    subtitle: 'Full household admin',
+    icon: 'admin-panel-settings',
+    title: 'Admin',
+    subtitle: 'Runs the household',
     color: '#3BB5F0',
-    perks: ['Assign & approve', 'Allowance & rewards', 'Invite members', 'Analytics'],
+    perks: ['Assign & approve', 'Rewards & allowance', 'Invite members', 'Analytics'],
   },
   {
     id: 'child',
-    emoji: '⭐',
+    icon: 'star',
     title: 'Sidekick',
-    subtitle: 'Join with a parent invite',
+    subtitle: 'Join with an invite',
     color: '#34D399',
-    perks: ['My tasks', 'Earn XP', 'Unlock rewards', 'Build habits'],
+    perks: ['My tasks', 'Earn XP', 'Unlock rewards', 'Build streaks'],
   },
   {
     id: 'shared-tablet',
-    emoji: '📱',
-    title: 'Shared iPad',
-    subtitle: 'One device · several people',
+    icon: 'tablet-mac',
+    title: 'Shared device',
+    subtitle: 'One device, several profiles',
     color: '#F59E0B',
-    perks: ['Several people', 'Pick a face to start', 'No extra account', 'No tablet email'],
+    perks: ['Multiple profiles', 'Quick switch', 'Kid-safe', 'No email needed'],
   },
 ];
 

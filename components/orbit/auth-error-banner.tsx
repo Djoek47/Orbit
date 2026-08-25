@@ -48,6 +48,11 @@ export function AuthErrorBanner({ issue, actionParams, onDismiss }: AuthErrorBan
         <Text style={[styles.message, { color: c.textMuted }]} numberOfLines={5}>
           {display.message}
         </Text>
+        {display.supportCode ? (
+          <Text style={[styles.supportCode, { color: c.textSubtle }]}>
+            Support {display.supportCode}
+          </Text>
+        ) : null}
         {display.actions && display.actions.length > 0 ? (
           <View style={styles.actions}>
             {display.actions.map((action) => (
@@ -110,6 +115,7 @@ const styles = StyleSheet.create({
   body: { flex: 1, gap: 4, minWidth: 0 },
   title: { fontSize: 14, fontWeight: '700', letterSpacing: -0.2 },
   message: { fontSize: 13, lineHeight: 18, fontWeight: '500' },
+  supportCode: { fontSize: 11, fontWeight: '500', marginTop: 4 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   actionChip: {
     borderRadius: 999,
