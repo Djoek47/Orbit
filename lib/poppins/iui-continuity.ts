@@ -104,8 +104,11 @@ export function snapshotFromDrive(
   return next;
 }
 
-export function hasOpenAct(record: IuiContinuity | null | undefined): boolean {
-  return Boolean(isContinuityFresh(record) && record?.openPlaylist?.length);
+export function hasOpenAct(
+  record: IuiContinuity | null | undefined,
+  now = Date.now()
+): boolean {
+  return Boolean(isContinuityFresh(record, now) && record?.openPlaylist?.length);
 }
 
 /** Frozen stage snapshot — do not arm HOLD until Speak is actually listening. */

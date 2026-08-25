@@ -59,10 +59,10 @@ export function decideOpening(input: {
   if (input.userSpeaking) {
     return { mode: 'listen', instructions: null };
   }
-  if (hasOpenAct(input.continuity)) {
+  if (hasOpenAct(input.continuity, now)) {
     return { mode: 'listen', instructions: null };
   }
-  if (id && isContinuityFresh(input.continuity) && input.continuity?.householdId === id) {
+  if (id && isContinuityFresh(input.continuity, now) && input.continuity?.householdId === id) {
     return { mode: 'listen', instructions: null };
   }
 

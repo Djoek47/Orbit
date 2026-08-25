@@ -48,19 +48,20 @@ export async function prepareSpeakOpen(
   household: HouseholdSnapshot,
   metrics: OrbitMetrics
 ): Promise<SpeakOpenPrep> {
-  const continuity = await loadIuiContinuity(household.id);
-  const memory = (await loadHouseMemory(household.id)) ?? emptyHouseMemory(household.id);
+  const householdId = household.id?.trim() || 'unknown';
+  const continuity = await loadIuiContinuity(householdId);
+  const memory = (await loadHouseMemory(householdId)) ?? emptyHouseMemory(householdId);
   setActiveHouseMemory(memory);
   const desk = buildPoppinsDeskBrief(household, metrics);
   const opening = decideOpening({
     continuity,
-    householdId: household.id,
+    householdId,
     hasMetHousehold: hasMetHousehold(memory),
     lastSituationAt: memory.lastSituationAt,
     desk,
   });
   const resume = Boolean(
-    continuity && isContinuityFresh(continuity) && continuity.householdId === household.id
+    continuity && isContinuityFresh(continuity) && continuity.householdId === householdId
   );
   return {
     continuity,

@@ -142,7 +142,7 @@ export async function warmPoppinsMicrophone(): Promise<boolean> {
     return false;
   }
   try {
-    const live = warmedMic?.getAudioTracks().some((track) => track.readyState !== 'ended');
+    const live = Boolean(warmedMic?.getAudioTracks().length);
     if (live) return true;
     warmedMic = await webrtc.mediaDevices.getUserMedia({ audio: true, video: false });
     return true;

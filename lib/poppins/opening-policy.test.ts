@@ -4,8 +4,8 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import type { IuiContinuity } from '@/lib/poppins/iui-continuity';
 import { decideOpening, situationLine } from '@/lib/poppins/opening-policy';
@@ -102,10 +102,7 @@ test('situationLine prefers overdue by who', () => {
 });
 
 test('voice session no longer greets by default', () => {
-  const src = readFileSync(
-    fileURLToPath(new URL('../voice/poppins-voice-session.ts', import.meta.url)),
-    'utf8'
-  );
+  const src = readFileSync(path.join(process.cwd(), 'lib/voice/poppins-voice-session.ts'), 'utf8');
   assert.equal(src.includes('Greet briefly'), false);
   assert.match(src, /openerInstructions/);
   assert.match(src, /heardUserBeforeOpen/);
