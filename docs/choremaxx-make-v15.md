@@ -3,6 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v15`  
 **Follows:** `cursor/choremaxx-make-v14` (TestFlight **1.3.0 (44)**)  
 **App version:** `1.3.0`  
+**TestFlight:** **1.3.0 (45)** uploaded to App Store Connect (Apple processing). EAS `abcf5726` / git `b4fc5a6` / submit `a6cf66fe`.  
 **Settings tip:** `make-v15 · two-mode`
 
 This is the next shipping cut after v14. It is v14 plus two-mode Poppins IUI, Speak start fixes, and the per-person $4 AI meter on live voice.

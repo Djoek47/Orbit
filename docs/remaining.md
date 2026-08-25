@@ -1,14 +1,14 @@
 # Remaining work
 
 **Branch:** `cursor/choremaxx-make-v15`  
-**TestFlight in ASC:** **1.3.0 (44)** is v14 (`38fc974`). v15 is the next IPA.  
+**TestFlight in ASC:** **1.3.0 (45)** uploaded (Apple processing). EAS `abcf5726` / git `b4fc5a6` / submit `a6cf66fe`. **44** is the last v14 IPA.  
 **Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in splash animations, or collapse House Rules to the kid card.
 
 ---
 
-## TestFlight v15 (this tip)
+## TestFlight v15 (submitted)
 
-v15 is `cursor/choremaxx-make-v15` — two-mode IUI, second Speak, live-voice $4 meter. See [`choremaxx-make-v15.md`](./choremaxx-make-v15.md).
+v15 is `cursor/choremaxx-make-v15` @ git `b4fc5a6` — two-mode IUI, second Speak, live-voice $4 meter. IPA **1.3.0 (45)**. EAS `abcf5726-49d4-4bbd-9f38-30d99c9f6241`, submit `a6cf66fe-322f-4383-9f4b-9fdad8683caa`. See [`choremaxx-make-v15.md`](./choremaxx-make-v15.md).
 
 **SQL:** apply `supabase/migrations/20260825220000_ai_usage_events.sql` on staging for household-wide meter sync. Without it, each phone still meters locally.
 
