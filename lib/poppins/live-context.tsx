@@ -17,6 +17,7 @@ import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
 import {
   isPoppinsNativeVoiceAvailable,
   PoppinsVoiceSession,
+  warmPoppinsMicrophone,
   type PoppinsVoiceVisualState,
 } from '@/lib/voice/poppins-voice-session';
 
@@ -60,10 +61,31 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
   const metrics = orbit?.metrics;
   const appendPoppinsTurn = orbit?.appendPoppinsTurn;
   const kid = orbit?.currentMember?.role === 'child';
+  const selfName = orbit?.currentMember?.name;
+  const memberNames = useMemo(
+    () => household?.members.map((member) => member.name) ?? [],
+    [household?.members]
+  );
 
   useEffect(() => {
     void hydrateHouseMemory(household?.id);
   }, [household?.id]);
+
+  useEffect(() => {
+    if (onPoppinsTab) setSheetOpen(false);
+  }, [onPoppinsTab]);
+
+  useEffect(() => {
+    return poppinsUiOrchestrator.subscribeTap((tap) => {
+      if (!voiceRef.current?.isConnected) return;
+      setVisual((state) => (state === 'speaking' || state === 'thinking' ? 'listening' : state));
+      poppinsUiOrchestrator.setSpeaking(false);
+      const step = poppinsUiOrchestrator.getState().playlist[poppinsUiOrchestrator.getState().index]
+        ?.payload.composeStep;
+      const needsReply = tap.kind !== 'confirm' && step !== 'ready';
+      voiceRef.current.notifyStageTap(tap, { needsReply });
+    });
+  }, []);
 
   const persistDrive = useCallback(() => {
     if (!household?.id) return;
@@ -92,8 +114,12 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
 
   const startInPlace = useCallback(
     async (pageContext = 'in-place') => {
+      if (onPoppinsTab) {
+        setSheetOpen(false);
+        return;
+      }
       setError('');
-      setSheetOpen(!onPoppinsTab);
+      setSheetOpen(true);
       if (nativeVoice && household && metrics) {
         if (voiceRef.current?.isConnected) {
           setVisual('listening');
@@ -101,6 +127,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
           return;
         }
         setVisual('connecting');
+        void warmPoppinsMicrophone();
         const prep = await prepareSpeakOpen(household, metrics);
         continuityRef.current = prep.continuity;
         const snap = openActSnapshot(prep.continuity, kid ? HOLD_MS_KID : HOLD_MS_DEFAULT);
@@ -120,7 +147,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
             }
             if (role === 'user') {
               lastUtteranceRef.current = text;
-              hearAndDrive(text, [], { kid });
+              hearAndDrive(text, memberNames, { kid, selfName });
             } else {
               poppinsUiOrchestrator.syncSpoken(text);
             }
@@ -170,7 +197,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
       }
       setVisual('idle');
     },
-    [household, kid, metrics, nativeVoice, onPoppinsTab, orbit?.currentMember?.majordomoProfileId, persistDrive]
+    [household, kid, memberNames, metrics, nativeVoice, onPoppinsTab, orbit?.currentMember?.majordomoProfileId, persistDrive, selfName]
   );
 
   const sendText = useCallback(
@@ -181,7 +208,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
       if (voiceRef.current?.isConnected) {
         voiceRef.current.sendUserText(trimmed);
         setCaption(trimmed);
-        hearAndDrive(trimmed, [], { kid });
+        hearAndDrive(trimmed, memberNames, { kid, selfName });
         return;
       }
       setVisual('thinking');
@@ -193,7 +220,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
         if (result.ui_actions?.length) {
           driveAiuic(result.ui_actions, trimmed, { replace: true, kid });
         } else {
-          hearAndDrive(trimmed, [], { kid });
+          hearAndDrive(trimmed, memberNames, { kid, selfName });
         }
         setVisual('speaking');
         setTimeout(() => setVisual('idle'), 1600);
@@ -202,7 +229,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
         setVisual('idle');
       }
     },
-    [appendPoppinsTurn, askPoppins, kid]
+    [appendPoppinsTurn, askPoppins, kid, memberNames, selfName]
   );
 
   const value = useMemo<PoppinsLiveValue>(

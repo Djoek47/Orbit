@@ -12,6 +12,7 @@ import {
 } from '@/lib/poppins/house-memory';
 import {
   completeTitleFromUtterance,
+  dueLabelFromUtterance,
   extractItemName,
   isAssignSurfaceRoute,
   isChoreAssignIntent,
@@ -23,10 +24,20 @@ import {
   wantsFullEditor,
 } from '@/lib/poppins/catalog-match';
 
-export function parseHouseholdIntent(utterance: string): Array<Record<string, unknown>> {
+export type HouseholdIntentOpts = {
+  memberNames?: string[];
+  selfName?: string;
+};
+
+export function parseHouseholdIntent(
+  utterance: string,
+  opts?: HouseholdIntentOpts
+): Array<Record<string, unknown>> {
   const text = utterance.trim();
   if (!text) return [];
   const lower = text.toLowerCase();
+  const memberNames = opts?.memberNames ?? [];
+  const selfName = opts?.selfName;
 
   if (wantsFullEditor(lower)) {
     if (/\bevent|calendar|appointment|dentist/.test(lower)) {
@@ -107,22 +118,21 @@ export function parseHouseholdIntent(utterance: string): Array<Record<string, un
   if (actions.length) return actions;
 
   if (isChoreAssignIntent(text)) {
-    const match = matchLibraryIntent(text);
-    const titled =
+    const match = matchLibraryIntent(text, memberNames, selfName);
+    const rawTitle =
       match.task?.name ??
       text.match(/\b(?:add|create|make)\s+(?:a |an )?(.+?)\s+task\b/i)?.[1] ??
       text.match(/\b(?:add|create|make)\s+(?:a |an )?(.+?)\s+for\b/i)?.[1] ??
       '';
-    const due = /\btomorrow\b/i.test(text)
-      ? 'Tomorrow'
-      : /\btoday\b/i.test(text)
-        ? 'Today'
-        : undefined;
+    const title = rawTitle.replace(/\b(a|an|the)\b/gi, '').replace(/\s+/g, ' ').trim();
+    const due = dueLabelFromUtterance(text);
+    const named = match.assignee ?? text.match(/\bfor\s+([A-Z][a-zA-Z]+)\b/)?.[1];
+    const assignee = named && named.toLowerCase() !== 'me' ? named : match.assignee;
     return [
       {
         type: 'create_task_draft',
-        title: titled.replace(/\b(a|an|the)\b/gi, '').replace(/\s+/g, ' ').trim(),
-        assignee: match.assignee ?? text.match(/\bfor\s+([A-Z][a-zA-Z]+)\b/)?.[1],
+        title: /^(task|chore)$/i.test(title) ? '' : title,
+        assignee,
         due,
         category: match.domainId,
         libraryTaskId: match.task?.id,
@@ -146,6 +156,8 @@ function enrichTaskDraft(
   const next = { ...action };
   if (match.assignee && !next.assignee) next.assignee = match.assignee;
   if (match.domainId && !next.category) next.category = match.domainId;
+  const due = dueLabelFromUtterance(utterance);
+  if (due && !next.due) next.due = due;
   if (match.task && !next.libraryTaskId && !String(next.title ?? '').trim()) {
     next.libraryTaskId = match.task.id;
     next.title = match.task.name;

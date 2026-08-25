@@ -23,6 +23,11 @@ import {
 
 export type IuiHapticKind = 'show' | 'hold' | 'settle' | 'veto';
 
+export type IuiStageTap = {
+  kind: string;
+  text: string;
+};
+
 export type IuiDriveState = {
   live: boolean;
   playlist: IuiBeat[];
@@ -60,6 +65,13 @@ let commitHandler: ((beat: IuiBeat) => void | Promise<void>) | null = null;
 let coachHandler: ((route: string) => void) | null = null;
 let pendingHandler: ((approved: boolean, ids: string[]) => void) | null = null;
 let hapticHandler: ((kind: IuiHapticKind) => void) | null = null;
+let tapHandler: ((tap: IuiStageTap) => void) | null = null;
+const tapHandlers = new Set<(tap: IuiStageTap) => void>();
+
+function emitTap(tap: IuiStageTap) {
+  tapHandler?.(tap);
+  for (const handler of tapHandlers) handler(tap);
+}
 
 function emit() {
   for (const listener of listeners) listener();
@@ -107,13 +119,13 @@ function patchCurrentPayload(patch: Partial<IuiPayload>) {
   });
 }
 
-async function settleCurrent() {
+async function settleCurrent(opts?: { fromTap?: boolean }) {
   const beat = currentBeat();
   if (!beat) {
     clear();
     return;
   }
-  if (state.speaking && beat.commit === 'hold') return;
+  if (state.speaking && beat.commit === 'hold' && !opts?.fromTap) return;
   setState({ phase: 'settle', holding: false, holdStartedAt: null });
   hapticHandler?.('settle');
   if (beat.scene === 'confirm' && beat.payload.confirmationIds?.length) {
@@ -314,6 +326,15 @@ export const poppinsUiOrchestrator = {
   setHapticHandler(handler: ((kind: IuiHapticKind) => void) | null) {
     hapticHandler = handler;
   },
+  setTapHandler(handler: ((tap: IuiStageTap) => void) | null) {
+    tapHandler = handler;
+  },
+  subscribeTap(handler: (tap: IuiStageTap) => void) {
+    tapHandlers.add(handler);
+    return () => {
+      tapHandlers.delete(handler);
+    };
+  },
   setSpeaking(speaking: boolean) {
     if (state.speaking === speaking) return;
     if (speaking && state.holding) {
@@ -374,12 +395,13 @@ export const poppinsUiOrchestrator = {
       maybeArmHold();
     }
   },
-  applySpeech(text: string, memberNames: string[] = []) {
+  applySpeech(text: string, memberNames: string[] = [], opts?: { selfName?: string }) {
     if (!state.live) return false;
     const steer = interpretStageSpeech(text, {
       memberNames,
       live: true,
       frozen: state.frozen,
+      selfName: opts?.selfName,
     });
     if (steer.kind === 'freeze') {
       poppinsUiOrchestrator.freeze();
@@ -415,9 +437,19 @@ export const poppinsUiOrchestrator = {
     setState({ frozen: false });
     maybeArmHold();
   },
-  confirm() {
+  /** Finger press: stop talking over the choice and apply it now. Auto-HOLD still waits. */
+  chooseFromTap(patch: Partial<IuiPayload>, text: string, kind = 'choice') {
+    if (state.speaking) setState({ speaking: false });
+    poppinsUiOrchestrator.revise(patch);
+    emitTap({ kind, text });
+  },
+  confirm(opts?: { fromTap?: boolean }) {
+    if (opts?.fromTap) {
+      if (state.speaking) setState({ speaking: false });
+      emitTap({ kind: 'confirm', text: 'assign now' });
+    }
     clearAllTimers();
-    return settleCurrent();
+    return settleCurrent(opts);
   },
   veto() {
     const beat = currentBeat();

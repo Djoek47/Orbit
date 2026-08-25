@@ -18,6 +18,7 @@ import { orderPoppinsToolCalls, type PoppinsToolName } from '@/lib/ai/poppins-to
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
 import { mergeTranscript } from '@/lib/voice/transcript-merge';
+import { formatStageTapUserLine } from '@/lib/poppins/stage-tap';
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
 
 export type PoppinsVoiceVisualState =
@@ -94,6 +95,7 @@ type MediaStreamTrack = {
   stop: () => void;
   enabled: boolean;
   kind: string;
+  readyState?: string;
 };
 
 let cachedWebRtc: WebRtcModule | null | undefined;
@@ -130,6 +132,15 @@ export function isPoppinsNativeVoiceAvailable(): boolean {
 
 let warmedMic: MediaStream | null = null;
 
+function streamHasLiveAudio(stream: MediaStream | null): boolean {
+  if (!stream) return false;
+  const tracks = stream.getAudioTracks?.() ?? stream.getTracks();
+  return tracks.some((track) => {
+    if (track.enabled === false) return false;
+    return track.readyState !== 'ended';
+  });
+}
+
 /** Prefetch mic after permission — does not mint a Realtime session. */
 export async function warmPoppinsMicrophone(): Promise<boolean> {
   const webrtc = loadReactNativeWebRtc();
@@ -142,17 +153,23 @@ export async function warmPoppinsMicrophone(): Promise<boolean> {
     return false;
   }
   try {
-    const live = Boolean(warmedMic?.getAudioTracks().length);
-    if (live) return true;
+    if (streamHasLiveAudio(warmedMic)) return true;
+    releaseWarmedMicrophone();
+    await configurePoppinsSpeakerAudio();
     warmedMic = await webrtc.mediaDevices.getUserMedia({ audio: true, video: false });
-    return true;
+    return streamHasLiveAudio(warmedMic);
   } catch {
+    releaseWarmedMicrophone();
     return false;
   }
 }
 
 export function takeWarmedMicrophone(): MediaStream | null {
   const stream = warmedMic;
+  if (!streamHasLiveAudio(stream)) {
+    releaseWarmedMicrophone();
+    return null;
+  }
   warmedMic = null;
   return stream;
 }
@@ -494,6 +511,36 @@ export class PoppinsVoiceSession {
     return true;
   }
 
+  /**
+   * Finger used the IUI. Cancel speech, inject the choice, stay quiet unless
+   * one more unknown beat still needs a word.
+   */
+  notifyStageTap(tap: { kind: string; text: string }, opts?: { needsReply?: boolean }) {
+    if (!this.isConnected) return;
+    this.noteUserActivity();
+    this.sendEvent({ type: 'response.cancel' });
+    this.sendEvent({
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'user',
+        content: [{ type: 'input_text', text: formatStageTapUserLine(tap) }],
+      },
+    });
+    if (opts?.needsReply) {
+      this.sendEvent({
+        type: 'response.create',
+        response: {
+          instructions:
+            'They used the IUI. Do not re-offer that choice. If something is still unknown, ask only for that in one short sentence. Otherwise stay quiet.',
+        },
+      });
+      this.setState('thinking');
+      return;
+    }
+    this.setState('listening');
+  }
+
   private clearThinkingRecovery() {
     if (this.thinkingTimer) clearTimeout(this.thinkingTimer);
     this.thinkingTimer = null;
@@ -826,6 +873,7 @@ export class PoppinsVoiceSession {
     this.callbacks.onRemoteStream?.(null);
     this.setState('idle');
     this.fatal = true;
+    releaseWarmedMicrophone();
     void restorePoppinsAudio();
   }
 }

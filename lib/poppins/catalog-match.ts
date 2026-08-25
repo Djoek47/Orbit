@@ -86,18 +86,45 @@ export function isGrocerySurfaceRoute(route: string): boolean {
   );
 }
 
-export function matchAssigneeName(text: string, memberNames: string[] = []): string | undefined {
+export function wantsSelfAssignee(text: string): boolean {
+  const lower = text.toLowerCase();
+  return (
+    /\bit'?s for me\b/.test(lower) ||
+    /\bthe task is for me\b/.test(lower) ||
+    /\bassign (?:it )?to me\b/.test(lower) ||
+    /\bfor me\b/.test(lower)
+  );
+}
+
+export function dueLabelFromUtterance(text: string): string | undefined {
+  const lower = text.toLowerCase();
+  if (/\btomorrow\b/.test(lower)) return 'Tomorrow';
+  if (/\btoday\b/.test(lower)) return 'Today';
+  if (/\bthis week\b/.test(lower)) return 'This week';
+  return undefined;
+}
+
+export function matchAssigneeName(
+  text: string,
+  memberNames: string[] = [],
+  selfName?: string
+): string | undefined {
+  if (selfName && wantsSelfAssignee(text)) return selfName;
   const named = text.match(/\bfor\s+([A-Z][a-zA-Z]{1,20})\b/)?.[1];
-  if (named) return named;
+  if (named && named.toLowerCase() !== 'me') return named;
   const lower = text.toLowerCase();
   return memberNames.find((name) => hasWord(lower, name.toLowerCase()));
 }
 
-export function matchLibraryIntent(text: string, memberNames: string[] = []): LibraryIntentMatch {
+export function matchLibraryIntent(
+  text: string,
+  memberNames: string[] = [],
+  selfName?: string
+): LibraryIntentMatch {
   const lower = text.toLowerCase().trim();
   if (!lower) return {};
 
-  const assignee = matchAssigneeName(text, memberNames);
+  const assignee = matchAssigneeName(text, memberNames, selfName);
   const domains = [...choreDomains(), homeworkDomain()].filter(Boolean);
   let domainId: string | undefined;
   let domainLabel: string | undefined;
@@ -248,7 +275,10 @@ export function parseReleaseDate(text: string, now = new Date()): string | undef
 export function isChoreAssignIntent(text: string): boolean {
   const lower = text.toLowerCase();
   if (isCompleteIntent(text) || wantsFullEditor(text)) return false;
-  if (/\b(add|create|make)\b/.test(lower) && (/\btask\b/.test(lower) || /\bfor\b/.test(lower))) {
+  if (
+    /\b(add|create|make|set up|setup|schedule)\b/.test(lower) &&
+    (/\btask\b/.test(lower) || /\bchore\b/.test(lower) || /\bfor\b/.test(lower))
+  ) {
     return true;
   }
   if (/\bassign\b/.test(lower)) return true;

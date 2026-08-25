@@ -4,7 +4,11 @@
 
 import type { IuiPayload } from '@/lib/poppins/ui-scenes';
 import { parseHouseholdIntent } from '@/lib/poppins/ui-intent';
-import { matchLibraryIntent } from '@/lib/poppins/catalog-match';
+import {
+  dueLabelFromUtterance,
+  matchLibraryIntent,
+  wantsSelfAssignee,
+} from '@/lib/poppins/catalog-match';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 
 export type SpeechSteer =
@@ -72,13 +76,22 @@ export function matchSpokenTokens(
     patch.due = 'Tomorrow';
     patch.date = formatLocalDate(d);
     patch.dayNumber = d.getDate();
+  } else if (/\btoday\b/.test(lower)) {
+    patch.due = 'Today';
+  } else if (/\bthis week\b/.test(lower)) {
+    patch.due = 'This week';
+  }
+  const lib = matchLibraryIntent(text, names);
+  if (lib.domainId) {
+    patch.category = lib.domainId;
+    patch.selectedChipId = lib.domainId;
   }
   return patch;
 }
 
 export function interpretStageSpeech(
   text: string,
-  ctx: { memberNames?: string[]; live?: boolean; frozen?: boolean } = {}
+  ctx: { memberNames?: string[]; live?: boolean; frozen?: boolean; selfName?: string } = {}
 ): SpeechSteer {
   const lower = text.toLowerCase().trim();
   if (!lower) return { kind: 'none' };
@@ -101,7 +114,10 @@ export function interpretStageSpeech(
   }
 
   if (/\balso\b/.test(lower) && ctx.live) {
-    const extra = parseHouseholdIntent(text.replace(/\balso\b/i, 'add'));
+    const extra = parseHouseholdIntent(text.replace(/\balso\b/i, 'add'), {
+      memberNames: ctx.memberNames,
+      selfName: ctx.selfName,
+    });
     if (extra.length) return { kind: 'splice', actions: extra };
   }
 
@@ -117,30 +133,18 @@ export function interpretStageSpeech(
   const bare = names.find((name) => lower === name.toLowerCase());
   if (bare) return { kind: 'revise', patch: { assignee: bare, spokenName: bare } };
 
-  const weekday = WEEKDAYS.find((day) => lower.includes(day));
-  if (weekday && (/\bnot\b/.test(lower) || ctx.live)) {
-    return {
-      kind: 'revise',
-      patch: { due: capitalize(weekday), date: nextDateForWeekday(weekday) },
-    };
+  const lib = matchLibraryIntent(text, names, ctx.selfName);
+  const patch: Partial<IuiPayload> = {};
+  if (ctx.selfName && wantsSelfAssignee(lower)) {
+    patch.assignee = ctx.selfName;
+    patch.spokenName = ctx.selfName;
+  } else if (lib.assignee) {
+    patch.assignee = lib.assignee;
+    patch.spokenName = lib.assignee;
   }
-
-  if (/\btomorrow\b/.test(lower) && ctx.live) {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return { kind: 'revise', patch: { due: 'Tomorrow', date: d.toISOString().slice(0, 10) } };
-  }
-
-  const lib = matchLibraryIntent(text, names);
   if (ctx.live && lib.domainId) {
-    const patch: Partial<IuiPayload> = {
-      category: lib.domainId,
-      selectedChipId: lib.domainId,
-    };
-    if (lib.assignee) {
-      patch.assignee = lib.assignee;
-      patch.spokenName = lib.assignee;
-    }
+    patch.category = lib.domainId;
+    patch.selectedChipId = lib.domainId;
     if (lib.task) {
       patch.libraryTaskId = lib.task.id;
       patch.title = lib.task.name;
@@ -149,7 +153,21 @@ export function interpretStageSpeech(
       patch.title = '';
       patch.libraryTaskId = undefined;
     }
-    return { kind: 'revise', patch };
+  }
+  const due = dueLabelFromUtterance(text);
+  if (due && ctx.live) {
+    patch.due = due;
+    if (due === 'Tomorrow') {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      patch.date = formatLocalDate(d);
+      patch.dayNumber = d.getDate();
+    }
+  }
+  const weekday = WEEKDAYS.find((day) => lower.includes(day));
+  if (weekday && (/\bnot\b/.test(lower) || ctx.live) && !due) {
+    patch.due = capitalize(weekday);
+    patch.date = nextDateForWeekday(weekday);
   }
 
   if (ctx.live && /\b(this is the task|that one|this one|that task)\b/.test(lower)) {
@@ -157,14 +175,17 @@ export function interpretStageSpeech(
       return {
         kind: 'revise',
         patch: {
+          ...patch,
           libraryTaskId: lib.task.id,
           title: lib.task.name,
           category: lib.task.domainId,
         },
       };
     }
-    return { kind: 'confirm' };
+    if (!Object.keys(patch).length) return { kind: 'confirm' };
   }
+
+  if (Object.keys(patch).length) return { kind: 'revise', patch };
 
   return { kind: 'none' };
 }

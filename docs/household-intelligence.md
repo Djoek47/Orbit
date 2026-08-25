@@ -32,10 +32,20 @@ Policy module: [`lib/poppins/opening-policy.ts`](../lib/poppins/opening-policy.t
 
 Real SDP time cannot go to zero. Speak is usable before the model talks:
 
-- Warm the mic on Poppins tab focus **after** permission is already granted. Do not mint a paid Realtime session until Speak.
+- Warm the mic **at Speak tap**, in parallel with SDP — not on Poppins tab focus. Reuse a warmed stream only if tracks are still live; otherwise capture fresh. Call `configurePoppinsSpeakerAudio` before `getUserMedia`. After hangup, do not leave a held mic (`allowsRecordingIOS: false` must not sit on a dead stream).
 - On datachannel open: seed turns if any; do **not** `response.create` a greet. Situation / presence is a policy decision.
 - If the user is already speaking, skip the opener.
 - Status copy: “Tuning in…” → “Listening”. Reuse the orb `thinking` state. No PROCESSING label.
+
+## Two modes
+
+Poppins talks and the IUI are one act. See the table in [`iui-ux-architecture.md`](./iui-ux-architecture.md).
+
+| Input | Result |
+|---|---|
+| Hands off | Voice fills unknown beats only. Known kitchen / tomorrow skips the category grid. |
+| Finger on a choice | `response.cancel` + “On the IUI I chose …”. Auto-HOLD stays gated on speech; a tap is not gated. |
+| Hourglass | Opens Activity. Speak / HOLD / in-place Ask do not. |
 
 ## IUI
 

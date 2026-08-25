@@ -1,3 +1,4 @@
+import { usePathname } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,8 +17,10 @@ export function PoppinsInPlaceSheet() {
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
   const [draft, setDraft] = useState('');
+  const pathname = usePathname();
+  const onPoppinsTab = pathname?.includes('poppins') ?? false;
 
-  if (!live?.sheetOpen) return null;
+  if (!live?.sheetOpen || onPoppinsTab) return null;
 
   const busy = live.visual === 'connecting' || live.visual === 'thinking';
   const orbState =

@@ -25,7 +25,7 @@ import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { householdHasChildren } from '@/lib/household/has-children';
 import { composeStepLabel, IUI_DUE_CHIPS, nextComposeStep } from '@/lib/poppins/iui-compose';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
-import type { IuiBeat, IuiFace, IuiPayload, IuiPhase } from '@/lib/poppins/ui-scenes';
+import type { IuiBeat, IuiFace, IuiPayload } from '@/lib/poppins/ui-scenes';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
 import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
@@ -66,7 +66,6 @@ function TaskComposeSteps({
   frozen,
   titleHeard,
   title,
-  phase,
 }: {
   payload: IuiPayload;
   faces: IuiFace[];
@@ -79,7 +78,6 @@ function TaskComposeSteps({
   frozen: boolean;
   titleHeard: boolean;
   title: string;
-  phase: IuiPhase;
 }) {
   const { c } = useOrbitColors();
   const { household } = useOrbit();
@@ -136,7 +134,9 @@ function TaskComposeSteps({
           selectedName={selectedName}
           pulsingName={payload.spokenName}
           accent={accent}
-          onSelect={(name) => poppinsUiOrchestrator.revise({ assignee: name, spokenName: name })}
+          onSelect={(name) =>
+            poppinsUiOrchestrator.chooseFromTap({ assignee: name, spokenName: name }, name, 'face')
+          }
         />
       ) : null}
 
@@ -152,49 +152,48 @@ function TaskComposeSteps({
             const assigneeOk =
               !childOnly ||
               household.members.some((m) => m.name === assignee && m.role === 'child');
-            poppinsUiOrchestrator.revise({
-              selectedChipId: id,
-              category: id,
-              title: '',
-              libraryTaskId: undefined,
-              assignee: assigneeOk ? assignee : '',
-            });
+            poppinsUiOrchestrator.chooseFromTap(
+              {
+                selectedChipId: id,
+                category: id,
+                title: '',
+                libraryTaskId: undefined,
+                assignee: assigneeOk ? assignee : '',
+              },
+              domains.find((domain) => domain.id === id)?.label ?? id,
+              'category'
+            );
           }}
         />
       ) : null}
 
       {step === 'task' ? (
         <>
-          {phase === 'show' && categoryId ? (
-            <IuiDomainGrid
-              domains={domains}
-              selectedId={categoryId}
-              accent={accent}
-              narrow
-            />
-          ) : (
-            <IuiChips
-              chips={(libraryTasks.length ? libraryTasks : allLibraryTasks().filter((t) => t.domainId === categoryId)).map(
-                (task) => ({
-                  id: task.id,
-                  label: task.name,
-                })
-              )}
-              selectedId={payload.libraryTaskId}
-              accent={accent}
-              showEmoji={showEmoji}
-              onSelect={(id) => {
-                const pool = allLibraryTasks().filter((item) => item.domainId === categoryId);
-                const task = pool.find((item) => item.id === id);
-                poppinsUiOrchestrator.revise({
+          <IuiChips
+            chips={(libraryTasks.length ? libraryTasks : allLibraryTasks().filter((t) => t.domainId === categoryId)).map(
+              (task) => ({
+                id: task.id,
+                label: task.name,
+              })
+            )}
+            selectedId={payload.libraryTaskId}
+            accent={accent}
+            showEmoji={showEmoji}
+            onSelect={(id) => {
+              const pool = allLibraryTasks().filter((item) => item.domainId === categoryId);
+              const task = pool.find((item) => item.id === id);
+              poppinsUiOrchestrator.chooseFromTap(
+                {
                   libraryTaskId: id,
                   title: task?.name ?? id,
                   category: task?.domainId ?? categoryId,
                   taskQuery: undefined,
-                });
-              }}
-            />
-          )}
+                },
+                task?.name ?? id,
+                'chip'
+              );
+            }}
+          />
           {title && !payload.libraryTaskId ? (
             <IuiGhostField text={title} accent={accent} catchUp={titleHeard} />
           ) : null}
@@ -208,7 +207,7 @@ function TaskComposeSteps({
             chips={IUI_DUE_CHIPS.map((chip) => ({ id: chip.id, label: chip.label }))}
             selectedId={payload.due}
             accent={accent}
-            onSelect={(id) => poppinsUiOrchestrator.revise({ due: id })}
+            onSelect={(id) => poppinsUiOrchestrator.chooseFromTap({ due: id }, id, 'when')}
           />
         </>
       ) : null}
@@ -452,7 +451,9 @@ export function PoppinsStage() {
             selectedName={selectedName}
             pulsingName={payload.spokenName}
             accent={accent}
-            onSelect={(name) => poppinsUiOrchestrator.revise({ assignee: name, spokenName: name })}
+            onSelect={(name) =>
+              poppinsUiOrchestrator.chooseFromTap({ assignee: name, spokenName: name }, name, 'face')
+            }
           />
         </IuiStepper>
       ) : null}
@@ -470,7 +471,6 @@ export function PoppinsStage() {
           frozen={drive.frozen}
           titleHeard={titleHeard}
           title={title}
-          phase={drive.phase}
         />
       ) : null}
 
@@ -586,7 +586,7 @@ export function PoppinsStage() {
       ) : null}
 
       {beat.commit === 'hold' ? (
-        <Pressable onPress={() => poppinsUiOrchestrator.confirm()} hitSlop={12}>
+        <Pressable onPress={() => poppinsUiOrchestrator.confirm({ fromTap: true })} hitSlop={12}>
           <Text style={[styles.fallback, { color: c.textSubtle }]}>
             {drive.frozen ? 'Tap to confirm' : 'or tap to confirm'}
           </Text>
@@ -601,7 +601,7 @@ export function PoppinsStage() {
             <Text style={{ color: c.text }}>No</Text>
           </Pressable>
           <Pressable
-            onPress={() => poppinsUiOrchestrator.confirm()}
+            onPress={() => poppinsUiOrchestrator.confirm({ fromTap: true })}
             style={[styles.quietBtn, { borderColor: `${accent}66` }]}>
             <Text style={{ color: c.text }}>Yes</Text>
           </Pressable>

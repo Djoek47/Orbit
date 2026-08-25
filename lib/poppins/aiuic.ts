@@ -57,13 +57,16 @@ export function driveAiuic(
 export function hearAndDrive(
   text: string,
   memberNames: string[] = [],
-  opts?: { kid?: boolean }
+  opts?: { kid?: boolean; selfName?: string }
 ) {
   const memory = parseHouseMemoryUtterance(text);
   if (memory) void rememberActiveFact(memory);
-  const steered = poppinsUiOrchestrator.applySpeech(text, memberNames);
+  const steered = poppinsUiOrchestrator.applySpeech(text, memberNames, { selfName: opts?.selfName });
   if (!steered) {
-    const inferred = parseHouseholdIntent(text);
+    const inferred = parseHouseholdIntent(text, {
+      memberNames,
+      selfName: opts?.selfName,
+    });
     if (inferred.length) driveAiuic(inferred, text, { kid: opts?.kid, replace: true });
   }
   poppinsUiOrchestrator.syncSpoken(text, memberNames);

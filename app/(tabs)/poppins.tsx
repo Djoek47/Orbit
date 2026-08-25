@@ -1,7 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -54,7 +53,6 @@ import {
 import {
   isPoppinsNativeVoiceAvailable,
   PoppinsVoiceSession,
-  releaseWarmedMicrophone,
   warmPoppinsMicrophone,
   type PoppinsPendingConfirmation,
   type PoppinsVoiceVisualState,
@@ -242,15 +240,6 @@ export default function PoppinsScreen() {
     void hydrateHouseMemory(household.id);
   }, [household.id]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (nativeVoice) void warmPoppinsMicrophone();
-      return () => {
-        if (!voiceRef.current?.isConnected) releaseWarmedMicrophone();
-      };
-    }, [nativeVoice])
-  );
-
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -290,7 +279,18 @@ export default function PoppinsScreen() {
       setPendingConfirmations((current) => current.filter((item) => !ids.includes(item.id)));
       if (approved) flashToolSuccess('Confirmed');
     });
-    return () => poppinsUiOrchestrator.setPendingHandler(null);
+    const unsubTap = poppinsUiOrchestrator.subscribeTap((tap) => {
+      setVoiceState((state) => (state === 'speaking' || state === 'thinking' ? 'listening' : state));
+      poppinsUiOrchestrator.setSpeaking(false);
+      const step = poppinsUiOrchestrator.getState().playlist[poppinsUiOrchestrator.getState().index]
+        ?.payload.composeStep;
+      const needsReply = tap.kind !== 'confirm' && step !== 'ready';
+      voiceRef.current?.notifyStageTap(tap, { needsReply });
+    });
+    return () => {
+      poppinsUiOrchestrator.setPendingHandler(null);
+      unsubTap();
+    };
   }, []);
 
   const monitorFeed = useMemo(
@@ -316,7 +316,10 @@ export default function PoppinsScreen() {
         text,
       });
       void saveIuiContinuity(continuityRef.current);
-      hearAndDrive(text, memberNamesRef.current, { kid: kidSessionRef.current });
+      hearAndDrive(text, memberNamesRef.current, {
+        kid: kidSessionRef.current,
+        selfName: currentMember?.name,
+      });
     } else {
       continuityRef.current = rememberTurn(continuityRef.current, household.id, {
         role: 'assistant',
@@ -339,6 +342,7 @@ export default function PoppinsScreen() {
     setError('');
     setLiveCaption(null);
     voiceFailedRef.current = false;
+    void warmPoppinsMicrophone();
     const prep = await prepareSpeakOpen(household, metrics);
     continuityRef.current = prep.continuity;
     restoreOpenAct(prep.continuity);
@@ -431,7 +435,10 @@ export default function PoppinsScreen() {
     setLiveCaption(applyLiveCaptionTurn(null, 'you', trimmed, true));
     lastUtteranceRef.current = trimmed;
     setError('');
-    hearAndDrive(trimmed, memberNamesRef.current, { kid: kidSessionRef.current });
+    hearAndDrive(trimmed, memberNamesRef.current, {
+      kid: kidSessionRef.current,
+      selfName: currentMember?.name,
+    });
 
     // Live duplex: inject into the same WebRTC conversation.
     if (voiceRef.current?.isConnected) {

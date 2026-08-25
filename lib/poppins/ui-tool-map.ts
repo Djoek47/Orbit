@@ -148,7 +148,6 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'create_task' || type === 'create_task_draft') {
-      const draft = type === 'create_task_draft';
       const payload = withComposeProgress({
         title: String(action.title ?? prefill.title ?? ''),
         assignee: action.assignee
@@ -169,10 +168,8 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
             : undefined,
         taskQuery: action.taskQuery ? String(action.taskQuery) : undefined,
         showEmoji: true,
-        composeReady: draft ? false : undefined,
         thinkingLine: 'Assign',
       });
-      if (draft) payload.composeReady = false;
       playlist.push(beat('task_compose', payload, 'hold', 'create_task'));
       playlist.push(
         beat('result_mark', { markKind: 'assigned', title: payload.title || 'Task' }, 'none')
