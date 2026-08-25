@@ -3,7 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v14`  
 **Follows:** `cursor/choremaxx-make-v13` (TestFlight **1.3.0 (39)**)  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (41)** in App Store Connect (Apple processing). **42** is the next cut — see [`remaining.md`](./remaining.md) § TestFlight 42. **Do not** upload 42 until that list is in the IPA. **40** remains the prior Revision G cut.  
+**TestFlight:** **1.3.0 (42)** submitted (MYTIKAS). Git tip `f37422e`. **41** was `f70af99`. **40** remains the prior Revision G cut. See [`remaining.md`](./remaining.md).  
 **Settings tip:** `make-v14 · revision-g`  
 **Content tip:** Revision G Sidekick + post-40 IUI continuity / one-Speak, onboarding photo, House Rules 23:59, Family iPad, Get Started Sidekick label.
 
@@ -32,7 +32,7 @@ This is the next shipping cut after v13. Nothing from Revision G on `cursor/revi
 - Propose = quiet “Suggest a reward” (name + optional note). One open proposal + **7-day** cooldown. Approve mints catalogue reward, no XP write.
 - Two-admin cap counted **inside the same transaction as the write** (`SELECT … FOR UPDATE`).
 
-Staging has `supabase/migrations/20260820200000_revision_g_sidekick.sql` applied (MYTIKAS, 2026-08-24). Sidekick redeem, grocery add, and proposals can be exercised on TestFlight 41.
+Staging has `supabase/migrations/20260820200000_revision_g_sidekick.sql` applied (MYTIKAS, 2026-08-24). Sidekick redeem, grocery add, and proposals can be exercised on TestFlight 42.
 
 ---
 
@@ -43,7 +43,7 @@ Staging has `supabase/migrations/20260820200000_revision_g_sidekick.sql` applied
 - `EXPO_PUBLIC_POPPINS_REALTIME=1`
 - `EXPO_PUBLIC_POPPINS_VOICE_WEBRTC=1`
 
-EAS `autoIncrement` assigns the next iOS build number. Uploaded **1.3.0 (41)** to App Store Connect (EAS build `f2060a3b`, auto-submit `d0f6e936` finished). Wait for Apple processing, then install 41 — 40 is Revision G without the post-40 IUI pass.
+EAS `autoIncrement` assigns the next iOS build number. **1.3.0 (41)** was EAS build `f2060a3b` / git `f70af99`. **1.3.0 (42)** was submitted by MYTIKAS against git `f37422e` (Settings, AI meter, §A tiles, genie IUI, whole-pill done). Do not upload another 42. Wait for Apple processing, then install 42.
 
 ---
 
@@ -56,6 +56,6 @@ EAS `autoIncrement` assigns the next iOS build number. Uploaded **1.3.0 (41)** t
 5. Suggest a reward → admin approve/decline (no XP)
 6. Failed signup shows short copy, not a JSON dump
 
-**Still open** — [`remaining.md`](./remaining.md) (App Review, website ops). IUI product logic is in TestFlight **41**.
+**Still open** — [`remaining.md`](./remaining.md) (App Review, website ops). IUI genie + 42 cut list are in TestFlight **42**.
 
 **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules back to the kid card.
