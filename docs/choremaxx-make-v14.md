@@ -3,7 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v14`  
 **Follows:** `cursor/choremaxx-make-v13` (TestFlight **1.3.0 (39)**)  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (41)** — uploaded to App Store Connect (Apple processing). **40** remains the prior Revision G cut.  
+**TestFlight:** **1.3.0 (41)** in App Store Connect (Apple processing). **42** is the next cut — see [`remaining.md`](./remaining.md) § TestFlight 42. **Do not** upload 42 until that list is in the IPA. **40** remains the prior Revision G cut.  
 **Settings tip:** `make-v14 · revision-g`  
 **Content tip:** Revision G Sidekick + post-40 IUI continuity / one-Speak, onboarding photo, House Rules 23:59, Family iPad, Get Started Sidekick label.
 

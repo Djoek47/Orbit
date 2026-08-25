@@ -2,7 +2,48 @@
 
 **Branch:** `cursor/choremaxx-make-v14`  
 **TestFlight in ASC:** **1.3.0 (41)** uploaded (Apple processing). **40** is Revision G without the post-40 IUI pass.  
-**Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules to the kid card.
+**Next cut:** **1.3.0 (42)** — do **not** upload until the list below is in the IPA.  
+**Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in splash animations, or collapse House Rules to the kid card.
+
+---
+
+## TestFlight 42 (this cut)
+
+41 is git `f70af99`. Everything below is **not** in 41 and must land before 42.
+
+### Already on this branch (after 41)
+
+- **Repeating chores** — change who / how often after assign; Skip today; Stop repeating (`fe03103`, [`task-series-ux.md`](./task-series-ux.md)).
+- **Auth email copy** — Send Email Hook 502 maps to “couldn’t send confirmation,” not a rate limit (`16b74d9`, [`resend-auth-email.md`](./resend-auth-email.md)).
+
+### Settings (Apple IA)
+
+- Redo Settings as a short grouped list, not a dump of every toggle.
+- First screen: who you are, then drill-ins (People, House Rules, Notifications, Places, Poppins, Premium, Account).
+- Progressive disclosure. Rare controls stay behind a tap. Groceries is a tab, not a setting.
+- Same interaction for lists, toggles, destructive actions (confirm only when irreversible).
+
+### Poppins AI meter (test instrument)
+
+- **$4.99/mo** is pricing context only — not a dashboard.
+- Meter **per person**. Admin sees each user’s spend. Do not send anyone to the OpenAI global usage page.
+- Household trip at **$4.00** — Poppins **goes off** so we can time how long $4 lasts.
+- Observation copy in Settings + a quiet Poppins caption. No token marketplace.
+
+### Master spec §A (launch blockers that are still client-side)
+
+- **A-2** — one error layer; 8-character `sb-request-id` support code; password copy is 8 characters; never dump JSON/headers.
+- **A-3** — role tiles **Admin / Sidekick / Shared device** with spec subtitles/chips; no emoji on the tiles.
+- **A-4** — remove the hygiene footnote from onboarding (mechanic stays; copy only in House Rules).
+- **A-5** — drop Meritocracy vs Equity from onboarding. Ship Meritocracy only.
+
+### Device smoke added on 42
+
+- Edit a repeating chore’s regularity after assign; Skip today.
+- New email signup after Resend domain verify (not a previously hammered address).
+- Settings first screen is a short list; admin opens Poppins meter and sees per-person $.
+- After **$4** household AI, Speak/chat pauses with a calm reason.
+- Fresh install: Admin / Sidekick / Shared device tiles; no Equity step; no hygiene footnote.
 
 Two lists only. Agents do not mix dashboard / Apple / device steps into coding work.
 
@@ -56,7 +97,7 @@ Do not redo: v12 aggregate, Assign `difficulty` default, live captions, delete l
 
 ## You do (now)
 
-On **TestFlight 41**, not Expo Go mock. Not `sarah@orbit.test`. 41 is git tip `f70af99` (Sidekick Get Started, 23:59 expiry, Family iPad, onboarding photo, IUI continuity + one-Speak).
+**42 is not uploaded yet.** Wait for **41** in TestFlight, then this cut. Not Expo Go mock. Not `sarah@orbit.test`. 41 is git tip `f70af99`. 42 adds the list at the top of this file.
 
 1. **Apple processing** — wait until 1.3.0 (**41**) is Available in [TestFlight](https://appstoreconnect.apple.com/apps/6796850110/testflight/ios), then install 41 (40 is Revision G without the post-40 IUI pass).
 2. **Luna (S3)** — if Luna is still the old model id, set `OPENAI_POPPINS_CHAT_MODEL=gpt-5.6-luna` and redeploy Poppins functions. Revision G SQL is already on staging.
