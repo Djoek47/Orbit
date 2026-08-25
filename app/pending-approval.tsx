@@ -7,7 +7,7 @@ import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors } from '@/constants/orbit-theme';
 import { stillWaitingCopy } from '@/lib/invites/invite-intent';
-import { goToFreshLogin } from '@/lib/navigation/fresh-login';
+import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -22,7 +22,9 @@ export default function PendingApprovalScreen() {
     <AuthShell
       showBack
       onBack={() => {
-        void signOut().then(() => goToFreshLogin());
+        void signOut()
+          .catch((error) => console.warn('pending.signOut', error))
+          .finally(() => resetToGetStarted());
       }}
       kicker="Almost there"
       title="Waiting for approval"
@@ -33,7 +35,11 @@ export default function PendingApprovalScreen() {
             <Text style={[styles.secondaryText, { color: c.textMuted }]}>Open settings</Text>
           </Pressable>
           <Pressable
-            onPress={() => void signOut().then(() => goToFreshLogin())}
+            onPress={() =>
+              void signOut()
+                .catch((error) => console.warn('pending.signOut', error))
+                .finally(() => resetToGetStarted())
+            }
             style={styles.secondary}>
             <Text style={[styles.secondaryText, { color: c.textMuted }]}>Use a different account</Text>
           </Pressable>

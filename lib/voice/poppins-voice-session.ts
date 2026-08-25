@@ -183,6 +183,21 @@ export function releaseWarmedMicrophone() {
   warmedMic = null;
 }
 
+const livePoppinsVoiceSessions = new Set<{ disconnect: () => void }>();
+
+/** Close every live WebRTC session before auth remounts the JS tree. */
+export function teardownAllPoppinsVoice(): void {
+  for (const session of [...livePoppinsVoiceSessions]) {
+    try {
+      session.disconnect();
+    } catch {
+      /* already down */
+    }
+  }
+  livePoppinsVoiceSessions.clear();
+  releaseWarmedMicrophone();
+}
+
 const SOFT_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_SOFT_PROMPT_MS ?? 50_000);
 const HANGUP_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_IDLE_MS ?? 90_000);
 const BACKGROUND_HANGUP_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_BACKGROUND_MS ?? 20_000);
@@ -238,7 +253,9 @@ export class PoppinsVoiceSession {
   private seedTurns: Array<{ role: 'user' | 'assistant'; text: string }> = [];
   private memoryHint = '';
 
-  constructor(private callbacks: PoppinsVoiceSessionCallbacks = {}) {}
+  constructor(private callbacks: PoppinsVoiceSessionCallbacks = {}) {
+    livePoppinsVoiceSessions.add(this);
+  }
 
   get isConnected() {
     return this.connected && this.dc?.readyState === 'open';
@@ -834,6 +851,7 @@ export class PoppinsVoiceSession {
   }
 
   disconnect() {
+    livePoppinsVoiceSessions.delete(this);
     this.connected = false;
     this.fatal = true;
     this.clearIdleTimers();
@@ -870,8 +888,16 @@ export class PoppinsVoiceSession {
     this.assistantBuffer = '';
     this.userTranscriptBuffer = '';
     this.pendingUserReplace = false;
-    this.callbacks.onRemoteStream?.(null);
-    this.setState('idle');
+    try {
+      this.callbacks.onRemoteStream?.(null);
+    } catch {
+      /* provider already unmounted */
+    }
+    try {
+      this.setState('idle');
+    } catch {
+      /* provider already unmounted */
+    }
     this.fatal = true;
     releaseWarmedMicrophone();
     void restorePoppinsAudio();

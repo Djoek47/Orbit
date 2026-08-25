@@ -7,11 +7,13 @@ import {
   throwMappedAuthError,
 } from '@/lib/auth/auth-errors';
 import { isProfileNameComplete } from '@/lib/auth/display-name';
+import { allowAuthStorageWrites } from '@/lib/auth/auth-storage';
 import {
   clearPendingSignup,
   getEmailConfirmRedirectUrl,
   setPendingSignup,
 } from '@/lib/auth/email-confirmation';
+import { signOutEverywhere, wipeLocalAuthAndResetClient } from '@/lib/auth/local-sign-out';
 import {
   clearMockSession,
   loadMockSession,
@@ -67,20 +69,29 @@ export const authRepository = {
       return stored ? toAuthSession(stored.user) : null;
     }
 
-    const supabase = getConfiguredSupabase('authRepository.getCurrentSession');
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    mapDbError('authRepository.getCurrentSession', sessionError);
+    try {
+      const supabase = getConfiguredSupabase('authRepository.getCurrentSession');
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        console.warn('authRepository.getCurrentSession', sessionError.message);
+        return null;
+      }
 
-    const session = sessionData.session;
-    if (!session?.user) {
+      const session = sessionData.session;
+      if (!session?.user) {
+        return null;
+      }
+
+      const user = await loadProfileUser(supabase, session.user.id, session.user.email ?? '');
+      return { user };
+    } catch (error) {
+      console.warn('authRepository.getCurrentSession', error);
       return null;
     }
-
-    const user = await loadProfileUser(supabase, session.user.id, session.user.email ?? '');
-    return { user };
   },
 
   async signIn(input: SignInInput): Promise<AuthSession> {
+    allowAuthStorageWrites();
     if (isMockMode()) {
       const user: OrbitUser = {
         ...mockSarah,
@@ -119,6 +130,7 @@ export const authRepository = {
   },
 
   async signUp(input: SignUpInput): Promise<SignUpOutcome> {
+    allowAuthStorageWrites();
     const email = input.email.trim();
 
     if (isMockMode()) {
@@ -233,13 +245,17 @@ export const authRepository = {
 
   async signOut(): Promise<void> {
     if (isMockMode()) {
+      try {
+        const { teardownAllPoppinsVoice } = await import('@/lib/voice/poppins-voice-session');
+        teardownAllPoppinsVoice();
+      } catch {
+        /* expo go */
+      }
       await clearMockSession();
       return;
     }
 
-    const supabase = getConfiguredSupabase('authRepository.signOut');
-    const { error } = await supabase.auth.signOut();
-    mapDbError('authRepository.signOut', error);
+    await signOutEverywhere();
   },
 
   async deleteAccount(feedback?: { reason: string; detail?: string }): Promise<void> {
@@ -265,10 +281,15 @@ export const authRepository = {
     mapDbError('authRepository.deleteAccount', error);
     // RPC removes the user row; the JWT can still sit in storage and hydrate
     // the old household under a stacked Get Started screen. Always sign out.
-    const { error: signOutError } = await supabase.auth.signOut();
-    if (signOutError) {
-      console.warn('authRepository.deleteAccount.signOut', signOutError.message);
+    try {
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        console.warn('authRepository.deleteAccount.signOut', signOutError.message);
+      }
+    } catch (signOutError) {
+      console.warn('authRepository.deleteAccount.signOut', signOutError);
     }
+    await wipeLocalAuthAndResetClient();
   },
 
   async exportUserData(): Promise<string> {

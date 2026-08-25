@@ -76,6 +76,17 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
   }, [onPoppinsTab]);
 
   useEffect(() => {
+    return () => {
+      try {
+        voiceRef.current?.disconnect();
+      } catch {
+        /* already down */
+      }
+      voiceRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     return poppinsUiOrchestrator.subscribeTap((tap) => {
       if (!voiceRef.current?.isConnected) return;
       setVisual((state) => (state === 'speaking' || state === 'thinking' ? 'listening' : state));

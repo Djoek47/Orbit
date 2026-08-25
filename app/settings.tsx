@@ -529,8 +529,13 @@ export default function SettingsScreen() {
             <Pressable
               style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
               onPress={async () => {
-                await signOut();
-                resetToGetStarted();
+                try {
+                  await signOut();
+                } catch (error) {
+                  console.warn('settings.signOut', error);
+                } finally {
+                  resetToGetStarted();
+                }
               }}>
               <Text style={[styles.accountBtnText, { color: orbitPalette.text, textAlign: 'center' }]}>
                 Sign Out

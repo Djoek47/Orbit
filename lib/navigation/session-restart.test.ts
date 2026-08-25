@@ -99,6 +99,7 @@ function main() {
     const settings = readFileSync(join(root, 'app/settings.tsx'), 'utf8');
     const del = readFileSync(join(root, 'app/delete-account.tsx'), 'utf8');
     assert.ok(settings.includes('resetToGetStarted()'));
+    assert.ok(settings.includes('finally'), 'settings must remount even if signOut throws');
     assert.ok(del.includes('resetToGetStarted()'));
     pass('sign-out and delete remount instead of stacking welcome');
   }

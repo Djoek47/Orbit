@@ -10,6 +10,12 @@ This is the next shipping cut after v14. It is v14 plus two-mode Poppins IUI, Sp
 
 ---
 
+## Sign-out crash (TestFlight 45)
+
+Signing out could leave the JWT in SecureStore when the logout HTTP call failed, then remount the tree while WebRTC was still live. That matched the Hermes `EXC_BAD_ACCESS` on Thread 6 (`arrayPrototypeMap`) plus “already logged in” after reopen.
+
+Fix on this branch: always wipe local auth (chunked SecureStore), block refresh writes, tear down Poppins voice before the session remount, and still land on Get Started if sign-out throws.
+
 ## What landed from today
 
 - Two-mode IUI — talking fills unknown beats only; a tap wins while Poppins is still speaking.

@@ -74,6 +74,7 @@
     "test:in-store-promos": "npx --yes tsx lib/grocery/in-store-promos.test.ts",
     "test:invite-intent": "npx --yes tsx lib/invites/invite-intent.test.ts && npx --yes tsx lib/invites/join-approval.test.ts",
     "test:session-restart": "npx --yes tsx lib/navigation/session-restart.test.ts",
+    "test:sign-out": "npx --yes tsx lib/auth/local-sign-out.test.ts",
     "test:open-tasks": "npx --yes tsx lib/navigation/open-tasks-tab.test.ts",
     "test:confirm-callback": "npx --yes tsx lib/auth/confirm-callback.test.ts",
     "test:auth-errors": "npx --yes tsx lib/auth/auth-errors.test.ts",

@@ -2,6 +2,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { Platform } from 'react-native';
 
 import { isProfileNameComplete } from '@/lib/auth/display-name';
+import { allowAuthStorageWrites } from '@/lib/auth/auth-storage';
 import { throwAuthIssue, throwMappedAuthError } from '@/lib/auth/auth-errors';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { mapProfileToUser } from '@/lib/mappers/orbit-mappers';
@@ -46,6 +47,7 @@ export async function signInWithApple(): Promise<AuthSession> {
     };
   }
 
+  allowAuthStorageWrites();
   const { data, error } = await supabase.auth.signInWithIdToken({
     provider: 'apple',
     token: credential.identityToken,

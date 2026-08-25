@@ -1044,6 +1044,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   }, [refreshStoreRecommendations]);
 
   const hydrateFromSession = useCallback(async (session: AuthSession) => {
+    const { allowAuthStorageWrites } = await import('@/lib/auth/auth-storage');
+    allowAuthStorageWrites();
     setCurrentUser(session.user);
     await authRepository.persistLocalSession(session.user);
 
@@ -1477,8 +1479,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const signOut = async () => {
-    await authRepository.signOut();
-    await trackAnalytics('auth.sign_out', {}, analyticsContext);
+    try {
+      await authRepository.signOut();
+    } catch (error) {
+      console.warn('orbit.signOut', error);
+      try {
+        const { signOutEverywhere } = await import('@/lib/auth/local-sign-out');
+        await signOutEverywhere();
+      } catch (fallbackError) {
+        console.warn('orbit.signOut.fallback', fallbackError);
+      }
+    }
+    try {
+      await trackAnalytics('auth.sign_out', {}, analyticsContext);
+    } catch {
+      /* never block leaving */
+    }
     await clearMockHouseholdSnapshot();
     clearSignedInState();
   };

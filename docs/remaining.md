@@ -20,6 +20,8 @@ v15 is `cursor/choremaxx-make-v15` @ git `b4fc5a6` — two-mode IUI, second Spea
 - Hourglass does not auto-open.
 - Settings → Poppins meter moves after Speak.
 
+**Sign-out crash** (not in IPA **45** — code is on this branch after `b4fc5a6`): Settings → Sign Out must land on Get Started. Force-quit and reopen must stay signed out. Build **46** when you want this on TestFlight.
+
 ## TestFlight 44 (submitted, v14)
 
 44 is git `38fc974` on `cursor/choremaxx-make-v14` (EAS `0b47cda0`, submit `9da23c50`). Listen-first Speak, house memory, Tuning in…, itinerary one-stop, Open Poppins.
