@@ -63,12 +63,23 @@ export function runAuthErrorsTests(): string[] {
       })
     )
   );
-  assert(signupDump.title === 'Couldn’t create account', 'signup 500 title');
+  assert(signupDump.title === 'Couldn’t send confirmation email', 'signup 500 title');
+  assert(signupDump.code === 'email_delivery', 'signup 500 is mailer, not generic');
   assert(!signupDump.message.includes('supabase.co'), 'no host in banner');
   assert(!signupDump.message.includes('unexpected_failure'), 'no error code in banner');
   assert(!signupDump.message.includes('{'), 'no json in banner');
-  assert(signupDump.message.length < 120, 'short copy');
+  assert(signupDump.message.length < 180, 'short copy');
   pass('7 hide supabase signup 500 dump');
+
+  const hookFail = resolveAuthIssue({
+    status: 500,
+    code: 'unexpected_failure',
+    message: 'Unexpected status code returned from hook: 502',
+  });
+  assert(hookFail.code === 'email_delivery', 'hook 502 is email delivery');
+  assert(!hookFail.message.includes('502'), 'no status in banner');
+  assert(!hookFail.title.toLowerCase().includes('too many'), 'not rate limit');
+  pass('10 hook 502 is not rate limit');
 
   const statusDump = resolveAuthIssue({ status: 500, message: 'Internal Server Error' });
   assert(statusDump.message === AUTH_ISSUES.generic.message, '500 uses generic copy');

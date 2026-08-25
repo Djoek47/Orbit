@@ -60,7 +60,7 @@ On **TestFlight 41**, not Expo Go mock. Not `sarah@orbit.test`. 41 is git tip `f
 
 1. **Apple processing** — wait until 1.3.0 (**41**) is Available in [TestFlight](https://appstoreconnect.apple.com/apps/6796850110/testflight/ios), then install 41 (40 is Revision G without the post-40 IUI pass).
 2. **Luna (S3)** — if Luna is still the old model id, set `OPENAI_POPPINS_CHAT_MODEL=gpt-5.6-luna` and redeploy Poppins functions. Revision G SQL is already on staging.
-3. **Auth email (W2)** — if the Send Email Hook is not on: enable it in the Supabase dashboard ([`resend-auth-email.md`](./resend-auth-email.md)). Signup on device → mail → confirm in app.
+3. **Auth email (W2)** — Send Email Hook **is on**. Live signup returns `unexpected_failure` / **hook 502** because Resend rejected the send (unverified domain, bad `from`, or test-mode recipient). Fix in [Resend](https://resend.com/domains) + Supabase secret `RESEND_API_KEY` / `RESEND_FROM_EMAIL`. Apple Sign-In does not use this path. Details: [`resend-auth-email.md`](./resend-auth-email.md).
 4. **Device smoke (S2 + S4 + v14)** — real account:
    - Assign a library task; Poppins Speak → IUI HOLD
    - House Rules, 4 directions, Admin and Sidekick

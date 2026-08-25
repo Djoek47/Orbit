@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
 
     if (!res.ok) {
       const detail = await res.text();
-      console.error('Resend error', res.status, detail);
+      console.error('Resend error', res.status, detail.slice(0, 500));
       throw Object.assign(new Error(`Resend failed (${res.status})`), { code: 502 });
     }
   } catch (error) {

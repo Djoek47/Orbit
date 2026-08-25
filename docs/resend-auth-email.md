@@ -125,6 +125,15 @@ With the hook enabled, Auth does not use the built-in/SMTP mailer for those emai
 
 Same as Path A — signup / resend / forgot-password should appear in Resend with Choremaxx subjects from `send-auth-email`.
 
+If signup returns `unexpected_failure` with **hook 502**, the hook is on and running, but **Resend rejected the send**. Typical causes:
+
+1. `choremaxx.app` is not verified in [Resend → Domains](https://resend.com/domains) (SPF/DKIM pending)
+2. `RESEND_FROM_EMAIL` is not on that verified domain (default `Choremaxx <noreply@choremaxx.app>`)
+3. `RESEND_API_KEY` is missing, test-only, or rotated
+4. Resend is in test mode — it only delivers to the Resend account email
+
+Until that 502 is gone, email/password signup cannot create an account. Apple Sign-In is unaffected.
+
 ---
 
 ## What stays in Supabase

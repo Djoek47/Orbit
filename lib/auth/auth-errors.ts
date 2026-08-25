@@ -7,6 +7,7 @@ export type AuthIssueCode =
   | 'invalid_credentials'
   | 'email_not_confirmed'
   | 'rate_limit'
+  | 'email_delivery'
   | 'email_taken'
   | 'weak_password'
   | 'missing_fields'
@@ -93,11 +94,18 @@ export const AUTH_ISSUES: Record<AuthIssueCode, AuthIssue> = {
     code: 'rate_limit',
     title: 'Too many emails sent',
     message:
-      'Please wait a few minutes, check inbox and spam, then try again. Sign in with Apple also works.',
+      'Please wait a few minutes, then try again. If no email arrived, Sign in with Apple also works.',
     actions: [
       { label: 'Open confirmation', href: '/confirm-email' },
       { label: 'Sign in', href: '/sign-in' },
     ],
+  },
+  email_delivery: {
+    code: 'email_delivery',
+    title: 'Couldn’t send confirmation email',
+    message:
+      'We couldn’t send a confirmation email, so the account wasn’t created. Sign in with Apple, or try email again in a few minutes.',
+    actions: [{ label: 'Sign in', href: '/sign-in' }],
   },
   email_taken: {
     code: 'email_taken',
@@ -260,12 +268,30 @@ function dumpLooksLikeSignup(text: string): boolean {
   return lower.includes('/auth/v1/signup') || lower.includes('auth/v1/signup');
 }
 
+function providerErrorCode(err: unknown): string {
+  if (!err || typeof err !== 'object') return '';
+  const row = err as Record<string, unknown>;
+  if (typeof row.code === 'string') return row.code.toLowerCase();
+  if (typeof row.error_code === 'string') return row.error_code.toLowerCase();
+  const parsed = tryParseJson(typeof row.message === 'string' ? row.message : '');
+  if (parsed && typeof parsed.error_code === 'string') return parsed.error_code.toLowerCase();
+  if (parsed && typeof parsed.code === 'string') return parsed.code.toLowerCase();
+  return '';
+}
+
+function isEmailHookFailure(text: string, status: number | undefined, providerCode: string): boolean {
+  const lower = text.toLowerCase();
+  if (providerCode === 'unexpected_failure') return true;
+  if (lower.includes('returned from hook')) return true;
+  if (lower.includes('send-auth-email')) return true;
+  if (lower.includes('resend failed')) return true;
+  if ((status === 500 || status === 502) && dumpLooksLikeSignup(text)) return true;
+  return false;
+}
+
 function cannedGeneric(text: string): AuthIssue {
-  if (dumpLooksLikeSignup(text)) {
-    return authIssue('generic', {
-      title: 'Couldn’t create account',
-      message: 'We couldn’t create your account. Please try again in a moment.',
-    });
+  if (dumpLooksLikeSignup(text) || text.toLowerCase().includes('returned from hook')) {
+    return AUTH_ISSUES.email_delivery;
   }
   return AUTH_ISSUES.generic;
 }
@@ -309,8 +335,10 @@ export function resolveAuthIssue(err: unknown): AuthIssue {
   const status = readStatus(err, message);
   const lower = message.toLowerCase();
   const dump = looksLikeTechnicalDump(message);
+  const providerCode = providerErrorCode(err);
 
   if (status === 429 || isAuthRateLimitMessage(message)) return AUTH_ISSUES.rate_limit;
+  if (isEmailHookFailure(message, status, providerCode)) return AUTH_ISSUES.email_delivery;
   if (status === 500 || status === 502 || status === 503 || lower.includes('unexpected_failure')) {
     return cannedGeneric(message);
   }

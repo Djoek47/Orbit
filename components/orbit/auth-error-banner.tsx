@@ -8,7 +8,11 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import type { AuthIssue } from '@/lib/auth/auth-errors';
+import {
+  AUTH_ISSUES,
+  looksLikeTechnicalDump,
+  type AuthIssue,
+} from '@/lib/auth/auth-errors';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type AuthErrorBannerProps = {
@@ -21,6 +25,10 @@ type AuthErrorBannerProps = {
 export function AuthErrorBanner({ issue, actionParams, onDismiss }: AuthErrorBannerProps) {
   const { c, glass, glassBorder } = useOrbitColors();
   if (!issue) return null;
+  const display =
+    looksLikeTechnicalDump(issue.message) || looksLikeTechnicalDump(issue.title)
+      ? AUTH_ISSUES[issue.code] ?? AUTH_ISSUES.generic
+      : issue;
 
   return (
     <View
@@ -36,13 +44,13 @@ export function AuthErrorBanner({ issue, actionParams, onDismiss }: AuthErrorBan
         <MaterialIcons name="error-outline" size={18} color={c.danger} />
       </View>
       <View style={styles.body}>
-        <Text style={[styles.title, { color: c.text }]}>{issue.title}</Text>
-        <Text style={[styles.message, { color: c.textMuted }]} numberOfLines={4}>
-          {issue.message}
+        <Text style={[styles.title, { color: c.text }]}>{display.title}</Text>
+        <Text style={[styles.message, { color: c.textMuted }]} numberOfLines={5}>
+          {display.message}
         </Text>
-        {issue.actions && issue.actions.length > 0 ? (
+        {display.actions && display.actions.length > 0 ? (
           <View style={styles.actions}>
-            {issue.actions.map((action) => (
+            {display.actions.map((action) => (
               <Pressable
                 key={`${action.label}-${action.href ?? 'x'}`}
                 onPress={() => {
