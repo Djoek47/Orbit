@@ -3,7 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v14`  
 **Follows:** `cursor/choremaxx-make-v13` (TestFlight **1.3.0 (39)**)  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (42)** submitted (MYTIKAS). Git tip `f37422e`. **41** was `f70af99`. **40** remains the prior Revision G cut. See [`remaining.md`](./remaining.md).  
+**TestFlight:** **1.3.0 (42)** in App Store Connect (Apple processing). EAS `d7a706bf` / git `4e03f6c`. **41** was `f70af99`. **40** remains the prior Revision G cut. See [`remaining.md`](./remaining.md).  
 **Settings tip:** `make-v14 · revision-g`  
 **Content tip:** Revision G Sidekick + post-40 IUI continuity / one-Speak, onboarding photo, House Rules 23:59, Family iPad, Get Started Sidekick label.
 
@@ -43,7 +43,7 @@ Staging has `supabase/migrations/20260820200000_revision_g_sidekick.sql` applied
 - `EXPO_PUBLIC_POPPINS_REALTIME=1`
 - `EXPO_PUBLIC_POPPINS_VOICE_WEBRTC=1`
 
-EAS `autoIncrement` assigns the next iOS build number. **1.3.0 (41)** was EAS build `f2060a3b` / git `f70af99`. **1.3.0 (42)** was submitted by MYTIKAS against git `f37422e` (Settings, AI meter, §A tiles, genie IUI, whole-pill done). Do not upload another 42. Wait for Apple processing, then install 42.
+EAS `autoIncrement` assigns the next iOS build number. **1.3.0 (41)** was EAS build `f2060a3b` / git `f70af99`. **1.3.0 (42)** is EAS `d7a706bf` / git `4e03f6c` (Settings, AI meter, §A tiles, repeating chores, auth email copy, genie IUI, whole-pill done). Submitted to ASC (`3c4971da`). Do not upload another 42. Wait for Apple processing, then install 42.
 
 ---
 

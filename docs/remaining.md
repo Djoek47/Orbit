@@ -1,14 +1,14 @@
 # Remaining work
 
 **Branch:** `cursor/choremaxx-make-v14`  
-**TestFlight in ASC:** **1.3.0 (42)** submitted (MYTIKAS). Git tip `f37422e`. **41** was `f70af99` (one-Speak IUI). **40** is Revision G without the post-40 IUI pass.  
+**TestFlight in ASC:** **1.3.0 (42)** uploaded to App Store Connect (Apple processing). EAS `d7a706bf` / git `4e03f6c`. **41** was `f70af99` (one-Speak IUI). **40** is Revision G without the post-40 IUI pass.  
 **Do not** upload another 42. **Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in splash animations, or collapse House Rules to the kid card.
 
 ---
 
 ## TestFlight 42 (submitted)
 
-42 is git `f37422e` on `cursor/choremaxx-make-v14`. In the IPA vs 41:
+42 is git `4e03f6c` on `cursor/choremaxx-make-v14` (EAS `d7a706bf`, submit `3c4971da`). Everything after 41 (`f70af99`) is in this IPA:
 
 - **Repeating chores** — change who / how often after assign; Skip today; Stop repeating (`fe03103`, [`task-series-ux.md`](./task-series-ux.md)).
 - **Auth email copy** — Send Email Hook 502 maps to “couldn’t send confirmation,” not a rate limit (`16b74d9`, [`resend-auth-email.md`](./resend-auth-email.md)).
@@ -69,7 +69,7 @@ Still worth a TestFlight pass on **42**: barge-in, mic-denied type path, frozen 
 ### Already done
 
 - **S1** v13 cut — `cursor/choremaxx-make-v13` @ 1.3.0 (`make-v13 · final`), TestFlight **1.3.0 (39)**
-- **S1b** v14 cut — `cursor/choremaxx-make-v14` = v13 + Revision G (`make-v14 · revision-g`), TestFlight **1.3.0 (40)** then **(41)** then **(42)** @ `f37422e`
+- **S1b** v14 cut — `cursor/choremaxx-make-v14` = v13 + Revision G (`make-v14 · revision-g`), TestFlight **1.3.0 (40)** then **(41)** then **(42)** @ `4e03f6c` (EAS `d7a706bf`)
 - Revision G Sidekick access (storage role stays `child`)
 - **Supabase staging** — `20260820200000_revision_g_sidekick.sql` applied (Sidekick redeem / grocery / proposals)
 - Login/signup dump sanitizer
