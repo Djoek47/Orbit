@@ -3,7 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v15`  
 **Follows:** `cursor/choremaxx-make-v14` (TestFlight **1.3.0 (44)**)  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (45)** uploaded to App Store Connect (Apple processing). EAS `abcf5726` / git `b4fc5a6` / submit `a6cf66fe`.  
+**TestFlight:** **1.3.0 (46)** uploaded to App Store Connect (Apple processing). EAS `b0959c6b` / git `1769d06` / submit `caac30b9`. **45** is two-mode without this OS cut.  
 **Settings tip:** `make-v15 · poppins-os`
 
 This is the next shipping cut after v14. It is v14 plus two-mode Poppins IUI, Speak start fixes, the per-person $4 AI meter on live voice, and the Poppins OS one-viewport rework.
@@ -18,7 +18,9 @@ Fix on this branch: always wipe local auth (chunked SecureStore), block refresh 
 
 ## Poppins OS (TestFlight 46)
 
-See [`poppins-os.md`](./poppins-os.md). Bell never auto-opens over a live scene. Notifications is one list (no Activity tab, no hourglass on the Poppins tab). HOLD writes a real `createTask`. Speak failures say retry, not “Type instead.” In-place Ask from House Rules / tab long-press routes to the Poppins tab.
+See [`poppins-os.md`](./poppins-os.md). IPA **1.3.0 (46)** from git `1769d06`. Bell never auto-opens over a live scene. Notifications is one list (no Activity tab, no hourglass on the Poppins tab). HOLD writes a real `createTask`. Speak failures say retry, not “Type instead.” In-place Ask from House Rules / tab long-press routes to the Poppins tab.
+
+EAS `b0959c6b-9349-4ceb-abac-4d110c3c39ba`, submit `caac30b9-c7e2-4cef-8368-901ea39ead48`.
 
 ## What landed from today
 

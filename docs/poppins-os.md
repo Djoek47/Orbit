@@ -1,6 +1,6 @@
 # Poppins OS — full rework
 
-**Status:** implemented on `cursor/choremaxx-make-v15`. Device proof is TestFlight **46** (not IPA 45).
+**Does not live in TestFlight 45.** Device proof is IPA **46** (`1769d06`).
 
 This replaces the “patch the overlay” loop. Visual restyle is out of scope. How Poppins thinks, what is on screen, and whether a task actually exists are in scope.
 

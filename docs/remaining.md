@@ -1,26 +1,28 @@
 # Remaining work
 
 **Branch:** `cursor/choremaxx-make-v15`  
-**TestFlight in ASC:** **1.3.0 (45)** uploaded (Apple processing). EAS `abcf5726` / git `b4fc5a6` / submit `a6cf66fe`. **44** is the last v14 IPA.  
+**TestFlight in ASC:** **1.3.0 (46)** uploaded (Apple processing). EAS `b0959c6b` / git `1769d06` / submit `caac30b9`. **45** was two-mode IUI without Poppins OS. **44** is the last v14 IPA.  
 **Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in splash animations, or collapse House Rules to the kid card.
 
 ---
 
 ## TestFlight v15 (submitted)
 
-v15 is `cursor/choremaxx-make-v15` @ git `b4fc5a6` — two-mode IUI, second Speak, live-voice $4 meter. IPA **1.3.0 (45)**. EAS `abcf5726-49d4-4bbd-9f38-30d99c9f6241`, submit `a6cf66fe-322f-4383-9f4b-9fdad8683caa`. See [`choremaxx-make-v15.md`](./choremaxx-make-v15.md).
+v15 tip is `cursor/choremaxx-make-v15` @ git `1769d06` — Poppins OS + sign-out wipe + two-mode IUI + $4 meter. IPA **1.3.0 (46)**. EAS `b0959c6b-9349-4ceb-abac-4d110c3c39ba`, submit `caac30b9-c7e2-4cef-8368-901ea39ead48`. See [`choremaxx-make-v15.md`](./choremaxx-make-v15.md) and [`poppins-os.md`](./poppins-os.md).
+
+**45** is git `b4fc5a6` (EAS `abcf5726`) — two-mode without Poppins OS / sign-out wipe.
 
 **SQL:** apply `supabase/migrations/20260825220000_ai_usage_events.sql` on staging for household-wide meter sync. Without it, each phone still meters locally.
 
-### Device smoke on v15
+### Device smoke on 46
 
 - Second Speak after hangup starts. No orange idle-mic hold on Notifications.
-- Kitchen + tomorrow skips the 14-category grid. HOLD creates the task.
+- Kitchen + tomorrow skips the 14-category grid. HOLD creates the task — Tasks shows it.
 - Tap while Poppins is talking wins.
-- Bell never auto-opens. No hourglass. No Activity tab.
+- Bell never auto-opens. No hourglass. No Activity tab. No “Open Poppins” while already on Poppins.
+- Speak failure says retry, Speak stays visible.
+- Settings → Sign Out lands on Get Started and stays signed out after reopen.
 - Settings → Poppins meter moves after Speak.
-
-**Build 46** also includes the sign-out crash fix (`bdf2bad`) plus the Poppins OS rework (one viewport, create not draft). See [`poppins-os.md`](./poppins-os.md).
 
 ## TestFlight 44 (submitted, v14)
 
@@ -28,9 +30,7 @@ v15 is `cursor/choremaxx-make-v15` @ git `b4fc5a6` — two-mode IUI, second Spea
 
 ## Parked (leave aside)
 
-**Poppins OS rework (this cut):** [`poppins-os.md`](./poppins-os.md). One viewport, HOLD creates the task, Activity tab gone. **Not in IPA 45.** Ship as TestFlight **46**.
-
-Older notes: [`iui-ux-architecture.md`](./iui-ux-architecture.md), [`iui-method-note.md`](./iui-method-note.md).
+Poppins OS is **in IPA 46**. Older IUI notes: [`iui-ux-architecture.md`](./iui-ux-architecture.md), [`iui-method-note.md`](./iui-method-note.md).
 
 ### Needs live ops
 
