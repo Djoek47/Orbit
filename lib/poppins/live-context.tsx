@@ -1,18 +1,16 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePathname } from 'expo-router';
 
 import { useOrbitOptional } from '@/store/orbit-store';
 import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
 import {
-  continuityListenPrompt,
-  loadIuiContinuity,
   openActSnapshot,
   rememberTurn,
   saveIuiContinuity,
-  shouldGreet,
   snapshotFromDrive,
   type IuiContinuity,
 } from '@/lib/poppins/iui-continuity';
+import { commitSpeakOpen, hydrateHouseMemory, prepareSpeakOpen } from '@/lib/poppins/speak-open';
 import { copyIuiVoiceError } from '@/lib/poppins/iui-voice-error';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
@@ -63,6 +61,10 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
   const appendPoppinsTurn = orbit?.appendPoppinsTurn;
   const kid = orbit?.currentMember?.role === 'child';
 
+  useEffect(() => {
+    void hydrateHouseMemory(household?.id);
+  }, [household?.id]);
+
   const persistDrive = useCallback(() => {
     if (!household?.id) return;
     const next = snapshotFromDrive(
@@ -99,10 +101,9 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
           return;
         }
         setVisual('connecting');
-        const prior = household.id ? await loadIuiContinuity(household.id) : null;
-        continuityRef.current = prior;
-        const greet = shouldGreet(prior, household.id);
-        const snap = openActSnapshot(prior, kid ? HOLD_MS_KID : HOLD_MS_DEFAULT);
+        const prep = await prepareSpeakOpen(household, metrics);
+        continuityRef.current = prep.continuity;
+        const snap = openActSnapshot(prep.continuity, kid ? HOLD_MS_KID : HOLD_MS_DEFAULT);
         if (snap) poppinsUiOrchestrator.restore(snap);
         let reportedError = false;
         const session = new PoppinsVoiceSession({
@@ -150,9 +151,10 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
         const ok = await session.connect(household, metrics, orbit?.currentMember?.majordomoProfileId, {
           pageContext,
           capabilityProfile: 'Daily',
-          greet,
-          listenPrompt: prior && !greet ? continuityListenPrompt(prior) : undefined,
-          seedTurns: prior && !greet ? prior.turns : undefined,
+          openerInstructions: prep.opening.instructions,
+          listenPrompt: prep.listenPrompt,
+          seedTurns: prep.seedTurns,
+          memoryHint: prep.memoryHint,
         });
         if (!ok) {
           session.disconnect();
@@ -160,6 +162,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
           if (!reportedError) setError(copyIuiVoiceError('start_failed').message);
           return;
         }
+        void commitSpeakOpen(prep.memory, prep.opening);
         voiceRef.current = session;
         setVisual('listening');
         poppinsUiOrchestrator.unfreeze();

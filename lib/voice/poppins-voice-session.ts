@@ -128,10 +128,49 @@ export function isPoppinsNativeVoiceAvailable(): boolean {
   return isPoppinsVoiceWebRtcEnabled() && loadReactNativeWebRtc() != null;
 }
 
+let warmedMic: MediaStream | null = null;
+
+/** Prefetch mic after permission — does not mint a Realtime session. */
+export async function warmPoppinsMicrophone(): Promise<boolean> {
+  const webrtc = loadReactNativeWebRtc();
+  if (!webrtc) return false;
+  try {
+    const { Audio } = await import('expo-av');
+    const perm = await Audio.getPermissionsAsync();
+    if (!perm.granted) return false;
+  } catch {
+    return false;
+  }
+  try {
+    const live = warmedMic?.getAudioTracks().some((track) => track.readyState !== 'ended');
+    if (live) return true;
+    warmedMic = await webrtc.mediaDevices.getUserMedia({ audio: true, video: false });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function takeWarmedMicrophone(): MediaStream | null {
+  const stream = warmedMic;
+  warmedMic = null;
+  return stream;
+}
+
+export function releaseWarmedMicrophone() {
+  try {
+    warmedMic?.getTracks().forEach((track) => track.stop());
+  } catch {
+    /* ignore */
+  }
+  warmedMic = null;
+}
+
 const SOFT_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_SOFT_PROMPT_MS ?? 50_000);
 const HANGUP_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_IDLE_MS ?? 90_000);
 const BACKGROUND_HANGUP_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_BACKGROUND_MS ?? 20_000);
 const THINKING_RECOVERY_MS = 14_000;
+const OPENER_DELAY_MS = 350;
 
 type PendingToolCall = {
   call_id: string;
@@ -175,9 +214,12 @@ export class PoppinsVoiceSession {
   private metrics: OrbitMetrics | null = null;
   private memberProfileId: string | null = null;
   private pausedForTools = false;
-  private greetOnOpen = true;
+  private openerInstructions: string | null = null;
+  private heardUserBeforeOpen = false;
+  private openerTimer: ReturnType<typeof setTimeout> | null = null;
   private listenPrompt = '';
   private seedTurns: Array<{ role: 'user' | 'assistant'; text: string }> = [];
+  private memoryHint = '';
 
   constructor(private callbacks: PoppinsVoiceSessionCallbacks = {}) {}
 
@@ -244,10 +286,13 @@ export class PoppinsVoiceSession {
     opts?: {
       pageContext?: string;
       capabilityProfile?: string;
-      /** Skip the first-session greeting when we already know this household. */
+      /** @deprecated Use openerInstructions. false = listen only. */
       greet?: boolean;
+      /** If set, speak this after a short listen window — never a self-intro. */
+      openerInstructions?: string | null;
       listenPrompt?: string;
       seedTurns?: Array<{ role: 'user' | 'assistant'; text: string }>;
+      memoryHint?: string | null;
     }
   ): Promise<boolean> {
     const webrtc = loadReactNativeWebRtc();
@@ -263,9 +308,15 @@ export class PoppinsVoiceSession {
     this.household = household;
     this.metrics = metrics;
     this.memberProfileId = memberProfileId ?? null;
-    this.greetOnOpen = opts?.greet !== false;
+    this.openerInstructions = opts?.openerInstructions?.trim() || null;
+    this.heardUserBeforeOpen = false;
+    if (this.openerTimer) {
+      clearTimeout(this.openerTimer);
+      this.openerTimer = null;
+    }
     this.listenPrompt = opts?.listenPrompt?.trim() ?? '';
     this.seedTurns = opts?.seedTurns?.filter((turn) => turn.text.trim()) ?? [];
+    this.memoryHint = opts?.memoryHint?.trim() ?? '';
     this.fatal = false;
     this.setState('connecting');
 
@@ -280,10 +331,12 @@ export class PoppinsVoiceSession {
 
       await configurePoppinsSpeakerAudio();
 
-      this.localStream = await webrtc.mediaDevices.getUserMedia({
-        audio: true,
-        video: false,
-      });
+      this.localStream =
+        takeWarmedMicrophone() ??
+        (await webrtc.mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        }));
 
       this.pc = new webrtc.RTCPeerConnection({});
       for (const track of this.localStream.getTracks()) {
@@ -317,14 +370,15 @@ export class PoppinsVoiceSession {
             },
           });
         }
-        if (this.greetOnOpen) {
-          this.sendEvent({
-            type: 'response.create',
-            response: {
-              instructions:
-                'Greet briefly as the household majordomo and listen. One short sentence. Do not list tools.',
-            },
-          });
+        if (this.openerInstructions) {
+          this.openerTimer = setTimeout(() => {
+            this.openerTimer = null;
+            if (this.heardUserBeforeOpen || !this.openerInstructions) return;
+            this.sendEvent({
+              type: 'response.create',
+              response: { instructions: this.openerInstructions },
+            });
+          }, OPENER_DELAY_MS);
         }
       };
       this.dc.onmessage = (event) => {
@@ -350,8 +404,11 @@ export class PoppinsVoiceSession {
         majordomoProfileId,
         householdContext: buildPoppinsHouseholdPayload(household, metrics, [], {
           memberProfileId,
+          memoryHint: this.memoryHint,
         }),
-        pageContext: [opts?.pageContext ?? 'poppins', this.listenPrompt].filter(Boolean).join('\n'),
+        pageContext: [opts?.pageContext ?? 'poppins', this.listenPrompt, this.memoryHint]
+          .filter(Boolean)
+          .join('\n'),
         capabilityProfile: opts?.capabilityProfile ?? 'Daily',
         billingPending: true,
       };
@@ -465,7 +522,19 @@ export class PoppinsVoiceSession {
     }
     const type = String(event.type ?? '');
 
-    if (type === 'input_audio_buffer.speech_started') {
+    if (
+      type === 'input_audio_buffer.speech_started' ||
+      type === 'input_audio_buffer.committed'
+    ) {
+      this.heardUserBeforeOpen = true;
+      if (this.openerTimer) {
+        clearTimeout(this.openerTimer);
+        this.openerTimer = null;
+      }
+      if (type === 'input_audio_buffer.committed') {
+        this.noteUserActivity();
+        return;
+      }
       this.noteUserActivity();
       this.setState('listening');
       this.pendingUserReplace = true;
@@ -656,6 +725,7 @@ export class PoppinsVoiceSession {
           householdId: this.household.id,
           household: buildPoppinsHouseholdPayload(this.household, this.metrics, [], {
             memberProfileId: this.memberProfileId,
+            memoryHint: this.memoryHint,
           }),
           metrics: this.metrics,
           calls: calls.map((c) => {
@@ -721,6 +791,10 @@ export class PoppinsVoiceSession {
     this.fatal = true;
     this.clearIdleTimers();
     this.clearThinkingRecovery();
+    if (this.openerTimer) {
+      clearTimeout(this.openerTimer);
+      this.openerTimer = null;
+    }
     if (this.backgroundTimer) clearTimeout(this.backgroundTimer);
     this.backgroundTimer = null;
     this.appStateSub?.remove();

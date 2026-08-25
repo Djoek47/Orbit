@@ -1,4 +1,5 @@
 import { resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
+import { formatMemoryHint, getActiveHouseMemory } from '@/lib/poppins/house-memory';
 import type { HouseholdSnapshot, OrbitMetrics, PoppinsRecommendation } from '@/types/orbit';
 
 function isAway(member: { awayFrom?: string; awayTo?: string }, now = new Date()) {
@@ -106,7 +107,11 @@ export function buildPoppinsHouseholdPayload(
   household: HouseholdSnapshot,
   metrics: OrbitMetrics,
   recommendations: PoppinsRecommendation[] = [],
-  options?: { majordomoProfileId?: string | null; memberProfileId?: string | null }
+  options?: {
+    majordomoProfileId?: string | null;
+    memberProfileId?: string | null;
+    memoryHint?: string | null;
+  }
 ) {
   const desk = buildPoppinsDeskBrief(household, metrics, recommendations);
   const majordomoProfileId = resolveMajordomoProfileId({
@@ -119,6 +124,8 @@ export function buildPoppinsHouseholdPayload(
     majordomoProfileId,
     metrics,
     desk,
+    memoryHint:
+      options?.memoryHint?.trim() || formatMemoryHint(getActiveHouseMemory()) || undefined,
     tasks: household.tasks
       .filter((task) => task.status !== 'Completed')
       .slice(0, 12)

@@ -7,9 +7,35 @@
  */
 
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
+import {
+  parseHouseMemoryUtterance,
+  rememberActiveFact,
+  type HouseFact,
+  type HouseFactKind,
+} from '@/lib/poppins/house-memory';
 import { parseHouseholdIntent, rewriteAiuicActions } from '@/lib/poppins/ui-intent';
 
 export { rewriteAiuicActions } from '@/lib/poppins/ui-intent';
+
+function persistMemoryActions(actions: Array<Record<string, unknown>>) {
+  for (const action of actions) {
+    if (String(action.type) !== 'remember_house_fact') continue;
+    const kindRaw = String(action.kind ?? 'note');
+    const kind: HouseFactKind =
+      kindRaw === 'like' || kindRaw === 'dislike' || kindRaw === 'routine' || kindRaw === 'note'
+        ? kindRaw
+        : 'note';
+    const text = String(action.text ?? '').trim();
+    if (!text) continue;
+    const fact: Omit<HouseFact, 'id' | 'updatedAt'> = {
+      kind,
+      subject: String(action.subject ?? 'house'),
+      text,
+      source: 'spoken',
+    };
+    void rememberActiveFact(fact);
+  }
+}
 
 export function driveAiuic(
   actions: Array<Record<string, unknown>> | undefined,
@@ -17,8 +43,10 @@ export function driveAiuic(
   opts?: { kid?: boolean; replace?: boolean }
 ) {
   const next = rewriteAiuicActions(actions ?? [], utterance);
-  if (!next.length) return false;
-  poppinsUiOrchestrator.drive(next, opts);
+  persistMemoryActions(next);
+  const stage = next.filter((action) => String(action.type) !== 'remember_house_fact');
+  if (!stage.length) return false;
+  poppinsUiOrchestrator.drive(stage, opts);
   return true;
 }
 
@@ -31,6 +59,8 @@ export function hearAndDrive(
   memberNames: string[] = [],
   opts?: { kid?: boolean }
 ) {
+  const memory = parseHouseMemoryUtterance(text);
+  if (memory) void rememberActiveFact(memory);
   const steered = poppinsUiOrchestrator.applySpeech(text, memberNames);
   if (!steered) {
     const inferred = parseHouseholdIntent(text);

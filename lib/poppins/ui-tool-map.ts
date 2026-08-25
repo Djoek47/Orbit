@@ -97,6 +97,7 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
 
     if (type === 'add_grocery') {
       const groceryName = String(action.name ?? '');
+      const storeHint = String(action.storeHint ?? '').trim();
       playlist.push(
         beat(
           'grocery_add',
@@ -105,7 +106,11 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
             aisle: action.category ? String(action.category) : undefined,
             title: groceryName || 'Grocery',
             shoppingLane: action.lane === 'clothing' ? 'clothing' : 'grocery',
-            thinkingLine: action.lane === 'clothing' ? 'Shopping list' : 'Groceries',
+            thinkingLine:
+              action.lane === 'clothing'
+                ? 'Shopping list'
+                : storeHint || 'Groceries',
+            location: storeHint || undefined,
           },
           'hold',
           'add_grocery'

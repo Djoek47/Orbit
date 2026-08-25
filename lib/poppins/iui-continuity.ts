@@ -37,6 +37,7 @@ export function isContinuityFresh(
   return now - record.updatedAt < IUI_CONTINUITY_TTL_MS;
 }
 
+/** 4h skip helper. Product opening (listen / presence / situation) is decideOpening. */
 export function shouldGreet(
   record: IuiContinuity | null | undefined,
   householdId: string | null | undefined

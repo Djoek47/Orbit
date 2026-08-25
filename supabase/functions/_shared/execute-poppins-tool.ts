@@ -317,6 +317,24 @@ export function executePoppinsTool(
         },
       };
     }
+    case 'remember_house_fact': {
+      const kindRaw = String(args.kind ?? 'note');
+      const kind =
+        kindRaw === 'like' || kindRaw === 'dislike' || kindRaw === 'routine' || kindRaw === 'note'
+          ? kindRaw
+          : 'note';
+      const text = String(args.text ?? '').trim();
+      const subject = String(args.subject ?? 'house').trim() || 'house';
+      if (!text) return { error: 'empty_fact' };
+      if (/\b(password|ssn|social security|medical|diagnosis|prescription|home address)\b/i.test(text)) {
+        return pendingConfirm(name, args, 'That sounds private — confirm before I remember it.');
+      }
+      return {
+        remembered: true,
+        fact: { kind, subject, text, source: 'spoken' },
+        ui_actions: [{ type: 'remember_house_fact', kind, subject, text }],
+      };
+    }
     case 'list_members': {
       const active = members
         .filter((m) => m.status === 'active')

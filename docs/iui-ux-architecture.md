@@ -2,6 +2,8 @@
 
 Beats and HOLD grammar stay as specified in [`iui-method-note.md`](./iui-method-note.md). This note is product behavior only — not visual restyle.
 
+One mind, three memory layers, and Speak opening policy live in [`household-intelligence.md`](./household-intelligence.md). Do not invent a second brain named Nova.
+
 ## Primary goal
 
 Speak what the household should do. See the act. Silence commits. Speech steers. Hangup pauses; it does not undo.
@@ -42,13 +44,15 @@ One **Speak**. The orb is status, not a second button. Activity is the hourglass
 | Keyboard | Injects into the same session | Side door; auto-opens if mic/network fails |
 | Settings / billing / account | Coach to the human screen | Same |
 
-## What the system remembers (4 hours)
+## What the system remembers
 
-Who we last assigned, what the act was, the last few turns, and any open playlist. WebRTC still tears down; the household conversation does not.
+**Session (4 hours):** who we last assigned, what the act was, the last few turns, and any open playlist. WebRTC still tears down; the household conversation does not.
+
+**House (durable):** likes, dislikes, and routines. Spoken, not a form. See [`household-intelligence.md`](./household-intelligence.md).
 
 ## States the stage must have
 
-First use (brief greet + listen) · returning Speak (no greet) · empty (tap to speak) · live SHOW/UNFOLD/HOLD · frozen (act still on screen, clock stopped) · settled · vetoed · hung up with open act · offline / mic denied (type instead, do not block the tab) · commit failed (keep the preview, tap to try again).
+First use (one presence line, never a bio) · returning Speak (listen, no greet) · long gap with desk work (one situation line) · empty (tap to speak) · live SHOW/UNFOLD/HOLD · frozen (act still on screen, clock stopped) · settled · vetoed · hung up with open act · offline / mic denied (type instead, do not block the tab) · commit failed (keep the preview, tap to try again).
 
 ## What we will not do
 

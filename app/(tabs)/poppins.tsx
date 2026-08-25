@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -32,15 +33,15 @@ import {
 } from '@/lib/ai/credits';
 import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
 import {
-  continuityListenPrompt,
+  isContinuityFresh,
   loadIuiContinuity,
   openActSnapshot,
   rememberTurn,
   saveIuiContinuity,
-  shouldGreet,
   snapshotFromDrive,
   type IuiContinuity,
 } from '@/lib/poppins/iui-continuity';
+import { commitSpeakOpen, hydrateHouseMemory, prepareSpeakOpen } from '@/lib/poppins/speak-open';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
 import { copyIuiVoiceError } from '@/lib/poppins/iui-voice-error';
@@ -53,6 +54,8 @@ import {
 import {
   isPoppinsNativeVoiceAvailable,
   PoppinsVoiceSession,
+  releaseWarmedMicrophone,
+  warmPoppinsMicrophone,
   type PoppinsPendingConfirmation,
   type PoppinsVoiceVisualState,
 } from '@/lib/voice/poppins-voice-session';
@@ -222,7 +225,9 @@ export default function PoppinsScreen() {
         : asking || connecting
           ? 'thinking'
           : 'idle';
-  const cfg = STATE_CONFIG[visualState];
+  const cfg = connecting
+    ? { label: `${majordomo.displayName} · Tuning in…`, color: '#A78BFA' }
+    : STATE_CONFIG[visualState];
   const isActive = visualState !== 'idle' || liveConnected;
 
   useEffect(() => {
@@ -232,6 +237,19 @@ export default function PoppinsScreen() {
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    void hydrateHouseMemory(household.id);
+  }, [household.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (nativeVoice) void warmPoppinsMicrophone();
+      return () => {
+        if (!voiceRef.current?.isConnected) releaseWarmedMicrophone();
+      };
+    }, [nativeVoice])
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -321,10 +339,9 @@ export default function PoppinsScreen() {
     setError('');
     setLiveCaption(null);
     voiceFailedRef.current = false;
-    const prior = await loadIuiContinuity(household.id);
-    continuityRef.current = prior;
-    const greet = shouldGreet(prior, household.id);
-    restoreOpenAct(prior);
+    const prep = await prepareSpeakOpen(household, metrics);
+    continuityRef.current = prep.continuity;
+    restoreOpenAct(prep.continuity);
     let reportedError = false;
     const session = new PoppinsVoiceSession({
       onStateChange: (state) => {
@@ -376,9 +393,10 @@ export default function PoppinsScreen() {
     const ok = await session.connect(household, metrics, currentMember?.majordomoProfileId, {
       pageContext: 'poppins tab',
       capabilityProfile: 'Daily',
-      greet,
-      listenPrompt: prior && !greet ? continuityListenPrompt(prior) : undefined,
-      seedTurns: prior && !greet ? prior.turns : undefined,
+      openerInstructions: prep.opening.instructions,
+      listenPrompt: prep.listenPrompt,
+      seedTurns: prep.seedTurns,
+      memoryHint: prep.memoryHint,
     });
     setConnecting(false);
     if (!ok || reportedError || voiceFailedRef.current) {
@@ -386,6 +404,7 @@ export default function PoppinsScreen() {
       if (!reportedError) surfaceVoiceError('start_failed');
       return null;
     }
+    void commitSpeakOpen(prep.memory, prep.opening);
     voiceRef.current = session;
     setLiveConnected(true);
     poppinsUiOrchestrator.unfreeze();
@@ -493,20 +512,24 @@ export default function PoppinsScreen() {
         ? 'thinking'
         : null;
   const liveLabel =
-    liveSpeaker === 'you'
-      ? 'YOU'
-      : liveSpeaker === 'done'
-        ? 'DONE'
-        : liveSpeaker === 'thinking'
-          ? 'PROCESSING'
-          : majordomo.displayName.toUpperCase();
+    connecting
+      ? `${majordomo.displayName} · Tuning in…`
+      : liveSpeaker === 'you'
+        ? 'YOU'
+        : liveSpeaker === 'done'
+          ? 'DONE'
+          : liveSpeaker === 'thinking'
+            ? 'THINKING'
+            : majordomo.displayName.toUpperCase();
   const liveText = toolFlash
     ? toolFlash
-    : liveCaption?.text
-      ? captionWindow(liveCaption.text)
-      : liveSpeaker === 'thinking'
-        ? 'Working on your household…'
-        : '';
+    : connecting
+      ? 'Tuning in to the house…'
+      : liveCaption?.text
+        ? captionWindow(liveCaption.text)
+        : liveSpeaker === 'thinking'
+          ? 'Working on your household…'
+          : '';
   const liveAccent =
     liveSpeaker === 'you' || liveSpeaker === 'done' ? '#34D399' : cfg.color;
   const showCaptionDots =
@@ -568,7 +591,9 @@ export default function PoppinsScreen() {
           ) : (
             <Text
               style={[styles.idleHint, { color: isDark ? 'rgba(255,255,255,0.25)' : c.textMuted }]}>
-              {continuityRef.current && !shouldGreet(continuityRef.current, household.id)
+              {continuityRef.current &&
+              isContinuityFresh(continuityRef.current) &&
+              continuityRef.current.householdId === household.id
                 ? 'Tap to continue.'
                 : idleHint}
             </Text>

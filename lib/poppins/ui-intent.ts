@@ -6,6 +6,11 @@
 
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import {
+  assigneeBlockedByMemory,
+  getActiveHouseMemory,
+  preferredStore,
+} from '@/lib/poppins/house-memory';
+import {
   completeTitleFromUtterance,
   extractItemName,
   isAssignSurfaceRoute,
@@ -149,6 +154,11 @@ function enrichTaskDraft(
     next.taskQuery = match.taskQuery;
   }
   if (typeof next.title !== 'string') next.title = '';
+  const assignee = typeof next.assignee === 'string' ? next.assignee : undefined;
+  const title = typeof next.title === 'string' ? next.title : undefined;
+  if (assigneeBlockedByMemory(getActiveHouseMemory(), assignee, title)) {
+    next.assignee = undefined;
+  }
   return next;
 }
 
@@ -160,12 +170,14 @@ function enrichGrocery(
   const shopping = isShoppingIntent(utterance) || action.lane === 'clothing';
   const releaseDate =
     (action.releaseDate ? String(action.releaseDate) : undefined) || parseReleaseDate(utterance);
+  const storeHint = preferredStore(getActiveHouseMemory());
   const grocery: Record<string, unknown> = {
     ...action,
     type: 'add_grocery',
     name,
     category: shopping ? String(action.category ?? 'Clothing') : action.category,
     lane: shopping ? 'clothing' : action.lane ?? 'grocery',
+    storeHint: shopping ? action.storeHint : action.storeHint ?? storeHint,
   };
   const out = [grocery];
   if (releaseDate) {

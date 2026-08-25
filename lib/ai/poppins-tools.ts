@@ -29,6 +29,7 @@ export type PoppinsToolName =
   | 'list_holidays'
   | 'propose_plan'
   | 'ask_for_info'
+  | 'remember_house_fact'
   | 'list_members'
   | 'list_rewards'
   | 'search_house_rules'
@@ -253,6 +254,22 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
         question: { type: 'string' },
       },
       required: ['memberName', 'question'],
+      additionalProperties: false,
+    },
+    risk: 'safe_serial',
+  },
+  {
+    name: 'remember_house_fact',
+    description:
+      'Remember a household like, dislike, or routine (who prefers which chore, preferred store). Do not store medical, passwords, or home address. One short fact.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['like', 'dislike', 'routine', 'note'] },
+        subject: { type: 'string', description: 'Member name or house' },
+        text: { type: 'string' },
+      },
+      required: ['kind', 'text'],
       additionalProperties: false,
     },
     risk: 'safe_serial',

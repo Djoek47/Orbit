@@ -42,7 +42,7 @@ export function PoppinsInPlaceSheet() {
             <Text style={[styles.kicker, { color: c.textSubtle }]}>POPPINS</Text>
             <Text style={[styles.status, { color: c.text }]}>
               {live.visual === 'connecting'
-                ? 'Starting…'
+                ? 'Tuning in…'
                 : live.visual === 'listening'
                   ? 'Listening'
                   : live.visual === 'thinking'

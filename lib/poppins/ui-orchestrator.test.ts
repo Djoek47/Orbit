@@ -112,6 +112,24 @@ const badScene = executePoppinsTool('present_ui_scene', { scene: 'freeform_jsx' 
 assert.equal(badScene.error, 'unknown_scene');
 
 assert.ok(POPPINS_TOOL_DEFINITIONS.some((tool) => tool.name === 'present_ui_scene'));
+assert.ok(POPPINS_TOOL_DEFINITIONS.some((tool) => tool.name === 'remember_house_fact'));
+
+const remembered = executePoppinsTool(
+  'remember_house_fact',
+  { kind: 'dislike', subject: 'Liam', text: 'Liam should not be assigned dishes' },
+  household,
+  metrics
+);
+assert.equal(remembered.remembered, true);
+assert.equal((remembered.ui_actions as Array<Record<string, unknown>>)[0]?.type, 'remember_house_fact');
+
+const privateFact = executePoppinsTool(
+  'remember_house_fact',
+  { kind: 'note', subject: 'house', text: 'his medical diagnosis is private' },
+  household,
+  metrics
+);
+assert.ok(Array.isArray(privateFact.pending_confirmations), 'privacy-sensitive facts confirm');
 
 const intent = parseHouseholdIntent('Add a dishwasher task for Alex');
 assert.equal(intent[0]?.type, 'create_task_draft');
