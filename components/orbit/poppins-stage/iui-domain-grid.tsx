@@ -44,7 +44,7 @@ export function IuiDomainGrid({ domains, selectedId, accent, onSelect, narrow }:
                 },
               ]}>
               <Icon name={domainIconName(domain.id)} size={26} />
-              <Text style={[styles.label, { color: c.text }]} numberOfLines={1}>
+              <Text style={[styles.label, { color: c.text }]} numberOfLines={2}>
                 {domain.label}
               </Text>
             </Pressable>

@@ -78,7 +78,7 @@ assert.equal(
 );
 
 assert.equal(classifyIuiVoiceError('Invalid_request: unknown_parameter'), 'unavailable');
-assert.equal(copyIuiVoiceError('boom').message, 'Poppins could not start. Type instead.');
+assert.equal(copyIuiVoiceError('boom').message, "Couldn't start voice. Tap Speak to try again.");
 
 async function tapWinsWhileSpeaking() {
   poppinsUiOrchestrator.clear();

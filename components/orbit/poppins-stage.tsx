@@ -251,7 +251,10 @@ export function PoppinsStage() {
   const composeDomains = useMemo(() => {
     const chores = choreDomains().map((d) => ({
       id: d.id,
-      label: d.shortName ?? d.name.replace(/\s*&\s*.+$/, ''),
+      label:
+        d.shortName === 'Shared Spaces'
+          ? 'Shared'
+          : (d.shortName ?? d.name.replace(/\s*&\s*.+$/, '')),
     }));
     if (!hasKids) return chores;
     const hw = homeworkDomain();
@@ -287,21 +290,32 @@ export function PoppinsStage() {
             ? allLibraryTasks().find((item) => item.id === p.libraryTaskId)
             : undefined;
           const assignee = p.assignee || currentMember?.name || household.members[0]?.name || 'Me';
+          const dueLabel = p.due ?? 'Today';
+          const occurrenceDate = occurrenceDateForDueLabel(dueLabel);
           if (library) {
-            await createTask(
-              buildLibraryAssignInput(library, assignee, library.defaultFrequency, new Date())
-            );
+            const [y, m, d] = occurrenceDate.split('-').map(Number);
+            const occurrence = new Date(y, (m ?? 1) - 1, d ?? 1);
+            await createTask({
+              ...buildLibraryAssignInput(
+                library,
+                assignee,
+                library.defaultFrequency,
+                occurrence
+              ),
+              due: dueLabel,
+              occurrenceDate,
+            });
           } else if (p.title) {
             await createTask({
               title: p.title,
               category: p.category ?? p.selectedChipId ?? 'home_maintenance',
               assignee,
-              due: p.due ?? 'Today',
+              due: dueLabel,
               xp: 10,
               repeat: 'None',
               difficulty: 'medium',
               weight: 1,
-              occurrenceDate: occurrenceDateForDueLabel(p.due ?? 'Today'),
+              occurrenceDate,
             });
           }
         } catch (error) {
@@ -435,7 +449,7 @@ export function PoppinsStage() {
           {drive.spoken.trim()}
         </Text>
       ) : payload.thinkingLine || drive.thinkingLine ? (
-        <Text style={[styles.think, { color: c.textSubtle }]}>
+        <Text style={[styles.think, { color: c.textSubtle }]} numberOfLines={2}>
           {payload.thinkingLine || drive.thinkingLine}
         </Text>
       ) : null}

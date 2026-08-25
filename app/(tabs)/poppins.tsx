@@ -11,8 +11,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet';
-import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { PoppinsLiveCaption } from '@/components/orbit/poppins-live-caption';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PoppinsStage } from '@/components/orbit/poppins-stage';
@@ -58,7 +56,6 @@ import {
   type PoppinsVoiceVisualState,
 } from '@/lib/voice/poppins-voice-session';
 import { useOrbit } from '@/store/orbit-store';
-import type { PoppinsMonitorAction } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 type PoppinsVisualState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'success';
@@ -94,13 +91,7 @@ export default function PoppinsScreen() {
     permissions,
     aiUsageEvents,
     recordPoppinsUsage,
-    dismissInboxItem,
     metrics,
-    notifications,
-    inboxBriefing,
-    poppinsMonitorActions,
-    poppinsActivityFacts,
-    poppinsWeeklyBriefing,
     orbitPalette,
   } = useOrbit();
 
@@ -134,7 +125,6 @@ export default function PoppinsScreen() {
   };
 
   const [showText, setShowText] = useState(() => !isPoppinsNativeVoiceAvailable());
-  const [showActivity, setShowActivity] = useState(false);
   const [draft, setDraft] = useState('');
   const [asking, setAsking] = useState(false);
   const [listening, setListening] = useState(false);
@@ -143,7 +133,6 @@ export default function PoppinsScreen() {
   const [error, setError] = useState('');
   const [voiceState, setVoiceState] = useState<PoppinsVoiceVisualState>('idle');
   const [liveCaption, setLiveCaption] = useState<LiveCaption | null>(null);
-  const [localMonitorActions, setLocalMonitorActions] = useState<PoppinsMonitorAction[]>([]);
   const [toolFlash, setToolFlash] = useState<string | null>(null);
   const [pendingConfirmations, setPendingConfirmations] = useState<PoppinsPendingConfirmation[]>(
     []
@@ -190,7 +179,7 @@ export default function PoppinsScreen() {
     voiceFailedRef.current = true;
     const copy = copyIuiVoiceError(raw);
     setError(copy.message);
-    if (copy.offerKeyboard) setShowText(true);
+    if (copy.kind === 'mic_denied') setShowText(true);
     setConnecting(false);
     setLiveConnected(false);
     setVoiceState('idle');
@@ -314,13 +303,17 @@ export default function PoppinsScreen() {
     };
   }, []);
 
-  const monitorFeed = useMemo(
-    () =>
-      [...localMonitorActions, ...poppinsMonitorActions].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      ),
-    [localMonitorActions, poppinsMonitorActions]
-  );
+  const HOLD_WRITE_TOOLS = new Set([
+    'create_task_draft',
+    'assign_task',
+    'create_task',
+    'add_grocery',
+    'complete_task',
+    'create_calendar_event',
+    'create_itinerary',
+    'update_task',
+    'claim_reward',
+  ]);
 
   const applyTranscript = (
     role: 'user' | 'assistant',
@@ -382,10 +375,19 @@ export default function PoppinsScreen() {
       },
       onTranscript: applyTranscript,
       onPendingConfirmations: (items) => {
-        setPendingConfirmations(items);
+        const hold = items.filter((item) => HOLD_WRITE_TOOLS.has(item.tool));
+        const rest = items.filter((item) => !HOLD_WRITE_TOOLS.has(item.tool));
+        if (hold.length) {
+          voiceRef.current?.notifyConfirmationResolved(
+            hold.map((item) => item.id),
+            true
+          );
+        }
+        setPendingConfirmations(rest);
+        if (!rest.length) return;
         setVoiceState('needs_attention');
         applyUiActions(
-          items.map((item) => ({
+          rest.map((item) => ({
             type: 'confirm',
             confirmSummary: item.summary,
             confirmationIds: [item.id],
@@ -477,7 +479,6 @@ export default function PoppinsScreen() {
       setLiveCaption(applyLiveCaptionTurn(null, 'poppins', result.answer, true));
       appendPoppinsTurn(trimmed, result.answer);
       if (result.actions?.length) {
-        setLocalMonitorActions((current) => [...result.actions!, ...current]);
         flashToolSuccess(result.actions[0]!.label);
       }
       if (result.ui_actions?.length) {
@@ -576,28 +577,14 @@ export default function PoppinsScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={24}>
       <PoppinsRemoteAudio streamURL={remoteStreamUrl} />
-      <View style={[styles.ambient, { backgroundColor: ambient }]} pointerEvents="none" />
+      {drive.live ? null : (
+        <View style={[styles.ambient, { backgroundColor: ambient }]} pointerEvents="none" />
+      )}
 
       <View style={[styles.header, { paddingTop: chromePad }]}>
         <Text style={[styles.kicker, { color: isDark ? 'rgba(255,255,255,0.3)' : c.textSubtle }]}>
           {majordomo.displayName.toUpperCase()}
         </Text>
-        <Pressable
-          style={[
-            styles.activityBtn,
-            {
-              backgroundColor: glass(0.06),
-              borderColor: glassBorder(0.1),
-            },
-          ]}
-          onPress={() => {
-            if (drive.live) return;
-            setShowActivity(true);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Activity">
-          <PoppinsHourglass size={18} color="#2DD4BF" active={isActive || monitorFeed.length > 0} />
-        </Pressable>
       </View>
 
       {drive.live ? (
@@ -695,7 +682,7 @@ export default function PoppinsScreen() {
           <Pressable
             onPress={() => setShowText((v) => !v)}
             accessibilityRole="button"
-            accessibilityLabel={showText ? 'Hide keyboard' : 'Type instead'}
+            accessibilityLabel={showText ? 'Hide keyboard' : 'Type to Poppins'}
             style={[
               styles.sideBtn,
               {
@@ -768,7 +755,7 @@ export default function PoppinsScreen() {
       </View>
 
       <Modal
-        visible={pendingConfirmations.length > 0 && !drive.live}
+        visible={pendingConfirmations.length > 0}
         transparent
         animationType="fade"
         onRequestClose={() => confirmPending(false)}>
@@ -812,21 +799,6 @@ export default function PoppinsScreen() {
           </View>
         </View>
       </Modal>
-
-      <PoppinsActivitySheet
-        visible={showActivity}
-        onClose={() => setShowActivity(false)}
-        variant="activity"
-        notifications={notifications}
-        monitorActions={monitorFeed}
-        activityFacts={poppinsActivityFacts}
-        briefing={inboxBriefing}
-        weekly={poppinsWeeklyBriefing}
-        metrics={metrics}
-        poppinsActive={isActive || monitorFeed.length > 0}
-        taskCompletedFallback={household.tasks.filter((t) => t.status === 'Completed').length}
-        onDismissNotification={(id) => dismissInboxItem(id)}
-      />
     </KeyboardAvoidingView>
   );
 }
@@ -854,27 +826,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 1.2,
-  },
-  rail: {
-    marginHorizontal: space.lg,
-    marginBottom: 8,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  railText: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  activityBtn: {
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
   },
   stage: {
     alignItems: 'center',

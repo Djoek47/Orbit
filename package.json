@@ -62,7 +62,7 @@
     "test:revision-f": "npx --yes tsx lib/tasks/revision-f.test.ts",
     "test:revision-f-features": "npx --yes tsx lib/revision-f-features.test.ts",
     "test:poppins-craft": "npx --yes tsx lib/ai/poppins-craft.test.ts",
-    "test:iui": "npx --yes tsx lib/poppins/ui-orchestrator.test.ts && npx --yes tsx lib/poppins/iui-compose.test.ts && npx --yes tsx lib/poppins/iui-voice-error.test.ts && npx --yes tsx lib/poppins/two-mode-iui.test.ts",
+    "test:iui": "npx --yes tsx lib/poppins/ui-orchestrator.test.ts && npx --yes tsx lib/poppins/iui-compose.test.ts && npx --yes tsx lib/poppins/iui-voice-error.test.ts && npx --yes tsx lib/poppins/two-mode-iui.test.ts && npx --yes tsx lib/poppins/poppins-os.test.ts",
     "test:iui-continuity": "npx --yes tsx lib/poppins/iui-continuity.test.ts",
     "test:opening-policy": "npx --yes tsx --test lib/poppins/opening-policy.test.ts",
     "test:house-memory": "npx --yes tsx --test lib/poppins/house-memory.test.ts",

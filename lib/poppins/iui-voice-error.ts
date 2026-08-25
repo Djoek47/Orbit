@@ -50,19 +50,19 @@ export function iuiVoiceErrorCopy(kind: IuiVoiceErrorKind): string {
     case 'signed_out':
       return 'Sign in to speak with Poppins.';
     case 'offline':
-      return 'Poppins is unreachable. Type instead.';
+      return "Couldn't reach Poppins. Tap Speak to try again.";
     case 'needs_testflight':
       return 'Voice needs the TestFlight app. Type instead.';
     case 'unavailable':
-      return 'Poppins could not start voice. Type instead.';
+      return "Couldn't start voice. Tap Speak to try again.";
     default:
-      return 'Poppins could not start. Type instead.';
+      return "Couldn't start voice. Tap Speak to try again.";
   }
 }
 
-/** Voice failed — keep the tab usable. */
+/** Offer the Type door. Only mic-denied forces the keyboard open. */
 export function shouldOfferKeyboard(kind: IuiVoiceErrorKind): boolean {
-  return kind !== 'signed_out';
+  return kind === 'mic_denied' || kind === 'needs_testflight';
 }
 
 export function copyIuiVoiceError(raw: unknown): {

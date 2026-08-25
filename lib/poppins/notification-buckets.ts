@@ -126,9 +126,11 @@ export function bucketNotification(item: NotificationItem): NotifBucket {
 export function buildSheetNotifications(
   notifications: NotificationItem[],
   briefing?: PoppinsBriefing | null,
-  now = Date.now()
+  now = Date.now(),
+  options?: { hidePoppinsLaunch?: boolean }
 ): SheetNotificationCard[] {
   const cards: SheetNotificationCard[] = [];
+  const hideLaunch = options?.hidePoppinsLaunch === true;
 
   if (briefing?.summary) {
     const fromActions = (briefing.actions ?? []).filter(Boolean).slice(0, 4);
@@ -147,8 +149,8 @@ export function buildSheetNotifications(
       bullets: digestBullets.length ? digestBullets : [briefing.summary],
       timeLabel: 'Today',
       color: BUCKET_COLORS.urgent,
-      actionLabel: 'Open Poppins',
-      actionRoute: '/(tabs)/poppins',
+      actionLabel: hideLaunch ? undefined : 'View Home',
+      actionRoute: hideLaunch ? undefined : '/(tabs)',
     });
   }
 
@@ -186,7 +188,7 @@ export function needsAttentionCount(cards: SheetNotificationCard[]) {
   return cards.filter((c) => c.bucket !== 'done' && (!c.source || !c.source.isRead)).length;
 }
 
-/** Route the inbox CTA should open. Briefing has no notification source — it still goes to Poppins. */
+/** Route the inbox CTA should open. */
 export function routeForSheetCard(card: SheetNotificationCard): string | null {
   if (card.actionRoute) return card.actionRoute;
   if (card.source) return getNotificationRoute(card.source);

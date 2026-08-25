@@ -403,6 +403,7 @@ export function executePoppinsTool(
       return { linked: false, scenes: [], note: 'Smart home is optional.' };
     }
     case 'create_task_draft':
+    case 'assign_task':
     case 'create_task': {
       return {
         ui_actions: [
@@ -417,7 +418,7 @@ export function executePoppinsTool(
             taskQuery: args.taskQuery ?? args.task_query,
           },
         ],
-        note: 'Staged Assign on the IUI stage. HOLD silence commits.',
+        note: 'HOLD silence creates the task. Never say draft.',
       };
     }
     case 'update_task': {
@@ -505,7 +506,7 @@ export function executePoppinsTool(
               category: args.category,
             },
           ],
-          note: 'Staged Assign on the IUI stage instead of opening the full screen.',
+          note: 'HOLD silence creates the task instead of opening the full screen.',
         };
       }
       if (isGrocerySurfaceRoute(route) && !openEditor) {

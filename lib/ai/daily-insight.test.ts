@@ -193,10 +193,22 @@ function note(partial: Partial<NotificationItem> & Pick<NotificationItem, 'id' |
   assert.equal(cards.some((c) => c.id === 'j1'), false);
   assert.equal(cards.some((c) => c.id === 'morning-brief'), true);
   const brief = cards.find((c) => c.id === 'morning-brief');
-  assert.equal(brief?.actionLabel, 'Open Poppins');
-  assert.equal(brief?.actionRoute, '/(tabs)/poppins');
-  assert.equal(brief ? routeForSheetCard(brief) : null, '/(tabs)/poppins');
+  assert.equal(brief?.actionLabel, 'View Home');
+  assert.equal(brief?.actionRoute, '/(tabs)');
+  assert.equal(brief ? routeForSheetCard(brief) : null, '/(tabs)');
   pass('mock deal rows never reappear as Insights');
+}
+
+{
+  const hidden = buildSheetNotifications(
+    [],
+    { title: 'Morning Briefing', summary: 'A calm day.', actions: ['Check tasks'] },
+    Date.now(),
+    { hidePoppinsLaunch: true }
+  );
+  const brief = hidden.find((c) => c.id === 'morning-brief');
+  assert.equal(brief?.actionLabel, undefined);
+  pass('briefing on Poppins tab is not a launcher');
 }
 
 console.log('\ndaily-insight tests passed');

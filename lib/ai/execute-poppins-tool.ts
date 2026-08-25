@@ -417,7 +417,8 @@ export function executePoppinsTool(
         return { error: String(error), hits: [] };
       }
     }
-    case 'create_task_draft': {
+    case 'create_task_draft':
+    case 'assign_task': {
       return {
         ui_actions: [
           {
@@ -431,7 +432,7 @@ export function executePoppinsTool(
             taskQuery: args.taskQuery ? String(args.taskQuery) : undefined,
           },
         ],
-        note: 'Staged Assign on the IUI stage. HOLD silence commits.',
+        note: 'HOLD silence creates the task. Never say draft.',
       };
     }
     case 'update_task': {
@@ -523,7 +524,7 @@ export function executePoppinsTool(
               category: args.category ? String(args.category) : undefined,
             },
           ],
-          note: 'Staged Assign on the IUI stage instead of opening the full screen.',
+          note: 'HOLD silence creates the task instead of opening the full screen.',
         };
       }
       if (isGrocerySurfaceRoute(route) && !openEditor) {

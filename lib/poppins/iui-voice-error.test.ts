@@ -29,5 +29,7 @@ assert(mic.offerKeyboard, 'mic opens type');
 assert(!mic.message.toLowerCase().includes('denied permission'), 'no dump');
 assert(iuiVoiceErrorCopy('signed_out').includes('Sign in'), 'auth copy');
 assert(!shouldOfferKeyboard('signed_out'), 'auth does not force keyboard');
+assert(!shouldOfferKeyboard('generic'), 'generic does not force keyboard');
+assert(copyIuiVoiceError('boom').message.includes('Speak'), 'retry speak');
 
 console.log('PASS iui-voice-error');

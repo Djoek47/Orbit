@@ -1,24 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { usePathname } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 
 import { useOrbitOptional } from '@/store/orbit-store';
 import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
 import {
-  openActSnapshot,
   rememberTurn,
   saveIuiContinuity,
   snapshotFromDrive,
   type IuiContinuity,
 } from '@/lib/poppins/iui-continuity';
-import { commitSpeakOpen, hydrateHouseMemory, prepareSpeakOpen } from '@/lib/poppins/speak-open';
-import { copyIuiVoiceError } from '@/lib/poppins/iui-voice-error';
+import { hydrateHouseMemory } from '@/lib/poppins/speak-open';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
-import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
 import {
   isPoppinsNativeVoiceAvailable,
   PoppinsVoiceSession,
-  warmPoppinsMicrophone,
-  type PoppinsVoiceVisualState,
 } from '@/lib/voice/poppins-voice-session';
 
 export type PoppinsLiveVisual = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking';
@@ -38,12 +33,6 @@ type PoppinsLiveValue = {
 
 const PoppinsLiveContext = createContext<PoppinsLiveValue | null>(null);
 
-function mapVisual(state: PoppinsVoiceVisualState): PoppinsLiveVisual {
-  if (state === 'connecting' || state === 'needs_attention') return 'thinking';
-  if (state === 'listening' || state === 'thinking' || state === 'speaking') return state;
-  return 'idle';
-}
-
 export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
   const orbit = useOrbitOptional();
   const pathname = usePathname();
@@ -58,7 +47,6 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
   const continuityRef = useRef<IuiContinuity | null>(null);
   const askPoppins = orbit?.askPoppins;
   const household = orbit?.household;
-  const metrics = orbit?.metrics;
   const appendPoppinsTurn = orbit?.appendPoppinsTurn;
   const kid = orbit?.currentMember?.role === 'child';
   const selfName = orbit?.currentMember?.name;
@@ -123,94 +111,12 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
     setError('');
   }, [persistDrive]);
 
-  const startInPlace = useCallback(
-    async (pageContext = 'in-place') => {
-      if (onPoppinsTab) {
-        setSheetOpen(false);
-        return;
-      }
-      setError('');
-      setSheetOpen(true);
-      if (nativeVoice && household && metrics) {
-        if (voiceRef.current?.isConnected) {
-          setVisual('listening');
-          poppinsUiOrchestrator.unfreeze();
-          return;
-        }
-        setVisual('connecting');
-        const warmed = nativeVoice ? warmPoppinsMicrophone() : Promise.resolve(false);
-        const prep = await prepareSpeakOpen(household, metrics);
-        await warmed.catch(() => false);
-        continuityRef.current = prep.continuity;
-        const snap = openActSnapshot(prep.continuity, kid ? HOLD_MS_KID : HOLD_MS_DEFAULT);
-        if (snap) poppinsUiOrchestrator.restore(snap);
-        let reportedError = false;
-        const session = new PoppinsVoiceSession({
-          onStateChange: (state) => setVisual(mapVisual(state)),
-          onTranscript: (role, text) => {
-            if (!text.trim()) return;
-            setCaption(text);
-            if (household.id) {
-              continuityRef.current = rememberTurn(continuityRef.current, household.id, {
-                role,
-                text,
-              });
-              void saveIuiContinuity(continuityRef.current);
-            }
-            if (role === 'user') {
-              lastUtteranceRef.current = text;
-              hearAndDrive(text, memberNames, { kid, selfName });
-            } else {
-              poppinsUiOrchestrator.syncSpoken(text);
-            }
-          },
-          onUiActions: (actions) => {
-            driveAiuic(actions, lastUtteranceRef.current, { replace: true });
-            persistDrive();
-          },
-          onSessionEnd: () => {
-            const iui = poppinsUiOrchestrator.getState();
-            if (iui.live) poppinsUiOrchestrator.pause();
-            persistDrive();
-            setVisual('idle');
-            if (!iui.live) setSheetOpen(false);
-          },
-          onError: (message) => {
-            reportedError = true;
-            setError(copyIuiVoiceError(message).message);
-            setVisual('idle');
-            try {
-              session.disconnect();
-            } catch {
-              /* already down */
-            }
-            voiceRef.current = null;
-          },
-        });
-        const ok = await session.connect(household, metrics, orbit?.currentMember?.majordomoProfileId, {
-          pageContext,
-          capabilityProfile: 'Daily',
-          openerInstructions: prep.opening.instructions,
-          listenPrompt: prep.listenPrompt,
-          seedTurns: prep.seedTurns,
-          memoryHint: prep.memoryHint,
-        });
-        if (!ok) {
-          session.disconnect();
-          setVisual('idle');
-          if (!reportedError) setError(copyIuiVoiceError('start_failed').message);
-          return;
-        }
-        void commitSpeakOpen(prep.memory, prep.opening);
-        voiceRef.current = session;
-        setVisual('listening');
-        poppinsUiOrchestrator.unfreeze();
-        return;
-      }
-      setVisual('idle');
-    },
-    [household, kid, memberNames, metrics, nativeVoice, onPoppinsTab, orbit?.currentMember?.majordomoProfileId, persistDrive, selfName]
-  );
+  const startInPlace = useCallback(async (_pageContext = 'in-place') => {
+    setSheetOpen(false);
+    setError('');
+    if (onPoppinsTab) return;
+    router.push('/(tabs)/poppins' as never);
+  }, [onPoppinsTab]);
 
   const sendText = useCallback(
     async (text: string) => {

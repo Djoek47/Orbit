@@ -15,12 +15,12 @@ v15 is `cursor/choremaxx-make-v15` @ git `b4fc5a6` — two-mode IUI, second Spea
 ### Device smoke on v15
 
 - Second Speak after hangup starts. No orange idle-mic hold on Notifications.
-- Kitchen + tomorrow skips the 14-category grid.
+- Kitchen + tomorrow skips the 14-category grid. HOLD creates the task.
 - Tap while Poppins is talking wins.
-- Hourglass does not auto-open.
+- Bell never auto-opens. No hourglass. No Activity tab.
 - Settings → Poppins meter moves after Speak.
 
-**Sign-out crash** (not in IPA **45** — code is on this branch after `b4fc5a6`): Settings → Sign Out must land on Get Started. Force-quit and reopen must stay signed out. Build **46** when you want this on TestFlight.
+**Build 46** also includes the sign-out crash fix (`bdf2bad`) plus the Poppins OS rework (one viewport, create not draft). See [`poppins-os.md`](./poppins-os.md).
 
 ## TestFlight 44 (submitted, v14)
 
@@ -28,7 +28,7 @@ v15 is `cursor/choremaxx-make-v15` @ git `b4fc5a6` — two-mode IUI, second Spea
 
 ## Parked (leave aside)
 
-**Poppins OS rework (plan, not built):** [`poppins-os.md`](./poppins-os.md). One viewport, create not draft, Activity tab gone. Next implementation follows that file over the older IUI notes.
+**Poppins OS rework (this cut):** [`poppins-os.md`](./poppins-os.md). One viewport, HOLD creates the task, Activity tab gone. **Not in IPA 45.** Ship as TestFlight **46**.
 
 Older notes: [`iui-ux-architecture.md`](./iui-ux-architecture.md), [`iui-method-note.md`](./iui-method-note.md).
 

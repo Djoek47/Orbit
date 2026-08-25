@@ -1,8 +1,6 @@
 # Poppins OS — full rework
 
-**Status:** plan (not implemented). Canonical product spec for the next Poppins cut.  
-**Branch:** `cursor/choremaxx-make-v15`  
-**Does not live in TestFlight 45.**
+**Status:** implemented on `cursor/choremaxx-make-v15`. Device proof is TestFlight **46** (not IPA 45).
 
 This replaces the “patch the overlay” loop. Visual restyle is out of scope. How Poppins thinks, what is on screen, and whether a task actually exists are in scope.
 
@@ -230,37 +228,33 @@ Mic: ask on first Speak, with one line of why. Denied → Type path, app otherwi
 
 ---
 
-## Implementation map (when building starts)
+## Implementation map (landed)
 
-Do not restyle the orb. Do not re-port Figma. Stay on `cursor/choremaxx-make-v15`.
+Shipped on `cursor/choremaxx-make-v15`. Do not restyle the orb. Do not re-port Figma.
 
-### Slice A — stop the stacking (visible in one build)
+### Slice A — stop the stacking
 
-- Delete `drive.live → setInboxOpen(true)`.
-- Remove hourglass from `app/(tabs)/poppins.tsx`.
-- Bell sheet: **one list**, no Activity tab. Kill `SheetTab = 'activity'` from the product.
-- Briefing: no “Open Poppins” when already on `/poppins`.
-- Hide stage while any covering sheet is open.
+- Deleted `drive.live → setInboxOpen(true)`.
+- Removed hourglass from `app/(tabs)/poppins.tsx`.
+- Bell sheet: **one list**, no Activity tab.
+- Briefing: “View Home”, and no launcher when already on `/poppins`.
+- Ambient orb bloom hides while a live scene is up.
 
 ### Slice B — create, don’t draft
 
-- Rename product path to `assign_task` (keep a compat alias if the model still emits `create_task_draft`).
-- HOLD commit **must** call `createTask` / `buildLibraryAssignInput` so Tasks updates.
-- System prompt + majordomo: “assigned”, never “draft”. Never `/create-task` unless they asked for the editor.
-- Remove the extra Confirm modal for ordinary chore HOLD.
+- `assign_task` is a compat alias; HOLD commit calls `createTask` / `buildLibraryAssignInput` with the chosen due date.
+- System prompt + majordomo: “assigned”, never “draft”.
+- Ordinary chore confirms auto-resolve; Confirm modal is for risky tools only.
 
 ### Slice C — one scene
 
-- `PoppinsStage` occupies the tab; orb is background status, not a competing circle on the grid.
-- Unknown beats only. Named kitchen/chore/day never mounts `IuiDomainGrid` of 14.
-- Truncation pass: category labels, Poppins lines (two lines max, then stop talking over the scene).
+- Live stage occupies the tab; idle orb bloom stays behind idle only.
+- Named kitchen/chore/day never mounts the 14-tile category grid (`nextComposeStep` skips known beats).
+- Category labels wrap; “Shared Spaces” compact label is “Shared”.
 
 ### Slice D — Speak
 
-- Keep today’s warm-on-tap / no idle mic / teardown-on-sign-out work.
-- Error copy + retry. Type is a door, not the product.
-
-Ship slices A+B together. C and D can follow in the same TestFlight if tight. Device proof: one screenshot with **only** the scene + Speak — never grid + inbox + briefing together.
+- Error copy + retry. Type is a door. Only a denied mic forces the keyboard open.
 
 ---
 

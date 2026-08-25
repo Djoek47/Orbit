@@ -147,7 +147,7 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
       continue;
     }
 
-    if (type === 'create_task' || type === 'create_task_draft') {
+    if (type === 'create_task' || type === 'create_task_draft' || type === 'assign_task') {
       const payload = withComposeProgress({
         title: String(action.title ?? prefill.title ?? ''),
         assignee: action.assignee

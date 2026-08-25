@@ -261,7 +261,7 @@ export function rewriteAiuicActions(
       continue;
     }
 
-    if (type === 'create_task' || type === 'create_task_draft') {
+    if (type === 'create_task' || type === 'create_task_draft' || type === 'assign_task') {
       out.push(enrichTaskDraft(action, utterance));
       continue;
     }
@@ -282,7 +282,14 @@ export function rewriteAiuicActions(
   return out.filter((item, index, list) => {
     if (item.type !== 'navigate' || item.openEditor === true) return true;
     const route = String(item.route ?? '');
-    const coveredAssign = isAssignSurfaceRoute(route) && list.some((row) => row.type === 'create_task_draft');
+    const coveredAssign =
+      isAssignSurfaceRoute(route) &&
+      list.some(
+        (row) =>
+          row.type === 'create_task_draft' ||
+          row.type === 'assign_task' ||
+          row.type === 'create_task'
+      );
     const coveredGrocery = isGrocerySurfaceRoute(route) && list.some((row) => row.type === 'add_grocery');
     if (coveredAssign || coveredGrocery) return false;
     return true;

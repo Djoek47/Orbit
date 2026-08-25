@@ -39,6 +39,7 @@ export type PoppinsToolName =
   | 'list_itineraries'
   | 'get_smart_home_state'
   | 'create_task_draft'
+  | 'assign_task'
   | 'update_task'
   | 'complete_task'
   | 'create_calendar_event'
@@ -344,7 +345,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'create_task_draft',
     description:
-      'AIUIC: stage Assign on the IUI overlay (who → category grid like Kitchen → tasks → when). Pass category kitchen_dining when they said dishes/kitchen so other tiles disappear. Pass libraryTaskId when they named a catalog chore. HOLD silence commits. NEVER navigate_to /assign-task or say “I can open that for you”. Only navigate_to /assign-task when they asked to assign it themselves on the full Assign screen (openEditor).',
+      'Assign a household task on the IUI stage (who → unknown beats only → HOLD). Pass category kitchen_dining when they said dishes/kitchen so other tiles disappear. Pass libraryTaskId when they named a catalog chore. HOLD silence writes the task with createTask — never say “draft”, never navigate_to /assign-task unless they asked to fill the editor themselves (openEditor). After commit say it is assigned.',
     parameters: {
       type: 'object',
       properties: {
@@ -451,7 +452,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'navigate_to',
     description:
-      'Coach-navigate ONLY when they asked to drive a human screen (Settings, billing, House Rules, or “open Assign so I can pick it myself”). Never use this for add-task, dishes, kitchen, groceries, or shopping — those are create_task_draft / add_grocery / complete_task on the IUI stage. Never say “I can open that for you” as a substitute for staging UI.',
+      'Coach-navigate ONLY when they asked to drive a human screen (Settings, billing, House Rules, or “open Assign so I can pick it myself”). Never use this for add-task, dishes, kitchen, groceries, or shopping — those are create_task_draft / add_grocery / complete_task on the IUI stage. Never say “I can open that for you” or “I’ll draft a task”.',
     parameters: {
       type: 'object',
       properties: {
@@ -467,7 +468,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'present_ui_scene',
     description:
-      'Advance a closed IUI beat (thinking, task_compose, calendar_zoom, itinerary_stage, grocery_add, reward_mint, list_peek, member_pick, confirm, navigate_coach, task_done, result_mark). Never invent widgets. Prefer create_task_draft / add_grocery over navigate_coach.',
+      'Advance a closed IUI beat (thinking, task_compose, calendar_zoom, itinerary_stage, grocery_add, reward_mint, list_peek, member_pick, confirm, navigate_coach, task_done, result_mark). Never invent widgets. Prefer create_task_draft / add_grocery over navigate_coach. After HOLD, the task exists — say assigned, never draft.',
     parameters: {
       type: 'object',
       properties: {
