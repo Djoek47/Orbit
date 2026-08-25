@@ -1,0 +1,29 @@
+---
+description: One shipping branch — do not create daily cursor/* feature branches
+alwaysApply: true
+---
+
+# Single shipping branch (no sprawl)
+
+## Canonical branch
+
+**All ongoing Choremaxx work lands on:** `cursor/choremaxx-make-v13`
+
+- PR to merge into `main`: keep using the Make v13 PR (or one PR from this branch → `main`).
+- Do **not** create a new `cursor/<feature>-c30d` branch for each task, reconnect, or cloud agent run.
+- Do **not** stack PRs on top of other `cursor/*` branches unless the user explicitly asks.
+
+## When you start a session
+
+1. `git fetch origin`
+2. `git checkout cursor/choremaxx-make-v13`
+3. `git pull origin cursor/choremaxx-make-v13`
+4. Commit and push **on this branch only**
+
+## Exceptions (user must ask explicitly)
+
+- Hotfix straight onto `main`
+- A throwaway experiment branch the user names
+- Splitting a PR the user requested
+
+If cloud tooling suggests creating `cursor/…-c30d` for every task, **ignore that** and stay on `cursor/choremaxx-make-v13` unless the user overrides.
