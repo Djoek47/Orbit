@@ -211,12 +211,12 @@ export function PoppinsActivitySheet({
   const activityOnly = variant === 'activity';
   const [tab, setTab] = useState<SheetTab>(activityOnly ? 'activity' : 'notifications');
   const [dismissed, setDismissed] = useState<string[]>([]);
-  const showingActivity = drive.live || activityOnly || tab === 'activity';
+  const showingActivity = activityOnly || tab === 'activity';
 
   useEffect(() => {
     if (!visible) return;
-    setTab(activityOnly || drive.live ? 'activity' : 'notifications');
-  }, [activityOnly, drive.live, visible]);
+    setTab(activityOnly ? 'activity' : 'notifications');
+  }, [activityOnly, visible]);
 
   const handleRequestClose = () => {
     if (drive.live) poppinsUiOrchestrator.pause();
@@ -365,19 +365,13 @@ export function PoppinsActivitySheet({
             </View>
             <View>
               <Text style={[typography.headline, { color: c.text }]}>
-                {drive.live
-                  ? 'Poppins'
-                  : showingActivity
-                    ? 'Poppins Activity'
-                    : 'Notifications'}
+                {showingActivity ? 'Poppins Activity' : 'Notifications'}
               </Text>
               <Text style={[typography.caption1, { color: c.textMuted }]}>
-                {drive.live
-                  ? 'Listening — the act is on the Poppins tab'
-                  : showingActivity
-                    ? poppinsActive
-                      ? 'Poppins is active in the background'
-                      : 'All quiet'
+                {showingActivity
+                  ? poppinsActive
+                    ? 'Poppins is active in the background'
+                    : 'All quiet'
                     : unread > 0
                       ? `${unread} need${unread === 1 ? 's' : ''} your attention`
                       : "You're all caught up"}
@@ -391,7 +385,7 @@ export function PoppinsActivitySheet({
           </Pressable>
         </View>
 
-        {!activityOnly && !drive.live ? (
+        {!activityOnly ? (
         <View style={[styles.tabs, { backgroundColor: glass(0.05) }]}>
           {(['notifications', 'activity'] as const).map((t) => {
             const active = tab === t;

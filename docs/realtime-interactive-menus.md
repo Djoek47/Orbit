@@ -4,11 +4,20 @@
 **Branch:** `cursor/realtime-interactive-menus-5f8f` from Make v11  
 **Depends on:** Poppins Divine Voice — live session + `ui_actions` / tool plane
 
-The earlier draft opened human screens and puppeteered them. **That default is reversed.** The Activity window is the AI’s hands. Human screens open only when the user asks for help, or for **Settings** (navigate-only).
+## Genie loop (speed)
 
-See [iui-method-note.md](./iui-method-note.md) for the method stub.
+The Activity window is the AI’s hands. **Do not wait for Luna** to paint. User speech hits `hearAndDrive` immediately: local intent starts the beat, spoken text appears as-is, tools merge into the same beat instead of restarting SHOW.
 
----
+| Clock | Duration |
+|-------|----------|
+| SHOW (lattice / road only) | 160ms — skipped when the utterance already named the beat |
+| Speech quiet before HOLD | 70ms |
+| HOLD (assent) | 850ms (1300ms kids) |
+| Result linger | 420ms |
+
+Ghost fields snap. The stage does not remount on phase. Hourglass history never covers a live act. Voice failure drops Done/PROCESSING and offers type-instead.
+
+Human screens open only when the user asks for help, or for **Settings** (navigate-only). See [iui-method-note.md](./iui-method-note.md) for the method stub.
 
 ---
 

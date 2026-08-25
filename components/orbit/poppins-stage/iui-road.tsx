@@ -4,7 +4,6 @@ import Animated, {
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withSpring,
 } from 'react-native-reanimated';
 
@@ -28,10 +27,7 @@ export function IuiRoad({ stop, accent, drawRoad = true }: Props) {
   useEffect(() => {
     height.value = 0;
     if (!drawRoad) return;
-    height.value = withDelay(
-      80,
-      withSpring(56, motion.smooth)
-    );
+    height.value = withSpring(56, motion.snappy);
   }, [drawRoad, height, stop.id]);
 
   const road = useAnimatedStyle(() => ({ height: height.value }));
@@ -42,7 +38,7 @@ export function IuiRoad({ stop, accent, drawRoad = true }: Props) {
         <Animated.View style={[styles.road, { backgroundColor: `${accent}88` }, road]} />
       ) : null}
       <Animated.View
-        entering={FadeInDown.duration(motionDuration.smooth)}
+        entering={FadeInDown.duration(motionDuration.snappy)}
         style={[styles.stop, { borderColor: `${accent}66`, backgroundColor: `${accent}18` }]}>
         <Text style={styles.emoji}>{stop.emoji ?? '📍'}</Text>
         <Text style={[styles.label, { color: c.text }]}>{stop.label}</Text>

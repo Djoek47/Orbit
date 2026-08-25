@@ -17,7 +17,7 @@ Beats are the grammar: SHOW → NARROW → UNFOLD → HOLD → SETTLE → CHAIN.
 
 The architecture name is **AIUIC** (Artificial Intelligence Interface Control), also called IUI / EUI: a universal UI that Poppins controls. The overlay is not a chatbot caption — it is the Assign grid, grocery card, and done check, brought up and taken away by the model.
 
-**Silence is assent.** A visible temporal HOLD (~1.5s, longer for kids) sits on a previewed mutation. Saying nothing commits. Speech steers. “Wait” freezes. “I’ll do it” coaches into a human editor.
+**Silence is assent.** A visible temporal HOLD (~0.85s, longer for kids) sits on a previewed mutation. Saying nothing commits. Speech steers. “Wait” freezes. “I’ll do it” coaches into a human editor. Spoken words paint on the stage as they arrive — the loop is a genie, not a loading bar.
 
 **Barge-in rewinds a beat** (assignee, day) rather than discarding the whole act. Settings, billing, account, and reward-model never HOLD-commit; they Coach-navigate only.
 

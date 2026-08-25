@@ -30,7 +30,7 @@ import {
   personalUsd,
   summarizeAiUsage,
 } from '@/lib/ai/credits';
-import { driveAiuic } from '@/lib/poppins/aiuic';
+import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
 import {
   continuityListenPrompt,
   loadIuiContinuity,
@@ -41,7 +41,6 @@ import {
   snapshotFromDrive,
   type IuiContinuity,
 } from '@/lib/poppins/iui-continuity';
-import { parseHouseholdIntent } from '@/lib/poppins/ui-intent';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
 import { copyIuiVoiceError } from '@/lib/poppins/iui-voice-error';
@@ -187,6 +186,17 @@ export default function PoppinsScreen() {
     const copy = copyIuiVoiceError(raw);
     setError(copy.message);
     if (copy.offerKeyboard) setShowText(true);
+    setConnecting(false);
+    setLiveConnected(false);
+    setVoiceState('idle');
+    setListening(false);
+    setRemoteStreamUrl(null);
+    try {
+      voiceRef.current?.disconnect();
+    } catch {
+      /* already down */
+    }
+    voiceRef.current = null;
   };
 
   const flashToolSuccess = (label: string) => {
@@ -286,13 +296,7 @@ export default function PoppinsScreen() {
         text,
       });
       void saveIuiContinuity(continuityRef.current);
-      if (poppinsUiOrchestrator.applySpeech(text, memberNamesRef.current)) {
-        return;
-      }
-      const inferred = parseHouseholdIntent(text);
-      if (inferred.length) {
-        driveAiuic(inferred, text, { kid: kidSessionRef.current, replace: true });
-      }
+      hearAndDrive(text, memberNamesRef.current, { kid: kidSessionRef.current });
     } else {
       continuityRef.current = rememberTurn(continuityRef.current, household.id, {
         role: 'assistant',
@@ -399,6 +403,7 @@ export default function PoppinsScreen() {
     setLiveCaption(applyLiveCaptionTurn(null, 'you', trimmed, true));
     lastUtteranceRef.current = trimmed;
     setError('');
+    hearAndDrive(trimmed, memberNamesRef.current, { kid: kidSessionRef.current });
 
     // Live duplex: inject into the same WebRTC conversation.
     if (voiceRef.current?.isConnected) {
@@ -524,7 +529,10 @@ export default function PoppinsScreen() {
               borderColor: glassBorder(0.1),
             },
           ]}
-          onPress={() => setShowActivity(true)}
+          onPress={() => {
+            if (drive.live) return;
+            setShowActivity(true);
+          }}
           accessibilityRole="button"
           accessibilityLabel="Activity">
           <PoppinsHourglass size={18} color="#2DD4BF" active={isActive || monitorFeed.length > 0} />

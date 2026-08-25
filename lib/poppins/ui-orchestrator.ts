@@ -10,9 +10,11 @@ import { mapUiActionsToPlaylist } from '@/lib/poppins/ui-tool-map';
 import {
   HOLD_MS_DEFAULT,
   HOLD_MS_KID,
+  NONE_LINGER_MS,
+  RESULT_LINGER_MS,
+  SETTLE_CLEAR_MS,
   SHOW_MS,
   SPEECH_QUIET_MS,
-  UNFOLD_MS,
   sceneNeedsUnfold,
   type IuiBeat,
   type IuiPayload,
@@ -144,7 +146,7 @@ async function settleCurrent() {
     armBeat();
     return;
   }
-  setTimeout(() => clear(), 700);
+  setTimeout(() => clear(), SETTLE_CLEAR_MS);
 }
 
 function startHoldClock(beat: IuiBeat) {
@@ -187,23 +189,63 @@ function scheduleUnfold() {
   }, SHOW_MS);
 }
 
+/** Named in the utterance — do not wait SHOW before painting. */
+function beatCanSkipShow(beat: IuiBeat): boolean {
+  if (beat.scene === 'calendar_zoom' || beat.scene === 'itinerary_stage') return false;
+  if (!sceneNeedsUnfold(beat.scene)) return true;
+  const p = beat.payload;
+  if (beat.scene === 'task_compose') {
+    return Boolean(p.assignee || p.title || p.libraryTaskId || p.category);
+  }
+  if (beat.scene === 'grocery_add') return Boolean(p.groceryName);
+  return false;
+}
+
+function canMergeBeat(current: IuiBeat, incoming: IuiBeat): boolean {
+  return current.scene === incoming.scene && current.commit === incoming.commit;
+}
+
+function mergeIncomingPlaylist(playlist: IuiBeat[]) {
+  const current = currentBeat();
+  const incoming = playlist[0];
+  if (!current || !incoming || !canMergeBeat(current, incoming)) return false;
+  patchCurrentPayload(incoming.payload);
+  const rest = playlist.slice(1);
+  const kept = state.playlist.slice(0, state.index + 1);
+  setState({
+    playlist: rest.length ? [...kept, ...rest] : kept,
+    live: true,
+    thinkingLine: incoming.payload.thinkingLine ?? state.thinkingLine,
+  });
+  if (state.phase === 'show' && beatCanSkipShow(currentBeat() ?? incoming)) {
+    setState({ phase: 'unfold' });
+  }
+  maybeArmHold();
+  return true;
+}
+
 function armBeat() {
   clearAllTimers();
   const beat = currentBeat();
   if (!beat || state.frozen) return;
-  setState({ phase: 'show', holding: false, holdStartedAt: null });
+  const skipShow = beatCanSkipShow(beat);
+  setState({
+    phase: skipShow ? 'unfold' : 'show',
+    holding: false,
+    holdStartedAt: null,
+  });
   hapticHandler?.('show');
 
   if (beat.commit === 'confirm') {
-    if (sceneNeedsUnfold(beat.scene)) scheduleUnfold();
+    if (sceneNeedsUnfold(beat.scene) && !skipShow) scheduleUnfold();
     return;
   }
 
   if (beat.commit === 'none') {
     const linger =
       beat.scene === 'list_peek' || beat.scene === 'member_pick' || beat.scene === 'result_mark'
-        ? 1600
-        : 900;
+        ? RESULT_LINGER_MS
+        : NONE_LINGER_MS;
     holdTimer = setTimeout(() => {
       if (state.frozen || currentBeat()?.id !== beat.id) return;
       void settleCurrent();
@@ -211,6 +253,10 @@ function armBeat() {
     return;
   }
 
+  if (skipShow) {
+    maybeArmHold();
+    return;
+  }
   scheduleUnfold();
 }
 
@@ -283,6 +329,9 @@ export const poppinsUiOrchestrator = {
     let playlist = mapUiActionsToPlaylist(actions);
     if (opts?.kid) playlist = playlist.filter((beat) => beat.scene !== 'reward_mint');
     if (!playlist.length) return;
+    if (state.live && state.playlist.length && mergeIncomingPlaylist(playlist)) {
+      return;
+    }
     if (state.live && state.playlist.length && !opts?.replace) {
       setState({ playlist: [...state.playlist, ...playlist], live: true });
       return;
@@ -309,8 +358,9 @@ export const poppinsUiOrchestrator = {
     maybeArmHold();
   },
   syncSpoken(text: string, memberNames: string[] = []) {
-    if (!state.live) return;
+    if (!text.trim()) return;
     setState({ spoken: text });
+    if (!state.live) return;
     const beat = currentBeat();
     if (!beat) return;
     const names =

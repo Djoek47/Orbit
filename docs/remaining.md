@@ -58,7 +58,7 @@ Architecture: [`iui-ux-architecture.md`](./iui-ux-architecture.md). Method: [`iu
 - **P1** Memory / continuity — Speak continues for 4h. Hangup pauses an open HOLD; next Speak restores. WebRTC still tears down.
 - **P2** Stage as the primary surface — live act is on the Poppins tab. Keyboard is a side door (shown by default only on Expo Go).
 - **P3** Beats / HOLD / barge-in — grammar unchanged; hangup/background is pause, not veto.
-- **P4** Strip mixed leftover — Activity sheet is history only; closing it does not cancel the act.
+- **P4** Strip mixed leftover — Activity sheet is history only; hourglass does not open over a live HOLD; closing it does not cancel the act. Spoken words paint immediately (`hearAndDrive`); Luna merges the same beat (no SHOW restart). HOLD ~0.85s.
 - **P5** Settings / billing / account — coach-navigate only; never HOLD-commit.
 - **Apple product logic (in IPA 41)** — one Speak (orb is status); Activity is the hourglass only; returning to the tab shows a frozen act without arming HOLD; mic/network failure opens type-instead; commit failure keeps the preview.
 

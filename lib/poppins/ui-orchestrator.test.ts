@@ -4,7 +4,8 @@ import { executePoppinsTool } from '@/lib/ai/execute-poppins-tool';
 import { POPPINS_TOOL_DEFINITIONS } from '@/lib/ai/poppins-tools';
 import { parseHouseholdIntent } from '@/lib/poppins/ui-intent';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
-import { HOLD_MS_KID, isCoachRoute } from '@/lib/poppins/ui-scenes';
+import { hearAndDrive } from '@/lib/poppins/aiuic';
+import { HOLD_MS_DEFAULT, HOLD_MS_KID, isCoachRoute } from '@/lib/poppins/ui-scenes';
 import { interpretStageSpeech } from '@/lib/poppins/ui-speech';
 import { mapUiActionsToPlaylist } from '@/lib/poppins/ui-tool-map';
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
@@ -168,6 +169,20 @@ if (steer.kind === 'revise') assert.equal(steer.patch.assignee, 'Maya');
 assert.equal(interpretStageSpeech('wait').kind, 'freeze');
 assert.equal(interpretStageSpeech('no').kind, 'veto');
 assert.equal(interpretStageSpeech('yes').kind, 'confirm');
+
+assert.equal(HOLD_MS_DEFAULT, 850);
+
+poppinsUiOrchestrator.clear();
+poppinsUiOrchestrator.setSpeaking(false);
+hearAndDrive('Add a dishwasher task for Alex', ['Alex', 'Maya']);
+assert.equal(poppinsUiOrchestrator.getState().live, true);
+assert.match(poppinsUiOrchestrator.getState().spoken, /dishwasher/i);
+assert.equal(poppinsUiOrchestrator.getState().phase, 'unfold', 'named beat skips SHOW wait');
+const genieId = poppinsUiOrchestrator.getState().playlist[0]?.id;
+hearAndDrive('Add a dishwasher task for Alex tomorrow', ['Alex', 'Maya']);
+assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.id, genieId, 'partials merge, do not restart');
+assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.due, 'Tomorrow');
+assert.equal(poppinsUiOrchestrator.getState().playlist[0]?.payload.assignee, 'Alex');
 
 poppinsUiOrchestrator.drive(
   [{ type: 'create_task_draft', title: 'Dishwasher', assignee: 'Alex' }],

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState, type
 import { usePathname } from 'expo-router';
 
 import { useOrbitOptional } from '@/store/orbit-store';
-import { driveAiuic } from '@/lib/poppins/aiuic';
+import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
 import {
   continuityListenPrompt,
   loadIuiContinuity,
@@ -14,7 +14,6 @@ import {
   type IuiContinuity,
 } from '@/lib/poppins/iui-continuity';
 import { copyIuiVoiceError } from '@/lib/poppins/iui-voice-error';
-import { parseHouseholdIntent } from '@/lib/poppins/ui-intent';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
 import {
@@ -120,9 +119,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
             }
             if (role === 'user') {
               lastUtteranceRef.current = text;
-              if (poppinsUiOrchestrator.applySpeech(text)) return;
-              const inferred = parseHouseholdIntent(text);
-              if (inferred.length) driveAiuic(inferred, text, { replace: true });
+              hearAndDrive(text, [], { kid });
             } else {
               poppinsUiOrchestrator.syncSpoken(text);
             }
@@ -142,6 +139,12 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
             reportedError = true;
             setError(copyIuiVoiceError(message).message);
             setVisual('idle');
+            try {
+              session.disconnect();
+            } catch {
+              /* already down */
+            }
+            voiceRef.current = null;
           },
         });
         const ok = await session.connect(household, metrics, orbit?.currentMember?.majordomoProfileId, {
@@ -175,10 +178,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
       if (voiceRef.current?.isConnected) {
         voiceRef.current.sendUserText(trimmed);
         setCaption(trimmed);
-        if (!poppinsUiOrchestrator.applySpeech(trimmed)) {
-          const inferred = parseHouseholdIntent(trimmed);
-          if (inferred.length) driveAiuic(inferred, trimmed, { replace: true });
-        }
+        hearAndDrive(trimmed, [], { kid });
         return;
       }
       setVisual('thinking');
@@ -188,9 +188,9 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
         setCaption(result.answer);
         appendPoppinsTurn?.(trimmed, result.answer);
         if (result.ui_actions?.length) {
-          driveAiuic(result.ui_actions, trimmed, { replace: true });
+          driveAiuic(result.ui_actions, trimmed, { replace: true, kid });
         } else {
-          driveAiuic([], trimmed, { replace: true });
+          hearAndDrive(trimmed, [], { kid });
         }
         setVisual('speaking');
         setTimeout(() => setVisual('idle'), 1600);
@@ -199,7 +199,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
         setVisual('idle');
       }
     },
-    [appendPoppinsTurn, askPoppins]
+    [appendPoppinsTurn, askPoppins, kid]
   );
 
   const value = useMemo<PoppinsLiveValue>(

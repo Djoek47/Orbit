@@ -135,14 +135,20 @@ export type IuiBeat = {
   payload: IuiPayload;
 };
 
-export const HOLD_MS_DEFAULT = 1500;
-export const HOLD_MS_KID = 2200;
-/** SHOW beat before UNFOLD so GhostField / Lattice can land. */
-export const SHOW_MS = 480;
-/** UNFOLD (card / road / day) before HOLD. Matches motion.settle. */
-export const UNFOLD_MS = 600;
-/** Quiet gap after speech before HOLD may start. */
-export const SPEECH_QUIET_MS = 400;
+/** Silence-as-assent. Short on purpose — genie, not a loading bar. */
+export const HOLD_MS_DEFAULT = 850;
+export const HOLD_MS_KID = 1300;
+/** Lattice / road flash before UNFOLD. Skip entirely when the utterance already named the beat. */
+export const SHOW_MS = 160;
+/** UNFOLD (card / road / day). Calendar zoom still uses this as a visual, not a wait. */
+export const UNFOLD_MS = 220;
+/** Quiet gap after speech before HOLD. Words already painted; this is only the commit clock. */
+export const SPEECH_QUIET_MS = 70;
+/** commit:none linger — result check, then chain or rest. */
+export const RESULT_LINGER_MS = 420;
+export const NONE_LINGER_MS = 260;
+/** Clear the stage after the last settle. */
+export const SETTLE_CLEAR_MS = 200;
 
 export function defaultCommitForScene(scene: IuiScene): IuiCommitKind {
   if ((HOLD_SCENES as readonly string[]).includes(scene)) return 'hold';

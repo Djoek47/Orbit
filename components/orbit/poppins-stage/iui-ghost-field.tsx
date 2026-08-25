@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -7,34 +6,17 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 type Props = {
   text: string;
   accent: string;
-  /** Jump to full title when the spoken clause already named it. */
+  /** Kept for callers; spoken text is always instant. */
   catchUp?: boolean;
 };
 
-/** Title types itself — speak a correction mid-type. */
-export function IuiGhostField({ text, accent, catchUp }: Props) {
+/** Spoken words land at once — no typewriter lag. */
+export function IuiGhostField({ text, accent }: Props) {
   const { c } = useOrbitColors();
-  const [shown, setShown] = useState('');
-
-  useEffect(() => {
-    if (catchUp) {
-      setShown(text);
-      return;
-    }
-    setShown('');
-    if (!text) return;
-    let i = 0;
-    const timer = setInterval(() => {
-      i += 1;
-      setShown(text.slice(0, i));
-      if (i >= text.length) clearInterval(timer);
-    }, 28);
-    return () => clearInterval(timer);
-  }, [catchUp, text]);
 
   return (
     <Text style={[styles.field, { color: c.text, borderBottomColor: `${accent}66` }]}>
-      {shown || ' '}
+      {text || ' '}
     </Text>
   );
 }

@@ -427,11 +427,15 @@ export function PoppinsStage() {
 
   return (
     <Animated.View
-      key={`${beat.id}-${drive.phase}`}
-      entering={FadeIn.duration(motionDuration.smooth)}
+      key={beat.id}
+      entering={FadeIn.duration(motionDuration.snappy)}
       exiting={FadeOut.duration(motionDuration.snappy)}
       style={styles.root}>
-      {payload.thinkingLine || drive.thinkingLine ? (
+      {drive.spoken.trim() ? (
+        <Text style={[styles.spoken, { color: c.textMuted }]} numberOfLines={2}>
+          {drive.spoken.trim()}
+        </Text>
+      ) : payload.thinkingLine || drive.thinkingLine ? (
         <Text style={[styles.think, { color: c.textSubtle }]}>
           {payload.thinkingLine || drive.thinkingLine}
         </Text>
@@ -621,6 +625,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontWeight: '600',
     textAlign: 'center',
+  },
+  spoken: {
+    fontSize: 15,
+    fontWeight: '400',
+    letterSpacing: -0.2,
+    textAlign: 'center',
+    paddingHorizontal: 12,
   },
   lead: {
     fontSize: 22,

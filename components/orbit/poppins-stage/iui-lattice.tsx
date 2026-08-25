@@ -32,7 +32,7 @@ export function IuiLattice({ monthLabel, dayNumber, accent }: Props) {
           return (
             <Animated.View
               key={n}
-              entering={selected ? ZoomIn.duration(motionDuration.settle) : FadeIn.duration(motionDuration.smooth)}
+              entering={selected ? ZoomIn.duration(motionDuration.snappy) : FadeIn.duration(80)}
               style={[
                 styles.cell,
                 selected && {
