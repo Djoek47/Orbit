@@ -696,6 +696,29 @@ export const mockHousehold: HouseholdSnapshot = {
   ],
   itineraries: [
     {
+      id: 'itin-grocery-run',
+      householdId: 'hh-rivera',
+      title: 'Plan a grocery run.',
+      date: todayKey(0),
+      status: 'active',
+      suggestedByPoppins: true,
+      stops: [
+        {
+          id: 'stop-metro',
+          label: 'Metro',
+          kind: 'grocery',
+          address: '45.5740, -73.6850',
+          placeQuery: 'Metro',
+          lat: 45.574,
+          lng: -73.685,
+          groceryListId: 'cart-today',
+          etaMinutes: 12,
+          sortOrder: 0,
+          status: 'active',
+        },
+      ],
+    },
+    {
       id: 'itin-1',
       householdId: 'hh-rivera',
       title: 'After-school run',

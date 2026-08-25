@@ -1,4 +1,5 @@
 import { mockHousehold } from '@/data/mock-household';
+import { applyStopOrder } from '@/lib/itinerary/trip-intent';
 import { createLocalId, isMockMode } from '@/repositories/repository-utils';
 import type { CreateItineraryInput, Itinerary, ItineraryStop } from '@/types/orbit';
 
@@ -97,13 +98,7 @@ export const itineraryRepository = {
     if (!current) {
       return null;
     }
-    const byId = new Map(current.stops.map((stop) => [stop.id, stop]));
-    const stops = stopIds
-      .map((id, index) => {
-        const stop = byId.get(id);
-        return stop ? { ...stop, sortOrder: index } : null;
-      })
-      .filter((stop): stop is ItineraryStop => Boolean(stop));
+    const stops = applyStopOrder(current.stops, stopIds);
     return this.update({ ...current, stops });
   },
 };

@@ -1,19 +1,26 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppText as Text } from '@/components/orbit/app-text';
+import { ContextMenu } from '@/components/orbit/context-menu';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
-import { RouteSteps } from '@/components/orbit/route-steps';
-import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { orbitColors, orbitScreen, space, typography } from '@/constants/orbit-theme';
+import {
+  makeStopNextIds,
+  moveOpenStopIds,
+  stopPlaceLine,
+  todayIso,
+  tripIntent,
+} from '@/lib/itinerary/trip-intent';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-import type { ItineraryStopKind } from '@/types/orbit';
-import { AppText as Text } from '@/components/orbit/app-text';
+import type { ItineraryStop, ItineraryStopKind } from '@/types/orbit';
 
 const STOP_EMOJI: Record<ItineraryStopKind, string> = {
   school: '🏫',
@@ -27,33 +34,7 @@ const STOP_EMOJI: Record<ItineraryStopKind, string> = {
   custom: '📍',
 };
 
-const STOP_CATEGORY: Record<ItineraryStopKind, string> = {
-  school: 'School',
-  work: 'Work',
-  grocery: 'Grocery',
-  pickup: 'Pickup',
-  practice: 'Practice',
-  family: 'Family',
-  home: 'Home',
-  shop: 'Shop',
-  custom: 'Errand',
-};
-
-function formatTripDate(dateKey: string): string {
-  const today = new Date().toISOString().slice(0, 10);
-  if (dateKey === today) return 'Today';
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  if (dateKey === tomorrow.toISOString().slice(0, 10)) return 'Tomorrow';
-  return new Date(`${dateKey}T12:00:00`).toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function mapsLabel(app: string): string {
-  if (app === 'auto') return 'Maps';
+function mapsSpokenName(app: string): string {
   if (app === 'apple') return 'Apple Maps';
   if (app === 'google') return 'Google Maps';
   if (app === 'waze') return 'Waze';
@@ -70,57 +51,43 @@ export default function ItineraryDetailScreen() {
     household,
     openFullItineraryInMaps,
     openStopInMaps,
-    orbitPalette,
     preferredMapsApp,
     reorderItineraryStops,
     rerunItinerary,
     toggleItineraryFavorite,
   } = useOrbit();
+  const [editingRoute, setEditingRoute] = useState(false);
+
   const itinerary = household.itineraries?.find((item) => item.id === id);
-  const ordered = useMemo(
-    () => (itinerary ? [...itinerary.stops].sort((a, b) => a.sortOrder - b.sortOrder) : []),
-    [itinerary]
+  const intent = useMemo(
+    () => (itinerary ? tripIntent(itinerary, todayIso()) : null),
+    [itinerary],
   );
 
-  const overviewSteps = useMemo(
-    () =>
-      ordered.map((stop, index) => ({
-        id: stop.id,
-        emoji: stop.status === 'done' ? '✓' : STOP_EMOJI[stop.kind],
-        title: stop.label,
-        address: stop.address || stop.placeQuery || 'No address',
-        category: STOP_CATEGORY[stop.kind],
-        driveMinutes:
-          index < ordered.length - 1
-            ? Math.max(
-                2,
-                Math.min(
-                  12,
-                  Math.round(
-                    ((ordered[index + 1]?.etaMinutes ?? 10) - (stop.etaMinutes ?? 10)) * 0.25
-                  ) || 3
-                )
-              )
-            : undefined,
-        estimatedMinutes: stop.etaMinutes ?? 15,
-        active: stop.status === 'active',
-      })),
-    [ordered]
-  );
+  useEffect(() => {
+    if (!intent?.showReorder) setEditingRoute(false);
+  }, [intent?.showReorder]);
 
-  const doneCount = ordered.filter((s) => s.status === 'done').length;
-  const canRun = itinerary?.status === 'active' || itinerary?.status === 'draft';
   const tripColor = accentTheme.primary;
-  const activeStop = ordered.find((s) => s.status === 'active');
 
   const themedBack = (
-    <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+    <Pressable
+      onPress={() => router.back()}
+      style={styles.backBtn}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel="Back to Plan">
       <MaterialIcons name="chevron-left" size={22} color={tripColor} />
       <Text style={[styles.backLabel, { color: tripColor }]}>Plan</Text>
     </Pressable>
   );
 
-  if (!itinerary) {
+  const fail = (message: string) => {
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    Alert.alert(message);
+  };
+
+  if (!itinerary || !intent) {
     return (
       <ScrollView
         style={orbitScreen.container}
@@ -129,6 +96,9 @@ export default function ItineraryDetailScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         {themedBack}
         <Text style={typography.title2}>Trip not found</Text>
+        <Text style={[styles.emptyBody, { color: c.textMuted }]}>
+          It may have been removed. Your other trips are still in Plan.
+        </Text>
         <OrbitButton tone="secondary" onPress={() => router.back()}>
           Back to Plan
         </OrbitButton>
@@ -136,15 +106,48 @@ export default function ItineraryDetailScreen() {
     );
   }
 
-  const moveStop = async (stopId: string, direction: -1 | 1) => {
-    const ids = ordered.map((stop) => stop.id);
-    const index = ids.indexOf(stopId);
-    const next = index + direction;
-    if (index < 0 || next < 0 || next >= ids.length) return;
-    const swapped = [...ids];
-    [swapped[index], swapped[next]] = [swapped[next]!, swapped[index]!];
-    await reorderItineraryStops(itinerary.id, swapped);
+  const current = intent.current;
+  const mapsName = mapsSpokenName(preferredMapsApp);
+
+  const onDirections = async () => {
+    try {
+      await openFullItineraryInMaps(itinerary.id);
+    } catch {
+      fail(`Couldn’t open ${mapsName}. Try again in a moment.`);
+    }
   };
+
+  const onImHere = async () => {
+    if (!current) return;
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await advanceItineraryStop(itinerary.id, current.id);
+    } catch {
+      fail('Couldn’t update this stop. Try again.');
+    }
+  };
+
+  const onRunAgain = async () => {
+    try {
+      const created = await rerunItinerary(itinerary.id);
+      if (created) router.replace(`/itinerary/${created.id}` as never);
+    } catch {
+      fail('Couldn’t start this run again. Try again.');
+    }
+  };
+
+  const onReorder = async (ids: string[] | null) => {
+    if (!ids) return;
+    try {
+      await reorderItineraryStops(itinerary.id, ids);
+    } catch {
+      fail('Couldn’t change the order. Try again.');
+    }
+  };
+
+  const favoriteLabel = itinerary.favorite
+    ? 'Remove from preferred trips'
+    : 'Save as preferred trip';
 
   return (
     <ScrollView
@@ -153,286 +156,308 @@ export default function ItineraryDetailScreen() {
       showsVerticalScrollIndicator={false}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {themedBack}
-
-      <View style={styles.header}>
-        <PageEyebrow>{formatTripDate(itinerary.date)}</PageEyebrow>
-        <Text style={typography.title1}>{itinerary.title}</Text>
-        {itinerary.summary ? (
-          <Text style={[styles.summary, { color: c.textMuted }]}>{itinerary.summary}</Text>
-        ) : null}
-        <View style={styles.metaRow}>
-          <View style={[styles.statusChip, { backgroundColor: `${tripColor}18` }]}>
-            <Text style={[styles.statusChipText, { color: tripColor }]}>
-              {itinerary.status === 'completed' ? 'Done' : itinerary.status === 'draft' ? 'Draft' : 'Active'}
-            </Text>
-          </View>
-          {itinerary.favorite ? (
-            <View style={[styles.statusChip, { backgroundColor: 'rgba(251,191,36,0.14)' }]}>
-              <MaterialIcons name="star" size={12} color={orbitColors.rankGold} />
-              <Text style={[styles.statusChipText, { color: orbitColors.rankGold }]}>Preferred</Text>
-            </View>
-          ) : null}
-          {itinerary.suggestedByPoppins ? (
-            <View style={[styles.statusChip, { backgroundColor: 'rgba(6,182,212,0.14)' }]}>
-              <MaterialIcons name="auto-awesome" size={12} color={orbitColors.poppinsCyan} />
-              <Text style={[styles.statusChipText, { color: orbitColors.poppinsCyan }]}>Poppins</Text>
-            </View>
-          ) : null}
-          <Text style={[styles.progress, { color: c.textMuted }]}>
-            {doneCount}/{ordered.length}
-          </Text>
-        </View>
+      <View style={styles.topBar}>
+        {themedBack}
+        <Pressable
+          onPress={() => void toggleItineraryFavorite(itinerary.id)}
+          style={styles.starBtn}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={favoriteLabel}
+          accessibilityState={{ selected: Boolean(itinerary.favorite) }}>
+          <MaterialIcons
+            name={itinerary.favorite ? 'star' : 'star-border'}
+            size={22}
+            color={itinerary.favorite ? orbitColors.rankGold : c.textMuted}
+          />
+        </Pressable>
       </View>
 
-      {canRun ? (
-        <Pressable onPress={() => void openFullItineraryInMaps(itinerary.id)}>
-          <LinearGradient
-            colors={[tripColor, accentTheme.secondary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.startBtn}>
-            <MaterialIcons name="navigation" size={18} color={orbitPalette.ink} />
-            <Text style={[styles.startBtnText, { color: orbitPalette.ink }]}>
-              Start trip in {mapsLabel(preferredMapsApp)}
-            </Text>
-          </LinearGradient>
-        </Pressable>
+      <View style={styles.header}>
+        <PageEyebrow>{intent.subtitle}</PageEyebrow>
+        <Text style={typography.title1} accessibilityRole="header">
+          {itinerary.title}
+        </Text>
+        {intent.showSummary && itinerary.summary ? (
+          <Text style={[styles.summary, { color: c.textMuted }]}>{itinerary.summary}</Text>
+        ) : null}
+        {itinerary.suggestedByPoppins ? (
+          <Text style={[styles.poppinsCredit, { color: c.textSubtle }]}>Suggested by Poppins</Text>
+        ) : null}
+      </View>
+
+      {intent.phase === 'empty' ? (
+        <GlassCard>
+          <Text style={[typography.title3, { color: c.text }]}>{intent.emptyTitle}</Text>
+          <Text style={[styles.emptyBody, { color: c.textMuted }]}>{intent.emptyBody}</Text>
+          <OrbitButton tone="secondary" onPress={() => router.back()}>
+            Back to Plan
+          </OrbitButton>
+        </GlassCard>
       ) : null}
 
-      <GlassCard
-        elevated
-        style={[
-          styles.routeCard,
-          {
-            backgroundColor: orbitPalette.isDark ? 'rgba(255,255,255,0.05)' : orbitPalette.card,
-            borderColor: `${tripColor}28`,
-          },
-        ]}>
-        <Text style={[styles.routeHeading, { color: orbitPalette.text }]}>Route</Text>
-        <RouteSteps steps={overviewSteps} accentColor={tripColor} emphasized />
-      </GlassCard>
-
-      {activeStop ? (
-        <GlassCard elevated style={[styles.activeCard, { borderColor: `${tripColor}40` }]}>
-          <Text style={[styles.activeLabel, { color: tripColor }]}>Current stop</Text>
-          <Text style={[styles.stopTitle, { color: orbitPalette.text }]}>{activeStop.label}</Text>
-          <View style={styles.activeActions}>
-            <OrbitButton onPress={() => void advanceItineraryStop(itinerary.id, activeStop.id)}>
-              Arrived → next
-            </OrbitButton>
-            <View style={styles.linkRow}>
+      {current ? (
+        <GlassCard elevated style={styles.heroCard}>
+          <Text style={[styles.heroName, { color: c.text }]}>{current.label}</Text>
+          {stopPlaceLine(current) ? (
+            <Text style={[styles.heroPlace, { color: c.textMuted }]}>{stopPlaceLine(current)}</Text>
+          ) : null}
+          <View style={styles.heroActions}>
+            {intent.showDirections ? (
+              <OrbitButton onPress={() => void onDirections()}>{intent.primaryCtaLabel}</OrbitButton>
+            ) : null}
+            {intent.showImHere ? (
+              <OrbitButton tone="secondary" onPress={() => void onImHere()}>
+                {intent.imHereLabel}
+              </OrbitButton>
+            ) : null}
+            {intent.showShopping ? (
               <Pressable
-                onPress={() => void openStopInMaps(itinerary.id, activeStop.id)}
-                style={styles.textLink}>
-                <Text style={[styles.textLinkLabel, { color: tripColor }]}>Open this stop</Text>
+                onPress={() => router.push('/shopping-mode' as never)}
+                style={styles.textLink}
+                accessibilityRole="button"
+                accessibilityLabel="Open shopping list">
+                <Text style={[styles.textLinkLabel, { color: tripColor }]}>Open list</Text>
               </Pressable>
-              {activeStop.kind === 'grocery' || activeStop.kind === 'shop' ? (
-                <Pressable
-                  onPress={() => router.push('/shopping-mode' as never)}
-                  style={styles.textLink}>
-                  <Text style={[styles.textLinkLabel, { color: tripColor }]}>Shopping list</Text>
-                </Pressable>
-              ) : null}
-            </View>
+            ) : null}
           </View>
         </GlassCard>
       ) : null}
 
-      <GlassCard style={styles.reorderCard}>
-        <Text style={[styles.routeHeading, { color: orbitPalette.text }]}>Reorder stops</Text>
-        {ordered.map((stop, index) => (
-          <View key={stop.id} style={styles.reorderRow}>
-            <Text style={{ fontSize: 16 }}>{STOP_EMOJI[stop.kind]}</Text>
-            <Text
-              style={[
-                styles.reorderLabel,
-                { color: orbitPalette.text },
-                stop.status === 'done' && [styles.doneText, { color: c.textSubtle }],
-              ]}
-              numberOfLines={1}>
-              {index + 1}. {stop.label}
-            </Text>
-            {stop.status !== 'done' ? (
-              <View style={styles.reorderCol}>
-                <Pressable onPress={() => void moveStop(stop.id, -1)} hitSlop={10}>
-                  <MaterialIcons name="keyboard-arrow-up" size={18} color={orbitPalette.textSubtle} />
-                </Pressable>
-                <Pressable onPress={() => void moveStop(stop.id, 1)} hitSlop={10}>
-                  <MaterialIcons name="keyboard-arrow-down" size={18} color={orbitPalette.textSubtle} />
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
-        ))}
-      </GlassCard>
+      {intent.primaryCta === 'run_again' ? (
+        <OrbitButton onPress={() => void onRunAgain()}>{intent.primaryCtaLabel}</OrbitButton>
+      ) : null}
 
-      <View style={styles.secondaryRow}>
-        <Pressable
-          onPress={() => void toggleItineraryFavorite(itinerary.id)}
-          style={styles.secondaryChip}>
-          <MaterialIcons
-            name={itinerary.favorite ? 'star' : 'star-border'}
-            size={16}
-            color={orbitColors.rankGold}
-          />
-          <Text style={[styles.secondaryLabel, { color: c.textSoft }]}>
-            {itinerary.favorite ? 'Preferred' : 'Save preferred'}
-          </Text>
-        </Pressable>
-        {itinerary.status === 'completed' || itinerary.favorite ? (
+      {intent.showComingUp && !editingRoute ? (
+        <GlassCard style={styles.sectionCard}>
+          <Text style={[styles.sectionHeading, { color: c.textSubtle }]}>Coming up</Text>
+          {intent.upcoming.map((stop) => (
+            <UpcomingRow
+              key={stop.id}
+              stop={stop}
+              muted={c.textMuted}
+              text={c.text}
+              editing={false}
+              onDirections={() => void openStopInMaps(itinerary.id, stop.id)}
+              onMakeNext={() => void onReorder(makeStopNextIds(itinerary, stop.id))}
+              onMove={(direction) => void onReorder(moveOpenStopIds(itinerary, stop.id, direction))}
+            />
+          ))}
+          {intent.showReorder ? (
+            <Pressable
+              onPress={() => setEditingRoute(true)}
+              style={styles.textLink}
+              accessibilityRole="button"
+              accessibilityLabel="Edit route">
+              <Text style={[styles.textLinkLabel, { color: tripColor }]}>Edit route</Text>
+            </Pressable>
+          ) : null}
+        </GlassCard>
+      ) : null}
+
+      {editingRoute && intent.showReorder ? (
+        <GlassCard style={styles.sectionCard}>
+          <Text style={[styles.sectionHeading, { color: c.textSubtle }]}>Route</Text>
+          {intent.remaining.map((stop) => (
+            <UpcomingRow
+              key={stop.id}
+              stop={stop}
+              muted={c.textMuted}
+              text={c.text}
+              editing
+              onDirections={() => undefined}
+              onMakeNext={() => undefined}
+              onMove={(direction) => void onReorder(moveOpenStopIds(itinerary, stop.id, direction))}
+            />
+          ))}
           <Pressable
-            onPress={() =>
-              void rerunItinerary(itinerary.id).then((created) => {
-                if (created) router.replace(`/itinerary/${created.id}` as never);
-              })
-            }
-            style={styles.secondaryChip}>
-            <MaterialIcons name="replay" size={16} color={tripColor} />
-            <Text style={[styles.secondaryLabel, { color: tripColor }]}>Run again</Text>
+            onPress={() => setEditingRoute(false)}
+            style={styles.textLink}
+            accessibilityRole="button"
+            accessibilityLabel="Done editing route">
+            <Text style={[styles.textLinkLabel, { color: tripColor }]}>Done</Text>
           </Pressable>
-        ) : null}
-      </View>
+        </GlassCard>
+      ) : null}
+
+      {intent.showCompletedRecap ? (
+        <GlassCard style={styles.sectionCard}>
+          <Text style={[styles.sectionHeading, { color: c.textSubtle }]}>Done</Text>
+          {intent.completed.map((stop) => (
+            <Text key={stop.id} style={[styles.doneLine, { color: c.textSubtle }]}>
+              {stop.label}
+            </Text>
+          ))}
+        </GlassCard>
+      ) : null}
     </ScrollView>
   );
 }
 
+function UpcomingRow({
+  stop,
+  muted,
+  text,
+  editing,
+  onDirections,
+  onMakeNext,
+  onMove,
+}: {
+  stop: ItineraryStop;
+  muted: string;
+  text: string;
+  editing: boolean;
+  onDirections: () => void;
+  onMakeNext: () => void;
+  onMove: (direction: -1 | 1) => void;
+}) {
+  const place = stopPlaceLine(stop);
+  const body = (
+    <View style={styles.upcomingRow}>
+      <Text style={styles.upcomingEmoji}>{STOP_EMOJI[stop.kind]}</Text>
+      <View style={styles.upcomingCopy}>
+        <Text style={[styles.upcomingName, { color: text }]}>{stop.label}</Text>
+        {place ? (
+          <Text style={[styles.upcomingPlace, { color: muted }]} numberOfLines={1}>
+            {place}
+          </Text>
+        ) : null}
+      </View>
+      {editing ? (
+        <View style={styles.reorderCol}>
+          <Pressable
+            onPress={() => onMove(-1)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={`Move ${stop.label} earlier`}>
+            <MaterialIcons name="keyboard-arrow-up" size={22} color={muted} />
+          </Pressable>
+          <Pressable
+            onPress={() => onMove(1)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={`Move ${stop.label} later`}>
+            <MaterialIcons name="keyboard-arrow-down" size={22} color={muted} />
+          </Pressable>
+        </View>
+      ) : (
+        <MaterialIcons name="chevron-right" size={20} color={muted} />
+      )}
+    </View>
+  );
+
+  if (editing) {
+    return body;
+  }
+
+  return (
+    <ContextMenu
+      onPress={onDirections}
+      actions={[{ key: 'next', label: 'Go here next', icon: 'flag', onPress: onMakeNext }]}>
+      {body}
+    </ContextMenu>
+  );
+}
+
 const styles = StyleSheet.create({
-  activeActions: {
-    gap: space.sm,
-    marginTop: space.md,
-  },
-  activeCard: {
-    gap: space.sm,
-  },
-  activeLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
   backBtn: {
     alignItems: 'center',
     alignSelf: 'flex-start',
     flexDirection: 'row',
     gap: 2,
-    marginBottom: 8,
     marginLeft: -4,
+    minHeight: 44,
   },
   backLabel: {
     fontSize: 15,
     fontWeight: '600',
   },
-  doneText: {
+  doneLine: {
+    fontSize: 15,
+    lineHeight: 22,
     textDecorationLine: 'line-through',
+  },
+  emptyBody: {
+    fontSize: 15,
+    lineHeight: 22,
   },
   header: {
     gap: 6,
   },
-  linkRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    justifyContent: 'center',
-  },
-  metaRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  progress: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 'auto',
-  },
-  reorderCard: {
+  heroActions: {
     gap: space.sm,
+    marginTop: space.md,
+  },
+  heroCard: {
+    gap: 4,
+  },
+  heroName: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  heroPlace: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  poppinsCredit: {
+    fontSize: 13,
   },
   reorderCol: {
     alignItems: 'center',
-    marginLeft: 2,
   },
-  reorderLabel: {
-    flex: 1,
-    fontSize: 14,
+  sectionCard: {
+    gap: space.sm,
+  },
+  sectionHeading: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  starBtn: {
+    alignItems: 'center',
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  summary: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  textLink: {
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  textLinkLabel: {
+    fontSize: 16,
     fontWeight: '600',
   },
-  reorderRow: {
+  topBar: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  upcomingCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  upcomingEmoji: {
+    fontSize: 18,
+  },
+  upcomingName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  upcomingPlace: {
+    fontSize: 13,
+  },
+  upcomingRow: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 10,
-    paddingVertical: 4,
-  },
-  routeCard: {
-    gap: space.md,
-  },
-  routeHeading: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  secondaryChip: {
-    alignItems: 'center',
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  secondaryLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  secondaryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  startBtn: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: radius.cardLarge,
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'center',
-    minHeight: 52,
-    paddingHorizontal: space.xl,
-  },
-  startBtnText: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  statusChip: {
-    alignItems: 'center',
-    borderRadius: 999,
-    flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  statusChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'capitalize',
-  },
-  stopTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  summary: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  textLink: {
-    paddingVertical: 2,
-  },
-  textLinkLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    minHeight: 44,
+    paddingVertical: 6,
   },
 });

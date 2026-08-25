@@ -332,13 +332,16 @@ Legend: **P** Purpose · **G** Primary goal · **H** Hierarchy (primary/secondar
 - **R/S** Token pass only.
 - **K** Event edit logic.
 
-### Itinerary detail — `app/itinerary/[id].tsx` [Skeleton]
-- **P** Full trip detail with stops and directions.
-- **G** Navigate/execute a planned trip.
-- **H** Primary: stop list in order. Secondary: ETA/optimize/maps-open actions.
-- **I/A/X** Matched-geometry entry; maps deep-link actions retained.
-- **R/S** Wallet-style stacked stop cards per `11-reverse-engineering-apple-apps.md`.
-- **K** Maps deep-link logic (`lib/maps/directions.ts`).
+### Itinerary detail — `app/itinerary/[id].tsx` [Detailed]
+- **P** Execute one trip: get to the current stop, do the thing, mark arrived. Product logic: `docs/itinerary-ux.md`, `lib/itinerary/trip-intent.ts`.
+- **G** Answer “where do I go now?” in one glance; hand off to Maps; advance on “I’m here.”
+- **H** Primary: current stop + Directions. Secondary: I’m here, Open list (grocery only). Hidden until needed: Coming up (2+ remaining), Edit route, Done recap, Run again (completed). Preferred lives in the header star, not a footer chip.
+- **I** Directions opens Maps. I’m here completes the stop (no confirm) and opens the next leg. Coming-up tap = directions there; long-press = Go here next. Edit route discloses reorder handles on remaining stops. Star toggles preferred.
+- **A** Existing button press only; haptic Medium on I’m here. No extra chrome motion.
+- **X** Back to Plan; star selected state; 52pt CTAs; coming-up rows 44pt; never expose lat/lng to VoiceOver.
+- **R** Duplicate Route / Current stop / Reorder lists; “1 stops”; Active/0/1 chips; “Start trip in Maps” + “Open this stop” as two names for Directions; coordinate address lines.
+- **S** One hero for one remaining stop. Lists exist only when they add information the hero does not already say.
+- **K** `openFullItineraryInMaps`, `openStopInMaps`, `advanceItineraryStop`, `reorderItineraryStops`, `toggleItineraryFavorite`, `rerunItinerary`.
 
 ### Momentum — `app/momentum.tsx` [Skeleton]
 - **P** Momentum score detail.
