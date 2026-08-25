@@ -28,7 +28,9 @@ v15 is `cursor/choremaxx-make-v15` @ git `b4fc5a6` — two-mode IUI, second Spea
 
 ## Parked (leave aside)
 
-Architecture: [`iui-ux-architecture.md`](./iui-ux-architecture.md). Method: [`iui-method-note.md`](./iui-method-note.md).
+**Poppins OS rework (plan, not built):** [`poppins-os.md`](./poppins-os.md). One viewport, create not draft, Activity tab gone. Next implementation follows that file over the older IUI notes.
+
+Older notes: [`iui-ux-architecture.md`](./iui-ux-architecture.md), [`iui-method-note.md`](./iui-method-note.md).
 
 ### Needs live ops
 
