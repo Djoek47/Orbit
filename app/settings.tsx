@@ -44,8 +44,6 @@ import {
 } from '@/lib/rewards/reward-model';
 import {
   normalizeRewardSettings,
-  REWARD_MODE_COPY,
-  type RewardMode,
 } from '@/lib/rewards/reward-mode';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
 import {
@@ -70,8 +68,16 @@ import { houseRulesHouseholdView } from '@/lib/rules/household-view';
 import { formatHouseRulesTime } from '@/lib/rules/interpolate';
 import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
+import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
+import {
+  AI_TRIP_USD,
+  formatUsd,
+  meterCaption,
+  personalUsd,
+  summarizeAiUsage,
+} from '@/lib/ai/credits';
 
-type Section = 'main' | 'members' | 'notifications';
+type Section = 'main' | 'you' | 'members' | 'house' | 'notifications' | 'places' | 'poppins' | 'premium';
 
 function SharedAccountRow({
   person,
@@ -177,6 +183,7 @@ export default function SettingsScreen() {
     updateSidekickGroceryAdd,
     updatePreferredMapsApp,
     updateSharedDeviceLinks,
+    aiUsageEvents,
   } = useOrbit();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
 
@@ -204,8 +211,6 @@ export default function SettingsScreen() {
   const houseRulesView = useMemo(() => houseRulesHouseholdView(household), [household]);
   const [entitlement, setEntitlement] = useState<EntitlementState | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState(household.householdName);
   const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [displayNameInput, setDisplayNameInput] = useState(
     currentMember?.name ?? currentUser?.name ?? ''
@@ -232,20 +237,30 @@ export default function SettingsScreen() {
       },
     [household.notificationPrefs]
   );
+  const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
 
   useEffect(() => {
-    if (section !== 'notifications') return;
+    if (section !== 'notifications' && section !== 'main') return;
     void getNotificationPermissionStatus().then((permission) => {
       setOsNotifStatus(isNotificationPermissionGranted(permission) ? 'granted' : 'denied');
     });
   }, [section]);
 
   useEffect(() => {
-    if (section !== 'main') return;
+    if (section !== 'main' && section !== 'premium') return;
     void fetchEntitlement().then(setEntitlement);
   }, [section]);
 
-  const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
+  const aiSummary = useMemo(
+    () =>
+      summarizeAiUsage(
+        aiUsageEvents,
+        household.members.map((member) => ({ id: member.id, name: member.name }))
+      ),
+    [aiUsageEvents, household.members]
+  );
+  const lookValue =
+    appearanceMode === 'system' ? 'System' : appearanceMode === 'light' ? 'Day' : 'Night';
   const householdThemeId = migrateAccentThemeId(household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID);
   const nestedAccountIds = useMemo(
     () => nestedSharedAccountIds(household.members),
@@ -345,42 +360,201 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.content}>
         {section === 'main' ? (
           <>
-            <SectionCard title="Household">
-              <View style={styles.rowBetween}>
-                {editingName ? (
-                  <TextInput
-                    value={nameInput}
-                    onChangeText={setNameInput}
-                    style={[styles.nameInput, { color: orbitPalette.text }]}
-                    autoFocus
-                    onSubmitEditing={() => setEditingName(false)}
-                  />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="You"
+              onPress={() => setSection('you')}
+              style={[
+                styles.identity,
+                {
+                  backgroundColor: glassFill(isDark),
+                  borderColor: glassBorder(0.08),
+                },
+              ]}>
+              <View
+                style={[
+                  styles.identityAvatar,
+                  { backgroundColor: `${accentTheme.primary}33` },
+                ]}>
+                {isAvatarImageUri(currentMember?.avatar) ? (
+                  <Image source={{ uri: currentMember?.avatar }} style={styles.identityAvatarImage} />
                 ) : (
-                  <Text style={[styles.nameText, { color: orbitPalette.text }]}>{household.householdName}</Text>
+                  <Text style={styles.identityAvatarText}>
+                    {currentMember ? memberDisplayEmoji(currentMember) : '·'}
+                  </Text>
                 )}
-                <Pressable
-                  style={styles.iconBtn}
-                  onPress={() => {
-                    if (editingName) {
-                      setEditingName(false);
-                    } else {
-                      setNameInput(household.householdName);
-                      setEditingName(true);
-                    }
-                  }}>
-                  <MaterialIcons
-                    name={editingName ? 'check' : 'edit'}
-                    size={14}
-                    color={editingName ? '#34D399' : '#38BDF8'}
-                  />
-                </Pressable>
               </View>
-              <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
-                Viewing as {currentMember?.name ?? currentUser?.email ?? household.greetingName}
-                {currentMember ? ` · ${formatHouseholdRole(currentMember.role)}` : ''}
-              </Text>
-            </SectionCard>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.identityName, { color: c.text }]}>
+                  {currentMember?.name ?? currentUser?.name ?? 'You'}
+                </Text>
+                <Text style={[styles.caption, { color: c.textMuted }]}>
+                  {household.householdName}
+                  {currentMember ? ` · ${formatHouseholdRole(currentMember.role)}` : ''}
+                  {` · ${lookValue}`}
+                </Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={18} color={c.textSubtle} />
+            </Pressable>
 
+            <SettingsGroup header="Household">
+              <SettingsNavRow
+                icon="group"
+                iconColor="#38BDF8"
+                label="People"
+                value={`${household.members.filter((m) => m.role !== 'shared-device').length}`}
+                last={!permissions.canManageHousehold}
+                onPress={() => setSection('members')}
+              />
+              {permissions.canManageHousehold ? (
+                <>
+                  <SettingsNavRow
+                    icon="menu-book"
+                    iconColor="#FAC775"
+                    label={VOCAB.houseRules}
+                    onPress={() => router.push('/house-rules' as never)}
+                  />
+                  <SettingsNavRow
+                    icon="tune"
+                    iconColor="#A78BFA"
+                    label="House"
+                    value="Chores · permissions"
+                    onPress={() => setSection('house')}
+                  />
+                  <SettingsNavRow
+                    icon="beach-access"
+                    iconColor="#38BDF8"
+                    label={VOCAB.recess}
+                    last
+                    onPress={() => router.push('/recess' as never)}
+                  />
+                </>
+              ) : (
+                <SettingsNavRow
+                  icon="menu-book"
+                  iconColor="#FAC775"
+                  label={VOCAB.houseRules}
+                  last
+                  onPress={() => router.push('/house-rules' as never)}
+                />
+              )}
+            </SettingsGroup>
+
+            <SettingsGroup header="Alerts">
+              <SettingsNavRow
+                icon="notifications-none"
+                iconColor="#A78BFA"
+                label="Notifications"
+                value={osNotifStatus === 'granted' ? 'On' : 'Off'}
+                last
+                onPress={() => setSection('notifications')}
+              />
+            </SettingsGroup>
+
+            <SettingsGroup header="Places">
+              <SettingsNavRow
+                icon="place"
+                iconColor="#38BDF8"
+                label="Places & maps"
+                value={
+                  preferredMapsApp === 'auto'
+                    ? 'Auto'
+                    : preferredMapsApp === 'apple'
+                      ? 'Apple'
+                      : preferredMapsApp === 'google'
+                        ? 'Google'
+                        : 'Waze'
+                }
+                last
+                onPress={() => setSection('places')}
+              />
+            </SettingsGroup>
+
+            <SettingsGroup
+              header="Poppins"
+              footer={
+                aiSummary.tripped
+                  ? 'Poppins is paused so we can see how long $4 of AI lasts.'
+                  : permissions.canManageHousehold
+                    ? 'Each person has their own meter. Poppins pauses at $4 for the household.'
+                    : undefined
+              }>
+              <SettingsNavRow
+                icon="record-voice-over"
+                iconColor={majordomo.accent}
+                label={majordomo.displayName}
+                value={meterCaption(
+                  aiSummary,
+                  personalUsd(aiSummary, currentMember?.id),
+                  permissions.canManageHousehold
+                )}
+                last
+                onPress={() => setSection('poppins')}
+              />
+            </SettingsGroup>
+
+            <SettingsGroup header="Choremaxx">
+              <SettingsNavRow
+                icon="workspace-premium"
+                iconColor="#E9B44C"
+                label="Premium"
+                value={entitlement?.inTrial ? 'Trial' : entitlement?.active ? 'On' : undefined}
+                onPress={() => setSection('premium')}
+              />
+              <SettingsNavRow
+                icon="shield"
+                iconColor="#34D399"
+                label="Privacy & legal"
+                last
+                onPress={() =>
+                  Alert.alert('Privacy & legal', 'Open Choremaxx legal pages', [
+                    {
+                      text: 'Privacy Policy',
+                      onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
+                    },
+                    {
+                      text: 'Terms of Service',
+                      onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.termsUrl),
+                    },
+                    {
+                      text: 'Contact support',
+                      onPress: () => void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`),
+                    },
+                    { text: 'Cancel', style: 'cancel' },
+                  ])
+                }
+              />
+            </SettingsGroup>
+
+            <Pressable
+              style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
+              onPress={async () => {
+                await signOut();
+                resetToGetStarted();
+              }}>
+              <Text style={[styles.accountBtnText, { color: orbitPalette.text, textAlign: 'center' }]}>
+                Sign Out
+              </Text>
+            </Pressable>
+            <Pressable onPress={handleDelete}>
+              <Text style={[styles.caption, { color: '#F87171', textAlign: 'center' }]}>
+                Delete account
+              </Text>
+            </Pressable>
+
+            <Text
+              style={[
+                styles.caption,
+                { color: c.textSubtle, textAlign: 'center', marginBottom: 8 },
+              ]}>
+              {BUILD_INFO.label}
+            </Text>
+            <BrandLegalFooter style={styles.brand} />
+          </>
+        ) : null}
+
+        {section === 'you' ? (
+          <>
             <SectionCard title="Your name">
               <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 8 }]}>
                 Shown on Home and in your household — not your Apple email code.
@@ -476,30 +650,20 @@ export default function SettingsScreen() {
                 </View>
               ) : null}
             </SectionCard>
+          </>
+        ) : null}
 
-            <SettingsRow
-              icon="record-voice-over"
-              iconColor={majordomo.accent}
-              label="Majordomo"
-              subtitle={`${majordomo.displayName} · ${majordomo.role}`}
-              onPress={() => setMajordomoOpen(true)}
-            />
-
-            <SettingsRow
-              emoji="👥"
-              label="Manage Members"
-              subtitle={`${household.members.length} members · add new · customize avatars`}
-              onPress={() => setSection('members')}
-            />
+        {section === 'house' ? (
+          <>
             {permissions.canManageHousehold ? (
-              <SectionCard title="Member permissions">
+              <SectionCard title="What Sidekicks can do">
                 <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 8 }]}>
-                  What kids and non-admin members can do
+                  What Sidekicks and other members can do
                 </Text>
                 {(
                   [
                     ['allowRewardRedeem', 'Allow redeeming rewards', 'Members can spend XP on catalogue rewards'],
-                    ['allowSpecialRewardRequest', 'Allow reward suggestions', 'Kids can suggest something not in the catalogue yet'],
+                    ['allowSpecialRewardRequest', 'Allow reward suggestions', 'Sidekicks can suggest something not in the catalogue yet'],
                     ['allowAllowance', 'Allow allowance', 'Shows Allowance in Rewards Center'],
                     ['allowGroceryAdd', 'Allow grocery list adds', 'Non-admins can add items'],
                     ['allowCalendarCreate', 'Allow calendar event creates', 'Simplified create when enabled'],
@@ -599,22 +763,7 @@ export default function SettingsScreen() {
                   })}
                 </View>
                 <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
-                  How chores score points for this household
-                </Text>
-                <SegmentedControl
-                  label="Reward system"
-                  value={rewardSettings.rewardMode}
-                  onChange={(mode: RewardMode) => updateHouseholdRewardSettings({ rewardMode: mode })}
-                  options={[
-                    { value: 'weighted', label: REWARD_MODE_COPY.weighted.label },
-                    { value: 'flat', label: REWARD_MODE_COPY.flat.label },
-                  ]}
-                />
-                <Text style={[styles.caption, { color: c.textSubtle, marginTop: 6, marginBottom: 12 }]}>
-                  {REWARD_MODE_COPY[rewardSettings.rewardMode].blurb}
-                  {rewardSettings.rewardMode === 'flat'
-                    ? ' Every eligible chore shows and awards 10 XP.'
-                    : ''}
+                  Harder jobs are worth more. That ladder is how Choremaxx works.
                 </Text>
                 <View
                   style={[
@@ -627,8 +776,7 @@ export default function SettingsScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.memberName, { color: c.text }]}>Reward hygiene tasks</Text>
                     <Text style={[styles.caption, { color: c.textSubtle }]}>
-                      Off by default. Hygiene is tracked as a streak so kids build the habit without
-                      earning points for it.
+                      Off by default. Hygiene builds streaks, explained in House Rules.
                     </Text>
                   </View>
                   <Switch
@@ -686,20 +834,6 @@ export default function SettingsScreen() {
                 ) : null}
               </SectionCard>
             ) : null}
-            <SettingsRow
-              icon="notifications-none"
-              iconColor="#A78BFA"
-              label="Notifications"
-              subtitle={`${enabledCount} alerts enabled`}
-              onPress={() => setSection('notifications')}
-            />
-            <SettingsRow
-              icon="menu-book"
-              iconColor="#FAC775"
-              label={VOCAB.houseRules}
-              subtitle="How XP, streaks, and rewards work here"
-              onPress={() => router.push('/house-rules' as never)}
-            />
             {permissions.canManageHousehold ? (
               <SettingsRow
                 icon="schedule"
@@ -713,77 +847,30 @@ export default function SettingsScreen() {
               />
             ) : null}
             {permissions.canManageHousehold && hasAllowanceModel(household.rewardModel) ? (
-              <View
-                style={[
-                  styles.prefRow,
-                  {
-                    backgroundColor: glassFill(isDark),
-                    borderColor: glassBorder(0.08),
-                    marginBottom: 8,
-                  },
-                ]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.memberName, { color: c.text }]}>
-                    {houseRulesDoc.settings.allowanceRequests.label}
-                  </Text>
-                  <Text style={[styles.caption, { color: c.textSubtle }]}>
-                    {houseRulesDoc.settings.allowanceRequests.help}
-                  </Text>
-                </View>
-                <Switch
+              <SettingsGroup>
+                <SettingsToggleRow
+                  label={houseRulesDoc.settings.allowanceRequests.label}
+                  subtitle={houseRulesDoc.settings.allowanceRequests.help}
                   value={household.allowanceRequestsEnabled !== false}
+                  last
                   onValueChange={(value) => setAllowanceRequestsEnabled(value)}
-                  trackColor={{ false: glassBorder(0.1), true: accentTheme.primary }}
-                  thumbColor="#fff"
                 />
-              </View>
+              </SettingsGroup>
             ) : null}
-            {permissions.canManageHousehold ? (
-              <SettingsRow
-                icon="beach-access"
-                iconColor="#38BDF8"
-                label={VOCAB.recess}
-                subtitle="Pause tasks · freeze streaks"
-                onPress={() => router.push('/recess' as never)}
-              />
-            ) : null}
-            <SettingsRow
-              icon="shield"
-              iconColor="#34D399"
-              label="Privacy & Data"
-              subtitle="Privacy · Terms · Support"
-              onPress={() =>
-                Alert.alert('Privacy & legal', 'Open Choremaxx legal pages', [
-                  {
-                    text: 'Privacy Policy',
-                    onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
-                  },
-                  {
-                    text: 'Terms of Service',
-                    onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.termsUrl),
-                  },
-                  {
-                    text: 'Contact support',
-                    onPress: () => void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`),
-                  },
-                  { text: 'Cancel', style: 'cancel' },
-                ])
-              }
-            />
-            <SettingsRow
-              emoji="🛒"
-              label="Groceries"
-              subtitle="List, scan, preferred store"
-              onPress={() => router.push('/(tabs)/groceries' as never)}
-            />
-            <SettingsRow
-              icon="place"
-              iconColor="#38BDF8"
-              label="My Places"
-              subtitle="Trips, stores & grocery pickup summary"
-              onPress={() => router.push('/places' as never)}
-            />
+          </>
+        ) : null}
 
+        {section === 'places' ? (
+          <>
+            <SettingsGroup>
+              <SettingsNavRow
+                icon="place"
+                iconColor="#38BDF8"
+                label="My Places"
+                last
+                onPress={() => router.push('/places' as never)}
+              />
+            </SettingsGroup>
             <SectionCard title="Maps">
               <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
                 Preferred maps app
@@ -821,7 +908,49 @@ export default function SettingsScreen() {
                 })}
               </View>
             </SectionCard>
+          </>
+        ) : null}
 
+        {section === 'poppins' ? (
+          <>
+            <SettingsGroup footer="Voice and personality for this household.">
+              <SettingsNavRow
+                icon="record-voice-over"
+                iconColor={majordomo.accent}
+                label="Voice"
+                value={`${majordomo.displayName}`}
+                last
+                onPress={() => setMajordomoOpen(true)}
+              />
+            </SettingsGroup>
+            <SectionCard title={aiSummary.tripped ? 'Paused at $4' : 'This month'}>
+              <Text style={[styles.nameText, { color: c.text }]}>
+                {formatUsd(aiSummary.householdUsd)} of {formatUsd(AI_TRIP_USD)}
+              </Text>
+              <Text style={[styles.caption, { color: c.textMuted }]}>
+                {aiSummary.tripped
+                  ? 'Poppins is off so we can see how long $4 lasted.'
+                  : permissions.canManageHousehold
+                    ? 'Per person — not the OpenAI global dashboard.'
+                    : 'Your Poppins use in this household.'}
+              </Text>
+              {(permissions.canManageHousehold ? aiSummary.byMember : aiSummary.byMember.filter((row) => row.memberId === currentMember?.id)).map(
+                (row) => (
+                  <View key={row.memberId} style={styles.rowBetween}>
+                    <Text style={[styles.memberName, { color: c.text }]}>{row.name}</Text>
+                    <Text style={[styles.caption, { color: c.textMuted }]}>
+                      {formatUsd(row.usd)}
+                      {row.events ? ` · ${row.events}` : ''}
+                    </Text>
+                  </View>
+                )
+              )}
+            </SectionCard>
+          </>
+        ) : null}
+
+        {section === 'premium' ? (
+          <>
             <SectionCard title="Premium">
               <Text style={[styles.caption, { color: c.textSoft, marginBottom: 10 }]}>
                 {entitlement ? premiumCopy(entitlement) : 'Loading…'}
@@ -858,29 +987,6 @@ export default function SettingsScreen() {
                 </Text>
               </Pressable>
             </SectionCard>
-
-            <SectionCard title="Account">
-              <Pressable
-                style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
-                onPress={async () => {
-                  await signOut();
-                  resetToGetStarted();
-                }}>
-                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>Sign out</Text>
-              </Pressable>
-              <Pressable style={[styles.accountBtn, { backgroundColor: glass(0.06) }]} onPress={handleDelete}>
-                <Text style={[styles.accountBtnText, { color: '#F87171' }]}>Delete account</Text>
-              </Pressable>
-            </SectionCard>
-
-            <Text
-              style={[
-                styles.caption,
-                { color: c.textSubtle, textAlign: 'center', marginBottom: 8 },
-              ]}>
-              Dev tip · {BUILD_INFO.label}
-            </Text>
-            <BrandLegalFooter style={styles.brand} />
           </>
         ) : null}
 
@@ -1444,6 +1550,26 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 16,
   },
+  identity: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 14,
+    padding: 14,
+  },
+  identityAvatar: {
+    alignItems: 'center',
+    borderRadius: 28,
+    height: 56,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: 56,
+  },
+  identityAvatarImage: { height: 56, width: 56 },
+  identityAvatarText: { fontSize: 28 },
+  identityName: { fontSize: 20, fontWeight: '700' },
   cardEyebrow: {
     fontSize: 12,
     fontWeight: '600',
