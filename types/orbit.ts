@@ -404,6 +404,12 @@ export type PoppinsConversationAnswer = {
   /** Closed IUI scene graph for the Activity stage (not generated JSX). */
   ui_actions?: Array<Record<string, unknown>>;
   source?: string;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    model?: string;
+    usd?: number;
+  };
 };
 
 export type MemberProgress = HouseholdMember & {

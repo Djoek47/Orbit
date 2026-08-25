@@ -23,6 +23,16 @@ import {
   saveMajordomoProfileId,
   saveMemberMajordomoProfileId,
 } from '@/lib/ai/majordomo-prefs';
+import {
+  POPPINS_PAUSED_COPY,
+  buildUsageEvent,
+  estimateTokensFromText,
+  estimateVoiceUsd,
+  summarizeAiUsage,
+  type AiUsageEvent,
+  type AiUsageKind,
+} from '@/lib/ai/credits';
+import { loadAiUsageEvents, saveAiUsageEvents } from '@/lib/ai/credit-ledger';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { trackAnalytics } from '@/lib/analytics';
 import {
@@ -293,6 +303,8 @@ type OrbitContextValue = {
   inviteLinks: InviteLinks | null;
   askPoppins: (question: string) => Promise<PoppinsConversationAnswer>;
   askPoppinsVoice: (audioUri: string | null) => Promise<PoppinsConversationAnswer>;
+  /** Per-person Poppins spend. Admin surface; trips off at $4. */
+  aiUsageEvents: import('@/lib/ai/credits').AiUsageEvent[];
   appendPoppinsTurn: (question: string, answer: string) => void;
   switchPersona: (memberId: string) => void;
   approveMember: (memberId: string) => Promise<void>;
@@ -554,6 +566,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [inviteLinks, setInviteLinks] = useState<InviteLinks | null>(null);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
   const [poppinsAskCount, setPoppinsAskCount] = useState(0);
+  const [aiUsageEvents, setAiUsageEvents] = useState<AiUsageEvent[]>([]);
+  const aiUsageRef = useRef<AiUsageEvent[]>([]);
+  aiUsageRef.current = aiUsageEvents;
   const [poppinsConversation, setPoppinsConversation] = useState<PoppinsChatMessage[]>([]);
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>('dark');
   const [paletteId, setPaletteId] = useState<ColorPaletteId>(DEFAULT_COLOR_PALETTE_ID);
@@ -589,6 +604,46 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     );
   }, [activeMemberId, currentUser?.name, household.members]);
   const hasHousehold = Boolean(currentUser && household.id);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadAiUsageEvents(household.id).then((events) => {
+      if (cancelled) return;
+      aiUsageRef.current = events;
+      setAiUsageEvents(events);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [household.id]);
+
+  const recordPoppinsUsage = useCallback(
+    async (kind: AiUsageKind, answer: { question: string; answer: string; usage?: { inputTokens?: number; outputTokens?: number; model?: string; usd?: number } }) => {
+      const member = currentMember;
+      if (!member) return;
+      const model =
+        answer.usage?.model ||
+        (kind === 'voice' ? 'gpt-realtime-2.1' : 'gpt-5.6-luna');
+      const event = buildUsageEvent({
+        memberId: member.id,
+        memberName: member.name,
+        kind,
+        model,
+        inputTokens: answer.usage?.inputTokens ?? estimateTokensFromText(answer.question),
+        outputTokens: answer.usage?.outputTokens ?? estimateTokensFromText(answer.answer),
+        usd:
+          answer.usage?.usd ??
+          (kind === 'voice' && !answer.usage?.inputTokens && !answer.usage?.outputTokens
+            ? estimateVoiceUsd()
+            : undefined),
+      });
+      const next = [...aiUsageRef.current, event];
+      aiUsageRef.current = next;
+      setAiUsageEvents(next);
+      await saveAiUsageEvents(household.id, next);
+    },
+    [currentMember, household.id]
+  );
   const isPendingMember = currentMember?.status === 'pending' && currentMember.role !== 'child';
   const permissions = useMemo(() => {
     // Pending joiners wait for owner/admin approval — same surface limits as guests.
@@ -3613,6 +3668,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         answer: 'Poppins is not available on this profile.',
       };
     }
+    if (summarizeAiUsage(aiUsageRef.current).tripped) {
+      return { question, answer: POPPINS_PAUSED_COPY, source: 'meter' };
+    }
     setPoppinsAskCount((count) => count + 1);
     const profileId = resolveMajordomoProfileId({
       householdProfileId: household.majordomoProfileId,
@@ -3625,6 +3683,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       poppinsConversation,
       currentUser?.id
     );
+    await recordPoppinsUsage('chat', answer);
     setPoppinsConversation((current) => [
       ...current,
       { role: 'user', content: answer.question },
@@ -3644,9 +3703,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         answer: 'Poppins is not available on this profile.',
       };
     }
+    if (summarizeAiUsage(aiUsageRef.current).tripped) {
+      return { question: '', answer: POPPINS_PAUSED_COPY, source: 'meter' };
+    }
     const { transcribeAndAskPoppins } = await import('@/lib/voice/poppins-voice');
     setPoppinsAskCount((count) => count + 1);
     const answer = await transcribeAndAskPoppins(audioUri, household, metrics);
+    await recordPoppinsUsage('voice', answer);
     setPoppinsConversation((current) => [
       ...current,
       { role: 'user', content: answer.question },
@@ -4772,6 +4835,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         }),
       askPoppins,
       askPoppinsVoice,
+      aiUsageEvents,
       appendPoppinsTurn,
       switchPersona,
       approveMember,
@@ -4909,6 +4973,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       membersWithProgress,
       achievements,
       poppinsAskCount,
+      aiUsageEvents,
       poppinsConversation,
       poppinsBriefing,
       inboxBriefing,

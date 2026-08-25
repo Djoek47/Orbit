@@ -93,6 +93,14 @@ export const openAIProvider: AIProvider = {
         actions: Array.isArray(live.actions) ? live.actions : undefined,
         ui_actions: Array.isArray(live.ui_actions) ? live.ui_actions : undefined,
         source: live.source,
+        usage:
+          live.usage && typeof live.usage === 'object'
+            ? {
+                inputTokens: Number((live.usage as { inputTokens?: number }).inputTokens ?? 0),
+                outputTokens: Number((live.usage as { outputTokens?: number }).outputTokens ?? 0),
+                model: String((live.usage as { model?: string }).model ?? ''),
+              }
+            : undefined,
       };
     }
     return live;

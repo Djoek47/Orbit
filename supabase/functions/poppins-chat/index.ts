@@ -82,6 +82,9 @@ Deno.serve(async (req) => {
       result: Record<string, unknown>;
     }> = [];
     let answer = '';
+    let inputTokens = 0;
+    let outputTokens = 0;
+    const model = getOpenAIPoppinsChatModel();
 
     for (let step = 0; step < MAX_TOOL_ROUNDS; step++) {
       const completion = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -99,6 +102,8 @@ Deno.serve(async (req) => {
       });
 
       const payload = await completion.json();
+      inputTokens += Number(payload.usage?.prompt_tokens ?? 0);
+      outputTokens += Number(payload.usage?.completion_tokens ?? 0);
       const message = payload.choices?.[0]?.message;
       if (!message) {
         answer = 'I could not answer that just now. Try again in a moment.';
@@ -147,6 +152,11 @@ Deno.serve(async (req) => {
       actions,
       ui_actions,
       effectCount: effects.length,
+      usage: {
+        inputTokens,
+        outputTokens,
+        model,
+      },
     });
   } catch (error) {
     return jsonResponse({ error: String(error) }, 500);

@@ -73,6 +73,7 @@
     "test:open-tasks": "npx --yes tsx lib/navigation/open-tasks-tab.test.ts",
     "test:confirm-callback": "npx --yes tsx lib/auth/confirm-callback.test.ts",
     "test:auth-errors": "npx --yes tsx lib/auth/auth-errors.test.ts",
+    "test:ai-credits": "npx --yes tsx lib/ai/credits.test.ts",
     "test:repo-utils": "npx --yes tsx lib/household/persisted-household-id.test.ts",
     "test:admin-cap": "npx --yes tsx lib/household/admin-cap.test.ts",
     "test:redeem-invite": "npx --yes tsx lib/invites/redeem-member-invite.test.ts",

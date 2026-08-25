@@ -24,6 +24,12 @@ import {
   getMajordomoProfile,
   resolveMajordomoProfileId,
 } from '@/lib/ai/majordomo-profiles';
+import {
+  POPPINS_PAUSED_COPY,
+  meterCaption,
+  personalUsd,
+  summarizeAiUsage,
+} from '@/lib/ai/credits';
 import { driveAiuic } from '@/lib/poppins/aiuic';
 import {
   continuityListenPrompt,
@@ -85,6 +91,8 @@ export default function PoppinsScreen() {
     askPoppins,
     household,
     currentMember,
+    permissions,
+    aiUsageEvents,
     dismissInboxItem,
     metrics,
     notifications,
@@ -104,6 +112,14 @@ export default function PoppinsScreen() {
   }, [currentMember?.majordomoProfileId, household.majordomoProfileId]);
 
   const nativeVoice = isPoppinsNativeVoiceAvailable();
+  const aiSummary = useMemo(
+    () =>
+      summarizeAiUsage(
+        aiUsageEvents,
+        household.members.map((member) => ({ id: member.id, name: member.name }))
+      ),
+    [aiUsageEvents, household.members]
+  );
 
   const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
     idle: {
@@ -421,6 +437,10 @@ export default function PoppinsScreen() {
       return;
     }
     if (asking || connecting) return;
+    if (aiSummary.tripped) {
+      setError(POPPINS_PAUSED_COPY);
+      return;
+    }
     await connectNativeVoice();
   };
 
@@ -671,6 +691,9 @@ export default function PoppinsScreen() {
           accessibilityLiveRegion="polite">
           {nativeVoice ? (primaryConnected ? 'Done' : 'Speak') : cfg.label}
         </Text>
+        <Text style={[styles.meterCaption, { color: c.textSubtle }]}>
+          {meterCaption(aiSummary, personalUsd(aiSummary, currentMember?.id), permissions.canManageHousehold)}
+        </Text>
       </View>
 
       <Modal
@@ -894,7 +917,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     letterSpacing: 0.5,
-    marginTop: 12,
+    textAlign: 'center',
+  },
+  meterCaption: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
     textAlign: 'center',
   },
   confirmBackdrop: {
