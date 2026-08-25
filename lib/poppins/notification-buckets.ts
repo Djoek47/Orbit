@@ -1,4 +1,5 @@
 import { isSameLocalDay } from '@/lib/ai/daily-insight';
+import { getNotificationRoute } from '@/lib/notifications/navigate';
 import { isInboxSheetItem } from '@/lib/poppins/inbox-visibility';
 import { foldGlanceNotifications, laneForKind } from '@/lib/poppins/notification-policy';
 import { stripExampleCopy } from '@/lib/trophies/display-name';
@@ -15,6 +16,8 @@ export type SheetNotificationCard = {
   timeLabel: string;
   color: string;
   actionLabel?: string;
+  /** In-app route for synthetic cards that have no `source` notification. */
+  actionRoute?: string;
   memberEmoji?: string;
   source?: NotificationItem;
 };
@@ -145,6 +148,7 @@ export function buildSheetNotifications(
       timeLabel: 'Today',
       color: BUCKET_COLORS.urgent,
       actionLabel: 'Open Poppins',
+      actionRoute: '/(tabs)/poppins',
     });
   }
 
@@ -180,4 +184,11 @@ export function buildSheetNotifications(
 
 export function needsAttentionCount(cards: SheetNotificationCard[]) {
   return cards.filter((c) => c.bucket !== 'done' && (!c.source || !c.source.isRead)).length;
+}
+
+/** Route the inbox CTA should open. Briefing has no notification source — it still goes to Poppins. */
+export function routeForSheetCard(card: SheetNotificationCard): string | null {
+  if (card.actionRoute) return card.actionRoute;
+  if (card.source) return getNotificationRoute(card.source);
+  return null;
 }

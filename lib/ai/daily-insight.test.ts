@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 import { __resetGrocerySearchIndex } from '@/lib/grocery/search-index';
 import { unreadInboxCount } from '@/lib/poppins/inbox-visibility';
-import { buildSheetNotifications } from '@/lib/poppins/notification-buckets';
+import { buildSheetNotifications, routeForSheetCard } from '@/lib/poppins/notification-buckets';
 import type { GroceryItem, HouseholdSnapshot, NotificationItem } from '@/types/orbit';
 import {
   buildDailyInsightCandidates,
@@ -192,6 +192,10 @@ function note(partial: Partial<NotificationItem> & Pick<NotificationItem, 'id' |
   });
   assert.equal(cards.some((c) => c.id === 'j1'), false);
   assert.equal(cards.some((c) => c.id === 'morning-brief'), true);
+  const brief = cards.find((c) => c.id === 'morning-brief');
+  assert.equal(brief?.actionLabel, 'Open Poppins');
+  assert.equal(brief?.actionRoute, '/(tabs)/poppins');
+  assert.equal(brief ? routeForSheetCard(brief) : null, '/(tabs)/poppins');
   pass('mock deal rows never reappear as Insights');
 }
 

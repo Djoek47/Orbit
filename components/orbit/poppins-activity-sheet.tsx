@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { InteractionManager, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -16,13 +16,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { radius, space, typography } from '@/constants/orbit-theme';
-import { getNotificationRoute } from '@/lib/notifications/navigate';
 import {
   BUCKET_COLORS,
   BUCKET_LABELS,
   BUCKET_ORDER,
   buildSheetNotifications,
   needsAttentionCount,
+  routeForSheetCard,
   type NotifBucket,
 } from '@/lib/poppins/notification-buckets';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
@@ -312,16 +312,13 @@ export function PoppinsActivitySheet({
   ];
 
   const handleCardAction = async (card: (typeof cards)[number]) => {
-    if (card.id === 'morning-brief') {
-      onClose();
-      return;
-    }
-    if (card.source) {
-      await onDismissNotification(card.source.id);
-      const route = getNotificationRoute(card.source);
-      onClose();
-      if (route) router.push(route as never);
-    }
+    const route = routeForSheetCard(card);
+    if (card.source) await onDismissNotification(card.source.id);
+    onClose();
+    if (!route) return;
+    InteractionManager.runAfterInteractions(() => {
+      router.push(route as never);
+    });
   };
 
   const handleDismiss = async (card: (typeof cards)[number]) => {
@@ -508,6 +505,8 @@ export function PoppinsActivitySheet({
                         {card.actionLabel ? (
                           <Pressable
                             onPress={() => void handleCardAction(card)}
+                            accessibilityRole="button"
+                            accessibilityLabel={card.actionLabel}
                             style={[
                               styles.cta,
                               {
