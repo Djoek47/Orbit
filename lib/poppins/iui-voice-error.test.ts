@@ -19,6 +19,9 @@ assert(classifyIuiVoiceError('Sign in required for live voice.') === 'signed_out
 assert(classifyIuiVoiceError('Network request failed') === 'offline', 'offline');
 assert(classifyIuiVoiceError('Voice needs the TestFlight build (WebRTC).') === 'needs_testflight', 'tf');
 assert(classifyIuiVoiceError('Realtime SDP failed (503).') === 'unavailable', 'sdp');
+assert(classifyIuiVoiceError('Realtime SDP failed (402).') === 'unavailable', 'sdp402');
+assert(classifyIuiVoiceError('Realtime error') === 'unavailable', 'rt');
+assert(classifyIuiVoiceError('Invalid_request: unknown_parameter') === 'unavailable', 'openai');
 assert(classifyIuiVoiceError('boom') === 'generic', 'generic');
 
 const mic = copyIuiVoiceError('The user denied permission');

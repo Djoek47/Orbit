@@ -22,6 +22,9 @@ export function classifyIuiVoiceError(raw: unknown): IuiVoiceErrorKind {
   if (/sign in required|not authenticated|jwt|unauthorized/.test(text)) {
     return 'signed_out';
   }
+  if (/sdp failed \(402\)|voice_not_allowed|payment required/.test(text)) {
+    return 'unavailable';
+  }
   if (
     /network request failed|failed to fetch|offline|timed out|timeout|err_ngrok|internet/.test(text)
   ) {
@@ -30,7 +33,11 @@ export function classifyIuiVoiceError(raw: unknown): IuiVoiceErrorKind {
   if (/webrtc|testflight|native poppins voice is not enabled/.test(text)) {
     return 'needs_testflight';
   }
-  if (/sdp failed|realtime sdp/.test(text)) {
+  if (
+    /sdp failed|realtime sdp|realtime error|invalid_request|unknown_parameter|modalities|model_not_found/.test(
+      text
+    )
+  ) {
     return 'unavailable';
   }
   return 'generic';

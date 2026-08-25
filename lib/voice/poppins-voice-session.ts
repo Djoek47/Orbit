@@ -158,6 +158,7 @@ export class PoppinsVoiceSession {
   private localStream: MediaStream | null = null;
   private remoteStream: MediaStream | null = null;
   private connected = false;
+  private fatal = false;
   private state: PoppinsVoiceVisualState = 'idle';
   private assistantBuffer = '';
   private publishedAssistant = '';
@@ -189,6 +190,7 @@ export class PoppinsVoiceSession {
   }
 
   private setState(next: PoppinsVoiceVisualState) {
+    if (this.fatal && next !== 'idle') return;
     this.state = next;
     this.callbacks.onStateChange?.(next);
     if (next === 'thinking' || next === 'speaking' || this.pausedForTools) {
@@ -264,6 +266,7 @@ export class PoppinsVoiceSession {
     this.greetOnOpen = opts?.greet !== false;
     this.listenPrompt = opts?.listenPrompt?.trim() ?? '';
     this.seedTurns = opts?.seedTurns?.filter((turn) => turn.text.trim()) ?? [];
+    this.fatal = false;
     this.setState('connecting');
 
     try {
@@ -549,8 +552,9 @@ export class PoppinsVoiceSession {
 
     if (type === 'error') {
       const message = String((event.error as { message?: string })?.message ?? 'Realtime error');
+      this.fatal = true;
       this.callbacks.onError?.(message);
-      this.setState('needs_attention');
+      this.disconnect();
     }
   }
 
@@ -714,6 +718,7 @@ export class PoppinsVoiceSession {
 
   disconnect() {
     this.connected = false;
+    this.fatal = true;
     this.clearIdleTimers();
     this.clearThinkingRecovery();
     if (this.backgroundTimer) clearTimeout(this.backgroundTimer);
@@ -746,6 +751,7 @@ export class PoppinsVoiceSession {
     this.pendingUserReplace = false;
     this.callbacks.onRemoteStream?.(null);
     this.setState('idle');
+    this.fatal = true;
     void restorePoppinsAudio();
   }
 }

@@ -159,6 +159,7 @@ export default function PoppinsScreen() {
   memberNamesRef.current = memberNames;
   const kidSessionRef = useRef(kidSession);
   kidSessionRef.current = kidSession;
+  const voiceFailedRef = useRef(false);
   const lastUtteranceRef = useRef('');
   const continuityRef = useRef<IuiContinuity | null>(null);
   const wasLiveRef = useRef(false);
@@ -183,6 +184,7 @@ export default function PoppinsScreen() {
   };
 
   const surfaceVoiceError = (raw: unknown) => {
+    voiceFailedRef.current = true;
     const copy = copyIuiVoiceError(raw);
     setError(copy.message);
     if (copy.offerKeyboard) setShowText(true);
@@ -318,6 +320,7 @@ export default function PoppinsScreen() {
     setConnecting(true);
     setError('');
     setLiveCaption(null);
+    voiceFailedRef.current = false;
     const prior = await loadIuiContinuity(household.id);
     continuityRef.current = prior;
     const greet = shouldGreet(prior, household.id);
@@ -325,8 +328,14 @@ export default function PoppinsScreen() {
     let reportedError = false;
     const session = new PoppinsVoiceSession({
       onStateChange: (state) => {
+        if (voiceFailedRef.current && state !== 'idle') return;
         setVoiceState(state);
-        setLiveConnected(state !== 'idle');
+        setLiveConnected(
+          state === 'listening' ||
+            state === 'speaking' ||
+            state === 'thinking' ||
+            state === 'needs_attention'
+        );
       },
       onTranscript: applyTranscript,
       onPendingConfirmations: (items) => {
@@ -372,7 +381,7 @@ export default function PoppinsScreen() {
       seedTurns: prior && !greet ? prior.turns : undefined,
     });
     setConnecting(false);
-    if (!ok) {
+    if (!ok || reportedError || voiceFailedRef.current) {
       session.disconnect();
       if (!reportedError) surfaceVoiceError('start_failed');
       return null;
