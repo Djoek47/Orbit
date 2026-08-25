@@ -3,7 +3,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 import { ContextMenu } from '@/components/orbit/context-menu';
@@ -18,7 +25,7 @@ import { StreakMarker } from '@/components/orbit/streak-marker';
 import { VOCAB } from '@/constants/vocabulary';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
-import { motion } from '@/constants/motion-tokens';
+import { motion, motionDuration } from '@/constants/motion-tokens';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
@@ -197,22 +204,34 @@ function TaskItem({
   const done = shareDone ?? task.status === 'Completed';
   const checkScale = useSharedValue(done ? 1 : 0.001);
   const pillScale = useSharedValue(1);
+  const wash = useSharedValue(done && !justCompleted ? 0.4 : 0);
 
   useEffect(() => {
     checkScale.value = withSpring(done ? 1 : 0.001, motion.snappy);
   }, [checkScale, done]);
 
   useEffect(() => {
-    if (!justCompleted) return;
-    pillScale.value = 0.96;
+    if (!justCompleted) {
+      wash.value = withTiming(done ? 0.35 : 0, { duration: motionDuration.snappy });
+      return;
+    }
+    wash.value = 0;
+    wash.value = withTiming(1, {
+      duration: motionDuration.smooth,
+      easing: Easing.out(Easing.cubic),
+    });
+    pillScale.value = 0.97;
     pillScale.value = withSpring(1, motion.smooth);
-  }, [justCompleted, pillScale]);
+  }, [done, justCompleted, pillScale, wash]);
 
   const checkAnim = useAnimatedStyle(() => ({
     transform: [{ scale: checkScale.value }],
   }));
   const pillAnim = useAnimatedStyle(() => ({
     transform: [{ scale: pillScale.value }],
+  }));
+  const washAnim = useAnimatedStyle(() => ({
+    opacity: interpolate(wash.value, [0, 1], [0, 0.32]),
   }));
   const shareXp =
     member && isSplitTask(task)
@@ -233,7 +252,21 @@ function TaskItem({
   } as const;
 
   const row = (
-      <Animated.View style={[styles.taskItem, done && styles.taskItemDone, done && { backgroundColor: glass(0.03) }, pillAnim]}>
+      <Animated.View
+        style={[
+          styles.taskItem,
+          done && !justCompleted && styles.taskItemDone,
+          done && { backgroundColor: glass(justCompleted ? 0.1 : 0.03) },
+          pillAnim,
+        ]}>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFillObject,
+            { backgroundColor: '#34D399', borderRadius: 16 },
+            washAnim,
+          ]}
+        />
         {interactive && !isExpiredStatus(task.status) ? (
         <Pressable
           onPress={onToggle}
@@ -264,8 +297,8 @@ function TaskItem({
           <Text
             style={[
               styles.taskTitle,
-              { color: done ? c.textMuted : c.text },
-              done && styles.taskTitleDone,
+              { color: done && !justCompleted ? c.textMuted : c.text },
+              done && !justCompleted && styles.taskTitleDone,
             ]}
             numberOfLines={2}>
             {task.title}
@@ -742,7 +775,7 @@ export default function TasksScreen() {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setJustCompletedId(taskId);
       const result = await completeTask(taskId, { forAssignee: currentMember.name });
-      setTimeout(() => setJustCompletedId(null), 1200);
+      setTimeout(() => setJustCompletedId(null), 900);
       if (result?.needsProof) {
         router.push(`/task/${task.id}` as never);
       }
@@ -752,7 +785,7 @@ export default function TasksScreen() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setJustCompletedId(taskId);
     const result = await completeTask(taskId);
-    setTimeout(() => setJustCompletedId(null), 1200);
+    setTimeout(() => setJustCompletedId(null), 900);
     if (result?.needsProof) {
       router.push(`/task/${task.id}` as never);
     }
@@ -1276,9 +1309,13 @@ const styles = StyleSheet.create({
   },
   taskItem: {
     alignItems: 'flex-start',
+    borderRadius: 16,
     flexDirection: 'row',
     gap: 12,
+    overflow: 'hidden',
+    paddingHorizontal: 8,
     paddingVertical: 12,
+    position: 'relative',
   },
   taskItemDone: {
     opacity: 0.45,
