@@ -1,10 +1,30 @@
 # Remaining work
 
 **Branch:** `cursor/choremaxx-make-v14`  
-**TestFlight in ASC:** **1.3.0 (42)** uploaded to App Store Connect (Apple processing). EAS `d7a706bf` / git `4e03f6c`. **41** was `f70af99` (one-Speak IUI). **40** is Revision G without the post-40 IUI pass.  
-**Do not** upload another 42. **Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in splash animations, or collapse House Rules to the kid card.
+**TestFlight in ASC:** **1.3.0 (44)** uploaded to App Store Connect (Apple processing). EAS `0b47cda0` / git `38fc974`. **43** was hang-up-only (`ad4a854`). **42** was `4e03f6c`.  
+**Do not** upload another 44. **Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in splash animations, or collapse House Rules to the kid card.
 
 ---
+
+## TestFlight 44 (submitted)
+
+44 is git `38fc974` on `cursor/choremaxx-make-v14` (EAS `0b47cda0`, submit `9da23c50`). Everything after 42 is in this IPA, including:
+
+- **Listen-first Speak** — no default “Hi, I’m Poppins.” Presence / situation / listen policy. Barge-in during connect cancels the opener.
+- **House memory** — likes / dislikes / routines; `remember_house_fact`.
+- **Tuning in…** — orb thinking state while WebRTC connects, then Listening.
+- **Itinerary one current stop** — Directions / I’m here / Open list.
+- **Open Poppins** from Daily Briefing actually opens the Poppins tab.
+- Hang-up on realtime errors (was 43 / `ad4a854`).
+
+### Device smoke on 44
+
+- First Speak: one presence line or silence, never a bio.
+- Return within 4h: listen only.
+- Speak over connect: opener does not talk over you.
+- “Don’t assign dishes to Liam” sticks on the next assign.
+- Grocery run: one current stop, no lat/lng, no “1 stops.”
+- Rewards → bell → Open Poppins lands on the Poppins tab.
 
 ## TestFlight 42 (submitted)
 
@@ -45,7 +65,7 @@ Architecture: [`iui-ux-architecture.md`](./iui-ux-architecture.md). Method: [`iu
 - **P5** Settings / billing / account — coach-navigate only; never HOLD-commit.
 - **Apple product logic (in IPA 41+)** — one Speak (orb is status); Activity is the hourglass only; returning to the tab shows a frozen act without arming HOLD; mic/network failure opens type-instead; commit failure keeps the preview.
 
-Still worth a TestFlight pass on **42**: barge-in, mic-denied type path, frozen HOLD tap-to-confirm, Speak continuity after hangup, genie paint, whole-pill done.
+Still worth a TestFlight pass on **44**: listen-first opener, house memory, Tuning in…, barge-in, frozen HOLD tap-to-confirm.
 
 ### After IUI (not Review-blocking)
 
@@ -69,7 +89,7 @@ Still worth a TestFlight pass on **42**: barge-in, mic-denied type path, frozen 
 ### Already done
 
 - **S1** v13 cut — `cursor/choremaxx-make-v13` @ 1.3.0 (`make-v13 · final`), TestFlight **1.3.0 (39)**
-- **S1b** v14 cut — `cursor/choremaxx-make-v14` = v13 + Revision G (`make-v14 · revision-g`), TestFlight **1.3.0 (40)** then **(41)** then **(42)** @ `4e03f6c` (EAS `d7a706bf`)
+- **S1b** v14 cut — `cursor/choremaxx-make-v14` = v13 + Revision G (`make-v14 · revision-g`), TestFlight **1.3.0 (40)** then **(41)** then **(42)** @ `4e03f6c`, then **(44)** @ `38fc974` (EAS `0b47cda0`)
 - Revision G Sidekick access (storage role stays `child`)
 - **Supabase staging** — `20260820200000_revision_g_sidekick.sql` applied (Sidekick redeem / grocery / proposals)
 - Login/signup dump sanitizer
@@ -80,9 +100,9 @@ Do not redo: v12 aggregate, Assign `difficulty` default, live captions, delete l
 
 ## You do (now)
 
-**42 is submitted.** Not Expo Go mock. Not `sarah@orbit.test`. 42 is git tip `f37422e`. Do not cut 43 unless asked.
+**44 is uploaded to ASC.** Not Expo Go mock. Not `sarah@orbit.test`. 44 is git `38fc974` / EAS `0b47cda0`. Do not cut 45 unless asked.
 
-1. **Apple processing** — wait until 1.3.0 (**42**) is Available in [TestFlight](https://appstoreconnect.apple.com/apps/6796850110/testflight/ios), then install 42 (41 is one-Speak IUI only; 40 is Revision G without the post-40 IUI pass).
+1. **Apple processing** — wait until 1.3.0 (**44**) is Available in [TestFlight](https://appstoreconnect.apple.com/apps/6796850110/testflight/ios), then install 44.
 2. **Luna (S3)** — if Luna is still the old model id, set `OPENAI_POPPINS_CHAT_MODEL=gpt-5.6-luna` and redeploy Poppins functions. Revision G SQL is already on staging.
 3. **Auth email (W2)** — Send Email Hook **is on**. Live signup returns `unexpected_failure` / **hook 502** because Resend rejected the send (unverified domain, bad `from`, or test-mode recipient). Fix in [Resend](https://resend.com/domains) + Supabase secret `RESEND_API_KEY` / `RESEND_FROM_EMAIL`. Apple Sign-In does not use this path. Details: [`resend-auth-email.md`](./resend-auth-email.md).
 4. **Device smoke (S2 + S4 + v14)** — real account:

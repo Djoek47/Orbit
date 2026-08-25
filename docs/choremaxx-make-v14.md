@@ -3,7 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v14`  
 **Follows:** `cursor/choremaxx-make-v13` (TestFlight **1.3.0 (39)**)  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (42)** in App Store Connect (Apple processing). EAS `d7a706bf` / git `4e03f6c`. **41** was `f70af99`. **40** remains the prior Revision G cut. See [`remaining.md`](./remaining.md).  
+**TestFlight:** **1.3.0 (44)** in App Store Connect (Apple processing). EAS `0b47cda0` / git `38fc974`. **43** was hang-up-only (`ad4a854`). **42** was `4e03f6c`. See [`remaining.md`](./remaining.md).  
 **Settings tip:** `make-v14 · revision-g`  
 **Content tip:** Revision G Sidekick + post-40 IUI continuity / one-Speak, onboarding photo, House Rules 23:59, Family iPad, Get Started Sidekick label.
 
@@ -32,7 +32,7 @@ This is the next shipping cut after v13. Nothing from Revision G on `cursor/revi
 - Propose = quiet “Suggest a reward” (name + optional note). One open proposal + **7-day** cooldown. Approve mints catalogue reward, no XP write.
 - Two-admin cap counted **inside the same transaction as the write** (`SELECT … FOR UPDATE`).
 
-Staging has `supabase/migrations/20260820200000_revision_g_sidekick.sql` applied (MYTIKAS, 2026-08-24). Sidekick redeem, grocery add, and proposals can be exercised on TestFlight 42.
+Staging has `supabase/migrations/20260820200000_revision_g_sidekick.sql` applied (MYTIKAS, 2026-08-24). Sidekick redeem, grocery add, and proposals can be exercised on TestFlight 44.
 
 ---
 
@@ -43,7 +43,7 @@ Staging has `supabase/migrations/20260820200000_revision_g_sidekick.sql` applied
 - `EXPO_PUBLIC_POPPINS_REALTIME=1`
 - `EXPO_PUBLIC_POPPINS_VOICE_WEBRTC=1`
 
-EAS `autoIncrement` assigns the next iOS build number. **1.3.0 (41)** was EAS build `f2060a3b` / git `f70af99`. **1.3.0 (42)** is EAS `d7a706bf` / git `4e03f6c` (Settings, AI meter, §A tiles, repeating chores, auth email copy, genie IUI, whole-pill done). Submitted to ASC (`3c4971da`). Do not upload another 42. Wait for Apple processing, then install 42.
+EAS `autoIncrement` assigns the next iOS build number. **1.3.0 (44)** is EAS `0b47cda0` / git `38fc974` (listen-first Speak, house memory, itinerary one-stop, Open Poppins inbox). Submitted to ASC (`9da23c50`). Do not upload another 44. Wait for Apple processing, then install 44.
 
 ---
 
@@ -56,6 +56,6 @@ EAS `autoIncrement` assigns the next iOS build number. **1.3.0 (41)** was EAS bu
 5. Suggest a reward → admin approve/decline (no XP)
 6. Failed signup shows short copy, not a JSON dump
 
-**Still open** — [`remaining.md`](./remaining.md) (App Review, website ops). IUI genie + 42 cut list are in TestFlight **42**.
+**Still open** — [`remaining.md`](./remaining.md) (App Review, website ops). Listen-first Speak + house memory + itinerary one-stop are in TestFlight **44**.
 
 **Do not** re-port Figma Make, rewrite welcome/sign-in, or collapse House Rules back to the kid card.
