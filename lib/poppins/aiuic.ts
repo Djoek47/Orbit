@@ -13,7 +13,7 @@ import {
   type HouseFact,
   type HouseFactKind,
 } from '@/lib/poppins/house-memory';
-import { parseHouseholdIntent, rewriteAiuicActions } from '@/lib/poppins/ui-intent';
+import { parseHouseholdIntent, rewriteAiuicActions, type HouseholdIntentOpts } from '@/lib/poppins/ui-intent';
 
 export { rewriteAiuicActions } from '@/lib/poppins/ui-intent';
 
@@ -40,9 +40,13 @@ function persistMemoryActions(actions: Array<Record<string, unknown>>) {
 export function driveAiuic(
   actions: Array<Record<string, unknown>> | undefined,
   utterance: string,
-  opts?: { kid?: boolean; replace?: boolean }
+  opts?: { kid?: boolean; replace?: boolean } & HouseholdIntentOpts
 ) {
-  const next = rewriteAiuicActions(actions ?? [], utterance);
+  const next = rewriteAiuicActions(actions ?? [], utterance, {
+    existingTasks: opts?.existingTasks,
+    memberNames: opts?.memberNames,
+    selfName: opts?.selfName,
+  });
   persistMemoryActions(next);
   const stage = next.filter((action) => String(action.type) !== 'remember_house_fact');
   if (!stage.length) return false;
@@ -57,7 +61,7 @@ export function driveAiuic(
 export function hearAndDrive(
   text: string,
   memberNames: string[] = [],
-  opts?: { kid?: boolean; selfName?: string }
+  opts?: { kid?: boolean; selfName?: string } & HouseholdIntentOpts
 ) {
   const memory = parseHouseMemoryUtterance(text);
   if (memory) void rememberActiveFact(memory);
@@ -66,8 +70,17 @@ export function hearAndDrive(
     const inferred = parseHouseholdIntent(text, {
       memberNames,
       selfName: opts?.selfName,
+      existingTasks: opts?.existingTasks,
     });
-    if (inferred.length) driveAiuic(inferred, text, { kid: opts?.kid, replace: true });
+    if (inferred.length) {
+      driveAiuic(inferred, text, {
+        kid: opts?.kid,
+        replace: true,
+        existingTasks: opts?.existingTasks,
+        memberNames,
+        selfName: opts?.selfName,
+      });
+    }
   }
   poppinsUiOrchestrator.syncSpoken(text, memberNames);
   return steered || poppinsUiOrchestrator.getState().live;

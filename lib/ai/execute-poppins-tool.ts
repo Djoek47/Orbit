@@ -10,7 +10,7 @@ import {
   type PoppinsToolName,
 } from '@/lib/ai/poppins-tools';
 import { isIuiScene, IUI_SCENES } from '@/lib/poppins/ui-scenes';
-import { isAssignSurfaceRoute, isGrocerySurfaceRoute } from '@/lib/poppins/catalog-match';
+import { isAssignSurfaceRoute, isGrocerySurfaceRoute, resolvePoppinsChoreTitle } from '@/lib/poppins/catalog-match';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { houseRulesHouseholdView } from '@/lib/rules/household-view';
 import { searchHouseRules } from '@/lib/rules/search';
@@ -419,16 +419,21 @@ export function executePoppinsTool(
     }
     case 'create_task_draft':
     case 'assign_task': {
+      const resolved = resolvePoppinsChoreTitle(String(args.title ?? ''), {
+        existingTasks: tasks.map((task) => ({ title: task.title, status: task.status })),
+      });
       return {
         ui_actions: [
           {
             type: 'create_task_draft',
-            title: String(args.title ?? ''),
+            title: resolved.title || String(args.title ?? ''),
             assignee: args.assignee ? String(args.assignee) : undefined,
             due: args.due ? String(args.due) : undefined,
             detail: args.detail ? String(args.detail) : undefined,
-            category: args.category ? String(args.category) : undefined,
-            libraryTaskId: args.libraryTaskId ? String(args.libraryTaskId) : undefined,
+            category: args.category ? String(args.category) : resolved.category,
+            libraryTaskId: args.libraryTaskId
+              ? String(args.libraryTaskId)
+              : resolved.libraryTaskId,
             taskQuery: args.taskQuery ? String(args.taskQuery) : undefined,
           },
         ],
@@ -519,7 +524,11 @@ export function executePoppinsTool(
           ui_actions: [
             {
               type: 'create_task_draft',
-              title: args.title ? String(args.title) : '',
+              title: args.title
+                ? resolvePoppinsChoreTitle(String(args.title), {
+                    existingTasks: tasks.map((task) => ({ title: task.title, status: task.status })),
+                  }).title || String(args.title)
+                : '',
               assignee: args.assignee ? String(args.assignee) : undefined,
               category: args.category ? String(args.category) : undefined,
             },

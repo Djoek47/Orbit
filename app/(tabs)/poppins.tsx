@@ -356,6 +356,7 @@ export default function PoppinsScreen() {
       hearAndDrive(text, memberNamesRef.current, {
         kid: kidSessionRef.current,
         selfName: currentMember?.name,
+        existingTasks: household.tasks,
       });
     } else {
       continuityRef.current = rememberTurn(continuityRef.current, household.id, {
@@ -369,7 +370,13 @@ export default function PoppinsScreen() {
 
   const applyUiActions = (actions: Array<Record<string, unknown>>, replace = false) => {
     if (!actions.length) return;
-    driveAiuic(actions, lastUtteranceRef.current, { kid: kidSessionRef.current, replace });
+    driveAiuic(actions, lastUtteranceRef.current, {
+      kid: kidSessionRef.current,
+      replace,
+      existingTasks: household.tasks,
+      memberNames: memberNamesRef.current,
+      selfName: currentMember?.name,
+    });
     persistContinuity();
   };
 
@@ -496,6 +503,7 @@ export default function PoppinsScreen() {
     hearAndDrive(trimmed, memberNamesRef.current, {
       kid: kidSessionRef.current,
       selfName: currentMember?.name,
+      existingTasks: household.tasks,
     });
 
     // Live duplex: inject into the same WebRTC conversation.

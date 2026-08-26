@@ -114,7 +114,11 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
       if (voiceRef.current?.isConnected) {
         voiceRef.current.sendUserText(trimmed);
         setCaption(trimmed);
-        hearAndDrive(trimmed, memberNames, { kid, selfName });
+        hearAndDrive(trimmed, memberNames, {
+          kid,
+          selfName,
+          existingTasks: household?.tasks,
+        });
         return;
       }
       setVisual('thinking');
@@ -124,9 +128,15 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
         setCaption(result.answer);
         appendPoppinsTurn?.(trimmed, result.answer);
         if (result.ui_actions?.length) {
-          driveAiuic(result.ui_actions, trimmed, { replace: true, kid });
+          driveAiuic(result.ui_actions, trimmed, {
+            replace: true,
+            kid,
+            existingTasks: household?.tasks,
+            memberNames,
+            selfName,
+          });
         } else {
-          hearAndDrive(trimmed, memberNames, { kid, selfName });
+          hearAndDrive(trimmed, memberNames, { kid, selfName, existingTasks: household?.tasks });
         }
         setVisual('speaking');
         setTimeout(() => setVisual('idle'), 1600);
@@ -135,7 +145,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
         setVisual('idle');
       }
     },
-    [appendPoppinsTurn, askPoppins, kid, memberNames, selfName]
+    [appendPoppinsTurn, askPoppins, household?.tasks, kid, memberNames, selfName]
   );
 
   const value = useMemo<PoppinsLiveValue>(

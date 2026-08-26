@@ -110,9 +110,100 @@ export function repeatFromUtterance(text: string): 'Daily' | undefined {
   return undefined;
 }
 
+const TITLE_STOP = new Set([
+  'a',
+  'an',
+  'the',
+  'my',
+  'our',
+  'your',
+  'to',
+  'for',
+  'of',
+  'and',
+  'or',
+  'on',
+  'in',
+  'at',
+  'it',
+  'them',
+  'this',
+  'that',
+  'please',
+  'just',
+  'up',
+  'me',
+  'i',
+]);
+
+export type ExistingChoreTitle = {
+  title: string;
+  status?: string;
+};
+
+export type ResolvedChoreTitle = {
+  title: string;
+  libraryTaskId?: string;
+  category?: string;
+};
+
+/** Spoken wrapper (“I’ll set a task to…”) rather than the chore name itself. */
+export function looksLikeSpokenSentence(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  return (
+    /^(i['’]?ll|i will|i am going to|i['’]?m going to|can you|could you|would you|please)\b/.test(
+      lower
+    ) ||
+    /\b(set|create|add|make|schedule)\s+(up\s+)?(a |an |the |my )?(task|desk|chore|todo)s?\b/.test(
+      lower
+    ) ||
+    /\bdesk\s+for\s+to\b/.test(lower)
+  );
+}
+
+function contentTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((word) => word.length >= 3 && !TITLE_STOP.has(word));
+}
+
+function isOpenTaskStatus(status?: string): boolean {
+  const value = (status ?? '').toLowerCase();
+  return value !== 'completed' && value !== 'cancelled' && value !== 'expired' && value !== 'missed';
+}
+
+function toChoreDisplayTitle(extracted: string): string {
+  const cleaned = extracted
+    .replace(/\b(my|our|your)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return extracted.trim();
+  const titled = cleaned.replace(/\b[a-z]/gi, (char) => char.toUpperCase());
+  return titled
+    .replace(/\b(To|For|And|Of|On|In|At|The|A|An)\b/g, (word) => word.toLowerCase())
+    .replace(/^[a-z]/, (char) => char.toUpperCase());
+}
+
 /** Phrase the person said when it is not a catalog chore name. */
 export function extractSpokenChoreTitle(text: string): string | undefined {
-  let t = text
+  let t = text.trim();
+  t = t.replace(/^(hey[, ]+|ok[, ]+|okay[, ]+)?(poppins|nova)[, ]+/i, '');
+  t = t.replace(/^(please\s+)/i, '');
+  t = t.replace(/^(can you|could you|would you)\s+/i, '');
+  t = t.replace(/^(i['’]?ll|i will|i am going to|i['’]?m going to)\s+/i, '');
+  t = t.replace(
+    /^(i(?:['’]d| would) like to|i wanted to|i want to|i needed to|i need to)\s+/i,
+    ''
+  );
+  t = t.replace(/^(let'?s)\s+/i, '');
+  t = t.replace(
+    /^(set|create|add|make|schedule|put)\s+(up\s+)?(a |an |the |my )?(task|desk|chore|todo)s?\s+((for\s+to|for|to)\s+)?/i,
+    ''
+  );
+  t = t.replace(/^(set\s+)?desk\s+for\s+to\s+/i, '');
+  t = t
     .replace(
       /\b(can you|could you|please|i (?:wanted to|want to|need to|would like to)|let'?s|i'?m going to|i am going to)\b/gi,
       ' '
@@ -121,14 +212,15 @@ export function extractSpokenChoreTitle(text: string): string | undefined {
     .replace(/\bfor\s+[A-Z][a-zA-Z]{1,20}\b/g, ' ')
     .replace(/\b(today|tomorrow|this week|every day|daily|tonight)\b/gi, ' ')
     .replace(/\b(a task|a chore|the task|task called|called|schedule|set up|setup|create|add|make)\b/gi, ' ')
+    .replace(/\b(task|desk|chore|todo)s?\b/gi, ' ')
     .replace(/\bfor\s+(kitchen|bathroom|laundry|the house|homework)\b/gi, ' ')
     .replace(/[?.!,]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   t = t.replace(/^(to|and|just|a|an|the)\s+/i, '').trim();
-  if (t.length < 6) return undefined;
+  if (t.length < 3) return undefined;
   if (
-    /^(kitchen|dishes|bathroom|laundry|chore|task|the dishes|kitchen dining)$/i.test(t)
+    /^(kitchen|dishes|bathroom|laundry|chore|task|desk|the dishes|kitchen dining)$/i.test(t)
   ) {
     return undefined;
   }
@@ -182,27 +274,31 @@ export function matchLibraryIntent(
   }
 
   const tasks = allLibraryTasks().filter((task) => !domainId || task.domainId === domainId);
-  let best: { task: LibraryTask; score: number } | undefined;
+  const scored: Array<{ task: LibraryTask; score: number }> = [];
   for (const task of tasks) {
+    let score = 0;
     const name = task.name.toLowerCase();
-    if (hasWord(lower, name) || lower.includes(name)) {
-      const score = name.length + 50;
-      if (!best || score > best.score) best = { task, score };
-      continue;
-    }
+    if (hasWord(lower, name) || lower.includes(name)) score += name.length + 50;
     for (const term of task.searchTerms) {
       const t = term.toLowerCase();
-      if (t.length < 4) continue;
+      const minLen = domainId && task.domainId === domainId ? 3 : 4;
+      if (t.length < minLen) continue;
       if (hasWord(lower, t) || lower.includes(t)) {
-        const score = t.length;
-        if (!best || score > best.score) best = { task, score };
+        score += t.length + (domainId && task.domainId === domainId ? 8 : 0);
       }
     }
+    if (score > 0) scored.push({ task, score });
   }
-
-  const specific =
+  scored.sort((a, b) => b.score - a.score);
+  const best = scored[0];
+  const tied =
     best &&
-    (best.score >= 12 || (best.task.name.toLowerCase().length >= 10 && lower.includes(best.task.name.toLowerCase())));
+    scored.some((row) => row.score === best.score && row.task.id !== best.task.id);
+  const specific =
+    Boolean(best) &&
+    !tied &&
+    (best!.score >= 12 ||
+      (best!.task.name.toLowerCase().length >= 10 && lower.includes(best!.task.name.toLowerCase())));
 
   if (specific && best) {
     const domain = domains.find((item) => item?.id === best.task.domainId);
@@ -220,6 +316,100 @@ export function matchLibraryIntent(
     taskQuery: aliasHit && aliasHit.length >= 4 ? aliasHit : undefined,
     assignee,
   };
+}
+
+function scoreLibraryTask(task: LibraryTask, tokens: string[], domainId?: string) {
+  const hay = new Set([
+    ...contentTokens(task.name),
+    ...task.searchTerms
+      .flatMap((term) => term.toLowerCase().split(/\s+/))
+      .filter((term) => term.length >= 3 && !TITLE_STOP.has(term)),
+  ]);
+  const matched = tokens.filter((token) => hay.has(token));
+  const unmatched = tokens.filter((token) => !matched.includes(token));
+  let score = matched.reduce((sum, token) => sum + token.length, 0);
+  if (domainId && task.domainId === domainId) score += 6;
+  return { score, unmatched };
+}
+
+function matchCatalogForChore(chore: string, utterance?: string): LibraryTask | undefined {
+  const fromIntent = matchLibraryIntent(utterance || chore).task;
+  if (fromIntent) return fromIntent;
+  const tokens = contentTokens(chore);
+  if (!tokens.length) return undefined;
+  const domainId = matchLibraryIntent(utterance || chore).domainId;
+  const ranked = allLibraryTasks()
+    .map((task) => ({ task, ...scoreLibraryTask(task, tokens, domainId) }))
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const best = ranked[0];
+  if (!best || best.unmatched.length > 0) return undefined;
+  const tied = ranked.some((row) => row.score === best.score && row.task.id !== best.task.id);
+  if (tied) return undefined;
+  const matchedCount = tokens.length - best.unmatched.length;
+  if (tokens.length >= 2 && matchedCount < 2) return undefined;
+  return best.task;
+}
+
+function matchExistingChoreTitle(
+  chore: string,
+  existing: ExistingChoreTitle[]
+): string | undefined {
+  const tokens = contentTokens(chore);
+  if (!tokens.length) return undefined;
+  const need = Math.min(2, tokens.length);
+  const hits: Array<{ title: string; score: number; extra: number }> = [];
+  for (const row of existing) {
+    if (!row.title.trim() || !isOpenTaskStatus(row.status)) continue;
+    const hay = contentTokens(row.title);
+    if (!hay.length) continue;
+    const overlap = tokens.filter((token) => hay.includes(token));
+    if (overlap.length < need) continue;
+    hits.push({
+      title: row.title,
+      score: overlap.length,
+      extra: tokens.length - overlap.length,
+    });
+  }
+  hits.sort((a, b) => b.score - a.score || a.extra - b.extra);
+  const best = hits[0];
+  if (!best) return undefined;
+  const tied = hits.some(
+    (row) => row.score === best.score && row.title.toLowerCase() !== best.title.toLowerCase()
+  );
+  if (tied) return undefined;
+  return best.title;
+}
+
+/**
+ * Chore name for Tasks: catalog match, else a close open list item, else a short title.
+ * Never keep “I’ll set a task to wash my car” as the row title.
+ */
+export function resolvePoppinsChoreTitle(
+  raw: string,
+  opts?: { existingTasks?: ExistingChoreTitle[] }
+): ResolvedChoreTitle {
+  const trimmed = raw.trim();
+  if (!trimmed) return { title: '' };
+  const extracted = extractSpokenChoreTitle(trimmed);
+  if (!extracted) {
+    if (looksLikeSpokenSentence(trimmed)) return { title: '' };
+    return { title: toChoreDisplayTitle(trimmed) };
+  }
+  const existing = matchExistingChoreTitle(extracted, opts?.existingTasks ?? []);
+  if (existing) {
+    const lib = matchCatalogForChore(existing, trimmed);
+    return {
+      title: existing,
+      libraryTaskId: lib?.id,
+      category: lib?.domainId,
+    };
+  }
+  const lib = matchCatalogForChore(extracted, trimmed);
+  if (lib) {
+    return { title: lib.name, libraryTaskId: lib.id, category: lib.domainId };
+  }
+  return { title: toChoreDisplayTitle(extracted) };
 }
 
 export function isCompleteIntent(text: string): boolean {
@@ -307,8 +497,8 @@ export function isChoreAssignIntent(text: string): boolean {
   const lower = text.toLowerCase();
   if (isCompleteIntent(text) || wantsFullEditor(text)) return false;
   if (
-    /\b(add|create|make|set up|setup|schedule)\b/.test(lower) &&
-    (/\btask\b/.test(lower) || /\bchore\b/.test(lower) || /\bfor\b/.test(lower))
+    /\b(add|create|make|set up|setup|schedule|set)\b/.test(lower) &&
+    (/\btask\b/.test(lower) || /\bdesk\b/.test(lower) || /\bchore\b/.test(lower) || /\bfor\b/.test(lower))
   ) {
     return true;
   }

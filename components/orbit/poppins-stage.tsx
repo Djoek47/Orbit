@@ -28,6 +28,7 @@ import { formatLocalDate } from '@/lib/streaks/local-date';
 import { occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
 import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
 import { allLibraryTasks, choreDomains, homeworkDomain } from '@/lib/tasks/task-library';
+import { resolvePoppinsChoreTitle } from '@/lib/poppins/catalog-match';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
@@ -380,8 +381,15 @@ export function PoppinsStage({
       const write = p.write ?? 'none';
       if (write === 'create_task' && (p.title || p.libraryTaskId)) {
         try {
-          const library = p.libraryTaskId
-            ? allLibraryTasks().find((item) => item.id === p.libraryTaskId)
+          const resolved = resolvePoppinsChoreTitle(String(p.title ?? ''), {
+            existingTasks: household.tasks.map((task) => ({
+              title: task.title,
+              status: task.status,
+            })),
+          });
+          const libraryId = p.libraryTaskId || resolved.libraryTaskId;
+          const library = libraryId
+            ? allLibraryTasks().find((item) => item.id === libraryId)
             : undefined;
           const assignee = p.assignee || currentMember?.name || household.members[0]?.name || 'Me';
           const dueLabel = p.due ?? 'Today';
@@ -400,10 +408,10 @@ export function PoppinsStage({
               due: dueLabel,
               occurrenceDate,
             });
-          } else if (p.title) {
+          } else if (resolved.title || p.title) {
             created = await createTask({
-              title: p.title,
-              category: p.category ?? p.selectedChipId ?? 'home_maintenance',
+              title: resolved.title || p.title,
+              category: p.category ?? p.selectedChipId ?? resolved.category ?? 'home_maintenance',
               assignee,
               due: dueLabel,
               xp: 10,

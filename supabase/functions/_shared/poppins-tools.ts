@@ -339,7 +339,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'create_task_draft',
     description:
-      'Assign a household task on the IUI stage. Always pass the spoken title (even if it is not a catalog chore — e.g. “tend to the dishes”). Pass libraryTaskId only when they named a catalog chore. Pass assignee when they said me or a member name. Pass category kitchen_dining when they said dishes/kitchen. HOLD writes the task — never say draft. One short spoken sentence per beat; wait for tap or HOLD.',
+      'Assign a household task on the IUI stage. Pass a short chore name (“Wash the car”, “tend to the dishes”), never the spoken sentence (“I’ll set a task to…”). If the household already has a close open task, reuse that title. Pass libraryTaskId when it is a catalog chore. Pass assignee when they said me or a member name. Pass category kitchen_dining when they said dishes/kitchen. HOLD writes the task — never say draft. One short spoken sentence per beat; wait for tap or HOLD.',
     parameters: {
       type: 'object',
       properties: {

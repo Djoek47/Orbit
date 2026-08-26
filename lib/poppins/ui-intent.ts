@@ -23,12 +23,16 @@ import {
   matchLibraryIntent,
   parseReleaseDate,
   repeatFromUtterance,
+  resolvePoppinsChoreTitle,
   wantsFullEditor,
+  looksLikeSpokenSentence,
+  type ExistingChoreTitle,
 } from '@/lib/poppins/catalog-match';
 
 export type HouseholdIntentOpts = {
   memberNames?: string[];
   selfName?: string;
+  existingTasks?: ExistingChoreTitle[];
 };
 
 export function parseHouseholdIntent(
@@ -121,32 +125,20 @@ export function parseHouseholdIntent(
 
   if (isChoreAssignIntent(text)) {
     const match = matchLibraryIntent(text, memberNames, selfName);
-    const spoken = extractSpokenChoreTitle(text);
-    const catalogName = match.task?.name;
-    const exactCatalog =
-      Boolean(catalogName && text.toLowerCase().includes(catalogName.toLowerCase()));
-    const rawTitle = exactCatalog
-      ? catalogName ?? ''
-      : spoken ??
-        catalogName ??
-        text.match(/\b(?:add|create|make)\s+(?:a |an )?(.+?)\s+task\b/i)?.[1] ??
-        text.match(/\b(?:add|create|make)\s+(?:a |an )?(.+?)\s+for\b/i)?.[1] ??
-        '';
-    const title = exactCatalog
-      ? rawTitle
-      : rawTitle.replace(/\b(a|an|the)\b/gi, '').replace(/\s+/g, ' ').trim();
+    const resolved = resolvePoppinsChoreTitle(text, { existingTasks: opts?.existingTasks });
+    const title = /^(task|chore)$/i.test(resolved.title) ? '' : resolved.title;
     const due = dueLabelFromUtterance(text);
     const named = match.assignee ?? text.match(/\bfor\s+([A-Z][a-zA-Z]+)\b/)?.[1];
     const assignee = named && named.toLowerCase() !== 'me' ? named : match.assignee;
-    const useCatalog = exactCatalog || (!spoken && Boolean(match.task));
+    const useCatalog = Boolean(resolved.libraryTaskId);
     return [
       {
         type: 'create_task_draft',
-        title: /^(task|chore)$/i.test(title) ? '' : title,
+        title,
         assignee,
         due,
-        category: match.domainId ?? (useCatalog ? match.task?.domainId : undefined),
-        libraryTaskId: useCatalog ? match.task?.id : undefined,
+        category: resolved.category ?? match.domainId ?? (useCatalog ? match.task?.domainId : undefined),
+        libraryTaskId: resolved.libraryTaskId,
         taskQuery: useCatalog ? undefined : match.taskQuery,
         repeat: repeatFromUtterance(text),
       },
@@ -162,9 +154,10 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function enrichTaskDraft(
   action: Record<string, unknown>,
-  utterance: string
+  utterance: string,
+  opts?: HouseholdIntentOpts
 ): Record<string, unknown> {
-  const match = matchLibraryIntent(utterance);
+  const match = matchLibraryIntent(utterance, opts?.memberNames, opts?.selfName);
   const next = { ...action };
   if (match.assignee && !next.assignee) next.assignee = match.assignee;
   if (match.domainId && !next.category) next.category = match.domainId;
@@ -173,19 +166,26 @@ function enrichTaskDraft(
   const spoken = repeatFromUtterance(utterance);
   if (spoken && !next.repeat) next.repeat = spoken;
   const existingTitle = String(next.title ?? '').trim();
-  if (match.task && !next.libraryTaskId && !existingTitle) {
-    next.libraryTaskId = match.task.id;
-    next.title = match.task.name;
-    next.category = match.task.domainId;
-  } else if (existingTitle) {
-    if (match.task && existingTitle.toLowerCase() === match.task.name.toLowerCase()) {
-      next.libraryTaskId = match.task.id;
-      next.category = match.task.domainId;
+  const resolved = resolvePoppinsChoreTitle(existingTitle || utterance, {
+    existingTasks: opts?.existingTasks,
+  });
+  if (resolved.title) {
+    next.title = resolved.title;
+    if (resolved.libraryTaskId && !next.libraryTaskId) {
+      next.libraryTaskId = resolved.libraryTaskId;
+      next.category = resolved.category ?? next.category;
     }
-  } else {
-    const heard = extractSpokenChoreTitle(utterance);
-    if (heard) next.title = heard;
-    if (match.taskQuery && !next.taskQuery) next.taskQuery = match.taskQuery;
+  } else if (!existingTitle || looksLikeSpokenSentence(existingTitle)) {
+    next.title = '';
+    if (match.task && !next.libraryTaskId) {
+      next.libraryTaskId = match.task.id;
+      next.title = match.task.name;
+      next.category = match.task.domainId;
+    } else {
+      const heard = extractSpokenChoreTitle(utterance);
+      if (heard) next.title = heard;
+      if (match.taskQuery && !next.taskQuery) next.taskQuery = match.taskQuery;
+    }
   }
   if (typeof next.title !== 'string') next.title = '';
   const assignee = typeof next.assignee === 'string' ? next.assignee : undefined;
@@ -231,9 +231,10 @@ function enrichGrocery(
  */
 export function rewriteAiuicActions(
   actions: Array<Record<string, unknown>>,
-  utterance = ''
+  utterance = '',
+  opts?: HouseholdIntentOpts
 ): Array<Record<string, unknown>> {
-  const parsed = parseHouseholdIntent(utterance);
+  const parsed = parseHouseholdIntent(utterance, opts);
   const editor = wantsFullEditor(utterance);
 
   if (!actions.length) return parsed;
@@ -256,10 +257,10 @@ export function rewriteAiuicActions(
       }
       const fromSpeech = parsed.filter((item) => item.type === 'create_task_draft');
       if (fromSpeech.length) {
-        out.push(...fromSpeech.map((item) => enrichTaskDraft(item, utterance)));
+        out.push(...fromSpeech.map((item) => enrichTaskDraft(item, utterance, opts)));
         continue;
       }
-      out.push(enrichTaskDraft({ type: 'create_task_draft', title: '' }, utterance));
+      out.push(enrichTaskDraft({ type: 'create_task_draft', title: '' }, utterance, opts));
       continue;
     }
 
@@ -284,7 +285,7 @@ export function rewriteAiuicActions(
     }
 
     if (type === 'create_task' || type === 'create_task_draft' || type === 'assign_task') {
-      out.push(enrichTaskDraft(action, utterance));
+      out.push(enrichTaskDraft(action, utterance, opts));
       continue;
     }
 
@@ -320,8 +321,9 @@ export function rewriteAiuicActions(
 
 export function attachIntentActions(
   question: string,
-  answer: { ui_actions?: Array<Record<string, unknown>> } & Record<string, unknown>
+  answer: { ui_actions?: Array<Record<string, unknown>> } & Record<string, unknown>,
+  opts?: HouseholdIntentOpts
 ) {
-  const rewritten = rewriteAiuicActions(answer.ui_actions ?? [], question);
+  const rewritten = rewriteAiuicActions(answer.ui_actions ?? [], question, opts);
   return rewritten.length ? { ...answer, ui_actions: rewritten } : answer;
 }

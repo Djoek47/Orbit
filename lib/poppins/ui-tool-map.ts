@@ -12,6 +12,7 @@ import {
   type IuiWriteKind,
 } from '@/lib/poppins/ui-scenes';
 import { withComposeProgress } from '@/lib/poppins/iui-compose';
+import { resolvePoppinsChoreTitle } from '@/lib/poppins/catalog-match';
 
 function beat(
   scene: IuiScene,
@@ -149,8 +150,16 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'create_task' || type === 'create_task_draft' || type === 'assign_task') {
+      const rawTitle = String(action.title ?? prefill.title ?? '');
+      const resolved = resolvePoppinsChoreTitle(rawTitle);
+      const title = resolved.title || rawTitle;
+      const libraryTaskId = action.libraryTaskId
+        ? String(action.libraryTaskId)
+        : prefill.libraryTaskId
+          ? String(prefill.libraryTaskId)
+          : resolved.libraryTaskId;
       const payload = withComposeProgress({
-        title: String(action.title ?? prefill.title ?? ''),
+        title,
         assignee: action.assignee
           ? String(action.assignee)
           : prefill.assignee
@@ -161,12 +170,8 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
           ? String(action.category)
           : prefill.category
             ? String(prefill.category)
-            : undefined,
-        libraryTaskId: action.libraryTaskId
-          ? String(action.libraryTaskId)
-          : prefill.libraryTaskId
-            ? String(prefill.libraryTaskId)
-            : undefined,
+            : resolved.category,
+        libraryTaskId,
         taskQuery: action.taskQuery ? String(action.taskQuery) : undefined,
         repeat: action.repeat ? String(action.repeat) : undefined,
         showEmoji: true,

@@ -3718,7 +3718,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       setPoppinsMonitorActions((current) => [...answer.actions!, ...current]);
     }
     await trackAnalytics('poppins.asked', { questionLength: question.length }, analyticsContext);
-    return attachIntentActions(question, answer) as typeof answer;
+    return attachIntentActions(question, answer, {
+      existingTasks: household.tasks,
+      memberNames: household.members.map((member) => member.name),
+      selfName: currentMember?.name,
+    }) as typeof answer;
   };
 
   const askPoppinsVoice = async (audioUri: string | null) => {
@@ -3747,7 +3751,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       answer.answer
     );
     await trackAnalytics('poppins.voice_asked', {}, analyticsContext);
-    return attachIntentActions(answer.question, answer) as typeof answer;
+    return attachIntentActions(answer.question, answer, {
+      existingTasks: household.tasks,
+      memberNames: household.members.map((member) => member.name),
+      selfName: currentMember?.name,
+    }) as typeof answer;
   };
 
   const appendPoppinsTurn = (question: string, answer: string) => {
