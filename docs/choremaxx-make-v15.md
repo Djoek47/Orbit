@@ -3,7 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v15`  
 **Follows:** `cursor/choremaxx-make-v14` (TestFlight **1.3.0 (44)**)  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (54)** uploaded to App Store Connect (Apple processing). EAS `5a9563d8` / git `0ac310c` (stamp of `84f5549`) / submit `af4506a0`. Install **54** (`make-v15 · chore-titles`). Skip 45–50 for login/create (50 still crashes there: `08497FBD`). Skip 45–49 for sign-out.
+**TestFlight:** **1.3.0 (55)** uploaded to App Store Connect (Apple processing). EAS `9e9eff48` / git `5db2c85` (stamp of `a147f28`) / first submit `3bbbc3c9` (EAS wait errored; later retries got `EAS_UPLOAD_TO_ASC_VERSION_DUPLICATE` so Apple already has **55**). Install **55** (`make-v15 · speak-debug`). Skip 45–50 for login/create (50 still crashes there: `08497FBD`). Skip 45–49 for sign-out.
 
 This is the next shipping cut after v14. It is v14 plus two-mode Poppins IUI, Speak start like TestFlight 38, Poppins Activity on tap, retry-safe household create, short chore titles from Poppins, the per-person $4 AI meter on live voice, and the Poppins OS one-viewport rework.
 
@@ -20,6 +20,12 @@ Fix on this branch: always wipe local auth (chunked SecureStore), block refresh 
 See [`poppins-os.md`](./poppins-os.md). IPA **1.3.0 (46)** from git `1769d06`. Bell never auto-opens over a live scene. Notifications is one list (no Activity tab, no hourglass on the Poppins tab). HOLD writes a real `createTask`. Speak failures say retry, not “Type instead.” In-place Ask from House Rules / tab long-press routes to the Poppins tab.
 
 EAS `b0959c6b-9349-4ceb-abac-4d110c3c39ba`, submit `caac30b9-c7e2-4cef-8368-901ea39ead48`.
+
+### TestFlight 1.3.0 (55)
+
+Speak failures keep the calm retry line **and** the raw dump (SDP status + body, `sb-request-id`, `getUserMedia` name/code, Realtime `code`/`type`). Long selectable text on the Poppins tab. That is how we tell Supabase / IUI / mic / memory apart vs TF 38/39. Chore titles from **54** are in this IPA too.
+
+EAS `9e9eff48-7c25-40c5-bd52-df822775f262`, git `5db2c85` (stamp of `a147f28`), submit `3bbbc3c9-a899-44f2-ab5e-74794e6adfdb`. Settings tip `make-v15 · speak-debug`. Apple is processing.
 
 ### TestFlight 1.3.0 (54)
 
