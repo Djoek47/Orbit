@@ -3,7 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v15`  
 **Follows:** `cursor/choremaxx-make-v14` (TestFlight **1.3.0 (44)**)  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (49)** has working IUI taps; sign-out still crashes (`B88D6E93`). This tip is the remount/worklets fix — next IPA after Apple processes. Skip 45–48. Install **49** only to confirm IUI; use the next build for sign-out.
+**TestFlight:** **1.3.0 (50)** uploaded to App Store Connect (Apple processing). EAS `bea5d546` / git `7b25522` / submit `c3b5741d`. Install **50** (`make-v15 · sign-out`). Skip 45–49 for sign-out (49 IUI taps are fine; 49 still crashes on Sign Out).
 
 This is the next shipping cut after v14. It is v14 plus two-mode Poppins IUI, Speak start fixes, the per-person $4 AI meter on live voice, and the Poppins OS one-viewport rework.
 
@@ -20,6 +20,10 @@ Fix on this branch: always wipe local auth (chunked SecureStore), block refresh 
 See [`poppins-os.md`](./poppins-os.md). IPA **1.3.0 (46)** from git `1769d06`. Bell never auto-opens over a live scene. Notifications is one list (no Activity tab, no hourglass on the Poppins tab). HOLD writes a real `createTask`. Speak failures say retry, not “Type instead.” In-place Ask from House Rules / tab long-press routes to the Poppins tab.
 
 EAS `b0959c6b-9349-4ceb-abac-4d110c3c39ba`, submit `caac30b9-c7e2-4cef-8368-901ea39ead48`.
+
+### TestFlight 1.3.0 (50)
+
+Sign-out remount / Reanimated worklets crash (`B88D6E93`). EAS `bea5d546-156d-431c-bc77-f17819dfa98d`, git `7b25522` (stamp of `d4c5a7b`), submit `c3b5741d-7fe3-4b38-aebe-524b8b0063d0`. Settings tip `make-v15 · sign-out`. Apple is processing.
 
 ### TestFlight 1.3.0 (49)
 
@@ -67,3 +71,4 @@ Until that lands, each TestFlight phone still meters locally and still pauses Sp
 3. Tap a face/chip while Poppins is talking — the choice sticks and speech stops talking over it.
 4. Bell never opens itself over a live scene. No hourglass. No Activity tab. No “Open Poppins” while already on Poppins.
 5. Settings → Poppins meter moves after a Speak turn. After **$4** household AI, Speak pauses.
+6. Settings shows `make-v15 · sign-out`. Speak / IUI, then Settings → Sign Out → Get Started. Reopen stays signed out.

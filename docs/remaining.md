@@ -1,14 +1,14 @@
 # Remaining work
 
 **Branch:** `cursor/choremaxx-make-v15`  
-**TestFlight in ASC:** **1.3.0 (49)** IUI taps work; sign-out still crashes (`B88D6E93`). This branch has the remount/worklets fix — wait for the next IPA. Skip 45–48.  
+**TestFlight in ASC:** **1.3.0 (50)** uploaded (Apple processing). EAS `bea5d546` / git `7b25522` / submit `c3b5741d`. Install **50** (`make-v15 · sign-out`). Skip 45–49 for sign-out.  
 **Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in splash animations, or collapse House Rules to the kid card.
 
 ---
 
 ## TestFlight v15 (submitted)
 
-v15 tip is `cursor/choremaxx-make-v15` @ git `d7bc562` — IUI tap keeps the live call + Speak abort + Poppins OS. IPA **1.3.0 (49)**. EAS `3e33b7de-9e01-41cc-a619-b0f86d954738`, submit `d326ebe9-0725-4bdb-b275-110561173eb4`. See [`choremaxx-make-v15.md`](./choremaxx-make-v15.md).
+v15 tip is `cursor/choremaxx-make-v15` @ git `7b25522` — IUI tap + sign-out remount fix (`B88D6E93`). IPA **1.3.0 (50)**. EAS `bea5d546-156d-431c-bc77-f17819dfa98d`, submit `c3b5741d-7fe3-4b38-aebe-524b8b0063d0`. See [`choremaxx-make-v15.md`](./choremaxx-make-v15.md).
 
 **45** is git `b4fc5a6` (EAS `abcf5726`) — two-mode without Poppins OS / sign-out wipe.
 
@@ -21,7 +21,7 @@ v15 tip is `cursor/choremaxx-make-v15` @ git `d7bc562` — IUI tap keeps the liv
 - Tap while Poppins is talking wins.
 - Bell never auto-opens. No hourglass. No Activity tab. No “Open Poppins” while already on Poppins.
 - Speak failure says retry, Speak stays visible.
-- Settings → Sign Out on **49** still SIGSEGVs (B88D6E93). Use the next IPA for sign-out; IUI taps on 49 are fine.
+- Settings → Sign Out on **50** should land on Get Started. **49** still SIGSEGVs (`B88D6E93`).
 - Settings → Poppins meter moves after Speak.
 
 ## TestFlight 44 (submitted, v14)
