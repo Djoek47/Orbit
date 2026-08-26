@@ -1,14 +1,14 @@
 # Remaining work
 
 **Branch:** `cursor/choremaxx-make-v15`  
-**TestFlight in ASC:** **1.3.0 (46)** uploaded (Apple processing). EAS `b0959c6b` / git `1769d06` / submit `caac30b9`. **45** was two-mode IUI without Poppins OS. **44** is the last v14 IPA.  
+**TestFlight in ASC:** **1.3.0 (49)** uploaded (Apple processing). EAS `3e33b7de` / git `d7bc562` / submit `d326ebe9`. Install **49**. Skip 45–48.  
 **Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in splash animations, or collapse House Rules to the kid card.
 
 ---
 
 ## TestFlight v15 (submitted)
 
-v15 tip is `cursor/choremaxx-make-v15` @ git `1769d06` — Poppins OS + sign-out wipe + two-mode IUI + $4 meter. IPA **1.3.0 (46)**. EAS `b0959c6b-9349-4ceb-abac-4d110c3c39ba`, submit `caac30b9-c7e2-4cef-8368-901ea39ead48`. See [`choremaxx-make-v15.md`](./choremaxx-make-v15.md) and [`poppins-os.md`](./poppins-os.md).
+v15 tip is `cursor/choremaxx-make-v15` @ git `d7bc562` — IUI tap keeps the live call + Speak abort + Poppins OS. IPA **1.3.0 (49)**. EAS `3e33b7de-9e01-41cc-a619-b0f86d954738`, submit `d326ebe9-0725-4bdb-b275-110561173eb4`. See [`choremaxx-make-v15.md`](./choremaxx-make-v15.md).
 
 **45** is git `b4fc5a6` (EAS `abcf5726`) — two-mode without Poppins OS / sign-out wipe.
 

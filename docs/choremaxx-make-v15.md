@@ -3,8 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v15`  
 **Follows:** `cursor/choremaxx-make-v14` (TestFlight **1.3.0 (44)**)  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (46)** uploaded to App Store Connect (Apple processing). EAS `b0959c6b` / git `1769d06` / submit `caac30b9`. **45** is two-mode without this OS cut.  
-**Settings tip:** `make-v15 · poppins-os`
+**TestFlight:** **1.3.0 (49)** uploaded to App Store Connect (Apple processing). EAS `3e33b7de` / git `d7bc562` / submit `d326ebe9`. Install **49** (`make-v15 · iui-tap`). Skip 45–48.
 
 This is the next shipping cut after v14. It is v14 plus two-mode Poppins IUI, Speak start fixes, the per-person $4 AI meter on live voice, and the Poppins OS one-viewport rework.
 
@@ -22,6 +21,10 @@ See [`poppins-os.md`](./poppins-os.md). IPA **1.3.0 (46)** from git `1769d06`. B
 
 EAS `b0959c6b-9349-4ceb-abac-4d110c3c39ba`, submit `caac30b9-c7e2-4cef-8368-901ea39ead48`.
 
+### TestFlight 1.3.0 (49)
+
+IUI tap hangup + Speak abort. EAS `3e33b7de-9e01-41cc-a619-b0f86d954738`, git `d7bc562`, submit `d326ebe9-0725-4bdb-b275-110561173eb4`. Settings tip `make-v15 · iui-tap`. Apple is processing.
+
 ### Hermes / Speak crash (45 + 46)
 
 Not a missing webhook. Voice is `poppins-realtime-sdp` + `poppins-voice-tool`.
@@ -31,7 +34,7 @@ Not a missing webhook. Voice is `poppins-realtime-sdp` + `poppins-voice-tool`.
 
 47: JSON SDP (no FormData), `text/plain` answer, unbind `RTCView` before `PeerConnection.close`, no IUI mount animations under live voice, delayed sign-out remount, OTA check only on error recovery.
 
-A tap on the IUI is not a webhook. It is a Realtime data-channel user line (`On the IUI I chose …`). IPA 46 sent `response.cancel` on every press, including while listening; OpenAI replied `response_cancel_not_active` and we treated that as fatal, so hands-off voice worked and a chip press hung up. That hangup is no longer fatal.
+A tap on the IUI is not a webhook. It is a Realtime data-channel user line (`On the IUI I chose …`). IPA 46 sent `response.cancel` on every press, including while listening; OpenAI replied `response_cancel_not_active` and we treated that as fatal, so hands-off voice worked and a chip press hung up. Taps now inject the choice, cancel only while a reply is in flight, queue during tool calls, and never hang up on `response_cancel_not_active`.
 
 ## What landed from today
 
