@@ -7,7 +7,15 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { restartSignedOutSession, SESSION_RESTART_ROUTE } from './session-restart';
+import {
+  applySignedOutNavigation,
+  remountSignedOutSession,
+  restartSignedOutSession,
+  scheduleSignedOutRestart,
+  SESSION_NAV_DELAY_MS,
+  SESSION_REMOUNT_DELAY_MS,
+  SESSION_RESTART_ROUTE,
+} from './session-restart';
 import {
   bumpSessionEpoch,
   getSessionEpoch,
@@ -45,16 +53,28 @@ function main() {
 
   {
     const calls: string[] = [];
-    const epoch = restartSignedOutSession({
+    applySignedOutNavigation({
       canDismiss: () => true,
       dismissAll: () => calls.push('dismissAll'),
       replace: (href) => calls.push(`replace:${href}`),
     });
     assert.equal(SESSION_RESTART_ROUTE, '/');
     assert.deepEqual(calls, ['dismissAll', 'replace:/']);
+    assert.equal(getSessionEpoch(), 0);
+    pass('navigation dismisses and replaces without remounting');
+  }
+
+  {
+    const calls: string[] = [];
+    const epoch = restartSignedOutSession({
+      canDismiss: () => true,
+      dismissAll: () => calls.push('dismissAll'),
+      replace: (href) => calls.push(`replace:${href}`),
+    });
+    assert.deepEqual(calls, ['dismissAll', 'replace:/']);
     assert.equal(epoch, 1);
     assert.equal(getSessionEpoch(), 1);
-    pass('restart dismisses modals, replaces /, and remounts');
+    pass('sync restart still remounts for callers that need it');
   }
 
   {
@@ -84,6 +104,42 @@ function main() {
     pass('restart falls back to /welcome if / replace throws');
   }
 
+  resetSessionEpochForTests();
+
+  {
+    assert.ok(SESSION_NAV_DELAY_MS >= 400, 'nav waits past 120ms native close');
+    assert.ok(
+      SESSION_REMOUNT_DELAY_MS > SESSION_NAV_DELAY_MS,
+      'remount must not share a turn with dismiss/replace',
+    );
+    const scheduled: Array<{ ms: number; fn: () => void }> = [];
+    const calls: string[] = [];
+    scheduleSignedOutRestart(
+      {
+        canDismiss: () => true,
+        dismissAll: () => calls.push('dismissAll'),
+        replace: (href) => calls.push(`replace:${href}`),
+      },
+      (fn, ms) => scheduled.push({ ms, fn }),
+    );
+    assert.deepEqual(
+      scheduled.map((item) => item.ms),
+      [SESSION_NAV_DELAY_MS, SESSION_REMOUNT_DELAY_MS],
+    );
+    scheduled[0].fn();
+    assert.deepEqual(calls, ['dismissAll', 'replace:/']);
+    assert.equal(getSessionEpoch(), 0, 'epoch stays put until the remount delay');
+    scheduled[1].fn();
+    assert.equal(getSessionEpoch(), 1);
+    pass('scheduled restart remounts only after the later delay');
+  }
+
+  {
+    remountSignedOutSession();
+    assert.equal(getSessionEpoch(), 2);
+    pass('remount helper bumps epoch');
+  }
+
   {
     const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
     const tabs = readFileSync(join(root, 'app/(tabs)/_layout.tsx'), 'utf8');
@@ -96,11 +152,22 @@ function main() {
     );
     const layout = readFileSync(join(root, 'app/_layout.tsx'), 'utf8');
     assert.ok(layout.includes('key={sessionEpoch}'), 'root must remount on session epoch');
+    assert.ok(layout.includes('<Stack key={sessionEpoch}>'), 'Stack remounts on sign-out');
+    assert.equal(
+      layout.includes('<OrbitProvider key={sessionEpoch}>'),
+      false,
+      'OrbitProvider must stay mounted — remounting the store is the worklet storm',
+    );
+    assert.ok(layout.includes('LayoutAnimationConfig'), 'skip Reanimated entering on remount');
+    assert.ok(layout.includes('skipEntering={sessionEpoch > 0}'));
     const settings = readFileSync(join(root, 'app/settings.tsx'), 'utf8');
     const del = readFileSync(join(root, 'app/delete-account.tsx'), 'utf8');
     assert.ok(settings.includes('resetToGetStarted()'));
     assert.ok(settings.includes('finally'), 'settings must remount even if signOut throws');
     assert.ok(del.includes('resetToGetStarted()'));
+    const reset = readFileSync(join(root, 'lib/navigation/reset-to-get-started.ts'), 'utf8');
+    assert.ok(reset.includes('scheduleSignedOutRestart'), 'sign-out must not remount in the same turn');
+    assert.equal(reset.includes('restartSignedOutSession(nav)'), false);
     pass('sign-out and delete remount instead of stacking welcome');
   }
 

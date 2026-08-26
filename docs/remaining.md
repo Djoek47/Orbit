@@ -1,7 +1,7 @@
 # Remaining work
 
 **Branch:** `cursor/choremaxx-make-v15`  
-**TestFlight in ASC:** **1.3.0 (49)** uploaded (Apple processing). EAS `3e33b7de` / git `d7bc562` / submit `d326ebe9`. Install **49**. Skip 45–48.  
+**TestFlight in ASC:** **1.3.0 (49)** IUI taps work; sign-out still crashes (`B88D6E93`). This branch has the remount/worklets fix — wait for the next IPA. Skip 45–48.  
 **Do not** start from v13 / v12 / v11 / v7. **Do not** re-port Figma Make, rewrite welcome/sign-in splash animations, or collapse House Rules to the kid card.
 
 ---
@@ -21,7 +21,7 @@ v15 tip is `cursor/choremaxx-make-v15` @ git `d7bc562` — IUI tap keeps the liv
 - Tap while Poppins is talking wins.
 - Bell never auto-opens. No hourglass. No Activity tab. No “Open Poppins” while already on Poppins.
 - Speak failure says retry, Speak stays visible.
-- Settings → Sign Out lands on Get Started and stays signed out after reopen.
+- Settings → Sign Out on **49** still SIGSEGVs (B88D6E93). Use the next IPA for sign-out; IUI taps on 49 are fine.
 - Settings → Poppins meter moves after Speak.
 
 ## TestFlight 44 (submitted, v14)

@@ -54,8 +54,8 @@ export async function wipeLocalAuthAndResetClient(): Promise<void> {
 export async function signOutEverywhere(): Promise<void> {
   blockAuthStorageWrites();
   try {
-    const { teardownAllPoppinsVoice } = await import('@/lib/voice/poppins-voice-session');
-    teardownAllPoppinsVoice();
+    const { teardownAllPoppinsVoiceAndSettle } = await import('@/lib/voice/poppins-voice-session');
+    await teardownAllPoppinsVoiceAndSettle();
   } catch (error) {
     console.warn('signOut.teardownVoice', error);
   }

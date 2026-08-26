@@ -2,6 +2,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { LayoutAnimationConfig } from 'react-native-reanimated';
 import 'react-native-reanimated';
 
 import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
@@ -35,12 +36,16 @@ export default function RootLayout() {
   }
 
   return (
-    <OrbitProvider key={sessionEpoch}>
+    <OrbitProvider>
       <PoppinsLiveProvider>
       <OrbitNavTheme>
         <DeepLinkBridge />
         <OrbitChromeBridge />
-        <Stack key={sessionEpoch}>
+        <LayoutAnimationConfig
+          key={sessionEpoch}
+          skipEntering={sessionEpoch > 0}
+          skipExiting>
+          <Stack key={sessionEpoch}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="join/[code]" options={{ headerShown: false }} />
           <Stack.Screen name="pending-approval" options={{ headerShown: false, title: 'Pending Approval' }} />
@@ -152,6 +157,7 @@ export default function RootLayout() {
             options={{ presentation: 'modal', headerShown: false, title: 'Allowance history' }}
           />
         </Stack>
+        </LayoutAnimationConfig>
       </OrbitNavTheme>
       </PoppinsLiveProvider>
     </OrbitProvider>

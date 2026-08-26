@@ -17,18 +17,21 @@ function source(rel: string) {
 
 const voice = source('lib/voice/poppins-voice-session.ts');
 assert.match(voice, /VOICE_NATIVE_CLOSE_MS/);
+assert.match(voice, /VOICE_NATIVE_SETTLE_MS/);
+assert.match(voice, /teardownAllPoppinsVoiceAndSettle/);
 assert.match(voice, /onRemoteStream\?\.\(null\)/);
 const disconnect = voice.slice(voice.indexOf('disconnect() {'));
 const unbindAt = disconnect.indexOf('onRemoteStream?.(null)');
 const timerAt = disconnect.indexOf('setTimeout');
 assert.ok(unbindAt >= 0, 'unbind RTCView');
 assert.ok(timerAt > unbindAt, 'native close is deferred after unbind');
-assert.match(disconnect, /pc\?\.close\(\)/);
+assert.match(disconnect, /pc\.close\(\)/);
+assert.match(disconnect, /signalingState/);
 
 const reset = source('lib/navigation/reset-to-get-started.ts');
 assert.match(reset, /teardownAllPoppinsVoice\(\)/);
-assert.match(reset, /setTimeout/, 'sign-out remount waits for native close');
-assert.match(reset, /VOICE_NATIVE_CLOSE_MS/);
+assert.match(reset, /scheduleSignedOutRestart/, 'sign-out remount is deferred');
+assert.equal(reset.includes('VOICE_NATIVE_CLOSE_MS + 40'), false, 'IPA 49 160ms remount is gone');
 
 const stage = source('components/orbit/poppins-stage.tsx');
 assert.ok(!stage.includes('exiting={FadeOut'), 'live IUI must not FadeOut the stage under WebRTC');
@@ -52,6 +55,18 @@ assert.match(voice, /cache: 'no-store'/);
 const sdpFn = source('supabase/functions/poppins-realtime-sdp/index.ts');
 assert.match(sdpFn, /text\/plain/);
 assert.equal(sdpFn.includes("'Content-Type': 'application/sdp'"), false);
+
+const restart = source('lib/navigation/session-restart.ts');
+assert.match(restart, /SESSION_NAV_DELAY_MS = 400/);
+assert.match(restart, /SESSION_REMOUNT_DELAY_MS = 900/);
+assert.match(restart, /scheduleSignedOutRestart/);
+
+const signOut = source('lib/auth/local-sign-out.ts');
+assert.match(signOut, /teardownAllPoppinsVoiceAndSettle/);
+
+const layout = source('app/_layout.tsx');
+assert.match(layout, /LayoutAnimationConfig/);
+assert.equal(layout.includes('<OrbitProvider key={sessionEpoch}>'), false);
 
 const appJson = source('app.json');
 assert.match(appJson, /ON_ERROR_RECOVERY/, 'OTA must not fetch on every Speak launch');

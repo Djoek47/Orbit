@@ -193,6 +193,15 @@ const livePoppinsVoiceSessions = new Set<{ disconnect: () => void }>();
 /** Wait for RTCView to unmount before PeerConnection.close — closing first SIGSEGVs Hermes. */
 export const VOICE_NATIVE_CLOSE_MS = 120;
 
+/**
+ * Extra quiet time after `pc.close()` so the void TurboModule (and any
+ * `convertNSExceptionToJSError`) finishes before React unmounts. IPA 49
+ * B88D6E93 crashed Hermes HiddenClass::addProperty 160ms after close.
+ */
+export const VOICE_NATIVE_SETTLE_MS = 280;
+
+export const VOICE_TEARDOWN_SETTLE_MS = VOICE_NATIVE_CLOSE_MS + VOICE_NATIVE_SETTLE_MS;
+
 /** Close every live WebRTC session before auth remounts the JS tree. */
 export function teardownAllPoppinsVoice(except?: { disconnect: () => void }): void {
   for (const session of [...livePoppinsVoiceSessions]) {
@@ -204,6 +213,14 @@ export function teardownAllPoppinsVoice(except?: { disconnect: () => void }): vo
     }
   }
   if (!except) livePoppinsVoiceSessions.clear();
+}
+
+/** Unbind + close, then wait for native void methods to drain. */
+export async function teardownAllPoppinsVoiceAndSettle(): Promise<void> {
+  teardownAllPoppinsVoice();
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, VOICE_TEARDOWN_SETTLE_MS);
+  });
 }
 
 const SOFT_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_SOFT_PROMPT_MS ?? 50_000);
@@ -980,9 +997,12 @@ export class PoppinsVoiceSession {
         /* ignore */
       }
       try {
-        pc?.close();
+        const signaling = (pc as { signalingState?: string } | null)?.signalingState;
+        if (pc && signaling !== 'closed') {
+          pc.close();
+        }
       } catch {
-        /* ignore */
+        /* native close is a void TurboModule — JS catch may not see NSException */
       }
       try {
         localStream?.getTracks().forEach((t) => t.stop());

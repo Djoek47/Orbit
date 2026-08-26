@@ -151,9 +151,14 @@ async function main() {
     assert.ok(settings.includes('resetToGetStarted()'));
     const voice = readFileSync(join(root, 'lib/voice/poppins-voice-session.ts'), 'utf8');
     assert.ok(voice.includes('teardownAllPoppinsVoice'));
+    const localSignOut = readFileSync(join(root, 'lib/auth/local-sign-out.ts'), 'utf8');
+    assert.ok(
+      localSignOut.includes('teardownAllPoppinsVoiceAndSettle'),
+      'sign-out must wait for native close before wiping JWT / unmounting tabs',
+    );
     const reset = readFileSync(join(root, 'lib/navigation/reset-to-get-started.ts'), 'utf8');
     assert.ok(reset.includes('teardownAllPoppinsVoice()'));
-    assert.ok(reset.includes('setTimeout'), 'remount waits for WebRTC native close');
+    assert.ok(reset.includes('scheduleSignedOutRestart'), 'remount waits for WebRTC native close');
     const live = readFileSync(join(root, 'lib/poppins/live-context.tsx'), 'utf8');
     assert.ok(live.includes('voiceRef.current?.disconnect()'));
     pass('sign-out paths tear down voice and always remount');
