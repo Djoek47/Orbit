@@ -31,6 +31,8 @@ Not a missing webhook. Voice is `poppins-realtime-sdp` + `poppins-voice-tool`.
 
 47: JSON SDP (no FormData), `text/plain` answer, unbind `RTCView` before `PeerConnection.close`, no IUI mount animations under live voice, delayed sign-out remount, OTA check only on error recovery.
 
+A tap on the IUI is not a webhook. It is a Realtime data-channel user line (`On the IUI I chose …`). IPA 46 sent `response.cancel` on every press, including while listening; OpenAI replied `response_cancel_not_active` and we treated that as fatal, so hands-off voice worked and a chip press hung up. That hangup is no longer fatal.
+
 ## What landed from today
 
 - Two-mode IUI — talking fills unknown beats only; a tap wins while Poppins is still speaking.

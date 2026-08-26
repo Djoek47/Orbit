@@ -44,7 +44,7 @@ Poppins talks and the IUI are one act. See the table in [`iui-ux-architecture.md
 | Input | Result |
 |---|---|
 | Hands off | Voice fills unknown beats only. Known kitchen / tomorrow skips the category grid. |
-| Finger on a choice | `response.cancel` + “On the IUI I chose …”. Auto-HOLD stays gated on speech; a tap is not gated. |
+| Finger on a choice | Data channel: “On the IUI I chose …”. Cancel only if Poppins is still talking. `response_cancel_not_active` is not a hangup. |
 | Hourglass | Opens Activity. Speak / HOLD / in-place Ask do not. |
 
 ## IUI

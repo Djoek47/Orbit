@@ -74,18 +74,6 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  useEffect(() => {
-    return poppinsUiOrchestrator.subscribeTap((tap) => {
-      if (!voiceRef.current?.isConnected) return;
-      setVisual((state) => (state === 'speaking' || state === 'thinking' ? 'listening' : state));
-      poppinsUiOrchestrator.setSpeaking(false);
-      const step = poppinsUiOrchestrator.getState().playlist[poppinsUiOrchestrator.getState().index]
-        ?.payload.composeStep;
-      const needsReply = tap.kind !== 'confirm' && step !== 'ready';
-      voiceRef.current.notifyStageTap(tap, { needsReply });
-    });
-  }, []);
-
   const persistDrive = useCallback(() => {
     if (!household?.id) return;
     const next = snapshotFromDrive(

@@ -19,6 +19,7 @@ import { getSupabaseClient } from '@/lib/supabase/client';
 import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
 import { mergeTranscript } from '@/lib/voice/transcript-merge';
 import { formatStageTapUserLine } from '@/lib/poppins/stage-tap';
+import { isRecoverableRealtimeError } from '@/lib/poppins/realtime-error';
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
 
 export type PoppinsVoiceVisualState =
@@ -259,6 +260,9 @@ export class PoppinsVoiceSession {
   private memoryHint = '';
   private toreDown = false;
   private nativeCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private responseInFlight = false;
+  private pendingStageTap: { tap: { kind: string; text: string }; needsReply: boolean } | null =
+    null;
 
   constructor(private callbacks: PoppinsVoiceSessionCallbacks = {}) {
     livePoppinsVoiceSessions.add(this);
@@ -426,6 +430,7 @@ export class PoppinsVoiceSession {
               type: 'response.create',
               response: { instructions: this.openerInstructions },
             });
+            this.responseInFlight = true;
           }, OPENER_DELAY_MS);
         }
       };
@@ -519,8 +524,11 @@ export class PoppinsVoiceSession {
   }
 
   private sendEvent(payload: Record<string, unknown>) {
-    if (this.dc?.readyState === 'open') {
+    if (this.dc?.readyState !== 'open') return;
+    try {
       this.dc.send(JSON.stringify(payload));
+    } catch (error) {
+      console.warn('[poppins-voice] dc.send', error);
     }
   }
 
@@ -546,13 +554,24 @@ export class PoppinsVoiceSession {
   }
 
   /**
-   * Finger used the IUI. Cancel speech, inject the choice, stay quiet unless
-   * one more unknown beat still needs a word.
+   * Finger used the IUI. Tell the live Realtime session what they pressed
+   * (data channel — not a webhook). Cancel only if a response is in flight;
+   * cancel-while-listening is what used to hang up the call.
    */
   notifyStageTap(tap: { kind: string; text: string }, opts?: { needsReply?: boolean }) {
     if (!this.isConnected) return;
     this.noteUserActivity();
-    this.sendEvent({ type: 'response.cancel' });
+    const needsReply = opts?.needsReply === true;
+    if (this.responseInFlight || this.state === 'speaking' || this.state === 'thinking') {
+      this.pendingStageTap = { tap, needsReply };
+      this.sendEvent({ type: 'response.cancel' });
+      this.setState('listening');
+      return;
+    }
+    this.injectStageTap(tap, needsReply);
+  }
+
+  private injectStageTap(tap: { kind: string; text: string }, needsReply: boolean) {
     this.sendEvent({
       type: 'conversation.item.create',
       item: {
@@ -561,7 +580,8 @@ export class PoppinsVoiceSession {
         content: [{ type: 'input_text', text: formatStageTapUserLine(tap) }],
       },
     });
-    if (opts?.needsReply) {
+    if (needsReply) {
+      this.responseInFlight = true;
       this.sendEvent({
         type: 'response.create',
         response: {
@@ -573,6 +593,13 @@ export class PoppinsVoiceSession {
       return;
     }
     this.setState('listening');
+  }
+
+  private flushPendingStageTap() {
+    const pending = this.pendingStageTap;
+    if (!pending) return;
+    this.pendingStageTap = null;
+    this.injectStageTap(pending.tap, pending.needsReply);
   }
 
   private clearThinkingRecovery() {
@@ -679,13 +706,19 @@ export class PoppinsVoiceSession {
       this.assistantBuffer = '';
     }
 
+    if (type === 'response.created') {
+      this.responseInFlight = true;
+    }
+
     if (type === 'response.done') {
       this.clearThinkingRecovery();
+      this.responseInFlight = false;
       if (this.assistantBuffer.trim()) {
         this.publishAssistant(this.assistantBuffer.trim());
         this.assistantBuffer = '';
       }
       if (this.connected) this.setState('listening');
+      this.flushPendingStageTap();
     }
 
     if (type === 'response.function_call_arguments.done') {
@@ -701,7 +734,15 @@ export class PoppinsVoiceSession {
     }
 
     if (type === 'error') {
-      const message = String((event.error as { message?: string })?.message ?? 'Realtime error');
+      const err = (event.error as { message?: string; code?: string } | undefined) ?? event;
+      if (isRecoverableRealtimeError(err) || isRecoverableRealtimeError(event)) {
+        if (String((err as { code?: string }).code ?? '').toLowerCase() === 'response_cancel_not_active') {
+          this.responseInFlight = false;
+          this.flushPendingStageTap();
+        }
+        return;
+      }
+      const message = String((err as { message?: string }).message ?? 'Realtime error');
       this.fatal = true;
       this.callbacks.onError?.(message);
       this.disconnect();
@@ -891,6 +932,8 @@ export class PoppinsVoiceSession {
     this.localStream = null;
     this.remoteStream = null;
     this.pausedForTools = false;
+    this.responseInFlight = false;
+    this.pendingStageTap = null;
     this.publishedAssistant = '';
     this.assistantBuffer = '';
     this.userTranscriptBuffer = '';
