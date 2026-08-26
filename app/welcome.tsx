@@ -57,6 +57,7 @@ import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
 import {
   authIssue,
   isAuthRateLimitError,
+  isSafeHumanMessage,
   resolveAuthIssue,
   userFacingMessage,
   type AuthIssue,
@@ -78,6 +79,12 @@ import { shareInvite } from '@/lib/invites/share-invite';
 import { isPendingJoinSnapshot } from '@/lib/invites/join-approval';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
+
+function householdSetupMessage(err: unknown, fallback: string): string {
+  const text = err instanceof Error ? err.message.trim() : '';
+  if (text && isSafeHumanMessage(text) && !/already exists/i.test(text)) return text;
+  return fallback;
+}
 
 type Step =
   | 'splash'
@@ -761,29 +768,36 @@ export default function WelcomeOnboardingScreen() {
 
     let created: Awaited<ReturnType<typeof addOnboardingMembers>> = [];
     if (toPersist.length > 0) {
-      created = await addOnboardingMembers(
-        householdId,
-        toPersist.map((m) => ({ name: m.name.trim(), role: m.role, avatar: m.avatar })),
-        { householdName: draft.householdName.trim() }
-      );
-      for (const member of toPersist.filter((m) => m.setupComplete)) {
-        const matched = created.find(
-          (c) => c.name.trim().toLowerCase() === member.name.trim().toLowerCase()
+      try {
+        created = await addOnboardingMembers(
+          householdId,
+          toPersist.map((m) => ({ name: m.name.trim(), role: m.role, avatar: m.avatar })),
+          { householdName: draft.householdName.trim() }
         );
-        for (const task of tasksFromDraftMember(member, draft.scoringMode)) {
-          await createTask(task, { householdId });
-        }
-        for (const reward of rewardsFromDraftMember(member)) {
-          await createReward(
-            {
-              ...reward,
-              assignedMemberId: matched?.id,
-              assignedMemberName: matched?.name ?? member.name.trim(),
-              cost: 0,
-            },
-            { householdId }
+        for (const member of toPersist.filter((m) => m.setupComplete)) {
+          const matched = created.find(
+            (c) => c.name.trim().toLowerCase() === member.name.trim().toLowerCase()
           );
+          for (const task of tasksFromDraftMember(member, draft.scoringMode)) {
+            await createTask(task, { householdId });
+          }
+          for (const reward of rewardsFromDraftMember(member)) {
+            await createReward(
+              {
+                ...reward,
+                assignedMemberId: matched?.id,
+                assignedMemberName: matched?.name ?? member.name.trim(),
+                cost: 0,
+              },
+              { householdId }
+            );
+          }
         }
+      } catch {
+        const who = toPersist[0]?.name.trim() || 'everyone';
+        throw new Error(
+          `Your household is saved. Couldn’t add ${who} yet. Try Create again.`
+        );
       }
     }
     for (const place of draft.places ?? []) {
@@ -821,7 +835,7 @@ export default function WelcomeOnboardingScreen() {
       await materializeDraft(setupDraft, true);
       setStep('ready');
     } catch (err) {
-      setError(userFacingMessage(err, 'Could not create household.'));
+      setError(householdSetupMessage(err, 'Could not create household.'));
     } finally {
       setBusy(false);
     }
@@ -843,7 +857,7 @@ export default function WelcomeOnboardingScreen() {
       await materializeDraft(draft, false);
       setStep('ready');
     } catch (err) {
-      setError(userFacingMessage(err, 'Could not save household.'));
+      setError(householdSetupMessage(err, 'Could not save household.'));
     } finally {
       setBusy(false);
     }

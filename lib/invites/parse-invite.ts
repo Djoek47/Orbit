@@ -53,5 +53,17 @@ export function buildInviteLinks(code: string): { code: string; deepLink: string
 }
 
 export function createInviteCode() {
-  return `CMX-${Math.floor(1000 + Math.random() * 9000)}`;
+  return `CMX-${100000 + Math.floor(Math.random() * 900000)}`;
+}
+
+/** Globally unique household join code (`CMX-######`). Collisions retry. */
+export function allocateHouseholdInviteCode(taken: Iterable<string> = []): string {
+  const takenSet = new Set(
+    [...taken].map((code) => normalizeInviteCode(code)).filter(Boolean)
+  );
+  for (let n = 0; n < 40; n += 1) {
+    const attempt = createInviteCode();
+    if (!takenSet.has(attempt)) return attempt;
+  }
+  return createInviteCode();
 }

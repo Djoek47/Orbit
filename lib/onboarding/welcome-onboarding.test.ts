@@ -36,6 +36,8 @@ assert.match(welcome, /markPremiumGatePending/);
 assert.match(welcome, /premiumOnboardingHref\(\{ source: 'onboarding' \}\)/);
 assert.match(welcome, /fetchEntitlement/);
 assert.match(welcome, /!hydrated\.id/);
+assert.match(welcome, /householdSetupMessage/);
+assert.match(welcome, /Your household is saved/);
 
 const confirm = source('app/confirm-email.tsx');
 assert.match(confirm, /markPremiumGatePending/);
@@ -54,6 +56,9 @@ assert.match(members, /householdId: household\.id/);
 const repo = source('repositories/household-repository.ts');
 assert.match(repo, /allocateChildInviteCode/);
 assert.match(repo, /isUniqueViolation/);
+assert.match(repo, /insertHouseholdInviteWithRetry/);
+assert.match(repo, /allocateHouseholdInviteCode/);
+assert.match(repo, /findOwnedHousehold|owner_id/);
 
 const settings = source('app/settings.tsx');
 assert.match(settings, /REWARD_MODE_COPY/);

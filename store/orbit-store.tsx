@@ -1214,7 +1214,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const createHousehold = async (input: CreateHouseholdInput): Promise<HouseholdSnapshot | null> => {
     if (!currentUser) {
-      return null;
+      throw new Error('Sign in to create your household.');
     }
 
     const createdHousehold = await householdRepository.createHousehold(input, currentUser);
@@ -4379,12 +4379,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       throw new Error('Add at least one kid name.');
     }
 
-    const existingMembers = onboardingWrite
-      ? // Prefer latest snapshot from state updater path; fall back to closure.
-        household.id === householdId
-        ? household.members
-        : household.members
-      : household.members;
+    const existingMembers =
+      household.id === householdId ? household.members : [];
 
     const created: HouseholdMember[] = [];
     for (const name of trimmed) {
@@ -4445,12 +4441,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     const householdName = options?.householdName ?? household.householdName;
     const created: HouseholdMember[] = [];
+    const roster =
+      household.id === householdId ? household.members : [];
 
     for (const draft of drafts) {
       const name = draft.name.trim();
       if (!name) continue;
       const role = draft.role === 'admin' ? 'admin' : 'child';
-      const already = household.members.find(
+      const already = roster.find(
         (member) =>
           member.name.trim().toLowerCase() === name.toLowerCase() &&
           member.status === 'active' &&

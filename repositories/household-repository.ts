@@ -16,7 +16,7 @@ import {
   resolveJoinApprovalMembership,
   shouldLoadPendingPreview,
 } from '@/lib/invites/join-approval';
-import { buildInviteLinks, createInviteCode, normalizeInviteCode } from '@/lib/invites/parse-invite';
+import { buildInviteLinks, createInviteCode, allocateHouseholdInviteCode, normalizeInviteCode } from '@/lib/invites/parse-invite';
 import {
   mapBadgeRow,
   mapBriefingRow,
@@ -168,17 +168,35 @@ export const householdRepository = {
   },
 
   async createHousehold(input: CreateHouseholdInput, user: OrbitUser): Promise<HouseholdSnapshot> {
+    const rewardMode = input.rewardMode === 'flat' ? 'flat' : 'weighted';
+    const rewardModel = input.rewardModel ?? 'full';
+    const name = input.name.trim();
+
     if (isMockMode()) {
+      const existing = await loadActiveMockHousehold();
+      if (existing?.id && existing.members.some((member) => member.role === 'owner')) {
+        const reused: HouseholdSnapshot = {
+          ...existing,
+          householdName: name || existing.householdName,
+          rewardMode,
+          rewardModel,
+          setupComplete: input.setupComplete ?? existing.setupComplete ?? false,
+          inviteCode: existing.inviteCode || createInviteCode(),
+        };
+        seedMockDomainsFromHousehold(reused);
+        await saveActiveMockHousehold(reused);
+        return reused;
+      }
       const base = createEmptyHousehold(user);
       const created: HouseholdSnapshot = {
         ...base,
         id: createLocalId('hh'),
-        householdName: input.name.trim(),
+        householdName: name,
         householdType: 'family',
         inviteCode: createInviteCode(),
         greetingName: user.name,
-        rewardMode: input.rewardMode ?? 'weighted',
-        rewardModel: input.rewardModel ?? 'full',
+        rewardMode,
+        rewardModel,
         setupComplete: input.setupComplete ?? false,
         hygieneRewarded: false,
         hygieneXp: 5,
@@ -201,7 +219,7 @@ export const householdRepository = {
         ],
         poppins: {
           title: 'Your household is ready',
-          summary: `${input.name.trim()} is ready. Add tasks, Plan events, and rewards when your household is set.`,
+          summary: `${name} is ready. Add tasks, Plan events, and rewards when your household is set.`,
           actions: ['Invite members', 'Create task'],
         },
       };
@@ -211,54 +229,89 @@ export const householdRepository = {
     }
 
     const supabase = getConfiguredSupabase('householdRepository.createHousehold');
-    const inviteCode = createInviteCode();
-    const deepLink = buildInviteLinks(inviteCode).deepLink;
 
-    const rewardMode = input.rewardMode === 'flat' ? 'flat' : 'weighted';
-    const rewardModel = input.rewardModel ?? 'full';
-
-    const { data: household, error: householdError } = await supabase
+    const { data: owned, error: ownedError } = await supabase
       .from('households')
-      .insert({
-        name: input.name.trim(),
-        household_type: 'family',
-        owner_id: user.id,
-        reward_mode: rewardMode,
-        reward_model: rewardModel,
-        hygiene_rewarded: false,
-        hygiene_xp: 5,
-      } satisfies Partial<HouseholdRow> & Pick<HouseholdRow, 'name' | 'owner_id'>)
-      .select('*')
-      .single();
-    mapDbError('householdRepository.createHousehold.household', householdError);
+      .select('id')
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    mapDbError('householdRepository.createHousehold.owned', ownedError);
 
-    if (!household) {
-      throw new Error('householdRepository.createHousehold: Household insert returned no row.');
+    let householdId = owned?.id ?? null;
+
+    if (!householdId) {
+      const { data: household, error: householdError } = await supabase
+        .from('households')
+        .insert({
+          name,
+          household_type: 'family',
+          owner_id: user.id,
+          reward_mode: rewardMode,
+          reward_model: rewardModel,
+          hygiene_rewarded: false,
+          hygiene_xp: 5,
+        } satisfies Partial<HouseholdRow> & Pick<HouseholdRow, 'name' | 'owner_id'>)
+        .select('*')
+        .single();
+      mapDbError('householdRepository.createHousehold.household', householdError);
+      if (!household) {
+        throw new Error('householdRepository.createHousehold: Household insert returned no row.');
+      }
+      householdId = household.id;
+    } else {
+      const { error: updateError } = await supabase
+        .from('households')
+        .update({
+          name,
+          reward_mode: rewardMode,
+          reward_model: rewardModel,
+        })
+        .eq('id', householdId);
+      mapDbError('householdRepository.createHousehold.update', updateError);
     }
 
-    const { error: memberError } = await supabase.from('household_members').insert({
-      household_id: household.id,
-      user_id: user.id,
-      display_name: user.name,
-      role: 'owner',
-      status: 'active',
-      avatar_symbol: user.avatar,
-      xp: 0,
-      week_xp: 0,
-      streak: 0,
-      load_share: 100,
-    } satisfies Partial<HouseholdMemberRow> & Pick<HouseholdMemberRow, 'household_id' | 'role'>);
-    mapDbError('householdRepository.createHousehold.member', memberError);
+    const { data: existingOwner, error: ownerLookupError } = await supabase
+      .from('household_members')
+      .select('id')
+      .eq('household_id', householdId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    mapDbError('householdRepository.createHousehold.ownerLookup', ownerLookupError);
 
-    const { error: inviteError } = await supabase.from('household_invites').insert({
-      household_id: household.id,
-      invite_code: inviteCode,
-      invite_link: deepLink,
-      created_by: user.id,
-    } satisfies Partial<HouseholdInviteRow> & Pick<HouseholdInviteRow, 'household_id' | 'invite_code'>);
-    mapDbError('householdRepository.createHousehold.invite', inviteError);
+    if (!existingOwner) {
+      const { error: memberError } = await supabase.from('household_members').insert({
+        household_id: householdId,
+        user_id: user.id,
+        display_name: user.name,
+        role: 'owner',
+        status: 'active',
+        avatar_symbol: user.avatar,
+        xp: 0,
+        week_xp: 0,
+        streak: 0,
+        load_share: 100,
+      } satisfies Partial<HouseholdMemberRow> & Pick<HouseholdMemberRow, 'household_id' | 'role'>);
+      if (memberError && !isUniqueViolation(memberError)) {
+        mapDbError('householdRepository.createHousehold.member', memberError);
+      }
+    }
 
-    return loadHouseholdSnapshot(household.id, user.id);
+    const { data: existingInvite, error: inviteLookupError } = await supabase
+      .from('household_invites')
+      .select('invite_code')
+      .eq('household_id', householdId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    mapDbError('householdRepository.createHousehold.inviteLookup', inviteLookupError);
+
+    if (!existingInvite?.invite_code) {
+      await insertHouseholdInviteWithRetry(supabase, householdId, user.id);
+    }
+
+    return loadHouseholdSnapshot(householdId, user.id);
   },
 
   async joinHousehold(input: JoinHouseholdInput, user: OrbitUser): Promise<HouseholdSnapshot> {
@@ -675,6 +728,23 @@ export const householdRepository = {
     }
 
     const supabase = getConfiguredSupabase('householdRepository.createOnboardingMember');
+    const { data: existingRows, error: existingError } = await supabase
+      .from('household_members')
+      .select('*')
+      .eq('household_id', householdId)
+      .eq('status', 'active');
+    mapDbError('householdRepository.createOnboardingMember.existing', existingError);
+    const existingMatch = (existingRows ?? []).find(
+      (row) =>
+        String(row.display_name ?? '').trim().toLowerCase() === trimmed.toLowerCase() &&
+        row.role !== 'owner'
+    );
+    if (existingMatch) {
+      return mapMemberRow(
+        existingMatch as HouseholdMemberRow & { shared_with_member_ids?: string[] | null }
+      );
+    }
+
     const taken = new Set<string>();
     let lastError: { code?: string; message?: string } | null = null;
     for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -708,8 +778,8 @@ export const householdRepository = {
         };
       }
       lastError = error;
-      if (role === 'child' && member.profileInviteCode && isUniqueViolation(error)) {
-        taken.add(member.profileInviteCode);
+      if (isUniqueViolation(error)) {
+        if (member.profileInviteCode) taken.add(member.profileInviteCode);
         continue;
       }
       mapDbError('householdRepository.createOnboardingMember', error);
@@ -959,6 +1029,34 @@ async function resolveActiveHouseholdId(supabase: ReturnType<typeof getConfigure
     .maybeSingle();
   mapDbError('householdRepository.resolveActiveHouseholdId', error);
   return data?.household_id ?? null;
+}
+
+async function insertHouseholdInviteWithRetry(
+  supabase: ReturnType<typeof getConfiguredSupabase>,
+  householdId: string,
+  userId: string
+): Promise<string> {
+  const taken = new Set<string>();
+  let lastError: { code?: string; message?: string; details?: string } | null = null;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const inviteCode = allocateHouseholdInviteCode(taken);
+    const deepLink = buildInviteLinks(inviteCode).deepLink;
+    const { error } = await supabase.from('household_invites').insert({
+      household_id: householdId,
+      invite_code: inviteCode,
+      invite_link: deepLink,
+      created_by: userId,
+    } satisfies Partial<HouseholdInviteRow> & Pick<HouseholdInviteRow, 'household_id' | 'invite_code'>);
+    if (!error) return inviteCode;
+    lastError = error;
+    if (isUniqueViolation(error)) {
+      taken.add(inviteCode);
+      continue;
+    }
+    mapDbError('householdRepository.createHousehold.invite', error);
+  }
+  mapDbError('householdRepository.createHousehold.invite', lastError);
+  throw new Error('householdRepository.createHousehold: invite retry exhausted.');
 }
 
 async function loadHouseholdSnapshot(householdId: string, userId: string): Promise<HouseholdSnapshot> {
