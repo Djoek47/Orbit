@@ -17,6 +17,7 @@ import { resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
 import { orderPoppinsToolCalls, type PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
+import { realtimeTextContent } from '@/lib/voice/realtime-content';
 import { mergeTranscript } from '@/lib/voice/transcript-merge';
 import { formatStageTapUserLine } from '@/lib/poppins/stage-tap';
 import {
@@ -446,7 +447,7 @@ export class PoppinsVoiceSession {
             item: {
               type: 'message',
               role: turn.role,
-              content: [{ type: 'input_text', text: turn.text }],
+              content: realtimeTextContent(turn.role, turn.text),
             },
           });
         }
@@ -592,7 +593,7 @@ export class PoppinsVoiceSession {
       item: {
         type: 'message',
         role: 'user',
-        content: [{ type: 'input_text', text: trimmed }],
+        content: realtimeTextContent('user', trimmed),
       },
     });
     this.sendEvent({
@@ -637,7 +638,7 @@ export class PoppinsVoiceSession {
       item: {
         type: 'message',
         role: 'user',
-        content: [{ type: 'input_text', text: formatStageTapUserLine(tap) }],
+        content: realtimeTextContent('user', formatStageTapUserLine(tap)),
       },
     });
     if (needsReply) {
@@ -857,12 +858,10 @@ export class PoppinsVoiceSession {
             item: {
               type: 'message',
               role: 'user',
-              content: [
-                {
-                  type: 'input_text',
-                  text: `[tool ${call.name} result] ${JSON.stringify(result)}`,
-                },
-              ],
+              content: realtimeTextContent(
+                'user',
+                `[tool ${call.name} result] ${JSON.stringify(result)}`
+              ),
             },
           });
         }
@@ -925,12 +924,7 @@ export class PoppinsVoiceSession {
       item: {
         type: 'message',
         role: 'user',
-        content: [
-          {
-            type: 'input_text',
-            text: `The task “${trimmed}” is on Tasks now.`,
-          },
-        ],
+        content: realtimeTextContent('user', `The task “${trimmed}” is on Tasks now.`),
       },
     });
     this.sendEvent({
@@ -1000,14 +994,12 @@ export class PoppinsVoiceSession {
       item: {
         type: 'message',
         role: 'user',
-        content: [
-          {
-            type: 'input_text',
-            text: approved
-              ? `I confirmed: ${confirmationIds.join(', ')}. Proceed if still appropriate.`
-              : `I declined: ${confirmationIds.join(', ')}. Do not execute those actions.`,
-          },
-        ],
+        content: realtimeTextContent(
+          'user',
+          approved
+            ? `I confirmed: ${confirmationIds.join(', ')}. Proceed if still appropriate.`
+            : `I declined: ${confirmationIds.join(', ')}. Do not execute those actions.`
+        ),
       },
     });
     this.sendEvent({
