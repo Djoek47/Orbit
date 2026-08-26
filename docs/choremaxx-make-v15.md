@@ -3,7 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v15`  
 **Follows:** `cursor/choremaxx-make-v14` (TestFlight **1.3.0 (44)**)  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (51)** uploaded to App Store Connect (Apple processing). EAS `28de6e30` / git `d60afbd` (stamp of `9c7ea26`) / submit `6378f583`. Install **51** (`make-v15 · iui-created`). Skip 45–50 for login/create (50 still crashes there: `08497FBD`). Skip 45–49 for sign-out.
+**TestFlight:** **1.3.0 (52)** uploaded to App Store Connect (Apple processing). EAS `f974966b` / git `5a3cb45` (stamp of `b260c25`) / submit `860b6b55`. Install **52** (`make-v15 · onboard-voice`). Skip 45–50 for login/create (50 still crashes there: `08497FBD`). Skip 45–49 for sign-out.
 
 This is the next shipping cut after v14. It is v14 plus two-mode Poppins IUI, Speak start fixes, the per-person $4 AI meter on live voice, and the Poppins OS one-viewport rework.
 
@@ -20,6 +20,10 @@ Fix on this branch: always wipe local auth (chunked SecureStore), block refresh 
 See [`poppins-os.md`](./poppins-os.md). IPA **1.3.0 (46)** from git `1769d06`. Bell never auto-opens over a live scene. Notifications is one list (no Activity tab, no hourglass on the Poppins tab). HOLD writes a real `createTask`. Speak failures say retry, not “Type instead.” In-place Ask from House Rules / tab long-press routes to the Poppins tab.
 
 EAS `b0959c6b-9349-4ceb-abac-4d110c3c39ba`, submit `caac30b9-c7e2-4cef-8368-901ea39ead48`.
+
+### TestFlight 1.3.0 (52)
+
+Get Started Meritocracy/Equity, Apple premium parity, unique Sidekick invite retries, second-Speak WebRTC settle, live household for voice-created tasks. EAS `f974966b-a85a-463e-9d1f-639c3a74a54b`, git `5a3cb45` (stamp of `b260c25`), submit `860b6b55-440c-466b-990a-9370037e227e`. Settings tip `make-v15 · onboard-voice`. Apple is processing.
 
 ### TestFlight 1.3.0 (51)
 
@@ -67,6 +71,9 @@ A tap on the IUI is not a webhook. It is a Realtime data-channel user line (`On 
 - IPA 50 login/create crash: sign-out no longer remounts the Stack; login/create cancel leftover restart timers.
 - Created-task IUI: spoken titles get an accent chip; Tap to confirm is honest; Daily is a due chip.
 - Confirm-email HTML (Claude checklist) in `send-auth-email/branded-html.ts` — deploy the function for the live inbox.
+- Get Started: Meritocracy vs Equity after motivation; ready does not hop to Home; new Apple create hits Premium.
+- Sidekick invites retry unique `CMX-LIAM2` codes; `ready` passes `householdId`.
+- Second Speak waits for native WebRTC close. HOLD createTask syncs the live list so Poppins can name it.
 
 ## TestFlight env (`eas.json`)
 
@@ -90,6 +97,7 @@ Until that lands, each TestFlight phone still meters locally and still pauses Sp
 3. Tap a face/chip while Poppins is talking — the choice sticks and speech stops talking over it.
 4. Bell never opens itself over a live scene. No hourglass. No Activity tab. No “Open Poppins” while already on Poppins.
 5. Settings → Poppins meter moves after a Speak turn. After **$4** household AI, Speak pauses.
-6. Settings shows `make-v15 · iui-created` (51) or `make-v15 · sign-out` (50). Speak / IUI, then Settings → Sign Out → Get Started. Reopen stays signed out. On **51**, Create account / Sign in after that must **not** crash.
-7. Speak “tend to the dishes, assign them to me” — after Who, the task row shows an accent **Tend to the dishes** chip plus catalog chores. Tap to confirm does nothing until a due chip is chosen; HOLD then creates that title on Tasks.
+6. Settings shows `make-v15 · onboard-voice` (52). Speak / IUI, then Settings → Sign Out → Get Started. Reopen stays signed out. Create account / Sign in after that must **not** crash.
+7. Speak “tend to the dishes, assign them to me” — after Who, the task row shows an accent **Tend to the dishes** chip plus catalog chores. Tap to confirm does nothing until a due chip is chosen; HOLD then creates that title on Tasks. Speak twice after Done; Poppins can name the task that is on Tasks.
 8. New signup mail (after `send-auth-email` deploy) has the coral band, chip eyebrow, gradient Confirm email, white code tile, and `Choremaxx · privacy@choremaxx.app` — not a placeholder street.
+9. Apple Get Started → Meritocracy → Premium → roster → Create household → Sidekick invite succeeds (share cards, not “Could not create kid invites.”). Email path is the same besides the restored Meritocracy step.
