@@ -42,7 +42,7 @@ export function buildPoppinsRealtimeInstructions(input: BuildRealtimeSessionInpu
 
   return (
     `${buildMajordomoSystemPrompt(profileId, memberRole)}\n` +
-    'Speak calmly and briefly (1–3 short sentences). Use tools when helpful; propose consequential changes for confirmation.\n' +
+    'Speak calmly and briefly (one short sentence per beat). Wait for a tap or HOLD before adding another idea.\n' +
     `Idle timing hints: soft check-in ~${soft}ms, hangup ~${idle}ms of silence (client-enforced).\n` +
     IDLE_RAILS +
     (input.capabilityProfile ? `\nCapability focus: ${input.capabilityProfile}.` : '') +

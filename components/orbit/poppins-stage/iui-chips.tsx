@@ -44,13 +44,20 @@ export function IuiChips({
               style={[
                 styles.chip,
                 {
-                  borderColor: selected ? `${accent}99` : glassBorder(0.1),
-                  backgroundColor: selected ? `${accent}22` : 'transparent',
+                  borderColor: chip.kind === 'created' || selected ? `${accent}99` : glassBorder(0.1),
+                  backgroundColor:
+                    chip.kind === 'created' ? accent : selected ? `${accent}22` : 'transparent',
                 },
               ]}>
               {icon ? <Icon name={icon} size={22} /> : null}
               {showEmoji && chip.emoji && !icon ? <Text style={styles.emoji}>{chip.emoji}</Text> : null}
-              <Text style={[styles.label, { color: c.text }]}>{chip.label}</Text>
+              <Text
+                style={[
+                  styles.label,
+                  { color: chip.kind === 'created' ? '#FFFFFF' : c.text },
+                ]}>
+                {chip.label}
+              </Text>
             </Pressable>
           </View>
         );

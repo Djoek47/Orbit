@@ -345,7 +345,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'create_task_draft',
     description:
-      'Assign a household task on the IUI stage (who → unknown beats only → HOLD). Pass category kitchen_dining when they said dishes/kitchen so other tiles disappear. Pass libraryTaskId when they named a catalog chore. HOLD silence writes the task with createTask — never say “draft”, never navigate_to /assign-task unless they asked to fill the editor themselves (openEditor). After commit say it is assigned.',
+      'Assign a household task on the IUI stage. Always pass the spoken title (even if it is not a catalog chore — e.g. “tend to the dishes”). Pass libraryTaskId only when they named a catalog chore. Pass assignee when they said me or a member name. Pass category kitchen_dining when they said dishes/kitchen. HOLD writes the task — never say draft. One short spoken sentence per beat; wait for tap or HOLD.',
     parameters: {
       type: 'object',
       properties: {
@@ -356,6 +356,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
         category: { type: 'string' },
         libraryTaskId: { type: 'string' },
         taskQuery: { type: 'string' },
+        repeat: { type: 'string', enum: ['Daily'] },
       },
       additionalProperties: false,
     },

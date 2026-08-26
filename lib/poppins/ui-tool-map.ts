@@ -72,6 +72,7 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
           category: action.category ? String(action.category) : undefined,
           libraryTaskId: action.libraryTaskId ? String(action.libraryTaskId) : undefined,
           taskQuery: action.taskQuery ? String(action.taskQuery) : undefined,
+          repeat: action.repeat ? String(action.repeat) : undefined,
           showEmoji: true,
           thinkingLine: 'Assign',
         });
@@ -167,6 +168,7 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
             ? String(prefill.libraryTaskId)
             : undefined,
         taskQuery: action.taskQuery ? String(action.taskQuery) : undefined,
+        repeat: action.repeat ? String(action.repeat) : undefined,
         showEmoji: true,
         thinkingLine: 'Assign',
       });

@@ -14,6 +14,7 @@ import {
   completeTitleFromUtterance,
   dueLabelFromUtterance,
   extractItemName,
+  extractSpokenChoreTitle,
   isAssignSurfaceRoute,
   isChoreAssignIntent,
   isCompleteIntent,
@@ -21,6 +22,7 @@ import {
   isShoppingIntent,
   matchLibraryIntent,
   parseReleaseDate,
+  repeatFromUtterance,
   wantsFullEditor,
 } from '@/lib/poppins/catalog-match';
 
@@ -119,24 +121,34 @@ export function parseHouseholdIntent(
 
   if (isChoreAssignIntent(text)) {
     const match = matchLibraryIntent(text, memberNames, selfName);
-    const rawTitle =
-      match.task?.name ??
-      text.match(/\b(?:add|create|make)\s+(?:a |an )?(.+?)\s+task\b/i)?.[1] ??
-      text.match(/\b(?:add|create|make)\s+(?:a |an )?(.+?)\s+for\b/i)?.[1] ??
-      '';
-    const title = rawTitle.replace(/\b(a|an|the)\b/gi, '').replace(/\s+/g, ' ').trim();
+    const spoken = extractSpokenChoreTitle(text);
+    const catalogName = match.task?.name;
+    const exactCatalog =
+      Boolean(catalogName && text.toLowerCase().includes(catalogName.toLowerCase()));
+    const rawTitle = exactCatalog
+      ? catalogName ?? ''
+      : spoken ??
+        catalogName ??
+        text.match(/\b(?:add|create|make)\s+(?:a |an )?(.+?)\s+task\b/i)?.[1] ??
+        text.match(/\b(?:add|create|make)\s+(?:a |an )?(.+?)\s+for\b/i)?.[1] ??
+        '';
+    const title = exactCatalog
+      ? rawTitle
+      : rawTitle.replace(/\b(a|an|the)\b/gi, '').replace(/\s+/g, ' ').trim();
     const due = dueLabelFromUtterance(text);
     const named = match.assignee ?? text.match(/\bfor\s+([A-Z][a-zA-Z]+)\b/)?.[1];
     const assignee = named && named.toLowerCase() !== 'me' ? named : match.assignee;
+    const useCatalog = exactCatalog || (!spoken && Boolean(match.task));
     return [
       {
         type: 'create_task_draft',
         title: /^(task|chore)$/i.test(title) ? '' : title,
         assignee,
         due,
-        category: match.domainId,
-        libraryTaskId: match.task?.id,
-        taskQuery: match.task ? undefined : match.taskQuery,
+        category: match.domainId ?? (useCatalog ? match.task?.domainId : undefined),
+        libraryTaskId: useCatalog ? match.task?.id : undefined,
+        taskQuery: useCatalog ? undefined : match.taskQuery,
+        repeat: repeatFromUtterance(text),
       },
     ];
   }
@@ -158,12 +170,22 @@ function enrichTaskDraft(
   if (match.domainId && !next.category) next.category = match.domainId;
   const due = dueLabelFromUtterance(utterance);
   if (due && !next.due) next.due = due;
-  if (match.task && !next.libraryTaskId && !String(next.title ?? '').trim()) {
+  const spoken = repeatFromUtterance(utterance);
+  if (spoken && !next.repeat) next.repeat = spoken;
+  const existingTitle = String(next.title ?? '').trim();
+  if (match.task && !next.libraryTaskId && !existingTitle) {
     next.libraryTaskId = match.task.id;
     next.title = match.task.name;
     next.category = match.task.domainId;
-  } else if (match.taskQuery && !next.taskQuery) {
-    next.taskQuery = match.taskQuery;
+  } else if (existingTitle) {
+    if (match.task && existingTitle.toLowerCase() === match.task.name.toLowerCase()) {
+      next.libraryTaskId = match.task.id;
+      next.category = match.task.domainId;
+    }
+  } else {
+    const heard = extractSpokenChoreTitle(utterance);
+    if (heard) next.title = heard;
+    if (match.taskQuery && !next.taskQuery) next.taskQuery = match.taskQuery;
   }
   if (typeof next.title !== 'string') next.title = '';
   const assignee = typeof next.assignee === 'string' ? next.assignee : undefined;

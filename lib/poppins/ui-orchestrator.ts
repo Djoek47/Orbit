@@ -444,6 +444,10 @@ export const poppinsUiOrchestrator = {
     emitTap({ kind, text });
   },
   confirm(opts?: { fromTap?: boolean }) {
+    const beat = currentBeat();
+    if (opts?.fromTap && beat?.payload.composeReady === false) {
+      return Promise.resolve();
+    }
     if (opts?.fromTap) {
       if (state.speaking) setState({ speaking: false });
       emitTap({ kind: 'confirm', text: 'assign now' });

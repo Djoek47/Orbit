@@ -21,9 +21,9 @@ import { IuiRoad } from '@/components/orbit/poppins-stage/iui-road';
 import { IuiStepper } from '@/components/orbit/poppins-stage/iui-stepper';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { householdHasChildren } from '@/lib/household/has-children';
-import { composeStepLabel, IUI_DUE_CHIPS, nextComposeStep } from '@/lib/poppins/iui-compose';
+import { composeStepLabel, IUI_CREATED_CHIP_ID, IUI_DUE_CHIPS, nextComposeStep } from '@/lib/poppins/iui-compose';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
-import type { IuiBeat, IuiFace, IuiPayload } from '@/lib/poppins/ui-scenes';
+import type { IuiBeat, IuiChip, IuiFace, IuiPayload } from '@/lib/poppins/ui-scenes';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
 import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
@@ -117,6 +117,9 @@ function TaskComposeSteps({
     poppinsUiOrchestrator.revise({ due: '' });
   };
 
+  const customTitle = Boolean((payload.title ?? title).trim()) && !payload.libraryTaskId;
+  const showDue = step === 'when' || step === 'ready' || (step === 'task' && customTitle);
+
   return (
     <IuiStepper
       kicker={composeStepLabel(step)}
@@ -168,21 +171,61 @@ function TaskComposeSteps({
       {step === 'task' ? (
         <>
           <IuiChips
-            chips={(libraryTasks.length ? libraryTasks : allLibraryTasks().filter((t) => t.domainId === categoryId)).map(
-              (task) => ({
-                id: task.id,
-                label: task.name,
-              })
-            )}
-            selectedId={payload.libraryTaskId}
+            chips={(() => {
+              const pool = (libraryTasks.length
+                ? libraryTasks
+                : allLibraryTasks().filter((t) => t.domainId === categoryId)
+              ).map(
+                (task): IuiChip => ({
+                  id: task.id,
+                  label: task.name,
+                  kind: 'library',
+                })
+              );
+              const custom = (payload.title ?? title).trim();
+              const already = pool.some(
+                (chip) => chip.label.toLowerCase() === custom.toLowerCase()
+              );
+              if (custom && !already) {
+                return [
+                  {
+                    id: IUI_CREATED_CHIP_ID,
+                    label: custom,
+                    kind: 'created',
+                  },
+                  ...pool,
+                ];
+              }
+              return pool;
+            })()}
+            selectedId={
+              payload.selectedChipId === IUI_CREATED_CHIP_ID ||
+              (Boolean(payload.title) && !payload.libraryTaskId)
+                ? IUI_CREATED_CHIP_ID
+                : payload.libraryTaskId
+            }
             accent={accent}
             showEmoji={showEmoji}
             onSelect={(id) => {
+              if (id === IUI_CREATED_CHIP_ID) {
+                poppinsUiOrchestrator.chooseFromTap(
+                  {
+                    libraryTaskId: undefined,
+                    selectedChipId: IUI_CREATED_CHIP_ID,
+                    title: (payload.title ?? title).trim(),
+                    category: categoryId,
+                  },
+                  (payload.title ?? title).trim() || 'this task',
+                  'chip'
+                );
+                return;
+              }
               const pool = allLibraryTasks().filter((item) => item.domainId === categoryId);
               const task = pool.find((item) => item.id === id);
               poppinsUiOrchestrator.chooseFromTap(
                 {
                   libraryTaskId: id,
+                  selectedChipId: id,
                   title: task?.name ?? id,
                   category: task?.domainId ?? categoryId,
                   taskQuery: undefined,
@@ -192,20 +235,29 @@ function TaskComposeSteps({
               );
             }}
           />
-          {title && !payload.libraryTaskId ? (
-            <IuiGhostField text={title} accent={accent} catchUp={titleHeard} />
-          ) : null}
         </>
       ) : null}
 
-      {step === 'when' || step === 'ready' ? (
+      {showDue ? (
         <>
-          <IuiGhostField text={title} accent={accent} catchUp={titleHeard} />
+          {step !== 'task' ? (
+            <IuiGhostField text={title} accent={accent} catchUp={titleHeard} />
+          ) : null}
           <IuiChips
             chips={IUI_DUE_CHIPS.map((chip) => ({ id: chip.id, label: chip.label }))}
-            selectedId={payload.due}
+            selectedId={payload.repeat === 'Daily' ? 'Daily' : payload.due}
             accent={accent}
-            onSelect={(id) => poppinsUiOrchestrator.chooseFromTap({ due: id }, id, 'when')}
+            onSelect={(id) => {
+              if (id === 'Daily') {
+                poppinsUiOrchestrator.chooseFromTap(
+                  { due: payload.due && payload.due !== 'Daily' ? payload.due : 'Today', repeat: 'Daily' },
+                  'Daily',
+                  'when'
+                );
+                return;
+              }
+              poppinsUiOrchestrator.chooseFromTap({ due: id, repeat: undefined }, id, 'when');
+            }}
           />
         </>
       ) : null}
@@ -347,7 +399,7 @@ export function PoppinsStage() {
               assignee,
               due: dueLabel,
               xp: 10,
-              repeat: 'None',
+              repeat: p.repeat === 'Daily' ? 'Daily' : 'None',
               difficulty: 'medium',
               weight: 1,
               occurrenceDate,
@@ -616,7 +668,7 @@ export function PoppinsStage() {
         </View>
       ) : null}
 
-      {beat.commit === 'hold' ? (
+      {beat.commit === 'hold' && beat.payload.composeReady === true ? (
         <Pressable onPress={() => poppinsUiOrchestrator.confirm({ fromTap: true })} hitSlop={12}>
           <Text style={[styles.fallback, { color: c.textSubtle }]}>
             {drive.frozen ? 'Tap to confirm' : 'or tap to confirm'}

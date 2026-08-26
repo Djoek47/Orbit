@@ -43,6 +43,8 @@ export type IuiChip = {
   id: string;
   label: string;
   emoji?: string;
+  /** Catalog outline vs Realtime-created (accent fill). */
+  kind?: 'library' | 'created';
 };
 
 export type IuiPeekRow = {
@@ -85,8 +87,10 @@ export type IuiPayload = {
   itineraryId?: string;
   itineraryTitle?: string;
   taskId?: string;
-  /** Library task id when composing from the chore catalog. */
+  /** Catalog task id when composing from the chore catalog. */
   libraryTaskId?: string;
+  /** Repeat for custom / spoken chores (`Daily`). */
+  repeat?: string;
   /** Last member name heard in the assistant transcript (Face pulse). */
   spokenName?: string;
   /** Store write kind when HOLD/confirm settles. */

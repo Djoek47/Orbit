@@ -48,6 +48,55 @@ assert.equal(forMe?.category, 'kitchen_dining');
 assert.equal(forMe?.due, 'Tomorrow');
 assert.equal(forMe?.composeStep, 'task');
 
+poppinsUiOrchestrator.clear();
+poppinsUiOrchestrator.setSpeaking(false);
+const tend = parseHouseholdIntent('tend to the dishes, assign it to me', {
+  memberNames: ['Alex', 'Maya'],
+  selfName: 'Alex',
+});
+assert.equal(tend[0]?.type, 'create_task_draft');
+assert.match(String(tend[0]?.title ?? ''), /tend/i);
+assert.equal(tend[0]?.assignee, 'Alex');
+assert.ok(!tend[0]?.libraryTaskId, 'free-form title is not a catalog id');
+
+hearAndDrive('tend to the dishes, assign it to me', ['Alex', 'Maya'], { selfName: 'Alex' });
+const created = poppinsUiOrchestrator.getState().playlist[0]?.payload;
+assert.equal(created?.assignee, 'Alex');
+assert.match(String(created?.title ?? ''), /tend/i);
+assert.equal(created?.composeStep, 'task');
+assert.equal(created?.composeReady, false);
+
+const daily = parseHouseholdIntent('tend to the dishes every day, assign them to me', {
+  memberNames: ['Alex', 'Maya'],
+  selfName: 'Alex',
+});
+assert.equal(daily[0]?.repeat, 'Daily');
+assert.equal(daily[0]?.due, 'Today');
+assert.match(String(daily[0]?.title ?? ''), /tend/i);
+
+poppinsUiOrchestrator.clear();
+poppinsUiOrchestrator.setSpeaking(false);
+hearAndDrive('load the dishwasher for me tomorrow', ['Alex'], { selfName: 'Alex' });
+const known = poppinsUiOrchestrator.getState().playlist[0]?.payload;
+assert.equal(known?.composeReady, true, 'known catalog chore with who+when skips to confirm');
+
+poppinsUiOrchestrator.clear();
+poppinsUiOrchestrator.setSpeaking(false);
+let earlyCommit = 0;
+poppinsUiOrchestrator.setCommitHandler(async () => {
+  earlyCommit += 1;
+});
+hearAndDrive('tend to the dishes, assign it to me', ['Alex', 'Maya'], { selfName: 'Alex' });
+void poppinsUiOrchestrator.confirm({ fromTap: true });
+assert.equal(earlyCommit, 0, 'tap to confirm does nothing until compose is ready');
+poppinsUiOrchestrator.setCommitHandler(null);
+
+const loadExact = parseHouseholdIntent('load the dishes for me tomorrow', {
+  memberNames: ['Alex'],
+  selfName: 'Alex',
+});
+assert.ok(loadExact[0]?.libraryTaskId || /load/i.test(String(loadExact[0]?.title ?? '')));
+
 const todayIntent = parseHouseholdIntent('Set up a task for today');
 assert.equal(todayIntent[0]?.type, 'create_task_draft');
 assert.equal(todayIntent[0]?.due, 'Today');

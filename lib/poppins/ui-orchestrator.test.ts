@@ -45,8 +45,8 @@ assert.equal(taskPlaylist[0]?.scene, 'task_compose');
 assert.equal(taskPlaylist[0]?.commit, 'hold');
 assert.equal(taskPlaylist[0]?.payload.write, 'create_task');
 assert.equal(taskPlaylist[0]?.payload.assignee, 'Alex');
-assert.equal(taskPlaylist[0]?.payload.composeReady, false);
-assert.equal(taskPlaylist[0]?.payload.composeStep, 'category');
+assert.equal(taskPlaylist[0]?.payload.composeReady, true);
+assert.equal(taskPlaylist[0]?.payload.composeStep, 'ready');
 assert.equal(taskPlaylist.some((beat) => beat.scene === 'result_mark'), true);
 
 const navCreate = mapUiActionsToPlaylist([{ type: 'navigate', route: '/create-task' }]);

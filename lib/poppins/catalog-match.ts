@@ -91,7 +91,7 @@ export function wantsSelfAssignee(text: string): boolean {
   return (
     /\bit'?s for me\b/.test(lower) ||
     /\bthe task is for me\b/.test(lower) ||
-    /\bassign (?:it )?to me\b/.test(lower) ||
+    /\bassign (?:it |them |this |that )?(?:to )?me\b/.test(lower) ||
     /\bfor me\b/.test(lower)
   );
 }
@@ -99,9 +99,40 @@ export function wantsSelfAssignee(text: string): boolean {
 export function dueLabelFromUtterance(text: string): string | undefined {
   const lower = text.toLowerCase();
   if (/\btomorrow\b/.test(lower)) return 'Tomorrow';
-  if (/\btoday\b/.test(lower)) return 'Today';
+  if (/\btoday\b/.test(lower) || /\bevery day\b/.test(lower) || /\bdaily\b/.test(lower)) return 'Today';
   if (/\bthis week\b/.test(lower)) return 'This week';
   return undefined;
+}
+
+export function repeatFromUtterance(text: string): 'Daily' | undefined {
+  const lower = text.toLowerCase();
+  if (/\bevery day\b/.test(lower) || /\bdaily\b/.test(lower)) return 'Daily';
+  return undefined;
+}
+
+/** Phrase the person said when it is not a catalog chore name. */
+export function extractSpokenChoreTitle(text: string): string | undefined {
+  let t = text
+    .replace(
+      /\b(can you|could you|please|i (?:wanted to|want to|need to|would like to)|let'?s|i'?m going to|i am going to)\b/gi,
+      ' '
+    )
+    .replace(/\b(assign(?: them| it| this| that)?(?: to me)?|for me|to me)\b/gi, ' ')
+    .replace(/\bfor\s+[A-Z][a-zA-Z]{1,20}\b/g, ' ')
+    .replace(/\b(today|tomorrow|this week|every day|daily|tonight)\b/gi, ' ')
+    .replace(/\b(a task|a chore|the task|task called|called|schedule|set up|setup|create|add|make)\b/gi, ' ')
+    .replace(/\bfor\s+(kitchen|bathroom|laundry|the house|homework)\b/gi, ' ')
+    .replace(/[?.!,]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  t = t.replace(/^(to|and|just|a|an|the)\s+/i, '').trim();
+  if (t.length < 6) return undefined;
+  if (
+    /^(kitchen|dishes|bathroom|laundry|chore|task|the dishes|kitchen dining)$/i.test(t)
+  ) {
+    return undefined;
+  }
+  return t;
 }
 
 export function matchAssigneeName(
@@ -282,6 +313,6 @@ export function isChoreAssignIntent(text: string): boolean {
     return true;
   }
   if (/\bassign\b/.test(lower)) return true;
-  if (/\b(clean|wash|tidy|vacuum|mop|laundry|dishes|chore)\b/.test(lower)) return true;
+  if (/\b(clean|wash|tidy|vacuum|mop|laundry|dishes|chore|tend)\b/.test(lower)) return true;
   return Boolean(matchLibraryIntent(text).domainId);
 }

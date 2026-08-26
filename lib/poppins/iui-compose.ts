@@ -10,8 +10,13 @@ export const COMPOSE_STEPS: IuiComposeStep[] = ['who', 'category', 'task', 'when
 
 export function nextComposeStep(payload: IuiPayload): IuiComposeStep {
   if (!payload.assignee?.trim()) return 'who';
-  if (!payload.category?.trim() && !payload.selectedChipId?.trim()) return 'category';
-  if (!payload.title?.trim() && !payload.libraryTaskId?.trim()) return 'task';
+  if (!payload.title?.trim() && !payload.libraryTaskId?.trim()) {
+    if (!payload.category?.trim() && !payload.selectedChipId?.trim()) return 'category';
+    return 'task';
+  }
+  if (payload.title?.trim() && !payload.libraryTaskId?.trim() && !payload.due?.trim()) {
+    return 'task';
+  }
   if (!payload.due?.trim()) return 'when';
   return 'ready';
 }
@@ -48,4 +53,7 @@ export const IUI_DUE_CHIPS = [
   { id: 'Today', label: 'Today' },
   { id: 'Tomorrow', label: 'Tomorrow' },
   { id: 'This week', label: 'This week' },
+  { id: 'Daily', label: 'Daily' },
 ] as const;
+
+export const IUI_CREATED_CHIP_ID = 'created';
