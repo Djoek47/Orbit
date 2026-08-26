@@ -3,7 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v15`  
 **Follows:** `cursor/choremaxx-make-v14` (TestFlight **1.3.0 (44)**)  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (50)** is on device (`make-v15 · sign-out`). **Do not keep 50** if you need login/create-account — IPA 50 crashes there (`08497FBD`). Next cut is **51** (`make-v15 · iui-created`): login crash undo + created-task IUI + live confirm-email HTML. Skip 45–49 for sign-out (49 IUI taps are fine; 49 still crashes on Sign Out).
+**TestFlight:** **1.3.0 (51)** uploaded to App Store Connect (Apple processing). EAS `28de6e30` / git `d60afbd` (stamp of `9c7ea26`) / submit `6378f583`. Install **51** (`make-v15 · iui-created`). Skip 45–50 for login/create (50 still crashes there: `08497FBD`). Skip 45–49 for sign-out.
 
 This is the next shipping cut after v14. It is v14 plus two-mode Poppins IUI, Speak start fixes, the per-person $4 AI meter on live voice, and the Poppins OS one-viewport rework.
 
@@ -20,6 +20,10 @@ Fix on this branch: always wipe local auth (chunked SecureStore), block refresh 
 See [`poppins-os.md`](./poppins-os.md). IPA **1.3.0 (46)** from git `1769d06`. Bell never auto-opens over a live scene. Notifications is one list (no Activity tab, no hourglass on the Poppins tab). HOLD writes a real `createTask`. Speak failures say retry, not “Type instead.” In-place Ask from House Rules / tab long-press routes to the Poppins tab.
 
 EAS `b0959c6b-9349-4ceb-abac-4d110c3c39ba`, submit `caac30b9-c7e2-4cef-8368-901ea39ead48`.
+
+### TestFlight 1.3.0 (51)
+
+Login/create crash undo + IUI created-task chips. EAS `28de6e30-9d74-497c-9fe5-d3f9ae6830b3`, git `d60afbd` (stamp of `9c7ea26`), submit `6378f583-5adb-48e6-baea-a73c9f462349`. Settings tip `make-v15 · iui-created`. Apple is processing.
 
 ### TestFlight 1.3.0 (50)
 
