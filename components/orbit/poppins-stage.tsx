@@ -394,6 +394,7 @@ export function PoppinsStage({
           const assignee = p.assignee || currentMember?.name || household.members[0]?.name || 'Me';
           const dueLabel = p.due ?? 'Today';
           const occurrenceDate = occurrenceDateForDueLabel(dueLabel);
+          const title = resolved.title || p.title;
           let created = null;
           if (library) {
             const [y, m, d] = occurrenceDate.split('-').map(Number);
@@ -408,9 +409,9 @@ export function PoppinsStage({
               due: dueLabel,
               occurrenceDate,
             });
-          } else if (resolved.title || p.title) {
+          } else if (title) {
             created = await createTask({
-              title: resolved.title || p.title,
+              title,
               category: p.category ?? p.selectedChipId ?? resolved.category ?? 'home_maintenance',
               assignee,
               due: dueLabel,

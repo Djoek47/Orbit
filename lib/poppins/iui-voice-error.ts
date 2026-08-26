@@ -1,6 +1,6 @@
 /**
- * Voice failure copy — specific, calm, recoverable.
- * Never pass SDK / HTTP dumps to the surface.
+ * Voice failure copy — calm retry line plus the raw debug dump.
+ * The dump stays on screen so a second Speak try can tell SDP / gum / IUI / memory apart.
  */
 
 export type IuiVoiceErrorKind =
@@ -11,8 +11,42 @@ export type IuiVoiceErrorKind =
   | 'unavailable'
   | 'generic';
 
+const DETAIL_MAX = 480;
+
+function compactVoiceText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim().slice(0, DETAIL_MAX);
+}
+
+/** Flatten Error / JSON / HTTP bodies into one selectable debug line. */
+export function stringifyVoiceError(raw: unknown): string {
+  if (raw == null) return '';
+  if (typeof raw === 'string') return compactVoiceText(raw);
+  if (raw instanceof Error) {
+    const code =
+      'code' in raw && raw.code != null && String(raw.code).trim() ? String(raw.code) : '';
+    return compactVoiceText([raw.name, code, raw.message].filter(Boolean).join(': '));
+  }
+  if (typeof raw === 'object') {
+    const rec = raw as Record<string, unknown>;
+    const nested = rec.error;
+    if (nested && typeof nested === 'object') {
+      const n = nested as Record<string, unknown>;
+      const bits = [n.status, n.code, n.type, n.message].filter(
+        (value) => value != null && String(value).trim()
+      );
+      if (bits.length) return compactVoiceText(bits.map(String).join(' · '));
+    }
+    try {
+      return compactVoiceText(JSON.stringify(raw));
+    } catch {
+      return compactVoiceText(String(raw));
+    }
+  }
+  return compactVoiceText(String(raw));
+}
+
 export function classifyIuiVoiceError(raw: unknown): IuiVoiceErrorKind {
-  const text = String(raw ?? '').toLowerCase();
+  const text = stringifyVoiceError(raw).toLowerCase();
   if (!text.trim()) return 'generic';
   if (
     /notallowed|permission denied|denied permission|microphone.*denied|audio.*denied/.test(text)
@@ -68,12 +102,18 @@ export function shouldOfferKeyboard(kind: IuiVoiceErrorKind): boolean {
 export function copyIuiVoiceError(raw: unknown): {
   kind: IuiVoiceErrorKind;
   message: string;
+  detail: string;
   offerKeyboard: boolean;
 } {
   const kind = classifyIuiVoiceError(raw);
+  const short = iuiVoiceErrorCopy(kind);
+  const detail = stringifyVoiceError(raw);
+  const message =
+    detail && detail.toLowerCase() !== short.toLowerCase() ? `${short}\n${detail}` : short;
   return {
     kind,
-    message: iuiVoiceErrorCopy(kind),
+    message,
+    detail,
     offerKeyboard: shouldOfferKeyboard(kind),
   };
 }

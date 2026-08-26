@@ -7,6 +7,7 @@ import {
   copyIuiVoiceError,
   iuiVoiceErrorCopy,
   shouldOfferKeyboard,
+  stringifyVoiceError,
 } from '@/lib/poppins/iui-voice-error';
 
 function assert(cond: boolean, msg: string) {
@@ -26,10 +27,26 @@ assert(classifyIuiVoiceError('boom') === 'generic', 'generic');
 
 const mic = copyIuiVoiceError('The user denied permission');
 assert(mic.offerKeyboard, 'mic opens type');
-assert(!mic.message.toLowerCase().includes('denied permission'), 'no dump');
+assert(mic.detail.toLowerCase().includes('denied permission'), 'debug dump stays');
+assert(mic.message.includes('Microphone is off'), 'calm line stays');
 assert(iuiVoiceErrorCopy('signed_out').includes('Sign in'), 'auth copy');
 assert(!shouldOfferKeyboard('signed_out'), 'auth does not force keyboard');
 assert(!shouldOfferKeyboard('generic'), 'generic does not force keyboard');
-assert(copyIuiVoiceError('boom').message.includes('Speak'), 'retry speak');
+
+const boom = copyIuiVoiceError('boom');
+assert(boom.message.includes('Speak'), 'retry speak');
+assert(boom.message.includes('boom'), 'raw generic dump');
+
+const sdp = copyIuiVoiceError(
+  'Realtime SDP failed (503): {"error":"EDGE_FUNCTION"} req abc123'
+);
+assert(sdp.kind === 'unavailable', 'sdp kind');
+assert(sdp.message.includes('503'), 'status on screen');
+assert(sdp.message.includes('EDGE_FUNCTION'), 'body on screen');
+
+assert(
+  stringifyVoiceError(new Error('getUserMedia failed')).includes('getUserMedia failed'),
+  'error object'
+);
 
 console.log('PASS iui-voice-error');

@@ -510,8 +510,20 @@ export class PoppinsVoiceSession {
 
       if (!res.ok) {
         const errText = await res.text();
-        this.callbacks.onError?.(`Realtime SDP failed (${res.status}).`);
-        console.warn('[poppins-voice] sdp error', errText.slice(0, 400));
+        const requestId =
+          res.headers.get('sb-request-id') ||
+          res.headers.get('x-request-id') ||
+          res.headers.get('x-sb-request-id');
+        const body = errText.replace(/\s+/g, ' ').trim().slice(0, 400);
+        const detail = [
+          `Realtime SDP failed (${res.status})`,
+          requestId ? `req ${requestId}` : '',
+          body || 'empty body',
+        ]
+          .filter(Boolean)
+          .join(': ');
+        console.warn('[poppins-voice] sdp error', res.status, requestId, errText);
+        this.callbacks.onError?.(detail);
         this.disconnect();
         return false;
       }
@@ -524,7 +536,15 @@ export class PoppinsVoiceSession {
       this.appStateSub = AppState.addEventListener('change', this.onAppState);
       return true;
     } catch (error) {
-      this.callbacks.onError?.(error instanceof Error ? error.message : String(error));
+      const name = error instanceof Error ? error.name : 'Error';
+      const code =
+        error && typeof error === 'object' && 'code' in error && error.code != null
+          ? String(error.code)
+          : '';
+      const message = error instanceof Error ? error.message : String(error);
+      const detail = [name, code, message].filter(Boolean).join(': ');
+      console.warn('[poppins-voice] connect', detail, error);
+      this.callbacks.onError?.(detail);
       this.disconnect();
       return false;
     }
@@ -784,8 +804,17 @@ export class PoppinsVoiceSession {
         this.responseInFlight = true;
         return;
       }
-      const err = (event.error as { message?: string } | undefined) ?? event;
-      const message = String(err.message ?? 'Realtime error');
+      const err =
+        (event.error as { message?: string; code?: string; type?: string } | undefined) ?? event;
+      const message = [
+        'Realtime error',
+        err.code,
+        err.type,
+        err.message ?? (typeof event.error === 'string' ? event.error : ''),
+      ]
+        .filter((part) => part && String(part).trim())
+        .join(': ');
+      console.warn('[poppins-voice] realtime', message, event);
       this.fatal = true;
       this.callbacks.onError?.(message);
       this.disconnect();

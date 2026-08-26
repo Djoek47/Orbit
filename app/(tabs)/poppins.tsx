@@ -193,6 +193,7 @@ export default function PoppinsScreen() {
   const surfaceVoiceError = (raw: unknown) => {
     voiceFailedRef.current = true;
     const copy = copyIuiVoiceError(raw);
+    console.warn('[poppins-voice] surface', copy.kind, copy.detail || raw);
     setError(copy.message);
     if (copy.kind === 'mic_denied') setShowText(true);
     setConnecting(false);
@@ -455,6 +456,10 @@ export default function PoppinsScreen() {
       listenPrompt: prep.listenPrompt,
       seedTurns: prep.seedTurns,
       memoryHint: prep.memoryHint,
+    }).catch((error) => {
+      reportedError = true;
+      surfaceVoiceError(error);
+      return false;
     });
     setConnecting(false);
     if (!ok || reportedError || voiceFailedRef.current) {
@@ -465,7 +470,9 @@ export default function PoppinsScreen() {
       } finally {
         setVoiceSettling(false);
       }
-      if (!reportedError) surfaceVoiceError('start_failed');
+      if (!reportedError) {
+        surfaceVoiceError('start_failed: connect returned false with no onError');
+      }
       return null;
     }
     void commitSpeakOpen(prep.memory, prep.opening);
@@ -715,7 +722,7 @@ export default function PoppinsScreen() {
 
       <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
         {error ? (
-          <Text style={[styles.error, { color: c.danger }]} numberOfLines={2}>
+          <Text style={[styles.error, { color: c.danger }]} selectable numberOfLines={8}>
             {error}
           </Text>
         ) : null}
@@ -975,7 +982,8 @@ const styles = StyleSheet.create({
   },
   error: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
+    lineHeight: 16,
     marginBottom: 8,
     textAlign: 'center',
   },

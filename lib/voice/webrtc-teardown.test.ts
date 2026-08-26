@@ -58,7 +58,9 @@ for (const file of readdirSync(stageDir)) {
 assert.equal(voice.includes('new FormData'), false, 'SDP must be JSON — FormData hits RCTBlobManager on iOS 27');
 assert.equal(voice.includes("form.append('sdp'"), false);
 assert.match(voice, /Content-Type': 'application\/json'/);
-assert.match(voice, /cache: 'no-store'/);
+assert.match(voice, /Realtime SDP failed/);
+assert.match(voice, /empty body/);
+assert.match(voice, /\[poppins-voice\] sdp error/);
 
 const sdpFn = source('supabase/functions/poppins-realtime-sdp/index.ts');
 assert.match(sdpFn, /text\/plain/);

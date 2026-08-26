@@ -33,6 +33,9 @@ assert.ok(
   'hourglass must not spin unprompted'
 );
 assert.ok(!poppinsTab.includes('Type instead'), 'Type is a door, not the error product');
+assert.match(poppinsTab, /selectable/, 'Speak errors stay copyable');
+assert.match(poppinsTab, /numberOfLines=\{8\}/, 'raw Speak dump is not clipped to two lines');
+assert.match(poppinsTab, /start_failed: connect returned false with no onError/);
 assert.match(poppinsTab, /drive\.live \? null/);
 assert.ok(poppinsTab.includes('if (drive.live) return'), 'hourglass does not overlay a live scene');
 
