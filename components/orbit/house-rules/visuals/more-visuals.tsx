@@ -12,9 +12,9 @@ export function GateSteps({ palette, voice }: VisualWidgetProps) {
           <Text style={[styles.skBody, { color: palette.inkSoft }]}>The prize goes through on its own.</Text>
         </View>
         <View style={[styles.skRow, { backgroundColor: palette.deep }]}>
-          <Text style={[styles.skHead, { color: palette.warn }]}>If it isn't</Text>
+          <Text style={[styles.skHead, { color: palette.warn }]}>If it isn&apos;t</Text>
           <Text style={[styles.skBody, { color: palette.inkSoft }]}>
-            You'll be asked to finish today's tasks and homework first.
+            You&apos;ll be asked to finish today&apos;s tasks and homework first.
           </Text>
         </View>
       </View>
@@ -26,7 +26,7 @@ export function GateSteps({ palette, voice }: VisualWidgetProps) {
       <View style={[styles.step, { backgroundColor: palette.deep }]}>
         <Text style={[styles.stepLab, { color: palette.warn }]}>Step 1</Text>
         <Text style={[styles.stepBody, { color: palette.inkSoft }]}>
-          The day's tasks and homework all complete
+          The day&apos;s tasks and homework all complete
         </Text>
       </View>
       <Text style={[styles.arrow, { color: '#5C6E8A' }]}>→</Text>

@@ -447,20 +447,6 @@ export default function WelcomeOnboardingScreen() {
     isAppleAuthAvailable().then(setAppleAvailable).catch(() => setAppleAvailable(false));
   }, []);
 
-  if (!isLoading && isSignedIn && currentUser?.profileComplete && hasHousehold) {
-    const memberInviteRaw = Array.isArray(inviteParams.memberInvite)
-      ? inviteParams.memberInvite[0]
-      : inviteParams.memberInvite;
-    if (memberInviteRaw?.trim()) {
-      return (
-        <Redirect
-          href={`/redeem-member-invite?token=${encodeURIComponent(memberInviteRaw.trim())}` as never}
-        />
-      );
-    }
-    return <Redirect href="/" />;
-  }
-
   const goToProfileOrHousehold = () => {
     const nameComplete = isProfileNameComplete(
       currentUser?.name || displayName,
@@ -557,6 +543,20 @@ export default function WelcomeOnboardingScreen() {
     if (step !== 'reward-system') return;
     void handleRewardSystemContinue();
   }, [step]);
+
+  if (!isLoading && isSignedIn && currentUser?.profileComplete && hasHousehold) {
+    const memberInviteRaw = Array.isArray(inviteParams.memberInvite)
+      ? inviteParams.memberInvite[0]
+      : inviteParams.memberInvite;
+    if (memberInviteRaw?.trim()) {
+      return (
+        <Redirect
+          href={`/redeem-member-invite?token=${encodeURIComponent(memberInviteRaw.trim())}` as never}
+        />
+      );
+    }
+    return <Redirect href="/" />;
+  }
 
   const persistPrefs = async () => {
     await saveOnboardingPrefs({

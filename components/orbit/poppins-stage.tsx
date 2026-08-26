@@ -77,7 +77,6 @@ function TaskComposeSteps({
   titleHeard: boolean;
   title: string;
 }) {
-  const { c } = useOrbitColors();
   const { household } = useOrbit();
   const step = payload.composeStep ?? nextComposeStep(payload);
   const showEmoji = payload.showEmoji !== false;
