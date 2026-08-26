@@ -6,6 +6,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
@@ -588,9 +589,13 @@ export default function PoppinsScreen() {
       </View>
 
       {drive.live ? (
-        <View style={styles.stageLive}>
+        <ScrollView
+          style={styles.stageLive}
+          contentContainerStyle={styles.stageLiveContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
           <PoppinsStage />
-        </View>
+        </ScrollView>
       ) : (
       <View style={styles.stage}>
         <View style={styles.transcriptBlock}>
@@ -636,9 +641,12 @@ export default function PoppinsScreen() {
       </View>
       )}
 
-      {error ? <Text style={[styles.error, { color: c.danger }]}>{error}</Text> : null}
-
       <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+        {error ? (
+          <Text style={[styles.error, { color: c.danger }]} numberOfLines={2}>
+            {error}
+          </Text>
+        ) : null}
         {showText ? (
           <View
             style={[
@@ -749,7 +757,9 @@ export default function PoppinsScreen() {
           accessibilityLiveRegion="polite">
           {nativeVoice ? (primaryConnected ? 'Done' : 'Speak') : cfg.label}
         </Text>
-        <Text style={[styles.meterCaption, { color: c.textSubtle }]}>
+        <Text
+          style={[styles.meterCaption, { color: c.textSubtle }]}
+          numberOfLines={1}>
           {meterCaption(aiSummary, personalUsd(aiSummary, currentMember?.id), permissions.canManageHousehold)}
         </Text>
       </View>
@@ -836,8 +846,12 @@ const styles = StyleSheet.create({
   },
   stageLive: {
     flex: 1,
-    paddingHorizontal: space.md,
+    minHeight: 0,
     zIndex: 2,
+  },
+  stageLiveContent: {
+    flexGrow: 1,
+    paddingHorizontal: space.md,
   },
   transcriptBlock: {
     alignItems: 'center',
@@ -861,10 +875,11 @@ const styles = StyleSheet.create({
   error: {
     fontSize: 12,
     fontWeight: '600',
-    paddingHorizontal: space.lg,
+    marginBottom: 8,
     textAlign: 'center',
   },
   controls: {
+    flexShrink: 0,
     paddingHorizontal: space.lg,
     paddingTop: space.sm,
     zIndex: 2,
@@ -945,6 +960,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginTop: 4,
+    minHeight: 16,
     textAlign: 'center',
   },
   confirmBackdrop: {

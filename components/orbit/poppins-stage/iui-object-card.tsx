@@ -1,5 +1,4 @@
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -14,15 +13,13 @@ type Props = {
 export function IuiObjectCard({ title, detail, emoji, accent }: Props) {
   const { c } = useOrbitColors();
   return (
-    <Animated.View
-      entering={FadeInDown.duration(380)}
-      style={[styles.card, { borderColor: `${accent}55`, backgroundColor: `${accent}14` }]}>
+    <View style={[styles.card, { borderColor: `${accent}55`, backgroundColor: `${accent}14` }]}>
       {emoji ? <Text style={styles.emoji}>{emoji}</Text> : null}
       <View style={{ flex: 1 }}>
         <Text style={[styles.title, { color: c.text }]}>{title}</Text>
         {detail ? <Text style={[styles.detail, { color: c.textMuted }]}>{detail}</Text> : null}
       </View>
-    </Animated.View>
+    </View>
   );
 }
 

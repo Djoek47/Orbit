@@ -1,5 +1,4 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import Icon from '@/components/orbit/design/Icon';
@@ -39,7 +38,7 @@ export function IuiChips({
             })()
           : null;
         return (
-          <Animated.View key={chip.id} entering={FadeIn.duration(220)}>
+          <View key={chip.id}>
             <Pressable
               onPress={() => onSelect?.(chip.id)}
               style={[
@@ -53,7 +52,7 @@ export function IuiChips({
               {showEmoji && chip.emoji && !icon ? <Text style={styles.emoji}>{chip.emoji}</Text> : null}
               <Text style={[styles.label, { color: c.text }]}>{chip.label}</Text>
             </Pressable>
-          </Animated.View>
+          </View>
         );
       })}
     </View>

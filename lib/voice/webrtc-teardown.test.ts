@@ -1,0 +1,60 @@
+/**
+ * WebRTC teardown must unbind RTCView before PeerConnection.close.
+ * Closing first is the TestFlight 45 Hermes EXC_BAD_ACCESS (Object.entries / Array.map).
+ * Run: npx tsx lib/voice/webrtc-teardown.test.ts
+ */
+
+import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
+
+function source(rel: string) {
+  return readFileSync(join(root, rel), 'utf8');
+}
+
+const voice = source('lib/voice/poppins-voice-session.ts');
+assert.match(voice, /VOICE_NATIVE_CLOSE_MS/);
+assert.match(voice, /onRemoteStream\?\.\(null\)/);
+const disconnect = voice.slice(voice.indexOf('disconnect() {'));
+const unbindAt = disconnect.indexOf('onRemoteStream?.(null)');
+const timerAt = disconnect.indexOf('setTimeout');
+assert.ok(unbindAt >= 0, 'unbind RTCView');
+assert.ok(timerAt > unbindAt, 'native close is deferred after unbind');
+assert.match(disconnect, /pc\?\.close\(\)/);
+
+const reset = source('lib/navigation/reset-to-get-started.ts');
+assert.match(reset, /teardownAllPoppinsVoice\(\)/);
+assert.match(reset, /setTimeout/, 'sign-out remount waits for native close');
+assert.match(reset, /VOICE_NATIVE_CLOSE_MS/);
+
+const stage = source('components/orbit/poppins-stage.tsx');
+assert.ok(!stage.includes('exiting={FadeOut'), 'live IUI must not FadeOut the stage under WebRTC');
+assert.match(stage, /writesRef/, 'HOLD commit handler must not reset when tasks update');
+
+const chips = source('components/orbit/poppins-stage/iui-chips.tsx');
+assert.ok(!chips.includes('entering={FadeIn'), 'chore chips must not mount-animate under WebRTC');
+
+const stageDir = join(root, 'components/orbit/poppins-stage');
+for (const file of readdirSync(stageDir)) {
+  if (!file.endsWith('.tsx')) continue;
+  const src = source(`components/orbit/poppins-stage/${file}`);
+  assert.equal(src.includes('entering='), false, `${file} must not mount-animate under live WebRTC`);
+}
+
+assert.equal(voice.includes('new FormData'), false, 'SDP must be JSON — FormData hits RCTBlobManager on iOS 27');
+assert.equal(voice.includes("form.append('sdp'"), false);
+assert.match(voice, /Content-Type': 'application\/json'/);
+assert.match(voice, /cache: 'no-store'/);
+
+const sdpFn = source('supabase/functions/poppins-realtime-sdp/index.ts');
+assert.match(sdpFn, /text\/plain/);
+assert.equal(sdpFn.includes("'Content-Type': 'application/sdp'"), false);
+
+const appJson = source('app.json');
+assert.match(appJson, /ON_ERROR_RECOVERY/, 'OTA must not fetch on every Speak launch');
+assert.match(appJson, /fallbackToCacheTimeout/);
+
+console.log('PASS webrtc-teardown');

@@ -153,6 +153,7 @@ async function main() {
     assert.ok(voice.includes('teardownAllPoppinsVoice'));
     const reset = readFileSync(join(root, 'lib/navigation/reset-to-get-started.ts'), 'utf8');
     assert.ok(reset.includes('teardownAllPoppinsVoice()'));
+    assert.ok(reset.includes('setTimeout'), 'remount waits for WebRTC native close');
     const live = readFileSync(join(root, 'lib/poppins/live-context.tsx'), 'utf8');
     assert.ok(live.includes('voiceRef.current?.disconnect()'));
     pass('sign-out paths tear down voice and always remount');

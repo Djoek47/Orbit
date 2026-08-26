@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useEffect } from 'react';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -35,10 +35,7 @@ export function IuiFaces({ faces, selectedName, pulsingName, onSelect, accent }:
         const selected = selectedName ? face.name === selectedName : faces.length === 1;
         const pulsing = pulsingName ? face.name === pulsingName : false;
         return (
-          <Animated.View
-            key={face.id}
-            entering={FadeIn.duration(280)}
-            style={pulsing ? pulseStyle : undefined}>
+          <Animated.View key={face.id} style={pulsing ? pulseStyle : undefined}>
             <Pressable
               onPress={() => onSelect?.(face.name)}
               accessibilityRole="button"

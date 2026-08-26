@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 
 import { restartSignedOutSession, type RestartNav } from '@/lib/navigation/session-restart';
-import { teardownAllPoppinsVoice } from '@/lib/voice/poppins-voice-session';
+import { teardownAllPoppinsVoice, VOICE_NATIVE_CLOSE_MS } from '@/lib/voice/poppins-voice-session';
 
 export { restartSignedOutSession, SESSION_RESTART_ROUTE } from '@/lib/navigation/session-restart';
 
@@ -29,5 +29,8 @@ export function resetToGetStarted(_navigation?: unknown): void {
   } catch {
     /* voice already down */
   }
-  restartSignedOutSession(expoRestartNav());
+  const nav = expoRestartNav();
+  setTimeout(() => {
+    restartSignedOutSession(nav);
+  }, VOICE_NATIVE_CLOSE_MS + 40);
 }

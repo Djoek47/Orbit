@@ -1,14 +1,13 @@
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
-  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { motion, motionDuration } from '@/constants/motion-tokens';
+import { motion } from '@/constants/motion-tokens';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type Stop = { id: string; label: string; emoji?: string };
@@ -37,12 +36,10 @@ export function IuiRoad({ stop, accent, drawRoad = true }: Props) {
       {drawRoad ? (
         <Animated.View style={[styles.road, { backgroundColor: `${accent}88` }, road]} />
       ) : null}
-      <Animated.View
-        entering={FadeInDown.duration(motionDuration.snappy)}
-        style={[styles.stop, { borderColor: `${accent}66`, backgroundColor: `${accent}18` }]}>
+      <View style={[styles.stop, { borderColor: `${accent}66`, backgroundColor: `${accent}18` }]}>
         <Text style={styles.emoji}>{stop.emoji ?? '📍'}</Text>
         <Text style={[styles.label, { color: c.text }]}>{stop.label}</Text>
-      </Animated.View>
+      </View>
     </View>
   );
 }

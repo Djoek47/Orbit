@@ -1,5 +1,4 @@
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import type { IuiPeekRow } from '@/lib/poppins/ui-scenes';
@@ -18,9 +17,8 @@ export function IuiPeek({ rows, accent, highlightIndex = 0 }: Props) {
       {rows.slice(0, 3).map((row, i) => {
         const on = i <= highlightIndex;
         return (
-          <Animated.View
+          <View
             key={row.id}
-            entering={FadeInDown.delay(i * 90).duration(240)}
             style={[
               styles.row,
               {
@@ -32,7 +30,7 @@ export function IuiPeek({ rows, accent, highlightIndex = 0 }: Props) {
             {row.detail ? (
               <Text style={[styles.detail, { color: c.textMuted }]}>{row.detail}</Text>
             ) : null}
-          </Animated.View>
+          </View>
         );
       })}
     </View>

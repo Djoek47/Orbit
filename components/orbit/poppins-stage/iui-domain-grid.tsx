@@ -1,5 +1,4 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import Icon from '@/components/orbit/design/Icon';
@@ -30,7 +29,7 @@ export function IuiDomainGrid({ domains, selectedId, accent, onSelect, narrow }:
       {shown.map((domain) => {
         const selected = domain.id === selectedId;
         return (
-          <Animated.View key={domain.id} entering={FadeIn.duration(220)} style={styles.cell}>
+          <View key={domain.id} style={styles.cell}>
             <Pressable
               onPress={() => onSelect?.(domain.id)}
               accessibilityRole="button"
@@ -48,7 +47,7 @@ export function IuiDomainGrid({ domains, selectedId, accent, onSelect, narrow }:
                 {domain.label}
               </Text>
             </Pressable>
-          </Animated.View>
+          </View>
         );
       })}
     </View>

@@ -107,7 +107,7 @@ npm run build:ios:testflight
 
 First run: EAS will ask to create **Distribution Certificate**, **Provisioning Profile**, and **Push Key** — choose **Let EAS handle it**.
 
-**Poppins Divine Voice:** TestFlight / production profiles set `EXPO_PUBLIC_POPPINS_VOICE_WEBRTC=1`. OTA alone cannot add `react-native-webrtc` — ship a new native build after this change. Deploy `poppins-realtime-sdp` + `poppins-voice-tool` before device smoke.
+**Poppins Divine Voice:** TestFlight / production profiles set `EXPO_PUBLIC_POPPINS_VOICE_WEBRTC=1`. OTA alone cannot add `react-native-webrtc` — ship a new native build after this change. Deploy `poppins-realtime-sdp` (JSON in, `text/plain` SDP out) + `poppins-voice-tool` before device smoke.
 
 ### Submit to App Store Connect
 

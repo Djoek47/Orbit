@@ -2,7 +2,7 @@
  * Poppins Divine Voice — WebRTC full-duplex session (TestFlight / EAS native).
  *
  * Footguns (non-negotiable):
- * 1. Server SDP via poppins-realtime-sdp → POST /v1/realtime/calls (sk- stays on edge).
+ * 1. Server SDP via poppins-realtime-sdp as JSON (never FormData — iOS 27 RCTBlobManager).
  * 2. After every tool: function_call_output THEN response.create (session audio; never response.modalities).
  * 3. Tool order: parallel reads → serial mutations → end_session last.
  * 4. Voice path uses poppins-voice-tool with forceRiskyConfirmation.
@@ -185,17 +185,20 @@ export function releaseWarmedMicrophone() {
 
 const livePoppinsVoiceSessions = new Set<{ disconnect: () => void }>();
 
+/** Wait for RTCView to unmount before PeerConnection.close — closing first SIGSEGVs Hermes. */
+export const VOICE_NATIVE_CLOSE_MS = 120;
+
 /** Close every live WebRTC session before auth remounts the JS tree. */
-export function teardownAllPoppinsVoice(): void {
+export function teardownAllPoppinsVoice(except?: { disconnect: () => void }): void {
   for (const session of [...livePoppinsVoiceSessions]) {
+    if (except && session === except) continue;
     try {
       session.disconnect();
     } catch {
       /* already down */
     }
   }
-  livePoppinsVoiceSessions.clear();
-  releaseWarmedMicrophone();
+  if (!except) livePoppinsVoiceSessions.clear();
 }
 
 const SOFT_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_SOFT_PROMPT_MS ?? 50_000);
@@ -217,10 +220,12 @@ async function authHeaders(): Promise<Record<string, string> | null> {
   const session = await supabase.auth.getSession();
   const token = session.data.session?.access_token;
   if (!token) return null;
-  return {
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
-    apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
   };
+  const anon = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (anon) headers.apikey = anon;
+  return headers;
 }
 
 export class PoppinsVoiceSession {
@@ -252,6 +257,8 @@ export class PoppinsVoiceSession {
   private listenPrompt = '';
   private seedTurns: Array<{ role: 'user' | 'assistant'; text: string }> = [];
   private memoryHint = '';
+  private toreDown = false;
+  private nativeCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private callbacks: PoppinsVoiceSessionCallbacks = {}) {
     livePoppinsVoiceSessions.add(this);
@@ -352,7 +359,14 @@ export class PoppinsVoiceSession {
     this.seedTurns = opts?.seedTurns?.filter((turn) => turn.text.trim()) ?? [];
     this.memoryHint = opts?.memoryHint?.trim() ?? '';
     this.fatal = false;
+    this.toreDown = false;
     this.setState('connecting');
+
+    const others = [...livePoppinsVoiceSessions].filter((session) => session !== this);
+    if (others.length) {
+      teardownAllPoppinsVoice(this);
+      await new Promise((resolve) => setTimeout(resolve, VOICE_NATIVE_CLOSE_MS));
+    }
 
     try {
       const headers = await authHeaders();
@@ -447,15 +461,18 @@ export class PoppinsVoiceSession {
         billingPending: true,
       };
 
-      const form = new FormData();
-      form.append('sdp', offer.sdp ?? '');
-      form.append('session', JSON.stringify(sessionPayload));
-      form.append('householdId', String(household.id));
-
       const res = await fetch(`${baseUrl}/functions/v1/poppins-realtime-sdp`, {
         method: 'POST',
-        headers,
-        body: form,
+        headers: {
+          ...headers,
+          Accept: 'text/plain',
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+        body: JSON.stringify({
+          sdp: offer.sdp ?? '',
+          ...sessionPayload,
+        }),
       });
 
       if (!res.ok) {
@@ -851,6 +868,8 @@ export class PoppinsVoiceSession {
   }
 
   disconnect() {
+    if (this.toreDown) return;
+    this.toreDown = true;
     livePoppinsVoiceSessions.delete(this);
     this.connected = false;
     this.fatal = true;
@@ -864,21 +883,9 @@ export class PoppinsVoiceSession {
     this.backgroundTimer = null;
     this.appStateSub?.remove();
     this.appStateSub = null;
-    try {
-      this.dc?.close();
-    } catch {
-      /* ignore */
-    }
-    try {
-      this.pc?.close();
-    } catch {
-      /* ignore */
-    }
-    try {
-      this.localStream?.getTracks().forEach((t) => t.stop());
-    } catch {
-      /* ignore */
-    }
+    const pc = this.pc;
+    const dc = this.dc;
+    const localStream = this.localStream;
     this.dc = null;
     this.pc = null;
     this.localStream = null;
@@ -899,7 +906,31 @@ export class PoppinsVoiceSession {
       /* provider already unmounted */
     }
     this.fatal = true;
-    releaseWarmedMicrophone();
-    void restorePoppinsAudio();
+    const closeNative = () => {
+      try {
+        dc?.close();
+      } catch {
+        /* ignore */
+      }
+      try {
+        pc?.close();
+      } catch {
+        /* ignore */
+      }
+      try {
+        localStream?.getTracks().forEach((t) => t.stop());
+      } catch {
+        /* ignore */
+      }
+      if (livePoppinsVoiceSessions.size === 0) {
+        releaseWarmedMicrophone();
+        void restorePoppinsAudio();
+      }
+    };
+    if (this.nativeCloseTimer) clearTimeout(this.nativeCloseTimer);
+    this.nativeCloseTimer = setTimeout(() => {
+      this.nativeCloseTimer = null;
+      closeNative();
+    }, VOICE_NATIVE_CLOSE_MS);
   }
 }

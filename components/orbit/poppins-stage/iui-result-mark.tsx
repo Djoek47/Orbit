@@ -1,6 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -23,17 +22,17 @@ export function IuiResultMark({ kind = 'added', title }: Props) {
   const { c } = useOrbitColors();
   return (
     <View style={styles.wrap}>
-      <Animated.View entering={ZoomIn.duration(380)} style={styles.badge}>
+      <View style={styles.badge}>
         <MaterialIcons name="check" size={36} color="#ECFDF5" />
-      </Animated.View>
-      <Animated.View entering={FadeIn.duration(280)}>
+      </View>
+      <View>
         <Text style={[styles.label, { color: MARK_GREEN }]}>{LABEL[kind]}</Text>
         {title ? (
           <Text style={[styles.title, { color: c.text }]} numberOfLines={2}>
             {title}
           </Text>
         ) : null}
-      </Animated.View>
+      </View>
     </View>
   );
 }

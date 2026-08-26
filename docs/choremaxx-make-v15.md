@@ -22,6 +22,15 @@ See [`poppins-os.md`](./poppins-os.md). IPA **1.3.0 (46)** from git `1769d06`. B
 
 EAS `b0959c6b-9349-4ceb-abac-4d110c3c39ba`, submit `caac30b9-c7e2-4cef-8368-901ea39ead48`.
 
+### Hermes / Speak crash (45 + 46)
+
+Not a missing webhook. Voice is `poppins-realtime-sdp` + `poppins-voice-tool`.
+
+- **45** `C24F15C6`: `EXC_BAD_ACCESS` in Hermes `Object.entries` / `Array.map` while WebRTC threads are live. Same family as sign-out remounting the JS tree over a live `PeerConnection`.
+- **46** `2B1E08FD`: `SIGABRT` 10s after launch via Expo Updates `ErrorRecovery.crash()`. Speak had already started WebRTC. Thread 1 is `RCTBlobManager` / `suggestedFilename` on the SDP response (`application/sdp` + `FormData`). Expo then waits for an OTA, gets none, and aborts. After relaunch the frozen IUI returns with “Couldn't start voice.”
+
+47: JSON SDP (no FormData), `text/plain` answer, unbind `RTCView` before `PeerConnection.close`, no IUI mount animations under live voice, delayed sign-out remount, OTA check only on error recovery.
+
 ## What landed from today
 
 - Two-mode IUI — talking fills unknown beats only; a tap wins while Poppins is still speaking.

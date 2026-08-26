@@ -1,5 +1,6 @@
 // Deno Edge Function — server SDP for Poppins WebRTC duplex (POST /v1/realtime/calls).
-// Never returns OPENAI_API_KEY. Client sends local SDP offer; response is application/sdp answer.
+// Never returns OPENAI_API_KEY. Client sends JSON { sdp, session fields }; response is text/plain SDP
+// (not application/sdp — iOS 27 RCTBlobManager/UTType aborts on that MIME).
 
 import {
   corsHeaders,
@@ -148,7 +149,8 @@ Deno.serve(async (req) => {
       status: 200,
       headers: {
         ...corsHeaders,
-        'Content-Type': 'application/sdp',
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
         'X-Poppins-Realtime-Model': model,
         'X-Poppins-Voice': profile.voice,
         'X-Poppins-Majordomo': profile.id,

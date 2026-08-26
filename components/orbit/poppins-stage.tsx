@@ -4,9 +4,8 @@
 
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiChips } from '@/components/orbit/poppins-stage/iui-chips';
@@ -20,7 +19,6 @@ import { IuiPeek } from '@/components/orbit/poppins-stage/iui-peek';
 import { IuiResultMark } from '@/components/orbit/poppins-stage/iui-result-mark';
 import { IuiRoad } from '@/components/orbit/poppins-stage/iui-road';
 import { IuiStepper } from '@/components/orbit/poppins-stage/iui-stepper';
-import { motionDuration } from '@/constants/motion-tokens';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { householdHasChildren } from '@/lib/household/has-children';
 import { composeStepLabel, IUI_DUE_CHIPS, nextComposeStep } from '@/lib/poppins/iui-compose';
@@ -262,6 +260,31 @@ export function PoppinsStage() {
     return [...chores, { id: hw.id, label: hw.shortName ?? 'Homework' }];
   }, [hasKids]);
 
+  const writesRef = useRef({
+    household,
+    currentMember,
+    createTask,
+    createEvent,
+    createItinerary,
+    addMissingGrocery,
+    completeTask,
+    updateTask,
+    claimReward,
+    advanceItineraryStop,
+  });
+  writesRef.current = {
+    household,
+    currentMember,
+    createTask,
+    createEvent,
+    createItinerary,
+    addMissingGrocery,
+    completeTask,
+    updateTask,
+    claimReward,
+    advanceItineraryStop,
+  };
+
   useEffect(() => {
     poppinsUiOrchestrator.setHapticHandler((kind) => {
       if (kind === 'show' || kind === 'hold') {
@@ -282,6 +305,18 @@ export function PoppinsStage() {
       }
     });
     poppinsUiOrchestrator.setCommitHandler(async (beat: IuiBeat) => {
+      const {
+        household,
+        currentMember,
+        createTask,
+        createEvent,
+        createItinerary,
+        addMissingGrocery,
+        completeTask,
+        updateTask,
+        claimReward,
+        advanceItineraryStop,
+      } = writesRef.current;
       const p = beat.payload;
       const write = p.write ?? 'none';
       if (write === 'create_task' && (p.title || p.libraryTaskId)) {
@@ -393,21 +428,7 @@ export function PoppinsStage() {
       poppinsUiOrchestrator.setCoachHandler(null);
       poppinsUiOrchestrator.setHapticHandler(null);
     };
-  }, [
-    addMissingGrocery,
-    advanceItineraryStop,
-    claimReward,
-    completeTask,
-    createEvent,
-    createItinerary,
-    createTask,
-    currentMember?.name,
-    household.itineraries,
-    household.members,
-    household.rewards,
-    household.tasks,
-    updateTask,
-  ]);
+  }, []);
 
   useEffect(() => {
     if (!drive.holding || !drive.holdStartedAt) {
@@ -439,11 +460,7 @@ export function PoppinsStage() {
   }, -1);
 
   return (
-    <Animated.View
-      key={beat.id}
-      entering={FadeIn.duration(motionDuration.snappy)}
-      exiting={FadeOut.duration(motionDuration.snappy)}
-      style={styles.root}>
+    <View key={beat.id} style={styles.root}>
       {drive.spoken.trim() ? (
         <Text style={[styles.spoken, { color: c.textMuted }]} numberOfLines={2}>
           {drive.spoken.trim()}
@@ -621,7 +638,7 @@ export function PoppinsStage() {
           </Pressable>
         </View>
       ) : null}
-    </Animated.View>
+    </View>
   );
 }
 
