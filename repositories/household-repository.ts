@@ -2,6 +2,7 @@ import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
 import { AdminCapError, adminCapBlockedMessage } from '@/lib/household/admin-cap';
 import { countAdminSeats } from '@/lib/household/admins';
 import { childInviteEmoji } from '@/lib/household/child-invites';
+import { allocateChildInviteCode } from '@/lib/household/profile-codes';
 import { withHouseholdLock } from '@/lib/household/household-lock';
 import {
   clearActiveMockHousehold,
@@ -30,7 +31,13 @@ import {
   migrateLegacyRewardModel,
   type RewardModel,
 } from '@/lib/rewards/reward-model';
-import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
+import { isUniqueViolation } from '@/lib/db/unique-violation';
+import {
+  createLocalId,
+  getConfiguredSupabase,
+  isMockMode,
+  mapDbError,
+} from '@/repositories/repository-utils';
 import type {
   CreateHouseholdInput,
   HouseholdMember,
@@ -631,31 +638,21 @@ export const householdRepository = {
       loadShare: 0,
       profileInviteCode: undefined,
     };
-    const fromName = trimmed
-      .toUpperCase()
-      .replace(/[^A-Z0-9]+/g, '')
-      .slice(0, 6);
     if (role === 'child') {
-      member.profileInviteCode = normalizeInviteCode(
-        fromName.length >= 3 ? `CMX-${fromName}` : createInviteCode(),
-      );
+      member.profileInviteCode = allocateChildInviteCode(trimmed);
     }
 
     if (isMockMode()) {
       if (member.profileInviteCode) {
-        const taken = new Set(
-          mockHousehold.members
-            .map((item) => item.profileInviteCode)
-            .filter((code): code is string => Boolean(code))
-            .map((code) => normalizeInviteCode(code)),
-        );
-        let attempt = member.profileInviteCode;
-        let n = 2;
-        while (taken.has(attempt)) {
-          attempt = normalizeInviteCode(`CMX-${fromName.slice(0, 4)}${n}`);
-          n += 1;
-        }
-        member.profileInviteCode = attempt;
+        const active = await loadActiveMockHousehold();
+        const pool = [
+          ...(active?.members ?? []),
+          ...mockHousehold.members,
+        ];
+        const taken = pool
+          .map((item) => item.profileInviteCode)
+          .filter((code): code is string => Boolean(code));
+        member.profileInviteCode = allocateChildInviteCode(trimmed, taken);
       }
       // Prefer the active mock household when present; fall back to Rivera demo.
       const active = await loadActiveMockHousehold();
@@ -678,28 +675,48 @@ export const householdRepository = {
     }
 
     const supabase = getConfiguredSupabase('householdRepository.createOnboardingMember');
-    const { data, error } = await supabase
-      .from('household_members')
-      .insert({
-        household_id: householdId,
-        display_name: member.name,
-        role,
-        status: 'active',
-        avatar_symbol: member.avatar,
-        xp: 0,
-        week_xp: 0,
-        streak: 0,
-        load_share: 0,
-        profile_invite_code: member.profileInviteCode ?? null,
-      })
-      .select('*')
-      .single();
-    mapDbError('householdRepository.createOnboardingMember', error);
+    const taken = new Set<string>();
+    let lastError: { code?: string; message?: string } | null = null;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      if (role === 'child') {
+        member.profileInviteCode = allocateChildInviteCode(trimmed, taken);
+      }
+      const { data, error } = await supabase
+        .from('household_members')
+        .insert({
+          household_id: householdId,
+          display_name: member.name,
+          role,
+          status: 'active',
+          avatar_symbol: member.avatar,
+          xp: 0,
+          week_xp: 0,
+          streak: 0,
+          load_share: 0,
+          profile_invite_code: member.profileInviteCode ?? null,
+        })
+        .select('*')
+        .single();
+      if (!error) {
+        const mapped = mapMemberRow(
+          data as HouseholdMemberRow & { shared_with_member_ids?: string[] | null }
+        );
+        return {
+          ...mapped,
+          profileInviteCode: mapped.profileInviteCode ?? member.profileInviteCode,
+          role,
+        };
+      }
+      lastError = error;
+      if (role === 'child' && member.profileInviteCode && isUniqueViolation(error)) {
+        taken.add(member.profileInviteCode);
+        continue;
+      }
+      mapDbError('householdRepository.createOnboardingMember', error);
+    }
+    mapDbError('householdRepository.createOnboardingMember', lastError);
 
-    const mapped = mapMemberRow(
-      data as HouseholdMemberRow & { shared_with_member_ids?: string[] | null }
-    );
-    return { ...mapped, profileInviteCode: member.profileInviteCode, role };
+    throw new Error('householdRepository.createOnboardingMember: invite code retry exhausted.');
   },
 
   async updateMemberDisplayName(

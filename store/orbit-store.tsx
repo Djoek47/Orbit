@@ -415,7 +415,7 @@ type OrbitContextValue = {
   openStopInMaps: (itineraryId: string, stopId: string) => Promise<void>;
   reorderItineraryStops: (itineraryId: string, stopIds: string[]) => Promise<void>;
   signIn: (input: SignInInput) => Promise<void>;
-  hydrateFromSession: (session: AuthSession) => Promise<void>;
+  hydrateFromSession: (session: AuthSession) => Promise<HouseholdSnapshot>;
   signOut: () => Promise<void>;
   signUp: (input: SignUpInput) => Promise<{ needsConfirmation: boolean; email: string }>;
   suggestedPoppinsQuestions: readonly string[];
@@ -1083,7 +1083,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         { email: session.user.email, pending_join: true },
         { householdId: hydratedHousehold.id, userId: session.user.id }
       );
-      return;
+      return hydratedHousehold;
     }
 
     await trackAnalytics(
@@ -1112,6 +1112,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     registerForPushNotifications(session.user.id).catch((error) => {
       console.warn('Push registration skipped', error);
     });
+    return hydratedHousehold;
   }, []);
 
   const signIn = async (input: SignInInput) => {

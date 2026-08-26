@@ -161,7 +161,7 @@ export default function HouseholdMembersScreen() {
   const handleCreateKidInvites = () => {
     setCreatingKids(true);
     setKidStatus('');
-    void createChildInvites([kidNameOne, kidNameTwo])
+    void createChildInvites([kidNameOne, kidNameTwo], { householdId: household.id })
       .then((created) => {
         setKidNameOne('');
         setKidNameTwo('');

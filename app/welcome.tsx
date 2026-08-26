@@ -51,7 +51,7 @@ import {
   REWARD_MODEL_OPTIONS,
   type RewardModel,
 } from '@/lib/rewards/reward-model';
-import { type RewardMode } from '@/lib/rewards/reward-mode';
+import { type RewardMode, REWARD_MODE_COPY, REWARD_MODE_EXAMPLES, STREAK_FOOTNOTE } from '@/lib/rewards/reward-mode';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
 import {
@@ -66,6 +66,8 @@ import {
   getPendingSignup,
   markAuthEmailSent,
 } from '@/lib/auth/email-confirmation';
+import { fetchEntitlement, isPremiumActive } from '@/lib/billing/iap';
+import { markPremiumGatePending, premiumOnboardingHref } from '@/lib/billing/premium-onboarding';
 
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { classifyInviteCode, householdInviteWrongForKidMessage } from '@/lib/invites/invite-intent';
@@ -73,6 +75,7 @@ import { stashInviteCode } from '@/lib/invite/invite-code-store';
 import { goToFreshLogin } from '@/lib/navigation/fresh-login';
 import { cancelSignedOutRestart } from '@/lib/navigation/session-restart';
 import { shareInvite } from '@/lib/invites/share-invite';
+import { isPendingJoinSnapshot } from '@/lib/invites/join-approval';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
@@ -91,6 +94,15 @@ type Step =
   | 'child-invite'
   | 'tablet-invite'
   | 'ready';
+
+/** Stay on these steps after household create — Enter Choremaxx is the explicit exit. */
+const ONBOARDING_EXIT_HOLD_STEPS: ReadonlySet<Step> = new Set([
+  'household',
+  'places',
+  'roster',
+  'member-wizard',
+  'ready',
+]);
 
 export default function WelcomeOnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -180,16 +192,6 @@ export default function WelcomeOnboardingScreen() {
   const [tabletCodeDraft, setTabletCodeDraft] = useState('');
 
   const stepOpacity = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (step === 'splash') return;
-    stepOpacity.setValue(0);
-    Animated.timing(stepOpacity, {
-      toValue: 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start();
-  }, [step, stepOpacity]);
 
   const roleMeta = useMemo(
     () => ONBOARDING_ROLES.find((role) => role.id === selectedRole),
@@ -374,8 +376,10 @@ export default function WelcomeOnboardingScreen() {
         setStep('splash');
         break;
       case 'motivation':
-      case 'reward-system':
         setStep('role');
+        break;
+      case 'reward-system':
+        setStep('motivation');
         break;
       case 'child-invite':
       case 'tablet-invite':
@@ -387,7 +391,7 @@ export default function WelcomeOnboardingScreen() {
             ? 'invited'
             : selectedRole && skipsMotivation(selectedRole)
               ? 'role'
-              : 'motivation'
+              : 'reward-system'
         );
         break;
       case 'profile':
@@ -502,8 +506,7 @@ export default function WelcomeOnboardingScreen() {
   const handleMotivationContinue = () => {
     if (!selectedRewardModel) return;
     setError('');
-    setSelectedRewardMode('weighted');
-    void handleRewardSystemContinue();
+    setStep('reward-system');
   };
 
   const advanceAfterPrefs = () => {
@@ -516,7 +519,7 @@ export default function WelcomeOnboardingScreen() {
 
   const handleRewardSystemContinue = async () => {
     setError('');
-    const rewardMode: RewardMode = 'weighted';
+    const rewardMode: RewardMode = selectedRewardMode ?? 'weighted';
     const rewardModel = selectedRewardModel ?? DEFAULT_REWARD_MODEL;
     try {
       await saveOnboardingPrefs({
@@ -539,12 +542,13 @@ export default function WelcomeOnboardingScreen() {
     advanceAfterPrefs();
   };
 
-  useEffect(() => {
-    if (step !== 'reward-system') return;
-    void handleRewardSystemContinue();
-  }, [step]);
-
-  if (!isLoading && isSignedIn && currentUser?.profileComplete && hasHousehold) {
+  if (
+    !isLoading &&
+    isSignedIn &&
+    currentUser?.profileComplete &&
+    hasHousehold &&
+    !ONBOARDING_EXIT_HOLD_STEPS.has(step)
+  ) {
     const memberInviteRaw = Array.isArray(inviteParams.memberInvite)
       ? inviteParams.memberInvite[0]
       : inviteParams.memberInvite;
@@ -611,7 +615,7 @@ export default function WelcomeOnboardingScreen() {
     try {
       await persistPrefs();
       const session = await signInWithApple();
-      await hydrateFromSession(session);
+      const hydrated = await hydrateFromSession(session);
       const appleComplete = isProfileNameComplete(session.user.name, session.user.email);
       if (appleComplete) {
         setDisplayName(session.user.name);
@@ -630,6 +634,16 @@ export default function WelcomeOnboardingScreen() {
         await stashInviteCode(parsed);
         const joined = await applyStashedInvite();
         router.replace((joined === 'pending' ? '/pending-approval' : '/') as never);
+        return;
+      }
+      if (isPendingJoinSnapshot(hydrated)) {
+        router.replace('/pending-approval' as never);
+        return;
+      }
+      const entitled = isPremiumActive(await fetchEntitlement());
+      if (!entitled && !hydrated.id) {
+        await markPremiumGatePending();
+        router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
         return;
       }
       setStep(next);
@@ -931,7 +945,9 @@ export default function WelcomeOnboardingScreen() {
     setError('');
     setShareStatus('');
     try {
-      const created = await createChildInvites([kidNameOne, kidNameTwo]);
+      const created = await createChildInvites([kidNameOne, kidNameTwo], {
+        householdId: household.id,
+      });
       const next = created.map((member) => {
         const links = buildInviteLinks(member.profileInviteCode || member.id);
         return {
@@ -1258,6 +1274,71 @@ export default function WelcomeOnboardingScreen() {
               <OrbitButton disabled={!selectedRewardModel} onPress={handleMotivationContinue}>
                 Continue
               </OrbitButton>
+            </KeyboardScreen>
+          ) : null}
+
+          {step === 'reward-system' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
+                Meritocracy or Equity?
+              </Text>
+              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
+                How points are scored. Change anytime in Settings.
+              </Text>
+              <View style={styles.rewardModeList}>
+                {(['weighted', 'flat'] as RewardMode[]).map((mode) => {
+                  const copy = REWARD_MODE_COPY[mode];
+                  const active = selectedRewardMode === mode;
+                  return (
+                    <Pressable
+                      key={mode}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => setSelectedRewardMode(mode)}
+                      style={[
+                        styles.rewardModeCard,
+                        {
+                          backgroundColor: active ? `${accent}22` : orbitPalette.card,
+                          borderColor: active ? `${accent}55` : orbitPalette.border,
+                        },
+                      ]}>
+                      <View style={styles.rewardModeHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.motivationLabel, { color: orbitPalette.text }]}>
+                            {copy.label}
+                            {mode === 'weighted' ? ' · Recommended' : ''}
+                          </Text>
+                          <Text style={[styles.motivationDesc, { color: orbitPalette.textMuted }]}>
+                            {copy.blurb}
+                          </Text>
+                        </View>
+                        {active ? (
+                          <View style={[styles.miniCheck, { backgroundColor: accent }]}>
+                            <Text style={[styles.radioCheck, { color: ink }]}>✓</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <View style={styles.rewardExampleList}>
+                        {REWARD_MODE_EXAMPLES[mode].map((example) => (
+                          <View key={example.task} style={styles.rewardExampleRow}>
+                            <Text style={[styles.rewardExampleTask, { color: orbitPalette.text }]}>
+                              {example.task}
+                            </Text>
+                            <Text style={[styles.rewardExampleXp, { color: accent }]}>
+                              {example.xp} XP
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={[typography.footnote, styles.rewardSettingsHint, { color: orbitPalette.textSubtle }]}>
+                {STREAK_FOOTNOTE}
+              </Text>
+              <OrbitButton onPress={() => void handleRewardSystemContinue()}>Continue</OrbitButton>
             </KeyboardScreen>
           ) : null}
 

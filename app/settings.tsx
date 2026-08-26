@@ -44,6 +44,9 @@ import {
 } from '@/lib/rewards/reward-model';
 import {
   normalizeRewardSettings,
+  REWARD_MODE_COPY,
+  STREAK_FOOTNOTE,
+  type RewardMode,
 } from '@/lib/rewards/reward-mode';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
 import {
@@ -768,7 +771,49 @@ export default function SettingsScreen() {
                   })}
                 </View>
                 <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
-                  Harder jobs are worth more. That ladder is how Choremaxx works.
+                  How points are scored
+                </Text>
+                <View style={{ gap: 8, marginBottom: 12 }}>
+                  {(['weighted', 'flat'] as RewardMode[]).map((mode) => {
+                    const copy = REWARD_MODE_COPY[mode];
+                    const active = rewardSettings.rewardMode === mode;
+                    return (
+                      <Pressable
+                        key={mode}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: active }}
+                        onPress={() => updateHouseholdRewardSettings({ rewardMode: mode })}
+                        style={[
+                          styles.prefRow,
+                          {
+                            backgroundColor: active
+                              ? `${accentTheme.primary}22`
+                              : glassFill(isDark),
+                            borderColor: active
+                              ? `${accentTheme.primary}55`
+                              : glassBorder(0.08),
+                          },
+                        ]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.memberName, { color: c.text }]}>
+                            {copy.label}
+                            {mode === 'weighted' ? ' · Recommended' : ''}
+                          </Text>
+                          <Text style={[styles.caption, { color: c.textSubtle }]}>
+                            {copy.blurb}
+                          </Text>
+                        </View>
+                        {active ? (
+                          <MaterialIcons name="check-circle" size={20} color={accentTheme.primary} />
+                        ) : (
+                          <MaterialIcons name="radio-button-unchecked" size={20} color={c.textSubtle} />
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
+                  {STREAK_FOOTNOTE}
                 </Text>
                 <View
                   style={[

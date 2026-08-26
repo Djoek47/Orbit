@@ -1,6 +1,8 @@
 import { dataMode } from '@/config/data-mode';
 import { getSupabaseClient, requireSupabaseClient } from '@/lib/supabase/client';
 
+export { isUniqueViolation } from '@/lib/db/unique-violation';
+
 export function isMockMode() {
   return dataMode === 'mock';
 }
