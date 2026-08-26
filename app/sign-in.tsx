@@ -17,6 +17,7 @@ import {
 } from '@/lib/auth/auth-errors';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { goToFreshLogin } from '@/lib/navigation/fresh-login';
+import { cancelSignedOutRestart } from '@/lib/navigation/session-restart';
 import { isMockMode } from '@/repositories/repository-utils';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -68,6 +69,7 @@ export default function SignInScreen() {
     }
 
     try {
+      cancelSignedOutRestart();
       setBusy(true);
       setIssue(null);
       await signIn({ email, password });
@@ -88,6 +90,7 @@ export default function SignInScreen() {
 
   const handleApple = async () => {
     try {
+      cancelSignedOutRestart();
       setIssue(null);
       const session = await signInWithApple();
       if (hydrateFromSession) {

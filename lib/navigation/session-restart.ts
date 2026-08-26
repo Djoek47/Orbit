@@ -5,13 +5,13 @@ export const SESSION_RESTART_ROUTE = '/' as const;
 
 /**
  * Dismiss Settings / replace `/` after voice native close.
- * Must stay above `VOICE_NATIVE_CLOSE_MS` (120). IPA 49 remounted at 160ms.
+ * Must stay above `VOICE_NATIVE_CLOSE_MS` (120).
  */
 export const SESSION_NAV_DELAY_MS = 400;
 
 /**
- * Remount the root Stack after TurboModule voids + Reanimated unmounts settle.
- * Thread 15 in B88D6E93 was `convertNSExceptionToJSError` during remount.
+ * IPA 50 remounted the Stack here and login/create then SIGSEGVd (`08497FBD`).
+ * Kept as a named constant so tests prove we do **not** schedule it anymore.
  */
 export const SESSION_REMOUNT_DELAY_MS = 900;
 
@@ -21,12 +21,26 @@ export type RestartNav = {
   replace: (href: typeof SESSION_RESTART_ROUTE | '/welcome') => void;
 };
 
-export type RestartScheduler = (fn: () => void, ms: number) => void;
+export type RestartScheduler = (fn: () => void, ms: number) => unknown;
+
+type Cancel = () => void;
+
+const pendingCancels: Cancel[] = [];
+
+export function cancelSignedOutRestart(): void {
+  while (pendingCancels.length) {
+    try {
+      pendingCancels.pop()?.();
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 /**
  * Land on Get Started without remounting the JS tree. Settings is a modal, so
  * `replace('/')` alone can leave Get Started under a still-open overlay —
- * dismiss first, then replace. Epoch remount happens later.
+ * dismiss first, then replace. Do **not** bump session epoch (IPA 50 `08497FBD`).
  */
 export function applySignedOutNavigation(nav: RestartNav): void {
   try {
@@ -42,44 +56,41 @@ export function applySignedOutNavigation(nav: RestartNav): void {
     try {
       nav.replace('/welcome');
     } catch {
-      /* remount still lands index → welcome */
+      /* index still routes unsigned users to welcome */
     }
   }
 }
 
-/** Remount only the root navigator — not `OrbitProvider` (store already cleared). */
+/** Manual remount only — not used on the sign-out timer (login crash). */
 export function remountSignedOutSession(): number {
   return bumpSessionEpoch();
 }
 
-/**
- * After sign-out or account deletion, land on Get Started with no leftover
- * household screens underneath.
- *
- * 1. Dismiss Settings/Delete modals.
- * 2. Replace the URL with `/` (same as a process restart).
- * 3. Bump the session epoch so `app/_layout.tsx` remounts the Stack.
- *
- * Production sign-out uses `scheduleSignedOutRestart` so step 3 is not in the
- * same turn as dismiss/replace (IPA 49 Hermes SIGSEGV).
- */
-export function restartSignedOutSession(nav: RestartNav): number {
+export function restartSignedOutSession(nav: RestartNav): void {
   applySignedOutNavigation(nav);
-  return remountSignedOutSession();
 }
 
 /**
- * Navigate first, remount later. Reanimated worklets + a live WebRTC close
- * racing `bumpSessionEpoch()` is TestFlight 49 `B88D6E93`.
+ * Dismiss + replace after native voice settle. No Stack remount — IPA 50
+ * `08497FBD` died in Hermes Object.hasOwnProperty / Array.map on login/create
+ * after that remount, with WebRTC still live.
  */
 export function scheduleSignedOutRestart(
   nav: RestartNav,
-  schedule: RestartScheduler = (fn, ms) => {
-    setTimeout(fn, ms);
+  schedule: RestartScheduler = (fn, ms) => setTimeout(fn, ms),
+  unschedule: (handle: unknown) => void = (handle) => {
+    if (typeof handle === 'number' || typeof handle === 'object') {
+      clearTimeout(handle as ReturnType<typeof setTimeout>);
+    }
   },
 ): void {
-  schedule(() => applySignedOutNavigation(nav), SESSION_NAV_DELAY_MS);
-  schedule(() => {
-    remountSignedOutSession();
-  }, SESSION_REMOUNT_DELAY_MS);
+  cancelSignedOutRestart();
+  const handle = schedule(() => applySignedOutNavigation(nav), SESSION_NAV_DELAY_MS);
+  pendingCancels.push(() => {
+    try {
+      unschedule(handle);
+    } catch {
+      /* ignore */
+    }
+  });
 }

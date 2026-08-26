@@ -71,6 +71,7 @@ import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib
 import { classifyInviteCode, householdInviteWrongForKidMessage } from '@/lib/invites/invite-intent';
 import { stashInviteCode } from '@/lib/invite/invite-code-store';
 import { goToFreshLogin } from '@/lib/navigation/fresh-login';
+import { cancelSignedOutRestart } from '@/lib/navigation/session-restart';
 import { shareInvite } from '@/lib/invites/share-invite';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -571,6 +572,7 @@ export default function WelcomeOnboardingScreen() {
       setError('');
       return;
     }
+    cancelSignedOutRestart();
     setBusy(true);
     setError('');
     setAccountIssue(null);
@@ -602,6 +604,7 @@ export default function WelcomeOnboardingScreen() {
   };
 
   const handleAppleContinue = async () => {
+    cancelSignedOutRestart();
     setBusy(true);
     setError('');
     setAccountIssue(null);

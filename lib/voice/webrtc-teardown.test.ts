@@ -58,8 +58,13 @@ assert.equal(sdpFn.includes("'Content-Type': 'application/sdp'"), false);
 
 const restart = source('lib/navigation/session-restart.ts');
 assert.match(restart, /SESSION_NAV_DELAY_MS = 400/);
-assert.match(restart, /SESSION_REMOUNT_DELAY_MS = 900/);
-assert.match(restart, /scheduleSignedOutRestart/);
+assert.match(restart, /cancelSignedOutRestart/);
+const sched = restart.slice(restart.indexOf('export function scheduleSignedOutRestart'));
+assert.equal(
+  sched.includes('remountSignedOutSession'),
+  false,
+  'sign-out must not remount Stack — IPA 50 login crash 08497FBD',
+);
 
 const signOut = source('lib/auth/local-sign-out.ts');
 assert.match(signOut, /teardownAllPoppinsVoiceAndSettle/);

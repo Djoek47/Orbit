@@ -1,5 +1,5 @@
 /**
- * Session epoch + signed-out restart — remount Get Started instead of stacking it.
+ * Session epoch + signed-out restart — land Get Started without remounting.
  * Run: npx --yes tsx lib/navigation/session-restart.test.ts
  */
 import assert from 'node:assert/strict';
@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   applySignedOutNavigation,
+  cancelSignedOutRestart,
   remountSignedOutSession,
   restartSignedOutSession,
   scheduleSignedOutRestart,
@@ -66,15 +67,14 @@ function main() {
 
   {
     const calls: string[] = [];
-    const epoch = restartSignedOutSession({
+    restartSignedOutSession({
       canDismiss: () => true,
       dismissAll: () => calls.push('dismissAll'),
       replace: (href) => calls.push(`replace:${href}`),
     });
     assert.deepEqual(calls, ['dismissAll', 'replace:/']);
-    assert.equal(epoch, 1);
-    assert.equal(getSessionEpoch(), 1);
-    pass('sync restart still remounts for callers that need it');
+    assert.equal(getSessionEpoch(), 0);
+    pass('sync restart does not remount (IPA 50 login crash)');
   }
 
   {
@@ -108,36 +108,67 @@ function main() {
 
   {
     assert.ok(SESSION_NAV_DELAY_MS >= 400, 'nav waits past 120ms native close');
-    assert.ok(
-      SESSION_REMOUNT_DELAY_MS > SESSION_NAV_DELAY_MS,
-      'remount must not share a turn with dismiss/replace',
-    );
     const scheduled: Array<{ ms: number; fn: () => void }> = [];
     const calls: string[] = [];
+    const handles: Array<{ ms: number; fn: () => void }> = [];
     scheduleSignedOutRestart(
       {
         canDismiss: () => true,
         dismissAll: () => calls.push('dismissAll'),
         replace: (href) => calls.push(`replace:${href}`),
       },
-      (fn, ms) => scheduled.push({ ms, fn }),
+      (fn, ms) => {
+        const item = { ms, fn };
+        scheduled.push(item);
+        handles.push(item);
+        return item;
+      },
+      (handle) => {
+        const idx = scheduled.indexOf(handle as (typeof scheduled)[0]);
+        if (idx >= 0) scheduled.splice(idx, 1);
+      },
     );
     assert.deepEqual(
       scheduled.map((item) => item.ms),
-      [SESSION_NAV_DELAY_MS, SESSION_REMOUNT_DELAY_MS],
+      [SESSION_NAV_DELAY_MS],
+    );
+    assert.equal(
+      scheduled.some((item) => item.ms === SESSION_REMOUNT_DELAY_MS),
+      false,
+      'IPA 50 must not remount Stack after Get Started',
     );
     scheduled[0].fn();
     assert.deepEqual(calls, ['dismissAll', 'replace:/']);
-    assert.equal(getSessionEpoch(), 0, 'epoch stays put until the remount delay');
-    scheduled[1].fn();
-    assert.equal(getSessionEpoch(), 1);
-    pass('scheduled restart remounts only after the later delay');
+    assert.equal(getSessionEpoch(), 0);
+    pass('scheduled restart navigates only — no remount');
+  }
+
+  {
+    const scheduled: Array<{ fn: () => void }> = [];
+    scheduleSignedOutRestart(
+      {
+        replace: () => {
+          throw new Error('should have been cancelled');
+        },
+      },
+      (fn) => {
+        scheduled.push({ fn });
+        return scheduled[scheduled.length - 1];
+      },
+      (handle) => {
+        const idx = scheduled.indexOf(handle as (typeof scheduled)[0]);
+        if (idx >= 0) scheduled.splice(idx, 1);
+      },
+    );
+    cancelSignedOutRestart();
+    assert.equal(scheduled.length, 0);
+    pass('login/create can cancel a pending sign-out restart');
   }
 
   {
     remountSignedOutSession();
-    assert.equal(getSessionEpoch(), 2);
-    pass('remount helper bumps epoch');
+    assert.equal(getSessionEpoch(), 1);
+    pass('remount helper still exists for tests');
   }
 
   {
@@ -151,24 +182,26 @@ function main() {
       'tabs must not stack /welcome',
     );
     const layout = readFileSync(join(root, 'app/_layout.tsx'), 'utf8');
-    assert.ok(layout.includes('key={sessionEpoch}'), 'root must remount on session epoch');
-    assert.ok(layout.includes('<Stack key={sessionEpoch}>'), 'Stack remounts on sign-out');
     assert.equal(
       layout.includes('<OrbitProvider key={sessionEpoch}>'),
       false,
-      'OrbitProvider must stay mounted — remounting the store is the worklet storm',
+      'OrbitProvider must stay mounted',
     );
-    assert.ok(layout.includes('LayoutAnimationConfig'), 'skip Reanimated entering on remount');
-    assert.ok(layout.includes('skipEntering={sessionEpoch > 0}'));
     const settings = readFileSync(join(root, 'app/settings.tsx'), 'utf8');
     const del = readFileSync(join(root, 'app/delete-account.tsx'), 'utf8');
     assert.ok(settings.includes('resetToGetStarted()'));
-    assert.ok(settings.includes('finally'), 'settings must remount even if signOut throws');
+    assert.ok(settings.includes('finally'));
     assert.ok(del.includes('resetToGetStarted()'));
     const reset = readFileSync(join(root, 'lib/navigation/reset-to-get-started.ts'), 'utf8');
-    assert.ok(reset.includes('scheduleSignedOutRestart'), 'sign-out must not remount in the same turn');
-    assert.equal(reset.includes('restartSignedOutSession(nav)'), false);
-    pass('sign-out and delete remount instead of stacking welcome');
+    assert.ok(reset.includes('scheduleSignedOutRestart'));
+    assert.ok(reset.includes('cancelSignedOutRestart'));
+    const signIn = readFileSync(join(root, 'app/sign-in.tsx'), 'utf8');
+    const welcome = readFileSync(join(root, 'app/welcome.tsx'), 'utf8');
+    const confirm = readFileSync(join(root, 'app/confirm-email.tsx'), 'utf8');
+    assert.ok(signIn.includes('cancelSignedOutRestart()'));
+    assert.ok(welcome.includes('cancelSignedOutRestart()'));
+    assert.ok(confirm.includes('cancelSignedOutRestart()'));
+    pass('sign-out lands Get Started; login cancels leftover timers');
   }
 
   resetSessionEpochForTests();

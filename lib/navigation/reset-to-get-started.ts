@@ -7,6 +7,7 @@ import {
 import { teardownAllPoppinsVoice } from '@/lib/voice/poppins-voice-session';
 
 export {
+  cancelSignedOutRestart,
   restartSignedOutSession,
   SESSION_RESTART_ROUTE,
   SESSION_NAV_DELAY_MS,

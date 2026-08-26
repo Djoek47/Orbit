@@ -2,7 +2,6 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
@@ -29,6 +28,7 @@ import {
   premiumOnboardingHref,
 } from '@/lib/billing/premium-onboarding';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { cancelSignedOutRestart } from '@/lib/navigation/session-restart';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -51,6 +51,7 @@ export default function ConfirmEmailScreen() {
   const [cooldownSec, setCooldownSec] = useState(0);
 
   useEffect(() => {
+    cancelSignedOutRestart();
     void hydratePendingSignup().then((pending) => {
       if (!pending) return;
       setPendingPassword(pending.password);
@@ -197,6 +198,7 @@ export default function ConfirmEmailScreen() {
     setBusy(true);
     setIssue(null);
     try {
+      cancelSignedOutRestart();
       await signIn({ email, password: pwd });
       await finishOnboarding();
     } catch (err) {
@@ -231,7 +233,7 @@ export default function ConfirmEmailScreen() {
           <Text style={[styles.link, { color: accentTheme.primary }]}>Back to sign in</Text>
         </Pressable>
       }>
-      <Animated.View entering={FadeIn.duration(280)} style={styles.stack}>
+      <View style={styles.stack}>
         <Text style={[typography.footnote, styles.hint, { color: c.textMuted }]}>
           Tap Confirm email in your inbox on this phone — or enter the code here.
         </Text>
@@ -273,9 +275,9 @@ export default function ConfirmEmailScreen() {
 
         <AuthErrorBanner issue={issue} actionParams={{ email }} onDismiss={() => setIssue(null)} />
         {info ? (
-          <Animated.View entering={FadeInUp.duration(220)}>
+          <View>
             <Text style={[styles.info, { color: c.success }]}>{info}</Text>
-          </Animated.View>
+          </View>
         ) : null}
 
         <OrbitButton disabled={busy || code.length < 6} onPress={() => void handleVerifyCode()}>
@@ -318,7 +320,7 @@ export default function ConfirmEmailScreen() {
           </View>
           <MaterialIcons name="chevron-right" size={22} color={c.textSubtle} />
         </Pressable>
-      </Animated.View>
+      </View>
     </AuthShell>
   );
 }
