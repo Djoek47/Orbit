@@ -30,6 +30,7 @@ import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
 import { allLibraryTasks, choreDomains, homeworkDomain } from '@/lib/tasks/task-library';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import type { HouseholdTask } from '@/types/orbit';
 
 function monthLabel(date?: string) {
   const d = date ? new Date(date) : new Date();
@@ -264,7 +265,11 @@ function TaskComposeSteps({
   );
 }
 
-export function PoppinsStage() {
+export function PoppinsStage({
+  onVoiceTaskCreated,
+}: {
+  onVoiceTaskCreated?: (task: HouseholdTask) => void;
+} = {}) {
   const drive = usePoppinsUiDrive();
   const { c, glassBorder } = useOrbitColors();
   const {
@@ -322,6 +327,7 @@ export function PoppinsStage() {
     updateTask,
     claimReward,
     advanceItineraryStop,
+    onVoiceTaskCreated,
   });
   writesRef.current = {
     household,
@@ -334,6 +340,7 @@ export function PoppinsStage() {
     updateTask,
     claimReward,
     advanceItineraryStop,
+    onVoiceTaskCreated,
   };
 
   useEffect(() => {
@@ -367,6 +374,7 @@ export function PoppinsStage() {
         updateTask,
         claimReward,
         advanceItineraryStop,
+        onVoiceTaskCreated,
       } = writesRef.current;
       const p = beat.payload;
       const write = p.write ?? 'none';
@@ -378,10 +386,11 @@ export function PoppinsStage() {
           const assignee = p.assignee || currentMember?.name || household.members[0]?.name || 'Me';
           const dueLabel = p.due ?? 'Today';
           const occurrenceDate = occurrenceDateForDueLabel(dueLabel);
+          let created = null;
           if (library) {
             const [y, m, d] = occurrenceDate.split('-').map(Number);
             const occurrence = new Date(y, (m ?? 1) - 1, d ?? 1);
-            await createTask({
+            created = await createTask({
               ...buildLibraryAssignInput(
                 library,
                 assignee,
@@ -392,7 +401,7 @@ export function PoppinsStage() {
               occurrenceDate,
             });
           } else if (p.title) {
-            await createTask({
+            created = await createTask({
               title: p.title,
               category: p.category ?? p.selectedChipId ?? 'home_maintenance',
               assignee,
@@ -404,6 +413,7 @@ export function PoppinsStage() {
               occurrenceDate,
             });
           }
+          if (created) onVoiceTaskCreated?.(created);
         } catch (error) {
           console.warn('IUI create_task failed', error);
           throw error;

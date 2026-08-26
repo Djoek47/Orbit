@@ -9,6 +9,14 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  markVoiceNativeClosePending,
+  remainingVoiceSettleMs,
+  resetVoiceNativeClosePendingForTests,
+  VOICE_NATIVE_CLOSE_MS,
+  VOICE_TEARDOWN_SETTLE_MS,
+} from './voice-lifecycle';
+
 const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
 function source(rel: string) {
@@ -76,5 +84,25 @@ assert.equal(layout.includes('<OrbitProvider key={sessionEpoch}>'), false);
 const appJson = source('app.json');
 assert.match(appJson, /ON_ERROR_RECOVERY/, 'OTA must not fetch on every Speak launch');
 assert.match(appJson, /fallbackToCacheTimeout/);
+
+const connectFn = voice.slice(voice.indexOf('async connect('));
+const settleAt = connectFn.indexOf('await teardownAllPoppinsVoiceAndSettle(this)');
+const gumAt = connectFn.indexOf('getUserMedia');
+assert.ok(settleAt >= 0, 'connect waits for native settle');
+assert.ok(gumAt > settleAt, 'no second getUserMedia until close settle');
+
+const poppinsTab = source('app/(tabs)/poppins.tsx');
+assert.match(poppinsTab, /voiceSettling/);
+assert.match(poppinsTab, /await voiceRef\.current\?\.end\('manual'\)/);
+assert.match(poppinsTab, /disabled=\{voiceSettling\}/);
+
+resetVoiceNativeClosePendingForTests();
+assert.equal(remainingVoiceSettleMs(), 0);
+markVoiceNativeClosePending();
+const remaining = remainingVoiceSettleMs();
+assert.ok(remaining > VOICE_NATIVE_CLOSE_MS, 'reconnect waits past native close');
+assert.ok(remaining <= VOICE_TEARDOWN_SETTLE_MS);
+resetVoiceNativeClosePendingForTests();
+assert.equal(remainingVoiceSettleMs(), 0);
 
 console.log('PASS webrtc-teardown');

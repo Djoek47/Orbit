@@ -24,7 +24,24 @@ import {
   planStageTap,
   type VoiceTapPhase,
 } from '@/lib/poppins/realtime-error';
+import {
+  markVoiceNativeClosePending,
+  resolveLiveVoiceHousehold,
+  VOICE_NATIVE_CLOSE_MS,
+  waitForPendingVoiceNativeSettle,
+} from '@/lib/voice/voice-lifecycle';
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
+
+export {
+  markVoiceNativeClosePending,
+  remainingVoiceSettleMs,
+  resolveLiveVoiceHousehold,
+  VOICE_NATIVE_CLOSE_MS,
+  VOICE_NATIVE_SETTLE_MS,
+  VOICE_TEARDOWN_SETTLE_MS,
+  waitForPendingVoiceNativeSettle,
+} from '@/lib/voice/voice-lifecycle';
+export { resetVoiceNativeClosePendingForTests } from '@/lib/voice/voice-lifecycle';
 
 export type PoppinsVoiceVisualState =
   | 'idle'
@@ -56,6 +73,8 @@ export type PoppinsVoiceSessionCallbacks = {
   onSoftIdlePrompt?: () => void;
   /** Remote WebRTC stream URL for a hidden RTCView (audio sink). */
   onRemoteStream?: (url: string | null) => void;
+  /** Live household — tools must not freeze the connect-time snapshot. */
+  getHousehold?: () => HouseholdSnapshot | null | undefined;
 };
 
 type WebRtcModule = {
@@ -190,18 +209,6 @@ export function releaseWarmedMicrophone() {
 
 const livePoppinsVoiceSessions = new Set<{ disconnect: () => void }>();
 
-/** Wait for RTCView to unmount before PeerConnection.close — closing first SIGSEGVs Hermes. */
-export const VOICE_NATIVE_CLOSE_MS = 120;
-
-/**
- * Extra quiet time after `pc.close()` so the void TurboModule (and any
- * `convertNSExceptionToJSError`) finishes before React unmounts. IPA 49
- * B88D6E93 crashed Hermes HiddenClass::addProperty 160ms after close.
- */
-export const VOICE_NATIVE_SETTLE_MS = 280;
-
-export const VOICE_TEARDOWN_SETTLE_MS = VOICE_NATIVE_CLOSE_MS + VOICE_NATIVE_SETTLE_MS;
-
 /** Close every live WebRTC session before auth remounts the JS tree. */
 export function teardownAllPoppinsVoice(except?: { disconnect: () => void }): void {
   for (const session of [...livePoppinsVoiceSessions]) {
@@ -216,11 +223,11 @@ export function teardownAllPoppinsVoice(except?: { disconnect: () => void }): vo
 }
 
 /** Unbind + close, then wait for native void methods to drain. */
-export async function teardownAllPoppinsVoiceAndSettle(): Promise<void> {
-  teardownAllPoppinsVoice();
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, VOICE_TEARDOWN_SETTLE_MS);
-  });
+export async function teardownAllPoppinsVoiceAndSettle(
+  except?: { disconnect: () => void }
+): Promise<void> {
+  teardownAllPoppinsVoice(except);
+  await waitForPendingVoiceNativeSettle();
 }
 
 const SOFT_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_SOFT_PROMPT_MS ?? 50_000);
@@ -387,11 +394,7 @@ export class PoppinsVoiceSession {
     this.toreDown = false;
     this.setState('connecting');
 
-    const others = [...livePoppinsVoiceSessions].filter((session) => session !== this);
-    if (others.length) {
-      teardownAllPoppinsVoice(this);
-      await new Promise((resolve) => setTimeout(resolve, VOICE_NATIVE_CLOSE_MS));
-    }
+    await teardownAllPoppinsVoiceAndSettle(this);
 
     try {
       const headers = await authHeaders();
@@ -871,12 +874,48 @@ export class PoppinsVoiceSession {
     await this.flushLock;
   }
 
+  private liveHousehold(): HouseholdSnapshot | null {
+    return resolveLiveVoiceHousehold(this.household, this.callbacks.getHousehold);
+  }
+
+  syncHousehold(household: HouseholdSnapshot) {
+    this.household = household;
+  }
+
+  /** After HOLD createTask — confirm the live list instead of guessing from connect-time. */
+  notifyTaskOnTasks(title: string) {
+    const trimmed = title.trim();
+    if (!trimmed || !this.isConnected) return;
+    this.noteUserActivity();
+    this.sendEvent({
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text: `The task “${trimmed}” is on Tasks now.`,
+          },
+        ],
+      },
+    });
+    this.sendEvent({
+      type: 'response.create',
+      response: {
+        instructions: `Confirm that “${trimmed}” is on Tasks. Do not create it again.`,
+      },
+    });
+    this.setState('thinking');
+  }
+
   private async executeVoiceTools(
     calls: PendingToolCall[]
   ): Promise<Array<Record<string, unknown>>> {
     const headers = await authHeaders();
     const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    if (!headers || !baseUrl || !this.household || !this.metrics) {
+    const household = this.liveHousehold();
+    if (!headers || !baseUrl || !household || !this.metrics) {
       return calls.map(() => ({ error: 'unavailable' }));
     }
 
@@ -885,8 +924,8 @@ export class PoppinsVoiceSession {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          householdId: this.household.id,
-          household: buildPoppinsHouseholdPayload(this.household, this.metrics, [], {
+          householdId: household.id,
+          household: buildPoppinsHouseholdPayload(household, this.metrics, [], {
             memberProfileId: this.memberProfileId,
             memoryHint: this.memoryHint,
           }),
@@ -947,12 +986,14 @@ export class PoppinsVoiceSession {
   async end(reason = 'manual') {
     this.callbacks.onSessionEnd?.(reason);
     this.disconnect();
+    await waitForPendingVoiceNativeSettle();
   }
 
   disconnect() {
     if (this.toreDown) return;
     this.toreDown = true;
     livePoppinsVoiceSessions.delete(this);
+    markVoiceNativeClosePending();
     this.connected = false;
     this.fatal = true;
     this.clearIdleTimers();

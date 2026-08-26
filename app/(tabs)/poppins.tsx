@@ -56,6 +56,7 @@ import {
   type PoppinsPendingConfirmation,
   type PoppinsVoiceVisualState,
 } from '@/lib/voice/poppins-voice-session';
+import type { HouseholdTask } from '@/types/orbit';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
@@ -131,6 +132,7 @@ export default function PoppinsScreen() {
   const [listening, setListening] = useState(false);
   const [liveConnected, setLiveConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [voiceSettling, setVoiceSettling] = useState(false);
   const [error, setError] = useState('');
   const [voiceState, setVoiceState] = useState<PoppinsVoiceVisualState>('idle');
   const [liveCaption, setLiveCaption] = useState<LiveCaption | null>(null);
@@ -139,6 +141,8 @@ export default function PoppinsScreen() {
     []
   );
   const voiceRef = useRef<PoppinsVoiceSession | null>(null);
+  const householdRef = useRef(household);
+  householdRef.current = household;
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [remoteStreamUrl, setRemoteStreamUrl] = useState<string | null>(null);
   const drive = usePoppinsUiDrive();
@@ -353,6 +357,7 @@ export default function PoppinsScreen() {
 
   const connectNativeVoice = async () => {
     if (voiceRef.current?.isConnected) return voiceRef.current;
+    if (voiceSettling) return null;
     setConnecting(true);
     setError('');
     setLiveCaption(null);
@@ -364,6 +369,7 @@ export default function PoppinsScreen() {
     restoreOpenAct(prep.continuity);
     let reportedError = false;
     const session = new PoppinsVoiceSession({
+      getHousehold: () => householdRef.current,
       onStateChange: (state) => {
         if (voiceFailedRef.current && state !== 'idle') return;
         setVoiceState(state);
@@ -444,13 +450,18 @@ export default function PoppinsScreen() {
     const iui = poppinsUiOrchestrator.getState();
     if (iui.live) poppinsUiOrchestrator.pause();
     persistContinuity();
-    await voiceRef.current?.end('manual');
-    voiceRef.current = null;
-    setLiveConnected(false);
-    setVoiceState('idle');
-    setListening(false);
-    setRemoteStreamUrl(null);
-    setLiveCaption(null);
+    setVoiceSettling(true);
+    try {
+      await voiceRef.current?.end('manual');
+    } finally {
+      voiceRef.current = null;
+      setLiveConnected(false);
+      setVoiceState('idle');
+      setListening(false);
+      setRemoteStreamUrl(null);
+      setLiveCaption(null);
+      setVoiceSettling(false);
+    }
   };
 
   const handleSend = async () => {
@@ -496,6 +507,7 @@ export default function PoppinsScreen() {
 
   const toggleConnect = async () => {
     if (!nativeVoice) return;
+    if (voiceSettling) return;
     if (liveConnected || voiceRef.current?.isConnected) {
       await endNativeVoice();
       return;
@@ -594,7 +606,20 @@ export default function PoppinsScreen() {
           contentContainerStyle={styles.stageLiveContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <PoppinsStage />
+          <PoppinsStage
+            onVoiceTaskCreated={(task: HouseholdTask) => {
+              const current = householdRef.current;
+              const next = {
+                ...current,
+                tasks: current.tasks.some((item) => item.id === task.id)
+                  ? current.tasks
+                  : [task, ...current.tasks],
+              };
+              householdRef.current = next;
+              voiceRef.current?.syncHousehold(next);
+              voiceRef.current?.notifyTaskOnTasks(task.title);
+            }}
+          />
         </ScrollView>
       ) : (
       <View style={styles.stage}>
@@ -708,6 +733,7 @@ export default function PoppinsScreen() {
           {nativeVoice ? (
             <Pressable
               onPress={() => void toggleConnect()}
+              disabled={voiceSettling}
               style={styles.micWrap}
               accessibilityRole="button"
               accessibilityLabel={primaryConnected ? 'Done' : 'Speak'}
@@ -716,7 +742,11 @@ export default function PoppinsScreen() {
                   ? 'Stops listening and keeps what is on screen'
                   : 'Starts listening'
               }
-              accessibilityState={{ busy: connecting, selected: primaryConnected }}>
+              accessibilityState={{
+                busy: connecting || voiceSettling,
+                selected: primaryConnected,
+                disabled: voiceSettling,
+              }}>
               {primaryConnected ? (
                 <View style={[styles.micPulse, { backgroundColor: 'rgba(52,211,153,0.2)' }]} />
               ) : null}
