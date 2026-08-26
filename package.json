@@ -45,7 +45,7 @@
     "generate:brand-marks": "node scripts/generate-brand-marks.mjs",
     "email:dev": "email dev --dir emails --port 3010",
     "test:emails": "npx --yes tsx emails/render.test.tsx",
-    "test:auth-emails": "npx --yes tsx --test emails/auth-hook-render.test.ts",
+    "test:auth-emails": "npx --yes tsx --test emails/auth-hook-render.test.ts && npx --yes tsx supabase/functions/send-auth-email/branded-html.test.ts",
     "test:billing": "npx --yes tsx --test lib/billing/iap.test.ts",
     "test:a4-rewards": "npx --yes tsx --test lib/rewards/a4-smoke.test.ts",
     "test:a7-account": "npx --yes tsx --test lib/account/a7-matrix.test.ts",

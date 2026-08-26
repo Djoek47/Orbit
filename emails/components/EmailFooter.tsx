@@ -2,7 +2,7 @@ import { Link, Section, Text } from '@react-email/components';
 import * as React from 'react';
 
 import { Divider } from './Divider';
-import { EMAIL_COPYRIGHT, EMAIL_LINKS, emailColors, emailFontStack } from '../theme';
+import { EMAIL_COPYRIGHT, EMAIL_LINKS, EMAIL_POSTAL_ADDRESS, emailColors, emailFontStack } from '../theme';
 
 const linkStyle: React.CSSProperties = {
   color: emailColors.muted,
@@ -54,6 +54,16 @@ export function EmailFooter() {
           margin: 0,
         }}>
         {EMAIL_COPYRIGHT}
+      </Text>
+      <Text
+        style={{
+          fontFamily: emailFontStack,
+          fontSize: '12px',
+          color: emailColors.muted,
+          textAlign: 'center',
+          margin: '8px 0 0',
+        }}>
+        {EMAIL_POSTAL_ADDRESS}
       </Text>
     </Section>
   );

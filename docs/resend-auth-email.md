@@ -16,8 +16,11 @@ Do **not** enable Path B while relying on Path A for the same Auth emails — th
 
 **Branded HTML for Path B:** Edge function uses
 `supabase/functions/send-auth-email/branded-html.ts` (must stay inside the
-function folder so deploy bundles it). Local preview / Node tests still use
-React Email in [`emails/`](../emails/) — see [email-templates.md](./email-templates.md).
+function folder so deploy bundles it). Latest visual: coral brand band,
+`class="cm-cell"` hairline, chip eyebrow, gradient CTA, white OTP tile.
+Postal line is `Choremaxx · privacy@choremaxx.app` (not a fake street).
+Preview: `docs/email/confirm-email.html` (written by `npm run test:auth-emails`).
+**Redeploy the function** or the live inbox stays on the old markup.
 
 ---
 

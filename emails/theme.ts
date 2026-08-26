@@ -81,4 +81,7 @@ export const EMAIL_LINKS = {
   support: 'support@choremaxx.app',
 } as const;
 
+/** CAN-SPAM contact line — not a fake street. */
+export const EMAIL_POSTAL_ADDRESS = 'Choremaxx · privacy@choremaxx.app';
+
 export const EMAIL_COPYRIGHT = `© ${new Date().getFullYear()} ChoreMaxx. Made for happier homes.`;
