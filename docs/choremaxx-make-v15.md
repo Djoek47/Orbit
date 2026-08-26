@@ -3,9 +3,9 @@
 **Branch:** `cursor/choremaxx-make-v15`  
 **Follows:** `cursor/choremaxx-make-v14` (TestFlight **1.3.0 (44)**)  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (53)** uploaded to App Store Connect (Apple processing). EAS `4e34e8ed` / git `0abe426` (stamp of `3d0bee5`) / submit `2654a6bc`. Install **53** (`make-v15 · activity-speak`). Skip 45–50 for login/create (50 still crashes there: `08497FBD`). Skip 45–49 for sign-out.
+**TestFlight:** **1.3.0 (54)** uploaded to App Store Connect (Apple processing). EAS `5a9563d8` / git `0ac310c` (stamp of `84f5549`) / submit `af4506a0`. Install **54** (`make-v15 · chore-titles`). Skip 45–50 for login/create (50 still crashes there: `08497FBD`). Skip 45–49 for sign-out.
 
-This is the next shipping cut after v14. It is v14 plus two-mode Poppins IUI, Speak start like TestFlight 38, Poppins Activity on tap, retry-safe household create, the per-person $4 AI meter on live voice, and the Poppins OS one-viewport rework.
+This is the next shipping cut after v14. It is v14 plus two-mode Poppins IUI, Speak start like TestFlight 38, Poppins Activity on tap, retry-safe household create, short chore titles from Poppins, the per-person $4 AI meter on live voice, and the Poppins OS one-viewport rework.
 
 ---
 
@@ -20,6 +20,12 @@ Fix on this branch: always wipe local auth (chunked SecureStore), block refresh 
 See [`poppins-os.md`](./poppins-os.md). IPA **1.3.0 (46)** from git `1769d06`. Bell never auto-opens over a live scene. Notifications is one list (no Activity tab, no hourglass on the Poppins tab). HOLD writes a real `createTask`. Speak failures say retry, not “Type instead.” In-place Ask from House Rules / tab long-press routes to the Poppins tab.
 
 EAS `b0959c6b-9349-4ceb-abac-4d110c3c39ba`, submit `caac30b9-c7e2-4cef-8368-901ea39ead48`.
+
+### TestFlight 1.3.0 (54)
+
+Poppins writes a **chore name**, not the spoken sentence. “I’ll set a task to wash my car” / ASR “I’ll set desk for to wash my car” becomes catalog **Wash the car**. A close open list item is reused when one exists. Free-form “tend to the dishes” stays. Kitchen “schedule a task” stays untitled.
+
+EAS `5a9563d8-dfa7-42f9-8dc2-f924ad618a56`, git `0ac310c` (stamp of `84f5549`), submit `af4506a0-2174-4fe3-98d8-23a658271c5d`. Settings tip `make-v15 · chore-titles`. Apple is processing.
 
 ### TestFlight 1.3.0 (53)
 
@@ -103,8 +109,8 @@ Until that lands, each TestFlight phone still meters locally and still pauses Sp
 3. Tap a face/chip while Poppins is talking — the choice sticks and speech stops talking over it.
 4. Bell never opens itself over a live scene. Hourglass opens Activity **only on tap** and does not spin until opened. No “Open Poppins” while already on Poppins.
 5. Settings → Poppins meter moves after a Speak turn. After **$4** household AI, Speak pauses.
-6. Settings shows `make-v15 · activity-speak` (53). Speak / IUI, then Settings → Sign Out → Get Started. Reopen stays signed out. Create account / Sign in after that must **not** crash.
-7. Speak “tend to the dishes, assign them to me” — after Who, the task row shows an accent **Tend to the dishes** chip plus catalog chores. Tap to confirm does nothing until a due chip is chosen; HOLD then creates that title on Tasks. Speak twice after Done; Poppins can name the task that is on Tasks.
+6. Settings shows `make-v15 · chore-titles` (54). Speak / IUI, then Settings → Sign Out → Get Started. Reopen stays signed out. Create account / Sign in after that must **not** crash.
+7. Speak “tend to the dishes, assign them to me” — after Who, the task row shows an accent **Tend to the dishes** chip plus catalog chores. Tap to confirm does nothing until a due chip is chosen; HOLD then creates that title on Tasks. Speak twice after Done; Poppins can name the task that is on Tasks. Speak “I’ll set a task to wash my car” — Tasks shows **Wash the car**, not the sentence.
 8. New signup mail (after `send-auth-email` deploy) has the coral band, chip eyebrow, gradient Confirm email, white code tile, and `Choremaxx · privacy@choremaxx.app` — not a placeholder street.
 9. Apple Get Started → Meritocracy → Premium → roster → Create household with a Sidekick (e.g. Josh) succeeds. Same add path as Settings → Invite Sidekicks. Retry after a failure must not say the house is gone if it already saved.
 10. Poppins hourglass opens Activity **only on tap**. Bell still has Notifications + Activity. Neither opens because IUI is live. Speak works first tap and after Done / a failed start, including with frozen “Tap to continue.”
