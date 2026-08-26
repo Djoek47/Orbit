@@ -3,7 +3,7 @@
 **Branch:** `cursor/choremaxx-make-v15`  
 **Follows:** `cursor/choremaxx-make-v14` (TestFlight **1.3.0 (44)**)  
 **App version:** `1.3.0`  
-**TestFlight:** **1.3.0 (55)** uploaded to App Store Connect (Apple processing). EAS `9e9eff48` / git `5db2c85` (stamp of `a147f28`) / first submit `3bbbc3c9` (EAS wait errored; later retries got `EAS_UPLOAD_TO_ASC_VERSION_DUPLICATE` so Apple already has **55**). Install **55** (`make-v15 · speak-debug`). Skip 45–50 for login/create (50 still crashes there: `08497FBD`). Skip 45–49 for sign-out.
+**TestFlight:** **1.3.0 (56)** uploaded to App Store Connect (Apple processing). EAS `1c6cc8d3` / git `74ec553` (stamp of `27451cd`) / submit `bf4f2b02`. Install **56** (`make-v15 · output-text`). Skip 45–50 for login/create (50 still crashes there: `08497FBD`). Skip 45–49 for sign-out.
 
 This is the next shipping cut after v14. It is v14 plus two-mode Poppins IUI, Speak start like TestFlight 38, Poppins Activity on tap, retry-safe household create, short chore titles from Poppins, the per-person $4 AI meter on live voice, and the Poppins OS one-viewport rework.
 
@@ -20,6 +20,12 @@ Fix on this branch: always wipe local auth (chunked SecureStore), block refresh 
 See [`poppins-os.md`](./poppins-os.md). IPA **1.3.0 (46)** from git `1769d06`. Bell never auto-opens over a live scene. Notifications is one list (no Activity tab, no hourglass on the Poppins tab). HOLD writes a real `createTask`. Speak failures say retry, not “Type instead.” In-place Ask from House Rules / tab long-press routes to the Poppins tab.
 
 EAS `b0959c6b-9349-4ceb-abac-4d110c3c39ba`, submit `caac30b9-c7e2-4cef-8368-901ea39ead48`.
+
+### TestFlight 1.3.0 (56)
+
+Speak dump on **55**: `Invalid value: 'input_text'. Value must be 'output_text'.` Continuity was reseeding Poppins lines as user content. Assistant seed turns now use `output_text`. User taps/type stay `input_text`.
+
+EAS `1c6cc8d3-a497-4b85-9c1a-f74ef33aa56b`, git `74ec553` (stamp of `27451cd`), submit `bf4f2b02-06d9-44b0-b5e6-abd696b0df7f`. Settings tip `make-v15 · output-text`. Apple is processing.
 
 ### TestFlight 1.3.0 (55)
 
@@ -115,8 +121,8 @@ Until that lands, each TestFlight phone still meters locally and still pauses Sp
 3. Tap a face/chip while Poppins is talking — the choice sticks and speech stops talking over it.
 4. Bell never opens itself over a live scene. Hourglass opens Activity **only on tap** and does not spin until opened. No “Open Poppins” while already on Poppins.
 5. Settings → Poppins meter moves after a Speak turn. After **$4** household AI, Speak pauses.
-6. Settings shows `make-v15 · chore-titles` (54). Speak / IUI, then Settings → Sign Out → Get Started. Reopen stays signed out. Create account / Sign in after that must **not** crash.
+6. Settings shows `make-v15 · speak-debug` (55). Speak / IUI, then Settings → Sign Out → Get Started. Reopen stays signed out. Create account / Sign in after that must **not** crash.
 7. Speak “tend to the dishes, assign them to me” — after Who, the task row shows an accent **Tend to the dishes** chip plus catalog chores. Tap to confirm does nothing until a due chip is chosen; HOLD then creates that title on Tasks. Speak twice after Done; Poppins can name the task that is on Tasks. Speak “I’ll set a task to wash my car” — Tasks shows **Wash the car**, not the sentence.
 8. New signup mail (after `send-auth-email` deploy) has the coral band, chip eyebrow, gradient Confirm email, white code tile, and `Choremaxx · privacy@choremaxx.app` — not a placeholder street.
 9. Apple Get Started → Meritocracy → Premium → roster → Create household with a Sidekick (e.g. Josh) succeeds. Same add path as Settings → Invite Sidekicks. Retry after a failure must not say the house is gone if it already saved.
-10. Poppins hourglass opens Activity **only on tap**. Bell still has Notifications + Activity. Neither opens because IUI is live. Speak works first tap and after Done / a failed start, including with frozen “Tap to continue.”
+10. Poppins hourglass opens Activity **only on tap**. Bell still has Notifications + Activity. Neither opens because IUI is live. Speak works first tap and after Done / a failed start, including with frozen “Tap to continue.” If Speak fails, the red line includes the raw SDP / gum / Realtime dump — screenshot that. Frozen “Tap to continue.” must not hang Speak with `input_text` / `output_text`. If Speak fails, the red line includes the raw SDP / gum / Realtime dump — screenshot that.
