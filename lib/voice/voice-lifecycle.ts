@@ -17,9 +17,20 @@ export const VOICE_NATIVE_SETTLE_MS = 280;
 export const VOICE_TEARDOWN_SETTLE_MS = VOICE_NATIVE_CLOSE_MS + VOICE_NATIVE_SETTLE_MS;
 
 let nativeClosePendingUntil = 0;
+let voiceAudioEpoch = 0;
 
 export function markVoiceNativeClosePending(now = Date.now()) {
   nativeClosePendingUntil = Math.max(nativeClosePendingUntil, now + VOICE_TEARDOWN_SETTLE_MS);
+}
+
+/** Bump when a new Speak starts so a delayed close cannot restore the previous audio session. */
+export function beginVoiceAudioEpoch(): number {
+  voiceAudioEpoch += 1;
+  return voiceAudioEpoch;
+}
+
+export function currentVoiceAudioEpoch(): number {
+  return voiceAudioEpoch;
 }
 
 export function remainingVoiceSettleMs(now = Date.now()) {
@@ -28,6 +39,7 @@ export function remainingVoiceSettleMs(now = Date.now()) {
 
 export function resetVoiceNativeClosePendingForTests() {
   nativeClosePendingUntil = 0;
+  voiceAudioEpoch = 0;
 }
 
 export async function waitForPendingVoiceNativeSettle(): Promise<void> {

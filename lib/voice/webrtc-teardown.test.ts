@@ -90,11 +90,24 @@ const settleAt = connectFn.indexOf('await teardownAllPoppinsVoiceAndSettle(this)
 const gumAt = connectFn.indexOf('getUserMedia');
 assert.ok(settleAt >= 0, 'connect waits for native settle');
 assert.ok(gumAt > settleAt, 'no second getUserMedia until close settle');
+assert.equal(
+  connectFn.includes('takeWarmedMicrophone()'),
+  false,
+  'connect must mint a fresh mic after settle — warmed tracks may already be stopped'
+);
+assert.match(voice, /beginVoiceAudioEpoch/);
+assert.match(voice, /currentVoiceAudioEpoch\(\) === closeEpoch/);
 
 const poppinsTab = source('app/(tabs)/poppins.tsx');
 assert.match(poppinsTab, /voiceSettling/);
 assert.match(poppinsTab, /await voiceRef\.current\?\.end\('manual'\)/);
 assert.match(poppinsTab, /disabled=\{voiceSettling\}/);
+assert.equal(
+  poppinsTab.includes('warmPoppinsMicrophone()'),
+  false,
+  'Speak must not warm the mic before native settle'
+);
+assert.match(poppinsTab, /await waitForPendingVoiceNativeSettle\(\)/);
 
 resetVoiceNativeClosePendingForTests();
 assert.equal(remainingVoiceSettleMs(), 0);

@@ -25,6 +25,8 @@ import {
   type VoiceTapPhase,
 } from '@/lib/poppins/realtime-error';
 import {
+  beginVoiceAudioEpoch,
+  currentVoiceAudioEpoch,
   markVoiceNativeClosePending,
   resolveLiveVoiceHousehold,
   VOICE_NATIVE_CLOSE_MS,
@@ -33,6 +35,8 @@ import {
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
 
 export {
+  beginVoiceAudioEpoch,
+  currentVoiceAudioEpoch,
   markVoiceNativeClosePending,
   remainingVoiceSettleMs,
   resolveLiveVoiceHousehold,
@@ -288,6 +292,7 @@ export class PoppinsVoiceSession {
   private memoryHint = '';
   private toreDown = false;
   private nativeCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private audioEpoch = 0;
   private responseInFlight = false;
   private pendingStageTap: { tap: { kind: string; text: string }; needsReply: boolean } | null =
     null;
@@ -392,6 +397,7 @@ export class PoppinsVoiceSession {
     this.memoryHint = opts?.memoryHint?.trim() ?? '';
     this.fatal = false;
     this.toreDown = false;
+    this.audioEpoch = beginVoiceAudioEpoch();
     this.setState('connecting');
 
     await teardownAllPoppinsVoiceAndSettle(this);
@@ -407,12 +413,10 @@ export class PoppinsVoiceSession {
 
       await configurePoppinsSpeakerAudio();
 
-      this.localStream =
-        takeWarmedMicrophone() ??
-        (await webrtc.mediaDevices.getUserMedia({
-          audio: true,
-          video: false,
-        }));
+      this.localStream = await webrtc.mediaDevices.getUserMedia({
+        audio: true,
+        video: false,
+      });
 
       this.pc = new webrtc.RTCPeerConnection({});
       for (const track of this.localStream.getTracks()) {
@@ -1031,6 +1035,7 @@ export class PoppinsVoiceSession {
       /* provider already unmounted */
     }
     this.fatal = true;
+    const closeEpoch = this.audioEpoch;
     const closeNative = () => {
       try {
         dc?.close();
@@ -1050,7 +1055,10 @@ export class PoppinsVoiceSession {
       } catch {
         /* ignore */
       }
-      if (livePoppinsVoiceSessions.size === 0) {
+      if (
+        currentVoiceAudioEpoch() === closeEpoch &&
+        livePoppinsVoiceSessions.size === 0
+      ) {
         releaseWarmedMicrophone();
         void restorePoppinsAudio();
       }

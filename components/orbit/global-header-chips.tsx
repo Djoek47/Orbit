@@ -2,7 +2,7 @@ import { BlurView } from 'expo-blur';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, usePathname } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -23,16 +23,22 @@ export const TAB_CHROME_CONTENT_GAP = 14;
 
 /**
  * Sticky tab chrome: larger Choremaxx mark + Notifications/Settings.
- * Bell opens Notifications only. Never auto-opens when IUI is live.
+ * Bell opens Notifications + Activity only when the user taps it.
+ * Never auto-opens when IUI is live.
  */
 export function GlobalHeaderChips() {
   const insets = useSafeAreaInsets();
   const {
     accentTheme,
+    household,
     dismissInboxItem,
+    metrics,
     notifications,
     orbitPalette,
     inboxBriefing,
+    poppinsMonitorActions,
+    poppinsActivityFacts,
+    poppinsWeeklyBriefing,
     unreadNotificationCount,
   } = useOrbit();
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -40,6 +46,13 @@ export function GlobalHeaderChips() {
   const pathname = usePathname();
   const onPoppinsTab = pathname?.includes('poppins') ?? false;
   const badge = Math.min(unreadNotificationCount, 9);
+  const monitorFeed = useMemo(
+    () =>
+      [...poppinsMonitorActions].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+    [poppinsMonitorActions]
+  );
   const accent = accentTheme.primary;
   const secondary = accentTheme.secondary;
   const isDark = orbitPalette.isDark;
@@ -134,9 +147,16 @@ export function GlobalHeaderChips() {
       <PoppinsActivitySheet
         visible={inboxOpen}
         onClose={() => setInboxOpen(false)}
+        variant="inbox"
         hidePoppinsLaunch={onPoppinsTab}
         notifications={notifications}
+        monitorActions={monitorFeed}
+        activityFacts={poppinsActivityFacts}
         briefing={inboxBriefing}
+        weekly={poppinsWeeklyBriefing}
+        metrics={metrics}
+        poppinsActive={inboxOpen && monitorFeed.length > 0}
+        taskCompletedFallback={household.tasks.filter((t) => t.status === 'Completed').length}
         onDismissNotification={(id) => dismissInboxItem(id)}
       />
     </View>

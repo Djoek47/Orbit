@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet';
+import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { PoppinsLiveCaption } from '@/components/orbit/poppins-live-caption';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PoppinsStage } from '@/components/orbit/poppins-stage';
@@ -52,11 +54,11 @@ import {
 import {
   isPoppinsNativeVoiceAvailable,
   PoppinsVoiceSession,
-  warmPoppinsMicrophone,
+  waitForPendingVoiceNativeSettle,
   type PoppinsPendingConfirmation,
   type PoppinsVoiceVisualState,
 } from '@/lib/voice/poppins-voice-session';
-import type { HouseholdTask } from '@/types/orbit';
+import type { HouseholdTask, PoppinsMonitorAction } from '@/types/orbit';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
@@ -93,7 +95,13 @@ export default function PoppinsScreen() {
     permissions,
     aiUsageEvents,
     recordPoppinsUsage,
+    dismissInboxItem,
     metrics,
+    notifications,
+    inboxBriefing,
+    poppinsMonitorActions,
+    poppinsActivityFacts,
+    poppinsWeeklyBriefing,
     orbitPalette,
   } = useOrbit();
 
@@ -127,6 +135,8 @@ export default function PoppinsScreen() {
   };
 
   const [showText, setShowText] = useState(() => !isPoppinsNativeVoiceAvailable());
+  const [showActivity, setShowActivity] = useState(false);
+  const [localMonitorActions, setLocalMonitorActions] = useState<PoppinsMonitorAction[]>([]);
   const [draft, setDraft] = useState('');
   const [asking, setAsking] = useState(false);
   const [listening, setListening] = useState(false);
@@ -223,6 +233,14 @@ export default function PoppinsScreen() {
     ? { label: `${majordomo.displayName} · Tuning in…`, color: '#A78BFA' }
     : STATE_CONFIG[visualState];
   const isActive = visualState !== 'idle' || liveConnected;
+
+  const monitorFeed = useMemo(
+    () =>
+      [...localMonitorActions, ...poppinsMonitorActions].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+    [localMonitorActions, poppinsMonitorActions]
+  );
 
   useEffect(() => {
     return () => {
@@ -362,9 +380,7 @@ export default function PoppinsScreen() {
     setError('');
     setLiveCaption(null);
     voiceFailedRef.current = false;
-    const warmed = nativeVoice ? warmPoppinsMicrophone() : Promise.resolve(false);
     const prep = await prepareSpeakOpen(household, metrics);
-    await warmed.catch(() => false);
     continuityRef.current = prep.continuity;
     restoreOpenAct(prep.continuity);
     let reportedError = false;
@@ -435,7 +451,13 @@ export default function PoppinsScreen() {
     });
     setConnecting(false);
     if (!ok || reportedError || voiceFailedRef.current) {
-      session.disconnect();
+      setVoiceSettling(true);
+      try {
+        session.disconnect();
+        await waitForPendingVoiceNativeSettle();
+      } finally {
+        setVoiceSettling(false);
+      }
       if (!reportedError) surfaceVoiceError('start_failed');
       return null;
     }
@@ -491,6 +513,7 @@ export default function PoppinsScreen() {
       setLiveCaption(applyLiveCaptionTurn(null, 'poppins', result.answer, true));
       appendPoppinsTurn(trimmed, result.answer);
       if (result.actions?.length) {
+        setLocalMonitorActions((current) => [...result.actions!, ...current]);
         flashToolSuccess(result.actions[0]!.label);
       }
       if (result.ui_actions?.length) {
@@ -598,6 +621,22 @@ export default function PoppinsScreen() {
         <Text style={[styles.kicker, { color: isDark ? 'rgba(255,255,255,0.3)' : c.textSubtle }]}>
           {majordomo.displayName.toUpperCase()}
         </Text>
+        <Pressable
+          style={[
+            styles.activityBtn,
+            {
+              backgroundColor: glass(0.06),
+              borderColor: glassBorder(0.1),
+            },
+          ]}
+          onPress={() => {
+            if (drive.live) return;
+            setShowActivity(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Activity">
+          <PoppinsHourglass size={18} color="#2DD4BF" active={showActivity} />
+        </Pressable>
       </View>
 
       {drive.live ? (
@@ -839,6 +878,22 @@ export default function PoppinsScreen() {
           </View>
         </View>
       </Modal>
+
+      <PoppinsActivitySheet
+        visible={showActivity}
+        onClose={() => setShowActivity(false)}
+        variant="activity"
+        hidePoppinsLaunch
+        notifications={notifications}
+        monitorActions={monitorFeed}
+        activityFacts={poppinsActivityFacts}
+        briefing={inboxBriefing}
+        weekly={poppinsWeeklyBriefing}
+        metrics={metrics}
+        poppinsActive={showActivity && (isActive || monitorFeed.length > 0)}
+        taskCompletedFallback={household.tasks.filter((t) => t.status === 'Completed').length}
+        onDismissNotification={(id) => dismissInboxItem(id)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -866,6 +921,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 1.2,
+  },
+  activityBtn: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
   },
   stage: {
     alignItems: 'center',

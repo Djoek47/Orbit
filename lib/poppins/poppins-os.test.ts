@@ -1,5 +1,5 @@
 /**
- * Poppins OS — one viewport, create not draft, Speak retries.
+ * Poppins OS — one viewport, create not draft, Speak retries, Activity on tap.
  * Run: npx tsx lib/poppins/poppins-os.test.ts
  */
 
@@ -21,17 +21,25 @@ function source(rel: string) {
 const chips = source('components/orbit/global-header-chips.tsx');
 assert.ok(!/if \(drive\.live\) setInboxOpen\(true\)/.test(chips), 'live IUI must not auto-open inbox');
 assert.match(chips, /accessibilityLabel="Notifications"/);
+assert.match(chips, /variant="inbox"/);
 
 const poppinsTab = source('app/(tabs)/poppins.tsx');
-assert.ok(!poppinsTab.includes('PoppinsHourglass'), 'no hourglass on Poppins tab');
-assert.ok(!poppinsTab.includes('variant="activity"'), 'no Activity sheet on Poppins tab');
+assert.match(poppinsTab, /PoppinsHourglass/);
+assert.match(poppinsTab, /variant="activity"/);
+assert.match(poppinsTab, /accessibilityLabel="Activity"/);
+assert.match(poppinsTab, /active=\{showActivity\}/, 'hourglass animates only while the sheet is open');
+assert.ok(
+  !poppinsTab.includes('active={isActive || monitorFeed.length > 0}'),
+  'hourglass must not spin unprompted'
+);
 assert.ok(!poppinsTab.includes('Type instead'), 'Type is a door, not the error product');
 assert.match(poppinsTab, /drive\.live \? null/);
+assert.ok(poppinsTab.includes('if (drive.live) return'), 'hourglass does not overlay a live scene');
 
 const sheet = source('components/orbit/poppins-activity-sheet.tsx');
-assert.ok(!sheet.includes("SheetTab = 'notifications' | 'activity'"), 'Activity tab type is gone');
-assert.ok(!sheet.includes('Poppins Activity'), 'no Activity product name');
-assert.match(sheet, />Notifications</);
+assert.match(sheet, /SheetTab = 'notifications' \| 'activity'/);
+assert.match(sheet, /Poppins Activity/);
+assert.match(sheet, /'Notifications'/);
 
 const stage = source('components/orbit/poppins-stage.tsx');
 assert.match(stage, /occurrenceDateForDueLabel/);
