@@ -1097,13 +1097,20 @@ export default function WelcomeOnboardingScreen() {
                 typography.footnote,
                 { color: orbitPalette.textMuted, textAlign: 'center', lineHeight: 20 },
               ]}>
-              Sign in or create an account to join. No subscription needed — invites skip payment.
+              Sign in to join this household. No payment required — invites skip the subscription
+              step. If your admin requires approval, you&apos;ll wait briefly after joining.
             </Text>
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
           <View style={styles.splashBottom}>
             <View style={styles.splashCtaBlock}>
-              <OrbitButton onPress={() => router.push('/sign-in' as never)}>Sign in</OrbitButton>
+              <OrbitButton
+                onPress={() => {
+                  void stashInviteCode(inviteCode);
+                  router.push('/sign-in' as never);
+                }}>
+                Sign in
+              </OrbitButton>
               <OrbitButton
                 tone="secondary"
                 onPress={() => {
@@ -1121,12 +1128,11 @@ export default function WelcomeOnboardingScreen() {
               </Pressable>
               <Pressable
                 onPress={() => {
-                  setSelectedRole('child');
-                  setStep('child-invite');
+                  router.replace('/join-profile' as never);
                 }}
                 style={styles.signInLink}>
                 <Text style={[styles.signInText, { color: orbitPalette.textMuted }]}>
-                  I have a profile code instead
+                  Join without an account instead
                 </Text>
               </Pressable>
             </View>

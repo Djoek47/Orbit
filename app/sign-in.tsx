@@ -52,6 +52,10 @@ export default function SignInScreen() {
       router.replace('/pending-approval' as never);
       return;
     }
+    if (joined === 'active') {
+      router.replace('/join-welcome' as never);
+      return;
+    }
     const session = await import('@/lib/device/device-session').then((m) => m.loadDeviceSession());
     if (session.mode === 'shared' && session.profileMemberIds.length > 0) {
       const { markNeedsProfilePick } = await import('@/lib/device/device-session');
