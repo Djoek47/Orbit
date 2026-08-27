@@ -12,6 +12,8 @@ npx supabase functions deploy poppins-realtime-session
 npx supabase functions deploy poppins-realtime-sdp
 npx supabase functions deploy poppins-voice-tool
 npx supabase functions deploy join-household
+npx supabase functions deploy complete-profile-join
+npx supabase functions deploy redeem-profile-invite
 # Auth emails via Resend (optional if Custom SMTP is enough — see docs/resend-auth-email.md)
 npx supabase functions deploy send-auth-email --no-verify-jwt
 npx supabase secrets set OPENAI_API_KEY=sk-...

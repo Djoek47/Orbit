@@ -1,6 +1,20 @@
-# Household invites — AirDrop & join (weekend)
+# Household invites — AirDrop & join
 
-## How it works now
+## Two invite types
+
+| Type | Code | Who | Flow |
+|------|------|-----|------|
+| **Account holder** | `CMX-####` (digits) | Adults with email / Apple | Sign in → join → optional admin approval → welcome |
+| **Profile-only** | `CMX-NAME` (letters) | Sidekicks, no account | Scan → pick name + avatar → optional approval → home |
+
+Shared tablet mode is separate: scan multiple profile QRs on Get Started → Shared device.
+
+## Admin settings
+
+- **Require join approval** (Settings → House): when ON (default), new members land on Pending after they accept an invite and pick a name. When OFF, they enter immediately.
+- **Add household member** (Settings → Members or Get Started roster): create profiles first, share invites later.
+
+## How links work
 
 1. **Share** (Settings → Share household invite, or onboarding after create) opens the iOS share sheet.
 2. On iOS, Share’s `url` is `choremaxx://join/CMX-####` so **AirDrop opens Choremaxx** when the app is installed.

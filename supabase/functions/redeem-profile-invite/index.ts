@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       .from('household_members')
       .select('*')
       .eq('profile_invite_code', code)
-      .eq('status', 'active')
+      .in('status', ['invited', 'active'])
       .maybeSingle();
 
     if (error || !member) {

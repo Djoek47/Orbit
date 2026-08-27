@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { memberConnectionPhase } from '@/lib/household/member-connection';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -38,12 +38,24 @@ export function MemberConnectionCaption({ member }: { member: HouseholdMember })
   const color = phase === 'connected' ? c.success : phase === 'pending_approval' ? c.warning : c.textMuted;
   const label =
     phase === 'connected'
-      ? 'Connected'
+      ? member.userId?.trim()
+        ? 'Connected · Has own account'
+        : 'Connected'
       : phase === 'pending_approval'
         ? 'Waiting for approval'
         : 'Not connected yet';
 
   return <Text style={[styles.caption, { color }]}>{label}</Text>;
+}
+
+export function HasOwnAccountBadge() {
+  const { c } = useOrbitColors();
+  return (
+    <View style={[styles.ownAccount, { backgroundColor: `${c.accent}18`, borderColor: `${c.accent}44` }]}>
+      <MaterialIcons name="account-circle" size={12} color={c.accent} />
+      <Text style={[styles.ownAccountText, { color: c.accent }]}>Own account</Text>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -57,5 +69,18 @@ const styles = StyleSheet.create({
   caption: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  ownAccount: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  ownAccountText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

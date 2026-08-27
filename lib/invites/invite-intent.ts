@@ -13,6 +13,7 @@ export type InviteDestination =
   | 'join-household'
   | 'welcome-invited'
   | 'welcome-child'
+  | 'join-profile'
   | 'home';
 
 /**
@@ -43,7 +44,7 @@ export function nextInviteDestination(
   session: InviteSession
 ): InviteDestination {
   if (kind === 'profile') {
-    return 'welcome-child';
+    return 'join-profile';
   }
   if (session.isPendingMember) {
     return 'pending-approval';
@@ -65,6 +66,8 @@ export function inviteHref(destination: InviteDestination, code: string): string
       return `/welcome?invite=${encoded}`;
     case 'welcome-child':
       return `/welcome?invite=${encoded}&kind=child`;
+    case 'join-profile':
+      return `/join-profile?code=${encoded}`;
     case 'home':
       return '/';
   }

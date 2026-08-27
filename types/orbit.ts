@@ -648,6 +648,12 @@ export type JoinHouseholdInput = {
   displayName?: string;
 };
 
+export type CompleteProfileJoinInput = {
+  code: string;
+  displayName: string;
+  avatar?: string;
+};
+
 export type HouseholdSnapshot = {
   id: string | null;
   householdName: string;
@@ -682,6 +688,8 @@ export type HouseholdSnapshot = {
   dailyDeadlineAppliesOn?: string | null;
   /** When false, Sidekicks cannot request an allowance amount. Default true. Absent when the model has no allowance. */
   allowanceRequestsEnabled?: boolean;
+  /** When true (default), new members wait for admin approval after accepting an invite. */
+  joinApprovalRequired?: boolean;
   /** When false, homework-gated House Rules chapters hide. Default true. */
   homeworkEnabled?: boolean;
   /** Make accent theme id (ocean/aurora/…). */

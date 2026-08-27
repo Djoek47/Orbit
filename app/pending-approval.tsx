@@ -29,7 +29,11 @@ export default function PendingApprovalScreen() {
       }}
       kicker="Almost there"
       title="Waiting for approval"
-      subtitle={`Your request to join ${household.householdName} is pending. An owner or admin needs to approve you before full access unlocks.`}
+      subtitle={
+        currentMember?.role === 'child'
+          ? `${household.householdName} will let you in once an admin approves your profile.`
+          : `Your request to join ${household.householdName} is pending. An owner or admin needs to approve you before full access unlocks.`
+      }
       footer={
         <View style={styles.footerStack}>
           <Pressable onPress={() => router.push('/settings' as never)} style={styles.secondary}>

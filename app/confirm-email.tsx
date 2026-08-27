@@ -27,6 +27,7 @@ import {
   markPremiumGatePending,
   premiumOnboardingHref,
 } from '@/lib/billing/premium-onboarding';
+import { shouldSkipPremiumForInvite } from '@/lib/billing/premium-invite';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { cancelSignedOutRestart } from '@/lib/navigation/session-restart';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -82,7 +83,12 @@ export default function ConfirmEmailScreen() {
       return;
     }
     if (joined === 'active') {
-      router.replace('/' as never);
+      router.replace('/join-welcome' as never);
+      return;
+    }
+    const skipPremium = await shouldSkipPremiumForInvite();
+    if (skipPremium) {
+      router.replace('/join-welcome' as never);
       return;
     }
     await markPremiumGatePending();

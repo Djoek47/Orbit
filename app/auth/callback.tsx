@@ -34,6 +34,7 @@ import {
   markPremiumGatePending,
   premiumOnboardingHref,
 } from '@/lib/billing/premium-onboarding';
+import { shouldSkipPremiumForInvite } from '@/lib/billing/premium-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { authRepository } from '@/repositories/auth-repository';
 import { useOrbit } from '@/store/orbit-store';
@@ -112,7 +113,12 @@ export default function AuthCallbackScreen() {
       return;
     }
     if (joined === 'active') {
-      router.replace('/' as never);
+      router.replace('/join-welcome' as never);
+      return;
+    }
+    const skipPremium = await shouldSkipPremiumForInvite();
+    if (skipPremium) {
+      router.replace('/join-welcome' as never);
       return;
     }
     await markPremiumGatePending();

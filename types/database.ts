@@ -29,6 +29,7 @@ export type HouseholdRow = {
   daily_deadline_pending?: string | null;
   daily_deadline_applies_on?: string | null;
   allowance_requests_enabled?: boolean | null;
+  join_approval_required?: boolean | null;
   /** Revision G — household-level, default off. */
   sidekick_grocery_add?: boolean | null;
   created_at: Timestamp;

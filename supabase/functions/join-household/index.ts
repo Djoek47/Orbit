@@ -1,4 +1,4 @@
-// Deno Edge Function — validate invite code and create pending membership.
+// Deno Edge Function — validate invite code and create membership.
 // Never overwrite an existing owner/admin/active row (own-invite loop).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
@@ -75,6 +75,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    const { data: householdRow } = await admin
+      .from('households')
+      .select('join_approval_required')
+      .eq('id', invite.household_id)
+      .maybeSingle();
+
+    const approvalRequired = householdRow?.join_approval_required !== false;
+    const nextStatus = approvalRequired ? 'pending' : 'active';
+
+    const { data: otherHomes } = await admin
+      .from('household_members')
+      .select('household_id, role, status')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .neq('household_id', invite.household_id);
+
+    const hasOwnHousehold = (otherHomes ?? []).some((row) => row.role === 'owner' || row.role === 'admin');
+    const joinRole = hasOwnHousehold ? 'guest' : 'adult';
+
     const { data: existing } = await admin
       .from('household_members')
       .select('*')
@@ -89,6 +108,8 @@ Deno.serve(async (req) => {
           householdId: invite.household_id,
           alreadyMember: existing.status === 'active',
           alreadyPending: existing.status === 'pending' || existing.status === 'invited',
+          joinApprovalRequired: approvalRequired,
+          hasOwnHousehold,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -105,12 +126,14 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!seatError && seat) {
+        const seatRole = seat.role === 'admin' ? 'admin' : joinRole === 'guest' ? 'guest' : seat.role ?? 'adult';
         const { data: claimed, error: claimError } = await admin
           .from('household_members')
           .update({
             user_id: user.id,
             display_name: resolvedName || seat.display_name,
-            status: 'pending',
+            role: seatRole,
+            status: nextStatus,
             avatar_symbol: (resolvedName || seat.display_name || 'M').charAt(0).toUpperCase(),
           })
           .eq('id', seat.id)
@@ -129,11 +152,19 @@ Deno.serve(async (req) => {
           .update({ uses: (invite.uses ?? 0) + 1 })
           .eq('id', invite.id);
 
-        await notifyAdminsJoinRequest(admin, invite.household_id, resolvedName || seat.display_name);
+        if (approvalRequired) {
+          await notifyAdminsJoinRequest(admin, invite.household_id, resolvedName || seat.display_name);
+        }
 
-        return new Response(JSON.stringify({ member: claimed, householdId: invite.household_id }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({
+            member: claimed,
+            householdId: invite.household_id,
+            joinApprovalRequired: approvalRequired,
+            hasOwnHousehold,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
 
@@ -141,8 +172,8 @@ Deno.serve(async (req) => {
       household_id: invite.household_id,
       user_id: user.id,
       display_name: resolvedName,
-      role: 'adult',
-      status: 'pending',
+      role: joinRole,
+      status: nextStatus,
       avatar_symbol: resolvedName.charAt(0).toUpperCase(),
     };
 
@@ -162,11 +193,19 @@ Deno.serve(async (req) => {
       .update({ uses: (invite.uses ?? 0) + 1 })
       .eq('id', invite.id);
 
-    await notifyAdminsJoinRequest(admin, invite.household_id, resolvedName);
+    if (approvalRequired) {
+      await notifyAdminsJoinRequest(admin, invite.household_id, resolvedName);
+    }
 
-    return new Response(JSON.stringify({ member, householdId: invite.household_id }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        member,
+        householdId: invite.household_id,
+        joinApprovalRequired: approvalRequired,
+        hasOwnHousehold,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
     return new Response(JSON.stringify({ error: String(error) }), {
       status: 500,

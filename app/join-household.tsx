@@ -42,7 +42,7 @@ export default function JoinHouseholdScreen() {
         return;
       }
       await consumeInviteCode();
-      router.replace((outcome === 'pending' ? '/pending-approval' : '/') as never);
+      router.replace((outcome === 'pending' ? '/pending-approval' : '/join-welcome') as never);
     } catch (err) {
       setError(userFacingMessage(err, 'Couldn’t join. Check the code and try again.'));
     } finally {

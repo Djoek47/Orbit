@@ -2,8 +2,8 @@
  * Post-join routing — sign-out rules, approval landing, display-name gate.
  */
 
-export function joinSessionSignOutRequired(hasActiveLiveHome: boolean, joiningNewHousehold: boolean): boolean {
-  return hasActiveLiveHome && joiningNewHousehold;
+export function joinSessionSignOutRequired(_hasActiveLiveHome: boolean, _joiningNewHousehold: boolean): boolean {
+  return false;
 }
 
 /** Where a logged-out invitee lands to create a fresh account. */
@@ -17,12 +17,12 @@ export function hrefAfterJoinApproval(options: {
   needsDisplayName: boolean;
   previousAccountName?: string | null;
   memberDisplayName?: string | null;
-}): '/join-display-name' | '/(tabs)/tasks' {
+}): '/join-display-name' | '/join-welcome' | '/(tabs)/tasks' {
   const prev = options.previousAccountName?.trim().toLowerCase() ?? '';
   const member = options.memberDisplayName?.trim().toLowerCase() ?? '';
   if (options.needsDisplayName) return '/join-display-name';
   if (prev && member && prev === member) return '/join-display-name';
-  return '/(tabs)/tasks';
+  return '/join-welcome';
 }
 
 /** Admin inbox copy when someone requests to join. */

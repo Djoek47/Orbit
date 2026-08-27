@@ -65,7 +65,14 @@ import {
   saveRewardSettings,
 } from '@/lib/household/reward-settings-prefs';
 import { newCustomHouseRuleId, validateCustomHouseRule } from '@/lib/rules/custom-house-rules';
-import { saveActiveMockHousehold } from '@/lib/household/mock-active-household';
+import { saveActiveMockHousehold, loadActiveMockHousehold } from '@/lib/household/mock-active-household';
+import {
+  getActiveHouseholdPref,
+  getPrimaryHouseholdPref,
+  setActiveHouseholdPref,
+  setPrimaryHouseholdPref,
+} from '@/lib/household/active-household-pref';
+import { getHouseholdAccentPref } from '@/lib/household/household-accent-pref';
 import { isMemberFullyConnected } from '@/lib/household/member-connection';
 import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
@@ -453,6 +460,23 @@ type OrbitContextValue = {
   queueDailyDeadline: (hhmm: string) => void;
   /** Admin: Hold & Request for allowance amounts. Hidden when the model has no allowance. */
   setAllowanceRequestsEnabled: (enabled: boolean) => void;
+  /** Admin: require approval before invited members enter. Default true. */
+  setJoinApprovalRequired: (required: boolean) => void;
+  completeProfileJoin: (input: import('@/types/orbit').CompleteProfileJoinInput) => Promise<{
+    status: 'pending' | 'active';
+  }>;
+  lookupProfileInvite: (
+    code: string
+  ) => Promise<{ member: HouseholdMember; householdName: string } | null>;
+  householdMemberships: {
+    householdId: string;
+    householdName: string;
+    role: HouseholdRole;
+    status: string;
+    accentThemeId: AccentThemeId;
+  }[];
+  isGuestInActiveHousehold: boolean;
+  switchHousehold: (householdId: string) => Promise<void>;
   /**
    * Custom house rules — display only; never alter scoring / XP / allowance.
    */
@@ -574,6 +598,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [smartHomeScenes, setSmartHomeScenes] = useState<SmartHomeScene[]>([]);
   const [storeRecommendations, setStoreRecommendations] = useState<StoreRecommendation[]>([]);
   const [inviteLinks, setInviteLinks] = useState<InviteLinks | null>(null);
+  const [householdMemberships, setHouseholdMemberships] = useState<
+    OrbitContextValue['householdMemberships']
+  >([]);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
   const [poppinsAskCount, setPoppinsAskCount] = useState(0);
   const [aiUsageEvents, setAiUsageEvents] = useState<AiUsageEvent[]>([]);
@@ -679,6 +706,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       daily_deadline_pending?: string | null;
       daily_deadline_applies_on?: string | null;
       allowance_requests_enabled?: boolean;
+      join_approval_required?: boolean;
     }
   ) => {
     if (dataMode === 'mock') {
@@ -728,7 +756,25 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
   };
 
+  const setJoinApprovalRequired = (required: boolean) => {
+    setHousehold((current) => {
+      if (!permissions.canManageHousehold) return current;
+      const next: HouseholdSnapshot = {
+        ...current,
+        joinApprovalRequired: required,
+      };
+      persistHouseRulesHouseholdFields(current.id, next, {
+        join_approval_required: required,
+      });
+      return next;
+    });
+  };
+
   const metrics = useMemo(() => calculateMetrics(household), [household]);
+  const isGuestInActiveHousehold = useMemo(() => {
+    if (!currentMember || !household.id) return false;
+    return currentMember.role === 'guest';
+  }, [currentMember, household.id]);
   const membersWithProgress = useMemo(
     () => household.members.map((member) => calculateMemberProgress(member, household.tasks)),
     [household.members, household.tasks]
@@ -1114,6 +1160,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     registerForPushNotifications(session.user.id).catch((error) => {
       console.warn('Push registration skipped', error);
     });
+    await refreshHouseholdMemberships(session.user.id);
     return hydratedHousehold;
   }, []);
 
@@ -1274,30 +1321,45 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     const joinedHousehold = await householdRepository.joinHousehold(input, user);
     let nextHousehold = joinedHousehold;
-    if (hasChosenAvatar(user.avatar)) {
-      const self = joinedHousehold.members.find(
-        (member) => member.name.trim().toLowerCase() === user.name.trim().toLowerCase()
+    if (hasActiveLiveHome && nextHousehold.id && household.id && household.id !== nextHousehold.id) {
+      const primary = (await getPrimaryHouseholdPref()) ?? household.id;
+      if (!primary) {
+        await setPrimaryHouseholdPref(household.id);
+      }
+      await setActiveHouseholdPref(nextHousehold.id);
+    }
+    const selfMember = nextHousehold.members.find((member) => member.userId === user.id);
+    if (selfMember && hasChosenAvatar(user.avatar) && selfMember.avatar !== user.avatar) {
+      const updated = await householdRepository.updateMemberAvatar(selfMember, user.avatar);
+      nextHousehold = {
+        ...joinedHousehold,
+        members: joinedHousehold.members.map((member) =>
+          member.id === selfMember.id ? updated : member
+        ),
+      };
+      void saveMemberAvatarOverride(joinedHousehold.id, selfMember.id, user.avatar);
+    }
+    if (selfMember && selfMember.name.trim().toLowerCase() !== user.name.trim().toLowerCase()) {
+      const renamed = await householdRepository.updateMemberDisplayName(
+        selfMember.id,
+        user.name,
+        nextHousehold.id
       );
-      if (self && self.avatar !== user.avatar) {
-        const updated = await householdRepository.updateMemberAvatar(self, user.avatar);
+      if (renamed) {
         nextHousehold = {
-          ...joinedHousehold,
-          members: joinedHousehold.members.map((member) =>
-            member.id === self.id ? updated : member
+          ...nextHousehold,
+          members: nextHousehold.members.map((member) =>
+            member.id === selfMember.id ? renamed : member
           ),
+          greetingName: user.name,
         };
-        void saveMemberAvatarOverride(joinedHousehold.id, self.id, user.avatar);
       }
     }
     const pendingSelf = nextHousehold.members.find(
-      (member) =>
-        member.status === 'pending' &&
-        member.name.trim().toLowerCase() === user.name.trim().toLowerCase()
+      (member) => member.userId === user.id && member.status === 'pending'
     );
     const activeSelf = nextHousehold.members.find(
-      (member) =>
-        member.status === 'active' &&
-        member.name.trim().toLowerCase() === user.name.trim().toLowerCase()
+      (member) => member.userId === user.id && member.status === 'active'
     );
     setHousehold(nextHousehold);
     if (pendingSelf) {
@@ -1312,8 +1374,114 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (dataMode === 'mock') {
       await persistMockHouseholdSnapshot(nextHousehold);
     }
+    await refreshHouseholdMemberships(user.id);
     await trackAnalytics('household.joined', { inviteCode: input.inviteCode }, { householdId: nextHousehold.id, userId: user.id });
     return pendingSelf ? 'pending' : 'active';
+  };
+
+  const refreshHouseholdMemberships = async (userId?: string | null) => {
+    const id = userId ?? currentUser?.id;
+    if (!id || id.startsWith('child-local-') || id.startsWith('tablet-local-')) {
+      setHouseholdMemberships([]);
+      return;
+    }
+    const rows = await householdRepository.listMemberships(id);
+    const enriched = await Promise.all(
+      rows.map(async (row) => ({
+        ...row,
+        accentThemeId: (await getHouseholdAccentPref(row.householdId)) ?? 'coral',
+      }))
+    );
+    setHouseholdMemberships(enriched);
+  };
+
+  const switchHousehold = async (householdId: string) => {
+    const user = currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
+    if (!user?.id) return;
+    await setActiveHouseholdPref(householdId);
+    const next = await householdRepository.loadHouseholdById(householdId, user.id);
+    const accent = await getHouseholdAccentPref(householdId);
+    setHousehold({ ...next, accentThemeId: accent ?? next.accentThemeId });
+    const self = next.members.find((member) => member.userId === user.id);
+    if (self) setActiveMemberId(self.id);
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot(next);
+    }
+  };
+
+  const lookupProfileInvite = async (rawCode: string) => {
+    const code =
+      parseInvitePayload(rawCode) ?? (rawCode.trim() ? normalizeInviteCode(rawCode) : null);
+    if (!code) return null;
+    const lookedUp = await householdRepository.findChildByProfileCode(code);
+    if (!lookedUp?.member) return null;
+    return { member: lookedUp.member, householdName: lookedUp.householdName };
+  };
+
+  const completeProfileJoin = async (
+    input: import('@/types/orbit').CompleteProfileJoinInput
+  ): Promise<{ status: 'pending' | 'active' }> => {
+    const result = await householdRepository.completeProfileJoin(input);
+    const user: OrbitUser = {
+      id: `child-local-${result.member.id}`,
+      email: `${input.displayName.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'kid'}@kids.choremaxx.local`,
+      name: result.member.name,
+      avatar: result.member.avatar,
+      profileComplete: true,
+    };
+
+    const snapshot = await householdRepository.loadHouseholdById(
+      result.householdId,
+      user.id
+    ).catch(async () => {
+      const active = await loadActiveMockHousehold();
+      return active ?? {
+        ...mockHousehold,
+        id: result.householdId,
+        householdName: result.householdName,
+        members: [result.member],
+        greetingName: result.member.name,
+      };
+    });
+
+    setHousehold({
+      ...snapshot,
+      id: result.householdId,
+      householdName: result.householdName,
+      greetingName: result.member.name,
+      members: snapshot.members.some((item) => item.id === result.member.id)
+        ? snapshot.members.map((item) => (item.id === result.member.id ? result.member : item))
+        : [...snapshot.members, result.member],
+    });
+    setCurrentUser(user);
+    setActiveMemberId(result.member.id);
+    await authRepository.persistLocalSession(user, result.member.id);
+
+    if (result.status === 'active') {
+      const { setupSharedDeviceSession, selectDeviceProfile } = await import(
+        '@/lib/device/device-session'
+      );
+      await setupSharedDeviceSession({
+        profileMemberIds: [result.member.id],
+        deviceLabel: `${result.member.name}'s device`,
+      });
+      await selectDeviceProfile(result.member.id);
+    } else if (result.householdId) {
+      await stashPendingJoinHouseholdId(result.householdId);
+    }
+
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot({
+        ...snapshot,
+        id: result.householdId,
+        householdName: result.householdName,
+        members: snapshot.members.map((item) =>
+          item.id === result.member.id ? result.member : item
+        ),
+      });
+    }
+
+    return { status: result.status };
   };
 
   const applyStashedInvite = async (): Promise<'pending' | 'active' | 'none'> => {
@@ -4540,7 +4708,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       resolveMemberByProfileCode(code, mockHousehold.members);
     const member = record?.member ?? lookedUp?.member ?? fromHousehold;
 
-    if (!member || member.role !== 'child' || member.status !== 'active') {
+    if (!member || member.role !== 'child' || (member.status !== 'active' && member.status !== 'invited')) {
       throw new Error('Ask a parent to AirDrop or send your kid invite. No sign-in needed.');
     }
 
@@ -4642,7 +4810,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         record?.member ??
         resolveMemberByProfileCode(code, household.members) ??
         resolveMemberByProfileCode(code, mockHousehold.members);
-      if (!member || member.status !== 'active' || member.role === 'shared-device') {
+      if (!member || (member.status !== 'active' && member.status !== 'invited') || member.role === 'shared-device') {
         throw new Error(`No profile for ${code}. Ask an admin to AirDrop or send that invite.`);
       }
       if (!resolved.some((item) => item.id === member.id)) {
@@ -4956,6 +5124,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateHouseholdRewardModel,
       queueDailyDeadline,
       setAllowanceRequestsEnabled,
+      setJoinApprovalRequired,
+      completeProfileJoin,
+      lookupProfileInvite,
+      householdMemberships,
+      isGuestInActiveHousehold,
+      switchHousehold,
       addCustomHouseRule,
       updateCustomHouseRule,
       removeCustomHouseRule,
@@ -5077,6 +5251,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateHouseholdRewardModel,
       queueDailyDeadline,
       setAllowanceRequestsEnabled,
+      setJoinApprovalRequired,
+      householdMemberships,
+      isGuestInActiveHousehold,
       addCustomHouseRule,
       updateCustomHouseRule,
       removeCustomHouseRule,

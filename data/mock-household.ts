@@ -43,6 +43,7 @@ export const mockHousehold: HouseholdSnapshot = {
   dailyDeadlinePending: null,
   dailyDeadlineAppliesOn: null,
   allowanceRequestsEnabled: true,
+  joinApprovalRequired: true,
   weekStartsOn: 1,
   redemptionRequiresApproval: false,
   notificationHour: 8,

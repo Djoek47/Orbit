@@ -11,6 +11,7 @@ import {
   type AccentThemeId,
 } from '@/constants/accent-themes';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
+import { HouseholdSwitcher } from '@/components/orbit/household-switcher';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { PaletteWheel } from '@/components/orbit/palette-wheel';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
@@ -174,6 +175,8 @@ export default function SettingsScreen() {
     updateHouseholdRewardModel,
     queueDailyDeadline,
     setAllowanceRequestsEnabled,
+    setJoinApprovalRequired,
+    householdMemberships,
     updateDisplayName,
     updateMemberDisplayName,
     updatePalette,
@@ -902,8 +905,18 @@ export default function SettingsScreen() {
                   label={houseRulesDoc.settings.allowanceRequests.label}
                   subtitle={houseRulesDoc.settings.allowanceRequests.help}
                   value={household.allowanceRequestsEnabled !== false}
-                  last
                   onValueChange={(value) => setAllowanceRequestsEnabled(value)}
+                />
+              </SettingsGroup>
+            ) : null}
+            {permissions.canManageHousehold ? (
+              <SettingsGroup>
+                <SettingsToggleRow
+                  label="Require join approval"
+                  subtitle="When on, invited adults and profiles wait for admin approval after they pick a name."
+                  value={household.joinApprovalRequired !== false}
+                  last
+                  onValueChange={(value) => setJoinApprovalRequired(value)}
                 />
               </SettingsGroup>
             ) : null}
@@ -1042,15 +1055,20 @@ export default function SettingsScreen() {
 
         {section === 'members' ? (
           <>
+            {householdMemberships.length > 1 ? (
+              <View style={{ marginBottom: 12 }}>
+                <HouseholdSwitcher />
+              </View>
+            ) : null}
             <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>
               Tap a name to switch. A shared iPad asks who is using it before opening Choremaxx.
             </Text>
             {permissions.canInviteMembers ? (
               <SettingsRow
                 emoji="➕"
-                label="Add new member"
-                subtitle="Create an invite so they can join this household"
-                onPress={() => router.push('/invite-household' as never)}
+                label="Add household member"
+                subtitle="Create a profile now and share their invite later"
+                onPress={() => router.push('/household-members' as never)}
               />
             ) : null}
 

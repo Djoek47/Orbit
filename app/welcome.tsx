@@ -69,6 +69,7 @@ import {
 } from '@/lib/auth/email-confirmation';
 import { fetchEntitlement, isPremiumActive } from '@/lib/billing/iap';
 import { markPremiumGatePending, premiumOnboardingHref } from '@/lib/billing/premium-onboarding';
+import { shouldSkipPremiumForInvite } from '@/lib/billing/premium-invite';
 
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { classifyInviteCode, householdInviteWrongForKidMessage } from '@/lib/invites/invite-intent';
@@ -640,7 +641,7 @@ export default function WelcomeOnboardingScreen() {
       if (next === 'household' && parsed && classifyInviteCode(parsed) === 'household') {
         await stashInviteCode(parsed);
         const joined = await applyStashedInvite();
-        router.replace((joined === 'pending' ? '/pending-approval' : '/') as never);
+        router.replace((joined === 'pending' ? '/pending-approval' : '/join-welcome') as never);
         return;
       }
       if (isPendingJoinSnapshot(hydrated)) {
@@ -648,7 +649,13 @@ export default function WelcomeOnboardingScreen() {
         return;
       }
       const entitled = isPremiumActive(await fetchEntitlement());
-      if (!entitled && !hydrated.id) {
+      const skipPremium = await shouldSkipPremiumForInvite({
+        inviteParam: inviteCode,
+        memberInviteParam: Array.isArray(inviteParams.memberInvite)
+          ? inviteParams.memberInvite[0]
+          : inviteParams.memberInvite,
+      });
+      if (!entitled && !hydrated.id && !skipPremium) {
         await markPremiumGatePending();
         router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
         return;
@@ -684,7 +691,7 @@ export default function WelcomeOnboardingScreen() {
         (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
       if (parsed && classifyInviteCode(parsed) === 'household') {
         const outcome = await joinHousehold({ inviteCode: parsed });
-        router.replace((outcome === 'pending' ? '/pending-approval' : '/') as never);
+        router.replace((outcome === 'pending' ? '/pending-approval' : '/join-welcome') as never);
         return;
       }
       setStep('household');
@@ -711,7 +718,7 @@ export default function WelcomeOnboardingScreen() {
         setInviteCode(parsed);
         const outcome = await joinHousehold({ inviteCode: parsed });
         setCreatedHousehold(false);
-        router.replace((outcome === 'pending' ? '/pending-approval' : '/') as never);
+        router.replace((outcome === 'pending' ? '/pending-approval' : '/join-welcome') as never);
         return;
       }
       if (!householdName.trim()) {
@@ -889,14 +896,10 @@ export default function WelcomeOnboardingScreen() {
     setBusy(true);
     setError('');
     try {
-      await saveOnboardingPrefs({
-        role: 'child',
-        rewardModel: selectedRewardModel ?? DEFAULT_REWARD_MODEL,
-      });
       const parsed =
         parseInvitePayload(inviteCode) ?? (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
       if (!parsed) {
-        setError('Enter or scan the Sidekick invite an admin sent.');
+        setError('Enter or scan the profile invite an admin sent.');
         setBusy(false);
         return;
       }
@@ -909,10 +912,9 @@ export default function WelcomeOnboardingScreen() {
         setBusy(false);
         return;
       }
-      await redeemChildInvite(parsed);
-      router.replace('/' as never);
+      router.replace(`/join-profile?code=${encodeURIComponent(parsed)}` as never);
     } catch (err) {
-      setError(userFacingMessage(err, 'Could not open Sidekick invite.'));
+      setError(userFacingMessage(err, 'Could not open profile invite.'));
     } finally {
       setBusy(false);
     }
@@ -1056,6 +1058,9 @@ export default function WelcomeOnboardingScreen() {
             pointerEvents={splashReady ? 'auto' : 'none'}>
             <View style={styles.splashCtaBlock}>
               <OrbitButton onPress={() => setStep('role')}>Get Started</OrbitButton>
+              <OrbitButton tone="secondary" onPress={() => setScannerOpen(true)}>
+                Scan to join
+              </OrbitButton>
               <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
                 <Text style={[styles.signInText, { color: orbitPalette.textMuted }]}>
                   Already have an account?{' '}
@@ -1092,8 +1097,7 @@ export default function WelcomeOnboardingScreen() {
                 typography.footnote,
                 { color: orbitPalette.textMuted, textAlign: 'center', lineHeight: 20 },
               ]}>
-              Sign in or create an account to request access. After an admin approves you, you can
-              add people and name them.
+              Sign in or create an account to join. No subscription needed — invites skip payment.
             </Text>
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
@@ -1815,9 +1819,21 @@ export default function WelcomeOnboardingScreen() {
         onScanned={(code) => {
           setError('');
           setHouseholdMode('join');
+          const kind = classifyInviteCode(code);
           if (step === 'tablet-invite') {
             addTabletCode(code);
             return;
+          }
+          if (kind === 'profile') {
+            router.replace(`/join-profile?code=${encodeURIComponent(code)}` as never);
+            return;
+          }
+          if (kind === 'household') {
+            if (isSignedIn) {
+              router.replace(`/join-household?code=${encodeURIComponent(code)}` as never);
+              return;
+            }
+            setStep('invited');
           }
           setInviteCode(code);
         }}

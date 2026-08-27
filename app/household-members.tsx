@@ -7,7 +7,11 @@ import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
 import {
   MemberConnectionBadge,
   MemberConnectionCaption,
+  HasOwnAccountBadge,
 } from '@/components/orbit/member-connection-badge';
+import { SetupMemberWizard } from '@/components/orbit/setup-member-wizard';
+import { DEFAULT_REWARD_MODEL } from '@/lib/rewards/reward-model';
+import type { DraftMember } from '@/lib/onboarding/setup-draft';
 import type { MemberInvite } from '@/lib/household/member-invites';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -59,6 +63,7 @@ export default function HouseholdMembersScreen() {
     removeMember,
     updateMemberRole,
     updateSharedDeviceLinks,
+    addOnboardingMembers,
   } = useOrbit();
   const { c } = useOrbitColors();
 
@@ -70,6 +75,7 @@ export default function HouseholdMembersScreen() {
   const [kidStatus, setKidStatus] = useState('');
   const [memberInvites, setMemberInvites] = useState<MemberInvite[]>([]);
   const [inviteMemberId, setInviteMemberId] = useState<string | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const pending = household.members.filter((member) => member.status === 'pending');
   const invited = household.members.filter((member) => member.status === 'invited');
@@ -233,6 +239,16 @@ export default function HouseholdMembersScreen() {
 
       {permissions.canInviteMembers || permissions.canManageHousehold ? (
         <GlassCard style={styles.card}>
+          <Text style={typography.headline}>Add people first, invite later</Text>
+          <Text style={typography.footnote}>
+            Create profiles with names, tasks, and rewards — then share profile or adult invites when you&apos;re ready.
+          </Text>
+          <OrbitButton onPress={() => setWizardOpen(true)}>Add household member</OrbitButton>
+        </GlassCard>
+      ) : null}
+
+      {permissions.canInviteMembers || permissions.canManageHousehold ? (
+        <GlassCard style={styles.card}>
           <Text style={typography.headline}>Invite Sidekicks (no sign-in)</Text>
           <Text style={typography.footnote}>
             Create up to two Sidekick profiles saved on your admin account. AirDrop or send their codes —
@@ -364,7 +380,18 @@ export default function HouseholdMembersScreen() {
                 <StatusPill label="invited" tone="amber" />
               </View>
               {permissions.canManageHousehold ? (
-                <OrbitButton tone="secondary" onPress={() => setInviteMemberId(member.id)}>
+                <OrbitButton
+                  tone="secondary"
+                  onPress={() => {
+                    if (member.role === 'child' && member.profileInviteCode) {
+                      Alert.alert(
+                        'Profile invite',
+                        `Share ${member.profileInviteCode} with ${member.name}. No email needed.`
+                      );
+                      return;
+                    }
+                    setInviteMemberId(member.id);
+                  }}>
                   Show invite code
                 </OrbitButton>
               ) : null}
@@ -386,6 +413,7 @@ export default function HouseholdMembersScreen() {
             <View style={styles.memberCopy}>
               <Text style={typography.headline}>{member.name}</Text>
               <MemberConnectionCaption member={member} />
+              {member.userId?.trim() ? <HasOwnAccountBadge /> : null}
               <Text style={typography.footnote}>
                 {member.xp} XP · week {member.weekXp ?? 0} · streak {member.streak ?? 0}
               </Text>
@@ -471,6 +499,28 @@ export default function HouseholdMembersScreen() {
         </GlassCard>
       ))}
     </ScrollView>
+      {wizardOpen ? (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: c.background, padding: space.lg }]}>
+          <SetupMemberWizard
+            rewardModel={household.rewardModel ?? DEFAULT_REWARD_MODEL}
+            rewardMode={household.rewardMode ?? 'weighted'}
+            onCancel={() => setWizardOpen(false)}
+            onConfirm={(member: DraftMember) => {
+              void (async () => {
+                if (!household.id) return;
+                await addOnboardingMembers(household.id, [
+                  {
+                    name: member.name,
+                    role: member.role === 'admin' ? 'admin' : 'member',
+                    avatar: member.avatarColor,
+                  },
+                ]);
+                setWizardOpen(false);
+              })();
+            }}
+          />
+        </View>
+      ) : null}
       <MemberInviteSheet
         visible={Boolean(inviteMemberId)}
         member={household.members.find((m) => m.id === inviteMemberId) ?? null}
