@@ -11,6 +11,7 @@ import {
 } from '@/lib/household/mock-active-household';
 import { seedMockDomainsFromHousehold } from '@/lib/household/seed-mock-domains';
 import { peekPendingJoinHouseholdId } from '@/lib/invite/pending-join-store';
+import { adminJoinRequestNotification } from '@/lib/invites/join-session';
 import {
   resolveHydrateMembership,
   resolveJoinApprovalMembership,
@@ -38,6 +39,7 @@ import {
   isMockMode,
   mapDbError,
 } from '@/repositories/repository-utils';
+import { notificationsRepository } from '@/repositories/notifications-repository';
 import type {
   CreateHouseholdInput,
   HouseholdMember,
@@ -316,29 +318,82 @@ export const householdRepository = {
 
   async joinHousehold(input: JoinHouseholdInput, user: OrbitUser): Promise<HouseholdSnapshot> {
     const code = input.inviteCode.trim().toUpperCase();
+    const displayName = input.displayName?.trim() || user.name;
 
     if (isMockMode()) {
+      const active = await loadActiveMockHousehold();
+      const baseMembers = active?.members?.length ? active.members : mockHousehold.members;
+      const householdId =
+        active?.id && active.id !== mockHousehold.id
+          ? active.id
+          : `hh-join-${code.replace(/[^A-Z0-9]+/g, '') || 'invite'}`;
+
+      if (input.memberId) {
+        const seatIndex = baseMembers.findIndex(
+          (member) => member.id === input.memberId && member.status === 'invited'
+        );
+        if (seatIndex >= 0) {
+          const seat = baseMembers[seatIndex];
+          const claimed = {
+            ...seat,
+            name: displayName || seat.name,
+            status: 'pending' as const,
+            userId: user.id,
+          };
+          const members = baseMembers.map((member, index) =>
+            index === seatIndex ? claimed : member
+          );
+          const snapshot = {
+            ...(active ?? mockHousehold),
+            id: householdId,
+            householdName: active?.householdName ?? 'Invited household',
+            inviteCode: code || active?.inviteCode || mockHousehold.inviteCode,
+            greetingName: claimed.name,
+            members,
+            poppins: {
+              title: 'Join request sent',
+              summary:
+                'Your household access is pending approval. Browse calmly — create/edit stays locked until an owner or admin accepts you.',
+              actions: ['Wait for approval', 'Ask an owner to open Members'],
+            },
+          };
+          const notice = adminJoinRequestNotification({ requesterName: claimed.name });
+          void notificationsRepository.create({
+            householdId,
+            title: notice.title,
+            body: notice.body,
+            category: notice.category,
+            priority: notice.priority,
+            data: notice.data,
+          });
+          return snapshot;
+        }
+      }
+
       const pendingMember = {
         id: createLocalId('member'),
-        name: user.name,
+        name: displayName,
         role: 'adult' as const,
         status: 'pending' as const,
+        userId: user.id,
         avatar: user.avatar || user.name.slice(0, 1).toUpperCase(),
         xp: 0,
         weekXp: 0,
         streak: 0,
         loadShare: 0,
       };
-      const existingWithoutDup = mockHousehold.members.filter(
-        (member) => member.name.toLowerCase() !== user.name.toLowerCase()
-      );
-      return {
+      const snapshot = {
         ...mockHousehold,
-        id: `hh-join-${code.replace(/[^A-Z0-9]+/g, '') || 'invite'}`,
-        householdName: 'Invited household',
+        id: householdId,
+        householdName: active?.householdName ?? 'Invited household',
         inviteCode: code || mockHousehold.inviteCode,
-        greetingName: user.name,
-        members: [...existingWithoutDup, pendingMember],
+        greetingName: pendingMember.name,
+        members: [
+          ...baseMembers.filter(
+            (member) => member.name.toLowerCase() !== pendingMember.name.toLowerCase()
+          ),
+          pendingMember,
+        ],
         poppins: {
           title: 'Join request sent',
           summary:
@@ -346,11 +401,25 @@ export const householdRepository = {
           actions: ['Wait for approval', 'Ask an owner to open Members'],
         },
       };
+      const notice = adminJoinRequestNotification({ requesterName: pendingMember.name });
+      void notificationsRepository.create({
+        householdId,
+        title: notice.title,
+        body: notice.body,
+        category: notice.category,
+        priority: notice.priority,
+        data: notice.data,
+      });
+      return snapshot;
     }
 
     const supabase = getConfiguredSupabase('householdRepository.joinHousehold');
     const { data, error } = await supabase.functions.invoke('join-household', {
-      body: { inviteCode: code, displayName: user.name },
+      body: {
+        inviteCode: code,
+        displayName,
+        memberId: input.memberId,
+      },
     });
 
     if (error) {
@@ -381,11 +450,13 @@ export const householdRepository = {
 
   async approveMember(memberId: string): Promise<HouseholdMember> {
     if (isMockMode()) {
-      const member = mockHousehold.members.find((item) => item.id === memberId);
+      const active = await loadActiveMockHousehold();
+      const pool = active?.members ?? mockHousehold.members;
+      const member = pool.find((item) => item.id === memberId);
       if (!member) {
         throw new Error('householdRepository.approveMember: Member not found.');
       }
-      return { ...member, status: 'active' };
+      return { ...member, status: 'active', userId: member.userId ?? null };
     }
 
     const supabase = getConfiguredSupabase('householdRepository.approveMember');
@@ -681,7 +752,8 @@ export const householdRepository = {
       id: createLocalId('member'),
       name: trimmed,
       role,
-      status: 'active',
+      status: 'invited',
+      userId: null,
       avatar:
         input.avatar?.trim() ||
         (role === 'child' ? childInviteEmoji(trimmed) : trimmed.charAt(0).toUpperCase()),
@@ -757,7 +829,7 @@ export const householdRepository = {
           household_id: householdId,
           display_name: member.name,
           role,
-          status: 'active',
+          status: 'invited',
           avatar_symbol: member.avatar,
           xp: 0,
           week_xp: 0,

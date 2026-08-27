@@ -32,6 +32,7 @@ export function mapMemberRow(row: {
   display_name?: string | null;
   role: HouseholdMember['role'];
   status: string;
+  user_id?: string | null;
   avatar_symbol: string | null;
   xp: number;
   week_xp?: number | null;
@@ -41,17 +42,19 @@ export function mapMemberRow(row: {
   profile_invite_code?: string | null;
 }): HouseholdMember {
   const status =
-    row.status === 'active' || row.status === 'pending' || row.status === 'inactive'
+    row.status === 'active' ||
+    row.status === 'pending' ||
+    row.status === 'inactive' ||
+    row.status === 'invited'
       ? row.status
-      : row.status === 'invited'
-        ? 'pending'
-        : 'inactive';
+      : 'inactive';
 
   return {
     id: row.id,
     name: row.display_name?.trim() || 'Member',
     role: row.role,
     status,
+    userId: row.user_id ?? null,
     avatar: row.avatar_symbol || (row.display_name?.charAt(0).toUpperCase() ?? 'M'),
     xp: row.xp,
     weekXp: row.week_xp ?? 0,
@@ -225,6 +228,7 @@ export function mapEventRow(row: {
   time_label: string;
   location: string | null;
   responsible_name: string;
+  starts_at?: string | null;
 }): HouseholdEvent {
   return {
     id: row.id,
@@ -234,6 +238,7 @@ export function mapEventRow(row: {
     time: row.time_label,
     location: row.location ?? '',
     responsible: row.responsible_name,
+    startsAt: row.starts_at ?? undefined,
   };
 }
 

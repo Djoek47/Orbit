@@ -1055,6 +1055,11 @@ export default function SettingsScreen() {
             ) : null}
 
             {permissions.canManageHousehold ? (
+              <>
+                <Text style={[styles.memberName, { color: orbitPalette.text }]}>Shared Devices</Text>
+                <Text style={[styles.sectionHint, { color: orbitPalette.textMuted, marginTop: -4 }]}>
+                  Select multiple users who share a single device.
+                </Text>
               <View
                 style={[
                   styles.createDeviceCard,
@@ -1079,6 +1084,7 @@ export default function SettingsScreen() {
                   </Text>
                 </Pressable>
               </View>
+              </>
             ) : null}
 
             {sharedDevices.map((device) => {

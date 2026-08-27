@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { Avatar } from '@/components/orbit/avatar';
+import { MemberConnectionBadge } from '@/components/orbit/member-connection-badge';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { hasChosenAvatar } from '@/lib/profile/chosen-avatar';
@@ -148,7 +149,18 @@ export function SetupRosterHub({
                 </Text>
               </View>
               {complete ? (
-                <MaterialIcons name="check-circle" size={22} color="#34D399" />
+                <MemberConnectionBadge
+                  member={{
+                    id: member.id,
+                    name: member.name.trim() || 'Unnamed',
+                    role: 'child',
+                    status: 'invited',
+                    avatar: member.avatar ?? '?',
+                    xp: 0,
+                    loadShare: 0,
+                  }}
+                  size="sm"
+                />
               ) : (
                 <View style={styles.finishRow}>
                   <Text style={[typography.caption1, { color: c.textSubtle }]}>Finish setup</Text>

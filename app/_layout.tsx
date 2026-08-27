@@ -49,6 +49,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="join/[code]" options={{ headerShown: false }} />
           <Stack.Screen name="pending-approval" options={{ headerShown: false, title: 'Pending Approval' }} />
+          <Stack.Screen name="join-display-name" options={{ headerShown: false, title: 'Your name' }} />
           <Stack.Screen name="redeem-member-invite" options={{ headerShown: false, title: 'Join' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="welcome" options={{ headerShown: false }} />
