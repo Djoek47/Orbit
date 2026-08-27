@@ -55,6 +55,8 @@ export type HouseholdMember = {
    * (Netflix-style multi-profile tablet). Distinct from the household join code.
    */
   profileInviteCode?: string;
+  /** Admin-picked library task ids — applied when the member connects (no streak until then). */
+  plannedTaskLibraryIds?: string[];
 };
 
 export type TaskDifficulty = 'easy' | 'medium' | 'hard';

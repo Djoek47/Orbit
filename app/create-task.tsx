@@ -34,6 +34,7 @@ import {
   isSharedDeviceRole,
   withSharedPersonLabel,
 } from '@/lib/household/shared-device';
+import { isMemberFullyConnected } from '@/lib/household/member-connection';
 import {
   normalizeRewardSettings,
   resolveTaskXp,
@@ -99,11 +100,11 @@ function libraryToPreset(task: ChoremaxxLibraryTask): TaskPreset {
   };
 }
 
-/** People you can assign to — real profiles only (shared tablet shells hidden). */
+/** People you can assign to — fully connected profiles only (streak-safe). */
 function assignablePeople(members: HouseholdMember[]): HouseholdMember[] {
   return members.filter(
     (member) =>
-      member.status === 'active' &&
+      isMemberFullyConnected(member) &&
       member.role !== 'guest' &&
       !isSharedDeviceRole(member.role),
   );

@@ -178,7 +178,7 @@ export function SetupRosterHub({
             { borderColor: glassBorder(0.14), backgroundColor: glass(0.04) },
           ]}>
           <MaterialIcons name="person-add" size={20} color={c.primary} />
-          <Text style={[typography.headline, { color: c.primary }]}>+ Add family member</Text>
+          <Text style={[typography.headline, { color: c.primary }]}>+ Add someone without an account</Text>
         </Pressable>
       </View>
 
@@ -188,12 +188,11 @@ export function SetupRosterHub({
         </OrbitButton>
         {!canCreate ? (
           <Text style={[typography.caption1, { color: c.textSubtle, textAlign: 'center' }]}>
-            Confirm at least one member with tasks to create.
+            Add at least one person, or continue with just you as admin.
           </Text>
         ) : incomplete > 0 ? (
           <Text style={[typography.caption1, { color: c.textSubtle, textAlign: 'center' }]}>
-            {incomplete} member{incomplete === 1 ? '' : 's'} still need tasks — you can create anyway
-            from the prompt.
+            {incomplete} profile{incomplete === 1 ? '' : 's'} still need a name — you can create anyway.
           </Text>
         ) : null}
         <Pressable onPress={onFinishLater} disabled={busy} style={styles.secondary}>

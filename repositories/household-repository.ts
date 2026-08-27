@@ -914,7 +914,12 @@ export const householdRepository = {
    */
   async createOnboardingMember(
     householdId: string | null | undefined,
-    input: { name: string; role: HouseholdRole; avatar?: string }
+    input: {
+      name: string;
+      role: HouseholdRole;
+      avatar?: string;
+      plannedTaskLibraryIds?: string[];
+    }
   ): Promise<HouseholdMember> {
     const trimmed = input.name.trim();
     if (!trimmed) {
@@ -939,6 +944,9 @@ export const householdRepository = {
       streak: 0,
       loadShare: 0,
       profileInviteCode: undefined,
+      plannedTaskLibraryIds: input.plannedTaskLibraryIds?.length
+        ? [...input.plannedTaskLibraryIds]
+        : undefined,
     };
     if (role === 'child') {
       member.profileInviteCode = allocateChildInviteCode(trimmed);
@@ -1013,6 +1021,7 @@ export const householdRepository = {
           streak: 0,
           load_share: 0,
           profile_invite_code: member.profileInviteCode ?? null,
+          planned_task_library_ids: member.plannedTaskLibraryIds ?? [],
         })
         .select('*')
         .single();
@@ -1036,6 +1045,30 @@ export const householdRepository = {
     mapDbError('householdRepository.createOnboardingMember', lastError);
 
     throw new Error('householdRepository.createOnboardingMember: invite code retry exhausted.');
+  },
+
+  async clearPlannedTasks(memberId: string, householdId?: string | null): Promise<void> {
+    if (isMockMode()) {
+      const active = await loadActiveMockHousehold();
+      if (active?.id) {
+        const nextMembers = active.members.map((m) =>
+          m.id === memberId ? { ...m, plannedTaskLibraryIds: undefined } : m
+        );
+        await saveActiveMockHousehold({ ...active, members: nextMembers });
+      }
+      mockHousehold.members = mockHousehold.members.map((m) =>
+        m.id === memberId ? { ...m, plannedTaskLibraryIds: undefined } : m
+      );
+      return;
+    }
+    const supabase = getConfiguredSupabase('householdRepository.clearPlannedTasks');
+    let query = supabase
+      .from('household_members')
+      .update({ planned_task_library_ids: [] })
+      .eq('id', memberId);
+    if (householdId) query = query.eq('household_id', householdId);
+    const { error } = await query;
+    mapDbError('householdRepository.clearPlannedTasks', error);
   },
 
   async updateMemberDisplayName(

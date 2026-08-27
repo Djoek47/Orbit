@@ -243,7 +243,7 @@ export default function HouseholdMembersScreen() {
           <Text style={typography.footnote}>
             Create profiles with names, tasks, and rewards — then share profile or adult invites when you&apos;re ready.
           </Text>
-          <OrbitButton onPress={() => setWizardOpen(true)}>Add household member</OrbitButton>
+          <OrbitButton onPress={() => setWizardOpen(true)}>Add someone without an account</OrbitButton>
         </GlassCard>
       ) : null}
 
@@ -313,7 +313,7 @@ export default function HouseholdMembersScreen() {
 
       {pending.length > 0 ? (
         <>
-          <Text style={typography.headline}>Pending approval</Text>
+          <Text style={typography.headline}>Waiting for approval</Text>
           {pending.map((member) => (
             <GlassCard key={member.id} style={styles.card}>
               <View style={styles.memberHeader}>
@@ -325,10 +325,12 @@ export default function HouseholdMembersScreen() {
                 />
                 <View style={styles.memberCopy}>
                   <Text style={typography.headline}>{member.name}</Text>
+                  <MemberConnectionCaption member={member} />
                   <Text style={typography.footnote}>
                     Requested {formatHouseholdRole(member.role)} access
                   </Text>
                 </View>
+                <MemberConnectionBadge member={member} />
               </View>
               <View style={styles.pillRow}>
                 <StatusPill label={formatHouseholdRole(member.role)} tone="blue" />
@@ -508,14 +510,22 @@ export default function HouseholdMembersScreen() {
             onConfirm={(member: DraftMember) => {
               void (async () => {
                 if (!household.id) return;
-                await addOnboardingMembers(household.id, [
-                  {
-                    name: member.name,
-                    role: member.role === 'admin' ? 'admin' : 'member',
-                    avatar: member.avatarColor,
-                  },
-                ]);
-                setWizardOpen(false);
+                try {
+                  await addOnboardingMembers(household.id, [
+                    {
+                      name: member.name,
+                      role: member.role === 'admin' ? 'admin' : 'member',
+                      avatar: member.avatar,
+                      plannedTaskLibraryIds: member.taskLibraryIds,
+                    },
+                  ]);
+                  setWizardOpen(false);
+                } catch (err) {
+                  Alert.alert(
+                    'Could not add member',
+                    err instanceof Error ? err.message : 'Try again from Settings → Members.'
+                  );
+                }
               })();
             }}
           />

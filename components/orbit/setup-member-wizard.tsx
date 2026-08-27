@@ -270,8 +270,7 @@ export function SetupMemberWizard({
             What should {member.name.trim() || 'they'} take care of?
           </Text>
           <Text style={[typography.caption1, { color: c.textMuted }]}>
-            {member.taskLibraryIds.length} task
-            {member.taskLibraryIds.length === 1 ? '' : 's'} selected
+            Planned now — assigned when {member.name.trim() || 'they'} connect on their device.
           </Text>
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
             <TaskPicker

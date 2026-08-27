@@ -74,6 +74,7 @@ import {
 } from '@/lib/household/active-household-pref';
 import { getHouseholdAccentPref } from '@/lib/household/household-accent-pref';
 import { isMemberFullyConnected } from '@/lib/household/member-connection';
+import { plannedTasksForMember } from '@/lib/onboarding/planned-member-tasks';
 import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import {
@@ -553,7 +554,12 @@ type OrbitContextValue = {
   /** Persist onboarding roster drafts into household_members (explicit household id). */
   addOnboardingMembers: (
     householdId: string,
-    drafts: { name: string; role: 'admin' | 'member'; avatar?: string }[],
+    drafts: {
+      name: string;
+      role: 'admin' | 'member';
+      avatar?: string;
+      plannedTaskLibraryIds?: string[];
+    }[],
     options?: { householdName?: string }
   ) => Promise<HouseholdMember[]>;
   /** Child device: redeem invite code / QR with no sign-up. */
@@ -1376,6 +1382,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     await refreshHouseholdMemberships(user.id);
     await trackAnalytics('household.joined', { inviteCode: input.inviteCode }, { householdId: nextHousehold.id, userId: user.id });
+    if (activeSelf) {
+      await applyPlannedTasksForMember(activeSelf.id, nextHousehold.id);
+    }
     return pendingSelf ? 'pending' : 'active';
   };
 
@@ -1481,6 +1490,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       });
     }
 
+    if (result.status === 'active') {
+      void applyPlannedTasksForMember(result.member.id, result.householdId);
+    }
+
     return { status: result.status };
   };
 
@@ -1527,7 +1540,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         (member) =>
           member.status === 'active' && member.name.toLowerCase() === currentUser.name.toLowerCase()
       );
-      if (self) setActiveMemberId(self.id);
+      if (self) {
+        setActiveMemberId(self.id);
+        void applyPlannedTasksForMember(self.id, result.snapshot.id);
+      }
       await clearPendingJoinHouseholdId();
       if (dataMode === 'mock') {
         await persistMockHouseholdSnapshot(result.snapshot);
@@ -1751,6 +1767,32 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
   };
 
+  const applyPlannedTasksForMember = async (memberId: string, targetHouseholdId?: string | null) => {
+    const live = householdRef.current;
+    const householdId = targetHouseholdId ?? live.id;
+    if (!householdId) return;
+    const member = live.members.find((item) => item.id === memberId);
+    if (!member || !isMemberFullyConnected(member)) return;
+    const planned = plannedTasksForMember(member, live.rewardMode ?? 'weighted');
+    if (!planned.length) return;
+
+    for (const task of planned) {
+      await createTask(task, { householdId });
+    }
+    await householdRepository.clearPlannedTasks(memberId, householdId);
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((item) =>
+        item.id === memberId ? { ...item, plannedTaskLibraryIds: undefined } : item
+      ),
+    }));
+    await trackAnalytics(
+      'member.planned_tasks_applied',
+      { memberId, count: planned.length },
+      { ...analyticsContext, householdId }
+    );
+  };
+
   const updateTask = async (
     task: HouseholdTask,
     options?: { scope?: 'this' | 'future' }
@@ -1929,6 +1971,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
       members: current.members.map((member) => {
         if (member.name !== currentTask.assignee) return member;
+        if (!isMemberFullyConnected(member)) return member;
         const streak =
           !remainingToday && completionDay === todayKey
             ? Math.max(0, (member.streak ?? 0) - 1)
@@ -2526,6 +2569,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const awardDailyStreak = async () => {
     if (!currentMember || !household.id) return null;
+    if (!isMemberFullyConnected(currentMember)) return null;
     // Gate on the same today filter as Home counters.
     const mineToday = household.tasks.filter(
       (task) =>
@@ -4030,6 +4074,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }));
       setActiveMemberId(null);
     }
+    await applyPlannedTasksForMember(memberId);
     await trackAnalytics('member.approved', { memberId }, analyticsContext);
   };
 
@@ -4629,7 +4674,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const addOnboardingMembers = async (
     householdId: string,
-    drafts: { name: string; role: 'admin' | 'member'; avatar?: string }[],
+    drafts: {
+      name: string;
+      role: 'admin' | 'member';
+      avatar?: string;
+      plannedTaskLibraryIds?: string[];
+    }[],
     options?: { householdName?: string }
   ) => {
     if (!currentUser || !householdId) {
@@ -4658,6 +4708,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         name,
         role,
         avatar: draft.avatar,
+        plannedTaskLibraryIds: draft.plannedTaskLibraryIds,
       });
       if (member.role === 'child') {
         await saveChildInviteRecord({

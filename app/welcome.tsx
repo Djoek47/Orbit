@@ -45,7 +45,7 @@ import {
   type DraftMember,
   type HouseholdSetupDraft,
 } from '@/lib/onboarding/setup-draft';
-import { rewardsFromDraftMember, tasksFromDraftMember } from '@/lib/onboarding/materialize-setup';
+import { rewardsFromDraftMember } from '@/lib/onboarding/materialize-setup';
 import {
   DEFAULT_REWARD_MODEL,
   REWARD_MODEL_OPTIONS,
@@ -778,16 +778,18 @@ export default function WelcomeOnboardingScreen() {
       try {
         created = await addOnboardingMembers(
           householdId,
-          toPersist.map((m) => ({ name: m.name.trim(), role: m.role, avatar: m.avatar })),
+          toPersist.map((m) => ({
+            name: m.name.trim(),
+            role: m.role,
+            avatar: m.avatar,
+            plannedTaskLibraryIds: m.setupComplete ? m.taskLibraryIds : [],
+          })),
           { householdName: draft.householdName.trim() }
         );
         for (const member of toPersist.filter((m) => m.setupComplete)) {
           const matched = created.find(
             (c) => c.name.trim().toLowerCase() === member.name.trim().toLowerCase()
           );
-          for (const task of tasksFromDraftMember(member, draft.scoringMode)) {
-            await createTask(task, { householdId });
-          }
           for (const reward of rewardsFromDraftMember(member)) {
             await createReward(
               {
@@ -800,7 +802,8 @@ export default function WelcomeOnboardingScreen() {
             );
           }
         }
-      } catch {
+      } catch (err) {
+        console.warn('materializeDraft.addMembers', err);
         const who = toPersist[0]?.name.trim() || 'everyone';
         throw new Error(
           `Your household is saved. Couldn’t add ${who} yet. Try Create again.`

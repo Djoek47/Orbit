@@ -10,6 +10,7 @@ import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { VOCAB } from '@/constants/vocabulary';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
+import { isMemberFullyConnected } from '@/lib/household/member-connection';
 import {
   REWARD_FREQUENCY_LABELS,
   REWARD_PRESETS,
@@ -39,7 +40,7 @@ export default function CreateRewardScreen() {
     () =>
       household.members.filter(
         (member) =>
-          member.status === 'active' &&
+          isMemberFullyConnected(member) &&
           member.role !== 'guest' &&
           !isSharedDeviceRole(member.role)
       ),

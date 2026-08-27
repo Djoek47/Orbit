@@ -82,7 +82,7 @@ export function createEmptyDraft(
 }
 
 export function memberIsComplete(member: DraftMember): boolean {
-  return member.setupComplete && member.name.trim().length > 0 && member.taskLibraryIds.length > 0;
+  return member.setupComplete && member.name.trim().length > 0;
 }
 
 export function draftHasCompleteMember(draft: HouseholdSetupDraft): boolean {
@@ -95,10 +95,12 @@ export function memberStatusLine(member: DraftMember): string {
     if (member.taskLibraryIds.length === 0) return 'No tasks yet';
     return 'Finish setup';
   }
-  const tasks = `${member.taskLibraryIds.length} task${member.taskLibraryIds.length === 1 ? '' : 's'}`;
-  if (member.allowance) return `${tasks} · Allowance set`;
-  if (member.rewards.length > 0) return `${tasks} · Rewards set`;
-  return `${tasks} · Ready`;
+  const tasks = member.taskLibraryIds.length;
+  if (tasks === 0) return 'Ready · connects with invite';
+  const taskLabel = `${tasks} task${tasks === 1 ? '' : 's'} planned`;
+  if (member.allowance) return `${taskLabel} · Allowance set`;
+  if (member.rewards.length > 0) return `${taskLabel} · Rewards set`;
+  return `${taskLabel} · starts when connected`;
 }
 
 export async function loadSetupDraft(): Promise<HouseholdSetupDraft | null> {
