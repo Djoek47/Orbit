@@ -66,12 +66,14 @@ import {
 } from '@/lib/household/reward-settings-prefs';
 import { newCustomHouseRuleId, validateCustomHouseRule } from '@/lib/rules/custom-house-rules';
 import { saveActiveMockHousehold } from '@/lib/household/mock-active-household';
+import { isMemberFullyConnected } from '@/lib/household/member-connection';
 import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import {
   classifyInviteCode,
   householdInviteWrongForKidMessage,
 } from '@/lib/invites/invite-intent';
+import { hrefAfterJoinApproval, joinSessionSignOutRequired } from '@/lib/invites/join-session';
 import { isPendingJoinSnapshot } from '@/lib/invites/join-approval';
 import { isPersistedHouseholdId } from '@/lib/household/persisted-household-id';
 import { mapMemberRow, mapTaskRow } from '@/lib/mappers/orbit-mappers';
@@ -5164,7 +5166,8 @@ function calculateMetrics(household: HouseholdSnapshot): OrbitMetrics {
     household.events.length > 0 ? Math.round((coveredEvents / household.events.length) * 100) : 100;
 
   const activeMembers = household.members.filter(
-    (member) => member.status === 'active' && member.role !== 'guest' && !isSharedDeviceRole(member.role),
+    (member) =>
+      isMemberFullyConnected(member) && member.role !== 'guest' && !isSharedDeviceRole(member.role),
   );
   let fairnessScore = 100;
   if (activeMembers.length >= 2) {

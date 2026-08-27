@@ -7,13 +7,14 @@ import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors } from '@/constants/orbit-theme';
 import { stillWaitingCopy } from '@/lib/invites/invite-intent';
+import { hrefAfterJoinApproval } from '@/lib/invites/join-session';
 import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function PendingApprovalScreen() {
-  const { household, checkJoinApproval, signOut } = useOrbit();
+  const { household, checkJoinApproval, signOut, currentMember, currentUser } = useOrbit();
   const { c } = useOrbitColors();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
@@ -64,7 +65,12 @@ export default function PendingApprovalScreen() {
           try {
             const status = await checkJoinApproval();
             if (status === 'approved') {
-              router.replace('/' as never);
+              const next = hrefAfterJoinApproval({
+                needsDisplayName: false,
+                previousAccountName: currentUser?.name,
+                memberDisplayName: currentMember?.name,
+              });
+              router.replace(next as never);
               return;
             }
             if (status === 'missing') {

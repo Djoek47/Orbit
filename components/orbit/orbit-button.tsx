@@ -27,15 +27,17 @@ export function OrbitButton({
   const primary = orbit?.accentTheme.primary ?? '#38BDF8';
   const secondary = orbit?.accentTheme.secondary ?? '#0EA5E9';
 
-  if (tone === 'primary' && !disabled) {
+  if (tone === 'primary') {
     return (
-      <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [pressed && styles.pressed, style]}>
+      <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [pressed && !disabled && styles.pressed, style]}>
         <LinearGradient
-          colors={[primary, secondary]}
+          colors={disabled ? [`${primary}66`, `${secondary}55`] : [primary, secondary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.button}>
-          <Text style={[typography.buttonLabel, styles.primaryLabel]}>{children}</Text>
+          <Text style={[typography.buttonLabel, styles.primaryLabel, disabled && styles.primaryLabelDisabled]}>
+            {children}
+          </Text>
         </LinearGradient>
       </Pressable>
     );
@@ -84,6 +86,9 @@ const styles = StyleSheet.create({
   },
   primaryLabel: {
     color: orbitColors.ink,
+  },
+  primaryLabelDisabled: {
+    opacity: 0.92,
   },
   secondary: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',

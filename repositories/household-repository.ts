@@ -11,6 +11,7 @@ import {
 } from '@/lib/household/mock-active-household';
 import { seedMockDomainsFromHousehold } from '@/lib/household/seed-mock-domains';
 import { peekPendingJoinHouseholdId } from '@/lib/invite/pending-join-store';
+import { adminJoinRequestNotification } from '@/lib/invites/join-session';
 import {
   resolveHydrateMembership,
   resolveJoinApprovalMembership,
@@ -38,6 +39,7 @@ import {
   isMockMode,
   mapDbError,
 } from '@/repositories/repository-utils';
+import { notificationsRepository } from '@/repositories/notifications-repository';
 import type {
   CreateHouseholdInput,
   HouseholdMember,
@@ -320,25 +322,29 @@ export const householdRepository = {
     if (isMockMode()) {
       const pendingMember = {
         id: createLocalId('member'),
-        name: user.name,
+        name: input.displayName?.trim() || user.name,
         role: 'adult' as const,
         status: 'pending' as const,
+        userId: user.id,
         avatar: user.avatar || user.name.slice(0, 1).toUpperCase(),
         xp: 0,
         weekXp: 0,
         streak: 0,
         loadShare: 0,
       };
-      const existingWithoutDup = mockHousehold.members.filter(
-        (member) => member.name.toLowerCase() !== user.name.toLowerCase()
-      );
-      return {
+      const householdId = `hh-join-${code.replace(/[^A-Z0-9]+/g, '') || 'invite'}`;
+      const snapshot = {
         ...mockHousehold,
-        id: `hh-join-${code.replace(/[^A-Z0-9]+/g, '') || 'invite'}`,
+        id: householdId,
         householdName: 'Invited household',
         inviteCode: code || mockHousehold.inviteCode,
-        greetingName: user.name,
-        members: [...existingWithoutDup, pendingMember],
+        greetingName: pendingMember.name,
+        members: [
+          ...mockHousehold.members.filter(
+            (member) => member.name.toLowerCase() !== pendingMember.name.toLowerCase()
+          ),
+          pendingMember,
+        ],
         poppins: {
           title: 'Join request sent',
           summary:
@@ -346,6 +352,16 @@ export const householdRepository = {
           actions: ['Wait for approval', 'Ask an owner to open Members'],
         },
       };
+      const notice = adminJoinRequestNotification({ requesterName: pendingMember.name });
+      void notificationsRepository.create({
+        householdId,
+        title: notice.title,
+        body: notice.body,
+        category: notice.category,
+        priority: notice.priority,
+        data: notice.data,
+      });
+      return snapshot;
     }
 
     const supabase = getConfiguredSupabase('householdRepository.joinHousehold');
@@ -681,7 +697,8 @@ export const householdRepository = {
       id: createLocalId('member'),
       name: trimmed,
       role,
-      status: 'active',
+      status: 'invited',
+      userId: null,
       avatar:
         input.avatar?.trim() ||
         (role === 'child' ? childInviteEmoji(trimmed) : trimmed.charAt(0).toUpperCase()),
@@ -757,7 +774,7 @@ export const householdRepository = {
           household_id: householdId,
           display_name: member.name,
           role,
-          status: 'active',
+          status: 'invited',
           avatar_symbol: member.avatar,
           xp: 0,
           week_xp: 0,

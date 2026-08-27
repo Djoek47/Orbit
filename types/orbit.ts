@@ -1,6 +1,6 @@
 export type HouseholdRole = 'owner' | 'admin' | 'adult' | 'child' | 'guest' | 'shared-device';
 
-export type HouseholdMemberStatus = 'pending' | 'active' | 'inactive';
+export type HouseholdMemberStatus = 'pending' | 'active' | 'inactive' | 'invited';
 
 /** ChoreMaxx v2: every household is a family. Legacy DB values are normalized to `family`. */
 export type HouseholdType = 'family';
@@ -22,6 +22,8 @@ export type HouseholdMember = {
   name: string;
   role: HouseholdRole;
   status: HouseholdMemberStatus;
+  /** Bound auth user — absent until the member connects their app account. */
+  userId?: string | null;
   avatar: string;
   xp: number;
   /** XP earned in the current week — used by Rankings (Figma Make v4+). */
@@ -637,6 +639,9 @@ export type CreateHouseholdInput = {
 
 export type JoinHouseholdInput = {
   inviteCode: string;
+  /** Claim a pre-created roster seat when redeeming an invite. */
+  memberId?: string;
+  displayName?: string;
 };
 
 export type HouseholdSnapshot = {
