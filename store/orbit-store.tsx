@@ -85,7 +85,7 @@ import {
   applyRedeemedMember,
   redeemMockMemberInvite,
 } from '@/repositories/member-invite-repository';
-import { consumeInviteCode, peekInviteCode } from '@/lib/invite/invite-code-store';
+import { consumeInviteCode, peekInviteCode, stashInviteCode } from '@/lib/invite/invite-code-store';
 import {
   clearPendingJoinHouseholdId,
   peekPendingJoinHouseholdId,
@@ -379,7 +379,7 @@ type OrbitContextValue = {
   listGroceryBuyAgain: () => string[];
   setPreferredStore: (storeId: string) => void;
   preferredStore: PreferredStore;
-  joinHousehold: (input: JoinHouseholdInput) => Promise<'pending' | 'active' | void>;
+  joinHousehold: (input: JoinHouseholdInput) => Promise<'pending' | 'active' | 'signed_out' | void>;
   /** After sign-in: consume a stashed household invite. */
   applyStashedInvite: () => Promise<'pending' | 'active' | 'none'>;
   /** Pending adult: reload that join, not the oldest household. */
@@ -1251,7 +1251,21 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return createdNext;
   };
 
-  const joinHousehold = async (input: JoinHouseholdInput): Promise<'pending' | 'active'> => {
+  const joinHousehold = async (
+    input: JoinHouseholdInput
+  ): Promise<'pending' | 'active' | 'signed_out'> => {
+    const code = input.inviteCode.trim().toUpperCase();
+    const hasActiveLiveHome =
+      Boolean(household.id) &&
+      !isPendingJoinSnapshot(household) &&
+      household.members.some((member) => member.status === 'active');
+
+    if (joinSessionSignOutRequired(hasActiveLiveHome, Boolean(code))) {
+      await stashInviteCode(code);
+      await signOut();
+      return 'signed_out';
+    }
+
     const user =
       currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
     if (!user) {
@@ -1309,6 +1323,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (kind !== 'household') return 'none';
     try {
       const outcome = await joinHousehold({ inviteCode: raw });
+      if (outcome === 'signed_out') {
+        return 'none';
+      }
       await consumeInviteCode();
       return outcome;
     } catch (error) {
@@ -3831,15 +3848,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const approveMember = async (memberId: string) => {
-    const member = household.members.find((item) => item.id === memberId);
-    await householdRepository.approveMember(memberId);
+    const approved = await householdRepository.approveMember(memberId);
     if (dataMode === 'supabase') {
       await reloadHouseholdDomains();
     } else {
       setHousehold((current) => ({
         ...current,
         members: current.members.map((item) =>
-          item.id === memberId ? { ...item, status: 'active' } : item
+          item.id === memberId
+            ? { ...item, status: 'active', userId: approved.userId ?? item.userId ?? null }
+            : item
         ),
       }));
       setActiveMemberId(null);

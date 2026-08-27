@@ -4,6 +4,10 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/orbit/avatar';
 import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
+import {
+  MemberConnectionBadge,
+  MemberConnectionCaption,
+} from '@/components/orbit/member-connection-badge';
 import type { MemberInvite } from '@/lib/household/member-invites';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -68,7 +72,10 @@ export default function HouseholdMembersScreen() {
   const [inviteMemberId, setInviteMemberId] = useState<string | null>(null);
 
   const pending = household.members.filter((member) => member.status === 'pending');
-  const active = household.members.filter((member) => member.status !== 'pending');
+  const invited = household.members.filter((member) => member.status === 'invited');
+  const active = household.members.filter(
+    (member) => member.status !== 'pending' && member.status !== 'invited'
+  );
   const adminSeats = familyAdminSeatsLabel(household.members);
   const admins = getAdminMembers(household.members);
   const familyCap = usesFamilyAdminCap();
@@ -334,6 +341,38 @@ export default function HouseholdMembersScreen() {
         </>
       ) : null}
 
+      {invited.length > 0 ? (
+        <>
+          <Text style={typography.headline}>Not connected yet</Text>
+          {invited.map((member) => (
+            <GlassCard key={member.id} style={styles.card}>
+              <View style={styles.memberHeader}>
+                <Avatar
+                  name={member.name}
+                  emoji={memberDisplayEmoji(member)}
+                  imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
+                  size="m"
+                />
+                <View style={styles.memberCopy}>
+                  <Text style={typography.headline}>{member.name}</Text>
+                  <MemberConnectionCaption member={member} />
+                </View>
+                <MemberConnectionBadge member={member} />
+              </View>
+              <View style={styles.pillRow}>
+                <StatusPill label={formatHouseholdRole(member.role)} tone="amber" />
+                <StatusPill label="invited" tone="amber" />
+              </View>
+              {permissions.canManageHousehold ? (
+                <OrbitButton tone="secondary" onPress={() => setInviteMemberId(member.id)}>
+                  Show invite code
+                </OrbitButton>
+              ) : null}
+            </GlassCard>
+          ))}
+        </>
+      ) : null}
+
       <Text style={typography.headline}>Household</Text>
       {active.map((member) => (
         <GlassCard key={member.id} style={styles.card}>
@@ -346,10 +385,12 @@ export default function HouseholdMembersScreen() {
             />
             <View style={styles.memberCopy}>
               <Text style={typography.headline}>{member.name}</Text>
+              <MemberConnectionCaption member={member} />
               <Text style={typography.footnote}>
                 {member.xp} XP · week {member.weekXp ?? 0} · streak {member.streak ?? 0}
               </Text>
             </View>
+            <MemberConnectionBadge member={member} />
           </View>
           <View style={styles.pillRow}>
             <StatusPill

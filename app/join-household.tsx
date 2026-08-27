@@ -10,6 +10,7 @@ import { OrbitInput } from '@/components/orbit/orbit-input';
 import { typography } from '@/constants/orbit-theme';
 import { userFacingMessage } from '@/lib/auth/auth-errors';
 import { consumeInviteCode, peekInviteCode } from '@/lib/invite/invite-code-store';
+import { hrefForLoggedOutInvite } from '@/lib/invites/join-session';
 import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -36,6 +37,10 @@ export default function JoinHouseholdScreen() {
     try {
       setInviteCode(parsed);
       const outcome = await joinHousehold({ inviteCode: parsed });
+      if (outcome === 'signed_out') {
+        router.replace(hrefForLoggedOutInvite(parsed) as never);
+        return;
+      }
       await consumeInviteCode();
       router.replace((outcome === 'pending' ? '/pending-approval' : '/') as never);
     } catch (err) {

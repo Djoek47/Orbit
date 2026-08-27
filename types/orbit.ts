@@ -601,6 +601,10 @@ export type CreateEventInput = {
   location: string;
   responsible: string;
   category?: HouseholdEvent['category'];
+  /** Fixed calendar day YYYY-MM-DD — preferred over relative date labels. */
+  dateKey?: string;
+  /** ISO timestamp for calendar grid grouping. */
+  startsAt?: string;
   /** When true, schedule a short Expo Go local reminder after create. */
   remindMe?: boolean;
 };

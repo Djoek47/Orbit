@@ -318,11 +318,61 @@ export const householdRepository = {
 
   async joinHousehold(input: JoinHouseholdInput, user: OrbitUser): Promise<HouseholdSnapshot> {
     const code = input.inviteCode.trim().toUpperCase();
+    const displayName = input.displayName?.trim() || user.name;
 
     if (isMockMode()) {
+      const active = await loadActiveMockHousehold();
+      const baseMembers = active?.members?.length ? active.members : mockHousehold.members;
+      const householdId =
+        active?.id && active.id !== mockHousehold.id
+          ? active.id
+          : `hh-join-${code.replace(/[^A-Z0-9]+/g, '') || 'invite'}`;
+
+      if (input.memberId) {
+        const seatIndex = baseMembers.findIndex(
+          (member) => member.id === input.memberId && member.status === 'invited'
+        );
+        if (seatIndex >= 0) {
+          const seat = baseMembers[seatIndex];
+          const claimed = {
+            ...seat,
+            name: displayName || seat.name,
+            status: 'pending' as const,
+            userId: user.id,
+          };
+          const members = baseMembers.map((member, index) =>
+            index === seatIndex ? claimed : member
+          );
+          const snapshot = {
+            ...(active ?? mockHousehold),
+            id: householdId,
+            householdName: active?.householdName ?? 'Invited household',
+            inviteCode: code || active?.inviteCode || mockHousehold.inviteCode,
+            greetingName: claimed.name,
+            members,
+            poppins: {
+              title: 'Join request sent',
+              summary:
+                'Your household access is pending approval. Browse calmly — create/edit stays locked until an owner or admin accepts you.',
+              actions: ['Wait for approval', 'Ask an owner to open Members'],
+            },
+          };
+          const notice = adminJoinRequestNotification({ requesterName: claimed.name });
+          void notificationsRepository.create({
+            householdId,
+            title: notice.title,
+            body: notice.body,
+            category: notice.category,
+            priority: notice.priority,
+            data: notice.data,
+          });
+          return snapshot;
+        }
+      }
+
       const pendingMember = {
         id: createLocalId('member'),
-        name: input.displayName?.trim() || user.name,
+        name: displayName,
         role: 'adult' as const,
         status: 'pending' as const,
         userId: user.id,
@@ -332,15 +382,14 @@ export const householdRepository = {
         streak: 0,
         loadShare: 0,
       };
-      const householdId = `hh-join-${code.replace(/[^A-Z0-9]+/g, '') || 'invite'}`;
       const snapshot = {
         ...mockHousehold,
         id: householdId,
-        householdName: 'Invited household',
+        householdName: active?.householdName ?? 'Invited household',
         inviteCode: code || mockHousehold.inviteCode,
         greetingName: pendingMember.name,
         members: [
-          ...mockHousehold.members.filter(
+          ...baseMembers.filter(
             (member) => member.name.toLowerCase() !== pendingMember.name.toLowerCase()
           ),
           pendingMember,
@@ -366,7 +415,11 @@ export const householdRepository = {
 
     const supabase = getConfiguredSupabase('householdRepository.joinHousehold');
     const { data, error } = await supabase.functions.invoke('join-household', {
-      body: { inviteCode: code, displayName: user.name },
+      body: {
+        inviteCode: code,
+        displayName,
+        memberId: input.memberId,
+      },
     });
 
     if (error) {
@@ -397,11 +450,13 @@ export const householdRepository = {
 
   async approveMember(memberId: string): Promise<HouseholdMember> {
     if (isMockMode()) {
-      const member = mockHousehold.members.find((item) => item.id === memberId);
+      const active = await loadActiveMockHousehold();
+      const pool = active?.members ?? mockHousehold.members;
+      const member = pool.find((item) => item.id === memberId);
       if (!member) {
         throw new Error('householdRepository.approveMember: Member not found.');
       }
-      return { ...member, status: 'active' };
+      return { ...member, status: 'active', userId: member.userId ?? null };
     }
 
     const supabase = getConfiguredSupabase('householdRepository.approveMember');

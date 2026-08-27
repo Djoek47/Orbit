@@ -14,7 +14,6 @@ import {
   eventColor,
   eventTypeConfig,
   format,
-  groupEventsByDate,
   isSameDay,
   isSameMonth,
   isToday,
@@ -22,6 +21,12 @@ import {
   subMonths,
   weekStripDays,
 } from '@/lib/calendar/make-calendar';
+import {
+  buildPlanItems,
+  groupPlanItemsByDate,
+  planItemTypeLabel,
+  type PlanItem,
+} from '@/lib/calendar/plan-items';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
@@ -42,6 +47,18 @@ function formatEndTime(event: { endsAt?: string; time: string }): string | null 
     }
   }
   return null;
+}
+
+function planItemColor(item: PlanItem): string {
+  if (item.kind === 'homework') return TYPE_CONFIG.homework.color;
+  if (item.category) return eventColor(item.category);
+  return TYPE_CONFIG.event.color;
+}
+
+function planItemConfig(item: PlanItem) {
+  if (item.kind === 'homework') return TYPE_CONFIG.homework;
+  if (item.category) return eventTypeConfig(item.category);
+  return TYPE_CONFIG.event;
 }
 
 function locationShort(location: string): string | null {
@@ -74,11 +91,30 @@ export default function PlanScreen() {
     );
   }, [sharedKidMode, currentMember, household.events]);
 
-  const eventsByDate = useMemo(() => groupEventsByDate(visibleEvents), [visibleEvents]);
+  const visibleTasks = useMemo(() => {
+    if (!sharedKidMode || !currentMember) return household.tasks;
+    const name = currentMember.name;
+    return household.tasks.filter(
+      (task) => task.assignee === name || task.assignees?.includes(name),
+    );
+  }, [sharedKidMode, currentMember, household.tasks]);
+
+  const planItems = useMemo(
+    () => buildPlanItems(visibleEvents, visibleTasks),
+    [visibleEvents, visibleTasks]
+  );
+  const itemsByDate = useMemo(() => groupPlanItemsByDate(planItems), [planItems]);
   const calendarDays = useMemo(() => monthGridDays(currentMonth), [currentMonth]);
   const weekDays = useMemo(() => weekStripDays(), []);
   const selectedKey = format(selectedDate, 'yyyy-MM-dd');
-  const selectedEvents = eventsByDate[selectedKey] ?? [];
+  const selectedItems = itemsByDate[selectedKey] ?? [];
+  const selectedEvents = visibleEvents.filter(
+    (event) =>
+      event.startsAt?.startsWith(selectedKey) ||
+      (event.date.includes('Today') && isToday(selectedDate)) ||
+      (event.date.includes('Tomorrow') &&
+        isSameDay(selectedDate, new Date(Date.now() + 86400000)))
+  );
   const missingGroceries = household.groceries.filter(
     (g) => g.status === 'Missing' || g.status === 'Low'
   ).length;
@@ -86,7 +122,7 @@ export default function PlanScreen() {
   const canBuildTrip =
     locationEvents.length >= 2 ||
     (locationEvents.length >= 1 && missingGroceries > 0) ||
-    selectedEvents.filter((e) => e.category === 'School' || e.category === 'Activity').length >= 1;
+    selectedItems.filter((item) => item.kind === 'homework' || item.category === 'School' || item.category === 'Activity').length >= 1;
 
   const handleBuildTrip = async () => {
     if (buildingTrip) return;
@@ -179,12 +215,15 @@ export default function PlanScreen() {
           </View>
 
           <View style={styles.legend}>
-            {Object.entries(TYPE_CONFIG).map(([key, cfg]) => (
+            {(['homework', 'event'] as const).map((key) => {
+              const cfg = TYPE_CONFIG[key];
+              return (
               <View key={key} style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: cfg.color }]} />
                 <Text style={[styles.legendLabel, { color: c.textSubtle }]}>{cfg.label}</Text>
               </View>
-            ))}
+              );
+            })}
           </View>
 
           {view === 'month' ? (
@@ -214,11 +253,11 @@ export default function PlanScreen() {
               <View style={styles.monthGrid}>
                 {calendarDays.map((day) => {
                   const ds = format(day, 'yyyy-MM-dd');
-                  const events = eventsByDate[ds] ?? [];
+                  const items = itemsByDate[ds] ?? [];
                   const selected = isSameDay(day, selectedDate);
                   const inMonth = isSameMonth(day, currentMonth);
                   const today = isToday(day);
-                  const dots = [...new Set(events.slice(0, 4).map((e) => eventColor(e.category)))].slice(0, 3);
+                  const dots = [...new Set(items.slice(0, 4).map((item) => planItemColor(item)))].slice(0, 3);
                   return (
                     <Pressable key={ds} onPress={() => setSelectedDate(day)} style={styles.dayCell}>
                       <View
@@ -254,7 +293,7 @@ export default function PlanScreen() {
             <View style={styles.weekRow}>
               {weekDays.map((day) => {
                 const ds = format(day, 'yyyy-MM-dd');
-                const events = eventsByDate[ds] ?? [];
+                const items = itemsByDate[ds] ?? [];
                 const selected = isSameDay(day, selectedDate);
                 const today = isToday(day);
                 return (
@@ -282,10 +321,10 @@ export default function PlanScreen() {
                         {format(day, 'd')}
                       </Text>
                     </View>
-                    {events.length > 0 ? (
+                    {items.length > 0 ? (
                       <View style={styles.dots}>
-                        {[...new Set(events.slice(0, 3).map((e) => eventColor(e.category)))].map((c, i) => (
-                          <View key={i} style={[styles.dotLg, { backgroundColor: c }]} />
+                        {[...new Set(items.slice(0, 3).map((item) => planItemColor(item)))].map((color, i) => (
+                          <View key={i} style={[styles.dotLg, { backgroundColor: color }]} />
                         ))}
                       </View>
                     ) : null}
@@ -300,7 +339,7 @@ export default function PlanScreen() {
               {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEE, MMMM d')}
             </Text>
             <Text style={[styles.eyebrow, { color: c.textSubtle }]}>
-              {selectedEvents.length} {selectedEvents.length === 1 ? 'item' : 'items'}
+              {selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'}
             </Text>
           </View>
 
@@ -318,7 +357,7 @@ export default function PlanScreen() {
             />
           ) : null}
 
-          {selectedEvents.length === 0 ? (
+          {selectedItems.length === 0 ? (
             <View
               style={[
                 styles.emptyDay,
@@ -330,30 +369,34 @@ export default function PlanScreen() {
               </Text>
             </View>
           ) : (
-            selectedEvents.map((ev) => {
-              const cfg = eventTypeConfig(ev.category);
+            selectedItems.map((item) => {
+              const cfg = planItemConfig(item);
               const color = cfg.color;
-              const endTime = formatEndTime(ev);
-              const shortLoc = locationShort(ev.location);
+              const linkedEvent =
+                item.kind !== 'homework'
+                  ? visibleEvents.find((event) => event.id === item.id)
+                  : null;
+              const endTime = linkedEvent ? formatEndTime(linkedEvent) : null;
+              const shortLoc = linkedEvent?.location ? locationShort(linkedEvent.location) : null;
               return (
-                <Pressable key={ev.id} onPress={() => router.push(`/event/${ev.id}` as never)}>
+                <Pressable key={`${item.kind}-${item.id}`} onPress={() => router.push(item.href as never)}>
                   <View style={[styles.eventCard, { backgroundColor: cfg.bg, borderColor: `${color}33` }]}>
                     <View style={[styles.eventBar, { backgroundColor: color }]} />
                     <View style={{ flex: 1 }}>
                       <View style={styles.eventBadgeRow}>
                         <View style={[styles.typePill, { backgroundColor: `${color}22` }]}>
                           <Text style={[styles.typePillText, { color }]}>
-                            {cfg.emoji} {cfg.label}
+                            {cfg.emoji} {planItemTypeLabel(item)}
                           </Text>
                         </View>
                       </View>
-                      <Text style={[styles.eventTitle, { color: c.text }]}>{ev.title}</Text>
+                      <Text style={[styles.eventTitle, { color: c.text }]}>{item.title}</Text>
                       <View style={styles.eventMetaRow}>
-                        {ev.time ? (
+                        {item.time ? (
                           <View style={styles.eventMetaItem}>
                             <MaterialIcons name="schedule" size={11} color={c.textSubtle} />
                             <Text style={[styles.meta, { color: c.textMuted }]}>
-                              {ev.time}
+                              {item.time}
                               {endTime ? ` – ${endTime}` : ''}
                             </Text>
                           </View>
@@ -364,18 +407,18 @@ export default function PlanScreen() {
                             <Text style={[styles.meta, { color, fontWeight: '500' }]}>{shortLoc}</Text>
                           </View>
                         ) : null}
-                        {ev.responsible ? (
+                        {item.responsible ? (
                           <View style={styles.eventMetaItem}>
                             <MaterialIcons name="person" size={11} color={c.textSubtle} />
-                            <Text style={[styles.meta, { color: c.textMuted }]}>{ev.responsible}</Text>
+                            <Text style={[styles.meta, { color: c.textMuted }]}>{item.responsible}</Text>
                           </View>
                         ) : null}
                       </View>
-                      {ev.location ? (
+                      {linkedEvent?.location ? (
                         <View style={styles.eventLocationBox}>
                           <MaterialIcons name="place" size={11} color={c.textSubtle} />
                           <Text style={[styles.eventLocationText, { color: c.textSubtle }]}>
-                            {ev.location}
+                            {linkedEvent.location}
                           </Text>
                         </View>
                       ) : null}
@@ -395,8 +438,8 @@ export default function PlanScreen() {
             <View style={{ gap: 8 }}>
               {weekDays.slice(0, 5).map((day) => {
                 const ds = format(day, 'yyyy-MM-dd');
-                const events = eventsByDate[ds] ?? [];
-                if (events.length === 0) return null;
+                const items = itemsByDate[ds] ?? [];
+                if (items.length === 0) return null;
                 return (
                   <Pressable
                     key={ds}
@@ -416,22 +459,22 @@ export default function PlanScreen() {
                       </Text>
                     </View>
                     <View style={styles.next7Pills}>
-                      {events.slice(0, 3).map((ev) => {
-                        const c = eventColor(ev.category);
+                      {items.slice(0, 3).map((item) => {
+                        const pillColor = planItemColor(item);
                         return (
                           <View
-                            key={ev.id}
-                            style={[styles.next7Pill, { backgroundColor: `${c}15`, borderColor: `${c}22` }]}>
-                            <View style={[styles.next7Dot, { backgroundColor: c }]} />
-                            <Text style={[styles.next7PillText, { color: c }]} numberOfLines={1}>
-                              {ev.title.length > 18 ? `${ev.title.slice(0, 17)}…` : ev.title}
+                            key={`${item.kind}-${item.id}`}
+                            style={[styles.next7Pill, { backgroundColor: `${pillColor}15`, borderColor: `${pillColor}22` }]}>
+                            <View style={[styles.next7Dot, { backgroundColor: pillColor }]} />
+                            <Text style={[styles.next7PillText, { color: pillColor }]} numberOfLines={1}>
+                              {item.title.length > 18 ? `${item.title.slice(0, 17)}…` : item.title}
                             </Text>
                           </View>
                         );
                       })}
-                      {events.length > 3 ? (
+                      {items.length > 3 ? (
                         <Text style={[styles.next7More, { color: c.textSubtle }]}>
-                          +{events.length - 3} more
+                          +{items.length - 3} more
                         </Text>
                       ) : null}
                     </View>

@@ -4,10 +4,12 @@ import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoiceRow } from '@/components/orbit/choice-row';
+import { EventDatePicker } from '@/components/orbit/event-date-picker';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitScreen, typography } from '@/constants/orbit-theme';
+import { buildStartsAtIso, formatStoredDateLabel, todayKey } from '@/lib/calendar/event-date';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -15,8 +17,7 @@ import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
 
-const CATEGORIES: HouseholdEvent['category'][] = ['School', 'Activity', 'Appointment', 'Family', 'Routine'];
-const DATE_PRESETS = ['Today', 'Tomorrow', 'This weekend', 'Next week'];
+const CATEGORIES: HouseholdEvent['category'][] = ['School', 'Activity', 'Appointment', 'Family'];
 
 export default function CreateEventScreen() {
   const insets = useSafeAreaInsets();
@@ -29,7 +30,7 @@ export default function CreateEventScreen() {
   const simplified = sharedKidMode && !permissions.canManageHousehold;
 
   const [title, setTitle] = useState('');
-  const [date, setDate] = useState('Today');
+  const [dateKey, setDateKey] = useState(todayKey());
   const [time, setTime] = useState('5:30 PM');
   const [location, setLocation] = useState('');
   const [category, setCategory] = useState<HouseholdEvent['category']>('Family');
@@ -40,8 +41,9 @@ export default function CreateEventScreen() {
   const [saving, setSaving] = useState(false);
 
   const memberNames = useMemo(() => household.members.map((member) => member.name), [household.members]);
+  const dateLabel = useMemo(() => formatStoredDateLabel(dateKey), [dateKey]);
   const canSave =
-    canCreate && title.trim().length > 1 && date.trim().length > 1 && time.trim().length > 1 && !!responsible;
+    canCreate && title.trim().length > 1 && dateKey.trim().length > 1 && time.trim().length > 1 && !!responsible;
 
   const handleSave = async () => {
     if (!canSave || saving) {
@@ -52,7 +54,9 @@ export default function CreateEventScreen() {
     try {
       await createEvent({
         title,
-        date,
+        date: dateLabel,
+        dateKey,
+        startsAt: buildStartsAtIso(dateKey, time),
         time,
         location: simplified ? location.trim() : location,
         responsible: simplified ? currentMember?.name ?? responsible : responsible,
@@ -105,8 +109,8 @@ export default function CreateEventScreen() {
 
         <GlassCard>
           <OrbitInput label="Event title" onChangeText={setTitle} placeholder="Dentist appointment" value={title} />
-          <ChoiceRow label="Date preset" onChange={setDate} options={DATE_PRESETS} value={date} />
-          <OrbitInput label="Date label" onChangeText={setDate} placeholder="Today" value={date} />
+          <Text style={[typography.caption1, { color: c.textMuted, marginBottom: 8 }]}>Date</Text>
+          <EventDatePicker value={dateKey} onChange={setDateKey} />
           <OrbitInput label="Time" onChangeText={setTime} placeholder="5:30 PM" value={time} />
           <OrbitInput
             label={simplified ? 'Place (optional)' : 'Location'}

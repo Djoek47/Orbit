@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { inviteCode, displayName } = await req.json();
+    const { inviteCode, displayName, memberId } = await req.json();
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -46,6 +46,8 @@ Deno.serve(async (req) => {
     const code = String(inviteCode ?? '')
       .trim()
       .toUpperCase();
+    const resolvedName = String(displayName ?? user.email?.split('@')[0] ?? 'Member').trim();
+
     const { data: invite, error: inviteError } = await admin
       .from('household_invites')
       .select('*')
@@ -92,13 +94,56 @@ Deno.serve(async (req) => {
       );
     }
 
+    const claimMemberId = memberId ? String(memberId).trim() : '';
+    if (claimMemberId) {
+      const { data: seat, error: seatError } = await admin
+        .from('household_members')
+        .select('*')
+        .eq('id', claimMemberId)
+        .eq('household_id', invite.household_id)
+        .eq('status', 'invited')
+        .maybeSingle();
+
+      if (!seatError && seat) {
+        const { data: claimed, error: claimError } = await admin
+          .from('household_members')
+          .update({
+            user_id: user.id,
+            display_name: resolvedName || seat.display_name,
+            status: 'pending',
+            avatar_symbol: (resolvedName || seat.display_name || 'M').charAt(0).toUpperCase(),
+          })
+          .eq('id', seat.id)
+          .select('*')
+          .single();
+
+        if (claimError || !claimed) {
+          return new Response(JSON.stringify({ error: claimError?.message ?? 'Join failed' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        await admin
+          .from('household_invites')
+          .update({ uses: (invite.uses ?? 0) + 1 })
+          .eq('id', invite.id);
+
+        await notifyAdminsJoinRequest(admin, invite.household_id, resolvedName || seat.display_name);
+
+        return new Response(JSON.stringify({ member: claimed, householdId: invite.household_id }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     const row = {
       household_id: invite.household_id,
       user_id: user.id,
-      display_name: displayName ?? user.email?.split('@')[0] ?? 'Member',
+      display_name: resolvedName,
       role: 'adult',
       status: 'pending',
-      avatar_symbol: (displayName ?? 'M').charAt(0).toUpperCase(),
+      avatar_symbol: resolvedName.charAt(0).toUpperCase(),
     };
 
     const { data: member, error: memberError } = existing
@@ -117,6 +162,8 @@ Deno.serve(async (req) => {
       .update({ uses: (invite.uses ?? 0) + 1 })
       .eq('id', invite.id);
 
+    await notifyAdminsJoinRequest(admin, invite.household_id, resolvedName);
+
     return new Response(JSON.stringify({ member, householdId: invite.household_id }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -127,3 +174,33 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+async function notifyAdminsJoinRequest(
+  admin: ReturnType<typeof createClient>,
+  householdId: string,
+  requesterName: string
+) {
+  const { data: admins } = await admin
+    .from('household_members')
+    .select('user_id')
+    .eq('household_id', householdId)
+    .in('role', ['owner', 'admin'])
+    .eq('status', 'active')
+    .not('user_id', 'is', null);
+
+  const title = 'Poppins · Members';
+  const body = `${requesterName} asked to join this household.`;
+  for (const adminRow of admins ?? []) {
+    if (!adminRow.user_id) continue;
+    await admin.from('notifications').insert({
+      household_id: householdId,
+      user_id: adminRow.user_id,
+      title,
+      body,
+      category: 'general',
+      priority: 'high',
+      data: { surface: 'members' },
+      is_read: false,
+    });
+  }
+}

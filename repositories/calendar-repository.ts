@@ -1,4 +1,5 @@
 import { mockHousehold } from '@/data/mock-household';
+import { buildStartsAtIso, formatStoredDateLabel } from '@/lib/calendar/event-date';
 import { mapEventRow } from '@/lib/mappers/orbit-mappers';
 import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, mapDbError } from '@/repositories/repository-utils';
 import type { CreateEventInput, HouseholdEvent } from '@/types/orbit';
@@ -57,14 +58,25 @@ export const calendarRepository = {
     householdId: string | null | undefined,
     input: CreateEventInput
   ): Promise<HouseholdEvent> {
+    const dateKey = input.dateKey?.trim();
+    const dateLabel =
+      dateKey && /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
+        ? formatStoredDateLabel(dateKey)
+        : input.date.trim();
+    const startsAt =
+      input.startsAt ??
+      (dateKey && /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
+        ? buildStartsAtIso(dateKey, input.time)
+        : undefined);
     const event: HouseholdEvent = {
       id: createLocalId('event'),
       title: input.title.trim(),
       category: normalizeCategory(input.category),
-      date: input.date.trim(),
+      date: dateLabel,
       time: input.time.trim(),
       location: input.location.trim(),
       responsible: input.responsible,
+      startsAt,
     };
 
     if (isMockMode()) {
@@ -87,6 +99,7 @@ export const calendarRepository = {
         time_label: event.time,
         location: event.location,
         responsible_name: event.responsible,
+        starts_at: event.startsAt ?? null,
       })
       .select('*')
       .single();
@@ -124,6 +137,7 @@ export const calendarRepository = {
         time_label: next.time,
         location: next.location,
         responsible_name: next.responsible,
+        starts_at: next.startsAt ?? null,
       })
       .eq('id', next.id)
       .select('*')

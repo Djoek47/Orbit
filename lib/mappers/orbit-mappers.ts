@@ -228,6 +228,7 @@ export function mapEventRow(row: {
   time_label: string;
   location: string | null;
   responsible_name: string;
+  starts_at?: string | null;
 }): HouseholdEvent {
   return {
     id: row.id,
@@ -237,6 +238,7 @@ export function mapEventRow(row: {
     time: row.time_label,
     location: row.location ?? '',
     responsible: row.responsible_name,
+    startsAt: row.starts_at ?? undefined,
   };
 }
 
