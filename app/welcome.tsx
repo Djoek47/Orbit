@@ -20,7 +20,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { SetupMemberWizard } from '@/components/orbit/setup-member-wizard';
-import { SetupRosterHub } from '@/components/orbit/setup-roster-hub';
+import { SetupRosterHub, type RosterSidekickInvite } from '@/components/orbit/setup-roster-hub';
 import { SplashHooks } from '@/components/orbit/splash-hooks';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
@@ -41,6 +41,7 @@ import {
   clearSetupDraft,
   createEmptyDraft,
   loadSetupDraft,
+  memberIsComplete,
   saveSetupDraft,
   type DraftMember,
   type HouseholdSetupDraft,
@@ -80,11 +81,35 @@ import { shareInvite } from '@/lib/invites/share-invite';
 import { isPendingJoinSnapshot } from '@/lib/invites/join-approval';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
+import type { HouseholdMember } from '@/types/orbit';
 
 function householdSetupMessage(err: unknown, fallback: string): string {
   const text = err instanceof Error ? err.message.trim() : '';
   if (text && isSafeHumanMessage(text) && !/already exists/i.test(text)) return text;
   return fallback;
+}
+
+function mapSidekickInvitesByDraftId(
+  draft: HouseholdSetupDraft,
+  created: HouseholdMember[]
+): Record<string, RosterSidekickInvite> {
+  const out: Record<string, RosterSidekickInvite> = {};
+  for (const draftMember of draft.members) {
+    if (!memberIsComplete(draftMember)) continue;
+    const match = created.find(
+      (member) =>
+        member.role === 'child' &&
+        member.name.trim().toLowerCase() === draftMember.name.trim().toLowerCase()
+    );
+    if (!match?.profileInviteCode?.trim()) continue;
+    const links = buildInviteLinks(match.profileInviteCode);
+    out[draftMember.id] = {
+      code: links.code,
+      deepLink: links.deepLink,
+      webLink: links.webLink,
+    };
+  }
+  return out;
 }
 
 type Step =
@@ -118,7 +143,6 @@ export default function WelcomeOnboardingScreen() {
     accentTheme,
     connectSharedTabletProfiles,
     addOnboardingMembers,
-    createChildInvites,
     createHousehold,
     createProfile,
     createReward,
@@ -191,11 +215,12 @@ export default function WelcomeOnboardingScreen() {
   const [busy, setBusy] = useState(false);
   const [resumed, setResumed] = useState(false);
   const [splashReady, setSplashReady] = useState(false);
-  const [kidNameOne, setKidNameOne] = useState('');
-  const [kidNameTwo, setKidNameTwo] = useState('');
-  const [kidInvites, setKidInvites] = useState<
-    { id: string; name: string; code: string; deepLink: string; webLink: string }[]
-  >([]);
+  const [rosterPostCreate, setRosterPostCreate] = useState(false);
+  const [postCreateDraft, setPostCreateDraft] = useState<HouseholdSetupDraft | null>(null);
+  const [sidekickInvitesByDraftId, setSidekickInvitesByDraftId] = useState<
+    Record<string, RosterSidekickInvite>
+  >({});
+  const [expandedInviteDraftId, setExpandedInviteDraftId] = useState<string | null>(null);
   const [tabletCodes, setTabletCodes] = useState<string[]>([]);
   const [tabletCodeDraft, setTabletCodeDraft] = useState('');
 
@@ -842,12 +867,50 @@ export default function WelcomeOnboardingScreen() {
     setError('');
     try {
       await persistPrefs();
-      await materializeDraft(setupDraft, true);
-      setStep('ready');
+      const draftSnapshot = setupDraft;
+      const created = await materializeDraft(draftSnapshot, true);
+      const invites = mapSidekickInvitesByDraftId(draftSnapshot, created);
+      setPostCreateDraft(draftSnapshot);
+      setSidekickInvitesByDraftId(invites);
+      setExpandedInviteDraftId(
+        draftSnapshot.members.find((member) => memberIsComplete(member) && invites[member.id])?.id ??
+          null
+      );
+      setRosterPostCreate(true);
     } catch (err) {
       setError(householdSetupMessage(err, 'Could not create household.'));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleContinueFromRoster = () => {
+    setStep('ready');
+  };
+
+  const handleShareRosterSidekick = async (
+    member: DraftMember,
+    invite: RosterSidekickInvite
+  ) => {
+    setShareStatus('');
+    try {
+      const result = await shareInvite({
+        householdName: household.householdName || householdName,
+        inviteCode: invite.code,
+        deepLink: invite.deepLink,
+        webLink: invite.webLink,
+        kind: 'kid',
+        childName: member.name.trim(),
+      });
+      setShareStatus(
+        result === 'shared'
+          ? Platform.OS === 'ios'
+            ? `Shared ${member.name.trim()}'s invite — pick AirDrop or Messages.`
+            : `Shared ${member.name.trim()}'s invite.`
+          : 'Share dismissed.'
+      );
+    } catch {
+      setShareStatus('Could not open share sheet.');
     }
   };
 
@@ -864,8 +927,16 @@ export default function WelcomeOnboardingScreen() {
         ...setupDraft,
         householdName: householdName.trim() || setupDraft.householdName,
       });
-      await materializeDraft(draft, false);
-      setStep('ready');
+      const draftSnapshot = draft;
+      const created = await materializeDraft(draftSnapshot, false);
+      const invites = mapSidekickInvitesByDraftId(draftSnapshot, created);
+      setPostCreateDraft(draftSnapshot);
+      setSidekickInvitesByDraftId(invites);
+      setExpandedInviteDraftId(
+        draftSnapshot.members.find((member) => memberIsComplete(member) && invites[member.id])?.id ??
+          null
+      );
+      setRosterPostCreate(true);
     } catch (err) {
       setError(householdSetupMessage(err, 'Could not save household.'));
     } finally {
@@ -959,73 +1030,9 @@ export default function WelcomeOnboardingScreen() {
     }
   };
 
-  const handleCreateKidInvites = async () => {
-    setBusy(true);
-    setError('');
-    setShareStatus('');
-    try {
-      const created = await createChildInvites([kidNameOne, kidNameTwo], {
-        householdId: household.id,
-      });
-      const next = created.map((member) => {
-        const links = buildInviteLinks(member.profileInviteCode || member.id);
-        return {
-          id: member.id,
-          name: member.name,
-          code: links.code,
-          deepLink: links.deepLink,
-          webLink: links.webLink,
-        };
-      });
-      setKidInvites(next);
-      setShareStatus(
-        next.length === 1
-          ? 'Sidekick profile saved on your admin account. AirDrop the invite below.'
-          : 'Sidekick profiles saved on your admin account. AirDrop each invite below.',
-      );
-    } catch (err) {
-      setError(userFacingMessage(err, 'Could not create kid invites.'));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleShareKidInvite = async (invite: {
-    name: string;
-    code: string;
-    deepLink: string;
-    webLink: string;
-  }) => {
-    setShareStatus('');
-    try {
-      const result = await shareInvite({
-        householdName: household.householdName || householdName,
-        inviteCode: invite.code,
-        deepLink: invite.deepLink,
-        webLink: invite.webLink,
-        kind: 'kid',
-        childName: invite.name,
-      });
-      setShareStatus(
-        result === 'shared'
-          ? Platform.OS === 'ios'
-            ? `Shared ${invite.name}'s invite — pick AirDrop or Messages.`
-            : `Shared ${invite.name}'s invite.`
-          : 'Share dismissed.',
-      );
-    } catch {
-      setShareStatus('Could not open share sheet.');
-    }
-  };
-
   const handleEnter = () => {
     router.replace('/' as never);
   };
-
-  const showKidInviteBox =
-    createdHousehold &&
-    selectedRole !== 'child' &&
-    selectedRole !== 'shared-tablet';
 
   return (
     <View
@@ -1654,10 +1661,17 @@ export default function WelcomeOnboardingScreen() {
             <KeyboardScreen contentContainerStyle={styles.scroll}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
               <SetupRosterHub
-                draft={setupDraft}
+                draft={postCreateDraft ?? setupDraft}
                 ownerName={displayName.trim() || currentUser?.name || 'You'}
                 ownerAvatar={draftAvatar || currentUser?.avatar}
                 busy={busy}
+                rosterPostCreate={rosterPostCreate}
+                sidekickInvitesByDraftId={sidekickInvitesByDraftId}
+                expandedInviteDraftId={expandedInviteDraftId}
+                onToggleSidekickInvite={(draftId) =>
+                  setExpandedInviteDraftId((current) => (current === draftId ? null : draftId))
+                }
+                onShareSidekick={(member, invite) => void handleShareRosterSidekick(member, invite)}
                 onEditName={() => setStep('household')}
                 onEditOwnerName={() => setStep('profile')}
                 onAddMember={() => {
@@ -1669,8 +1683,12 @@ export default function WelcomeOnboardingScreen() {
                   setStep('member-wizard');
                 }}
                 onCreateHousehold={() => void handleCreateFromRoster()}
+                onContinue={handleContinueFromRoster}
                 onFinishLater={() => void handleFinishLater()}
               />
+              {shareStatus ? (
+                <Text style={[styles.shareHint, { color: accent }]}>{shareStatus}</Text>
+              ) : null}
               {error ? <Text style={styles.error}>{error}</Text> : null}
             </KeyboardScreen>
           ) : null}
@@ -1722,69 +1740,6 @@ export default function WelcomeOnboardingScreen() {
                   </>
                 ) : null}
               </Text>
-
-              {showKidInviteBox ? (
-                <GlassCard elevated style={styles.kidInviteBox}>
-                  <Text style={[styles.kidInviteEyebrow, { color: orbitColors.success }]}>
-                    Sidekicks
-                  </Text>
-                  <Text style={[typography.headline, { color: orbitPalette.text }]}>
-                    Invite Sidekicks (no sign-in)
-                  </Text>
-                  <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                    Create up to two Sidekick profiles, then AirDrop each invite. They never need email.
-                  </Text>
-                  <OrbitInput
-                    label="Sidekick 1 name"
-                    value={kidNameOne}
-                    onChangeText={setKidNameOne}
-                    placeholder="e.g. Emma"
-                  />
-                  <OrbitInput
-                    label="Sidekick 2 name (optional)"
-                    value={kidNameTwo}
-                    onChangeText={setKidNameTwo}
-                    placeholder="e.g. Liam"
-                  />
-                  <OrbitButton
-                    disabled={busy || (!kidNameOne.trim() && !kidNameTwo.trim())}
-                    onPress={() => void handleCreateKidInvites()}>
-                    {busy ? 'Saving…' : 'Create Sidekick invites'}
-                  </OrbitButton>
-
-                  {kidInvites.map((invite) => (
-                    <View
-                      key={invite.id}
-                      style={[
-                        styles.kidInviteCard,
-                        {
-                          backgroundColor: orbitPalette.cardMuted,
-                          borderColor: orbitPalette.border,
-                        },
-                      ]}>
-                      <Text style={[styles.kidInviteName, { color: orbitPalette.text }]}>
-                        {invite.name}
-                      </Text>
-                      <View style={styles.qrWrap}>
-                        <QRCode
-                          value={invite.webLink}
-                          size={132}
-                          backgroundColor="#FFFFFF"
-                          color={ink}
-                        />
-                      </View>
-                      <Text selectable style={[styles.inviteCode, { color: orbitPalette.text }]}>
-                        {invite.code}
-                      </Text>
-                      <OrbitButton onPress={() => void handleShareKidInvite(invite)}>
-                        {Platform.OS === 'ios'
-                          ? `AirDrop / Share ${invite.name}`
-                          : `Share ${invite.name}`}
-                      </OrbitButton>
-                    </View>
-                  ))}
-                </GlassCard>
-              ) : null}
 
               {createdHousehold && readyInvite ? (
                 <GlassCard style={styles.invitePanel}>
