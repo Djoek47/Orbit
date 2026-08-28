@@ -5,6 +5,7 @@
 export const IUI_SCENES = [
   'thinking',
   'task_compose',
+  'homework_compose',
   'calendar_zoom',
   'itinerary_stage',
   'grocery_add',
@@ -98,7 +99,7 @@ export type IuiPayload = {
   /** False until who/category/task/when are chosen — HOLD must not start. */
   composeReady?: boolean;
   /** Current one-beat compose step. */
-  composeStep?: 'who' | 'category' | 'task' | 'when' | 'ready';
+  composeStep?: 'who' | 'category' | 'task' | 'subject' | 'when' | 'ready';
   /** Optional: show emoji next to library chips. */
   showEmoji?: boolean;
   /** Narrow kitchen tasks to dish-related, etc. */
@@ -109,10 +110,13 @@ export type IuiPayload = {
   shoppingLane?: 'grocery' | 'clothing';
   /** Future drop date (YYYY-MM-DD) for shopping items. */
   releaseDate?: string;
+  /** homework_compose vs generic task_compose. */
+  composeKind?: 'homework';
 };
 
 export type IuiWriteKind =
   | 'create_task'
+  | 'create_homework'
   | 'create_event'
   | 'create_itinerary_stop'
   | 'add_grocery'
@@ -125,6 +129,7 @@ export type IuiWriteKind =
 /** Scenes allowed to HOLD-commit a store write. */
 export const HOLD_SCENES: readonly IuiScene[] = [
   'task_compose',
+  'homework_compose',
   'calendar_zoom',
   'itinerary_stage',
   'grocery_add',
@@ -177,6 +182,7 @@ export function coerceCommit(
 export function sceneNeedsUnfold(scene: IuiScene): boolean {
   return (
     scene === 'task_compose' ||
+    scene === 'homework_compose' ||
     scene === 'calendar_zoom' ||
     scene === 'itinerary_stage' ||
     scene === 'grocery_add'

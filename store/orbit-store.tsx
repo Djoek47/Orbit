@@ -130,6 +130,7 @@ import { normalizeRewardSettings } from '@/lib/rewards/reward-mode';
 import { isOnRecess } from '@/lib/recess/recess-engine';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { expireOpenTasksAtBoundary } from '@/lib/tasks/expire-at-boundary';
+import { refreshStaleDueLabels } from '@/lib/tasks/due-label';
 import {
   ensureOccurrencesForDay,
   isExpiredStatus,
@@ -2108,8 +2109,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             member.name === name && isOnRecess(live.recessPeriods ?? [], member.id, dateKey)
         ),
     });
+    const relabeled = refreshStaleDueLabels(merged, now);
     // Persist auto-confirm / missed / expiry transitions for changed rows
-    for (const task of merged) {
+    for (const task of relabeled) {
       const prev = live.tasks.find((t) => t.id === task.id);
       if (!prev) {
         if (isExpiredStatus(task.status)) {
@@ -2117,12 +2119,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         }
         continue;
       }
-      if (prev.verification !== task.verification || prev.status !== task.status) {
+      if (
+        prev.verification !== task.verification ||
+        prev.status !== task.status ||
+        prev.due !== task.due
+      ) {
         await taskRepository.updateTask(task);
       }
     }
 
-    setHousehold((current) => ({ ...current, tasks: merged }));
+    setHousehold((current) => ({ ...current, tasks: relabeled }));
   };
 
   useEffect(() => {

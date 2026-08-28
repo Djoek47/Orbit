@@ -50,6 +50,7 @@ function pendingConfirm(
 const IUI_SCENES = [
   'thinking',
   'task_compose',
+  'homework_compose',
   'calendar_zoom',
   'itinerary_stage',
   'grocery_add',

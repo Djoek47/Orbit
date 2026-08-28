@@ -6,6 +6,7 @@ import { useSyncExternalStore } from 'react';
 
 import { interpretStageSpeech, matchSpokenTokens } from '@/lib/poppins/ui-speech';
 import { withComposeProgress } from '@/lib/poppins/iui-compose';
+import { withHomeworkComposeProgress } from '@/lib/poppins/homework-compose';
 import { mapUiActionsToPlaylist } from '@/lib/poppins/ui-tool-map';
 import {
   HOLD_MS_DEFAULT,
@@ -112,7 +113,11 @@ function patchCurrentPayload(patch: Partial<IuiPayload>) {
   if (!beat) return;
   const merged = { ...beat.payload, ...patch };
   const payload =
-    beat.scene === 'task_compose' ? withComposeProgress(merged) : merged;
+    beat.scene === 'task_compose'
+      ? withComposeProgress(merged)
+      : beat.scene === 'homework_compose'
+        ? withHomeworkComposeProgress(merged)
+        : merged;
   const next = { ...beat, payload };
   setState({
     playlist: state.playlist.map((item, i) => (i === state.index ? next : item)),
@@ -206,7 +211,7 @@ function beatCanSkipShow(beat: IuiBeat): boolean {
   if (beat.scene === 'calendar_zoom' || beat.scene === 'itinerary_stage') return false;
   if (!sceneNeedsUnfold(beat.scene)) return true;
   const p = beat.payload;
-  if (beat.scene === 'task_compose') {
+  if (beat.scene === 'task_compose' || beat.scene === 'homework_compose') {
     return Boolean(p.assignee || p.title || p.libraryTaskId || p.category);
   }
   if (beat.scene === 'grocery_add') return Boolean(p.groceryName);

@@ -55,6 +55,8 @@ function buildCoreTaskInsert(input: {
     difficulty: input.task.difficulty ?? 'medium',
     proof_required: input.task.proofRequired ?? false,
     room_id: input.task.roomId ?? null,
+    ...(input.task.definitionId ? { definition_id: input.task.definitionId } : {}),
+    ...(input.task.occurrenceDate ? { occurrence_date: input.task.occurrenceDate } : {}),
   };
 }
 
@@ -75,6 +77,8 @@ function buildCoreTaskUpdate(task: HouseholdTask) {
     proof_required: task.proofRequired ?? false,
     proof_uri: task.proofUri ?? null,
     proof_status: task.proofStatus ?? null,
+    ...(task.definitionId ? { definition_id: task.definitionId } : {}),
+    ...(task.occurrenceDate ? { occurrence_date: task.occurrenceDate } : {}),
   };
 }
 
@@ -89,7 +93,7 @@ function mergeTaskRow(data: Parameters<typeof mapTaskRow>[0], local: HouseholdTa
     proofRequired: local.proofRequired ?? mapped.proofRequired,
     tracking: local.tracking,
     definitionId: local.definitionId,
-    occurrenceDate: local.occurrenceDate,
+    occurrenceDate: mapped.occurrenceDate ?? local.occurrenceDate,
     verification: local.verification,
     awardedXp: local.awardedXp,
     completedAt: local.completedAt,

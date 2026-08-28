@@ -43,6 +43,7 @@ import {
 } from '@/lib/household/shared-device';
 import { isSplitTask, taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { isDueToday } from '@/lib/tasks/today';
+import { displayDueLabel } from '@/lib/tasks/due-label';
 import {
   groupExpiredByDay,
   isActiveTask,
@@ -306,7 +307,7 @@ function TaskItem({
         </View>
         <View style={styles.metaRow}>
           <MaterialIcons name="schedule" size={10} color={c.textSubtle} />
-          <Text style={[styles.dueText, { color: c.textSubtle }]}>{task.due}</Text>
+          <Text style={[styles.dueText, { color: c.textSubtle }]}>{displayDueLabel(task)}</Text>
           {task.completedLate || (done && task.completedAt && task.dueAt && task.completedAt > task.dueAt) ? (
             <View
               style={[

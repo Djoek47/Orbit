@@ -6,6 +6,7 @@
  */
 
 import { formatLocalDate } from '@/lib/streaks/local-date';
+import { resolveOccurrenceDate } from '@/lib/tasks/due-label';
 import type { HouseholdTask } from '@/types/orbit';
 
 /** True when the due label is today-scoped (includes “Today, …”). */
@@ -39,8 +40,14 @@ export function isCompletedToday(
  * Open tasks that belong in today’s list (due today or overdue).
  * Excludes completed / cancelled.
  */
-export function isDueToday(task: Pick<HouseholdTask, 'status' | 'due'>): boolean {
+export function isDueToday(
+  task: Pick<HouseholdTask, 'status' | 'due' | 'occurrenceDate' | 'dueAt'>,
+  now: Date = new Date(),
+  timeZone?: string
+): boolean {
   if (task.status === 'Completed' || task.status === 'Cancelled') return false;
+  const occurrence = resolveOccurrenceDate(task, now);
+  if (occurrence) return occurrence === formatLocalDate(now, timeZone);
   return task.status === 'Overdue' || isDueTodayLabel(task.due);
 }
 
@@ -50,7 +57,7 @@ export function isDueToday(task: Pick<HouseholdTask, 'status' | 'due'>): boolean
  * - completed today only
  */
 export function isTodayTask(
-  task: Pick<HouseholdTask, 'status' | 'due' | 'completedAt'>,
+  task: Pick<HouseholdTask, 'status' | 'due' | 'completedAt' | 'occurrenceDate' | 'dueAt'>,
   now: Date = new Date(),
   timeZone?: string
 ): boolean {

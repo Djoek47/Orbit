@@ -16,6 +16,70 @@ export type LibraryIntentMatch = {
   assignee?: string;
 };
 
+/** Meta chores that describe list management — never auto-match from grocery-add speech. */
+export const GROCERY_META_TASK_IDS = new Set(['T135']);
+
+export const GROCERY_META_TASK_TITLES = [
+  'add items to the grocery list',
+  'add items to grocery list',
+];
+
+export function isGroceryMetaTask(task: Pick<LibraryTask, 'id' | 'name'>): boolean {
+  if (GROCERY_META_TASK_IDS.has(task.id)) return true;
+  const lower = task.name.trim().toLowerCase();
+  return GROCERY_META_TASK_TITLES.some((title) => lower === title || lower.includes(title));
+}
+
+/** True when the person is adding a product to the grocery/shopping list (not assigning a chore). */
+export function isGroceryAddIntent(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  if (!lower) return false;
+  if (/\btask\b/.test(lower) && /\b(chore|assign)\b/.test(lower)) return false;
+  const itemName = extractItemName(text);
+  const listCue =
+    /\b(grocery list|groceries|shopping list|to the list|on the list|grocery)\b/.test(lower);
+  const addCue = /\b(add|put|get|grab|pick up|buy)\b/.test(lower);
+  if (addCue && listCue && itemName && !/\btask\b/i.test(itemName)) return true;
+  if (addCue && itemName && /\b(milk|eggs|bread|butter|cheese|yogurt|fruit|vegetable)\b/.test(lower)) {
+    return true;
+  }
+  if (addCue && itemName && isShoppingIntent(text)) return true;
+  return false;
+}
+
+export function isHomeworkIntent(text: string): boolean {
+  const lower = text.toLowerCase();
+  return /\b(homework|schoolwork|school work|study|math|english|science|history|reading)\b/.test(lower);
+}
+
+export function isScheduleIntent(text: string): boolean {
+  const lower = text.toLowerCase();
+  if (/\b(dentist|doctor|appointment|practice|lesson|meeting|conference|recital)\b/.test(lower)) {
+    return true;
+  }
+  if (/\b(schedule|book|calendar)\b/.test(lower) && /\b(at|on|tomorrow|today|next)\b/.test(lower)) {
+    return true;
+  }
+  return false;
+}
+
+export function scheduleTitleFromUtterance(text: string): string {
+  const lower = text.toLowerCase();
+  if (/\bdentist\b/.test(lower)) return 'Dentist';
+  if (/\bdoctor\b/.test(lower)) return 'Doctor';
+  if (/\bpractice\b/.test(lower)) return 'Practice';
+  if (/\blesson\b/.test(lower)) return 'Lesson';
+  if (/\bmeeting\b/.test(lower)) return 'Meeting';
+  if (/\brecital\b/.test(lower)) return 'Recital';
+  if (/\bconference\b/.test(lower)) return 'Conference';
+  return 'Appointment';
+}
+
+export function timeFromUtterance(text: string): string | undefined {
+  const match = text.match(/\bat\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
+  return match?.[1]?.trim();
+}
+
 const DOMAIN_ALIASES: Record<string, string[]> = {
   kitchen_dining: ['kitchen', 'dishes', 'dishwasher', 'dining', 'sink', 'stove', 'fridge', 'microwave'],
   trash_recycling: ['trash', 'garbage', 'recycling', 'bins', 'compost', 'rubbish'],
@@ -275,7 +339,12 @@ export function matchLibraryIntent(
 
   const tasks = allLibraryTasks().filter((task) => !domainId || task.domainId === domainId);
   const scored: Array<{ task: LibraryTask; score: number }> = [];
+  if (isGroceryAddIntent(text)) {
+    return { assignee };
+  }
+
   for (const task of tasks) {
+    if (isGroceryMetaTask(task)) continue;
     let score = 0;
     const name = task.name.toLowerCase();
     if (hasWord(lower, name) || lower.includes(name)) score += name.length + 50;
@@ -300,7 +369,7 @@ export function matchLibraryIntent(
     (best!.score >= 12 ||
       (best!.task.name.toLowerCase().length >= 10 && lower.includes(best!.task.name.toLowerCase())));
 
-  if (specific && best) {
+  if (specific && best && !isGroceryMetaTask(best.task)) {
     const domain = domains.find((item) => item?.id === best.task.domainId);
     return {
       domainId: best.task.domainId,
@@ -334,11 +403,12 @@ function scoreLibraryTask(task: LibraryTask, tokens: string[], domainId?: string
 
 function matchCatalogForChore(chore: string, utterance?: string): LibraryTask | undefined {
   const fromIntent = matchLibraryIntent(utterance || chore).task;
-  if (fromIntent) return fromIntent;
+  if (fromIntent && !isGroceryMetaTask(fromIntent)) return fromIntent;
   const tokens = contentTokens(chore);
   if (!tokens.length) return undefined;
   const domainId = matchLibraryIntent(utterance || chore).domainId;
   const ranked = allLibraryTasks()
+    .filter((task) => !isGroceryMetaTask(task))
     .map((task) => ({ task, ...scoreLibraryTask(task, tokens, domainId) }))
     .filter((row) => row.score > 0)
     .sort((a, b) => b.score - a.score);
@@ -405,8 +475,11 @@ export function resolvePoppinsChoreTitle(
       category: lib?.domainId,
     };
   }
+  if (isGroceryAddIntent(trimmed)) {
+    return { title: '' };
+  }
   const lib = matchCatalogForChore(extracted, trimmed);
-  if (lib) {
+  if (lib && !isGroceryMetaTask(lib)) {
     return { title: lib.name, libraryTaskId: lib.id, category: lib.domainId };
   }
   return { title: toChoreDisplayTitle(extracted) };
@@ -496,6 +569,8 @@ export function parseReleaseDate(text: string, now = new Date()): string | undef
 export function isChoreAssignIntent(text: string): boolean {
   const lower = text.toLowerCase();
   if (isCompleteIntent(text) || wantsFullEditor(text)) return false;
+  if (isGroceryAddIntent(text)) return false;
+  if (isScheduleIntent(text)) return false;
   if (
     /\b(add|create|make|set up|setup|schedule|set)\b/.test(lower) &&
     (/\btask\b/.test(lower) || /\bdesk\b/.test(lower) || /\bchore\b/.test(lower) || /\bfor\b/.test(lower))
@@ -504,5 +579,33 @@ export function isChoreAssignIntent(text: string): boolean {
   }
   if (/\bassign\b/.test(lower)) return true;
   if (/\b(clean|wash|tidy|vacuum|mop|laundry|dishes|chore|tend)\b/.test(lower)) return true;
-  return Boolean(matchLibraryIntent(text).domainId);
+  const domainId = matchLibraryIntent(text).domainId;
+  if (domainId === 'meals_groceries' && isGroceryAddIntent(text)) return false;
+  return Boolean(domainId);
+}
+
+export function groceryAddActionsFromUtterance(
+  text: string
+): Array<Record<string, unknown>> | null {
+  if (!isGroceryAddIntent(text)) return null;
+  const itemName = extractItemName(text);
+  if (!itemName || /\btask\b/i.test(itemName)) return null;
+  const shopping = isShoppingIntent(text);
+  const actions: Array<Record<string, unknown>> = [
+    {
+      type: 'add_grocery',
+      name: itemName.replace(/\b(please|thanks)\b/g, '').trim() || itemName,
+      category: shopping ? 'Clothing' : undefined,
+      lane: shopping ? 'clothing' : 'grocery',
+    },
+  ];
+  const releaseDate = parseReleaseDate(text);
+  if (releaseDate) {
+    actions.push({
+      type: 'create_calendar_event',
+      title: `${itemName} drop`,
+      date: releaseDate,
+    });
+  }
+  return actions;
 }

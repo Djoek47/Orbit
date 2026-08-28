@@ -5,6 +5,7 @@
  */
 
 import { formatLocalDate } from '@/lib/streaks/local-date';
+import { occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
 import {
   assigneeBlockedByMemory,
   getActiveHouseMemory,
@@ -15,15 +16,22 @@ import {
   dueLabelFromUtterance,
   extractItemName,
   extractSpokenChoreTitle,
+  GROCERY_META_TASK_IDS,
+  groceryAddActionsFromUtterance,
   isAssignSurfaceRoute,
   isChoreAssignIntent,
   isCompleteIntent,
+  isGroceryAddIntent,
   isGrocerySurfaceRoute,
+  isHomeworkIntent,
+  isScheduleIntent,
   isShoppingIntent,
   matchLibraryIntent,
   parseReleaseDate,
   repeatFromUtterance,
   resolvePoppinsChoreTitle,
+  scheduleTitleFromUtterance,
+  timeFromUtterance,
   wantsFullEditor,
   looksLikeSpokenSentence,
   type ExistingChoreTitle,
@@ -76,52 +84,27 @@ export function parseHouseholdIntent(
     return [{ type: 'complete_task', title: title || 'this task' }];
   }
 
-  const itemName = extractItemName(text);
-  const shopping = isShoppingIntent(text);
-  const groceryAsk =
-    (/\badd\b/.test(lower) &&
-      /\b(milk|eggs|bread|grocery|groceries|shopping list|to the list)\b/.test(lower)) ||
-    shopping;
-  if (groceryAsk && itemName && !/\btask\b/.test(itemName) && !isChoreAssignIntent(text)) {
-    const releaseDate = parseReleaseDate(text);
-    const actions: Array<Record<string, unknown>> = [
-      {
-        type: 'add_grocery',
-        name: itemName.replace(/\b(please|thanks)\b/g, '').trim() || itemName,
-        category: shopping ? 'Clothing' : undefined,
-        lane: shopping ? 'clothing' : 'grocery',
-      },
-    ];
-    if (releaseDate) {
-      actions.push({
-        type: 'create_calendar_event',
-        title: `${itemName} drop`,
-        date: releaseDate,
-      });
-    }
-    return actions;
+  const groceryFromSpeech = groceryAddActionsFromUtterance(text);
+  if (groceryFromSpeech?.length) {
+    return groceryFromSpeech;
   }
 
-  const actions: Array<Record<string, unknown>> = [];
   const wantsItineraryStop =
     /\b(store|shop|stop)\b/.test(lower) && /\b(itinerary|trip|route)\b/.test(lower);
-  const wantsDentist = /\bdentist\b/.test(lower);
-  const wantsAppointment = /\bappointment\b/.test(lower) && /\b(add|create|book)\b/.test(lower);
 
-  if (wantsItineraryStop) {
-    actions.push({ type: 'create_itinerary', title: 'Store' });
-  }
-  if (wantsDentist || (wantsAppointment && !wantsItineraryStop)) {
-    actions.push({
+  if (isScheduleIntent(text)) {
+    const due = dueLabelFromUtterance(text);
+    const eventAction: Record<string, unknown> = {
       type: 'create_calendar_event',
-      title: wantsDentist ? 'Dentist' : 'Appointment',
-      date: formatLocalDate(new Date()),
-    });
+      title: scheduleTitleFromUtterance(text),
+      date: due ? occurrenceDateForDueLabel(due) : formatLocalDate(new Date()),
+      time: timeFromUtterance(text) ?? '',
+    };
+    if (wantsItineraryStop) {
+      return [{ type: 'create_itinerary', title: 'Store' }, eventAction];
+    }
+    return [eventAction];
   }
-  if (wantsItineraryStop && (wantsDentist || wantsAppointment)) {
-    return actions;
-  }
-  if (actions.length) return actions;
 
   if (isChoreAssignIntent(text)) {
     const match = matchLibraryIntent(text, memberNames, selfName);
@@ -131,13 +114,17 @@ export function parseHouseholdIntent(
     const named = match.assignee ?? text.match(/\bfor\s+([A-Z][a-zA-Z]+)\b/)?.[1];
     const assignee = named && named.toLowerCase() !== 'me' ? named : match.assignee;
     const useCatalog = Boolean(resolved.libraryTaskId);
+    const homework = isHomeworkIntent(text) || resolved.category === 'homework_education';
     return [
       {
         type: 'create_task_draft',
         title,
         assignee,
         due,
-        category: resolved.category ?? match.domainId ?? (useCatalog ? match.task?.domainId : undefined),
+        category:
+          homework
+            ? 'homework_education'
+            : resolved.category ?? match.domainId ?? (useCatalog ? match.task?.domainId : undefined),
         libraryTaskId: resolved.libraryTaskId,
         taskQuery: useCatalog ? undefined : match.taskQuery,
         repeat: repeatFromUtterance(text),
@@ -152,11 +139,40 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
+function groceryRewriteFromDraft(
+  action: Record<string, unknown>,
+  utterance: string
+): Array<Record<string, unknown>> | null {
+  if (isGroceryAddIntent(utterance)) {
+    const itemName = extractItemName(utterance);
+    if (itemName && !/\btask\b/i.test(itemName)) {
+      return enrichGrocery({ type: 'add_grocery', name: itemName }, utterance);
+    }
+  }
+  const libraryTaskId = String(action.libraryTaskId ?? '');
+  if (libraryTaskId && GROCERY_META_TASK_IDS.has(libraryTaskId)) {
+    const itemName = extractItemName(utterance) || String(action.title ?? 'Item');
+    return enrichGrocery({ type: 'add_grocery', name: itemName }, utterance);
+  }
+  const title = String(action.title ?? '').trim().toLowerCase();
+  if (title.includes('add items to the grocery list') || title.includes('add items to grocery list')) {
+    const itemName = extractItemName(utterance);
+    if (itemName) return enrichGrocery({ type: 'add_grocery', name: itemName }, utterance);
+    return null;
+  }
+  return null;
+}
+
 function enrichTaskDraft(
   action: Record<string, unknown>,
   utterance: string,
   opts?: HouseholdIntentOpts
 ): Record<string, unknown> {
+  const groceryRewrite = groceryRewriteFromDraft(action, utterance);
+  if (groceryRewrite?.length) {
+    return groceryRewrite[0]!;
+  }
+
   const match = matchLibraryIntent(utterance, opts?.memberNames, opts?.selfName);
   const next = { ...action };
   if (match.assignee && !next.assignee) next.assignee = match.assignee;
@@ -193,6 +209,11 @@ function enrichTaskDraft(
   if (assigneeBlockedByMemory(getActiveHouseMemory(), assignee, title)) {
     next.assignee = undefined;
   }
+  if (isHomeworkIntent(utterance) || next.category === 'homework_education') {
+    next.category = 'homework_education';
+  }
+  const postRewrite = groceryRewriteFromDraft(next, utterance);
+  if (postRewrite?.length) return postRewrite[0]!;
   return next;
 }
 
@@ -285,6 +306,11 @@ export function rewriteAiuicActions(
     }
 
     if (type === 'create_task' || type === 'create_task_draft' || type === 'assign_task') {
+      const groceryRewrite = groceryRewriteFromDraft(action, utterance);
+      if (groceryRewrite?.length) {
+        out.push(...groceryRewrite);
+        continue;
+      }
       out.push(enrichTaskDraft(action, utterance, opts));
       continue;
     }

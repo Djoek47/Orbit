@@ -12,7 +12,16 @@ import {
   type IuiWriteKind,
 } from '@/lib/poppins/ui-scenes';
 import { withComposeProgress } from '@/lib/poppins/iui-compose';
-import { resolvePoppinsChoreTitle } from '@/lib/poppins/catalog-match';
+import { withHomeworkComposeProgress } from '@/lib/poppins/homework-compose';
+import {
+  GROCERY_META_TASK_IDS,
+  GROCERY_META_TASK_TITLES,
+  isGroceryAddIntent,
+  isHomeworkIntent,
+  isScheduleIntent,
+  extractItemName,
+  resolvePoppinsChoreTitle,
+} from '@/lib/poppins/catalog-match';
 
 function beat(
   scene: IuiScene,
@@ -31,6 +40,101 @@ function beat(
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+function isGroceryMetaDraft(
+  action: Record<string, unknown>,
+  prefill: Record<string, unknown>,
+  utteranceHint?: string
+): boolean {
+  const libraryTaskId = String(action.libraryTaskId ?? prefill.libraryTaskId ?? '');
+  if (libraryTaskId && GROCERY_META_TASK_IDS.has(libraryTaskId)) return true;
+  const title = String(action.title ?? prefill.title ?? '').trim().toLowerCase();
+  if (GROCERY_META_TASK_TITLES.some((meta) => title === meta || title.includes(meta))) {
+    return true;
+  }
+  if (utteranceHint && isGroceryAddIntent(utteranceHint)) return true;
+  return false;
+}
+
+function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
+  const groceryName = String(action.name ?? action.title ?? '').trim() || 'Item';
+  const storeHint = String(action.storeHint ?? '').trim();
+  return [
+    beat(
+      'grocery_add',
+      {
+        groceryName,
+        aisle: action.category ? String(action.category) : undefined,
+        title: groceryName || 'Grocery',
+        shoppingLane: action.lane === 'clothing' ? 'clothing' : 'grocery',
+        thinkingLine:
+          action.lane === 'clothing' ? 'Shopping list' : storeHint || 'Grocery list',
+        location: storeHint || undefined,
+      },
+      'hold',
+      'add_grocery'
+    ),
+    beat(
+      'result_mark',
+      {
+        markKind: 'added',
+        title: groceryName || 'Item',
+        groceryName,
+      },
+      'none'
+    ),
+  ];
+}
+
+function isHomeworkDraft(action: Record<string, unknown>, prefill: Record<string, unknown>): boolean {
+  const category = String(action.category ?? prefill.category ?? '');
+  if (category === 'homework_education') return true;
+  const title = String(action.title ?? prefill.title ?? '');
+  return isHomeworkIntent(title);
+}
+
+function taskDraftBeats(action: Record<string, unknown>, prefill: Record<string, unknown>): IuiBeat[] {
+  const rawTitle = String(action.title ?? prefill.title ?? '');
+  const resolved = resolvePoppinsChoreTitle(rawTitle);
+  const title = resolved.title || rawTitle;
+  const libraryTaskId = action.libraryTaskId
+    ? String(action.libraryTaskId)
+    : prefill.libraryTaskId
+      ? String(prefill.libraryTaskId)
+      : resolved.libraryTaskId;
+  const homework = isHomeworkDraft(action, prefill);
+  const scene: IuiScene = homework ? 'homework_compose' : 'task_compose';
+  const basePayload: IuiPayload = {
+    title,
+    assignee: action.assignee
+      ? String(action.assignee)
+      : prefill.assignee
+        ? String(prefill.assignee)
+        : undefined,
+    due: action.due ? String(action.due) : prefill.due ? String(prefill.due) : undefined,
+    category: homework
+      ? 'homework_education'
+      : action.category
+        ? String(action.category)
+        : prefill.category
+          ? String(prefill.category)
+          : resolved.category,
+    libraryTaskId,
+    taskQuery: action.taskQuery ? String(action.taskQuery) : undefined,
+    repeat: action.repeat ? String(action.repeat) : undefined,
+    showEmoji: true,
+    thinkingLine: homework ? 'Homework' : 'Assign',
+    composeKind: homework ? 'homework' : undefined,
+  };
+  const payload = homework
+    ? withHomeworkComposeProgress(basePayload)
+    : withComposeProgress(basePayload);
+  const write: IuiWriteKind = homework ? 'create_homework' : 'create_task';
+  return [
+    beat(scene, payload, 'hold', write),
+    beat('result_mark', { markKind: 'assigned', title: payload.title || 'Task' }, 'none'),
+  ];
 }
 
 export function flattenUiActions(
@@ -66,21 +170,7 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
         (route.startsWith('/assign-task') || route.startsWith('/create-task')) &&
         !openEditor
       ) {
-        const payload = withComposeProgress({
-          title: String(action.title ?? prefill.title ?? ''),
-          assignee: action.assignee ? String(action.assignee) : undefined,
-          due: action.due ? String(action.due) : undefined,
-          category: action.category ? String(action.category) : undefined,
-          libraryTaskId: action.libraryTaskId ? String(action.libraryTaskId) : undefined,
-          taskQuery: action.taskQuery ? String(action.taskQuery) : undefined,
-          repeat: action.repeat ? String(action.repeat) : undefined,
-          showEmoji: true,
-          thinkingLine: 'Assign',
-        });
-        playlist.push(beat('task_compose', payload, 'hold', 'create_task'));
-        playlist.push(
-          beat('result_mark', { markKind: 'assigned', title: payload.title || 'Task' }, 'none')
-        );
+        playlist.push(...taskDraftBeats(action, prefill));
         continue;
       }
       playlist.push(
@@ -98,37 +188,7 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'add_grocery') {
-      const groceryName = String(action.name ?? '');
-      const storeHint = String(action.storeHint ?? '').trim();
-      playlist.push(
-        beat(
-          'grocery_add',
-          {
-            groceryName,
-            aisle: action.category ? String(action.category) : undefined,
-            title: groceryName || 'Grocery',
-            shoppingLane: action.lane === 'clothing' ? 'clothing' : 'grocery',
-            thinkingLine:
-              action.lane === 'clothing'
-                ? 'Shopping list'
-                : storeHint || 'Groceries',
-            location: storeHint || undefined,
-          },
-          'hold',
-          'add_grocery'
-        )
-      );
-      playlist.push(
-        beat(
-          'result_mark',
-          {
-            markKind: 'added',
-            title: groceryName || 'Item',
-            groceryName,
-          },
-          'none'
-        )
-      );
+      playlist.push(...groceryBeatsFromAction(action));
       continue;
     }
 
@@ -150,37 +210,32 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'create_task' || type === 'create_task_draft' || type === 'assign_task') {
-      const rawTitle = String(action.title ?? prefill.title ?? '');
-      const resolved = resolvePoppinsChoreTitle(rawTitle);
-      const title = resolved.title || rawTitle;
-      const libraryTaskId = action.libraryTaskId
-        ? String(action.libraryTaskId)
-        : prefill.libraryTaskId
-          ? String(prefill.libraryTaskId)
-          : resolved.libraryTaskId;
-      const payload = withComposeProgress({
-        title,
-        assignee: action.assignee
-          ? String(action.assignee)
-          : prefill.assignee
-            ? String(prefill.assignee)
-            : undefined,
-        due: action.due ? String(action.due) : prefill.due ? String(prefill.due) : undefined,
-        category: action.category
-          ? String(action.category)
-          : prefill.category
-            ? String(prefill.category)
-            : resolved.category,
-        libraryTaskId,
-        taskQuery: action.taskQuery ? String(action.taskQuery) : undefined,
-        repeat: action.repeat ? String(action.repeat) : undefined,
-        showEmoji: true,
-        thinkingLine: 'Assign',
-      });
-      playlist.push(beat('task_compose', payload, 'hold', 'create_task'));
-      playlist.push(
-        beat('result_mark', { markKind: 'assigned', title: payload.title || 'Task' }, 'none')
-      );
+      const utteranceHint = String(action.utterance ?? prefill.utterance ?? '');
+      if (isGroceryMetaDraft(action, prefill, utteranceHint)) {
+        const itemName =
+          extractItemName(utteranceHint) ||
+          extractItemName(String(action.title ?? '')) ||
+          String(action.name ?? 'Item');
+        playlist.push(...groceryBeatsFromAction({ ...action, name: itemName }));
+        continue;
+      }
+      if (isScheduleIntent(String(action.title ?? utteranceHint))) {
+        playlist.push(
+          beat(
+            'calendar_zoom',
+            {
+              title: String(action.title ?? 'Event'),
+              date: String(action.date ?? prefill.date ?? ''),
+              time: String(action.time ?? prefill.time ?? ''),
+              location: String(action.location ?? prefill.location ?? ''),
+            },
+            'hold',
+            'create_event'
+          )
+        );
+        continue;
+      }
+      playlist.push(...taskDraftBeats(action, prefill));
       continue;
     }
 

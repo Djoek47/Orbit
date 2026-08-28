@@ -47,9 +47,17 @@ export function isHomeworkTask(task: { category: string; title: string }): boole
 
 /** Resolve a task due label to YYYY-MM-DD when possible. */
 export function taskDueDateKey(
-  task: { due: string; dueDate?: string | null; dueAt?: string | null },
+  task: {
+    due: string;
+    dueDate?: string | null;
+    dueAt?: string | null;
+    occurrenceDate?: string | null;
+  },
   reference = new Date()
 ): string | null {
+  if (task.occurrenceDate?.trim()) {
+    return task.occurrenceDate.trim();
+  }
   if (task.dueAt?.trim()) {
     return task.dueAt.trim().slice(0, 10);
   }

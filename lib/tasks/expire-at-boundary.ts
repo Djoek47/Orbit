@@ -4,6 +4,7 @@
  */
 import { parseLocalHm } from '@/lib/tasks/recurrence-defaults';
 import { formatLocalDate } from '@/lib/streaks/local-date';
+import { resolveOccurrenceDate } from '@/lib/tasks/due-label';
 import { isExpiredStatus } from '@/lib/tasks/recurring';
 import { getTaskAssignees } from '@/lib/tasks/split-assign';
 import type { HouseholdTask } from '@/types/orbit';
@@ -11,17 +12,13 @@ import type { HouseholdTask } from '@/types/orbit';
 const OPEN: HouseholdTask['status'][] = ['Pending', 'In Progress', 'Overdue'];
 
 export function occurrenceDateKey(task: HouseholdTask, now = new Date()): string | null {
-  if (task.occurrenceDate) return task.occurrenceDate;
-  if (task.dueAt) {
-    const due = new Date(task.dueAt);
-    if (!Number.isNaN(due.getTime())) return formatLocalDate(due);
-  }
+  const resolved = resolveOccurrenceDate(task, now);
+  if (resolved) return resolved;
   if (/yesterday/i.test(task.due)) {
     const y = new Date(now);
     y.setDate(now.getDate() - 1);
     return formatLocalDate(y);
   }
-  if (/today/i.test(task.due)) return formatLocalDate(now);
   return null;
 }
 

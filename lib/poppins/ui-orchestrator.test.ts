@@ -150,6 +150,36 @@ const milk = parseHouseholdIntent('Add milk to the list');
 assert.equal(milk[0]?.type, 'add_grocery');
 assert.match(String(milk[0]?.name), /milk/i);
 
+const groceryList = parseHouseholdIntent('Add milk to the grocery list');
+assert.equal(groceryList[0]?.type, 'add_grocery');
+assert.match(String(groceryList[0]?.name), /milk/i);
+const groceryPlaylist = mapUiActionsToPlaylist(groceryList);
+assert.equal(groceryPlaylist[0]?.scene, 'grocery_add');
+assert.notEqual(groceryPlaylist[0]?.scene, 'task_compose');
+
+const metaGrocery = mapUiActionsToPlaylist([
+  { type: 'create_task_draft', title: 'Add items to the grocery list', libraryTaskId: 'T135' },
+]);
+assert.equal(metaGrocery[0]?.scene, 'grocery_add');
+
+const homeworkIntent = parseHouseholdIntent('Math homework for Emma tomorrow');
+assert.equal(homeworkIntent[0]?.type, 'create_task_draft');
+assert.equal(homeworkIntent[0]?.category, 'homework_education');
+const homeworkPlaylist = mapUiActionsToPlaylist(homeworkIntent);
+assert.equal(homeworkPlaylist[0]?.scene, 'homework_compose');
+assert.equal(homeworkPlaylist[0]?.payload.write, 'create_homework');
+
+const dentist = parseHouseholdIntent('Dentist appointment tomorrow at 3');
+assert.equal(dentist[0]?.type, 'create_calendar_event');
+assert.equal(dentist[0]?.title, 'Dentist');
+const dentistPlaylist = mapUiActionsToPlaylist(dentist);
+assert.equal(dentistPlaylist[0]?.scene, 'calendar_zoom');
+
+const carWash = parseHouseholdIntent('Wash the car tomorrow');
+assert.equal(carWash[0]?.type, 'create_task_draft');
+const carPlaylist = mapUiActionsToPlaylist(carWash);
+assert.equal(carPlaylist[0]?.scene, 'task_compose');
+
 const jordan = parseHouseholdIntent('Add the new Jordan 1 that is releasing in two weeks');
 assert.equal(jordan[0]?.type, 'add_grocery');
 assert.equal(jordan[0]?.lane, 'clothing');

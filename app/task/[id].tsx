@@ -24,6 +24,7 @@ import {
   normalizeRewardSettings,
 } from '@/lib/rewards/reward-mode';
 import { isTaskLate } from '@/lib/tasks/xp';
+import { displayDueLabel } from '@/lib/tasks/due-label';
 import { TASK_REPEAT_CHOICES } from '@/lib/tasks/series-edit';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
@@ -657,7 +658,7 @@ export default function TaskDetailScreen() {
                 })}
               </View>
             ) : null}
-            <DetailRow label="Due" value={task.due} />
+            <DetailRow label="Due" value={displayDueLabel(task)} />
             <View style={styles.detailRow}>
               <Text style={[styles.label, { color: c.textMuted }]}>Repeats</Text>
               {canAdjust ? (

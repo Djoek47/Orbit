@@ -22,10 +22,19 @@ import { IuiStepper } from '@/components/orbit/poppins-stage/iui-stepper';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { householdHasChildren } from '@/lib/household/has-children';
 import { composeStepLabel, IUI_CREATED_CHIP_ID, IUI_DUE_CHIPS, nextComposeStep } from '@/lib/poppins/iui-compose';
+import {
+  HOMEWORK_DUE_CHIPS,
+  HOMEWORK_SUBJECT_CHIPS,
+  homeworkComposeStepLabel,
+  nextHomeworkComposeStep,
+  type HomeworkComposeStep,
+} from '@/lib/poppins/homework-compose';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import type { IuiBeat, IuiChip, IuiFace, IuiPayload } from '@/lib/poppins/ui-scenes';
+import { householdDueTimeLocal } from '@/lib/rules/household-view';
 import { formatLocalDate } from '@/lib/streaks/local-date';
-import { occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
+import { dueLabelForDate, occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
+import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
 import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
 import { allLibraryTasks, choreDomains, homeworkDomain } from '@/lib/tasks/task-library';
 import { resolvePoppinsChoreTitle } from '@/lib/poppins/catalog-match';
@@ -80,7 +89,8 @@ function TaskComposeSteps({
   title: string;
 }) {
   const { household } = useOrbit();
-  const step = payload.composeStep ?? nextComposeStep(payload);
+  const rawStep = payload.composeStep ?? nextComposeStep(payload);
+  const step = rawStep === 'subject' ? 'task' : rawStep;
   const showEmoji = payload.showEmoji !== false;
   const categoryId = payload.category ?? payload.selectedChipId;
   const query = (payload.taskQuery ?? '').toLowerCase().trim();
@@ -266,6 +276,148 @@ function TaskComposeSteps({
   );
 }
 
+function HomeworkComposeSteps({
+  payload,
+  faces,
+  selectedName,
+  accent,
+  hold,
+  holdProgress,
+  holding,
+  frozen,
+  titleHeard,
+  title,
+}: {
+  payload: IuiPayload;
+  faces: IuiFace[];
+  selectedName?: string;
+  accent: string;
+  hold: boolean;
+  holdProgress: number;
+  holding: boolean;
+  frozen: boolean;
+  titleHeard: boolean;
+  title: string;
+}) {
+  const { household } = useOrbit();
+  const rawStep = payload.composeStep ?? nextHomeworkComposeStep(payload);
+  const step: HomeworkComposeStep =
+    rawStep === 'category' || rawStep === 'task'
+      ? 'subject'
+      : rawStep === 'who' || rawStep === 'subject' || rawStep === 'when' || rawStep === 'ready'
+        ? rawStep
+        : nextHomeworkComposeStep(payload);
+  const childFaces = faces.filter((face) =>
+    household.members.some((m) => m.id === face.id && m.role === 'child')
+  );
+  const shownFaces = childFaces.length ? childFaces : faces;
+
+  const goBack = () => {
+    if (step === 'subject') {
+      poppinsUiOrchestrator.revise({ assignee: '', spokenName: undefined });
+      return;
+    }
+    poppinsUiOrchestrator.revise({ due: '' });
+  };
+
+  const customTitle = Boolean((payload.title ?? title).trim()) && !payload.libraryTaskId;
+  const showDue = step === 'when' || step === 'ready' || (step === 'subject' && customTitle);
+
+  return (
+    <IuiStepper
+      kicker={homeworkComposeStepLabel(step)}
+      accent={accent}
+      hold={hold && step === 'ready'}
+      holdProgress={holdProgress}
+      holding={holding}
+      frozen={frozen}
+      onBack={step === 'who' ? undefined : goBack}>
+      {step === 'who' ? (
+        <IuiFaces
+          faces={shownFaces}
+          selectedName={selectedName}
+          pulsingName={payload.spokenName}
+          accent={accent}
+          onSelect={(name) =>
+            poppinsUiOrchestrator.chooseFromTap({ assignee: name, spokenName: name }, name, 'face')
+          }
+        />
+      ) : null}
+
+      {step === 'subject' ? (
+        <IuiChips
+          chips={(() => {
+            const pool = HOMEWORK_SUBJECT_CHIPS.map(
+              (chip): IuiChip => ({
+                id: chip.id,
+                label: chip.label,
+                emoji: chip.emoji,
+                kind: 'library',
+              })
+            );
+            const custom = (payload.title ?? title).trim();
+            const already = pool.some((chip) => chip.label.toLowerCase() === custom.toLowerCase());
+            if (custom && !already) {
+              return [{ id: IUI_CREATED_CHIP_ID, label: custom, kind: 'created' }, ...pool];
+            }
+            return pool;
+          })()}
+          selectedId={
+            payload.selectedChipId === IUI_CREATED_CHIP_ID ||
+            (Boolean(payload.title) && !payload.libraryTaskId)
+              ? IUI_CREATED_CHIP_ID
+              : payload.libraryTaskId ?? payload.selectedChipId
+          }
+          accent={accent}
+          showEmoji
+          onSelect={(id) => {
+            if (id === IUI_CREATED_CHIP_ID) {
+              poppinsUiOrchestrator.chooseFromTap(
+                {
+                  libraryTaskId: undefined,
+                  selectedChipId: IUI_CREATED_CHIP_ID,
+                  title: (payload.title ?? title).trim(),
+                  category: 'homework_education',
+                },
+                (payload.title ?? title).trim() || 'homework',
+                'chip'
+              );
+              return;
+            }
+            const chip = HOMEWORK_SUBJECT_CHIPS.find((item) => item.id === id);
+            poppinsUiOrchestrator.chooseFromTap(
+              {
+                libraryTaskId: id,
+                selectedChipId: id,
+                title: chip ? `${chip.label} homework` : id,
+                category: 'homework_education',
+              },
+              chip?.label ?? id,
+              'chip'
+            );
+          }}
+        />
+      ) : null}
+
+      {showDue ? (
+        <>
+          {step !== 'subject' ? (
+            <IuiGhostField text={title} accent={accent} catchUp={titleHeard} />
+          ) : null}
+          <IuiChips
+            chips={HOMEWORK_DUE_CHIPS.map((chip) => ({ id: chip.id, label: chip.label }))}
+            selectedId={payload.due}
+            accent={accent}
+            onSelect={(id) => {
+              poppinsUiOrchestrator.chooseFromTap({ due: id, repeat: undefined }, id, 'when');
+            }}
+          />
+        </>
+      ) : null}
+    </IuiStepper>
+  );
+}
+
 export function PoppinsStage({
   onVoiceTaskCreated,
 }: {
@@ -379,7 +531,8 @@ export function PoppinsStage({
       } = writesRef.current;
       const p = beat.payload;
       const write = p.write ?? 'none';
-      if (write === 'create_task' && (p.title || p.libraryTaskId)) {
+      const isHomeworkWrite = write === 'create_homework' || p.category === 'homework_education';
+      if ((write === 'create_task' || write === 'create_homework') && (p.title || p.libraryTaskId)) {
         try {
           const resolved = resolvePoppinsChoreTitle(String(p.title ?? ''), {
             existingTasks: household.tasks.map((task) => ({
@@ -392,22 +545,31 @@ export function PoppinsStage({
             ? allLibraryTasks().find((item) => item.id === libraryId)
             : undefined;
           const assignee = p.assignee || currentMember?.name || household.members[0]?.name || 'Me';
-          const dueLabel = p.due ?? 'Today';
-          const occurrenceDate = occurrenceDateForDueLabel(dueLabel);
+          const dueChip = p.due ?? 'Today';
+          const occurrenceDate = occurrenceDateForDueLabel(dueChip);
+          const dueLabel = dueLabelForDate(occurrenceDate);
+          const [y, m, d] = occurrenceDate.split('-').map(Number);
+          const occurrence = new Date(y, (m ?? 1) - 1, d ?? 1);
+          const dueAt = dueAtForFrequency(
+            'none',
+            occurrence,
+            householdDueTimeLocal(household, occurrence)
+          )?.toISOString();
           const title = resolved.title || p.title;
           let created = null;
           if (library) {
-            const [y, m, d] = occurrenceDate.split('-').map(Number);
-            const occurrence = new Date(y, (m ?? 1) - 1, d ?? 1);
             created = await createTask({
               ...buildLibraryAssignInput(
                 library,
                 assignee,
                 library.defaultFrequency,
-                occurrence
+                occurrence,
+                householdDueTimeLocal(household, occurrence)
               ),
               due: dueLabel,
               occurrenceDate,
+              dueAt,
+              proofRequired: isHomeworkWrite ? true : undefined,
             });
           } else if (title) {
             created = await createTask({
@@ -415,11 +577,13 @@ export function PoppinsStage({
               category: p.category ?? p.selectedChipId ?? resolved.category ?? 'home_maintenance',
               assignee,
               due: dueLabel,
+              dueAt,
               xp: 10,
               repeat: p.repeat === 'Daily' ? 'Daily' : 'None',
               difficulty: 'medium',
               weight: 1,
               occurrenceDate,
+              proofRequired: isHomeworkWrite,
             });
           }
           if (created) onVoiceTaskCreated?.(created);
@@ -575,6 +739,21 @@ export function PoppinsStage({
         />
       ) : null}
 
+      {beat.scene === 'homework_compose' ? (
+        <HomeworkComposeSteps
+          payload={payload}
+          faces={sceneFaces}
+          selectedName={selectedName}
+          accent={accent}
+          hold={payload.composeReady === true}
+          holdProgress={holdProgress}
+          holding={drive.holding}
+          frozen={drive.frozen}
+          titleHeard={titleHeard}
+          title={title}
+        />
+      ) : null}
+
       {beat.scene === 'calendar_zoom' ? (
         <IuiStepper
           kicker={payload.date ? 'When' : 'When'}
@@ -633,7 +812,7 @@ export function PoppinsStage({
 
       {beat.scene === 'grocery_add' ? (
         <IuiStepper
-          kicker={payload.shoppingLane === 'clothing' ? 'Shopping' : 'What'}
+          kicker={payload.shoppingLane === 'clothing' ? 'Shopping list' : 'Grocery list'}
           accent={accent}
           hold
           holdProgress={holdProgress}
