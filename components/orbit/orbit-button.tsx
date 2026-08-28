@@ -1,7 +1,11 @@
 import { PropsWithChildren } from 'react';
-import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
-import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
+import { orbitColors, orbitControl, radius, space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useOrbitOptional } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 type OrbitButtonProps = PropsWithChildren<{
   disabled?: boolean;
@@ -10,6 +14,7 @@ type OrbitButtonProps = PropsWithChildren<{
   style?: ViewStyle;
 }>;
 
+/** Make CTA: gradient primary with ink label; secondary glass. Uses accent theme when available. */
 export function OrbitButton({
   children,
   disabled = false,
@@ -17,18 +22,45 @@ export function OrbitButton({
   tone = 'primary',
   style,
 }: OrbitButtonProps) {
+  const orbit = useOrbitOptional();
+  const { c } = useOrbitColors();
+  const primary = orbit?.accentTheme.primary ?? '#38BDF8';
+  const secondary = orbit?.accentTheme.secondary ?? '#0EA5E9';
+
+  if (tone === 'primary') {
+    return (
+      <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [pressed && !disabled && styles.pressed, style]}>
+        <LinearGradient
+          colors={disabled ? [`${primary}66`, `${secondary}55`] : [primary, secondary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.button}>
+          <Text style={[typography.buttonLabel, styles.primaryLabel, disabled && styles.primaryLabelDisabled]}>
+            {children}
+          </Text>
+        </LinearGradient>
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        styles[tone],
+        tone === 'danger' ? styles.danger : styles.secondary,
         disabled && styles.disabled,
         pressed && !disabled && styles.pressed,
         style,
       ]}>
-      <Text style={styles.label}>{children}</Text>
+      <Text
+        style={[
+          typography.buttonLabel,
+          tone === 'secondary' ? [styles.secondaryLabel, { color: c.text }] : styles.primaryLabel,
+        ]}>
+        {children}
+      </Text>
     </Pressable>
   );
 }
@@ -37,11 +69,11 @@ const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
     borderCurve: 'continuous',
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.cardLarge,
     justifyContent: 'center',
-    minHeight: 52,
-    paddingHorizontal: orbitSpacing.lg,
-    paddingVertical: orbitSpacing.md,
+    minHeight: orbitControl.buttonHeight,
+    paddingHorizontal: space.xl,
+    paddingVertical: 14,
   },
   danger: {
     backgroundColor: orbitColors.danger,
@@ -49,20 +81,19 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.45,
   },
-  label: {
-    color: orbitColors.text,
-    fontSize: 16,
-    fontWeight: '800',
-  },
   pressed: {
-    opacity: 0.72,
+    opacity: 0.85,
   },
-  primary: {
-    backgroundColor: orbitColors.orbitBlue,
+  primaryLabel: {
+    color: orbitColors.ink,
+  },
+  primaryLabelDisabled: {
+    opacity: 0.92,
   },
   secondary: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderColor: orbitColors.border,
     borderWidth: 1,
   },
+  secondaryLabel: {},
 });
