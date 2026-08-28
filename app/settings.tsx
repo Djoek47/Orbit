@@ -15,6 +15,11 @@ import { HouseholdSwitcher } from '@/components/orbit/household-switcher';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { PaletteWheel } from '@/components/orbit/palette-wheel';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
+import {
+  MemberConnectionBadge,
+  MemberConnectionCaption,
+} from '@/components/orbit/member-connection-badge';
+import { ProfileInviteSheet } from '@/components/orbit/profile-invite-sheet';
 import { MajordomoProfileSheet } from '@/components/orbit/majordomo-profile-sheet';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import {
@@ -35,7 +40,7 @@ import {
   resolveSharedDevicePeople,
   sharedDeviceLinkCandidates,
 } from '@/lib/household/shared-device';
-import { ensureProfileInviteCode } from '@/lib/household/profile-codes';
+import { memberCanReceiveInvite } from '@/lib/household/member-invite-routing';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import {
@@ -90,6 +95,7 @@ function SharedAccountRow({
   canManage,
   onSwitch,
   onPersonalize,
+  onShareInvite,
   onUnlink,
   onRemove,
 }: {
@@ -99,6 +105,7 @@ function SharedAccountRow({
   canManage: boolean;
   onSwitch: () => void;
   onPersonalize: () => void;
+  onShareInvite?: () => void;
   onUnlink?: () => void;
   onRemove?: () => void;
 }) {
@@ -125,16 +132,36 @@ function SharedAccountRow({
         </Pressable>
         <Pressable style={{ flex: 1 }} onPress={onSwitch}>
           <Text style={[styles.memberName, { color: c.text }]}>{person.name}</Text>
+          <MemberConnectionCaption member={person} />
           <Text style={[styles.caption, { color: c.textSubtle }]}>On this iPad · own XP & redeem</Text>
           <Text style={[styles.caption, { color: accent, fontWeight: '600' }]}>
             {person.xp} XP · week {person.weekXp ?? 0}
           </Text>
-          <Text style={[styles.caption, { color: c.textSubtle }]}>Code {ensureProfileInviteCode(person)}</Text>
         </Pressable>
-        {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
+        <View style={{ alignItems: 'center', gap: 8 }}>
+          <MemberConnectionBadge member={person} size="sm" />
+          {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
+        </View>
       </View>
       {canManage ? (
         <View style={styles.adminActionRow}>
+          {onShareInvite && memberCanReceiveInvite(person) ? (
+            <Pressable
+              onPress={onShareInvite}
+              style={[
+                styles.adminActionChip,
+                {
+                  backgroundColor: `${accent}22`,
+                  borderColor: `${accent}55`,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                },
+              ]}>
+              <MaterialIcons name="qr-code-2" size={14} color={accent} />
+              <Text style={[styles.adminActionText, { color: accent }]}>Share invite</Text>
+            </Pressable>
+          ) : null}
           {onUnlink ? (
             <Pressable
               onPress={onUnlink}
@@ -225,6 +252,7 @@ export default function SettingsScreen() {
   const [renamingMemberInput, setRenamingMemberInput] = useState('');
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [personalizeMemberId, setPersonalizeMemberId] = useState<string | null>(null);
+  const [profileInviteMemberId, setProfileInviteMemberId] = useState<string | null>(null);
   const [majordomoOpen, setMajordomoOpen] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
   const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
@@ -326,6 +354,10 @@ export default function SettingsScreen() {
   const personalizeMember = useMemo(
     () => household.members.find((member) => member.id === personalizeMemberId) ?? null,
     [household.members, personalizeMemberId]
+  );
+  const profileInviteMember = useMemo(
+    () => household.members.find((member) => member.id === profileInviteMemberId) ?? null,
+    [household.members, profileInviteMemberId]
   );
 
   if (currentMember?.role === 'child') {
@@ -1187,6 +1219,7 @@ export default function SettingsScreen() {
                       canManage={permissions.canManageHousehold}
                       onSwitch={() => switchPersona(person.id)}
                       onPersonalize={() => setPersonalizeMemberId(person.id)}
+                      onShareInvite={() => setProfileInviteMemberId(person.id)}
                       onUnlink={() =>
                         toggleSharedLink(
                           device.id,
@@ -1264,13 +1297,30 @@ export default function SettingsScreen() {
                     <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
                       {formatHouseholdRole(member.role)}
                     </Text>
+                    <MemberConnectionCaption member={member} />
                     <Text style={[styles.caption, { color: accentTheme.primary, fontWeight: '600' }]}>
                       {member.xp} XP total
                     </Text>
-                    {member.profileInviteCode || member.role === 'child' ? (
-                      <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
-                        Profile {ensureProfileInviteCode(member)}
-                      </Text>
+                    {permissions.canManageHousehold && memberCanReceiveInvite(member) ? (
+                      <Pressable
+                        onPress={() => setProfileInviteMemberId(member.id)}
+                        style={[
+                          styles.adminActionChip,
+                          {
+                            alignSelf: 'flex-start',
+                            marginTop: 8,
+                            backgroundColor: `${accentTheme.primary}22`,
+                            borderColor: `${accentTheme.primary}55`,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 6,
+                          },
+                        ]}>
+                        <MaterialIcons name="qr-code-2" size={14} color={accentTheme.primary} />
+                        <Text style={[styles.adminActionText, { color: accentTheme.primary }]}>
+                          Share invite
+                        </Text>
+                      </Pressable>
                     ) : null}
                     {permissions.canManageHousehold && member.role === 'child' ? (
                       <View
@@ -1300,7 +1350,10 @@ export default function SettingsScreen() {
                       </View>
                     ) : null}
                   </Pressable>
-                  {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
+                  <View style={{ alignItems: 'center', gap: 8 }}>
+                    <MemberConnectionBadge member={member} size="sm" />
+                    {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
+                  </View>
                   {permissions.canManageHousehold || currentMember?.id === member.id ? (
                     <Pressable
                       onPress={() => {
@@ -1516,6 +1569,12 @@ export default function SettingsScreen() {
       use24h={houseRulesView.use24h}
       onClose={() => setDeadlineOpen(false)}
       onSelect={(hhmm) => queueDailyDeadline(hhmm)}
+    />
+    <ProfileInviteSheet
+      visible={Boolean(profileInviteMember)}
+      member={profileInviteMember}
+      householdName={household.householdName}
+      onClose={() => setProfileInviteMemberId(null)}
     />
   </>
   );

@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/orbit/avatar';
 import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
+import { ProfileInviteSheet } from '@/components/orbit/profile-invite-sheet';
 import {
   MemberConnectionBadge,
   MemberConnectionCaption,
@@ -16,7 +17,7 @@ import type { MemberInvite } from '@/lib/household/member-invites';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   canPromoteToAdmin,
@@ -27,6 +28,11 @@ import {
 } from '@/lib/household/admins';
 import { adminCapBlockedMessage } from '@/lib/household/admin-cap';
 import {
+  memberCanReceiveInvite,
+  memberUsesProfileInvite,
+} from '@/lib/household/member-invite-routing';
+import { memberConnectionPhase } from '@/lib/household/member-connection';
+import {
   isSharedDeviceMember,
   resolveSharedDevicePeople,
   sharedDeviceLinkCandidates,
@@ -34,8 +40,8 @@ import {
 import { formatHouseholdRole } from '@/lib/permissions';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdRole } from '@/types/orbit';
-import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
+import type { HouseholdMember, HouseholdRole } from '@/types/orbit';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 const ROLE_CYCLE: HouseholdRole[] = ['adult', 'admin', 'child', 'guest', 'shared-device'];
 
@@ -51,11 +57,14 @@ function nextRole(current: HouseholdRole, canAdmin: boolean): HouseholdRole {
   return cycle[(index + 1) % cycle.length];
 }
 
+type InviteTarget =
+  | { kind: 'profile'; memberId: string }
+  | { kind: 'token'; memberId: string }
+  | null;
+
 export default function HouseholdMembersScreen() {
   const {
     approveMember,
-    createChildInvites,
-    createSharedDevice,
     currentMember,
     declineMember,
     household,
@@ -67,25 +76,51 @@ export default function HouseholdMembersScreen() {
   } = useOrbit();
   const { c } = useOrbitColors();
 
-  const [sharedDeviceName, setSharedDeviceName] = useState('Shared tablet');
-  const [creatingDevice, setCreatingDevice] = useState(false);
-  const [kidNameOne, setKidNameOne] = useState('');
-  const [kidNameTwo, setKidNameTwo] = useState('');
-  const [creatingKids, setCreatingKids] = useState(false);
-  const [kidStatus, setKidStatus] = useState('');
   const [memberInvites, setMemberInvites] = useState<MemberInvite[]>([]);
-  const [inviteMemberId, setInviteMemberId] = useState<string | null>(null);
+  const [inviteTarget, setInviteTarget] = useState<InviteTarget>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const pending = household.members.filter((member) => member.status === 'pending');
-  const invited = household.members.filter((member) => member.status === 'invited');
-  const active = household.members.filter(
-    (member) => member.status !== 'pending' && member.status !== 'invited'
+  const awaiting = useMemo(
+    () =>
+      household.members.filter(
+        (member) =>
+          member.status !== 'pending' &&
+          member.role !== 'owner' &&
+          !isSharedDeviceMember(member) &&
+          memberConnectionPhase(member) === 'awaiting'
+      ),
+    [household.members]
   );
+  const connected = useMemo(
+    () =>
+      household.members.filter(
+        (member) =>
+          member.status !== 'pending' &&
+          (member.role === 'owner' ||
+            isSharedDeviceMember(member) ||
+            memberConnectionPhase(member) === 'connected')
+      ),
+    [household.members]
+  );
+
   const adminSeats = familyAdminSeatsLabel(household.members);
   const admins = getAdminMembers(household.members);
   const familyCap = usesFamilyAdminCap();
   const linkCandidates = sharedDeviceLinkCandidates(household.members);
+
+  const openInvite = (member: HouseholdMember) => {
+    if (memberUsesProfileInvite(member)) {
+      setInviteTarget({ kind: 'profile', memberId: member.id });
+      return;
+    }
+    setInviteTarget({ kind: 'token', memberId: member.id });
+  };
+
+  const inviteMember =
+    inviteTarget?.memberId != null
+      ? (household.members.find((m) => m.id === inviteTarget.memberId) ?? null)
+      : null;
 
   const handleChangeRole = (memberId: string, currentRole: HouseholdRole) => {
     if (currentRole === 'owner') {
@@ -108,10 +143,7 @@ export default function HouseholdMembersScreen() {
 
   const handleMakeCoAdmin = (memberId: string, name: string) => {
     if (!canPromoteToAdmin(household, memberId)) {
-      Alert.alert(
-        'Admin seats full',
-        adminCapBlockedMessage(household.members, memberId)
-      );
+      Alert.alert('Admin seats full', adminCapBlockedMessage(household.members, memberId));
       return;
     }
     Alert.alert('Make co-admin', `Promote ${name} to Admin so they can manage tasks, invites, and approvals?`, [
@@ -119,12 +151,12 @@ export default function HouseholdMembersScreen() {
       {
         text: 'Make admin',
         onPress: () => {
-        void updateMemberRole(memberId, 'admin').catch((error) => {
-          Alert.alert(
-            'Couldn’t promote',
-            error instanceof Error ? error.message : 'Only two admins per household. Demote someone first.'
-          );
-        });
+          void updateMemberRole(memberId, 'admin').catch((error) => {
+            Alert.alert(
+              'Couldn’t promote',
+              error instanceof Error ? error.message : 'Only two admins per household. Demote someone first.'
+            );
+          });
         },
       },
     ]);
@@ -160,42 +192,6 @@ export default function HouseholdMembersScreen() {
     ]);
   };
 
-  const handleCreateSharedDevice = () => {
-    setCreatingDevice(true);
-    void createSharedDevice(sharedDeviceName)
-      .then((created) => {
-        if (created) {
-          setSharedDeviceName('Shared tablet');
-        }
-      })
-      .finally(() => setCreatingDevice(false));
-  };
-
-  const handleCreateKidInvites = () => {
-    setCreatingKids(true);
-    setKidStatus('');
-    void createChildInvites([kidNameOne, kidNameTwo], { householdId: household.id })
-      .then((created) => {
-        setKidNameOne('');
-        setKidNameTwo('');
-        setKidStatus(
-          created.length
-            ? `Saved ${created.map((m) => m.name).join(' & ')} on your admin account. Share codes from Invite or their profile QR.`
-            : '',
-        );
-        Alert.alert(
-          'Sidekick invites ready',
-          created
-            .map((member) => `${member.name}: ${member.profileInviteCode ?? 'code ready'}`)
-            .join('\n') + '\n\nAirDrop or share each code. They open Get Started → Sidekick — no sign-in.',
-        );
-      })
-      .catch((err: unknown) => {
-        setKidStatus(err instanceof Error ? err.message : 'Could not create kid invites.');
-      })
-      .finally(() => setCreatingKids(false));
-  };
-
   const toggleSharedLink = (deviceId: string, personId: string, linkedIds: string[]) => {
     const next = linkedIds.includes(personId)
       ? linkedIds.filter((id) => id !== personId)
@@ -203,274 +199,115 @@ export default function HouseholdMembersScreen() {
     void updateSharedDeviceLinks(deviceId, next);
   };
 
-  return (
-    <>
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={typography.footnote}>{household.householdName}</Text>
-        <Text style={typography.title1}>Members</Text>
-        <Text style={typography.body}>
-          {familyCap
-            ? `Families can have two admins (co-parents). ${adminSeats}.`
-            : `Approve join requests and manage roles. ${adminSeats}.`}
-        </Text>
-      </View>
+  const renderMemberCard = (member: HouseholdMember, options?: { showInvite?: boolean }) => {
+    const showInvite =
+      options?.showInvite ??
+      (permissions.canManageHousehold && memberCanReceiveInvite(member));
 
-      {permissions.canInviteMembers ? (
-        <GlassCard style={styles.card}>
-          <Text style={typography.headline}>Invite adult</Text>
-          <Text style={typography.footnote}>
-            Pick who you&apos;re inviting. Each person gets their own QR and link.
-          </Text>
-          <OrbitButton
-            onPress={() => {
-              const first =
-                household.members.find((m) => m.status === 'active' && m.role !== 'owner') ??
-                household.members.find((m) => m.status === 'active');
-              if (first) setInviteMemberId(first.id);
-            }}>
-            Share household invite
-          </OrbitButton>
-        </GlassCard>
-      ) : null}
-
-      {permissions.canInviteMembers || permissions.canManageHousehold ? (
-        <GlassCard style={styles.card}>
-          <Text style={typography.headline}>Add people first, invite later</Text>
-          <Text style={typography.footnote}>
-            Create profiles with names, tasks, and rewards — then share profile or adult invites when you&apos;re ready.
-          </Text>
-          <OrbitButton onPress={() => setWizardOpen(true)}>Add someone without an account</OrbitButton>
-        </GlassCard>
-      ) : null}
-
-      {permissions.canInviteMembers || permissions.canManageHousehold ? (
-        <GlassCard style={styles.card}>
-          <Text style={typography.headline}>Invite Sidekicks (no sign-in)</Text>
-          <Text style={typography.footnote}>
-            Create up to two Sidekick profiles saved on your admin account. AirDrop or send their codes —
-            they never need email.
-          </Text>
-          <TextInput
-            value={kidNameOne}
-            onChangeText={setKidNameOne}
-            placeholder="Sidekick 1 name"
-            placeholderTextColor={c.textSubtle}
-            style={[styles.deviceInput, { color: c.text }]}
+    return (
+      <GlassCard key={member.id} style={styles.card}>
+        <View style={styles.memberHeader}>
+          <Avatar
+            name={member.name}
+            emoji={memberDisplayEmoji(member)}
+            imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
+            size="m"
           />
-          <TextInput
-            value={kidNameTwo}
-            onChangeText={setKidNameTwo}
-            placeholder="Sidekick 2 name (optional)"
-            placeholderTextColor={c.textSubtle}
-            style={[styles.deviceInput, { color: c.text }]}
-          />
-          <OrbitButton
-            disabled={creatingKids || (!kidNameOne.trim() && !kidNameTwo.trim())}
-            onPress={handleCreateKidInvites}>
-            {creatingKids ? 'Saving…' : 'Create Sidekick invites'}
-          </OrbitButton>
-          {kidStatus ? <Text style={[styles.hint, { color: c.textMuted }]}>{kidStatus}</Text> : null}
-        </GlassCard>
-      ) : null}
-
-      {permissions.canManageHousehold ? (
-        <GlassCard style={styles.card}>
-          <Text style={typography.headline}>Add shared device</Text>
-          <Text style={typography.footnote}>
-            For a phone or tablet used by several people. Tasks sent here ask which person it&apos;s for (e.g. Clean
-            dishes - David).
-          </Text>
-          <TextInput
-            value={sharedDeviceName}
-            onChangeText={setSharedDeviceName}
-            placeholder="e.g. Kitchen tablet"
-            placeholderTextColor={c.textSubtle}
-            style={[styles.deviceInput, { color: c.text }]}
-          />
-          <OrbitButton disabled={creatingDevice || !sharedDeviceName.trim()} onPress={handleCreateSharedDevice}>
-            {creatingDevice ? 'Adding…' : 'Add shared device'}
-          </OrbitButton>
-        </GlassCard>
-      ) : null}
-
-      {admins.length > 0 ? (
-        <GlassCard style={styles.card}>
-          <Text style={typography.headline}>Family admins</Text>
-          <Text style={typography.footnote}>
-            {admins.map((member) => `${member.name} (${formatHouseholdRole(member.role)})`).join(' · ')}
-          </Text>
-          {familyCap && admins.length < MAX_FAMILY_ADMINS ? (
-            <Text style={[styles.hint, { color: c.textMuted }]}>
-              One admin seat open — promote a partner with Make co-admin.
-            </Text>
-          ) : null}
-        </GlassCard>
-      ) : null}
-
-      {pending.length > 0 ? (
-        <>
-          <Text style={typography.headline}>Waiting for approval</Text>
-          {pending.map((member) => (
-            <GlassCard key={member.id} style={styles.card}>
-              <View style={styles.memberHeader}>
-                <Avatar
-                  name={member.name}
-                  emoji={memberDisplayEmoji(member)}
-                  imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
-                  size="m"
-                />
-                <View style={styles.memberCopy}>
-                  <Text style={typography.headline}>{member.name}</Text>
-                  <MemberConnectionCaption member={member} />
-                  <Text style={typography.footnote}>
-                    Requested {formatHouseholdRole(member.role)} access
-                  </Text>
-                </View>
-                <MemberConnectionBadge member={member} />
-              </View>
-              <View style={styles.pillRow}>
-                <StatusPill label={formatHouseholdRole(member.role)} tone="blue" />
-                <StatusPill label="pending" tone="amber" />
-              </View>
-              <View style={styles.actions}>
-                <OrbitButton
-                  disabled={!permissions.canManageHousehold}
-                  onPress={() => handleApproveAs(member.id, false)}>
-                  Approve
-                </OrbitButton>
-                {permissions.canManageHousehold && canPromoteToAdmin(household, member.id) ? (
-                  <OrbitButton tone="secondary" onPress={() => handleApproveAs(member.id, true)}>
-                    Approve as admin
-                  </OrbitButton>
-                ) : null}
-                <OrbitButton
-                  disabled={!permissions.canManageHousehold}
-                  tone="danger"
-                  onPress={() => void declineMember(member.id)}>
-                  Decline
-                </OrbitButton>
-              </View>
-            </GlassCard>
-          ))}
-        </>
-      ) : null}
-
-      {invited.length > 0 ? (
-        <>
-          <Text style={typography.headline}>Not connected yet</Text>
-          {invited.map((member) => (
-            <GlassCard key={member.id} style={styles.card}>
-              <View style={styles.memberHeader}>
-                <Avatar
-                  name={member.name}
-                  emoji={memberDisplayEmoji(member)}
-                  imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
-                  size="m"
-                />
-                <View style={styles.memberCopy}>
-                  <Text style={typography.headline}>{member.name}</Text>
-                  <MemberConnectionCaption member={member} />
-                </View>
-                <MemberConnectionBadge member={member} />
-              </View>
-              <View style={styles.pillRow}>
-                <StatusPill label={formatHouseholdRole(member.role)} tone="amber" />
-                <StatusPill label="invited" tone="amber" />
-              </View>
-              {permissions.canManageHousehold ? (
-                <OrbitButton
-                  tone="secondary"
-                  onPress={() => {
-                    if (member.role === 'child' && member.profileInviteCode) {
-                      Alert.alert(
-                        'Profile invite',
-                        `Share ${member.profileInviteCode} with ${member.name}. No email needed.`
-                      );
-                      return;
-                    }
-                    setInviteMemberId(member.id);
-                  }}>
-                  Show invite code
-                </OrbitButton>
-              ) : null}
-            </GlassCard>
-          ))}
-        </>
-      ) : null}
-
-      <Text style={typography.headline}>Household</Text>
-      {active.map((member) => (
-        <GlassCard key={member.id} style={styles.card}>
-          <View style={styles.memberHeader}>
-            <Avatar
-              name={member.name}
-              emoji={memberDisplayEmoji(member)}
-              imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
-              size="m"
-            />
-            <View style={styles.memberCopy}>
-              <Text style={typography.headline}>{member.name}</Text>
-              <MemberConnectionCaption member={member} />
-              {member.userId?.trim() ? <HasOwnAccountBadge /> : null}
-              <Text style={typography.footnote}>
+          <View style={styles.memberCopy}>
+            <Text style={[typography.headline, { color: c.text }]}>{member.name}</Text>
+            <MemberConnectionCaption member={member} />
+            {member.userId?.trim() ? <HasOwnAccountBadge /> : null}
+            {!isSharedDeviceMember(member) ? (
+              <Text style={[typography.footnote, { color: c.textMuted }]}>
                 {member.xp} XP · week {member.weekXp ?? 0} · streak {member.streak ?? 0}
               </Text>
-            </View>
-            <MemberConnectionBadge member={member} />
+            ) : null}
           </View>
-          <View style={styles.pillRow}>
-            <StatusPill
-              label={formatHouseholdRole(member.role)}
-              tone={
-                member.role === 'owner'
-                  ? 'cyan'
-                  : member.role === 'admin'
-                    ? 'blue'
-                    : member.role === 'shared-device'
-                      ? 'green'
-                      : 'amber'
-              }
-            />
+          <MemberConnectionBadge member={member} />
+        </View>
+
+        <View style={styles.pillRow}>
+          <StatusPill
+            label={formatHouseholdRole(member.role)}
+            tone={
+              member.role === 'owner'
+                ? 'cyan'
+                : member.role === 'admin'
+                  ? 'blue'
+                  : member.role === 'shared-device'
+                    ? 'green'
+                    : 'amber'
+            }
+          />
+          {member.status === 'pending' ? (
+            <StatusPill label="pending" tone="amber" />
+          ) : member.status === 'invited' ? (
+            <StatusPill label="invited" tone="amber" />
+          ) : (
             <StatusPill label={member.status} tone={member.status === 'active' ? 'green' : 'amber'} />
-          </View>
-          {isSharedDeviceMember(member) ? (
-            <View style={styles.sharedBlock}>
-              <Text style={typography.footnote}>People on this device</Text>
-              <Text style={[styles.hint, { color: c.textMuted }]}>
-                {resolveSharedDevicePeople(member, household.members)
-                  .map((person) => person.name)
-                  .join(', ') || 'None linked yet — tap names below.'}
-              </Text>
-              <View style={styles.linkWrap}>
-                {linkCandidates.map((person) => {
-                  const linked = (member.sharedWithMemberIds ?? []).includes(person.id);
-                  return (
-                    <Pressable
-                      key={person.id}
-                      disabled={!permissions.canManageHousehold}
-                      onPress={() =>
-                        toggleSharedLink(member.id, person.id, member.sharedWithMemberIds ?? [])
-                      }
-                      style={[styles.linkChip, linked && styles.linkChipActive]}>
-                      <Text
-                        style={[
-                          styles.linkChipText,
-                          { color: c.textMuted },
-                          linked && styles.linkChipTextActive,
-                        ]}>
-                        {memberDisplayEmoji(person)} {person.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+          )}
+        </View>
+
+        {isSharedDeviceMember(member) ? (
+          <View style={styles.sharedBlock}>
+            <Text style={[typography.footnote, { color: c.textMuted }]}>People on this device</Text>
+            <Text style={[styles.hint, { color: c.textMuted }]}>
+              {resolveSharedDevicePeople(member, household.members)
+                .map((person) => person.name)
+                .join(', ') || 'None linked yet — tap names below.'}
+            </Text>
+            <View style={styles.linkWrap}>
+              {linkCandidates.map((person) => {
+                const linked = (member.sharedWithMemberIds ?? []).includes(person.id);
+                return (
+                  <Pressable
+                    key={person.id}
+                    disabled={!permissions.canManageHousehold}
+                    onPress={() =>
+                      toggleSharedLink(member.id, person.id, member.sharedWithMemberIds ?? [])
+                    }
+                    style={[styles.linkChip, linked && styles.linkChipActive]}>
+                    <Text
+                      style={[
+                        styles.linkChipText,
+                        { color: c.textMuted },
+                        linked && styles.linkChipTextActive,
+                      ]}>
+                      {memberDisplayEmoji(person)} {person.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-          ) : null}
+          </View>
+        ) : null}
+
+        {member.status === 'pending' ? (
           <View style={styles.actions}>
+            <OrbitButton
+              disabled={!permissions.canManageHousehold}
+              onPress={() => handleApproveAs(member.id, false)}>
+              Approve
+            </OrbitButton>
+            {permissions.canManageHousehold && canPromoteToAdmin(household, member.id) ? (
+              <OrbitButton tone="secondary" onPress={() => handleApproveAs(member.id, true)}>
+                Approve as admin
+              </OrbitButton>
+            ) : null}
+            <OrbitButton
+              disabled={!permissions.canManageHousehold}
+              tone="danger"
+              onPress={() => void declineMember(member.id)}>
+              Decline
+            </OrbitButton>
+          </View>
+        ) : (
+          <View style={styles.actions}>
+            {showInvite ? (
+              <OrbitButton tone="secondary" onPress={() => openInvite(member)}>
+                {memberUsesProfileInvite(member) ? 'Share Sidekick invite' : 'Share invite'}
+              </OrbitButton>
+            ) : null}
             {permissions.canManageHousehold &&
             member.role !== 'owner' &&
             member.role !== 'admin' &&
@@ -480,27 +317,99 @@ export default function HouseholdMembersScreen() {
                 Make co-admin
               </OrbitButton>
             ) : null}
-            <OrbitButton
-              disabled={!permissions.canManageHousehold || member.role === 'owner'}
-              tone="secondary"
-              onPress={() => handleChangeRole(member.id, member.role)}>
-              Change Role
-            </OrbitButton>
-            <OrbitButton
-              disabled={!permissions.canManageHousehold || member.role === 'owner'}
-              tone="danger"
-              onPress={() => handleRemove(member.id, member.name, member.role)}>
-              Remove
-            </OrbitButton>
-            {permissions.canManageHousehold ? (
-              <OrbitButton tone="secondary" onPress={() => setInviteMemberId(member.id)}>
-                Show invite code
-              </OrbitButton>
+            {permissions.canManageHousehold && member.role !== 'owner' ? (
+              <>
+                <OrbitButton
+                  tone="secondary"
+                  onPress={() => handleChangeRole(member.id, member.role)}>
+                  Change role
+                </OrbitButton>
+                <OrbitButton
+                  tone="danger"
+                  onPress={() => handleRemove(member.id, member.name, member.role)}>
+                  Remove
+                </OrbitButton>
+              </>
             ) : null}
           </View>
-        </GlassCard>
-      ))}
-    </ScrollView>
+        )}
+      </GlassCard>
+    );
+  };
+
+  return (
+    <>
+      <ScrollView
+        style={orbitScreen.container}
+        contentContainerStyle={orbitScreen.content}
+        contentInsetAdjustmentBehavior="automatic">
+        <View style={orbitScreen.header}>
+          <Text style={[typography.footnote, { color: c.textMuted }]}>{household.householdName}</Text>
+          <Text style={[typography.title1, { color: c.text }]}>Members</Text>
+          <Text style={[typography.body, { color: c.textMuted }]}>
+            {familyCap
+              ? `Families can have two admins (co-parents). ${adminSeats}.`
+              : `Approve join requests and manage roles. ${adminSeats}.`}
+          </Text>
+        </View>
+
+        {permissions.canInviteMembers || permissions.canManageHousehold ? (
+          <GlassCard style={styles.card}>
+            <Text style={[typography.headline, { color: c.text }]}>Add & invite</Text>
+            <Text style={[typography.footnote, { color: c.textMuted }]}>
+              Create a profile first, then share their invite when you&apos;re ready. One invite per person —
+              scan, code, or AirDrop.
+            </Text>
+            <View style={styles.actions}>
+              <OrbitButton onPress={() => setWizardOpen(true)}>Add someone</OrbitButton>
+              {permissions.canInviteMembers ? (
+                <OrbitButton tone="secondary" onPress={() => router.push('/invite-household' as never)}>
+                  Invite adult
+                </OrbitButton>
+              ) : null}
+            </View>
+          </GlassCard>
+        ) : null}
+
+        {admins.length > 0 ? (
+          <GlassCard style={styles.card}>
+            <Text style={[typography.headline, { color: c.text }]}>Family admins</Text>
+            <Text style={[typography.footnote, { color: c.textMuted }]}>
+              {admins.map((member) => `${member.name} (${formatHouseholdRole(member.role)})`).join(' · ')}
+            </Text>
+            {familyCap && admins.length < MAX_FAMILY_ADMINS ? (
+              <Text style={[styles.hint, { color: c.textMuted }]}>
+                One admin seat open — promote a partner with Make co-admin.
+              </Text>
+            ) : null}
+          </GlassCard>
+        ) : null}
+
+        {pending.length > 0 ? (
+          <>
+            <Text style={[typography.headline, { color: c.text }]}>Waiting for approval</Text>
+            {pending.map((member) => renderMemberCard(member))}
+          </>
+        ) : null}
+
+        {awaiting.length > 0 ? (
+          <>
+            <Text style={[typography.headline, { color: c.text }]}>Not connected yet</Text>
+            <Text style={[typography.footnote, { color: c.textMuted, marginBottom: space.sm }]}>
+              Share each person&apos;s invite so they can join on their device.
+            </Text>
+            {awaiting.map((member) => renderMemberCard(member, { showInvite: true }))}
+          </>
+        ) : null}
+
+        {connected.length > 0 ? (
+          <>
+            <Text style={[typography.headline, { color: c.text }]}>Household</Text>
+            {connected.map((member) => renderMemberCard(member))}
+          </>
+        ) : null}
+      </ScrollView>
+
       {wizardOpen ? (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: c.background, padding: space.lg }]}>
           <SetupMemberWizard
@@ -531,15 +440,22 @@ export default function HouseholdMembersScreen() {
           />
         </View>
       ) : null}
+
+      <ProfileInviteSheet
+        visible={inviteTarget?.kind === 'profile'}
+        member={inviteTarget?.kind === 'profile' ? inviteMember : null}
+        householdName={household.householdName}
+        onClose={() => setInviteTarget(null)}
+      />
       <MemberInviteSheet
-        visible={Boolean(inviteMemberId)}
-        member={household.members.find((m) => m.id === inviteMemberId) ?? null}
+        visible={inviteTarget?.kind === 'token'}
+        member={inviteTarget?.kind === 'token' ? inviteMember : null}
         householdId={household.id ?? ''}
         adminId={currentMember?.id ?? ''}
         actorIsOwner={currentMember?.role === 'owner'}
         invites={memberInvites}
         onChangeInvites={setMemberInvites}
-        onClose={() => setInviteMemberId(null)}
+        onClose={() => setInviteTarget(null)}
       />
     </>
   );
@@ -550,17 +466,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: space.md,
-  },
-  avatar: {
-    backgroundColor: 'rgba(0, 194, 255, 0.16)',
-    borderRadius: 22,
-    fontSize: 18,
-    fontWeight: '900',
-    height: 44,
-    lineHeight: 44,
-    overflow: 'hidden',
-    textAlign: 'center',
-    width: 44,
   },
   card: {
     gap: space.md,
@@ -582,16 +487,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: space.sm,
-  },
-  deviceInput: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: radius.card,
-    borderWidth: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
   },
   sharedBlock: {
     gap: space.sm,
@@ -618,6 +513,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   linkChipTextActive: {
-    color: orbitColors.success,
+    color: '#34D399',
   },
 });
