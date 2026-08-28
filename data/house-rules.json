@@ -1,0 +1,822 @@
+{
+  "schemaVersion": "4.0.0",
+  "contentVersion": "2026-08-13",
+  "_readme": "Single source of truth for the House Rules screen. Every string the user reads originates here; no view file may contain rule text of its own. If a sentence is not in this file, it does not appear in the app. The two modes are 'admin' and 'sidekick' — the words 'adult', 'kid', 'child', 'member' and 'helper' appear nowhere in this product, including in code, enum cases and analytics. This schema serves one layout: At a glance.",
+  "constants": {
+    "_readme": "Shared by the House Rules screen and the scoring engine alike. These are the only definitions of these values in the product; duplicating any of them elsewhere is how the rules and the maths drift apart.",
+    "xpValues": [
+      5,
+      10,
+      15,
+      20,
+      25,
+      30
+    ],
+    "lateCredit": {
+      "5": 3,
+      "10": 7,
+      "15": 12,
+      "20": 16,
+      "25": 20,
+      "30": 25
+    },
+    "bundleBonusOnTime": 10,
+    "bundleBonusLate": 7,
+    "deadlines": {
+      "default": "19:00",
+      "weeklyDay": "SUNDAY",
+      "monthlyDay": "LAST_SUNDAY",
+      "timezone": "HOUSEHOLD_LOCAL",
+      "configurable": true
+    },
+    "expiryTime": "23:59",
+    "expiredPurgeDays": 7,
+    "nudgeMinutesBefore": 30,
+    "frequencyCount": 9,
+    "primaryFrequencies": [
+      "daily",
+      "weekly",
+      "monthly"
+    ],
+    "streak": {
+      "consecutiveMissesToEnd": 3,
+      "rollingWindowDays": 7,
+      "missesInWindowToEnd": 3,
+      "qualifyingCadences": [
+        "daily",
+        "weekdays"
+      ]
+    },
+    "streakRescue": {
+      "afterOneMiss": 0.1,
+      "afterTwoConsecutive": 0.2,
+      "thirdConsecutive": "PERMANENT_LOSS",
+      "chargedAgainst": "CURRENT_WEEK_XP"
+    },
+    "topTrophy": {
+      "name": "Most Glorious",
+      "xp": 100000
+    },
+    "invites": {
+      "expiryDays": 7,
+      "singleUse": true,
+      "activePerMember": 1,
+      "regenerableByAdmin": true
+    },
+    "library": {
+      "totalTasks": 150,
+      "domains": 15,
+      "groups": 43,
+      "scoringTasks": 131,
+      "streakOnlyTasks": 19
+    },
+    "rewardModels": [
+      {
+        "key": "xp_only",
+        "label": "XP only"
+      },
+      {
+        "key": "allowance",
+        "label": "Allowance"
+      },
+      {
+        "key": "xp_rewards",
+        "label": "XP + Rewards"
+      },
+      {
+        "key": "xp_allowance",
+        "label": "XP + Allowance"
+      },
+      {
+        "key": "full_system",
+        "label": "ChoreMaxx Full System"
+      }
+    ]
+  },
+  "conditions": {
+    "_readme": "A closed set. Implement one resolver — isVisible(condition, household) -> Bool — with exactly these cases. Do not write an expression parser, and never accept a condition supplied at runtime.",
+    "ALWAYS": "Always visible.",
+    "ALLOWANCE_ON": "household.rewardModel is one of: allowance, xp_allowance, full_system",
+    "REWARDS_ON": "household.rewardModel is one of: xp_rewards, full_system",
+    "XP_ON": "household.rewardModel is one of: xp_only, xp_rewards, xp_allowance, full_system",
+    "MULTI_SIDEKICK": "household.sidekickCount >= 2",
+    "HOMEWORK_ON": "household.homeworkEnabled == true",
+    "SOLO_SIDEKICK": "household.sidekickCount == 1",
+    "ALLOWANCE_REQUESTS_ON": "household.rewardModel is one of: allowance, xp_allowance, full_system AND household.allowanceRequestsEnabled == true. Both halves are required: the model must include allowance, and an Admin must not have switched requests off."
+  },
+  "modes": {
+    "_readme": "Which version of House Rules each role may open. An Admin may switch between the two, because they need to see what their household sees. A Sidekick has one version and no switcher: their profile opens straight into the Sidekick view. This is a routing rule, not a cosmetic one — the Admin version must be unreachable from a Sidekick session by any path, including deep links and restored state.",
+    "admin": {
+      "defaultVersion": "admin",
+      "switcherVisible": true,
+      "mayViewSidekickVersion": true
+    },
+    "sidekick": {
+      "defaultVersion": "sidekick",
+      "switcherVisible": false,
+      "mayViewAdminVersion": false
+    }
+  },
+  "visuals": {
+    "_readme": "A closed set: every rule declares exactly one, and it selects the illustration that rule carries. 'none' renders the quiet outlined card, and roughly half the rules use it — that restraint is what makes the illustrated ones read. Every figure a visual displays is read from constants; a number typed into a component is a defect, not a shortcut.",
+    "none": "Quiet outlined card, text only.",
+    "xpRamp": "Six ascending bars from constants.xpValues.",
+    "dayTimeline": "Single rail, three markers from constants.deadlines.daily and constants.expiryTime.",
+    "lateCreditTable": "Two-column table from constants.lateCredit.",
+    "streakDots": "Seven dots, first two filled, from constants.streak.",
+    "rescueTiers": "Three tiles from constants.streakRescue.",
+    "podium": "Three bars, 2nd / 1st / 3rd.",
+    "modelList": "Five rows from constants.rewardModels, household's active model highlighted.",
+    "gateSteps": "Two-step gate diagram for Hold & Request.",
+    "frequencyGrid": "Three primary frequency chips plus a More chip, from constants.primaryFrequencies and frequencyCount.",
+    "trophyScale": "A single large figure and label, from constants.topTrophy.",
+    "zeroXpShare": "A proportion bar, from constants.library.streakOnlyTasks against totalTasks.",
+    "inviteFacts": "Three small tiles, from constants.invites.",
+    "expiryWindow": "One large figure and label, from constants.expiredPurgeDays.",
+    "weekTrend": "Four ascending bars, the last one marked — this week set against the three before it."
+  },
+  "chapters": [
+    {
+      "key": "earning",
+      "order": 1,
+      "adminLabel": "Earning",
+      "sidekickLabel": "Points",
+      "accent": "ember",
+      "sidekickColor": "grape"
+    },
+    {
+      "key": "deadlines",
+      "order": 2,
+      "adminLabel": "Deadlines",
+      "sidekickLabel": "The bell",
+      "accent": "olive",
+      "sidekickColor": "mango"
+    },
+    {
+      "key": "streaks",
+      "order": 3,
+      "adminLabel": "Streaks",
+      "sidekickLabel": "Your streak",
+      "accent": "olive",
+      "sidekickColor": "mint"
+    },
+    {
+      "key": "crowns",
+      "order": 4,
+      "adminLabel": "Crowns",
+      "sidekickLabel": "Crowns",
+      "accent": "ember",
+      "sidekickColor": "punch"
+    },
+    {
+      "key": "rewards",
+      "order": 5,
+      "adminLabel": "Rewards",
+      "sidekickLabel": "Prizes",
+      "accent": "ember",
+      "sidekickColor": "ink"
+    },
+    {
+      "key": "proof",
+      "order": 6,
+      "adminLabel": "Proof",
+      "sidekickLabel": "Photos",
+      "accent": "olive",
+      "sidekickColor": "ink"
+    },
+    {
+      "key": "household",
+      "order": 7,
+      "adminLabel": "Household",
+      "sidekickLabel": "Who does what",
+      "accent": "olive",
+      "sidekickColor": "ink"
+    }
+  ],
+  "rules": [
+    {
+      "id": "EARN-01",
+      "chapter": "earning",
+      "order": 1,
+      "condition": "XP_ON",
+      "visual": "xpRamp",
+      "editable": false,
+      "admin": {
+        "headline": "Difficulty sets the value",
+        "clause": "Every task is worth 5 to 30 XP, scaled to how demanding it is. Finish before the deadline and it pays in full."
+      },
+      "sidekick": {
+        "headline": "Every job is worth points",
+        "body": "A quick job is worth 5. A big one is worth 30. Beat the deadline and you keep every point."
+      }
+    },
+    {
+      "id": "EARN-02",
+      "chapter": "earning",
+      "order": 2,
+      "condition": "XP_ON",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "The bundle bonus",
+        "clause": "Clear a whole domain group on time and it pays +10 XP on top. If even one task in that group ran late, the bonus drops to +7."
+      },
+      "sidekick": {
+        "headline": "Finish a whole set, get a bonus",
+        "body": "Clear every job in one group before the bell and you get 10 extra points. If one was late, you get 7."
+      }
+    },
+    {
+      "id": "EARN-03",
+      "chapter": "earning",
+      "order": 3,
+      "condition": "XP_ON",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "XP lands on Complete",
+        "clause": "XP is credited the instant a Sidekick taps Complete — approval plays no part in it. You're notified straight away and can verify the work afterward."
+      },
+      "sidekick": {
+        "headline": "Points arrive instantly",
+        "body": "The moment you tap Complete, the points are yours. Nobody has to approve them first."
+      }
+    },
+    {
+      "id": "EARN-04",
+      "chapter": "earning",
+      "order": 4,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "Only the assignee completes",
+        "clause": "Only the person a task is assigned to can tap Complete — admins included. An admin can unassign an unfinished task, but cannot finish it on someone's behalf."
+      },
+      "sidekick": {
+        "headline": "Only you can finish your jobs",
+        "body": "Nobody can tap Complete for you, not even an admin. They can take an unfinished job off your list, but they can't do it for you."
+      }
+    },
+    {
+      "id": "EARN-05",
+      "chapter": "earning",
+      "order": 5,
+      "condition": "ALWAYS",
+      "visual": "zeroXpShare",
+      "editable": false,
+      "admin": {
+        "headline": "Hygiene builds streaks, not points",
+        "clause": "Personal Hygiene tasks build streaks rather than points. Nineteen of the 150 library tasks score zero XP by design."
+      },
+      "sidekick": {
+        "headline": "Hygiene jobs work differently",
+        "body": "Brushing and showering pay no points on purpose. They feed your streak instead, and the streak is the harder thing to earn."
+      }
+    },
+    {
+      "id": "EARN-06",
+      "chapter": "earning",
+      "order": 6,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "Admins only",
+        "clause": "Assigning tasks, approving completions, requesting proof and approving allowance are reserved for admins."
+      },
+      "sidekick": {
+        "headline": "An admin sets your list",
+        "body": "Only an admin hands out jobs, asks for a photo, or approves allowance."
+      }
+    },
+    {
+      "id": "DEAD-01",
+      "chapter": "deadlines",
+      "order": 1,
+      "condition": "ALWAYS",
+      "visual": "dayTimeline",
+      "editable": true,
+      "settingKey": "deadlines",
+      "admin": {
+        "headline": "The household deadline",
+        "clause": "Work is due at {dailyDeadline}, household time — daily, weekday, weekly and monthly tasks alike. Weekly tasks close on Sunday, monthly tasks on the last Sunday of the month. Change the hour in Settings; a new deadline takes effect the following day."
+      },
+      "sidekick": {
+        "headline": "The bell rings at {dailyDeadline}",
+        "body": "Weekly jobs are due Sunday. Monthly jobs on the last Sunday of the month. An admin can move the bell, and you'll see the new time here."
+      }
+    },
+    {
+      "id": "DEAD-02",
+      "chapter": "deadlines",
+      "order": 2,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "Poppins reminds",
+        "clause": "Poppins handles task notifications, and always sends a final reminder 30 minutes before a task is due."
+      },
+      "sidekick": {
+        "headline": "Poppins warns you first",
+        "body": "A reminder lands 30 minutes before anything is due, so you always get a heads-up."
+      }
+    },
+    {
+      "id": "DEAD-03",
+      "chapter": "deadlines",
+      "order": 3,
+      "condition": "XP_ON",
+      "visual": "lateCreditTable",
+      "editable": false,
+      "admin": {
+        "headline": "Late Credit",
+        "clause": "A task finished after the deadline earns Late Credit: a reduced value, fixed the moment Complete is tapped and never recalculated. The streak survives, and the task is flagged as late."
+      },
+      "sidekick": {
+        "headline": "Late still counts",
+        "body": "You still earn points, just fewer of them — a 10 becomes a 7. Your streak stays safe, so finishing late always beats not finishing."
+      }
+    },
+    {
+      "id": "DEAD-04",
+      "chapter": "deadlines",
+      "order": 4,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "The day closes",
+        "clause": "At {expiryTime} every unfinished task expires. Expired tasks cannot be completed, and nothing carries into the next day."
+      },
+      "sidekick": {
+        "headline": "At {expiryTime} the day closes",
+        "body": "Whatever is left expires. Tomorrow brings a fresh list."
+      }
+    },
+    {
+      "id": "DEAD-05",
+      "chapter": "deadlines",
+      "order": 5,
+      "condition": "ALWAYS",
+      "visual": "expiryWindow",
+      "editable": false,
+      "admin": {
+        "headline": "Where expired tasks go",
+        "clause": "Expired tasks move to their own tab beside Completed, where they stay visible for a week before clearing."
+      },
+      "sidekick": {
+        "headline": "Expired jobs get their own tab",
+        "body": "A missed job sits there for a week so you can see what slipped, then it clears itself out."
+      }
+    },
+    {
+      "id": "DEAD-06",
+      "chapter": "deadlines",
+      "order": 6,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "Weekly and monthly are safer",
+        "clause": "An expired weekly or monthly task costs its XP but never breaks a streak. Only daily work carries that risk."
+      },
+      "sidekick": {
+        "headline": "Weekly jobs can't hurt your streak",
+        "body": "Miss one and you lose the points, but the streak keeps running."
+      }
+    },
+    {
+      "id": "DEAD-07",
+      "chapter": "deadlines",
+      "order": 7,
+      "condition": "ALWAYS",
+      "visual": "frequencyGrid",
+      "editable": true,
+      "settingKey": "taskFrequency",
+      "admin": {
+        "headline": "Nine frequencies",
+        "clause": "Daily, weekly and monthly are set directly on the task. Six further frequencies sit behind More."
+      },
+      "sidekick": {
+        "headline": "Jobs run on a schedule",
+        "body": "Some jobs come back every day, some every week, some once a month. An admin decides which."
+      }
+    },
+    {
+      "id": "STRK-01",
+      "chapter": "streaks",
+      "order": 1,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "What feeds a streak",
+        "clause": "Daily and weekday tasks are the only ones that feed a streak."
+      },
+      "sidekick": {
+        "headline": "Daily jobs keep it alive",
+        "body": "Only your everyday jobs count toward the streak."
+      }
+    },
+    {
+      "id": "STRK-02",
+      "chapter": "streaks",
+      "order": 2,
+      "condition": "ALWAYS",
+      "visual": "streakDots",
+      "editable": false,
+      "admin": {
+        "headline": "Three misses and it's over",
+        "clause": "A streak ends after three misses in a row, or three misses inside any rolling seven days."
+      },
+      "sidekick": {
+        "headline": "Three misses ends it",
+        "body": "Three days in a row, or three days inside one week — either one breaks it."
+      }
+    },
+    {
+      "id": "STRK-03",
+      "chapter": "streaks",
+      "order": 3,
+      "condition": "XP_ON",
+      "visual": "rescueTiers",
+      "editable": false,
+      "admin": {
+        "headline": "What a save costs",
+        "clause": "Streak Rescue costs 10% of that week's XP after one missed day, and 20% after two in a row. A third consecutive miss ends the streak for good. Decline the rescue and the XP stays, the streak goes."
+      },
+      "sidekick": {
+        "headline": "You can buy a day back",
+        "body": "One missed day costs 10% of the week's points. Two costs 20%. After a third, the streak is gone for good."
+      }
+    },
+    {
+      "id": "STRK-04",
+      "chapter": "streaks",
+      "order": 4,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "recess",
+      "admin": {
+        "headline": "Pause without losing ground",
+        "clause": "Recess switches tasks off and freezes every streak where it stands. Leave on twelve days, come back on twelve days."
+      },
+      "sidekick": {
+        "headline": "Recess pauses everything",
+        "body": "Going away? Your streak waits for you. Leave on twelve days, come back on twelve days."
+      }
+    },
+    {
+      "id": "CROWN-01",
+      "chapter": "crowns",
+      "order": 1,
+      "condition": "MULTI_SIDEKICK",
+      "visual": "podium",
+      "editable": false,
+      "admin": {
+        "headline": "The Week's Crown",
+        "clause": "The Week's Crown goes to the highest XP of the week. The Monthly Sovereign is settled on the last Sunday of the month."
+      },
+      "sidekick": {
+        "headline": "The Week's Crown",
+        "body": "Most points across the week takes it. The last Sunday of the month decides the Monthly Sovereign."
+      }
+    },
+    {
+      "id": "CROWN-02",
+      "chapter": "crowns",
+      "order": 2,
+      "condition": "SOLO_SIDEKICK",
+      "visual": "weekTrend",
+      "editable": false,
+      "admin": {
+        "headline": "One Sidekick, still a contest",
+        "clause": "With a single Sidekick the week is measured against their own record rather than a sibling's. The Week's Crown is won by beating their best week so far, and the Monthly Sovereign by beating their best month."
+      },
+      "sidekick": {
+        "headline": "Beat your own best week",
+        "body": "There's nobody else to race, so you're racing you. Finish the week above your best one yet and the crown is yours."
+      }
+    },
+    {
+      "id": "CROWN-03",
+      "chapter": "crowns",
+      "order": 3,
+      "condition": "MULTI_SIDEKICK",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "Gold, silver, bronze",
+        "clause": "First place takes gold, second silver, third bronze."
+      },
+      "sidekick": {
+        "headline": "Gold, silver, bronze",
+        "body": "First is gold, second is silver, third is bronze."
+      }
+    },
+    {
+      "id": "CROWN-04",
+      "chapter": "crowns",
+      "order": 4,
+      "condition": "MULTI_SIDEKICK",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "Ties share a rank",
+        "clause": "A tie produces duplicate ranks — two firsts, then two seconds. Nobody is pushed down by a draw."
+      },
+      "sidekick": {
+        "headline": "A tie means you both win",
+        "body": "Same points, same place. A draw never pushes anyone down."
+      }
+    },
+    {
+      "id": "CROWN-05",
+      "chapter": "crowns",
+      "order": 5,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "Every sheet is open",
+        "clause": "Each week's sheet records tasks completed, on-time count and late tasks, and sits beside every week that came before it. Every sheet in the household is open to read, not only the winner's."
+      },
+      "sidekick": {
+        "headline": "Look back at any week",
+        "body": "The sheet shows what you finished, how much was on time, and what ran late — this week and every week before it."
+      }
+    },
+    {
+      "id": "CROWN-06",
+      "chapter": "crowns",
+      "order": 6,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "Champion's Record",
+        "clause": "Champion's Record holds every crown ever won, listed by Sidekick."
+      },
+      "sidekick": {
+        "headline": "Your Champion's Record",
+        "body": "Every crown you've won is kept there for good — and so is everyone else's."
+      }
+    },
+    {
+      "id": "CROWN-07",
+      "chapter": "crowns",
+      "order": 7,
+      "condition": "XP_ON",
+      "visual": "trophyScale",
+      "editable": false,
+      "admin": {
+        "headline": "Trophies run on lifetime XP",
+        "clause": "Trophies unlock on lifetime XP and never reset. The highest, Most Glorious, sits at 100,000 XP."
+      },
+      "sidekick": {
+        "headline": "Trophies never reset",
+        "body": "Trophies count every point you've ever earned. The biggest one, Most Glorious, waits at 100,000."
+      }
+    },
+    {
+      "id": "RWRD-01",
+      "chapter": "rewards",
+      "order": 1,
+      "condition": "ALWAYS",
+      "visual": "modelList",
+      "editable": true,
+      "settingKey": "rewardModel",
+      "admin": {
+        "headline": "How this household rewards",
+        "clause": "The household runs one of five models: XP only, Allowance, XP + Rewards, XP + Allowance, or the full system. Everything else on this screen follows that choice."
+      },
+      "sidekick": {
+        "headline": "How your prizes work",
+        "body": "Your family picks the setup — points, allowance, real rewards, or all of it together."
+      }
+    },
+    {
+      "id": "RWRD-02",
+      "chapter": "rewards",
+      "order": 2,
+      "condition": "REWARDS_ON",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "rewardFrequency",
+      "admin": {
+        "headline": "Rewards follow the day",
+        "clause": "A reward is earned by clearing that day's assigned tasks and homework. Each reward carries its own frequency."
+      },
+      "sidekick": {
+        "headline": "Prizes come from finishing the day",
+        "body": "Tasks and homework, both done. Your family decides what the prize is."
+      }
+    },
+    {
+      "id": "RWRD-03",
+      "chapter": "rewards",
+      "order": 3,
+      "condition": "REWARDS_ON",
+      "visual": "gateSteps",
+      "editable": false,
+      "admin": {
+        "headline": "Hold & Request",
+        "clause": "A Sidekick can press and hold a reward to request it. Once the day's tasks and homework are all complete the request goes forward on its own; until then it returns a prompt to finish the day first."
+      },
+      "sidekick": {
+        "headline": "Hold to ask for a prize",
+        "body": "Press and hold any prize to ask for it. If today's work is done, your request goes through. If not, you'll be asked to finish first."
+      }
+    },
+    {
+      "id": "RWRD-04",
+      "chapter": "rewards",
+      "order": 4,
+      "condition": "REWARDS_ON",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "rewardApproval",
+      "admin": {
+        "headline": "Instant or approved",
+        "clause": "Finishing the day is the gate, not the verdict. Once it opens, an instant reward grants itself and a requires-approval reward still comes to you. Set per reward."
+      },
+      "sidekick": {
+        "headline": "Some prizes need a yes",
+        "body": "Some arrive the moment you ask. Others wait for an admin, even after your day is done."
+      }
+    },
+    {
+      "id": "RWRD-05",
+      "chapter": "rewards",
+      "order": 5,
+      "condition": "ALLOWANCE_ON",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "allowanceSchedule",
+      "admin": {
+        "headline": "Recorded, not transferred",
+        "clause": "Allowance is recorded in ChoreMaxx, never transferred — no money moves through the app. Approvals follow the household schedule, and Approve now always works."
+      },
+      "sidekick": {
+        "headline": "Allowance is counted here",
+        "body": "ChoreMaxx keeps the tally. The money itself comes from your family."
+      }
+    },
+    {
+      "id": "RWRD-06",
+      "chapter": "rewards",
+      "order": 6,
+      "condition": "REWARDS_ON",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "Mint Reward",
+        "clause": "Mint Reward adds one of your own to any reward page."
+      },
+      "sidekick": {
+        "headline": "Your family can invent prizes",
+        "body": "Any prize you can think of can be added to the list."
+      }
+    },
+    {
+      "id": "RWRD-07",
+      "chapter": "rewards",
+      "order": 7,
+      "condition": "ALLOWANCE_REQUESTS_ON",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "allowanceRequests",
+      "admin": {
+        "headline": "Requesting an amount",
+        "clause": "A Sidekick chooses the amount they want and holds to request it, up to the balance already recorded for them. The day's tasks and homework must be complete first. The request reaches you for approval; ChoreMaxx records the outcome and moves no money. Switch requests off in Settings and the whole behaviour goes with them."
+      },
+      "sidekick": {
+        "headline": "Ask for an amount",
+        "body": "Pick how much you'd like, up to what you've earned, then hold to send it. Your day has to be finished first, and an admin says yes or no."
+      }
+    },
+    {
+      "id": "PROOF-01",
+      "chapter": "proof",
+      "order": 1,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "choreProof",
+      "admin": {
+        "headline": "Verify without gating",
+        "clause": "An admin can request proof on a completed chore. It is optional and set per task — it confirms the work, it does not gate the reward."
+      },
+      "sidekick": {
+        "headline": "An admin might ask for a photo",
+        "body": "Only on chores you've already finished. It's a check, not a test."
+      }
+    },
+    {
+      "id": "PROOF-02",
+      "chapter": "proof",
+      "order": 2,
+      "condition": "HOMEWORK_ON",
+      "visual": "none",
+      "editable": true,
+      "settingKey": "homeworkProofPerSidekick",
+      "admin": {
+        "headline": "Homework proof is required",
+        "clause": "Homework keeps its own tab and always requires photo proof. It is set per Sidekick, on by default, and confirmed by an admin."
+      },
+      "sidekick": {
+        "headline": "Homework needs a photo",
+        "body": "Take one when you're done so an admin can check it off."
+      }
+    },
+    {
+      "id": "HOUS-01",
+      "chapter": "household",
+      "order": 1,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "Admins and Sidekicks",
+        "clause": "Two roles: Admin and Sidekick. A Sidekick completes their own tasks, requests rewards and follows their own record. Everything else belongs to admins."
+      },
+      "sidekick": {
+        "headline": "You're a Sidekick",
+        "body": "You finish your own jobs, ask for prizes, and follow your own record and crowns."
+      }
+    },
+    {
+      "id": "HOUS-02",
+      "chapter": "household",
+      "order": 2,
+      "condition": "ALWAYS",
+      "visual": "inviteFacts",
+      "editable": true,
+      "settingKey": "invites",
+      "admin": {
+        "headline": "Invites are per person",
+        "clause": "Every Sidekick receives their own invite link. It lasts seven days, works once, and only one can be active per person — regenerate it whenever you need."
+      },
+      "sidekick": {
+        "headline": "Your invite is yours alone",
+        "body": "An admin sent you a link of your own. It works once and lasts a week."
+      }
+    },
+    {
+      "id": "HOUS-03",
+      "chapter": "household",
+      "order": 3,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "These rules are yours",
+        "clause": "Admins can change any rule on this screen. The Sidekick version rewrites itself to match, in their own words."
+      },
+      "sidekick": {
+        "headline": "Rules can change",
+        "body": "If an admin changes something here, your version updates too. Worth a look if the house feels different."
+      }
+    }
+  ],
+  "tokens": {
+    "_readme": "Copy may carry {token} placeholders, which the renderer resolves and formats for the household's locale. This is why no rule hardcodes a clock time. Substitution replaces the whole placeholder and the result is styled exactly like the text around it — a resolved token is a word in a sentence, never a chip, badge or highlight. An unrecognised token must raise, never render blank or leave braces on screen.",
+    "dailyDeadline": "The household's dailyDeadline setting, falling back to constants.deadlines.default",
+    "expiryTime": "constants.expiryTime — the day boundary, never configurable"
+  },
+  "footnotes": {
+    "admin": "Deadlines run on household-local time. Rule changes take effect the following day, so nothing already underway shifts value mid-task.",
+    "sidekick": null
+  },
+  "settings": {
+    "_readme": "Household values an Admin may change. Each is reachable from the rule that describes it, by way of that rule's settingKey. A rule with editable:false has no control and no settingKey — it states behaviour that is fixed in this release.",
+    "dailyDeadline": {
+      "label": "Daily deadline",
+      "help": "The hour work is due. Applies to daily, weekday, weekly and monthly tasks alike.",
+      "default": "19:00",
+      "min": "15:00",
+      "max": "22:00",
+      "stepMinutes": 15,
+      "appliesTo": [
+        "daily",
+        "weekdays",
+        "weekly",
+        "monthly"
+      ],
+      "takesEffect": "NEXT_DAY",
+      "editableBy": "admin",
+      "_constraints": "The floor and ceiling are not arbitrary. Below 15:00 the deadline lands inside the school day; above 22:00 the Late Credit window between the deadline and expiry at 23:59 collapses to under an hour, which makes Late Credit meaningless. Expiry itself is the day boundary and is never configurable."
+    },
+    "allowanceRequests": {
+      "label": "Let Sidekicks request an amount",
+      "help": "Sidekicks choose an amount from their recorded balance and hold to request it. Requires an allowance model.",
+      "default": true,
+      "editableBy": "admin",
+      "requires": "ALLOWANCE_ON",
+      "_note": "This control only appears in a household running an allowance model. Where the model has no allowance, the setting is absent rather than shown switched off — there is nothing for it to govern."
+    }
+  }
+}
