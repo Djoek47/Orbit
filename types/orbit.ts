@@ -733,6 +733,10 @@ export type HouseholdSnapshot = {
   hygieneXp?: 5 | 10;
   /** IANA timezone for streak/day boundaries. Default America/Toronto. */
   timezone?: string;
+  /** ISO timestamp when permanent deletion is scheduled (15-day grace). */
+  deletionScheduledFor?: string | null;
+  /** Set when the household has been purged. */
+  deletedAt?: string | null;
   /** Local time HH:mm when the household day ends. Default 00:00. */
   dayEndsAt?: string;
   /** 0 = Sunday … 1 = Monday (default). */

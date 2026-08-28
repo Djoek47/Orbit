@@ -12,6 +12,7 @@ import {
 } from '@/constants/accent-themes';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { HouseholdSwitcher } from '@/components/orbit/household-switcher';
+import { HouseholdSwitchSheet } from '@/components/orbit/household-switch-sheet';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { PaletteWheel } from '@/components/orbit/palette-wheel';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
@@ -41,6 +42,11 @@ import {
   sharedDeviceLinkCandidates,
 } from '@/lib/household/shared-device';
 import { memberCanReceiveInvite } from '@/lib/household/member-invite-routing';
+import {
+  formatHouseholdDeletionDate,
+  householdDeletionDaysRemaining,
+  isHouseholdDeletionPending,
+} from '@/lib/household/household-deletion';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import {
@@ -202,8 +208,9 @@ export default function SettingsScreen() {
     updateHouseholdRewardModel,
     queueDailyDeadline,
     setAllowanceRequestsEnabled,
-    setJoinApprovalRequired,
     householdMemberships,
+    cancelHouseholdDeletion,
+    setJoinApprovalRequired,
     updateDisplayName,
     updateMemberDisplayName,
     updatePalette,
@@ -253,6 +260,7 @@ export default function SettingsScreen() {
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [personalizeMemberId, setPersonalizeMemberId] = useState<string | null>(null);
   const [profileInviteMemberId, setProfileInviteMemberId] = useState<string | null>(null);
+  const [householdSwitchOpen, setHouseholdSwitchOpen] = useState(false);
   const [majordomoOpen, setMajordomoOpen] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
   const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
@@ -398,6 +406,36 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.content}>
         {section === 'main' ? (
           <>
+            {isHouseholdDeletionPending(household) && household.deletionScheduledFor ? (
+              <View
+                style={[
+                  styles.deletionBanner,
+                  {
+                    backgroundColor: '#FBBF2414',
+                    borderColor: '#FBBF2444',
+                  },
+                ]}>
+                <MaterialIcons name="hourglass-top" size={18} color="#FBBF24" />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.memberName, { color: c.text }]}>
+                    Deletion scheduled
+                  </Text>
+                  <Text style={[styles.caption, { color: c.textMuted }]}>
+                    {household.householdName} will be permanently deleted on{' '}
+                    {formatHouseholdDeletionDate(household.deletionScheduledFor)} (
+                    {householdDeletionDaysRemaining(household.deletionScheduledFor)} days left). Data
+                    is kept until then.
+                  </Text>
+                </View>
+                {currentMember?.role === 'owner' ? (
+                  <Pressable
+                    onPress={() => void cancelHouseholdDeletion()}
+                    style={[styles.adminActionChip, { borderColor: '#FBBF2466' }]}>
+                    <Text style={[styles.adminActionText, { color: '#FBBF24' }]}>Undo</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="You"
@@ -431,11 +469,25 @@ export default function SettingsScreen() {
                   {currentMember ? ` · ${formatHouseholdRole(currentMember.role)}` : ''}
                   {` · ${lookValue}`}
                 </Text>
+                {householdMemberships.length > 1 ? (
+                  <Text style={[styles.caption, { color: accentTheme.primary, fontWeight: '600' }]}>
+                    Tap to switch household
+                  </Text>
+                ) : null}
               </View>
               <MaterialIcons name="chevron-right" size={18} color={c.textSubtle} />
             </Pressable>
 
             <SettingsGroup header="Household">
+              {householdMemberships.length > 1 ? (
+                <SettingsNavRow
+                  icon="swap-horiz"
+                  iconColor={accentTheme.primary}
+                  label="Switch household"
+                  subtitle={`Now in ${household.householdName}`}
+                  onPress={() => setHouseholdSwitchOpen(true)}
+                />
+              ) : null}
               <SettingsNavRow
                 icon="group"
                 iconColor="#38BDF8"
@@ -947,10 +999,18 @@ export default function SettingsScreen() {
                   label="Require join approval"
                   subtitle="When on, invited adults and profiles wait for admin approval after they pick a name."
                   value={household.joinApprovalRequired !== false}
-                  last
                   onValueChange={(value) => setJoinApprovalRequired(value)}
                 />
               </SettingsGroup>
+            ) : null}
+            {currentMember?.role === 'owner' ? (
+              <Pressable
+                onPress={() => router.push('/delete-household' as never)}
+                style={[styles.accountBtn, { backgroundColor: '#F8717110', marginTop: 8 }]}>
+                <Text style={[styles.accountBtnText, { color: '#F87171', textAlign: 'center' }]}>
+                  Delete household
+                </Text>
+              </Pressable>
             ) : null}
           </>
         ) : null}
@@ -1576,6 +1636,10 @@ export default function SettingsScreen() {
       householdName={household.householdName}
       onClose={() => setProfileInviteMemberId(null)}
     />
+    <HouseholdSwitchSheet
+      visible={householdSwitchOpen}
+      onClose={() => setHouseholdSwitchOpen(false)}
+    />
   </>
   );
 }
@@ -1989,5 +2053,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: -0.2,
+  },
+  deletionBanner: {
+    alignItems: 'flex-start',
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+    padding: 14,
   },
 });

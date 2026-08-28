@@ -476,9 +476,14 @@ type OrbitContextValue = {
     role: HouseholdRole;
     status: string;
     accentThemeId: AccentThemeId;
+    deletionScheduledFor?: string | null;
   }[];
   isGuestInActiveHousehold: boolean;
   switchHousehold: (householdId: string) => Promise<void>;
+  /** Owner-only — schedules permanent deletion after a 15-day grace period. */
+  deleteHousehold: () => Promise<{ scheduledFor: string }>;
+  /** Owner-only — cancels a scheduled household deletion within the grace window. */
+  cancelHouseholdDeletion: () => Promise<void>;
   /**
    * Custom house rules — display only; never alter scoring / XP / allowance.
    */
@@ -1411,12 +1416,77 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await setActiveHouseholdPref(householdId);
     const next = await householdRepository.loadHouseholdById(householdId, user.id);
     const accent = await getHouseholdAccentPref(householdId);
-    setHousehold({ ...next, accentThemeId: accent ?? next.accentThemeId });
-    const self = next.members.find((member) => member.userId === user.id);
+    const hydrated = await hydrateHousehold({
+      ...next,
+      accentThemeId: accent ?? next.accentThemeId,
+    });
+    setHousehold(hydrated);
+    const self = hydrated.members.find((member) => member.userId === user.id);
     if (self) setActiveMemberId(self.id);
     if (dataMode === 'mock') {
-      await persistMockHouseholdSnapshot(next);
+      await persistMockHouseholdSnapshot(hydrated);
     }
+    if (hydrated.id) {
+      await Promise.all([
+        notificationsRepository.list(hydrated.id).then(setNotifications),
+        rewardsRepository.getRedemptions(hydrated.id).then((items) => {
+          setRedemptions(items);
+          setPendingRedemptions(items.filter((item) => item.status === 'pending'));
+        }),
+        rewardsRepository.getAllowances(hydrated.id).then(setAllowances),
+        smartHomeRepository.listDevices(hydrated.id).then(setSmartHomeDevices),
+        smartHomeRepository.listScenes(hydrated.id).then(setSmartHomeScenes),
+      ]);
+      setStoreRecommendations(
+        buildStoreRecommendations(hydrated.id, hydrated.groceries)
+      );
+      const links = await householdRepository.getInviteLink(hydrated.id);
+      setInviteLinks(links);
+      setHousehold((current) => ({ ...current, inviteCode: links.code }));
+    }
+    await refreshHouseholdMemberships(user.id);
+    await trackAnalytics('household.switched', { householdId }, { householdId, userId: user.id });
+  };
+
+  const deleteHousehold = async () => {
+    const user = currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
+    if (!user?.id || !household.id) {
+      throw new Error('No active household to delete.');
+    }
+    if (currentMember?.role !== 'owner') {
+      throw new Error('Only the household owner can delete this household.');
+    }
+    const result = await householdRepository.requestHouseholdDeletion(household.id, user.id);
+    const scheduledSnapshot = { ...household, deletionScheduledFor: result.scheduledFor };
+    setHousehold(scheduledSnapshot);
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot(scheduledSnapshot);
+    }
+    await refreshHouseholdMemberships(user.id);
+    await trackAnalytics(
+      'household.deletion_scheduled',
+      { scheduledFor: result.scheduledFor },
+      { householdId: household.id, userId: user.id }
+    );
+    return result;
+  };
+
+  const cancelHouseholdDeletion = async () => {
+    const user = currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
+    if (!user?.id || !household.id) {
+      throw new Error('No active household.');
+    }
+    if (currentMember?.role !== 'owner') {
+      throw new Error('Only the household owner can cancel deletion.');
+    }
+    await householdRepository.cancelHouseholdDeletion(household.id, user.id);
+    const restored = { ...household, deletionScheduledFor: null, deletedAt: null };
+    setHousehold(restored);
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot(restored);
+    }
+    await refreshHouseholdMemberships(user.id);
+    await trackAnalytics('household.deletion_cancelled', {}, { householdId: household.id, userId: user.id });
   };
 
   const lookupProfileInvite = async (rawCode: string) => {
@@ -5187,6 +5257,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       householdMemberships,
       isGuestInActiveHousehold,
       switchHousehold,
+      deleteHousehold,
+      cancelHouseholdDeletion,
       addCustomHouseRule,
       updateCustomHouseRule,
       removeCustomHouseRule,

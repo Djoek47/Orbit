@@ -9,6 +9,13 @@ import {
   loadActiveMockHousehold,
   saveActiveMockHousehold,
 } from '@/lib/household/mock-active-household';
+import {
+  getMockHouseholdFromRegistry,
+  listMockHouseholdRegistry,
+  removeMockHouseholdFromRegistry,
+  upsertMockHouseholdRegistry,
+} from '@/lib/household/mock-household-registry';
+import { scheduleHouseholdDeletionDate } from '@/lib/household/household-deletion';
 import { seedMockDomainsFromHousehold } from '@/lib/household/seed-mock-domains';
 import { peekPendingJoinHouseholdId } from '@/lib/invite/pending-join-store';
 import { getActiveHouseholdPref, getPrimaryHouseholdPref } from '@/lib/household/active-household-pref';
@@ -778,6 +785,10 @@ export const householdRepository = {
 
   async loadHouseholdById(householdId: string, userId: string): Promise<HouseholdSnapshot> {
     if (isMockMode()) {
+      const fromRegistry = await getMockHouseholdFromRegistry(householdId);
+      if (fromRegistry) {
+        return clone(fromRegistry);
+      }
       const active = await loadActiveMockHousehold();
       if (active?.id === householdId) {
         return clone(active);
@@ -791,47 +802,43 @@ export const householdRepository = {
   },
 
   async listMemberships(userId: string): Promise<
-    { householdId: string; householdName: string; role: HouseholdRole; status: string }[]
+    {
+      householdId: string;
+      householdName: string;
+      role: HouseholdRole;
+      status: string;
+      deletionScheduledFor?: string | null;
+    }[]
   > {
     if (isMockMode()) {
-      const active = await loadActiveMockHousehold();
-      const primaryId = await getPrimaryHouseholdPref();
+      const registry = await listMockHouseholdRegistry();
+      const candidates = registry.length
+        ? registry
+        : [await loadActiveMockHousehold(), mockHousehold].filter(Boolean) as HouseholdSnapshot[];
+      const unique = new Map<string, HouseholdSnapshot>();
+      for (const snapshot of candidates) {
+        if (snapshot?.id) unique.set(snapshot.id, snapshot);
+      }
+      if (mockHousehold.id) unique.set(mockHousehold.id, mockHousehold);
+
       const entries: {
         householdId: string;
         householdName: string;
         role: HouseholdRole;
         status: string;
+        deletionScheduledFor?: string | null;
       }[] = [];
 
-      const primaryHousehold =
-        primaryId && active?.id === primaryId
-          ? active
-          : !primaryId && mockHousehold.members.some((member) => member.userId === userId)
-            ? mockHousehold
-            : null;
-
-      if (primaryHousehold?.id) {
-        const self = primaryHousehold.members.find((member) => member.userId === userId);
-        if (self) {
-          entries.push({
-            householdId: primaryHousehold.id,
-            householdName: primaryHousehold.householdName,
-            role: self.role,
-            status: self.status,
-          });
-        }
-      }
-
-      if (active?.id && active.id !== primaryHousehold?.id) {
-        const self = active.members.find((member) => member.userId === userId);
-        if (self) {
-          entries.push({
-            householdId: active.id,
-            householdName: active.householdName,
-            role: self.role,
-            status: self.status,
-          });
-        }
+      for (const snapshot of unique.values()) {
+        const self = snapshot.members.find((member) => member.userId === userId);
+        if (!self || (self.status as string) === 'removed') continue;
+        entries.push({
+          householdId: snapshot.id!,
+          householdName: snapshot.householdName,
+          role: self.role,
+          status: self.status,
+          deletionScheduledFor: snapshot.deletionScheduledFor ?? null,
+        });
       }
 
       return entries;
@@ -840,7 +847,7 @@ export const householdRepository = {
     const supabase = getConfiguredSupabase('householdRepository.listMemberships');
     const { data, error } = await supabase
       .from('household_members')
-      .select('household_id, role, status, households(name)')
+      .select('household_id, role, status, households(name, deletion_scheduled_for)')
       .eq('user_id', userId)
       .in('status', ['active', 'pending']);
     mapDbError('householdRepository.listMemberships', error);
@@ -849,7 +856,83 @@ export const householdRepository = {
       householdName: String((row.households as { name?: string } | null)?.name ?? 'Household'),
       role: row.role as HouseholdRole,
       status: String(row.status),
+      deletionScheduledFor:
+        (row.households as { deletion_scheduled_for?: string | null } | null)?.deletion_scheduled_for ??
+        null,
     }));
+  },
+
+  async requestHouseholdDeletion(
+    householdId: string,
+    userId: string
+  ): Promise<{ scheduledFor: string }> {
+    const scheduledFor = scheduleHouseholdDeletionDate();
+    if (isMockMode()) {
+      const snapshot =
+        (await getMockHouseholdFromRegistry(householdId)) ??
+        (mockHousehold.id === householdId ? mockHousehold : null) ??
+        ((await loadActiveMockHousehold())?.id === householdId ? await loadActiveMockHousehold() : null);
+      if (!snapshot?.id) {
+        throw new Error('householdRepository.requestHouseholdDeletion: Household not found.');
+      }
+      const owner = snapshot.members.find(
+        (member) => member.userId === userId && member.role === 'owner'
+      );
+      if (!owner) {
+        throw new Error('Only the household owner can delete this household.');
+      }
+      const next = { ...snapshot, deletionScheduledFor: scheduledFor };
+      await upsertMockHouseholdRegistry(next);
+      if (mockHousehold.id === householdId) {
+        Object.assign(mockHousehold, next);
+      }
+      const active = await loadActiveMockHousehold();
+      if (active?.id === householdId) {
+        await saveActiveMockHousehold(next);
+      }
+      return { scheduledFor };
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.requestHouseholdDeletion');
+    const { data, error } = await supabase.rpc('request_household_deletion', {
+      p_household_id: householdId,
+    });
+    mapDbError('householdRepository.requestHouseholdDeletion', error);
+    return { scheduledFor: String(data ?? scheduledFor) };
+  },
+
+  async cancelHouseholdDeletion(householdId: string, userId: string): Promise<void> {
+    if (isMockMode()) {
+      const snapshot =
+        (await getMockHouseholdFromRegistry(householdId)) ??
+        (mockHousehold.id === householdId ? mockHousehold : null) ??
+        ((await loadActiveMockHousehold())?.id === householdId ? await loadActiveMockHousehold() : null);
+      if (!snapshot?.id) {
+        throw new Error('householdRepository.cancelHouseholdDeletion: Household not found.');
+      }
+      const owner = snapshot.members.find(
+        (member) => member.userId === userId && member.role === 'owner'
+      );
+      if (!owner) {
+        throw new Error('Only the household owner can cancel deletion.');
+      }
+      const next = { ...snapshot, deletionScheduledFor: null, deletedAt: null };
+      await upsertMockHouseholdRegistry(next);
+      if (mockHousehold.id === householdId) {
+        Object.assign(mockHousehold, next);
+      }
+      const active = await loadActiveMockHousehold();
+      if (active?.id === householdId) {
+        await saveActiveMockHousehold(next);
+      }
+      return;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.cancelHouseholdDeletion');
+    const { error } = await supabase.rpc('cancel_household_deletion', {
+      p_household_id: householdId,
+    });
+    mapDbError('householdRepository.cancelHouseholdDeletion', error);
   },
 
   async updateMemberRole(member: HouseholdMember, role: HouseholdRole): Promise<HouseholdMember> {
@@ -1499,6 +1582,9 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
           summary: 'Your household is synced. Poppins will fill in guidance as activity arrives.',
           actions: ['Create task', 'Check groceries'],
         },
+    deletionScheduledFor:
+      (household as { deletion_scheduled_for?: string | null }).deletion_scheduled_for ?? null,
+    deletedAt: (household as { deleted_at?: string | null }).deleted_at ?? null,
   };
 }
 
@@ -1530,6 +1616,7 @@ export async function persistCustomHouseRulesRows(
 export async function persistMockHouseholdSnapshot(household: HouseholdSnapshot) {
   if (!isMockMode() || !household.id) return;
   await saveActiveMockHousehold(household);
+  await upsertMockHouseholdRegistry(household);
 }
 
 export async function clearMockHouseholdSnapshot() {

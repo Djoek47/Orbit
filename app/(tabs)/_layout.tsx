@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { GlobalHeaderChips } from '@/components/orbit/global-header-chips';
+import { HouseholdSwitchBar } from '@/components/orbit/household-switch-bar';
 import { MakeTabBar } from '@/components/orbit/make-tab-bar';
 import { loadDeviceSession } from '@/lib/device/device-session';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
@@ -124,6 +125,7 @@ export default function TabLayout() {
       </Tabs>
 
       <GlobalHeaderChips />
+      <HouseholdSwitchBar />
     </View>
   );
 }

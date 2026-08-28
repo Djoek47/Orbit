@@ -32,6 +32,9 @@ export type HouseholdRow = {
   join_approval_required?: boolean | null;
   /** Revision G — household-level, default off. */
   sidekick_grocery_add?: boolean | null;
+  deleted_at?: string | null;
+  deletion_scheduled_for?: string | null;
+  deletion_requested_by?: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -545,6 +548,14 @@ export type Database = {
       decide_reward_proposal: {
         Args: { p_proposal_id: string; p_approve: boolean };
         Returns: Json;
+      };
+      request_household_deletion: {
+        Args: { p_household_id: string };
+        Returns: string;
+      };
+      cancel_household_deletion: {
+        Args: { p_household_id: string };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;
