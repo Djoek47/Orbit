@@ -1,58 +1,122 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { StyleSheet } from 'react-native';
 
-import { GlassCard } from '@/components/orbit/glass-card';
+import { AppText as Text } from '@/components/orbit/app-text';
+import { AuthShell } from '@/components/orbit/auth-shell';
+import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { typography } from '@/constants/orbit-theme';
+import { userFacingMessage } from '@/lib/auth/auth-errors';
+import { consumeInviteCode, peekInviteCode } from '@/lib/invite/invite-code-store';
+import { hrefForLoggedOutInvite } from '@/lib/invites/join-session';
+import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function JoinHouseholdScreen() {
+  const params = useLocalSearchParams<{ code?: string }>();
   const { joinHousehold } = useOrbit();
-  const [inviteCode, setInviteCode] = useState('ORBIT-7429');
+  const { c } = useOrbitColors();
+  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const autoJoinCode = useRef<string | null>(null);
 
-  const handleJoinHousehold = async () => {
-    if (!inviteCode.trim()) {
-      setError('Enter an invite code to continue.');
+  const handleJoinHousehold = async (code = inviteCode) => {
+    const parsed = parseInvitePayload(code) ?? (code.trim() ? normalizeInviteCode(code) : null);
+    if (!parsed) {
+      setError('Enter a valid invite code.');
       return;
     }
 
+    setBusy(true);
     setError('');
-    await joinHousehold({ inviteCode });
-    router.replace('/' as never);
+    try {
+      setInviteCode(parsed);
+      const outcome = await joinHousehold({ inviteCode: parsed });
+      if (outcome === 'signed_out') {
+        router.replace(hrefForLoggedOutInvite(parsed) as never);
+        return;
+      }
+      await consumeInviteCode();
+      router.replace((outcome === 'pending' ? '/pending-approval' : '/join-welcome') as never);
+    } catch (err) {
+      setError(userFacingMessage(err, 'Couldn’t join. Check the code and try again.'));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  return (
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Join a household</Text>
-        <Text style={orbitTypography.display}>Invite code</Text>
-        <Text style={orbitTypography.body}>Mock join requests enter as pending adult members until an owner approves them.</Text>
-      </View>
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const fromParam =
+        typeof params.code === 'string' && params.code.trim()
+          ? parseInvitePayload(params.code) ?? normalizeInviteCode(params.code)
+          : null;
+      const fromStash = fromParam ? null : await peekInviteCode();
+      const next = fromParam || (fromStash ? normalizeInviteCode(fromStash) : '');
+      if (cancelled || !next) return;
+      setInviteCode(next);
+      if (!autoJoinCode.current) {
+        autoJoinCode.current = next;
+        void handleJoinHousehold(next);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount / param hydrate only
+  }, [params.code]);
 
-      <GlassCard elevated style={styles.form}>
-        <StatusPill label="Pending role: Adult" tone="amber" />
-        <OrbitInput label="Invite code" value={inviteCode} onChangeText={setInviteCode} />
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <OrbitButton onPress={handleJoinHousehold}>Join Household</OrbitButton>
-      </GlassCard>
-    </ScrollView>
+  return (
+    <>
+      <AuthShell
+        showBack
+        kicker="Join"
+        title="Enter code"
+        subtitle="Paste a code, or scan the household QR.">
+        <OrbitInput
+          autoCapitalize="characters"
+          label="Invite code"
+          value={inviteCode}
+          onChangeText={(value) => {
+            setInviteCode(value);
+            setError('');
+          }}
+          placeholder="CMX-0000"
+        />
+
+        {error ? (
+          <Text style={[typography.footnote, styles.error, { color: c.danger }]}>{error}</Text>
+        ) : null}
+
+        <OrbitButton disabled={busy} onPress={() => void handleJoinHousehold()}>
+          {busy ? 'Joining…' : 'Continue'}
+        </OrbitButton>
+
+        <OrbitButton tone="secondary" onPress={() => setScannerOpen(true)}>
+          Scan QR
+        </OrbitButton>
+      </AuthShell>
+
+      <InviteQrScanner
+        visible={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScanned={(code) => {
+          setInviteCode(code);
+          void handleJoinHousehold(code);
+        }}
+      />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   error: {
-    color: orbitColors.danger,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  form: {
-    gap: orbitSpacing.md,
+    textAlign: 'center',
   },
 });
