@@ -87,7 +87,8 @@ import { formatHouseRulesTime } from '@/lib/rules/interpolate';
 import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
 import { SidekickSettingsScreen } from '@/components/orbit/sidekick-settings-screen';
-import { MemberTrustSwitch, MembersJoinPolicyGroup } from '@/components/orbit/members/join-policy-controls';
+import { MembersJoinPolicyGroup } from '@/components/orbit/members/join-policy-controls';
+import { SettingsMemberCard } from '@/components/orbit/members/settings-member-card';
 import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
 import {
@@ -207,6 +208,8 @@ export default function SettingsScreen() {
     preferredMapsApp,
     removeMember,
     signOut,
+    approveMember,
+    setMemberJoinPreApproved,
     switchPersona,
     updateAppearanceMode,
     updateHouseholdAccentTheme,
@@ -1319,150 +1322,40 @@ export default function SettingsScreen() {
 
             {topLevelMembers.map((member) => {
               const active = currentMember?.id === member.id;
-              const photo = isAvatarImageUri(member.avatar);
               return (
-                <View
+                <SettingsMemberCard
                   key={member.id}
-                  style={[
-                    styles.memberCard,
-                    {
-                      backgroundColor: glassFill(isDark),
-                      borderColor: glassBorder(0.08),
-                    },
-                  ]}>
-                  <Pressable
-                    onPress={() => setPersonalizeMemberId(member.id)}
-                    accessibilityLabel={`Personalize look for ${member.name}`}
-                    style={[
-                      styles.memberAvatar,
-                      { backgroundColor: `${active ? accentTheme.primary : orbitPalette.textSubtle}33` },
-                    ]}>
-                    {photo ? (
-                      <Image source={{ uri: member.avatar }} style={styles.memberAvatarImage} />
-                    ) : (
-                      <Text style={styles.memberAvatarText}>{memberDisplayEmoji(member)}</Text>
-                    )}
-                    <View
-                      style={[
-                        styles.avatarEditBadge,
-                        { backgroundColor: orbitPalette.backgroundSoft, borderColor: glassBorder(0.1) },
-                      ]}>
-                      <MaterialIcons name="edit" size={10} color="#38BDF8" />
-                    </View>
-                  </Pressable>
-                  <Pressable style={{ flex: 1 }} onPress={() => switchPersona(member.id)}>
-                    {renamingMemberId === member.id ? (
-                      <TextInput
-                        value={renamingMemberInput}
-                        onChangeText={setRenamingMemberInput}
-                        style={[styles.nameInput, { color: orbitPalette.text }]}
-                        autoFocus
-                        onSubmitEditing={() => {
-                          const next = renamingMemberInput.trim();
-                          if (next.length >= 2) {
-                            void updateMemberDisplayName(member.id, next);
-                          }
-                          setRenamingMemberId(null);
-                        }}
-                      />
-                    ) : (
-                      <Text style={[styles.memberName, { color: orbitPalette.text }]}>{member.name}</Text>
-                    )}
-                    <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
-                      {formatHouseholdRole(member.role)}
-                    </Text>
-                    <MemberConnectionCaption member={member} />
-                    <Text style={[styles.caption, { color: accentTheme.primary, fontWeight: '600' }]}>
-                      {member.xp} XP total
-                    </Text>
-                    {permissions.canManageHousehold && memberCanReceiveInvite(member) ? (
-                      <Pressable
-                        onPress={() => openMemberInvite(member)}
-                        style={[
-                          styles.adminActionChip,
-                          {
-                            alignSelf: 'flex-start',
-                            marginTop: 8,
-                            backgroundColor: `${accentTheme.primary}22`,
-                            borderColor: `${accentTheme.primary}55`,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 6,
-                          },
-                        ]}>
-                        <MaterialIcons name="qr-code-2" size={14} color={accentTheme.primary} />
-                        <Text style={[styles.adminActionText, { color: accentTheme.primary }]}>
-                          Share invite
-                        </Text>
-                      </Pressable>
-                    ) : null}
-                    <View style={{ marginTop: 8 }}>
-                      <MemberTrustSwitch member={member} />
-                    </View>
-                    {permissions.canManageHousehold && member.role === 'child' ? (
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 12,
-                          marginTop: 10,
-                          paddingTop: 10,
-                          borderTopWidth: StyleSheet.hairlineWidth,
-                          borderTopColor: glassBorder(0.08),
-                        }}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.caption, { color: orbitPalette.textSoft, fontWeight: '600' }]}>
-                            Homework photo proof
-                          </Text>
-                          <Text style={[styles.caption, { color: orbitPalette.textSubtle, marginTop: 2 }]}>
-                            Required when they mark homework done
-                          </Text>
-                        </View>
-                        <Switch
-                          value={member.homeworkProofRequired !== false}
-                          onValueChange={(v) => void updateMemberHomeworkProof(member.id, v)}
-                          trackColor={{ false: glassBorder(0.2), true: `${accentTheme.primary}88` }}
-                          thumbColor="#FFFFFF"
-                        />
-                      </View>
-                    ) : null}
-                  </Pressable>
-                  <View style={{ alignItems: 'center', gap: 8 }}>
-                    <MemberConnectionBadge member={member} size="sm" />
-                    {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
-                  </View>
-                  {permissions.canManageHousehold || currentMember?.id === member.id ? (
-                    <Pressable
-                      onPress={() => {
-                        if (renamingMemberId === member.id) {
-                          const next = renamingMemberInput.trim();
-                          if (next.length >= 2) {
-                            void updateMemberDisplayName(member.id, next);
-                          }
-                          setRenamingMemberId(null);
-                          return;
-                        }
-                        setRenamingMemberId(member.id);
-                        setRenamingMemberInput(member.name);
-                      }}
-                      hitSlop={8}
-                      accessibilityLabel={`Rename ${member.name}`}>
-                      <MaterialIcons
-                        name={renamingMemberId === member.id ? 'check' : 'badge'}
-                        size={18}
-                        color={renamingMemberId === member.id ? '#34D399' : '#38BDF8'}
-                      />
-                    </Pressable>
-                  ) : null}
-                  {permissions.canManageHousehold && member.role !== 'owner' ? (
-                    <Pressable
-                      onPress={() => handleRemoveMember(member)}
-                      hitSlop={8}
-                      accessibilityLabel={`Remove ${member.name}`}>
-                      <MaterialIcons name="person-remove" size={20} color="#F87171" />
-                    </Pressable>
-                  ) : null}
-                </View>
+                  member={member}
+                  household={household}
+                  active={active}
+                  accent={accentTheme.primary}
+                  canManage={permissions.canManageHousehold}
+                  renaming={renamingMemberId === member.id}
+                  renameValue={renamingMemberInput}
+                  onRenameValueChange={setRenamingMemberInput}
+                  onPersonalize={() => setPersonalizeMemberId(member.id)}
+                  onSwitchPersona={() => switchPersona(member.id)}
+                  onShareInvite={() => openMemberInvite(member)}
+                  onStartRename={() => {
+                    setRenamingMemberId(member.id);
+                    setRenamingMemberInput(member.name);
+                  }}
+                  onCommitRename={() => {
+                    const next = renamingMemberInput.trim();
+                    if (next.length >= 2) {
+                      void updateMemberDisplayName(member.id, next);
+                    }
+                    setRenamingMemberId(null);
+                  }}
+                  onRemove={() => handleRemoveMember(member)}
+                  onApprove={() => void approveMember(member.id)}
+                  onAutoJoinChange={(trusted) =>
+                    void setMemberJoinPreApproved(member.id, trusted)
+                  }
+                  onHomeworkProofChange={(required) =>
+                    void updateMemberHomeworkProof(member.id, required)
+                  }
+                />
               );
             })}
             <Pressable

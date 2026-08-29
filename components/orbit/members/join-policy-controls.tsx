@@ -1,7 +1,5 @@
-import { Switch, View } from 'react-native';
-
 import { SettingsGroup, SettingsToggleRow } from '@/components/orbit/settings/grouped';
-import { space, typography } from '@/constants/orbit-theme';
+import { typography } from '@/constants/orbit-theme';
 import {
   getJoinPolicyMode,
   isReviewJoinPolicy,
@@ -36,7 +34,6 @@ export function MembersJoinPolicyGroup({ showHeader = true }: { showHeader?: boo
 
 /** Per-member trust — only when household reviews joins and member is invited/pending. */
 export function MemberTrustSwitch({ member }: { member: HouseholdMember }) {
-  const { c } = useOrbitColors();
   const { household, permissions, setMemberJoinPreApproved } = useOrbit();
 
   if (!permissions.canManageHousehold || !isReviewJoinPolicy(household)) return null;
@@ -46,31 +43,17 @@ export function MemberTrustSwitch({ member }: { member: HouseholdMember }) {
   const trusted = member.joinPreApproved === true;
 
   return (
-    <View
-      style={{
-        gap: space.xs,
-        paddingTop: space.sm,
-        borderTopWidth: 1,
-        borderTopColor: `${c.textMuted}22`,
-      }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[typography.subheadline, { color: c.text, fontWeight: '600' }]}>
-            {JOIN_POLICY_COPY.trustRowLabel}
-          </Text>
-          <Text style={[typography.footnote, { color: c.textMuted }]}>
-            {trusted
-              ? JOIN_POLICY_COPY.trustRowHint(member.name)
-              : JOIN_POLICY_COPY.trustRowOffHint(member.name)}
-          </Text>
-        </View>
-        <Switch
-          accessibilityLabel={`${JOIN_POLICY_COPY.trustRowLabel} for ${member.name}`}
-          value={trusted}
-          onValueChange={(next) => void setMemberJoinPreApproved(member.id, next)}
-        />
-      </View>
-    </View>
+    <SettingsToggleRow
+      label={JOIN_POLICY_COPY.trustRowLabel}
+      subtitle={
+        trusted
+          ? JOIN_POLICY_COPY.trustRowHint(member.name)
+          : JOIN_POLICY_COPY.trustRowOffHint(member.name)
+      }
+      value={trusted}
+      last
+      onValueChange={(next) => void setMemberJoinPreApproved(member.id, next)}
+    />
   );
 }
 

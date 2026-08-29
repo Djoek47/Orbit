@@ -98,11 +98,9 @@ export const JOIN_POLICY_COPY = {
   reviewToggleLabel: 'Review new members',
   reviewToggleOn: 'You approve each person when they accept their invite.',
   reviewToggleOff: 'Anyone with an invite joins immediately — no review step.',
-  trustRowLabel: 'Join without review',
-  trustRowHint: (name: string) =>
-    `${name} will enter as soon as they accept their invite — you won't need to approve.`,
-  trustRowOffHint: (name: string) =>
-    `${name} will wait for your approval after accepting their invite.`,
+  trustRowLabel: 'Auto-join',
+  trustRowHint: (name: string) => `${name} joins instantly when they accept.`,
+  trustRowOffHint: (name: string) => `You'll approve ${name} after they accept.`,
   sectionPolicyHeader: 'Join access',
   sectionNeedsInvite: 'Needs invite',
   sectionNeedsInviteHint: "Share each person's invite so they can connect on their device.",
