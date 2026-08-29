@@ -6,6 +6,7 @@ import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native
 
 import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
+import { HomeHouseRulesCard } from '@/components/orbit/home-house-rules-card';
 import { LargeTitleHeader } from '@/components/orbit/large-title-header';
 import { Leaderboard, type LeaderboardEntry } from '@/components/orbit/leaderboard';
 import { PoppinsCard } from '@/components/orbit/poppins-card';
@@ -256,14 +257,9 @@ export default function HomeScreen() {
             ) : null}
           </View>
           <Pressable
-            onPress={() => {
-              if (currentMember?.role === 'child') return;
-              router.push('/settings' as never);
-            }}
+            onPress={() => router.push('/settings' as never)}
             accessibilityRole="button"
-            accessibilityLabel={
-              currentMember?.role === 'child' ? displayName : 'Open profile settings'
-            }>
+            accessibilityLabel="Open settings">
             <Avatar
               name={displayName}
               emoji={currentMember ? memberDisplayEmoji(currentMember) : undefined}
@@ -278,17 +274,12 @@ export default function HomeScreen() {
         </View>
 
         {sharedKidMode ? (
-          <Pressable
+          <HomeHouseRulesCard
+            household={household}
+            currentMember={currentMember}
+            accentColor={accentTheme.primary}
             onPress={() => router.push('/house-rules' as never)}
-            accessibilityRole="button"
-            accessibilityLabel={VOCAB.houseRules}>
-            <GlassCard>
-              <Text style={[typography.headline, { color: orbitPalette.text }]}>{VOCAB.houseRules}</Text>
-              <Text style={[typography.footnote, { color: orbitPalette.textSoft, marginTop: 4 }]}>
-                How it works
-              </Text>
-            </GlassCard>
-          </Pressable>
+          />
         ) : null}
 
         {selfOnRecess ? (

@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Redirect, router, Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -83,7 +83,9 @@ import { houseRulesHouseholdView } from '@/lib/rules/household-view';
 import { formatHouseRulesTime } from '@/lib/rules/interpolate';
 import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
+import { SidekickSettingsScreen } from '@/components/orbit/sidekick-settings-screen';
 import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
+import { isSidekickRole } from '@/lib/sidekick/permissions';
 import {
   AI_TRIP_USD,
   formatUsd,
@@ -368,8 +370,8 @@ export default function SettingsScreen() {
     [household.members, profileInviteMemberId]
   );
 
-  if (currentMember?.role === 'child') {
-    return <Redirect href={'/(tabs)' as never} />;
+  if (isSidekickRole(currentMember?.role)) {
+    return <SidekickSettingsScreen />;
   }
 
   return (
