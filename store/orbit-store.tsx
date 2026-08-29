@@ -567,6 +567,7 @@ type OrbitContextValue = {
       role: 'admin' | 'member';
       avatar?: string;
       plannedTaskLibraryIds?: string[];
+      joinPreApproved?: boolean;
     }[],
     options?: { householdName?: string }
   ) => Promise<HouseholdMember[]>;
@@ -4773,6 +4774,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       role: 'admin' | 'member';
       avatar?: string;
       plannedTaskLibraryIds?: string[];
+      joinPreApproved?: boolean;
     }[],
     options?: { householdName?: string }
   ) => {
@@ -4803,6 +4805,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         role,
         avatar: draft.avatar,
         plannedTaskLibraryIds: draft.plannedTaskLibraryIds,
+        joinPreApproved: draft.joinPreApproved,
       });
       if (member.role === 'child') {
         await saveChildInviteRecord({

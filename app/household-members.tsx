@@ -37,7 +37,9 @@ import {
 import { memberConnectionPhase } from '@/lib/household/member-connection';
 import {
   countMembersForMembersScreen,
+  canLockInvites,
   getJoinPolicyMode,
+  isReviewJoinPolicy,
   JOIN_POLICY_COPY,
   membersScreenStatusLine,
 } from '@/lib/household/join-policy';
@@ -90,6 +92,7 @@ export default function HouseholdMembersScreen() {
     updateMemberRole,
     updateSharedDeviceLinks,
     addOnboardingMembers,
+    setJoinApprovalRequired,
   } = useOrbit();
   const { c } = useOrbitColors();
 
@@ -128,6 +131,10 @@ export default function HouseholdMembersScreen() {
     policy,
     familyCap && counts.pending === 0 && counts.awaiting === 0 ? adminSeats : undefined
   );
+  const showInviteLock =
+    permissions.canManageHousehold &&
+    isReviewJoinPolicy(household) &&
+    canLockInvites(household.members);
 
   const inviteMember =
     inviteTarget?.memberId != null
@@ -447,6 +454,20 @@ export default function HouseholdMembersScreen() {
         ) : null}
 
         {permissions.canManageHousehold ? <MembersJoinPolicyGroup /> : null}
+
+        {showInviteLock ? (
+          <GlassCard style={styles.card}>
+            <Text style={[typography.headline, { color: c.text }]}>
+              {JOIN_POLICY_COPY.everyoneConnectedTitle}
+            </Text>
+            <Text style={[typography.footnote, { color: c.textMuted }]}>
+              {JOIN_POLICY_COPY.everyoneConnectedBody}
+            </Text>
+            <OrbitButton tone="secondary" onPress={() => setJoinApprovalRequired(false)}>
+              {JOIN_POLICY_COPY.lockInvitesAction}
+            </OrbitButton>
+          </GlassCard>
+        ) : null}
 
         {awaiting.length > 0 ? (
           <>

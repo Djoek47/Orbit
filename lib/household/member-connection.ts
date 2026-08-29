@@ -30,6 +30,8 @@ export function memberConnectionPhase(
   if (CONNECTED_OWNER(member)) return 'connected';
   if (member.status === 'pending') return 'pending_approval';
   if (member.status === 'invited') return 'awaiting';
+  // Profile-only Sidekicks are connected once active — no auth account required.
+  if (member.role === 'child' && member.status === 'active') return 'connected';
   if (isMemberFullyConnected(member)) return 'connected';
   return 'awaiting';
 }

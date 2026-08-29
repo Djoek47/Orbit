@@ -85,6 +85,15 @@ export function membersScreenStatusLine(
     : 'Everyone is connected.';
 }
 
+/** True when every non-owner member is connected — admin can lock invite period. */
+export function canLockInvites(members: HouseholdMember[]): boolean {
+  const roster = members.filter(
+    (member) => member.role !== 'owner' && member.role !== 'shared-device'
+  );
+  if (roster.length === 0) return true;
+  return roster.every((member) => memberConnectionPhase(member) === 'connected');
+}
+
 export const JOIN_POLICY_COPY = {
   reviewToggleLabel: 'Review new members',
   reviewToggleOn: 'You approve each person when they accept their invite.',
@@ -99,4 +108,7 @@ export const JOIN_POLICY_COPY = {
   sectionNeedsInviteHint: "Share each person's invite so they can connect on their device.",
   sectionPending: 'Waiting for you',
   sectionInHousehold: 'In your household',
+  everyoneConnectedTitle: "Everyone's connected",
+  everyoneConnectedBody: 'Turn off review for any future invites, or leave it on if you expect more people.',
+  lockInvitesAction: 'Done with invites',
 } as const;

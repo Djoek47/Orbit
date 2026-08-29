@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 
 import {
+  canLockInvites,
   canTrustMemberForAutoJoin,
   countMembersForMembersScreen,
   getJoinPolicyMode,
@@ -49,5 +50,7 @@ assert.match(
   membersScreenStatusLine({ pending: 1, awaiting: 0, connected: 1, trustedAwaiting: 0 }, 'review'),
   /waiting for your approval/
 );
+
+assert.equal(canLockInvites([{ id: '1', name: 'Emma', role: 'child', status: 'active', avatar: 'E', xp: 0, loadShare: 0 }]), true);
 
 console.log('join-policy tests passed');

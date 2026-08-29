@@ -4,7 +4,7 @@ import { getSupabaseClient, requireSupabaseClient } from '@/lib/supabase/client'
 export { isUniqueViolation } from '@/lib/db/unique-violation';
 
 export function isMockMode() {
-  return dataMode === 'mock';
+  return dataMode === 'mock' && __DEV__;
 }
 
 export function requireMockOrSupabaseReady(repositoryName: string) {

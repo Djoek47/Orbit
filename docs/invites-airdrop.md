@@ -9,6 +9,13 @@
 
 Shared tablet mode is separate: scan multiple profile QRs on Get Started → Shared device.
 
+## Two admin paths
+
+1. **Get Started roster** — create household, add people, set join policy, share Sidekick QRs, then enter the app.
+2. **Settings → Members** — add people later with the same invite types and join policy controls.
+
+When everyone is connected, use **Done with invites** on the Members screen to turn off review for any future joiners (reversible).
+
 ## Admin settings
 
 - **Review new members** (Settings → Members or Members screen): when ON (default), new members wait for your approval after accepting an invite. When OFF, they enter immediately. On an invited person's card, turn on **Join without review** to trust them while keeping review on for everyone else.

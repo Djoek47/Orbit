@@ -112,6 +112,36 @@ function mapSidekickInvitesByDraftId(
   return out;
 }
 
+function mapCreatedMembersByDraftId(
+  draft: HouseholdSetupDraft,
+  created: HouseholdMember[]
+): Record<string, { joinPreApproved?: boolean }> {
+  const out: Record<string, { joinPreApproved?: boolean }> = {};
+  for (const draftMember of draft.members) {
+    const match = created.find(
+      (member) => member.name.trim().toLowerCase() === draftMember.name.trim().toLowerCase()
+    );
+    if (match) {
+      out[draftMember.id] = { joinPreApproved: match.joinPreApproved };
+    }
+  }
+  return out;
+}
+
+function mapCreatedMemberIdsByDraftId(
+  draft: HouseholdSetupDraft,
+  created: HouseholdMember[]
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const draftMember of draft.members) {
+    const match = created.find(
+      (member) => member.name.trim().toLowerCase() === draftMember.name.trim().toLowerCase()
+    );
+    if (match) out[draftMember.id] = match.id;
+  }
+  return out;
+}
+
 type Step =
   | 'splash'
   | 'invited'
@@ -161,6 +191,7 @@ export default function WelcomeOnboardingScreen() {
     redeemChildInvite,
     signUp,
     updateHouseholdRewardSettings,
+    setMemberJoinPreApproved,
   } = useOrbit();
 
   const accent = accentTheme.primary;
@@ -221,6 +252,12 @@ export default function WelcomeOnboardingScreen() {
     Record<string, RosterSidekickInvite>
   >({});
   const [expandedInviteDraftId, setExpandedInviteDraftId] = useState<string | null>(null);
+  const [createdMemberByDraftId, setCreatedMemberByDraftId] = useState<
+    Record<string, { joinPreApproved?: boolean }>
+  >({});
+  const [createdMemberIdsByDraftId, setCreatedMemberIdsByDraftId] = useState<Record<string, string>>(
+    {}
+  );
   const [tabletCodes, setTabletCodes] = useState<string[]>([]);
   const [tabletCodeDraft, setTabletCodeDraft] = useState('');
 
@@ -784,6 +821,7 @@ export default function WelcomeOnboardingScreen() {
       rewardModel: draft.rewardModel,
       rewardMode: draft.scoringMode,
       setupComplete,
+      joinApprovalRequired: (draft.joinPolicy ?? 'review') !== 'automatic',
     });
     if (!createdHousehold?.id) {
       throw new Error('Could not create household. Try again.');
@@ -808,6 +846,7 @@ export default function WelcomeOnboardingScreen() {
             role: m.role,
             avatar: m.avatar,
             plannedTaskLibraryIds: m.setupComplete ? m.taskLibraryIds : [],
+            joinPreApproved: m.joinPreApproved,
           })),
           { householdName: draft.householdName.trim() }
         );
@@ -872,6 +911,8 @@ export default function WelcomeOnboardingScreen() {
       const invites = mapSidekickInvitesByDraftId(draftSnapshot, created);
       setPostCreateDraft(draftSnapshot);
       setSidekickInvitesByDraftId(invites);
+      setCreatedMemberByDraftId(mapCreatedMembersByDraftId(draftSnapshot, created));
+      setCreatedMemberIdsByDraftId(mapCreatedMemberIdsByDraftId(draftSnapshot, created));
       setExpandedInviteDraftId(
         draftSnapshot.members.find((member) => memberIsComplete(member) && invites[member.id])?.id ??
           null
@@ -886,6 +927,21 @@ export default function WelcomeOnboardingScreen() {
 
   const handleContinueFromRoster = () => {
     setStep('ready');
+  };
+
+  const handleMemberTrustChange = (draftId: string, trusted: boolean) => {
+    const memberId = createdMemberIdsByDraftId[draftId];
+    setCreatedMemberByDraftId((current) => ({
+      ...current,
+      [draftId]: { joinPreApproved: trusted },
+    }));
+    if (memberId) {
+      void setMemberJoinPreApproved(memberId, trusted);
+    }
+  };
+
+  const handleDraftJoinPolicyChange = (policy: 'review' | 'automatic') => {
+    void saveSetupDraft({ ...setupDraft, joinPolicy: policy }).then(setSetupDraft);
   };
 
   const handleShareRosterSidekick = async (
@@ -932,6 +988,8 @@ export default function WelcomeOnboardingScreen() {
       const invites = mapSidekickInvitesByDraftId(draftSnapshot, created);
       setPostCreateDraft(draftSnapshot);
       setSidekickInvitesByDraftId(invites);
+      setCreatedMemberByDraftId(mapCreatedMembersByDraftId(draftSnapshot, created));
+      setCreatedMemberIdsByDraftId(mapCreatedMemberIdsByDraftId(draftSnapshot, created));
       setExpandedInviteDraftId(
         draftSnapshot.members.find((member) => memberIsComplete(member) && invites[member.id])?.id ??
           null
@@ -1685,6 +1743,9 @@ export default function WelcomeOnboardingScreen() {
                 onCreateHousehold={() => void handleCreateFromRoster()}
                 onContinue={handleContinueFromRoster}
                 onFinishLater={() => void handleFinishLater()}
+                onJoinPolicyChange={handleDraftJoinPolicyChange}
+                createdMemberByDraftId={createdMemberByDraftId}
+                onMemberTrustChange={handleMemberTrustChange}
               />
               {shareStatus ? (
                 <Text style={[styles.shareHint, { color: accent }]}>{shareStatus}</Text>
@@ -1733,12 +1794,7 @@ export default function WelcomeOnboardingScreen() {
                 You&apos;re in.
               </Text>
               <Text style={[styles.readySub, { color: orbitPalette.textMuted }]}>
-                Welcome to Choremaxx
-                {roleMeta ? (
-                  <>
-                    , <Text style={[styles.readyRole, { color: accent }]}>{roleMeta.title}</Text>
-                  </>
-                ) : null}
+                Share invites now or anytime from Settings → Members.
               </Text>
 
               {createdHousehold && readyInvite ? (
@@ -1771,7 +1827,12 @@ export default function WelcomeOnboardingScreen() {
               ) : null}
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
-              <OrbitButton onPress={handleEnter}>Enter Choremaxx →</OrbitButton>
+              <OrbitButton onPress={handleEnter}>Enter Choremaxx</OrbitButton>
+              <Pressable onPress={handleEnter} style={styles.secondary}>
+                <Text style={[typography.headline, { color: orbitPalette.textMuted, textAlign: 'center' }]}>
+                  Send invites later
+                </Text>
+              </Pressable>
             </ScrollView>
           ) : null}
         </Animated.View>
@@ -2106,6 +2167,10 @@ const styles = StyleSheet.create({
   },
   readyTitle: {
     textAlign: 'center',
+  },
+  secondary: {
+    gap: 6,
+    paddingVertical: 8,
   },
   inviteCode: {
     fontSize: 28,

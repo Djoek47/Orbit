@@ -211,6 +211,7 @@ export const householdRepository = {
         rewardMode,
         rewardModel,
         setupComplete: input.setupComplete ?? false,
+        joinApprovalRequired: input.joinApprovalRequired !== false,
         hygieneRewarded: false,
         hygieneXp: 5,
         rooms:
@@ -265,6 +266,7 @@ export const householdRepository = {
           reward_model: rewardModel,
           hygiene_rewarded: false,
           hygiene_xp: 5,
+          join_approval_required: input.joinApprovalRequired !== false,
         } satisfies Partial<HouseholdRow> & Pick<HouseholdRow, 'name' | 'owner_id'>)
         .select('*')
         .single();
@@ -280,6 +282,7 @@ export const householdRepository = {
           name,
           reward_mode: rewardMode,
           reward_model: rewardModel,
+          join_approval_required: input.joinApprovalRequired !== false,
         })
         .eq('id', householdId);
       mapDbError('householdRepository.createHousehold.update', updateError);
@@ -1009,6 +1012,7 @@ export const householdRepository = {
       role: HouseholdRole;
       avatar?: string;
       plannedTaskLibraryIds?: string[];
+      joinPreApproved?: boolean;
     }
   ): Promise<HouseholdMember> {
     const trimmed = input.name.trim();
@@ -1037,6 +1041,7 @@ export const householdRepository = {
       plannedTaskLibraryIds: input.plannedTaskLibraryIds?.length
         ? [...input.plannedTaskLibraryIds]
         : undefined,
+      joinPreApproved: input.joinPreApproved === true,
     };
     if (role === 'child') {
       member.profileInviteCode = allocateChildInviteCode(trimmed);
@@ -1112,6 +1117,7 @@ export const householdRepository = {
           load_share: 0,
           profile_invite_code: member.profileInviteCode ?? null,
           planned_task_library_ids: member.plannedTaskLibraryIds ?? [],
+          join_pre_approved: member.joinPreApproved === true,
         })
         .select('*')
         .single();

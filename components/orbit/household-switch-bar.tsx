@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { isHouseholdSwitchDisabled } from '@/lib/feature-flags';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HouseholdSwitchSheet } from '@/components/orbit/household-switch-sheet';
@@ -16,7 +17,7 @@ export function HouseholdSwitchBar() {
   const { c, glass, glassBorder } = useOrbitColors();
   const [open, setOpen] = useState(false);
 
-  if (householdMemberships.length < 2) return null;
+  if (isHouseholdSwitchDisabled() || householdMemberships.length < 2) return null;
 
   const otherCount = householdMemberships.length - 1;
 

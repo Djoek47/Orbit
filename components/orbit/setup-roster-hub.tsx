@@ -3,19 +3,22 @@
  */
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { Avatar } from '@/components/orbit/avatar';
 import { MemberConnectionBadge } from '@/components/orbit/member-connection-badge';
+import { MembersJoinPolicyGroup } from '@/components/orbit/members/join-policy-controls';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import { JOIN_POLICY_COPY } from '@/lib/household/join-policy';
 import { hasChosenAvatar } from '@/lib/profile/chosen-avatar';
 import {
   draftHasCompleteMember,
   memberIsComplete,
   memberStatusLine,
+  type DraftJoinPolicy,
   type DraftMember,
   type HouseholdSetupDraft,
 } from '@/lib/onboarding/setup-draft';
@@ -47,6 +50,11 @@ type SetupRosterHubProps = {
   onCreateHousehold: () => void;
   onContinue?: () => void;
   onFinishLater: () => void;
+  /** Pre-create: household join policy stored on draft. */
+  onJoinPolicyChange?: (policy: DraftJoinPolicy) => void;
+  /** Post-create: trust toggle per roster person (maps draft id → live member). */
+  createdMemberByDraftId?: Record<string, { joinPreApproved?: boolean }>;
+  onMemberTrustChange?: (draftId: string, trusted: boolean) => void;
   busy?: boolean;
 };
 
@@ -66,9 +74,14 @@ export function SetupRosterHub({
   onCreateHousehold,
   onContinue,
   onFinishLater,
+  onJoinPolicyChange,
+  createdMemberByDraftId,
+  onMemberTrustChange,
   busy,
 }: SetupRosterHubProps) {
   const { c, glass, glassBorder } = useOrbitColors();
+  const joinPolicy = draft.joinPolicy ?? 'review';
+  const reviewRequired = joinPolicy !== 'automatic';
   // Solo admin can create; otherwise need at least one finished family member.
   const canCreate = draftHasCompleteMember(draft) || Boolean(ownerName?.trim());
   const incomplete = incompleteMemberCount(draft);
@@ -89,8 +102,34 @@ export function SetupRosterHub({
         </Pressable>
       </View>
       <Text style={[typography.footnote, { color: c.textMuted, marginBottom: space.md }]}>
-        Add everyone who&apos;ll be pitching in.
+        {rosterPostCreate
+          ? 'Share each invite, then continue when you are ready.'
+          : 'Add everyone who&apos;ll be pitching in.'}
       </Text>
+
+      {!rosterPostCreate && onJoinPolicyChange ? (
+        <View
+          style={[
+            styles.policyCard,
+            { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
+          ]}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={[typography.headline, { color: c.text }]}>
+              {JOIN_POLICY_COPY.reviewToggleLabel}
+            </Text>
+            <Text style={[typography.footnote, { color: c.textMuted }]}>
+              {reviewRequired ? JOIN_POLICY_COPY.reviewToggleOn : JOIN_POLICY_COPY.reviewToggleOff}
+            </Text>
+          </View>
+          <Switch
+            accessibilityLabel={JOIN_POLICY_COPY.reviewToggleLabel}
+            value={reviewRequired}
+            onValueChange={(next) => onJoinPolicyChange(next ? 'review' : 'automatic')}
+          />
+        </View>
+      ) : null}
+
+      {rosterPostCreate ? <MembersJoinPolicyGroup /> : null}
 
       <View style={styles.list}>
         <Pressable
@@ -230,6 +269,25 @@ export function SetupRosterHub({
                   onPress={() => onShareSidekick?.(member, invite)}>
                   AirDrop / Share invite
                 </OrbitButton>
+                {reviewRequired && onMemberTrustChange && createdMemberByDraftId?.[member.id] ? (
+                  <View style={styles.trustRow}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={[typography.subheadline, { color: c.text, fontWeight: '600' }]}>
+                        {JOIN_POLICY_COPY.trustRowLabel}
+                      </Text>
+                      <Text style={[typography.footnote, { color: c.textMuted }]}>
+                        {(createdMemberByDraftId[member.id].joinPreApproved
+                          ? JOIN_POLICY_COPY.trustRowHint
+                          : JOIN_POLICY_COPY.trustRowOffHint)(member.name.trim() || 'They')}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={createdMemberByDraftId[member.id].joinPreApproved === true}
+                      onValueChange={(next) => onMemberTrustChange(member.id, next)}
+                      accessibilityLabel={`${JOIN_POLICY_COPY.trustRowLabel} for ${member.name}`}
+                    />
+                  </View>
+                ) : null}
               </View>
             ) : null}
             </View>
@@ -359,4 +417,22 @@ const styles = StyleSheet.create({
   },
   footer: { gap: 12, marginTop: space.lg },
   secondary: { gap: 6, paddingVertical: 8 },
+  policyCard: {
+    alignItems: 'center',
+    borderRadius: radius.cardLarge,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: space.md,
+    marginBottom: space.sm,
+    padding: 14,
+  },
+  trustRow: {
+    alignItems: 'center',
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: space.md,
+    paddingTop: space.sm,
+    width: '100%',
+  },
 });

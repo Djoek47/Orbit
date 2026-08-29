@@ -35,7 +35,11 @@ export type DraftMember = {
   allowance?: DraftMemberAllowance | null;
   /** True after Step D Confirm. */
   setupComplete: boolean;
+  /** Skip admin review when this person accepts their invite. */
+  joinPreApproved?: boolean;
 };
+
+export type DraftJoinPolicy = 'review' | 'automatic';
 
 export type DraftPlace = {
   kind: 'home' | 'school' | 'shop' | 'clothing';
@@ -53,6 +57,8 @@ export type HouseholdSetupDraft = {
   scoringMode: RewardMode;
   members: DraftMember[];
   places?: DraftPlace[];
+  /** How new joiners enter — applied when the household is created. */
+  joinPolicy?: DraftJoinPolicy;
   updatedAt: string;
 };
 
@@ -77,6 +83,7 @@ export function createEmptyDraft(
     scoringMode: partial?.scoringMode ?? 'weighted',
     members: [],
     places: [],
+    joinPolicy: 'review',
     updatedAt: new Date().toISOString(),
   };
 }

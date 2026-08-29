@@ -643,6 +643,8 @@ export type CreateHouseholdInput = {
     | 'full';
   rewardMode?: 'weighted' | 'flat';
   setupComplete?: boolean;
+  /** When false, new members join immediately. Default true (review). */
+  joinApprovalRequired?: boolean;
 };
 
 export type JoinHouseholdInput = {

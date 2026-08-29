@@ -35,7 +35,8 @@
         "EXPO_PUBLIC_DATA_MODE": "supabase",
         "EXPO_PUBLIC_POPPINS_AI": "openai",
         "EXPO_PUBLIC_POPPINS_REALTIME": "1",
-        "EXPO_PUBLIC_POPPINS_VOICE_WEBRTC": "1"
+        "EXPO_PUBLIC_POPPINS_VOICE_WEBRTC": "1",
+        "EXPO_PUBLIC_DISABLE_HOUSEHOLD_SWITCH": "1"
       }
     },
     "production": {

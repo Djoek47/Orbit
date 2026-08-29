@@ -21,6 +21,7 @@ import {
   MemberConnectionCaption,
 } from '@/components/orbit/member-connection-badge';
 import { ProfileInviteSheet } from '@/components/orbit/profile-invite-sheet';
+import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
 import { MajordomoProfileSheet } from '@/components/orbit/majordomo-profile-sheet';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import {
@@ -41,7 +42,8 @@ import {
   resolveSharedDevicePeople,
   sharedDeviceLinkCandidates,
 } from '@/lib/household/shared-device';
-import { memberCanReceiveInvite } from '@/lib/household/member-invite-routing';
+import { memberCanReceiveInvite, memberUsesProfileInvite } from '@/lib/household/member-invite-routing';
+import { isHouseholdSwitchDisabled } from '@/lib/feature-flags';
 import {
   formatHouseholdDeletionDate,
   householdDeletionDaysRemaining,
@@ -76,6 +78,7 @@ import {
 } from '@/lib/billing/iap';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import type { MemberInvite } from '@/lib/household/member-invites';
 import type { HouseholdMember } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
@@ -261,7 +264,10 @@ export default function SettingsScreen() {
   const [renamingMemberInput, setRenamingMemberInput] = useState('');
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [personalizeMemberId, setPersonalizeMemberId] = useState<string | null>(null);
-  const [profileInviteMemberId, setProfileInviteMemberId] = useState<string | null>(null);
+  const [memberInvites, setMemberInvites] = useState<MemberInvite[]>([]);
+  const [inviteTarget, setInviteTarget] = useState<
+    { kind: 'profile'; memberId: string } | { kind: 'token'; memberId: string } | null
+  >(null);
   const [householdSwitchOpen, setHouseholdSwitchOpen] = useState(false);
   const [majordomoOpen, setMajordomoOpen] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
@@ -325,6 +331,24 @@ export default function SettingsScreen() {
     () => sharedDeviceLinkCandidates(household.members),
     [household.members]
   );
+  const canSwitchHousehold =
+    householdMemberships.length > 1 && !isHouseholdSwitchDisabled();
+
+  const openMemberInvite = (member: HouseholdMember) => {
+    if (memberUsesProfileInvite(member)) {
+      setInviteTarget({ kind: 'profile', memberId: member.id });
+      return;
+    }
+    setInviteTarget({ kind: 'token', memberId: member.id });
+  };
+
+  const inviteMember = useMemo(
+    () =>
+      inviteTarget?.memberId != null
+        ? (household.members.find((member) => member.id === inviteTarget.memberId) ?? null)
+        : null,
+    [household.members, inviteTarget?.memberId]
+  );
 
   const handleRemoveMember = (member: HouseholdMember) => {
     if (member.role === 'owner') {
@@ -364,10 +388,6 @@ export default function SettingsScreen() {
   const personalizeMember = useMemo(
     () => household.members.find((member) => member.id === personalizeMemberId) ?? null,
     [household.members, personalizeMemberId]
-  );
-  const profileInviteMember = useMemo(
-    () => household.members.find((member) => member.id === profileInviteMemberId) ?? null,
-    [household.members, profileInviteMemberId]
   );
 
   if (isSidekickRole(currentMember?.role)) {
@@ -471,7 +491,7 @@ export default function SettingsScreen() {
                   {currentMember ? ` · ${formatHouseholdRole(currentMember.role)}` : ''}
                   {` · ${lookValue}`}
                 </Text>
-                {householdMemberships.length > 1 ? (
+                {canSwitchHousehold ? (
                   <Text style={[styles.caption, { color: accentTheme.primary, fontWeight: '600' }]}>
                     Tap to switch household
                   </Text>
@@ -481,7 +501,7 @@ export default function SettingsScreen() {
             </Pressable>
 
             <SettingsGroup header="Household">
-              {householdMemberships.length > 1 ? (
+              {canSwitchHousehold ? (
                 <SettingsNavRow
                   icon="swap-horiz"
                   iconColor={accentTheme.primary}
@@ -1139,7 +1159,7 @@ export default function SettingsScreen() {
 
         {section === 'members' ? (
           <>
-            {householdMemberships.length > 1 ? (
+            {canSwitchHousehold ? (
               <View style={{ marginBottom: 12 }}>
                 <HouseholdSwitcher />
               </View>
@@ -1273,7 +1293,7 @@ export default function SettingsScreen() {
                       canManage={permissions.canManageHousehold}
                       onSwitch={() => switchPersona(person.id)}
                       onPersonalize={() => setPersonalizeMemberId(person.id)}
-                      onShareInvite={() => setProfileInviteMemberId(person.id)}
+                      onShareInvite={() => openMemberInvite(person)}
                       onUnlink={() =>
                         toggleSharedLink(
                           device.id,
@@ -1357,7 +1377,7 @@ export default function SettingsScreen() {
                     </Text>
                     {permissions.canManageHousehold && memberCanReceiveInvite(member) ? (
                       <Pressable
-                        onPress={() => setProfileInviteMemberId(member.id)}
+                        onPress={() => openMemberInvite(member)}
                         style={[
                           styles.adminActionChip,
                           {
@@ -1628,13 +1648,23 @@ export default function SettingsScreen() {
       onSelect={(hhmm) => queueDailyDeadline(hhmm)}
     />
     <ProfileInviteSheet
-      visible={Boolean(profileInviteMember)}
-      member={profileInviteMember}
+      visible={inviteTarget?.kind === 'profile'}
+      member={inviteTarget?.kind === 'profile' ? inviteMember : null}
       householdName={household.householdName}
-      onClose={() => setProfileInviteMemberId(null)}
+      onClose={() => setInviteTarget(null)}
+    />
+    <MemberInviteSheet
+      visible={inviteTarget?.kind === 'token'}
+      member={inviteTarget?.kind === 'token' ? inviteMember : null}
+      householdId={household.id ?? ''}
+      adminId={currentMember?.id ?? ''}
+      actorIsOwner={currentMember?.role === 'owner'}
+      invites={memberInvites}
+      onChangeInvites={setMemberInvites}
+      onClose={() => setInviteTarget(null)}
     />
     <HouseholdSwitchSheet
-      visible={householdSwitchOpen}
+      visible={householdSwitchOpen && canSwitchHousehold}
       onClose={() => setHouseholdSwitchOpen(false)}
     />
   </>
