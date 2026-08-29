@@ -39,3 +39,14 @@ Helper: `supabase/migrations/PENDING_APPLY_ON_STAGING.sql`
 - `join-household`
 - `complete-profile-join`
 - `redeem-member-invite`
+
+## EAS Insights
+
+Open **[Insights → App usage](https://expo.dev/accounts/djoek47/projects/choremaxx/insights)** in the EAS dashboard.
+
+| Source | What you get | Status |
+|--------|----------------|--------|
+| **EAS Update** | High-level usage from update-check requests | Already configured (`expo-updates`, `testflight` channel) — may show sparse data because `checkAutomatically` is `ON_ERROR_RECOVERY` |
+| **`expo-insights`** | Cold-start counts by platform + App Store version | Added on this branch (`ee1792d`); needs the **next** native TestFlight build (build **61** does not include it) |
+
+No JS wiring required — `expo-insights` auto-reports on native app launch after install.
