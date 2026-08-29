@@ -8,18 +8,11 @@ export type InviteSession = {
   hasHousehold: boolean;
 };
 
-export type InviteDestination =
-  | 'pending-approval'
-  | 'join-household'
-  | 'welcome-invited'
-  | 'welcome-child'
-  | 'join-profile'
-  | 'home';
+export type InviteDestination = 'invite-unsupported' | 'join-household' | 'join-profile' | 'home';
 
 /**
- * Household invites are CMX-#### (digits).
- * Kid / shared-device profile invites are CMX-NAME (letters), e.g. CMX-EMMA.
- * Same URL scheme for both — the suffix decides the path.
+ * Household invites are CMX-#### (digits) — legacy; product uses per-person invites only.
+ * Sidekick profile invites are CMX-NAME (letters), e.g. CMX-EMMA.
  */
 export function classifyInviteCode(raw: string): InviteKind | null {
   const code = parseInvitePayload(raw) ?? (raw.trim() ? normalizeInviteCode(raw) : null);
@@ -35,10 +28,7 @@ export function inviteCodeFromRaw(raw: string): string | null {
   return parseInvitePayload(raw) ?? (raw.trim() ? normalizeInviteCode(raw) : null);
 }
 
-/**
- * Where an invite should land. Never dump a household invite on Get Started
- * or a kid-code field, and never bounce a pending adult back to their old home.
- */
+/** Route scanned / deep-linked invites — profile → join; legacy household → unsupported. */
 export function nextInviteDestination(
   kind: InviteKind,
   session: InviteSession
@@ -49,20 +39,16 @@ export function nextInviteDestination(
   if (session.isSignedIn && session.hasHousehold) {
     return 'join-household';
   }
-  return 'welcome-invited';
+  return 'invite-unsupported';
 }
 
 export function inviteHref(destination: InviteDestination, code: string): string {
   const encoded = encodeURIComponent(code);
   switch (destination) {
-    case 'pending-approval':
-      return '/pending-approval';
+    case 'invite-unsupported':
+      return `/invite-unsupported?code=${encoded}`;
     case 'join-household':
       return `/join-household?code=${encoded}`;
-    case 'welcome-invited':
-      return `/welcome?invite=${encoded}`;
-    case 'welcome-child':
-      return `/welcome?invite=${encoded}&kind=child`;
     case 'join-profile':
       return `/join-profile?code=${encoded}`;
     case 'home':
@@ -70,11 +56,9 @@ export function inviteHref(destination: InviteDestination, code: string): string
   }
 }
 
-export function householdInviteWrongForKidMessage(code: string): string {
-  return `${code} is a household invite, not a kid code. Sign in to join, then a parent can send your kid invite.`;
-}
+export const LEGACY_HOUSEHOLD_INVITE_MESSAGE =
+  'This is an older household-wide invite. Ask your admin for a personal invite from Manage Members.';
 
-export function stillWaitingCopy(householdName?: string): string {
-  const who = householdName?.trim() ? householdName.trim() : 'this household';
-  return `Still waiting. An owner or admin of ${who} hasn’t approved you yet.`;
+export function householdInviteWrongForKidMessage(code: string): string {
+  return `${code} is not a Sidekick invite. Ask your admin for your personal code (like CMX-EMMA).`;
 }

@@ -51,6 +51,7 @@ export default function RootLayout() {
           <Stack.Screen name="pending-approval" options={{ headerShown: false, title: 'Pending Approval' }} />
           <Stack.Screen name="join-display-name" options={{ headerShown: false, title: 'Your name' }} />
           <Stack.Screen name="join-profile" options={{ headerShown: false, title: 'Join profile' }} />
+          <Stack.Screen name="invite-unsupported" options={{ headerShown: false, title: 'Invite' }} />
           <Stack.Screen name="join-welcome" options={{ headerShown: false, title: 'Welcome' }} />
           <Stack.Screen name="redeem-member-invite" options={{ headerShown: false, title: 'Join' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

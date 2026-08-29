@@ -168,10 +168,10 @@ function token(over: Partial<StoredInviteToken> = {}): StoredInviteToken {
   });
   assert.equal(adult.ok, true);
   if (adult.ok) {
-    assert.equal(adult.memberStatus, 'pending');
+    assert.equal(adult.memberStatus, 'active');
     assert.equal(adult.role, 'admin');
   }
-  pass('A5.1 admin token stays pending');
+  pass('A5.1 admin token connects immediately');
 }
 
 {

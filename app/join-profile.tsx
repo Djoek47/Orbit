@@ -73,7 +73,7 @@ export default function JoinProfileScreen() {
       title="Join the household"
       subtitle={
         householdName
-          ? `You're joining ${householdName}. No email or payment needed.`
+          ? `You're joining ${householdName}. Pick your name and look — you'll connect right away.`
           : 'Pick your name and look. No email or payment needed.'
       }>
       <View style={{ gap: 14 }}>

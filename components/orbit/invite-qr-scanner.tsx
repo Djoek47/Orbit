@@ -20,12 +20,12 @@ export function InviteQrScanner({ visible, onClose, onScanned }: InviteQrScanner
   const { c } = useOrbitColors();
   const [permission, requestPermission] = useCameraPermissions();
   const [locked, setLocked] = useState(false);
-  const [hint, setHint] = useState('Align the invite QR in the frame');
+  const [hint, setHint] = useState('Align your personal invite QR in the frame');
 
   useEffect(() => {
     if (!visible) {
       setLocked(false);
-      setHint('Align the invite QR in the frame');
+      setHint('Align your personal invite QR in the frame');
     }
   }, [visible]);
 

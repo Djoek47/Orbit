@@ -1357,9 +1357,9 @@ export default function SettingsScreen() {
                   borderCurve: 'continuous',
                 },
               ]}
-              onPress={() => router.push('/invite-household' as never)}>
+              onPress={() => router.push('/household-members' as never)}>
               <Text style={[styles.primaryInviteCtaText, { color: orbitPalette.ink }]}>
-                Invite
+                Manage members
               </Text>
             </Pressable>
             <Text
@@ -1367,7 +1367,7 @@ export default function SettingsScreen() {
                 styles.caption,
                 { color: orbitPalette.textMuted, marginTop: 10, textAlign: 'center' },
               ]}>
-              AirDrop or Messages
+              Share a personal invite for each person
             </Text>
           </>
         ) : null}

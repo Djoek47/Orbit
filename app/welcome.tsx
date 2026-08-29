@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, PanResponder, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import QRCode from 'react-native-qrcode-svg';
 
 import { Avatar } from '@/components/orbit/avatar';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
@@ -30,13 +29,10 @@ import {
 } from '@/lib/profile/chosen-avatar';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import {
-  ONBOARDING_ROLES,
   loadOnboardingPrefs,
   saveOnboardingPrefs,
-  skipsMotivation,
   type OnboardingRole,
 } from '@/lib/onboarding-prefs';
-import { DEFAULT_SHARED_IPAD_NAME } from '@/lib/household/shared-device';
 import {
   clearSetupDraft,
   createEmptyDraft,
@@ -73,12 +69,10 @@ import { markPremiumGatePending, premiumOnboardingHref } from '@/lib/billing/pre
 import { shouldSkipPremiumForInvite } from '@/lib/billing/premium-invite';
 
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
-import { classifyInviteCode, householdInviteWrongForKidMessage } from '@/lib/invites/invite-intent';
+import { classifyInviteCode, inviteHref, nextInviteDestination } from '@/lib/invites/invite-intent';
 import { stashInviteCode } from '@/lib/invite/invite-code-store';
-import { goToFreshLogin } from '@/lib/navigation/fresh-login';
 import { cancelSignedOutRestart } from '@/lib/navigation/session-restart';
 import { shareInvite } from '@/lib/invites/share-invite';
-import { isPendingJoinSnapshot } from '@/lib/invites/join-approval';
 import {
   loadSidekickSession,
   wasSidekickSignedOut,
@@ -149,8 +143,6 @@ function mapCreatedMemberIdsByDraftId(
 
 type Step =
   | 'splash'
-  | 'invited'
-  | 'role'
   | 'motivation'
   | 'reward-system'
   | 'account'
@@ -159,8 +151,6 @@ type Step =
   | 'places'
   | 'roster'
   | 'member-wizard'
-  | 'child-invite'
-  | 'tablet-invite'
   | 'ready';
 
 /** Stay on these steps after household create — Enter Choremaxx is the explicit exit. */
@@ -176,7 +166,6 @@ export default function WelcomeOnboardingScreen() {
   const insets = useSafeAreaInsets();
   const {
     accentTheme,
-    connectSharedTabletProfiles,
     addOnboardingMembers,
     createHousehold,
     createProfile,
@@ -185,12 +174,10 @@ export default function WelcomeOnboardingScreen() {
     currentUser,
     hasHousehold,
     household,
-    inviteLinks,
     isLoading,
     isSignedIn,
     hydrateFromSession,
     restoreSidekickSession,
-    joinHousehold,
     applyStashedInvite,
     upsertSavedPlace,
     orbitPalette,
@@ -214,19 +201,9 @@ export default function WelcomeOnboardingScreen() {
     if (!raw?.trim()) return null;
     return parseInvitePayload(raw) ?? normalizeInviteCode(raw);
   })();
-  const inviteKindFromRoute =
-    inviteParams.kind === 'child'
-      ? 'profile'
-      : inviteFromRoute
-        ? classifyInviteCode(inviteFromRoute)
-        : null;
-  const [step, setStep] = useState<Step>(() => {
-    if (inviteKindFromRoute === 'profile') return 'child-invite';
-    if (inviteFromRoute) return 'invited';
-    return 'splash';
-  });
+  const [step, setStep] = useState<Step>('splash');
   const [appleAvailable, setAppleAvailable] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<OnboardingRole | null>(null);
+  const [selectedRole, setSelectedRole] = useState<OnboardingRole>('parent');
   const [selectedRewardModel, setSelectedRewardModel] = useState<RewardModel | null>(
     DEFAULT_REWARD_MODEL
   );
@@ -237,10 +214,6 @@ export default function WelcomeOnboardingScreen() {
   const [draftAvatar, setDraftAvatar] = useState('');
   const [lookSheetOpen, setLookSheetOpen] = useState(false);
   const [householdName, setHouseholdName] = useState('');
-  const [inviteCode, setInviteCode] = useState(inviteFromRoute ?? '');
-  const [householdMode, setHouseholdMode] = useState<'create' | 'join'>(
-    inviteFromRoute ? 'join' : 'create'
-  );
   const [createdHousehold, setCreatedHousehold] = useState(false);
   const [setupDraft, setSetupDraft] = useState<HouseholdSetupDraft>(() => createEmptyDraft());
   const [editingMember, setEditingMember] = useState<DraftMember | null>(null);
@@ -264,8 +237,6 @@ export default function WelcomeOnboardingScreen() {
   const [createdMemberIdsByDraftId, setCreatedMemberIdsByDraftId] = useState<Record<string, string>>(
     {}
   );
-  const [tabletCodes, setTabletCodes] = useState<string[]>([]);
-  const [tabletCodeDraft, setTabletCodeDraft] = useState('');
   const [savedSidekick, setSavedSidekick] = useState<SidekickSession | null>(null);
   const [sidekickWelcomeBack, setSidekickWelcomeBack] = useState(false);
 
@@ -288,26 +259,18 @@ export default function WelcomeOnboardingScreen() {
     };
   }, [step]);
 
-  const roleMeta = useMemo(
-    () => ONBOARDING_ROLES.find((role) => role.id === selectedRole),
-    [selectedRole],
-  );
+  const roleMeta = { icon: 'admin-panel-settings' as const, title: 'Admin' };
 
-  // Per-member invite (Revision G): stash token and resume redeem after sign-in.
+  // Per-member admin invite — always land on redeem screen.
   useEffect(() => {
     const raw = Array.isArray(inviteParams.memberInvite)
       ? inviteParams.memberInvite[0]
       : inviteParams.memberInvite;
     if (!raw?.trim()) return;
-    void import('@/lib/invite/member-invite-token-store').then(async ({ stashMemberInviteToken }) => {
-      await stashMemberInviteToken(raw);
-      if (isSignedIn) {
-        router.replace(`/redeem-member-invite?token=${encodeURIComponent(raw.trim())}` as never);
-      }
-    });
-  }, [inviteParams.memberInvite, isSignedIn]);
+    router.replace(`/redeem-member-invite?token=${encodeURIComponent(raw.trim())}` as never);
+  }, [inviteParams.memberInvite]);
 
-  // AirDrop / deep link: land on invited, kid join, or household join — never Get Started.
+  // Deep link / stashed invite codes → join-profile or legacy unsupported.
   useEffect(() => {
     let cancelled = false;
     const memberInviteRaw = Array.isArray(inviteParams.memberInvite)
@@ -321,35 +284,14 @@ export default function WelcomeOnboardingScreen() {
           : null;
       const pending = fromParam || (await peekInviteCode());
       if (cancelled || !pending) return;
-      setInviteCode(pending);
       await stashInviteCode(pending);
-      const kind =
-        inviteParams.kind === 'child' ? 'profile' : classifyInviteCode(pending) ?? 'household';
-      setHouseholdMode('join');
-      if (kind === 'profile') {
-        setSelectedRole('child');
-        setStep('child-invite');
-        return;
-      }
-      if (!isSignedIn) {
-        setStep('invited');
-        return;
-      }
-      if (isSignedIn && hasHousehold) {
-        router.replace(`/join-household?code=${encodeURIComponent(pending)}` as never);
-        return;
-      }
-      if (isSignedIn && !hasHousehold) {
-        const nameComplete = isProfileNameComplete(currentUser?.name, currentUser?.email);
-        setDisplayName(nameComplete ? currentUser?.name || '' : '');
-        setDraftAvatar(seedOnboardingAvatar(currentUser?.avatar));
-        setStep(
-          onboardingStepAfterIdentity({
-            nameComplete,
-            avatar: currentUser?.avatar,
-          })
-        );
-      }
+      const kind = inviteParams.kind === 'child' ? 'profile' : classifyInviteCode(pending) ?? 'household';
+      const dest = nextInviteDestination(kind, {
+        isSignedIn,
+        isPendingMember: false,
+        hasHousehold,
+      });
+      router.replace(inviteHref(dest, pending) as never);
     });
     return () => {
       cancelled = true;
@@ -376,7 +318,7 @@ export default function WelcomeOnboardingScreen() {
         if (draft.scoringMode) setSelectedRewardMode(draft.scoringMode);
       }
 
-      if (inviteFromRoute || inviteParams.kind === 'child' || step === 'invited' || step === 'child-invite') {
+      if (inviteFromRoute || inviteParams.memberInvite) {
         setResumed(true);
         return;
       }
@@ -418,76 +360,37 @@ export default function WelcomeOnboardingScreen() {
     };
   }, [isLoading, isSignedIn, hasHousehold, currentUser, resumed]);
 
-  const readyInvite = useMemo(() => {
-    const code = inviteLinks?.code || household.inviteCode;
-    if (!code) return null;
-    return {
-      code,
-      deepLink: inviteLinks?.deepLink || buildInviteLinks(code).deepLink,
-      webLink: inviteLinks?.webLink || buildInviteLinks(code).webLink,
-    };
-  }, [household.inviteCode, inviteLinks]);
-
   const progressIndex = (() => {
     switch (step) {
-      case 'role':
-        return 0;
       case 'motivation':
       case 'reward-system':
-        return 1;
-      case 'child-invite':
-      case 'tablet-invite':
-        return 1;
+        return 0;
       case 'account':
       case 'profile':
-        return 2;
+        return 1;
       case 'household':
       case 'places':
       case 'roster':
       case 'member-wizard':
-        return 3;
+        return 2;
       case 'ready':
-        return 4;
+        return 3;
       default:
         return -1;
     }
   })();
 
-  const skipInviteToFreshLogin = () => {
-    setError('');
-    setInviteCode('');
-    setHouseholdMode('create');
-    setStep('splash');
-    void goToFreshLogin();
-  };
-
   const goBack = () => {
     setError('');
     switch (step) {
-      case 'invited':
-        skipInviteToFreshLogin();
-        break;
-      case 'role':
-        setStep('splash');
-        break;
       case 'motivation':
-        setStep('role');
+        setStep('splash');
         break;
       case 'reward-system':
         setStep('motivation');
         break;
-      case 'child-invite':
-      case 'tablet-invite':
-        setStep(householdMode === 'join' && inviteCode ? 'invited' : 'role');
-        break;
       case 'account':
-        setStep(
-          householdMode === 'join' && inviteCode
-            ? 'invited'
-            : selectedRole && skipsMotivation(selectedRole)
-              ? 'role'
-              : 'reward-system'
-        );
+        setStep('reward-system');
         break;
       case 'profile':
         setStep('account');
@@ -505,13 +408,7 @@ export default function WelcomeOnboardingScreen() {
         setStep('roster');
         break;
       case 'ready':
-        setStep(
-          selectedRole === 'child'
-            ? 'child-invite'
-            : selectedRole === 'shared-tablet'
-              ? 'tablet-invite'
-              : 'roster',
-        );
+        setStep('roster');
         break;
       default:
         break;
@@ -565,36 +462,9 @@ export default function WelcomeOnboardingScreen() {
     setStep('household');
   };
 
-  const handleRoleContinue = () => {
-    if (!selectedRole) return;
+  const handleGetStarted = () => {
     setError('');
-    // Sidekicks never create an account — they redeem an admin AirDrop / invite.
-    if (selectedRole === 'child') {
-      setSelectedRewardModel(selectedRewardModel ?? DEFAULT_REWARD_MODEL);
-      setHouseholdMode('join');
-      setStep('child-invite');
-      return;
-    }
-    // Shared iPad — one setup surface.
-    if (selectedRole === 'shared-tablet') {
-      if (isSignedIn && hasHousehold) {
-        router.replace('/setup-kid-device' as never);
-        return;
-      }
-      setSelectedRewardModel(selectedRewardModel ?? DEFAULT_REWARD_MODEL);
-      setHouseholdMode('join');
-      setStep('tablet-invite');
-      return;
-    }
-    if (skipsMotivation(selectedRole)) {
-      setSelectedRewardModel(selectedRewardModel ?? DEFAULT_REWARD_MODEL);
-      if (isSignedIn) {
-        goToProfileOrHousehold();
-      } else {
-        setStep('account');
-      }
-      return;
-    }
+    setSelectedRole('parent');
     setStep('motivation');
   };
 
@@ -618,7 +488,7 @@ export default function WelcomeOnboardingScreen() {
     const rewardModel = selectedRewardModel ?? DEFAULT_REWARD_MODEL;
     try {
       await saveOnboardingPrefs({
-        role: selectedRole ?? 'parent',
+        role: 'parent',
         rewardModel,
         rewardMode,
       });
@@ -659,7 +529,7 @@ export default function WelcomeOnboardingScreen() {
 
   const persistPrefs = async () => {
     await saveOnboardingPrefs({
-      role: selectedRole ?? 'parent',
+      role: 'parent',
       rewardModel: selectedRewardModel ?? DEFAULT_REWARD_MODEL,
       rewardMode: selectedRewardMode ?? 'weighted',
     });
@@ -718,22 +588,12 @@ export default function WelcomeOnboardingScreen() {
         setDisplayName('');
       }
       setDraftAvatar(seedOnboardingAvatar(session.user.avatar));
-      const parsed =
-        parseInvitePayload(inviteCode) ??
-        (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
       const next = onboardingStepAfterIdentity({
         nameComplete: appleComplete,
         avatar: session.user.avatar,
       });
-      if (next === 'household' && parsed && classifyInviteCode(parsed) === 'household') {
-        await stashInviteCode(parsed);
-        await applyStashedInvite();
-        router.replace('/join-welcome' as never);
-        return;
-      }
       const entitled = isPremiumActive(await fetchEntitlement());
       const skipPremium = await shouldSkipPremiumForInvite({
-        inviteParam: inviteCode,
         memberInviteParam: Array.isArray(inviteParams.memberInvite)
           ? inviteParams.memberInvite[0]
           : inviteParams.memberInvite,
@@ -766,16 +626,8 @@ export default function WelcomeOnboardingScreen() {
         name: displayName.trim(),
         avatar: draftAvatar.trim() || undefined,
       });
-      if (!householdName.trim() && roleMeta) {
+      if (!householdName.trim()) {
         setHouseholdName(`The ${displayName.trim().split(' ')[0]} Home`);
-      }
-      const parsed =
-        parseInvitePayload(inviteCode) ??
-        (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
-      if (parsed && classifyInviteCode(parsed) === 'household') {
-        const outcome = await joinHousehold({ inviteCode: parsed });
-        router.replace('/join-welcome' as never);
-        return;
       }
       setStep('household');
     } catch (err) {
@@ -790,20 +642,6 @@ export default function WelcomeOnboardingScreen() {
     setError('');
     try {
       await persistPrefs();
-      if (householdMode === 'join') {
-        const parsed =
-          parseInvitePayload(inviteCode) ?? (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
-        if (!parsed) {
-          setError('Enter or scan a valid invite code.');
-          setBusy(false);
-          return;
-        }
-        setInviteCode(parsed);
-        const outcome = await joinHousehold({ inviteCode: parsed });
-        setCreatedHousehold(false);
-        router.replace('/join-welcome' as never);
-        return;
-      }
       if (!householdName.trim()) {
         setError('Add a household name to continue.');
         setBusy(false);
@@ -1008,92 +846,6 @@ export default function WelcomeOnboardingScreen() {
     }
   };
 
-  const handleAirDropInvite = async () => {
-    if (!readyInvite) return;
-    setShareStatus('');
-    try {
-      const result = await shareInvite({
-        householdName: household.householdName || householdName,
-        inviteCode: readyInvite.code,
-        deepLink: readyInvite.deepLink,
-        webLink: readyInvite.webLink,
-      });
-      setShareStatus(
-        result === 'shared'
-          ? Platform.OS === 'ios'
-            ? 'Shared — pick AirDrop or Messages in the sheet.'
-            : 'Invite shared.'
-          : 'Share dismissed.',
-      );
-    } catch {
-      setShareStatus('Could not open share sheet.');
-    }
-  };
-
-  const handleChildInviteContinue = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      const parsed =
-        parseInvitePayload(inviteCode) ?? (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
-      if (!parsed) {
-        setError('Enter or scan the profile invite an admin sent.');
-        setBusy(false);
-        return;
-      }
-      setInviteCode(parsed);
-      if (classifyInviteCode(parsed) === 'household') {
-        await stashInviteCode(parsed);
-        setHouseholdMode('join');
-        setError(householdInviteWrongForKidMessage(parsed));
-        setStep('invited');
-        setBusy(false);
-        return;
-      }
-      router.replace(`/join-profile?code=${encodeURIComponent(parsed)}` as never);
-    } catch (err) {
-      setError(userFacingMessage(err, 'Could not open profile invite.'));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const addTabletCode = (raw: string) => {
-    const parsed = parseInvitePayload(raw) ?? (raw.trim() ? normalizeInviteCode(raw) : null);
-    if (!parsed) {
-      setError('Enter or scan a valid profile invite code.');
-      return;
-    }
-    setError('');
-    setTabletCodes((current) => (current.includes(parsed) ? current : [...current, parsed]));
-    setTabletCodeDraft('');
-    setInviteCode(parsed);
-  };
-
-  const handleTabletInviteContinue = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      await saveOnboardingPrefs({
-        role: 'shared-tablet',
-        rewardModel: selectedRewardModel ?? DEFAULT_REWARD_MODEL,
-      });
-      const codes = tabletCodes.length
-        ? tabletCodes
-        : tabletCodeDraft.trim()
-          ? [tabletCodeDraft]
-          : inviteCode.trim()
-            ? [inviteCode]
-            : [];
-      const result = await connectSharedTabletProfiles(codes, DEFAULT_SHARED_IPAD_NAME);
-      router.replace((result.needsProfilePick ? '/select-profile' : '/') as never);
-    } catch (err) {
-      setError(userFacingMessage(err, 'Could not set up this tablet.'));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const handleEnter = () => {
     router.replace('/' as never);
   };
@@ -1162,7 +914,7 @@ export default function WelcomeOnboardingScreen() {
                   </Text>
                 </>
               ) : null}
-              <OrbitButton onPress={() => setStep('role')}>Get Started</OrbitButton>
+              <OrbitButton onPress={handleGetStarted}>Get Started</OrbitButton>
               <OrbitButton tone="secondary" onPress={() => setScannerOpen(true)}>
                 Scan to join
               </OrbitButton>
@@ -1179,180 +931,8 @@ export default function WelcomeOnboardingScreen() {
         </View>
       ) : null}
 
-      {step === 'invited' ? (
-        <View style={styles.splashScreen}>
-          <Pressable
-            onPress={skipInviteToFreshLogin}
-            style={[styles.backBtn, styles.inviteBack]}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Back to Get Started">
-            <MaterialIcons name="chevron-left" size={22} color={accent} />
-            <Text style={[styles.backLabel, { color: accent }]}>Back</Text>
-          </Pressable>
-          <View style={[styles.splashCenter, { gap: 16, paddingHorizontal: 8 }]}>
-            <ChoremaxxLogo />
-            <Text style={[typography.caption1, { color: orbitPalette.textMuted, letterSpacing: 1.4 }]}>
-              YOU’RE INVITED
-            </Text>
-            <Text style={[typography.title1, { color: orbitPalette.text, textAlign: 'center' }]}>
-              Join with {inviteCode || 'your code'}
-            </Text>
-            <Text
-              style={[
-                typography.footnote,
-                { color: orbitPalette.textMuted, textAlign: 'center', lineHeight: 20 },
-              ]}>
-              Sign in to join this household. No payment required — invites skip the subscription
-              step. If your admin requires approval, you&apos;ll wait briefly after joining.
-            </Text>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-          </View>
-          <View style={styles.splashBottom}>
-            <View style={styles.splashCtaBlock}>
-              <OrbitButton
-                onPress={() => {
-                  void stashInviteCode(inviteCode);
-                  router.push('/sign-in' as never);
-                }}>
-                Sign in
-              </OrbitButton>
-              <OrbitButton
-                tone="secondary"
-                onPress={() => {
-                  setHouseholdMode('join');
-                  setStep('account');
-                }}>
-                Create account
-              </OrbitButton>
-              <Pressable
-                onPress={skipInviteToFreshLogin}
-                style={styles.signInLink}>
-                <Text style={[styles.signInText, { color: orbitPalette.textMuted }]}>
-                  Sign in without this invite
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  router.replace('/join-profile' as never);
-                }}
-                style={styles.signInLink}>
-                <Text style={[styles.signInText, { color: orbitPalette.textMuted }]}>
-                  Join without an account instead
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      ) : null}
-
-      {step !== 'splash' && step !== 'invited' ? (
+      {step !== 'splash' ? (
         <Animated.View style={[styles.stepFade, { opacity: stepOpacity }]}>
-          {step === 'role' ? (
-            <KeyboardScreen contentContainerStyle={[styles.scroll, styles.roleScroll]}>
-              <Header progress={progressIndex} accent={accent} onBack={goBack} />
-              <View style={styles.roleIntro}>
-                <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
-                  Who&apos;s using Choremaxx?
-                </Text>
-                <Text style={[styles.roleCaption, { color: orbitPalette.textMuted }]}>
-                  We&apos;ll shape the home around you.
-                </Text>
-              </View>
-              <View style={styles.roleList}>
-                {ONBOARDING_ROLES.map((role) => {
-                  const active = selectedRole === role.id;
-                  return (
-                    <Pressable
-                      key={role.id}
-                      onPress={() => setSelectedRole(role.id)}
-                      style={[
-                        styles.roleCard,
-                        {
-                          backgroundColor: active
-                            ? `${role.color}18`
-                            : orbitPalette.card,
-                          borderColor: active ? `${role.color}66` : orbitPalette.border,
-                        },
-                        active && {
-                          shadowColor: role.color,
-                          shadowOpacity: 0.35,
-                          shadowRadius: 14,
-                          shadowOffset: { width: 0, height: 0 },
-                          elevation: 4,
-                        },
-                      ]}>
-                      <View
-                        style={[
-                          styles.roleEmoji,
-                          {
-                            backgroundColor: active
-                              ? `${role.color}28`
-                              : orbitPalette.cardMuted,
-                            borderColor: active ? `${role.color}44` : orbitPalette.border,
-                          },
-                        ]}>
-                        <MaterialIcons name={role.icon} size={24} color={role.color} />
-                      </View>
-                      <View style={styles.roleBody}>
-                        <Text style={[styles.roleTitle, { color: orbitPalette.text }]}>
-                          {role.title}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.roleSubtitle,
-                            { color: active ? role.color : orbitPalette.textMuted },
-                          ]}>
-                          {role.subtitle}
-                        </Text>
-                        <View style={styles.perkWrap}>
-                          {role.perks.map((perk) => (
-                            <View
-                              key={perk}
-                              style={[
-                                styles.perk,
-                                {
-                                  backgroundColor: active
-                                    ? `${role.color}18`
-                                    : orbitPalette.cardMuted,
-                                },
-                              ]}>
-                              <Text
-                                style={[
-                                  styles.perkText,
-                                  {
-                                    color: active
-                                      ? orbitPalette.textSoft
-                                      : orbitPalette.textMuted,
-                                  },
-                                ]}>
-                                {perk}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      </View>
-                      <View
-                        style={[
-                          styles.radio,
-                          active && { backgroundColor: role.color, borderColor: role.color },
-                        ]}>
-                        {active ? (
-                          <Text style={[styles.radioCheck, { color: ink }]}>✓</Text>
-                        ) : null}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <View style={styles.roleFooter}>
-                <OrbitButton disabled={!selectedRole} onPress={handleRoleContinue}>
-                  Continue
-                </OrbitButton>
-              </View>
-            </KeyboardScreen>
-          ) : null}
-
           {step === 'motivation' ? (
             <KeyboardScreen contentContainerStyle={styles.scroll}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
@@ -1469,81 +1049,6 @@ export default function WelcomeOnboardingScreen() {
                 {STREAK_FOOTNOTE}
               </Text>
               <OrbitButton onPress={() => void handleRewardSystemContinue()}>Continue</OrbitButton>
-            </KeyboardScreen>
-          ) : null}
-
-          {step === 'child-invite' ? (
-            <KeyboardScreen contentContainerStyle={styles.scroll}>
-              <Header progress={progressIndex} accent={accent} onBack={goBack} />
-              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
-                Join with an invite
-              </Text>
-              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                No email needed. Scan the QR an admin sent, or enter your Sidekick code.
-              </Text>
-              <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
-              <OrbitInput
-                autoCapitalize="characters"
-                label="Sidekick code"
-                value={inviteCode}
-                onChangeText={setInviteCode}
-                placeholder="e.g. CMX-EMMA"
-              />
-              <Text style={[typography.footnote, { color: orbitPalette.textSubtle }]}>
-                Demo: CMX-EMMA · CMX-LIAM · CMX-JOSH · CMX-TODD
-              </Text>
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-              <OrbitButton disabled={busy} onPress={() => void handleChildInviteContinue()}>
-                {busy ? 'Opening…' : 'Enter Choremaxx'}
-              </OrbitButton>
-            </KeyboardScreen>
-          ) : null}
-
-          {step === 'tablet-invite' ? (
-            <KeyboardScreen contentContainerStyle={styles.scroll}>
-              <Header progress={progressIndex} accent={accent} onBack={goBack} />
-              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
-                Set up this iPad
-              </Text>
-              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                Scan each person’s profile QR. No extra account — they pick their face next time.
-              </Text>
-              <OrbitButton onPress={() => setScannerOpen(true)}>Scan profile QR</OrbitButton>
-              <OrbitInput
-                autoCapitalize="characters"
-                label="Or type a code"
-                value={tabletCodeDraft}
-                onChangeText={setTabletCodeDraft}
-                placeholder="CMX-MAYA"
-              />
-              {tabletCodes.length > 0 ? (
-                <View style={styles.tabletChipWrap}>
-                  {tabletCodes.map((code) => (
-                    <Pressable
-                      key={code}
-                      onPress={() =>
-                        setTabletCodes((current) => current.filter((item) => item !== code))
-                      }
-                      style={[
-                        styles.tabletChip,
-                        {
-                          backgroundColor: `${orbitColors.warning}22`,
-                          borderColor: `${orbitColors.warning}66`,
-                        },
-                      ]}>
-                      <Text style={[styles.tabletChipText, { color: orbitColors.warning }]}>
-                        {code} ✕
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-              <OrbitButton
-                disabled={busy || (tabletCodes.length === 0 && !tabletCodeDraft.trim())}
-                onPress={() => void handleTabletInviteContinue()}>
-                {busy ? 'Setting up…' : 'Continue on this tablet'}
-              </OrbitButton>
             </KeyboardScreen>
           ) : null}
 
@@ -1693,45 +1198,9 @@ export default function WelcomeOnboardingScreen() {
                 onChangeText={setHouseholdName}
                 placeholder="e.g. The Martin Family"
               />
-              <Pressable
-                onPress={() => {
-                  setHouseholdMode('join');
-                  setError('');
-                }}
-                style={{ marginBottom: 12 }}>
-                <Text style={[typography.footnote, { color: accent, fontWeight: '600' }]}>
-                  Have an invite code?
-                </Text>
-              </Pressable>
-              {householdMode === 'join' ? (
-                <>
-                  <OrbitButton onPress={() => setScannerOpen(true)}>Scan invite QR</OrbitButton>
-                  <OrbitInput
-                    autoCapitalize="characters"
-                    label="Invite code"
-                    value={inviteCode}
-                    onChangeText={setInviteCode}
-                  />
-                  <Pressable
-                    onPress={() => {
-                      setHouseholdMode('create');
-                      setError('');
-                    }}>
-                    <Text style={[typography.footnote, { color: orbitPalette.textSubtle }]}>
-                      Back to create
-                    </Text>
-                  </Pressable>
-                </>
-              ) : null}
               {error ? <Text style={styles.error}>{error}</Text> : null}
-              <OrbitButton
-                disabled={busy || (householdMode === 'create' && !householdName.trim())}
-                onPress={handleHouseholdContinue}>
-                {busy
-                  ? 'Working…'
-                  : householdMode === 'join'
-                    ? 'Join household'
-                    : 'Continue'}
+              <OrbitButton disabled={busy || !householdName.trim()} onPress={handleHouseholdContinue}>
+                {busy ? 'Working…' : 'Continue'}
               </OrbitButton>
             </KeyboardScreen>
           ) : null}
@@ -1829,33 +1298,8 @@ export default function WelcomeOnboardingScreen() {
                 You&apos;re in.
               </Text>
               <Text style={[styles.readySub, { color: orbitPalette.textMuted }]}>
-                Share invites now or anytime from Settings → Members.
+                Share a personal invite for each person from Settings → Members, or from your roster above.
               </Text>
-
-              {createdHousehold && readyInvite ? (
-                <GlassCard style={styles.invitePanel}>
-                  <Text style={[typography.headline, { color: orbitPalette.text }]}>
-                    Invite adults
-                  </Text>
-                  <Text style={[typography.footnote, { color: orbitPalette.textMuted }]}>
-                    AirDrop, share the link, or scan the QR.
-                  </Text>
-                  <View style={styles.qrWrap}>
-                    <QRCode
-                      value={readyInvite.webLink}
-                      size={160}
-                      backgroundColor="#FFFFFF"
-                      color={ink}
-                    />
-                  </View>
-                  <Text selectable style={[styles.inviteCode, { color: orbitPalette.text }]}>
-                    {readyInvite.code}
-                  </Text>
-                  <OrbitButton onPress={handleAirDropInvite}>
-                    {Platform.OS === 'ios' ? 'AirDrop / Share invite' : 'Share invite'}
-                  </OrbitButton>
-                </GlassCard>
-              ) : null}
 
               {shareStatus ? (
                 <Text style={[styles.shareHint, { color: accent }]}>{shareStatus}</Text>
@@ -1877,25 +1321,14 @@ export default function WelcomeOnboardingScreen() {
         visible={scannerOpen}
         onClose={() => setScannerOpen(false)}
         onScanned={(code) => {
+          setScannerOpen(false);
           setError('');
-          setHouseholdMode('join');
           const kind = classifyInviteCode(code);
-          if (step === 'tablet-invite') {
-            addTabletCode(code);
-            return;
-          }
           if (kind === 'profile') {
             router.replace(`/join-profile?code=${encodeURIComponent(code)}` as never);
             return;
           }
-          if (kind === 'household') {
-            if (isSignedIn) {
-              router.replace(`/join-household?code=${encodeURIComponent(code)}` as never);
-              return;
-            }
-            setStep('invited');
-          }
-          setInviteCode(code);
+          router.replace(inviteHref('invite-unsupported', code) as never);
         }}
       />
       <PersonalizeLookSheet

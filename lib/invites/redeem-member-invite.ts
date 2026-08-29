@@ -121,7 +121,7 @@ export function redeemMemberInvite(ctx: RedeemContext): RedeemResult {
     return {
       ok: true,
       role: invite.role,
-      memberStatus: invite.role === 'sidekick' ? 'active' : 'pending',
+      memberStatus: 'active',
       tokenStatus: 'redeemed',
       alreadyMember: true,
     };
@@ -142,7 +142,7 @@ export function redeemMemberInvite(ctx: RedeemContext): RedeemResult {
   return {
     ok: true,
     role,
-    memberStatus: role === 'sidekick' ? 'active' : 'pending',
+    memberStatus: 'active',
     tokenStatus: 'redeemed',
     alreadyMember: false,
   };

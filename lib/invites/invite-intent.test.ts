@@ -1,5 +1,5 @@
 /**
- * Invite kind + routing — household CMX-3486 vs kid CMX-EMMA.
+ * Invite kind + routing — profile CMX-EMMA vs legacy household CMX-3486.
  * Run: npx --yes tsx lib/invites/invite-intent.test.ts
  */
 import assert from 'node:assert/strict';
@@ -35,19 +35,11 @@ function pass(name: string) {
   );
   assert.equal(
     nextInviteDestination('household', {
-      isSignedIn: true,
-      isPendingMember: true,
-      hasHousehold: true,
-    }),
-    'join-household'
-  );
-  assert.equal(
-    nextInviteDestination('household', {
       isSignedIn: false,
       isPendingMember: false,
       hasHousehold: false,
     }),
-    'welcome-invited'
+    'invite-unsupported'
   );
   assert.equal(
     nextInviteDestination('profile', {
@@ -57,13 +49,13 @@ function pass(name: string) {
     }),
     'join-profile'
   );
-  pass('destinations: logged in / pending / logged out / kid');
+  pass('destinations: profile vs legacy household');
 }
 
 {
-  assert.equal(inviteHref('welcome-invited', 'CMX-3486'), '/welcome?invite=CMX-3486');
-  assert.equal(inviteHref('join-household', 'CMX-3486'), '/join-household?code=CMX-3486');
-  assert.match(householdInviteWrongForKidMessage('CMX-3486'), /household invite/);
+  assert.equal(inviteHref('invite-unsupported', 'CMX-3486'), '/invite-unsupported?code=CMX-3486');
+  assert.equal(inviteHref('join-profile', 'CMX-EMMA'), '/join-profile?code=CMX-EMMA');
+  assert.match(householdInviteWrongForKidMessage('CMX-3486'), /Sidekick invite/);
   pass('hrefs + kid-field copy');
 }
 
