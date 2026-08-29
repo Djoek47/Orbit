@@ -464,6 +464,8 @@ type OrbitContextValue = {
   setAllowanceRequestsEnabled: (enabled: boolean) => void;
   /** Admin: require approval before invited members enter. Default true. */
   setJoinApprovalRequired: (required: boolean) => void;
+  /** Admin: pre-approve a specific invited member so they skip the pending step. */
+  setMemberJoinPreApproved: (memberId: string, preApproved: boolean) => Promise<void>;
   completeProfileJoin: (input: import('@/types/orbit').CompleteProfileJoinInput) => Promise<{
     status: 'pending' | 'active';
   }>;
@@ -780,6 +782,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       });
       return next;
     });
+  };
+
+  const setMemberJoinPreApproved = async (memberId: string, preApproved: boolean) => {
+    if (!permissions.canManageHousehold) return;
+    const member = household.members.find((item) => item.id === memberId);
+    if (!member) return;
+    const updated = await householdRepository.setMemberJoinPreApproved(member, preApproved);
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((item) => (item.id === memberId ? updated : item)),
+    }));
+    await trackAnalytics(
+      preApproved ? 'member.pre_approved' : 'member.pre_approval_removed',
+      { memberId },
+      analyticsContext
+    );
   };
 
   const metrics = useMemo(() => calculateMetrics(household), [household]);
@@ -5187,6 +5205,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       switchPersona,
       approveMember,
       declineMember,
+      setMemberJoinPreApproved,
       createHousehold,
       createProfile,
       updateDisplayName,
@@ -5381,6 +5400,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       queueDailyDeadline,
       setAllowanceRequestsEnabled,
       setJoinApprovalRequired,
+      setMemberJoinPreApproved,
       householdMemberships,
       isGuestInActiveHousehold,
       addCustomHouseRule,

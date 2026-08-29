@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/orbit/avatar';
+import { JoinApprovalSettings, MemberPreApproveAction } from '@/components/orbit/join-approval-settings';
 import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
 import { ProfileInviteSheet } from '@/components/orbit/profile-invite-sheet';
 import {
@@ -246,6 +247,7 @@ export default function HouseholdMembersScreen() {
           ) : (
             <StatusPill label={member.status} tone={member.status === 'active' ? 'green' : 'amber'} />
           )}
+          {member.joinPreApproved ? <StatusPill label="pre-approved" tone="green" /> : null}
         </View>
 
         {isSharedDeviceMember(member) ? (
@@ -303,6 +305,7 @@ export default function HouseholdMembersScreen() {
           </View>
         ) : (
           <View style={styles.actions}>
+            <MemberPreApproveAction member={member} />
             {showInvite ? (
               <OrbitButton tone="secondary" onPress={() => openInvite(member)}>
                 {memberUsesProfileInvite(member) ? 'Share Sidekick invite' : 'Share invite'}
@@ -370,6 +373,8 @@ export default function HouseholdMembersScreen() {
             </View>
           </GlassCard>
         ) : null}
+
+        {permissions.canManageHousehold ? <JoinApprovalSettings /> : null}
 
         {admins.length > 0 ? (
           <GlassCard style={styles.card}>

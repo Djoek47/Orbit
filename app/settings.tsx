@@ -84,6 +84,7 @@ import { formatHouseRulesTime } from '@/lib/rules/interpolate';
 import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
 import { SidekickSettingsScreen } from '@/components/orbit/sidekick-settings-screen';
+import { MemberPreApproveAction } from '@/components/orbit/join-approval-settings';
 import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
 import {
@@ -1167,6 +1168,23 @@ export default function SettingsScreen() {
             ) : null}
 
             {permissions.canManageHousehold ? (
+              <SettingsGroup
+                footer={
+                  household.joinApprovalRequired !== false
+                    ? 'Pre-approve individuals on their member card when you trust them.'
+                    : 'Anyone who accepts an invite enters immediately.'
+                }>
+                <SettingsToggleRow
+                  label="Auto-approve invitations"
+                  subtitle="Skip the waiting step for every new joiner"
+                  value={household.joinApprovalRequired === false}
+                  last
+                  onValueChange={(next) => setJoinApprovalRequired(!next)}
+                />
+              </SettingsGroup>
+            ) : null}
+
+            {permissions.canManageHousehold ? (
               <>
                 <Text style={[styles.memberName, { color: orbitPalette.text }]}>Shared Devices</Text>
                 <Text style={[styles.sectionHint, { color: orbitPalette.textMuted, marginTop: -4 }]}>
@@ -1384,6 +1402,9 @@ export default function SettingsScreen() {
                         </Text>
                       </Pressable>
                     ) : null}
+                    <View style={{ marginTop: 8 }}>
+                      <MemberPreApproveAction member={member} />
+                    </View>
                     {permissions.canManageHousehold && member.role === 'child' ? (
                       <View
                         style={{

@@ -127,13 +127,15 @@ Deno.serve(async (req) => {
 
       if (!seatError && seat) {
         const seatRole = seat.role === 'admin' ? 'admin' : joinRole === 'guest' ? 'guest' : seat.role ?? 'adult';
+        const seatNextStatus =
+          approvalRequired && seat.join_pre_approved !== true ? 'pending' : 'active';
         const { data: claimed, error: claimError } = await admin
           .from('household_members')
           .update({
             user_id: user.id,
             display_name: resolvedName || seat.display_name,
             role: seatRole,
-            status: nextStatus,
+            status: seatNextStatus,
             avatar_symbol: (resolvedName || seat.display_name || 'M').charAt(0).toUpperCase(),
           })
           .eq('id', seat.id)
@@ -152,7 +154,7 @@ Deno.serve(async (req) => {
           .update({ uses: (invite.uses ?? 0) + 1 })
           .eq('id', invite.id);
 
-        if (approvalRequired) {
+        if (seatNextStatus === 'pending') {
           await notifyAdminsJoinRequest(admin, invite.household_id, resolvedName || seat.display_name);
         }
 
@@ -193,7 +195,7 @@ Deno.serve(async (req) => {
       .update({ uses: (invite.uses ?? 0) + 1 })
       .eq('id', invite.id);
 
-    if (approvalRequired) {
+    if (nextStatus === 'pending') {
       await notifyAdminsJoinRequest(admin, invite.household_id, resolvedName);
     }
 

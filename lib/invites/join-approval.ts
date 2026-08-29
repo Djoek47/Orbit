@@ -13,6 +13,24 @@ export function isPendingStatus(status: string) {
   return status === 'pending' || status === 'invited';
 }
 
+/** Whether a new join should wait for admin approval. */
+export function joinNeedsApproval(
+  joinApprovalRequired: boolean | null | undefined,
+  memberPreApproved?: boolean | null
+): boolean {
+  if (joinApprovalRequired === false) return false;
+  if (memberPreApproved) return false;
+  return true;
+}
+
+/** Status after accepting an invite or completing a profile join. */
+export function resolveJoinStatus(
+  joinApprovalRequired: boolean | null | undefined,
+  memberPreApproved?: boolean | null
+): 'pending' | 'active' {
+  return joinNeedsApproval(joinApprovalRequired, memberPreApproved) ? 'pending' : 'active';
+}
+
 /** Pending joiners get a preview snapshot — they cannot read tasks/groceries yet. */
 export function shouldLoadPendingPreview(status: string | null | undefined): boolean {
   return isPendingStatus(status ?? '');

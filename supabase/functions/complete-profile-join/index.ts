@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const approvalRequired = householdRow?.join_approval_required !== false;
-    const nextStatus = approvalRequired ? 'pending' : 'active';
+    const nextStatus = approvalRequired && member.join_pre_approved !== true ? 'pending' : 'active';
 
     const { data: updated, error: updateError } = await admin
       .from('household_members')
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (approvalRequired) {
+    if (nextStatus === 'pending') {
       const { data: admins } = await admin
         .from('household_members')
         .select('user_id')

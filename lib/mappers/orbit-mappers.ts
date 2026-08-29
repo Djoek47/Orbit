@@ -41,6 +41,7 @@ export function mapMemberRow(row: {
   shared_with_member_ids?: string[] | null;
   profile_invite_code?: string | null;
   planned_task_library_ids?: string[] | null;
+  join_pre_approved?: boolean | null;
 }): HouseholdMember {
   const status =
     row.status === 'active' ||
@@ -71,6 +72,7 @@ export function mapMemberRow(row: {
     plannedTaskLibraryIds: Array.isArray(row.planned_task_library_ids)
       ? row.planned_task_library_ids.filter((id): id is string => typeof id === 'string')
       : undefined,
+    joinPreApproved: row.join_pre_approved === true,
   };
 }
 

@@ -23,6 +23,7 @@ import { adminJoinRequestNotification } from '@/lib/invites/join-session';
 import {
   resolveHydrateMembership,
   resolveJoinApprovalMembership,
+  resolveJoinStatus,
   shouldLoadPendingPreview,
 } from '@/lib/invites/join-approval';
 import { buildInviteLinks, createInviteCode, allocateHouseholdInviteCode, normalizeInviteCode } from '@/lib/invites/parse-invite';
@@ -338,7 +339,13 @@ export const householdRepository = {
           ? active.id
           : `hh-join-${code.replace(/[^A-Z0-9]+/g, '') || 'invite'}`;
       const approvalRequired = active?.joinApprovalRequired !== false;
-      const nextStatus = approvalRequired ? ('pending' as const) : ('active' as const);
+      const seatForClaim = input.memberId
+        ? baseMembers.find((member) => member.id === input.memberId && member.status === 'invited')
+        : undefined;
+      const nextStatus = resolveJoinStatus(
+        approvalRequired,
+        seatForClaim?.joinPreApproved
+      );
       const hasOwnHousehold = baseMembers.some(
         (member) =>
           member.userId === user.id &&
@@ -380,7 +387,7 @@ export const householdRepository = {
                   }
                 : (active ?? mockHousehold).poppins,
           };
-          if (approvalRequired) {
+          if (nextStatus === 'pending') {
             const notice = adminJoinRequestNotification({ requesterName: claimed.name });
             void notificationsRepository.create({
               householdId,
@@ -429,7 +436,7 @@ export const householdRepository = {
               }
             : mockHousehold.poppins,
       };
-      if (approvalRequired) {
+      if (nextStatus === 'pending') {
         const notice = adminJoinRequestNotification({ requesterName: pendingMember.name });
         void notificationsRepository.create({
           householdId,
@@ -716,7 +723,6 @@ export const householdRepository = {
       const active = await loadActiveMockHousehold();
       const base = active ?? mockHousehold;
       const approvalRequired = base.joinApprovalRequired !== false;
-      const nextStatus = approvalRequired ? ('pending' as const) : ('active' as const);
       const memberIndex = base.members.findIndex(
         (item) =>
           (item.status === 'invited' || item.status === 'active') &&
@@ -726,6 +732,7 @@ export const householdRepository = {
         throw new Error('Profile invite not found.');
       }
       const existing = base.members[memberIndex];
+      const nextStatus = resolveJoinStatus(approvalRequired, existing.joinPreApproved);
       const updated: HouseholdMember = {
         ...existing,
         name: displayName,
@@ -735,7 +742,7 @@ export const householdRepository = {
       const members = base.members.map((item, index) => (index === memberIndex ? updated : item));
       const snapshot = { ...base, members, greetingName: displayName };
       await saveActiveMockHousehold(snapshot);
-      if (approvalRequired) {
+      if (nextStatus === 'pending') {
         const notice = adminJoinRequestNotification({ requesterName: displayName });
         void notificationsRepository.create({
           householdId: snapshot.id ?? 'hh-rivera',
@@ -1290,6 +1297,37 @@ export const householdRepository = {
     mapDbError('householdRepository.updateMemberAvatar', error);
 
     return updatedMember;
+  },
+
+  async setMemberJoinPreApproved(
+    member: HouseholdMember,
+    preApproved: boolean
+  ): Promise<HouseholdMember> {
+    const updatedMember = { ...member, joinPreApproved: preApproved };
+
+    if (isMockMode()) {
+      const active = await loadActiveMockHousehold();
+      const patch = (members: HouseholdMember[]) =>
+        members.map((item) => (item.id === member.id ? updatedMember : item));
+      if (active?.id) {
+        await saveActiveMockHousehold({ ...active, members: patch(active.members) });
+      }
+      mockHousehold.members = patch(mockHousehold.members);
+      return updatedMember;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.setMemberJoinPreApproved');
+    const { data, error } = await supabase
+      .from('household_members')
+      .update({ join_pre_approved: preApproved })
+      .eq('id', member.id)
+      .select('*')
+      .single();
+    mapDbError('householdRepository.setMemberJoinPreApproved', error);
+    if (!data) {
+      throw new Error('householdRepository.setMemberJoinPreApproved: Update returned no row.');
+    }
+    return mapMemberRow(data);
   },
 
   async removeMember(memberId: string): Promise<void> {

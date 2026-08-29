@@ -57,6 +57,8 @@ export type HouseholdMember = {
   profileInviteCode?: string;
   /** Admin-picked library task ids — applied when the member connects (no streak until then). */
   plannedTaskLibraryIds?: string[];
+  /** When true, this person skips the pending step even if join approval is required. */
+  joinPreApproved?: boolean;
 };
 
 export type TaskDifficulty = 'easy' | 'medium' | 'hard';

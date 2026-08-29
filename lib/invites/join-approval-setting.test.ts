@@ -4,11 +4,17 @@
  */
 import assert from 'node:assert/strict';
 
-function resolveJoinStatus(approvalRequired: boolean): 'pending' | 'active' {
-  return approvalRequired ? 'pending' : 'active';
-}
+import { joinNeedsApproval, resolveJoinStatus } from './join-approval';
 
-assert.equal(resolveJoinStatus(true), 'pending');
-assert.equal(resolveJoinStatus(false), 'active');
+assert.equal(resolveJoinStatus(true, false), 'pending');
+assert.equal(resolveJoinStatus(true, true), 'active');
+assert.equal(resolveJoinStatus(false, false), 'active');
+assert.equal(resolveJoinStatus(false, true), 'active');
+assert.equal(resolveJoinStatus(undefined, false), 'pending');
+assert.equal(resolveJoinStatus(null, true), 'active');
+
+assert.equal(joinNeedsApproval(true, false), true);
+assert.equal(joinNeedsApproval(true, true), false);
+assert.equal(joinNeedsApproval(false, false), false);
 
 console.log('join-approval-setting tests passed');
