@@ -89,6 +89,20 @@ import { promoteMemberToAdmin } from '@/lib/household/admin-cap';
 import { canRequestReward } from '@/lib/rewards/can-request-reward';
 import { canProposeReward, type RewardProposal } from '@/lib/rewards/reward-proposals';
 import { groceryAddAllowedForSidekick, isSidekickRole } from '@/lib/sidekick/permissions';
+import { assigneeMemberIdsForTask } from '@/lib/sidekick/task-assigned-notify';
+import {
+  isSidekickLocalUserId,
+  loadSidekickSession,
+  saveSidekickSession,
+  type SidekickSession,
+  markSidekickSignedOut,
+  clearSidekickSignedOut,
+  wasSidekickSignedOut,
+} from '@/lib/sidekick/session';
+import {
+  fetchSidekickSync,
+  mergeSidekickSyncIntoHousehold,
+} from '@/lib/sidekick/sync-household';
 import {
   applyRedeemedMember,
   redeemMockMemberInvite,
@@ -590,6 +604,8 @@ type OrbitContextValue = {
   refreshInviteLinks: () => Promise<InviteLinks | null>;
   refreshSmartHome: () => Promise<void>;
   refreshHousehold: () => Promise<HouseholdSnapshot>;
+  /** Re-enter a saved Sidekick profile after sign-out (same device). */
+  restoreSidekickSession: () => Promise<boolean>;
   canAddGroceryWishlist: boolean;
 };
 
@@ -600,6 +616,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [household, setHousehold] = useState<HouseholdSnapshot>(mockHousehold);
   const householdRef = useRef(household);
   householdRef.current = household;
+  const currentMemberRef = useRef<HouseholdMember | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [pendingRedemptions, setPendingRedemptions] = useState<RewardRedemption[]>([]);
@@ -655,6 +672,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       household.members[0]
     );
   }, [activeMemberId, currentUser?.name, household.members]);
+  currentMemberRef.current = currentMember ?? null;
   const hasHousehold = Boolean(currentUser && household.id);
 
   useEffect(() => {
@@ -892,7 +910,65 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return links;
   }, [household.id]);
 
+  const applySidekickSyncPayload = useCallback(
+    async (sync: NonNullable<Awaited<ReturnType<typeof fetchSidekickSync>>>, options?: { announceNewTasks?: boolean }) => {
+      const previousTaskIds = new Set(householdRef.current.tasks.map((task) => task.id));
+      const previousNotificationIds = new Set(notificationsRef.current.map((item) => item.id));
+      const merged = mergeSidekickSyncIntoHousehold(householdRef.current, sync);
+      setHousehold(merged);
+      setNotifications(sync.notifications);
+      setStoreRecommendations(buildStoreRecommendations(merged.id, merged.groceries));
+
+      if (options?.announceNewTasks) {
+        const prefs = merged.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+        if (prefs.tasks !== false) {
+          const newTasks = sync.tasks.filter(
+            (task) =>
+              !previousTaskIds.has(task.id) &&
+              taskMatchesAssignee(task, sync.member.name) &&
+              task.status !== 'Completed' &&
+              task.status !== 'Cancelled'
+          );
+          for (const task of newTasks.slice(0, 2)) {
+            void presentLocalBanner('New task', `${task.title} was added to your list.`, {
+              taskId: task.id,
+              category: 'tasks',
+              kind: 'task_assigned',
+            }).catch(() => undefined);
+          }
+        }
+        const newNotes = sync.notifications.filter((item) => !previousNotificationIds.has(item.id) && !item.isRead);
+        for (const note of newNotes.slice(0, 2)) {
+          void presentLocalBanner(note.title, note.body, {
+            ...(note.data ?? {}),
+            notificationId: note.id,
+            category: note.category,
+          }).catch(() => undefined);
+        }
+      }
+
+      return merged;
+    },
+    []
+  );
+
+  const reloadSidekickDomains = useCallback(async () => {
+    const session = await loadSidekickSession();
+    if (!session?.profileInviteCode) return null;
+    const sync = await fetchSidekickSync(session.profileInviteCode);
+    if (!sync) return null;
+    return applySidekickSyncPayload(sync, { announceNewTasks: true });
+  }, [applySidekickSyncPayload]);
+
   const reloadHouseholdDomains = useCallback(async () => {
+    const sidekickActive =
+      isSidekickRole(currentMemberRef.current?.role) || Boolean(await loadSidekickSession());
+
+    if (dataMode === 'supabase' && sidekickActive) {
+      const synced = await reloadSidekickDomains();
+      if (synced) return synced;
+    }
+
     const baseHousehold = await householdRepository.getHousehold();
     const hydratedHousehold = await hydrateHousehold(baseHousehold);
     setHousehold(hydratedHousehold);
@@ -917,6 +993,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const session = await authRepository.getCurrentSession();
 
       if (!session) {
+        const sidekickSession = await loadSidekickSession();
+        const signedOut = await wasSidekickSignedOut();
+        if (sidekickSession && !signedOut && isMounted) {
+          const restored = await restoreSidekickFromSession(sidekickSession);
+          if (restored) {
+            setIsLoading(false);
+            return;
+          }
+        }
+
         if (isMounted) {
           const [prefs, themeId, savedRooms, avatarOverrides, appearance, bgTheme, mapsApp, palette] =
             await Promise.all([
@@ -1114,6 +1200,32 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       });
     });
   }, [household.id, reloadHouseholdDomains]);
+
+  useEffect(() => {
+    if (!household.id || !isSidekickRole(currentMember?.role)) {
+      return;
+    }
+
+    let cancelled = false;
+    const tick = () => {
+      if (cancelled) return;
+      void reloadHouseholdDomains().catch((error) => {
+        console.warn('sidekick sync', error);
+      });
+    };
+
+    tick();
+    const interval = setInterval(tick, 8_000);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') tick();
+    });
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, [currentMember?.role, household.id, reloadHouseholdDomains]);
 
   useEffect(() => {
     void refreshStoreRecommendations();
@@ -1517,6 +1629,75 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('household.deletion_cancelled', {}, { householdId: household.id, userId: user.id });
   };
 
+  const restoreSidekickFromSession = async (session: SidekickSession): Promise<boolean> => {
+    const normalizedCode = normalizeInviteCode(session.profileInviteCode);
+    const user: OrbitUser = {
+      id: `child-local-${session.memberId}`,
+      email: `${session.displayName.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'kid'}@kids.choremaxx.local`,
+      name: session.displayName,
+      avatar: session.avatar ?? session.displayName.charAt(0).toUpperCase(),
+      profileComplete: true,
+    };
+
+    setCurrentUser(user);
+    setActiveMemberId(session.memberId);
+    await authRepository.persistLocalSession(user, session.memberId);
+    await clearSidekickSignedOut();
+
+    const { setupSharedDeviceSession, selectDeviceProfile } = await import('@/lib/device/device-session');
+    await setupSharedDeviceSession({
+      profileMemberIds: [session.memberId],
+      deviceLabel: `${session.displayName}'s device`,
+    });
+    await selectDeviceProfile(session.memberId);
+
+    if (dataMode === 'supabase') {
+      const sync = await fetchSidekickSync(normalizedCode);
+      if (!sync) return false;
+      await applySidekickSyncPayload(sync);
+      setNotifications(sync.notifications);
+      return true;
+    }
+
+    const snapshot = await householdRepository.loadHouseholdById(session.householdId, user.id).catch(
+      async () => {
+        const active = await loadActiveMockHousehold();
+        return (
+          active ?? {
+            ...mockHousehold,
+            id: session.householdId,
+            householdName: session.householdName ?? 'Household',
+            greetingName: session.displayName,
+            members: [],
+          }
+        );
+      }
+    );
+    const hydrated = await hydrateHousehold({
+      ...snapshot,
+      id: session.householdId,
+      householdName: session.householdName ?? snapshot.householdName,
+      greetingName: session.displayName,
+    });
+    setHousehold(hydrated);
+    const items = await notificationsRepository.list(hydrated.id);
+    setNotifications(items);
+    await persistMockHouseholdSnapshot(hydrated);
+    void applyPlannedTasksForMember(session.memberId, session.householdId);
+    return true;
+  };
+
+  const restoreSidekickSession = async (): Promise<boolean> => {
+    const session = await loadSidekickSession();
+    if (!session) return false;
+    try {
+      return await restoreSidekickFromSession(session);
+    } catch (error) {
+      console.warn('restoreSidekickSession', error);
+      return false;
+    }
+  };
+
   const lookupProfileInvite = async (rawCode: string) => {
     const code =
       parseInvitePayload(rawCode) ?? (rawCode.trim() ? normalizeInviteCode(rawCode) : null);
@@ -1529,6 +1710,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const completeProfileJoin = async (
     input: import('@/types/orbit').CompleteProfileJoinInput
   ): Promise<{ status: 'pending' | 'active' }> => {
+    const normalizedCode =
+      parseInvitePayload(input.code) ?? (input.code.trim() ? normalizeInviteCode(input.code) : null);
     const result = await householdRepository.completeProfileJoin(input);
     const user: OrbitUser = {
       id: `child-local-${result.member.id}`,
@@ -1538,29 +1721,67 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       profileComplete: true,
     };
 
-    const snapshot = await householdRepository.loadHouseholdById(
-      result.householdId,
-      user.id
-    ).catch(async () => {
-      const active = await loadActiveMockHousehold();
-      return active ?? {
-        ...mockHousehold,
+    await saveSidekickSession({
+      memberId: result.member.id,
+      householdId: result.householdId,
+      profileInviteCode: normalizedCode ?? input.code.trim().toUpperCase(),
+      displayName: result.member.name,
+      avatar: result.member.avatar,
+      householdName: result.householdName,
+    });
+    await clearSidekickSignedOut();
+
+    let mergedSnapshot: HouseholdSnapshot;
+    if (dataMode === 'supabase' && normalizedCode) {
+      const sync = await fetchSidekickSync(normalizedCode);
+      mergedSnapshot = sync
+        ? mergeSidekickSyncIntoHousehold(
+            {
+              ...createEmptyHousehold(user),
+              id: result.householdId,
+              householdName: result.householdName,
+              greetingName: result.member.name,
+              members: sync.members.length ? sync.members : [result.member],
+            },
+            sync
+          )
+        : {
+            ...createEmptyHousehold(user),
+            id: result.householdId,
+            householdName: result.householdName,
+            greetingName: result.member.name,
+            members: [result.member],
+          };
+      if (sync) {
+        setNotifications(sync.notifications);
+      }
+    } else {
+      const snapshot = await householdRepository.loadHouseholdById(result.householdId, user.id).catch(
+        async () => {
+          const active = await loadActiveMockHousehold();
+          return (
+            active ?? {
+              ...mockHousehold,
+              id: result.householdId,
+              householdName: result.householdName,
+              members: [result.member],
+              greetingName: result.member.name,
+            }
+          );
+        }
+      );
+      mergedSnapshot = {
+        ...snapshot,
         id: result.householdId,
         householdName: result.householdName,
-        members: [result.member],
         greetingName: result.member.name,
+        members: snapshot.members.some((item) => item.id === result.member.id)
+          ? snapshot.members.map((item) => (item.id === result.member.id ? result.member : item))
+          : [...snapshot.members, result.member],
       };
-    });
+    }
 
-    setHousehold({
-      ...snapshot,
-      id: result.householdId,
-      householdName: result.householdName,
-      greetingName: result.member.name,
-      members: snapshot.members.some((item) => item.id === result.member.id)
-        ? snapshot.members.map((item) => (item.id === result.member.id ? result.member : item))
-        : [...snapshot.members, result.member],
-    });
+    setHousehold(mergedSnapshot);
     setCurrentUser(user);
     setActiveMemberId(result.member.id);
     await authRepository.persistLocalSession(user, result.member.id);
@@ -1579,14 +1800,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     if (dataMode === 'mock') {
-      await persistMockHouseholdSnapshot({
-        ...snapshot,
-        id: result.householdId,
-        householdName: result.householdName,
-        members: snapshot.members.map((item) =>
-          item.id === result.member.id ? result.member : item
-        ),
-      });
+      await persistMockHouseholdSnapshot(mergedSnapshot);
     }
 
     if (result.status === 'active') {
@@ -1764,7 +1978,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
 
-  const clearSignedInState = () => {
+  const clearSignedInState = (options?: { skipProfilePick?: boolean }) => {
     setCurrentUser(null);
     setHousehold(mockHousehold);
     setPendingRedemptions([]);
@@ -1772,12 +1986,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setNotifications([]);
     setInviteLinks(null);
     setActiveMemberId(null);
-    void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
-      markNeedsProfilePick()
-    );
+    if (!options?.skipProfilePick) {
+      void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
+        markNeedsProfilePick()
+      );
+    }
   };
 
   const signOut = async () => {
+    const sidekickSigningOut = isSidekickRole(currentMember?.role);
     try {
       await authRepository.signOut();
     } catch (error) {
@@ -1794,8 +2011,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     } catch {
       /* never block leaving */
     }
-    await clearMockHouseholdSnapshot();
-    clearSignedInState();
+    if (sidekickSigningOut) {
+      await markSidekickSignedOut();
+    } else {
+      await clearMockHouseholdSnapshot();
+    }
+    clearSignedInState({ skipProfilePick: sidekickSigningOut });
   };
 
   const createTask = async (
@@ -1854,6 +2075,28 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       await persistMockHouseholdSnapshot(nextHousehold);
       if (inserted) {
         await trackAnalytics('task.created', { taskId: task.id }, analyticsContext);
+        const prefs = nextHousehold.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+        if (prefs.tasks !== false) {
+          const assigneeIds = assigneeMemberIdsForTask(nextHousehold.members, input, task);
+          for (const memberId of assigneeIds) {
+            const assignee = nextHousehold.members.find((member) => member.id === memberId);
+            if (!assignee) continue;
+            await pushNotification({
+              title: 'Poppins · Tasks',
+              body: `${task.title} was added to your list.`,
+              category: 'tasks',
+              priority: 'high',
+              data: {
+                kind: 'task_assigned',
+                taskId: task.id,
+                task: task.title,
+                memberId: assignee.id,
+                memberName: assignee.name,
+                audienceMemberIds: [assignee.id],
+              },
+            });
+          }
+        }
       }
       return task;
     } catch (error) {
@@ -5342,6 +5585,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       refreshInviteLinks,
       refreshSmartHome,
       refreshHousehold: reloadHouseholdDomains,
+      restoreSidekickSession,
     }),
     [
       currentUser,

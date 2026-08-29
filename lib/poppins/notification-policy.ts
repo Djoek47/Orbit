@@ -24,6 +24,7 @@ export type FactKind =
   | 'reward_approved'
   | 'allowance_approved'
   | 'allowance_granted'
+  | 'task_assigned'
   | 'task_reassigned'
   | 'ask_for_info'
   | 'streak_risk'
@@ -109,6 +110,7 @@ export function laneForKind(kind: string): NotificationLane {
     case 'reward_requested':
     case 'proof_submitted':
     case 'proof_requested':
+    case 'task_assigned':
     case 'task_not_done':
     case 'ask_for_info':
       return 'interrupt';

@@ -79,6 +79,11 @@ import { goToFreshLogin } from '@/lib/navigation/fresh-login';
 import { cancelSignedOutRestart } from '@/lib/navigation/session-restart';
 import { shareInvite } from '@/lib/invites/share-invite';
 import { isPendingJoinSnapshot } from '@/lib/invites/join-approval';
+import {
+  loadSidekickSession,
+  wasSidekickSignedOut,
+  type SidekickSession,
+} from '@/lib/sidekick/session';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 import type { HouseholdMember } from '@/types/orbit';
@@ -184,6 +189,7 @@ export default function WelcomeOnboardingScreen() {
     isLoading,
     isSignedIn,
     hydrateFromSession,
+    restoreSidekickSession,
     joinHousehold,
     applyStashedInvite,
     upsertSavedPlace,
@@ -260,8 +266,27 @@ export default function WelcomeOnboardingScreen() {
   );
   const [tabletCodes, setTabletCodes] = useState<string[]>([]);
   const [tabletCodeDraft, setTabletCodeDraft] = useState('');
+  const [savedSidekick, setSavedSidekick] = useState<SidekickSession | null>(null);
+  const [sidekickWelcomeBack, setSidekickWelcomeBack] = useState(false);
 
   const stepOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (step !== 'splash') return;
+    let cancelled = false;
+    void (async () => {
+      const [session, signedOut] = await Promise.all([
+        loadSidekickSession(),
+        wasSidekickSignedOut(),
+      ]);
+      if (cancelled || !session || !signedOut) return;
+      setSavedSidekick(session);
+      setSidekickWelcomeBack(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step]);
 
   const roleMeta = useMemo(
     () => ONBOARDING_ROLES.find((role) => role.id === selectedRole),
@@ -1073,6 +1098,23 @@ export default function WelcomeOnboardingScreen() {
     router.replace('/' as never);
   };
 
+  const handleContinueSidekick = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const restored = await restoreSidekickSession();
+      if (!restored) {
+        setError('Could not restore your profile. Scan your Sidekick code again.');
+        return;
+      }
+      router.replace('/' as never);
+    } catch (err) {
+      setError(userFacingMessage(err, 'Could not restore your profile.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <View
       style={[
@@ -1106,10 +1148,25 @@ export default function WelcomeOnboardingScreen() {
             style={[styles.splashBottom, !splashReady && styles.splashBottomHidden]}
             pointerEvents={splashReady ? 'auto' : 'none'}>
             <View style={styles.splashCtaBlock}>
+              {sidekickWelcomeBack && savedSidekick ? (
+                <>
+                  <OrbitButton disabled={busy} onPress={() => void handleContinueSidekick()}>
+                    {busy ? 'Opening…' : `Continue as ${savedSidekick.displayName}`}
+                  </OrbitButton>
+                  <Text
+                    style={[
+                      typography.footnote,
+                      { color: orbitPalette.textMuted, textAlign: 'center', lineHeight: 20 },
+                    ]}>
+                    Welcome back — pick up where you left off, or start fresh below.
+                  </Text>
+                </>
+              ) : null}
               <OrbitButton onPress={() => setStep('role')}>Get Started</OrbitButton>
               <OrbitButton tone="secondary" onPress={() => setScannerOpen(true)}>
                 Scan to join
               </OrbitButton>
+              {error && step === 'splash' ? <Text style={styles.error}>{error}</Text> : null}
               <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
                 <Text style={[styles.signInText, { color: orbitPalette.textMuted }]}>
                   Already have an account?{' '}
