@@ -1,0 +1,52 @@
+# Choremaxx Make v17
+
+**Branch:** `cursor/make-v17`  
+**Follows:** `cursor/choremaxx-make-v15` (TestFlight **1.3.0 (56)**)  
+**TestFlight:** **1.3.0 (61)** queued on EAS (auto-submit scheduled). EAS `6f7eb478-7da1-4b33-b0f5-e0f33416bcd7` / git `91ac46a` / submit `2508477d-b848-4e5d-bdad-01bf1f70d39f`. Settings tip `make-v17 · connection-flow · join-policy · supabase-only`.
+
+Build logs: https://expo.dev/accounts/djoek47/projects/choremaxx/builds/6f7eb478-7da1-4b33-b0f5-e0f33416bcd7
+
+---
+
+- **Member connection v16** — join flow, plan calendar, invite paths
+- **Simplify invites** — two join paths + admin approval toggle
+- **Admin member connection** — profile creation, connection badges
+- **Household switch + delete** — multi-household switching, safe deletion (TestFlight: switch disabled via `EXPO_PUBLIC_DISABLE_HOUSEHOLD_SWITCH`)
+- **Sidekick Settings + House Rules** — interactive home card, Sidekick settings polish
+- **Auto-approval / join policy** — `joinApprovalRequired`, per-member `joinPreApproved`, Members UX, Get Started roster policy, Supabase-only release (`__DEV__` mock gate)
+
+## TestFlight env (`eas.json`)
+
+- `EXPO_PUBLIC_DATA_MODE=supabase`
+- `EXPO_PUBLIC_POPPINS_AI=openai`
+- `EXPO_PUBLIC_POPPINS_REALTIME=1`
+- `EXPO_PUBLIC_POPPINS_VOICE_WEBRTC=1`
+- `EXPO_PUBLIC_DISABLE_HOUSEHOLD_SWITCH=1`
+
+## SQL to apply on staging (if missing)
+
+Run in order:
+
+1. `20260828000000_join_approval_required.sql`
+2. `20260828010000_member_planned_tasks.sql`
+3. `20260828120000_household_soft_delete.sql`
+4. `20260829120000_join_pre_approved.sql`
+
+Helper: `supabase/migrations/PENDING_APPLY_ON_STAGING.sql`
+
+## Edge functions to redeploy
+
+- `join-household`
+- `complete-profile-join`
+- `redeem-member-invite`
+
+## EAS Insights
+
+Open **[Insights → App usage](https://expo.dev/accounts/djoek47/projects/choremaxx/insights)** in the EAS dashboard.
+
+| Source | What you get | Status |
+|--------|----------------|--------|
+| **EAS Update** | High-level usage from update-check requests | Already configured (`expo-updates`, `testflight` channel) — may show sparse data because `checkAutomatically` is `ON_ERROR_RECOVERY` |
+| **`expo-insights`** | Cold-start counts by platform + App Store version | Added on this branch (`ee1792d`); needs the **next** native TestFlight build (build **61** does not include it) |
+
+No JS wiring required — `expo-insights` auto-reports on native app launch after install.

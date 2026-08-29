@@ -1,35 +1,50 @@
 ---
-description: Keep Orbit Expo screens in sync with the Figma Make design source of truth
+description: Keep Choremaxx Expo screens in sync with the Figma Make design source of truth
 alwaysApply: true
 ---
 
-# Figma Make → Orbit Sync
+# Figma Make → Choremaxx Sync
 
 ## Source of truth
 
-- Design visual/layout source: Figma Make  
-  https://www.figma.com/make/4J6d4LW335tDyEDpqq3VD1/Design-Orbit-AI-App
+- Design visual/layout source: Figma Make Design 8  
+  https://www.figma.com/make/nwBB1pEqZMWxsm6WE7dFeS/Design-Orbit-AI-App--copie-  
+  (prior v7: `4J6d4LW335tDyEDpqq3VD1` — kept as `previousFileKey` in `design/make/SYNC_STATE.json`)
+- Product brand (Make v7+): **Choremaxx** (shipping product name). Internal code namespaces may still say `orbit` for stability.
 - Product/IA source of truth for shipping product remains `docs/product-context.md`, `docs/ux-design-system.md`, and `docs/technical-blueprint.md`.
-- For **Expo Go local visual testing**, prefer matching the current Make tabs and screen layouts.
+- **Visual/material/motion/component detail** (colors, type scale, spacing, radius, shadows, glass materials, motion timing, and the shared component library) is authoritative in **`docs/design-system/`** (the iOS 27 / Liquid Glass rebuild spec, `01`–`11`). This document and the three above remain authoritative for **information architecture** (which tabs exist, which roles see what) — Figma Make sync should still respect the tab/role structure below, but should not reintroduce web-style visual patterns (flat opaque tab bars, arbitrary radii, dashboard-style card stacking) that `docs/design-system/` has since superseded. When porting a future Make update, re-skin the ported screen against `docs/design-system/02-design-language.md` and `05-component-library.md` rather than 1:1-copying Make's own visual treatment.
+- Saved Make mirror + sync metadata: `design/make/` (`SYNC_STATE.json`, `source/`).
+- Automation prompt for Cursor Automations / Cloud Agents: `docs/figma-sync-automation.md`.
 
-## Current Make navigation (v4+)
+## Current Make navigation (v7)
 
-Primary tabs in Make: Home, Tasks, Grocery, Ranking (Ranks), Nova.  
-Settings/Admin and Create Task are overlays — not tabs.
+Primary tabs in Make: **Home, Tasks, Plan, Rewards, Nova**.  
+Plan = Calendar + Itineraries. Rewards = Rewards + Allowance + Rankings.  
+Role filters: child hides Plan; roommate hides Rewards.  
+Settings/Admin and Create Task are overlays — not tabs.  
+Groceries remain in-app (Home / Settings / deep link) but are not a primary tab in v7.
 
-## Sync workflow (not automatic)
+## Sync workflow (only when explicitly requested)
 
-Figma does **not** push live into Expo. After every Make change the user wants in the app:
+**Do not sync or port Make on your own.** Starting Metro/tunnel, fixing a bug, or
+continuing chat is **not** permission to re-port Make or switch to a Make-v7 branch.
+Only sync when the user pastes a Make URL or clearly says to sync/port from Figma.
 
-1. User pastes the Make URL (or says “sync from Figma”).
-2. Agent calls Figma MCP `get_design_context` with `fileKey=4J6d4LW335tDyEDpqq3VD1` and `nodeId=0:1`.
-3. Agent fetches the changed Make source files via MCP resources (`file://figma/make/source/4J6d4LW335tDyEDpqq3VD1/...`).
-4. Agent ports UI into Expo Router / React Native under `app/` and `components/orbit/`, using Orbit tokens in `constants/orbit-theme.ts` — do not paste Tailwind/web DOM code directly.
-5. User verifies in Expo Go (`npx expo start`).
+Figma does not push live into Expo by itself. Changes are registered via the
+design registry and applied by a Cursor agent (manual trigger, schedule, or
+Automation):
+
+1. User pastes the Make URL, says “sync from Figma”, or Automation runs.
+2. Agent calls Figma MCP `get_design_context` with `fileKey=nwBB1pEqZMWxsm6WE7dFeS` and `nodeId=0:1`.
+3. Agent fetches Make source via MCP resources (`file://figma/make/source/nwBB1pEqZMWxsm6WE7dFeS/...`) into `design/make/source/` and updates `design/make/SYNC_STATE.json`.
+4. Agent ports UI into Expo Router / React Native under `app/` and `components/orbit/`, using tokens in `constants/orbit-theme.ts` — do not paste Tailwind/web DOM code directly.
+5. **Backend wire-up:** if the design introduces entities or fields, extend `supabase/` schema, repository supabase paths, and `store/orbit-store.tsx`. Do not leave new screens hard-coded mock-only when `EXPO_PUBLIC_DATA_MODE=supabase`.
+6. Open a PR; user verifies in Expo Go (`npx expo start`) and staging supabase.
 
 ## Porting rules
 
-- Map web Make screens to native: View/Text/Pressable/ScrollView, existing GlassCard / StatusPill / OrbitButton where possible.
-- Keep mock-first data via `store/orbit-store.tsx` and `data/mock-household.ts` while testing on Expo Go.
-- Rankings live on the Ranks tab (`app/(tabs)/rewards.tsx` route file may remain named `rewards` for routing stability; tab title is **Ranks**).
-- Calendar may stay in the codebase but hidden from the primary tab bar while Make is 5-tab; do not delete calendar flows without an explicit product decision.
+- Map web Make screens to native: View/Text/Pressable/ScrollView, existing GlassCard / StatusPill / OrbitButton / ChoremaxxLogo where possible.
+- Mock mode (`store/orbit-store.tsx`, `data/mock-household.ts`) remains for Expo Go design testing; supabase mode must work for shipping builds.
+- Rewards Center lives on `app/(tabs)/rewards.tsx` (tab title **Rewards**).
+- Plan lives on `app/(tabs)/calendar.tsx` (tab title **Plan**).
+- Onboarding: `app/onboarding.tsx` (role + motivation) before auth signup.
