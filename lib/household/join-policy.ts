@@ -1,38 +1,30 @@
 /**
- * Join policy — how new members enter the household.
- *
- * Product model (two layers):
- * 1. Household policy: review each join (default) vs automatic entry.
- * 2. Member trust: when reviewing, skip review for a specific invited person.
+ * Join policy — all invites connect immediately (approval flow removed).
  */
 
 import { memberConnectionPhase } from '@/lib/household/member-connection';
 import type { HouseholdMember, HouseholdSnapshot } from '@/types/orbit';
 
-export type JoinPolicyMode = 'review' | 'automatic';
+export type JoinPolicyMode = 'automatic';
 
-export function getJoinPolicyMode(household: Pick<HouseholdSnapshot, 'joinApprovalRequired'>): JoinPolicyMode {
-  return household.joinApprovalRequired === false ? 'automatic' : 'review';
+export function getJoinPolicyMode(_household?: Pick<HouseholdSnapshot, 'joinApprovalRequired'>): JoinPolicyMode {
+  return 'automatic';
 }
 
-export function isReviewJoinPolicy(household: Pick<HouseholdSnapshot, 'joinApprovalRequired'>): boolean {
-  return getJoinPolicyMode(household) === 'review';
+export function isReviewJoinPolicy(_household?: Pick<HouseholdSnapshot, 'joinApprovalRequired'>): boolean {
+  return false;
 }
 
-/** Per-member trust only applies while the household reviews joins. */
+/** Per-member trust toggles removed — always false. */
 export function canTrustMemberForAutoJoin(
-  member: HouseholdMember,
-  household: Pick<HouseholdSnapshot, 'joinApprovalRequired'>
+  _member: HouseholdMember,
+  _household?: Pick<HouseholdSnapshot, 'joinApprovalRequired'>
 ): boolean {
-  if (!isReviewJoinPolicy(household)) return false;
-  if (member.role === 'owner' || member.role === 'shared-device' || member.role === 'child') {
-    return false;
-  }
-  return member.status === 'invited' || member.status === 'pending';
+  return false;
 }
 
-export function memberIsTrusted(member: HouseholdMember): boolean {
-  return member.joinPreApproved === true;
+export function memberIsTrusted(_member: HouseholdMember): boolean {
+  return false;
 }
 
 export type MembersScreenCounts = {
@@ -43,48 +35,31 @@ export type MembersScreenCounts = {
 };
 
 export function countMembersForMembersScreen(members: HouseholdMember[]): MembersScreenCounts {
-  let pending = 0;
   let awaiting = 0;
   let connected = 0;
-  let trustedAwaiting = 0;
 
   for (const member of members) {
     const phase = memberConnectionPhase(member);
-    if (phase === 'pending_approval') pending += 1;
-    else if (phase === 'awaiting') {
-      awaiting += 1;
-      if (member.joinPreApproved) trustedAwaiting += 1;
-    } else if (phase === 'connected') connected += 1;
+    if (phase === 'awaiting') awaiting += 1;
+    else if (phase === 'connected') connected += 1;
   }
 
-  return { pending, awaiting, connected, trustedAwaiting };
+  return { pending: 0, awaiting, connected, trustedAwaiting: 0 };
 }
 
 /** Header subtitle — tells the admin what needs attention, or confirms all is well. */
 export function membersScreenStatusLine(
   counts: MembersScreenCounts,
-  policy: JoinPolicyMode,
+  _policy?: JoinPolicyMode,
   adminSeatsLabel?: string
 ): string {
-  if (counts.pending > 0) {
-    return counts.pending === 1
-      ? '1 person is waiting for your approval.'
-      : `${counts.pending} people are waiting for your approval.`;
-  }
   if (counts.awaiting > 0) {
-    const inviteLine =
-      counts.awaiting === 1
-        ? '1 person still needs their invite.'
-        : `${counts.awaiting} people still need their invite.`;
-    if (policy === 'review' && counts.trustedAwaiting > 0) {
-      return `${inviteLine} ${counts.trustedAwaiting} will join without review.`;
-    }
-    return inviteLine;
+    return counts.awaiting === 1
+      ? '1 person still needs their invite.'
+      : `${counts.awaiting} people still need their invite.`;
   }
   if (adminSeatsLabel) return adminSeatsLabel;
-  return policy === 'automatic'
-    ? 'Anyone with an invite can join immediately.'
-    : 'Everyone is connected.';
+  return 'Everyone with an invite joins immediately.';
 }
 
 /** True when every non-owner member is connected — admin can lock invite period. */
@@ -97,18 +72,7 @@ export function canLockInvites(members: HouseholdMember[]): boolean {
 }
 
 export const JOIN_POLICY_COPY = {
-  reviewToggleLabel: 'Review new members',
-  reviewToggleOn: 'You approve each person when they accept their invite.',
-  reviewToggleOff: 'Anyone with an invite joins immediately — no review step.',
-  trustRowLabel: 'Auto-join',
-  trustRowHint: (name: string) => `${name} joins instantly when they accept.`,
-  trustRowOffHint: (name: string) => `You'll approve ${name} after they accept.`,
-  sectionPolicyHeader: 'Join access',
   sectionNeedsInvite: 'Needs invite',
   sectionNeedsInviteHint: "Share each person's invite so they can connect on their device.",
-  sectionPending: 'Waiting for you',
   sectionInHousehold: 'In your household',
-  everyoneConnectedTitle: "Everyone's connected",
-  everyoneConnectedBody: 'Turn off review for any future invites, or leave it on if you expect more people.',
-  lockInvitesAction: 'Done with invites',
 } as const;

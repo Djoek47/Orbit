@@ -13,7 +13,7 @@ import { useOrbit } from '@/store/orbit-store';
 
 /** Soft splash / entry: route into the right first screen. */
 export default function SplashEntry() {
-  const { isLoading, isSignedIn, hasHousehold, isPendingMember } = useOrbit();
+  const { isLoading, isSignedIn, hasHousehold } = useOrbit();
   const [needsPick, setNeedsPick] = useState<boolean | null>(null);
   const [inviteRoute, setInviteRoute] = useState<string | null | undefined>(undefined);
 
@@ -50,7 +50,7 @@ export default function SplashEntry() {
         const kind = classifyInviteCode(code) ?? 'household';
         const dest = nextInviteDestination(kind, {
           isSignedIn,
-          isPendingMember,
+          isPendingMember: false,
           hasHousehold,
         });
         setInviteRoute(inviteHref(dest, code));
@@ -61,14 +61,10 @@ export default function SplashEntry() {
     return () => {
       mounted = false;
     };
-  }, [hasHousehold, isPendingMember, isSignedIn]);
+  }, [hasHousehold, isSignedIn]);
 
   if (isLoading || needsPick === null || inviteRoute === undefined) {
     return null;
-  }
-
-  if (isPendingMember) {
-    return <Redirect href="/pending-approval" />;
   }
 
   if (inviteRoute) {

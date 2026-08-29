@@ -11,10 +11,6 @@ import {
   MemberConnectionCaption,
   HasOwnAccountBadge,
 } from '@/components/orbit/member-connection-badge';
-import {
-  MemberTrustSwitch,
-  MembersJoinPolicyGroup,
-} from '@/components/orbit/members/join-policy-controls';
 import { SetupMemberWizard } from '@/components/orbit/setup-member-wizard';
 import { DEFAULT_REWARD_MODEL } from '@/lib/rewards/reward-model';
 import type { DraftMember } from '@/lib/onboarding/setup-draft';
@@ -37,9 +33,6 @@ import {
 import { memberConnectionPhase } from '@/lib/household/member-connection';
 import {
   countMembersForMembersScreen,
-  canLockInvites,
-  getJoinPolicyMode,
-  isReviewJoinPolicy,
   JOIN_POLICY_COPY,
   membersScreenStatusLine,
 } from '@/lib/household/join-policy';
@@ -83,16 +76,13 @@ function SectionHeader({ title, hint }: { title: string; hint?: string }) {
 
 export default function HouseholdMembersScreen() {
   const {
-    approveMember,
     currentMember,
-    declineMember,
     household,
     permissions,
     removeMember,
     updateMemberRole,
     updateSharedDeviceLinks,
     addOnboardingMembers,
-    setJoinApprovalRequired,
   } = useOrbit();
   const { c } = useOrbitColors();
 
@@ -100,10 +90,6 @@ export default function HouseholdMembersScreen() {
   const [inviteTarget, setInviteTarget] = useState<InviteTarget>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
 
-  const pending = useMemo(
-    () => household.members.filter((m) => memberConnectionPhase(m) === 'pending_approval'),
-    [household.members]
-  );
   const awaiting = useMemo(
     () =>
       household.members.filter(
@@ -121,20 +107,15 @@ export default function HouseholdMembersScreen() {
   );
 
   const counts = useMemo(() => countMembersForMembersScreen(household.members), [household.members]);
-  const policy = getJoinPolicyMode(household);
   const adminSeats = familyAdminSeatsLabel(household.members);
   const familyCap = usesFamilyAdminCap();
   const linkCandidates = sharedDeviceLinkCandidates(household.members);
 
   const statusLine = membersScreenStatusLine(
     counts,
-    policy,
-    familyCap && counts.pending === 0 && counts.awaiting === 0 ? adminSeats : undefined
+    'automatic',
+    familyCap && counts.awaiting === 0 ? adminSeats : undefined
   );
-  const showInviteLock =
-    permissions.canManageHousehold &&
-    isReviewJoinPolicy(household) &&
-    canLockInvites(household.members);
 
   const inviteMember =
     inviteTarget?.memberId != null
@@ -147,19 +128,6 @@ export default function HouseholdMembersScreen() {
       return;
     }
     setInviteTarget({ kind: 'token', memberId: member.id });
-  };
-
-  const handleApproveAs = (memberId: string, asAdmin: boolean) => {
-    void (async () => {
-      await approveMember(memberId);
-      if (asAdmin) {
-        if (!canPromoteToAdmin(household, memberId)) {
-          Alert.alert('Approved as adult', 'Admin seats are full, so they joined as Adult.');
-          return;
-        }
-        await updateMemberRole(memberId, 'admin');
-      }
-    })();
   };
 
   const handleRemove = (memberId: string, name: string, role: HouseholdRole) => {
@@ -267,42 +235,6 @@ export default function HouseholdMembersScreen() {
     void updateSharedDeviceLinks(deviceId, next);
   };
 
-  const renderPendingCard = (member: HouseholdMember) => (
-    <GlassCard key={member.id} style={styles.card}>
-      <View style={styles.memberHeader}>
-        <Avatar
-          name={member.name}
-          emoji={memberDisplayEmoji(member)}
-          imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
-          size="m"
-        />
-        <View style={styles.memberCopy}>
-          <Text style={[typography.headline, { color: c.text }]}>{member.name}</Text>
-          <Text style={[typography.footnote, { color: c.warning }]}>
-            Wants to join your household
-          </Text>
-        </View>
-        <MemberConnectionBadge member={member} />
-      </View>
-      <View style={styles.actionsStack}>
-        <OrbitButton disabled={!permissions.canManageHousehold} onPress={() => handleApproveAs(member.id, false)}>
-          Approve
-        </OrbitButton>
-        {permissions.canManageHousehold && canPromoteToAdmin(household, member.id) ? (
-          <OrbitButton tone="secondary" onPress={() => handleApproveAs(member.id, true)}>
-            Approve as admin
-          </OrbitButton>
-        ) : null}
-        <OrbitButton
-          disabled={!permissions.canManageHousehold}
-          tone="danger"
-          onPress={() => void declineMember(member.id)}>
-          Decline
-        </OrbitButton>
-      </View>
-    </GlassCard>
-  );
-
   const renderAwaitingCard = (member: HouseholdMember) => (
     <GlassCard key={member.id} style={styles.card}>
       <View style={styles.memberHeader}>
@@ -317,9 +249,6 @@ export default function HouseholdMembersScreen() {
           <MemberConnectionCaption member={member} />
           <View style={styles.pillRow}>
             <StatusPill label={formatHouseholdRole(member.role)} tone="amber" />
-            {member.joinPreApproved && member.role !== 'child' ? (
-              <StatusPill label="Trusted" tone="green" />
-            ) : null}
           </View>
         </View>
         <MemberConnectionBadge member={member} />
@@ -329,7 +258,6 @@ export default function HouseholdMembersScreen() {
           {memberUsesProfileInvite(member) ? 'Share Sidekick invite' : 'Share invite'}
         </OrbitButton>
       ) : null}
-      <MemberTrustSwitch member={member} />
     </GlassCard>
   );
 
@@ -435,13 +363,6 @@ export default function HouseholdMembersScreen() {
           <Text style={[typography.body, { color: c.textMuted }]}>{statusLine}</Text>
         </View>
 
-        {pending.length > 0 ? (
-          <>
-            <SectionHeader title={JOIN_POLICY_COPY.sectionPending} />
-            {pending.map(renderPendingCard)}
-          </>
-        ) : null}
-
         {permissions.canInviteMembers || permissions.canManageHousehold ? (
           <View style={styles.addBar}>
             <OrbitButton onPress={() => setWizardOpen(true)} style={styles.addPrimary}>
@@ -453,22 +374,6 @@ export default function HouseholdMembersScreen() {
               </OrbitButton>
             ) : null}
           </View>
-        ) : null}
-
-        {permissions.canManageHousehold ? <MembersJoinPolicyGroup /> : null}
-
-        {showInviteLock ? (
-          <GlassCard style={styles.card}>
-            <Text style={[typography.headline, { color: c.text }]}>
-              {JOIN_POLICY_COPY.everyoneConnectedTitle}
-            </Text>
-            <Text style={[typography.footnote, { color: c.textMuted }]}>
-              {JOIN_POLICY_COPY.everyoneConnectedBody}
-            </Text>
-            <OrbitButton tone="secondary" onPress={() => setJoinApprovalRequired(false)}>
-              {JOIN_POLICY_COPY.lockInvitesAction}
-            </OrbitButton>
-          </GlassCard>
         ) : null}
 
         {awaiting.length > 0 ? (

@@ -46,10 +46,7 @@ export function nextInviteDestination(
   if (kind === 'profile') {
     return 'join-profile';
   }
-  if (session.isPendingMember) {
-    return 'pending-approval';
-  }
-  if (session.isSignedIn) {
+  if (session.isSignedIn && session.hasHousehold) {
     return 'join-household';
   }
   return 'welcome-invited';

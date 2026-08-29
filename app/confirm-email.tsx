@@ -78,10 +78,6 @@ export default function ConfirmEmailScreen() {
       return;
     }
     const joined = await applyStashedInvite();
-    if (joined === 'pending') {
-      router.replace('/pending-approval' as never);
-      return;
-    }
     if (joined === 'active') {
       router.replace('/join-welcome' as never);
       return;

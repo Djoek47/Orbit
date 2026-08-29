@@ -1,26 +1,19 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Image, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 
-import {
-  MemberConnectionBadge,
-} from '@/components/orbit/member-connection-badge';
+import { MemberConnectionBadge } from '@/components/orbit/member-connection-badge';
 import { SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { memberCanReceiveInvite } from '@/lib/household/member-invite-routing';
 import { memberConnectionPhase } from '@/lib/household/member-connection';
-import {
-  canTrustMemberForAutoJoin,
-  JOIN_POLICY_COPY,
-} from '@/lib/household/join-policy';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import type { HouseholdMember, HouseholdSnapshot } from '@/types/orbit';
+import type { HouseholdMember } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 type SettingsMemberCardProps = {
   member: HouseholdMember;
-  household: HouseholdSnapshot;
   active: boolean;
   accent: string;
   canManage: boolean;
@@ -33,15 +26,12 @@ type SettingsMemberCardProps = {
   onStartRename: () => void;
   onCommitRename: () => void;
   onRemove: () => void;
-  onApprove: () => void;
-  onAutoJoinChange: (trusted: boolean) => void;
   onHomeworkProofChange: (required: boolean) => void;
 };
 
 /** Settings → Members row — vertical layout so toggles never collide with action icons. */
 export function SettingsMemberCard({
   member,
-  household,
   active,
   accent,
   canManage,
@@ -54,23 +44,14 @@ export function SettingsMemberCard({
   onStartRename,
   onCommitRename,
   onRemove,
-  onApprove,
-  onAutoJoinChange,
   onHomeworkProofChange,
 }: SettingsMemberCardProps) {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const photo = isAvatarImageUri(member.avatar);
   const phase = memberConnectionPhase(member);
-  const showTrust = canManage && canTrustMemberForAutoJoin(member, household);
-  const trusted = member.joinPreApproved === true;
   const showInvite = canManage && memberCanReceiveInvite(member);
   const showHomework = canManage && member.role === 'child';
-  const statusLabel =
-    phase === 'connected'
-      ? 'Connected'
-      : phase === 'pending_approval'
-        ? 'Waiting for approval'
-        : 'Not connected yet';
+  const statusLabel = phase === 'connected' ? 'Connected' : 'Not connected yet';
 
   return (
     <View
@@ -122,36 +103,6 @@ export function SettingsMemberCard({
 
         <View style={styles.headerActions}>
           <MemberConnectionBadge member={member} size="sm" />
-          {phase === 'pending_approval' && canManage ? (
-            <Pressable
-              onPress={onApprove}
-              style={[styles.approveBtn, { backgroundColor: `${c.success}22`, borderColor: `${c.success}66` }]}>
-              <Text style={[styles.approveBtnText, { color: c.success }]}>Approve</Text>
-            </Pressable>
-          ) : showTrust ? (
-            <Pressable
-              onPress={() => onAutoJoinChange(!trusted)}
-              accessibilityLabel={`${JOIN_POLICY_COPY.trustRowLabel} for ${member.name}`}
-              style={[
-                styles.approveBtn,
-                trusted
-                  ? { backgroundColor: `${c.success}22`, borderColor: `${c.success}66` }
-                  : { backgroundColor: glass(0.06), borderColor: glassBorder(0.12) },
-              ]}>
-              <MaterialIcons
-                name={trusted ? 'verified' : 'gpp-maybe'}
-                size={14}
-                color={trusted ? c.success : c.textMuted}
-              />
-              <Text
-                style={[
-                  styles.approveBtnText,
-                  { color: trusted ? c.success : c.textMuted },
-                ]}>
-                {JOIN_POLICY_COPY.trustRowLabel}
-              </Text>
-            </Pressable>
-          ) : null}
           {canManage ? (
             <Pressable onPress={renaming ? onCommitRename : onStartRename} hitSlop={8}>
               <MaterialIcons
@@ -265,20 +216,6 @@ const styles = StyleSheet.create({
     gap: 6,
     justifyContent: 'flex-end',
     maxWidth: 132,
-  },
-  approveBtn: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  approveBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
   },
   shareBtn: {
     alignItems: 'center',

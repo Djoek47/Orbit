@@ -1,5 +1,6 @@
 // Deno Edge Function — validate invite code and create membership.
 // Never overwrite an existing owner/admin/active row (own-invite loop).
+// Join approval removed — every join is active immediately.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
@@ -75,14 +76,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: householdRow } = await admin
-      .from('households')
-      .select('join_approval_required')
-      .eq('id', invite.household_id)
-      .maybeSingle();
-
-    const approvalRequired = householdRow?.join_approval_required !== false;
-    const nextStatus = approvalRequired ? 'pending' : 'active';
+    const nextStatus = 'active';
 
     const { data: otherHomes } = await admin
       .from('household_members')
@@ -102,13 +96,25 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existing && existing.status !== 'removed') {
+      const activeExisting =
+        existing.status === 'pending' || existing.status === 'invited'
+          ? (
+              await admin
+                .from('household_members')
+                .update({ status: 'active' })
+                .eq('id', existing.id)
+                .select('*')
+                .single()
+            ).data ?? { ...existing, status: 'active' }
+          : existing;
+
       return new Response(
         JSON.stringify({
-          member: existing,
+          member: activeExisting,
           householdId: invite.household_id,
-          alreadyMember: existing.status === 'active',
-          alreadyPending: existing.status === 'pending' || existing.status === 'invited',
-          joinApprovalRequired: approvalRequired,
+          alreadyMember: activeExisting.status === 'active',
+          alreadyPending: false,
+          joinApprovalRequired: false,
           hasOwnHousehold,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -127,17 +133,13 @@ Deno.serve(async (req) => {
 
       if (!seatError && seat) {
         const seatRole = seat.role === 'admin' ? 'admin' : joinRole === 'guest' ? 'guest' : seat.role ?? 'adult';
-        const seatNextStatus =
-          seat.role === 'child' || seat.join_pre_approved === true || !approvalRequired
-            ? 'active'
-            : 'pending';
         const { data: claimed, error: claimError } = await admin
           .from('household_members')
           .update({
             user_id: user.id,
             display_name: resolvedName || seat.display_name,
             role: seatRole,
-            status: seatNextStatus,
+            status: nextStatus,
             avatar_symbol: (resolvedName || seat.display_name || 'M').charAt(0).toUpperCase(),
           })
           .eq('id', seat.id)
@@ -156,15 +158,11 @@ Deno.serve(async (req) => {
           .update({ uses: (invite.uses ?? 0) + 1 })
           .eq('id', invite.id);
 
-        if (seatNextStatus === 'pending') {
-          await notifyAdminsJoinRequest(admin, invite.household_id, resolvedName || seat.display_name);
-        }
-
         return new Response(
           JSON.stringify({
             member: claimed,
             householdId: invite.household_id,
-            joinApprovalRequired: approvalRequired,
+            joinApprovalRequired: false,
             hasOwnHousehold,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -197,15 +195,11 @@ Deno.serve(async (req) => {
       .update({ uses: (invite.uses ?? 0) + 1 })
       .eq('id', invite.id);
 
-    if (nextStatus === 'pending') {
-      await notifyAdminsJoinRequest(admin, invite.household_id, resolvedName);
-    }
-
     return new Response(
       JSON.stringify({
         member,
         householdId: invite.household_id,
-        joinApprovalRequired: approvalRequired,
+        joinApprovalRequired: false,
         hasOwnHousehold,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -217,33 +211,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-
-async function notifyAdminsJoinRequest(
-  admin: ReturnType<typeof createClient>,
-  householdId: string,
-  requesterName: string
-) {
-  const { data: admins } = await admin
-    .from('household_members')
-    .select('user_id')
-    .eq('household_id', householdId)
-    .in('role', ['owner', 'admin'])
-    .eq('status', 'active')
-    .not('user_id', 'is', null);
-
-  const title = 'Poppins · Members';
-  const body = `${requesterName} asked to join this household.`;
-  for (const adminRow of admins ?? []) {
-    if (!adminRow.user_id) continue;
-    await admin.from('notifications').insert({
-      household_id: householdId,
-      user_id: adminRow.user_id,
-      title,
-      body,
-      category: 'general',
-      priority: 'high',
-      data: { surface: 'members' },
-      is_read: false,
-    });
-  }
-}

@@ -702,12 +702,8 @@ export default function WelcomeOnboardingScreen() {
       });
       if (next === 'household' && parsed && classifyInviteCode(parsed) === 'household') {
         await stashInviteCode(parsed);
-        const joined = await applyStashedInvite();
-        router.replace((joined === 'pending' ? '/pending-approval' : '/join-welcome') as never);
-        return;
-      }
-      if (isPendingJoinSnapshot(hydrated)) {
-        router.replace('/pending-approval' as never);
+        await applyStashedInvite();
+        router.replace('/join-welcome' as never);
         return;
       }
       const entitled = isPremiumActive(await fetchEntitlement());
@@ -753,7 +749,7 @@ export default function WelcomeOnboardingScreen() {
         (inviteCode.trim() ? normalizeInviteCode(inviteCode) : null);
       if (parsed && classifyInviteCode(parsed) === 'household') {
         const outcome = await joinHousehold({ inviteCode: parsed });
-        router.replace((outcome === 'pending' ? '/pending-approval' : '/join-welcome') as never);
+        router.replace('/join-welcome' as never);
         return;
       }
       setStep('household');
@@ -780,7 +776,7 @@ export default function WelcomeOnboardingScreen() {
         setInviteCode(parsed);
         const outcome = await joinHousehold({ inviteCode: parsed });
         setCreatedHousehold(false);
-        router.replace((outcome === 'pending' ? '/pending-approval' : '/join-welcome') as never);
+        router.replace('/join-welcome' as never);
         return;
       }
       if (!householdName.trim()) {
@@ -821,7 +817,7 @@ export default function WelcomeOnboardingScreen() {
       rewardModel: draft.rewardModel,
       rewardMode: draft.scoringMode,
       setupComplete,
-      joinApprovalRequired: (draft.joinPolicy ?? 'review') !== 'automatic',
+      joinApprovalRequired: false,
     });
     if (!createdHousehold?.id) {
       throw new Error('Could not create household. Try again.');
@@ -927,21 +923,6 @@ export default function WelcomeOnboardingScreen() {
 
   const handleContinueFromRoster = () => {
     setStep('ready');
-  };
-
-  const handleMemberTrustChange = (draftId: string, trusted: boolean) => {
-    const memberId = createdMemberIdsByDraftId[draftId];
-    setCreatedMemberByDraftId((current) => ({
-      ...current,
-      [draftId]: { joinPreApproved: trusted },
-    }));
-    if (memberId) {
-      void setMemberJoinPreApproved(memberId, trusted);
-    }
-  };
-
-  const handleDraftJoinPolicyChange = (policy: 'review' | 'automatic') => {
-    void saveSetupDraft({ ...setupDraft, joinPolicy: policy }).then(setSetupDraft);
   };
 
   const handleShareRosterSidekick = async (
@@ -1743,9 +1724,6 @@ export default function WelcomeOnboardingScreen() {
                 onCreateHousehold={() => void handleCreateFromRoster()}
                 onContinue={handleContinueFromRoster}
                 onFinishLater={() => void handleFinishLater()}
-                onJoinPolicyChange={handleDraftJoinPolicyChange}
-                createdMemberByDraftId={createdMemberByDraftId}
-                onMemberTrustChange={handleMemberTrustChange}
               />
               {shareStatus ? (
                 <Text style={[styles.shareHint, { color: accent }]}>{shareStatus}</Text>

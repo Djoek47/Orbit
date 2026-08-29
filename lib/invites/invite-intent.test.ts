@@ -39,7 +39,7 @@ function pass(name: string) {
       isPendingMember: true,
       hasHousehold: true,
     }),
-    'pending-approval'
+    'join-household'
   );
   assert.equal(
     nextInviteDestination('household', {
@@ -55,7 +55,7 @@ function pass(name: string) {
       isPendingMember: false,
       hasHousehold: false,
     }),
-    'welcome-child'
+    'join-profile'
   );
   pass('destinations: logged in / pending / logged out / kid');
 }

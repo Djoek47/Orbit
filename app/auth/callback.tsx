@@ -108,10 +108,6 @@ export default function AuthCallbackScreen() {
     }
     const joined = await applyStashedInvite();
     await new Promise((r) => setTimeout(r, SUCCESS_HOLD_MS));
-    if (joined === 'pending') {
-      router.replace('/pending-approval' as never);
-      return;
-    }
     if (joined === 'active') {
       router.replace('/join-welcome' as never);
       return;
@@ -141,8 +137,8 @@ export default function AuthCallbackScreen() {
     }
     const joined = await applyStashedInvite();
     await new Promise((r) => setTimeout(r, SUCCESS_HOLD_MS));
-    if (joined === 'pending') {
-      router.replace('/pending-approval' as never);
+    if (joined === 'active') {
+      router.replace('/join-welcome' as never);
       return;
     }
     router.replace('/');

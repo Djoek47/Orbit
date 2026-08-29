@@ -10,8 +10,7 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 /**
- * Revision G §4 — one loading state, then Home for Sidekicks.
- * Adult tokens still land on pending-approval.
+ * Revision G §4 — one loading state, then Home.
  */
 export default function RedeemMemberInviteScreen() {
   const { token: tokenParam } = useLocalSearchParams<{ token?: string }>();
@@ -46,10 +45,6 @@ export default function RedeemMemberInviteScreen() {
         if (cancelled) return;
         if (result.ok === false) {
           setError(result.message);
-          return;
-        }
-        if (result.memberStatus === 'pending') {
-          router.replace('/pending-approval' as never);
           return;
         }
         router.replace('/(tabs)' as never);

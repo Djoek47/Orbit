@@ -32,34 +32,19 @@ const invitedAdult: HouseholdMember = {
   loadShare: 0,
 };
 
-const pending: HouseholdMember = {
-  id: '2',
-  name: 'Sam',
-  role: 'adult',
-  status: 'pending',
-  avatar: 'S',
-  xp: 0,
-  loadShare: 0,
-};
-
-assert.equal(getJoinPolicyMode({ joinApprovalRequired: true }), 'review');
+assert.equal(getJoinPolicyMode({ joinApprovalRequired: true }), 'automatic');
 assert.equal(getJoinPolicyMode({ joinApprovalRequired: false }), 'automatic');
-assert.equal(canTrustMemberForAutoJoin(invitedAdult, { joinApprovalRequired: true }), true);
+assert.equal(canTrustMemberForAutoJoin(invitedAdult, { joinApprovalRequired: true }), false);
 assert.equal(canTrustMemberForAutoJoin(invitedSidekick, { joinApprovalRequired: true }), false);
-assert.equal(canTrustMemberForAutoJoin(invitedAdult, { joinApprovalRequired: false }), false);
 
-const counts = countMembersForMembersScreen([
-  invitedSidekick,
-  { ...invitedSidekick, id: '3', joinPreApproved: true },
-  pending,
-]);
+const counts = countMembersForMembersScreen([invitedSidekick, invitedAdult]);
 assert.equal(counts.awaiting, 2);
-assert.equal(counts.pending, 1);
-assert.equal(counts.trustedAwaiting, 1);
+assert.equal(counts.pending, 0);
+assert.equal(counts.trustedAwaiting, 0);
 
 assert.match(
-  membersScreenStatusLine({ pending: 1, awaiting: 0, connected: 1, trustedAwaiting: 0 }, 'review'),
-  /waiting for your approval/
+  membersScreenStatusLine({ pending: 0, awaiting: 1, connected: 1, trustedAwaiting: 0 }, 'automatic'),
+  /still needs their invite/
 );
 
 assert.equal(canLockInvites([{ id: '1', name: 'Emma', role: 'child', status: 'active', avatar: 'E', xp: 0, loadShare: 0 }]), true);

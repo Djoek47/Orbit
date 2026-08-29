@@ -2,14 +2,14 @@
  * Member connection lifecycle — pre-created roster vs fully connected app user.
  *
  * Pre-created members (onboarding / Settings) stay in `awaiting` until they
- * redeem an invite, get approved, and bind a user account. Only then do they
- * count for tasks, XP, and rankings.
+ * redeem an invite and bind a user account. Join approval was removed — anyone
+ * who accepts an invite is active immediately.
  */
 
 import { isPendingStatus } from '@/lib/invites/join-approval';
 import type { HouseholdMember, HouseholdRole } from '@/types/orbit';
 
-export type MemberConnectionPhase = 'connected' | 'pending_approval' | 'awaiting';
+export type MemberConnectionPhase = 'connected' | 'awaiting';
 
 const CONNECTED_ROLES: HouseholdRole[] = ['owner'];
 
@@ -17,8 +17,8 @@ const CONNECTED_ROLES: HouseholdRole[] = ['owner'];
 export function isMemberFullyConnected(member: HouseholdMember | null | undefined): boolean {
   if (!member) return false;
   if (CONNECTED_ROLES.includes(member.role)) return member.status === 'active';
-  if (isPendingStatus(member.status)) return false;
-  if (member.status !== 'active') return false;
+  if (member.status !== 'active' && member.status !== 'pending') return false;
+  if (member.role === 'child' && member.status === 'active') return true;
   return Boolean(member.userId?.trim());
 }
 
@@ -28,13 +28,11 @@ export function memberConnectionPhase(
 ): MemberConnectionPhase {
   if (!member) return 'awaiting';
   if (CONNECTED_OWNER(member)) return 'connected';
-  if (member.status === 'pending') {
-    if (member.role === 'child') return 'connected';
-    return 'pending_approval';
-  }
   if (member.status === 'invited') return 'awaiting';
-  // Profile-only Sidekicks are connected once active — no auth account required.
-  if (member.role === 'child' && member.status === 'active') return 'connected';
+  if (member.status === 'pending' || member.status === 'active') {
+    if (member.role === 'child' && member.status === 'active') return 'connected';
+    if (isMemberFullyConnected(member)) return 'connected';
+  }
   if (isMemberFullyConnected(member)) return 'connected';
   return 'awaiting';
 }
@@ -45,14 +43,7 @@ function CONNECTED_OWNER(member: HouseholdMember): boolean {
 
 /** Short label under a member name in roster / Settings. */
 export function memberConnectionLabel(member: HouseholdMember): string {
-  switch (memberConnectionPhase(member)) {
-    case 'connected':
-      return 'Connected';
-    case 'pending_approval':
-      return 'Waiting for approval';
-    default:
-      return 'Not connected yet';
-  }
+  return memberConnectionPhase(member) === 'connected' ? 'Connected' : 'Not connected yet';
 }
 
 /** Members eligible for task assignment / XP credit. */

@@ -1,7 +1,6 @@
 /**
  * Membership pickers for household join / Check status.
- * A pending join must never be treated as "approved" just because the user
- * still owns a different household.
+ * Join approval was removed — every invite connects immediately as active.
  */
 
 export type MembershipLike = {
@@ -13,35 +12,30 @@ export function isPendingStatus(status: string) {
   return status === 'pending' || status === 'invited';
 }
 
-/** Sidekicks (child role) never go through admin join approval. */
-export function isSidekickJoinRole(role: string | null | undefined): boolean {
-  return role === 'child';
+/** @deprecated Sidekicks and all roles join immediately — kept for call-site compatibility. */
+export function isSidekickJoinRole(_role: string | null | undefined): boolean {
+  return false;
 }
 
-/** Whether a new join should wait for admin approval. */
+/** Whether a new join should wait for admin approval — always false. */
 export function joinNeedsApproval(
-  joinApprovalRequired: boolean | null | undefined,
-  memberPreApproved?: boolean | null,
-  memberRole?: string | null
+  _joinApprovalRequired?: boolean | null,
+  _memberPreApproved?: boolean | null,
+  _memberRole?: string | null
 ): boolean {
-  if (isSidekickJoinRole(memberRole)) return false;
-  if (joinApprovalRequired === false) return false;
-  if (memberPreApproved) return false;
-  return true;
+  return false;
 }
 
-/** Status after accepting an invite or completing a profile join. */
+/** Status after accepting an invite or completing a profile join — always active. */
 export function resolveJoinStatus(
-  joinApprovalRequired: boolean | null | undefined,
-  memberPreApproved?: boolean | null,
-  memberRole?: string | null
+  _joinApprovalRequired?: boolean | null,
+  _memberPreApproved?: boolean | null,
+  _memberRole?: string | null
 ): 'pending' | 'active' {
-  return joinNeedsApproval(joinApprovalRequired, memberPreApproved, memberRole)
-    ? 'pending'
-    : 'active';
+  return 'active';
 }
 
-/** Pending joiners get a preview snapshot — they cannot read tasks/groceries yet. */
+/** Pending joiners get a preview snapshot — legacy only; new joins are active immediately. */
 export function shouldLoadPendingPreview(status: string | null | undefined): boolean {
   return isPendingStatus(status ?? '');
 }
@@ -74,8 +68,7 @@ export function resolveHydrateMembership<T extends MembershipLike>(
 }
 
 /**
- * Check approval: if any pending join exists, that is the answer.
- * Owning another household is not approval.
+ * Check approval: pending memberships are treated as approved (approval flow removed).
  */
 export function resolveJoinApprovalMembership<T extends MembershipLike>(
   rows: T[],
@@ -85,17 +78,13 @@ export function resolveJoinApprovalMembership<T extends MembershipLike>(
     ? rows.find((row) => row.household_id === householdId)
     : undefined;
 
-  if (targeted && isPendingStatus(targeted.status)) {
-    return { status: 'pending', membership: targeted };
+  if (targeted && (targeted.status === 'active' || isPendingStatus(targeted.status))) {
+    return { status: 'approved', membership: targeted };
   }
 
   const pendingElse = rows.find((row) => isPendingStatus(row.status));
   if (pendingElse) {
-    return { status: 'pending', membership: pendingElse };
-  }
-
-  if (targeted?.status === 'active') {
-    return { status: 'approved', membership: targeted };
+    return { status: 'approved', membership: pendingElse };
   }
 
   if (householdId) {

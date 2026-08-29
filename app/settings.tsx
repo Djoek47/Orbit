@@ -87,7 +87,6 @@ import { formatHouseRulesTime } from '@/lib/rules/interpolate';
 import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
 import { SidekickSettingsScreen } from '@/components/orbit/sidekick-settings-screen';
-import { MembersJoinPolicyGroup } from '@/components/orbit/members/join-policy-controls';
 import { SettingsMemberCard } from '@/components/orbit/members/settings-member-card';
 import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
@@ -208,7 +207,6 @@ export default function SettingsScreen() {
     preferredMapsApp,
     removeMember,
     signOut,
-    approveMember,
     setMemberJoinPreApproved,
     switchPersona,
     updateAppearanceMode,
@@ -1179,8 +1177,6 @@ export default function SettingsScreen() {
               />
             ) : null}
 
-            {permissions.canManageHousehold ? <MembersJoinPolicyGroup /> : null}
-
             {permissions.canManageHousehold ? (
               <>
                 <Text style={[styles.memberName, { color: orbitPalette.text }]}>Shared Devices</Text>
@@ -1326,7 +1322,6 @@ export default function SettingsScreen() {
                 <SettingsMemberCard
                   key={member.id}
                   member={member}
-                  household={household}
                   active={active}
                   accent={accentTheme.primary}
                   canManage={permissions.canManageHousehold}
@@ -1348,10 +1343,6 @@ export default function SettingsScreen() {
                     setRenamingMemberId(null);
                   }}
                   onRemove={() => handleRemoveMember(member)}
-                  onApprove={() => void approveMember(member.id)}
-                  onAutoJoinChange={(trusted) =>
-                    void setMemberJoinPreApproved(member.id, trusted)
-                  }
                   onHomeworkProofChange={(required) =>
                     void updateMemberHomeworkProof(member.id, required)
                   }

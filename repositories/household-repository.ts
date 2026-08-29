@@ -19,11 +19,10 @@ import { scheduleHouseholdDeletionDate } from '@/lib/household/household-deletio
 import { seedMockDomainsFromHousehold } from '@/lib/household/seed-mock-domains';
 import { peekPendingJoinHouseholdId } from '@/lib/invite/pending-join-store';
 import { getActiveHouseholdPref, getPrimaryHouseholdPref } from '@/lib/household/active-household-pref';
-import { adminJoinRequestNotification } from '@/lib/invites/join-session';
 import {
+  isPendingStatus,
   resolveHydrateMembership,
   resolveJoinApprovalMembership,
-  resolveJoinStatus,
   shouldLoadPendingPreview,
 } from '@/lib/invites/join-approval';
 import { buildInviteLinks, createInviteCode, allocateHouseholdInviteCode, normalizeInviteCode } from '@/lib/invites/parse-invite';
@@ -211,7 +210,7 @@ export const householdRepository = {
         rewardMode,
         rewardModel,
         setupComplete: input.setupComplete ?? false,
-        joinApprovalRequired: input.joinApprovalRequired !== false,
+        joinApprovalRequired: input.joinApprovalRequired === true,
         hygieneRewarded: false,
         hygieneXp: 5,
         rooms:
@@ -266,7 +265,7 @@ export const householdRepository = {
           reward_model: rewardModel,
           hygiene_rewarded: false,
           hygiene_xp: 5,
-          join_approval_required: input.joinApprovalRequired !== false,
+          join_approval_required: input.joinApprovalRequired === true,
         } satisfies Partial<HouseholdRow> & Pick<HouseholdRow, 'name' | 'owner_id'>)
         .select('*')
         .single();
@@ -282,7 +281,7 @@ export const householdRepository = {
           name,
           reward_mode: rewardMode,
           reward_model: rewardModel,
-          join_approval_required: input.joinApprovalRequired !== false,
+          join_approval_required: input.joinApprovalRequired === true,
         })
         .eq('id', householdId);
       mapDbError('householdRepository.createHousehold.update', updateError);
@@ -341,15 +340,7 @@ export const householdRepository = {
         active?.id && active.id !== mockHousehold.id
           ? active.id
           : `hh-join-${code.replace(/[^A-Z0-9]+/g, '') || 'invite'}`;
-      const approvalRequired = active?.joinApprovalRequired !== false;
-      const seatForClaim = input.memberId
-        ? baseMembers.find((member) => member.id === input.memberId && member.status === 'invited')
-        : undefined;
-      const nextStatus = resolveJoinStatus(
-        approvalRequired,
-        seatForClaim?.joinPreApproved,
-        seatForClaim?.role
-      );
+      const nextStatus = 'active' as const;
       const hasOwnHousehold = baseMembers.some(
         (member) =>
           member.userId === user.id &&
@@ -381,27 +372,8 @@ export const householdRepository = {
             inviteCode: code || active?.inviteCode || mockHousehold.inviteCode,
             greetingName: claimed.name,
             members,
-            poppins:
-              nextStatus === 'pending'
-                ? {
-                    title: 'Join request sent',
-                    summary:
-                      'Your household access is pending approval. Browse calmly — create/edit stays locked until an owner or admin accepts you.',
-                    actions: ['Wait for approval', 'Ask an owner to open Members'],
-                  }
-                : (active ?? mockHousehold).poppins,
+            poppins: (active ?? mockHousehold).poppins,
           };
-          if (nextStatus === 'pending') {
-            const notice = adminJoinRequestNotification({ requesterName: claimed.name });
-            void notificationsRepository.create({
-              householdId,
-              title: notice.title,
-              body: notice.body,
-              category: notice.category,
-              priority: notice.priority,
-              data: notice.data,
-            });
-          }
           return snapshot;
         }
       }
@@ -430,27 +402,8 @@ export const householdRepository = {
           ),
           pendingMember,
         ],
-        poppins:
-          nextStatus === 'pending'
-            ? {
-                title: 'Join request sent',
-                summary:
-                  'Your household access is pending approval. Browse calmly — create/edit stays locked until an owner or admin accepts you.',
-                actions: ['Wait for approval', 'Ask an owner to open Members'],
-              }
-            : mockHousehold.poppins,
+        poppins: mockHousehold.poppins,
       };
-      if (nextStatus === 'pending') {
-        const notice = adminJoinRequestNotification({ requesterName: pendingMember.name });
-        void notificationsRepository.create({
-          householdId,
-          title: notice.title,
-          body: notice.body,
-          category: notice.category,
-          priority: notice.priority,
-          data: notice.data,
-        });
-      }
       return snapshot;
     }
 
@@ -592,45 +545,21 @@ export const householdRepository = {
     if (isMockMode()) {
       const active = await loadActiveMockHousehold();
       const snapshot = active ?? mockHousehold;
-      const pending = snapshot.members.find(
-        (member) =>
-          member.status === 'pending' &&
-          member.name.toLowerCase() === user.name.toLowerCase()
-      );
-      if (pending) {
-        return { status: 'pending', snapshot: clone(snapshot) };
-      }
       const activeSelf = snapshot.members.find(
         (member) =>
-          member.status === 'active' &&
-          member.name.toLowerCase() === user.name.toLowerCase()
+          (member.status === 'active' || member.status === 'pending') &&
+          (member.userId === user.id ||
+            member.name.toLowerCase() === user.name.toLowerCase())
       );
-      if (householdId && snapshot.id !== householdId) {
-        return {
-          status: 'pending',
-          snapshot: {
-            ...clone(snapshot),
-            id: householdId,
-            householdName: 'Invited household',
-            greetingName: user.name,
-            members: [
-              {
-                id: createLocalId('member'),
-                name: user.name,
-                role: 'adult',
-                status: 'pending',
-                avatar: user.avatar || user.name.slice(0, 1).toUpperCase(),
-                xp: 0,
-                weekXp: 0,
-                streak: 0,
-                loadShare: 0,
-              },
-            ],
-          },
-        };
-      }
       if (activeSelf && (!householdId || snapshot.id === householdId)) {
-        return { status: 'approved', snapshot: clone(snapshot) };
+        const upgraded =
+          activeSelf.status === 'pending'
+            ? { ...activeSelf, status: 'active' as const }
+            : activeSelf;
+        const members = snapshot.members.map((member) =>
+          member.id === upgraded.id ? upgraded : member
+        );
+        return { status: 'approved', snapshot: { ...clone(snapshot), members } };
       }
       return { status: 'missing', snapshot: null };
     }
@@ -652,15 +581,17 @@ export const householdRepository = {
     if (resolved.status === 'missing' || !resolved.membership) {
       return { status: 'missing', snapshot: null };
     }
-    if (resolved.status === 'approved') {
-      return {
-        status: 'approved',
-        snapshot: await loadHouseholdSnapshot(resolved.membership.household_id, userId),
-      };
+
+    if (isPendingStatus(resolved.membership.status)) {
+      await supabase
+        .from('household_members')
+        .update({ status: 'active' })
+        .eq('id', resolved.membership.id);
     }
+
     return {
-      status: 'pending',
-      snapshot: await loadPendingJoinSnapshot(resolved.membership.household_id, user, ''),
+      status: 'approved',
+      snapshot: await loadHouseholdSnapshot(resolved.membership.household_id, userId),
     };
   },
 
@@ -726,7 +657,6 @@ export const householdRepository = {
     if (isMockMode()) {
       const active = await loadActiveMockHousehold();
       const base = active ?? mockHousehold;
-      const approvalRequired = base.joinApprovalRequired !== false;
       const memberIndex = base.members.findIndex(
         (item) =>
           (item.status === 'invited' || item.status === 'active') &&
@@ -736,11 +666,7 @@ export const householdRepository = {
         throw new Error('Profile invite not found.');
       }
       const existing = base.members[memberIndex];
-      const nextStatus = resolveJoinStatus(
-        approvalRequired,
-        existing.joinPreApproved,
-        existing.role
-      );
+      const nextStatus = 'active' as const;
       const updated: HouseholdMember = {
         ...existing,
         name: displayName,
@@ -750,17 +676,6 @@ export const householdRepository = {
       const members = base.members.map((item, index) => (index === memberIndex ? updated : item));
       const snapshot = { ...base, members, greetingName: displayName };
       await saveActiveMockHousehold(snapshot);
-      if (nextStatus === 'pending') {
-        const notice = adminJoinRequestNotification({ requesterName: displayName });
-        void notificationsRepository.create({
-          householdId: snapshot.id ?? 'hh-rivera',
-          title: notice.title,
-          body: notice.body,
-          category: notice.category,
-          priority: notice.priority,
-          data: notice.data,
-        });
-      }
       return {
         member: updated,
         householdId: snapshot.id ?? 'hh-rivera',
@@ -1598,7 +1513,7 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     allowanceRequestsEnabled:
       (household as { allowance_requests_enabled?: boolean | null }).allowance_requests_enabled !== false,
     joinApprovalRequired:
-      (household as { join_approval_required?: boolean | null }).join_approval_required !== false,
+      (household as { join_approval_required?: boolean | null }).join_approval_required === true,
     sidekickGroceryAdd: Boolean(
       (household as { sidekick_grocery_add?: boolean | null }).sidekick_grocery_add
     ),

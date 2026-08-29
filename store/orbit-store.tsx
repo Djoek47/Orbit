@@ -696,14 +696,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     },
     [currentMember, household.id]
   );
-  const isPendingMember = currentMember?.status === 'pending' && currentMember.role !== 'child';
-  const permissions = useMemo(() => {
-    // Pending joiners wait for owner/admin approval — same surface limits as guests.
-    if (currentMember?.status === 'pending') {
-      return getPermissionsForRole('guest');
-    }
-    return getPermissionsForRole(currentMember?.role ?? 'guest');
-  }, [currentMember?.role, currentMember?.status]);
+  const isPendingMember = false;
+  const permissions = useMemo(
+    () => getPermissionsForRole(currentMember?.role ?? 'guest'),
+    [currentMember?.role]
+  );
   const v2Permissions = useMemo(
     () => getV2Permissions(currentMember?.role),
     [currentMember?.role]
@@ -1389,16 +1386,28 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const pendingSelf = nextHousehold.members.find(
       (member) => member.userId === user.id && member.status === 'pending'
     );
-    const activeSelf = nextHousehold.members.find(
-      (member) => member.userId === user.id && member.status === 'active'
-    );
-    setHousehold(nextHousehold);
-    if (pendingSelf) {
-      setActiveMemberId(pendingSelf.id);
-      if (nextHousehold.id) {
-        await stashPendingJoinHouseholdId(nextHousehold.id);
+    const activeSelf =
+      nextHousehold.members.find(
+        (member) => member.userId === user.id && member.status === 'active'
+      ) ??
+      (pendingSelf
+        ? { ...pendingSelf, status: 'active' as const }
+        : undefined);
+    if (pendingSelf && activeSelf) {
+      try {
+        const approved = await householdRepository.approveMember(pendingSelf.id);
+        nextHousehold = {
+          ...nextHousehold,
+          members: nextHousehold.members.map((member) =>
+            member.id === pendingSelf.id ? approved : member
+          ),
+        };
+      } catch (error) {
+        console.warn('joinHousehold.autoApprove', error);
       }
-    } else if (activeSelf) {
+    }
+    setHousehold(nextHousehold);
+    if (activeSelf) {
       setActiveMemberId(activeSelf.id);
       await clearPendingJoinHouseholdId();
     }
@@ -1410,7 +1419,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (activeSelf) {
       await applyPlannedTasksForMember(activeSelf.id, nextHousehold.id);
     }
-    return pendingSelf ? 'pending' : 'active';
+    return 'active';
   };
 
   const refreshHouseholdMemberships = async (userId?: string | null) => {
@@ -1609,7 +1618,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           if (result.status === 'pending' || result.status === 'approved') {
             await consumeInviteCode();
             if (result.snapshot) setHousehold(result.snapshot);
-            return result.status === 'approved' ? 'active' : 'pending';
+            return 'active';
           }
         } catch (checkError) {
           console.warn('applyStashedInvite.check', checkError);
@@ -1628,7 +1637,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       setHousehold(result.snapshot);
       const self = result.snapshot.members.find(
         (member) =>
-          member.status === 'active' && member.name.toLowerCase() === currentUser.name.toLowerCase()
+          member.status === 'active' &&
+          (member.userId === currentUser.id ||
+            member.name.toLowerCase() === currentUser.name.toLowerCase())
       );
       if (self) {
         setActiveMemberId(self.id);
@@ -1639,12 +1650,6 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         await persistMockHouseholdSnapshot(result.snapshot);
       }
       return 'approved';
-    }
-    if (result.status === 'pending' && result.snapshot) {
-      setHousehold(result.snapshot);
-      const pendingSelf = result.snapshot.members.find((member) => member.status === 'pending');
-      if (pendingSelf) setActiveMemberId(pendingSelf.id);
-      return 'pending';
     }
     return 'missing';
   };

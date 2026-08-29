@@ -24,7 +24,7 @@ import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function SignInScreen() {
-  const { accentTheme, orbitPalette, signIn, hydrateFromSession, applyStashedInvite, isPendingMember } = useOrbit();
+  const { accentTheme, orbitPalette, signIn, hydrateFromSession, applyStashedInvite } = useOrbit();
   const { c } = useOrbitColors();
   const mock = isMockMode();
   const [email, setEmail] = useState('');
@@ -48,10 +48,6 @@ export default function SignInScreen() {
       return;
     }
     const joined = await applyStashedInvite();
-    if (joined === 'pending' || isPendingMember) {
-      router.replace('/pending-approval' as never);
-      return;
-    }
     if (joined === 'active') {
       router.replace('/join-welcome' as never);
       return;
