@@ -5,8 +5,8 @@ import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import {
   CHOREMAXX_LEGAL,
   CHOREMAXX_TAGLINE,
-  CHOREMAXX_VERSION,
 } from '@/constants/choremaxx-brand';
+import { resolveAppVersionLabel } from '@/lib/app-version';
 import { orbitColors } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -35,7 +35,7 @@ export function BrandLegalFooter({
       {showLogo ? <ChoremaxxLogo size={compact ? 'sm' : 'md'} /> : null}
       {!compact ? (
         <Text style={[styles.meta, { color: c.textMuted }]}>
-          Version {CHOREMAXX_VERSION} · {CHOREMAXX_TAGLINE}
+          Version {resolveAppVersionLabel()} · {CHOREMAXX_TAGLINE}
         </Text>
       ) : null}
       <Text style={[styles.copyright, { color: c.textSubtle }]}>{CHOREMAXX_LEGAL.copyright}</Text>

@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -19,6 +19,7 @@ import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { findSharedDeviceForMember } from '@/lib/household/shared-device';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
+import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -36,6 +37,7 @@ export function SidekickSettingsScreen() {
     household,
     orbitPalette,
     paletteId,
+    signOut,
     updateAppearanceMode,
     updateMemberAvatar,
     updatePalette,
@@ -162,10 +164,38 @@ export function SidekickSettingsScreen() {
               label="Privacy & legal"
               last
               onPress={() =>
-                void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl)
+                Alert.alert('Privacy & legal', 'Open Choremaxx legal pages', [
+                  {
+                    text: 'Privacy Policy',
+                    onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
+                  },
+                  {
+                    text: 'Terms of Service',
+                    onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.termsUrl),
+                  },
+                  {
+                    text: 'Contact support',
+                    onPress: () => void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`),
+                  },
+                  { text: 'Cancel', style: 'cancel' },
+                ])
               }
             />
           </SettingsGroup>
+
+          <Pressable
+            style={[styles.signOutBtn, { backgroundColor: glass(0.06) }]}
+            onPress={async () => {
+              try {
+                await signOut();
+              } catch (error) {
+                console.warn('sidekickSettings.signOut', error);
+              } finally {
+                resetToGetStarted();
+              }
+            }}>
+            <Text style={[styles.signOutText, { color: orbitPalette.text }]}>Sign Out</Text>
+          </Pressable>
 
           <Text style={[styles.caption, { color: c.textSubtle, textAlign: 'center', marginBottom: 8 }]}>
             {BUILD_INFO.label}
@@ -238,5 +268,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.6,
     marginBottom: 8,
+  },
+  signOutBtn: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.cardLarge,
+    paddingVertical: 14,
+  },
+  signOutText: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });
