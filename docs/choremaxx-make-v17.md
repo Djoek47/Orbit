@@ -2,9 +2,11 @@
 
 **Branch:** `cursor/make-v17`  
 **Follows:** `cursor/choremaxx-make-v15` (TestFlight **1.3.0 (56)**)  
-**App version:** `1.3.0` (EAS autoIncrement)
+**TestFlight:** **1.3.0 (61)** queued on EAS (auto-submit scheduled). EAS `6f7eb478-7da1-4b33-b0f5-e0f33416bcd7` / git `91ac46a` / submit `2508477d-b848-4e5d-bdad-01bf1f70d39f`. Settings tip `make-v17 · connection-flow · join-policy · supabase-only`.
 
-Aggregate of today's connection / members / household stack:
+Build logs: https://expo.dev/accounts/djoek47/projects/choremaxx/builds/6f7eb478-7da1-4b33-b0f5-e0f33416bcd7
+
+---
 
 - **Member connection v16** — join flow, plan calendar, invite paths
 - **Simplify invites** — two join paths + admin approval toggle
