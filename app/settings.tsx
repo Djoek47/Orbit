@@ -84,7 +84,7 @@ import { formatHouseRulesTime } from '@/lib/rules/interpolate';
 import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
 import { SidekickSettingsScreen } from '@/components/orbit/sidekick-settings-screen';
-import { MemberPreApproveAction } from '@/components/orbit/join-approval-settings';
+import { MemberTrustSwitch, MembersJoinPolicyGroup } from '@/components/orbit/members/join-policy-controls';
 import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
 import {
@@ -213,7 +213,6 @@ export default function SettingsScreen() {
     setAllowanceRequestsEnabled,
     householdMemberships,
     cancelHouseholdDeletion,
-    setJoinApprovalRequired,
     updateDisplayName,
     updateMemberDisplayName,
     updatePalette,
@@ -996,16 +995,6 @@ export default function SettingsScreen() {
                 />
               </SettingsGroup>
             ) : null}
-            {permissions.canManageHousehold ? (
-              <SettingsGroup>
-                <SettingsToggleRow
-                  label="Require join approval"
-                  subtitle="When on, invited adults and profiles wait for admin approval after they pick a name."
-                  value={household.joinApprovalRequired !== false}
-                  onValueChange={(value) => setJoinApprovalRequired(value)}
-                />
-              </SettingsGroup>
-            ) : null}
             {currentMember?.role === 'owner' ? (
               <Pressable
                 onPress={() => router.push('/delete-household' as never)}
@@ -1167,22 +1156,7 @@ export default function SettingsScreen() {
               />
             ) : null}
 
-            {permissions.canManageHousehold ? (
-              <SettingsGroup
-                footer={
-                  household.joinApprovalRequired !== false
-                    ? 'Pre-approve individuals on their member card when you trust them.'
-                    : 'Anyone who accepts an invite enters immediately.'
-                }>
-                <SettingsToggleRow
-                  label="Auto-approve invitations"
-                  subtitle="Skip the waiting step for every new joiner"
-                  value={household.joinApprovalRequired === false}
-                  last
-                  onValueChange={(next) => setJoinApprovalRequired(!next)}
-                />
-              </SettingsGroup>
-            ) : null}
+            {permissions.canManageHousehold ? <MembersJoinPolicyGroup /> : null}
 
             {permissions.canManageHousehold ? (
               <>
@@ -1403,7 +1377,7 @@ export default function SettingsScreen() {
                       </Pressable>
                     ) : null}
                     <View style={{ marginTop: 8 }}>
-                      <MemberPreApproveAction member={member} />
+                      <MemberTrustSwitch member={member} />
                     </View>
                     {permissions.canManageHousehold && member.role === 'child' ? (
                       <View

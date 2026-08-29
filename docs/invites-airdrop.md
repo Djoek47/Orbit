@@ -11,7 +11,7 @@ Shared tablet mode is separate: scan multiple profile QRs on Get Started → Sha
 
 ## Admin settings
 
-- **Require join approval** (Settings → House or Members): when ON (default), new members land on Pending after they accept an invite and pick a name. When OFF, they enter immediately. Admins can **pre-approve** specific invited profiles so they skip pending even when approval is required.
+- **Review new members** (Settings → Members or Members screen): when ON (default), new members wait for your approval after accepting an invite. When OFF, they enter immediately. On an invited person's card, turn on **Join without review** to trust them while keeping review on for everyone else.
 - **Add household member** (Settings → Members or Get Started roster): create profiles first, share invites later.
 
 ## How links work
