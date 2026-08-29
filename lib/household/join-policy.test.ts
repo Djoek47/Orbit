@@ -12,12 +12,22 @@ import {
 } from './join-policy';
 import type { HouseholdMember } from '@/types/orbit';
 
-const invited: HouseholdMember = {
+const invitedSidekick: HouseholdMember = {
   id: '1',
   name: 'Emma',
   role: 'child',
   status: 'invited',
   avatar: 'E',
+  xp: 0,
+  loadShare: 0,
+};
+
+const invitedAdult: HouseholdMember = {
+  id: '4',
+  name: 'Alex',
+  role: 'adult',
+  status: 'invited',
+  avatar: 'A',
   xp: 0,
   loadShare: 0,
 };
@@ -34,12 +44,13 @@ const pending: HouseholdMember = {
 
 assert.equal(getJoinPolicyMode({ joinApprovalRequired: true }), 'review');
 assert.equal(getJoinPolicyMode({ joinApprovalRequired: false }), 'automatic');
-assert.equal(canTrustMemberForAutoJoin(invited, { joinApprovalRequired: true }), true);
-assert.equal(canTrustMemberForAutoJoin(invited, { joinApprovalRequired: false }), false);
+assert.equal(canTrustMemberForAutoJoin(invitedAdult, { joinApprovalRequired: true }), true);
+assert.equal(canTrustMemberForAutoJoin(invitedSidekick, { joinApprovalRequired: true }), false);
+assert.equal(canTrustMemberForAutoJoin(invitedAdult, { joinApprovalRequired: false }), false);
 
 const counts = countMembersForMembersScreen([
-  invited,
-  { ...invited, id: '3', joinPreApproved: true },
+  invitedSidekick,
+  { ...invitedSidekick, id: '3', joinPreApproved: true },
   pending,
 ]);
 assert.equal(counts.awaiting, 2);

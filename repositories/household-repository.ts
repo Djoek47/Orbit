@@ -347,7 +347,8 @@ export const householdRepository = {
         : undefined;
       const nextStatus = resolveJoinStatus(
         approvalRequired,
-        seatForClaim?.joinPreApproved
+        seatForClaim?.joinPreApproved,
+        seatForClaim?.role
       );
       const hasOwnHousehold = baseMembers.some(
         (member) =>
@@ -735,7 +736,11 @@ export const householdRepository = {
         throw new Error('Profile invite not found.');
       }
       const existing = base.members[memberIndex];
-      const nextStatus = resolveJoinStatus(approvalRequired, existing.joinPreApproved);
+      const nextStatus = resolveJoinStatus(
+        approvalRequired,
+        existing.joinPreApproved,
+        existing.role
+      );
       const updated: HouseholdMember = {
         ...existing,
         name: displayName,

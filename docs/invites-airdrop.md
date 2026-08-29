@@ -18,7 +18,7 @@ When everyone is connected, use **Done with invites** on the Members screen to t
 
 ## Admin settings
 
-- **Review new members** (Settings → Members or Members screen): when ON (default), new members wait for your approval after accepting an invite. When OFF, they enter immediately. On an invited person's card, turn on **Join without review** to trust them while keeping review on for everyone else.
+- **Review new members** (Settings → Members or Members screen): when ON (default), **adults** wait for your approval after accepting an invite. When OFF, they enter immediately. **Sidekicks always join instantly** — no approval step. On an invited adult's card, turn on **Auto-join** to trust them while keeping review on for everyone else.
 - **Add household member** (Settings → Members or Get Started roster): create profiles first, share invites later.
 
 ## How links work

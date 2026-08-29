@@ -25,7 +25,9 @@ export function canTrustMemberForAutoJoin(
   household: Pick<HouseholdSnapshot, 'joinApprovalRequired'>
 ): boolean {
   if (!isReviewJoinPolicy(household)) return false;
-  if (member.role === 'owner' || member.role === 'shared-device') return false;
+  if (member.role === 'owner' || member.role === 'shared-device' || member.role === 'child') {
+    return false;
+  }
   return member.status === 'invited' || member.status === 'pending';
 }
 

@@ -59,9 +59,7 @@ export default function JoinProfileScreen() {
         displayName: name.trim(),
         avatar: avatar.trim() || undefined,
       });
-      router.replace(
-        (outcome.status === 'pending' ? '/pending-approval' : '/') as never
-      );
+      router.replace('/' as never);
     } catch (err) {
       setError(userFacingMessage(err, 'Could not join with this invite.'));
     } finally {

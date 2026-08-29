@@ -317,7 +317,9 @@ export default function HouseholdMembersScreen() {
           <MemberConnectionCaption member={member} />
           <View style={styles.pillRow}>
             <StatusPill label={formatHouseholdRole(member.role)} tone="amber" />
-            {member.joinPreApproved ? <StatusPill label="Trusted" tone="green" /> : null}
+            {member.joinPreApproved && member.role !== 'child' ? (
+              <StatusPill label="Trusted" tone="green" />
+            ) : null}
           </View>
         </View>
         <MemberConnectionBadge member={member} />

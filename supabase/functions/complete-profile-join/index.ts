@@ -76,7 +76,8 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const approvalRequired = householdRow?.join_approval_required !== false;
-    const nextStatus = approvalRequired && member.join_pre_approved !== true ? 'pending' : 'active';
+    // Profile invites are Sidekick-only — always active, no admin approval.
+    const nextStatus = 'active';
 
     const { data: updated, error: updateError } = await admin
       .from('household_members')
@@ -96,37 +97,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (nextStatus === 'pending') {
-      const { data: admins } = await admin
-        .from('household_members')
-        .select('user_id')
-        .eq('household_id', member.household_id)
-        .in('role', ['owner', 'admin'])
-        .eq('status', 'active')
-        .not('user_id', 'is', null);
-
-      for (const adminRow of admins ?? []) {
-        if (!adminRow.user_id) continue;
-        await admin.from('notifications').insert({
-          household_id: member.household_id,
-          user_id: adminRow.user_id,
-          title: 'Poppins · Members',
-          body: `${displayName} asked to join this household.`,
-          category: 'general',
-          priority: 'high',
-          data: { surface: 'members' },
-          is_read: false,
-        });
-      }
-    }
-
     return new Response(
       JSON.stringify({
         member: updated,
         householdId: member.household_id,
         householdName: householdRow?.name ?? 'Household',
         status: nextStatus,
-        joinApprovalRequired: approvalRequired,
+        joinApprovalRequired: false,
       }),
       { headers: { ...cors, 'Content-Type': 'application/json' } }
     );

@@ -128,7 +128,9 @@ Deno.serve(async (req) => {
       if (!seatError && seat) {
         const seatRole = seat.role === 'admin' ? 'admin' : joinRole === 'guest' ? 'guest' : seat.role ?? 'adult';
         const seatNextStatus =
-          approvalRequired && seat.join_pre_approved !== true ? 'pending' : 'active';
+          seat.role === 'child' || seat.join_pre_approved === true || !approvalRequired
+            ? 'active'
+            : 'pending';
         const { data: claimed, error: claimError } = await admin
           .from('household_members')
           .update({

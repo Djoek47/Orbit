@@ -13,11 +13,18 @@ export function isPendingStatus(status: string) {
   return status === 'pending' || status === 'invited';
 }
 
+/** Sidekicks (child role) never go through admin join approval. */
+export function isSidekickJoinRole(role: string | null | undefined): boolean {
+  return role === 'child';
+}
+
 /** Whether a new join should wait for admin approval. */
 export function joinNeedsApproval(
   joinApprovalRequired: boolean | null | undefined,
-  memberPreApproved?: boolean | null
+  memberPreApproved?: boolean | null,
+  memberRole?: string | null
 ): boolean {
+  if (isSidekickJoinRole(memberRole)) return false;
   if (joinApprovalRequired === false) return false;
   if (memberPreApproved) return false;
   return true;
@@ -26,9 +33,12 @@ export function joinNeedsApproval(
 /** Status after accepting an invite or completing a profile join. */
 export function resolveJoinStatus(
   joinApprovalRequired: boolean | null | undefined,
-  memberPreApproved?: boolean | null
+  memberPreApproved?: boolean | null,
+  memberRole?: string | null
 ): 'pending' | 'active' {
-  return joinNeedsApproval(joinApprovalRequired, memberPreApproved) ? 'pending' : 'active';
+  return joinNeedsApproval(joinApprovalRequired, memberPreApproved, memberRole)
+    ? 'pending'
+    : 'active';
 }
 
 /** Pending joiners get a preview snapshot — they cannot read tasks/groceries yet. */

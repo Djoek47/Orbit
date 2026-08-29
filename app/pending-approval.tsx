@@ -1,11 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AuthShell } from '@/components/orbit/auth-shell';
 import { orbitColors } from '@/constants/orbit-theme';
 import { hrefAfterJoinApproval } from '@/lib/invites/join-session';
+import { isSidekickRole } from '@/lib/sidekick/permissions';
 import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -17,6 +18,12 @@ export default function PendingApprovalScreen() {
   const { household, checkJoinApproval, signOut, currentMember, currentUser } = useOrbit();
   const { c } = useOrbitColors();
   const [note, setNote] = useState('');
+
+  useEffect(() => {
+    if (isSidekickRole(currentMember?.role)) {
+      router.replace('/' as never);
+    }
+  }, [currentMember?.role]);
 
   const tryAdvance = useCallback(async () => {
     const status = await checkJoinApproval();

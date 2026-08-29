@@ -269,25 +269,6 @@ export function SetupRosterHub({
                   onPress={() => onShareSidekick?.(member, invite)}>
                   AirDrop / Share invite
                 </OrbitButton>
-                {reviewRequired && onMemberTrustChange && createdMemberByDraftId?.[member.id] ? (
-                  <View style={styles.trustRow}>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={[typography.subheadline, { color: c.text, fontWeight: '600' }]}>
-                        {JOIN_POLICY_COPY.trustRowLabel}
-                      </Text>
-                      <Text style={[typography.footnote, { color: c.textMuted }]}>
-                        {(createdMemberByDraftId[member.id].joinPreApproved
-                          ? JOIN_POLICY_COPY.trustRowHint
-                          : JOIN_POLICY_COPY.trustRowOffHint)(member.name.trim() || 'They')}
-                      </Text>
-                    </View>
-                    <Switch
-                      value={createdMemberByDraftId[member.id].joinPreApproved === true}
-                      onValueChange={(next) => onMemberTrustChange(member.id, next)}
-                      accessibilityLabel={`${JOIN_POLICY_COPY.trustRowLabel} for ${member.name}`}
-                    />
-                  </View>
-                ) : null}
               </View>
             ) : null}
             </View>

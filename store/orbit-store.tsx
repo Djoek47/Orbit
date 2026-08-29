@@ -788,7 +788,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const setMemberJoinPreApproved = async (memberId: string, preApproved: boolean) => {
     if (!permissions.canManageHousehold) return;
     const member = household.members.find((item) => item.id === memberId);
-    if (!member) return;
+    if (!member || member.role === 'child') return;
     const updated = await householdRepository.setMemberJoinPreApproved(member, preApproved);
     setHousehold((current) => ({
       ...current,

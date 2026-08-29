@@ -16,5 +16,8 @@ assert.equal(resolveJoinStatus(null, true), 'active');
 assert.equal(joinNeedsApproval(true, false), true);
 assert.equal(joinNeedsApproval(true, true), false);
 assert.equal(joinNeedsApproval(false, false), false);
+assert.equal(joinNeedsApproval(true, false, 'child'), false);
+assert.equal(joinNeedsApproval(true, false, 'adult'), true);
+assert.equal(resolveJoinStatus(true, false, 'child'), 'active');
 
 console.log('join-approval-setting tests passed');
