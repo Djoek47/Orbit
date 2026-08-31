@@ -21,6 +21,16 @@
 | **expo-insights** | Native cold-start analytics (needs this build, not 61/63) |
 | **Household stack (from v17)** | Multi-household switch/delete (TestFlight hides switch via `EXPO_PUBLIC_DISABLE_HOUSEHOLD_SWITCH`) |
 
+## TestFlight
+
+| Build | Git | EAS build | Submit |
+|-------|-----|-----------|--------|
+| **1.3.0 (64)** | `ae7a1cd` | `9ceab14d-05d6-4284-82ec-7ee84c73153d` | `d3f38930-a581-4f91-95c6-92989b81d480` |
+
+Build logs: https://expo.dev/accounts/djoek47/projects/choremaxx/builds/9ceab14d-05d6-4284-82ec-7ee84c73153d
+
+**1.3.0 (63)** was premature (missing Members UI + Sidekick Plan). **1.3.0 (61)** = make-v17.
+
 ## TestFlight env (`eas.json`)
 
 - `EXPO_PUBLIC_DATA_MODE=supabase`
