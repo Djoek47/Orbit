@@ -1,7 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { ActionSheetIOS, Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import { MemberConnectionBadge } from '@/components/orbit/member-connection-badge';
 import { SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
@@ -29,7 +28,26 @@ type SettingsMemberCardProps = {
   onHomeworkProofChange: (required: boolean) => void;
 };
 
-/** Settings → Members row — vertical layout so toggles never collide with action icons. */
+function showMemberManageMenu(
+  member: HouseholdMember,
+  onRename: () => void,
+  onRemove: () => void
+) {
+  ActionSheetIOS.showActionSheetWithOptions(
+    {
+      title: member.name,
+      options: ['Rename', 'Remove from household', 'Cancel'],
+      cancelButtonIndex: 2,
+      destructiveButtonIndex: 1,
+    },
+    (index) => {
+      if (index === 0) onRename();
+      if (index === 1) onRemove();
+    }
+  );
+}
+
+/** Calm member row — connection status in copy, actions in menu or footer pills. */
 export function SettingsMemberCard({
   member,
   active,
@@ -51,7 +69,8 @@ export function SettingsMemberCard({
   const phase = memberConnectionPhase(member);
   const showInvite = canManage && memberCanReceiveInvite(member);
   const showHomework = canManage && member.role === 'child';
-  const statusLabel = phase === 'connected' ? 'Connected' : 'Not connected yet';
+  const showMenu = canManage && member.role !== 'owner';
+  const statusLabel = phase === 'connected' ? 'Connected' : 'Needs invite';
 
   return (
     <View
@@ -72,13 +91,6 @@ export function SettingsMemberCard({
           ) : (
             <Text style={styles.avatarEmoji}>{memberDisplayEmoji(member)}</Text>
           )}
-          <View
-            style={[
-              styles.avatarEdit,
-              { backgroundColor: c.backgroundSoft, borderColor: glassBorder(0.1) },
-            ]}>
-            <MaterialIcons name="edit" size={10} color="#38BDF8" />
-          </View>
         </Pressable>
 
         <Pressable style={styles.identity} onPress={onSwitchPersona}>
@@ -98,27 +110,24 @@ export function SettingsMemberCard({
           <Text style={[styles.meta, { color: c.textSubtle }]} numberOfLines={1}>
             {formatHouseholdRole(member.role)} · {statusLabel}
           </Text>
-          <Text style={[styles.xp, { color: accent }]}>{member.xp} XP</Text>
+          {!isSharedDeviceMember(member) ? (
+            <Text style={[styles.xp, { color: accent }]}>{member.xp} XP</Text>
+          ) : null}
         </Pressable>
 
-        <View style={styles.headerActions}>
-          <MemberConnectionBadge member={member} size="sm" />
-          {canManage ? (
-            <Pressable onPress={renaming ? onCommitRename : onStartRename} hitSlop={8}>
-              <MaterialIcons
-                name={renaming ? 'check' : 'badge'}
-                size={18}
-                color={renaming ? '#34D399' : '#38BDF8'}
-              />
-            </Pressable>
-          ) : null}
-          {canManage && member.role !== 'owner' ? (
-            <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel={`Remove ${member.name}`}>
-              <MaterialIcons name="person-remove" size={20} color="#F87171" />
-            </Pressable>
-          ) : null}
-          {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
-        </View>
+        {showMenu ? (
+          <Pressable
+            onPress={() => showMemberManageMenu(member, onStartRename, onRemove)}
+            hitSlop={8}
+            accessibilityLabel={`Manage ${member.name}`}
+            style={[styles.menuBtn, { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) }]}>
+            <MaterialIcons name="more-horiz" size={18} color={c.textMuted} />
+          </Pressable>
+        ) : active ? (
+          <View style={[styles.activeDot, { backgroundColor: `${accent}18`, borderColor: `${accent}44` }]}>
+            <MaterialIcons name="check" size={14} color={accent} />
+          </View>
+        ) : null}
       </View>
 
       {showInvite ? (
@@ -126,7 +135,7 @@ export function SettingsMemberCard({
           onPress={onShareInvite}
           style={[
             styles.shareBtn,
-            { backgroundColor: `${accent}18`, borderColor: `${accent}44` },
+            { backgroundColor: `${accent}14`, borderColor: `${accent}44` },
           ]}>
           <MaterialIcons name="qr-code-2" size={16} color={accent} />
           <Text style={[styles.shareBtnText, { color: accent }]}>Share invite</Text>
@@ -148,8 +157,27 @@ export function SettingsMemberCard({
           />
         </View>
       ) : null}
+
+      {showMenu && Platform.OS !== 'ios' && !renaming ? (
+        <View style={styles.androidActions}>
+          <Pressable
+            onPress={onStartRename}
+            style={[styles.footerChip, { borderColor: glassBorder(0.12) }]}>
+            <Text style={[styles.footerChipText, { color: c.textMuted }]}>Rename</Text>
+          </Pressable>
+          <Pressable
+            onPress={onRemove}
+            style={[styles.footerChip, { borderColor: 'rgba(248,113,113,0.35)' }]}>
+            <Text style={[styles.footerChipText, { color: '#F87171' }]}>Remove</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
+}
+
+function isSharedDeviceMember(member: HouseholdMember): boolean {
+  return member.role === 'shared-device';
 }
 
 const styles = StyleSheet.create({
@@ -158,6 +186,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.cardLarge,
     borderWidth: StyleSheet.hairlineWidth,
     gap: space.sm,
+    marginBottom: space.sm,
     padding: space.md,
   },
   header: {
@@ -171,22 +200,10 @@ const styles = StyleSheet.create({
     height: 56,
     justifyContent: 'center',
     overflow: 'hidden',
-    position: 'relative',
     width: 56,
   },
-  avatarImage: { height: 56, width: 56 },
   avatarEmoji: { fontSize: 28 },
-  avatarEdit: {
-    alignItems: 'center',
-    borderRadius: 10,
-    borderWidth: 1,
-    bottom: -2,
-    height: 20,
-    justifyContent: 'center',
-    position: 'absolute',
-    right: -2,
-    width: 20,
-  },
+  avatarImage: { height: 56, width: 56 },
   identity: {
     flex: 1,
     gap: 2,
@@ -202,20 +219,29 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   meta: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
   xp: {
     fontSize: 12,
     fontWeight: '700',
   },
-  headerActions: {
+  menuBtn: {
     alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    justifyContent: 'flex-end',
-    maxWidth: 132,
+    borderCurve: 'continuous',
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  activeDot: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
   },
   shareBtn: {
     alignItems: 'center',
@@ -237,5 +263,21 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+  },
+  androidActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  footerChip: {
+    borderCurve: 'continuous',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  footerChipText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

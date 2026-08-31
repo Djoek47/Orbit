@@ -11,15 +11,10 @@ import {
   type AccentThemeId,
 } from '@/constants/accent-themes';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
-import { HouseholdSwitcher } from '@/components/orbit/household-switcher';
 import { HouseholdSwitchSheet } from '@/components/orbit/household-switch-sheet';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { PaletteWheel } from '@/components/orbit/palette-wheel';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
-import {
-  MemberConnectionBadge,
-  MemberConnectionCaption,
-} from '@/components/orbit/member-connection-badge';
 import { ProfileInviteSheet } from '@/components/orbit/profile-invite-sheet';
 import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
 import { MajordomoProfileSheet } from '@/components/orbit/majordomo-profile-sheet';
@@ -35,14 +30,7 @@ import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { VOCAB } from '@/constants/vocabulary';
 import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
-import {
-  findSharedDeviceForMember,
-  listSharedDevices,
-  nestedSharedAccountIds,
-  resolveSharedDevicePeople,
-  sharedDeviceLinkCandidates,
-} from '@/lib/household/shared-device';
-import { memberCanReceiveInvite, memberUsesProfileInvite } from '@/lib/household/member-invite-routing';
+import { memberUsesProfileInvite } from '@/lib/household/member-invite-routing';
 import { isHouseholdSwitchDisabled } from '@/lib/feature-flags';
 import {
   formatHouseholdDeletionDate,
@@ -62,7 +50,6 @@ import {
   STREAK_FOOTNOTE,
   type RewardMode,
 } from '@/lib/rewards/reward-mode';
-import { markNeedsProfilePick } from '@/lib/device/device-session';
 import {
   getNotificationPermissionStatus,
   isNotificationPermissionGranted,
@@ -87,10 +74,8 @@ import { formatHouseRulesTime } from '@/lib/rules/interpolate';
 import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
 import { SidekickSettingsScreen } from '@/components/orbit/sidekick-settings-screen';
-import { SettingsMemberCard } from '@/components/orbit/members/settings-member-card';
-import { AddMemberRow } from '@/components/orbit/members/add-member-row';
+import { HouseholdMembersRoster } from '@/components/orbit/members/household-members-roster';
 import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
-import { SharedIpadCard } from '@/components/orbit/members/shared-ipad-card';
 import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
 import {
@@ -102,98 +87,6 @@ import {
 } from '@/lib/ai/credits';
 
 type Section = 'main' | 'you' | 'members' | 'house' | 'notifications' | 'places' | 'poppins' | 'premium';
-
-function SharedAccountRow({
-  person,
-  active,
-  accent,
-  canManage,
-  onSwitch,
-  onPersonalize,
-  onShareInvite,
-  onUnlink,
-  onRemove,
-}: {
-  person: HouseholdMember;
-  active: boolean;
-  accent: string;
-  canManage: boolean;
-  onSwitch: () => void;
-  onPersonalize: () => void;
-  onShareInvite?: () => void;
-  onUnlink?: () => void;
-  onRemove?: () => void;
-}) {
-  const { c, glass, glassBorder } = useOrbitColors();
-  const photo = isAvatarImageUri(person.avatar);
-  return (
-    <View style={[styles.sharedAccountBlock, { borderTopColor: glassBorder(0.08) }]}>
-      <View style={styles.memberCardInner}>
-        <Pressable
-          onPress={onPersonalize}
-          accessibilityLabel={`Personalize look for ${person.name}`}
-          style={[
-            styles.memberAvatar,
-            { backgroundColor: `${active ? accent : c.textSubtle}33` },
-          ]}>
-          {photo ? (
-            <Image source={{ uri: person.avatar }} style={styles.memberAvatarImage} />
-          ) : (
-            <Text style={styles.memberAvatarText}>{memberDisplayEmoji(person)}</Text>
-          )}
-          <View style={[styles.avatarEditBadge, { backgroundColor: c.backgroundSoft, borderColor: glassBorder(0.1) }]}>
-            <MaterialIcons name="edit" size={10} color="#38BDF8" />
-          </View>
-        </Pressable>
-        <Pressable style={{ flex: 1 }} onPress={onSwitch}>
-          <Text style={[styles.memberName, { color: c.text }]}>{person.name}</Text>
-          <MemberConnectionCaption member={person} />
-          <Text style={[styles.caption, { color: c.textSubtle }]}>On this iPad · own XP & redeem</Text>
-          <Text style={[styles.caption, { color: accent, fontWeight: '600' }]}>
-            {person.xp} XP · week {person.weekXp ?? 0}
-          </Text>
-        </Pressable>
-        <View style={{ alignItems: 'center', gap: 8 }}>
-          <MemberConnectionBadge member={person} size="sm" />
-          {active ? <MaterialIcons name="check-circle" size={18} color="#34D399" /> : null}
-        </View>
-      </View>
-      {canManage ? (
-        <View style={styles.adminActionRow}>
-          {onShareInvite && memberCanReceiveInvite(person) ? (
-            <Pressable
-              onPress={onShareInvite}
-              style={[
-                styles.adminActionChip,
-                {
-                  backgroundColor: `${accent}22`,
-                  borderColor: `${accent}55`,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                },
-              ]}>
-              <MaterialIcons name="qr-code-2" size={14} color={accent} />
-              <Text style={[styles.adminActionText, { color: accent }]}>Share invite</Text>
-            </Pressable>
-          ) : null}
-          {onUnlink ? (
-            <Pressable
-              onPress={onUnlink}
-              style={[styles.adminActionChip, { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) }]}>
-              <Text style={[styles.adminActionText, { color: c.textMuted }]}>Unlink</Text>
-            </Pressable>
-          ) : null}
-          {onRemove ? (
-            <Pressable onPress={onRemove} style={[styles.adminActionChip, styles.adminActionDanger]}>
-              <Text style={[styles.adminActionText, { color: '#F87171' }]}>Remove</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
-    </View>
-  );
-}
 
 /** Make AdminScreen.tsx — Settings sheet chrome. */
 export default function SettingsScreen() {
@@ -208,7 +101,6 @@ export default function SettingsScreen() {
     paletteId,
     permissions,
     preferredMapsApp,
-    removeMember,
     signOut,
     setMemberJoinPreApproved,
     switchPersona,
@@ -221,17 +113,14 @@ export default function SettingsScreen() {
     householdMemberships,
     cancelHouseholdDeletion,
     updateDisplayName,
-    updateMemberDisplayName,
     updatePalette,
     updateMemberAvatar,
-    updateMemberHomeworkProof,
     updateNotificationPrefs,
     updateMajordomoProfile,
     updateMemberMajordomoProfile,
     updateMemberCapabilities,
     updateSidekickGroceryAdd,
     updatePreferredMapsApp,
-    updateSharedDeviceLinks,
     aiUsageEvents,
     refreshHousehold,
   } = useOrbit();
@@ -288,8 +177,6 @@ export default function SettingsScreen() {
   const [displayNameInput, setDisplayNameInput] = useState(
     currentMember?.name ?? currentUser?.name ?? ''
   );
-  const [renamingMemberId, setRenamingMemberId] = useState<string | null>(null);
-  const [renamingMemberInput, setRenamingMemberInput] = useState('');
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [personalizeMemberId, setPersonalizeMemberId] = useState<string | null>(null);
   const [memberInvites, setMemberInvites] = useState<MemberInvite[]>([]);
@@ -341,25 +228,6 @@ export default function SettingsScreen() {
   const lookValue =
     appearanceMode === 'system' ? 'System' : appearanceMode === 'light' ? 'Day' : 'Night';
   const householdThemeId = migrateAccentThemeId(household.accentThemeId ?? DEFAULT_ACCENT_THEME_ID);
-  const nestedAccountIds = useMemo(
-    () => nestedSharedAccountIds(household.members),
-    [household.members]
-  );
-  const sharedDevices = useMemo(() => listSharedDevices(household.members), [household.members]);
-  /** Standalone people (not nested under a Shared tablet). */
-  const topLevelMembers = useMemo(
-    () =>
-      household.members.filter(
-        (member) =>
-          member.role !== 'shared-device' && !nestedAccountIds.has(member.id)
-      ),
-    [household.members, nestedAccountIds]
-  );
-  const activeOnDevice = findSharedDeviceForMember(currentMember?.id, household.members);
-  const linkCandidates = useMemo(
-    () => sharedDeviceLinkCandidates(household.members),
-    [household.members]
-  );
   const canSwitchHousehold =
     householdMemberships.length > 1 && !isHouseholdSwitchDisabled();
 
@@ -379,36 +247,6 @@ export default function SettingsScreen() {
     [household.members, inviteTarget?.memberId]
   );
 
-  const handleRemoveMember = (member: HouseholdMember) => {
-    if (member.role === 'owner') {
-      Alert.alert('Cannot remove', 'The household owner cannot be removed.');
-      return;
-    }
-    const isDevice = member.role === 'shared-device';
-    Alert.alert(
-      isDevice ? 'Remove this iPad' : 'Remove member',
-      isDevice
-        ? `Remove ${member.name}? People stay in the household; this iPad just won’t list them.`
-        : `Remove ${member.name} from this household?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            void removeMember(member.id);
-          },
-        },
-      ]
-    );
-  };
-
-  const toggleSharedLink = (deviceId: string, personId: string, linkedIds: string[]) => {
-    const next = linkedIds.includes(personId)
-      ? linkedIds.filter((id) => id !== personId)
-      : [...linkedIds, personId];
-    void updateSharedDeviceLinks(deviceId, next);
-  };
 
   const handleDelete = () => {
     router.push('/delete-account' as never);
@@ -435,8 +273,8 @@ export default function SettingsScreen() {
       <View style={styles.header}>
         {section !== 'main' ? (
           <Pressable style={styles.backRow} onPress={() => setSection('main')}>
-            <Text style={styles.backChevron}>‹</Text>
-            <Text style={styles.backLabel}>Back</Text>
+            <Text style={[styles.backChevron, { color: accentTheme.primary }]}>‹</Text>
+            <Text style={[styles.backLabel, { color: accentTheme.primary }]}>Back</Text>
           </Pressable>
         ) : (
           <View style={styles.titleRow}>
@@ -1187,192 +1025,13 @@ export default function SettingsScreen() {
         ) : null}
 
         {section === 'members' ? (
-          <>
-            {canSwitchHousehold ? (
-              <View style={{ marginBottom: 12 }}>
-                <HouseholdSwitcher />
-              </View>
-            ) : null}
-            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>
-              Tap a name to switch. A shared iPad asks who is using it before opening Choremaxx.
-            </Text>
-            {permissions.canInviteMembers ? (
-              <AddMemberRow accent={accentTheme.primary} onPress={() => setAddMemberOpen(true)} />
-            ) : null}
-
-            {permissions.canManageHousehold ? (
-              <SharedIpadCard accent={accentTheme.primary} />
-            ) : null}
-
-            {permissions.canManageHousehold && sharedDevices.length > 0 ? (
-              <>
-                <Text style={[styles.memberName, { color: orbitPalette.text }]}>Shared Devices</Text>
-                <Text style={[styles.sectionHint, { color: orbitPalette.textMuted, marginTop: -4 }]}>
-                  Select multiple users who share a single device.
-                </Text>
-              </>
-            ) : null}
-
-            {sharedDevices.map((device) => {
-              const accounts = resolveSharedDevicePeople(device, household.members);
-              const deviceActive = activeOnDevice?.id === device.id;
-              const linkedIds = device.sharedWithMemberIds ?? [];
-              return (
-                <View
-                  key={device.id}
-                  style={[
-                    styles.sharedDeviceCard,
-                    deviceActive && { borderColor: `${accentTheme.primary}55` },
-                  ]}>
-                  <View style={styles.sharedDeviceHead}>
-                    <Text style={styles.sharedDeviceEmoji}>{device.avatar || '📱'}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.memberName, { color: orbitPalette.text }]}>{device.name}</Text>
-                      <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
-                        Shared device ·{' '}
-                        {accounts.map((person) => person.name).join(' · ') || 'no accounts linked'}
-                      </Text>
-                    </View>
-                    {accounts.length > 0 ? (
-                      <Pressable
-                        onPress={() => {
-                          void markNeedsProfilePick().then(() =>
-                            router.push('/select-profile' as never)
-                          );
-                        }}
-                        style={[
-                          styles.switchChip,
-                          {
-                            backgroundColor: `${accentTheme.primary}22`,
-                            borderColor: `${accentTheme.primary}66`,
-                          },
-                        ]}>
-                        <Text style={[styles.switchChipText, { color: accentTheme.primary }]}>
-                          Switch person
-                        </Text>
-                        <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
-                      </Pressable>
-                    ) : null}
-                  </View>
-                  <Text style={[styles.sharedDeviceHint, { color: orbitPalette.textMuted }]}>
-                    People on this iPad pick their face when they open Choremaxx.
-                  </Text>
-                  {permissions.canManageHousehold ? (
-                    <View style={styles.linkWrap}>
-                      {linkCandidates.map((person) => {
-                        const linked = linkedIds.includes(person.id);
-                        return (
-                          <Pressable
-                            key={person.id}
-                            onPress={() => toggleSharedLink(device.id, person.id, linkedIds)}
-                            style={[
-                              styles.linkChip,
-                              {
-                                backgroundColor: glass(0.06),
-                                borderColor: glassBorder(0.1),
-                              },
-                              linked && styles.linkChipActive,
-                            ]}>
-                            <Text
-                              style={[
-                                styles.linkChipText,
-                                { color: orbitPalette.textMuted },
-                                linked && styles.linkChipTextActive,
-                              ]}>
-                              {memberDisplayEmoji(person)} {person.name}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  ) : null}
-                  {accounts.map((person) => (
-                    <SharedAccountRow
-                      key={person.id}
-                      person={person}
-                      active={currentMember?.id === person.id}
-                      accent={accentTheme.primary}
-                      canManage={permissions.canManageHousehold}
-                      onSwitch={() => switchPersona(person.id)}
-                      onPersonalize={() => setPersonalizeMemberId(person.id)}
-                      onShareInvite={() => openMemberInvite(person)}
-                      onUnlink={() =>
-                        toggleSharedLink(
-                          device.id,
-                          person.id,
-                          linkedIds
-                        )
-                      }
-                      onRemove={() => handleRemoveMember(person)}
-                    />
-                  ))}
-                  {permissions.canManageHousehold ? (
-                    <Pressable
-                      onPress={() => handleRemoveMember(device)}
-                      style={[styles.adminActionChip, styles.adminActionDanger, { alignSelf: 'flex-start' }]}>
-                      <Text style={[styles.adminActionText, { color: '#F87171' }]}>
-                        Remove device
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              );
-            })}
-
-            {topLevelMembers.map((member) => {
-              const active = currentMember?.id === member.id;
-              return (
-                <SettingsMemberCard
-                  key={member.id}
-                  member={member}
-                  active={active}
-                  accent={accentTheme.primary}
-                  canManage={permissions.canManageHousehold}
-                  renaming={renamingMemberId === member.id}
-                  renameValue={renamingMemberInput}
-                  onRenameValueChange={setRenamingMemberInput}
-                  onPersonalize={() => setPersonalizeMemberId(member.id)}
-                  onSwitchPersona={() => switchPersona(member.id)}
-                  onShareInvite={() => openMemberInvite(member)}
-                  onStartRename={() => {
-                    setRenamingMemberId(member.id);
-                    setRenamingMemberInput(member.name);
-                  }}
-                  onCommitRename={() => {
-                    const next = renamingMemberInput.trim();
-                    if (next.length >= 2) {
-                      void updateMemberDisplayName(member.id, next);
-                    }
-                    setRenamingMemberId(null);
-                  }}
-                  onRemove={() => handleRemoveMember(member)}
-                  onHomeworkProofChange={(required) =>
-                    void updateMemberHomeworkProof(member.id, required)
-                  }
-                />
-              );
-            })}
-            <Pressable
-              style={[
-                styles.primaryInviteCta,
-                {
-                  backgroundColor: accentTheme.primary,
-                  borderCurve: 'continuous',
-                },
-              ]}
-              onPress={() => router.push('/household-members' as never)}>
-              <Text style={[styles.primaryInviteCtaText, { color: orbitPalette.ink }]}>
-                Manage members
-              </Text>
-            </Pressable>
-            <Text
-              style={[
-                styles.caption,
-                { color: orbitPalette.textMuted, marginTop: 10, textAlign: 'center' },
-              ]}>
-              Share a personal invite for each person
-            </Text>
-          </>
+          <HouseholdMembersRoster
+            accent={accentTheme.primary}
+            variant="embedded"
+            onAddMember={() => setAddMemberOpen(true)}
+            onShareInvite={openMemberInvite}
+            onPersonalize={setPersonalizeMemberId}
+          />
         ) : null}
 
         {section === 'notifications' ? (
@@ -1658,8 +1317,8 @@ const styles = StyleSheet.create({
     width: 32,
   },
   backRow: { alignItems: 'center', flexDirection: 'row', gap: 4 },
-  backChevron: { color: '#38BDF8', fontSize: 22, lineHeight: 24 },
-  backLabel: { color: '#38BDF8', fontSize: 14, fontWeight: '600' },
+  backChevron: { fontSize: 22, lineHeight: 24 },
+  backLabel: { fontSize: 14, fontWeight: '600' },
   scroll: { flex: 1 },
   content: { gap: 12, paddingBottom: 40, paddingHorizontal: 20 },
   card: {
