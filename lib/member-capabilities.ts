@@ -8,6 +8,7 @@ export const DEFAULT_MEMBER_CAPABILITIES: MemberCapabilities = {
   allowAllowance: true,
   allowGroceryAdd: false,
   allowCalendarCreate: false,
+  requireSidekickEventApproval: true,
 };
 
 export function resolveMemberCapabilities(

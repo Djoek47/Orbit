@@ -222,6 +222,9 @@ export type HouseholdEvent = {
   householdWide?: boolean;
   startsAt?: string;
   endsAt?: string;
+  /** Sidekick-submitted events may wait for admin approval before household visibility. */
+  approvalStatus?: 'pending' | 'approved';
+  createdByMemberId?: string | null;
 };
 
 export type ItineraryStopKind =
@@ -464,6 +467,8 @@ export type MemberCapabilities = {
   allowAllowance: boolean;
   allowGroceryAdd: boolean;
   allowCalendarCreate: boolean;
+  /** When true, Sidekick calendar events (not homework) wait for admin approval. */
+  requireSidekickEventApproval: boolean;
 };
 
 export type CreateTaskInput = {
@@ -625,6 +630,8 @@ export type CreateEventInput = {
   /** When true, all members see this on their calendar. */
   householdWide?: boolean;
   responsibleMemberId?: string | null;
+  approvalStatus?: HouseholdEvent['approvalStatus'];
+  createdByMemberId?: string | null;
 };
 
 export type SignInInput = {

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { PoppinsCard } from '@/components/orbit/poppins-card';
+import { PlanAddSheet } from '@/components/orbit/plan/plan-add-sheet';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
@@ -27,6 +28,8 @@ import {
   planItemTypeLabel,
   type PlanItem,
 } from '@/lib/calendar/plan-items';
+import { pendingEventsForAdmin } from '@/lib/calendar/event-approval';
+import { planAddOptionsForActor } from '@/lib/calendar/sidekick-plan-add';
 import {
   usesFocusedCalendar,
   visibleEventsForMember,
@@ -35,6 +38,7 @@ import {
 import { homeworkSubjectMeta } from '@/lib/tasks/homework-subject';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
+import { isSidekickRole } from '@/lib/sidekick/permissions';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -85,6 +89,7 @@ export default function PlanScreen() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [layerFilter, setLayerFilter] = useState<PlanLayerFilter>('all');
+  const [planAddOpen, setPlanAddOpen] = useState(false);
 
   const focusedCalendar = usesFocusedCalendar(currentMember?.role);
 
@@ -109,7 +114,14 @@ export default function PlanScreen() {
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
   const caps = resolveMemberCapabilities(household);
-  const canCreateEvent = permissions.canManageHousehold || caps.allowCalendarCreate;
+  const isAdmin = permissions.canManageHousehold;
+  const isSidekick = isSidekickRole(currentMember?.role);
+  const planAddOptions = planAddOptionsForActor({ isAdmin, isSidekick, caps });
+  const canOpenPlanAdd = planAddOptions.length > 0;
+  const pendingEvents = useMemo(
+    () => (isAdmin ? pendingEventsForAdmin(household.events) : []),
+    [household.events, isAdmin]
+  );
   const calendarDays = useMemo(() => monthGridDays(currentMonth), [currentMonth]);
   const weekDays = useMemo(() => weekStripDays(), []);
   const selectedKey = format(selectedDate, 'yyyy-MM-dd');
@@ -148,6 +160,7 @@ export default function PlanScreen() {
   };
 
   return (
+    <>
     <ScrollView
       style={[styles.container, { backgroundColor: orbitPalette.background }]}
       contentContainerStyle={[styles.content, { paddingTop: chromePad }]}
@@ -185,7 +198,7 @@ export default function PlanScreen() {
 
       {subTab === 'calendar' ? (
         <>
-          <View style={[styles.calHeader, { paddingRight: canCreateEvent ? 0 : undefined }]}>
+          <View style={[styles.calHeader, { paddingRight: canOpenPlanAdd ? 0 : undefined }]}>
             <View style={{ flex: 1 }}>
               <PageEyebrow>
                 {focusedCalendar ? 'My calendar' : 'Household Calendar'}
@@ -213,9 +226,11 @@ export default function PlanScreen() {
                 </Pressable>
               ))}
             </View>
-            {canCreateEvent ? (
-              <Pressable style={styles.plusBtn} onPress={() => router.push('/create-event' as never)}>
-                <MaterialIcons name="add" size={16} color="#38BDF8" />
+            {canOpenPlanAdd ? (
+              <Pressable
+                style={[styles.plusBtn, { backgroundColor: `${accentTheme.primary}22`, borderColor: `${accentTheme.primary}44` }]}
+                onPress={() => setPlanAddOpen(true)}>
+                <MaterialIcons name="add" size={18} color={accentTheme.primary} />
               </Pressable>
             ) : null}
           </View>
@@ -363,6 +378,19 @@ export default function PlanScreen() {
             />
           ) : null}
 
+          {pendingEvents.length > 0 ? (
+            <Pressable
+              onPress={() => router.push(`/event/${pendingEvents[0]!.id}` as never)}
+              style={[styles.pendingBanner, { backgroundColor: `${accentTheme.primary}14`, borderColor: `${accentTheme.primary}33` }]}>
+              <MaterialIcons name="hourglass-top" size={16} color={accentTheme.primary} />
+              <Text style={[styles.pendingBannerText, { color: c.text }]}>
+                {pendingEvents.length === 1
+                  ? '1 event waiting for your approval'
+                  : `${pendingEvents.length} events waiting for approval`}
+              </Text>
+            </Pressable>
+          ) : null}
+
           {selectedItems.length === 0 ? (
             <View
               style={[
@@ -400,6 +428,11 @@ export default function PlanScreen() {
                             <Text style={[styles.typePillText, { color: homeworkSubjectMeta(item.homeworkSubject).color }]}>
                               {homeworkSubjectMeta(item.homeworkSubject).emoji} {item.homeworkSubject}
                             </Text>
+                          </View>
+                        ) : null}
+                        {item.approvalStatus === 'pending' ? (
+                          <View style={[styles.typePill, { backgroundColor: 'rgba(251,191,36,0.18)' }]}>
+                            <Text style={[styles.typePillText, { color: '#FBBF24' }]}>Pending</Text>
                           </View>
                         ) : null}
                       </View>
@@ -523,6 +556,8 @@ export default function PlanScreen() {
         <PlanTripsPanel selectedDateKey={selectedKey} />
       )}
     </ScrollView>
+    <PlanAddSheet visible={planAddOpen} onDismiss={() => setPlanAddOpen(false)} />
+    </>
   );
 }
 
@@ -626,13 +661,27 @@ const styles = StyleSheet.create({
   next7Title: { fontSize: 14, fontWeight: '600', marginBottom: 12 },
   plusBtn: {
     alignItems: 'center',
-    backgroundColor: 'rgba(56,189,248,0.15)',
-    borderColor: 'rgba(56,189,248,0.2)',
     borderRadius: 12,
     borderWidth: 1,
     height: 32,
     justifyContent: 'center',
     width: 32,
+  },
+  pendingBanner: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  pendingBannerText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
   },
   sectionTitle: { fontSize: 14, fontWeight: '600' },
   selectedHead: {

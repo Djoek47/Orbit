@@ -1,4 +1,5 @@
 import { isHomeworkTask } from '@/lib/calendar/event-date';
+import { isEventApproved } from '@/lib/calendar/event-approval';
 import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import type { HouseholdEvent, HouseholdMember, HouseholdRole, HouseholdTask } from '@/types/orbit';
 
@@ -14,6 +15,10 @@ export function usesFocusedCalendar(role: HouseholdRole | null | undefined): boo
 export function eventVisibleToMember(event: HouseholdEvent, member: HouseholdMember | null | undefined): boolean {
   if (!member) return true;
   if (isAdminCalendarRole(member.role)) return true;
+
+  if (!isEventApproved(event)) {
+    return event.createdByMemberId === member.id;
+  }
 
   if (event.householdWide) return true;
 

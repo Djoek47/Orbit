@@ -53,6 +53,7 @@ export const mockHousehold: HouseholdSnapshot = {
     allowSpecialRewardRequest: true,
     allowGroceryAdd: false,
     allowCalendarCreate: false,
+    requireSidekickEventApproval: true,
   },
   rooms: DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
   savedPlaces: [
@@ -977,6 +978,7 @@ export function createEmptyHousehold(user: OrbitUser): HouseholdSnapshot {
       allowSpecialRewardRequest: false,
       allowGroceryAdd: false,
       allowCalendarCreate: false,
+    requireSidekickEventApproval: true,
     },
     rooms: DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room })),
     savedPlaces: [],

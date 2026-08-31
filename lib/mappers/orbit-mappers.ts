@@ -240,6 +240,8 @@ export function mapEventRow(row: {
   starts_at?: string | null;
   household_wide?: boolean | null;
   attendee_member_ids?: string[] | null;
+  approval_status?: 'pending' | 'approved' | null;
+  created_by_member_id?: string | null;
 }): HouseholdEvent {
   return {
     id: row.id,
@@ -255,6 +257,8 @@ export function mapEventRow(row: {
       : undefined,
     householdWide: row.household_wide === true,
     startsAt: row.starts_at ?? undefined,
+    approvalStatus: row.approval_status === 'pending' ? 'pending' : 'approved',
+    createdByMemberId: row.created_by_member_id ?? null,
   };
 }
 

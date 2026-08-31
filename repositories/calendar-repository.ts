@@ -91,6 +91,8 @@ export const calendarRepository = {
       attendeeMemberIds: attendeeIds.length ? attendeeIds : undefined,
       householdWide: input.householdWide === true,
       startsAt,
+      approvalStatus: input.approvalStatus ?? 'approved',
+      createdByMemberId: input.createdByMemberId ?? null,
     };
 
     if (isMockMode()) {
@@ -116,6 +118,8 @@ export const calendarRepository = {
         responsible_member_id: event.responsibleMemberId ?? null,
         household_wide: event.householdWide === true,
         starts_at: event.startsAt ?? null,
+        approval_status: event.approvalStatus ?? 'approved',
+        created_by_member_id: event.createdByMemberId ?? null,
       } as never)
       .select('*')
       .single();
@@ -168,6 +172,8 @@ export const calendarRepository = {
         responsible_member_id: next.responsibleMemberId ?? null,
         household_wide: next.householdWide === true,
         starts_at: next.startsAt ?? null,
+        approval_status: next.approvalStatus ?? 'approved',
+        created_by_member_id: next.createdByMemberId ?? null,
       } as never)
       .eq('id', next.id)
       .select('*')

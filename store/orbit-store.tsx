@@ -52,6 +52,8 @@ import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, memberDisplayEm
 import { hasChosenAvatar } from '@/lib/profile/chosen-avatar';
 import { getLocationAwareGrocerySuggestions, buildStoreRecommendations } from '@/lib/grocery/location-suggestions';
 import { countUpcomingSoon } from '@/lib/calendar/event-groups';
+import { resolveEventApprovalStatus } from '@/lib/calendar/event-approval';
+import { canCreateSelfHomework } from '@/lib/calendar/sidekick-homework';
 import {
   loadHouseholdRooms,
   loadMemberAvatarOverrides,
@@ -357,7 +359,7 @@ type OrbitContextValue = {
   updateMemberDisplayName: (memberId: string, name: string) => Promise<void>;
   createTask: (
     input: CreateTaskInput,
-    options?: { householdId?: string | null }
+    options?: { householdId?: string | null; selfHomework?: boolean }
   ) => Promise<HouseholdTask | null>;
   updateTask: (
     task: HouseholdTask,
@@ -433,9 +435,11 @@ type OrbitContextValue = {
   clearGroceryList: () => Promise<void>;
   /** Mark groceries surface opened (clears "new since last open" badge). */
   markGroceriesOpened: () => void;
-  createEvent: (input: CreateEventInput) => Promise<void>;
+  createEvent: (input: CreateEventInput) => Promise<HouseholdEvent | null>;
   updateEvent: (event: HouseholdEvent) => Promise<void>;
   deleteEvent: (eventId: string) => Promise<void>;
+  approveEvent: (eventId: string) => Promise<void>;
+  rejectEvent: (eventId: string) => Promise<void>;
   remindAboutEvent: (eventId: string) => Promise<void>;
   createItinerary: (input: CreateItineraryInput) => Promise<Itinerary | null>;
   suggestPoppinsItinerary: (options?: {
@@ -2034,13 +2038,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const createTask = async (
     input: CreateTaskInput,
-    options?: { householdId?: string | null }
+    options?: { householdId?: string | null; selfHomework?: boolean }
   ): Promise<HouseholdTask | null> => {
     const targetHouseholdId = options?.householdId ?? household.id;
     // Explicit householdId = onboarding materialize (owner perms not flushed yet).
     const allowOnboardingWrite = Boolean(options?.householdId && currentUser);
+    const allowSelfHomework =
+      options?.selfHomework === true &&
+      canCreateSelfHomework(currentMember, input);
     if (
       !allowOnboardingWrite &&
+      !allowSelfHomework &&
       !v2Permissions.canAssignOrEditTask &&
       !permissions.canCreateTask
     ) {
@@ -3509,24 +3517,64 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return persistInboxRow(passthrough, input);
   };
 
-  const createEvent = async (input: CreateEventInput) => {
+  const createEvent = async (input: CreateEventInput): Promise<HouseholdEvent | null> => {
     const caps = resolveMemberCapabilities(household);
     if (!permissions.canManageHousehold && !caps.allowCalendarCreate) {
-      return;
+      return null;
     }
-    const event = await calendarRepository.createEvent(household.id, input);
+    const approvalStatus = resolveEventApprovalStatus({
+      actorRole: currentMember?.role,
+      caps,
+      category: input.category,
+      explicit: input.approvalStatus,
+    });
+    const event = await calendarRepository.createEvent(household.id, {
+      ...input,
+      approvalStatus,
+      createdByMemberId: input.createdByMemberId ?? currentMember?.id ?? null,
+      responsibleMemberId:
+        input.responsibleMemberId ??
+        (isSidekickRole(currentMember?.role) ? currentMember?.id ?? null : null),
+      attendeeMemberIds:
+        input.attendeeMemberIds ??
+        (isSidekickRole(currentMember?.role) && currentMember?.id
+          ? [currentMember.id]
+          : undefined),
+    });
     setHousehold((current) => ({
       ...current,
       events: [event, ...current.events.filter((item) => item.id !== event.id)],
     }));
-    if (input.remindMe) {
+    if (input.remindMe && approvalStatus === 'approved') {
       await scheduleLocalReminder(
         event.title,
         `${event.time} · ${event.responsible}`,
         20
       ).catch((error) => console.warn('Local reminder skipped', error));
     }
-    await trackAnalytics('event.created', { eventId: event.id }, analyticsContext);
+    await trackAnalytics(
+      approvalStatus === 'pending' ? 'event.submitted' : 'event.created',
+      { eventId: event.id, approvalStatus },
+      analyticsContext
+    );
+    return event;
+  };
+
+  const approveEvent = async (eventId: string) => {
+    if (!permissions.canManageHousehold) return;
+    const existing = household.events.find((item) => item.id === eventId);
+    if (!existing || existing.approvalStatus !== 'pending') return;
+    const updated = { ...existing, approvalStatus: 'approved' as const };
+    await updateEvent(updated);
+    await trackAnalytics('event.approved', { eventId }, analyticsContext);
+  };
+
+  const rejectEvent = async (eventId: string) => {
+    if (!permissions.canManageHousehold) return;
+    const existing = household.events.find((item) => item.id === eventId);
+    if (!existing || existing.approvalStatus !== 'pending') return;
+    await deleteEvent(eventId);
+    await trackAnalytics('event.rejected', { eventId }, analyticsContext);
   };
 
   const updateEvent = async (event: HouseholdEvent) => {
@@ -5556,6 +5604,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createEvent,
       updateEvent,
       deleteEvent,
+      approveEvent,
+      rejectEvent,
       remindAboutEvent,
       createItinerary,
       suggestPoppinsItinerary,

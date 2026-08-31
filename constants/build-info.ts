@@ -2,5 +2,5 @@
 export const BUILD_INFO = {
   branch: 'cursor/make-v18',
   commit: 'f3ce221',
-  label: 'make-v18 · homework-mvp · member-realtime · simplify-invites · add-member',
+  label: 'make-v18 · sidekick-plan-add · homework-mvp · member-realtime',
 } as const;

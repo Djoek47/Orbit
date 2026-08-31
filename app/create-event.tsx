@@ -1,6 +1,7 @@
-import { router, Stack } from 'expo-router';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoiceRow } from '@/components/orbit/choice-row';
@@ -10,9 +11,15 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { buildStartsAtIso, formatStoredDateLabel, todayKey } from '@/lib/calendar/event-date';
+import { sidekickEventNeedsApproval } from '@/lib/calendar/event-approval';
+import {
+  categoryForPlanAddKind,
+  planAddScreenTitle,
+} from '@/lib/calendar/sidekick-plan-add';
 import { memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
+import { isSidekickRole } from '@/lib/sidekick/permissions';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent, HouseholdMember } from '@/types/orbit';
@@ -22,6 +29,8 @@ const CATEGORIES: HouseholdEvent['category'][] = ['School', 'Activity', 'Appoint
 
 export default function CreateEventScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ kind?: string }>();
+  const kind = Array.isArray(params.kind) ? params.kind[0] : params.kind;
   const { createEvent, household, currentMember, orbitPalette, permissions } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
   const caps = resolveMemberCapabilities(household);
@@ -29,12 +38,17 @@ export default function CreateEventScreen() {
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
   const canCreate = permissions.canManageHousehold || caps.allowCalendarCreate;
   const simplified = sharedKidMode && !permissions.canManageHousehold;
+  const presetCategory = categoryForPlanAddKind(kind);
+  const needsApproval =
+    simplified &&
+    isSidekickRole(currentMember?.role) &&
+    sidekickEventNeedsApproval(caps, presetCategory);
 
   const [title, setTitle] = useState('');
   const [dateKey, setDateKey] = useState(todayKey());
   const [time, setTime] = useState('5:30 PM');
   const [location, setLocation] = useState('');
-  const [category, setCategory] = useState<HouseholdEvent['category']>('Family');
+  const [category, setCategory] = useState<HouseholdEvent['category']>(presetCategory);
   const [responsible, setResponsible] = useState(
     currentMember?.name ?? household.members[0]?.name ?? '',
   );
@@ -42,6 +56,8 @@ export default function CreateEventScreen() {
   const [householdWide, setHouseholdWide] = useState(false);
   const [attendeeIds, setAttendeeIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const screenTitle = simplified ? planAddScreenTitle(kind) : 'Create event';
 
   const activeMembers = useMemo(
     () => household.members.filter((member) => member.status === 'active'),
@@ -63,13 +79,12 @@ export default function CreateEventScreen() {
   };
 
   const handleSave = async () => {
-    if (!canSave || saving) {
-      return;
-    }
+    if (!canSave || saving) return;
 
     const resolvedResponsible = simplified ? currentMember?.name ?? responsible : responsible;
     const resolvedResponsibleMember =
       simplified && currentMember ? currentMember : responsibleMember;
+    const resolvedCategory = simplified ? presetCategory : category;
     const targetedIds =
       householdWide || simplified
         ? undefined
@@ -81,7 +96,7 @@ export default function CreateEventScreen() {
 
     setSaving(true);
     try {
-      await createEvent({
+      const created = await createEvent({
         title,
         date: dateLabel,
         dateKey,
@@ -92,9 +107,17 @@ export default function CreateEventScreen() {
         responsibleMemberId: resolvedResponsibleMember?.id ?? null,
         attendeeMemberIds: targetedIds,
         householdWide: !simplified && householdWide,
-        category: simplified ? 'Family' : category,
+        category: resolvedCategory,
         remindMe: !simplified && remindMe === 'Yes',
       });
+      if (created?.approvalStatus === 'pending') {
+        Alert.alert(
+          'Sent for approval',
+          'A parent will review this before it shows for everyone.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+        return;
+      }
       router.back();
     } finally {
       setSaving(false);
@@ -110,9 +133,9 @@ export default function CreateEventScreen() {
         <ScrollView contentContainerStyle={orbitScreen.content}>
           <View style={orbitScreen.header}>
             <Text style={[typography.footnote, { color: c.textMuted }]}>Plan</Text>
-            <Text style={[typography.title1, { color: c.text }]}>Create event locked</Text>
+            <Text style={[typography.title1, { color: c.text }]}>Calendar adds locked</Text>
             <Text style={[typography.body, { color: c.textSoft }]}>
-              An admin can enable calendar creates in Settings → Member permissions.
+              An admin can enable calendar adds in Settings → What Sidekicks can do.
             </Text>
           </View>
           <OrbitButton onPress={() => router.back()}>Go back</OrbitButton>
@@ -128,26 +151,39 @@ export default function CreateEventScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={orbitScreen.content} contentInsetAdjustmentBehavior="automatic">
         <View style={orbitScreen.header}>
-          <Text style={[typography.footnote, { color: c.textMuted }]}>
-            {simplified ? 'My event' : 'Family logistics'}
-          </Text>
-          <Text style={[typography.title1, { color: c.text }]}>Create Event</Text>
-          <Text style={[typography.body, { color: c.textSoft }]}>
+          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.closeRow}>
+            <MaterialIcons name="close" size={22} color={c.textMuted} />
+          </Pressable>
+          <Text style={[typography.title1, { color: c.text, marginTop: space.sm }]}>{screenTitle}</Text>
+          <Text style={[typography.body, { color: c.textSoft, marginTop: space.xs }]}>
             {simplified
-              ? 'Title, when, and optional place — keep it simple.'
-              : 'Add a calendar event, assign responsibility, and optionally schedule a local reminder.'}
+              ? needsApproval
+                ? 'Your parent will approve this before it appears for the household.'
+                : 'Adds to your Plan immediately.'
+              : 'Assign responsibility and optionally schedule a local reminder.'}
           </Text>
         </View>
 
         <GlassCard>
-          <OrbitInput label="Event title" onChangeText={setTitle} placeholder="Dentist appointment" value={title} />
+          <OrbitInput
+            label="Title"
+            onChangeText={setTitle}
+            placeholder={
+              presetCategory === 'School'
+                ? 'Math test, field trip…'
+                : presetCategory === 'Activity'
+                  ? 'Soccer practice, piano…'
+                  : 'What is happening?'
+            }
+            value={title}
+          />
           <Text style={[typography.caption1, { color: c.textMuted, marginBottom: 8 }]}>Date</Text>
           <EventDatePicker value={dateKey} onChange={setDateKey} />
           <OrbitInput label="Time" onChangeText={setTime} placeholder="5:30 PM" value={time} />
           <OrbitInput
             label={simplified ? 'Place (optional)' : 'Location'}
             onChangeText={setLocation}
-            placeholder="School, store, or address"
+            placeholder="School, field, or address"
             value={location}
           />
           {!simplified ? (
@@ -210,11 +246,6 @@ export default function CreateEventScreen() {
                     })}
                   </View>
                 ) : null}
-                {!householdWide && attendeeIds.length === 0 ? (
-                  <Text style={[typography.caption1, { color: c.textSubtle, marginTop: space.xs }]}>
-                    Defaults to {responsible || 'the responsible person'} when none selected.
-                  </Text>
-                ) : null}
               </View>
               <ChoiceRow label="Local reminder" onChange={setRemindMe} options={['Yes', 'No']} value={remindMe} />
             </>
@@ -222,7 +253,7 @@ export default function CreateEventScreen() {
         </GlassCard>
 
         <OrbitButton disabled={!canSave || saving} onPress={handleSave}>
-          {saving ? 'Saving…' : 'Save Event'}
+          {saving ? 'Saving…' : needsApproval ? 'Send for approval' : 'Add to Plan'}
         </OrbitButton>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -230,6 +261,9 @@ export default function CreateEventScreen() {
 }
 
 const styles = StyleSheet.create({
+  closeRow: {
+    alignSelf: 'flex-start',
+  },
   targetBlock: {
     marginTop: space.md,
   },

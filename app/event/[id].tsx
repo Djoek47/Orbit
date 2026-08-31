@@ -20,7 +20,7 @@ const CATEGORIES: HouseholdEvent['category'][] = ['School', 'Activity', 'Appoint
 export default function EventDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { accentTheme, deleteEvent, household, orbitPalette, remindAboutEvent, updateEvent } =
+  const { accentTheme, approveEvent, deleteEvent, household, orbitPalette, permissions, rejectEvent, remindAboutEvent, updateEvent } =
     useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
   const event = household.events.find((item) => item.id === id);
@@ -137,6 +137,33 @@ export default function EventDetailScreen() {
           <Text style={[styles.heroTitle, { color: c.text }]}>{event.title}</Text>
         ) : null}
         <StatusPill label={event.category} tone="cyan" />
+        {event.approvalStatus === 'pending' ? (
+          <StatusPill label="Pending approval" tone="amber" />
+        ) : null}
+
+        {event.approvalStatus === 'pending' && permissions.canManageHousehold ? (
+          <View style={styles.approvalRow}>
+            <Pressable
+              onPress={() => void approveEvent(event.id).then(() => router.back())}
+              style={[styles.approveBtn, { backgroundColor: accentTheme.primary }]}>
+              <Text style={[styles.approveBtnText, { color: orbitPalette.ink }]}>Approve</Text>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                Alert.alert('Decline event', `Remove “${event.title}” from the calendar?`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Decline',
+                    style: 'destructive',
+                    onPress: () => void rejectEvent(event.id).then(() => router.back()),
+                  },
+                ])
+              }
+              style={[styles.declineBtn, { borderColor: 'rgba(248,113,113,0.4)' }]}>
+              <Text style={styles.declineBtnText}>Decline</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {editing ? (
           <GlassCard style={styles.card}>
@@ -266,6 +293,34 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '700' },
   content: { gap: space.md, paddingHorizontal: 16, paddingTop: 16 },
   heroTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.4 },
+  approvalRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  approveBtn: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.card,
+    flex: 1,
+    paddingVertical: 14,
+  },
+  approveBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  declineBtn: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.card,
+    borderWidth: 1,
+    flex: 1,
+    paddingVertical: 14,
+  },
+  declineBtnText: {
+    color: '#F87171',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   card: { gap: space.md },
   row: { gap: 4 },
   value: { fontSize: 16, fontWeight: '700' },

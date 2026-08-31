@@ -650,7 +650,8 @@ export default function SettingsScreen() {
                     ['allowSpecialRewardRequest', 'Allow reward suggestions', 'Sidekicks can suggest something not in the catalogue yet'],
                     ['allowAllowance', 'Allow allowance', 'Shows Allowance in Rewards Center'],
                     ['allowGroceryAdd', 'Allow grocery list adds', 'Non-admins can add items'],
-                    ['allowCalendarCreate', 'Allow calendar event creates', 'Simplified create when enabled'],
+                    ['allowCalendarCreate', 'Allow calendar adds', 'Sidekicks can add school, practice, and family events'],
+                    ['requireSidekickEventApproval', 'Require approval for events', 'School and activities wait for a parent — homework is always instant'],
                   ] as const
                 ).map(([key, label, sub]) => {
                   const caps = resolveMemberCapabilities(household);

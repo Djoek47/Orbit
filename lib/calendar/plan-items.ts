@@ -16,6 +16,7 @@ export type PlanItem = {
   href: string;
   /** Underlying calendar category when kind === event */
   category?: HouseholdEvent['category'];
+  approvalStatus?: HouseholdEvent['approvalStatus'];
 };
 
 function isHomeworkEvent(event: HouseholdEvent): boolean {
@@ -53,6 +54,7 @@ export function eventsToPlanItems(events: HouseholdEvent[], reference = new Date
     responsible: event.responsible,
     href: `/event/${event.id}`,
     category: event.category,
+    approvalStatus: event.approvalStatus,
   }));
 }
 
