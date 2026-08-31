@@ -88,6 +88,9 @@ import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
 import { SidekickSettingsScreen } from '@/components/orbit/sidekick-settings-screen';
 import { SettingsMemberCard } from '@/components/orbit/members/settings-member-card';
+import { AddMemberRow } from '@/components/orbit/members/add-member-row';
+import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
+import { SharedIpadCard } from '@/components/orbit/members/shared-ipad-card';
 import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
 import {
@@ -294,6 +297,7 @@ export default function SettingsScreen() {
     { kind: 'profile'; memberId: string } | { kind: 'token'; memberId: string } | null
   >(null);
   const [householdSwitchOpen, setHouseholdSwitchOpen] = useState(false);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [majordomoOpen, setMajordomoOpen] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
   const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
@@ -1193,44 +1197,19 @@ export default function SettingsScreen() {
               Tap a name to switch. A shared iPad asks who is using it before opening Choremaxx.
             </Text>
             {permissions.canInviteMembers ? (
-              <SettingsRow
-                emoji="➕"
-                label="Add household member"
-                subtitle="Create a profile now and share their invite later"
-                onPress={() => router.push('/household-members' as never)}
-              />
+              <AddMemberRow accent={accentTheme.primary} onPress={() => setAddMemberOpen(true)} />
             ) : null}
 
             {permissions.canManageHousehold ? (
+              <SharedIpadCard accent={accentTheme.primary} />
+            ) : null}
+
+            {permissions.canManageHousehold && sharedDevices.length > 0 ? (
               <>
                 <Text style={[styles.memberName, { color: orbitPalette.text }]}>Shared Devices</Text>
                 <Text style={[styles.sectionHint, { color: orbitPalette.textMuted, marginTop: -4 }]}>
                   Select multiple users who share a single device.
                 </Text>
-              <View
-                style={[
-                  styles.createDeviceCard,
-                  {
-                    backgroundColor: glassFill(isDark),
-                    borderColor: glassBorder(0.1),
-                  },
-                ]}>
-                <Text style={[styles.memberName, { color: orbitPalette.text }]}>This iPad</Text>
-                <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
-                  Scan each Sidekick’s profile QR. They pick their face when they open the app.
-                </Text>
-                <Pressable
-                  style={[
-                    styles.createDeviceBtn,
-                    { backgroundColor: `${accentTheme.primary}22`, borderColor: `${accentTheme.primary}66` },
-                  ]}
-                  onPress={() => router.push('/setup-kid-device' as never)}>
-                  <MaterialIcons name="tablet-mac" size={16} color={accentTheme.primary} />
-                  <Text style={[styles.createDeviceBtnText, { color: accentTheme.primary }]}>
-                    Set up this iPad
-                  </Text>
-                </Pressable>
-              </View>
               </>
             ) : null}
 
@@ -1574,6 +1553,13 @@ export default function SettingsScreen() {
     <HouseholdSwitchSheet
       visible={householdSwitchOpen && canSwitchHousehold}
       onClose={() => setHouseholdSwitchOpen(false)}
+    />
+    <AddMemberSheet
+      visible={addMemberOpen}
+      onDismiss={() => setAddMemberOpen(false)}
+      onAdded={(member) => {
+        void refreshHousehold().finally(() => openMemberInvite(member));
+      }}
     />
   </>
   );

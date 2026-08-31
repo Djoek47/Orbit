@@ -11,9 +11,7 @@ import {
   MemberConnectionCaption,
   HasOwnAccountBadge,
 } from '@/components/orbit/member-connection-badge';
-import { SetupMemberWizard } from '@/components/orbit/setup-member-wizard';
-import { DEFAULT_REWARD_MODEL } from '@/lib/rewards/reward-model';
-import type { DraftMember } from '@/lib/onboarding/setup-draft';
+import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
 import type { MemberInvite } from '@/lib/household/member-invites';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
@@ -83,7 +81,6 @@ export default function HouseholdMembersScreen() {
     removeMember,
     updateMemberRole,
     updateSharedDeviceLinks,
-    addOnboardingMembers,
   } = useOrbit();
   const { c } = useOrbitColors();
 
@@ -397,36 +394,18 @@ export default function HouseholdMembersScreen() {
         ) : null}
       </ScrollView>
 
-      {wizardOpen ? (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: c.background, padding: space.lg }]}>
-          <SetupMemberWizard
-            rewardModel={household.rewardModel ?? DEFAULT_REWARD_MODEL}
-            rewardMode={household.rewardMode ?? 'weighted'}
-            onCancel={() => setWizardOpen(false)}
-            onConfirm={(member: DraftMember) => {
-              void (async () => {
-                if (!household.id) return;
-                try {
-                  await addOnboardingMembers(household.id, [
-                    {
-                      name: member.name,
-                      role: member.role === 'admin' ? 'admin' : 'member',
-                      avatar: member.avatar,
-                      plannedTaskLibraryIds: member.taskLibraryIds,
-                    },
-                  ]);
-                  setWizardOpen(false);
-                } catch (err) {
-                  Alert.alert(
-                    'Could not add member',
-                    err instanceof Error ? err.message : 'Try again from Settings → Members.'
-                  );
-                }
-              })();
-            }}
-          />
-        </View>
-      ) : null}
+      <AddMemberSheet
+        visible={wizardOpen}
+        onDismiss={() => setWizardOpen(false)}
+        onAdded={(member) => {
+          setWizardOpen(false);
+          if (memberUsesProfileInvite(member)) {
+            setInviteTarget({ kind: 'profile', memberId: member.id });
+          } else if (memberCanReceiveInvite(member)) {
+            setInviteTarget({ kind: 'token', memberId: member.id });
+          }
+        }}
+      />
 
       <ProfileInviteSheet
         visible={inviteTarget?.kind === 'profile'}
