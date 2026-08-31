@@ -9,6 +9,7 @@ import { XpWheel } from '@/components/orbit/xp-wheel';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { VOCAB } from '@/constants/vocabulary';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
+import { canAdminRequestTaskProof } from '@/lib/tasks/proof-eligibility';
 import { promptPickProofPhoto } from '@/lib/tasks/pick-proof';
 import {
   getShare,
@@ -147,6 +148,9 @@ export default function TaskDetailScreen() {
   const myShare = currentMember ? getShare(task, currentMember.name) : undefined;
   const onThisSplit = taskMatchesAssignee(task, currentMember?.name);
   const assigneeMember = household.members.find((member) => member.name === task.assignee);
+  const canAskForPhoto =
+    v2Permissions.canRequestProof &&
+    canAdminRequestTaskProof(task, assigneeMember ?? null);
   const canEdit = permissions.canCreateTask || permissions.canAssignTask;
   const needsProof = Boolean(task.proofRequired);
   const myProofStatus = split ? myShare?.proofStatus : task.proofStatus;
@@ -817,9 +821,9 @@ export default function TaskDetailScreen() {
             {!split &&
             task.status === 'Completed' &&
             task.verification === 'not_required' &&
-            (v2Permissions.canRequestProof || v2Permissions.canApproveCompletion) ? (
+            (v2Permissions.canApproveCompletion || canAskForPhoto) ? (
               <View style={{ gap: 8 }}>
-                {v2Permissions.canRequestProof ? (
+                {canAskForPhoto ? (
                   <Pressable
                     disabled={proofBusy}
                     onPress={handleAskPhoto}
@@ -854,7 +858,7 @@ export default function TaskDetailScreen() {
                     {proofBusy ? 'Working…' : 'Confirm'}
                   </Text>
                 </Pressable>
-                {v2Permissions.canRequestProof ? (
+                {canAskForPhoto ? (
                   <Pressable
                     disabled={proofBusy}
                     onPress={handleAskPhoto}

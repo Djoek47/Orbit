@@ -77,6 +77,8 @@ export type HouseholdTask = {
   id: string;
   title: string;
   description?: string;
+  /** Homework subject label (Math, English, custom…). */
+  homeworkSubject?: string;
   category: string;
   /**
    * Display label — single name, or “Emma & Liam” for split tasks.
@@ -212,6 +214,12 @@ export type HouseholdEvent = {
   time: string;
   location: string;
   responsible: string;
+  /** Bound member id when known — preferred over name matching. */
+  responsibleMemberId?: string | null;
+  /** Additional members who should see this on their calendar. */
+  attendeeMemberIds?: string[];
+  /** When true, every household member sees this event. */
+  householdWide?: boolean;
   startsAt?: string;
   endsAt?: string;
 };
@@ -473,6 +481,7 @@ export type CreateTaskInput = {
   xpEligible?: boolean;
   repeat: HouseholdTask['repeat'];
   description?: string;
+  homeworkSubject?: string;
   weight?: number;
   difficulty?: TaskDifficulty;
   /** Kids Hygiene habits — no XP. */
@@ -611,6 +620,11 @@ export type CreateEventInput = {
   startsAt?: string;
   /** When true, schedule a short Expo Go local reminder after create. */
   remindMe?: boolean;
+  /** Member ids who should see this event (empty = responsible only). */
+  attendeeMemberIds?: string[];
+  /** When true, all members see this on their calendar. */
+  householdWide?: boolean;
+  responsibleMemberId?: string | null;
 };
 
 export type SignInInput = {

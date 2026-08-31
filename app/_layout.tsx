@@ -135,6 +135,7 @@ export default function RootLayout() {
           <Stack.Screen name="itinerary/[id]" options={{ headerShown: false, title: 'Trip' }} />
           <Stack.Screen name="create-task" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="assign-task" options={{ presentation: 'modal', headerShown: false, title: 'Assign' }} />
+          <Stack.Screen name="assign-homework" options={{ presentation: 'modal', headerShown: false, title: 'Assign homework' }} />
           <Stack.Screen name="add-grocery" options={{ presentation: 'modal', headerShown: false, title: 'Missing Item' }} />
           <Stack.Screen name="scan-grocery" options={{ presentation: 'modal', headerShown: false, title: 'Scan Product' }} />
           <Stack.Screen name="create-event" options={{ presentation: 'modal', headerShown: false, title: 'Create Event' }} />

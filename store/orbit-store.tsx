@@ -91,6 +91,13 @@ import { canProposeReward, type RewardProposal } from '@/lib/rewards/reward-prop
 import { groceryAddAllowedForSidekick, isSidekickRole } from '@/lib/sidekick/permissions';
 import { assigneeMemberIdsForTask } from '@/lib/sidekick/task-assigned-notify';
 import {
+  assigneeMemberForTask,
+  notifyTaskAssigned,
+} from '@/lib/notifications/notify-task-assigned';
+import { isHomeworkCategory } from '@/lib/tasks/homework-subject';
+import { needsProofOnComplete, proofRequiredForHomeworkAssign } from '@/lib/tasks/homework-proof';
+import { canAdminRequestTaskProof } from '@/lib/tasks/proof-eligibility';
+import {
   isSidekickLocalUserId,
   loadSidekickSession,
   saveSidekickSession,
@@ -1654,7 +1661,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (dataMode === 'supabase') {
       const sync = await fetchSidekickSync(normalizedCode);
       if (!sync) return false;
-      await applySidekickSyncPayload(sync);
+      await applySidekickSyncPayload(sync, { announceNewTasks: true });
       setNotifications(sync.notifications);
       return true;
     }
@@ -2045,8 +2052,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return null;
     }
     try {
+      const assigneeMember = assigneeMemberForTask(householdRef.current.members, input);
+      const normalizedInput: CreateTaskInput = {
+        ...input,
+        proofRequired: isHomeworkCategory(input.category, input.title)
+          ? proofRequiredForHomeworkAssign(input.category, assigneeMember)
+          : false,
+      };
       // Upsert so re-assigning the same library task today is not a silent UNIQUE no-op.
-      const { task, inserted } = await taskRepository.upsertOccurrence(targetHouseholdId, input);
+      const { task, inserted } = await taskRepository.upsertOccurrence(targetHouseholdId, normalizedInput);
       const nextHousehold = await new Promise<HouseholdSnapshot>((resolve) => {
         setHousehold((current) => {
           const already = current.tasks.some((item) => item.id === task.id);
@@ -2082,27 +2096,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (inserted) {
         await trackAnalytics('task.created', { taskId: task.id }, analyticsContext);
         const prefs = nextHousehold.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-        if (prefs.tasks !== false) {
-          const assigneeIds = assigneeMemberIdsForTask(nextHousehold.members, input, task);
-          for (const memberId of assigneeIds) {
-            const assignee = nextHousehold.members.find((member) => member.id === memberId);
-            if (!assignee) continue;
-            await pushNotification({
-              title: 'Poppins · Tasks',
-              body: `${task.title} was added to your list.`,
-              category: 'tasks',
-              priority: 'high',
-              data: {
-                kind: 'task_assigned',
-                taskId: task.id,
-                task: task.title,
-                memberId: assignee.id,
-                memberName: assignee.name,
-                audienceMemberIds: [assignee.id],
-              },
-            });
-          }
-        }
+        await notifyTaskAssigned(
+          pushNotification,
+          nextHousehold,
+          normalizedInput,
+          task,
+          prefs.tasks !== false
+        );
       }
       return task;
     } catch (error) {
@@ -2273,6 +2273,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!v2Permissions.canRequestProof) return false;
     const currentTask = household.tasks.find((item) => item.id === taskId);
     if (!currentTask || !currentMember) return false;
+    const assigneeMember = assigneeMemberForTask(household.members, currentTask);
+    if (!canAdminRequestTaskProof(currentTask, assigneeMember)) return false;
     const result = requestAnotherProofOnTask(currentTask, currentMember.id, note);
     if (!result.ok) return false;
     const updated = await taskRepository.updateTask(result.task);
@@ -2285,6 +2287,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       title: currentTask.title,
       adminName: currentMember.name,
       taskId,
+      audienceMemberIds: assigneeMember ? [assigneeMember.id] : undefined,
     });
     await trackAnalytics('task.proof_requested', { taskId }, analyticsContext);
     return true;
@@ -2334,10 +2337,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }),
     }));
     const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    const assigneeMember = assigneeMemberForTask(household.members, currentTask);
     await poppinsNotifications.taskNotDone(pushNotification, prefs, {
       title: currentTask.title,
       adminName: currentMember.name,
       taskId,
+      audienceMemberIds: assigneeMember ? [assigneeMember.id] : undefined,
     });
     await trackAnalytics('task.marked_not_done', { taskId, reversed }, analyticsContext);
     return true;
@@ -2399,6 +2404,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           occurrenceDate: draft.occurrenceDate,
         });
         nextTasks = [row, ...nextTasks];
+        const prefs = live.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+        await notifyTaskAssigned(
+          pushNotification,
+          live,
+          {
+            title: row.title,
+            category: row.category,
+            assignee: row.assignee,
+            assignees: row.assignees,
+            due: row.due,
+            xp: row.xp,
+            repeat: row.repeat,
+            proofRequired: row.proofRequired,
+          },
+          row,
+          prefs.tasks !== false
+        );
       }
       // After creating past-day open rows, mark them missed if still pending.
       nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now, {
@@ -2442,6 +2464,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         occurrenceDate: draft.occurrenceDate,
       });
       created.push(row);
+      const prefs = live.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+      await notifyTaskAssigned(
+        pushNotification,
+        live,
+        {
+          title: row.title,
+          category: row.category,
+          assignee: row.assignee,
+          assignees: row.assignees,
+          due: row.due,
+          xp: row.xp,
+          repeat: row.repeat,
+          proofRequired: row.proofRequired,
+        },
+        row,
+        prefs.tasks !== false
+      );
     }
 
     const merged = expireOpenTasksAtBoundary([...created, ...nextTasks], now, {
@@ -2622,8 +2661,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (!share || share.status !== 'Pending') {
         return null;
       }
+      const assigneeMember = assigneeMemberForTask(householdRef.current.members, { assignee: forAssignee });
+      const wantsProof = needsProofOnComplete(currentTask, assigneeMember);
       const needsProof =
-        Boolean(currentTask.proofRequired) &&
+        wantsProof &&
         share.proofStatus !== 'submitted' &&
         share.proofStatus !== 'approved';
 
@@ -2751,15 +2792,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     // --- Single-assignee task ---
-    // Proof is requested after complete when the create/preset flag is set — never a pre-gate.
+    const assigneeMember = assigneeMemberForTask(household.members, currentTask);
+    const wantsProof = needsProofOnComplete(currentTask, assigneeMember);
     const needsProof =
-      Boolean(currentTask.proofRequired) &&
+      wantsProof &&
       currentTask.proofStatus !== 'submitted' &&
       currentTask.proofStatus !== 'approved';
 
     const { awarded, penalty, late } = resolveCompletionXp(currentTask, rewardSettings);
     const lateMeta = completedLateFlag(completedAt, currentTask.dueAt);
-    const verification = initialVerification(Boolean(currentTask.proofRequired));
+    const verification = initialVerification(wantsProof);
     const completedWithXp: HouseholdTask = {
       ...currentTask,
       status: 'Completed',
@@ -2773,7 +2815,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       completedLate: lateMeta.completedLate || late,
       latenessMinutes: lateMeta.latenessMinutes,
       // Keep legacy proofStatus in sync for older UI until fully migrated.
-      proofStatus: currentTask.proofRequired
+      proofStatus: wantsProof
         ? currentTask.proofStatus === 'submitted' || currentTask.proofStatus === 'approved'
           ? currentTask.proofStatus
           : 'none'
@@ -2906,13 +2948,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       tasks: current.tasks.map((item) => (item.id === taskId ? saved : item)),
     }));
-    await pushNotification({
-      title: 'Task reassigned',
-      body: `“${currentTask.title}” is now assigned to ${trimmed}. They earn the XP when finished.`,
-      category: 'tasks',
-      priority: 'medium',
-      data: { kind: 'task_reassigned', taskId, assignee: trimmed },
-    });
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    await notifyTaskAssigned(
+      pushNotification,
+      { members: household.members, notificationPrefs: household.notificationPrefs },
+      {
+        title: saved.title,
+        category: saved.category,
+        assignee: trimmed,
+        assignees: [trimmed],
+        due: saved.due,
+        xp: saved.xp,
+        repeat: saved.repeat,
+      },
+      saved,
+      prefs.tasks !== false
+    );
     await trackAnalytics('task.reassigned', { taskId, assignee: trimmed }, analyticsContext);
   };
 
@@ -4032,11 +4083,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const updateMemberHomeworkProof = async (memberId: string, required: boolean) => {
     if (!permissions.canManageHousehold) return;
+    const member = household.members.find((item) => item.id === memberId);
+    if (!member) return;
+    const updated = await householdRepository.setMemberHomeworkProof(member, required);
     setHousehold((current) => ({
       ...current,
-      members: current.members.map((item) =>
-        item.id === memberId ? { ...item, homeworkProofRequired: required } : item
-      ),
+      members: current.members.map((item) => (item.id === memberId ? updated : item)),
     }));
     await trackAnalytics('member.homework_proof_toggled', { memberId, required }, analyticsContext);
   };
@@ -4225,6 +4277,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     ) => {
       const result = executePoppinsTool(name, args, household, metrics, {
         forceRiskyConfirmation: options?.forceRiskyConfirmation,
+        viewingMemberId: currentMember?.id ?? null,
       });
       const action = toolResultToMonitorAction(name, args, result);
       setPoppinsMonitorActions((current) => [action, ...current]);

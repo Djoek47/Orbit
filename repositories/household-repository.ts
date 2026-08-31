@@ -1256,6 +1256,37 @@ export const householdRepository = {
     return mapMemberRow(data);
   },
 
+  async setMemberHomeworkProof(
+    member: HouseholdMember,
+    required: boolean
+  ): Promise<HouseholdMember> {
+    const updatedMember = { ...member, homeworkProofRequired: required };
+
+    if (isMockMode()) {
+      const active = await loadActiveMockHousehold();
+      const patch = (members: HouseholdMember[]) =>
+        members.map((item) => (item.id === member.id ? updatedMember : item));
+      if (active?.id) {
+        await saveActiveMockHousehold({ ...active, members: patch(active.members) });
+      }
+      mockHousehold.members = patch(mockHousehold.members);
+      return updatedMember;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.setMemberHomeworkProof');
+    const { data, error } = await supabase
+      .from('household_members')
+      .update({ homework_proof_required: required } as never)
+      .eq('id', member.id)
+      .select('*')
+      .single();
+    mapDbError('householdRepository.setMemberHomeworkProof', error);
+    if (!data) {
+      throw new Error('householdRepository.setMemberHomeworkProof: Update returned no row.');
+    }
+    return mapMemberRow(data);
+  },
+
   async removeMember(memberId: string): Promise<void> {
     // TODO(product): What happens to the household if the Owner leaves or the subscription
     // lapses? Default shipped: nothing auto-promotes.

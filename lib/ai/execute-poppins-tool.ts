@@ -15,6 +15,7 @@ import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { houseRulesHouseholdView } from '@/lib/rules/household-view';
 import { searchHouseRules } from '@/lib/rules/search';
 import { visibleRules } from '@/lib/rules/visible-rules';
+import { visibleEventsForMember } from '@/lib/calendar/plan-visibility';
 import type { HouseholdSnapshot, OrbitMetrics, PoppinsMonitorAction } from '@/types/orbit';
 
 export type PoppinsToolResult = Record<string, unknown>;
@@ -22,6 +23,8 @@ export type PoppinsToolResult = Record<string, unknown>;
 export type ExecutePoppinsToolOptions = {
   /** Voice path: stage risky tools as pending_confirmations instead of executing. */
   forceRiskyConfirmation?: boolean;
+  /** Calendar reads respect focused visibility for non-admin members. */
+  viewingMemberId?: string | null;
 };
 
 function isAway(member: { awayFrom?: string; awayTo?: string }, now = new Date()) {
@@ -81,6 +84,11 @@ export function executePoppinsTool(
   const tasks = household.tasks;
   const events = household.events;
   const members = household.members;
+  const viewingMember =
+    options.viewingMemberId != null
+      ? members.find((member) => member.id === options.viewingMemberId) ?? null
+      : null;
+  const calendarEvents = visibleEventsForMember(events, viewingMember);
 
   if (options.forceRiskyConfirmation && isRiskyPoppinsTool(name)) {
     const summary = `${name.replace(/_/g, ' ')}: ${JSON.stringify(args).slice(0, 120)}`;
@@ -228,7 +236,7 @@ export function executePoppinsTool(
     case 'read_calendar': {
       const limit = typeof args.days === 'number' ? Math.min(14, Math.max(1, args.days)) : 7;
       return {
-        events: events.slice(0, limit).map((e) => ({
+        events: calendarEvents.slice(0, limit).map((e) => ({
           id: e.id,
           title: e.title,
           date: e.date,
@@ -238,7 +246,7 @@ export function executePoppinsTool(
         })),
         ui_actions: [
           peekAction(
-            events.slice(0, 3).map((e) => ({ id: e.id, title: e.title, assignee: e.responsible })),
+            calendarEvents.slice(0, 3).map((e) => ({ id: e.id, title: e.title, assignee: e.responsible })),
             'Upcoming'
           ),
         ],

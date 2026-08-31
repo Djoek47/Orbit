@@ -27,6 +27,7 @@ import { orbitColors, orbitScreen, radius, space, typography } from '@/constants
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { motion, motionDuration } from '@/constants/motion-tokens';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
+import { isTasksStatus } from '@/lib/navigation/open-tasks-tab';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import {
@@ -43,7 +44,7 @@ import {
 } from '@/lib/household/shared-device';
 import { isSplitTask, taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { isDueToday } from '@/lib/tasks/today';
-import { displayDueLabel } from '@/lib/tasks/due-label';
+import { displayDueLabel, homeworkDueChip } from '@/lib/tasks/due-label';
 import {
   groupExpiredByDay,
   isActiveTask,
@@ -52,7 +53,8 @@ import {
   isExpiredVisibleInTab,
 } from '@/lib/tasks/expired-tab';
 import { isExpiredStatus } from '@/lib/tasks/recurring';
-import { isTasksStatus } from '@/lib/navigation/open-tasks-tab';
+import { homeworkSubjectMeta, resolveHomeworkSubject } from '@/lib/tasks/homework-subject';
+import { useTasksLiveRefresh } from '@/lib/refresh/use-tasks-live-refresh';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -112,11 +114,7 @@ function getMember(members: HouseholdMember[], assignee: string) {
 
 function getSubjectMeta(task: HouseholdTask) {
   if (!isHomework(task)) return null;
-  const key =
-    Object.keys(SUBJECT_COLORS).find(
-      (subject) => subject !== 'Homework' && new RegExp(subject, 'i').test(`${task.category} ${task.title} ${task.description ?? ''}`)
-    ) ?? 'Homework';
-  return { ...SUBJECT_COLORS[key], label: key };
+  return homeworkSubjectMeta(resolveHomeworkSubject(task));
 }
 
 function getPriorityColor(task: HouseholdTask) {
@@ -181,6 +179,7 @@ function TaskItem({
   rewardSettings,
   xpEnabled,
   interactive = true,
+  homeworkCard = false,
   onToggle,
   onDelete,
 }: {
@@ -193,6 +192,7 @@ function TaskItem({
   rewardSettings: HouseholdRewardSettings;
   xpEnabled: boolean;
   interactive?: boolean;
+  homeworkCard?: boolean;
   onToggle: () => void;
   onDelete: () => void;
 }) {
@@ -242,6 +242,8 @@ function TaskItem({
     shareXp ?? task.awardedXp ?? resolveTaskXpFromHouseholdTask(task, rewardSettings);
   const sub = getSubjectMeta(task);
   const accent = memberAccentColor(member);
+  const homeworkOpen = homeworkCard && isHomework(task) && !done && interactive;
+  const dueChip = homeworkCard && isHomework(task) ? homeworkDueChip(task) : null;
   const borderColor = done
     ? accent
     : `${isHomework(task) ? (sub?.color ?? c.planPurple) : getPriorityColor(task)}80`;
@@ -289,8 +291,8 @@ function TaskItem({
         <View style={styles.taskBody}>
         <View style={styles.titleRow}>
           {isHomework(task) && sub ? (
-            <View style={[styles.subjectPill, { backgroundColor: `${sub.color}18` }]}>
-              <Text style={[styles.subjectPillText, { color: sub.color }]}>
+            <View style={[styles.subjectPill, homeworkCard && styles.subjectPillLarge, { backgroundColor: `${sub.color}18` }]}>
+              <Text style={[styles.subjectPillText, homeworkCard && styles.subjectPillTextLarge, { color: sub.color }]}>
                 {sub.emoji} {sub.label}
               </Text>
             </View>
@@ -298,6 +300,7 @@ function TaskItem({
           <Text
             style={[
               styles.taskTitle,
+              homeworkCard && styles.homeworkTitle,
               { color: done && !justCompleted ? c.textMuted : c.text },
               done && !justCompleted && styles.taskTitleDone,
             ]}
@@ -306,8 +309,24 @@ function TaskItem({
           </Text>
         </View>
         <View style={styles.metaRow}>
+          {dueChip ? (
+            <View
+              style={[
+                styles.metaPill,
+                styles.homeworkDuePill,
+                { backgroundColor: `${sub?.color ?? c.planPurple}22`, borderColor: `${sub?.color ?? c.planPurple}44` },
+              ]}>
+              <MaterialIcons name="schedule" size={12} color={sub?.color ?? c.planPurple} />
+              <Text style={[styles.metaPillText, { color: sub?.color ?? c.planPurple, fontWeight: '700' }]}>
+                {dueChip}
+              </Text>
+            </View>
+          ) : (
+            <>
           <MaterialIcons name="schedule" size={10} color={c.textSubtle} />
           <Text style={[styles.dueText, { color: c.textSubtle }]}>{displayDueLabel(task)}</Text>
+            </>
+          )}
           {task.completedLate || (done && task.completedAt && task.dueAt && task.completedAt > task.dueAt) ? (
             <View
               style={[
@@ -383,6 +402,12 @@ function TaskItem({
                 </>
               )}
             </View>
+          ) : homeworkOpen ? (
+            <Pressable
+              onPress={onToggle}
+              style={[styles.completeCta, { backgroundColor: sub?.color ?? c.planPurple }]}>
+              <Text style={[styles.completeCtaText, { color: c.ink }]}>Complete</Text>
+            </Pressable>
           ) : (
             <XPBadge
               xp={displayXp}
@@ -392,6 +417,12 @@ function TaskItem({
               hygieneXpWhenRewarded={hygieneXpWhenRewarded}
             />
           )
+        ) : homeworkOpen ? (
+          <Pressable
+            onPress={onToggle}
+            style={[styles.completeCta, { backgroundColor: sub?.color ?? c.planPurple }]}>
+            <Text style={[styles.completeCtaText, { color: c.ink }]}>Complete</Text>
+          </Pressable>
         ) : null}
       </Animated.View>
   );
@@ -470,6 +501,7 @@ function TaskSection({
   rewardSettings,
   xpEnabled,
   interactive = true,
+  homeworkCard = false,
   onToggle,
   onDelete,
 }: {
@@ -490,6 +522,7 @@ function TaskSection({
   rewardSettings: HouseholdRewardSettings;
   xpEnabled: boolean;
   interactive?: boolean;
+  homeworkCard?: boolean;
   onToggle: (taskId: string) => void;
   onDelete: (taskId: string) => void;
 }) {
@@ -548,6 +581,7 @@ function TaskSection({
               rewardSettings={rewardSettings}
               xpEnabled={xpEnabled}
               interactive={interactive}
+              homeworkCard={homeworkCard}
               onToggle={() => onToggle(task.id)}
               onDelete={() => onDelete(task.id)}
             />
@@ -575,6 +609,7 @@ export default function TasksScreen() {
     v2Permissions,
   } = useOrbit();
   const { refreshing, onRefresh } = useHouseholdRefresh();
+  useTasksLiveRefresh(true);
   const [domainTab, setDomainTab] = useState<TaskDomainTab>('chores');
   const [statusTab, setStatusTab] = useState<TaskStatusTab>('active');
   const [filter, setFilter] = useState<TaskFilter>('all');
@@ -596,6 +631,10 @@ export default function TasksScreen() {
     ? rewardSettings.hygieneXp
     : undefined;
 
+  const assignRoute =
+    domainTab === 'homework'
+      ? ('/assign-homework' as const)
+      : ('/assign-task' as const);
   const memberParam = Array.isArray(params.member) ? params.member[0] : params.member;
   const statusParam = Array.isArray(params.status) ? params.status[0] : params.status;
 
@@ -849,7 +888,7 @@ export default function TasksScreen() {
           <Pressable
             onPress={() =>
               router.push({
-                pathname: '/assign-task',
+                pathname: assignRoute,
                 params: focusMember ? { member: focusMember } : {},
               } as never)
             }
@@ -969,18 +1008,24 @@ export default function TasksScreen() {
             title={
               statusTab === 'expired'
                 ? 'Nothing expired this week.'
-                : sharedKidMode
-                  ? 'No tasks for you right now'
-                  : 'Nothing in this view'
+                : domainTab === 'homework' && sharedKidMode
+                  ? "You're all clear"
+                  : sharedKidMode
+                    ? 'No tasks for you right now'
+                    : 'Nothing in this view'
             }
             caption={
               statusTab === 'expired'
                 ? `Expired tasks clear from this view after ${getHouseRulesDoc().constants.expiredPurgeDays} days.`
-                : sharedKidMode
-                  ? 'Ask an adult to assign you something — or switch account if it’s someone else’s turn.'
-                  : permissions.canCreateTask
-                    ? 'Assign tasks to fill today’s work.'
-                    : 'Ask an adult to assign you something, or switch filters.'
+                : domainTab === 'homework' && sharedKidMode
+                  ? 'Nothing due right now. Nice work.'
+                  : sharedKidMode
+                    ? 'Ask an adult to assign you something — or switch account if it’s someone else’s turn.'
+                    : permissions.canCreateTask
+                      ? domainTab === 'homework'
+                        ? 'Assign homework so Sidekicks know what to finish.'
+                        : 'Assign tasks to fill today’s work.'
+                      : 'Ask an adult to assign you something, or switch filters.'
             }
           />
           {sharedKidMode ? (
@@ -991,12 +1036,14 @@ export default function TasksScreen() {
             <Pressable
               onPress={() =>
                 router.push({
-                  pathname: '/assign-task',
+                  pathname: assignRoute,
                   params: focusMember ? { member: focusMember } : {},
                 } as never)
               }
               style={styles.emptyCta}>
-              <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Assign tasks</Text>
+              <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>
+                {domainTab === 'homework' ? 'Assign homework' : 'Assign tasks'}
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -1046,6 +1093,7 @@ export default function TasksScreen() {
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}
             rewardSettings={rewardSettings}
             xpEnabled={rewardCapabilities.xpEnabled}
+            homeworkCard={domainTab === 'homework'}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />
@@ -1068,6 +1116,7 @@ export default function TasksScreen() {
           hygieneXpWhenRewarded={hygieneXpWhenRewarded}
           rewardSettings={rewardSettings}
           xpEnabled={rewardCapabilities.xpEnabled}
+          homeworkCard={domainTab === 'homework'}
           onToggle={handleToggle}
           onDelete={handleDelete}
         />
@@ -1086,6 +1135,7 @@ export default function TasksScreen() {
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}
             rewardSettings={rewardSettings}
             xpEnabled={rewardCapabilities.xpEnabled}
+            homeworkCard={domainTab === 'homework'}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />
@@ -1102,6 +1152,7 @@ export default function TasksScreen() {
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}
             rewardSettings={rewardSettings}
             xpEnabled={rewardCapabilities.xpEnabled}
+            homeworkCard={domainTab === 'homework'}
             onToggle={handleToggle}
             onDelete={handleDelete}
           />
@@ -1303,6 +1354,36 @@ const styles = StyleSheet.create({
   subjectPillText: {
     fontSize: 10,
     fontWeight: '600',
+  },
+  subjectPillLarge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  subjectPillTextLarge: {
+    fontSize: 12,
+  },
+  homeworkTitle: {
+    flexBasis: '100%',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  homeworkDuePill: {
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  completeCta: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 999,
+    justifyContent: 'center',
+    minWidth: 84,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  completeCtaText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
   taskBody: {
     flex: 1,

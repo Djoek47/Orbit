@@ -41,6 +41,7 @@ import {
   XP_LADDER,
 } from '@/lib/rewards/reward-mode';
 import { formatAssigneeLabel } from '@/lib/tasks/split-assign';
+import { formatHomeworkDescription } from '@/lib/tasks/homework-subject';
 import { computeTaskXp, weightForDifficulty } from '@/lib/tasks/xp';
 import { allLibraryTasks } from '@/lib/tasks/task-library';
 import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
@@ -267,6 +268,8 @@ export default function CreateTaskScreen() {
     tab?: string | string[];
     custom?: string | string[];
     assignee?: string | string[];
+    subject?: string | string[];
+    due?: string | string[];
     from?: string | string[];
   }>();
   const { accentTheme, createTask, household, orbitPalette, permissions } = useOrbit();
@@ -274,9 +277,23 @@ export default function CreateTaskScreen() {
   const initialTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const customParam = Array.isArray(params.custom) ? params.custom[0] : params.custom;
   const assigneeParam = Array.isArray(params.assignee) ? params.assignee[0] : params.assignee;
+  const subjectParam = Array.isArray(params.subject) ? params.subject[0] : params.subject;
+  const dueParam = Array.isArray(params.due) ? params.due[0] : params.due;
   const fromParam = Array.isArray(params.from) ? params.from[0] : params.from;
   const isCustom = customParam === '1' || customParam === 'true';
   const initialType: TaskType = initialTab === 'homework' ? 'homework' : 'task';
+  const initialSubject =
+    subjects.find((item) => item.label.toLowerCase() === subjectParam?.trim().toLowerCase())?.label ??
+    'Math';
+  const initialCustomSubject =
+    subjectParam?.trim() &&
+    !subjects.some((item) => item.label.toLowerCase() === subjectParam.trim().toLowerCase())
+      ? subjectParam.trim()
+      : '';
+  const initialDue =
+    dueParam && (dueOptions as readonly string[]).includes(dueParam)
+      ? (dueParam as (typeof dueOptions)[number])
+      : 'Today';
 
   const rewardSettings = useMemo(
     () =>
@@ -320,16 +337,19 @@ export default function CreateTaskScreen() {
   const showHygieneLibrary =
     libraryAudience === 'family' && childMembers.length > 0;
 
-  const [mode, setMode] = useState<ScreenMode>(isCustom ? 'custom' : 'picker');
+  const [mode, setMode] = useState<ScreenMode>(isCustom || initialType === 'homework' ? 'custom' : 'picker');
   const [pickerIds, setPickerIds] = useState<string[]>([]);
   const [type, setType] = useState<TaskType>(initialType);
   const [title, setTitle] = useState('');
-  const [subject, setSubject] = useState<(typeof subjects)[number]['label']>('Math');
+  const [subject, setSubject] = useState<(typeof subjects)[number]['label']>(
+    initialSubject as (typeof subjects)[number]['label']
+  );
+  const [customSubject, setCustomSubject] = useState(initialCustomSubject);
   const defaultAssigneeId = activeMembers[0]?.id ?? '';
   /** Selected assign targets — member ids. Tap = single; long-press = split. */
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultAssigneeId ? [defaultAssigneeId] : []);
   const [splitMode, setSplitMode] = useState(false);
-  const [due, setDue] = useState<(typeof dueOptions)[number]>('Today');
+  const [due, setDue] = useState<(typeof dueOptions)[number]>(initialDue);
   const [priority, setPriority] = useState(1);
 
   useEffect(() => {
@@ -760,19 +780,21 @@ export default function CreateTaskScreen() {
         return;
       }
       const occurrenceDate = occurrenceDateForDueLabel(due);
+      const resolvedSubject = (customSubject.trim() || subject).trim();
       const payload = buildTaskPayload({
         title: trimmedTitle,
-        description: description ?? `Subject: ${subject}`,
+        description: formatHomeworkDescription(resolvedSubject),
         category: 'homework_education',
         due: dueLabelForDate(occurrenceDate),
         xp: computeTaskXp(baseXp || 15, weightForDifficulty('medium'), 'medium'),
         repeat,
         difficulty: 'medium',
         weight: weightForDifficulty('medium'),
-        proofRequired: true,
+        proofRequired: false,
       });
       createTask({
         ...payload,
+        homeworkSubject: resolvedSubject,
         assignee: kidNames[0]!,
         assignees: kidNames.length > 1 ? kidNames : undefined,
         occurrenceDate,
@@ -824,7 +846,7 @@ export default function CreateTaskScreen() {
         repeat: mapLibraryRepeat(task.defaultFrequency),
         difficulty: 'medium',
         weight: 1,
-        proofRequired: type === 'homework' || task.domainId === 'homework_education',
+        proofRequired: false,
         tracking: task.tracking,
       });
       const definitionId = `lib:${task.id}:${payload.assignee}`;
@@ -1512,11 +1534,14 @@ export default function CreateTaskScreen() {
             <Text style={[styles.label, { color: c.textMuted }]}>SUBJECT</Text>
             <View style={styles.subjectRow}>
               {subjects.map((item) => {
-                const active = subject === item.label;
+                const active = !customSubject.trim() && subject === item.label;
                 return (
                   <Pressable
                     key={item.label}
-                    onPress={() => setSubject(item.label)}
+                    onPress={() => {
+                      setSubject(item.label);
+                      setCustomSubject('');
+                    }}
                     style={[
                       styles.subjectChip,
                       {
@@ -1532,6 +1557,16 @@ export default function CreateTaskScreen() {
                 );
               })}
             </View>
+            <TextInput
+              value={customSubject}
+              onChangeText={setCustomSubject}
+              placeholder="Custom subject"
+              placeholderTextColor={c.textSubtle}
+              style={[
+                styles.customSubjectInput,
+                { color: c.text, borderColor: glassBorder(0.1), backgroundColor: glass(0.06) },
+              ]}
+            />
           </View>
         ) : null}
 
@@ -2095,6 +2130,14 @@ const styles = StyleSheet.create({
   subjectText: {
     fontSize: 12,
     fontWeight: '600'
+  },
+  customSubjectInput: {
+    borderRadius: 16,
+    borderWidth: 1,
+    fontSize: 14,
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   priorityRow: {
     flexDirection: 'row',

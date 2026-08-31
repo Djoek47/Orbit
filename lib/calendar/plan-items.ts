@@ -1,5 +1,6 @@
 import { eventDateKey, householdCategoryToMakeType } from '@/lib/calendar/make-calendar';
 import { isHomeworkTask, taskDueDateKey } from '@/lib/calendar/event-date';
+import { resolveHomeworkSubject } from '@/lib/tasks/homework-subject';
 import type { HouseholdEvent, HouseholdTask } from '@/types/orbit';
 
 export type PlanItemKind = 'event' | 'homework' | 'grocery' | 'itinerary';
@@ -11,6 +12,7 @@ export type PlanItem = {
   dateKey: string | null;
   time?: string;
   responsible?: string;
+  homeworkSubject?: string;
   href: string;
   /** Underlying calendar category when kind === event */
   category?: HouseholdEvent['category'];
@@ -35,6 +37,7 @@ export function homeworkTasksForPlan(tasks: HouseholdTask[], reference = new Dat
       dateKey: taskDueDateKey(task, reference),
       time: task.due,
       responsible: task.assignee,
+      homeworkSubject: resolveHomeworkSubject(task) ?? undefined,
       href: `/task/${task.id}`,
     }))
     .filter((item) => Boolean(item.dateKey));

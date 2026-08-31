@@ -33,6 +33,7 @@ import {
   normalizeRewardSettings,
 } from '@/lib/rewards/reward-mode';
 import { formatLocalDate } from '@/lib/streaks/local-date';
+import { visibleEventsForMember } from '@/lib/calendar/plan-visibility';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { greetingWord } from '@/lib/time/greeting';
@@ -134,12 +135,19 @@ export default function HomeScreen() {
     permissions.canManageGroceries,
     permissions.canManageHousehold,
   ]);
-  const nextEvent = [
-    ...household.events.filter(
-      (e) => e.date === 'Today' || (e.startsAt ?? '').startsWith(new Date().toISOString().slice(0, 10))
-    ),
-    ...household.events,
-  ].filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i)[0];
+  const nextEvent = useMemo(() => {
+    const todayKey = formatLocalDate(new Date(), household.timezone);
+    const ordered = [
+      ...household.events.filter(
+        (event) =>
+          event.date === 'Today' ||
+          (event.startsAt ?? '').startsWith(todayKey) ||
+          event.date.toLowerCase().includes('today')
+      ),
+      ...household.events,
+    ].filter((event, index, arr) => arr.findIndex((item) => item.id === event.id) === index);
+    return visibleEventsForMember(ordered, currentMember)[0] ?? null;
+  }, [currentMember, household.events, household.timezone]);
 
   const weekLeaders = useMemo<LeaderboardEntry[]>(() => {
     return household.members

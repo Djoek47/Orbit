@@ -65,6 +65,18 @@ export function displayDueLabel(
   return task.due?.trim() || '';
 }
 
+/** Kid-readable due chip for homework cards — "Due today", "Due tomorrow", etc. */
+export function homeworkDueChip(
+  task: Pick<HouseholdTask, 'occurrenceDate' | 'dueAt' | 'due'>,
+  now = new Date()
+): string {
+  const label = displayDueLabel(task, now);
+  if (/^today$/i.test(label)) return 'Due today';
+  if (/^tomorrow$/i.test(label)) return 'Due tomorrow';
+  if (!label) return 'Due soon';
+  return label.toLowerCase().startsWith('due') ? label : `Due ${label}`;
+}
+
 /** Relabel open tasks whose occurrenceDate is today but due label is stale. */
 export function refreshStaleDueLabels<T extends HouseholdTask>(
   tasks: T[],

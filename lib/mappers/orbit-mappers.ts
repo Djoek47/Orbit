@@ -110,6 +110,7 @@ export function mapTaskRow(row: {
   proof_required?: boolean | null;
   proof_uri?: string | null;
   proof_status?: 'none' | 'submitted' | 'approved' | 'rejected' | null;
+  homework_subject?: string | null;
   definition_id?: string | null;
   occurrence_date?: string | null;
   due_at?: string | null;
@@ -148,6 +149,7 @@ export function mapTaskRow(row: {
     proofRequired: row.proof_required ?? undefined,
     proofUri: row.proof_uri ?? undefined,
     proofStatus,
+    homeworkSubject: row.homework_subject?.trim() || undefined,
     definitionId: row.definition_id ?? undefined,
     occurrenceDate: row.occurrence_date ?? undefined,
     dueAt: row.due_at ?? undefined,
@@ -234,7 +236,10 @@ export function mapEventRow(row: {
   time_label: string;
   location: string | null;
   responsible_name: string;
+  responsible_member_id?: string | null;
   starts_at?: string | null;
+  household_wide?: boolean | null;
+  attendee_member_ids?: string[] | null;
 }): HouseholdEvent {
   return {
     id: row.id,
@@ -244,6 +249,11 @@ export function mapEventRow(row: {
     time: row.time_label,
     location: row.location ?? '',
     responsible: row.responsible_name,
+    responsibleMemberId: row.responsible_member_id ?? null,
+    attendeeMemberIds: Array.isArray(row.attendee_member_ids)
+      ? row.attendee_member_ids.filter(Boolean)
+      : undefined,
+    householdWide: row.household_wide === true,
     startsAt: row.starts_at ?? undefined,
   };
 }

@@ -55,6 +55,7 @@ function buildCoreTaskInsert(input: {
     difficulty: input.task.difficulty ?? 'medium',
     proof_required: input.task.proofRequired ?? false,
     room_id: input.task.roomId ?? null,
+    homework_subject: input.task.homeworkSubject ?? null,
     ...(input.task.definitionId ? { definition_id: input.task.definitionId } : {}),
     ...(input.task.occurrenceDate ? { occurrence_date: input.task.occurrenceDate } : {}),
   };
@@ -77,6 +78,15 @@ function buildCoreTaskUpdate(task: HouseholdTask) {
     proof_required: task.proofRequired ?? false,
     proof_uri: task.proofUri ?? null,
     proof_status: task.proofStatus ?? null,
+    homework_subject: task.homeworkSubject ?? null,
+    verification: task.verification ?? null,
+    proof_photo_urls: task.proofPhotoUrls ?? [],
+    proof_rounds: task.proofRounds ?? [],
+    awarded_xp: task.awardedXp ?? null,
+    completed_at: task.completedAt ?? null,
+    completed_late: task.completedLate ?? null,
+    verified_by: task.verifiedBy ?? null,
+    verified_at: task.verifiedAt ?? null,
     ...(task.definitionId ? { definition_id: task.definitionId } : {}),
     ...(task.occurrenceDate ? { occurrence_date: task.occurrenceDate } : {}),
   };
@@ -109,6 +119,7 @@ function mergeTaskRow(data: Parameters<typeof mapTaskRow>[0], local: HouseholdTa
     splitPenaltyXp: local.splitPenaltyXp,
     sharedDeviceId: local.sharedDeviceId,
     xpEligible: local.xpEligible,
+    homeworkSubject: local.homeworkSubject ?? mapped.homeworkSubject,
     baseXp: local.baseXp,
   };
 }
@@ -167,6 +178,7 @@ export const taskRepository = {
       proofRequired: input.proofRequired,
       proofStatus: input.proofRequired && !split ? 'none' : undefined,
       verification: input.proofRequired ? 'not_required' : 'not_required',
+      homeworkSubject: input.homeworkSubject,
       dueAt: input.dueAt,
       roomId: input.roomId,
       sharedDeviceId: input.sharedDeviceId,

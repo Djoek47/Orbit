@@ -42,7 +42,7 @@ export function formatStoredDateLabel(dateKey: string): string {
 
 export function isHomeworkTask(task: { category: string; title: string }): boolean {
   const blob = `${task.category} ${task.title}`.toLowerCase();
-  return blob.includes('homework') || task.category === 'Homework';
+  return blob.includes('homework') || task.category === 'Homework' || task.category === 'homework_education';
 }
 
 /** Resolve a task due label to YYYY-MM-DD when possible. */

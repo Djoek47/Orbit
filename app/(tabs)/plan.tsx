@@ -27,6 +27,12 @@ import {
   planItemTypeLabel,
   type PlanItem,
 } from '@/lib/calendar/plan-items';
+import {
+  usesFocusedCalendar,
+  visibleEventsForMember,
+  visibleTasksForMember,
+} from '@/lib/calendar/plan-visibility';
+import { homeworkSubjectMeta } from '@/lib/tasks/homework-subject';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
@@ -36,6 +42,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 
 type PlanSubTab = 'calendar' | 'itinerary';
 type CalView = 'month' | 'week';
+type PlanLayerFilter = 'all' | 'homework' | 'events';
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
@@ -77,33 +84,32 @@ export default function PlanScreen() {
   const [view, setView] = useState<CalView>('month');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [layerFilter, setLayerFilter] = useState<PlanLayerFilter>('all');
+
+  const focusedCalendar = usesFocusedCalendar(currentMember?.role);
+
+  const visibleEvents = useMemo(
+    () => visibleEventsForMember(household.events, currentMember ?? null),
+    [currentMember, household.events]
+  );
+
+  const visibleTasks = useMemo(
+    () => visibleTasksForMember(household.tasks, currentMember ?? null),
+    [currentMember, household.tasks]
+  );
+
+  const planItems = useMemo(() => {
+    const items = buildPlanItems(visibleEvents, visibleTasks);
+    if (layerFilter === 'homework') return items.filter((item) => item.kind === 'homework');
+    if (layerFilter === 'events') return items.filter((item) => item.kind !== 'homework');
+    return items;
+  }, [layerFilter, visibleEvents, visibleTasks]);
+  const itemsByDate = useMemo(() => groupPlanItemsByDate(planItems), [planItems]);
 
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
   const caps = resolveMemberCapabilities(household);
   const canCreateEvent = permissions.canManageHousehold || caps.allowCalendarCreate;
-
-  const visibleEvents = useMemo(() => {
-    if (!sharedKidMode || !currentMember) return household.events;
-    const name = currentMember.name;
-    return household.events.filter(
-      (event) => event.responsible === name || event.responsible.includes(name),
-    );
-  }, [sharedKidMode, currentMember, household.events]);
-
-  const visibleTasks = useMemo(() => {
-    if (!sharedKidMode || !currentMember) return household.tasks;
-    const name = currentMember.name;
-    return household.tasks.filter(
-      (task) => task.assignee === name || task.assignees?.includes(name),
-    );
-  }, [sharedKidMode, currentMember, household.tasks]);
-
-  const planItems = useMemo(
-    () => buildPlanItems(visibleEvents, visibleTasks),
-    [visibleEvents, visibleTasks]
-  );
-  const itemsByDate = useMemo(() => groupPlanItemsByDate(planItems), [planItems]);
   const calendarDays = useMemo(() => monthGridDays(currentMonth), [currentMonth]);
   const weekDays = useMemo(() => weekStripDays(), []);
   const selectedKey = format(selectedDate, 'yyyy-MM-dd');
@@ -182,7 +188,7 @@ export default function PlanScreen() {
           <View style={[styles.calHeader, { paddingRight: canCreateEvent ? 0 : undefined }]}>
             <View style={{ flex: 1 }}>
               <PageEyebrow>
-                {sharedKidMode ? 'My calendar' : 'Household Calendar'}
+                {focusedCalendar ? 'My calendar' : 'Household Calendar'}
               </PageEyebrow>
               <Text style={[styles.h1, { color: c.text }]}>{format(currentMonth, 'MMMM yyyy')}</Text>
             </View>
@@ -389,6 +395,13 @@ export default function PlanScreen() {
                             {cfg.emoji} {planItemTypeLabel(item)}
                           </Text>
                         </View>
+                        {item.homeworkSubject ? (
+                          <View style={[styles.typePill, { backgroundColor: `${homeworkSubjectMeta(item.homeworkSubject).color}22` }]}>
+                            <Text style={[styles.typePillText, { color: homeworkSubjectMeta(item.homeworkSubject).color }]}>
+                              {homeworkSubjectMeta(item.homeworkSubject).emoji} {item.homeworkSubject}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                       <Text style={[styles.eventTitle, { color: c.text }]}>{item.title}</Text>
                       <View style={styles.eventMetaRow}>
@@ -482,6 +495,28 @@ export default function PlanScreen() {
                 );
               })}
             </View>
+          </View>
+
+          <View style={[styles.layerFilterRow, { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) }]}>
+            {(
+              [
+                { id: 'all' as const, label: 'All' },
+                { id: 'homework' as const, label: 'Homework' },
+                { id: 'events' as const, label: 'Events' },
+              ] as const
+            ).map((chip) => {
+              const active = layerFilter === chip.id;
+              return (
+                <Pressable
+                  key={chip.id}
+                  onPress={() => setLayerFilter(chip.id)}
+                  style={[styles.layerChip, active && styles.layerChipActive]}>
+                  <Text style={[styles.layerChipText, { color: active ? '#A78BFA' : c.textMuted }]}>
+                    {chip.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </>
       ) : (
@@ -640,6 +675,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 2,
   },
+  layerFilterRow: {
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 12,
+    padding: 4,
+  },
+  layerChip: { borderRadius: 8, flex: 1, paddingVertical: 8 },
+  layerChipActive: { backgroundColor: 'rgba(167,139,250,0.18)' },
+  layerChipText: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
   weekCell: {
     alignItems: 'center',
     borderRadius: 16,
