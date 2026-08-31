@@ -2,6 +2,10 @@
 
 **Branch:** `cursor/make-v18`  
 **Follows:** `cursor/make-v17` (TestFlight **1.3.0 (61)**)  
+**TestFlight:** **1.3.0 (63)** uploaded to App Store Connect (Apple processing). EAS `5b5bb95b-cbfa-45dc-b160-db8385041bab` / git `cd3a964` (stamp of `f3ce221`) / submit `8bae85a2-7050-4949-892e-18bd7ad536e1`. Settings tip `make-v18 · homework-mvp · member-realtime · simplify-invites`.
+
+Build logs: https://expo.dev/accounts/djoek47/projects/choremaxx/builds/5b5bb95b-cbfa-45dc-b160-db8385041bab
+
 **App version:** `1.3.0` (EAS `autoIncrement` on production/testflight profile)
 
 Shipping cut aggregating simplify-invites, member roster realtime, and Homework & Tasks MVP hardening.
