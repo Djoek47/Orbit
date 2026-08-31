@@ -916,7 +916,7 @@ export default function WelcomeOnboardingScreen() {
               ) : null}
               <OrbitButton onPress={handleGetStarted}>Get Started</OrbitButton>
               <OrbitButton tone="secondary" onPress={() => setScannerOpen(true)}>
-                Scan to join
+                Scan to build household
               </OrbitButton>
               {error && step === 'splash' ? <Text style={styles.error}>{error}</Text> : null}
               <Pressable onPress={() => router.push('/sign-in' as never)} style={styles.signInLink}>
