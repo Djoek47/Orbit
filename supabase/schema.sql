@@ -772,6 +772,10 @@ begin
     alter publication supabase_realtime add table public.household_saved_places;
   exception when others then null;
   end;
+  begin
+    alter publication supabase_realtime add table public.household_members;
+  exception when others then null;
+  end;
 end $$;
 
 create table if not exists public.ai_usage_events (

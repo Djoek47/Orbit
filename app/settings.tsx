@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { router, Stack, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -230,6 +230,7 @@ export default function SettingsScreen() {
     updatePreferredMapsApp,
     updateSharedDeviceLinks,
     aiUsageEvents,
+    refreshHousehold,
   } = useOrbit();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
 
@@ -252,6 +253,29 @@ export default function SettingsScreen() {
   );
 
   const [section, setSection] = useState<Section>('main');
+
+  useEffect(() => {
+    if (section !== 'members' || !permissions.canManageHousehold) return;
+
+    const refresh = () => {
+      void refreshHousehold().catch((error) => {
+        console.warn('settings.membersRefresh', error);
+      });
+    };
+
+    refresh();
+    const interval = setInterval(refresh, 12_000);
+    return () => clearInterval(interval);
+  }, [permissions.canManageHousehold, refreshHousehold, section]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (section !== 'members') return;
+      void refreshHousehold().catch((error) => {
+        console.warn('settings.membersRefresh.focus', error);
+      });
+    }, [refreshHousehold, section])
+  );
   const [deadlineOpen, setDeadlineOpen] = useState(false);
   const houseRulesDoc = useMemo(() => getHouseRulesDoc(), []);
   const houseRulesView = useMemo(() => houseRulesHouseholdView(household), [household]);

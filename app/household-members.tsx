@@ -31,6 +31,7 @@ import {
   memberUsesProfileInvite,
 } from '@/lib/household/member-invite-routing';
 import { memberConnectionPhase } from '@/lib/household/member-connection';
+import { useMembersLiveRefresh } from '@/lib/refresh/use-members-live-refresh';
 import {
   countMembersForMembersScreen,
   JOIN_POLICY_COPY,
@@ -85,6 +86,8 @@ export default function HouseholdMembersScreen() {
     addOnboardingMembers,
   } = useOrbit();
   const { c } = useOrbitColors();
+
+  useMembersLiveRefresh(permissions.canManageHousehold);
 
   const [memberInvites, setMemberInvites] = useState<MemberInvite[]>([]);
   const [inviteTarget, setInviteTarget] = useState<InviteTarget>(null);

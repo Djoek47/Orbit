@@ -13,10 +13,15 @@ export type MemberConnectionPhase = 'connected' | 'awaiting';
 
 const CONNECTED_ROLES: HouseholdRole[] = ['owner'];
 
+function isConnectedAdmin(member: HouseholdMember): boolean {
+  return member.role === 'admin' && member.status === 'active';
+}
+
 /** True when this member should count toward tasks, XP, rankings, and load. */
 export function isMemberFullyConnected(member: HouseholdMember | null | undefined): boolean {
   if (!member) return false;
   if (CONNECTED_ROLES.includes(member.role)) return member.status === 'active';
+  if (isConnectedAdmin(member)) return true;
   if (member.status !== 'active' && member.status !== 'pending') return false;
   if (member.role === 'child' && member.status === 'active') return true;
   return Boolean(member.userId?.trim());
@@ -28,6 +33,7 @@ export function memberConnectionPhase(
 ): MemberConnectionPhase {
   if (!member) return 'awaiting';
   if (CONNECTED_OWNER(member)) return 'connected';
+  if (isConnectedAdmin(member)) return 'connected';
   if (member.status === 'invited') return 'awaiting';
   if (member.status === 'pending' || member.status === 'active') {
     if (member.role === 'child' && member.status === 'active') return 'connected';

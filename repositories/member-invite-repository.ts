@@ -127,12 +127,15 @@ export function applyRedeemedMember(
   snapshot: HouseholdSnapshot,
   memberId: string,
   status: 'active' | 'pending',
-  storageRole: 'admin' | 'child'
+  storageRole: 'admin' | 'child',
+  userId?: string | null
 ): HouseholdSnapshot {
   return {
     ...snapshot,
     members: snapshot.members.map((member) =>
-      member.id === memberId ? { ...member, status, role: storageRole } : member
+      member.id === memberId
+        ? { ...member, status, role: storageRole, userId: userId ?? member.userId ?? null }
+        : member
     ),
   };
 }

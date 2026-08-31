@@ -1891,7 +1891,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (!result.ok) return result;
       const base = householdRef.current.members.length ? householdRef.current : mockHousehold;
       const storageRole = result.invite.role === 'sidekick' ? 'child' : 'admin';
-      const next = applyRedeemedMember(base, result.invite.memberId, result.memberStatus, storageRole);
+      const next = applyRedeemedMember(
+        base,
+        result.invite.memberId,
+        result.memberStatus,
+        storageRole,
+        user.id
+      );
       setHousehold(next);
       setActiveMemberId(result.invite.memberId);
       await saveActiveMemberId(result.invite.memberId);
