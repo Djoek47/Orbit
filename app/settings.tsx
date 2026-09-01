@@ -206,6 +206,7 @@ export default function SettingsScreen() {
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [majordomoOpen, setMajordomoOpen] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
+  const [settingsToggleBusy, setSettingsToggleBusy] = useState(false);
   const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const prefs = useMemo(
     () =>
@@ -223,6 +224,16 @@ export default function SettingsScreen() {
     [household.notificationPrefs]
   );
   const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
+
+  const guardSettingsToggle = useCallback(
+    (action: () => void) => {
+      if (settingsToggleBusy) return;
+      setSettingsToggleBusy(true);
+      action();
+      setTimeout(() => setSettingsToggleBusy(false), 450);
+    },
+    [settingsToggleBusy]
+  );
 
   useEffect(() => {
     if (section !== 'notifications' && section !== 'main') return;
@@ -752,7 +763,10 @@ export default function SettingsScreen() {
                       </View>
                       <Switch
                         value={caps[key]}
-                        onValueChange={(value) => updateMemberCapabilities({ [key]: value })}
+                        disabled={settingsToggleBusy}
+                        onValueChange={(value) =>
+                          guardSettingsToggle(() => updateMemberCapabilities({ [key]: value }))
+                        }
                         trackColor={{ false: glassBorder(0.1), true: accentTheme.primary }}
                         thumbColor="#fff"
                       />
@@ -777,7 +791,8 @@ export default function SettingsScreen() {
                   </View>
                   <Switch
                     value={household.sidekickGroceryAdd === true}
-                    onValueChange={(value) => updateSidekickGroceryAdd(value)}
+                    disabled={settingsToggleBusy}
+                    onValueChange={(value) => guardSettingsToggle(() => updateSidekickGroceryAdd(value))}
                     trackColor={{ false: glassBorder(0.1), true: accentTheme.primary }}
                     thumbColor="#fff"
                   />

@@ -112,4 +112,47 @@ Push tap → `NotificationTapBridge` → `getNotificationRoute()` deep link.
 
 Server enforcement: `sidekick-grocery-action` and `sidekick-event-action` read caps from DB (not client payload).
 
-Build tip in Settings: `make-v18 · sidekick-writes · presence-ui · push-admin · sync-100`
+Build tip in Settings: `make-v18 · inbox-unify · settings-sync · sidekick-unlock · tf67`
+
+## Decision logic matrix (TF67)
+
+Trace: **UI hidden → client throw → server 403**. All rows verified in code audit for build 67.
+
+### Approval and capability gates
+
+| Thread | UI gate | Client enforcement | Server enforcement |
+|--------|---------|-------------------|-------------------|
+| Task proof submit | Sidekick task detail | `sidekick-task-action` `submit_proof` | Edge + admin notify |
+| Task complete | Assignee only | `completeTask` assignee check | `sidekick-task-action` `complete` |
+| Event create (Sidekick) | `allowCalendarCreate` | `create-event` locked state | `sidekick-event-action` + `resolveSidekickEventApproval` |
+| Event approve/decline | Admin only | `permissions.canManageHousehold` | `approveEvent` / `rejectEvent` store |
+| Reward redeem | `allowRewardRedeem` | `canRequestReward` / claim press | RLS on `reward_redemptions` |
+| Special reward request | `allowSpecialRewardRequest` | store `requestSpecialReward` throw | RLS |
+| Allowance request | `allowAllowance` + `allowanceRequestsEnabled` | store `requestAllowance` throw | RLS on allowances |
+| Allowance approve | Admin | `canApproveReward` | `approveAllowance` repo |
+| Grocery add (Sidekick) | `sidekickGroceryAdd` + `allowGroceryAdd` | add-grocery UI | `sidekick-grocery-action` 403 |
+| Join / invite | `joinApprovalRequired` | household repo | `join-household` edge |
+| Household settings | Settings toggles | store updates | Sidekick poll ≤3s + edge `household-settings.ts` |
+
+### Confirm / destructive dialogs
+
+| Action | Screen | Cancel default | Busy guard |
+|--------|--------|----------------|------------|
+| Delete event | `event/[id].tsx` | Yes | `busy` on save |
+| Decline event | `event/[id].tsx` | Yes | `approveBusy` |
+| Delete task | `task/[id].tsx` | Yes | `busy` |
+| Mark not done | `task/[id].tsx` | Yes | `busy` |
+| Clear groceries | `groceries.tsx` | Yes | `busy` |
+| Delete household | `delete-household.tsx` | Yes | `busy` |
+| Delete account | `delete-account.tsx` | Yes | `busy` |
+| Remove member | settings roster | Yes | — |
+
+### Poppins AI decision paths
+
+| Path | Control | Verified |
+|------|---------|----------|
+| Chat tools | `execute-poppins-tool` household context | Yes |
+| Monitor pass | Actions → Inbox Activity segment | Yes |
+| Voice tools | `forceRiskyConfirmation` in voice session | Yes |
+| Sidekick Poppins | `sidekickForbiddenStatus` 403 | Yes |
+

@@ -257,7 +257,7 @@ export default function CreateEventScreen() {
           ) : null}
         </GlassCard>
 
-        <OrbitButton disabled={!canSave || saving} onPress={handleSave}>
+        <OrbitButton disabled={!canSave || saving} loading={saving} onPress={handleSave}>
           {saving ? 'Saving…' : needsApproval ? 'Send for approval' : 'Add to Plan'}
         </OrbitButton>
       </ScrollView>

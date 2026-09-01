@@ -1242,11 +1242,25 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    return subscribeHouseholdRealtime(household.id, () => {
-      reloadHouseholdDomains().catch((error) => {
-        console.warn('Failed to reload after realtime change', error);
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+
+    void (async () => {
+      const sidekickActive =
+        isSidekickRole(currentMemberRef.current?.role) || Boolean(await loadSidekickSession());
+      if (cancelled || sidekickActive) return;
+
+      unsubscribe = subscribeHouseholdRealtime(household.id!, () => {
+        reloadHouseholdDomains().catch((error) => {
+          console.warn('Failed to reload after realtime change', error);
+        });
       });
-    });
+    })();
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [household.id, reloadHouseholdDomains]);
 
   useEffect(() => {

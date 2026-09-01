@@ -214,6 +214,7 @@ export const orbitControl = {
   buttonLabelWeight: '700' as const,
   inputHeight: 52,
   chipHeight: 32,
+  minTouchTarget: 44,
 };
 
 /**

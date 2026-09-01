@@ -946,7 +946,7 @@ export default function WelcomeOnboardingScreen() {
             <View style={styles.splashCtaBlock}>
               {sidekickWelcomeBack && savedSidekick ? (
                 <>
-                  <OrbitButton disabled={busy} onPress={() => void handleContinueSidekick()}>
+                  <OrbitButton disabled={busy} loading={busy} onPress={() => void handleContinueSidekick()}>
                     {busy ? 'Opening…' : `Continue as ${savedSidekick.displayName}`}
                   </OrbitButton>
                   <Text
@@ -1170,7 +1170,7 @@ export default function WelcomeOnboardingScreen() {
                 actionParams={{ email: email.trim() }}
                 onDismiss={() => setAccountIssue(null)}
               />
-              <OrbitButton disabled={busy} onPress={() => void handleAccountContinue()}>
+              <OrbitButton disabled={busy} loading={busy} onPress={() => void handleAccountContinue()}>
                 {busy ? 'Creating…' : 'Continue'}
               </OrbitButton>
               {signupRateLimited && !accountIssue ? (
@@ -1239,7 +1239,7 @@ export default function WelcomeOnboardingScreen() {
               </Pressable>
               <OrbitInput label="Display name" value={displayName} onChangeText={setDisplayName} />
               {error ? <Text style={styles.error}>{error}</Text> : null}
-              <OrbitButton disabled={busy} onPress={handleProfileContinue}>
+              <OrbitButton disabled={busy} loading={busy} onPress={handleProfileContinue}>
                 {busy ? 'Saving…' : 'Continue'}
               </OrbitButton>
             </KeyboardScreen>
@@ -1261,7 +1261,10 @@ export default function WelcomeOnboardingScreen() {
                 placeholder="e.g. The Martin Family"
               />
               {error ? <Text style={styles.error}>{error}</Text> : null}
-              <OrbitButton disabled={busy || !householdName.trim()} onPress={handleHouseholdContinue}>
+              <OrbitButton
+                disabled={busy || !householdName.trim()}
+                loading={busy}
+                onPress={handleHouseholdContinue}>
                 {busy ? 'Working…' : 'Continue'}
               </OrbitButton>
             </KeyboardScreen>

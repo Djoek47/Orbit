@@ -102,7 +102,7 @@ export default function JoinProfileScreen() {
             {error}
           </Text>
         ) : null}
-        <OrbitButton disabled={busy} onPress={() => void handleContinue()}>
+        <OrbitButton disabled={busy} loading={busy} onPress={() => void handleContinue()}>
           {busy ? 'Joining…' : 'Join household'}
         </OrbitButton>
       </View>

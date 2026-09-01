@@ -93,6 +93,7 @@ export default function EventDetailScreen() {
     event ? defaultNotifyMemberIds(event, activeMembers) : []
   );
   const [busy, setBusy] = useState(false);
+  const [approveBusy, setApproveBusy] = useState(false);
   const [notifyBusy, setNotifyBusy] = useState(false);
   const [notifyPulse, setNotifyPulse] = useState(false);
 
@@ -276,18 +277,33 @@ export default function EventDetailScreen() {
 
         {event.approvalStatus === 'pending' && permissions.canManageHousehold && !editing ? (
           <View style={styles.approvalRow}>
-            <OrbitButton onPress={() => void approveEvent(event.id).then(() => router.back())}>
+            <OrbitButton
+              loading={approveBusy}
+              disabled={approveBusy}
+              onPress={() => {
+                if (approveBusy) return;
+                setApproveBusy(true);
+                void approveEvent(event.id)
+                  .then(() => router.back())
+                  .finally(() => setApproveBusy(false));
+              }}>
               Approve
             </OrbitButton>
             <OrbitButton
               tone="secondary"
+              disabled={approveBusy}
               onPress={() =>
                 Alert.alert('Decline event', `Remove “${event.title}” from the calendar?`, [
                   { text: 'Cancel', style: 'cancel' },
                   {
                     text: 'Decline',
                     style: 'destructive',
-                    onPress: () => void rejectEvent(event.id).then(() => router.back()),
+                    onPress: () => {
+                      setApproveBusy(true);
+                      void rejectEvent(event.id)
+                        .then(() => router.back())
+                        .finally(() => setApproveBusy(false));
+                    },
                   },
                 ])
               }>
@@ -403,6 +419,7 @@ export default function EventDetailScreen() {
 
               <OrbitButton
                 disabled={!notifyReady || notifyBusy}
+                loading={notifyBusy}
                 onPress={() => void handleNotify()}
                 tone="secondary">
                 {notifyBusy

@@ -95,7 +95,7 @@ export default function SpecialRewardRequestScreen() {
         />
       </GlassCard>
 
-      <OrbitButton disabled={!title.trim() || busy} onPress={() => void handleSubmit()}>
+      <OrbitButton disabled={!title.trim() || busy} loading={busy} onPress={() => void handleSubmit()}>
         {busy ? 'Sending…' : 'Send suggestion'}
       </OrbitButton>
       <OrbitButton tone="secondary" onPress={() => router.back()}>

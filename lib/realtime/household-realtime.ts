@@ -5,11 +5,8 @@ const REALTIME_TABLES = [
   'grocery_items',
   'calendar_events',
   'household_members',
-  'rewards',
-  'badges',
   'notifications',
   'reward_redemptions',
-  'smart_home_devices',
 ] as const;
 
 /**

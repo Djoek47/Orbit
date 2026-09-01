@@ -273,7 +273,7 @@ export default function RedeemMemberInviteScreen() {
             actionParams={{ email: email.trim() }}
             onDismiss={() => setIssue(null)}
           />
-          <OrbitButton disabled={busy || showSuccess} onPress={() => void handleEmailAuth()}>
+          <OrbitButton disabled={busy || showSuccess} loading={busy} onPress={() => void handleEmailAuth()}>
             {busy ? 'Working…' : authMode === 'sign-up' ? 'Create & join' : 'Sign in & join'}
           </OrbitButton>
         </View>

@@ -154,7 +154,7 @@ export default function SignInScreen() {
           onDismiss={() => setIssue(null)}
         />
 
-        <OrbitButton disabled={busy || showSuccess} onPress={() => void handleSignIn()}>
+        <OrbitButton disabled={busy || showSuccess} loading={busy} onPress={() => void handleSignIn()}>
           {busy ? 'Signing in…' : 'Sign in'}
         </OrbitButton>
 
