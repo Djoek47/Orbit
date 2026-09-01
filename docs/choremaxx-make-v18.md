@@ -79,7 +79,7 @@ Set secret if missing: `EXPO_ACCESS_TOKEN` (Expo project → Access tokens).
 
 ## Verify in app
 
-Settings build tip: `make-v18 · live-sync · member-push · sidekick-plan-add`
+Settings build tip: `make-v18 · live-sync · session-presence · task-reminders`
 
 Smoke checklist:
 
