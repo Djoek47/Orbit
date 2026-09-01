@@ -65,6 +65,7 @@ Build logs (65): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/c6e
 - `complete-profile-join`
 - `redeem-member-invite`
 - `sidekick-sync` (now includes calendar events)
+- `sidekick-task-action` (Sidekick complete + proof submit)
 - `register-sidekick-push`
 - `dispatch-member-push`
 

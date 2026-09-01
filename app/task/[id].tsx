@@ -197,13 +197,22 @@ export default function TaskDetailScreen() {
   };
 
   const handleComplete = async (forAssignee?: string) => {
-    const result = await completeTask(task.id, forAssignee ? { forAssignee } : undefined);
-    if (result) {
-      setCelebration(result);
-      if (result.needsProof) {
-        // Request proof once after the task (or share) is completed.
-        void handleAttachProof(forAssignee);
+    try {
+      const result = await completeTask(task.id, forAssignee ? { forAssignee } : undefined);
+      if (result) {
+        setCelebration(result);
+        if (result.needsProof) {
+          void handleAttachProof(forAssignee);
+        }
+        return;
       }
+      Alert.alert('Could not complete', 'This task may already be done or not assigned to you.');
+    } catch (error) {
+      console.warn('handleComplete', error);
+      Alert.alert(
+        'Could not complete',
+        error instanceof Error ? error.message : 'Something went wrong. Pull to refresh and try again.'
+      );
     }
   };
 

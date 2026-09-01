@@ -114,6 +114,11 @@ import {
   mergeSidekickSyncIntoHousehold,
 } from '@/lib/sidekick/sync-household';
 import {
+  sidekickCompleteTask,
+  sidekickSubmitTaskProof,
+  usesProfileCodeAuth,
+} from '@/lib/sidekick/task-action';
+import {
   applyRedeemedMember,
   redeemMockMemberInvite,
 } from '@/repositories/member-invite-repository';
@@ -2226,8 +2231,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       currentTask.assignee;
 
     const withProof = resubmitProofPhoto(currentTask, proofUri);
+    const profileAuth = await usesProfileCodeAuth();
     let updated: HouseholdTask;
-    if (isSplitTask(currentTask) && currentTask.shares) {
+    if (profileAuth) {
+      updated = await sidekickSubmitTaskProof({
+        code: profileAuth.code,
+        taskId,
+        task: withProof,
+        proofUri,
+      });
+    } else if (isSplitTask(currentTask) && currentTask.shares) {
       updated = await taskRepository.updateTask({
         ...withProof,
         shares: currentTask.shares.map((share) =>
@@ -2655,6 +2668,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return null;
     }
 
+    const profileAuth = await usesProfileCodeAuth();
+
     const rewardSettings = normalizeRewardSettings({
       rewardMode: household.rewardMode,
       hygieneRewarded: household.hygieneRewarded,
@@ -2750,28 +2765,63 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         };
       }
 
-      const saved = await taskRepository.updateTask(nextTask);
-      if (household.id && totalAwarded > 0) {
-        await taskRepository.awardMemberXp({
-          householdId: household.id,
-          memberName: forAssignee,
-          amount: totalAwarded,
-          reason: late
-            ? `Split share (late): ${currentTask.title}`
-            : `Split share: ${currentTask.title}`,
-          taskId,
-        });
-      }
-      if (everyoneDone && bonus > 0 && household.id) {
-        for (const earlier of nextShares) {
-          if (earlier.name === forAssignee || earlier.status !== 'Completed') continue;
+      const saved = profileAuth
+        ? await sidekickCompleteTask({
+            code: profileAuth.code,
+            taskId,
+            task: nextTask,
+            awardedXp: totalAwarded,
+            completedAt,
+            completedLate: late,
+            verification: initialVerification(wantsProof),
+            taskStatus: settled || everyoneDone ? 'completed' : 'in_progress',
+            dueLabel: settled || everyoneDone ? 'Completed today' : nextTask.due,
+            bonusAwards:
+              everyoneDone && bonus > 0
+                ? nextShares
+                    .filter((item) => item.name !== forAssignee && item.status === 'Completed')
+                    .map((item) => {
+                      const memberRow = householdRef.current.members.find(
+                        (mem) => mem.name === item.name
+                      );
+                      return memberRow
+                        ? {
+                            memberId: memberRow.id,
+                            amount: bonus,
+                            reason: `Split all-done bonus: ${currentTask.title}`,
+                          }
+                        : null;
+                    })
+                    .filter(
+                      (row): row is { memberId: string; amount: number; reason: string } =>
+                        row !== null
+                    )
+                : [],
+          })
+        : await taskRepository.updateTask(nextTask);
+      if (!profileAuth) {
+        if (household.id && totalAwarded > 0) {
           await taskRepository.awardMemberXp({
             householdId: household.id,
-            memberName: earlier.name,
-            amount: bonus,
-            reason: `Split all-done bonus: ${currentTask.title}`,
+            memberName: forAssignee,
+            amount: totalAwarded,
+            reason: late
+              ? `Split share (late): ${currentTask.title}`
+              : `Split share: ${currentTask.title}`,
             taskId,
           });
+        }
+        if (everyoneDone && bonus > 0 && household.id) {
+          for (const earlier of nextShares) {
+            if (earlier.name === forAssignee || earlier.status !== 'Completed') continue;
+            await taskRepository.awardMemberXp({
+              householdId: household.id,
+              memberName: earlier.name,
+              amount: bonus,
+              reason: `Split all-done bonus: ${currentTask.title}`,
+              taskId,
+            });
+          }
         }
       }
 
@@ -2865,7 +2915,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           : 'none'
         : 'none',
     };
-    const completedTask = await taskRepository.completeTask(completedWithXp, household.id);
+    const completedTask = profileAuth
+      ? await sidekickCompleteTask({
+          code: profileAuth.code,
+          taskId,
+          task: completedWithXp,
+          awardedXp: awarded,
+          completedAt,
+          completedLate: lateMeta.completedLate || late,
+          verification,
+          taskStatus: 'completed',
+        })
+      : await taskRepository.completeTask(completedWithXp, household.id);
     // v2 §5.2: completion never spawns the next occurrence (time-based only).
 
     let nextHouseholdSnapshot: HouseholdSnapshot | null = null;

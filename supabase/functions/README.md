@@ -17,6 +17,7 @@ npx supabase functions deploy redeem-profile-invite
 npx supabase functions deploy sidekick-sync --no-verify-jwt
 npx supabase functions deploy register-sidekick-push --no-verify-jwt
 npx supabase functions deploy dispatch-member-push
+npx supabase functions deploy sidekick-task-action --no-verify-jwt
 # Auth emails via Resend (optional if Custom SMTP is enough — see docs/resend-auth-email.md)
 npx supabase functions deploy send-auth-email --no-verify-jwt
 npx supabase secrets set OPENAI_API_KEY=sk-...
@@ -50,6 +51,7 @@ Post-tool spoken response ADR: [docs/adr-poppins-post-tool-response-create.md](.
 | `poppins-voice-tool` | Tool executor for live voice (`forceRiskyConfirmation: true`) |
 | `join-household` | Invite-code join with pending membership |
 | `sidekick-sync` | Sidekick poll: tasks, notifications, calendar events (profile code) |
+| `sidekick-task-action` | Sidekick complete task / submit proof (profile code, no JWT) |
 | `register-sidekick-push` | Register Expo push token for Sidekick devices |
 | `dispatch-member-push` | Send Expo push to audience members after inbox notification |
 | `send-auth-email` | Auth Send Email Hook → Resend (confirm / recovery / magic link); deploy with `--no-verify-jwt` |

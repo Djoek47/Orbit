@@ -805,30 +805,42 @@ export default function TasksScreen() {
     ) {
       return;
     }
-    // Rev F §12.1 — only assignee completes
     if (!currentMember || !taskMatchesAssignee(task, currentMember.name)) {
       return;
     }
 
-    if (isSplitTask(task)) {
-      const share = task.shares?.find((item) => item.name === currentMember.name);
-      if (!share || share.status !== 'Pending') return;
+    try {
+      if (isSplitTask(task)) {
+        const share = task.shares?.find((item) => item.name === currentMember.name);
+        if (!share || share.status !== 'Pending') return;
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setJustCompletedId(taskId);
+        const result = await completeTask(taskId, { forAssignee: currentMember.name });
+        setTimeout(() => setJustCompletedId(null), 900);
+        if (result?.needsProof) {
+          router.push(`/task/${task.id}` as never);
+        } else if (!result) {
+          Alert.alert('Could not complete', 'Try again or open the task for details.');
+        }
+        return;
+      }
+
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setJustCompletedId(taskId);
-      const result = await completeTask(taskId, { forAssignee: currentMember.name });
+      const result = await completeTask(taskId);
       setTimeout(() => setJustCompletedId(null), 900);
       if (result?.needsProof) {
         router.push(`/task/${task.id}` as never);
+      } else if (!result) {
+        Alert.alert('Could not complete', 'Try again or open the task for details.');
       }
-      return;
-    }
-
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setJustCompletedId(taskId);
-    const result = await completeTask(taskId);
-    setTimeout(() => setJustCompletedId(null), 900);
-    if (result?.needsProof) {
-      router.push(`/task/${task.id}` as never);
+    } catch (error) {
+      setJustCompletedId(null);
+      console.warn('handleToggle', error);
+      Alert.alert(
+        'Could not complete',
+        error instanceof Error ? error.message : 'Something went wrong. Pull to refresh and try again.'
+      );
     }
   };
 
