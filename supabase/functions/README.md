@@ -14,8 +14,8 @@ npx supabase functions deploy poppins-voice-tool
 npx supabase functions deploy join-household
 npx supabase functions deploy complete-profile-join
 npx supabase functions deploy redeem-profile-invite
-npx supabase functions deploy sidekick-sync
-npx supabase functions deploy register-sidekick-push
+npx supabase functions deploy sidekick-sync --no-verify-jwt
+npx supabase functions deploy register-sidekick-push --no-verify-jwt
 npx supabase functions deploy dispatch-member-push
 # Auth emails via Resend (optional if Custom SMTP is enough — see docs/resend-auth-email.md)
 npx supabase functions deploy send-auth-email --no-verify-jwt
