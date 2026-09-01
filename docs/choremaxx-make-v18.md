@@ -28,9 +28,12 @@
 
 | Build | Git | EAS build | Submit |
 |-------|-----|-----------|--------|
+| **1.3.0 (65)** | `4b51fa9` | `c6e82ae4-1784-4f1c-beb5-ad93c7626193` | `297a5534-5c74-4d6d-bb66-6814fc07bb94` |
 | **1.3.0 (64)** | `ae7a1cd` | `9ceab14d-05d6-4284-82ec-7ee84c73153d` | `d3f38930-a581-4f91-95c6-92989b81d480` |
 
-Build logs: https://expo.dev/accounts/djoek47/projects/choremaxx/builds/9ceab14d-05d6-4284-82ec-7ee84c73153d
+Build logs (65): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/c6e82ae4-1784-4f1c-beb5-ad93c7626193
+
+**1.3.0 (65)** includes live sync, member push, session/presence, task reminders, welcome copy fix.
 
 **1.3.0 (63)** was premature (missing Members UI + Sidekick Plan). **1.3.0 (61)** = make-v17.
 
