@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { dataMode } from '@/config/data-mode';
+import { openSystemNotificationSettings } from '@/lib/notifications/open-settings-safe';
 import { getExpoPushToken, isGranted, requestNotificationPermission } from '@/lib/notifications/push-token';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
@@ -86,9 +87,5 @@ export async function getNotificationPermissionStatus() {
   return Notifications.getPermissionsAsync();
 }
 
-export async function openSystemNotificationSettings() {
-  const { Linking } = await import('react-native');
-  await Linking.openSettings();
-}
-
+export { openSystemNotificationSettings } from '@/lib/notifications/open-settings-safe';
 export { isGranted as isNotificationPermissionGranted, requestNotificationPermission };

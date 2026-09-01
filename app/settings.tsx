@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Alert, AppState, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -54,6 +54,7 @@ import {
   getNotificationPermissionStatus,
   isNotificationPermissionGranted,
   openSystemNotificationSettings,
+  requestNotificationPermission,
 } from '@/lib/notifications/push';
 import { registerPushForActor } from '@/lib/notifications/member-push';
 import { loadSidekickSession } from '@/lib/sidekick/session';
@@ -215,6 +216,57 @@ export default function SettingsScreen() {
       setOsNotifStatus(isNotificationPermissionGranted(permission) ? 'granted' : 'denied');
     });
   }, [section]);
+
+  useEffect(() => {
+    if (section !== 'notifications') return;
+    const refreshOsPermission = () => {
+      void getNotificationPermissionStatus().then((permission) => {
+        setOsNotifStatus(isNotificationPermissionGranted(permission) ? 'granted' : 'denied');
+      });
+    };
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshOsPermission();
+    });
+    return () => subscription.remove();
+  }, [section]);
+
+  const openAppleNotificationSettings = useCallback(async () => {
+    const opened = await openSystemNotificationSettings();
+    if (!opened) {
+      Alert.alert(
+        'Could not open Settings',
+        'Open Settings → Notifications → ChoreMaxx to change banners and alerts.'
+      );
+    }
+  }, []);
+
+  const enableAppleNotificationBanners = useCallback(async () => {
+    try {
+      let permission = await getNotificationPermissionStatus();
+      if (!isNotificationPermissionGranted(permission)) {
+        await requestNotificationPermission();
+        permission = await getNotificationPermissionStatus();
+      }
+      const granted = isNotificationPermissionGranted(permission);
+      setOsNotifStatus(granted ? 'granted' : 'denied');
+      if (!granted) {
+        await openAppleNotificationSettings();
+        return;
+      }
+      const sidekickSession = isSidekickRole(currentMember?.role)
+        ? await loadSidekickSession()
+        : null;
+      await registerPushForActor({
+        userId: currentUser?.id,
+        profileInviteCode: sidekickSession?.profileInviteCode,
+      });
+    } catch (error) {
+      Alert.alert(
+        'Notifications',
+        error instanceof Error ? error.message : 'Could not update notification settings.'
+      );
+    }
+  }, [currentMember?.role, currentUser?.id, openAppleNotificationSettings]);
 
   useEffect(() => {
     if (section !== 'main' && section !== 'premium') return;
@@ -1077,23 +1129,7 @@ export default function SettingsScreen() {
                     paddingVertical: 12,
                   },
                 ]}
-                onPress={() => {
-                  void (async () => {
-                    const sidekickSession = isSidekickRole(currentMember?.role)
-                      ? await loadSidekickSession()
-                      : null;
-                    const token = await registerPushForActor({
-                      userId: currentUser?.id,
-                      profileInviteCode: sidekickSession?.profileInviteCode,
-                    });
-                    const permission = await getNotificationPermissionStatus();
-                    const granted = isNotificationPermissionGranted(permission);
-                    setOsNotifStatus(granted ? 'granted' : 'denied');
-                    if (!granted || !token) {
-                      await openSystemNotificationSettings();
-                    }
-                  })();
-                }}>
+                onPress={() => void enableAppleNotificationBanners()}>
                 <Text style={[styles.linkText, { color: accentTheme.primary }]}>
                   Enable banners in Apple Settings
                 </Text>
@@ -1102,7 +1138,7 @@ export default function SettingsScreen() {
             ) : (
               <Pressable
                 style={styles.linkRow}
-                onPress={() => void openSystemNotificationSettings()}>
+                onPress={() => void openAppleNotificationSettings()}>
                 <Text style={[styles.linkText, { color: accentTheme.primary }]}>
                   Open Apple notification settings
                 </Text>
