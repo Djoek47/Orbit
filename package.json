@@ -26,6 +26,7 @@
     "submit:ios:testflight": "eas submit --platform ios --profile testflight --latest",
     "submit:android": "eas submit --platform android --profile production",
     "testflight:preflight": "bash ./scripts/testflight-preflight.sh",
+    "supabase:sync-expo-push-secret": "bash ./scripts/sync-expo-push-secret.sh",
     "qr:expo": "node scripts/write-expo-qr.mjs",
     "test:reward-mode": "npx --yes tsx lib/rewards/reward-mode.test.ts",
     "test:streak-engine": "npx --yes tsx lib/streaks/streak-engine.test.ts",

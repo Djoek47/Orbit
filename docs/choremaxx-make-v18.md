@@ -68,7 +68,7 @@ Build logs (65): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/c6e
 - `register-sidekick-push`
 - `dispatch-member-push`
 
-Set secret if missing: `EXPO_ACCESS_TOKEN` (Expo project → Access tokens).
+Set secret if missing: `EXPO_ACCESS_TOKEN` — **same Expo access token as local `EXPO_TOKEN`** (not a new login). With `SUPABASE_ACCESS_TOKEN` set: `npm run supabase:sync-expo-push-secret`.
 
 ## Two-phone live sync test
 

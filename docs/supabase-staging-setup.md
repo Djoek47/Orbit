@@ -66,6 +66,7 @@ Apply `20260716200000_nova_majordomo.sql` for away windows + `notification_prefs
 | `RESEND_API_KEY` | Resend API (only if using `send-auth-email` hook; SMTP path uses the key as SMTP password in Auth settings) |
 | `SEND_EMAIL_HOOK_SECRET` | Auth Send Email Hook webhook secret (`v1,whsec_…`) |
 | `RESEND_FROM_EMAIL` | Optional From header, e.g. `Choremaxx <noreply@choremaxx.app>` |
+| `EXPO_ACCESS_TOKEN` | Expo access token for `dispatch-member-push` / Sidekick OS push — **same value as local `EXPO_TOKEN`** ([expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens)). Set via `npm run supabase:sync-expo-push-secret` when `SUPABASE_ACCESS_TOKEN` is exported. |
 
 `SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically for edge functions.
 
