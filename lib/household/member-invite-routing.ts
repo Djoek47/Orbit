@@ -16,5 +16,7 @@ export function memberUsesTokenInvite(member: HouseholdMember): boolean {
 
 export function memberCanReceiveInvite(member: HouseholdMember): boolean {
   if (member.role === 'owner' || isSharedDeviceRole(member.role)) return false;
+  // Sidekick profile codes stay shareable after connect so kids can re-scan if needed.
+  if (memberUsesProfileInvite(member)) return true;
   return memberConnectionPhase(member) !== 'connected';
 }

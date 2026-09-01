@@ -57,6 +57,8 @@ export type HouseholdMember = {
   profileInviteCode?: string;
   /** Admin-picked library task ids — applied when the member connects (no streak until then). */
   plannedTaskLibraryIds?: string[];
+  /** ISO timestamp — last Sidekick sync or authenticated session ping (admin roster). */
+  lastSeenAt?: string | null;
   /** When true, this person skips the pending step even if join approval is required. */
   joinPreApproved?: boolean;
 };

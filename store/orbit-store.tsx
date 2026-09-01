@@ -106,6 +106,7 @@ import {
   type SidekickSession,
   markSidekickSignedOut,
   clearSidekickSignedOut,
+  touchSidekickSession,
   wasSidekickSignedOut,
 } from '@/lib/sidekick/session';
 import {
@@ -618,6 +619,8 @@ type OrbitContextValue = {
   refreshHousehold: () => Promise<HouseholdSnapshot>;
   /** Re-enter a saved Sidekick profile after sign-out (same device). */
   restoreSidekickSession: () => Promise<boolean>;
+  /** Admin nudge — remind assignee about an open task (inbox + push). */
+  sendTaskReminder: (taskId: string, memberId?: string) => Promise<boolean>;
   canAddGroceryWishlist: boolean;
 };
 
@@ -935,6 +938,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       setNotifications(sync.notifications);
       setStoreRecommendations(buildStoreRecommendations(merged.id, merged.groceries));
 
+      void touchSidekickSession().catch(() => undefined);
+
       if (options?.announceNewTasks) {
         const prefs = merged.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
         if (prefs.tasks !== false) {
@@ -1019,6 +1024,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             setIsLoading(false);
             return;
           }
+        }
+
+        if (sidekickSession && isMounted) {
+          setHousehold(
+            createEmptyHousehold({
+              id: `child-local-${sidekickSession.memberId}`,
+              email: `${sidekickSession.displayName.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'kid'}@kids.choremaxx.local`,
+              name: sidekickSession.displayName,
+              avatar: sidekickSession.avatar ?? sidekickSession.displayName.charAt(0).toUpperCase(),
+              profileComplete: true,
+            })
+          );
+          setIsLoading(false);
+          return;
         }
 
         if (isMounted) {
@@ -1972,9 +1991,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
 
-  const clearSignedInState = (options?: { skipProfilePick?: boolean }) => {
+  const clearSignedInState = (options?: { skipProfilePick?: boolean; sidekickSigningOut?: boolean }) => {
     setCurrentUser(null);
-    setHousehold(mockHousehold);
+    setHousehold(
+      options?.sidekickSigningOut
+        ? createEmptyHousehold({
+            id: 'signed-out-sidekick',
+            email: '',
+            name: '',
+            avatar: '',
+            profileComplete: false,
+          })
+        : mockHousehold
+    );
     setPendingRedemptions([]);
     setRedemptions([]);
     setNotifications([]);
@@ -2006,11 +2035,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       /* never block leaving */
     }
     if (sidekickSigningOut) {
+      await touchSidekickSession();
       await markSidekickSignedOut();
     } else {
       await clearMockHouseholdSnapshot();
     }
-    clearSignedInState({ skipProfilePick: sidekickSigningOut });
+    clearSignedInState({ skipProfilePick: sidekickSigningOut, sidekickSigningOut });
   };
 
   const createTask = async (
@@ -2330,6 +2360,35 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       audienceMemberIds: assigneeMember ? [assigneeMember.id] : undefined,
     });
     await trackAnalytics('task.marked_not_done', { taskId, reversed }, analyticsContext);
+    return true;
+  };
+
+  const sendTaskReminder = async (taskId: string, memberId?: string): Promise<boolean> => {
+    if (!v2Permissions.canAssignOrEditTask && !permissions.canAssignTask) return false;
+    const task = household.tasks.find((item) => item.id === taskId);
+    if (!task || !currentMember) return false;
+    const assigneeMember =
+      (memberId ? household.members.find((item) => item.id === memberId) : null) ??
+      assigneeMemberForTask(household.members, task);
+    if (!assigneeMember) return false;
+
+    const open =
+      task.status !== 'Completed' &&
+      task.status !== 'Cancelled' &&
+      task.status !== 'Expired' &&
+      task.status !== 'Missed';
+    if (!open) return false;
+
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    const streak = assigneeMember.streak ?? 0;
+    await poppinsNotifications.taskReminder(pushNotification, prefs, {
+      title: task.title,
+      adminName: currentMember.name,
+      taskId,
+      streak,
+      audienceMemberIds: [assigneeMember.id],
+    });
+    await trackAnalytics('task.reminder_sent', { taskId, memberId: assigneeMember.id }, analyticsContext);
     return true;
   };
 
@@ -5681,6 +5740,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       refreshSmartHome,
       refreshHousehold: reloadHouseholdDomains,
       restoreSidekickSession,
+      sendTaskReminder,
     }),
     [
       currentUser,

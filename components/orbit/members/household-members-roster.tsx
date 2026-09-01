@@ -96,11 +96,18 @@ export function HouseholdMembersRoster({
       return;
     }
     const isDevice = member.role === 'shared-device';
+    const streak = member.streak ?? 0;
+    const streakNote =
+      !isDevice && streak > 0
+        ? ` Removing ${member.name} also clears their ${streak}-day streak and XP on this device.`
+        : !isDevice
+          ? ` Removing ${member.name} clears their progress on this household.`
+          : '';
     Alert.alert(
       isDevice ? 'Remove this iPad' : 'Remove member',
       isDevice
         ? `Remove ${member.name}? People stay in the household; this iPad just won't list them.`
-        : `Remove ${member.name} from this household?`,
+        : `Remove ${member.name} from this household?${streakNote}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {

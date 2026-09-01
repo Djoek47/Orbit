@@ -19,6 +19,8 @@
 | **Sidekick Plan add** | Plan + menu: homework instant; school/practice/family events with optional admin approval |
 | **Sidekick sync** | Task sync, notifications, safe sign-out restore |
 | **Live sync + push** | 3s Sidekick poll app-wide; calendar in sync; refresh buttons; member-scoped Expo push |
+| **Session + presence** | Sidekick session survives sign-out; no Rivera mock bleed; last_seen roster; re-share invite |
+| **Task reminders** | Admin Send reminder on task detail → inbox + push with streak-at-risk copy |
 | **expo-insights** | Native cold-start analytics (needs this build, not 61/63) |
 | **Household stack (from v17)** | Multi-household switch/delete (TestFlight hides switch via `EXPO_PUBLIC_DISABLE_HOUSEHOLD_SWITCH`) |
 
@@ -50,6 +52,7 @@ Build logs: https://expo.dev/accounts/djoek47/projects/choremaxx/builds/9ceab14d
 4. `20260831150000_calendar_event_approval.sql`
 5. `20260829200000_remove_join_approval.sql` (if join approval still enabled in DB)
 6. `20260901120000_member_push_tokens.sql` (Sidekick push tokens)
+7. `20260901130000_member_last_seen.sql` (roster Connected / Disconnected)
 
 **v17 (if not yet applied):** see `docs/choremaxx-make-v17.md` and `supabase/migrations/PENDING_APPLY_ON_STAGING.sql`.
 

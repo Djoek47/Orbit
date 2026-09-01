@@ -60,6 +60,7 @@ create table if not exists public.household_members (
   week_xp integer not null default 0,
   streak integer not null default 0,
   load_share integer not null default 0 check (load_share >= 0 and load_share <= 100),
+  last_seen_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (household_id, user_id)

@@ -5,7 +5,7 @@ import { SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { memberCanReceiveInvite } from '@/lib/household/member-invite-routing';
-import { memberConnectionPhase } from '@/lib/household/member-connection';
+import { memberPresenceLabel } from '@/lib/household/member-presence';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
@@ -66,11 +66,13 @@ export function SettingsMemberCard({
 }: SettingsMemberCardProps) {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const photo = isAvatarImageUri(member.avatar);
-  const phase = memberConnectionPhase(member);
   const showInvite = canManage && memberCanReceiveInvite(member);
   const showHomework = canManage && member.role === 'child';
   const showMenu = canManage && member.role !== 'owner';
-  const statusLabel = phase === 'connected' ? 'Connected' : 'Needs invite';
+  const statusLabel = memberPresenceLabel(member);
+  const inviteLabel = statusLabel.startsWith('Connected') || statusLabel.startsWith('Disconnected')
+    ? 'Re-share invite'
+    : 'Share invite';
 
   return (
     <View
@@ -138,7 +140,7 @@ export function SettingsMemberCard({
             { backgroundColor: `${accent}14`, borderColor: `${accent}44` },
           ]}>
           <MaterialIcons name="qr-code-2" size={16} color={accent} />
-          <Text style={[styles.shareBtnText, { color: accent }]}>Share invite</Text>
+          <Text style={[styles.shareBtnText, { color: accent }]}>{inviteLabel}</Text>
         </Pressable>
       ) : null}
 

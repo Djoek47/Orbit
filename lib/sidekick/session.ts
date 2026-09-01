@@ -15,6 +15,8 @@ export type SidekickSession = {
   avatar?: string;
   householdName?: string;
   savedAt: string;
+  /** Updated whenever the device successfully syncs or signs out. */
+  lastConnectedAt?: string;
 };
 
 export async function loadSidekickSession(): Promise<SidekickSession | null> {
@@ -32,12 +34,24 @@ export async function loadSidekickSession(): Promise<SidekickSession | null> {
 }
 
 export async function saveSidekickSession(session: Omit<SidekickSession, 'savedAt'>): Promise<void> {
+  const existing = await loadSidekickSession();
   const payload: SidekickSession = {
     ...session,
     profileInviteCode: session.profileInviteCode.trim().toUpperCase(),
     savedAt: new Date().toISOString(),
+    lastConnectedAt: session.lastConnectedAt ?? existing?.lastConnectedAt,
   };
   await AsyncStorage.setItem(KEY, JSON.stringify(payload));
+}
+
+/** Bump last-connected timestamp after a successful sync or before sign-out. */
+export async function touchSidekickSession(): Promise<void> {
+  const session = await loadSidekickSession();
+  if (!session) return;
+  await saveSidekickSession({
+    ...session,
+    lastConnectedAt: new Date().toISOString(),
+  });
 }
 
 export async function clearSidekickSession(): Promise<void> {

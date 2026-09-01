@@ -185,14 +185,29 @@ export function SidekickSettingsScreen() {
 
           <Pressable
             style={[styles.signOutBtn, { backgroundColor: glass(0.06) }]}
-            onPress={async () => {
-              try {
-                await signOut();
-              } catch (error) {
-                console.warn('sidekickSettings.signOut', error);
-              } finally {
-                resetToGetStarted();
-              }
+            onPress={() => {
+              Alert.alert(
+                'Sign out?',
+                'You will show as disconnected on the household roster. Tap Continue as you on the welcome screen to come back — your streak and tasks stay saved.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Sign out',
+                    style: 'destructive',
+                    onPress: () => {
+                      void (async () => {
+                        try {
+                          await signOut();
+                        } catch (error) {
+                          console.warn('sidekickSettings.signOut', error);
+                        } finally {
+                          resetToGetStarted();
+                        }
+                      })();
+                    },
+                  },
+                ]
+              );
             }}>
             <Text style={[styles.signOutText, { color: orbitPalette.text }]}>Sign Out</Text>
           </Pressable>

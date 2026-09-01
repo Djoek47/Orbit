@@ -43,7 +43,8 @@ export type NotificationId =
   | 'N24'
   | 'N25'
   | 'N26'
-  | 'N27';
+  | 'N27'
+  | 'N28';
 
 export type NotificationAudience = 'helper' | 'admin';
 
@@ -249,6 +250,12 @@ export const NOTIFICATIONS: Record<NotificationId, NotificationDef> = {
     audience: 'admin',
     title: 'Poppins · Reward',
     body: '{name} asked for something new: {detail}.',
+  },
+  N28: {
+    id: 'N28',
+    audience: 'helper',
+    title: 'Poppins · Tasks',
+    body: '{admin} sent a reminder about {task}.',
   },
 };
 

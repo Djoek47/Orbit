@@ -73,6 +73,12 @@ Deno.serve(async (req) => {
 
     const householdId = member.household_id;
     const memberId = member.id;
+    const seenAt = new Date().toISOString();
+
+    await admin
+      .from('household_members')
+      .update({ last_seen_at: seenAt })
+      .eq('id', memberId);
 
     const [
       { data: household },
@@ -115,7 +121,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        member,
+        member: { ...member, last_seen_at: seenAt },
         household,
         members: members ?? [],
         tasks: tasks ?? [],

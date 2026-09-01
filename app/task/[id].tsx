@@ -81,6 +81,7 @@ export default function TaskDetailScreen() {
     permissions,
     reassignTask,
     requestAnotherProof,
+    sendTaskReminder,
     submitTaskProof,
     updateTask,
     v2Permissions,
@@ -115,6 +116,7 @@ export default function TaskDetailScreen() {
   const [difficulty, setDifficulty] = useState<HouseholdTask['difficulty']>(task?.difficulty ?? 'medium');
   const [busy, setBusy] = useState(false);
   const [proofBusy, setProofBusy] = useState(false);
+  const [reminderBusy, setReminderBusy] = useState(false);
   const [repeatOpen, setRepeatOpen] = useState(false);
   const [whoOpen, setWhoOpen] = useState(false);
   const [celebration, setCelebration] = useState<{
@@ -259,6 +261,41 @@ export default function TaskDetailScreen() {
         },
       },
     ]);
+  };
+
+  const canSendReminder =
+    isOpenWork &&
+    Boolean(assigneeMember) &&
+    (v2Permissions.canAssignOrEditTask || permissions.canAssignTask);
+
+  const handleSendReminder = () => {
+    if (!assigneeMember) return;
+    const streak = assigneeMember.streak ?? 0;
+    const streakNote =
+      streak >= 2 ? ` Their ${streak}-day streak is at risk if this stays open.` : '';
+    Alert.alert(
+      'Send reminder?',
+      `Poppins will notify ${assigneeMember.name} about “${task.title}”.${streakNote}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: () => {
+            void (async () => {
+              setReminderBusy(true);
+              try {
+                const ok = await sendTaskReminder(task.id, assigneeMember.id);
+                if (ok) {
+                  Alert.alert('Reminder sent', `${assigneeMember.name} was notified.`);
+                }
+              } finally {
+                setReminderBusy(false);
+              }
+            })();
+          },
+        },
+      ]
+    );
   };
 
   const handlePenalize = (name: string) => {
@@ -900,6 +937,16 @@ export default function TaskDetailScreen() {
                   Your share is done. Waiting on others — all-done bonus when everyone finishes.
                 </Text>
               </View>
+            ) : null}
+            {canSendReminder ? (
+              <Pressable
+                disabled={reminderBusy}
+                onPress={handleSendReminder}
+                style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
+                <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
+                  {reminderBusy ? 'Sending…' : 'Send reminder'}
+                </Text>
+              </Pressable>
             ) : null}
             {canAdjust && isOpenWork ? (
               <Pressable

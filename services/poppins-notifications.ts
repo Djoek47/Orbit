@@ -168,6 +168,35 @@ export const poppinsNotifications = {
     );
   },
 
+  async taskReminder(
+    push: PushFn,
+    prefs: PoppinsNotificationPrefs,
+    input: {
+      title: string;
+      adminName: string;
+      taskId: string;
+      streak?: number;
+      audienceMemberIds?: string[];
+    }
+  ) {
+    if (!prefs.tasks) return null;
+    const streakNote =
+      (input.streak ?? 0) >= 2 ? ` Your ${input.streak}-day streak is at risk.` : '';
+    const def = getNotification('N28');
+    return push({
+      title: def.title,
+      body: `${formatNotificationBody(def.body, { admin: input.adminName, task: input.title })}${streakNote}`,
+      category: 'tasks',
+      priority: 'high',
+      data: {
+        taskId: input.taskId,
+        kind: 'task_reminder',
+        audienceMemberIds: input.audienceMemberIds,
+        streak: input.streak,
+      },
+    });
+  },
+
   async trophyUnlocked(
     push: PushFn,
     prefs: PoppinsNotificationPrefs,
