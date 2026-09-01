@@ -7,6 +7,10 @@ set -euo pipefail
 PROJECT_REF="${SUPABASE_PROJECT_REF:-dejrbyufotcvcillnneo}"
 TOKEN_FILE="${HOME}/.config/choremaxx/expo-token"
 
+if [[ -z "${SUPABASE_ACCESS_TOKEN:-}" ]] && [[ -f "${HOME}/.config/choremaxx/supabase-token" ]]; then
+  export SUPABASE_ACCESS_TOKEN="$(cat "${HOME}/.config/choremaxx/supabase-token")"
+fi
+
 if [[ -z "${SUPABASE_ACCESS_TOKEN:-}" ]]; then
   echo "FAIL: SUPABASE_ACCESS_TOKEN is not set."
   echo "Create one at https://supabase.com/dashboard/account/tokens"
