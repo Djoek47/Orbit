@@ -418,6 +418,31 @@ export const poppinsNotifications = {
     );
   },
 
+  async eventReminder(
+    push: PushFn,
+    prefs: PoppinsNotificationPrefs,
+    input: {
+      title: string;
+      adminName: string;
+      eventId: string;
+      time: string;
+      audienceMemberIds?: string[];
+    }
+  ) {
+    if (!prefs.plans) return null;
+    return push({
+      title: 'Poppins · Plan',
+      body: `${input.adminName} reminded you about ${input.title} · ${input.time}`,
+      category: 'events',
+      priority: 'high',
+      data: {
+        eventId: input.eventId,
+        kind: 'event_reminder',
+        audienceMemberIds: input.audienceMemberIds,
+      },
+    });
+  },
+
   async streakEnded(
     push: PushFn,
     prefs: PoppinsNotificationPrefs,

@@ -451,7 +451,7 @@ type OrbitContextValue = {
   deleteEvent: (eventId: string) => Promise<void>;
   approveEvent: (eventId: string) => Promise<void>;
   rejectEvent: (eventId: string) => Promise<void>;
-  remindAboutEvent: (eventId: string) => Promise<void>;
+  remindAboutEvent: (eventId: string, memberIds: string[]) => Promise<boolean>;
   createItinerary: (input: CreateItineraryInput) => Promise<Itinerary | null>;
   suggestPoppinsItinerary: (options?: {
     date?: string;
@@ -3770,16 +3770,37 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('event.deleted', { eventId }, analyticsContext);
   };
 
-  const remindAboutEvent = async (eventId: string) => {
+  const remindAboutEvent = async (eventId: string, memberIds: string[]): Promise<boolean> => {
     const event = household.events.find((item) => item.id === eventId);
-    if (!event) {
-      return;
+    if (!event || !currentMember) {
+      return false;
     }
 
-    await scheduleLocalReminder(event.title, `${event.time} · ${event.responsible}`, 15).catch((error) =>
-      console.warn('Local reminder skipped', error)
+    const activeIds = new Set(
+      household.members.filter((member) => member.status === 'active').map((member) => member.id)
     );
-    await trackAnalytics('event.reminded', { eventId }, analyticsContext);
+    const targets = memberIds.filter((id) => activeIds.has(id));
+    if (!targets.length) {
+      return false;
+    }
+
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    await poppinsNotifications.eventReminder(pushNotification, prefs, {
+      title: event.title,
+      adminName: currentMember.name,
+      eventId,
+      time: event.time,
+      audienceMemberIds: targets,
+    });
+
+    if (targets.includes(currentMember.id)) {
+      await scheduleLocalReminder(event.title, `${event.time} · ${event.responsible}`, 15).catch((error) =>
+        console.warn('Local reminder skipped', error)
+      );
+    }
+
+    await trackAnalytics('event.reminded', { eventId, memberIds: targets }, analyticsContext);
+    return true;
   };
 
   const createItinerary = async (input: CreateItineraryInput) => {

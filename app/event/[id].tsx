@@ -1,79 +1,154 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoiceRow } from '@/components/orbit/choice-row';
+import { EventDatePicker } from '@/components/orbit/event-date-picker';
 import { GlassCard } from '@/components/orbit/glass-card';
+import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { radius, space, typography } from '@/constants/orbit-theme';
+import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import {
+  buildStartsAtIso,
+  formatStoredDateLabel,
+  todayKey,
+} from '@/lib/calendar/event-date';
+import { eventDateKey, eventTypeConfig } from '@/lib/calendar/make-calendar';
+import { memberDisplayEmoji } from '@/lib/game-levels';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdEvent } from '@/types/orbit';
-import { AppText as Text } from '@/components/orbit/app-text';
+import type { HouseholdEvent, HouseholdMember } from '@/types/orbit';
 
 const CATEGORIES: HouseholdEvent['category'][] = ['School', 'Activity', 'Appointment', 'Family', 'Routine'];
+
+function defaultNotifyMemberIds(event: HouseholdEvent, members: HouseholdMember[]): string[] {
+  if (event.attendeeMemberIds?.length) {
+    return event.attendeeMemberIds;
+  }
+  const responsibleId =
+    event.responsibleMemberId ?? members.find((member) => member.name === event.responsible)?.id;
+  return responsibleId ? [responsibleId] : [];
+}
 
 export default function EventDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { accentTheme, approveEvent, deleteEvent, household, orbitPalette, permissions, rejectEvent, remindAboutEvent, updateEvent } =
-    useOrbit();
+  const {
+    accentTheme,
+    approveEvent,
+    currentMember,
+    deleteEvent,
+    household,
+    orbitPalette,
+    permissions,
+    rejectEvent,
+    remindAboutEvent,
+    updateEvent,
+  } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
+
   const event = household.events.find((item) => item.id === id);
-  const memberNames = useMemo(
+  const activeMembers = useMemo(
     () =>
-      household.members
-        .filter((member) => member.status === 'active' && member.role !== 'shared-device')
-        .map((member) => member.name),
+      household.members.filter(
+        (member) => member.status === 'active' && member.role !== 'shared-device'
+      ),
     [household.members]
   );
+  const memberNames = useMemo(() => activeMembers.map((member) => member.name), [activeMembers]);
+  const responsibleMember = useMemo(
+    () =>
+      activeMembers.find(
+        (member) =>
+          member.id === event?.responsibleMemberId || member.name === event?.responsible
+      ) ?? null,
+    [activeMembers, event?.responsible, event?.responsibleMemberId]
+  );
+  const typeStyle = event ? eventTypeConfig(event.category) : null;
 
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(event?.title ?? '');
-  const [date, setDate] = useState(event?.date ?? '');
+  const [dateKey, setDateKey] = useState(
+    () => (event ? eventDateKey(event) ?? todayKey() : todayKey())
+  );
   const [time, setTime] = useState(event?.time ?? '');
   const [location, setLocation] = useState(event?.location ?? '');
   const [category, setCategory] = useState<HouseholdEvent['category']>(event?.category ?? 'Family');
   const [responsible, setResponsible] = useState(event?.responsible ?? '');
+  const [notifyIds, setNotifyIds] = useState<string[]>(() =>
+    event ? defaultNotifyMemberIds(event, activeMembers) : []
+  );
   const [busy, setBusy] = useState(false);
+  const [notifyBusy, setNotifyBusy] = useState(false);
+  const [notifyPulse, setNotifyPulse] = useState(false);
+
+  useEffect(() => {
+    if (!event) return;
+    setTitle(event.title);
+    setDateKey(eventDateKey(event) ?? todayKey());
+    setTime(event.time);
+    setLocation(event.location);
+    setCategory(event.category);
+    setResponsible(event.responsible);
+    setNotifyIds(defaultNotifyMemberIds(event, activeMembers));
+  }, [activeMembers, event]);
 
   if (!event) {
     return (
-      <View
-        style={[
-          styles.root,
-          {
-            paddingTop: insets.top + 16,
-            paddingBottom: insets.bottom + 16,
-            backgroundColor: orbitPalette.backgroundSoft,
-          },
-        ]}>
+      <ScrollView
+        style={orbitScreen.container}
+        contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}
+        showsVerticalScrollIndicator={false}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Text style={[styles.missingTitle, { color: c.text }]}>Event not found</Text>
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-          <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>Back</Text>
+        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+          <MaterialIcons name="chevron-left" size={22} color={accentTheme.primary} />
+          <Text style={[styles.backLabel, { color: accentTheme.primary }]}>Plan</Text>
         </Pressable>
-      </View>
+        <Text style={[typography.title2, { color: c.text }]}>Event not found</Text>
+        <Text style={[typography.body, { color: c.textMuted }]}>
+          It may have been removed from the household calendar.
+        </Text>
+        <OrbitButton tone="secondary" onPress={() => router.back()}>
+          Back to Plan
+        </OrbitButton>
+      </ScrollView>
     );
   }
 
+  const dateLabel = formatStoredDateLabel(dateKey);
+  const canSave = title.trim().length > 1 && time.trim().length > 1 && responsible.trim().length > 0;
+  const notifyReady = notifyIds.length > 0;
+
   const handleSave = async () => {
+    if (!canSave) return;
     setBusy(true);
     try {
+      const responsibleMemberId =
+        activeMembers.find((member) => member.name === responsible)?.id ?? event.responsibleMemberId;
       await updateEvent({
         ...event,
-        title,
-        date,
+        title: title.trim(),
+        date: dateLabel,
+        startsAt: buildStartsAtIso(dateKey, time),
         time,
-        location,
+        location: location.trim(),
         category,
         responsible,
+        responsibleMemberId: responsibleMemberId ?? null,
       });
       setEditing(false);
     } finally {
@@ -94,61 +169,118 @@ export default function EventDetailScreen() {
     ]);
   };
 
-  return (
-    <View
-      style={[
-        styles.root,
-        { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
-      ]}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.handle, { backgroundColor: glass(0.18) }]} />
-      <View style={[styles.header, { borderBottomColor: glassBorder(0.08) }]}>
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.iconBtn, { backgroundColor: glass(0.06) }]}
-          hitSlop={8}
-          accessibilityLabel="Close">
-          <MaterialIcons name="close" size={18} color={c.textMuted} />
-        </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={[styles.kicker, { color: c.textMuted }]}>Calendar</Text>
-          <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>
-            {editing ? 'Edit event' : 'Event'}
-          </Text>
-        </View>
-        {!editing ? (
-          <Pressable
-            onPress={() => setEditing(true)}
-            style={[styles.iconBtn, { backgroundColor: glass(0.06) }]}
-            hitSlop={8}
-            accessibilityLabel="Edit event">
-            <MaterialIcons name="edit" size={16} color={accentTheme.primary} />
-          </Pressable>
-        ) : (
-          <View style={{ width: 40 }} />
-        )}
-      </View>
+  const toggleNotifyMember = (memberId: string) => {
+    setNotifyIds((current) =>
+      current.includes(memberId) ? current.filter((id) => id !== memberId) : [...current, memberId]
+    );
+  };
 
+  const handleNotify = async () => {
+    if (!notifyReady || notifyBusy) return;
+    setNotifyBusy(true);
+    try {
+      const ok = await remindAboutEvent(event.id, notifyIds);
+      if (ok) {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setNotifyPulse(true);
+        setTimeout(() => setNotifyPulse(false), 1200);
+      }
+    } finally {
+      setNotifyBusy(false);
+    }
+  };
+
+  const themedBack = (
+    <Pressable
+      onPress={() => (editing ? setEditing(false) : router.back())}
+      style={styles.backBtn}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={editing ? 'Cancel edit' : 'Back to Plan'}>
+      <MaterialIcons
+        name={editing ? 'close' : 'chevron-left'}
+        size={editing ? 20 : 22}
+        color={editing ? c.textMuted : accentTheme.primary}
+      />
+      {!editing ? <Text style={[styles.backLabel, { color: accentTheme.primary }]}>Plan</Text> : null}
+    </Pressable>
+  );
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[orbitScreen.container, { backgroundColor: orbitPalette.backgroundSoft }]}>
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
+        contentContainerStyle={[
+          orbitScreen.content,
+          { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 28 },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
-        {!editing ? (
-          <Text style={[styles.heroTitle, { color: c.text }]}>{event.title}</Text>
-        ) : null}
-        <StatusPill label={event.category} tone="cyan" />
-        {event.approvalStatus === 'pending' ? (
-          <StatusPill label="Pending approval" tone="amber" />
-        ) : null}
-
-        {event.approvalStatus === 'pending' && permissions.canManageHousehold ? (
-          <View style={styles.approvalRow}>
+        <View style={styles.topBar}>
+          {themedBack}
+          {!editing ? (
             <Pressable
-              onPress={() => void approveEvent(event.id).then(() => router.back())}
-              style={[styles.approveBtn, { backgroundColor: accentTheme.primary }]}>
-              <Text style={[styles.approveBtnText, { color: orbitPalette.ink }]}>Approve</Text>
+              onPress={() => setEditing(true)}
+              style={[styles.iconBtn, { backgroundColor: glass(0.06) }]}
+              hitSlop={8}
+              accessibilityLabel="Edit event">
+              <MaterialIcons name="edit" size={18} color={accentTheme.primary} />
             </Pressable>
+          ) : (
             <Pressable
+              disabled={!canSave || busy}
+              onPress={() => void handleSave()}
+              style={[styles.saveChip, { opacity: !canSave || busy ? 0.45 : 1 }]}
+              hitSlop={8}
+              accessibilityLabel="Save changes">
+              <Text style={[typography.subheadline, { color: accentTheme.primary, fontWeight: '700' }]}>
+                {busy ? 'Saving…' : 'Save'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
+        <View style={styles.header}>
+          <PageEyebrow>
+            Calendar · {event.category}
+          </PageEyebrow>
+          {!editing ? (
+            <Text style={[typography.title1, { color: c.text }]} accessibilityRole="header">
+              {event.title}
+            </Text>
+          ) : (
+            <Text style={[typography.title1, { color: c.text }]} accessibilityRole="header">
+              Edit event
+            </Text>
+          )}
+          {!editing && typeStyle ? (
+            <View style={styles.metaRow}>
+              <View
+                style={[
+                  styles.categoryChip,
+                  { backgroundColor: typeStyle.bg, borderColor: `${typeStyle.color}44` },
+                ]}>
+                <Text style={styles.categoryEmoji}>{typeStyle.emoji}</Text>
+                <Text style={[typography.caption1, { color: typeStyle.color, fontWeight: '700' }]}>
+                  {event.category}
+                </Text>
+              </View>
+              {event.approvalStatus === 'pending' ? (
+                <StatusPill label="Pending approval" tone="amber" />
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+
+        {event.approvalStatus === 'pending' && permissions.canManageHousehold && !editing ? (
+          <View style={styles.approvalRow}>
+            <OrbitButton onPress={() => void approveEvent(event.id).then(() => router.back())}>
+              Approve
+            </OrbitButton>
+            <OrbitButton
+              tone="secondary"
               onPress={() =>
                 Alert.alert('Decline event', `Remove “${event.title}” from the calendar?`, [
                   { text: 'Cancel', style: 'cancel' },
@@ -158,197 +290,315 @@ export default function EventDetailScreen() {
                     onPress: () => void rejectEvent(event.id).then(() => router.back()),
                   },
                 ])
-              }
-              style={[styles.declineBtn, { borderColor: 'rgba(248,113,113,0.4)' }]}>
-              <Text style={styles.declineBtnText}>Decline</Text>
-            </Pressable>
+              }>
+              Decline
+            </OrbitButton>
           </View>
         ) : null}
 
         {editing ? (
-          <GlassCard style={styles.card}>
+          <GlassCard>
             <OrbitInput label="Title" value={title} onChangeText={setTitle} />
-            <OrbitInput label="Date" value={date} onChangeText={setDate} />
-            <OrbitInput label="Time" value={time} onChangeText={setTime} />
-            <OrbitInput label="Location" value={location} onChangeText={setLocation} />
+            <Text style={[typography.caption1, { color: c.textMuted, marginBottom: 8 }]}>Date</Text>
+            <EventDatePicker value={dateKey} onChange={setDateKey} />
+            <OrbitInput label="Time" value={time} onChangeText={setTime} placeholder="5:30 PM" />
+            <OrbitInput
+              label="Location"
+              value={location}
+              onChangeText={setLocation}
+              placeholder="School, field, or address"
+            />
             <ChoiceRow
               label="Category"
               options={CATEGORIES}
               value={category}
               onChange={(value) => setCategory(value as HouseholdEvent['category'])}
             />
-            <ChoiceRow
-              label="Responsible"
-              options={memberNames}
-              value={responsible}
-              onChange={setResponsible}
-            />
+            <ChoiceRow label="Responsible" options={memberNames} value={responsible} onChange={setResponsible} />
           </GlassCard>
         ) : (
-          <GlassCard style={styles.card}>
-            <DetailRow label="Date" value={event.date} />
-            <DetailRow label="Time" value={event.time} />
-            <DetailRow label="Location" value={event.location || 'No location'} />
-            <DetailRow label="Responsible" value={event.responsible} />
-          </GlassCard>
-        )}
+          <>
+            <GlassCard elevated style={styles.detailsCard}>
+              <DetailRow
+                icon="event"
+                label="Date"
+                value={event.date}
+                accent={typeStyle?.color ?? accentTheme.primary}
+              />
+              <DetailRow
+                icon="schedule"
+                label="Time"
+                value={event.time}
+                accent={typeStyle?.color ?? accentTheme.primary}
+              />
+              <DetailRow
+                icon="place"
+                label="Location"
+                value={event.location?.trim() ? event.location : 'No location'}
+                accent={typeStyle?.color ?? accentTheme.primary}
+                muted={!event.location?.trim()}
+              />
+              <DetailRow
+                icon="person"
+                label="Responsible"
+                value={responsibleMember?.name ?? event.responsible}
+                accent={typeStyle?.color ?? accentTheme.primary}
+                leading={
+                  responsibleMember ? (
+                    <View style={[styles.avatar, { backgroundColor: glass(0.08) }]}>
+                      <Text style={styles.avatarEmoji}>{memberDisplayEmoji(responsibleMember)}</Text>
+                    </View>
+                  ) : undefined
+                }
+              />
+            </GlassCard>
 
-        {editing ? (
-          <>
-            <Pressable
-              disabled={busy || title.trim().length < 2}
-              onPress={() => void handleSave()}
-              style={styles.ctaWrap}>
-              <LinearGradient
-                colors={[accentTheme.primary, accentTheme.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.cta, { opacity: busy || title.trim().length < 2 ? 0.45 : 1 }]}>
-                <Text style={[styles.ctaText, { color: c.ink }]}>
-                  {busy ? 'Saving…' : 'Save changes'}
-                </Text>
-              </LinearGradient>
-            </Pressable>
-            <Pressable
-              onPress={() => setEditing(false)}
-              style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-              <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>Cancel edit</Text>
-            </Pressable>
-          </>
-        ) : (
-          <>
-            <Pressable
-              onPress={() => setEditing(true)}
-              style={[
-                styles.assignBtn,
-                { backgroundColor: accentTheme.primary },
-              ]}>
-              <Text style={[typography.headline, { color: c.ink, fontWeight: '700' }]}>
-                Edit event
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => remindAboutEvent(event.id)}
-              style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-              <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
-                Notify household
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={handleDelete}
-              style={[
-                styles.secondaryBtn,
-                { borderColor: 'rgba(248,113,113,0.35)', backgroundColor: 'rgba(248,113,113,0.08)' },
-              ]}>
-              <Text style={styles.dangerText}>Delete event</Text>
-            </Pressable>
+            <GlassCard style={styles.notifyCard}>
+              <View style={styles.notifyHeader}>
+                <View style={styles.notifyCopy}>
+                  <Text style={[typography.headline, { color: c.text }]}>Remind</Text>
+                  <Text style={[typography.footnote, { color: c.textMuted }]}>
+                    Choose who gets a push. Sends immediately — no extra confirmation.
+                  </Text>
+                </View>
+                {notifyPulse ? (
+                  <MaterialIcons name="check-circle" size={20} color={c.success} />
+                ) : null}
+              </View>
+
+              <View style={styles.memberRow}>
+                {activeMembers.map((member) => {
+                  const selected = notifyIds.includes(member.id);
+                  const isSelf = member.id === currentMember?.id;
+                  return (
+                    <Pressable
+                      key={member.id}
+                      onPress={() => toggleNotifyMember(member.id)}
+                      style={[
+                        styles.memberChip,
+                        {
+                          borderColor: selected ? accentTheme.primary : glassBorder(0.12),
+                          backgroundColor: selected ? `${accentTheme.primary}18` : glass(0.04),
+                        },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`${member.name}${isSelf ? ', you' : ''}`}>
+                      <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                      <Text
+                        style={[
+                          typography.caption1,
+                          {
+                            color: selected ? accentTheme.primary : c.text,
+                            fontWeight: selected ? '700' : '600',
+                          },
+                        ]}
+                        numberOfLines={1}>
+                        {member.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <OrbitButton
+                disabled={!notifyReady || notifyBusy}
+                onPress={() => void handleNotify()}
+                tone="secondary">
+                {notifyBusy
+                  ? 'Sending…'
+                  : notifyReady
+                    ? `Notify ${notifyIds.length === 1 ? activeMembers.find((m) => m.id === notifyIds[0])?.name ?? 'member' : `${notifyIds.length} people`}`
+                    : 'Select someone to notify'}
+              </OrbitButton>
+            </GlassCard>
+
+            <View style={styles.footerActions}>
+              <OrbitButton onPress={() => setEditing(true)}>Edit event</OrbitButton>
+              <Pressable onPress={handleDelete} hitSlop={8} style={styles.deleteLink}>
+                <Text style={[typography.subheadline, styles.deleteText]}>Delete event</Text>
+              </Pressable>
+            </View>
           </>
         )}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  accent,
+  icon,
+  label,
+  leading,
+  muted = false,
+  value,
+}: {
+  accent: string;
+  icon: keyof typeof MaterialIcons.glyphMap;
+  label: string;
+  leading?: React.ReactNode;
+  muted?: boolean;
+  value: string;
+}) {
   const { c } = useOrbitColors();
+
   return (
-    <View style={styles.row}>
-      <Text style={[typography.footnote, { color: c.textMuted }]}>{label}</Text>
-      <Text style={[styles.value, { color: c.text }]}>{value}</Text>
+    <View style={styles.detailRow}>
+      <View style={[styles.detailIconWrap, { backgroundColor: `${accent}14` }]}>
+        <MaterialIcons name={icon} size={16} color={accent} />
+      </View>
+      <View style={styles.detailCopy}>
+        <Text style={[typography.caption1, { color: c.textMuted }]}>{label}</Text>
+        <View style={styles.detailValueRow}>
+          {leading}
+          <Text
+            style={[
+              typography.headline,
+              { color: muted ? c.textMuted : c.text, fontWeight: '700' },
+            ]}>
+            {value}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  handle: {
-    alignSelf: 'center',
-    borderRadius: 99,
-    height: 4,
-    marginBottom: 8,
-    width: 36,
-  },
-  header: {
+  topBar: {
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    justifyContent: 'space-between',
   },
-  headerCopy: { flex: 1 },
+  backBtn: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+    minHeight: 40,
+    paddingRight: 8,
+  },
+  backLabel: {
+    fontSize: 17,
+    fontWeight: '600',
+  },
   iconBtn: {
     alignItems: 'center',
+    borderCurve: 'continuous',
     borderRadius: 14,
     height: 40,
     justifyContent: 'center',
     width: 40,
   },
-  kicker: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
+  saveChip: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
-  title: { fontSize: 16, fontWeight: '700' },
-  content: { gap: space.md, paddingHorizontal: 16, paddingTop: 16 },
-  heroTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.4 },
-  approvalRow: {
+  header: {
+    gap: space.xs,
+  },
+  metaRow: {
+    alignItems: 'center',
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: space.xs,
+  },
+  categoryChip: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  categoryEmoji: {
+    fontSize: 13,
+  },
+  approvalRow: {
     gap: 10,
   },
-  approveBtn: {
+  detailsCard: {
+    gap: space.md,
+  },
+  detailRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: space.md,
+  },
+  detailIconWrap: {
     alignItems: 'center',
     borderCurve: 'continuous',
-    borderRadius: radius.card,
-    flex: 1,
-    paddingVertical: 14,
-  },
-  approveBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  declineBtn: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: radius.card,
-    borderWidth: 1,
-    flex: 1,
-    paddingVertical: 14,
-  },
-  declineBtnText: {
-    color: '#F87171',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  card: { gap: space.md },
-  row: { gap: 4 },
-  value: { fontSize: 16, fontWeight: '700' },
-  ctaWrap: { borderRadius: 18, overflow: 'hidden' },
-  cta: {
-    alignItems: 'center',
+    borderRadius: 12,
+    height: 36,
     justifyContent: 'center',
-    paddingVertical: 15,
+    width: 36,
   },
-  ctaText: { fontSize: 14, fontWeight: '800' },
-  assignBtn: {
+  detailCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  detailValueRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  avatar: {
     alignItems: 'center',
     borderCurve: 'continuous',
-    borderRadius: radius.card,
-    paddingVertical: 16,
+    borderRadius: 999,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
   },
-  secondaryBtn: {
+  avatarEmoji: {
+    fontSize: 15,
+  },
+  notifyCard: {
+    gap: space.md,
+  },
+  notifyHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: space.sm,
+    justifyContent: 'space-between',
+  },
+  notifyCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  memberChip: {
     alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingVertical: 13,
+    borderCurve: 'continuous',
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 6,
+    maxWidth: '100%',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  secondaryText: { fontSize: 14, fontWeight: '700' },
-  dangerText: { color: '#F87171', fontSize: 14, fontWeight: '700' },
-  missingTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 16,
-    paddingHorizontal: 20,
+  memberEmoji: {
+    fontSize: 14,
+  },
+  footerActions: {
+    gap: space.md,
+    marginTop: space.xs,
+  },
+  deleteLink: {
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  deleteText: {
+    color: '#F87171',
+    fontWeight: '600',
   },
 });
