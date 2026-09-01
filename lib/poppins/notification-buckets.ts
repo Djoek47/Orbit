@@ -123,14 +123,25 @@ export function bucketNotification(item: NotificationItem): NotifBucket {
   return 'done';
 }
 
+export type InboxSection = {
+  id: NotifBucket;
+  label: string;
+  color: string;
+  cards: SheetNotificationCard[];
+};
+
+export type InboxBuildMode = 'sheet' | 'full';
+
 export function buildSheetNotifications(
   notifications: NotificationItem[],
   briefing?: PoppinsBriefing | null,
   now = Date.now(),
-  options?: { hidePoppinsLaunch?: boolean }
+  options?: { hidePoppinsLaunch?: boolean; mode?: InboxBuildMode }
 ): SheetNotificationCard[] {
   const cards: SheetNotificationCard[] = [];
   const hideLaunch = options?.hidePoppinsLaunch === true;
+  const mode = options?.mode ?? 'sheet';
+  const maxRows = mode === 'full' ? 120 : 40;
 
   if (briefing?.summary) {
     const fromActions = (briefing.actions ?? []).filter(Boolean).slice(0, 4);
@@ -161,11 +172,11 @@ export function buildSheetNotifications(
   );
 
   let insightCount = 0;
-  for (const item of sorted.slice(0, 40)) {
+  for (const item of sorted.slice(0, maxRows)) {
     const bucket = bucketNotification(item);
     if (bucket === 'insight') {
       if (item.isRead || !isSameLocalDay(item.createdAt, now)) continue;
-      if (insightCount >= 3) continue;
+      if (mode === 'sheet' && insightCount >= 3) continue;
       insightCount += 1;
     }
     cards.push({
@@ -182,6 +193,25 @@ export function buildSheetNotifications(
   }
 
   return cards;
+}
+
+/** Group inbox cards into ordered sections for the unified inbox UI. */
+export function buildInboxSections(
+  notifications: NotificationItem[],
+  briefing?: PoppinsBriefing | null,
+  now = Date.now(),
+  options?: { hidePoppinsLaunch?: boolean }
+): InboxSection[] {
+  const cards = buildSheetNotifications(notifications, briefing, now, {
+    ...options,
+    mode: 'full',
+  });
+  return BUCKET_ORDER.map((bucket) => ({
+    id: bucket,
+    label: BUCKET_LABELS[bucket],
+    color: BUCKET_COLORS[bucket],
+    cards: cards.filter((card) => card.bucket === bucket),
+  })).filter((section) => section.cards.length > 0);
 }
 
 export function needsAttentionCount(cards: SheetNotificationCard[]) {

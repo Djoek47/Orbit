@@ -110,10 +110,10 @@ export function SidekickSettingsScreen() {
               onPress={() => router.push('/house-rules' as never)}
             />
             <SettingsNavRow
-              icon="notifications-none"
+              icon="inbox"
               iconColor="#38BDF8"
-              label="Notifications"
-              subtitle="Task and reward alerts"
+              label="Inbox"
+              subtitle="Household alerts and Poppins activity"
               onPress={() => router.push('/notifications' as never)}
             />
             {sharedDevice ? (

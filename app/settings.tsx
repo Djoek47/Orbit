@@ -126,6 +126,7 @@ export default function SettingsScreen() {
     updatePreferredMapsApp,
     aiUsageEvents,
     refreshHousehold,
+    unreadNotificationCount,
   } = useOrbit();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
 
@@ -490,9 +491,20 @@ export default function SettingsScreen() {
 
             <SettingsGroup header="Alerts">
               <SettingsNavRow
+                icon="inbox"
+                iconColor={accentTheme.primary}
+                label="Inbox"
+                subtitle={
+                  unreadNotificationCount > 0
+                    ? `${unreadNotificationCount} unread household alert${unreadNotificationCount === 1 ? '' : 's'}`
+                    : 'Tasks, plan, groceries, and rewards'
+                }
+                onPress={() => router.push('/notifications' as never)}
+              />
+              <SettingsNavRow
                 icon="notifications-none"
                 iconColor="#A78BFA"
-                label="Notifications"
+                label="Alert preferences"
                 value={osNotifStatus === 'granted' ? 'On' : 'Off'}
                 last
                 onPress={() => setSection('notifications')}
@@ -1204,10 +1216,9 @@ export default function SettingsScreen() {
                 />
               </View>
             ))}
-            <Pressable style={styles.linkRow} onPress={() => router.push('/notifications' as never)}>
-              <Text style={styles.linkText}>Open notifications inbox</Text>
-              <MaterialIcons name="chevron-right" size={16} color="#38BDF8" />
-            </Pressable>
+            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted, marginTop: 8 }]}>
+              Your household inbox lives behind the bell icon — or Alerts → Inbox in Settings.
+            </Text>
           </>
         ) : null}
       </KeyboardScreen>

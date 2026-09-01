@@ -1,13 +1,11 @@
 import { BlurView } from 'expo-blur';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, usePathname } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router } from 'expo-router';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
-import { PoppinsActivitySheet } from '@/components/orbit/poppins-activity-sheet';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -30,29 +28,11 @@ export function GlobalHeaderChips() {
   const insets = useSafeAreaInsets();
   const {
     accentTheme,
-    household,
-    dismissInboxItem,
-    metrics,
-    notifications,
     orbitPalette,
-    inboxBriefing,
-    poppinsMonitorActions,
-    poppinsActivityFacts,
-    poppinsWeeklyBriefing,
     unreadNotificationCount,
   } = useOrbit();
-  const [inboxOpen, setInboxOpen] = useState(false);
   const drive = usePoppinsUiDrive();
-  const pathname = usePathname();
-  const onPoppinsTab = pathname?.includes('poppins') ?? false;
   const badge = Math.min(unreadNotificationCount, 9);
-  const monitorFeed = useMemo(
-    () =>
-      [...poppinsMonitorActions].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      ),
-    [poppinsMonitorActions]
-  );
   const accent = accentTheme.primary;
   const secondary = accentTheme.secondary;
   const isDark = orbitPalette.isDark;
@@ -61,7 +41,7 @@ export function GlobalHeaderChips() {
 
   const openInbox = () => {
     if (drive.live) poppinsUiOrchestrator.pause();
-    setInboxOpen(true);
+    router.push('/notifications' as never);
   };
 
   return (
@@ -143,22 +123,6 @@ export function GlobalHeaderChips() {
         </View>
       </View>
       <View style={[styles.hairline, { backgroundColor: `${accent}66` }]} />
-
-      <PoppinsActivitySheet
-        visible={inboxOpen}
-        onClose={() => setInboxOpen(false)}
-        variant="inbox"
-        hidePoppinsLaunch={onPoppinsTab}
-        notifications={notifications}
-        monitorActions={monitorFeed}
-        activityFacts={poppinsActivityFacts}
-        briefing={inboxBriefing}
-        weekly={poppinsWeeklyBriefing}
-        metrics={metrics}
-        poppinsActive={inboxOpen && monitorFeed.length > 0}
-        taskCompletedFallback={household.tasks.filter((t) => t.status === 'Completed').length}
-        onDismissNotification={(id) => dismissInboxItem(id)}
-      />
     </View>
   );
 }

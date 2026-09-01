@@ -21,13 +21,13 @@ function source(rel: string) {
 const chips = source('components/orbit/global-header-chips.tsx');
 assert.ok(!/if \(drive\.live\) setInboxOpen\(true\)/.test(chips), 'live IUI must not auto-open inbox');
 assert.match(chips, /accessibilityLabel="Notifications"/);
-assert.match(chips, /variant="inbox"/);
+assert.match(chips, /router\.push\('\/notifications'/);
 
 const poppinsTab = source('app/(tabs)/poppins.tsx');
 assert.match(poppinsTab, /PoppinsHourglass/);
-assert.match(poppinsTab, /variant="activity"/);
+assert.match(poppinsTab, /tab: 'activity'/);
 assert.match(poppinsTab, /accessibilityLabel="Activity"/);
-assert.match(poppinsTab, /active=\{showActivity\}/, 'hourglass animates only while the sheet is open');
+assert.match(poppinsTab, /active=\{isActive\}/, 'hourglass animates while Poppins is live');
 assert.ok(
   !poppinsTab.includes('active={isActive || monitorFeed.length > 0}'),
   'hourglass must not spin unprompted'
@@ -39,10 +39,10 @@ assert.match(poppinsTab, /start_failed: connect returned false with no onError/)
 assert.match(poppinsTab, /drive\.live \? null/);
 assert.ok(poppinsTab.includes('if (drive.live) return'), 'hourglass does not overlay a live scene');
 
-const sheet = source('components/orbit/poppins-activity-sheet.tsx');
-assert.match(sheet, /SheetTab = 'notifications' \| 'activity'/);
-assert.match(sheet, /Poppins Activity/);
-assert.match(sheet, /'Notifications'/);
+const inbox = source('components/orbit/notification-inbox.tsx');
+assert.match(inbox, /Inbox/);
+assert.match(inbox, /SegmentedControl/);
+assert.match(inbox, /buildInboxSections/);
 
 const stage = source('components/orbit/poppins-stage.tsx');
 assert.match(stage, /occurrenceDateForDueLabel/);
