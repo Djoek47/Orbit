@@ -36,17 +36,12 @@ import {
   mapTaskRow,
 } from '@/lib/mappers/orbit-mappers';
 import {
-  DEFAULT_REWARD_MODEL,
-  migrateLegacyRewardModel,
-  type RewardModel,
-} from '@/lib/rewards/reward-model';
-import { isUniqueViolation } from '@/lib/db/unique-violation';
-import {
   createLocalId,
   getConfiguredSupabase,
   isMockMode,
   mapDbError,
 } from '@/repositories/repository-utils';
+import { isUniqueViolation } from '@/lib/db/unique-violation';
 import { notificationsRepository } from '@/repositories/notifications-repository';
 import type {
   CreateHouseholdInput,
@@ -59,10 +54,10 @@ import type {
   OrbitUser,
 } from '@/types/orbit';
 import type { HouseholdInviteRow, HouseholdMemberRow, HouseholdRow } from '@/types/database';
-
-function migrateLoadedRewardModel(value: string | null | undefined): RewardModel {
-  return migrateLegacyRewardModel({ legacy: value ?? DEFAULT_REWARD_MODEL });
-}
+import {
+  mapCustomHouseRulesFromRows,
+  mapHouseholdSettingsFromRow,
+} from '@/lib/household/map-household-settings';
 
 export const householdRepository = {
   async getHousehold(): Promise<HouseholdSnapshot> {
@@ -1502,13 +1497,9 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
   const mappedTasks = (tasks ?? []).map((row) => mapTaskRow(row));
   const mappedGroceries = (groceries ?? []).map((row) => mapGroceryRow(row));
   const mappedEvents = (events ?? []).map((row) => mapEventRow(row));
-  const mappedCustomRules = (
+  const mappedCustomRules = mapCustomHouseRulesFromRows(
     (customRules ?? []) as { id?: string; body?: string; sort_order?: number }[]
-  ).map((row) => ({
-    id: String(row.id),
-    body: String(row.body ?? ''),
-    sortOrder: Number(row.sort_order ?? 0),
-  }));
+  );
 
   const greetingName =
     mappedMembers.find((member) => members?.find((row) => row.id === member.id)?.user_id === userId)?.name ||
@@ -1527,29 +1518,7 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     missingGroceries: mappedGroceries.filter((item) => item.status === 'Missing').length,
     upcomingEvents: mappedEvents.length,
     preferredStoreId: (household as { preferred_store_id?: string | null }).preferred_store_id ?? 'store-freshmart',
-    rewardMode:
-      (household as { reward_mode?: 'weighted' | 'flat' | null }).reward_mode === 'flat'
-        ? 'flat'
-        : 'weighted',
-    rewardModel: migrateLoadedRewardModel(
-      (household as { reward_model?: string | null }).reward_model
-    ),
-    hygieneRewarded: Boolean((household as { hygiene_rewarded?: boolean | null }).hygiene_rewarded),
-    hygieneXp:
-      (household as { hygiene_xp?: number | null }).hygiene_xp === 10 ? 10 : 5,
-    dailyDeadline: (household as { daily_deadline?: string | null }).daily_deadline ?? null,
-    dailyDeadlinePending: (household as { daily_deadline_pending?: string | null }).daily_deadline_pending ?? null,
-    dailyDeadlineAppliesOn:
-      (household as { daily_deadline_applies_on?: string | null }).daily_deadline_applies_on ?? null,
-    allowanceRequestsEnabled:
-      (household as { allowance_requests_enabled?: boolean | null }).allowance_requests_enabled !== false,
-    joinApprovalRequired:
-      (household as { join_approval_required?: boolean | null }).join_approval_required === true,
-    sidekickGroceryAdd: Boolean(
-      (household as { sidekick_grocery_add?: boolean | null }).sidekick_grocery_add
-    ),
-    memberCapabilities: ((household as { member_capabilities?: Record<string, boolean> | null })
-      .member_capabilities ?? undefined) as HouseholdSnapshot['memberCapabilities'],
+    ...mapHouseholdSettingsFromRow(household as Parameters<typeof mapHouseholdSettingsFromRow>[0]),
     members: mappedMembers,
     tasks: mappedTasks,
     groceries: mappedGroceries,

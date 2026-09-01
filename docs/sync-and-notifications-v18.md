@@ -38,10 +38,10 @@ npx supabase functions deploy dispatch-member-push
 
 | Function | Actions |
 |----------|---------|
-| `sidekick-sync` | Read: tasks, calendar, groceries, rewards, notifications, members; updates `last_seen_at` |
+| `sidekick-sync` | Read: tasks, calendar, groceries, rewards, notifications, members, **household settings**, custom house rules; updates `last_seen_at` |
 | `sidekick-task-action` | `complete`, `submit_proof`, `create_homework` + admin notify |
-| `sidekick-grocery-action` | `add_item` (requires `sidekick_grocery_add`) |
-| `sidekick-event-action` | `create_event` (approval pending → admin notify) |
+| `sidekick-grocery-action` | `add_item` (requires `sidekick_grocery_add` + `allowGroceryAdd`) |
+| `sidekick-event-action` | `create_event` (requires `allowCalendarCreate`; server sets approval) |
 | `register-sidekick-push` | Save Expo token by `member_id` |
 | `dispatch-member-push` | Expo push to `audienceMemberIds` |
 
@@ -87,5 +87,29 @@ Push tap → `NotificationTapBridge` → `getNotificationRoute()` deep link.
 | Send task reminder | — | Sidekick push + inbox | |
 | Push tap | Opens task/plan/rewards | Same | |
 | Co-admin sync | Assign task | Co-admin phone ≤3s | |
+| Toggle **Allow calendar adds** | Settings → House | Sidekick Plan add ≤3s | |
+| Toggle **Allow redeeming rewards** off | Settings → House | Sidekick cannot claim ≤3s | |
+| Toggle **Allow allowance** + requests on | Settings → House | Allowance tab + request ≤3s | |
+| Toggle **Let sidekicks add to grocery** | Settings → House | Edge 403 when off | |
+| Change **reward model** | Settings → House | Rewards tab surfaces ≤3s | |
+| Change **Meritocracy → Equity** | Settings → House | XP scoring ≤3s | |
+
+## Household settings sync (Sidekick poll)
+
+`sidekick-sync` returns the full `households` row. The client maps these fields on every 3s poll via [`lib/household/map-household-settings.ts`](../lib/household/map-household-settings.ts):
+
+| Field | Snapshot key |
+|-------|----------------|
+| `member_capabilities` | `memberCapabilities` (all 6 toggles) |
+| `reward_model` | `rewardModel` |
+| `reward_mode` | `rewardMode` |
+| `hygiene_rewarded` / `hygiene_xp` | `hygieneRewarded` / `hygieneXp` |
+| `allowance_requests_enabled` | `allowanceRequestsEnabled` |
+| `daily_deadline*` | `dailyDeadline`, `dailyDeadlinePending`, `dailyDeadlineAppliesOn` |
+| `sidekick_grocery_add` | `sidekickGroceryAdd` |
+| `join_approval_required` | `joinApprovalRequired` |
+| `custom_house_rules` | `customHouseRules` |
+
+Server enforcement: `sidekick-grocery-action` and `sidekick-event-action` read caps from DB (not client payload).
 
 Build tip in Settings: `make-v18 · sidekick-writes · presence-ui · push-admin · sync-100`

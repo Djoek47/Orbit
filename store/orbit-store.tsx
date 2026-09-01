@@ -4891,6 +4891,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return;
     }
     if (isSidekickRole(currentMember.role)) {
+      const caps = resolveMemberCapabilities(household);
+      if (!caps.allowSpecialRewardRequest) {
+        throw new Error('Reward suggestions are turned off for Sidekicks in your household.');
+      }
       const gate = canRequestReward(currentMember.name, household.tasks);
       if (!gate.allowed) {
         throw new Error("Finish today's tasks and homework to ask for a reward.");
@@ -5127,6 +5131,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   ) => {
     if (!household.id || !currentMember) {
       return null;
+    }
+    const caps = resolveMemberCapabilities(household);
+    if (!permissions.canManageHousehold) {
+      if (!caps.allowAllowance) {
+        throw new Error('Allowance is turned off for members in your household.');
+      }
+      if (household.allowanceRequestsEnabled === false) {
+        throw new Error('Allowance requests are turned off. Ask a parent to enable them in Settings.');
+      }
     }
     // Members request; admins may also request for testing.
     const grant = await rewardsRepository.createAllowance(household.id, {

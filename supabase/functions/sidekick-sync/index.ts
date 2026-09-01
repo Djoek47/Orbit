@@ -88,6 +88,7 @@ Deno.serve(async (req) => {
       { data: rewards },
       { data: groceries },
       { data: calendarEvents },
+      { data: customHouseRules },
     ] = await Promise.all([
       admin.from('households').select('*').eq('id', householdId).maybeSingle(),
       admin.from('household_members').select('*').eq('household_id', householdId),
@@ -113,6 +114,11 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('household_id', householdId)
         .order('starts_at', { ascending: true }),
+      admin
+        .from('custom_house_rules')
+        .select('id, body, sort_order')
+        .eq('household_id', householdId)
+        .order('sort_order', { ascending: true }),
     ]);
 
     const visibleNotifications = (notifications ?? []).filter((row) =>
@@ -129,6 +135,7 @@ Deno.serve(async (req) => {
         rewards: rewards ?? [],
         groceries: groceries ?? [],
         calendarEvents: calendarEvents ?? [],
+        customHouseRules: customHouseRules ?? [],
       }),
       { headers: { ...cors, 'Content-Type': 'application/json' } }
     );

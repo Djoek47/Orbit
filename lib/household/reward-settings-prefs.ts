@@ -81,10 +81,14 @@ export async function applyStoredHouseholdLogicPrefs(
     rewardMode: settings?.rewardMode ?? household.rewardMode ?? 'weighted',
     hygieneRewarded: settings?.hygieneRewarded ?? household.hygieneRewarded ?? false,
     hygieneXp: settings?.hygieneXp === 10 ? 10 : settings?.hygieneXp === 5 ? 5 : household.hygieneXp ?? 5,
-    memberCapabilities: {
-      ...DEFAULT_MEMBER_CAPABILITIES,
-      ...(household.memberCapabilities ?? {}),
-      ...(caps ?? {}),
-    },
+    memberCapabilities: household.memberCapabilities
+      ? {
+          ...DEFAULT_MEMBER_CAPABILITIES,
+          ...household.memberCapabilities,
+        }
+      : {
+          ...DEFAULT_MEMBER_CAPABILITIES,
+          ...(caps ?? {}),
+        },
   };
 }

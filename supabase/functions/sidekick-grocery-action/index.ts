@@ -2,6 +2,10 @@
  * Sidekick grocery writes — profile-code auth.
  */
 import {
+  assertCapability,
+  loadHouseholdSettings,
+} from '../_shared/household-settings.ts';
+import {
   jsonResponse,
   normalizeCode,
   resolveSidekickMember,
@@ -32,15 +36,17 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'not_found' }, 404);
     }
 
-    const { data: household } = await admin
-      .from('households')
-      .select('sidekick_grocery_add')
-      .eq('id', member.household_id)
-      .maybeSingle();
+    const settings = await loadHouseholdSettings(admin, member.household_id);
+    if (!settings) {
+      return jsonResponse({ error: 'household_not_found' }, 404);
+    }
 
-    if (!household?.sidekick_grocery_add) {
+    if (!settings.sidekickGroceryAdd) {
       return jsonResponse({ error: 'grocery_add_disabled' }, 403);
     }
+
+    const capDenied = assertCapability(settings, 'allowGroceryAdd');
+    if (capDenied) return capDenied;
 
     if (action !== 'add_item') {
       return jsonResponse({ error: 'unknown_action' }, 400);

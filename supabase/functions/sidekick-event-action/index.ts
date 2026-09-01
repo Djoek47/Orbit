@@ -2,6 +2,11 @@
  * Sidekick calendar event writes — profile-code auth.
  */
 import {
+  assertCapability,
+  loadHouseholdSettings,
+  resolveSidekickEventApproval,
+} from '../_shared/household-settings.ts';
+import {
   jsonResponse,
   normalizeCode,
   resolveSidekickMember,
@@ -49,9 +54,16 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'not_found' }, 404);
     }
 
-    const approvalStatus =
-      String(body.approvalStatus ?? 'approved') === 'pending' ? 'pending' : 'approved';
+    const settings = await loadHouseholdSettings(admin, member.household_id);
+    if (!settings) {
+      return jsonResponse({ error: 'household_not_found' }, 404);
+    }
+
+    const capDenied = assertCapability(settings, 'allowCalendarCreate');
+    if (capDenied) return capDenied;
+
     const category = normalizeCategory(String(body.category ?? 'family'));
+    const approvalStatus = resolveSidekickEventApproval(settings, category);
     const dateLabel = String(body.date ?? 'Today').trim() || 'Today';
     const timeLabel = String(body.time ?? '').trim() || 'All day';
     const location = String(body.location ?? '').trim();
@@ -111,7 +123,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return jsonResponse({ event, attendeeMemberIds: attendeeIds });
+    return jsonResponse({ event, attendeeMemberIds: attendeeIds, approvalStatus });
   } catch (error) {
     return jsonResponse({ error: String(error) }, 500);
   }

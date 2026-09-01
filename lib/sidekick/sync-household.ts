@@ -3,6 +3,11 @@
  */
 
 import { dataMode } from '@/config/data-mode';
+import {
+  mapCustomHouseRulesFromRows,
+  mapHouseholdSettingsFromRow,
+  type HouseholdSettingsRow,
+} from '@/lib/household/map-household-settings';
 import { mapEventRow, mapGroceryRow, mapMemberRow, mapRewardRow, mapTaskRow } from '@/lib/mappers/orbit-mappers';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import type { HouseholdSnapshot, NotificationItem } from '@/types/orbit';
@@ -18,6 +23,7 @@ export type SidekickSyncResult = {
   rewards: ReturnType<typeof mapRewardRow>[];
   groceries: ReturnType<typeof mapGroceryRow>[];
   householdPatch: Partial<HouseholdSnapshot>;
+  customHouseRules: NonNullable<HouseholdSnapshot['customHouseRules']>;
 };
 
 function mapNotificationRow(row: {
@@ -66,14 +72,8 @@ export async function fetchSidekickSync(profileInviteCode: string): Promise<Side
   const payload = data as {
     error?: string;
     member?: Parameters<typeof mapMemberRow>[0];
-    household?: {
-      id?: string;
-      name?: string;
-      daily_deadline?: string | null;
-      reward_model?: string | null;
-      sidekick_grocery_add?: boolean | null;
-      join_approval_required?: boolean | null;
-    };
+    household?: HouseholdSettingsRow;
+    customHouseRules?: { id?: string; body?: string; sort_order?: number }[];
     members?: Parameters<typeof mapMemberRow>[0][];
     tasks?: Parameters<typeof mapTaskRow>[0][];
     calendarEvents?: Parameters<typeof mapEventRow>[0][];
@@ -94,6 +94,8 @@ export async function fetchSidekickSync(profileInviteCode: string): Promise<Side
   const rewards = (payload.rewards ?? []).map((row) => mapRewardRow(row));
   const groceries = (payload.groceries ?? []).map((row) => mapGroceryRow(row));
   const household = payload.household;
+  const customHouseRules = mapCustomHouseRulesFromRows(payload.customHouseRules) ?? [];
+  const householdPatch = mapHouseholdSettingsFromRow(household);
 
   return {
     householdId: household.id!,
@@ -105,13 +107,11 @@ export async function fetchSidekickSync(profileInviteCode: string): Promise<Side
     notifications,
     rewards,
     groceries,
+    customHouseRules,
     householdPatch: {
+      ...householdPatch,
       id: household.id,
       householdName: household.name ?? 'Household',
-      dailyDeadline: household.daily_deadline ?? undefined,
-      rewardModel: (household.reward_model as HouseholdSnapshot['rewardModel']) ?? undefined,
-      sidekickGroceryAdd: household.sidekick_grocery_add === true,
-      joinApprovalRequired: household.join_approval_required === true,
     },
   };
 }
@@ -133,6 +133,7 @@ export function mergeSidekickSyncIntoHousehold(
     events: sync.events,
     rewards: sync.rewards,
     groceries: sync.groceries,
+    customHouseRules: sync.customHouseRules,
     greetingName: sync.member.name,
   };
 }
