@@ -3,6 +3,10 @@
  */
 
 import type { DraftMember, HouseholdSetupDraft } from '@/lib/onboarding/setup-draft';
+import {
+  DEFAULT_REWARD_PACKAGE_ID,
+  draftRewardsFromPackage,
+} from '@/lib/rewards/reward-packages';
 import { type RewardMode, resolveTaskXp } from '@/lib/rewards/reward-mode';
 import { allLibraryTasks } from '@/lib/tasks/task-library';
 import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
@@ -60,8 +64,15 @@ export function tasksFromDraftMember(
     });
 }
 
-export function rewardsFromDraftMember(member: DraftMember): CreateRewardInput[] {
-  return member.rewards.map((reward) => ({
+export function rewardsFromDraftMember(
+  member: DraftMember,
+  fallbackPackageId: string | null | undefined = DEFAULT_REWARD_PACKAGE_ID
+): CreateRewardInput[] {
+  const source =
+    member.rewards.length > 0
+      ? member.rewards
+      : draftRewardsFromPackage(fallbackPackageId ?? DEFAULT_REWARD_PACKAGE_ID);
+  return source.map((reward) => ({
     title: reward.quantity ? `${reward.title} (${reward.quantity})` : reward.title,
     cost: 0,
     approvalRequired: true,

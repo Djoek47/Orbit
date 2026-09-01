@@ -19,6 +19,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { SetupMemberWizard } from '@/components/orbit/setup-member-wizard';
+import { RewardPackagePicker } from '@/components/orbit/onboarding/reward-package-picker';
 import { SetupRosterHub, type RosterSidekickInvite } from '@/components/orbit/setup-roster-hub';
 import { SplashHooks } from '@/components/orbit/splash-hooks';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
@@ -44,10 +45,15 @@ import {
 } from '@/lib/onboarding/setup-draft';
 import { rewardsFromDraftMember } from '@/lib/onboarding/materialize-setup';
 import {
+  capabilitiesFor,
   DEFAULT_REWARD_MODEL,
   REWARD_MODEL_OPTIONS,
   type RewardModel,
 } from '@/lib/rewards/reward-model';
+import {
+  DEFAULT_REWARD_PACKAGE_ID,
+  type RewardPackageId,
+} from '@/lib/rewards/reward-packages';
 import { type RewardMode, REWARD_MODE_COPY, REWARD_MODE_EXAMPLES, STREAK_FOOTNOTE } from '@/lib/rewards/reward-mode';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
@@ -145,6 +151,7 @@ type Step =
   | 'splash'
   | 'motivation'
   | 'reward-system'
+  | 'reward-pack'
   | 'account'
   | 'profile'
   | 'household'
@@ -208,6 +215,9 @@ export default function WelcomeOnboardingScreen() {
     DEFAULT_REWARD_MODEL
   );
   const [selectedRewardMode, setSelectedRewardMode] = useState<RewardMode>('weighted');
+  const [selectedRewardPackageId, setSelectedRewardPackageId] = useState<RewardPackageId>(
+    DEFAULT_REWARD_PACKAGE_ID
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -313,6 +323,9 @@ export default function WelcomeOnboardingScreen() {
       }
       if (draft) {
         setSetupDraft(draft);
+        if (draft.rewardPackageId) {
+          setSelectedRewardPackageId(draft.rewardPackageId as RewardPackageId);
+        }
         if (draft.householdName) setHouseholdName(draft.householdName);
         if (draft.rewardModel) setSelectedRewardModel(draft.rewardModel);
         if (draft.scoringMode) setSelectedRewardMode(draft.scoringMode);
@@ -364,6 +377,7 @@ export default function WelcomeOnboardingScreen() {
     switch (step) {
       case 'motivation':
       case 'reward-system':
+      case 'reward-pack':
         return 0;
       case 'account':
       case 'profile':
@@ -389,8 +403,15 @@ export default function WelcomeOnboardingScreen() {
       case 'reward-system':
         setStep('motivation');
         break;
-      case 'account':
+      case 'reward-pack':
         setStep('reward-system');
+        break;
+      case 'account':
+        setStep(
+          capabilitiesFor(selectedRewardModel ?? DEFAULT_REWARD_MODEL).rewardsEnabled
+            ? 'reward-pack'
+            : 'reward-system'
+        );
         break;
       case 'profile':
         setStep('account');
@@ -503,6 +524,29 @@ export default function WelcomeOnboardingScreen() {
       setSetupDraft(nextDraft);
     } catch {
       // Prefs are best-effort; still advance so onboarding isn't blocked.
+    }
+    if (capabilitiesFor(rewardModel).rewardsEnabled) {
+      setStep('reward-pack');
+      return;
+    }
+    advanceAfterPrefs();
+  };
+
+  const handleRewardPackContinue = async () => {
+    setError('');
+    const rewardMode: RewardMode = selectedRewardMode ?? 'weighted';
+    const rewardModel = selectedRewardModel ?? DEFAULT_REWARD_MODEL;
+    const rewardPackageId = selectedRewardPackageId ?? DEFAULT_REWARD_PACKAGE_ID;
+    try {
+      const nextDraft = await saveSetupDraft({
+        ...setupDraft,
+        rewardModel,
+        scoringMode: rewardMode,
+        rewardPackageId,
+      });
+      setSetupDraft(nextDraft);
+    } catch {
+      // Draft save is best-effort.
     }
     advanceAfterPrefs();
   };
@@ -713,7 +757,7 @@ export default function WelcomeOnboardingScreen() {
           const matched = created.find(
             (c) => c.name.trim().toLowerCase() === member.name.trim().toLowerCase()
           );
-          for (const reward of rewardsFromDraftMember(member)) {
+          for (const reward of rewardsFromDraftMember(member, draft.rewardPackageId)) {
             await createReward(
               {
                 ...reward,
@@ -1052,6 +1096,24 @@ export default function WelcomeOnboardingScreen() {
             </KeyboardScreen>
           ) : null}
 
+          {step === 'reward-pack' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
+                Pick a reward starter pack
+              </Text>
+              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
+                Cute, ready-made prizes for your household. You can change these anytime.
+              </Text>
+              <RewardPackagePicker
+                selectedId={selectedRewardPackageId}
+                accent={accent}
+                onSelect={setSelectedRewardPackageId}
+              />
+              <OrbitButton onPress={() => void handleRewardPackContinue()}>Continue</OrbitButton>
+            </KeyboardScreen>
+          ) : null}
+
           {step === 'account' ? (
             <KeyboardScreen contentContainerStyle={styles.scroll}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
@@ -1259,11 +1321,14 @@ export default function WelcomeOnboardingScreen() {
           ) : null}
 
           {step === 'member-wizard' ? (
-            <KeyboardScreen contentContainerStyle={styles.scroll}>
+            <KeyboardScreen style={styles.memberWizardShell} contentContainerStyle={styles.memberWizardContent}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
               <SetupMemberWizard
                 rewardModel={selectedRewardModel ?? DEFAULT_REWARD_MODEL}
                 rewardMode={selectedRewardMode ?? setupDraft.scoringMode ?? 'weighted'}
+                defaultRewardPackageId={
+                  setupDraft.rewardPackageId ?? selectedRewardPackageId ?? DEFAULT_REWARD_PACKAGE_ID
+                }
                 initial={editingMember}
                 onCancel={() => setStep('roster')}
                 onConfirm={(member) => {
@@ -1779,6 +1844,15 @@ const styles = StyleSheet.create({
   scroll: {
     gap: 4,
     paddingBottom: space.xxl,
+    paddingHorizontal: space.xl,
+  },
+  memberWizardShell: {
+    flex: 1,
+  },
+  memberWizardContent: {
+    flexGrow: 1,
+    gap: 4,
+    paddingBottom: space.md,
     paddingHorizontal: space.xl,
   },
   appleButton: {

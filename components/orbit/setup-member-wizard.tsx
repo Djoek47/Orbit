@@ -8,6 +8,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { Avatar } from '@/components/orbit/avatar';
+import { RewardPackagePicker } from '@/components/orbit/onboarding/reward-package-picker';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { TaskPicker } from '@/components/orbit/task-picker';
 import { radius, space, typography } from '@/constants/orbit-theme';
@@ -27,6 +28,12 @@ import {
   REWARD_PRESETS,
   type RewardFrequency,
 } from '@/lib/rewards/reward-presets';
+import {
+  DEFAULT_REWARD_PACKAGE_ID,
+  draftRewardsFromPackage,
+  rewardsMatchPackage,
+  type RewardPackageId,
+} from '@/lib/rewards/reward-packages';
 import { allLibraryTasks } from '@/lib/tasks/task-library';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
@@ -37,6 +44,8 @@ type SetupMemberWizardProps = {
   rewardModel: RewardModel;
   /** Meritocracy / Equity — drives XP labels in the task picker before household exists. */
   rewardMode?: RewardMode;
+  /** Household reward bundle from Get Started — pre-fills Step C. */
+  defaultRewardPackageId?: string | null;
   initial?: DraftMember | null;
   onCancel: () => void;
   onConfirm: (member: DraftMember) => void;
@@ -44,14 +53,14 @@ type SetupMemberWizardProps = {
 
 const STEPS: WizardStep[] = ['A', 'B', 'C', 'D'];
 
-function emptyMember(): DraftMember {
+function emptyMember(packageId: string | null | undefined): DraftMember {
   return {
     id: newDraftMemberId(),
     name: '',
     role: 'member',
     avatarColor: AVATAR_SWATCHES[0],
     taskLibraryIds: [],
-    rewards: [],
+    rewards: draftRewardsFromPackage(packageId ?? DEFAULT_REWARD_PACKAGE_ID),
     allowance: null,
     setupComplete: false,
   };
@@ -60,6 +69,7 @@ function emptyMember(): DraftMember {
 export function SetupMemberWizard({
   rewardModel,
   rewardMode = 'weighted',
+  defaultRewardPackageId = DEFAULT_REWARD_PACKAGE_ID,
   initial,
   onCancel,
   onConfirm,
@@ -68,11 +78,28 @@ export function SetupMemberWizard({
   const caps = capabilitiesFor(rewardModel);
   const skipRewards = !caps.rewardsEnabled && !caps.allowanceEnabled;
 
-  const [member, setMember] = useState<DraftMember>(() =>
-    initial ? { ...initial, rewards: [...initial.rewards] } : emptyMember()
-  );
+  const [member, setMember] = useState<DraftMember>(() => {
+    if (initial) {
+      const rewards =
+        initial.rewards.length > 0
+          ? [...initial.rewards]
+          : draftRewardsFromPackage(defaultRewardPackageId);
+      return { ...initial, rewards };
+    }
+    return emptyMember(defaultRewardPackageId);
+  });
   const [step, setStep] = useState<WizardStep>('A');
   const [lookSheetOpen, setLookSheetOpen] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState<RewardPackageId | null>(() => {
+    if (initial?.rewards.length) {
+      for (const pack of ['pack-starter', 'pack-treat-time', 'pack-game-on', 'pack-pick-play'] as const) {
+        if (rewardsMatchPackage(initial.rewards, pack)) return pack;
+      }
+      return null;
+    }
+    return (defaultRewardPackageId as RewardPackageId) ?? DEFAULT_REWARD_PACKAGE_ID;
+  });
+  const [showRewardCustomize, setShowRewardCustomize] = useState(false);
 
   const visibleSteps = useMemo(
     () => (skipRewards ? (['A', 'B', 'D'] as WizardStep[]) : STEPS),
@@ -114,6 +141,7 @@ export function SetupMemberWizard({
   const toggleReward = (presetId: string) => {
     const preset = REWARD_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
+    setSelectedPackageId(null);
     setMember((current) => {
       const exists = current.rewards.find((r) => r.presetId === presetId);
       if (exists) {
@@ -134,6 +162,16 @@ export function SetupMemberWizard({
       ...current,
       rewards: current.rewards.map((r) => (r.presetId === presetId ? { ...r, frequency } : r)),
     }));
+    setSelectedPackageId(null);
+  };
+
+  const applyRewardPackage = (packageId: RewardPackageId) => {
+    setSelectedPackageId(packageId);
+    setMember((current) => ({
+      ...current,
+      rewards: draftRewardsFromPackage(packageId),
+    }));
+    setShowRewardCustomize(false);
   };
 
   const setAllowance = (patch: Partial<DraftMemberAllowance>) => {
@@ -171,263 +209,23 @@ export function SetupMemberWizard({
         ))}
       </View>
 
-      {step === 'A' ? (
-        <View style={styles.block}>
-          <Text style={[typography.title2, { color: c.text }]}>What&apos;s their name?</Text>
-          <Pressable
-            onPress={() => setLookSheetOpen(true)}
-            style={styles.photoRow}
-            accessibilityRole="button"
-            accessibilityLabel={
-              hasChosenAvatar(member.avatar)
-                ? `Change photo for ${member.name.trim() || 'this person'}`
-                : 'Choose a profile picture'
-            }>
-            <Avatar
-              name={member.name.trim() || 'New'}
-              emoji={
-                member.avatar && !isAvatarImageUri(member.avatar)
-                  ? member.avatar
-                  : memberDisplayEmoji({ name: member.name.trim() || 'New', avatar: member.avatar })
-              }
-              imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
-              size="l"
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={[typography.headline, { color: c.text }]}>
-                {hasChosenAvatar(member.avatar) ? 'Change photo' : 'Choose a photo'}
-              </Text>
-              <Text style={[typography.caption1, { color: c.textMuted, marginTop: 2 }]}>
-                {hasChosenAvatar(member.avatar)
-                  ? 'Photos, Image Playground, or emoji'
-                  : 'No photo yet — pick one if you have it'}
-              </Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={22} color={c.textSubtle} />
-          </Pressable>
-          <TextInput
-            value={member.name}
-            onChangeText={(name) => setMember((m) => ({ ...m, name }))}
-            placeholder="e.g. Emma"
-            placeholderTextColor={c.textSubtle}
-            style={[
-              styles.input,
-              { color: c.text, borderColor: glassBorder(0.14), backgroundColor: glass(0.05) },
-            ]}
-          />
-          <Text style={[typography.caption1, { color: c.textMuted }]}>Avatar colour</Text>
-          <View style={styles.swatches}>
-            {AVATAR_SWATCHES.map((color) => (
-              <Pressable
-                key={color}
-                onPress={() => setMember((m) => ({ ...m, avatarColor: color }))}
-                style={[
-                  styles.swatch,
-                  {
-                    backgroundColor: color,
-                    borderColor: member.avatarColor === color ? c.text : 'transparent',
-                  },
-                ]}
-              />
-            ))}
-          </View>
-          <Text style={[typography.caption1, { color: c.textMuted }]}>Role</Text>
-          <View style={styles.roleRow}>
-            {(['member', 'admin'] as const).map((role) => {
-              const active = member.role === role;
-              return (
-                <Pressable
-                  key={role}
-                  onPress={() => setMember((m) => ({ ...m, role }))}
-                  style={[
-                    styles.roleChip,
-                    {
-                      backgroundColor: active ? `${c.primary}22` : glass(0.05),
-                      borderColor: active ? `${c.primary}55` : glassBorder(0.12),
-                    },
-                  ]}>
-                  <Text style={{ color: active ? c.primary : c.textMuted, fontWeight: '600' }}>
-                    {role === 'admin' ? 'Admin' : 'Sidekick'}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <OrbitButton disabled={!member.name.trim()} onPress={goNext}>
-            Continue
-          </OrbitButton>
-          <Pressable onPress={goBack}>
-            <Text style={[typography.footnote, { color: c.textSubtle, textAlign: 'center' }]}>
-              Back
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      {step === 'B' ? (
-        <View style={[styles.block, { flex: 1 }]}>
-          <Text style={[typography.title2, { color: c.text }]}>
-            What should {member.name.trim() || 'they'} take care of?
-          </Text>
-          <Text style={[typography.caption1, { color: c.textMuted }]}>
-            Planned now — assigned when {member.name.trim() || 'they'} connect on their device.
-          </Text>
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
-            <TaskPicker
-              selectedIds={member.taskLibraryIds}
-              onChange={(taskLibraryIds) => setMember((m) => ({ ...m, taskLibraryIds }))}
-              rewardMode={rewardMode}
-            />
-          </ScrollView>
-          <OrbitButton onPress={goNext}>
-            {member.taskLibraryIds.length > 0 ? 'Continue' : 'Skip for now'}
-          </OrbitButton>
-          <Pressable onPress={goBack}>
-            <Text style={[typography.footnote, { color: c.textSubtle, textAlign: 'center' }]}>
-              Back
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      {step === 'C' ? (
-        <ScrollView contentContainerStyle={styles.block}>
-          <Text style={[typography.title2, { color: c.text }]}>
-            What would you like {member.name.trim() || 'them'} to earn?
-          </Text>
-
-          {caps.rewardsEnabled ? (
-            <View style={{ gap: 10 }}>
-              <Text style={[typography.headline, { color: c.text }]}>Rewards</Text>
-              {REWARD_PRESETS.map((preset) => {
-                const selected = member.rewards.find((r) => r.presetId === preset.id);
-                return (
-                  <View
-                    key={preset.id}
-                    style={[
-                      styles.rewardCard,
-                      {
-                        backgroundColor: selected ? `${c.primary}14` : glass(0.05),
-                        borderColor: selected ? `${c.primary}44` : glassBorder(0.1),
-                      },
-                    ]}>
-                    <Pressable onPress={() => toggleReward(preset.id)} style={styles.rewardHead}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[typography.headline, { color: c.text }]}>{preset.title}</Text>
-                        {preset.subtitle ? (
-                          <Text style={[typography.caption1, { color: c.textSubtle }]}>
-                            {preset.subtitle}
-                          </Text>
-                        ) : null}
-                      </View>
-                      <MaterialIcons
-                        name={selected ? 'check-box' : 'check-box-outline-blank'}
-                        size={22}
-                        color={selected ? c.primary : c.textSubtle}
-                      />
-                    </Pressable>
-                    {selected ? (
-                      <View style={styles.freqRow}>
-                        {(['daily', 'weekly', 'monthly'] as RewardFrequency[]).map((freq) => {
-                          const active = selected.frequency === freq;
-                          return (
-                            <Pressable
-                              key={freq}
-                              onPress={() => setRewardFrequency(preset.id, freq)}
-                              style={[
-                                styles.freqChip,
-                                {
-                                  backgroundColor: active ? `${c.primary}22` : glass(0.04),
-                                  borderColor: active ? `${c.primary}55` : glassBorder(0.1),
-                                },
-                              ]}>
-                              <Text
-                                style={{
-                                  color: active ? c.primary : c.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: '600',
-                                }}>
-                                {REWARD_FREQUENCY_LABELS[freq]}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    ) : null}
-                  </View>
-                );
-              })}
-            </View>
-          ) : null}
-
-          {caps.allowanceEnabled ? (
-            <View style={{ gap: 10, marginTop: caps.rewardsEnabled ? 16 : 0 }}>
-              <Text style={[typography.headline, { color: c.text }]}>Allowance</Text>
-              <TextInput
-                keyboardType="decimal-pad"
-                value={member.allowance ? String(member.allowance.amount) : ''}
-                onChangeText={(text) => {
-                  const amount = Number(text.replace(/[^0-9.]/g, ''));
-                  if (!text.trim()) {
-                    setMember((m) => ({ ...m, allowance: null }));
-                    return;
-                  }
-                  setAllowance({ amount: Number.isFinite(amount) ? amount : 0 });
-                }}
-                placeholder="Amount"
-                placeholderTextColor={c.textSubtle}
-                style={[
-                  styles.input,
-                  { color: c.text, borderColor: glassBorder(0.14), backgroundColor: glass(0.05) },
-                ]}
-              />
-              <View style={styles.freqRow}>
-                {(['daily', 'weekly', 'monthly'] as RewardFrequency[]).map((freq) => {
-                  const active = (member.allowance?.frequency ?? 'weekly') === freq;
-                  return (
-                    <Pressable
-                      key={freq}
-                      onPress={() => setAllowance({ frequency: freq })}
-                      style={[
-                        styles.freqChip,
-                        {
-                          backgroundColor: active ? `${c.primary}22` : glass(0.04),
-                          borderColor: active ? `${c.primary}55` : glassBorder(0.1),
-                        },
-                      ]}>
-                      <Text
-                        style={{
-                          color: active ? c.primary : c.textMuted,
-                          fontSize: 12,
-                          fontWeight: '600',
-                        }}>
-                        {REWARD_FREQUENCY_LABELS[freq]}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          ) : null}
-
-          <OrbitButton onPress={goNext}>Continue</OrbitButton>
-          <Pressable onPress={goBack}>
-            <Text style={[typography.footnote, { color: c.textSubtle, textAlign: 'center' }]}>
-              Back
-            </Text>
-          </Pressable>
-        </ScrollView>
-      ) : null}
-
-      {step === 'D' ? (
-        <ScrollView contentContainerStyle={styles.block}>
-          <Text style={[typography.title2, { color: c.text }]}>Review &amp; confirm</Text>
-          <View
-            style={[
-              styles.reviewCard,
-              { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
-            ]}>
-            <View style={styles.reviewHead}>
+      <View style={styles.stepBody}>
+        {step === 'A' ? (
+          <ScrollView
+            style={styles.stepScroll}
+            contentContainerStyle={styles.stepScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <Text style={[typography.title2, { color: c.text }]}>What&apos;s their name?</Text>
+            <Pressable
+              onPress={() => setLookSheetOpen(true)}
+              style={styles.photoRow}
+              accessibilityRole="button"
+              accessibilityLabel={
+                hasChosenAvatar(member.avatar)
+                  ? `Change photo for ${member.name.trim() || 'this person'}`
+                  : 'Choose a profile picture'
+              }>
               <Avatar
                 name={member.name.trim() || 'New'}
                 emoji={
@@ -439,69 +237,327 @@ export function SetupMemberWizard({
                 size="l"
               />
               <View style={{ flex: 1 }}>
-                <Text style={[typography.headline, { color: c.text }]}>{member.name.trim()}</Text>
-                <Text style={[typography.caption1, { color: c.textMuted }]}>
-                  {member.role === 'admin' ? 'Admin' : 'Sidekick'}
+                <Text style={[typography.headline, { color: c.text }]}>
+                  {hasChosenAvatar(member.avatar) ? 'Change photo' : 'Choose a photo'}
+                </Text>
+                <Text style={[typography.caption1, { color: c.textMuted, marginTop: 2 }]}>
+                  {hasChosenAvatar(member.avatar)
+                    ? 'Photos, Image Playground, or emoji'
+                    : 'No photo yet — pick one if you have it'}
                 </Text>
               </View>
-              <Pressable onPress={() => setStep('A')}>
-                <Text style={{ color: c.primary, fontWeight: '600' }}>Edit</Text>
-              </Pressable>
+              <MaterialIcons name="chevron-right" size={22} color={c.textSubtle} />
+            </Pressable>
+            <TextInput
+              value={member.name}
+              onChangeText={(name) => setMember((m) => ({ ...m, name }))}
+              placeholder="e.g. Emma"
+              placeholderTextColor={c.textSubtle}
+              style={[
+                styles.input,
+                { color: c.text, borderColor: glassBorder(0.14), backgroundColor: glass(0.05) },
+              ]}
+            />
+            <Text style={[typography.caption1, { color: c.textMuted }]}>Avatar colour</Text>
+            <View style={styles.swatches}>
+              {AVATAR_SWATCHES.map((color) => (
+                <Pressable
+                  key={color}
+                  onPress={() => setMember((m) => ({ ...m, avatarColor: color }))}
+                  style={[
+                    styles.swatch,
+                    {
+                      backgroundColor: color,
+                      borderColor: member.avatarColor === color ? c.text : 'transparent',
+                    },
+                  ]}
+                />
+              ))}
             </View>
-
-            <View style={styles.reviewSection}>
-              <View style={styles.reviewSectionHead}>
-                <Text style={[typography.headline, { color: c.text }]}>Tasks</Text>
-                <Pressable onPress={() => setStep('B')}>
-                  <Text style={{ color: c.primary, fontWeight: '600' }}>Edit</Text>
-                </Pressable>
-              </View>
-              {member.taskLibraryIds.length === 0 ? (
-                <Text style={[typography.caption1, { color: c.textSubtle }]}>None yet</Text>
-              ) : (
-                member.taskLibraryIds.map((id) => (
-                  <Text key={id} style={[typography.footnote, { color: c.textMuted }]}>
-                    · {libraryById.get(id)?.name ?? id}
-                  </Text>
-                ))
-              )}
-            </View>
-
-            {!skipRewards ? (
-              <View style={styles.reviewSection}>
-                <View style={styles.reviewSectionHead}>
-                  <Text style={[typography.headline, { color: c.text }]}>Earn</Text>
-                  <Pressable onPress={() => setStep('C')}>
-                    <Text style={{ color: c.primary, fontWeight: '600' }}>Edit</Text>
+            <Text style={[typography.caption1, { color: c.textMuted }]}>Role</Text>
+            <View style={styles.roleRow}>
+              {(['member', 'admin'] as const).map((role) => {
+                const active = member.role === role;
+                return (
+                  <Pressable
+                    key={role}
+                    onPress={() => setMember((m) => ({ ...m, role }))}
+                    style={[
+                      styles.roleChip,
+                      {
+                        backgroundColor: active ? `${c.primary}22` : glass(0.05),
+                        borderColor: active ? `${c.primary}55` : glassBorder(0.12),
+                      },
+                    ]}>
+                    <Text style={{ color: active ? c.primary : c.textMuted, fontWeight: '600' }}>
+                      {role === 'admin' ? 'Admin' : 'Sidekick'}
+                    </Text>
                   </Pressable>
-                </View>
-                {member.rewards.map((r) => (
-                  <Text key={r.presetId} style={[typography.footnote, { color: c.textMuted }]}>
-                    · {r.title} · {REWARD_FREQUENCY_LABELS[r.frequency]}
-                    {r.quantity ? ` · ${r.quantity}` : ''}
+                );
+              })}
+            </View>
+          </ScrollView>
+        ) : null}
+
+        {step === 'B' ? (
+          <>
+            <View style={styles.stepIntro}>
+              <Text style={[typography.title2, { color: c.text }]}>
+                What should {member.name.trim() || 'they'} take care of?
+              </Text>
+              <Text style={[typography.caption1, { color: c.textMuted }]}>
+                Planned now — assigned when {member.name.trim() || 'they'} connect on their device.
+              </Text>
+            </View>
+            <ScrollView style={styles.stepScroll} contentContainerStyle={styles.stepScrollContent}>
+              <TaskPicker
+                selectedIds={member.taskLibraryIds}
+                onChange={(taskLibraryIds) => setMember((m) => ({ ...m, taskLibraryIds }))}
+                rewardMode={rewardMode}
+              />
+            </ScrollView>
+          </>
+        ) : null}
+
+        {step === 'C' ? (
+          <ScrollView
+            style={styles.stepScroll}
+            contentContainerStyle={styles.stepScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <Text style={[typography.title2, { color: c.text }]}>
+              What would {member.name.trim() || 'they'} love to earn?
+            </Text>
+
+            {caps.rewardsEnabled ? (
+              <View style={{ gap: 12 }}>
+                <Text style={[typography.footnote, { color: c.textMuted }]}>
+                  Pick a starter pack — you can fine-tune anytime.
+                </Text>
+                <RewardPackagePicker
+                  selectedId={selectedPackageId}
+                  accent={c.primary}
+                  onSelect={applyRewardPackage}
+                />
+                <Pressable onPress={() => setShowRewardCustomize((open) => !open)}>
+                  <Text style={{ color: c.primary, fontWeight: '600', textAlign: 'center' }}>
+                    {showRewardCustomize ? 'Hide individual rewards' : 'Customize individual rewards'}
                   </Text>
-                ))}
-                {member.allowance ? (
-                  <Text style={[typography.footnote, { color: c.textMuted }]}>
-                    · Allowance ${member.allowance.amount} ·{' '}
-                    {REWARD_FREQUENCY_LABELS[member.allowance.frequency]}
-                  </Text>
-                ) : null}
-                {member.rewards.length === 0 && !member.allowance ? (
-                  <Text style={[typography.caption1, { color: c.textSubtle }]}>None yet</Text>
+                </Pressable>
+                {showRewardCustomize ? (
+                  <View style={{ gap: 10 }}>
+                    {REWARD_PRESETS.map((preset) => {
+                      const selected = member.rewards.find((r) => r.presetId === preset.id);
+                      return (
+                        <View
+                          key={preset.id}
+                          style={[
+                            styles.rewardCard,
+                            {
+                              backgroundColor: selected ? `${c.primary}14` : glass(0.05),
+                              borderColor: selected ? `${c.primary}44` : glassBorder(0.1),
+                            },
+                          ]}>
+                          <Pressable onPress={() => toggleReward(preset.id)} style={styles.rewardHead}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[typography.headline, { color: c.text }]}>{preset.title}</Text>
+                              {preset.subtitle ? (
+                                <Text style={[typography.caption1, { color: c.textSubtle }]}>
+                                  {preset.subtitle}
+                                </Text>
+                              ) : null}
+                            </View>
+                            <MaterialIcons
+                              name={selected ? 'check-box' : 'check-box-outline-blank'}
+                              size={22}
+                              color={selected ? c.primary : c.textSubtle}
+                            />
+                          </Pressable>
+                          {selected ? (
+                            <View style={styles.freqRow}>
+                              {(['daily', 'weekly', 'monthly'] as RewardFrequency[]).map((freq) => {
+                                const active = selected.frequency === freq;
+                                return (
+                                  <Pressable
+                                    key={freq}
+                                    onPress={() => setRewardFrequency(preset.id, freq)}
+                                    style={[
+                                      styles.freqChip,
+                                      {
+                                        backgroundColor: active ? `${c.primary}22` : glass(0.04),
+                                        borderColor: active ? `${c.primary}55` : glassBorder(0.1),
+                                      },
+                                    ]}>
+                                    <Text
+                                      style={{
+                                        color: active ? c.primary : c.textMuted,
+                                        fontSize: 12,
+                                        fontWeight: '600',
+                                      }}>
+                                      {REWARD_FREQUENCY_LABELS[freq]}
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })}
+                            </View>
+                          ) : null}
+                        </View>
+                      );
+                    })}
+                  </View>
                 ) : null}
               </View>
             ) : null}
-          </View>
 
-          <OrbitButton onPress={confirm}>Confirm creation</OrbitButton>
-          <Pressable onPress={goBack}>
-            <Text style={[typography.footnote, { color: c.textSubtle, textAlign: 'center' }]}>
-              Back
-            </Text>
-          </Pressable>
-        </ScrollView>
-      ) : null}
+            {caps.allowanceEnabled ? (
+              <View style={{ gap: 10, marginTop: caps.rewardsEnabled ? 16 : 0 }}>
+                <Text style={[typography.headline, { color: c.text }]}>Allowance</Text>
+                <TextInput
+                  keyboardType="decimal-pad"
+                  value={member.allowance ? String(member.allowance.amount) : ''}
+                  onChangeText={(text) => {
+                    const amount = Number(text.replace(/[^0-9.]/g, ''));
+                    if (!text.trim()) {
+                      setMember((m) => ({ ...m, allowance: null }));
+                      return;
+                    }
+                    setAllowance({ amount: Number.isFinite(amount) ? amount : 0 });
+                  }}
+                  placeholder="Amount"
+                  placeholderTextColor={c.textSubtle}
+                  style={[
+                    styles.input,
+                    { color: c.text, borderColor: glassBorder(0.14), backgroundColor: glass(0.05) },
+                  ]}
+                />
+                <View style={styles.freqRow}>
+                  {(['daily', 'weekly', 'monthly'] as RewardFrequency[]).map((freq) => {
+                    const active = (member.allowance?.frequency ?? 'weekly') === freq;
+                    return (
+                      <Pressable
+                        key={freq}
+                        onPress={() => setAllowance({ frequency: freq })}
+                        style={[
+                          styles.freqChip,
+                          {
+                            backgroundColor: active ? `${c.primary}22` : glass(0.04),
+                            borderColor: active ? `${c.primary}55` : glassBorder(0.1),
+                          },
+                        ]}>
+                        <Text
+                          style={{
+                            color: active ? c.primary : c.textMuted,
+                            fontSize: 12,
+                            fontWeight: '600',
+                          }}>
+                          {REWARD_FREQUENCY_LABELS[freq]}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+          </ScrollView>
+        ) : null}
+
+        {step === 'D' ? (
+          <ScrollView
+            style={styles.stepScroll}
+            contentContainerStyle={styles.stepScrollContent}
+            showsVerticalScrollIndicator={false}>
+            <Text style={[typography.title2, { color: c.text }]}>Review &amp; confirm</Text>
+            <View
+              style={[
+                styles.reviewCard,
+                { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
+              ]}>
+              <View style={styles.reviewHead}>
+                <Avatar
+                  name={member.name.trim() || 'New'}
+                  emoji={
+                    member.avatar && !isAvatarImageUri(member.avatar)
+                      ? member.avatar
+                      : memberDisplayEmoji({ name: member.name.trim() || 'New', avatar: member.avatar })
+                  }
+                  imageUri={isAvatarImageUri(member.avatar) ? member.avatar : undefined}
+                  size="l"
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={[typography.headline, { color: c.text }]}>{member.name.trim()}</Text>
+                  <Text style={[typography.caption1, { color: c.textMuted }]}>
+                    {member.role === 'admin' ? 'Admin' : 'Sidekick'}
+                  </Text>
+                </View>
+                <Pressable onPress={() => setStep('A')}>
+                  <Text style={{ color: c.primary, fontWeight: '600' }}>Edit</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.reviewSection}>
+                <View style={styles.reviewSectionHead}>
+                  <Text style={[typography.headline, { color: c.text }]}>Tasks</Text>
+                  <Pressable onPress={() => setStep('B')}>
+                    <Text style={{ color: c.primary, fontWeight: '600' }}>Edit</Text>
+                  </Pressable>
+                </View>
+                {member.taskLibraryIds.length === 0 ? (
+                  <Text style={[typography.caption1, { color: c.textSubtle }]}>None yet</Text>
+                ) : (
+                  member.taskLibraryIds.map((id) => (
+                    <Text key={id} style={[typography.footnote, { color: c.textMuted }]}>
+                      · {libraryById.get(id)?.name ?? id}
+                    </Text>
+                  ))
+                )}
+              </View>
+
+              {!skipRewards ? (
+                <View style={styles.reviewSection}>
+                  <View style={styles.reviewSectionHead}>
+                    <Text style={[typography.headline, { color: c.text }]}>Earn</Text>
+                    <Pressable onPress={() => setStep('C')}>
+                      <Text style={{ color: c.primary, fontWeight: '600' }}>Edit</Text>
+                    </Pressable>
+                  </View>
+                  {member.rewards.map((r) => (
+                    <Text key={r.presetId} style={[typography.footnote, { color: c.textMuted }]}>
+                      · {r.title} · {REWARD_FREQUENCY_LABELS[r.frequency]}
+                      {r.quantity ? ` · ${r.quantity}` : ''}
+                    </Text>
+                  ))}
+                  {member.allowance ? (
+                    <Text style={[typography.footnote, { color: c.textMuted }]}>
+                      · Allowance ${member.allowance.amount} ·{' '}
+                      {REWARD_FREQUENCY_LABELS[member.allowance.frequency]}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+          </ScrollView>
+        ) : null}
+      </View>
+
+      <View style={styles.footer}>
+        {step === 'A' ? (
+          <OrbitButton disabled={!member.name.trim()} onPress={goNext}>
+            Continue
+          </OrbitButton>
+        ) : null}
+        {step === 'B' ? (
+          <OrbitButton onPress={goNext}>
+            {member.taskLibraryIds.length > 0 ? 'Continue' : 'Skip for now'}
+          </OrbitButton>
+        ) : null}
+        {step === 'C' ? <OrbitButton onPress={goNext}>Continue</OrbitButton> : null}
+        {step === 'D' ? <OrbitButton onPress={confirm}>Confirm creation</OrbitButton> : null}
+        <Pressable onPress={goBack}>
+          <Text style={[typography.footnote, { color: c.textSubtle, textAlign: 'center' }]}>
+            Back
+          </Text>
+        </Pressable>
+      </View>
 
       <PersonalizeLookSheet
         visible={lookSheetOpen}
@@ -517,10 +573,17 @@ export function SetupMemberWizard({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, gap: space.md },
+  wrap: { flex: 1, gap: space.sm },
   progress: { flexDirection: 'row', gap: 8, justifyContent: 'center', paddingVertical: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  block: { gap: 14, paddingBottom: 24 },
+  stepBody: { flex: 1, minHeight: 0 },
+  stepScroll: { flex: 1 },
+  stepScrollContent: { gap: 16, paddingBottom: 12 },
+  stepIntro: { gap: 6, paddingBottom: 4 },
+  footer: {
+    gap: 10,
+    paddingTop: space.sm,
+  },
   photoRow: {
     flexDirection: 'row',
     alignItems: 'center',

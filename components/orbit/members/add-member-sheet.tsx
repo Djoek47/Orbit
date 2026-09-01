@@ -1,8 +1,9 @@
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
 import { SetupMemberWizard } from '@/components/orbit/setup-member-wizard';
 import { DEFAULT_REWARD_MODEL } from '@/lib/rewards/reward-model';
+import { DEFAULT_REWARD_PACKAGE_ID } from '@/lib/rewards/reward-packages';
 import { space, typography } from '@/constants/orbit-theme';
 import type { DraftMember } from '@/lib/onboarding/setup-draft';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -62,12 +63,18 @@ export function AddMemberSheet({ visible, onDismiss, onAdded }: Props) {
         </Text>
       </View>
       <View style={styles.wizard}>
-        <SetupMemberWizard
-          rewardModel={household.rewardModel ?? DEFAULT_REWARD_MODEL}
-          rewardMode={household.rewardMode ?? 'weighted'}
-          onCancel={onDismiss}
-          onConfirm={handleConfirm}
-        />
+        <KeyboardAvoidingView
+          style={styles.wizardInner}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={12}>
+          <SetupMemberWizard
+            rewardModel={household.rewardModel ?? DEFAULT_REWARD_MODEL}
+            rewardMode={household.rewardMode ?? 'weighted'}
+            defaultRewardPackageId={DEFAULT_REWARD_PACKAGE_ID}
+            onCancel={onDismiss}
+            onConfirm={handleConfirm}
+          />
+        </KeyboardAvoidingView>
       </View>
     </BottomSheet>
   );
@@ -75,8 +82,8 @@ export function AddMemberSheet({ visible, onDismiss, onAdded }: Props) {
 
 const styles = StyleSheet.create({
   header: {
-    gap: 6,
-    paddingBottom: space.sm,
+    gap: 4,
+    paddingBottom: space.xs,
     paddingHorizontal: space.lg,
   },
   kicker: {
@@ -95,6 +102,11 @@ const styles = StyleSheet.create({
   wizard: {
     flex: 1,
     minHeight: 0,
+    marginHorizontal: -space.lg,
     paddingHorizontal: space.lg,
+  },
+  wizardInner: {
+    flex: 1,
+    minHeight: 0,
   },
 });

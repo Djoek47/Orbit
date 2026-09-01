@@ -55,6 +55,8 @@ export type HouseholdSetupDraft = {
   rewardModel: RewardModel;
   /** Meritocracy (weighted) vs Equity (flat). */
   scoringMode: RewardMode;
+  /** Curated reward bundle chosen during Get Started. */
+  rewardPackageId?: string;
   members: DraftMember[];
   places?: DraftPlace[];
   /** How new joiners enter — applied when the household is created. */
