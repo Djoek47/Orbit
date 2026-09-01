@@ -104,6 +104,11 @@ export default function GroceriesScreen() {
       await addMissingGrocery({ name: draft.trim() });
       setDraft('');
       inputRef.current?.focus();
+    } catch (error) {
+      Alert.alert(
+        'Could not add item',
+        error instanceof Error ? error.message : 'Try again.'
+      );
     } finally {
       setBusy(false);
     }

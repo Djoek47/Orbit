@@ -119,6 +119,11 @@ export default function CreateEventScreen() {
         return;
       }
       router.back();
+    } catch (error) {
+      Alert.alert(
+        'Could not add event',
+        error instanceof Error ? error.message : 'Try again.'
+      );
     } finally {
       setSaving(false);
     }

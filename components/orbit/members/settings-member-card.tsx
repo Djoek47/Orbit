@@ -5,7 +5,7 @@ import { SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { memberCanReceiveInvite } from '@/lib/household/member-invite-routing';
-import { memberPresenceLabel } from '@/lib/household/member-presence';
+import { memberPresenceParts } from '@/lib/household/member-presence';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
@@ -69,10 +69,13 @@ export function SettingsMemberCard({
   const showInvite = canManage && memberCanReceiveInvite(member);
   const showHomework = canManage && member.role === 'child';
   const showMenu = canManage && member.role !== 'owner';
-  const statusLabel = memberPresenceLabel(member);
-  const inviteLabel = statusLabel.startsWith('Connected') || statusLabel.startsWith('Disconnected')
-    ? 'Re-share invite'
-    : 'Share invite';
+  const presence = memberPresenceParts(member);
+  const inviteLabel =
+    presence.connectionLabel === 'Connected' || presence.connectionLabel === 'Disconnected'
+      ? 'Re-share invite'
+      : 'Share invite';
+  const showLastSeenOnInvite =
+    showInvite && inviteLabel === 'Re-share invite' && Boolean(presence.lastSeenText);
 
   return (
     <View
@@ -110,7 +113,7 @@ export function SettingsMemberCard({
             </Text>
           )}
           <Text style={[styles.meta, { color: c.textSubtle }]} numberOfLines={1}>
-            {formatHouseholdRole(member.role)} · {statusLabel}
+            {formatHouseholdRole(member.role)} · {presence.connectionLabel}
           </Text>
           {!isSharedDeviceMember(member) ? (
             <Text style={[styles.xp, { color: accent }]}>{member.xp} XP</Text>
@@ -133,15 +136,22 @@ export function SettingsMemberCard({
       </View>
 
       {showInvite ? (
-        <Pressable
-          onPress={onShareInvite}
-          style={[
-            styles.shareBtn,
-            { backgroundColor: `${accent}14`, borderColor: `${accent}44` },
-          ]}>
-          <MaterialIcons name="qr-code-2" size={16} color={accent} />
-          <Text style={[styles.shareBtnText, { color: accent }]}>{inviteLabel}</Text>
-        </Pressable>
+        <View style={styles.inviteRow}>
+          <Pressable
+            onPress={onShareInvite}
+            style={[
+              styles.shareBtn,
+              { backgroundColor: `${accent}14`, borderColor: `${accent}44` },
+            ]}>
+            <MaterialIcons name="qr-code-2" size={16} color={accent} />
+            <Text style={[styles.shareBtnText, { color: accent }]}>{inviteLabel}</Text>
+            {showLastSeenOnInvite ? (
+              <Text style={[styles.lastSeenInline, { color: c.textSubtle }]}>
+                · {presence.lastSeenText}
+              </Text>
+            ) : null}
+          </Pressable>
+        </View>
       ) : null}
 
       {showHomework ? (
@@ -252,9 +262,19 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 6,
+    maxWidth: '100%',
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  inviteRow: {
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  lastSeenInline: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   shareBtnText: {
     fontSize: 13,

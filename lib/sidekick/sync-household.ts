@@ -131,8 +131,8 @@ export function mergeSidekickSyncIntoHousehold(
     members,
     tasks: sync.tasks,
     events: sync.events,
-    rewards: sync.rewards.length ? sync.rewards : current.rewards,
-    groceries: sync.groceries.length ? sync.groceries : current.groceries,
+    rewards: sync.rewards,
+    groceries: sync.groceries,
     greetingName: sync.member.name,
   };
 }

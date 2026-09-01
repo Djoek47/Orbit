@@ -18,6 +18,8 @@ npx supabase functions deploy sidekick-sync --no-verify-jwt
 npx supabase functions deploy register-sidekick-push --no-verify-jwt
 npx supabase functions deploy dispatch-member-push
 npx supabase functions deploy sidekick-task-action --no-verify-jwt
+npx supabase functions deploy sidekick-grocery-action --no-verify-jwt
+npx supabase functions deploy sidekick-event-action --no-verify-jwt
 # Auth emails via Resend (optional if Custom SMTP is enough — see docs/resend-auth-email.md)
 npx supabase functions deploy send-auth-email --no-verify-jwt
 npx supabase secrets set OPENAI_API_KEY=sk-...

@@ -20,6 +20,9 @@
 | **Sidekick sync** | Task sync, notifications, safe sign-out restore |
 | **Live sync + push** | 3s Sidekick poll app-wide; calendar in sync; refresh buttons; member-scoped Expo push |
 | **Session + presence** | Sidekick session survives sign-out; no Rivera mock bleed; last_seen roster; re-share invite |
+| **Sidekick writes (TF66+)** | Edge functions: complete/proof/homework, grocery add, calendar create; admin notify from edge |
+| **Push admin (TF66+)** | `audienceRoles` → member IDs; push tap deep links; N19 homework ready |
+| **Presence UI (TF66+)** | Last-seen timestamp on Re-share invite pill; Settings Members live refresh |
 | **Task reminders** | Admin Send reminder on task detail → inbox + push with streak-at-risk copy |
 | **expo-insights** | Native cold-start analytics (needs this build, not 61/63) |
 | **Household stack (from v17)** | Multi-household switch/delete (TestFlight hides switch via `EXPO_PUBLIC_DISABLE_HOUSEHOLD_SWITCH`) |
@@ -28,12 +31,15 @@
 
 | Build | Git | EAS build | Submit |
 |-------|-----|-----------|--------|
+| **1.3.0 (66)** | *(pending)* | *(pending)* | *(pending)* |
 | **1.3.0 (65)** | `4b51fa9` | `c6e82ae4-1784-4f1c-beb5-ad93c7626193` | `297a5534-5c74-4d6d-bb66-6814fc07bb94` |
 | **1.3.0 (64)** | `ae7a1cd` | `9ceab14d-05d6-4284-82ec-7ee84c73153d` | `d3f38930-a581-4f91-95c6-92989b81d480` |
 
 Build logs (65): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/c6e82ae4-1784-4f1c-beb5-ad93c7626193
 
-**1.3.0 (65)** includes live sync, member push, session/presence, task reminders, welcome copy fix.
+**1.3.0 (66)** — sidekick-writes · presence-ui · push-admin · sync-100 (see `docs/sync-and-notifications-v18.md`).
+
+**1.3.0 (65)** includes live sync, member push, session/presence, task reminders, welcome copy fix. **Does not include** Sidekick complete via edge (client fix landed after 65).
 
 **1.3.0 (63)** was premature (missing Members UI + Sidekick Plan). **1.3.0 (61)** = make-v17.
 
@@ -61,15 +67,31 @@ Build logs (65): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/c6e
 
 ## Edge functions to redeploy (if changed since last deploy)
 
-- `join-household`
-- `complete-profile-join`
-- `redeem-member-invite`
-- `sidekick-sync` (now includes calendar events)
-- `sidekick-task-action` (Sidekick complete + proof submit)
-- `register-sidekick-push`
-- `dispatch-member-push`
+Deploy Sidekick functions with `--no-verify-jwt`:
+
+```bash
+npx supabase functions deploy sidekick-sync --no-verify-jwt
+npx supabase functions deploy sidekick-task-action --no-verify-jwt
+npx supabase functions deploy sidekick-grocery-action --no-verify-jwt
+npx supabase functions deploy sidekick-event-action --no-verify-jwt
+npx supabase functions deploy register-sidekick-push --no-verify-jwt
+npx supabase functions deploy dispatch-member-push
+```
+
+| Function | Purpose |
+|----------|---------|
+| `sidekick-sync` | 3s poll read + `last_seen_at` |
+| `sidekick-task-action` | `complete`, `submit_proof`, `create_homework` + admin notify |
+| `sidekick-grocery-action` | `add_item` (requires `sidekick_grocery_add`) |
+| `sidekick-event-action` | `create_event` + admin notify on pending approval |
+| `register-sidekick-push` | Expo token by `member_id` |
+| `dispatch-member-push` | Push to `audienceMemberIds` |
+
+Also redeploy if changed: `join-household`, `complete-profile-join`, `redeem-member-invite`.
 
 Set secret if missing: `EXPO_ACCESS_TOKEN` — **same Expo access token as local `EXPO_TOKEN`** (not a new login). With `SUPABASE_ACCESS_TOKEN` set: `npm run supabase:sync-expo-push-secret`.
+
+Full sync/notification reference: **`docs/sync-and-notifications-v18.md`**
 
 ## Two-phone live sync test
 
@@ -83,7 +105,7 @@ Set secret if missing: `EXPO_ACCESS_TOKEN` — **same Expo access token as local
 
 ## Verify in app
 
-Settings build tip: `make-v18 · live-sync · session-presence · task-reminders`
+Settings build tip: `make-v18 · sidekick-writes · presence-ui · push-admin · sync-100`
 
 Smoke checklist:
 
@@ -91,3 +113,21 @@ Smoke checklist:
 2. Plan → + → Homework (Sidekick instant) / School (approval if locked)
 3. Sidekick joins household — admin roster badge turns green without manual refresh
 4. Tasks → Homework tab → Assign homework (admin)
+5. Sidekick complete task → admin push + inbox within seconds (TF66+)
+6. Re-share invite row shows `· 5m ago` when disconnected (TF66+)
+
+## Two-phone QA matrix (TF66)
+
+| Step | Phone 1 (admin) | Phone 2 (Sidekick/co-admin) | Pass |
+|------|-----------------|----------------------------|------|
+| Assign task | Creates task | Appears ≤3s; push if backgrounded | |
+| Complete task | Sees completion ≤3s; push | Celebration + persists | |
+| Add calendar event | Plan updates | Sidekick Plan ≤3s | |
+| Sidekick homework add | Tasks/Plan ≤3s | Instant on Sidekick | |
+| Sidekick grocery add | List updates | If `sidekickGroceryAdd` enabled | |
+| Re-share invite row | Shows `· 5m ago` when disconnected | — | |
+| Send task reminder | — | Sidekick push + inbox | |
+| Push tap | Opens task/plan/rewards | Same | |
+| Co-admin sync | Assign task | Co-admin phone ≤3s | |
+
+Copy for staging ops: `docs/sync-and-notifications-v18.md`

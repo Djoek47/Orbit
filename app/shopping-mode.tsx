@@ -161,6 +161,11 @@ export default function ShoppingModeScreen() {
       if (!reduceMotion) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       }
+    } catch (error) {
+      Alert.alert(
+        'Could not add item',
+        error instanceof Error ? error.message : 'Try again.'
+      );
     } finally {
       setBusy(false);
     }

@@ -73,6 +73,7 @@ export const poppinsNotifications = {
       penalty: number;
       late: boolean;
       taskId: string;
+      audienceMemberIds?: string[];
     }
   ) {
     if (!prefs.tasks) return null;
@@ -90,6 +91,7 @@ export const poppinsNotifications = {
           memberName: input.assignee,
           task: input.title,
           xp: input.awardedXp,
+          audienceMemberIds: input.audienceMemberIds,
         },
       }
     );
@@ -104,9 +106,27 @@ export const poppinsNotifications = {
       taskId: string;
       proofUri?: string;
       audienceRoles?: string[];
+      homework?: boolean;
     }
   ) {
     if (!prefs.tasks) return null;
+    if (input.homework) {
+      return pushRegistry(
+        push,
+        'N19',
+        { name: input.assignee, task: input.title },
+        {
+          category: 'tasks',
+          priority: 'high',
+          data: {
+            taskId: input.taskId,
+            kind: 'homework_ready',
+            proofUri: input.proofUri,
+            audienceRoles: input.audienceRoles ?? ['owner', 'admin', 'adult'],
+          },
+        }
+      );
+    }
     return pushRegistry(
       push,
       'N20',

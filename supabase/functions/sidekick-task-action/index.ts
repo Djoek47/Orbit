@@ -1,78 +1,79 @@
 /**
- * Sidekick task writes — profile-code auth for devices without Supabase JWT.
- * Actions: complete, submit_proof
+ * Sidekick task writes — profile-code auth.
+ * Actions: complete, submit_proof, create_homework
  */
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-function normalizeCode(raw: string): string {
-  return raw
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, '')
-    .replace(/^CHOREMAXX-/, 'CMX-')
-    .replace(/^(CMX|ORBIT)(?=[A-Z0-9])/, '$1-');
-}
-
-function memberMatchesAssignee(
-  member: { id: string; display_name: string },
-  task: { assignee_name: string; assignee_member_id?: string | null }
-): boolean {
-  if (task.assignee_member_id && task.assignee_member_id === member.id) {
-    return true;
-  }
-  const name = member.display_name.trim().toLowerCase();
-  const assignee = task.assignee_name.trim().toLowerCase();
-  if (!name || !assignee) return false;
-  if (assignee === name) return true;
-  const parts = assignee.split(/\s*(?:&|,)\s*/).map((part) => part.trim()).filter(Boolean);
-  return parts.some((part) => part === name);
-}
-
-async function resolveMember(admin: ReturnType<typeof createClient>, code: string) {
-  const { data: member, error } = await admin
-    .from('household_members')
-    .select('*')
-    .eq('profile_invite_code', code)
-    .in('status', ['invited', 'active'])
-    .maybeSingle();
-  if (error || !member) return null;
-  return member;
-}
+import {
+  jsonResponse,
+  memberMatchesAssignee,
+  normalizeCode,
+  resolveSidekickMember,
+  serviceAdmin,
+  sidekickCors,
+  touchMemberSeen,
+} from '../_shared/sidekick-auth.ts';
+import { notifyAdminsAndPush } from '../_shared/sidekick-notify.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: cors });
+    return new Response('ok', { headers: sidekickCors });
   }
 
   try {
     const body = await req.json().catch(() => ({}));
     const code = normalizeCode(String(body.code ?? ''));
     const action = String(body.action ?? 'complete');
-    const taskId = String(body.taskId ?? '').trim();
 
-    if (!code || !taskId) {
-      return new Response(JSON.stringify({ error: 'code_and_task_required' }), {
-        status: 400,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      });
+    if (!code) {
+      return jsonResponse({ error: 'code_required' }, 400);
     }
 
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-
-    const member = await resolveMember(admin, code);
+    const admin = serviceAdmin();
+    const member = await resolveSidekickMember(admin, code);
     if (!member) {
-      return new Response(JSON.stringify({ error: 'not_found' }), {
-        status: 404,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'not_found' }, 404);
+    }
+
+    if (action === 'create_homework') {
+      const title = String(body.title ?? '').trim();
+      if (!title) {
+        return jsonResponse({ error: 'title_required' }, 400);
+      }
+
+      const xp = Math.max(1, Number(body.xp ?? 10) || 10);
+      const homeworkSubject = body.homeworkSubject ? String(body.homeworkSubject).trim() : null;
+      const dueLabel = String(body.dueLabel ?? 'Today').trim() || 'Today';
+      const category = String(body.category ?? 'Homework').trim() || 'Homework';
+
+      const { data: task, error } = await admin
+        .from('tasks')
+        .insert({
+          household_id: member.household_id,
+          title,
+          category,
+          assignee_name: member.display_name,
+          assignee_member_id: member.id,
+          due_label: dueLabel,
+          xp_value: xp,
+          repeat_rule: 'none',
+          status: 'pending',
+          difficulty: 'medium',
+          proof_required: Boolean(body.proofRequired),
+          homework_subject: homeworkSubject,
+        })
+        .select('*')
+        .single();
+
+      if (error || !task) {
+        return jsonResponse({ error: error?.message ?? 'insert_failed' }, 500);
+      }
+
+      await touchMemberSeen(admin, member.id);
+      return jsonResponse({ task });
+    }
+
+    const taskId = String(body.taskId ?? '').trim();
+    if (!taskId) {
+      return jsonResponse({ error: 'task_id_required' }, 400);
     }
 
     const { data: task, error: taskError } = await admin
@@ -83,26 +84,17 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (taskError || !task) {
-      return new Response(JSON.stringify({ error: 'task_not_found' }), {
-        status: 404,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'task_not_found' }, 404);
     }
 
     if (!memberMatchesAssignee(member, task)) {
-      return new Response(JSON.stringify({ error: 'not_assignee' }), {
-        status: 403,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'not_assignee' }, 403);
     }
 
     if (action === 'submit_proof') {
       const proofUri = String(body.proofUri ?? '').trim();
       if (!proofUri) {
-        return new Response(JSON.stringify({ error: 'proof_uri_required' }), {
-          status: 400,
-          headers: { ...cors, 'Content-Type': 'application/json' },
-        });
+        return jsonResponse({ error: 'proof_uri_required' }, 400);
       }
 
       const nextStatus =
@@ -121,29 +113,36 @@ Deno.serve(async (req) => {
         .single();
 
       if (updateError) {
-        return new Response(JSON.stringify({ error: updateError.message }), {
-          status: 500,
-          headers: { ...cors, 'Content-Type': 'application/json' },
-        });
+        return jsonResponse({ error: updateError.message }, 500);
       }
 
-      return new Response(JSON.stringify({ task: updated }), {
-        headers: { ...cors, 'Content-Type': 'application/json' },
+      await touchMemberSeen(admin, member.id);
+
+      const isHomework = /homework|education/i.test(String(task.category ?? ''));
+      await notifyAdminsAndPush(admin, {
+        householdId: member.household_id,
+        title: isHomework ? 'Homework ready to check' : 'Proof submitted',
+        body: `${member.display_name} submitted proof for "${task.title}".`,
+        category: 'tasks',
+        priority: 'high',
+        data: {
+          notificationId: isHomework ? 'N19' : 'N20',
+          kind: isHomework ? 'homework_ready' : 'proof_submitted',
+          taskId,
+          memberName: member.display_name,
+          task: task.title,
+        },
       });
+
+      return jsonResponse({ task: updated });
     }
 
     if (action !== 'complete') {
-      return new Response(JSON.stringify({ error: 'unknown_action' }), {
-        status: 400,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'unknown_action' }, 400);
     }
 
     if (task.status === 'completed') {
-      return new Response(JSON.stringify({ error: 'already_completed' }), {
-        status: 409,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'already_completed' }, 409);
     }
 
     const completedAt = String(body.completedAt ?? new Date().toISOString());
@@ -155,28 +154,23 @@ Deno.serve(async (req) => {
     const safeStatus =
       taskStatus === 'in_progress' || taskStatus === 'completed' ? taskStatus : 'completed';
 
-    const updatePayload: Record<string, unknown> = {
-      status: safeStatus,
-      due_label: safeStatus === 'completed' ? dueLabel : task.due_label,
-      completed_at: safeStatus === 'completed' ? completedAt : task.completed_at,
-      awarded_xp: safeStatus === 'completed' ? awardedXp : task.awarded_xp,
-      completed_late: completedLate,
-      verification,
-      updated_at: new Date().toISOString(),
-    };
-
     const { data: updated, error: updateError } = await admin
       .from('tasks')
-      .update(updatePayload)
+      .update({
+        status: safeStatus,
+        due_label: safeStatus === 'completed' ? dueLabel : task.due_label,
+        completed_at: safeStatus === 'completed' ? completedAt : task.completed_at,
+        awarded_xp: safeStatus === 'completed' ? awardedXp : task.awarded_xp,
+        completed_late: completedLate,
+        verification,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', taskId)
       .select('*')
       .single();
 
     if (updateError) {
-      return new Response(JSON.stringify({ error: updateError.message }), {
-        status: 500,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: updateError.message }, 500);
     }
 
     if (awardedXp > 0) {
@@ -243,18 +237,29 @@ Deno.serve(async (req) => {
       });
     }
 
-    await admin
-      .from('household_members')
-      .update({ last_seen_at: new Date().toISOString() })
-      .eq('id', member.id);
+    await touchMemberSeen(admin, member.id);
 
-    return new Response(JSON.stringify({ task: updated, memberXpAwarded: awardedXp }), {
-      headers: { ...cors, 'Content-Type': 'application/json' },
-    });
+    if (safeStatus === 'completed') {
+      await notifyAdminsAndPush(admin, {
+        householdId: member.household_id,
+        title: 'Task completed',
+        body: `${member.display_name} completed "${task.title}". +${awardedXp} XP.`,
+        category: 'ai',
+        priority: completedLate ? 'high' : 'medium',
+        data: {
+          notificationId: 'N18',
+          kind: 'task_completed',
+          taskId,
+          name: member.display_name,
+          memberName: member.display_name,
+          task: task.title,
+          xp: awardedXp,
+        },
+      });
+    }
+
+    return jsonResponse({ task: updated, memberXpAwarded: awardedXp });
   } catch (error) {
-    return new Response(JSON.stringify({ error: String(error) }), {
-      status: 500,
-      headers: { ...cors, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: String(error) }, 500);
   }
 });

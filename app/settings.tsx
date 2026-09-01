@@ -77,6 +77,7 @@ import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
 import { SidekickSettingsScreen } from '@/components/orbit/sidekick-settings-screen';
 import { HouseholdMembersRoster } from '@/components/orbit/members/household-members-roster';
+import { useMembersLiveRefresh } from '@/lib/refresh/use-members-live-refresh';
 import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
 import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import {
@@ -126,6 +127,8 @@ export default function SettingsScreen() {
     refreshHousehold,
   } = useOrbit();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
+
+  useMembersLiveRefresh(permissions.canManageHousehold);
 
   const majordomo = useMemo(() => {
     const id = resolveMajordomoProfileId({

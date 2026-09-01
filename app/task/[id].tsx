@@ -191,6 +191,11 @@ export default function TaskDetailScreen() {
     try {
       await submitTaskProof(task.id, uri, forAssignee ? { forAssignee } : undefined);
       Alert.alert('Proof sent', 'An admin was notified to review your photo.');
+    } catch (error) {
+      Alert.alert(
+        'Could not send proof',
+        error instanceof Error ? error.message : 'Try again.'
+      );
     } finally {
       setProofBusy(false);
     }

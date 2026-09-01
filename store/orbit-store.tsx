@@ -116,8 +116,12 @@ import {
 import {
   sidekickCompleteTask,
   sidekickSubmitTaskProof,
+  sidekickCreateHomework,
+  sidekickAddGrocery,
+  sidekickCreateEvent,
   usesProfileCodeAuth,
 } from '@/lib/sidekick/task-action';
+import { adminMemberIds, resolveAudienceMemberIds } from '@/lib/household/admin-member-ids';
 import {
   applyRedeemedMember,
   redeemMockMemberInvite,
@@ -2072,6 +2076,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return null;
     }
     try {
+      const profileAuth = await usesProfileCodeAuth();
       const assigneeMember = assigneeMemberForTask(householdRef.current.members, input);
       const normalizedInput: CreateTaskInput = {
         ...input,
@@ -2079,6 +2084,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           ? proofRequiredForHomeworkAssign(input.category, assigneeMember)
           : false,
       };
+
+      if (profileAuth && allowSelfHomework) {
+        const task = await sidekickCreateHomework({ code: profileAuth.code, task: normalizedInput });
+        setHousehold((current) => ({
+          ...current,
+          tasks: current.tasks.some((item) => item.id === task.id)
+            ? current.tasks
+            : [task, ...current.tasks],
+        }));
+        await trackAnalytics('task.created', { taskId: task.id }, analyticsContext);
+        return task;
+      }
+
       // Upsert so re-assigning the same library task today is not a silent UNIQUE no-op.
       const { task, inserted } = await taskRepository.upsertOccurrence(targetHouseholdId, normalizedInput);
       const nextHousehold = await new Promise<HouseholdSnapshot>((resolve) => {
@@ -2259,17 +2277,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
     const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    const created = await poppinsNotifications.proofSubmitted(pushNotification, prefs, {
-      title: currentTask.title,
-      assignee: forAssignee,
-      taskId,
-      proofUri,
-      audienceRoles: [...PROOF_REVIEW_ROLES],
-    });
-    if (created) {
-      await scheduleLocalReminder(created.title, created.body, 2).catch((error) =>
-        console.warn('Proof admin reminder skipped', error)
-      );
+    if (!profileAuth) {
+      const created = await poppinsNotifications.proofSubmitted(pushNotification, prefs, {
+        title: currentTask.title,
+        assignee: forAssignee,
+        taskId,
+        proofUri,
+        audienceRoles: [...PROOF_REVIEW_ROLES],
+        homework: isHomeworkCategory(currentTask.category, currentTask.title),
+      });
+      if (created) {
+        await scheduleLocalReminder(created.title, created.body, 2).catch((error) =>
+          console.warn('Proof admin reminder skipped', error)
+        );
+      }
     }
     await trackAnalytics('task.proof_submitted', { taskId, forAssignee }, analyticsContext);
   };
@@ -2860,14 +2881,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       });
 
       const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-      await poppinsNotifications.taskCompleted(pushNotification, prefs, {
-        title: currentTask.title,
-        assignee: forAssignee,
-        awardedXp: totalAwarded,
-        penalty: latePenalty,
-        late,
-        taskId,
-      });
+      if (!profileAuth) {
+        await poppinsNotifications.taskCompleted(pushNotification, prefs, {
+          title: currentTask.title,
+          assignee: forAssignee,
+          awardedXp: totalAwarded,
+          penalty: latePenalty,
+          late,
+          taskId,
+          audienceMemberIds: adminMemberIds(household.members),
+        });
+      }
       if (nextHouseholdSnapshot) {
         await finishTrophyAndStreakHooks(forAssignee, totalAwarded, nextHouseholdSnapshot);
       }
@@ -2956,14 +2980,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
 
     const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    await poppinsNotifications.taskCompleted(pushNotification, prefs, {
-      title: currentTask.title,
-      assignee: currentTask.assignee,
-      awardedXp: awarded,
-      penalty,
-      late,
-      taskId,
-    });
+    if (!profileAuth) {
+      await poppinsNotifications.taskCompleted(pushNotification, prefs, {
+        title: currentTask.title,
+        assignee: currentTask.assignee,
+        awardedXp: awarded,
+        penalty,
+        late,
+        taskId,
+        audienceMemberIds: adminMemberIds(household.members),
+      });
+    }
     if (nextHouseholdSnapshot) {
       await finishTrophyAndStreakHooks(currentTask.assignee, awarded, nextHouseholdSnapshot);
     }
@@ -3225,6 +3252,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (isSidekickRole(currentMember?.role) && !householdAllows) {
       return;
     }
+    const profileAuth = await usesProfileCodeAuth();
     const { classifyGroceryItem, categoryNameForId } = await import('@/lib/grocery/classify');
     let categoryId = input.categoryId;
     let categoryName = input.category?.trim();
@@ -3241,16 +3269,27 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       quantity = quantity || classified.quantityDisplay || '1';
     }
 
-    const grocery = await groceryRepository.addGroceryItem(household.id, {
-      ...input,
-      name: itemName,
-      category: categoryName || 'Other',
-      quantity: quantity || '1',
-      categoryId,
-      productId: input.productId,
-      storeId: input.storeId ?? household.preferredStoreId,
-      requestedBy: input.requestedBy ?? currentMember?.name,
-    });
+    const grocery = profileAuth
+      ? await sidekickAddGrocery({ code: profileAuth.code, item: {
+          ...input,
+          name: itemName,
+          category: categoryName || 'Other',
+          quantity: quantity || '1',
+          categoryId,
+          productId: input.productId,
+          storeId: input.storeId ?? household.preferredStoreId,
+          requestedBy: input.requestedBy ?? currentMember?.name,
+        } })
+      : await groceryRepository.addGroceryItem(household.id, {
+          ...input,
+          name: itemName,
+          category: categoryName || 'Other',
+          quantity: quantity || '1',
+          categoryId,
+          productId: input.productId,
+          storeId: input.storeId ?? household.preferredStoreId,
+          requestedBy: input.requestedBy ?? currentMember?.name,
+        });
     setHousehold((current) => ({
       ...current,
       groceries: [grocery, ...current.groceries],
@@ -3474,23 +3513,31 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       audienceRoles.some((role) => role === 'owner' || role === 'admin' || role === 'adult');
     const targetUserId = input.userId !== undefined ? input.userId : isAdminAudience ? null : currentUser?.id;
 
+    const resolvedMemberIds = resolveAudienceMemberIds(household.members, data);
+    const pushMemberIds =
+      resolvedMemberIds.length > 0
+        ? resolvedMemberIds
+        : data.kind === 'task_completed'
+          ? adminMemberIds(household.members)
+          : [];
+
+    const dataWithAudience =
+      pushMemberIds.length > 0
+        ? { ...data, audienceMemberIds: pushMemberIds }
+        : data;
+
     const item = await notificationsRepository.create({
       householdId: household.id,
       title: decision.title,
       body: decision.body,
       category: decision.category,
       priority: decision.priority,
-      data,
+      data: dataWithAudience,
       userId: targetUserId,
     });
     setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
 
-    const audienceMemberIds = input.data?.audienceMemberIds;
-    if (
-      dataMode === 'supabase' &&
-      Array.isArray(audienceMemberIds) &&
-      audienceMemberIds.length > 0
-    ) {
+    if (dataMode === 'supabase' && pushMemberIds.length > 0) {
       dispatchMemberPush(item.id);
     }
 
@@ -3634,19 +3681,39 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       category: input.category,
       explicit: input.approvalStatus,
     });
-    const event = await calendarRepository.createEvent(household.id, {
-      ...input,
-      approvalStatus,
-      createdByMemberId: input.createdByMemberId ?? currentMember?.id ?? null,
-      responsibleMemberId:
-        input.responsibleMemberId ??
-        (isSidekickRole(currentMember?.role) ? currentMember?.id ?? null : null),
-      attendeeMemberIds:
-        input.attendeeMemberIds ??
-        (isSidekickRole(currentMember?.role) && currentMember?.id
-          ? [currentMember.id]
-          : undefined),
-    });
+    const profileAuth = await usesProfileCodeAuth();
+    const event = profileAuth
+      ? await sidekickCreateEvent({
+          code: profileAuth.code,
+          event: {
+            ...input,
+            approvalStatus,
+            createdByMemberId: input.createdByMemberId ?? currentMember?.id ?? null,
+            responsibleMemberId:
+              input.responsibleMemberId ??
+              (isSidekickRole(currentMember?.role) ? currentMember?.id ?? null : null),
+            attendeeMemberIds:
+              input.attendeeMemberIds ??
+              (isSidekickRole(currentMember?.role) && currentMember?.id
+                ? [currentMember.id]
+                : undefined),
+          },
+          memberName: currentMember?.name ?? profileAuth.memberId,
+          memberId: currentMember?.id ?? profileAuth.memberId,
+        })
+      : await calendarRepository.createEvent(household.id, {
+          ...input,
+          approvalStatus,
+          createdByMemberId: input.createdByMemberId ?? currentMember?.id ?? null,
+          responsibleMemberId:
+            input.responsibleMemberId ??
+            (isSidekickRole(currentMember?.role) ? currentMember?.id ?? null : null),
+          attendeeMemberIds:
+            input.attendeeMemberIds ??
+            (isSidekickRole(currentMember?.role) && currentMember?.id
+              ? [currentMember.id]
+              : undefined),
+        });
     setHousehold((current) => ({
       ...current,
       events: [event, ...current.events.filter((item) => item.id !== event.id)],
