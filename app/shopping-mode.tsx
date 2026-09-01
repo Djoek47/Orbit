@@ -5,7 +5,7 @@
 
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Haptics from 'expo-haptics';
-import { AccessibilityInfo, LayoutAnimation, Platform, StyleSheet, UIManager, View } from 'react-native';
+import { AccessibilityInfo, Alert, LayoutAnimation, Platform, StyleSheet, UIManager, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView } from 'react-native';
