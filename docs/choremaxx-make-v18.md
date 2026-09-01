@@ -25,19 +25,26 @@
 | **Presence UI (TF66+)** | Last-seen timestamp on Re-share invite pill; Settings Members live refresh |
 | **Task reminders** | Admin Send reminder on task detail → inbox + push with streak-at-risk copy |
 | **expo-insights** | Native cold-start analytics (needs this build, not 61/63) |
-| **Household stack (from v17)** | Multi-household switch/delete (TestFlight hides switch via `EXPO_PUBLIC_DISABLE_HOUSEHOLD_SWITCH`) |
+| **Household settings sync (TF67+)** | Full settings poll to Sidekick; edge enforcement; unified inbox |
+| **Sidekick unlock splash (TF67+)** | Brand opening lock screen replaces iPad picker on personal Sidekick devices |
+| **Button hardening (TF67+)** | OrbitButton loading/haptic; settings toggle guards |
 
 ## TestFlight
 
 | Build | Git | EAS build | Submit |
 |-------|-----|-----------|--------|
+| **1.3.0 (67)** | `b28c80f` | `25dc979d-f756-4a37-b45c-fd4cac7663ad` | `0954a327-bd67-4bb6-9a0d-0000a6e16d2c` |
 | **1.3.0 (66)** | `ce64f4d` | `27845bec-c579-489c-9176-d0a9e3465c69` | `b91cdea1-3c14-4daa-b326-bd5eb96bd3d1` |
 | **1.3.0 (65)** | `4b51fa9` | `c6e82ae4-1784-4f1c-beb5-ad93c7626193` | `297a5534-5c74-4d6d-bb66-6814fc07bb94` |
 | **1.3.0 (64)** | `ae7a1cd` | `9ceab14d-05d6-4284-82ec-7ee84c73153d` | `d3f38930-a581-4f91-95c6-92989b81d480` |
 
+Build logs (67): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/25dc979d-f756-4a37-b45c-fd4cac7663ad
+
 Build logs (66): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/27845bec-c579-489c-9176-d0a9e3465c69
 
 Build logs (65): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/c6e82ae4-1784-4f1c-beb5-ad93c7626193
+
+**1.3.0 (67)** — inbox-unify · settings-sync · sidekick-unlock · button-harden · tf67 (see `docs/sync-and-notifications-v18.md`).
 
 **1.3.0 (66)** — sidekick-writes · presence-ui · push-admin · sync-100 (see `docs/sync-and-notifications-v18.md`).
 
