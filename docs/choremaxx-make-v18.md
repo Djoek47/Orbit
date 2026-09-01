@@ -9,7 +9,7 @@
 | Area | What shipped |
 |------|----------------|
 | **Simplify invites** | Admin-only Get Started; scan-to-join; immediate connection paths |
-| **Welcome** | “Scan to build household” copy |
+| **Welcome** | “Scan to join household” copy |
 | **Join policy** | Removed join approval — Sidekicks and members connect immediately on invite |
 | **Member realtime** | `household_members` Supabase publication; admin roster refresh on join |
 | **Member connection** | Green badge when Sidekick/co-admin connects; live refresh hooks |
