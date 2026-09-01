@@ -18,6 +18,7 @@
 | **Members UI (latest)** | Settings and `/household-members` share one roster; calmer member cards; no duplicate Manage CTA |
 | **Sidekick Plan add** | Plan + menu: homework instant; school/practice/family events with optional admin approval |
 | **Sidekick sync** | Task sync, notifications, safe sign-out restore |
+| **Live sync + push** | 3s Sidekick poll app-wide; calendar in sync; refresh buttons; member-scoped Expo push |
 | **expo-insights** | Native cold-start analytics (needs this build, not 61/63) |
 | **Household stack (from v17)** | Multi-household switch/delete (TestFlight hides switch via `EXPO_PUBLIC_DISABLE_HOUSEHOLD_SWITCH`) |
 
@@ -48,6 +49,7 @@ Build logs: https://expo.dev/accounts/djoek47/projects/choremaxx/builds/9ceab14d
 3. `20260831140100_calendar_event_targeting.sql`
 4. `20260831150000_calendar_event_approval.sql`
 5. `20260829200000_remove_join_approval.sql` (if join approval still enabled in DB)
+6. `20260901120000_member_push_tokens.sql` (Sidekick push tokens)
 
 **v17 (if not yet applied):** see `docs/choremaxx-make-v17.md` and `supabase/migrations/PENDING_APPLY_ON_STAGING.sql`.
 
@@ -56,10 +58,25 @@ Build logs: https://expo.dev/accounts/djoek47/projects/choremaxx/builds/9ceab14d
 - `join-household`
 - `complete-profile-join`
 - `redeem-member-invite`
+- `sidekick-sync` (now includes calendar events)
+- `register-sidekick-push`
+- `dispatch-member-push`
+
+Set secret if missing: `EXPO_ACCESS_TOKEN` (Expo project → Access tokens).
+
+## Two-phone live sync test
+
+| Step | Expected |
+|------|----------|
+| Admin assigns task to Sidekick, Sidekick app open | Task within ~3s; local banner |
+| Same, Sidekick app backgrounded | OS push within a few seconds |
+| Admin adds calendar event | Sidekick Plan updates within ~3s |
+| Tap sync icon on Tasks or Plan | Immediate reload |
+| Sidekick kill + reopen | Latest tasks/events on restore |
 
 ## Verify in app
 
-Settings build tip: `make-v18 · sidekick-plan-add · homework-mvp · member-realtime`
+Settings build tip: `make-v18 · live-sync · member-push · sidekick-plan-add`
 
 Smoke checklist:
 

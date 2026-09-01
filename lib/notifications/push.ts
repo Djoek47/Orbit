@@ -1,9 +1,8 @@
-import Constants from 'expo-constants';
-import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { dataMode } from '@/config/data-mode';
+import { getExpoPushToken, isGranted, requestNotificationPermission } from '@/lib/notifications/push-token';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 Notifications.setNotificationHandler({
@@ -16,47 +15,17 @@ Notifications.setNotificationHandler({
   }),
 });
 
-function isGranted(permission: Notifications.NotificationPermissionsStatus) {
-  const value = permission as unknown as { granted?: boolean; status?: string };
-  return value.granted === true || value.status === 'granted';
-}
-
 export async function registerForPushNotifications(userId?: string | null) {
-  if (!Device.isDevice) {
-    return null;
-  }
+  const token = await getExpoPushToken();
+  if (!token) return null;
 
-  const existing = await Notifications.getPermissionsAsync();
-  let permission = existing;
-  if (!isGranted(existing)) {
-    permission = await Notifications.requestPermissionsAsync();
-  }
-
-  if (!isGranted(permission)) {
-    return null;
-  }
-
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('orbit-default', {
-      name: 'Orbit',
-      importance: Notifications.AndroidImportance.DEFAULT,
-    });
-  }
-
-  const projectId =
-    Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId ?? undefined;
-
-  const tokenResponse = await Notifications.getExpoPushTokenAsync(
-    projectId && projectId !== 'replace-with-eas-project-id' ? { projectId } : undefined
-  );
-  const token = tokenResponse.data;
-
-  if (dataMode === 'supabase' && userId && token) {
+  if (dataMode === 'supabase' && userId) {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { error } = await supabase.from('push_tokens').upsert(
         {
           user_id: userId,
+          member_id: null,
           token,
           platform: Platform.OS,
         },
@@ -122,4 +91,4 @@ export async function openSystemNotificationSettings() {
   await Linking.openSettings();
 }
 
-export { isGranted as isNotificationPermissionGranted };
+export { isGranted as isNotificationPermissionGranted, requestNotificationPermission };

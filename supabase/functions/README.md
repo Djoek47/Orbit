@@ -14,6 +14,9 @@ npx supabase functions deploy poppins-voice-tool
 npx supabase functions deploy join-household
 npx supabase functions deploy complete-profile-join
 npx supabase functions deploy redeem-profile-invite
+npx supabase functions deploy sidekick-sync
+npx supabase functions deploy register-sidekick-push
+npx supabase functions deploy dispatch-member-push
 # Auth emails via Resend (optional if Custom SMTP is enough — see docs/resend-auth-email.md)
 npx supabase functions deploy send-auth-email --no-verify-jwt
 npx supabase secrets set OPENAI_API_KEY=sk-...
@@ -27,6 +30,8 @@ npx supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
 # npx supabase secrets set RESEND_API_KEY=re_...
 # npx supabase secrets set SEND_EMAIL_HOOK_SECRET="v1,whsec_..."
 # npx supabase secrets set RESEND_FROM_EMAIL="Choremaxx <noreply@choremaxx.app>"
+# Expo push (Sidekick + cross-device notifications)
+# npx supabase secrets set EXPO_ACCESS_TOKEN=...
 ```
 
 See [docs/supabase-staging-setup.md](../docs/supabase-staging-setup.md) for full staging steps.  
@@ -44,6 +49,9 @@ Post-tool spoken response ADR: [docs/adr-poppins-post-tool-response-create.md](.
 | `poppins-realtime-sdp` | Server SDP for WebRTC duplex (`POST /v1/realtime/calls`) |
 | `poppins-voice-tool` | Tool executor for live voice (`forceRiskyConfirmation: true`) |
 | `join-household` | Invite-code join with pending membership |
+| `sidekick-sync` | Sidekick poll: tasks, notifications, calendar events (profile code) |
+| `register-sidekick-push` | Register Expo push token for Sidekick devices |
+| `dispatch-member-push` | Send Expo push to audience members after inbox notification |
 | `send-auth-email` | Auth Send Email Hook → Resend (confirm / recovery / magic link); deploy with `--no-verify-jwt` |
 
 ## Poppins Monitor cron

@@ -108,7 +108,9 @@ export function taskMatchesAssignee(
   name: string | undefined | null
 ): boolean {
   if (!name) return false;
-  return getTaskAssignees(task).includes(name);
+  const needle = name.trim().toLowerCase();
+  if (!needle) return false;
+  return getTaskAssignees(task).some((assignee) => assignee.trim().toLowerCase() === needle);
 }
 
 export function ensureTaskShares(task: HouseholdTask): HouseholdTask {

@@ -282,7 +282,8 @@ export type SmartHomeSceneRow = {
 
 export type PushTokenRow = {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  member_id: string | null;
   token: string;
   platform: string;
   created_at: Timestamp;
@@ -466,7 +467,9 @@ export type Database = {
       >;
       push_tokens: TableDef<
         PushTokenRow,
-        Pick<PushTokenRow, 'user_id' | 'token' | 'platform'> & Partial<Omit<PushTokenRow, 'user_id' | 'token' | 'platform'>>,
+        Pick<PushTokenRow, 'token' | 'platform'> &
+          Partial<Pick<PushTokenRow, 'user_id' | 'member_id'>> &
+          ({ user_id: string; member_id?: null } | { user_id?: null; member_id: string }),
         Partial<Omit<PushTokenRow, 'id'>>
       >;
       ai_usage_events: TableDef<

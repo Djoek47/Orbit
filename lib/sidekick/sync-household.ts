@@ -3,7 +3,7 @@
  */
 
 import { dataMode } from '@/config/data-mode';
-import { mapGroceryRow, mapMemberRow, mapRewardRow, mapTaskRow } from '@/lib/mappers/orbit-mappers';
+import { mapEventRow, mapGroceryRow, mapMemberRow, mapRewardRow, mapTaskRow } from '@/lib/mappers/orbit-mappers';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import type { HouseholdSnapshot, NotificationItem } from '@/types/orbit';
 
@@ -13,6 +13,7 @@ export type SidekickSyncResult = {
   member: ReturnType<typeof mapMemberRow>;
   members: ReturnType<typeof mapMemberRow>[];
   tasks: ReturnType<typeof mapTaskRow>[];
+  events: ReturnType<typeof mapEventRow>[];
   notifications: NotificationItem[];
   rewards: ReturnType<typeof mapRewardRow>[];
   groceries: ReturnType<typeof mapGroceryRow>[];
@@ -75,6 +76,7 @@ export async function fetchSidekickSync(profileInviteCode: string): Promise<Side
     };
     members?: Parameters<typeof mapMemberRow>[0][];
     tasks?: Parameters<typeof mapTaskRow>[0][];
+    calendarEvents?: Parameters<typeof mapEventRow>[0][];
     notifications?: Parameters<typeof mapNotificationRow>[0][];
     rewards?: Parameters<typeof mapRewardRow>[0][];
     groceries?: Parameters<typeof mapGroceryRow>[0][];
@@ -87,6 +89,7 @@ export async function fetchSidekickSync(profileInviteCode: string): Promise<Side
   const member = mapMemberRow(payload.member);
   const members = (payload.members ?? []).map((row) => mapMemberRow(row));
   const tasks = (payload.tasks ?? []).map((row) => mapTaskRow(row));
+  const events = (payload.calendarEvents ?? []).map((row) => mapEventRow(row));
   const notifications = (payload.notifications ?? []).map((row) => mapNotificationRow(row));
   const rewards = (payload.rewards ?? []).map((row) => mapRewardRow(row));
   const groceries = (payload.groceries ?? []).map((row) => mapGroceryRow(row));
@@ -98,6 +101,7 @@ export async function fetchSidekickSync(profileInviteCode: string): Promise<Side
     member,
     members,
     tasks,
+    events,
     notifications,
     rewards,
     groceries,
@@ -126,6 +130,7 @@ export function mergeSidekickSyncIntoHousehold(
     ...sync.householdPatch,
     members,
     tasks: sync.tasks,
+    events: sync.events,
     rewards: sync.rewards.length ? sync.rewards : current.rewards,
     groceries: sync.groceries.length ? sync.groceries : current.groceries,
     greetingName: sync.member.name,

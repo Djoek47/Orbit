@@ -477,11 +477,16 @@ create table if not exists public.smart_home_scenes (
 
 create table if not exists public.push_tokens (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
+  user_id uuid references public.profiles(id) on delete cascade,
+  member_id uuid references public.household_members(id) on delete cascade,
   token text not null unique,
   platform text not null,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint push_tokens_owner_check check (
+    (user_id is not null and member_id is null)
+    or (user_id is null and member_id is not null)
+  )
 );
 
 -- Legacy alias view for older app code that referenced nova_briefings
@@ -500,7 +505,7 @@ create index if not exists calendar_events_household_id_idx on public.calendar_e
 create index if not exists notifications_user_id_idx on public.notifications(user_id, is_read);
 create index if not exists reward_redemptions_household_id_idx on public.reward_redemptions(household_id, status);
 create index if not exists ai_briefings_household_id_idx on public.ai_briefings(household_id, created_at desc);
-create index if not exists analytics_events_household_id_idx on public.analytics_events(household_id, created_at desc);
+create index if not exists push_tokens_member_id_idx on public.push_tokens(member_id);
 
 create trigger profiles_set_updated_at before update on public.profiles
   for each row execute function public.set_updated_at();

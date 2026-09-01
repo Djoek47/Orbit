@@ -54,8 +54,10 @@ import {
   getNotificationPermissionStatus,
   isNotificationPermissionGranted,
   openSystemNotificationSettings,
-  registerForPushNotifications,
 } from '@/lib/notifications/push';
+import { registerPushForActor } from '@/lib/notifications/member-push';
+import { loadSidekickSession } from '@/lib/sidekick/session';
+import { isSidekickRole } from '@/lib/sidekick/permissions';
 import {
   fetchEntitlement,
   IAP_PRODUCTS,
@@ -77,7 +79,6 @@ import { SidekickSettingsScreen } from '@/components/orbit/sidekick-settings-scr
 import { HouseholdMembersRoster } from '@/components/orbit/members/household-members-roster';
 import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
 import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
-import { isSidekickRole } from '@/lib/sidekick/permissions';
 import {
   AI_TRIP_USD,
   formatUsd,
@@ -1075,7 +1076,13 @@ export default function SettingsScreen() {
                 ]}
                 onPress={() => {
                   void (async () => {
-                    const token = await registerForPushNotifications(currentUser?.id);
+                    const sidekickSession = isSidekickRole(currentMember?.role)
+                      ? await loadSidekickSession()
+                      : null;
+                    const token = await registerPushForActor({
+                      userId: currentUser?.id,
+                      profileInviteCode: sidekickSession?.profileInviteCode,
+                    });
                     const permission = await getNotificationPermissionStatus();
                     const granted = isNotificationPermissionGranted(permission);
                     setOsNotifStatus(granted ? 'granted' : 'denied');

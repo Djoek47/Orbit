@@ -129,6 +129,7 @@ import {
   REWARD_REVIEW_ROLES,
 } from '@/lib/notifications/audience';
 import { registerForPushNotifications, presentLocalBanner, syncAppBadge, scheduleLocalReminder } from '@/lib/notifications/push';
+import { dispatchMemberPush, registerSidekickPushNotifications } from '@/lib/notifications/member-push';
 import { isQuietHour } from '@/lib/poppins/notification-batch';
 import { composeWithLuna } from '@/lib/poppins/notification-composer';
 import {
@@ -922,10 +923,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   }, [household.id]);
 
   const applySidekickSyncPayload = useCallback(
-    async (sync: NonNullable<Awaited<ReturnType<typeof fetchSidekickSync>>>, options?: { announceNewTasks?: boolean }) => {
-      const previousTaskIds = new Set(householdRef.current.tasks.map((task) => task.id));
+    async (
+      sync: NonNullable<Awaited<ReturnType<typeof fetchSidekickSync>>>,
+      options?: { announceNewTasks?: boolean; base?: HouseholdSnapshot }
+    ) => {
+      const base = options?.base ?? householdRef.current;
+      const previousTaskIds = new Set(base.tasks.map((task) => task.id));
       const previousNotificationIds = new Set(notificationsRef.current.map((item) => item.id));
-      const merged = mergeSidekickSyncIntoHousehold(householdRef.current, sync);
+      const merged = mergeSidekickSyncIntoHousehold(base, sync);
       setHousehold(merged);
       setNotifications(sync.notifications);
       setStoreRecommendations(buildStoreRecommendations(merged.id, merged.groceries));
@@ -978,6 +983,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (dataMode === 'supabase' && sidekickActive) {
       const synced = await reloadSidekickDomains();
       if (synced) return synced;
+      console.warn('reloadHouseholdDomains: sidekick sync failed, keeping in-memory snapshot');
+      return householdRef.current;
     }
 
     const baseHousehold = await householdRepository.getHousehold();
@@ -1211,32 +1218,6 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       });
     });
   }, [household.id, reloadHouseholdDomains]);
-
-  useEffect(() => {
-    if (!household.id || !isSidekickRole(currentMember?.role)) {
-      return;
-    }
-
-    let cancelled = false;
-    const tick = () => {
-      if (cancelled) return;
-      void reloadHouseholdDomains().catch((error) => {
-        console.warn('sidekick sync', error);
-      });
-    };
-
-    tick();
-    const interval = setInterval(tick, 8_000);
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') tick();
-    });
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      subscription.remove();
-    };
-  }, [currentMember?.role, household.id, reloadHouseholdDomains]);
 
   useEffect(() => {
     void refreshStoreRecommendations();
@@ -1666,7 +1647,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const sync = await fetchSidekickSync(normalizedCode);
       if (!sync) return false;
       await applySidekickSyncPayload(sync, { announceNewTasks: true });
-      setNotifications(sync.notifications);
+      registerSidekickPushNotifications(normalizedCode).catch((error) => {
+        console.warn('Sidekick push registration skipped', error);
+      });
       return true;
     }
 
@@ -1745,27 +1728,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     let mergedSnapshot: HouseholdSnapshot;
     if (dataMode === 'supabase' && normalizedCode) {
       const sync = await fetchSidekickSync(normalizedCode);
+      const base: HouseholdSnapshot = {
+        ...createEmptyHousehold(user),
+        id: result.householdId,
+        householdName: result.householdName,
+        greetingName: result.member.name,
+        members: sync?.members.length ? sync.members : [result.member],
+      };
       mergedSnapshot = sync
-        ? mergeSidekickSyncIntoHousehold(
-            {
-              ...createEmptyHousehold(user),
-              id: result.householdId,
-              householdName: result.householdName,
-              greetingName: result.member.name,
-              members: sync.members.length ? sync.members : [result.member],
-            },
-            sync
-          )
-        : {
-            ...createEmptyHousehold(user),
-            id: result.householdId,
-            householdName: result.householdName,
-            greetingName: result.member.name,
-            members: [result.member],
-          };
-      if (sync) {
-        setNotifications(sync.notifications);
-      }
+        ? await applySidekickSyncPayload(sync, { announceNewTasks: true, base })
+        : base;
     } else {
       const snapshot = await householdRepository.loadHouseholdById(result.householdId, user.id).catch(
         async () => {
@@ -1816,6 +1788,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     if (result.status === 'active') {
       void applyPlannedTasksForMember(result.member.id, result.householdId);
+      if (normalizedCode) {
+        registerSidekickPushNotifications(normalizedCode).catch((error) => {
+          console.warn('Sidekick push registration skipped', error);
+        });
+      }
     }
 
     return { status: result.status };
@@ -3387,6 +3364,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       userId: targetUserId,
     });
     setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
+
+    const audienceMemberIds = input.data?.audienceMemberIds;
+    if (
+      dataMode === 'supabase' &&
+      Array.isArray(audienceMemberIds) &&
+      audienceMemberIds.length > 0
+    ) {
+      dispatchMemberPush(item.id);
+    }
 
     const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
     const urgent = decision.urgency === 'needs_action' || decision.priority === 'high';

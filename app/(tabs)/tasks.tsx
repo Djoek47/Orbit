@@ -18,6 +18,7 @@ import { EmptyState } from '@/components/orbit/empty-state';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { RefreshIconButton } from '@/components/orbit/refresh-icon-button';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { SearchBar } from '@/components/orbit/search-bar';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
@@ -884,7 +885,9 @@ export default function TasksScreen() {
             </Pressable>
           ) : null}
         </View>
-        {!sharedKidMode && (v2Permissions.canAssignOrEditTask || permissions.canCreateTask) ? (
+        <View style={styles.headerActions}>
+          <RefreshIconButton />
+          {!sharedKidMode && (v2Permissions.canAssignOrEditTask || permissions.canCreateTask) ? (
           <Pressable
             onPress={() =>
               router.push({
@@ -902,6 +905,7 @@ export default function TasksScreen() {
             </LinearGradient>
           </Pressable>
         ) : null}
+        </View>
       </View>
 
       <View style={{ gap: 10, marginBottom: 4 }}>
@@ -1298,6 +1302,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  headerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
   },
   tasksHeader: {
     flex: 1,

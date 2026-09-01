@@ -7,6 +7,7 @@ import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PlanAddSheet } from '@/components/orbit/plan/plan-add-sheet';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { RefreshIconButton } from '@/components/orbit/refresh-icon-button';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius } from '@/constants/orbit-theme';
 import {
@@ -233,6 +234,7 @@ export default function PlanScreen() {
                 <MaterialIcons name="add" size={18} color={accentTheme.primary} />
               </Pressable>
             ) : null}
+            <RefreshIconButton size={20} />
           </View>
 
           <View style={styles.legend}>
