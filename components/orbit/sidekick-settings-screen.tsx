@@ -127,7 +127,18 @@ export function SidekickSettingsScreen() {
                   void markNeedsProfilePick().then(() => router.push('/select-profile' as never));
                 }}
               />
-            ) : null}
+            ) : (
+              <SettingsNavRow
+                icon="lock"
+                iconColor="#F59E0B"
+                label="Lock app"
+                subtitle="Splash screen before you jump back in"
+                last
+                onPress={() => {
+                  void markNeedsProfilePick().then(() => router.replace('/select-profile' as never));
+                }}
+              />
+            )}
           </SettingsGroup>
 
           <View

@@ -8,8 +8,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/orbit/avatar';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
+import { SidekickUnlockSplash } from '@/components/orbit/sidekick-unlock-splash';
 import { getAccentTheme } from '@/constants/accent-themes';
 import { space } from '@/constants/orbit-theme';
+import { isPersonalSidekickDevice } from '@/lib/device/device-host';
 import {
   loadDeviceSession,
   removeHostedProfile,
@@ -43,7 +45,7 @@ function profilesForSession(
   return [];
 }
 
-/** Who’s using this iPad — pick a face, then Choremaxx. */
+/** Shared iPad — pick a face, then Choremaxx. */
 export default function SelectProfileScreen() {
   const insets = useSafeAreaInsets();
   const { household, isLoading, isSignedIn, orbitPalette, switchPersona } = useOrbit();
@@ -68,10 +70,21 @@ export default function SelectProfileScreen() {
     [session, household.members]
   );
 
+  const sidekickUnlock = useMemo(
+    () => isPersonalSidekickDevice(session, profiles),
+    [session, profiles]
+  );
+
   const deviceLabel =
     session?.deviceLabel ||
     findSharedDeviceForMember(profiles[0]?.id, household.members)?.name ||
     DEFAULT_SHARED_IPAD_NAME;
+
+  const enterAsMember = async (member: HouseholdMember) => {
+    await selectDeviceProfile(member.id);
+    switchPersona(member.id);
+    router.replace('/(tabs)' as never);
+  };
 
   if (isLoading || !ready) {
     return null;
@@ -82,14 +95,24 @@ export default function SelectProfileScreen() {
   }
 
   if (profiles.length === 0) {
-    return <Redirect href="/setup-kid-device" />;
+    router.replace('/setup-kid-device' as never);
+    return null;
+  }
+
+  if (sidekickUnlock && profiles.length === 1) {
+    return (
+      <SidekickUnlockSplash
+        member={profiles[0]!}
+        onComplete={() => {
+          void enterAsMember(profiles[0]!);
+        }}
+      />
+    );
   }
 
   const handleSelect = async (member: HouseholdMember) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await selectDeviceProfile(member.id);
-    switchPersona(member.id);
-    router.replace('/(tabs)' as never);
+    await enterAsMember(member);
   };
 
   const handleRemove = (member: HouseholdMember) => {

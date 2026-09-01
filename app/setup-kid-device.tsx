@@ -104,6 +104,7 @@ export default function SetupKidDeviceScreen() {
         profileMemberIds: hosted.map((person) => person.id),
         deviceLabel: label,
         sharedDeviceId,
+        hostKind: 'shared-tablet',
       });
 
       router.replace('/select-profile' as never);

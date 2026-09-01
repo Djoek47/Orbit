@@ -1,10 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import type { DeviceHostKind } from '@/lib/device/device-host';
+
 const KEY = 'orbit.deviceSession.v1';
 
 /** Physical-device binding: personal phone vs shared iPad hosting multiple profiles. */
 export type DeviceSession = {
   mode: 'personal' | 'shared';
+  /** Personal Sidekick vs household shared iPad (multi-profile picker). */
+  hostKind?: DeviceHostKind;
   /** Member ids hosted on this device (from scanned/entered profile codes). */
   profileMemberIds: string[];
   /** Last selected profile — cleared when needsProfilePick is true. */
@@ -18,6 +22,7 @@ export type DeviceSession = {
 
 const EMPTY: DeviceSession = {
   mode: 'personal',
+  hostKind: undefined,
   profileMemberIds: [],
   activeMemberId: null,
   needsProfilePick: false,
@@ -32,6 +37,10 @@ export async function loadDeviceSession(): Promise<DeviceSession> {
     const parsed = JSON.parse(raw) as Partial<DeviceSession>;
     return {
       mode: parsed.mode === 'shared' ? 'shared' : 'personal',
+      hostKind:
+        parsed.hostKind === 'sidekick' || parsed.hostKind === 'shared-tablet'
+          ? parsed.hostKind
+          : undefined,
       profileMemberIds: Array.isArray(parsed.profileMemberIds)
         ? parsed.profileMemberIds.filter((id): id is string => typeof id === 'string')
         : [],
@@ -105,14 +114,18 @@ export async function setupSharedDeviceSession(input: {
   profileMemberIds: string[];
   deviceLabel?: string;
   sharedDeviceId?: string | null;
+  hostKind?: DeviceHostKind;
 }): Promise<DeviceSession> {
   const unique = [...new Set(input.profileMemberIds.filter(Boolean))];
+  const hostKind = input.hostKind ?? 'shared-tablet';
+  const isSidekickHost = hostKind === 'sidekick';
   const next: DeviceSession = {
     mode: 'shared',
+    hostKind,
     profileMemberIds: unique,
     activeMemberId: null,
-    needsProfilePick: unique.length > 0,
-    deviceLabel: input.deviceLabel?.trim() || 'Family iPad',
+    needsProfilePick: isSidekickHost ? false : unique.length > 0,
+    deviceLabel: input.deviceLabel?.trim() || (isSidekickHost ? 'Sidekick device' : 'Family iPad'),
     sharedDeviceId: input.sharedDeviceId ?? null,
   };
   await saveDeviceSession(next);

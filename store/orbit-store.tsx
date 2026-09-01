@@ -1670,6 +1670,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await setupSharedDeviceSession({
       profileMemberIds: [session.memberId],
       deviceLabel: `${session.displayName}'s device`,
+      hostKind: 'sidekick',
     });
     await selectDeviceProfile(session.memberId);
 
@@ -1806,6 +1807,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       await setupSharedDeviceSession({
         profileMemberIds: [result.member.id],
         deviceLabel: `${result.member.name}'s device`,
+        hostKind: 'sidekick',
       });
       await selectDeviceProfile(result.member.id);
     } else if (result.householdId) {
@@ -5492,6 +5494,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await setupSharedDeviceSession({
       profileMemberIds: [member.id],
       deviceLabel: `${member.name}'s device`,
+      hostKind: 'sidekick',
     });
     await selectDeviceProfile(member.id);
 
@@ -5569,6 +5572,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const session = await setupSharedDeviceSession({
       profileMemberIds: resolved.map((member) => member.id),
       deviceLabel: deviceLabel?.trim() || 'Family iPad',
+      hostKind: 'shared-tablet',
     });
 
     const needsProfilePick = resolved.length > 1;
