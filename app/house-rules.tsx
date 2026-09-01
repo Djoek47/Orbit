@@ -161,6 +161,7 @@ export default function HouseRulesScreen() {
         onClose={() => setDeadlineOpen(false)}
         onSelect={(hhmm) => {
           queueDailyDeadline(hhmm);
+          setDeadlineOpen(false);
         }}
       />
 

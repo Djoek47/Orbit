@@ -176,6 +176,19 @@ export default function SettingsScreen() {
   const [deadlineOpen, setDeadlineOpen] = useState(false);
   const houseRulesDoc = useMemo(() => getHouseRulesDoc(), []);
   const houseRulesView = useMemo(() => houseRulesHouseholdView(household), [household]);
+  const dailyDeadlineSubtitle = useMemo(() => {
+    const current =
+      houseRulesView.dailyDeadline ?? houseRulesDoc.settings.dailyDeadline.default;
+    const pending = household.dailyDeadlinePending?.trim();
+    const formatted = formatHouseRulesTime(current, houseRulesView.use24h);
+    if (!pending || pending === current) return formatted;
+    return `${formatted} → ${formatHouseRulesTime(pending, houseRulesView.use24h)} tomorrow`;
+  }, [
+    houseRulesDoc.settings.dailyDeadline.default,
+    houseRulesView.dailyDeadline,
+    houseRulesView.use24h,
+    household.dailyDeadlinePending,
+  ]);
   const [entitlement, setEntitlement] = useState<EntitlementState | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
   const [editingDisplayName, setEditingDisplayName] = useState(false);
@@ -922,10 +935,7 @@ export default function SettingsScreen() {
                 icon="schedule"
                 iconColor="#E9B44C"
                 label={houseRulesDoc.settings.dailyDeadline.label}
-                subtitle={formatHouseRulesTime(
-                  houseRulesView.dailyDeadline ?? houseRulesDoc.settings.dailyDeadline.default,
-                  houseRulesView.use24h
-                )}
+                subtitle={dailyDeadlineSubtitle}
                 onPress={() => setDeadlineOpen(true)}
               />
             ) : null}
@@ -1238,7 +1248,10 @@ export default function SettingsScreen() {
       appliesOn={household.dailyDeadlineAppliesOn}
       use24h={houseRulesView.use24h}
       onClose={() => setDeadlineOpen(false)}
-      onSelect={(hhmm) => queueDailyDeadline(hhmm)}
+      onSelect={(hhmm) => {
+        queueDailyDeadline(hhmm);
+        setDeadlineOpen(false);
+      }}
     />
     <ProfileInviteSheet
       visible={inviteTarget?.kind === 'profile'}

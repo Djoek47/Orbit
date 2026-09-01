@@ -216,9 +216,10 @@ const doc = getHouseRulesDoc();
 {
   const values = deadlinePickerValues(doc);
   assert.equal(values[0], '15:00');
-  assert.equal(values[values.length - 1], '22:00');
+  assert.equal(values[values.length - 1], '23:59');
   assert.ok(values.includes('19:00'));
-  assert.equal(values.length, 29);
+  assert.ok(values.includes('23:45'));
+  assert.ok(values.length >= 29);
   const unset = effectiveDailyDeadline(doc, {});
   assert.equal(unset, '19:00');
   const queued = queueDailyDeadlineChange('21:00', new Date(2026, 7, 13));

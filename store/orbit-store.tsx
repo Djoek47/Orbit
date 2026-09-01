@@ -46,7 +46,7 @@ import {
 } from '@/lib/ai/daily-insight';
 import { unreadInboxCount } from '@/lib/poppins/inbox-visibility';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
-import { queueDailyDeadlineChange, settleDeadlineState } from '@/lib/rules/deadline';
+import { isValidDailyDeadline, queueDailyDeadlineChange, settleDeadlineState } from '@/lib/rules/deadline';
 import { householdDueTimeLocal } from '@/lib/rules/household-view';
 import { evaluateAchievements, getLevel, LEVELS, MEMBER_ACCENTS, memberDisplayEmoji, xpProgress } from '@/lib/game-levels';
 import { hasChosenAvatar } from '@/lib/profile/chosen-avatar';
@@ -780,9 +780,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const queueDailyDeadline = (hhmm: string) => {
+    const doc = getHouseRulesDoc();
+    if (!isValidDailyDeadline(hhmm, doc)) return;
     setHousehold((current) => {
       if (!permissions.canManageHousehold) return current;
-      const queued = queueDailyDeadlineChange(hhmm);
+      const queued = queueDailyDeadlineChange(hhmm, new Date(), doc);
       const next: HouseholdSnapshot = {
         ...current,
         dailyDeadlinePending: queued.dailyDeadlinePending,

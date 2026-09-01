@@ -798,7 +798,7 @@
       "help": "The hour work is due. Applies to daily, weekday, weekly and monthly tasks alike.",
       "default": "19:00",
       "min": "15:00",
-      "max": "22:00",
+      "max": "23:59",
       "stepMinutes": 15,
       "appliesTo": [
         "daily",
@@ -808,7 +808,7 @@
       ],
       "takesEffect": "NEXT_DAY",
       "editableBy": "admin",
-      "_constraints": "The floor and ceiling are not arbitrary. Below 15:00 the deadline lands inside the school day; above 22:00 the Late Credit window between the deadline and expiry at 23:59 collapses to under an hour, which makes Late Credit meaningless. Expiry itself is the day boundary and is never configurable."
+      "_constraints": "The floor and ceiling are not arbitrary. Below 15:00 the deadline lands inside the school day; above 23:59 would cross the day boundary (tasks expire at 23:59). Late Credit still applies between the deadline and end of day, but the window shrinks for later hours."
     },
     "allowanceRequests": {
       "label": "Let Sidekicks request an amount",
