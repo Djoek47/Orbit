@@ -87,6 +87,7 @@ function buildCoreTaskUpdate(task: HouseholdTask) {
     completed_late: task.completedLate ?? null,
     verified_by: task.verifiedBy ?? null,
     verified_at: task.verifiedAt ?? null,
+    expired_at: task.expiredAt ?? null,
     ...(task.definitionId ? { definition_id: task.definitionId } : {}),
     ...(task.occurrenceDate ? { occurrence_date: task.occurrenceDate } : {}),
   };

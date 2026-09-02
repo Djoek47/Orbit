@@ -163,7 +163,10 @@ import {
 import { normalizeRewardSettings } from '@/lib/rewards/reward-mode';
 import { isOnRecess } from '@/lib/recess/recess-engine';
 import { formatLocalDate } from '@/lib/streaks/local-date';
-import { expireOpenTasksAtBoundary } from '@/lib/tasks/expire-at-boundary';
+import {
+  applyHouseholdTaskExpiry,
+  tasksWithExpiryStatusChange,
+} from '@/lib/tasks/apply-household-expiry';
 import { refreshStaleDueLabels } from '@/lib/tasks/due-label';
 import {
   ensureOccurrencesForDay,
@@ -1005,19 +1008,38 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     const baseHousehold = await householdRepository.getHousehold();
     const hydratedHousehold = await hydrateHousehold(baseHousehold);
-    setHousehold(hydratedHousehold);
+    const withExpiry = {
+      ...hydratedHousehold,
+      tasks: refreshStaleDueLabels(
+        applyHouseholdTaskExpiry(hydratedHousehold.tasks, hydratedHousehold),
+        new Date()
+      ),
+    };
+    setHousehold(withExpiry);
     await Promise.all([
-      notificationsRepository.list(hydratedHousehold.id).then(setNotifications),
-      rewardsRepository.getRedemptions(hydratedHousehold.id).then((items) => {
+      notificationsRepository.list(withExpiry.id).then(setNotifications),
+      rewardsRepository.getRedemptions(withExpiry.id).then((items) => {
         setRedemptions(items);
         setPendingRedemptions(items.filter((item) => item.status === 'pending'));
       }),
-      rewardsRepository.getAllowances(hydratedHousehold.id).then(setAllowances),
-      smartHomeRepository.listDevices(hydratedHousehold.id).then(setSmartHomeDevices),
-      smartHomeRepository.listScenes(hydratedHousehold.id).then(setSmartHomeScenes),
+      rewardsRepository.getAllowances(withExpiry.id).then(setAllowances),
+      smartHomeRepository.listDevices(withExpiry.id).then(setSmartHomeDevices),
+      smartHomeRepository.listScenes(withExpiry.id).then(setSmartHomeScenes),
     ]);
-    setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
-    return hydratedHousehold;
+    setStoreRecommendations(buildStoreRecommendations(withExpiry.id, withExpiry.groceries));
+
+    const expiryChanges = tasksWithExpiryStatusChange(hydratedHousehold.tasks, withExpiry.tasks);
+    if (expiryChanges.length > 0) {
+      await Promise.all(
+        expiryChanges.map((task) =>
+          taskRepository.updateTask(task).catch((error) => {
+            console.warn('reloadHouseholdDomains expiry persist', task.id, error);
+          })
+        )
+      );
+    }
+
+    return withExpiry;
   }, []);
 
   useEffect(() => {
@@ -2579,30 +2601,30 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       );
     }
 
-    const merged = expireOpenTasksAtBoundary([...created, ...nextTasks], now, {
-      expiryHm,
-      assigneeOnRecess: (name, dateKey) =>
-        live.members.some(
-          (member) =>
-            member.name === name && isOnRecess(live.recessPeriods ?? [], member.id, dateKey)
-        ),
-    });
+    const merged = applyHouseholdTaskExpiry([...created, ...nextTasks], live, now);
     const relabeled = refreshStaleDueLabels(merged, now);
-    // Persist auto-confirm / missed / expiry transitions for changed rows
-    for (const task of relabeled) {
-      const prev = live.tasks.find((t) => t.id === task.id);
-      if (!prev) {
-        if (isExpiredStatus(task.status)) {
-          await taskRepository.updateTask(task);
+    const profileAuth = await usesProfileCodeAuth().catch(() => null);
+
+    if (!profileAuth) {
+      for (const task of relabeled) {
+        const prev = live.tasks.find((t) => t.id === task.id);
+        if (!prev) {
+          if (isExpiredStatus(task.status)) {
+            await taskRepository.updateTask(task).catch((error) => {
+              console.warn('runOccurrenceCatchUp persist new', task.id, error);
+            });
+          }
+          continue;
         }
-        continue;
-      }
-      if (
-        prev.verification !== task.verification ||
-        prev.status !== task.status ||
-        prev.due !== task.due
-      ) {
-        await taskRepository.updateTask(task);
+        if (
+          prev.verification !== task.verification ||
+          prev.status !== task.status ||
+          prev.due !== task.due
+        ) {
+          await taskRepository.updateTask(task).catch((error) => {
+            console.warn('runOccurrenceCatchUp persist', task.id, error);
+          });
+        }
       }
     }
 
@@ -2631,25 +2653,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const live = householdRef.current;
       if (!live.id) return;
       const now = new Date();
-      const expiryHm = getHouseRulesDoc().constants.expiryTime;
-      const nextTasks = expireOpenTasksAtBoundary(live.tasks, now, {
-        expiryHm,
-        assigneeOnRecess: (name, dateKey) =>
-          live.members.some(
-            (member) =>
-              member.name === name && isOnRecess(live.recessPeriods ?? [], member.id, dateKey)
-          ),
-      });
-      const changed = nextTasks.filter((task) => {
-        const prev = live.tasks.find((row) => row.id === task.id);
-        return prev && prev.status !== task.status;
-      });
+      const nextTasks = applyHouseholdTaskExpiry(live.tasks, live, now);
+      const changed = tasksWithExpiryStatusChange(live.tasks, nextTasks);
       if (changed.length === 0) return;
+
+      setHousehold((current) => ({ ...current, tasks: nextTasks }));
+
       void (async () => {
+        const profileAuth = await usesProfileCodeAuth().catch(() => null);
+        if (profileAuth) return;
         for (const task of changed) {
-          await taskRepository.updateTask(task);
+          await taskRepository.updateTask(task).catch((error) => {
+            console.warn('tickExpiry persist', task.id, error);
+          });
         }
-        setHousehold((current) => ({ ...current, tasks: nextTasks }));
       })();
     };
     const id = setInterval(tickExpiry, 30_000);

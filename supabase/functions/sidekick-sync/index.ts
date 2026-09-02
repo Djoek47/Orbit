@@ -1,8 +1,10 @@
 /**
  * Sidekick household sync — profile-code auth for kid devices without Supabase JWT.
  * Returns tasks, members, and member-targeted notifications for polling / refresh.
+ * Expires open tasks past 23:59 before returning (service role persist).
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import { expireOpenDbTasksAtBoundary, type DbTaskRow } from '../_shared/task-expiry.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -89,6 +91,7 @@ Deno.serve(async (req) => {
       { data: groceries },
       { data: calendarEvents },
       { data: customHouseRules },
+      { data: recessPeriods },
     ] = await Promise.all([
       admin.from('households').select('*').eq('id', householdId).maybeSingle(),
       admin.from('household_members').select('*').eq('household_id', householdId),
@@ -119,7 +122,39 @@ Deno.serve(async (req) => {
         .select('id, body, sort_order')
         .eq('household_id', householdId)
         .order('sort_order', { ascending: true }),
+      admin
+        .from('recess_periods')
+        .select('member_id, start_date, end_date')
+        .eq('household_id', householdId),
     ]);
+
+    const now = new Date();
+    const taskRows = (tasks ?? []) as DbTaskRow[];
+    const { expired: toExpire } = expireOpenDbTasksAtBoundary(taskRows, now, {
+      members: members ?? [],
+      recessPeriods: recessPeriods ?? [],
+    });
+
+    if (toExpire.length > 0) {
+      await Promise.all(
+        toExpire.map((row) =>
+          admin
+            .from('tasks')
+            .update({ status: 'expired', expired_at: row.expired_at })
+            .eq('id', row.id)
+        )
+      );
+      const expiredIds = new Set(toExpire.map((row) => row.id));
+      for (const row of taskRows) {
+        if (expiredIds.has(row.id)) {
+          const patch = toExpire.find((item) => item.id === row.id);
+          if (patch) {
+            row.status = patch.status;
+            row.expired_at = patch.expired_at;
+          }
+        }
+      }
+    }
 
     const visibleNotifications = (notifications ?? []).filter((row) =>
       notificationForMember(row, memberId)

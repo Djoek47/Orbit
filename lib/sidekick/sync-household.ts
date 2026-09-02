@@ -10,6 +10,8 @@ import {
 } from '@/lib/household/map-household-settings';
 import { mapEventRow, mapGroceryRow, mapMemberRow, mapRewardRow, mapTaskRow } from '@/lib/mappers/orbit-mappers';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { applyHouseholdTaskExpiry } from '@/lib/tasks/apply-household-expiry';
+import { refreshStaleDueLabels } from '@/lib/tasks/due-label';
 import type { HouseholdSnapshot, NotificationItem } from '@/types/orbit';
 
 export type SidekickSyncResult = {
@@ -118,18 +120,30 @@ export async function fetchSidekickSync(profileInviteCode: string): Promise<Side
 
 export function mergeSidekickSyncIntoHousehold(
   current: HouseholdSnapshot,
-  sync: SidekickSyncResult
+  sync: SidekickSyncResult,
+  now = new Date()
 ): HouseholdSnapshot {
   const members =
     sync.members.length > 0
       ? sync.members
       : current.members.map((item) => (item.id === sync.member.id ? sync.member : item));
 
+  const householdContext = {
+    ...current,
+    ...sync.householdPatch,
+    members,
+    recessPeriods: current.recessPeriods,
+  };
+  const expiredTasks = refreshStaleDueLabels(
+    applyHouseholdTaskExpiry(sync.tasks, householdContext, now),
+    now
+  );
+
   return {
     ...current,
     ...sync.householdPatch,
     members,
-    tasks: sync.tasks,
+    tasks: expiredTasks,
     events: sync.events,
     rewards: sync.rewards,
     groceries: sync.groceries,
