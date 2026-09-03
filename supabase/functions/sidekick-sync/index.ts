@@ -28,6 +28,11 @@ function notificationForMember(
     row.data && typeof row.data === 'object' && !Array.isArray(row.data)
       ? (row.data as Record<string, unknown>)
       : {};
+  if (data.dismissed === true) return false;
+  const dismissedBy = data.dismissedByMemberIds;
+  if (Array.isArray(dismissedBy) && dismissedBy.some((id) => id === memberId)) {
+    return false;
+  }
   const audienceIds = data.audienceMemberIds;
   if (Array.isArray(audienceIds) && audienceIds.length > 0) {
     return audienceIds.some((id) => id === memberId);

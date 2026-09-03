@@ -45,8 +45,29 @@ export function isFakeStoreName(name?: string | null): boolean {
   return Boolean(name && FAKE_STORE_RE.test(name));
 }
 
-export function isDismissedNotification(item: { data?: Record<string, unknown> }): boolean {
-  return item.data?.dismissed === true;
+export function isDismissedNotification(
+  item: { data?: Record<string, unknown> },
+  memberId?: string | null
+): boolean {
+  if (item.data?.dismissed === true) return true;
+  if (!memberId) return false;
+  const by = item.data?.dismissedByMemberIds;
+  return Array.isArray(by) && by.some((id) => id === memberId);
+}
+
+/** Merge a member id into dismissedByMemberIds (keeps legacy dismissed flag if present). */
+export function withMemberDismissed(
+  data: Record<string, unknown> | undefined,
+  memberId: string
+): Record<string, unknown> {
+  const prev = data ?? {};
+  const existing = Array.isArray(prev.dismissedByMemberIds)
+    ? prev.dismissedByMemberIds.filter((id): id is string => typeof id === 'string')
+    : [];
+  if (existing.includes(memberId)) {
+    return { ...prev, dismissedByMemberIds: existing };
+  }
+  return { ...prev, dismissedByMemberIds: [...existing, memberId] };
 }
 
 export function isJunkMockInsight(item: {

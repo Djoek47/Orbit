@@ -1,4 +1,5 @@
 import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, mapDbError } from '@/repositories/repository-utils';
+import { withMemberDismissed } from '@/lib/ai/daily-insight';
 import type { NotificationItem } from '@/types/orbit';
 
 export type CreateNotificationInput = {
@@ -234,6 +235,51 @@ export const notificationsRepository = {
       .select('*')
       .maybeSingle();
     mapDbError('notificationsRepository.updateCopy', error);
+    return row ? mapNotificationRow(row) : null;
+  },
+
+  /** Persist per-member dismiss so Sidekick / co-admin deletes stay deleted. */
+  async dismissForMember(
+    notificationId: string,
+    memberId: string
+  ): Promise<NotificationItem | null> {
+    if (isMockMode()) {
+      mockNotificationState = mockNotificationState.map((item) => {
+        if (item.id !== notificationId) return item;
+        return {
+          ...item,
+          isRead: true,
+          data: withMemberDismissed(item.data, memberId),
+        };
+      });
+      return mockNotificationState.find((item) => item.id === notificationId) ?? null;
+    }
+
+    const supabase = getConfiguredSupabase('notificationsRepository.dismissForMember');
+    const { data: existing, error: loadError } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('id', notificationId)
+      .maybeSingle();
+    mapDbError('notificationsRepository.dismissForMember.load', loadError);
+    if (!existing) return null;
+
+    const prevData =
+      existing.data && typeof existing.data === 'object' && !Array.isArray(existing.data)
+        ? (existing.data as Record<string, unknown>)
+        : {};
+    const nextData = withMemberDismissed(prevData, memberId);
+
+    const { data: row, error } = await supabase
+      .from('notifications')
+      .update({
+        data: nextData as import('@/types/database').Json,
+        is_read: true,
+      })
+      .eq('id', notificationId)
+      .select('*')
+      .maybeSingle();
+    mapDbError('notificationsRepository.dismissForMember', error);
     return row ? mapNotificationRow(row) : null;
   },
 

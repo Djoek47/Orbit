@@ -43,6 +43,7 @@ import {
   isDismissedNotification,
   isJunkMockInsight,
   shouldSkipKindToday,
+  withMemberDismissed,
 } from '@/lib/ai/daily-insight';
 import { unreadInboxCount } from '@/lib/poppins/inbox-visibility';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
@@ -121,6 +122,11 @@ import {
   sidekickCreateEvent,
   usesProfileCodeAuth,
 } from '@/lib/sidekick/task-action';
+import {
+  sidekickDismissNotification,
+  sidekickMarkNotificationRead,
+  sidekickNotificationAuth,
+} from '@/lib/sidekick/notification-action';
 import { adminMemberIds, resolveAudienceMemberIds } from '@/lib/household/admin-member-ids';
 import {
   applyRedeemedMember,
@@ -868,7 +874,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     () =>
       notifications.filter(
         (item) =>
-          !isDismissedNotification(item) &&
+          !isDismissedNotification(item, currentMember?.id) &&
           !isJunkMockInsight(item) &&
           isNotificationVisibleToMember(
             item,
@@ -878,8 +884,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     [currentMember?.id, currentMember?.role, notifications]
   );
   const unreadNotificationCount = useMemo(
-    () => unreadInboxCount(visibleNotifications),
-    [visibleNotifications]
+    () => unreadInboxCount(visibleNotifications, Date.now(), currentMember?.id),
+    [currentMember?.id, visibleNotifications]
   );
 
   useEffect(() => {
@@ -4767,10 +4773,24 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const markNotificationRead = async (notificationId: string) => {
-    await notificationsRepository.markRead(notificationId);
     setNotifications((current) =>
       current.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item))
     );
+
+    try {
+      const profileAuth = await sidekickNotificationAuth();
+      if (profileAuth) {
+        await sidekickMarkNotificationRead({
+          code: profileAuth.code,
+          notificationId,
+        });
+      } else {
+        await notificationsRepository.markRead(notificationId);
+      }
+    } catch (error) {
+      console.warn('markNotificationRead', notificationId, error);
+    }
+
     await trackAnalytics('notification.read', { notificationId }, analyticsContext);
   };
 
@@ -4784,21 +4804,37 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     const current = notificationsRef.current.find((item) => item.id === notificationId);
     if (!current) return;
-    const data = { ...(current.data ?? {}), dismissed: true };
-    const updated = await notificationsRepository.updateCopy(
-      current.id,
-      current.title,
-      current.body,
-      data
-    );
-    await notificationsRepository.markRead(notificationId);
+
+    const memberId = currentMemberRef.current?.id;
+    const data = memberId
+      ? withMemberDismissed(current.data, memberId)
+      : { ...(current.data ?? {}), dismissed: true };
+
+    // Optimistic local hide — never wait on network for the X to feel deleted.
     setNotifications((rows) =>
       rows.map((item) =>
-        item.id === notificationId
-          ? { ...(updated ?? item), isRead: true, data }
-          : item
+        item.id === notificationId ? { ...item, isRead: true, data } : item
       )
     );
+
+    try {
+      const profileAuth = await sidekickNotificationAuth();
+      if (profileAuth) {
+        await sidekickDismissNotification({
+          code: profileAuth.code,
+          notificationId,
+          memberId: profileAuth.memberId,
+        });
+      } else if (memberId) {
+        await notificationsRepository.dismissForMember(notificationId, memberId);
+      } else {
+        await notificationsRepository.updateCopy(current.id, current.title, current.body, data);
+        await notificationsRepository.markRead(notificationId);
+      }
+    } catch (error) {
+      console.warn('dismissInboxItem', notificationId, error);
+    }
+
     await trackAnalytics('notification.dismissed', { notificationId }, analyticsContext);
   };
 

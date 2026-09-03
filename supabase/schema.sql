@@ -675,7 +675,9 @@ create policy mental_load_scores_all on public.mental_load_scores for all using 
   with check (public.is_household_member(household_id));
 create policy notifications_select on public.notifications for select
   using (user_id = auth.uid() or public.is_household_member(household_id));
-create policy notifications_update on public.notifications for update using (user_id = auth.uid());
+create policy notifications_update on public.notifications for update
+  using (user_id = auth.uid() or public.is_household_member(household_id))
+  with check (user_id = auth.uid() or public.is_household_member(household_id));
 create policy notifications_insert on public.notifications for insert
   with check (public.is_household_member(household_id));
 create policy notification_rules_all on public.notification_rules for all using (public.is_household_admin(household_id))

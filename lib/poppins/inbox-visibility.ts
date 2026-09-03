@@ -20,14 +20,22 @@ function isInsightRow(item: NotificationItem): boolean {
 }
 
 /** Rows the bell sheet may show (Insights = today's unread only, never junk or dismissed). */
-export function isInboxSheetItem(item: NotificationItem, now = Date.now()): boolean {
-  if (isDismissedNotification(item) || isJunkMockInsight(item)) return false;
+export function isInboxSheetItem(
+  item: NotificationItem,
+  now = Date.now(),
+  memberId?: string | null
+): boolean {
+  if (isDismissedNotification(item, memberId) || isJunkMockInsight(item)) return false;
   if (isInsightRow(item)) {
     return !item.isRead && isSameLocalDay(item.createdAt, now);
   }
   return true;
 }
 
-export function unreadInboxCount(items: NotificationItem[], now = Date.now()): number {
-  return items.filter((item) => !item.isRead && isInboxSheetItem(item, now)).length;
+export function unreadInboxCount(
+  items: NotificationItem[],
+  now = Date.now(),
+  memberId?: string | null
+): number {
+  return items.filter((item) => !item.isRead && isInboxSheetItem(item, now, memberId)).length;
 }
