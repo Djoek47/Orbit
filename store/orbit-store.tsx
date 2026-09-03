@@ -46,6 +46,11 @@ import {
   withMemberDismissed,
 } from '@/lib/ai/daily-insight';
 import { unreadInboxCount } from '@/lib/poppins/inbox-visibility';
+import {
+  filterOutDismissedIds,
+  loadDismissedNotificationIds,
+  rememberDismissedNotification,
+} from '@/lib/notifications/dismiss-tombstones';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { isValidDailyDeadline, queueDailyDeadlineChange, settleDeadlineState } from '@/lib/rules/deadline';
 import { householdDueTimeLocal } from '@/lib/rules/household-view';
@@ -101,7 +106,6 @@ import { isHomeworkCategory } from '@/lib/tasks/homework-subject';
 import { needsProofOnComplete, proofRequiredForHomeworkAssign } from '@/lib/tasks/homework-proof';
 import { canAdminRequestTaskProof } from '@/lib/tasks/proof-eligibility';
 import {
-  isSidekickLocalUserId,
   loadSidekickSession,
   saveSidekickSession,
   type SidekickSession,
@@ -693,6 +697,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const notificationsRef = useRef<NotificationItem[]>([]);
   const monitorKickRef = useRef<string | null>(null);
   const [briefDismissedYmd, setBriefDismissedYmd] = useState<string | null>(null);
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(
+    () => new Set()
+  );
   notificationsRef.current = notifications;
 
   const currentMember = useMemo(() => {
@@ -874,6 +881,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     () =>
       notifications.filter(
         (item) =>
+          !dismissedNotificationIds.has(item.id) &&
           !isDismissedNotification(item, currentMember?.id) &&
           !isJunkMockInsight(item) &&
           isNotificationVisibleToMember(
@@ -881,7 +889,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             currentMember ? { id: currentMember.id, role: currentMember.role } : null
           )
       ),
-    [currentMember?.id, currentMember?.role, notifications]
+    [currentMember?.id, currentMember?.role, dismissedNotificationIds, notifications]
   );
   const unreadNotificationCount = useMemo(
     () => unreadInboxCount(visibleNotifications, Date.now(), currentMember?.id),
@@ -900,6 +908,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   }, [household.id]);
 
   useEffect(() => {
+    let cancelled = false;
+    const memberId = currentMember?.id;
+    const householdId = household.id;
+    if (!householdId || !memberId) {
+      setDismissedNotificationIds(new Set());
+      return;
+    }
+    void loadDismissedNotificationIds(householdId, memberId).then((ids) => {
+      if (!cancelled) setDismissedNotificationIds(ids);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentMember?.id, household.id]);
+
+  useEffect(() => {
     void syncAppBadge(unreadNotificationCount);
   }, [unreadNotificationCount]);
 
@@ -910,7 +934,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const refreshNotifications = useCallback(async () => {
     const items = await notificationsRepository.list(household.id);
-    setNotifications(items);
+    const memberId = currentMemberRef.current?.id;
+    const tombstones =
+      household.id && memberId
+        ? await loadDismissedNotificationIds(household.id, memberId)
+        : new Set<string>();
+    if (tombstones.size > 0) {
+      setDismissedNotificationIds(tombstones);
+    }
+    setNotifications(filterOutDismissedIds(items, tombstones));
   }, [household.id]);
 
   const refreshSmartHome = useCallback(async () => {
@@ -955,7 +987,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const previousNotificationIds = new Set(notificationsRef.current.map((item) => item.id));
       const merged = mergeSidekickSyncIntoHousehold(base, sync);
       setHousehold(merged);
-      setNotifications(sync.notifications);
+      const memberId = sync.member.id;
+      const householdId = merged.id ?? sync.householdId;
+      const tombstones = householdId
+        ? await loadDismissedNotificationIds(householdId, memberId)
+        : new Set<string>();
+      setDismissedNotificationIds(tombstones);
+      setNotifications(filterOutDismissedIds(sync.notifications, tombstones));
+      setRedemptions(sync.redemptions);
+      setPendingRedemptions(sync.redemptions.filter((item) => item.status === 'pending'));
       setStoreRecommendations(buildStoreRecommendations(merged.id, merged.groceries));
 
       void touchSidekickSession().catch(() => undefined);
@@ -1002,8 +1042,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   }, [applySidekickSyncPayload]);
 
   const reloadHouseholdDomains = useCallback(async () => {
-    const sidekickActive =
-      isSidekickRole(currentMemberRef.current?.role) || Boolean(await loadSidekickSession());
+    // Never treat a leftover Sidekick session as active when the signed-in member is admin/co-admin.
+    const sidekickActive = isSidekickRole(currentMemberRef.current?.role);
 
     if (dataMode === 'supabase' && sidekickActive) {
       const synced = await reloadSidekickDomains();
@@ -1022,8 +1062,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ),
     };
     setHousehold(withExpiry);
+    const memberId = currentMemberRef.current?.id;
+    const tombstones =
+      withExpiry.id && memberId
+        ? await loadDismissedNotificationIds(withExpiry.id, memberId)
+        : new Set<string>();
+    if (tombstones.size > 0) setDismissedNotificationIds(tombstones);
+
     await Promise.all([
-      notificationsRepository.list(withExpiry.id).then(setNotifications),
+      notificationsRepository.list(withExpiry.id).then((items) => {
+        setNotifications(filterOutDismissedIds(items, tombstones));
+      }),
       rewardsRepository.getRedemptions(withExpiry.id).then((items) => {
         setRedemptions(items);
         setPendingRedemptions(items.filter((item) => item.status === 'pending'));
@@ -1274,8 +1323,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     let unsubscribe: (() => void) | undefined;
 
     void (async () => {
-      const sidekickActive =
-        isSidekickRole(currentMemberRef.current?.role) || Boolean(await loadSidekickSession());
+      const sidekickActive = isSidekickRole(currentMemberRef.current?.role);
       if (cancelled || sidekickActive) return;
 
       unsubscribe = subscribeHouseholdRealtime(household.id!, () => {
@@ -4803,19 +4851,29 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return;
     }
     const current = notificationsRef.current.find((item) => item.id === notificationId);
-    if (!current) return;
+    if (!current) {
+      // Still tombstone unknown ids so poll/refresh cannot resurrect them.
+      const memberId = currentMemberRef.current?.id;
+      if (household.id && memberId) {
+        setDismissedNotificationIds((prev) => new Set(prev).add(notificationId));
+        void rememberDismissedNotification(household.id, memberId, notificationId);
+      }
+      setNotifications((rows) => rows.filter((item) => item.id !== notificationId));
+      return;
+    }
 
     const memberId = currentMemberRef.current?.id;
     const data = memberId
       ? withMemberDismissed(current.data, memberId)
       : { ...(current.data ?? {}), dismissed: true };
 
-    // Optimistic local hide — never wait on network for the X to feel deleted.
-    setNotifications((rows) =>
-      rows.map((item) =>
-        item.id === notificationId ? { ...item, isRead: true, data } : item
-      )
-    );
+    // Remove immediately — do not wait on network / poll.
+    setDismissedNotificationIds((prev) => new Set(prev).add(notificationId));
+    setNotifications((rows) => rows.filter((item) => item.id !== notificationId));
+
+    if (household.id && memberId) {
+      void rememberDismissedNotification(household.id, memberId, notificationId);
+    }
 
     try {
       const profileAuth = await sidekickNotificationAuth();

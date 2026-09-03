@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, Stack } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,12 +11,15 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitScreen, radius, typography } from '@/constants/orbit-theme';
 import { VOCAB } from '@/constants/vocabulary';
 import {
-  listRewardLedger,
-  summarizeRewardLedger,
-  type RewardLedgerEntry,
-} from '@/lib/rewards/ledgers';
+  loadDismissedNotificationIds,
+  rememberDismissedNotification,
+} from '@/lib/notifications/dismiss-tombstones';
+import { redemptionsToLedgerEntries } from '@/lib/rewards/redemptions-to-ledger';
+import { summarizeRewardLedger, type RewardLedgerEntry } from '@/lib/rewards/ledgers';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+
+const REWARD_HISTORY_TOMBSTONE_MEMBER = 'reward-history';
 
 export default function RewardTallyScreen() {
   const insets = useSafeAreaInsets();
@@ -25,25 +28,46 @@ export default function RewardTallyScreen() {
     approveRedemption,
     household,
     permissions,
+    redemptions,
     rejectRedemption,
+    refreshHousehold,
   } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
-  const [entries, setEntries] = useState<RewardLedgerEntry[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
-  const reload = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false;
     if (!household.id) {
-      setEntries([]);
+      setDismissedIds(new Set());
       return;
     }
-    const rows = await listRewardLedger(household.id);
-    setEntries(rows);
+    void loadDismissedNotificationIds(household.id, REWARD_HISTORY_TOMBSTONE_MEMBER).then((ids) => {
+      if (!cancelled) setDismissedIds(ids);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [household.id]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    void refreshHousehold().catch(() => undefined);
+  }, [refreshHousehold]);
+
+  const entries = useMemo(
+    () => redemptionsToLedgerEntries(redemptions, household.rewards, { dismissedIds }),
+    [dismissedIds, household.rewards, redemptions]
+  );
 
   const stats = summarizeRewardLedger(entries);
+
+  const dismissEntry = useCallback(
+    async (entry: RewardLedgerEntry) => {
+      if (!household.id) return;
+      setDismissedIds((prev) => new Set(prev).add(entry.id));
+      await rememberDismissedNotification(household.id, REWARD_HISTORY_TOMBSTONE_MEMBER, entry.id);
+    },
+    [household.id]
+  );
 
   return (
     <ScrollView
@@ -113,7 +137,7 @@ export default function RewardTallyScreen() {
           return (
             <GlassCard key={entry.id} style={styles.card}>
               <View style={styles.cardHead}>
-                <Text style={[typography.headline, { color: c.text }]}>{entry.rewardName}</Text>
+                <Text style={[typography.headline, { color: c.text, flex: 1 }]}>{entry.rewardName}</Text>
                 <View
                   style={[
                     styles.statusPill,
@@ -123,6 +147,13 @@ export default function RewardTallyScreen() {
                   ]}>
                   <Text style={[styles.statusText, { color: c.textSoft }]}>{statusLabel}</Text>
                 </View>
+                <Pressable
+                  onPress={() => void dismissEntry(entry)}
+                  hitSlop={8}
+                  style={[styles.dismissBtn, { backgroundColor: glass(0.08) }]}
+                  accessibilityLabel="Remove from history">
+                  <MaterialIcons name="close" size={14} color={c.textSubtle} />
+                </Pressable>
               </View>
               <Text style={[typography.footnote, { color: c.textMuted }]}>
                 {member?.name ?? 'Sidekick'}
@@ -141,17 +172,13 @@ export default function RewardTallyScreen() {
                 <View style={styles.actions}>
                   <OrbitButton
                     style={styles.actionBtn}
-                    onPress={() =>
-                      void approveRedemption(entry.id).then(() => reload())
-                    }>
+                    onPress={() => void approveRedemption(entry.id)}>
                     Approve
                   </OrbitButton>
                   <OrbitButton
                     style={styles.actionBtn}
                     tone="danger"
-                    onPress={() =>
-                      void rejectRedemption(entry.id).then(() => reload())
-                    }>
+                    onPress={() => void rejectRedemption(entry.id)}>
                     Decline
                   </OrbitButton>
                 </View>
@@ -185,6 +212,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'space-between',
+  },
+  dismissBtn: {
+    alignItems: 'center',
+    borderRadius: 11,
+    height: 24,
+    justifyContent: 'center',
+    width: 24,
   },
   statusPill: {
     borderRadius: 999,

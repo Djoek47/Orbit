@@ -3,13 +3,27 @@
  */
 
 import { mapTaskRow, mapEventRow, mapGroceryRow } from '@/lib/mappers/orbit-mappers';
-import { loadSidekickSession } from '@/lib/sidekick/session';
+import { isSidekickLocalUserId, loadSidekickSession } from '@/lib/sidekick/session';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { dataMode } from '@/config/data-mode';
 import type { CreateEventInput, CreateGroceryInput, CreateTaskInput, GroceryItem, HouseholdEvent, HouseholdTask } from '@/types/orbit';
 
+/**
+ * Profile-code auth for Sidekick devices only.
+ * Real JWT sessions (admin / co-admin) win over leftover Sidekick storage.
+ */
 export async function usesProfileCodeAuth(): Promise<{ code: string; memberId: string } | null> {
   if (dataMode !== 'supabase') return null;
+
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user?.id;
+    if (userId && !isSidekickLocalUserId(userId)) {
+      return null;
+    }
+  }
+
   const session = await loadSidekickSession();
   if (!session?.profileInviteCode?.trim()) return null;
   return {

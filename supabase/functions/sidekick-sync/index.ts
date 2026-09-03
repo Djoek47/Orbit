@@ -93,6 +93,7 @@ Deno.serve(async (req) => {
       { data: tasks },
       { data: notifications },
       { data: rewards },
+      { data: redemptions },
       { data: groceries },
       { data: calendarEvents },
       { data: customHouseRules },
@@ -112,6 +113,11 @@ Deno.serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(80),
       admin.from('rewards').select('*').eq('household_id', householdId),
+      admin
+        .from('reward_redemptions')
+        .select('*')
+        .eq('household_id', householdId)
+        .order('requested_at', { ascending: false }),
       admin
         .from('grocery_items')
         .select('*')
@@ -173,6 +179,7 @@ Deno.serve(async (req) => {
         tasks: tasks ?? [],
         notifications: visibleNotifications,
         rewards: rewards ?? [],
+        redemptions: redemptions ?? [],
         groceries: groceries ?? [],
         calendarEvents: calendarEvents ?? [],
         customHouseRules: customHouseRules ?? [],

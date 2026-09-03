@@ -434,8 +434,17 @@ export function coalesceFacts(
 /** Fold already-sent glance spam (old TestFlight rows) into one card per person. */
 export function foldGlanceNotifications(
   items: NotificationItem[],
-  now = Date.now()
+  now = Date.now(),
+  options?: { fold?: boolean }
 ): NotificationItem[] {
+  if (options?.fold === false) {
+    return items.map((item) => ({
+      ...item,
+      title: stripExampleCopy(item.title),
+      body: stripExampleCopy(item.body),
+    }));
+  }
+
   const kept: NotificationItem[] = [];
   const glanceIndex = new Map<string, number>();
 

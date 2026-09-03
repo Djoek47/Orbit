@@ -4,7 +4,7 @@
 
 import { dataMode } from '@/config/data-mode';
 import { withMemberDismissed } from '@/lib/ai/daily-insight';
-import { loadSidekickSession } from '@/lib/sidekick/session';
+import { isSidekickLocalUserId, loadSidekickSession } from '@/lib/sidekick/session';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import type { NotificationItem } from '@/types/orbit';
 
@@ -93,12 +93,25 @@ export async function sidekickMarkNotificationRead(input: {
   return !payload?.error && payload?.ok !== false;
 }
 
-/** Resolve profile-code session for notification writes. */
+/**
+ * Sidekick profile-code auth for notification writes.
+ * Skips when a real JWT session is active (admin / co-admin).
+ */
 export async function sidekickNotificationAuth(): Promise<{
   code: string;
   memberId: string;
 } | null> {
   if (dataMode !== 'supabase') return null;
+
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user?.id;
+    if (userId && !isSidekickLocalUserId(userId)) {
+      return null;
+    }
+  }
+
   const session = await loadSidekickSession();
   if (!session?.profileInviteCode?.trim()) return null;
   return {

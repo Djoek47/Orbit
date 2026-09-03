@@ -295,7 +295,7 @@ function AlertsFeed({
         </SectionBlock>
       ))}
       <Text style={[typography.caption2, styles.syncNote, { color: c.textFaint }]}>
-        Synced with your household · tap to open · swipe away with dismiss
+        Synced with your household · tap to open · dismiss with ✕
       </Text>
     </Animated.View>
   );

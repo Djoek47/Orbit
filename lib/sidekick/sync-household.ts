@@ -12,7 +12,7 @@ import { mapEventRow, mapGroceryRow, mapMemberRow, mapRewardRow, mapTaskRow } fr
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { applyHouseholdTaskExpiry } from '@/lib/tasks/apply-household-expiry';
 import { refreshStaleDueLabels } from '@/lib/tasks/due-label';
-import type { HouseholdSnapshot, NotificationItem } from '@/types/orbit';
+import type { HouseholdSnapshot, NotificationItem, RewardRedemption } from '@/types/orbit';
 
 export type SidekickSyncResult = {
   householdId: string;
@@ -23,6 +23,7 @@ export type SidekickSyncResult = {
   events: ReturnType<typeof mapEventRow>[];
   notifications: NotificationItem[];
   rewards: ReturnType<typeof mapRewardRow>[];
+  redemptions: RewardRedemption[];
   groceries: ReturnType<typeof mapGroceryRow>[];
   householdPatch: Partial<HouseholdSnapshot>;
   customHouseRules: NonNullable<HouseholdSnapshot['customHouseRules']>;
@@ -55,6 +56,28 @@ function mapNotificationRow(row: {
   };
 }
 
+function mapRedemptionRow(row: {
+  id: string;
+  household_id: string;
+  reward_id: string;
+  member_id: string;
+  status: RewardRedemption['status'];
+  note: string | null;
+  requested_at: string;
+  decided_at: string | null;
+}): RewardRedemption {
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    rewardId: row.reward_id,
+    memberId: row.member_id,
+    status: row.status,
+    note: row.note ?? undefined,
+    requestedAt: row.requested_at,
+    decidedAt: row.decided_at ?? undefined,
+  };
+}
+
 /** Fetch tasks + notifications for a profile invite code (Supabase production path). */
 export async function fetchSidekickSync(profileInviteCode: string): Promise<SidekickSyncResult | null> {
   if (dataMode !== 'supabase') {
@@ -81,6 +104,7 @@ export async function fetchSidekickSync(profileInviteCode: string): Promise<Side
     calendarEvents?: Parameters<typeof mapEventRow>[0][];
     notifications?: Parameters<typeof mapNotificationRow>[0][];
     rewards?: Parameters<typeof mapRewardRow>[0][];
+    redemptions?: Parameters<typeof mapRedemptionRow>[0][];
     groceries?: Parameters<typeof mapGroceryRow>[0][];
   };
 
@@ -94,6 +118,7 @@ export async function fetchSidekickSync(profileInviteCode: string): Promise<Side
   const events = (payload.calendarEvents ?? []).map((row) => mapEventRow(row));
   const notifications = (payload.notifications ?? []).map((row) => mapNotificationRow(row));
   const rewards = (payload.rewards ?? []).map((row) => mapRewardRow(row));
+  const redemptions = (payload.redemptions ?? []).map((row) => mapRedemptionRow(row));
   const groceries = (payload.groceries ?? []).map((row) => mapGroceryRow(row));
   const household = payload.household;
   const customHouseRules = mapCustomHouseRulesFromRows(payload.customHouseRules) ?? [];
@@ -108,6 +133,7 @@ export async function fetchSidekickSync(profileInviteCode: string): Promise<Side
     events,
     notifications,
     rewards,
+    redemptions,
     groceries,
     customHouseRules,
     householdPatch: {

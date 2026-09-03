@@ -168,7 +168,9 @@ export function buildSheetNotifications(
   const sorted = foldGlanceNotifications(
     [...notifications]
       .filter((item) => isInboxSheetItem(item, now))
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    now,
+    { fold: mode !== 'full' }
   );
 
   let insightCount = 0;
