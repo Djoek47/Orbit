@@ -1,6 +1,10 @@
-# Orbit Product Context
+# Choremaxx Product Context
 
-Source set read on 2026-06-09:
+> **Brand (Make v7+, 2026-07):** Shipping product name is **Choremaxx**.  
+> Historical docs and code may still say “Orbit” — treat Orbit as the prior working title.  
+> Design source: Figma Make `4J6d4LW335tDyEDpqq3VD1` (v7 final features).
+
+Source set read on 2026-06-09 (updated 2026-07-20 for Choremaxx v7):
 
 - Orbit Design Brief
 - Orbit Technical Architecture & System Design v1
@@ -14,12 +18,12 @@ Source set read on 2026-06-09:
 - Orbit Information Architecture
 - Orbit User Flow Document v1
 - Orbit Master Product Spec v1
-- Design Orbit AI App.make
-- Orbit logo reference images
+- Design Orbit AI App.make → **Choremaxx Make v7**
+- Orbit logo reference images → ChoremaxxLogo (teal house + gold sparkle)
 
 ## Product Definition
 
-Orbit is an AI-powered Household Operating System. It is not a chore app, calendar app, grocery list, smart-home app, productivity app, or chatbot. The product promise is one calm command center that helps a household answer:
+Choremaxx is an AI-powered Household Operating System. It is not a chore app, calendar app, grocery list, smart-home app, productivity app, or chatbot. The product promise is one calm command center that helps a household answer:
 
 - What needs to be done?
 - Who is responsible?
@@ -28,7 +32,7 @@ Orbit is an AI-powered Household Operating System. It is not a chore app, calend
 - Who is overloaded?
 - What should we do next?
 
-Core positioning: Orbit is the AI co-manager for modern households.
+Core positioning: Choremaxx is the AI co-manager for modern households.
 
 Primary tagline: The AI Operating System for Modern Households.
 

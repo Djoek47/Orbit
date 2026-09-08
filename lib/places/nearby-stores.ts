@@ -1,0 +1,152 @@
+import * as Location from 'expo-location';
+
+import { shopKindFromOsmTag } from '@/lib/places/shop-kind';
+import type { PreferredStore } from '@/types/orbit';
+
+const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const RADIUS_M = 4000;
+
+export function haversineMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+export async function getLocationPermission(): Promise<Location.PermissionStatus> {
+  const current = await Location.getForegroundPermissionsAsync();
+  return current.status;
+}
+
+export async function getCurrentCoords(options?: {
+  requestIfNeeded?: boolean;
+}): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const existing = await Location.getForegroundPermissionsAsync();
+    if (!existing.granted) {
+      if (options?.requestIfNeeded === false) return null;
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (!permission.granted) return null;
+    }
+    const last = await Location.getLastKnownPositionAsync();
+    if (last?.coords) {
+      return { lat: last.coords.latitude, lng: last.coords.longitude };
+    }
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  } catch {
+    return null;
+  }
+}
+
+type OverpassElement = {
+  type: string;
+  id: number;
+  lat?: number;
+  lon?: number;
+  center?: { lat: number; lon: number };
+  tags?: Record<string, string>;
+};
+
+async function fetchOsmStores(lat: number, lng: number): Promise<PreferredStore[]> {
+  const query = `
+    [out:json][timeout:12];
+    (
+      node["shop"~"supermarket|convenience|greengrocer|clothes|shoes|department_store|mall|fashion"](around:${RADIUS_M},${lat},${lng});
+      way["shop"~"supermarket|convenience|greengrocer|clothes|shoes|department_store|mall|fashion"](around:${RADIUS_M},${lat},${lng});
+    );
+    out center 28;
+  `;
+  const response = await fetch(OVERPASS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+    body: `data=${encodeURIComponent(query)}`,
+  });
+  if (!response.ok) {
+    throw new Error(`Overpass ${response.status}`);
+  }
+  const json = (await response.json()) as { elements?: OverpassElement[] };
+  const elements = json.elements ?? [];
+  const stores: PreferredStore[] = [];
+  for (const el of elements) {
+    const elLat = el.lat ?? el.center?.lat;
+    const elLng = el.lon ?? el.center?.lon;
+    if (elLat == null || elLng == null) continue;
+    const kind = shopKindFromOsmTag(el.tags?.shop) ?? 'retail';
+    const name =
+      el.tags?.name || el.tags?.brand || (kind === 'clothing' ? 'Clothing store' : 'Store');
+    const address =
+      [el.tags?.['addr:housenumber'], el.tags?.['addr:street']].filter(Boolean).join(' ') ||
+      `${elLat.toFixed(4)}, ${elLng.toFixed(4)}`;
+    stores.push({
+      id: `osm-${el.type}-${el.id}`,
+      name,
+      address,
+      placeQuery: `${name} ${address}`,
+      lat: elLat,
+      lng: elLng,
+      distanceMeters: Math.round(haversineMeters(lat, lng, elLat, elLng)),
+      source: 'osm',
+      shopKind: kind,
+    });
+  }
+  return stores.sort((a, b) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0));
+}
+
+export async function findNearbyStoresAt(
+  lat: number,
+  lng: number
+): Promise<{ stores: PreferredStore[]; source: 'osm' | 'none' }> {
+  try {
+    const osm = await fetchOsmStores(lat, lng);
+    if (osm.length > 0) return { stores: osm, source: 'osm' };
+  } catch (error) {
+    console.warn('findNearbyStoresAt OSM failed', error);
+  }
+  return { stores: [], source: 'none' };
+}
+
+/**
+ * Nearby grocery + clothing/retail via OSM Overpass. No curated fallback.
+ * Pass home coords after Home is saved so we don't wait on GPS twice.
+ */
+export async function findNearbyStores(origin?: {
+  lat: number;
+  lng: number;
+} | null): Promise<{
+  stores: PreferredStore[];
+  coords: { lat: number; lng: number } | null;
+  source: 'osm' | 'none' | 'denied';
+}> {
+  const coords = origin ?? (await getCurrentCoords());
+  if (!coords) {
+    return { stores: [], coords: null, source: 'denied' };
+  }
+
+  const { stores, source } = await findNearbyStoresAt(coords.lat, coords.lng);
+  return { stores, coords, source };
+}
+
+/** True when a shop is within `withinMeters` of any stop that has coords. */
+export function shopNearStops(
+  shop: { lat?: number; lng?: number },
+  stops: { lat?: number; lng?: number }[],
+  withinMeters = 1200
+): boolean {
+  if (shop.lat == null || shop.lng == null) return false;
+  return stops.some((stop) => {
+    if (stop.lat == null || stop.lng == null) return false;
+    return haversineMeters(shop.lat!, shop.lng!, stop.lat, stop.lng) <= withinMeters;
+  });
+}

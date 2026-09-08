@@ -1,31 +1,48 @@
-import { KeyboardTypeOptions, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardTypeOptions, StyleSheet, TextInputProps, View } from 'react-native';
 
-import { orbitColors, orbitRadius, orbitSpacing } from '@/constants/orbit-theme';
+import { radius, space } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 type OrbitInputProps = {
+  autoCapitalize?: TextInputProps['autoCapitalize'];
   keyboardType?: KeyboardTypeOptions;
   label: string;
   onChangeText: (value: string) => void;
   placeholder?: string;
+  secureTextEntry?: boolean;
   value: string;
 };
 
 export function OrbitInput({
+  autoCapitalize = 'sentences',
   keyboardType = 'default',
   label,
   onChangeText,
   placeholder,
+  secureTextEntry = false,
   value,
 }: OrbitInputProps) {
+  const { c, isDark } = useOrbitColors();
+
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: c.textMuted }]}>{label}</Text>
       <TextInput
+        autoCapitalize={autoCapitalize}
         keyboardType={keyboardType}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={orbitColors.textSubtle}
-        style={styles.input}
+        placeholderTextColor={c.textSubtle}
+        secureTextEntry={secureTextEntry}
+        style={[
+          styles.input,
+          {
+            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.92)',
+            borderColor: c.border,
+            color: c.text,
+          },
+        ]}
         value={value}
       />
     </View>
@@ -34,20 +51,17 @@ export function OrbitInput({
 
 const styles = StyleSheet.create({
   field: {
-    gap: orbitSpacing.xs,
+    gap: space.xs,
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderColor: orbitColors.border,
-    borderRadius: orbitRadius.md,
+    borderRadius: radius.card,
+    borderCurve: 'continuous',
     borderWidth: 1,
-    color: orbitColors.text,
     fontSize: 16,
     minHeight: 52,
-    paddingHorizontal: orbitSpacing.md,
+    paddingHorizontal: space.md,
   },
   label: {
-    color: orbitColors.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },
