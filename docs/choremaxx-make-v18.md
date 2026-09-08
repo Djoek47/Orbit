@@ -88,6 +88,8 @@ Build logs (65): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/c6e
 5. `20260829200000_remove_join_approval.sql` (if join approval still enabled in DB)
 6. `20260901120000_member_push_tokens.sql` (Sidekick push tokens)
 7. `20260901130000_member_last_seen.sql` (roster Connected / Disconnected)
+8. `20260903120000_notifications_member_update.sql` (inbox dismiss / member update path)
+9. `20260908090000_member_planned_task_frequencies.sql` (Get Started task frequency — TF69)
 
 **v17 (if not yet applied):** see `docs/choremaxx-make-v17.md` and `supabase/migrations/PENDING_APPLY_ON_STAGING.sql`.
 
