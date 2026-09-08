@@ -31,11 +31,15 @@
 | **Task expiry (TF68+)** | Server + client expiry at 23:59; Sidekick/admin Expired tab stays in sync |
 | **Inbox dismiss (TF68+)** | Admin/Sidekick/co-admin dismiss persists (JWT wins, tombstones) |
 | **Reward history (TF68+)** | History from synced redemptions + dismiss X |
+| **Task detail polish (TF69+)** | Remove Stop repeating; editable rewards; Get Started task frequency |
+| **Daily deadline picker (TF69+)** | Settings sheet shows selectable times again |
+| **Ghost inbox (TF69+)** | Mark all read covers household rows; Clear all dismisses + OS tray |
 
 ## TestFlight
 
 | Build | Git | EAS build | Submit |
 |-------|-----|-----------|--------|
+| **1.3.0 (69)** | _pending_ | _pending_ | _pending_ |
 | **1.3.0 (68)** | `5f276c0` | `0f45fa19-065d-408b-b24a-776b79605d6d` | `50122f55-5d4e-4fbc-937a-59e2035a47a5` |
 | **1.3.0 (67)** | `b28c80f` | `25dc979d-f756-4a37-b45c-fd4cac7663ad` | `0954a327-bd67-4bb6-9a0d-0000a6e16d2c` |
 | **1.3.0 (66)** | `ce64f4d` | `27845bec-c579-489c-9176-d0a9e3465c69` | `b91cdea1-3c14-4daa-b326-bd5eb96bd3d1` |
@@ -49,6 +53,8 @@ Build logs (67): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/25d
 Build logs (66): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/27845bec-c579-489c-9176-d0a9e3465c69
 
 Build logs (65): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/c6e82ae4-1784-4f1c-beb5-ad93c7626193
+
+**1.3.0 (69)** — ghost-inbox · rewards-edit · get-started-freq · deadline-picker · tf69.
 
 **1.3.0 (68)** — expiry · inbox-dismiss · reward-history · tf68 (today’s fixes).
 
@@ -122,7 +128,7 @@ Full sync/notification reference: **`docs/sync-and-notifications-v18.md`**
 
 ## Verify in app
 
-Settings build tip: `make-v18 · sidekick-writes · presence-ui · push-admin · sync-100`
+Settings build tip: `make-v18 · ghost-inbox · rewards-edit · freq · deadline · tf69`
 
 Smoke checklist:
 
