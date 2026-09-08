@@ -1,7 +1,8 @@
 # Choremaxx Make v18
 
-**Branch:** `cursor/make-v18` — **stay here until explicitly cut to v19**  
+**Branch:** `cursor/make-v18` — **cut to `cursor/make-v19`** (shipping line moves forward; v18 frozen at TestFlight **1.3.0 (69)**)  
 **Follows:** `cursor/make-v17` (TestFlight **1.3.0 (61)**)  
+**Next:** `docs/choremaxx-make-v19.md`  
 **Previous premature upload:** **1.3.0 (63)** — missing Members UI unification + Sidekick Plan add (build before `58a3285` / `148c0e9`).
 
 ## Aggregated since make-v17 (all on this branch)
@@ -45,6 +46,8 @@
 | **1.3.0 (66)** | `ce64f4d` | `27845bec-c579-489c-9176-d0a9e3465c69` | `b91cdea1-3c14-4daa-b326-bd5eb96bd3d1` |
 | **1.3.0 (65)** | `4b51fa9` | `c6e82ae4-1784-4f1c-beb5-ad93c7626193` | `297a5534-5c74-4d6d-bb66-6814fc07bb94` |
 | **1.3.0 (64)** | `ae7a1cd` | `9ceab14d-05d6-4284-82ec-7ee84c73153d` | `d3f38930-a581-4f91-95c6-92989b81d480` |
+
+Build logs (69): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/7777ca77-4525-4cc0-977e-00197e2aeae5
 
 Build logs (68): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/0f45fa19-065d-408b-b24a-776b79605d6d
 
