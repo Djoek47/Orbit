@@ -977,16 +977,6 @@ export default function TaskDetailScreen() {
                 </Text>
               </Pressable>
             ) : null}
-            {canAdjust && task.repeat !== 'None' ? (
-              <Pressable
-                disabled={busy}
-                onPress={() => void applyRepeat('None')}
-                accessibilityRole="button"
-                accessibilityLabel="Stop repeating this chore"
-                style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-                <Text style={[styles.secondaryText, { color: c.warning }]}>Stop repeating</Text>
-              </Pressable>
-            ) : null}
             {task.status === 'Cancelled' ? (
               <View style={styles.waitCard}>
                 <MaterialIcons name="block" size={18} color="#94A3B8" />
