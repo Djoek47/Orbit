@@ -41,7 +41,7 @@ export function AddMemberSheet({ visible, onDismiss, onAdded }: Props) {
             plannedTaskLibraryIds: draft.taskLibraryIds,
             plannedTaskFrequencies:
               draft.taskFrequencies && Object.keys(draft.taskFrequencies).length
-                ? { ...draft.taskFrequencies }
+                ? ({ ...draft.taskFrequencies } as Record<string, string>)
                 : undefined,
           },
         ]);

@@ -33,7 +33,7 @@ export type DraftMember = {
   avatar?: string;
   taskLibraryIds: string[];
   /** Per-library-task frequency chosen in Get Started (Rev F §10.1). */
-  taskFrequencies?: Partial<Record<string, Frequency>>;
+  taskFrequencies?: Record<string, Frequency>;
   rewards: DraftMemberReward[];
   allowance?: DraftMemberAllowance | null;
   /** True after Step D Confirm. */

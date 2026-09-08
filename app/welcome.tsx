@@ -751,7 +751,7 @@ export default function WelcomeOnboardingScreen() {
             plannedTaskLibraryIds: m.setupComplete ? m.taskLibraryIds : [],
             plannedTaskFrequencies:
               m.setupComplete && m.taskFrequencies && Object.keys(m.taskFrequencies).length
-                ? { ...m.taskFrequencies }
+                ? ({ ...m.taskFrequencies } as Record<string, string>)
                 : undefined,
             joinPreApproved: m.joinPreApproved,
           })),

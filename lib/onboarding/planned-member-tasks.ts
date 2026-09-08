@@ -20,9 +20,7 @@ export function plannedTasksForMember(
     name: member.name.trim(),
     role: 'member',
     taskLibraryIds: ids,
-    taskFrequencies: member.plannedTaskFrequencies as
-      | Partial<Record<string, Frequency>>
-      | undefined,
+    taskFrequencies: member.plannedTaskFrequencies as Record<string, Frequency> | undefined,
     rewards: [],
     setupComplete: true,
   };
