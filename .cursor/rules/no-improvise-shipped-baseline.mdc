@@ -7,8 +7,8 @@ alwaysApply: true
 
 ## Shipped baseline (do not abandon)
 
-- **Shipped feature tip the user expects:** `cursor/choremaxx-make-v15` (v14 + two-mode IUI + Speak start + $4 meter). See `docs/choremaxx-make-v15.md`.
-- Do **not** check out, merge into, or “continue” on `cursor/choremaxx-make-v7-c30d` (or other divergent Make-only branches) unless the user **explicitly** names that branch or asks for a Make sync/port.
+- **Shipped feature tip the user expects:** `cursor/make-v19` (inherits make-v18 / TestFlight **1.3.0 (69)**). See `docs/choremaxx-make-v19.md`.
+- Do **not** check out, merge into, or “continue” on `cursor/choremaxx-make-v7-c30d`, `cursor/choremaxx-make-v15`, `cursor/make-v18`, or other divergent Make-only branches unless the user **explicitly** names that branch or asks for a Make sync/port.
 - Parallel agent branches are not disposable. Never replace welcome/sign-in/Home/Tasks polish with a static Make port without an explicit merge/restore request.
 
 ## Scope lock

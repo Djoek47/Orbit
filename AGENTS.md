@@ -26,17 +26,18 @@ Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clo
 
 ## Single shipping branch (mandatory)
 
-**Canonical branch:** `cursor/choremaxx-make-v15` → PR into `main`.
+**Canonical branch:** `cursor/make-v19` → PR into `main`.
 
 - Checkout and push **only** this branch for product, Supabase, TestFlight, and UI work.
 - **Do not** create a new `cursor/<feature>-c30d` branch per task or agent run — that is how work gets lost.
 - Rule file: `.cursor/rules/single-shipping-branch.mdc`
+- Lineage: make-v18 (TF **1.3.0 (69)**) → make-v19. See `docs/choremaxx-make-v19.md`.
 - Older stacked PRs are historical; do not open new stack bases unless the user asks.
 
 ## Cursor Cloud specific instructions
 
 - **Current runtime is Expo Go.** Keep `EXPO_PUBLIC_DATA_MODE=mock` unless the user explicitly asks for Supabase.
-- After clone / on cloud VM: `git checkout cursor/choremaxx-make-v15 && git pull`, then `npm install`, `cp -n .env.example .env`, then use **`npm run start:persistent`** (keep-alive supervisor). Do **not** use bare `expo start` / LAN URLs — phones cannot reach `exp://172…`. The pipeline is:
+- After clone / on cloud VM: `git checkout cursor/make-v19 && git pull`, then `npm install`, `cp -n .env.example .env`, then use **`npm run start:persistent`** (keep-alive supervisor). Do **not** use bare `expo start` / LAN URLs — phones cannot reach `exp://172…`. The pipeline is:
   1. `scripts/expo-keep-alive.sh` — outer supervisor (tmux + heal loop)
   2. `scripts/expo-persistent.sh` — Metro + Expo tunnel watchdog
   3. `scripts/expo-healthcheck.sh` — probes **public** `https://…exp.direct/status` (catches `ERR_NGROK_3200`)
@@ -60,7 +61,7 @@ Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clo
 
 ## Hard stop — do not improvise
 
-- **Shipped baseline:** `cursor/choremaxx-make-v15` (v14 + two-mode IUI + Speak start + $4 meter). Do not abandon it for other `cursor/*` branches.
+- **Shipped baseline:** `cursor/make-v19` (inherits make-v18 / TF **1.3.0 (69)**). Do not abandon it for other `cursor/*` branches.
 - If the user only asks to **start the terminal / Metro / tunnel**: run **`npm run start:persistent`** on this shipping branch, wait until `npm run expo:health` passes, give the `exp://` URL **and** `/opt/cursor/artifacts/expo-go-qr.png`, then **stop**. Never paste an `exp://` link alone — phones need the QR. No branch switches, no Figma sync, no “restore” merges, no welcome/sign-in rewrites.
 - Never overwrite work by re-porting Make or checking out a different feature branch unprompted.
 
