@@ -1,6 +1,6 @@
 /** Injected tip marker so Expo Go / TestFlight can prove which commit is running. */
 export const BUILD_INFO = {
-  branch: 'cursor/make-v18',
-  commit: 'e811b69',
-  label: 'make-v18 · ghost-inbox · rewards-edit · freq · deadline · tf69',
+  branch: 'cursor/make-v19',
+  commit: '0210ba5',
+  label: 'make-v19 · cut-from-v18 · tf69-baseline',
 } as const;
