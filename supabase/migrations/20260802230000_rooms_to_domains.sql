@@ -1,0 +1,26 @@
+-- ChoreMaxx v2 §1.3 / Phase D — migrate room categorisation to task domains
+--
+-- Intent: drop household rooms and task.room_id once domainId is fully wired in the app.
+-- Do NOT run the destructive steps until Phase D (domainId on tasks) ships in production.
+--
+-- Room → domain mapping (choremaxx-v2-cursor-spec.md §11.2):
+--   Kitchen        → Kitchen
+--   Living room    → Living areas
+--   Bathroom       → Bathroom
+--   Bedrooms       → Bedroom
+--   Laundry        → Laundry
+--   Outdoor        → Outdoor/Yard
+--   custom/unmapped → closest domain by name similarity, else general/misc
+--
+-- Phase D steps (when ready):
+--   1. ADD COLUMN tasks.domain_id text REFERENCES task_domains(id);
+--   2. Backfill domain_id from tasks.room_id via household.rooms.kind + mapping above;
+--   3. DROP COLUMN tasks.room_id;
+--   4. DROP TABLE household_rooms; (or JSONB column on households if rooms stored inline)
+--
+-- Reversible snapshot (recommended before step 2):
+--   CREATE TABLE _backup_tasks_room_id AS
+--     SELECT id, room_id FROM tasks WHERE room_id IS NOT NULL;
+
+-- Placeholder: no-op until domainId column exists.
+SELECT 1;
