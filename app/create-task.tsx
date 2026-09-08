@@ -43,7 +43,7 @@ import {
 import { formatAssigneeLabel } from '@/lib/tasks/split-assign';
 import { formatHomeworkDescription } from '@/lib/tasks/homework-subject';
 import { computeTaskXp, weightForDifficulty } from '@/lib/tasks/xp';
-import { allLibraryTasks } from '@/lib/tasks/task-library';
+import { allLibraryTasks, type Frequency } from '@/lib/tasks/task-library';
 import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
 import { householdDueTimeLocal } from '@/lib/rules/household-view';
 import { dueLabelForDate, occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
@@ -339,6 +339,7 @@ export default function CreateTaskScreen() {
 
   const [mode, setMode] = useState<ScreenMode>(isCustom || initialType === 'homework' ? 'custom' : 'picker');
   const [pickerIds, setPickerIds] = useState<string[]>([]);
+  const [pickerFrequencies, setPickerFrequencies] = useState<Record<string, string>>({});
   const [type, setType] = useState<TaskType>(initialType);
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState<(typeof subjects)[number]['label']>(
@@ -843,7 +844,9 @@ export default function CreateTaskScreen() {
         category: task.domainId,
         due: 'Today',
         xp: task.xp,
-        repeat: mapLibraryRepeat(task.defaultFrequency),
+        repeat: mapLibraryRepeat(
+          (pickerFrequencies[id] as Frequency | undefined) ?? task.defaultFrequency
+        ),
         difficulty: 'medium',
         weight: 1,
         proofRequired: false,
@@ -985,7 +988,17 @@ export default function CreateTaskScreen() {
 
           <TaskPicker
             selectedIds={pickerIds}
-            onChange={setPickerIds}
+            onChange={(ids) => {
+              setPickerIds(ids);
+              setPickerFrequencies((cur) => {
+                const keep = new Set(ids);
+                return Object.fromEntries(
+                  Object.entries(cur).filter(([id]) => keep.has(id))
+                );
+              });
+            }}
+            frequencies={pickerFrequencies as Record<string, Frequency>}
+            onFrequenciesChange={(next) => setPickerFrequencies(next)}
             tab={hasKids && type === 'homework' ? 'homework' : 'chores'}
             onRequestCustom={() => setMode('custom')}
           />

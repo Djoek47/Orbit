@@ -41,6 +41,7 @@ export function mapMemberRow(row: {
   shared_with_member_ids?: string[] | null;
   profile_invite_code?: string | null;
   planned_task_library_ids?: string[] | null;
+  planned_task_frequencies?: Record<string, string> | null;
   join_pre_approved?: boolean | null;
   last_seen_at?: string | null;
 }): HouseholdMember {
@@ -73,6 +74,17 @@ export function mapMemberRow(row: {
     plannedTaskLibraryIds: Array.isArray(row.planned_task_library_ids)
       ? row.planned_task_library_ids.filter((id): id is string => typeof id === 'string')
       : undefined,
+    plannedTaskFrequencies:
+      row.planned_task_frequencies &&
+      typeof row.planned_task_frequencies === 'object' &&
+      !Array.isArray(row.planned_task_frequencies)
+        ? Object.fromEntries(
+            Object.entries(row.planned_task_frequencies).filter(
+              (entry): entry is [string, string] =>
+                typeof entry[0] === 'string' && typeof entry[1] === 'string'
+            )
+          )
+        : undefined,
     joinPreApproved: row.join_pre_approved === true,
     lastSeenAt: row.last_seen_at ?? null,
   };

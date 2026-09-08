@@ -1,6 +1,7 @@
 /**
  * Shared task picker — search + 14 chore domain tiles (§4).
  * Reused by onboarding Step B and Tasks add-task flow.
+ * Task rows show XP · Frequency (Rev F §10.1) — adjustable per selection.
  */
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -18,8 +19,16 @@ import {
   type RewardMode,
 } from '@/lib/rewards/reward-mode';
 import {
+  FREQUENCY_LABELS,
+  MORE_FREQUENCIES,
+  PRIMARY_FREQUENCIES,
+  frequencyLabel,
+  isMoreFrequency,
+} from '@/lib/tasks/frequency-labels';
+import {
   choreDomains,
   homeworkDomain,
+  type Frequency,
   type LibraryTask,
   type TaskDomain,
   type TaskGroup,
@@ -29,9 +38,14 @@ import { useOrbit } from '@/store/orbit-store';
 
 export type TaskPickerTab = 'chores' | 'homework';
 
+export type TaskFrequencyMap = Record<string, Frequency>;
+
 type TaskPickerProps = {
   selectedIds: string[];
   onChange: (ids: string[]) => void;
+  /** Per-selected-task frequency (defaults to library defaultFrequency). */
+  frequencies?: TaskFrequencyMap;
+  onFrequenciesChange?: (frequencies: TaskFrequencyMap) => void;
   /** chores = 14 domain tiles; homework = groups only (§4.6). */
   tab?: TaskPickerTab;
   onRequestCustom?: (query: string) => void;
@@ -85,12 +99,14 @@ function rankMatch(task: LibraryTask, query: string): number | null {
 export function TaskPicker({
   selectedIds,
   onChange,
+  frequencies: frequenciesProp,
+  onFrequenciesChange,
   tab = 'chores',
   onRequestCustom,
   rewardMode: rewardModeProp,
 }: TaskPickerProps) {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
-  const { household } = useOrbit();
+  const { accentTheme, household } = useOrbit();
   const rewardSettings = useMemo(
     () =>
       normalizeRewardSettings({
@@ -108,6 +124,15 @@ export function TaskPicker({
   const [query, setQuery] = useState('');
   const [domainSheet, setDomainSheet] = useState<TaskDomain | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [localFrequencies, setLocalFrequencies] = useState<TaskFrequencyMap>({});
+  const [freqPickerTaskId, setFreqPickerTaskId] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const frequencies = frequenciesProp ?? localFrequencies;
+  const setFrequencies = (next: TaskFrequencyMap) => {
+    if (onFrequenciesChange) onFrequenciesChange(next);
+    if (frequenciesProp === undefined) setLocalFrequencies(next);
+  };
 
   const domains = useMemo(() => (tab === 'homework' ? [] : choreDomains()), [tab]);
   const homework = useMemo(() => homeworkDomain(), []);
@@ -129,25 +154,74 @@ export function TaskPicker({
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
-  const toggle = (id: string) => {
-    if (selectedSet.has(id)) {
-      onChange(selectedIds.filter((x) => x !== id));
-    } else {
-      onChange([...selectedIds, id]);
+  const freqFor = (task: LibraryTask): Frequency =>
+    frequencies[task.id] ?? task.defaultFrequency;
+
+  const pruneFrequencies = (ids: string[], base: TaskFrequencyMap = frequencies) => {
+    const keep = new Set(ids);
+    const next: TaskFrequencyMap = {};
+    for (const [id, freq] of Object.entries(base)) {
+      if (keep.has(id)) next[id] = freq;
     }
+    return next;
+  };
+
+  const toggle = (task: LibraryTask | string) => {
+    const id = typeof task === 'string' ? task : task.id;
+    if (selectedSet.has(id)) {
+      const nextIds = selectedIds.filter((x) => x !== id);
+      onChange(nextIds);
+      setFrequencies(pruneFrequencies(nextIds));
+      return;
+    }
+    const libraryTask =
+      typeof task === 'string' ? searchable.find((t) => t.id === id) : task;
+    onChange([...selectedIds, id]);
+    setFrequencies({
+      ...frequencies,
+      [id]: frequencies[id] ?? libraryTask?.defaultFrequency ?? 'weekly',
+    });
   };
 
   const selectGroup = (group: TaskGroup) => {
     const ids = group.tasks.map((t) => t.id);
     const next = new Set(selectedIds);
     const allSelected = ids.every((id) => next.has(id));
+    const nextFreq = { ...frequencies };
     if (allSelected) {
-      ids.forEach((id) => next.delete(id));
+      ids.forEach((id) => {
+        next.delete(id);
+        delete nextFreq[id];
+      });
     } else {
-      ids.forEach((id) => next.add(id));
+      ids.forEach((id) => {
+        next.add(id);
+        const task = group.tasks.find((t) => t.id === id);
+        if (task && !nextFreq[id]) nextFreq[id] = task.defaultFrequency;
+      });
     }
     onChange([...next]);
+    setFrequencies(pruneFrequencies([...next], nextFreq));
   };
+
+  const openFrequencyPicker = (task: LibraryTask) => {
+    const freq = freqFor(task);
+    setMoreOpen(isMoreFrequency(freq));
+    setFreqPickerTaskId(task.id);
+    if (!selectedSet.has(task.id)) toggle(task);
+  };
+
+  const chooseFrequency = (freq: Frequency) => {
+    if (!freqPickerTaskId) return;
+    if (!selectedSet.has(freqPickerTaskId)) {
+      onChange([...selectedIds, freqPickerTaskId]);
+    }
+    setFrequencies({ ...frequencies, [freqPickerTaskId]: freq });
+    setFreqPickerTaskId(null);
+  };
+
+  const pickerTask = searchable.find((t) => t.id === freqPickerTaskId);
+  const pickerCurrent = pickerTask ? freqFor(pickerTask) : undefined;
 
   const selectedTasks = searchable.filter((t) => selectedSet.has(t.id));
 
@@ -188,10 +262,22 @@ export function TaskPicker({
           {expanded
             ? group.tasks.map((task) => {
                 const on = selectedSet.has(task.id);
+                const freq = freqFor(task);
+                const xpLabel =
+                  task.tracking === 'streak'
+                    ? 'Streak · no XP'
+                    : `${resolveTaskXp(
+                        { baseXp: task.xp, xpEligible: true },
+                        {
+                          mode: rewardSettings.rewardMode,
+                          hygieneRewarded: rewardSettings.hygieneRewarded,
+                          hygieneXp: rewardSettings.hygieneXp,
+                        }
+                      )} XP${rewardSettings.rewardMode === 'flat' ? ' · Equity' : ''}`;
                 return (
                   <Pressable
                     key={task.id}
-                    onPress={() => toggle(task.id)}
+                    onPress={() => toggle(task)}
                     style={[styles.taskRow, { borderBottomColor: glassBorder(0.08) }]}>
                     <MaterialIcons
                       name={on ? 'check-box' : 'check-box-outline-blank'}
@@ -200,27 +286,32 @@ export function TaskPicker({
                     />
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.taskName, { color: c.text }]}>{task.name}</Text>
-                      {task.tracking === 'streak' ? (
+                      <View style={styles.metaRow}>
                         <Text style={[typography.caption2, { color: c.textSubtle }]}>
-                          Streak · no XP
+                          {xpLabel}
                         </Text>
-                      ) : (
-                        <Text style={[typography.caption2, { color: c.textSubtle }]}>
-                          {resolveTaskXp(
-                            {
-                              baseXp: task.xp,
-                              xpEligible: true,
-                            },
-                            {
-                              mode: rewardSettings.rewardMode,
-                              hygieneRewarded: rewardSettings.hygieneRewarded,
-                              hygieneXp: rewardSettings.hygieneXp,
-                            }
-                          )}{' '}
-                          XP
-                          {rewardSettings.rewardMode === 'flat' ? ` · Equity` : ''}
-                        </Text>
-                      )}
+                        <Text style={[typography.caption2, { color: c.textFaint }]}>·</Text>
+                        <Pressable
+                          onPress={(e) => {
+                            e.stopPropagation?.();
+                            openFrequencyPicker(task);
+                          }}
+                          hitSlop={10}
+                          style={styles.freqHit}>
+                          <Text
+                            style={[
+                              typography.caption2,
+                              { color: accentTheme.primary, fontWeight: '700' },
+                            ]}>
+                            {frequencyLabel(freq)}
+                          </Text>
+                          <MaterialIcons
+                            name="expand-more"
+                            size={14}
+                            color={accentTheme.primary}
+                          />
+                        </Pressable>
+                      </View>
                     </View>
                   </Pressable>
                 );
@@ -270,11 +361,12 @@ export function TaskPicker({
           ) : (
             results.slice(0, 24).map((task) => {
               const on = selectedSet.has(task.id);
+              const freq = freqFor(task);
               return (
                 <Pressable
                   key={task.id}
                   onPress={() => {
-                    toggle(task.id);
+                    toggle(task);
                     setQuery('');
                   }}
                   style={[styles.resultRow, { borderBottomColor: glassBorder(0.08) }]}>
@@ -285,19 +377,38 @@ export function TaskPicker({
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.taskName, { color: c.text }]}>{task.name}</Text>
-                    <Text style={[typography.caption2, { color: c.textSubtle }]}>
-                      {task.domainId.replace(/_/g, ' ')} ·{' '}
-                      {task.tracking === 'streak'
-                        ? 'Streak · no XP'
-                        : `${resolveTaskXp(
-                            { baseXp: task.xp, xpEligible: true },
-                            {
-                              mode: rewardSettings.rewardMode,
-                              hygieneRewarded: rewardSettings.hygieneRewarded,
-                              hygieneXp: rewardSettings.hygieneXp,
-                            }
-                          )} XP${rewardSettings.rewardMode === 'flat' ? ' · Equity' : ''}`}
-                    </Text>
+                    <View style={styles.metaRow}>
+                      <Text style={[typography.caption2, { color: c.textSubtle }]}>
+                        {task.domainId.replace(/_/g, ' ')} ·{' '}
+                        {task.tracking === 'streak'
+                          ? 'Streak · no XP'
+                          : `${resolveTaskXp(
+                              { baseXp: task.xp, xpEligible: true },
+                              {
+                                mode: rewardSettings.rewardMode,
+                                hygieneRewarded: rewardSettings.hygieneRewarded,
+                                hygieneXp: rewardSettings.hygieneXp,
+                              }
+                            )} XP${rewardSettings.rewardMode === 'flat' ? ' · Equity' : ''}`}
+                      </Text>
+                      <Text style={[typography.caption2, { color: c.textFaint }]}>·</Text>
+                      <Pressable
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          openFrequencyPicker(task);
+                        }}
+                        hitSlop={10}
+                        style={styles.freqHit}>
+                        <Text
+                          style={[
+                            typography.caption2,
+                            { color: accentTheme.primary, fontWeight: '700' },
+                          ]}>
+                          {frequencyLabel(freq)}
+                        </Text>
+                        <MaterialIcons name="expand-more" size={14} color={accentTheme.primary} />
+                      </Pressable>
+                    </View>
                   </View>
                 </Pressable>
               );
@@ -341,7 +452,11 @@ export function TaskPicker({
           Selected: {selectedIds.length} task{selectedIds.length === 1 ? '' : 's'}
         </Text>
         {selectedIds.length > 0 ? (
-          <Pressable onPress={() => onChange([])}>
+          <Pressable
+            onPress={() => {
+              onChange([]);
+              setFrequencies({});
+            }}>
             <Text style={[typography.footnote, { color: c.textMuted }]}>Clear</Text>
           </Pressable>
         ) : null}
@@ -351,7 +466,7 @@ export function TaskPicker({
           {selectedTasks.map((task) => (
             <Pressable
               key={task.id}
-              onPress={() => toggle(task.id)}
+              onPress={() => toggle(task)}
               style={[styles.chip, { backgroundColor: glass(0.08), borderColor: glassBorder(0.12) }]}>
               <Text style={[styles.chipText, { color: c.text }]}>{task.name}</Text>
               <MaterialIcons name="close" size={14} color={c.textMuted} />
@@ -401,6 +516,98 @@ export function TaskPicker({
             </Pressable>
           </View>
         </View>
+      </Modal>
+
+      <Modal visible={Boolean(freqPickerTaskId)} animationType="fade" transparent>
+        <Pressable
+          style={[styles.freqScrim, { backgroundColor: 'rgba(3,8,16,0.55)' }]}
+          onPress={() => setFreqPickerTaskId(null)}>
+          <Pressable
+            style={[
+              styles.freqCard,
+              { backgroundColor: c.backgroundSoft, borderColor: glassBorder(0.1) },
+            ]}
+            onPress={(e) => e.stopPropagation?.()}>
+            <View style={[styles.freqHandle, { backgroundColor: glass(0.18) }]} />
+            <Text style={[typography.title3, { color: c.text, textAlign: 'center' }]}>
+              Frequency
+            </Text>
+            {pickerTask ? (
+              <Text
+                style={[
+                  typography.footnote,
+                  { color: c.textMuted, textAlign: 'center', marginTop: 4 },
+                ]}>
+                {pickerTask.name}
+              </Text>
+            ) : null}
+
+            <View style={styles.freqSegment}>
+              {PRIMARY_FREQUENCIES.map((f) => {
+                const active = pickerCurrent === f;
+                return (
+                  <Pressable
+                    key={f}
+                    onPress={() => chooseFrequency(f)}
+                    style={[
+                      styles.freqSegmentItem,
+                      active && { backgroundColor: `${accentTheme.primary}28` },
+                    ]}>
+                    <Text
+                      style={[
+                        styles.freqSegmentText,
+                        { color: active ? accentTheme.primary : c.textSoft },
+                      ]}>
+                      {FREQUENCY_LABELS[f]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Pressable
+              onPress={() => setMoreOpen((v) => !v)}
+              style={styles.freqMoreToggle}
+              hitSlop={8}>
+              <Text style={[typography.subheadline, { color: c.textMuted, fontWeight: '600' }]}>
+                More
+              </Text>
+              <MaterialIcons
+                name={moreOpen ? 'expand-less' : 'expand-more'}
+                size={18}
+                color={c.textMuted}
+              />
+            </Pressable>
+
+            {moreOpen ? (
+              <View style={styles.freqMoreList}>
+                {MORE_FREQUENCIES.map((f) => {
+                  const active = pickerCurrent === f;
+                  return (
+                    <Pressable
+                      key={f}
+                      onPress={() => chooseFrequency(f)}
+                      style={[
+                        styles.freqMoreRow,
+                        active && { backgroundColor: `${accentTheme.primary}18` },
+                      ]}>
+                      <Text
+                        style={[
+                          typography.body,
+                          {
+                            color: active ? accentTheme.primary : c.text,
+                            fontWeight: active ? '700' : '500',
+                          },
+                        ]}>
+                        {FREQUENCY_LABELS[f]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -509,6 +716,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   taskName: { fontSize: 15, fontWeight: '600' },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 2,
+  },
+  freqHit: { flexDirection: 'row', alignItems: 'center', gap: 1 },
   doneBtn: {
     marginTop: 8,
     borderRadius: radius.card,
@@ -516,4 +731,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   homeworkCard: { padding: 12 },
+  freqScrim: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    padding: 16,
+  },
+  freqCard: {
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 16,
+    gap: 8,
+  },
+  freqHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 4,
+  },
+  freqSegment: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 12,
+  },
+  freqSegmentItem: {
+    flex: 1,
+    borderRadius: radius.control,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  freqSegmentText: { fontSize: 14, fontWeight: '700' },
+  freqMoreToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 8,
+  },
+  freqMoreList: { gap: 2 },
+  freqMoreRow: {
+    borderRadius: radius.control,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
 });

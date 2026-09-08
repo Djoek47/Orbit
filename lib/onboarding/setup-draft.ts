@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { RewardModel } from '@/lib/rewards/reward-model';
 import type { RewardFrequency } from '@/lib/rewards/reward-presets';
 import type { RewardMode } from '@/lib/rewards/reward-mode';
+import type { Frequency } from '@/lib/tasks/task-library';
 import type { HouseholdRole } from '@/types/orbit';
 
 export type DraftMemberReward = {
@@ -31,6 +32,8 @@ export type DraftMember = {
   /** Photo URI or emoji chosen during onboarding. */
   avatar?: string;
   taskLibraryIds: string[];
+  /** Per-library-task frequency chosen in Get Started (Rev F §10.1). */
+  taskFrequencies?: Partial<Record<string, Frequency>>;
   rewards: DraftMemberReward[];
   allowance?: DraftMemberAllowance | null;
   /** True after Step D Confirm. */

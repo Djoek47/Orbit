@@ -46,4 +46,13 @@ if (streakTask) {
   assert(streak!.xpEligible === false, 'streak not xpEligible');
 }
 
+const withFreq: DraftMember = {
+  ...member,
+  taskLibraryIds: [xpTask.id],
+  taskFrequencies: { [xpTask.id]: 'daily' },
+};
+const daily = tasksFromDraftMember(withFreq, 'weighted');
+assert(daily[0]?.repeat === 'Daily', `override daily, got ${daily[0]?.repeat}`);
+assert(daily[0]?.due === 'Today', 'first due is today even for weekly library defaults');
+
 console.log('PASS materialize-setup Equity / Meritocracy XP snapshot');

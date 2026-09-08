@@ -8,28 +8,17 @@ import {
   draftRewardsFromPackage,
 } from '@/lib/rewards/reward-packages';
 import { type RewardMode, resolveTaskXp } from '@/lib/rewards/reward-mode';
-import { allLibraryTasks } from '@/lib/tasks/task-library';
-import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
-import type { CreateRewardInput, CreateTaskInput, HouseholdTask } from '@/types/orbit';
-
-function mapFrequency(freq: string): HouseholdTask['repeat'] {
-  switch (freq) {
-    case 'daily':
-      return 'Daily';
-    case 'weekdays':
-      return 'Weekdays';
-    case 'weekly':
-    case '2x_weekly':
-    case 'biweekly':
-      return 'Weekly';
-    default:
-      return 'None';
-  }
-}
+import { mapLibraryRepeat } from '@/lib/tasks/library-repeat';
+import { dueAtForFrequency, DEFAULT_DUE_TIME_LOCAL } from '@/lib/tasks/recurrence-defaults';
+import { allLibraryTasks, type Frequency } from '@/lib/tasks/task-library';
+import type { CreateRewardInput, CreateTaskInput } from '@/types/orbit';
 
 /**
  * Library → CreateTaskInput. Keeps intrinsic `baseXp`; snapshots display/award
  * `xp` for Equity (flat 10) so onboarding materialize matches Tasks.
+ * Frequency comes from the Get Started picker when set, else library default.
+ * First due is always today (same as assign-from-library) so weekly picks
+ * are not hidden until next Sunday.
  */
 export function tasksFromDraftMember(
   member: DraftMember,
@@ -38,11 +27,14 @@ export function tasksFromDraftMember(
   const library = allLibraryTasks();
   const byId = new Map(library.map((t) => [t.id, t]));
   const mode = scoringMode === 'flat' ? 'flat' : 'weighted';
+  const now = new Date();
   return member.taskLibraryIds
     .map((id) => byId.get(id))
     .filter((t): t is NonNullable<typeof t> => Boolean(t))
     .map((task) => {
-      const dueAt = dueAtForFrequency(task.defaultFrequency);
+      const frequency = (member.taskFrequencies?.[task.id] as Frequency | undefined) ??
+        task.defaultFrequency;
+      const dueAt = dueAtForFrequency('daily', now, DEFAULT_DUE_TIME_LOCAL);
       const xpEligible = task.tracking === 'xp';
       const baseXp = xpEligible ? task.xp : 0;
       const xp = resolveTaskXp(
@@ -59,7 +51,7 @@ export function tasksFromDraftMember(
         baseXp,
         xpEligible,
         tracking: task.tracking,
-        repeat: mapFrequency(task.defaultFrequency),
+        repeat: mapLibraryRepeat(frequency),
       } satisfies CreateTaskInput;
     });
 }

@@ -56,6 +56,8 @@ export type HouseholdMemberRow = {
   /** Kid / shared-device invite, e.g. CMX-EMMA. */
   profile_invite_code?: string | null;
   planned_task_library_ids?: string[] | null;
+  /** Frequency overrides keyed by library task id. */
+  planned_task_frequencies?: Record<string, string> | null;
   /** Admin pre-approval — join lands active when household requires approval. */
   join_pre_approved?: boolean | null;
   created_at: Timestamp;

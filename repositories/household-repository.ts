@@ -927,6 +927,7 @@ export const householdRepository = {
       role: HouseholdRole;
       avatar?: string;
       plannedTaskLibraryIds?: string[];
+      plannedTaskFrequencies?: Record<string, string>;
       joinPreApproved?: boolean;
     }
   ): Promise<HouseholdMember> {
@@ -956,6 +957,10 @@ export const householdRepository = {
       plannedTaskLibraryIds: input.plannedTaskLibraryIds?.length
         ? [...input.plannedTaskLibraryIds]
         : undefined,
+      plannedTaskFrequencies:
+        input.plannedTaskFrequencies && Object.keys(input.plannedTaskFrequencies).length
+          ? { ...input.plannedTaskFrequencies }
+          : undefined,
       joinPreApproved: input.joinPreApproved === true,
     };
     if (role === 'child') {
@@ -1032,6 +1037,7 @@ export const householdRepository = {
           load_share: 0,
           profile_invite_code: member.profileInviteCode ?? null,
           planned_task_library_ids: member.plannedTaskLibraryIds ?? [],
+          planned_task_frequencies: member.plannedTaskFrequencies ?? {},
           join_pre_approved: member.joinPreApproved === true,
         })
         .select('*')
@@ -1063,19 +1069,23 @@ export const householdRepository = {
       const active = await loadActiveMockHousehold();
       if (active?.id) {
         const nextMembers = active.members.map((m) =>
-          m.id === memberId ? { ...m, plannedTaskLibraryIds: undefined } : m
+          m.id === memberId
+            ? { ...m, plannedTaskLibraryIds: undefined, plannedTaskFrequencies: undefined }
+            : m
         );
         await saveActiveMockHousehold({ ...active, members: nextMembers });
       }
       mockHousehold.members = mockHousehold.members.map((m) =>
-        m.id === memberId ? { ...m, plannedTaskLibraryIds: undefined } : m
+        m.id === memberId
+          ? { ...m, plannedTaskLibraryIds: undefined, plannedTaskFrequencies: undefined }
+          : m
       );
       return;
     }
     const supabase = getConfiguredSupabase('householdRepository.clearPlannedTasks');
     let query = supabase
       .from('household_members')
-      .update({ planned_task_library_ids: [] })
+      .update({ planned_task_library_ids: [], planned_task_frequencies: {} })
       .eq('id', memberId);
     if (householdId) query = query.eq('household_id', householdId);
     const { error } = await query;

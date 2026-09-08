@@ -16,4 +16,14 @@ const tasks = plannedTasksForMember(member, 'weighted');
 assert.equal(tasks.length, 1);
 assert.equal(tasks[0]?.assignee, 'Josh');
 
+const dailyOverride = plannedTasksForMember(
+  {
+    name: 'Josh',
+    plannedTaskLibraryIds: [sampleId!],
+    plannedTaskFrequencies: { [sampleId!]: 'daily' },
+  },
+  'weighted'
+);
+assert.equal(dailyOverride[0]?.repeat, 'Daily');
+
 console.log('planned-member-tasks.test.ts ok');

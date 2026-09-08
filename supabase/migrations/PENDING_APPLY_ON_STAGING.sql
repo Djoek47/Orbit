@@ -8,6 +8,10 @@ alter table public.households
 -- 2) Member planned tasks + profile code index (from 20260828010000_member_planned_tasks.sql)
 -- Run full migration file if planned_task_library_ids column is missing.
 
+-- 2b) Planned task frequencies (from 20260908090000_member_planned_task_frequencies.sql)
+alter table if exists public.household_members
+  add column if not exists planned_task_frequencies jsonb not null default '{}'::jsonb;
+
 -- 3) Household soft delete (from 20260828120000_household_soft_delete.sql)
 -- Run full migration file if deletion_scheduled_for column is missing.
 

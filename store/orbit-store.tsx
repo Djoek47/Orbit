@@ -618,6 +618,7 @@ type OrbitContextValue = {
       role: 'admin' | 'member';
       avatar?: string;
       plannedTaskLibraryIds?: string[];
+      plannedTaskFrequencies?: Record<string, string>;
       joinPreApproved?: boolean;
     }[],
     options?: { householdName?: string }
@@ -2261,7 +2262,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setHousehold((current) => ({
       ...current,
       members: current.members.map((item) =>
-        item.id === memberId ? { ...item, plannedTaskLibraryIds: undefined } : item
+        item.id === memberId
+          ? { ...item, plannedTaskLibraryIds: undefined, plannedTaskFrequencies: undefined }
+          : item
       ),
     }));
     await trackAnalytics(
@@ -5477,6 +5480,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       role: 'admin' | 'member';
       avatar?: string;
       plannedTaskLibraryIds?: string[];
+      plannedTaskFrequencies?: Record<string, string>;
       joinPreApproved?: boolean;
     }[],
     options?: { householdName?: string }
@@ -5508,6 +5512,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         role,
         avatar: draft.avatar,
         plannedTaskLibraryIds: draft.plannedTaskLibraryIds,
+        plannedTaskFrequencies: draft.plannedTaskFrequencies,
         joinPreApproved: draft.joinPreApproved,
       });
       if (member.role === 'child') {

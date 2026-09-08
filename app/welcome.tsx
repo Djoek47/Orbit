@@ -749,6 +749,10 @@ export default function WelcomeOnboardingScreen() {
             role: m.role,
             avatar: m.avatar,
             plannedTaskLibraryIds: m.setupComplete ? m.taskLibraryIds : [],
+            plannedTaskFrequencies:
+              m.setupComplete && m.taskFrequencies && Object.keys(m.taskFrequencies).length
+                ? { ...m.taskFrequencies }
+                : undefined,
             joinPreApproved: m.joinPreApproved,
           })),
           { householdName: draft.householdName.trim() }

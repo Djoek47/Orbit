@@ -35,6 +35,7 @@ import {
   type RewardPackageId,
 } from '@/lib/rewards/reward-packages';
 import { allLibraryTasks } from '@/lib/tasks/task-library';
+import { frequencyLabel } from '@/lib/tasks/frequency-labels';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
@@ -60,6 +61,7 @@ function emptyMember(packageId: string | null | undefined): DraftMember {
     role: 'member',
     avatarColor: AVATAR_SWATCHES[0],
     taskLibraryIds: [],
+    taskFrequencies: {},
     rewards: draftRewardsFromPackage(packageId ?? DEFAULT_REWARD_PACKAGE_ID),
     allowance: null,
     setupComplete: false,
@@ -312,7 +314,19 @@ export function SetupMemberWizard({
             <ScrollView style={styles.stepScroll} contentContainerStyle={styles.stepScrollContent}>
               <TaskPicker
                 selectedIds={member.taskLibraryIds}
-                onChange={(taskLibraryIds) => setMember((m) => ({ ...m, taskLibraryIds }))}
+                frequencies={member.taskFrequencies ?? {}}
+                onChange={(taskLibraryIds) =>
+                  setMember((m) => {
+                    const keep = new Set(taskLibraryIds);
+                    const taskFrequencies = Object.fromEntries(
+                      Object.entries(m.taskFrequencies ?? {}).filter(([id]) => keep.has(id))
+                    );
+                    return { ...m, taskLibraryIds, taskFrequencies };
+                  })
+                }
+                onFrequenciesChange={(taskFrequencies) =>
+                  setMember((m) => ({ ...m, taskFrequencies }))
+                }
                 rewardMode={rewardMode}
               />
             </ScrollView>
@@ -507,6 +521,10 @@ export function SetupMemberWizard({
                   member.taskLibraryIds.map((id) => (
                     <Text key={id} style={[typography.footnote, { color: c.textMuted }]}>
                       · {libraryById.get(id)?.name ?? id}
+                      {' · '}
+                      {frequencyLabel(
+                        member.taskFrequencies?.[id] ?? libraryById.get(id)?.defaultFrequency
+                      )}
                     </Text>
                   ))
                 )}

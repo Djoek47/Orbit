@@ -6,10 +6,11 @@
 import { tasksFromDraftMember } from '@/lib/onboarding/materialize-setup';
 import type { DraftMember } from '@/lib/onboarding/setup-draft';
 import type { RewardMode } from '@/lib/rewards/reward-mode';
+import type { Frequency } from '@/lib/tasks/task-library';
 import type { CreateTaskInput, HouseholdMember } from '@/types/orbit';
 
 export function plannedTasksForMember(
-  member: Pick<HouseholdMember, 'name' | 'plannedTaskLibraryIds'>,
+  member: Pick<HouseholdMember, 'name' | 'plannedTaskLibraryIds' | 'plannedTaskFrequencies'>,
   scoringMode: RewardMode = 'weighted'
 ): CreateTaskInput[] {
   const ids = member.plannedTaskLibraryIds ?? [];
@@ -19,6 +20,9 @@ export function plannedTasksForMember(
     name: member.name.trim(),
     role: 'member',
     taskLibraryIds: ids,
+    taskFrequencies: member.plannedTaskFrequencies as
+      | Partial<Record<string, Frequency>>
+      | undefined,
     rewards: [],
     setupComplete: true,
   };

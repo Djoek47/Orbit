@@ -39,6 +39,10 @@ export function AddMemberSheet({ visible, onDismiss, onAdded }: Props) {
             role: draft.role === 'admin' ? 'admin' : 'member',
             avatar: draft.avatar,
             plannedTaskLibraryIds: draft.taskLibraryIds,
+            plannedTaskFrequencies:
+              draft.taskFrequencies && Object.keys(draft.taskFrequencies).length
+                ? { ...draft.taskFrequencies }
+                : undefined,
           },
         ]);
         onDismiss();
