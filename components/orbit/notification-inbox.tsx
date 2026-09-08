@@ -90,6 +90,7 @@ export function NotificationInbox({
   const { c, glass, glassBorder } = useOrbitColors();
   const {
     accentTheme,
+    clearAllInbox,
     dismissInboxItem,
     household,
     inboxBriefing,
@@ -97,6 +98,7 @@ export function NotificationInbox({
     markNotificationRead,
     metrics,
     notifications,
+    currentMember,
     poppinsActivityFacts,
     poppinsMonitorActions,
     poppinsWeeklyBriefing,
@@ -106,6 +108,7 @@ export function NotificationInbox({
 
   const [segment, setSegment] = useState<InboxSegment>(initialSegment);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [clearing, setClearing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -119,9 +122,9 @@ export function NotificationInbox({
         notifications.filter((item) => !dismissedIds.includes(item.id)),
         inboxBriefing,
         Date.now(),
-        { hidePoppinsLaunch }
+        { hidePoppinsLaunch, memberId: currentMember?.id }
       ),
-    [dismissedIds, hidePoppinsLaunch, inboxBriefing, notifications]
+    [currentMember?.id, dismissedIds, hidePoppinsLaunch, inboxBriefing, notifications]
   );
 
   const attentionCount = useMemo(
@@ -192,6 +195,23 @@ export function NotificationInbox({
     }
   };
 
+  const handleClearAll = async () => {
+    if (clearing) return;
+    setClearing(true);
+    try {
+      setDismissedIds((current) => [
+        ...current,
+        ...notifications.map((item) => item.id),
+        'morning-brief',
+      ]);
+      await clearAllInbox();
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const alertCount = sections.reduce((sum, section) => sum + section.cards.length, 0);
+
   return (
     <View style={[styles.shell, { paddingTop: insets.top, backgroundColor: 'transparent' }]}>
       <View style={styles.handleRow}>
@@ -229,16 +249,32 @@ export function NotificationInbox({
         />
       </View>
 
-      {segment === 'alerts' && unreadNotificationCount > 0 ? (
-        <Pressable
-          onPress={() => void markAllNotificationsRead()}
-          style={styles.markAllRow}
-          hitSlop={8}>
-          <MaterialIcons name="done-all" size={15} color={accentTheme.primary} />
-          <Text style={[typography.footnote, { color: accentTheme.primary, fontWeight: '700' }]}>
-            Mark all read
-          </Text>
-        </Pressable>
+      {segment === 'alerts' && (unreadNotificationCount > 0 || alertCount > 0) ? (
+        <View style={styles.bulkRow}>
+          {unreadNotificationCount > 0 ? (
+            <Pressable
+              onPress={() => void markAllNotificationsRead()}
+              style={styles.bulkAction}
+              hitSlop={8}>
+              <MaterialIcons name="done-all" size={15} color={accentTheme.primary} />
+              <Text style={[typography.footnote, { color: accentTheme.primary, fontWeight: '700' }]}>
+                Mark all read
+              </Text>
+            </Pressable>
+          ) : null}
+          {alertCount > 0 ? (
+            <Pressable
+              onPress={() => void handleClearAll()}
+              style={styles.bulkAction}
+              hitSlop={8}
+              disabled={clearing}>
+              <MaterialIcons name="delete-outline" size={15} color={c.textMuted} />
+              <Text style={[typography.footnote, { color: c.textMuted, fontWeight: '700' }]}>
+                {clearing ? 'Clearing…' : 'Clear all'}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
 
       <ScrollView
@@ -543,6 +579,19 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: space.md,
     paddingVertical: 6,
+  },
+  bulkRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 16,
+    justifyContent: 'flex-end',
+    paddingHorizontal: space.md,
+    paddingVertical: 6,
+  },
+  bulkAction: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
   },
   scroll: { flex: 1 },
   feed: { gap: space.lg },

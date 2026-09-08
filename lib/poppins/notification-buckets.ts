@@ -136,7 +136,7 @@ export function buildSheetNotifications(
   notifications: NotificationItem[],
   briefing?: PoppinsBriefing | null,
   now = Date.now(),
-  options?: { hidePoppinsLaunch?: boolean; mode?: InboxBuildMode }
+  options?: { hidePoppinsLaunch?: boolean; mode?: InboxBuildMode; memberId?: string | null }
 ): SheetNotificationCard[] {
   const cards: SheetNotificationCard[] = [];
   const hideLaunch = options?.hidePoppinsLaunch === true;
@@ -167,7 +167,7 @@ export function buildSheetNotifications(
 
   const sorted = foldGlanceNotifications(
     [...notifications]
-      .filter((item) => isInboxSheetItem(item, now))
+      .filter((item) => isInboxSheetItem(item, now, options?.memberId))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     now,
     { fold: mode !== 'full' }
@@ -202,7 +202,7 @@ export function buildInboxSections(
   notifications: NotificationItem[],
   briefing?: PoppinsBriefing | null,
   now = Date.now(),
-  options?: { hidePoppinsLaunch?: boolean }
+  options?: { hidePoppinsLaunch?: boolean; memberId?: string | null }
 ): InboxSection[] {
   const cards = buildSheetNotifications(notifications, briefing, now, {
     ...options,

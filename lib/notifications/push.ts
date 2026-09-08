@@ -83,6 +83,20 @@ export async function syncAppBadge(count: number) {
   }
 }
 
+/** Clear banners sitting in the OS notification tray (ghost lock-screen alerts). */
+export async function clearPresentedNotifications() {
+  try {
+    await Notifications.dismissAllNotificationsAsync();
+  } catch {
+    // Unsupported on some platforms / Expo Go builds.
+  }
+  try {
+    await Notifications.setBadgeCountAsync(0);
+  } catch {
+    // ignore
+  }
+}
+
 export async function getNotificationPermissionStatus() {
   return Notifications.getPermissionsAsync();
 }

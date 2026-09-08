@@ -50,6 +50,7 @@ import {
   filterOutDismissedIds,
   loadDismissedNotificationIds,
   rememberDismissedNotification,
+  rememberDismissedNotifications,
 } from '@/lib/notifications/dismiss-tombstones';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { isValidDailyDeadline, queueDailyDeadlineChange, settleDeadlineState } from '@/lib/rules/deadline';
@@ -148,7 +149,7 @@ import {
   PROOF_REVIEW_ROLES,
   REWARD_REVIEW_ROLES,
 } from '@/lib/notifications/audience';
-import { registerForPushNotifications, presentLocalBanner, syncAppBadge, scheduleLocalReminder } from '@/lib/notifications/push';
+import { registerForPushNotifications, presentLocalBanner, syncAppBadge, scheduleLocalReminder, clearPresentedNotifications } from '@/lib/notifications/push';
 import { dispatchMemberPush, registerSidekickPushNotifications } from '@/lib/notifications/member-push';
 import { isQuietHour } from '@/lib/poppins/notification-batch';
 import { composeWithLuna } from '@/lib/poppins/notification-composer';
@@ -484,6 +485,8 @@ type OrbitContextValue = {
   markNotificationRead: (notificationId: string) => Promise<void>;
   /** Persist swipe-away so the card does not come back on reopen. */
   dismissInboxItem: (notificationId: string) => Promise<void>;
+  /** Remove every visible inbox alert for this member (not just mark read). */
+  clearAllInbox: () => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   pushNotification: (input: {
     title: string;
@@ -703,7 +706,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(
     () => new Set()
   );
+  const dismissedNotificationIdsRef = useRef<Set<string>>(new Set());
   notificationsRef.current = notifications;
+  dismissedNotificationIdsRef.current = dismissedNotificationIds;
 
   const currentMember = useMemo(() => {
     if (activeMemberId) {
@@ -938,13 +943,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const refreshNotifications = useCallback(async () => {
     const items = await notificationsRepository.list(household.id);
     const memberId = currentMemberRef.current?.id;
-    const tombstones =
+    const stored =
       household.id && memberId
         ? await loadDismissedNotificationIds(household.id, memberId)
         : new Set<string>();
-    if (tombstones.size > 0) {
-      setDismissedNotificationIds(tombstones);
-    }
+    const tombstones = new Set([...dismissedNotificationIdsRef.current, ...stored]);
+    setDismissedNotificationIds(tombstones);
     setNotifications(filterOutDismissedIds(items, tombstones));
   }, [household.id]);
 
@@ -992,9 +996,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       setHousehold(merged);
       const memberId = sync.member.id;
       const householdId = merged.id ?? sync.householdId;
-      const tombstones = householdId
+      const stored = householdId
         ? await loadDismissedNotificationIds(householdId, memberId)
         : new Set<string>();
+      const tombstones = new Set([...dismissedNotificationIdsRef.current, ...stored]);
       setDismissedNotificationIds(tombstones);
       setNotifications(filterOutDismissedIds(sync.notifications, tombstones));
       setRedemptions(sync.redemptions);
@@ -1066,11 +1071,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     };
     setHousehold(withExpiry);
     const memberId = currentMemberRef.current?.id;
-    const tombstones =
+    const stored =
       withExpiry.id && memberId
         ? await loadDismissedNotificationIds(withExpiry.id, memberId)
         : new Set<string>();
-    if (tombstones.size > 0) setDismissedNotificationIds(tombstones);
+    const tombstones = new Set([...dismissedNotificationIdsRef.current, ...stored]);
+    setDismissedNotificationIds(tombstones);
 
     await Promise.all([
       notificationsRepository.list(withExpiry.id).then((items) => {
@@ -4901,10 +4907,87 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('notification.dismissed', { notificationId }, analyticsContext);
   };
 
+  const clearAllInbox = async () => {
+    const member = currentMemberRef.current;
+    const memberId = member?.id;
+    const ids = notificationsRef.current
+      .filter(
+        (item) =>
+          !dismissedNotificationIdsRef.current.has(item.id) &&
+          !isDismissedNotification(item, memberId) &&
+          !isJunkMockInsight(item) &&
+          isNotificationVisibleToMember(
+            item,
+            member ? { id: member.id, role: member.role } : null
+          )
+      )
+      .map((item) => item.id);
+
+    const nextTombstones = new Set([...dismissedNotificationIdsRef.current, ...ids]);
+    setDismissedNotificationIds(nextTombstones);
+    setNotifications([]);
+    void clearPresentedNotifications();
+    void syncAppBadge(0);
+
+    if (household.id) {
+      const ymd = formatLocalDate(new Date());
+      await AsyncStorage.setItem(`orbit.poppins.brief-dismissed.${household.id}`, ymd);
+      setBriefDismissedYmd(ymd);
+      if (memberId && ids.length > 0) {
+        await rememberDismissedNotifications(household.id, memberId, ids);
+      }
+    }
+
+    try {
+      const profileAuth = await sidekickNotificationAuth();
+      if (profileAuth) {
+        for (const notificationId of ids) {
+          try {
+            await sidekickDismissNotification({
+              code: profileAuth.code,
+              notificationId,
+              memberId: profileAuth.memberId,
+            });
+          } catch (error) {
+            console.warn('clearAllInbox.sidekick', notificationId, error);
+          }
+        }
+      } else if (household.id && memberId) {
+        await notificationsRepository.dismissAllForMember(household.id, memberId);
+      } else if (household.id) {
+        await notificationsRepository.markAllRead(household.id);
+      }
+    } catch (error) {
+      console.warn('clearAllInbox', error);
+    }
+
+    await trackAnalytics('notification.clear_all', { count: ids.length }, analyticsContext);
+  };
+
   const markAllNotificationsRead = async () => {
-    await notificationsRepository.markAllRead(household.id);
+    const ids = notificationsRef.current.map((item) => item.id);
     setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
-    await trackAnalytics('notification.read_all', {}, analyticsContext);
+    void syncAppBadge(0);
+    try {
+      const profileAuth = await sidekickNotificationAuth();
+      if (profileAuth) {
+        for (const notificationId of ids) {
+          try {
+            await sidekickMarkNotificationRead({
+              code: profileAuth.code,
+              notificationId,
+            });
+          } catch (error) {
+            console.warn('markAllNotificationsRead.sidekick', notificationId, error);
+          }
+        }
+      } else {
+        await notificationsRepository.markAllRead(household.id);
+      }
+    } catch (error) {
+      console.warn('markAllNotificationsRead', error);
+    }
+    await trackAnalytics('notification.read_all', { count: ids.length }, analyticsContext);
   };
 
   const requestRewardRedemption = async (rewardId: string, note?: string) => {
@@ -5975,6 +6058,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       refreshNotifications,
       markNotificationRead,
       dismissInboxItem,
+      clearAllInbox,
       markAllNotificationsRead,
       pushNotification,
       updateNotificationPrefs,

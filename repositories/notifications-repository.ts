@@ -152,18 +152,66 @@ export const notificationsRepository = {
     }
 
     const supabase = getConfiguredSupabase('notificationsRepository.markAllRead');
-    const { data: authData } = await supabase.auth.getUser();
+    // Household-scoped: do NOT also filter user_id — admin/shared alerts often have
+    // user_id null and were coming back as unread "ghosts" after Mark all read.
     let query = supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
 
-    if (authData.user?.id) {
-      query = query.eq('user_id', authData.user.id);
-    }
     if (householdId) {
+      if (!isPersistedHouseholdId(householdId)) return;
       query = query.eq('household_id', householdId);
+    } else {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user?.id) return;
+      query = query.eq('user_id', authData.user.id);
     }
 
     const { error } = await query;
     mapDbError('notificationsRepository.markAllRead', error);
+  },
+
+  /** Persist dismiss for every notification in a household for this member. */
+  async dismissAllForMember(
+    householdId: string,
+    memberId: string
+  ): Promise<void> {
+    if (isMockMode()) {
+      mockNotificationState = mockNotificationState.map((item) =>
+        item.householdId === householdId
+          ? {
+              ...item,
+              isRead: true,
+              data: withMemberDismissed(item.data, memberId),
+            }
+          : item
+      );
+      return;
+    }
+
+    if (!isPersistedHouseholdId(householdId)) return;
+    const supabase = getConfiguredSupabase('notificationsRepository.dismissAllForMember');
+    const { data: rows, error: loadError } = await supabase
+      .from('notifications')
+      .select('id, data')
+      .eq('household_id', householdId);
+    mapDbError('notificationsRepository.dismissAllForMember.load', loadError);
+
+    for (const row of rows ?? []) {
+      const prevData =
+        row.data && typeof row.data === 'object' && !Array.isArray(row.data)
+          ? (row.data as Record<string, unknown>)
+          : {};
+      const nextData = withMemberDismissed(prevData, memberId);
+      const { error } = await supabase
+        .from('notifications')
+        .update({
+          data: nextData as import('@/types/database').Json,
+          is_read: true,
+        })
+        .eq('id', row.id);
+      if (error) {
+        console.warn('notificationsRepository.dismissAllForMember', row.id, error.message);
+      }
+    }
   },
 
   async create(input: CreateNotificationInput): Promise<NotificationItem> {
