@@ -31,6 +31,7 @@ type RewardVaultCardProps = {
   /** Admin preview label when redeem is not for self. */
   statusLabel?: string;
   onClaim: () => void | Promise<void>;
+  onEdit?: () => void;
   onArchive?: () => void;
 };
 
@@ -47,6 +48,7 @@ export function RewardVaultCard({
   isAdmin,
   statusLabel,
   onClaim,
+  onEdit,
   onArchive,
 }: RewardVaultCardProps) {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
@@ -216,16 +218,33 @@ export function RewardVaultCard({
           </Text>
         ) : null}
 
-        {isAdmin && onArchive ? (
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation?.();
-              onArchive();
-            }}
-            hitSlop={8}
-            style={styles.archive}>
-            <Text style={[typography.caption2, { color: c.textSubtle }]}>Archive</Text>
-          </Pressable>
+        {isAdmin && (onEdit || onArchive) ? (
+          <View style={styles.adminRow}>
+            {onEdit ? (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  onEdit();
+                }}
+                hitSlop={8}
+                style={styles.adminAction}>
+                <Text style={[typography.caption2, { color: c.textSoft, fontWeight: '700' }]}>
+                  Edit
+                </Text>
+              </Pressable>
+            ) : null}
+            {onArchive ? (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  onArchive();
+                }}
+                hitSlop={8}
+                style={styles.adminAction}>
+                <Text style={[typography.caption2, { color: c.textSubtle }]}>Remove</Text>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
       </Pressable>
     </Animated.View>
@@ -274,5 +293,11 @@ const styles = StyleSheet.create({
     maxWidth: '58%',
   },
   statusText: { fontSize: 10, fontWeight: '700' },
-  archive: { marginTop: 8, alignSelf: 'flex-start' },
+  adminRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  adminAction: { alignSelf: 'flex-start' },
 });

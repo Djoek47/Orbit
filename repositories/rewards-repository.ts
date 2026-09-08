@@ -265,24 +265,52 @@ export const rewardsRepository = {
   },
 
   async updateReward(reward: Reward): Promise<Reward> {
+    const next: Reward = {
+      ...reward,
+      title: reward.title.trim(),
+      subtitle: reward.subtitle?.trim() || undefined,
+    };
+
     if (isMockMode()) {
-      mockRewardsState = mockRewardsState.map((item) => (item.id === reward.id ? reward : item));
-      return clone(reward);
+      mockRewardsState = mockRewardsState.map((item) => (item.id === next.id ? next : item));
+      return clone(next);
     }
 
     const supabase = getConfiguredSupabase('rewardsRepository.updateReward');
     const { data, error } = await supabase
       .from('rewards')
       .update({
-        title: reward.title,
-        cost: reward.cost,
-        approval_required: reward.approvalRequired,
+        title: next.title,
+        cost: next.cost ?? 0,
+        approval_required: next.approvalRequired,
       })
-      .eq('id', reward.id)
+      .eq('id', next.id)
       .select('*')
       .single();
     mapDbError('rewardsRepository.updateReward', error);
-    return data ? mapRewardRow(data) : reward;
+
+    const householdId = data?.household_id as string | undefined;
+    if (householdId) {
+      await saveRewardFieldOverlay(householdId, next.id, {
+        emoji: next.emoji,
+        category: next.category,
+        color: next.color,
+        specialRequest: next.specialRequest,
+        origin: next.origin,
+        createdByMemberId: next.createdByMemberId,
+        createdByName: next.createdByName,
+        assignedMemberId: next.assignedMemberId,
+        assignedMemberName: next.assignedMemberName,
+        frequency: next.frequency,
+        quantity: next.quantity,
+        subtitle: next.subtitle,
+        isCustom: next.isCustom,
+        presetId: next.presetId,
+        archived: next.archived,
+      });
+    }
+
+    return data ? { ...mapRewardRow(data), ...next, id: data.id } : next;
   },
 
   async archiveReward(rewardId: string): Promise<void> {

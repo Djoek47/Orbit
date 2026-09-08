@@ -1,6 +1,6 @@
-import { router, Stack } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
@@ -21,20 +21,51 @@ import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
 /**
- * Revision C §2 — Create Reward sheet (replaces Mint Reward).
- * Frequency-based grants. No emoji. Optional assign + notes.
+ * Create or edit a catalogue reward.
+ * Open `/create-reward` to mint, `/create-reward?id=` to edit.
  */
 export default function CreateRewardScreen() {
   const insets = useSafeAreaInsets();
-  const { accentTheme, createReward, currentMember, household, orbitPalette, permissions } = useOrbit();
+  const { id: editId } = useLocalSearchParams<{ id?: string }>();
+  const {
+    accentTheme,
+    archiveReward,
+    createReward,
+    currentMember,
+    household,
+    orbitPalette,
+    permissions,
+    updateReward,
+  } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
-  const [title, setTitle] = useState('');
-  const [notes, setNotes] = useState('');
-  const [frequency, setFrequency] = useState<RewardFrequency>('weekly');
-  const [quantity, setQuantity] = useState<string | undefined>();
-  const [presetId, setPresetId] = useState<string | null>(null);
-  const [assignMemberId, setAssignMemberId] = useState<string | null>(null);
+
+  const existing = useMemo(
+    () => (editId ? household.rewards.find((item) => item.id === editId && !item.archived) : null),
+    [editId, household.rewards]
+  );
+  const isEditing = Boolean(existing);
+
+  const [title, setTitle] = useState(existing?.title ?? '');
+  const [notes, setNotes] = useState(existing?.subtitle ?? '');
+  const [frequency, setFrequency] = useState<RewardFrequency>(
+    (existing?.frequency as RewardFrequency | undefined) ?? 'weekly'
+  );
+  const [quantity, setQuantity] = useState<string | undefined>(existing?.quantity);
+  const [presetId, setPresetId] = useState<string | null>(existing?.presetId ?? null);
+  const [assignMemberId, setAssignMemberId] = useState<string | null>(
+    existing?.assignedMemberId ?? null
+  );
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!existing) return;
+    setTitle(existing.title);
+    setNotes(existing.subtitle ?? '');
+    setFrequency((existing.frequency as RewardFrequency | undefined) ?? 'weekly');
+    setQuantity(existing.quantity);
+    setPresetId(existing.presetId ?? null);
+    setAssignMemberId(existing.assignedMemberId ?? null);
+  }, [existing]);
 
   const assignableMembers = useMemo(
     () =>
@@ -64,10 +95,25 @@ export default function CreateRewardScreen() {
         contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <ChoremaxxBadge />
-        <Text style={[typography.title2, { marginTop: 16, color: c.text }]}>Create reward locked</Text>
+        <Text style={[typography.title2, { marginTop: 16, color: c.text }]}>Rewards locked</Text>
         <Text style={[typography.body, { color: c.textSoft }]}>
-          Only household owners and admins can add rewards to the catalogue.
+          Only household owners and admins can add or edit rewards.
         </Text>
+        <OrbitButton tone="secondary" onPress={() => router.back()}>
+          Back
+        </OrbitButton>
+      </ScrollView>
+    );
+  }
+
+  if (editId && !existing) {
+    return (
+      <ScrollView
+        style={[orbitScreen.container, { backgroundColor: orbitPalette.background }]}
+        contentContainerStyle={[orbitScreen.content, { paddingTop: insets.top + 12 }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ChoremaxxBadge />
+        <Text style={[typography.title2, { marginTop: 16, color: c.text }]}>Reward not found</Text>
         <OrbitButton tone="secondary" onPress={() => router.back()}>
           Back
         </OrbitButton>
@@ -81,26 +127,64 @@ export default function CreateRewardScreen() {
     try {
       const assigned = assignableMembers.find((member) => member.id === assignMemberId);
       const preset = presetId ? REWARD_PRESETS.find((item) => item.id === presetId) : undefined;
-      await createReward({
-        title: title.trim(),
-        cost: 0,
-        approvalRequired: true,
-        category: 'Privilege',
-        origin: 'minted',
-        createdByMemberId: currentMember?.id,
-        createdByName: currentMember?.name,
-        assignedMemberId: assigned?.id,
-        assignedMemberName: assigned?.name,
-        frequency,
-        quantity,
-        subtitle: notes.trim() || preset?.subtitle,
-        isCustom: !presetId,
-        presetId: presetId ?? undefined,
-      });
+      if (isEditing && existing) {
+        await updateReward({
+          ...existing,
+          title: title.trim(),
+          approvalRequired: existing.approvalRequired,
+          category: existing.category ?? 'Privilege',
+          assignedMemberId: assigned?.id,
+          assignedMemberName: assigned?.name,
+          frequency,
+          quantity,
+          subtitle: notes.trim() || preset?.subtitle,
+          isCustom: !presetId,
+          presetId: presetId ?? undefined,
+        });
+      } else {
+        await createReward({
+          title: title.trim(),
+          cost: 0,
+          approvalRequired: true,
+          category: 'Privilege',
+          origin: 'minted',
+          createdByMemberId: currentMember?.id,
+          createdByName: currentMember?.name,
+          assignedMemberId: assigned?.id,
+          assignedMemberName: assigned?.name,
+          frequency,
+          quantity,
+          subtitle: notes.trim() || preset?.subtitle,
+          isCustom: !presetId,
+          presetId: presetId ?? undefined,
+        });
+      }
       router.back();
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleRemove = () => {
+    if (!existing) return;
+    Alert.alert('Remove reward?', `“${existing.title}” will leave the catalogue.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setBusy(true);
+            try {
+              await archiveReward(existing.id);
+              router.back();
+            } finally {
+              setBusy(false);
+            }
+          })();
+        },
+      },
+    ]);
   };
 
   const frequencies = (Object.keys(REWARD_FREQUENCY_LABELS) as RewardFrequency[]).map((key) => ({
@@ -117,36 +201,44 @@ export default function CreateRewardScreen() {
       <View style={orbitScreen.header}>
         <ChoremaxxBadge />
         <Text style={[typography.footnote, { marginTop: 8, color: c.textMuted }]}>Rewards</Text>
-        <Text style={[typography.title1, { color: c.text }]}>Mint a reward</Text>
+        <Text style={[typography.title1, { color: c.text }]}>
+          {isEditing ? 'Edit reward' : 'Mint a reward'}
+        </Text>
         <Text style={[typography.body, { color: c.textSoft }]}>
-          Add a catalogue reward with a frequency. Rewards are granted for finishing chores.
+          {isEditing
+            ? 'Update this catalogue reward, or remove it.'
+            : 'Add a catalogue reward with a frequency. Rewards are granted for finishing chores.'}
         </Text>
       </View>
 
       <GlassCard style={styles.card}>
-        <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Presets</Text>
-        <View style={styles.chipRow}>
-          {REWARD_PRESETS.map((preset) => {
-            const active = presetId === preset.id;
-            return (
-              <Pressable
-                key={preset.id}
-                onPress={() => selectPreset(preset.id)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: active ? `${accentTheme.primary}33` : glass(0.06),
-                    borderColor: active ? `${accentTheme.primary}88` : glassBorder(0.12),
-                  },
-                ]}>
-                <Text
-                  style={[styles.chipText, { color: active ? accentTheme.primary : c.textSoft }]}>
-                  {preset.title}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {!isEditing ? (
+          <>
+            <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Presets</Text>
+            <View style={styles.chipRow}>
+              {REWARD_PRESETS.map((preset) => {
+                const active = presetId === preset.id;
+                return (
+                  <Pressable
+                    key={preset.id}
+                    onPress={() => selectPreset(preset.id)}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: active ? `${accentTheme.primary}33` : glass(0.06),
+                        borderColor: active ? `${accentTheme.primary}88` : glassBorder(0.12),
+                      },
+                    ]}>
+                    <Text
+                      style={[styles.chipText, { color: active ? accentTheme.primary : c.textSoft }]}>
+                      {preset.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
 
         <OrbitInput
           label="Reward name"
@@ -267,8 +359,19 @@ export default function CreateRewardScreen() {
       </GlassCard>
 
       <OrbitButton disabled={busy || !title.trim()} onPress={() => void handleSave()}>
-        {busy ? 'Saving…' : assignMemberId ? 'Mint & assign' : VOCAB.mintAReward}
+        {busy
+          ? 'Saving…'
+          : isEditing
+            ? 'Save changes'
+            : assignMemberId
+              ? 'Mint & assign'
+              : VOCAB.mintAReward}
       </OrbitButton>
+      {isEditing ? (
+        <OrbitButton tone="danger" disabled={busy} onPress={handleRemove}>
+          Remove reward
+        </OrbitButton>
+      ) : null}
       <OrbitButton tone="secondary" onPress={() => router.back()}>
         Cancel
       </OrbitButton>

@@ -721,8 +721,28 @@ export default function RewardsScreen() {
                     isAdmin={isAdmin}
                     statusLabel={isAdmin && !canRedeem ? 'Active' : undefined}
                     onClaim={() => handleClaim(reward.id)}
+                    onEdit={
+                      isAdmin
+                        ? () => router.push(`/create-reward?id=${encodeURIComponent(reward.id)}` as never)
+                        : undefined
+                    }
                     onArchive={
-                      isAdmin ? () => void archiveReward(reward.id) : undefined
+                      isAdmin
+                        ? () => {
+                            Alert.alert(
+                              'Remove reward?',
+                              `“${reward.title}” will leave the catalogue.`,
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                  text: 'Remove',
+                                  style: 'destructive',
+                                  onPress: () => void archiveReward(reward.id),
+                                },
+                              ]
+                            );
+                          }
+                        : undefined
                     }
                   />
                 </Animated.View>

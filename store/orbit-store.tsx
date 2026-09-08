@@ -311,6 +311,7 @@ import type {
   OrbitUser,
   OrbitMetrics,
   PreferredStore,
+  Reward,
   RewardRedemption,
   SavedPlace,
   SignInInput,
@@ -586,6 +587,7 @@ type OrbitContextValue = {
     input: CreateRewardInput,
     options?: { householdId?: string | null }
   ) => Promise<void>;
+  updateReward: (reward: Reward) => Promise<void>;
   archiveReward: (rewardId: string) => Promise<void>;
   approveRedemption: (redemptionId: string) => Promise<void>;
   rejectRedemption: (redemptionId: string) => Promise<void>;
@@ -5180,6 +5182,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('reward.created', { rewardId: reward.id }, analyticsContext);
   };
 
+  const updateReward = async (reward: Reward) => {
+    if (!permissions.canManageHousehold) return;
+    const updated = await rewardsRepository.updateReward(reward);
+    setHousehold((current) => ({
+      ...current,
+      rewards: current.rewards.map((item) => (item.id === updated.id ? updated : item)),
+    }));
+    await trackAnalytics('reward.updated', { rewardId: updated.id }, analyticsContext);
+  };
+
   const archiveReward = async (rewardId: string) => {
     await rewardsRepository.archiveReward(rewardId);
     setHousehold((current) => ({
@@ -6009,6 +6021,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       declineRewardProposal,
       updateSidekickGroceryAdd,
       createReward,
+      updateReward,
       archiveReward,
       approveRedemption,
       rejectRedemption,
