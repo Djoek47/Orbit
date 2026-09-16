@@ -6,6 +6,7 @@ import { dataMode } from '@/config/data-mode';
 import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
 import { createEmptyHousehold, mockHousehold } from '@/data/mock-household';
 import { loadActiveMemberId, loadMockSession, saveActiveMemberId } from '@/lib/auth/mock-session';
+import { isMockMode } from '@/repositories/repository-utils';
 import type { PoppinsChatMessage } from '@/lib/ai/ai-provider';
 import {
   executePoppinsTool,
@@ -1270,7 +1271,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         setStoreRecommendations(buildStoreRecommendations(hydratedHousehold.id, hydratedHousehold.groceries));
         const emptyDomains =
           isPendingJoinSnapshot(hydratedHousehold) ||
-          (dataMode !== 'mock' && !isPersistedHouseholdId(hydratedHousehold.id));
+          (!isMockMode() && !isPersistedHouseholdId(hydratedHousehold.id));
         const [items, redemptions, allowanceItems, devices, scenes, links] = emptyDomains
           ? [[], [], [], [], [], null]
           : await Promise.all([
@@ -6229,7 +6230,7 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     return baseHousehold;
   }
   const householdId = baseHousehold.id;
-  const skipLiveRewards = dataMode !== 'mock' && !isPersistedHouseholdId(householdId);
+  const skipLiveRewards = !isMockMode() && !isPersistedHouseholdId(householdId);
   const [tasks, groceries, events, rewards, badges, itineraries, themeId, savedRooms, avatarOverrides, storedPlaces] =
     await Promise.all([
       taskRepository.getTasks(householdId),

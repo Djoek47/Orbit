@@ -21,11 +21,20 @@
 
 | Item | Status |
 |------|--------|
-| TestFlight **1.3.0 (69)** | EAS build **finished** (`7777ca77-…`, git `f23272c`). ASC submit `096874f0-bcb4-4530-9fa1-2c1b7bc2d77b` scheduled — install from TestFlight when Apple finishes processing |
+| TestFlight **1.3.0 (69)** | **Beta App Review refused** (2026-09-10) — Guideline 2.1(a) no demo access after mock removed. Fixed on v19 via Review Demo credentials (see below). Do **not** promote 69 external until a new build ships. |
 | Two-phone QA matrix | Still open — checkboxes in `docs/sync-and-notifications-v18.md` / make-v18 doc |
 | Staging SQL | Apply `20260908090000_member_planned_task_frequencies.sql` (+ `20260903120000_notifications_member_update.sql` if dismiss still fails) |
 | Per-task “extend deadline” | Explored; not shipped — household Daily deadline picker only |
 | Expo doctor cleanup | **Deferred** (see below) |
+
+## Apple Review Demo (Guideline 2.1(a))
+
+In-app Sign in (TestFlight) with:
+
+- **User Name:** `review@choremaxx.app`
+- **Password:** `ReviewDemo2026!`
+
+Opens local Rivera household (full features). Put the same values in ASC → TestFlight → Test Information → Beta App Review Information → Sign-in required. Details: `docs/testflight-setup.md`.
 
 ## Deferred: Expo doctor (do later on this branch)
 
@@ -64,7 +73,7 @@ See full list in `docs/choremaxx-make-v18.md`. **v19-critical if not applied:**
 
 ## Verify in app
 
-Settings build tip: `make-v19 · cut-from-v18 · tf69-baseline`
+Settings build tip: `make-v19 · apple-review-demo · tf69-baseline`
 
 ## Notes for agents
 

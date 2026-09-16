@@ -1,4 +1,5 @@
 import { clearMockSession } from '@/lib/auth/mock-session';
+import { clearReviewDemoSession } from '@/lib/auth/review-demo';
 import {
   allowAuthStorageWrites,
   blockAuthStorageWrites,
@@ -45,6 +46,11 @@ export async function wipeLocalAuthAndResetClient(): Promise<void> {
   await wipePersistedAuthSession(secureStoreAdapter);
   try {
     await clearMockSession();
+  } catch {
+    /* ignore */
+  }
+  try {
+    await clearReviewDemoSession();
   } catch {
     /* ignore */
   }
