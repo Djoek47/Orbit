@@ -60,34 +60,75 @@ Post-tool spoken response ADR: [docs/adr-poppins-post-tool-response-create.md](.
 
 ## Poppins Monitor cron
 
-Schedule `poppins-monitor` about every 15 minutes per active household (pg_cron + `net.http_post`, or Supabase scheduled functions).
+**Not applied by migrations.** Confirm in the dashboard / `cron.job` before assuming live spend — see [docs/poppins-monitor-ops.md](../docs/poppins-monitor-ops.md).
 
-Example with `pg_cron` + `pg_net` (adjust project URL / keys):
+The app also invokes `poppins-monitor` once per household session (JWT + full snapshot). Edge gates: rules-first, `POPPINS_MONITOR_MODEL` (default off), active local hours, daily model-call cap 3.
+
+Example schedule — **4 UTC ticks** that each household evaluates against **local** slots (08/15/18/20). Rotating cursor guarantees full coverage without `limit 50`:
 
 ```sql
 -- Requires extensions: pg_cron, pg_net
+-- Cursor table (also in migrations/20260916230000_ai_usage_events_metering.sql)
+create table if not exists public.monitor_cron_cursor (
+  id int primary key default 1 check (id = 1),
+  after_household_id uuid,
+  updated_at timestamptz not null default now()
+);
+insert into public.monitor_cron_cursor (id) values (1) on conflict do nothing;
+
 select cron.schedule(
   'poppins-monitor-pass',
-  '*/15 * * * *',
+  '0 * * * *',  -- hourly; edge filters to 4 local slots
   $$
-  select net.http_post(
-    url := 'https://YOUR_PROJECT.supabase.co/functions/v1/poppins-monitor',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || 'YOUR_SERVICE_ROLE_KEY'
-    ),
-    body := jsonb_build_object(
-      'householdId', h.id,
-      'household', '{}'::jsonb,
-      'metrics', '{}'::jsonb
-    )
+  with cur as (
+    select after_household_id from public.monitor_cron_cursor where id = 1
+  ),
+  batch as (
+    select h.id
+    from public.households h, cur
+    where cur.after_household_id is null or h.id > cur.after_household_id
+    order by h.id
+    limit 25
+  ),
+  posted as (
+    select net.http_post(
+      url := 'https://YOUR_PROJECT.supabase.co/functions/v1/poppins-monitor',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || 'YOUR_SERVICE_ROLE_KEY'
+      ),
+      body := jsonb_build_object(
+        'householdId', b.id,
+        'household', jsonb_build_object('timezone', (select timezone from public.households where id = b.id)),
+        'metrics', '{}'::jsonb
+      )
+    ) as request_id
+    from batch b
+  ),
+  advanced as (
+    update public.monitor_cron_cursor
+    set after_household_id = coalesce((select max(id) from batch), null),
+        updated_at = now()
+    where id = 1
+      and (select count(*) from batch) > 0
+    returning after_household_id
   )
-  from public.households h
-  limit 50;
+  -- Wrap: if batch empty, reset cursor to null so next tick starts from the beginning
+  update public.monitor_cron_cursor
+  set after_household_id = null, updated_at = now()
+  where id = 1 and not exists (select 1 from batch);
   $$
 );
 ```
 
+Full coverage: each tick advances past the last id in the batch of 25; when the batch is empty the cursor resets to null and the next tick starts from the lowest id again.
+
 For a single household “Run Poppins check now” from the app, invoke with the user JWT + active membership and a compact household snapshot in the body.
 
 Mock / Expo Go mode uses `runPoppinsMonitor()` in the Orbit store (local rule engine, same notification writers) — no edge required.
+
+Secrets:
+
+- `POPPINS_MONITOR_MODEL` — default off (rules/templates only)
+- `POPPINS_ACTS_PER_DAY` — default 30 (UI follow-up)
+- Confirm `POPPINS_VOICE_GRANT_ALL` is **not** `1` in production (P0)

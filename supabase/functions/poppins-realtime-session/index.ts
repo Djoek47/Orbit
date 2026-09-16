@@ -12,6 +12,7 @@ import {
   getMajordomoProfile,
   poppinsToolsAsRealtimeTools,
 } from '../_shared/poppins-tools.ts';
+import { recordAiUsageEvent } from '../_shared/ai-usage.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -105,6 +106,20 @@ Deno.serve(async (req) => {
         { error: 'No client secret in session response', fallback: 'whisper', details: session },
         502
       );
+    }
+
+    if (householdId) {
+      await recordAiUsageEvent({
+        householdId: String(householdId),
+        clientKey: `realtime-mint-${householdId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        memberId: auth.user?.id,
+        kind: 'realtime',
+        model: String(model),
+        inputTokens: 0,
+        outputTokens: 0,
+        surface: 'poppins-realtime-session',
+        mode: 'session_mint',
+      });
     }
 
     return jsonResponse({

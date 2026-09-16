@@ -7,6 +7,7 @@ import {
   requireActiveMember,
 } from '../_shared/poppins-auth.ts';
 import { getOpenAIPoppinsChatModel } from '../_shared/openai-models.ts';
+import { recordAiUsageEvent, usageFromOpenAIPayload } from '../_shared/ai-usage.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -64,6 +65,19 @@ Deno.serve(async (req) => {
     }
 
     if (transcriptOnly) {
+      if (householdId) {
+        await recordAiUsageEvent({
+          householdId,
+          clientKey: `voice-whisper-${householdId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          memberId: auth.user?.id,
+          kind: 'voice',
+          model: 'whisper-1',
+          inputTokens: 0,
+          outputTokens: 0,
+          surface: 'poppins-voice',
+          mode: 'whisper',
+        });
+      }
       return jsonResponse({ transcript, answer: '', source: 'whisper' });
     }
 
@@ -90,6 +104,21 @@ Deno.serve(async (req) => {
 
     const payload = await completion.json();
     const answer = payload.choices?.[0]?.message?.content ?? 'I heard you. Let me think on that.';
+    if (householdId) {
+      const usage = usageFromOpenAIPayload(payload);
+      await recordAiUsageEvent({
+        householdId,
+        clientKey: `voice-chat-${householdId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        memberId: auth.user?.id,
+        kind: 'voice',
+        model: getOpenAIPoppinsChatModel(),
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        cachedInputTokens: usage.cachedInputTokens,
+        surface: 'poppins-voice',
+        mode: 'whisper_chat',
+      });
+    }
 
     return jsonResponse({ transcript, answer, source: 'openai' });
   } catch (error) {

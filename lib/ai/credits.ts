@@ -4,9 +4,18 @@
  * $4.99/month is pricing context only (Premium). The test trip is $4.00:
  * when the household hits that, Poppins goes off so we can time how long
  * $4 of real use lasts. Admins see per-person totals — not OpenAI's global view.
+ *
+ * Provider rates live in constants/poppins-ai-rates.ts (MEASURED vs ESTIMATED).
  */
 
 import { IAP_PRODUCTS } from '@/constants/billing';
+import {
+  AI_TRIP_USD,
+  MODEL_RATES_USD_PER_MILLION,
+  ratesForModel,
+} from '@/constants/poppins-ai-rates';
+
+export { AI_TRIP_USD, MODEL_RATES_USD_PER_MILLION } from '@/constants/poppins-ai-rates';
 
 /** 1 credit = $0.01. Kept so a later envelope can map 499 credits ≈ $4.99. */
 export const CREDITS_PER_USD = 100;
@@ -14,10 +23,7 @@ export const CREDITS_PER_USD = 100;
 /** Premium list price — context for pricing, not the trip threshold. */
 export const PREMIUM_MONTHLY_USD = IAP_PRODUCTS.monthly.priceUsd;
 
-/** Household Poppins pauses at this spend so we can measure duration. */
-export const AI_TRIP_USD = 4;
-
-export type AiUsageKind = 'chat' | 'voice' | 'briefing';
+export type AiUsageKind = 'chat' | 'voice' | 'briefing' | 'monitor' | 'notify' | 'realtime';
 
 export type AiUsageEvent = {
   id: string;
@@ -37,22 +43,11 @@ export type AiTokenUsage = {
   model?: string;
 };
 
-/** USD per 1M tokens. Tunable estimates until OpenAI invoices a real mix. */
-export const MODEL_RATES_USD_PER_MILLION: Record<string, { input: number; output: number }> = {
-  'gpt-5.6-luna': { input: 5, output: 15 },
-  'gpt-4o': { input: 2.5, output: 10 },
-  'gpt-4o-mini': { input: 0.15, output: 0.6 },
-  'gpt-4o-mini-transcribe': { input: 1.25, output: 0 },
-  'gpt-realtime-2.1': { input: 32, output: 64 },
-  default: { input: 5, output: 15 },
-};
-
 export const POPPINS_PAUSED_COPY =
   'Poppins is paused for this household. You’ve used $4 of AI, so we can see how long that lasts.';
 
 function ratesFor(model: string): { input: number; output: number } {
-  const key = model.trim() || 'default';
-  return MODEL_RATES_USD_PER_MILLION[key] ?? MODEL_RATES_USD_PER_MILLION.default;
+  return ratesForModel(model);
 }
 
 export function usdForTokens(inputTokens: number, outputTokens: number, model: string): number {

@@ -7,6 +7,7 @@ import {
   requireActiveMember,
 } from '../_shared/poppins-auth.ts';
 import { getOpenAIPoppinsChatModel } from '../_shared/openai-models.ts';
+import { recordAiUsageEvent, usageFromOpenAIPayload } from '../_shared/ai-usage.ts';
 
 const SYSTEM = `You are Poppins, the calm household co-manager in Choremaxx.
 Write ONE notification that contacts a person. Facts are already chosen; you only write the sentence.
@@ -83,6 +84,21 @@ Deno.serve(async (req) => {
       parsed = JSON.parse(content) as Record<string, unknown>;
     } catch {
       parsed = {};
+    }
+
+    if (householdId) {
+      const usage = usageFromOpenAIPayload(payload);
+      await recordAiUsageEvent({
+        householdId: String(householdId),
+        clientKey: `notify-${householdId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        memberId: auth.user?.id,
+        kind: 'notify',
+        model: getOpenAIPoppinsChatModel(),
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        cachedInputTokens: usage.cachedInputTokens,
+        surface: 'poppins-notify',
+      });
     }
 
     const title = stripExample(String(parsed.title ?? fallback.title ?? 'Poppins'));

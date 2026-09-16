@@ -1,5 +1,6 @@
-// Deno Edge Function — Poppins Monitor Agent (tool loop → notifications + ai_recommendations).
-// Auth: service role for cron, or JWT + active member for "Run Poppins check now".
+// Deno Edge Function — Poppins Monitor Agent.
+// Rules first; model only when needs_prose + kill switch + window + daily cap.
+// Auth: service role for cron, or JWT + active member for client session kick.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import {
@@ -15,8 +16,21 @@ import {
 import { getOpenAIPoppinsChatModel } from '../_shared/openai-models.ts';
 import {
   buildMajordomoSystemPrompt,
-  poppinsToolsAsOpenAIFunctions,
+  poppinsMonitorToolsAsOpenAIFunctions,
 } from '../_shared/poppins-tools.ts';
+import {
+  applyTemplates,
+  evaluateHouseholdRules,
+  withinActiveWindow,
+  type FiredMonitorRule,
+} from '../_shared/monitor-rules.ts';
+import {
+  POPPINS_MONITOR_ACTIVE_HOURS,
+  POPPINS_MONITOR_MAX_ROUNDS,
+  POPPINS_MONITOR_MODEL_CALLS_PER_DAY,
+  isMonitorModelEnabled,
+} from '../_shared/openai-rates.ts';
+import { recordAiUsageEvent, usageFromOpenAIPayload } from '../_shared/ai-usage.ts';
 
 type Snapshot = HouseholdSnapshotEdge;
 
@@ -30,23 +44,6 @@ function isServiceRole(req: Request) {
   const auth = req.headers.get('Authorization') ?? '';
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
   return Boolean(serviceKey) && auth === `Bearer ${serviceKey}`;
-}
-
-async function writeNotification(
-  supabase: ReturnType<typeof serviceClient>,
-  householdId: string,
-  title: string,
-  body: string,
-  data: Record<string, unknown> = {}
-) {
-  await supabase.from('notifications').insert({
-    household_id: householdId,
-    title,
-    body,
-    category: 'ai',
-    priority: 'medium',
-    data,
-  });
 }
 
 async function writeRecommendation(
@@ -65,33 +62,74 @@ async function writeRecommendation(
   });
 }
 
+async function countMonitorModelCallsToday(
+  supabase: ReturnType<typeof serviceClient>,
+  householdId: string,
+  timezone: string
+): Promise<number> {
+  // Count monitor rows since local midnight (approx via UTC day bucket + TZ offset not required for soft cap).
+  const start = new Date();
+  try {
+    const local = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone || 'America/Toronto',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(start);
+    // en-CA → YYYY-MM-DD
+    const dayStart = new Date(`${local}T00:00:00`);
+    const { count, error } = await supabase
+      .from('ai_usage_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('household_id', householdId)
+      .eq('kind', 'monitor')
+      .gte('occurred_at', dayStart.toISOString());
+    if (error) {
+      console.warn('countMonitorModelCallsToday', error.message);
+      return 0;
+    }
+    return count ?? 0;
+  } catch (error) {
+    console.warn('countMonitorModelCallsToday failed', error);
+    return 0;
+  }
+}
+
 async function runToolLoop(
   openaiKey: string,
   household: Snapshot,
-  metrics: Record<string, unknown>
+  metrics: Record<string, unknown>,
+  householdId: string,
+  maxRounds: number
 ) {
   const context = buildCompactHouseholdContext(household as Record<string, unknown>);
   const desk = household.desk ?? {};
   const profileId = (household.majordomoProfileId as string | undefined) ?? 'poppins';
+  // Shrunk prompt: desk + compact context only (no redundant full dumps).
   const messages: Array<Record<string, unknown>> = [
     {
       role: 'system',
       content:
         `${buildMajordomoSystemPrompt(profileId)}\n` +
-        `Desk brief: ${JSON.stringify(desk).slice(0, 2500)}\n` +
-        `Household snapshot: ${JSON.stringify({ metrics, ...context }).slice(0, 6000)}`,
+        `Desk: ${JSON.stringify(desk).slice(0, 1800)}\n` +
+        `Context: ${JSON.stringify({ metrics, ...context }).slice(0, 2800)}`,
     },
     {
       role: 'user',
       content:
-        'Run a Monitor pass. Use tools to assess overdue tasks, streaks, XP fairness, grocery gaps, calendar/holidays, and propose at most 2–4 concrete actions. Call list_holidays before any nudge. Prefer notifying over mutating. Do not invent stores, sale prices, or products that are not on the household list. Then summarize what you did.',
+        'Run a Monitor pass. Prefer notifying over mutating. Call list_holidays before any nudge. Propose at most 2 concrete actions from the desk. Then summarize.',
     },
   ];
 
   const effects: Array<Record<string, unknown>> = [];
   let summary = '';
+  let totalIn = 0;
+  let totalOut = 0;
+  let totalCached = 0;
+  const model = getOpenAIPoppinsChatModel();
+  const tools = poppinsMonitorToolsAsOpenAIFunctions();
 
-  for (let step = 0; step < 6; step++) {
+  for (let step = 0; step < maxRounds; step++) {
     const completion = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -99,14 +137,19 @@ async function runToolLoop(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: getOpenAIPoppinsChatModel(),
+        model,
         messages,
-        tools: poppinsToolsAsOpenAIFunctions(),
+        tools,
         tool_choice: step === 0 ? 'required' : 'auto',
       }),
     });
 
     const payload = await completion.json();
+    const usage = usageFromOpenAIPayload(payload);
+    totalIn += usage.inputTokens;
+    totalOut += usage.outputTokens;
+    totalCached += usage.cachedInputTokens;
+
     const message = payload.choices?.[0]?.message;
     if (!message) break;
 
@@ -135,6 +178,18 @@ async function runToolLoop(
     }
   }
 
+  await recordAiUsageEvent({
+    householdId,
+    clientKey: `monitor-${householdId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    kind: 'monitor',
+    model,
+    inputTokens: totalIn,
+    outputTokens: totalOut,
+    cachedInputTokens: totalCached,
+    surface: 'poppins-monitor',
+    mode: 'rules_gated',
+  });
+
   return { effects, summary };
 }
 
@@ -156,15 +211,6 @@ async function persistEffects(
 
     if (result?.notification && typeof result.notification === 'object' && !result.skipped) {
       const n = result.notification as { title: string; body: string; data?: Record<string, unknown> };
-      const kind = String(n.data?.kind ?? tool);
-      const interrupt = kind === 'ask_for_info';
-      if (interrupt) {
-        await writeNotification(supabase, householdId, n.title, n.body, {
-          ...(n.data ?? {}),
-          urgency: 'needs_action',
-          kind,
-        });
-      }
       const planDraft = result.planDraft as Record<string, unknown> | undefined;
       actions.push({
         kind: tool === 'propose_plan' ? 'plan' : tool,
@@ -198,15 +244,30 @@ async function persistEffects(
     }
 
     if (tool === 'list_overdue_tasks' && Array.isArray((result as { overdue?: unknown[] }).overdue)) {
-      const overdue = (result as { overdue: Array<{ title?: string; assignee?: string; id?: string }> }).overdue;
+      const overdue = (result as { overdue: Array<{ title?: string; assignee?: string }> }).overdue;
       for (const task of overdue.slice(0, 3)) {
-        const title = String(task.title ?? 'Task');
-        const assignee = String(task.assignee ?? 'someone');
-        actions.push({ kind: 'nudge', label: `${assignee} is late`, detail: title });
+        actions.push({
+          kind: 'nudge',
+          label: `${String(task.assignee ?? 'someone')} is late`,
+          detail: String(task.title ?? 'Task'),
+        });
       }
     }
   }
 
+  return actions;
+}
+
+async function persistTemplateActions(
+  supabase: ReturnType<typeof serviceClient>,
+  householdId: string,
+  rules: FiredMonitorRule[]
+) {
+  const actions = applyTemplates(rules);
+  for (const action of actions) {
+    const tone = String(action.data?.tone ?? 'cyan');
+    await writeRecommendation(supabase, householdId, action.label, action.detail, tone);
+  }
   return actions;
 }
 
@@ -235,35 +296,75 @@ Deno.serve(async (req) => {
     }
 
     const supabase = serviceClient();
-    let effects: Array<Record<string, unknown>> = [];
-    let summary = '';
+    const timezone =
+      String(
+        (household as { timezone?: string }).timezone ??
+          (household as { timeZone?: string }).timeZone ??
+          ''
+      ).trim() || 'America/Toronto';
 
-    if (openaiKey) {
-      const loop = await runToolLoop(openaiKey, household, metrics);
-      effects = loop.effects;
-      summary = loop.summary;
-    } else {
-      // Deterministic fallback without OpenAI
-      const overdue = executePoppinsTool('list_overdue_tasks', {}, household, metrics);
-      const deals = executePoppinsTool('scan_deals', {}, household, metrics);
-      const fairness = executePoppinsTool('assess_xp_fairness', {}, household, metrics);
-      effects = [
-        { tool: 'list_overdue_tasks', args: {}, result: overdue },
-        { tool: 'scan_deals', args: {}, result: deals },
-        { tool: 'assess_xp_fairness', args: {}, result: fairness },
-      ];
-      summary = 'Monitor pass completed without OpenAI (deterministic tools).';
+    const fired = evaluateHouseholdRules(household as Record<string, unknown>, metrics);
+    if (!fired.length) {
+      return jsonResponse({
+        ok: true,
+        householdId,
+        summary: null,
+        actions: [],
+        effectCount: 0,
+        source: 'rules_idle',
+      });
     }
 
-    const actions = await persistEffects(supabase, householdId, effects);
+    const prose = fired.filter((r) => r.needsProse);
+    const modelAllowed =
+      Boolean(openaiKey) &&
+      prose.length > 0 &&
+      isMonitorModelEnabled() &&
+      withinActiveWindow(timezone, POPPINS_MONITOR_ACTIVE_HOURS);
+
+    let effects: Array<Record<string, unknown>> = [];
+    let summary: string | null = null;
+    let source = 'templates';
+
+    if (modelAllowed) {
+      const callsToday = await countMonitorModelCallsToday(supabase, householdId, timezone);
+      if (callsToday < POPPINS_MONITOR_MODEL_CALLS_PER_DAY) {
+        const loop = await runToolLoop(
+          openaiKey!,
+          household,
+          metrics,
+          householdId,
+          POPPINS_MONITOR_MAX_ROUNDS
+        );
+        effects = loop.effects;
+        summary = loop.summary || null;
+        source = 'openai_gated';
+      } else {
+        source = 'templates_cap';
+      }
+    }
+
+    let actions =
+      effects.length > 0
+        ? await persistEffects(supabase, householdId, effects)
+        : await persistTemplateActions(supabase, householdId, fired);
+
+    if (effects.length > 0 && prose.length === 0) {
+      // Model path shouldn't run without prose; keep templates as well if empty actions.
+      if (!actions.length) {
+        actions = await persistTemplateActions(supabase, householdId, fired);
+      }
+    }
 
     return jsonResponse({
       ok: true,
       householdId,
       summary,
       actions,
-      effectCount: effects.length,
-      source: openaiKey ? 'openai' : 'deterministic',
+      effectCount: effects.length || fired.length,
+      source,
+      rulesFired: fired.map((r) => r.kind),
+      monitorModel: isMonitorModelEnabled() ? 'on' : 'off',
     });
   } catch (error) {
     return jsonResponse({ error: String(error) }, 500);

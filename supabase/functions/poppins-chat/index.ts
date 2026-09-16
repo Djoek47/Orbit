@@ -16,6 +16,7 @@ import {
   buildMajordomoSystemPrompt,
   poppinsToolsAsOpenAIFunctions,
 } from '../_shared/poppins-tools.ts';
+import { recordAiUsageEvent } from '../_shared/ai-usage.ts';
 
 const MAX_TOOL_ROUNDS = 4;
 
@@ -144,6 +145,19 @@ Deno.serve(async (req) => {
       const items = effect.result.ui_actions;
       return Array.isArray(items) ? items : [];
     });
+
+    if (householdId && (inputTokens > 0 || outputTokens > 0)) {
+      await recordAiUsageEvent({
+        householdId: String(householdId),
+        clientKey: `chat-${householdId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        memberId: auth.user?.id,
+        kind: 'chat',
+        model,
+        inputTokens,
+        outputTokens,
+        surface: 'poppins-chat',
+      });
+    }
 
     return jsonResponse({
       question,

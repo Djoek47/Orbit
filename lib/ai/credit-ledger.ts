@@ -6,6 +6,12 @@ import { getSupabaseClient } from '@/lib/supabase/client';
 
 const keyFor = (householdId: string) => `orbit.ai-usage.${householdId}`;
 
+const USAGE_KINDS: AiUsageKind[] = ['chat', 'voice', 'briefing', 'monitor', 'notify', 'realtime'];
+
+function parseKind(raw: string): AiUsageKind {
+  return USAGE_KINDS.includes(raw as AiUsageKind) ? (raw as AiUsageKind) : 'chat';
+}
+
 export async function loadAiUsageEvents(householdId: string | null | undefined): Promise<AiUsageEvent[]> {
   const local = await loadLocal(householdId);
   if (!isPersistedHouseholdId(householdId)) return local;
@@ -66,6 +72,10 @@ async function loadRemote(householdId: string): Promise<AiUsageEvent[] | null> {
   }
 }
 
+/**
+ * Append-only: insert on conflict(client_key) do nothing.
+ * Replaces the old upsert on (household_id, client_key) which overwrote usd.
+ */
 async function saveRemote(householdId: string, events: AiUsageEvent[]): Promise<void> {
   const supabase = getSupabaseClient();
   if (!supabase) return;
@@ -83,7 +93,8 @@ async function saveRemote(householdId: string, events: AiUsageEvent[]): Promise<
   }));
   try {
     const { error } = await supabase.from('ai_usage_events').upsert(rows, {
-      onConflict: 'household_id,client_key',
+      onConflict: 'client_key',
+      ignoreDuplicates: true,
     });
     if (error) console.warn('[ai-usage] remote save skipped', error.message);
   } catch (error) {
@@ -93,15 +104,12 @@ async function saveRemote(householdId: string, events: AiUsageEvent[]): Promise<
 
 function rowToEvent(row: object): AiUsageEvent {
   const item = row as Record<string, unknown>;
-  const kindRaw = String(item.kind ?? 'chat');
-  const kind: AiUsageKind =
-    kindRaw === 'voice' || kindRaw === 'briefing' || kindRaw === 'chat' ? kindRaw : 'chat';
   return {
     id: String(item.client_key ?? ''),
     at: String(item.occurred_at ?? ''),
     memberId: String(item.member_id ?? ''),
     memberName: String(item.member_name ?? ''),
-    kind,
+    kind: parseKind(String(item.kind ?? 'chat')),
     model: String(item.model ?? ''),
     inputTokens: Number(item.input_tokens ?? 0),
     outputTokens: Number(item.output_tokens ?? 0),

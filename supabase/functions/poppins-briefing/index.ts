@@ -8,6 +8,7 @@ import {
   requireActiveMember,
 } from '../_shared/poppins-auth.ts';
 import { getOpenAIPoppinsChatModel } from '../_shared/openai-models.ts';
+import { recordAiUsageEvent, usageFromOpenAIPayload } from '../_shared/ai-usage.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -58,6 +59,22 @@ Deno.serve(async (req) => {
       const payload = await completion.json();
       const content = payload.choices?.[0]?.message?.content ?? '{}';
       result = JSON.parse(content);
+      const usage = usageFromOpenAIPayload(payload);
+      const model = getOpenAIPoppinsChatModel();
+      if (householdId) {
+        await recordAiUsageEvent({
+          householdId: String(householdId),
+          clientKey: `briefing-${householdId}-${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          memberId: auth.user?.id,
+          kind: 'briefing',
+          model,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          cachedInputTokens: usage.cachedInputTokens,
+          surface: 'poppins-briefing',
+          mode: String(type),
+        });
+      }
 
       if (type === 'recommendations') {
         if (Array.isArray(result)) {

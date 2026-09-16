@@ -36,6 +36,14 @@ In-app Sign in (TestFlight) with:
 
 Opens local Rivera household (full features). Put the same values in ASC → TestFlight → Test Information → Beta App Review Information → Sign-in required. Details: `docs/testflight-setup.md`.
 
+## Poppins cost metering (v19)
+
+- Rates: `constants/poppins-ai-rates.ts` (Luna **$0.20 / $1.20** per 1M — was wrongly 5/15).
+- Monitor: rules-first edge gate; `POPPINS_MONITOR_MODEL` default **off**; max 2 rounds; 3 model calls/day when on.
+- Ops check: `docs/poppins-monitor-ops.md`
+- Spec: `docs/poppins-pricing-and-metering.md` (§1/§2/§8 landed; acts UI caption deferred)
+- Migration: `20260916230000_ai_usage_events_metering.sql` — apply on staging before trusting spend logs
+
 ## Deferred: Expo doctor (do later on this branch)
 
 Not blocking TF69. Clean up when convenient:

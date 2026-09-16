@@ -18,7 +18,13 @@ function assertClose(actual: number, expected: number, msg: string) {
 }
 
 const cheap = usdForTokens(1_000_000, 0, 'gpt-5.6-luna');
-assertClose(cheap, 5, '1M input luna');
+assertClose(cheap, 0.2, '1M input luna (MEASURED rate after 2026-07-30 cut)');
+
+const lunaRoundTrip = usdForTokens(1_000_000, 1_000_000, 'gpt-5.6-luna');
+assertClose(lunaRoundTrip, 1.4, '1M in + 1M out luna');
+
+const realtime = usdForTokens(1_000_000, 0, 'gpt-realtime-2.1');
+assertClose(realtime, 32, '1M audio input realtime');
 
 const voiceFloor = buildUsageEvent({
   memberId: 'm1',

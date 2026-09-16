@@ -11,6 +11,7 @@ import {
   buildPoppinsRealtimeSessionConfig,
   voiceAccessAllowed,
 } from '../_shared/poppins-realtime-session-config.ts';
+import { recordAiUsageEvent } from '../_shared/ai-usage.ts';
 
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
@@ -143,6 +144,20 @@ Deno.serve(async (req) => {
         },
         openaiRes.status >= 400 ? openaiRes.status : 502
       );
+    }
+
+    if (householdId) {
+      await recordAiUsageEvent({
+        householdId: String(householdId),
+        clientKey: `realtime-sdp-${householdId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        memberId: auth.user?.id,
+        kind: 'realtime',
+        model: String(model),
+        inputTokens: 0,
+        outputTokens: 0,
+        surface: 'poppins-realtime-sdp',
+        mode: 'sdp',
+      });
     }
 
     return new Response(answerSdp, {

@@ -2,5 +2,5 @@
 export const BUILD_INFO = {
   branch: 'cursor/make-v19',
   commit: '90dfdb5',
-  label: 'make-v19 · apple-review-demo · tf69-baseline',
+  label: 'make-v19 · monitor-meter · apple-review-demo',
 } as const;

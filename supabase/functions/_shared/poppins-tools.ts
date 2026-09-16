@@ -730,6 +730,41 @@ export function poppinsToolsAsOpenAIFunctions() {
   }));
 }
 
+/** Background monitor allowlist — excludes IUI/session mutators (~19 tools). */
+export const MONITOR_TOOL_NAMES: readonly PoppinsToolName[] = [
+  'list_overdue_tasks',
+  'list_tasks',
+  'nudge_member',
+  'assess_xp_fairness',
+  'scan_deals',
+  'list_groceries',
+  'read_calendar',
+  'list_holidays',
+  'propose_plan',
+  'ask_for_info',
+  'remember_house_fact',
+  'list_members',
+  'list_rewards',
+  'search_house_rules',
+  'get_pending_approvals',
+  'get_briefing_snapshot',
+  'get_unread_notifications',
+  'list_itineraries',
+  'get_smart_home_state',
+] as const;
+
+export function poppinsMonitorToolsAsOpenAIFunctions() {
+  const allow = new Set<string>(MONITOR_TOOL_NAMES);
+  return POPPINS_TOOL_DEFINITIONS.filter((tool) => allow.has(tool.name)).map((tool) => ({
+    type: 'function' as const,
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+    },
+  }));
+}
+
 export function poppinsToolsAsRealtimeTools() {
   return POPPINS_TOOL_DEFINITIONS.map((tool) => ({
     type: 'function' as const,
