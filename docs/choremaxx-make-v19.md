@@ -57,10 +57,10 @@ Not blocking TF69. Clean up when convenient:
 
 | Build | Git | EAS build | Submit |
 |-------|-----|-----------|--------|
-| *(none yet on v19)* | | | |
+| **1.3.0 (70)** | `dd7d217` + tip stamp | queued — Review Demo + monitor metering | auto-submit |
 
-Parent line (v18): **1.3.0 (69)** finished — see `docs/choremaxx-make-v18.md`.  
-Logs: https://expo.dev/accounts/djoek47/projects/choremaxx/builds/7777ca77-4525-4cc0-977e-00197e2aeae5
+Parent line (v18): **1.3.0 (69)** finished — ASC Beta App Review refused (no demo). Do not promote 69.  
+Logs (69): https://expo.dev/accounts/djoek47/projects/choremaxx/builds/7777ca77-4525-4cc0-977e-00197e2aeae5
 
 ## TestFlight env (`eas.json`)
 
@@ -78,10 +78,11 @@ See full list in `docs/choremaxx-make-v18.md`. **v19-critical if not applied:**
 
 1. `20260908090000_member_planned_task_frequencies.sql`
 2. `20260903120000_notifications_member_update.sql`
+3. `20260916230000_ai_usage_events_metering.sql` — **user applies** (required for spend logs; TF70 ships without waiting)
 
 ## Verify in app
 
-Settings build tip: `make-v19 · apple-review-demo · tf69-baseline`
+Settings build tip: `make-v19 · monitor-meter · apple-review-demo · tf70`
 
 ## Notes for agents
 
