@@ -45,7 +45,10 @@ assert.match(inbox, /SegmentedControl/);
 assert.match(inbox, /buildInboxSections/);
 
 const stage = source('components/orbit/poppins-stage.tsx');
-assert.match(stage, /occurrenceDateForDueLabel/);
+assert.match(stage, /commitIuiBeat/, 'stage commits through shared iui-commit path');
+const iuiCommit = source('lib/poppins/iui-commit.ts');
+assert.match(iuiCommit, /occurrenceDateForDueLabel/, 'library assign honors due via iui-commit');
+assert.ok(!/buildLibraryAssignInput\([^)]*new Date\(\)\)/.test(iuiCommit), 'library assign honors due');
 assert.ok(!/buildLibraryAssignInput\([^)]*new Date\(\)\)/.test(stage), 'library assign honors due');
 
 const live = source('lib/poppins/live-context.tsx');

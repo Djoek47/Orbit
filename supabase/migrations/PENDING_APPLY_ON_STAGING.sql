@@ -22,9 +22,15 @@ alter table public.household_members
 comment on column public.household_members.join_pre_approved is
   'When true, this member enters active immediately after accepting their invite.';
 
+-- 5) Token top-ups (from 20260917040000_token_grants.sql) — user applies before consumable IAP
+-- create table public.token_grants (...); see migration file.
+
 -- Verify
 select column_name from information_schema.columns
 where table_schema = 'public' and table_name = 'households' and column_name = 'join_approval_required';
 
 select column_name from information_schema.columns
 where table_schema = 'public' and table_name = 'household_members' and column_name = 'join_pre_approved';
+
+select table_name from information_schema.tables
+where table_schema = 'public' and table_name = 'token_grants';

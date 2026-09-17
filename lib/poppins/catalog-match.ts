@@ -4,6 +4,7 @@
  */
 
 import { classifyGroceryItem, isClothingCategory } from '@/lib/grocery/classify';
+import { bestFuzzyMatch, isConfidentFuzzy } from '@/lib/poppins/fuzzy-match';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { allLibraryTasks, choreDomains, homeworkDomain, type LibraryTask } from '@/lib/tasks/task-library';
 
@@ -198,6 +199,23 @@ const TITLE_STOP = new Set([
   'up',
   'me',
   'i',
+  'task',
+  'tasks',
+  'desk',
+  'chore',
+  'chores',
+  'todo',
+  'todos',
+  'today',
+  'tomorrow',
+  'tonight',
+  'week',
+  'add',
+  'create',
+  'make',
+  'set',
+  'schedule',
+  'put',
 ]);
 
 export type ExistingChoreTitle = {
@@ -209,6 +227,9 @@ export type ResolvedChoreTitle = {
   title: string;
   libraryTaskId?: string;
   category?: string;
+  /** Marginal fuzzy match — stage may NARROW / delay HOLD. */
+  provisional?: boolean;
+  confidence?: number;
 };
 
 /** Spoken wrapper (“I’ll set a task to…”) rather than the chore name itself. */
@@ -366,9 +387,31 @@ export function matchAssigneeName(
 ): string | undefined {
   if (selfName && wantsSelfAssignee(text)) return selfName;
   const named = text.match(/\bfor\s+([A-Z][a-zA-Z]{1,20})\b/)?.[1];
-  if (named && named.toLowerCase() !== 'me') return named;
+  if (named && named.toLowerCase() !== 'me') {
+    const exact = memberNames.find((name) => name.toLowerCase() === named.toLowerCase());
+    if (exact) return exact;
+    const fuzzy = bestFuzzyMatch(
+      named,
+      memberNames.map((name) => ({ key: name, value: name }))
+    );
+    if (fuzzy && isConfidentFuzzy(fuzzy)) return fuzzy.value;
+    // Named person not on roster — keep literal only if it looks like a name token.
+    if (!memberNames.length) return named;
+  }
   const lower = text.toLowerCase();
-  return memberNames.find((name) => hasWord(lower, name.toLowerCase()));
+  const exactWord = memberNames.find((name) => hasWord(lower, name.toLowerCase()));
+  if (exactWord) return exactWord;
+
+  // Fuzzy closed-set against roster tokens in the utterance.
+  const tokens = lower.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((t) => t.length >= 3);
+  for (const token of tokens) {
+    const hit = bestFuzzyMatch(
+      token,
+      memberNames.map((name) => ({ key: name, value: name }))
+    );
+    if (hit && isConfidentFuzzy(hit)) return hit.value;
+  }
+  return undefined;
 }
 
 export function matchLibraryIntent(
@@ -520,8 +563,8 @@ function matchExistingChoreTitle(
 }
 
 /**
- * Chore name for Tasks: catalog match, else a close open list item, else a short title.
- * Never keep “I’ll set a task to wash my car” as the row title.
+ * Chore name for Tasks: additive extract first; fuzzy closed-set only when extract fails.
+ * Fuzzy never corrects free-text invented titles — catalog/roster only.
  */
 export function resolvePoppinsChoreTitle(
   raw: string,
@@ -529,28 +572,100 @@ export function resolvePoppinsChoreTitle(
 ): ResolvedChoreTitle {
   const trimmed = raw.trim();
   if (!trimmed) return { title: '' };
+
   const extracted = extractSpokenChoreTitle(trimmed);
-  if (!extracted) {
-    if (looksLikeSpokenSentence(trimmed)) return { title: '' };
-    return { title: toChoreDisplayTitle(trimmed) };
+  if (extracted) {
+    const existing = matchExistingChoreTitle(extracted, opts?.existingTasks ?? []);
+    if (existing) {
+      const lib = matchCatalogForChore(existing, trimmed);
+      return {
+        title: existing,
+        libraryTaskId: lib?.id,
+        category: lib?.domainId,
+      };
+    }
+    if (isGroceryAddIntent(trimmed)) {
+      return { title: '' };
+    }
+    const lib = matchCatalogForChore(extracted, trimmed);
+    if (lib && !isGroceryMetaTask(lib)) {
+      return { title: lib.name, libraryTaskId: lib.id, category: lib.domainId };
+    }
+    return { title: toChoreDisplayTitle(extracted) };
   }
-  const existing = matchExistingChoreTitle(extracted, opts?.existingTasks ?? []);
-  if (existing) {
-    const lib = matchCatalogForChore(existing, trimmed);
-    return {
-      title: existing,
-      libraryTaskId: lib?.id,
-      category: lib?.domainId,
-    };
+
+  // Extract failed — fuzzy recovery for mangled single terms (diches → dishes).
+  const verbSet = new Set(CHORE_VERBS.split('|'));
+  const termKeys = new Map<string, string>();
+  for (const task of allLibraryTasks()) {
+    if (isGroceryMetaTask(task)) continue;
+    for (const key of [task.name, ...task.searchTerms]) {
+      for (const part of contentTokens(key)) {
+        if (!termKeys.has(part)) termKeys.set(part, part);
+      }
+      const whole = key.trim().toLowerCase();
+      if (whole && !/\s/.test(whole) && !termKeys.has(whole)) {
+        termKeys.set(whole, key.trim());
+      }
+    }
   }
-  if (isGroceryAddIntent(trimmed)) {
+  const catalogCandidates = [...termKeys.entries()].map(([k, v]) => ({ key: k, value: v }));
+  const tokens = contentTokens(trimmed);
+  const fuzzyNeedles =
+    tokens.length > 0
+      ? tokens.filter((token) => token.length >= 4 && !verbSet.has(token) && !TITLE_STOP.has(token))
+      : [trimmed.toLowerCase().replace(/[^a-z0-9]/g, '')].filter((t) => t.length >= 4);
+
+  // Domain-only words (kitchen, laundry…) are categories — never invent a title from them
+  // when the user said the word cleanly. Mangled hits (diches → dishes) still recover.
+  const domainAliasTerms = new Set(
+    Object.values(DOMAIN_ALIASES)
+      .flat()
+      .map((alias) => alias.toLowerCase())
+      .filter((alias) => !/\s/.test(alias) && alias.length >= 4)
+  );
+
+  for (const token of fuzzyNeedles) {
+    if (domainAliasTerms.has(token)) {
+      continue;
+    }
+    const hit = bestFuzzyMatch(token, catalogCandidates);
+    if (hit && isConfidentFuzzy(hit)) {
+      const corrected = hit.value;
+      const exactTermTasks = allLibraryTasks().filter(
+        (task) =>
+          !isGroceryMetaTask(task) &&
+          (task.name.toLowerCase() === corrected.toLowerCase() ||
+            task.searchTerms.some((term) => term.toLowerCase() === corrected.toLowerCase()))
+      );
+      if (exactTermTasks.length === 1) {
+        const lib = exactTermTasks[0]!;
+        return {
+          title: lib.name,
+          libraryTaskId: lib.id,
+          category: lib.domainId,
+          provisional: hit.distance > 0,
+          confidence: hit.confidence,
+        };
+      }
+      // Mangled transcript → known closed-set term, but several chores share it.
+      // Prefer a provisional corrected word over inventing a free-text title.
+      if (hit.distance > 0) {
+        return {
+          title: toChoreDisplayTitle(corrected),
+          provisional: true,
+          confidence: hit.confidence,
+        };
+      }
+    }
+  }
+
+  if (looksLikeSpokenSentence(trimmed)) return { title: '' };
+  // Bare clean domain word with no chore verb → empty title (category via matchLibraryIntent).
+  if (fuzzyNeedles.length === 1 && domainAliasTerms.has(fuzzyNeedles[0]!)) {
     return { title: '' };
   }
-  const lib = matchCatalogForChore(extracted, trimmed);
-  if (lib && !isGroceryMetaTask(lib)) {
-    return { title: lib.name, libraryTaskId: lib.id, category: lib.domainId };
-  }
-  return { title: toChoreDisplayTitle(extracted) };
+  return { title: toChoreDisplayTitle(trimmed) };
 }
 
 export function isCompleteIntent(text: string): boolean {
@@ -598,14 +713,44 @@ export function extractItemName(text: string): string | undefined {
     .replace(/\bin \d+ weeks?\b/gi, '')
     .replace(/\bin (a|one|two|three|four|five) weeks?\b/gi, '')
     .trim();
-  const match =
-    cleaned.match(
-      /\b(?:add|buy|get|grab|pick up)\s+(?:some |the |a |an )?(?:new )?(.+?)(?:\s+to (?:the )?(?:list|grocer(?:y|ies)|shopping).*)?$/i
-    )?.[1] ??
-    cleaned.match(/\bwant(?: to)?\s+(?:the |a |an )?(.+)$/i)?.[1];
-  const name = match?.replace(/\b(please|thanks)\b/gi, '').trim();
-  if (!name || name.length < 2 || /\btask\b/i.test(name)) return undefined;
-  return name.replace(/\s+/g, ' ').slice(0, 48);
+
+  // Additive: verb + item noun. List preposition (to|on|onto|in|into) strips the tail.
+  const framed = cleaned.match(
+    /\b(?:add|buy|get|grab|pick\s+up|put)\s+(?:some |the |a |an |my )?(?:new )?(.+?)(?:\s+(?:to|on|onto|in|into)\s+(?:the\s+)?(?:list|grocer(?:y|ies)|shopping(?:\s+list)?))\b/i
+  );
+  if (framed?.[1]) {
+    const name = framed[1]
+      .replace(/\b(please|thanks)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (name.length >= 2 && !/\btask\b/i.test(name) && !/\bgo to store\b/i.test(name)) {
+      return name.slice(0, 48);
+    }
+    return undefined;
+  }
+
+  // No list-word: still try a short "add X" when confident.
+  const bare = cleaned.match(
+    /\b(?:add|buy|get|grab|pick\s+up)\s+(?:some |the |a |an |my )?(?:new )?([a-z][\w\s'-]{1,40})$/i
+  );
+  if (bare?.[1]) {
+    const name = bare[1].replace(/\b(please|thanks)\b/gi, '').replace(/\s+/g, ' ').trim();
+    if (
+      name.length >= 2 &&
+      name.split(/\s+/).length <= 5 &&
+      !/\btask\b/i.test(name) &&
+      !/\b(list|grocery|shopping)\b/i.test(name)
+    ) {
+      return name.slice(0, 48);
+    }
+  }
+
+  const want = cleaned.match(/\bwant(?: to)?\s+(?:the |a |an )?([a-z][\w\s'-]{1,40})$/i)?.[1];
+  if (want) {
+    const name = want.replace(/\s+/g, ' ').trim();
+    if (name.length >= 2 && !/\btask\b/i.test(name)) return name.slice(0, 48);
+  }
+  return undefined;
 }
 
 export function parseReleaseDate(text: string, now = new Date()): string | undefined {

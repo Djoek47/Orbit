@@ -39,3 +39,11 @@ Implementation:
 - Serialize: `lib/poppins/iui-act-notification.ts`
 - Response: `lib/notifications/iui-act-response.ts`
 - Push: `supabase/functions/dispatch-member-push` passes `categoryId` for `kind: iui_act`
+
+## §11.1 — Provisional fills (fuzzy confidence)
+
+Closed-set fuzzy matches (catalog + roster) expose a confidence score. A high-confidence hit fills the slot as certain; a marginal hit sets `payload.provisional` and does **not** arm HOLD. Free-text invented titles are never fuzzy-corrected.
+
+## Echo defence (A3c)
+
+Mic uplink requests explicit `echoCancellation` / `noiseSuppression` / `autoGainControl`. While the assistant speaks, local audio tracks are disabled. `hearAndDrive` only runs on confirmed user-originated turns and strips leading disfluency.

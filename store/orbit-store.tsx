@@ -781,6 +781,33 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       aiUsageRef.current = next;
       setAiUsageEvents(next);
       await saveAiUsageEvents(household.id, next);
+
+      // Monthly/daily first (counted in summarize); surplus from top-ups oldest-first.
+      const charged = Math.max(0, Math.round(event.tokens ?? 0));
+      if (charged > 0 && household.id) {
+        try {
+          const { summarizeAiUsage, TOKENS_PER_DAY, TOKENS_PER_MONTH } = await import(
+            '@/lib/ai/credits'
+          );
+          const { consumeTopUpTokens, loadTokenGrants, topUpBalanceFromGrants } = await import(
+            '@/lib/billing/token-grants'
+          );
+          const grants = await loadTokenGrants(household.id);
+          const topUp = topUpBalanceFromGrants(grants);
+          const before = summarizeAiUsage(aiUsageRef.current.slice(0, -1), [], {
+            topUpBalance: topUp,
+          });
+          const monthlyLeft = Math.max(0, TOKENS_PER_MONTH - before.tokensUsedThisPeriod);
+          const dailyLeft = Math.max(0, TOKENS_PER_DAY - before.tokensUsedToday);
+          const allowanceLeft = Math.min(monthlyLeft, dailyLeft);
+          const fromTopUp = Math.max(0, charged - allowanceLeft);
+          if (fromTopUp > 0) {
+            await consumeTopUpTokens(household.id, fromTopUp);
+          }
+        } catch (error) {
+          console.warn('top-up consume skipped', error);
+        }
+      }
     },
     [currentMember, household.id]
   );

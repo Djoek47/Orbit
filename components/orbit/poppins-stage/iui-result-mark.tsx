@@ -1,10 +1,23 @@
+/**
+ * Settle / result mark — one deliberate arrival.
+ * Mount animation is allowed here: settle is after WebRTC uplink is quiet.
+ */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
+import { StyleSheet } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { motion } from '@/constants/motion-tokens';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
-const MARK_GREEN = '#22C55E';
+const MARK_GREEN = '#34D399';
 
 type Props = {
   kind?: 'added' | 'done' | 'assigned';
@@ -17,35 +30,45 @@ const LABEL: Record<NonNullable<Props['kind']>, string> = {
   assigned: 'Assigned',
 };
 
-/** Green check after Poppins writes — milk added, task done, task assigned. */
+/** Green check after Poppins writes — one deliberate arrival, no toast/sound. */
 export function IuiResultMark({ kind = 'added', title }: Props) {
   const { c } = useOrbitColors();
+  const scale = useSharedValue(0.82);
+
+  useEffect(() => {
+    scale.value = withSpring(1, motion.settle);
+  }, [scale]);
+
+  const badgeStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
-    <View style={styles.wrap}>
-      <View style={styles.badge}>
+    <Animated.View entering={FadeIn.duration(280)} style={styles.wrap}>
+      <Animated.View style={[styles.badge, badgeStyle]}>
         <MaterialIcons name="check" size={36} color="#ECFDF5" />
-      </View>
-      <View>
+      </Animated.View>
+      <Animated.View entering={FadeInUp.delay(80).duration(360)}>
         <Text style={[styles.label, { color: MARK_GREEN }]}>{LABEL[kind]}</Text>
         {title ? (
           <Text style={[styles.title, { color: c.text }]} numberOfLines={2}>
             {title}
           </Text>
         ) : null}
-      </View>
-    </View>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', gap: 12, paddingVertical: 8 },
+  wrap: { alignItems: 'center', gap: 14, paddingVertical: 12 },
   badge: {
     alignItems: 'center',
     backgroundColor: MARK_GREEN,
-    borderRadius: 32,
-    height: 64,
+    borderRadius: 36,
+    height: 72,
     justifyContent: 'center',
-    width: 64,
+    width: 72,
   },
   label: {
     fontSize: 22,

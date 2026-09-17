@@ -61,19 +61,31 @@ export function driveAiuic(
 export function hearAndDrive(
   text: string,
   memberNames: string[] = [],
-  opts?: { kid?: boolean; selfName?: string } & HouseholdIntentOpts
+  opts?: {
+    kid?: boolean;
+    selfName?: string;
+    /** Defence in depth — refuse assistant/echo turns even if AEC fails. */
+    userOriginated?: boolean;
+  } & HouseholdIntentOpts
 ) {
-  const memory = parseHouseMemoryUtterance(text);
+  if (opts?.userOriginated === false) return false;
+  // Strip leading STT disfluency / echo residue before parsing.
+  const cleaned = text
+    .replace(/^(oh+|uh+|um+|ah+|hmm+|il will|i l will)\s+/i, '')
+    .replace(/^(oh[, ]+)?i['’]?ll\s+/i, '')
+    .trim();
+  if (!cleaned) return false;
+  const memory = parseHouseMemoryUtterance(cleaned);
   if (memory) void rememberActiveFact(memory);
-  const steered = poppinsUiOrchestrator.applySpeech(text, memberNames, { selfName: opts?.selfName });
+  const steered = poppinsUiOrchestrator.applySpeech(cleaned, memberNames, { selfName: opts?.selfName });
   if (!steered) {
-    const inferred = parseHouseholdIntent(text, {
+    const inferred = parseHouseholdIntent(cleaned, {
       memberNames,
       selfName: opts?.selfName,
       existingTasks: opts?.existingTasks,
     });
     if (inferred.length) {
-      driveAiuic(inferred, text, {
+      driveAiuic(inferred, cleaned, {
         kid: opts?.kid,
         replace: true,
         existingTasks: opts?.existingTasks,
@@ -82,6 +94,6 @@ export function hearAndDrive(
       });
     }
   }
-  poppinsUiOrchestrator.syncSpoken(text, memberNames);
+  poppinsUiOrchestrator.syncSpoken(cleaned, memberNames);
   return steered || poppinsUiOrchestrator.getState().live;
 }

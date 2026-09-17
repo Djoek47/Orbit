@@ -93,6 +93,16 @@ type WebRtcModule = {
   RTCSessionDescription: new (init: { type: string; sdp: string }) => { type: string; sdp: string };
 };
 
+/** Explicit AEC — bare `{ audio: true }` leaves speakerphone echo to chance. */
+export const POPPINS_MIC_CONSTRAINTS = {
+  audio: {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+  },
+  video: false,
+} as const;
+
 type RTCPeerConnectionLike = {
   addTrack: (track: MediaStreamTrack, stream: MediaStream) => void;
   createDataChannel: (label: string) => RTCDataChannelLike;
@@ -187,7 +197,7 @@ export async function warmPoppinsMicrophone(): Promise<boolean> {
     if (streamHasLiveAudio(warmedMic)) return true;
     releaseWarmedMicrophone();
     await configurePoppinsSpeakerAudio();
-    warmedMic = await webrtc.mediaDevices.getUserMedia({ audio: true, video: false });
+    warmedMic = await webrtc.mediaDevices.getUserMedia(POPPINS_MIC_CONSTRAINTS);
     return streamHasLiveAudio(warmedMic);
   } catch {
     releaseWarmedMicrophone();
@@ -314,12 +324,30 @@ export class PoppinsVoiceSession {
 
   private setState(next: PoppinsVoiceVisualState) {
     if (this.fatal && next !== 'idle') return;
+    const prev = this.state;
     this.state = next;
     this.callbacks.onStateChange?.(next);
+    if (next === 'speaking' && prev !== 'speaking') {
+      this.setMicUplinkEnabled(false);
+    } else if (prev === 'speaking' && next !== 'speaking') {
+      this.setMicUplinkEnabled(true);
+    }
     if (next === 'thinking' || next === 'speaking' || this.pausedForTools) {
       this.clearIdleTimers();
     } else if (next === 'listening' && this.connected) {
       this.armIdleTimers();
+    }
+  }
+
+  /** Gate mic uplink while the assistant speaks — cuts echo + Realtime input cost. */
+  private setMicUplinkEnabled(enabled: boolean) {
+    try {
+      const tracks = this.localStream?.getAudioTracks?.() ?? [];
+      for (const track of tracks) {
+        track.enabled = enabled;
+      }
+    } catch {
+      /* ignore */
     }
   }
 
@@ -416,10 +444,7 @@ export class PoppinsVoiceSession {
 
       await configurePoppinsSpeakerAudio();
 
-      this.localStream = await webrtc.mediaDevices.getUserMedia({
-        audio: true,
-        video: false,
-      });
+      this.localStream = await webrtc.mediaDevices.getUserMedia(POPPINS_MIC_CONSTRAINTS);
 
       this.pc = new webrtc.RTCPeerConnection({});
       for (const track of this.localStream.getTracks()) {

@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 
 import { executePoppinsTool } from '@/lib/ai/execute-poppins-tool';
 import {
+  extractItemName,
   extractSpokenChoreTitle,
+  matchAssigneeName,
   matchLibraryIntent,
   resolvePoppinsChoreTitle,
 } from '@/lib/poppins/catalog-match';
@@ -40,6 +42,25 @@ assert.match(
   String(extractSpokenChoreTitle('add me a quick cleaning task for the dishes tomorrow')),
   /clean.*dishes|dishes/i
 );
+
+// A3b — grocery extract additive + on/onto list
+assert.equal(extractItemName('add milk to the list'), 'milk');
+assert.equal(extractItemName('add milk on the list'), 'milk');
+assert.equal(extractItemName('put eggs on the shopping list'), 'eggs');
+assert.equal(extractItemName('can you add bread to the grocery list'), 'bread');
+assert.equal(
+  extractItemName('add go to store on the list'),
+  undefined,
+  'do not ship debris phrases as item names'
+);
+
+// A3d — fuzzy catalog / roster
+const diches = resolvePoppinsChoreTitle('diches');
+assert.match(diches.title, /dish/i);
+assert.equal(diches.provisional === true || Boolean(diches.libraryTaskId), true);
+const laundry = resolvePoppinsChoreTitle('lawndry');
+assert.match(laundry.title, /laundr/i);
+assert.equal(matchAssigneeName('for Draco tomorrow', ['Drako', 'Maya']), 'Drako');
 
 const fromGarbled = resolvePoppinsChoreTitle(garbled);
 assert.equal(fromGarbled.title, 'Wash the car');

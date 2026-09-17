@@ -70,7 +70,9 @@ assert.match(voice, /at most three words/);
 
 const stage = source('components/orbit/poppins-stage.tsx');
 assert.match(stage, /onVoiceTaskCreated/);
-assert.match(stage, /if \(created\) onVoiceTaskCreated\?\.\(created\)/);
+assert.match(stage, /commitIuiBeat/);
+const iuiCommit = source('lib/poppins/iui-commit.ts');
+assert.match(iuiCommit, /if \(created\) onVoiceTaskCreated\?\.\(created\)/);
 
 const poppins = source('app/(tabs)/poppins.tsx');
 assert.match(poppins, /syncHousehold/);

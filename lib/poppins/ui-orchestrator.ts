@@ -245,6 +245,8 @@ function maybeArmHold() {
   if (!beat || beat.commit !== 'hold' || state.frozen || state.speaking) return;
   if (state.holding) return;
   if (beat.payload.composeReady === false) return;
+  // Marginal fuzzy fill — NARROW / wait for certainty, do not silence-commit.
+  if (beat.payload.provisional) return;
   if (sceneNeedsUnfold(beat.scene) && state.phase === 'show') return;
   clearQuietTimer();
   quietTimer = setTimeout(() => {

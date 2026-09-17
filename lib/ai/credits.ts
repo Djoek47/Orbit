@@ -209,8 +209,9 @@ export function summarizeAiUsage(
   const monthlyRemaining = Math.max(0, TOKENS_PER_MONTH - tokensUsedThisPeriod);
   const dailyRemaining = Math.max(0, TOKENS_PER_DAY - tokensUsedToday);
   const tokensRemaining = Math.max(0, Math.min(monthlyRemaining, dailyRemaining) + topUpBalance);
-  const tripped =
+  const allowanceExhausted =
     tokensUsedThisPeriod >= TOKENS_PER_MONTH || tokensUsedToday >= TOKENS_PER_DAY;
+  const tripped = allowanceExhausted && topUpBalance <= 0;
   const cogsBreaker = householdUsd >= COGS_CEILING_USD;
 
   const byMember: MemberAiSpend[] = members.map((member) => {

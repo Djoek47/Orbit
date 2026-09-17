@@ -103,6 +103,8 @@ export type IuiPayload = {
   write?: IuiWriteKind;
   /** False until who/category/task/when are chosen — HOLD must not start. */
   composeReady?: boolean;
+  /** Marginal fuzzy fill — do not arm HOLD until confirmed. */
+  provisional?: boolean;
   /** Current one-beat compose step. */
   composeStep?: 'who' | 'category' | 'task' | 'subject' | 'when' | 'ready';
   /** Optional: show emoji next to library chips. */
@@ -158,11 +160,11 @@ export const SHOW_MS = 160;
 export const UNFOLD_MS = 220;
 /** Quiet gap after speech before HOLD. Words already painted; this is only the commit clock. */
 export const SPEECH_QUIET_MS = 70;
-/** commit:none linger — result check, then chain or rest. */
-export const RESULT_LINGER_MS = 420;
-export const NONE_LINGER_MS = 260;
-/** Clear the stage after the last settle. */
-export const SETTLE_CLEAR_MS = 200;
+/** commit:none linger — result check, then chain or rest. Arrival, not a blink. */
+export const RESULT_LINGER_MS = 980;
+export const NONE_LINGER_MS = 320;
+/** Clear the stage after the last settle — give the mark time to land. */
+export const SETTLE_CLEAR_MS = 420;
 
 export function defaultCommitForScene(scene: IuiScene): IuiCommitKind {
   if ((HOLD_SCENES as readonly string[]).includes(scene)) return 'hold';
