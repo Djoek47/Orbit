@@ -109,7 +109,13 @@ export function parseHouseholdIntent(
   if (isChoreAssignIntent(text)) {
     const match = matchLibraryIntent(text, memberNames, selfName);
     const resolved = resolvePoppinsChoreTitle(text, { existingTasks: opts?.existingTasks });
-    const title = /^(task|chore)$/i.test(resolved.title) ? '' : resolved.title;
+    const rawTitle = resolved.title?.trim() ?? '';
+    const domainOnly =
+      Boolean(match.domainLabel) &&
+      !resolved.libraryTaskId &&
+      rawTitle.toLowerCase() === String(match.domainLabel).toLowerCase();
+    const title =
+      !rawTitle || /^(task|chore)$/i.test(rawTitle) || domainOnly ? '' : rawTitle;
     const due = dueLabelFromUtterance(text);
     const named = match.assignee ?? text.match(/\bfor\s+([A-Z][a-zA-Z]+)\b/)?.[1];
     const assignee = named && named.toLowerCase() !== 'me' ? named : match.assignee;

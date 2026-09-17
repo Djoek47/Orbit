@@ -215,11 +215,18 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
         const itemName =
           extractItemName(utteranceHint) ||
           extractItemName(String(action.title ?? '')) ||
-          String(action.name ?? 'Item');
+          (typeof action.name === 'string' && action.name.trim() ? action.name.trim() : undefined);
+        if (!itemName) continue;
         playlist.push(...groceryBeatsFromAction({ ...action, name: itemName }));
         continue;
       }
-      if (isScheduleIntent(String(action.title ?? utteranceHint))) {
+      // Homework library titles like "Practice math facts" match schedule keywords —
+      // never divert a homework_education draft (or homework utterance) to calendar.
+      if (
+        !isHomeworkDraft(action, prefill) &&
+        !isHomeworkIntent(utteranceHint) &&
+        isScheduleIntent(String(action.title ?? utteranceHint))
+      ) {
         playlist.push(
           beat(
             'calendar_zoom',

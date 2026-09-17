@@ -51,6 +51,8 @@ assert.ok(!chips.includes('entering={FadeIn'), 'chore chips must not mount-anima
 const stageDir = join(root, 'components/orbit/poppins-stage');
 for (const file of readdirSync(stageDir)) {
   if (!file.endsWith('.tsx')) continue;
+  // Settle mark is post-commit — entrance motion is intentional (A11).
+  if (file === 'iui-result-mark.tsx') continue;
   const src = source(`components/orbit/poppins-stage/${file}`);
   assert.equal(src.includes('entering='), false, `${file} must not mount-animate under live WebRTC`);
 }
