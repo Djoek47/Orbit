@@ -57,7 +57,7 @@ Not blocking TF69. Clean up when convenient:
 
 | Build | Git | EAS build | Submit |
 |-------|-----|-----------|--------|
-| **1.3.0 (71)** | tip stamp | queued — Review Demo shown on Sign in | auto-submit |
+| **1.3.0 (71)** | `836f608` | [65d178b8…](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/65d178b8-53b7-4fb9-8586-eccd9ed9393b) — Review Demo on Sign in | [auto-submit](https://expo.dev/accounts/djoek47/projects/choremaxx/submissions/0af7499c-335f-41c3-bad6-88cecf2a501e) (free-tier queue) |
 | **1.3.0 (70)** | `f71e27f` | [6aade6f4…](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/6aade6f4-3039-4036-b8ca-0f3883ee9ee9) — Review Demo + monitor metering | [auto-submit](https://expo.dev/accounts/djoek47/projects/choremaxx/submissions/c08c6e8c-05b5-43e8-96e3-9befaaa594b7) (free-tier queue) |
 
 Parent line (v18): **1.3.0 (69)** finished — ASC Beta App Review refused (no demo). Do not promote 69.  
