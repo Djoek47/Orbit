@@ -5219,10 +5219,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createdByMemberId: currentMember.id,
       createdByName: currentMember.name,
     });
-    setHousehold((current) => ({
-      ...current,
-      rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
-    }));
+    const nextHousehold = await new Promise<HouseholdSnapshot>((resolve) => {
+      setHousehold((current) => {
+        const next: HouseholdSnapshot = {
+          ...current,
+          rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
+        };
+        resolve(next);
+        return next;
+      });
+    });
+    await persistMockHouseholdSnapshot(nextHousehold);
     await requestRewardRedemption(reward.id, note || 'Special request');
   };
 
@@ -5240,15 +5247,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createdByMemberId: currentMember?.id,
       createdByName: currentMember?.name,
     });
-    setHousehold((current) => ({
-      ...current,
-      rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
-      rewardProposals: (current.rewardProposals ?? []).map((item) =>
-        item.id === proposalId
-          ? { ...item, status: 'approved' as const, decidedAt: new Date().toISOString() }
-          : item
-      ),
-    }));
+    const nextHousehold = await new Promise<HouseholdSnapshot>((resolve) => {
+      setHousehold((current) => {
+        const next: HouseholdSnapshot = {
+          ...current,
+          rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
+          rewardProposals: (current.rewardProposals ?? []).map((item) =>
+            item.id === proposalId
+              ? { ...item, status: 'approved' as const, decidedAt: new Date().toISOString() }
+              : item
+          ),
+        };
+        resolve(next);
+        return next;
+      });
+    });
+    await persistMockHouseholdSnapshot(nextHousehold);
     if (dataMode === 'supabase' && isPersistedHouseholdId(household.id)) {
       await getSupabaseClient()?.rpc('decide_reward_proposal', {
         p_proposal_id: proposalId,
@@ -5310,15 +5324,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createdByMemberId: input.createdByMemberId ?? currentMember?.id,
       createdByName: input.createdByName ?? currentMember?.name ?? currentUser?.name,
     });
-    setHousehold((current) => {
-      if (targetHouseholdId && current.id && current.id !== targetHouseholdId) {
-        return current;
-      }
-      return {
-        ...current,
-        rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
-      };
+    // Persist so getHousehold() → seedMockDomains cannot wipe newly minted vault rewards.
+    const nextHousehold = await new Promise<HouseholdSnapshot>((resolve) => {
+      setHousehold((current) => {
+        if (targetHouseholdId && current.id && current.id !== targetHouseholdId) {
+          resolve(current);
+          return current;
+        }
+        const next: HouseholdSnapshot = {
+          ...current,
+          rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
+        };
+        resolve(next);
+        return next;
+      });
     });
+    await persistMockHouseholdSnapshot(nextHousehold);
     if (reward.assignedMemberId && reward.assignedMemberId !== currentMember?.id) {
       // Assigned rewards surface in-app; no closed-registry notification for assignment.
     }
@@ -5328,21 +5349,35 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const updateReward = async (reward: Reward) => {
     if (!permissions.canManageHousehold) return;
     const updated = await rewardsRepository.updateReward(reward);
-    setHousehold((current) => ({
-      ...current,
-      rewards: current.rewards.map((item) => (item.id === updated.id ? updated : item)),
-    }));
+    const nextHousehold = await new Promise<HouseholdSnapshot>((resolve) => {
+      setHousehold((current) => {
+        const next: HouseholdSnapshot = {
+          ...current,
+          rewards: current.rewards.map((item) => (item.id === updated.id ? updated : item)),
+        };
+        resolve(next);
+        return next;
+      });
+    });
+    await persistMockHouseholdSnapshot(nextHousehold);
     await trackAnalytics('reward.updated', { rewardId: updated.id }, analyticsContext);
   };
 
   const archiveReward = async (rewardId: string) => {
     await rewardsRepository.archiveReward(rewardId);
-    setHousehold((current) => ({
-      ...current,
-      rewards: current.rewards.map((item) =>
-        item.id === rewardId ? { ...item, archived: true } : item
-      ),
-    }));
+    const nextHousehold = await new Promise<HouseholdSnapshot>((resolve) => {
+      setHousehold((current) => {
+        const next: HouseholdSnapshot = {
+          ...current,
+          rewards: current.rewards.map((item) =>
+            item.id === rewardId ? { ...item, archived: true } : item
+          ),
+        };
+        resolve(next);
+        return next;
+      });
+    });
+    await persistMockHouseholdSnapshot(nextHousehold);
     await trackAnalytics('reward.archived', { rewardId }, analyticsContext);
   };
 
