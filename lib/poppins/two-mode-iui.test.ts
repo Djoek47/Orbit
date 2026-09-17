@@ -20,13 +20,13 @@ poppinsUiOrchestrator.setSpeaking(false);
 poppinsUiOrchestrator.setTapHandler(null);
 poppinsUiOrchestrator.setCommitHandler(null);
 
-const kitchenIntent = parseHouseholdIntent('Schedule a task for kitchen tomorrow');
+const kitchenIntent = parseHouseholdIntent('Add a task for kitchen tomorrow');
 assert.equal(kitchenIntent[0]?.type, 'create_task_draft');
 assert.equal(kitchenIntent[0]?.category, 'kitchen_dining');
 assert.equal(kitchenIntent[0]?.due, 'Tomorrow');
-assert.ok(!kitchenIntent[0]?.title, 'generic schedule-a-task must not fake a title');
+assert.ok(!kitchenIntent[0]?.title, 'generic add-a-task must not fake a title');
 
-hearAndDrive('Schedule a task for kitchen tomorrow', ['Alex', 'Maya']);
+hearAndDrive('Add a task for kitchen tomorrow', ['Alex', 'Maya']);
 const kitchenPayload = poppinsUiOrchestrator.getState().playlist[0]?.payload;
 assert.equal(kitchenPayload?.category, 'kitchen_dining');
 assert.equal(kitchenPayload?.due, 'Tomorrow');

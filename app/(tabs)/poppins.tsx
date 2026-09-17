@@ -378,6 +378,7 @@ export default function PoppinsScreen() {
     let reportedError = false;
     const session = new PoppinsVoiceSession({
       getHousehold: () => householdRef.current,
+      stageShowsAct: () => poppinsUiOrchestrator.getState().live,
       onStateChange: (state) => {
         if (voiceFailedRef.current && state !== 'idle') return;
         setVoiceState(state);
@@ -657,7 +658,11 @@ export default function PoppinsScreen() {
               };
               householdRef.current = next;
               voiceRef.current?.syncHousehold(next);
-              voiceRef.current?.notifyTaskOnTasks(task.title);
+              voiceRef.current?.notifyTaskCommitted({
+                title: task.title,
+                assignee: task.assignee,
+                due: task.due,
+              });
             }}
           />
         </ScrollView>

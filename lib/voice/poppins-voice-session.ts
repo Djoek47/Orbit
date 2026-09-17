@@ -80,6 +80,8 @@ export type PoppinsVoiceSessionCallbacks = {
   onRemoteStream?: (url: string | null) => void;
   /** Live household — tools must not freeze the connect-time snapshot. */
   getHousehold?: () => HouseholdSnapshot | null | undefined;
+  /** True when the IUI stage already shows the act — speak at most three words. */
+  stageShowsAct?: () => boolean;
 };
 
 type WebRtcModule = {
@@ -888,11 +890,20 @@ export class PoppinsVoiceSession {
         }
       }
 
-      // NON-NEGOTIABLE: always request spoken response after tools —
-      // unless a finger tap is waiting to tell the model what they chose.
+      // After tools: always response.create (session audio). When the stage already
+      // shows the act, cap speech — the card is the confirm, voice is redundant.
       this.pausedForTools = false;
       if (this.pendingStageTap) {
         this.flushPendingStageTap();
+      } else if (this.callbacks.stageShowsAct?.()) {
+        this.sendEvent({
+          type: 'response.create',
+          response: {
+            instructions:
+              'The stage already shows the act. Say at most three words, or stay silent. Do not narrate what they can read.',
+          },
+        });
+        this.armThinkingRecovery();
       } else {
         this.sendEvent({
           type: 'response.create',
@@ -914,26 +925,38 @@ export class PoppinsVoiceSession {
     this.household = household;
   }
 
-  /** After HOLD createTask — confirm the live list instead of guessing from connect-time. */
-  notifyTaskOnTasks(title: string) {
-    const trimmed = title.trim();
-    if (!trimmed || !this.isConnected) return;
+  /**
+   * After HOLD createTask — one fact line into the session (no spoken confirm).
+   * Desk brief stays at Speak-open; do not rebuild it per commit.
+   */
+  notifyTaskCommitted(input: { title: string; assignee?: string; due?: string }) {
+    const title = input.title.trim();
+    if (!title || !this.isConnected) return;
+    const assignee = input.assignee?.trim();
+    const due = input.due?.trim();
+    const fact = [
+      'Assigned:',
+      title,
+      assignee ? `→ ${assignee}` : null,
+      due ? `, ${due}` : null,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+,/g, ',');
     this.noteUserActivity();
     this.sendEvent({
       type: 'conversation.item.create',
       item: {
         type: 'message',
         role: 'user',
-        content: realtimeTextContent('user', `The task “${trimmed}” is on Tasks now.`),
+        content: realtimeTextContent('user', fact),
       },
     });
-    this.sendEvent({
-      type: 'response.create',
-      response: {
-        instructions: `Confirm that “${trimmed}” is on Tasks. Do not create it again.`,
-      },
-    });
-    this.setState('thinking');
+  }
+
+  /** @deprecated Prefer notifyTaskCommitted — kept as alias for older call sites. */
+  notifyTaskOnTasks(title: string) {
+    this.notifyTaskCommitted({ title });
   }
 
   private async executeVoiceTools(

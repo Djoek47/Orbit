@@ -62,8 +62,11 @@ assert.equal(frozen?.tasks.length, 0);
 
 const voice = source('lib/voice/poppins-voice-session.ts');
 assert.match(voice, /resolveLiveVoiceHousehold/);
-assert.match(voice, /notifyTaskOnTasks/);
-assert.match(voice, /The task “\$\{trimmed\}” is on Tasks now/);
+assert.match(voice, /notifyTaskCommitted/);
+assert.match(voice, /Assigned:/);
+assert.ok(!voice.includes('Confirm that “${trimmed}” is on Tasks'), 'no spoken confirm after commit');
+assert.match(voice, /stageShowsAct/);
+assert.match(voice, /at most three words/);
 
 const stage = source('components/orbit/poppins-stage.tsx');
 assert.match(stage, /onVoiceTaskCreated/);
@@ -71,7 +74,8 @@ assert.match(stage, /if \(created\) onVoiceTaskCreated\?\.\(created\)/);
 
 const poppins = source('app/(tabs)/poppins.tsx');
 assert.match(poppins, /syncHousehold/);
-assert.match(poppins, /notifyTaskOnTasks/);
+assert.match(poppins, /notifyTaskCommitted/);
 assert.match(poppins, /getHousehold: \(\) => householdRef\.current/);
+assert.match(poppins, /stageShowsAct/);
 
 console.log('PASS live-household');
