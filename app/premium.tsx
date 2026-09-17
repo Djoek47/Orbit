@@ -197,8 +197,8 @@ export default function PremiumScreen() {
           styles.topUpRoot,
           {
             backgroundColor: orbitPalette.background,
-            paddingTop: insets.top + 28,
-            paddingBottom: Math.max(insets.bottom, 24),
+            paddingTop: insets.top + space.xxl,
+            paddingBottom: Math.max(insets.bottom, space.xl),
           },
         ]}>
         <TokenTopUpPicker
@@ -236,7 +236,6 @@ export default function PremiumScreen() {
 const styles = StyleSheet.create({
   topUpRoot: {
     flex: 1,
-    justifyContent: 'center',
     paddingHorizontal: space.xl,
     gap: space.sm,
   },

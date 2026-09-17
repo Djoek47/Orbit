@@ -21,7 +21,7 @@ import {
   PREMIUM_ALLOWANCE_COPY,
 } from '@/constants/billing';
 import { motion } from '@/constants/motion-tokens';
-import { radius, space } from '@/constants/orbit-theme';
+import { radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -260,33 +260,32 @@ const styles = StyleSheet.create({
   },
   usageCard: {
     borderRadius: radius.card,
-    gap: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    gap: space.xxs,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm + 2,
   },
   usageTitle: {
+    ...typography.headline,
     fontSize: 15,
-    fontWeight: '600',
+    lineHeight: 20,
     marginBottom: 2,
   },
   usageLine: {
-    fontSize: 13,
-    lineHeight: 18,
+    ...typography.footnote,
   },
   buyMore: {
-    marginTop: 8,
+    marginTop: space.xs,
   },
   footer: {
-    gap: 14,
+    gap: space.sm + 2,
   },
   status: {
-    fontSize: 14,
+    ...typography.subheadline,
     fontWeight: '500',
     textAlign: 'center',
   },
   error: {
-    fontSize: 13,
-    lineHeight: 18,
+    ...typography.footnote,
     textAlign: 'center',
   },
   cta: {

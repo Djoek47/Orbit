@@ -14,10 +14,9 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { motion } from '@/constants/motion-tokens';
+import { motion, motionDuration } from '@/constants/motion-tokens';
+import { space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
-
-const MARK_GREEN = '#34D399';
 
 type Props = {
   kind?: 'added' | 'done' | 'assigned';
@@ -34,6 +33,7 @@ const LABEL: Record<NonNullable<Props['kind']>, string> = {
 export function IuiResultMark({ kind = 'added', title }: Props) {
   const { c } = useOrbitColors();
   const scale = useSharedValue(0.82);
+  const markGreen = c.success;
 
   useEffect(() => {
     scale.value = withSpring(1, motion.settle);
@@ -44,12 +44,12 @@ export function IuiResultMark({ kind = 'added', title }: Props) {
   }));
 
   return (
-    <Animated.View entering={FadeIn.duration(280)} style={styles.wrap}>
-      <Animated.View style={[styles.badge, badgeStyle]}>
+    <Animated.View entering={FadeIn.duration(motionDuration.smooth)} style={styles.wrap}>
+      <Animated.View style={[styles.badge, { backgroundColor: markGreen }, badgeStyle]}>
         <MaterialIcons name="check" size={36} color="#ECFDF5" />
       </Animated.View>
-      <Animated.View entering={FadeInUp.delay(80).duration(360)}>
-        <Text style={[styles.label, { color: MARK_GREEN }]}>{LABEL[kind]}</Text>
+      <Animated.View entering={FadeInUp.delay(80).duration(motionDuration.smooth + 60)}>
+        <Text style={[styles.label, { color: markGreen }]}>{LABEL[kind]}</Text>
         {title ? (
           <Text style={[styles.title, { color: c.text }]} numberOfLines={2}>
             {title}
@@ -61,20 +61,26 @@ export function IuiResultMark({ kind = 'added', title }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', gap: 14, paddingVertical: 12 },
+  wrap: {
+    alignItems: 'center',
+    gap: space.sm + 2,
+    paddingVertical: space.sm,
+  },
   badge: {
     alignItems: 'center',
-    backgroundColor: MARK_GREEN,
     borderRadius: 36,
     height: 72,
     justifyContent: 'center',
     width: 72,
   },
   label: {
-    fontSize: 22,
-    fontWeight: '700',
+    ...typography.title2,
     letterSpacing: -0.3,
     textAlign: 'center',
   },
-  title: { fontSize: 15, marginTop: 4, textAlign: 'center' },
+  title: {
+    ...typography.subheadline,
+    marginTop: space.xxs,
+    textAlign: 'center',
+  },
 });

@@ -1103,6 +1103,18 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
               ))}
+              {permissions.canManageHousehold ? (
+                <Pressable
+                  onPress={() =>
+                    router.push({ pathname: '/premium', params: { source: 'settings' } } as never)
+                  }
+                  hitSlop={8}
+                  style={{ marginTop: 10 }}>
+                  <Text style={[styles.caption, { color: accentTheme.primary, fontWeight: '600' }]}>
+                    Buy more actions
+                  </Text>
+                </Pressable>
+              ) : null}
             </SectionCard>
           </>
         ) : null}
