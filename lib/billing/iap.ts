@@ -276,7 +276,7 @@ export async function clearEntitlementForTests(): Promise<EntitlementState> {
 
 export function premiumCopy(state: EntitlementState): string {
   if (!isPremiumActive(state)) {
-    return 'Start a 7-day free trial — then $4.99/mo.';
+    return 'Start a 7-day free trial — then $6.99/mo or $49.99/yr.';
   }
   if (state.inTrial) {
     return 'Premium trial active.';

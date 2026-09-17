@@ -1,5 +1,5 @@
 /**
- * Apple-caliber Premium subscription sheet — one composition, one decision.
+ * Apple-caliber Premium subscription sheet — annual lead, token allowance plain.
  * Presentation only; purchase logic lives in the screen / facade.
  */
 import { useEffect } from 'react';
@@ -15,11 +15,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
-import { BILLING_TRIAL_DAYS, IAP_PRODUCTS } from '@/constants/billing';
+import {
+  BILLING_TRIAL_DAYS,
+  IAP_PRODUCTS,
+  PREMIUM_ALLOWANCE_COPY,
+} from '@/constants/billing';
 import { motion } from '@/constants/motion-tokens';
 import { radius, space } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+
+export type PremiumUsagePanel = {
+  tokensUsedThisPeriod: number;
+  tokensPerMonth: number;
+  periodResetsAt: string;
+  topUpBalance: number;
+  onBuyMore?: () => void;
+};
 
 export type PremiumPaywallProps = {
   /** onboarding shows Not now; settings shows Close */
@@ -29,7 +41,9 @@ export type PremiumPaywallProps = {
   /** Inline success / restore / error — never Alert theatre */
   statusMessage?: string | null;
   errorMessage?: string | null;
+  usage?: PremiumUsagePanel | null;
   onStartTrial: () => void;
+  onStartMonthly?: () => void;
   onRestore: () => void;
   onContinue: () => void;
   onDismiss: () => void;
@@ -43,7 +57,9 @@ export function PremiumPaywall({
   alreadyPremium = false,
   statusMessage,
   errorMessage,
+  usage = null,
   onStartTrial,
+  onStartMonthly,
   onRestore,
   onContinue,
   onDismiss,
@@ -61,7 +77,9 @@ export function PremiumPaywall({
     transform: [{ scale: press.value }],
   }));
 
+  const yearly = IAP_PRODUCTS.yearly;
   const monthly = IAP_PRODUCTS.monthly;
+  const yearlyPerMonth = (yearly.priceUsd / 12).toFixed(2);
   const secondaryLabel = variant === 'onboarding' ? 'Not now' : 'Close';
 
   return (
@@ -82,21 +100,44 @@ export function PremiumPaywall({
         <Animated.View entering={FadeInUp.delay(40).duration(480)}>
           <Text style={[styles.headline, { color: c.text }]}>Choremaxx Premium</Text>
           <Text style={[styles.support, { color: c.textMuted }]}>
-            {BILLING_TRIAL_DAYS} days free, then ${monthly.priceUsd}/month.
+            {PREMIUM_ALLOWANCE_COPY}
           </Text>
         </Animated.View>
 
         <Animated.View entering={FadeInUp.delay(120).duration(480)} style={styles.priceBlock}>
           <View style={[styles.trialPill, { backgroundColor: `${accentTheme.primary}18` }]}>
             <Text style={[styles.trialText, { color: accentTheme.primary }]}>
-              Free for {BILLING_TRIAL_DAYS} days
+              Free for {BILLING_TRIAL_DAYS} days · {yearly.savingsLabel}
             </Text>
           </View>
           <Text style={[styles.priceLine, { color: c.text }]}>
-            ${monthly.priceUsd}
-            <Text style={[styles.pricePeriod, { color: c.textMuted }]}> / month</Text>
+            ${yearly.priceUsd}
+            <Text style={[styles.pricePeriod, { color: c.textMuted }]}> / year</Text>
+          </Text>
+          <Text style={[styles.subPrice, { color: c.textMuted }]}>
+            About ${yearlyPerMonth}/mo · or ${monthly.priceUsd}/month
           </Text>
         </Animated.View>
+
+        {alreadyPremium && usage ? (
+          <Animated.View
+            entering={FadeInUp.delay(160).duration(420)}
+            style={[styles.usageCard, { backgroundColor: orbitPalette.cardMuted }]}>
+            <Text style={[styles.usageTitle, { color: c.text }]}>Your actions</Text>
+            <Text style={[styles.usageLine, { color: c.textMuted }]}>
+              {usage.tokensUsedThisPeriod} of {usage.tokensPerMonth} this period
+            </Text>
+            <Text style={[styles.usageLine, { color: c.textSubtle }]}>
+              Resets {new Date(usage.periodResetsAt).toLocaleDateString()}
+              {usage.topUpBalance ? ` · ${usage.topUpBalance} top-up` : ''}
+            </Text>
+            {usage.onBuyMore ? (
+              <Pressable onPress={usage.onBuyMore} hitSlop={8} style={styles.buyMore}>
+                <Text style={[styles.link, { color: accentTheme.primary }]}>Buy more actions</Text>
+              </Pressable>
+            ) : null}
+          </Animated.View>
+        ) : null}
       </View>
 
       <Animated.View entering={FadeInUp.delay(200).duration(420)} style={styles.footer}>
@@ -128,21 +169,23 @@ export function PremiumPaywall({
             },
           ]}
           accessibilityRole="button"
-          accessibilityLabel={
-            alreadyPremium ? 'Continue' : 'Start free trial'
-          }>
+          accessibilityLabel={alreadyPremium ? 'Continue' : 'Start yearly free trial'}>
           <Text style={[styles.ctaLabel, { color: isDark ? '#0A1018' : '#FFFFFF' }]}>
-            {busy
-              ? 'Please wait…'
-              : alreadyPremium
-                ? 'Continue'
-                : 'Start Free Trial'}
+            {busy ? 'Please wait…' : alreadyPremium ? 'Continue' : 'Start Free Trial'}
           </Text>
         </AnimatedPressable>
 
+        {!alreadyPremium && onStartMonthly ? (
+          <Pressable onPress={onStartMonthly} disabled={busy} hitSlop={10}>
+            <Text style={[styles.monthlyAlt, { color: c.textMuted }]}>
+              Or ${monthly.priceUsd}/month after trial
+            </Text>
+          </Pressable>
+        ) : null}
+
         <Text style={[styles.legal, { color: c.textSubtle }]}>
-          Payment is charged to your Apple ID after the trial unless you cancel at least
-          24 hours before it ends. Manage in Settings → Apple ID → Subscriptions.
+          Payment is charged to your Apple ID after the trial unless you cancel at least 24 hours
+          before it ends. Manage in Settings → Apple ID → Subscriptions.
         </Text>
 
         <View style={styles.links}>
@@ -170,7 +213,7 @@ const styles = StyleSheet.create({
   hero: {
     flex: 1,
     justifyContent: 'center',
-    gap: 36,
+    gap: 28,
     paddingBottom: space.xl,
   },
   headline: {
@@ -190,7 +233,7 @@ const styles = StyleSheet.create({
   },
   priceBlock: {
     alignItems: 'center',
-    gap: 14,
+    gap: 10,
   },
   trialPill: {
     borderRadius: 999,
@@ -210,6 +253,28 @@ const styles = StyleSheet.create({
   pricePeriod: {
     fontSize: 17,
     fontWeight: '400',
+  },
+  subPrice: {
+    fontSize: 14,
+    fontWeight: '400',
+  },
+  usageCard: {
+    borderRadius: radius.card,
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  usageTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  usageLine: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  buyMore: {
+    marginTop: 8,
   },
   footer: {
     gap: 14,
@@ -236,6 +301,11 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     letterSpacing: -0.2,
+  },
+  monthlyAlt: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   legal: {
     fontSize: 11,

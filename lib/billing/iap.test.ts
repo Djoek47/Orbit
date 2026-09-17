@@ -15,11 +15,12 @@ import {
 } from '@/lib/billing/iap';
 import { premiumOnboardingHref } from '@/lib/billing/premium-onboarding';
 
-test('A3 IAP catalog locks monthly pricing + trial', () => {
-  assert.equal(IAP_PRODUCTS.monthly.priceUsd, 4.99);
+test('IAP catalog locks monthly/yearly pricing + trial', () => {
+  assert.equal(IAP_PRODUCTS.monthly.priceUsd, 6.99);
   assert.equal(IAP_PRODUCTS.monthly.trialDays, 7);
   assert.equal(IAP_PRODUCTS.monthly.productId, 'app.choremaxx.household.premium.monthly');
-  assert.equal(IAP_PRODUCTS.yearly.priceUsd, 48);
+  assert.equal(IAP_PRODUCTS.yearly.priceUsd, 49.99);
+  assert.equal(IAP_PRODUCTS.yearly.savingsLabel, '40% off');
 });
 
 test('A3 mock trial activates entitlement', async () => {

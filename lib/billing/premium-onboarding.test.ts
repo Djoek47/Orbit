@@ -12,13 +12,14 @@ test('premium onboarding href defaults to onboarding source', () => {
   assert.equal(href.params.source, 'onboarding');
 });
 
-test('onboarding trial is monthly $4.99 with 7-day trial', async () => {
+test('onboarding trial is yearly-led $49.99 / monthly $6.99 with 7-day trial', async () => {
   clearMockEntitlement();
-  const state = await purchasePremium('monthly');
-  assert.equal(IAP_PRODUCTS.monthly.priceUsd, 4.99);
+  const state = await purchasePremium('yearly');
+  assert.equal(IAP_PRODUCTS.monthly.priceUsd, 6.99);
+  assert.equal(IAP_PRODUCTS.yearly.priceUsd, 49.99);
   assert.equal(IAP_PRODUCTS.monthly.trialDays, 7);
   assert.equal(state.inTrial, true);
-  assert.equal(state.productId, IAP_PRODUCTS.monthly.productId);
+  assert.equal(state.productId, IAP_PRODUCTS.yearly.productId);
   assert.match(premiumCopy(state), /trial/i);
   clearMockEntitlement();
 });
