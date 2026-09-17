@@ -11,6 +11,18 @@ Source of truth: `constants/billing.ts`. Existing ASC tiers cannot silently chan
 
 Allowance copy: **300 Poppins actions a month, 30 a day.**
 
+## Consumable top-ups (Part E)
+
+| Pack | Product ID | Tokens | Price |
+|------|------------|--------|-------|
+| Small | `app.choremaxx.household.premium.tokens.small` | 200 | $1.99 |
+| Medium | `app.choremaxx.household.premium.tokens.medium` | 600 | $4.99 |
+| Large | `app.choremaxx.household.premium.tokens.large` | 1500 | $9.99 |
+
+Confirm tiers in ASC before creating — harder to change than to choose. Migration: `20260917040000_token_grants.sql` (user applies). Edge: `grant-token-pack`. Purchase order: **validate → grant → finish**.
+
+Consumption: monthly allowance first, then top-ups oldest-first. Top-ups never expire. Expo Go uses a clearly marked mock grant only.
+
 ## App paywall
 
 - **Route:** `/premium` — annual-led sheet after email confirm (soft gate).
@@ -40,5 +52,5 @@ OTA alone updates JS UI; StoreKit purchases need a binary that includes `expo-ia
 
 ## Still later
 
-- Token top-up consumables (Part E)
-- Server-side App Store Server API receipt verification
+- App Store Server API receipt verification (full server validate)
+- Web parity for annual $49.99

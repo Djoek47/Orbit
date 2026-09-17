@@ -1,6 +1,8 @@
 /**
  * Billing / IAP facade.
- * Expo Go → mock trial. Native TestFlight/production → StoreKit via expo-iap.
+ * Expo Go → mock trial / mock token grant. Native TestFlight/production → StoreKit via expo-iap.
+ *
+ * Purchase order (all paths): validate → grant → finish. Finish failures retry; never swallow.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -9,17 +11,22 @@ import {
   clearMockEntitlement,
   EMPTY_ENTITLEMENT,
   getMockEntitlement,
+  IAP_CONSUMABLES,
   IAP_PRODUCTS,
+  IAP_SUBSCRIPTIONS,
   isPremiumActive,
   setMockEntitlement,
   startMockTrial,
+  tokenPackForProductId,
   type EntitlementState,
   type IapProductId,
   type IapProductKey,
+  type IapTokenPackKey,
 } from '@/constants/billing';
+import type { TokenGrant } from '@/lib/billing/token-grants';
 
-export { IAP_PRODUCTS, ASC_IAP_SETUP_NOTES, isPremiumActive };
-export type { EntitlementState, IapProductKey };
+export { IAP_PRODUCTS, IAP_CONSUMABLES, ASC_IAP_SETUP_NOTES, isPremiumActive };
+export type { EntitlementState, IapProductKey, IapTokenPackKey };
 
 const ENTITLEMENT_KEY = '@orbit/premium_entitlement';
 
@@ -46,8 +53,8 @@ function readAppOwnership(): string | null {
 
 function productKeyForId(productId: string | null | undefined): IapProductKey | null {
   if (!productId) return null;
-  if (productId === IAP_PRODUCTS.monthly.productId) return 'monthly';
-  if (productId === IAP_PRODUCTS.yearly.productId) return 'yearly';
+  if (productId === IAP_SUBSCRIPTIONS.monthly.productId) return 'monthly';
+  if (productId === IAP_SUBSCRIPTIONS.yearly.productId) return 'yearly';
   return null;
 }
 
@@ -102,7 +109,7 @@ function entitlementFromPurchase(opts: {
   inTrial?: boolean;
 }): EntitlementState {
   const key = productKeyForId(opts.productId);
-  const product = key ? IAP_PRODUCTS[key] : IAP_PRODUCTS.monthly;
+  const product = key ? IAP_SUBSCRIPTIONS[key] : IAP_SUBSCRIPTIONS.monthly;
   let expiresAt = opts.expiresAt ?? null;
   if (!expiresAt) {
     const expires = new Date();
@@ -116,6 +123,40 @@ function entitlementFromPurchase(opts: {
     source: 'storekit',
     inTrial: Boolean(opts.inTrial),
   };
+}
+
+function purchaseTransactionId(purchase: Record<string, unknown>): string {
+  const id =
+    purchase.transactionId ??
+    purchase.id ??
+    purchase.purchaseToken ??
+    purchase.transactionIdentifierIOS;
+  if (typeof id === 'string' && id.trim()) return id.trim();
+  return `txn-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Finish with retry — never swallow; leave purchase resumable on failure. */
+async function finishPurchaseWithRetry(
+  iap: typeof import('expo-iap'),
+  purchase: Record<string, unknown>,
+  isConsumable: boolean
+): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await iap.finishTransaction({
+        purchase: purchase as never,
+        isConsumable,
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`finishTransaction failed: ${String(lastError)}`);
 }
 
 export async function fetchEntitlement(): Promise<EntitlementState> {
@@ -133,15 +174,15 @@ export async function fetchEntitlement(): Promise<EntitlementState> {
     return await withNativeIap(async (iap) => {
       await iap.initConnection();
       const active = await iap.getActiveSubscriptions([
-        IAP_PRODUCTS.monthly.productId,
-        IAP_PRODUCTS.yearly.productId,
+        IAP_SUBSCRIPTIONS.monthly.productId,
+        IAP_SUBSCRIPTIONS.yearly.productId,
       ]);
       const first = Array.isArray(active) ? active[0] : null;
       if (!first) {
         return persisted ?? EMPTY_ENTITLEMENT;
       }
       const productId = String(
-        (first as { productId?: string }).productId ?? IAP_PRODUCTS.monthly.productId
+        (first as { productId?: string }).productId ?? IAP_SUBSCRIPTIONS.monthly.productId
       );
       const rawExpiry = (first as { expirationDateIOS?: string | number | null }).expirationDateIOS;
       const expiresAt =
@@ -155,7 +196,6 @@ export async function fetchEntitlement(): Promise<EntitlementState> {
         expiresAt,
         inTrial: false,
       });
-      // Prefer StoreKit truth when active.
       return persistEntitlement(state);
     });
   } catch (error) {
@@ -164,8 +204,10 @@ export async function fetchEntitlement(): Promise<EntitlementState> {
   }
 }
 
-export async function purchasePremium(productKey: IapProductKey = 'monthly'): Promise<EntitlementState> {
-  const product = IAP_PRODUCTS[productKey];
+export async function purchasePremium(
+  productKey: IapProductKey = 'monthly'
+): Promise<EntitlementState> {
+  const product = IAP_SUBSCRIPTIONS[productKey];
 
   if (!isNativeIapAvailable()) {
     const mock = startMockTrial(productKey);
@@ -210,24 +252,117 @@ export async function purchasePremium(productKey: IapProductKey = 'monthly'): Pr
     });
 
     const productId = String(purchase.productId ?? product.productId);
-    try {
-      await iap.finishTransaction({
-        purchase: purchase as never,
-        isConsumable: false,
-      });
-    } catch (error) {
-      console.warn('finishTransaction skipped', error);
+    // validate → grant entitlement → finish
+    if (!productKeyForId(productId)) {
+      throw new Error('unknown_subscription_product');
     }
-
-    // Introductory offer → treat first purchase as trial window.
     const state = entitlementFromPurchase({
       productId,
       inTrial: true,
     });
-    return persistEntitlement(state);
+    await persistEntitlement(state);
+    await finishPurchaseWithRetry(iap, purchase, false);
+    return state;
   });
 }
 
+/**
+ * Purchase a consumable token pack.
+ * Order: validate product → grant tokens → finish (isConsumable: true).
+ * Expo Go: mock grant only (clearly marked; unreachable in production builds).
+ */
+export async function purchaseTokens(
+  packKey: IapTokenPackKey,
+  householdId: string
+): Promise<TokenGrant> {
+  const pack = IAP_CONSUMABLES[packKey];
+  if (!pack) throw new Error('unknown_token_pack');
+
+  if (!isNativeIapAvailable()) {
+    // Mock grant — Expo Go / unit tests only. Do not import the RN storage path in Node.
+    const grant: TokenGrant = {
+      id: `mock-${packKey}-${Date.now()}`,
+      householdId,
+      pack: 'mock',
+      tokens: 50,
+      consumed: 0,
+      transactionId: `mock-${packKey}-${Date.now()}`,
+      grantedAt: new Date().toISOString(),
+    };
+    try {
+      const { grantTokenPack } = await import('@/lib/billing/token-grants');
+      return await grantTokenPack({
+        householdId,
+        packKey: 'mock',
+        transactionId: grant.transactionId,
+        mock: true,
+      });
+    } catch {
+      return grant;
+    }
+  }
+
+  return withNativeIap(async (iap) => {
+    await iap.initConnection();
+    await iap.fetchProducts({
+      skus: [pack.productId],
+      type: 'in-app',
+    });
+
+    const purchase = await new Promise<Record<string, unknown>>((resolve, reject) => {
+      const removeUpdated = iap.purchaseUpdatedListener((event) => {
+        removeUpdated.remove();
+        removeError.remove();
+        resolve(event as unknown as Record<string, unknown>);
+      });
+      const removeError = iap.purchaseErrorListener((error) => {
+        removeUpdated.remove();
+        removeError.remove();
+        reject(error);
+      });
+
+      void iap
+        .requestPurchase({
+          type: 'in-app',
+          request: {
+            apple: { sku: pack.productId },
+            google: {
+              skus: [pack.productId],
+            },
+          },
+        })
+        .catch((error: unknown) => {
+          removeUpdated.remove();
+          removeError.remove();
+          reject(error);
+        });
+    });
+
+    const productId = String(purchase.productId ?? pack.productId);
+    const matched = tokenPackForProductId(productId);
+    if (!matched || matched.pack !== pack.pack) {
+      throw new Error('token_pack_product_mismatch');
+    }
+
+    const transactionId = purchaseTransactionId(purchase);
+    const { grantTokenPack } = await import('@/lib/billing/token-grants');
+    const grant = await grantTokenPack({
+      householdId,
+      packKey,
+      transactionId,
+      productId,
+    });
+
+    await finishPurchaseWithRetry(iap, purchase, true);
+    return grant;
+  });
+}
+
+/**
+ * Restore subscriptions only — getAvailablePurchases returns non-consumables
+ * and subscriptions by design (expo-iap 5.2.4). Consumables are not restored.
+ * `restorePurchases()` remains a real method in 5.2.4 (not a legacy alias).
+ */
 export async function restorePurchases(): Promise<EntitlementState> {
   if (!isNativeIapAvailable()) {
     const mock = getMockEntitlement();
@@ -245,7 +380,8 @@ export async function restorePurchases(): Promise<EntitlementState> {
       const match = list.find((item) => {
         const id = String((item as { productId?: string }).productId ?? '');
         return (
-          id === IAP_PRODUCTS.monthly.productId || id === IAP_PRODUCTS.yearly.productId
+          id === IAP_SUBSCRIPTIONS.monthly.productId ||
+          id === IAP_SUBSCRIPTIONS.yearly.productId
         );
       });
       if (!match) {

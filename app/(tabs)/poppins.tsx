@@ -108,13 +108,30 @@ export default function PoppinsScreen() {
   }, [currentMember?.majordomoProfileId, household.majordomoProfileId]);
 
   const nativeVoice = isPoppinsNativeVoiceAvailable();
+  const [topUpBalance, setTopUpBalance] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { loadTokenGrants, topUpBalanceFromGrants } = await import(
+        '@/lib/billing/token-grants'
+      );
+      const grants = await loadTokenGrants(household.id);
+      if (!cancelled) setTopUpBalance(topUpBalanceFromGrants(grants));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [household.id, aiUsageEvents]);
+
   const aiSummary = useMemo(
     () =>
       summarizeAiUsage(
         aiUsageEvents,
-        household.members.map((member) => ({ id: member.id, name: member.name }))
+        household.members.map((member) => ({ id: member.id, name: member.name })),
+        { topUpBalance }
       ),
-    [aiUsageEvents, household.members]
+    [aiUsageEvents, household.members, topUpBalance]
   );
 
   const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
@@ -137,6 +154,8 @@ export default function PoppinsScreen() {
   const [voiceSettling, setVoiceSettling] = useState(false);
   const [error, setError] = useState('');
   const [voiceState, setVoiceState] = useState<PoppinsVoiceVisualState>('idle');
+  const voiceStateRef = useRef<PoppinsVoiceVisualState>('idle');
+  voiceStateRef.current = voiceState;
   const [liveCaption, setLiveCaption] = useState<LiveCaption | null>(null);
   const [toolFlash, setToolFlash] = useState<string | null>(null);
   const [pendingConfirmations, setPendingConfirmations] = useState<PoppinsPendingConfirmation[]>(
@@ -333,6 +352,10 @@ export default function PoppinsScreen() {
     if (!text.trim()) return;
     if (role === 'user') {
       lastUtteranceRef.current = text;
+      // Defence in depth: never parse while Poppins is still speaking (echo path).
+      if (voiceStateRef.current === 'speaking') {
+        return;
+      }
       continuityRef.current = rememberTurn(continuityRef.current, household.id, {
         role: 'user',
         text,
@@ -342,6 +365,7 @@ export default function PoppinsScreen() {
         kid: kidSessionRef.current,
         selfName: currentMember?.name,
         existingTasks: household.tasks,
+        userOriginated: true,
       });
     } else {
       continuityRef.current = rememberTurn(continuityRef.current, household.id, {

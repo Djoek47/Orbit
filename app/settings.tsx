@@ -300,13 +300,30 @@ export default function SettingsScreen() {
     void fetchEntitlement().then(setEntitlement);
   }, [section]);
 
+  const [topUpBalance, setTopUpBalance] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { loadTokenGrants, topUpBalanceFromGrants } = await import(
+        '@/lib/billing/token-grants'
+      );
+      const grants = await loadTokenGrants(household.id);
+      if (!cancelled) setTopUpBalance(topUpBalanceFromGrants(grants));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [household.id, aiUsageEvents]);
+
   const aiSummary = useMemo(
     () =>
       summarizeAiUsage(
         aiUsageEvents,
-        household.members.map((member) => ({ id: member.id, name: member.name }))
+        household.members.map((member) => ({ id: member.id, name: member.name })),
+        { topUpBalance }
       ),
-    [aiUsageEvents, household.members]
+    [aiUsageEvents, household.members, topUpBalance]
   );
   const lookValue =
     appearanceMode === 'system' ? 'System' : appearanceMode === 'light' ? 'Day' : 'Night';
