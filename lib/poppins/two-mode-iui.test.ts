@@ -39,7 +39,7 @@ assert.ok(
 
 poppinsUiOrchestrator.clear();
 poppinsUiOrchestrator.setSpeaking(false);
-hearAndDrive('Schedule a task for me for kitchen tomorrow', ['Alex', 'Maya'], {
+hearAndDrive('Add a task for me for kitchen tomorrow', ['Alex', 'Maya'], {
   selfName: 'Alex',
 });
 const forMe = poppinsUiOrchestrator.getState().playlist[0]?.payload;
@@ -63,7 +63,7 @@ hearAndDrive('tend to the dishes, assign it to me', ['Alex', 'Maya'], { selfName
 const created = poppinsUiOrchestrator.getState().playlist[0]?.payload;
 assert.equal(created?.assignee, 'Alex');
 assert.match(String(created?.title ?? ''), /tend/i);
-assert.equal(created?.composeStep, 'task');
+assert.equal(created?.composeStep, 'when');
 assert.equal(created?.composeReady, false);
 
 const daily = parseHouseholdIntent('tend to the dishes every day, assign them to me', {
