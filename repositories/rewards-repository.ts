@@ -149,6 +149,9 @@ export const rewardsRepository = {
       throw new Error('rewardsRepository.createReward: householdId is required in Supabase mode.');
     }
 
+    const assignedMemberId = isPersistedHouseholdId(reward.assignedMemberId)
+      ? reward.assignedMemberId
+      : null;
     const supabase = getConfiguredSupabase('rewardsRepository.createReward');
     const { data, error } = await supabase
       .from('rewards')
@@ -157,6 +160,7 @@ export const rewardsRepository = {
         title: reward.title,
         cost: reward.cost,
         approval_required: reward.approvalRequired,
+        assigned_member_id: assignedMemberId,
       })
       .select('*')
       .single();
@@ -171,7 +175,7 @@ export const rewardsRepository = {
           origin: reward.origin,
           createdByMemberId: reward.createdByMemberId,
           createdByName: reward.createdByName,
-          assignedMemberId: reward.assignedMemberId,
+          assignedMemberId: assignedMemberId ?? reward.assignedMemberId,
           assignedMemberName: reward.assignedMemberName,
           frequency: reward.frequency,
           quantity: reward.quantity,
@@ -276,6 +280,9 @@ export const rewardsRepository = {
       return clone(next);
     }
 
+    const assignedMemberId = isPersistedHouseholdId(next.assignedMemberId)
+      ? next.assignedMemberId
+      : null;
     const supabase = getConfiguredSupabase('rewardsRepository.updateReward');
     const { data, error } = await supabase
       .from('rewards')
@@ -283,6 +290,7 @@ export const rewardsRepository = {
         title: next.title,
         cost: next.cost ?? 0,
         approval_required: next.approvalRequired,
+        assigned_member_id: assignedMemberId,
       })
       .eq('id', next.id)
       .select('*')
