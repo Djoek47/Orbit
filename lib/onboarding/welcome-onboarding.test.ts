@@ -31,27 +31,30 @@ assert.equal(
 );
 assert.match(welcome, /ONBOARDING_EXIT_HOLD_STEPS/);
 assert.match(welcome, /!ONBOARDING_EXIT_HOLD_STEPS\.has\(step\)/);
-assert.match(welcome, /householdId: household\.id/);
-assert.match(welcome, /markPremiumGatePending/);
+assert.match(welcome, /goPremiumOnboardingOnce/);
 assert.match(welcome, /premiumOnboardingHref\(\{ source: 'onboarding' \}\)/);
 assert.match(welcome, /fetchEntitlement/);
 assert.match(welcome, /!hydrated\.id/);
 assert.match(welcome, /householdSetupMessage/);
 assert.match(welcome, /Your household is saved/);
+assert.match(welcome, /draftRewardsFromPackage/);
+assert.match(welcome, /rewardsSeeded/);
+assert.match(welcome, /\{ householdId \}/);
 
 const confirm = source('app/confirm-email.tsx');
-assert.match(confirm, /markPremiumGatePending/);
+assert.match(confirm, /goPremiumOnboardingOnce/);
 assert.match(confirm, /premiumOnboardingHref\(\{ source: 'onboarding' \}\)/);
+assert.match(confirm, /finishingRef/);
 
 const signIn = source('app/sign-in.tsx');
 assert.equal(
-  signIn.includes('markPremiumGatePending'),
+  signIn.includes('markPremiumGatePending') || signIn.includes('goPremiumOnboardingOnce'),
   false,
   'returning email sign-in must not hit the premium gate'
 );
 
 const members = source('app/household-members.tsx');
-assert.match(members, /householdId: household\.id/);
+assert.match(members, /householdId=\{household\.id/);
 
 const repo = source('repositories/household-repository.ts');
 assert.match(repo, /allocateChildInviteCode/);

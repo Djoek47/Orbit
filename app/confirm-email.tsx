@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
@@ -24,7 +24,7 @@ import {
   verifySignupEmailOtp,
 } from '@/lib/auth/email-confirmation';
 import {
-  markPremiumGatePending,
+  goPremiumOnboardingOnce,
   premiumOnboardingHref,
 } from '@/lib/billing/premium-onboarding';
 import { shouldSkipPremiumForInvite } from '@/lib/billing/premium-invite';
@@ -50,6 +50,7 @@ export default function ConfirmEmailScreen() {
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldownSec, setCooldownSec] = useState(0);
+  const finishingRef = useRef(false);
 
   useEffect(() => {
     cancelSignedOutRestart();
@@ -69,6 +70,8 @@ export default function ConfirmEmailScreen() {
   }, []);
 
   const finishOnboarding = async () => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
     clearPendingSignup();
     const memberHref = await import('@/lib/invite/member-invite-token-store').then((m) =>
       m.memberInviteRedeemHref()
@@ -87,8 +90,12 @@ export default function ConfirmEmailScreen() {
       router.replace('/join-welcome' as never);
       return;
     }
-    await markPremiumGatePending();
-    router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
+    const navigated = await goPremiumOnboardingOnce(() => {
+      router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
+    });
+    if (!navigated) {
+      finishingRef.current = false;
+    }
   };
 
   useEffect(() => {

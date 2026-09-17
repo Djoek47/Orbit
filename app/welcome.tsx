@@ -52,6 +52,7 @@ import {
 } from '@/lib/rewards/reward-model';
 import {
   DEFAULT_REWARD_PACKAGE_ID,
+  draftRewardsFromPackage,
   type RewardPackageId,
 } from '@/lib/rewards/reward-packages';
 import { type RewardMode, REWARD_MODE_COPY, REWARD_MODE_EXAMPLES, STREAK_FOOTNOTE } from '@/lib/rewards/reward-mode';
@@ -71,7 +72,7 @@ import {
   markAuthEmailSent,
 } from '@/lib/auth/email-confirmation';
 import { fetchEntitlement, isPremiumActive } from '@/lib/billing/iap';
-import { markPremiumGatePending, premiumOnboardingHref } from '@/lib/billing/premium-onboarding';
+import { goPremiumOnboardingOnce, premiumOnboardingHref } from '@/lib/billing/premium-onboarding';
 import { shouldSkipPremiumForInvite } from '@/lib/billing/premium-invite';
 
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
@@ -643,8 +644,9 @@ export default function WelcomeOnboardingScreen() {
           : inviteParams.memberInvite,
       });
       if (!entitled && !hydrated.id && !skipPremium) {
-        await markPremiumGatePending();
-        router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
+        await goPremiumOnboardingOnce(() => {
+          router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
+        });
         return;
       }
       setStep(next);
@@ -740,6 +742,7 @@ export default function WelcomeOnboardingScreen() {
       : rosterMembers;
 
     let created: Awaited<ReturnType<typeof addOnboardingMembers>> = [];
+    let rewardsSeeded = 0;
     if (toPersist.length > 0) {
       try {
         created = await addOnboardingMembers(
@@ -771,6 +774,31 @@ export default function WelcomeOnboardingScreen() {
               },
               { householdId }
             );
+            rewardsSeeded += 1;
+          }
+        }
+        // Household pack selected in Get Started must still land in the vault when
+        // no kid finished the member wizard (or member.rewards stayed empty).
+        if (
+          rewardsSeeded === 0 &&
+          capabilitiesFor(draft.rewardModel ?? DEFAULT_REWARD_MODEL).rewardsEnabled
+        ) {
+          const packageId = draft.rewardPackageId ?? DEFAULT_REWARD_PACKAGE_ID;
+          for (const reward of draftRewardsFromPackage(packageId)) {
+            await createReward(
+              {
+                title: reward.quantity ? `${reward.title} (${reward.quantity})` : reward.title,
+                cost: 0,
+                approvalRequired: true,
+                category: 'Privilege',
+                frequency: reward.frequency,
+                quantity: reward.quantity,
+                presetId: reward.presetId,
+                origin: 'minted',
+              },
+              { householdId }
+            );
+            rewardsSeeded += 1;
           }
         }
       } catch (err) {
@@ -778,6 +806,24 @@ export default function WelcomeOnboardingScreen() {
         const who = toPersist[0]?.name.trim() || 'everyone';
         throw new Error(
           `Your household is saved. Couldn’t add ${who} yet. Try Create again.`
+        );
+      }
+    } else if (capabilitiesFor(draft.rewardModel ?? DEFAULT_REWARD_MODEL).rewardsEnabled) {
+      // No draft members yet — still populate the selected Get Started pack.
+      const packageId = draft.rewardPackageId ?? DEFAULT_REWARD_PACKAGE_ID;
+      for (const reward of draftRewardsFromPackage(packageId)) {
+        await createReward(
+          {
+            title: reward.quantity ? `${reward.title} (${reward.quantity})` : reward.title,
+            cost: 0,
+            approvalRequired: true,
+            category: 'Privilege',
+            frequency: reward.frequency,
+            quantity: reward.quantity,
+            presetId: reward.presetId,
+            origin: 'minted',
+          },
+          { householdId }
         );
       }
     }

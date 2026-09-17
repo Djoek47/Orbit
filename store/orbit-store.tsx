@@ -5299,6 +5299,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const targetHouseholdId = options?.householdId ?? household.id;
     const allowOnboardingWrite = Boolean(options?.householdId && currentUser);
     if (!allowOnboardingWrite && !permissions.canManageHousehold) {
+      if (options?.householdId) {
+        throw new Error('Could not save rewards during household setup.');
+      }
       return;
     }
     const reward = await rewardsRepository.createReward(targetHouseholdId, {
@@ -5307,10 +5310,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createdByMemberId: input.createdByMemberId ?? currentMember?.id,
       createdByName: input.createdByName ?? currentMember?.name ?? currentUser?.name,
     });
-    setHousehold((current) => ({
-      ...current,
-      rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
-    }));
+    setHousehold((current) => {
+      if (targetHouseholdId && current.id && current.id !== targetHouseholdId) {
+        return current;
+      }
+      return {
+        ...current,
+        rewards: [reward, ...current.rewards.filter((item) => item.id !== reward.id)],
+      };
+    });
     if (reward.assignedMemberId && reward.assignedMemberId !== currentMember?.id) {
       // Assigned rewards surface in-app; no closed-registry notification for assignment.
     }

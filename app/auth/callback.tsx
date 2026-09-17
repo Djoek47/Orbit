@@ -31,7 +31,7 @@ import {
   withTimeout,
 } from '@/lib/auth/confirm-callback';
 import {
-  markPremiumGatePending,
+  goPremiumOnboardingOnce,
   premiumOnboardingHref,
 } from '@/lib/billing/premium-onboarding';
 import { shouldSkipPremiumForInvite } from '@/lib/billing/premium-invite';
@@ -117,8 +117,9 @@ export default function AuthCallbackScreen() {
       router.replace('/join-welcome' as never);
       return;
     }
-    await markPremiumGatePending();
-    router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
+    await goPremiumOnboardingOnce(() => {
+      router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
+    });
   };
 
   const enterSignedInApp = async (session: Parameters<typeof hydrateFromSession>[0]) => {

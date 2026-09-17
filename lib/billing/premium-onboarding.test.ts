@@ -4,12 +4,35 @@ import test from 'node:test';
 import { IAP_PRODUCTS } from '@/constants/billing';
 import { clearMockEntitlement } from '@/constants/billing';
 import { premiumCopy, purchasePremium } from '@/lib/billing/iap';
-import { premiumOnboardingHref } from '@/lib/billing/premium-onboarding';
+import {
+  __resetPremiumOnboardingNavLockForTests,
+  goPremiumOnboardingOnce,
+  premiumOnboardingHref,
+} from '@/lib/billing/premium-onboarding';
 
 test('premium onboarding href defaults to onboarding source', () => {
   const href = premiumOnboardingHref();
   assert.equal(href.pathname, '/premium');
   assert.equal(href.params.source, 'onboarding');
+});
+
+test('goPremiumOnboardingOnce only navigates once', async () => {
+  __resetPremiumOnboardingNavLockForTests();
+  let hits = 0;
+  assert.equal(
+    await goPremiumOnboardingOnce(() => {
+      hits += 1;
+    }),
+    true
+  );
+  assert.equal(
+    await goPremiumOnboardingOnce(() => {
+      hits += 1;
+    }),
+    false
+  );
+  assert.equal(hits, 1);
+  __resetPremiumOnboardingNavLockForTests();
 });
 
 test('onboarding trial is yearly-led $49.99 / monthly $6.99 with 7-day trial', async () => {
