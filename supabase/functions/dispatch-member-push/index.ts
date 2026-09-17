@@ -14,6 +14,7 @@ type ExpoPushMessage = {
   body: string;
   sound?: 'default' | null;
   priority?: 'default' | 'normal' | 'high';
+  categoryId?: string;
   data?: Record<string, unknown>;
 };
 
@@ -129,12 +130,20 @@ Deno.serve(async (req) => {
       if (row.token) tokens.add(row.token);
     }
 
+    const categoryId =
+      typeof body.categoryId === 'string'
+        ? body.categoryId
+        : data.kind === 'iui_act'
+          ? 'choremaxx.iui_act'
+          : undefined;
+
     const messages: ExpoPushMessage[] = [...tokens].map((token) => ({
       to: token,
       title,
       body: pushBody,
       sound: 'default',
       priority: 'high',
+      ...(categoryId ? { categoryId } : {}),
       data,
     }));
 

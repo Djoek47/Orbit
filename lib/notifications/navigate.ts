@@ -36,6 +36,9 @@ export function getNotificationRoute(item: NotificationItem): string | null {
   if (kind === 'join_pending') {
     return '/household-members';
   }
+  if (kind === 'iui_act') {
+    return '/(tabs)/poppins';
+  }
   if (item.category === 'ai') {
     return '/(tabs)/poppins';
   }

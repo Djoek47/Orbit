@@ -372,6 +372,9 @@ type OrbitContextValue = {
       question: string;
       answer: string;
       usage?: { inputTokens?: number; outputTokens?: number; model?: string; usd?: number };
+      mode?: import('@/lib/ai/credits').PoppinsActMode;
+      chargeAct?: boolean;
+      tokens?: number;
     }
   ) => Promise<void>;
   appendPoppinsTurn: (question: string, answer: string) => void;
@@ -737,7 +740,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   }, [household.id]);
 
   const recordPoppinsUsage = useCallback(
-    async (kind: AiUsageKind, answer: { question: string; answer: string; usage?: { inputTokens?: number; outputTokens?: number; model?: string; usd?: number } }) => {
+    async (
+      kind: AiUsageKind,
+      answer: {
+        question: string;
+        answer: string;
+        usage?: {
+          inputTokens?: number;
+          outputTokens?: number;
+          model?: string;
+          usd?: number;
+        };
+        mode?: import('@/lib/ai/credits').PoppinsActMode;
+        chargeAct?: boolean;
+        tokens?: number;
+      }
+    ) => {
       const member = currentMember;
       if (!member) return;
       const model =
@@ -755,6 +773,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           (kind === 'voice' && !answer.usage?.inputTokens && !answer.usage?.outputTokens
             ? estimateVoiceUsd()
             : undefined),
+        mode: answer.mode,
+        chargeAct: answer.chargeAct,
+        tokens: answer.tokens,
       });
       const next = [...aiUsageRef.current, event];
       aiUsageRef.current = next;

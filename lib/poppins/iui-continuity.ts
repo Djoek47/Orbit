@@ -184,3 +184,24 @@ export async function clearIuiContinuity(): Promise<void> {
     /* ignore */
   }
 }
+
+/** Continuity snapshot for Change — restore as frozen stage preview. */
+export function continuityFromIuiAct(input: {
+  householdId: string;
+  beat: IuiBeat;
+  prior?: IuiContinuity | null;
+}): IuiContinuity {
+  const prior = input.prior?.householdId === input.householdId ? input.prior : null;
+  return {
+    householdId: input.householdId,
+    updatedAt: Date.now(),
+    turns: prior?.turns ?? [],
+    lastAssignee: input.beat.payload.assignee || prior?.lastAssignee,
+    lastTitle: input.beat.payload.title || prior?.lastTitle,
+    lastScene: input.beat.scene,
+    lastWrite: input.beat.payload.write || prior?.lastWrite,
+    openPlaylist: [input.beat],
+    openIndex: 0,
+    openFrozen: true,
+  };
+}

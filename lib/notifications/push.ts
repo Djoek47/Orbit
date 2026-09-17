@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { dataMode } from '@/config/data-mode';
+import { registerIuiActNotificationCategory } from '@/lib/notifications/iui-act-category';
 import { openSystemNotificationSettings } from '@/lib/notifications/open-settings-safe';
 import { getExpoPushToken, isGranted, requestNotificationPermission } from '@/lib/notifications/push-token';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -17,6 +18,7 @@ Notifications.setNotificationHandler({
 });
 
 export async function registerForPushNotifications(userId?: string | null) {
+  await registerIuiActNotificationCategory();
   const token = await getExpoPushToken();
   if (!token) return null;
 
@@ -55,7 +57,8 @@ export async function scheduleLocalReminder(title: string, body: string, seconds
 export async function presentLocalBanner(
   title: string,
   body: string,
-  data?: Record<string, unknown>
+  data?: Record<string, unknown>,
+  opts?: { categoryIdentifier?: string }
 ) {
   const permission = await Notifications.getPermissionsAsync();
   if (!isGranted(permission)) {
@@ -67,6 +70,7 @@ export async function presentLocalBanner(
       body,
       sound: true,
       data: data ?? {},
+      ...(opts?.categoryIdentifier ? { categoryIdentifier: opts.categoryIdentifier } : {}),
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
