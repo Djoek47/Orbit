@@ -222,6 +222,20 @@ function canMergeBeat(current: IuiBeat, incoming: IuiBeat): boolean {
   return current.scene === incoming.scene && current.commit === incoming.commit;
 }
 
+/** Stable identity for playlist dedupe when merging a model refinement. */
+function beatIdentityKey(beat: IuiBeat): string {
+  const p = beat.payload;
+  const slot =
+    p.libraryTaskId?.trim() ||
+    p.title?.trim()?.toLowerCase() ||
+    p.groceryName?.trim()?.toLowerCase() ||
+    p.taskId?.trim() ||
+    p.route?.trim() ||
+    p.assignee?.trim()?.toLowerCase() ||
+    '';
+  return `${beat.scene}|${beat.commit}|${slot}`;
+}
+
 function mergeIncomingPlaylist(playlist: IuiBeat[]) {
   const current = currentBeat();
   const incoming = playlist[0];
@@ -229,8 +243,17 @@ function mergeIncomingPlaylist(playlist: IuiBeat[]) {
   patchCurrentPayload(incoming.payload);
   const rest = playlist.slice(1);
   const kept = state.playlist.slice(0, state.index + 1);
+  const tail = state.playlist.slice(state.index + 1);
+  const seen = new Set(kept.map(beatIdentityKey));
+  const mergedTail: IuiBeat[] = [];
+  for (const beat of [...rest, ...tail]) {
+    const key = beatIdentityKey(beat);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    mergedTail.push(beat);
+  }
   setState({
-    playlist: rest.length ? [...kept, ...rest] : kept,
+    playlist: [...kept, ...mergedTail],
     live: true,
     thinkingLine: incoming.payload.thinkingLine ?? state.thinkingLine,
   });

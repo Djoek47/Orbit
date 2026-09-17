@@ -14,9 +14,6 @@ export function nextComposeStep(payload: IuiPayload): IuiComposeStep {
     if (!payload.category?.trim() && !payload.selectedChipId?.trim()) return 'category';
     return 'task';
   }
-  if (payload.title?.trim() && !payload.libraryTaskId?.trim() && !payload.due?.trim()) {
-    return 'task';
-  }
   if (!payload.due?.trim()) return 'when';
   return 'ready';
 }

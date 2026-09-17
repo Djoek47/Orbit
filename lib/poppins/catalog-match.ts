@@ -218,7 +218,8 @@ export function looksLikeSpokenSentence(text: string): boolean {
     /^(i['’]?ll|i will|i am going to|i['’]?m going to|can you|could you|would you|please)\b/.test(
       lower
     ) ||
-    /\b(set|create|add|make|schedule)\s+(up\s+)?(a |an |the |my )?(task|desk|chore|todo)s?\b/.test(
+    // Optional indirect object ("me") + adjectives between verb and task noun.
+    /\b(set|create|add|make|schedule)\s+(up\s+)?(me\s+)?(a |an |the |my )?(?:\w+\s+){0,3}(task|desk|chore|todo)s?\b/.test(
       lower
     ) ||
     /\bdesk\s+for\s+to\b/.test(lower)
@@ -250,45 +251,112 @@ function toChoreDisplayTitle(extracted: string): string {
     .replace(/^[a-z]/, (char) => char.toUpperCase());
 }
 
-/** Phrase the person said when it is not a catalog chore name. */
+const CHORE_VERBS =
+  'clean|wash|tend|load|unload|vacuum|sweep|mop|wipe|fold|put|take|empty|fill|water|feed|walk|mow|rake|organize|sort|pack|unpack|cook|prep|make|do|finish|start|check|fix';
+
+/**
+ * Additive title extract: find a verb + object and compose `Verb object`.
+ * Returns undefined when nothing is confidently found (prefer empty over debris).
+ */
 export function extractSpokenChoreTitle(text: string): string | undefined {
-  let t = text.trim();
-  t = t.replace(/^(hey[, ]+|ok[, ]+|okay[, ]+)?(poppins|nova)[, ]+/i, '');
-  t = t.replace(/^(please\s+)/i, '');
-  t = t.replace(/^(can you|could you|would you)\s+/i, '');
-  t = t.replace(/^(i['’]?ll|i will|i am going to|i['’]?m going to)\s+/i, '');
-  t = t.replace(
+  let raw = text.trim();
+  raw = raw.replace(/^(hey[, ]+|ok[, ]+|okay[, ]+)?(poppins|nova)[, ]+/i, '');
+  raw = raw.replace(/^(please\s+)/i, '');
+  raw = raw.replace(/^(can you|could you|would you)\s+/i, '');
+  raw = raw.replace(/^(i['’]?ll|i will|i am going to|i['’]?m going to)\s+/i, '');
+  raw = raw.replace(
     /^(i(?:['’]d| would) like to|i wanted to|i want to|i needed to|i need to)\s+/i,
     ''
   );
-  t = t.replace(/^(let'?s)\s+/i, '');
-  t = t.replace(
-    /^(set|create|add|make|schedule|put)\s+(up\s+)?(a |an |the |my )?(task|desk|chore|todo)s?\s+((for\s+to|for|to)\s+)?/i,
-    ''
-  );
-  t = t.replace(/^(set\s+)?desk\s+for\s+to\s+/i, '');
-  t = t
-    .replace(
-      /\b(can you|could you|please|i (?:wanted to|want to|need to|would like to)|let'?s|i'?m going to|i am going to)\b/gi,
-      ' '
+  raw = raw.replace(/^(let'?s)\s+/i, '');
+  raw = raw.replace(/^(set\s+)?desk\s+for\s+to\s+/i, '');
+
+  // "… task to clean the dishes" / "… chore to wash car"
+  const toVerb = raw.match(
+    new RegExp(
+      `\\b(?:task|desk|chore|todo)s?\\s+(?:for\\s+to\\s+|to\\s+)(${CHORE_VERBS})\\b([\\s\\w'-]+)?`,
+      'i'
     )
-    .replace(/\b(assign(?: them| it| this| that)?(?: to me)?|for me|to me)\b/gi, ' ')
-    .replace(/\bfor\s+[A-Z][a-zA-Z]{1,20}\b/g, ' ')
-    .replace(/\b(today|tomorrow|this week|every day|daily|tonight)\b/gi, ' ')
-    .replace(/\b(a task|a chore|the task|task called|called|schedule|set up|setup|create|add|make)\b/gi, ' ')
-    .replace(/\b(task|desk|chore|todo)s?\b/gi, ' ')
-    .replace(/\bfor\s+(kitchen|bathroom|laundry|the house|homework)\b/gi, ' ')
-    .replace(/[?.!,]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  t = t.replace(/^(to|and|just|a|an|the)\s+/i, '').trim();
-  if (t.length < 3) return undefined;
-  if (
-    /^(kitchen|dishes|bathroom|laundry|chore|task|desk|the dishes|kitchen dining)$/i.test(t)
-  ) {
-    return undefined;
+  );
+  if (toVerb) {
+    const verb = toVerb[1];
+    const object = (toVerb[2] ?? '')
+      .replace(
+        /\b(for\s+[A-Z][a-zA-Z]{1,20}|today|tomorrow|this week|tonight|every day|daily|assign(?: them| it| this| that)?(?: to me)?|for me|to me)\b/gi,
+        ' '
+      )
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (object.length >= 2) return toChoreDisplayTitle(`${verb} ${object}`);
   }
-  return t;
+
+  // "add me a cleaning task for dishes" → Clean dishes (gerund → verb)
+  // "add a dishwasher task for Alex" → Dishwasher (noun before task)
+  const framed = raw.match(
+    /\b(?:set|create|add|make|schedule|put)\s+(?:up\s+)?(?:me\s+)?(?:a |an |the |my )?(?:(?:quick|new|small|simple)\s+)?(?:(\w+)\s+)?(?:task|desk|chore|todo)s?(?:\s+(?:for|to)\s+(.+))?$/i
+  );
+  if (framed) {
+    const before = framed[1]?.trim();
+    let after = (framed[2] ?? '')
+      .replace(
+        /\b(for\s+[A-Z][a-zA-Z]{1,20}|assign(?: them| it| this| that)?(?: to me)?|for me|to me)\b/gi,
+        ' '
+      )
+      .replace(/\b(today|tomorrow|this week|tonight|every day|daily)\b/gi, ' ')
+      .replace(/[?.!,]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    after = after.replace(/^(to|and|just|a|an|the)\s+/i, '').trim();
+    // Trailing assignee-only ("for Alex") is not a chore object.
+    if (/^[A-Z][a-zA-Z]{1,20}$/.test(after)) after = '';
+
+    const gerund = before?.toLowerCase();
+    if (after.length >= 2) {
+      if (gerund && gerund.endsWith('ing') && gerund.length > 4) {
+        const stem = gerund.replace(/ning$/i, 'n').replace(/ing$/i, '');
+        return toChoreDisplayTitle(`${stem} ${after}`);
+      }
+      if (gerund && new RegExp(`^(?:${CHORE_VERBS})$`, 'i').test(gerund)) {
+        return toChoreDisplayTitle(`${gerund} ${after}`);
+      }
+      if (
+        /^(kitchen|bathroom|laundry|bedroom|garage|yard|homework|car|dishes)$/i.test(after)
+      ) {
+        return undefined;
+      }
+      if (!/^(me|a|an|the|my|quick|new)\b/i.test(after) && after.split(/\s+/).length <= 6) {
+        return toChoreDisplayTitle(after);
+      }
+    }
+    // Noun before task: "dishwasher task", "homework task"
+    if (
+      before &&
+      !/^(a|an|the|my|me|quick|new|small|simple)$/i.test(before) &&
+      !/^(kitchen|bathroom|laundry)$/i.test(before)
+    ) {
+      if (gerund && gerund.endsWith('ing') && gerund.length > 4) {
+        return undefined; // "cleaning task" with no object — not confident
+      }
+      return toChoreDisplayTitle(before);
+    }
+  }
+
+  // Bare chore verb + object: "clean the dishes", "tend to the dishes", "wash my car"
+  const bare = raw.match(new RegExp(`^(${CHORE_VERBS})(?:\\s+to)?\\s+(.+)$`, 'i'));
+  if (bare) {
+    const object = bare[2]
+      .replace(
+        /\b(for\s+[A-Z][a-zA-Z]{1,20}|assign(?: them| it| this| that)?(?: to me)?|for me|to me)\b/gi,
+        ' '
+      )
+      .replace(/\b(today|tomorrow|this week|tonight|every day|daily)\b/gi, ' ')
+      .replace(/[?.!,]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (object.length >= 2) return toChoreDisplayTitle(`${bare[1]} ${object}`);
+  }
+
+  return undefined;
 }
 
 export function matchAssigneeName(

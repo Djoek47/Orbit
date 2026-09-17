@@ -376,6 +376,36 @@ void poppinsUiOrchestrator.confirm().then(() => {
   assert.match(poppinsUiOrchestrator.getState().thinkingLine, /try again/i);
   poppinsUiOrchestrator.setCommitHandler(null);
   poppinsUiOrchestrator.clear();
+
+  // A1 — compound playlist: merge must preserve the queued tail beat
+  poppinsUiOrchestrator.drive(
+    [
+      { type: 'create_task_draft', title: 'Dishes', assignee: 'Drako', due: 'Today' },
+      { type: 'create_task_draft', title: 'Trash', assignee: 'Maya', due: 'Today' },
+    ],
+    { replace: true }
+  );
+  assert.equal(poppinsUiOrchestrator.getState().playlist.length >= 2, true, 'starts with 2+ beats');
+  const mayaBefore = poppinsUiOrchestrator
+    .getState()
+    .playlist.find((beat) => beat.payload.assignee === 'Maya' && /trash/i.test(beat.payload.title ?? ''));
+  assert.ok(mayaBefore, 'Maya trash beat queued');
+  poppinsUiOrchestrator.drive(
+    [{ type: 'create_task_draft', title: 'Dishes', assignee: 'Drako', due: 'Today' }],
+    { replace: false }
+  );
+  assert.equal(
+    poppinsUiOrchestrator.getState().playlist.length >= 2,
+    true,
+    'merge preserves playlist length'
+  );
+  const mayaAfter = poppinsUiOrchestrator
+    .getState()
+    .playlist.find((beat) => beat.payload.assignee === 'Maya' && /trash/i.test(beat.payload.title ?? ''));
+  assert.ok(mayaAfter, 'Maya trash beat survives merge');
+  assert.equal(mayaAfter?.payload.title, mayaBefore?.payload.title);
+  poppinsUiOrchestrator.clear();
+
   console.log('iui orchestrator tests passed');
 }).catch((error) => {
   console.error(error);

@@ -18,9 +18,28 @@ import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
 const garbled = "I'll set desk for to wash my car";
 const spoken = "I'll set a task to wash car";
 
-assert.equal(extractSpokenChoreTitle(garbled), 'wash my car');
-assert.equal(extractSpokenChoreTitle(spoken), 'wash car');
+assert.match(String(extractSpokenChoreTitle(garbled)), /wash.*car/i);
+assert.match(String(extractSpokenChoreTitle(spoken)), /wash.*car/i);
 assert.match(String(extractSpokenChoreTitle('tend to the dishes, assign it to me')), /tend/i);
+
+// Additive extract — WO A3 cases (no debris titles)
+assert.match(
+  String(extractSpokenChoreTitle('add me a cleaning task for dishes')),
+  /clean.*dishes/i
+);
+assert.match(
+  String(extractSpokenChoreTitle('add a cleaning task for dishes')),
+  /clean.*dishes|dishes/i
+);
+assert.match(
+  String(extractSpokenChoreTitle('create a task to clean the dishes')),
+  /clean.*dishes/i
+);
+assert.equal(extractSpokenChoreTitle('dishes for Drako tomorrow'), undefined);
+assert.match(
+  String(extractSpokenChoreTitle('add me a quick cleaning task for the dishes tomorrow')),
+  /clean.*dishes|dishes/i
+);
 
 const fromGarbled = resolvePoppinsChoreTitle(garbled);
 assert.equal(fromGarbled.title, 'Wash the car');
@@ -44,17 +63,17 @@ const tend = resolvePoppinsChoreTitle('tend to the dishes, assign it to me');
 assert.match(tend.title, /tend/i);
 assert.equal(tend.libraryTaskId, undefined);
 
-const kitchen = parseHouseholdIntent('Schedule a task for kitchen tomorrow');
+const kitchen = parseHouseholdIntent('Add a task for kitchen tomorrow');
 assert.equal(kitchen[0]?.type, 'create_task_draft');
-assert.ok(!kitchen[0]?.title, 'generic schedule-a-task must not fake a title');
+assert.ok(!kitchen[0]?.title, 'generic add-a-task must not fake a title');
 
 const intent = parseHouseholdIntent(garbled);
 assert.equal(intent[0]?.title, 'Wash the car');
 assert.equal(intent[0]?.libraryTaskId, 'wash_the_car');
 
 const kitchenRewrite = rewriteAiuicActions(
-  [{ type: 'create_task_draft', title: 'Schedule a task for kitchen tomorrow' }],
-  'Schedule a task for kitchen tomorrow'
+  [{ type: 'create_task_draft', title: 'Add a task for kitchen tomorrow' }],
+  'Add a task for kitchen tomorrow'
 );
 assert.ok(!kitchenRewrite[0]?.title, 'rewrite must not keep the schedule sentence as a title');
 

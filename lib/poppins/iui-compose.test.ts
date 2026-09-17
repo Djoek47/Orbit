@@ -7,8 +7,13 @@ assert.equal(nextComposeStep({ assignee: 'Alex' }), 'category');
 assert.equal(nextComposeStep({ assignee: 'Alex', category: 'kitchen_dining' }), 'task');
 assert.equal(
   nextComposeStep({ assignee: 'Alex', category: 'kitchen_dining', title: 'Tend to the dishes' }),
-  'task',
-  'created title stays on the task list so the accent chip is visible'
+  'when',
+  'spoken custom title with no due advances to when'
+);
+assert.equal(
+  nextComposeStep({ assignee: 'Drako', title: 'Clean dishes' }),
+  'when',
+  'filled title is enough regardless of catalog match'
 );
 assert.equal(
   nextComposeStep({
