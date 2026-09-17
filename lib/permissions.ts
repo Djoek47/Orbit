@@ -34,9 +34,9 @@ const permissionsByRole: Record<HouseholdRole, HouseholdPermissions> = {
     canCreateTask: true,
     canAssignTask: true,
     canApproveReward: true,
-    canInviteMembers: true,
+    canInviteMembers: false,
     canManageGroceries: true,
-    canViewAnalytics: true,
+    canViewAnalytics: false,
   },
   child: {
     canManageHousehold: false,
@@ -56,15 +56,37 @@ const permissionsByRole: Record<HouseholdRole, HouseholdPermissions> = {
     canManageGroceries: false,
     canViewAnalytics: false,
   },
+  /** Shared phone/tablet — confirm tasks for linked people; no admin powers. */
+  'shared-device': {
+    canManageHousehold: false,
+    canCreateTask: false,
+    canAssignTask: false,
+    canApproveReward: false,
+    canInviteMembers: false,
+    canManageGroceries: false,
+    canViewAnalytics: false,
+  },
 };
 
 export function getPermissionsForRole(role: HouseholdRole): HouseholdPermissions {
   return permissionsByRole[role];
 }
 
+/**
+ * Display label for a household role.
+ * Sidekick is stored as `child` — Appendix A.2. Do not rename the storage token.
+ */
 export function formatHouseholdRole(role: HouseholdRole) {
+  if (role === 'child') return 'Sidekick';
+  if (role === 'owner' || role === 'admin') return 'Admin';
+  if (role === 'shared-device') return 'Shared device';
   return role
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+/** Admin vs Sidekick (draft / v2 role display). Storage key for Sidekick remains `member` / `child`. */
+export function formatV2RoleLabel(role: 'admin' | 'member'): string {
+  return role === 'admin' ? 'Admin' : 'Sidekick';
 }

@@ -18,6 +18,7 @@ const MAPPING = {
   'checklist': 'checklist',
   'cart.fill': 'shopping-cart',
   'calendar': 'calendar-today',
+  'gift.fill': 'card-giftcard',
   'star.circle.fill': 'stars',
   'trophy.fill': 'emoji-events',
   'sparkles': 'auto-awesome',

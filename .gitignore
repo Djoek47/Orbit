@@ -45,3 +45,7 @@ app-example
 # generated native folders
 /ios
 /android
+site/
+
+# Supabase CLI local cache
+supabase/.temp/
