@@ -41,6 +41,11 @@ export type IuiDriveState = {
   frozen: boolean;
   speaking: boolean;
   spoken: string;
+  /** True after a failed commit — retry or dismiss advances. */
+  commitFailed: boolean;
+  /** Tappable undo window after a successful settle (~5s). */
+  undoUntil: number | null;
+  undoBeat: IuiBeat | null;
 };
 
 const EMPTY: IuiDriveState = {
@@ -55,19 +60,42 @@ const EMPTY: IuiDriveState = {
   frozen: false,
   speaking: false,
   spoken: '',
+  commitFailed: false,
+  undoUntil: null,
+  undoBeat: null,
 };
 
 let state: IuiDriveState = EMPTY;
+/** Session hold duration from active member — survives playlist clear/append. */
+let sessionHoldMs = HOLD_MS_DEFAULT;
 const listeners = new Set<() => void>();
 let holdTimer: ReturnType<typeof setTimeout> | null = null;
 let unfoldTimer: ReturnType<typeof setTimeout> | null = null;
 let quietTimer: ReturnType<typeof setTimeout> | null = null;
+let undoTimer: ReturnType<typeof setTimeout> | null = null;
 let commitHandler: ((beat: IuiBeat) => void | Promise<void>) | null = null;
+let undoHandler: ((beat: IuiBeat) => void | Promise<void>) | null = null;
 let coachHandler: ((route: string) => void) | null = null;
 let pendingHandler: ((approved: boolean, ids: string[]) => void) | null = null;
 let hapticHandler: ((kind: IuiHapticKind) => void) | null = null;
 let tapHandler: ((tap: IuiStageTap) => void) | null = null;
 const tapHandlers = new Set<(tap: IuiStageTap) => void>();
+
+const UNDO_MS = 5000;
+
+const PROTECTED_SLOTS = [
+  'assignee',
+  'title',
+  'due',
+  'category',
+  'libraryTaskId',
+  'groceryName',
+] as const;
+
+function clearUndoTimer() {
+  if (undoTimer) clearTimeout(undoTimer);
+  undoTimer = null;
+}
 
 function emitTap(tap: IuiStageTap) {
   tapHandler?.(tap);
@@ -102,16 +130,34 @@ function clearAllTimers() {
   clearHoldTimer();
   clearUnfoldTimer();
   clearQuietTimer();
+  clearUndoTimer();
 }
 
 function currentBeat(): IuiBeat | null {
   return state.playlist[state.index] ?? null;
 }
 
+function markSlotSources(
+  patch: Partial<IuiPayload>,
+  source: 'speech' | 'touch' | 'model'
+): Partial<IuiPayload> {
+  const slotSource = { ...(patch.slotSource ?? {}) };
+  for (const key of PROTECTED_SLOTS) {
+    if (patch[key] != null && String(patch[key]).trim()) {
+      slotSource[key] = source;
+    }
+  }
+  return { ...patch, slotSource };
+}
+
 function patchCurrentPayload(patch: Partial<IuiPayload>) {
   const beat = currentBeat();
   if (!beat) return;
-  const merged = { ...beat.payload, ...patch };
+  const merged = {
+    ...beat.payload,
+    ...patch,
+    slotSource: { ...beat.payload.slotSource, ...patch.slotSource },
+  };
   const payload =
     beat.scene === 'task_compose'
       ? withComposeProgress(merged)
@@ -124,6 +170,32 @@ function patchCurrentPayload(patch: Partial<IuiPayload>) {
   });
 }
 
+function advanceAfterSettle() {
+  const next = state.index + 1;
+  if (next < state.playlist.length) {
+    setState({
+      index: next,
+      phase: 'show',
+      holding: false,
+      commitFailed: false,
+      thinkingLine: state.playlist[next]?.payload.thinkingLine ?? '',
+      spoken: '',
+      frozen: false,
+    });
+    armBeat();
+    return;
+  }
+  setTimeout(() => clear(), SETTLE_CLEAR_MS);
+}
+
+function armUndoWindow(beat: IuiBeat) {
+  clearUndoTimer();
+  setState({ undoBeat: beat, undoUntil: Date.now() + UNDO_MS });
+  undoTimer = setTimeout(() => {
+    setState({ undoBeat: null, undoUntil: null });
+  }, UNDO_MS);
+}
+
 async function settleCurrent(opts?: { fromTap?: boolean }) {
   const beat = currentBeat();
   if (!beat) {
@@ -131,7 +203,7 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
     return;
   }
   if (state.speaking && beat.commit === 'hold' && !opts?.fromTap) return;
-  setState({ phase: 'settle', holding: false, holdStartedAt: null });
+  setState({ phase: 'settle', holding: false, holdStartedAt: null, commitFailed: false });
   hapticHandler?.('settle');
   if (beat.scene === 'confirm' && beat.payload.confirmationIds?.length) {
     pendingHandler?.(true, beat.payload.confirmationIds);
@@ -146,24 +218,14 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
         frozen: true,
         holding: false,
         phase: 'unfold',
-        thinkingLine: "Couldn't save that. Tap to try again.",
+        commitFailed: true,
+        thinkingLine: "Couldn't save that. Tap to try again, or skip.",
       });
       return;
     }
   }
-  const next = state.index + 1;
-  if (next < state.playlist.length) {
-    setState({
-      index: next,
-      phase: 'show',
-      holding: false,
-      thinkingLine: state.playlist[next]?.payload.thinkingLine ?? '',
-      spoken: '',
-    });
-    armBeat();
-    return;
-  }
-  setTimeout(() => clear(), SETTLE_CLEAR_MS);
+  armUndoWindow(beat);
+  advanceAfterSettle();
 }
 
 function startHoldClock(beat: IuiBeat) {
@@ -219,7 +281,18 @@ function beatCanSkipShow(beat: IuiBeat): boolean {
 }
 
 function canMergeBeat(current: IuiBeat, incoming: IuiBeat): boolean {
-  return current.scene === incoming.scene && current.commit === incoming.commit;
+  if (current.scene !== incoming.scene || current.commit !== incoming.commit) return false;
+  const sources = current.payload.slotSource ?? {};
+  for (const key of PROTECTED_SLOTS) {
+    const source = sources[key];
+    if (source !== 'speech' && source !== 'touch') continue;
+    const currentVal = String(current.payload[key] ?? '').trim();
+    const incomingVal = String(incoming.payload[key] ?? '').trim();
+    if (currentVal && incomingVal && currentVal.toLowerCase() !== incomingVal.toLowerCase()) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /** Stable identity for playlist dedupe when merging a model refinement. */
@@ -314,17 +387,21 @@ function resetHoldProgressOnly() {
 function startPlaylist(playlist: IuiBeat[], kid?: boolean) {
   if (!playlist.length) return;
   clearAllTimers();
+  if (kid != null) sessionHoldMs = kid ? HOLD_MS_KID : HOLD_MS_DEFAULT;
   setState({
     live: true,
     playlist,
     index: 0,
     phase: 'show',
     holding: false,
-    holdMs: kid ? HOLD_MS_KID : HOLD_MS_DEFAULT,
+    holdMs: sessionHoldMs,
     holdStartedAt: null,
     thinkingLine: playlist[0]?.payload.thinkingLine ?? '',
     frozen: false,
     spoken: '',
+    commitFailed: false,
+    undoUntil: null,
+    undoBeat: null,
   });
   armBeat();
 }
@@ -344,6 +421,14 @@ export const poppinsUiOrchestrator = {
   },
   setCommitHandler(handler: ((beat: IuiBeat) => void | Promise<void>) | null) {
     commitHandler = handler;
+  },
+  setUndoHandler(handler: ((beat: IuiBeat) => void | Promise<void>) | null) {
+    undoHandler = handler;
+  },
+  /** Kid vs adult HOLD duration for this Speak session. */
+  setSessionKid(kid: boolean) {
+    sessionHoldMs = kid ? HOLD_MS_KID : HOLD_MS_DEFAULT;
+    setState({ holdMs: sessionHoldMs });
   },
   setCoachHandler(handler: ((route: string) => void) | null) {
     coachHandler = handler;
@@ -378,11 +463,15 @@ export const poppinsUiOrchestrator = {
     let playlist = mapUiActionsToPlaylist(actions);
     if (opts?.kid) playlist = playlist.filter((beat) => beat.scene !== 'reward_mint');
     if (!playlist.length) return;
+    if (opts?.kid != null) {
+      sessionHoldMs = opts.kid ? HOLD_MS_KID : HOLD_MS_DEFAULT;
+      setState({ holdMs: sessionHoldMs });
+    }
     if (state.live && state.playlist.length && mergeIncomingPlaylist(playlist)) {
       return;
     }
     if (state.live && state.playlist.length && !opts?.replace) {
-      setState({ playlist: [...state.playlist, ...playlist], live: true });
+      setState({ playlist: [...state.playlist, ...playlist], live: true, holdMs: sessionHoldMs });
       return;
     }
     startPlaylist(playlist, opts?.kid);
@@ -391,14 +480,14 @@ export const poppinsUiOrchestrator = {
     const extra = mapUiActionsToPlaylist(actions);
     if (!extra.length) return;
     const wasEmpty = !state.playlist.length;
-    setState({ playlist: [...state.playlist, ...extra], live: true });
+    setState({ playlist: [...state.playlist, ...extra], live: true, holdMs: sessionHoldMs });
     if (wasEmpty) armBeat();
   },
   revise(patch: Partial<IuiPayload>) {
     const beat = currentBeat();
     if (!beat) return;
     patchCurrentPayload(patch);
-    setState({ frozen: false });
+    setState({ frozen: false, commitFailed: false, thinkingLine: '' });
     if (state.holding) {
       resetHoldProgressOnly();
       maybeArmHold();
@@ -416,7 +505,7 @@ export const poppinsUiOrchestrator = {
       memberNames.length > 0 ? memberNames : (beat.payload.faces ?? []).map((face) => face.name);
     const patch = matchSpokenTokens(text, { memberNames: names, title: beat.payload.title });
     if (Object.keys(patch).length) {
-      patchCurrentPayload(patch);
+      patchCurrentPayload(markSlotSources(patch, 'speech'));
     }
     if (state.phase === 'show' && (patch.spokenName || patch.date || patch.due)) {
       setState({ phase: 'unfold' });
@@ -468,20 +557,35 @@ export const poppinsUiOrchestrator = {
   /** Finger press: stop talking over the choice and apply it now. Auto-HOLD still waits. */
   chooseFromTap(patch: Partial<IuiPayload>, text: string, kind = 'choice') {
     if (state.speaking) setState({ speaking: false });
-    poppinsUiOrchestrator.revise(patch);
+    poppinsUiOrchestrator.revise(markSlotSources(patch, 'touch'));
     emitTap({ kind, text });
   },
   confirm(opts?: { fromTap?: boolean }) {
     const beat = currentBeat();
-    if (opts?.fromTap && beat?.payload.composeReady === false) {
+    if (opts?.fromTap && beat?.payload.composeReady === false && !state.commitFailed) {
       return Promise.resolve();
     }
     if (opts?.fromTap) {
       if (state.speaking) setState({ speaking: false });
-      emitTap({ kind: 'confirm', text: 'assign now' });
+      emitTap({ kind: 'confirm', text: state.commitFailed ? 'try again' : 'assign now' });
     }
     clearAllTimers();
     return settleCurrent(opts);
+  },
+  /** Skip a frozen failed beat and continue the playlist. */
+  dismissFailed() {
+    if (!state.commitFailed) return;
+    setState({ commitFailed: false, frozen: false, thinkingLine: '' });
+    advanceAfterSettle();
+  },
+  /** Tap the settle mark within ~5s to reverse the last commit (handler optional). */
+  async undoLast() {
+    const beat = state.undoBeat;
+    if (!beat || !state.undoUntil || Date.now() > state.undoUntil) return false;
+    clearUndoTimer();
+    setState({ undoBeat: null, undoUntil: null });
+    await undoHandler?.(beat);
+    return true;
   },
   veto() {
     const beat = currentBeat();
@@ -537,7 +641,7 @@ export const poppinsUiOrchestrator = {
 function clear() {
   clearAllTimers();
   const speaking = state.speaking;
-  state = { ...EMPTY, speaking };
+  state = { ...EMPTY, speaking, holdMs: sessionHoldMs };
   emit();
 }
 

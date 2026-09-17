@@ -94,6 +94,11 @@ export type IuiPayload = {
   repeat?: string;
   /** Last member name heard in the assistant transcript (Face pulse). */
   spokenName?: string;
+  /**
+   * Provenance for filled slots — speech/touch wins over model merge.
+   * Keys are payload field names (`assignee`, `title`, `due`, …).
+   */
+  slotSource?: Partial<Record<'assignee' | 'title' | 'due' | 'category' | 'libraryTaskId' | 'groceryName', 'speech' | 'touch' | 'model'>>;
   /** Store write kind when HOLD/confirm settles. */
   write?: IuiWriteKind;
   /** False until who/category/task/when are chosen — HOLD must not start. */
