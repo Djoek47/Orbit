@@ -39,7 +39,7 @@ Same as v19 — Sign in (TestFlight):
 
 | Build | Git | EAS build | Submit |
 |-------|-----|-----------|--------|
-| **1.3.0 (72)** | `cursor/make-v20` | [52835053…](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/52835053-2da0-4928-a083-151896eb61fb) — make-v20 WO2 + top-ups | [auto-submit](https://expo.dev/accounts/djoek47/projects/choremaxx/submissions/24ccd021-c6a3-42ad-a216-9f4e42d52861) |
+| **1.3.0 (73)** | `cursor/make-v20` | [a04d6525…](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/a04d6525-050c-42ca-857e-b3a1c2f7d127) — make-v20 WO2 + top-ups | [auto-submit](https://expo.dev/accounts/djoek47/projects/choremaxx/submissions/0d077f8e-0074-41d7-8d42-ce42a34b58be) |
 
 ## TestFlight env (`eas.json`)
 
@@ -61,7 +61,7 @@ Carry-forward from v19, plus:
 
 ## Verify in app
 
-Settings build tip: `make-v20 · wo2-tokens · tf72`  
+Settings build tip: `make-v20 · wo2-tokens · tf73`  
 Premium → Buy more actions → pack picker matches Premium display type.  
 Poppins settle mark: longer linger, spring entrance.
 
