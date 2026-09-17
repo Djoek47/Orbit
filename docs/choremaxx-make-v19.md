@@ -1,6 +1,6 @@
 # Choremaxx Make v19
 
-**Branch:** `cursor/make-v19` — **stay here until explicitly cut to v20**  
+**Branch:** `cursor/make-v19` — **cut to `cursor/make-v20`** (shipping line moves forward; see `docs/choremaxx-make-v20.md`)  
 **Follows:** `cursor/make-v18` (TestFlight **1.3.0 (69)** build finished)  
 **Baseline tip:** inherits all make-v18 work through ghost-inbox / rewards-edit / get-started-freq / deadline-picker.
 
