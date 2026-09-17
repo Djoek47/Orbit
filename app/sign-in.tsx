@@ -16,6 +16,7 @@ import {
   type AuthIssue,
 } from '@/lib/auth/auth-errors';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
+import { REVIEW_DEMO_EMAIL, REVIEW_DEMO_PASSWORD } from '@/lib/auth/review-demo';
 import { goToFreshLogin } from '@/lib/navigation/fresh-login';
 import { cancelSignedOutRestart } from '@/lib/navigation/session-restart';
 import { isMockMode } from '@/repositories/repository-utils';
@@ -176,12 +177,24 @@ export default function SignInScreen() {
         ) : null}
 
         {!mock ? (
-          <View style={[styles.hint, { backgroundColor: orbitPalette.cardMuted }]}>
-            <MaterialIcons name="info-outline" size={14} color={c.textSubtle} />
-            <Text style={[styles.hintText, { color: c.textSubtle }]}>
-              Use the email you signed up with. New here? Tap Get Started.
-            </Text>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Fill Apple Review demo credentials"
+            onPress={() => {
+              setEmail(REVIEW_DEMO_EMAIL);
+              setPassword(REVIEW_DEMO_PASSWORD);
+              if (issue) setIssue(null);
+            }}
+            style={[styles.hint, { backgroundColor: orbitPalette.cardMuted }]}>
+            <MaterialIcons name="verified-user" size={14} color={c.textSubtle} />
+            <View style={styles.hintCopy}>
+              <Text style={[styles.hintTitle, { color: c.textMuted }]}>Apple Review demo</Text>
+              <Text style={[styles.hintText, { color: c.textSubtle }]}>
+                {REVIEW_DEMO_EMAIL} · {REVIEW_DEMO_PASSWORD}
+              </Text>
+              <Text style={[styles.hintTap, { color: accentTheme.primary }]}>Tap to fill</Text>
+            </View>
+          </Pressable>
         ) : null}
       </AuthShell>
 
@@ -197,13 +210,16 @@ const styles = StyleSheet.create({
   appleButton: { height: 48, width: '100%' },
   hint: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    alignItems: 'flex-start',
+    gap: 8,
     borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  hintText: { fontSize: 12, flex: 1 },
+  hintCopy: { flex: 1, gap: 2 },
+  hintTitle: { fontSize: 12, fontWeight: '700' },
+  hintText: { fontSize: 12, flexShrink: 1 },
+  hintTap: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   footerLinks: { alignItems: 'center', gap: 14 },
   link: { fontSize: 14, fontWeight: '700' },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
