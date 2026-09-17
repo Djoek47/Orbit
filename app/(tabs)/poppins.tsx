@@ -28,7 +28,7 @@ import {
 import {
   POPPINS_PAUSED_COPY,
   meterCaption,
-  personalUsd,
+  personalTokens,
   summarizeAiUsage,
 } from '@/lib/ai/credits';
 import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
@@ -835,7 +835,7 @@ export default function PoppinsScreen() {
         <Text
           style={[styles.meterCaption, { color: c.textSubtle }]}
           numberOfLines={1}>
-          {meterCaption(aiSummary, personalUsd(aiSummary, currentMember?.id), permissions.canManageHousehold)}
+          {meterCaption(aiSummary, personalTokens(aiSummary, currentMember?.id), permissions.canManageHousehold)}
         </Text>
       </View>
 

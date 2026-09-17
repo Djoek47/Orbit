@@ -82,10 +82,12 @@ import { useMembersLiveRefresh } from '@/lib/refresh/use-members-live-refresh';
 import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
 import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import {
-  AI_TRIP_USD,
-  formatUsd,
+  POPPINS_PAUSED_COPY,
+  TOKENS_PER_DAY,
+  TOKENS_PER_MONTH,
   meterCaption,
-  personalUsd,
+  meterNearCap,
+  personalTokens,
   summarizeAiUsage,
 } from '@/lib/ai/credits';
 
@@ -545,9 +547,9 @@ export default function SettingsScreen() {
               header="Poppins"
               footer={
                 aiSummary.tripped
-                  ? 'Poppins is paused so we can see how long $4 of AI lasts.'
+                  ? 'Speak is paused until the next reset or a top-up. Typing still works.'
                   : permissions.canManageHousehold
-                    ? 'Each person has their own meter. Poppins pauses at $4 for the household.'
+                    ? `${TOKENS_PER_MONTH} actions / month · ${TOKENS_PER_DAY} / day. Silent is the default.`
                     : undefined
               }>
               <SettingsNavRow
@@ -556,7 +558,7 @@ export default function SettingsScreen() {
                 label={majordomo.displayName}
                 value={meterCaption(
                   aiSummary,
-                  personalUsd(aiSummary, currentMember?.id),
+                  personalTokens(aiSummary, currentMember?.id),
                   permissions.canManageHousehold
                 )}
                 last
@@ -1051,28 +1053,39 @@ export default function SettingsScreen() {
                 onPress={() => setMajordomoOpen(true)}
               />
             </SettingsGroup>
-            <SectionCard title={aiSummary.tripped ? 'Paused at $4' : 'This month'}>
-              <Text style={[styles.nameText, { color: c.text }]}>
-                {formatUsd(aiSummary.householdUsd)} of {formatUsd(AI_TRIP_USD)}
+            <SectionCard title={aiSummary.tripped ? 'Speak paused' : 'This month'}>
+              <Text
+                style={[
+                  styles.nameText,
+                  {
+                    color: meterNearCap(aiSummary) || aiSummary.tripped ? accentTheme.primary : c.text,
+                  },
+                ]}>
+                {permissions.canManageHousehold
+                  ? `${aiSummary.tokensUsedThisPeriod} of ${TOKENS_PER_MONTH}`
+                  : `${personalTokens(aiSummary, currentMember?.id)} of ${TOKENS_PER_DAY} today`}
               </Text>
               <Text style={[styles.caption, { color: c.textMuted }]}>
                 {aiSummary.tripped
-                  ? 'Poppins is off so we can see how long $4 lasted.'
+                  ? POPPINS_PAUSED_COPY
                   : permissions.canManageHousehold
-                    ? 'Per person — not the OpenAI global dashboard.'
-                    : 'Your Poppins use in this household.'}
+                    ? `${aiSummary.tokensUsedToday} today · resets ${new Date(aiSummary.periodResetsAt).toLocaleDateString()}${
+                        aiSummary.topUpBalance ? ` · ${aiSummary.topUpBalance} top-up` : ''
+                      }`
+                    : 'Your daily actions. Household totals are admin-only.'}
               </Text>
-              {(permissions.canManageHousehold ? aiSummary.byMember : aiSummary.byMember.filter((row) => row.memberId === currentMember?.id)).map(
-                (row) => (
-                  <View key={row.memberId} style={styles.rowBetween}>
-                    <Text style={[styles.memberName, { color: c.text }]}>{row.name}</Text>
-                    <Text style={[styles.caption, { color: c.textMuted }]}>
-                      {formatUsd(row.usd)}
-                      {row.events ? ` · ${row.events}` : ''}
-                    </Text>
-                  </View>
-                )
-              )}
+              {(permissions.canManageHousehold
+                ? aiSummary.byMember
+                : aiSummary.byMember.filter((row) => row.memberId === currentMember?.id)
+              ).map((row) => (
+                <View key={row.memberId} style={styles.rowBetween}>
+                  <Text style={[styles.memberName, { color: c.text }]}>{row.name}</Text>
+                  <Text style={[styles.caption, { color: c.textMuted }]}>
+                    {row.tokens} actions
+                    {row.events ? ` · ${row.events}` : ''}
+                  </Text>
+                </View>
+              ))}
             </SectionCard>
           </>
         ) : null}

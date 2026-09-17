@@ -57,7 +57,7 @@ async function loadRemote(householdId: string): Promise<AiUsageEvent[] | null> {
     const { data, error } = await supabase
       .from('ai_usage_events')
       .select(
-        'client_key, member_id, member_name, kind, model, input_tokens, output_tokens, usd, occurred_at'
+        'client_key, member_id, member_name, kind, model, input_tokens, output_tokens, usd, occurred_at, mode'
       )
       .eq('household_id', householdId)
       .order('occurred_at', { ascending: true });
@@ -90,9 +90,10 @@ async function saveRemote(householdId: string, events: AiUsageEvent[]): Promise<
     output_tokens: event.outputTokens,
     usd: event.usd,
     occurred_at: event.at,
+    ...(event.mode ? { mode: event.mode } : {}),
   }));
   try {
-    const { error } = await supabase.from('ai_usage_events').upsert(rows, {
+    const { error } = await supabase.from('ai_usage_events').upsert(rows as never, {
       onConflict: 'client_key',
       ignoreDuplicates: true,
     });
@@ -104,6 +105,9 @@ async function saveRemote(householdId: string, events: AiUsageEvent[]): Promise<
 
 function rowToEvent(row: object): AiUsageEvent {
   const item = row as Record<string, unknown>;
+  const modeRaw = String(item.mode ?? '');
+  const mode =
+    modeRaw === 'silent' || modeRaw === 'spoken' || modeRaw === 'live' ? modeRaw : undefined;
   return {
     id: String(item.client_key ?? ''),
     at: String(item.occurred_at ?? ''),
@@ -114,6 +118,7 @@ function rowToEvent(row: object): AiUsageEvent {
     inputTokens: Number(item.input_tokens ?? 0),
     outputTokens: Number(item.output_tokens ?? 0),
     usd: Number(item.usd ?? 0),
+    mode,
   };
 }
 

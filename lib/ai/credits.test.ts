@@ -4,11 +4,12 @@
 import assert from 'node:assert/strict';
 
 import {
-  AI_TRIP_USD,
+  TOKENS_PER_DAY,
+  TOKENS_PER_MONTH,
   buildUsageEvent,
   mergeUsageEvents,
   meterCaption,
-  personalUsd,
+  personalTokens,
   summarizeAiUsage,
   usdForTokens,
 } from '@/lib/ai/credits';
@@ -42,38 +43,31 @@ const members = [
   { id: 'm2', name: 'David' },
 ];
 
-const events = [
+const periodEvents = Array.from({ length: 31 }, (_, i) =>
   buildUsageEvent({
-    id: 'e1',
-    at: '2026-08-01T10:00:00.000Z',
-    memberId: 'm1',
-    memberName: 'Sarah',
+    id: `e${i}`,
+    at: `2026-08-01T${String(10 + (i % 10)).padStart(2, '0')}:00:00.000Z`,
+    memberId: i % 2 === 0 ? 'm1' : 'm2',
+    memberName: i % 2 === 0 ? 'Sarah' : 'David',
     kind: 'chat',
     model: 'gpt-5.6-luna',
-    inputTokens: 0,
-    outputTokens: 0,
-    usd: 1.5,
-  }),
-  buildUsageEvent({
-    id: 'e2',
-    at: '2026-08-01T12:00:00.000Z',
-    memberId: 'm2',
-    memberName: 'David',
-    kind: 'voice',
-    model: 'gpt-realtime-2.1',
-    inputTokens: 0,
-    outputTokens: 0,
-    usd: 2.6,
-  }),
-];
+    inputTokens: 100,
+    outputTokens: 50,
+    usd: 0.01,
+    mode: 'silent',
+    chargeAct: true,
+  })
+);
 
-const before = summarizeAiUsage(events, members);
-assert.equal(before.tripped, true, '1.5 + 2.6 trips $4');
-assert.equal(before.trippedAt, '2026-08-01T12:00:00.000Z', 'trips on the crossing event');
-assertClose(personalUsd(before, 'm1'), 1.5, 'Sarah personal');
-assertClose(personalUsd(before, 'm2'), 2.6, 'David personal');
-assert.equal(before.byMember[0].name, 'David', 'admin list sorts by spend');
-assert.equal(meterCaption(before, 1.5, true).startsWith('Paused'), true, 'admin paused caption');
+const dailyTrip = summarizeAiUsage(periodEvents.slice(0, 30), members, {
+  now: '2026-08-01T23:00:00.000Z',
+  todayKey: '2026-08-01',
+  periodStart: '2026-08-01T00:00:00.000Z',
+  periodEnd: '2026-09-01T00:00:00.000Z',
+});
+assert.equal(dailyTrip.tokensUsedToday, 30, '30 silent acts = daily cap');
+assert.equal(dailyTrip.tripped, true, 'daily cap trips Speak');
+assert.match(meterCaption(dailyTrip, 15, true), /Paused/, 'admin paused caption');
 
 const under = summarizeAiUsage(
   [
@@ -84,19 +78,60 @@ const under = summarizeAiUsage(
       model: 'gpt-5.6-luna',
       inputTokens: 0,
       outputTokens: 0,
-      usd: 0.4,
+      usd: 0.01,
+      mode: 'silent',
+      chargeAct: true,
+      at: '2026-08-15T12:00:00.000Z',
     }),
   ],
-  members
+  members,
+  {
+    now: '2026-08-15T18:00:00.000Z',
+    todayKey: '2026-08-15',
+    periodStart: '2026-08-01T00:00:00.000Z',
+    periodEnd: '2026-09-01T00:00:00.000Z',
+  }
 );
-assert.equal(under.tripped, false, 'under $4 is live');
-assertClose(under.remainingUsd, AI_TRIP_USD - 0.4, 'remaining');
-assert.equal(meterCaption(under, 0.4, true), '$0.40 of $4.00', 'admin running caption');
+assert.equal(under.tripped, false, 'under caps is live');
+assert.equal(under.tokensUsedThisPeriod, 1);
+assert.equal(under.tokensRemaining, Math.min(TOKENS_PER_MONTH - 1, TOKENS_PER_DAY - 1));
+assert.equal(
+  meterCaption(under, personalTokens(under, 'm1'), true),
+  `1 of ${TOKENS_PER_MONTH} this month · 1 today`,
+  'admin running caption'
+);
+assert.equal(
+  meterCaption(under, personalTokens(under, 'm1'), false),
+  `1 of ${TOKENS_PER_DAY} today`,
+  'member sees daily only'
+);
 
-const merged = mergeUsageEvents(
-  [events[0]!],
-  [events[0]!, events[1]!]
+const liveWeighted = summarizeAiUsage(
+  [
+    buildUsageEvent({
+      memberId: 'm1',
+      memberName: 'Sarah',
+      kind: 'voice',
+      model: 'gpt-realtime-2.1',
+      inputTokens: 0,
+      outputTokens: 0,
+      usd: 0.05,
+      mode: 'live',
+      chargeAct: true,
+      at: '2026-08-15T12:00:00.000Z',
+    }),
+  ],
+  members,
+  {
+    now: '2026-08-15T18:00:00.000Z',
+    todayKey: '2026-08-15',
+    periodStart: '2026-08-01T00:00:00.000Z',
+    periodEnd: '2026-09-01T00:00:00.000Z',
+  }
 );
+assert.equal(liveWeighted.tokensUsedThisPeriod, 40, 'live act weighs 40');
+
+const merged = mergeUsageEvents([periodEvents[0]!], [periodEvents[0]!, periodEvents[1]!]);
 assert.equal(merged.length, 2, 'usage merge unions by id');
 
-console.log('PASS ai credits $4 trip + per-person');
+console.log('PASS ai credits token meter');

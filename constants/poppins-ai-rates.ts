@@ -37,10 +37,24 @@ export const MODEL_RATES_USD_PER_MILLION: Record<string, ModelTokenRate> = {
 export const CACHED_INPUT_RATE_FRACTION = 0.1;
 
 /**
- * Household measurement trip (ESTIMATED probe, not a product budget).
- * Spec: docs/poppins-pricing-and-metering.md supersedes treating this as retail COGS.
+ * Household measurement trip — kept for legacy COGS probes only.
+ * User-facing caps are TOKENS_PER_* below.
  */
 export const AI_TRIP_USD = 4;
+
+/** Private circuit breaker: force Silent + log when measured COGS exceeds this. */
+export const COGS_CEILING_USD = 1.2;
+
+/** Included act tokens per billing period (remote-config shaped). */
+export const TOKENS_PER_MONTH = 300;
+
+/** Soft daily cap (remote-config shaped). */
+export const TOKENS_PER_DAY = 30;
+
+/** Token weights by act mode (commit charge). */
+export const TOKEN_WEIGHT_SILENT = 1;
+export const TOKEN_WEIGHT_SPOKEN = 2;
+export const TOKEN_WEIGHT_LIVE = 40;
 
 /** Daily model calls allowed for poppins-monitor when POPPINS_MONITOR_MODEL=on. */
 export const POPPINS_MONITOR_MODEL_CALLS_PER_DAY = 3;

@@ -1,29 +1,43 @@
 /**
- * Poppins AI spend meter.
+ * Poppins act-token meter.
  *
- * $4.99/month is pricing context only (Premium). The test trip is $4.00:
- * when the household hits that, Poppins goes off so we can time how long
- * $4 of real use lasts. Admins see per-person totals — not OpenAI's global view.
- *
- * Provider rates live in constants/poppins-ai-rates.ts (MEASURED vs ESTIMATED).
+ * User-facing unit = tokens (weighted acts). USD stays internal for COGS.
+ * Provider rates: constants/poppins-ai-rates.ts. Retail prices: constants/billing.ts.
  */
-
 import { IAP_PRODUCTS } from '@/constants/billing';
 import {
   AI_TRIP_USD,
+  COGS_CEILING_USD,
   MODEL_RATES_USD_PER_MILLION,
+  TOKEN_WEIGHT_LIVE,
+  TOKEN_WEIGHT_SILENT,
+  TOKEN_WEIGHT_SPOKEN,
+  TOKENS_PER_DAY,
+  TOKENS_PER_MONTH,
   ratesForModel,
 } from '@/constants/poppins-ai-rates';
 
-export { AI_TRIP_USD, MODEL_RATES_USD_PER_MILLION } from '@/constants/poppins-ai-rates';
+export {
+  AI_TRIP_USD,
+  COGS_CEILING_USD,
+  MODEL_RATES_USD_PER_MILLION,
+  TOKEN_WEIGHT_LIVE,
+  TOKEN_WEIGHT_SILENT,
+  TOKEN_WEIGHT_SPOKEN,
+  TOKENS_PER_DAY,
+  TOKENS_PER_MONTH,
+} from '@/constants/poppins-ai-rates';
 
-/** 1 credit = $0.01. Kept so a later envelope can map 499 credits ≈ $4.99. */
+/** 1 credit = $0.01 — internal envelope mapping only. */
 export const CREDITS_PER_USD = 100;
 
 /** Premium list price — context for pricing, not the trip threshold. */
 export const PREMIUM_MONTHLY_USD = IAP_PRODUCTS.monthly.priceUsd;
 
 export type AiUsageKind = 'chat' | 'voice' | 'briefing' | 'monitor' | 'notify' | 'realtime';
+
+/** Act mode that weights token charge on commit. */
+export type PoppinsActMode = 'silent' | 'spoken' | 'live';
 
 export type AiUsageEvent = {
   id: string;
@@ -35,6 +49,9 @@ export type AiUsageEvent = {
   inputTokens: number;
   outputTokens: number;
   usd: number;
+  /** Weighted act tokens charged on commit (0 for reads / vetoed). */
+  tokens?: number;
+  mode?: PoppinsActMode;
 };
 
 export type AiTokenUsage = {
@@ -44,7 +61,19 @@ export type AiTokenUsage = {
 };
 
 export const POPPINS_PAUSED_COPY =
-  'Poppins is paused for this household. You’ve used $4 of AI, so we can see how long that lasts.';
+  'Poppins Speak is paused — you’ve used this period’s actions. Type still works. Actions reset on your billing date, or buy a top-up.';
+
+export function tokenWeightForMode(mode: PoppinsActMode | undefined): number {
+  switch (mode) {
+    case 'live':
+      return TOKEN_WEIGHT_LIVE;
+    case 'spoken':
+      return TOKEN_WEIGHT_SPOKEN;
+    case 'silent':
+    default:
+      return TOKEN_WEIGHT_SILENT;
+  }
+}
 
 function ratesFor(model: string): { input: number; output: number } {
   return ratesForModel(model);
@@ -81,41 +110,108 @@ export type MemberAiSpend = {
   memberId: string;
   name: string;
   usd: number;
+  tokens: number;
   events: number;
 };
 
 export type AiUsageSummary = {
+  /** Internal COGS — never show to members. */
   householdUsd: number;
   remainingUsd: number;
+  tokensUsedThisPeriod: number;
+  tokensRemaining: number;
+  tokensUsedToday: number;
+  topUpBalance: number;
+  periodResetsAt: string;
+  /** Speak paused (daily or monthly cap). Type still works. */
   tripped: boolean;
   trippedAt: string | null;
   firstAt: string | null;
+  /** Force Silent when measured COGS exceeds ceiling. */
+  cogsBreaker: boolean;
   byMember: MemberAiSpend[];
 };
 
+export type SummarizeAiUsageOpts = {
+  /** Billing-period anchor (ISO). Defaults to calendar month of `now`. */
+  periodStart?: string;
+  periodEnd?: string;
+  now?: Date | string;
+  /** Unused top-up tokens (never expire). */
+  topUpBalance?: number;
+  /** Local calendar day key YYYY-MM-DD for daily soft cap. */
+  todayKey?: string;
+};
+
+function startOfUtcMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0));
+}
+
+function nextUtcMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1, 0, 0, 0, 0));
+}
+
+function localDayKey(iso: string, fallback: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return fallback;
+  return d.toISOString().slice(0, 10);
+}
+
 export function summarizeAiUsage(
   events: AiUsageEvent[],
-  members: { id: string; name: string }[] = []
+  members: { id: string; name: string }[] = [],
+  opts: SummarizeAiUsageOpts = {}
 ): AiUsageSummary {
+  const now = opts.now ? new Date(opts.now) : new Date();
+  const periodStart = opts.periodStart
+    ? new Date(opts.periodStart)
+    : startOfUtcMonth(now);
+  const periodEnd = opts.periodEnd ? new Date(opts.periodEnd) : nextUtcMonth(now);
+  const todayKey = opts.todayKey ?? now.toISOString().slice(0, 10);
+  const topUpBalance = Math.max(0, Math.round(opts.topUpBalance ?? 0));
+
   const chronological = [...events].sort((a, b) => a.at.localeCompare(b.at));
   let householdUsd = 0;
+  let tokensUsedThisPeriod = 0;
+  let tokensUsedToday = 0;
   let trippedAt: string | null = null;
-  const totals = new Map<string, { name: string; usd: number; events: number }>();
+  const totals = new Map<string, { name: string; usd: number; tokens: number; events: number }>();
 
   for (const event of chronological) {
     householdUsd = roundUsd(householdUsd + event.usd);
-    if (!trippedAt && householdUsd >= AI_TRIP_USD) trippedAt = event.at;
+    const at = new Date(event.at);
+    const inPeriod = !Number.isNaN(at.getTime()) && at >= periodStart && at < periodEnd;
+    const eventTokens = Math.max(0, Math.round(event.tokens ?? tokenWeightForMode(event.mode)));
+    if (inPeriod && eventTokens > 0) {
+      tokensUsedThisPeriod += eventTokens;
+      if (localDayKey(event.at, todayKey) === todayKey) {
+        tokensUsedToday += eventTokens;
+      }
+    }
+    const allowanceExhausted =
+      tokensUsedThisPeriod > TOKENS_PER_MONTH || tokensUsedToday > TOKENS_PER_DAY;
+    if (!trippedAt && allowanceExhausted) trippedAt = event.at;
+
     const prev = totals.get(event.memberId) ?? {
       name: event.memberName,
       usd: 0,
+      tokens: 0,
       events: 0,
     };
     totals.set(event.memberId, {
       name: event.memberName || prev.name,
       usd: roundUsd(prev.usd + event.usd),
+      tokens: prev.tokens + (inPeriod ? eventTokens : 0),
       events: prev.events + 1,
     });
   }
+
+  const monthlyRemaining = Math.max(0, TOKENS_PER_MONTH - tokensUsedThisPeriod);
+  const dailyRemaining = Math.max(0, TOKENS_PER_DAY - tokensUsedToday);
+  const tokensRemaining = Math.max(0, Math.min(monthlyRemaining, dailyRemaining) + topUpBalance);
+  const tripped =
+    tokensUsedThisPeriod >= TOKENS_PER_MONTH || tokensUsedToday >= TOKENS_PER_DAY;
+  const cogsBreaker = householdUsd >= COGS_CEILING_USD;
 
   const byMember: MemberAiSpend[] = members.map((member) => {
     const row = totals.get(member.id);
@@ -123,21 +219,34 @@ export function summarizeAiUsage(
       memberId: member.id,
       name: member.name,
       usd: row?.usd ?? 0,
+      tokens: row?.tokens ?? 0,
       events: row?.events ?? 0,
     };
   });
   for (const [memberId, row] of totals) {
     if (byMember.some((item) => item.memberId === memberId)) continue;
-    byMember.push({ memberId, name: row.name || memberId, usd: row.usd, events: row.events });
+    byMember.push({
+      memberId,
+      name: row.name || memberId,
+      usd: row.usd,
+      tokens: row.tokens,
+      events: row.events,
+    });
   }
-  byMember.sort((a, b) => b.usd - a.usd);
+  byMember.sort((a, b) => b.tokens - a.tokens || b.usd - a.usd);
 
   return {
     householdUsd,
-    remainingUsd: roundUsd(Math.max(0, AI_TRIP_USD - householdUsd)),
-    tripped: householdUsd >= AI_TRIP_USD,
+    remainingUsd: roundUsd(Math.max(0, COGS_CEILING_USD - householdUsd)),
+    tokensUsedThisPeriod,
+    tokensRemaining,
+    tokensUsedToday,
+    topUpBalance,
+    periodResetsAt: periodEnd.toISOString(),
+    tripped,
     trippedAt,
     firstAt: chronological[0]?.at ?? null,
+    cogsBreaker,
     byMember,
   };
 }
@@ -145,6 +254,26 @@ export function summarizeAiUsage(
 export function personalUsd(summary: AiUsageSummary, memberId: string | null | undefined): number {
   if (!memberId) return 0;
   return summary.byMember.find((row) => row.memberId === memberId)?.usd ?? 0;
+}
+
+export function personalTokens(
+  summary: AiUsageSummary,
+  memberId: string | null | undefined
+): number {
+  if (!memberId) return 0;
+  return summary.byMember.find((row) => row.memberId === memberId)?.tokens ?? 0;
+}
+
+/** True when Live would not cover ~10 more live acts. */
+export function shouldDropLiveToSpoken(summary: AiUsageSummary): boolean {
+  return summary.tokensRemaining < TOKEN_WEIGHT_LIVE * 10;
+}
+
+export function meterNearCap(summary: AiUsageSummary): boolean {
+  return (
+    summary.tokensUsedThisPeriod / TOKENS_PER_MONTH >= 0.8 ||
+    summary.tokensUsedToday / TOKENS_PER_DAY >= 0.8
+  );
 }
 
 export function mergeUsageEvents(local: AiUsageEvent[], remote: AiUsageEvent[]): AiUsageEvent[] {
@@ -159,16 +288,22 @@ export function formatUsd(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
-export function meterCaption(summary: AiUsageSummary, personal: number, isAdmin: boolean): string {
+export function meterCaption(
+  summary: AiUsageSummary,
+  personal: number,
+  isAdmin: boolean
+): string {
   if (summary.tripped) {
     return isAdmin
-      ? `Paused · ${formatUsd(summary.householdUsd)} used`
-      : 'Poppins is paused for this household';
+      ? `Paused · ${summary.tokensUsedThisPeriod} of ${TOKENS_PER_MONTH}`
+      : 'Speak paused · type still works';
   }
   if (isAdmin) {
-    return `${formatUsd(summary.householdUsd)} of ${formatUsd(AI_TRIP_USD)}`;
+    return `${summary.tokensUsedThisPeriod} of ${TOKENS_PER_MONTH} this month · ${summary.tokensUsedToday} today`;
   }
-  return personal > 0 ? `${formatUsd(personal)} this month` : 'No Poppins use yet';
+  return personal > 0
+    ? `${personal} of ${TOKENS_PER_DAY} today`
+    : `0 of ${TOKENS_PER_DAY} today`;
 }
 
 export function buildUsageEvent(input: {
@@ -181,11 +316,22 @@ export function buildUsageEvent(input: {
   usd?: number;
   at?: string;
   id?: string;
+  mode?: PoppinsActMode;
+  tokens?: number;
+  /** Charge act tokens (commit only). Reads / vetoes pass false. */
+  chargeAct?: boolean;
 }): AiUsageEvent {
   const usd =
     input.usd != null
       ? roundUsd(input.usd)
       : usdForTokens(input.inputTokens, input.outputTokens, input.model);
+  const mode = input.mode ?? 'silent';
+  const tokens =
+    input.tokens != null
+      ? Math.max(0, Math.round(input.tokens))
+      : input.chargeAct
+        ? tokenWeightForMode(mode)
+        : 0;
   return {
     id: input.id ?? `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     at: input.at ?? new Date().toISOString(),
@@ -196,5 +342,7 @@ export function buildUsageEvent(input: {
     inputTokens: Math.max(0, Math.round(input.inputTokens)),
     outputTokens: Math.max(0, Math.round(input.outputTokens)),
     usd: usd > 0 ? usd : input.kind === 'voice' ? estimateVoiceUsd() : roundUsd(0.002),
+    tokens,
+    mode,
   };
 }
