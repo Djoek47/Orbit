@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "4.0.0",
-  "contentVersion": "2026-08-13",
+  "schemaVersion": "4.1.0",
+  "contentVersion": "2026-09-18",
   "_readme": "Single source of truth for the House Rules screen. Every string the user reads originates here; no view file may contain rule text of its own. If a sentence is not in this file, it does not appear in the app. The two modes are 'admin' and 'sidekick' — the words 'adult', 'kid', 'child', 'member' and 'helper' appear nowhere in this product, including in code, enum cases and analytics. This schema serves one layout: At a glance.",
   "constants": {
     "_readme": "Shared by the House Rules screen and the scoring engine alike. These are the only definitions of these values in the product; duplicating any of them elsewhere is how the rules and the maths drift apart.",
@@ -402,6 +402,22 @@
       "sidekick": {
         "headline": "Jobs run on a schedule",
         "body": "Some jobs come back every day, some every week, some once a month. An admin decides which."
+      }
+    },
+    {
+      "id": "DEAD-08",
+      "chapter": "deadlines",
+      "order": 8,
+      "condition": "ALWAYS",
+      "visual": "none",
+      "editable": false,
+      "admin": {
+        "headline": "Expired cleanup",
+        "clause": "Expired tasks and homework stay in the Expired tab for 7 days, then are deleted automatically."
+      },
+      "sidekick": {
+        "headline": "Missed jobs leave after a week",
+        "body": "Missed tasks stay in Expired for 7 days, then they disappear."
       }
     },
     {

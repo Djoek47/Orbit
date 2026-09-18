@@ -27,7 +27,6 @@ import { VOCAB } from '@/constants/vocabulary';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { motion, motionDuration } from '@/constants/motion-tokens';
-import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { isTasksStatus } from '@/lib/navigation/open-tasks-tab';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
@@ -724,10 +723,26 @@ export default function TasksScreen() {
   );
 
   const expiredGroups = useMemo(() => groupExpiredByDay(grouped.expired), [grouped.expired]);
-  const expiredCount = useMemo(
-    () => household.tasks.filter((t) => isExpiredVisibleInTab(t)).length,
-    [household.tasks]
-  );
+  const expiredCount = useMemo(() => {
+    return household.tasks.filter((task) => {
+      if (!isExpiredVisibleInTab(task)) return false;
+      const homework = isHomework(task);
+      if (domainTab === 'homework' ? !homework : homework) return false;
+      if (sharedKidMode) {
+        return taskMatchesAssignee(task, currentMember?.name);
+      }
+      if (focusMember && !taskMatchesAssignee(task, focusMember)) return false;
+      if (filter === 'mine' && !taskMatchesAssignee(task, currentMember?.name)) return false;
+      return true;
+    }).length;
+  }, [
+    currentMember?.name,
+    domainTab,
+    filter,
+    focusMember,
+    household.tasks,
+    sharedKidMode,
+  ]);
 
   /** Admins see All broken down by person (completion visible per member). */
   const showByMember = !sharedKidMode && permissions.canManageHousehold && filter === 'all';
@@ -1000,6 +1015,24 @@ export default function TasksScreen() {
         </>
       ) : null}
 
+      {statusTab === 'expired' ? (
+        <View
+          style={[
+            styles.expiredNotice,
+            {
+              backgroundColor: c.card,
+              borderColor: c.border,
+            },
+          ]}>
+          <MaterialIcons name="schedule" size={16} color={c.textMuted} />
+          <Text style={[typography.footnote, styles.expiredNoticeText, { color: c.textMuted }]}>
+            {domainTab === 'homework'
+              ? 'Expired homework is automatically deleted 7 days after it expires.'
+              : 'Expired tasks are automatically deleted 7 days after they expire.'}
+          </Text>
+        </View>
+      ) : null}
+
       {focusMember && !sharedKidMode ? (
         <Pressable
           onPress={clearFocusMember}
@@ -1023,7 +1056,7 @@ export default function TasksScreen() {
             tone="allClear"
             title={
               statusTab === 'expired'
-                ? 'Nothing expired this week.'
+                ? 'Nothing expired. Nice work.'
                 : domainTab === 'homework' && sharedKidMode
                   ? "You're all clear"
                   : sharedKidMode
@@ -1032,7 +1065,7 @@ export default function TasksScreen() {
             }
             caption={
               statusTab === 'expired'
-                ? `Expired tasks clear from this view after ${getHouseRulesDoc().constants.expiredPurgeDays} days.`
+                ? undefined
                 : domainTab === 'homework' && sharedKidMode
                   ? 'Nothing due right now. Nice work.'
                   : sharedKidMode
@@ -1044,7 +1077,7 @@ export default function TasksScreen() {
                       : 'Ask an adult to assign you something, or switch filters.'
             }
           />
-          {sharedKidMode ? (
+          {statusTab === 'expired' ? null : sharedKidMode ? (
             <Pressable onPress={() => setPersonaSwitchOpen(true)} style={styles.emptyCta}>
               <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Switch account</Text>
             </Pressable>
@@ -1469,6 +1502,18 @@ const styles = StyleSheet.create({
   xpBannerTitle: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  expiredNotice: {
+    alignItems: 'flex-start',
+    borderRadius: radius.control,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: space.md,
+    paddingVertical: 12,
+  },
+  expiredNoticeText: {
+    flex: 1,
   },
   splitBanner: {
     alignItems: 'center',
