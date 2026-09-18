@@ -385,6 +385,9 @@ type OrbitContextValue = {
       mode?: import('@/lib/ai/credits').PoppinsActMode;
       chargeAct?: boolean;
       tokens?: number;
+      sessionId?: string;
+      turnIndex?: number;
+      durationMs?: number;
     }
   ) => Promise<void>;
   recordActEvent: (event: import('@/lib/ai/act-events').ActEvent) => Promise<void>;
@@ -846,6 +849,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         mode?: import('@/lib/ai/credits').PoppinsActMode;
         chargeAct?: boolean;
         tokens?: number;
+        sessionId?: string;
+        turnIndex?: number;
+        durationMs?: number;
       }
     ) => {
       const member = currentMember;
@@ -869,6 +875,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         // COGS only — never charge act tokens here.
         chargeAct: false,
         tokens: 0,
+        sessionId: answer.sessionId,
+        turnIndex: answer.turnIndex,
+        durationMs: answer.durationMs,
       });
       const next = [...aiUsageRef.current, event];
       aiUsageRef.current = next;

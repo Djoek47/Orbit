@@ -333,6 +333,9 @@ export function buildUsageEvent(input: {
   tokens?: number;
   /** Charge act tokens (commit only). Reads / vetoes pass false. */
   chargeAct?: boolean;
+  sessionId?: string;
+  turnIndex?: number;
+  durationMs?: number;
 }): AiUsageEvent {
   const usd =
     input.usd != null
@@ -354,5 +357,8 @@ export function buildUsageEvent(input: {
     usd: usd > 0 ? usd : input.kind === 'voice' ? estimateVoiceUsd() : roundUsd(0.002),
     tokens,
     mode,
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+    ...(input.turnIndex != null ? { turnIndex: Math.max(0, Math.round(input.turnIndex)) } : {}),
+    ...(input.durationMs != null ? { durationMs: Math.max(0, Math.round(input.durationMs)) } : {}),
   };
 }

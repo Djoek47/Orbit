@@ -7,6 +7,7 @@ import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { EmptyState } from '@/components/orbit/empty-state';
 import { space, typography } from '@/constants/orbit-theme';
 import {
   listBrowseCategories,
@@ -81,9 +82,11 @@ export default function GroceryBrowseScreen() {
           );
         }}
         ListEmptyComponent={
-          <Text style={[typography.body, { color: c.textMuted, textAlign: 'center' }]}>
-            No products in this category.
-          </Text>
+          <EmptyState
+            tone="noneYet"
+            title="Nothing in this aisle"
+            caption="Try another category or search from Groceries."
+          />
         }
       />
     </View>

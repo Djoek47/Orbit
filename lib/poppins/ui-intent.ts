@@ -157,7 +157,8 @@ function groceryRewriteFromDraft(
   }
   const libraryTaskId = String(action.libraryTaskId ?? '');
   if (libraryTaskId && GROCERY_META_TASK_IDS.has(libraryTaskId)) {
-    const itemName = extractItemName(utterance) || String(action.title ?? 'Item');
+    const itemName = extractItemName(utterance) || (typeof action.title === 'string' ? action.title.trim() : '') || undefined;
+    if (!itemName) return null;
     return enrichGrocery({ type: 'add_grocery', name: itemName }, utterance);
   }
   const title = String(action.title ?? '').trim().toLowerCase();

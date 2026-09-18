@@ -47,14 +47,8 @@ for (const p of PRODUCTS) {
 }
 
 export function listBrowseCategories(): BrowseCategory[] {
-  const extra: BrowseCategory = {
-    id: 'clothing',
-    name: 'Clothing',
-    categoryId: 'clothing',
-    icon: '👕',
-  };
-  if (DOC.browseCategories.some((b) => b.id === 'clothing')) return DOC.browseCategories;
-  return [...DOC.browseCategories, extra];
+  // clothing / other are not browsable grocery aisles (WO7 Pass 1).
+  return DOC.browseCategories.filter((b) => b.id !== 'clothing' && b.id !== 'other');
 }
 
 export function getCatalogProduct(id: string): CatalogProduct | undefined {

@@ -11,7 +11,8 @@ type Props = {
 
 export function GroceryCategoryGrid({ onSelect }: Props) {
   const { c, glass, glassBorder } = useOrbitColors();
-  const cats = listBrowseCategories().filter((b) => b.id !== 'other');
+  // other + clothing already filtered in listBrowseCategories
+  const cats = listBrowseCategories();
 
   return (
     <View style={styles.grid}>

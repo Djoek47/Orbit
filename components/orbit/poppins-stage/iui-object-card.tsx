@@ -1,10 +1,11 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { IuiGhostField } from '@/components/orbit/poppins-stage/iui-ghost-field';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type Props = {
-  title: string;
+  title?: string;
   detail?: string;
   emoji?: string;
   accent: string;
@@ -12,11 +13,16 @@ type Props = {
 
 export function IuiObjectCard({ title, detail, emoji, accent }: Props) {
   const { c } = useOrbitColors();
+  const label = title?.trim() ?? '';
   return (
     <View style={[styles.card, { borderColor: `${accent}55`, backgroundColor: `${accent}14` }]}>
       {emoji ? <Text style={styles.emoji}>{emoji}</Text> : null}
       <View style={{ flex: 1 }}>
-        <Text style={[styles.title, { color: c.text }]}>{title}</Text>
+        {label ? (
+          <Text style={[styles.title, { color: c.text }]}>{label}</Text>
+        ) : (
+          <IuiGhostField text="What is it called?" accent={accent} />
+        )}
         {detail ? <Text style={[styles.detail, { color: c.textMuted }]}>{detail}</Text> : null}
       </View>
     </View>

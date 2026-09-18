@@ -187,6 +187,8 @@ export default function PoppinsScreen() {
   const voiceFailedRef = useRef(false);
   const lastUtteranceRef = useRef('');
   const billedSpeakRef = useRef(false);
+  const voiceSessionIdRef = useRef<string | null>(null);
+  const voiceTurnIndexRef = useRef(0);
   const continuityRef = useRef<IuiContinuity | null>(null);
   const wasLiveRef = useRef(false);
 
@@ -310,13 +312,21 @@ export default function PoppinsScreen() {
       lastUtteranceRef.current.trim()
     ) {
       billedSpeakRef.current = false;
+      if (!voiceSessionIdRef.current) {
+        voiceSessionIdRef.current = `live-${household.id}-${Date.now()}`;
+      }
+      const turnIndex = voiceTurnIndexRef.current;
+      voiceTurnIndexRef.current = turnIndex + 1;
       void recordPoppinsUsage('voice', {
         question: lastUtteranceRef.current,
         answer: liveCaption?.text ?? '',
         usage: { model: 'gpt-realtime-2.1' },
+        mode: 'live',
+        sessionId: voiceSessionIdRef.current,
+        turnIndex,
       });
     }
-  }, [liveCaption?.text, recordPoppinsUsage, visualState]);
+  }, [household.id, liveCaption?.text, recordPoppinsUsage, visualState]);
 
   useEffect(() => {
     poppinsUiOrchestrator.setPendingHandler((approved, ids) => {
@@ -404,6 +414,8 @@ export default function PoppinsScreen() {
     setError('');
     setLiveCaption(null);
     voiceFailedRef.current = false;
+    voiceSessionIdRef.current = `live-${household.id}-${Date.now()}`;
+    voiceTurnIndexRef.current = 0;
     const prep = await prepareSpeakOpen(household, metrics);
     continuityRef.current = prep.continuity;
     restoreOpenAct(prep.continuity);

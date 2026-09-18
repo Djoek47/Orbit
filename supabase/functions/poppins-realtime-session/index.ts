@@ -109,9 +109,10 @@ Deno.serve(async (req) => {
     }
 
     if (householdId) {
+      const sessionId = `realtime-mint-${householdId}-${Date.now()}`;
       await recordAiUsageEvent({
         householdId: String(householdId),
-        clientKey: `realtime-mint-${householdId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        clientKey: `${sessionId}-${Math.random().toString(36).slice(2, 8)}`,
         memberId: auth.user?.id,
         kind: 'realtime',
         model: String(model),
@@ -119,6 +120,8 @@ Deno.serve(async (req) => {
         outputTokens: 0,
         surface: 'poppins-realtime-session',
         mode: 'session_mint',
+        sessionId,
+        turnIndex: null,
       });
     }
 
