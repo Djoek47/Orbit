@@ -65,7 +65,7 @@ const maya: SidekickSession = {
   const hostedIds = Object.keys(byMemberId);
   assert.deepEqual(hostedIds.sort(), ['drako', 'maya']);
 
-  let activeMemberId = 'drako';
+  let activeMemberId: 'drako' | 'maya' = 'drako';
   assert.equal(byMemberId[activeMemberId].profileInviteCode, 'CMX-DRAKO');
 
   activeMemberId = 'maya';

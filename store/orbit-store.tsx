@@ -5909,7 +5909,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     await saveSidekickSession({
       memberId: member.id,
-      householdId: record?.householdId ?? lookedUp?.householdId ?? household.id,
+      householdId: record?.householdId ?? lookedUp?.householdId ?? household.id ?? '',
       profileInviteCode: code,
       displayName: member.name,
       avatar: member.avatar,
@@ -5996,7 +5996,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     for (const entry of resolved) {
       await saveSidekickSession({
         memberId: entry.member.id,
-        householdId: household.id,
+        householdId: household.id ?? '',
         profileInviteCode: entry.code,
         displayName: entry.member.name,
         avatar: entry.member.avatar,

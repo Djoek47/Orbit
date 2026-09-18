@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: space.lg,
-    borderRadius: radius.xl,
+    borderRadius: radius.cardLarge,
     gap: space.md,
   },
   title: {
