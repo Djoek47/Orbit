@@ -46,8 +46,8 @@ __resetHouseRulesCache();
 const doc = getHouseRulesDoc();
 
 {
-  assert.equal(doc.schemaVersion, '4.0.0');
-  assert.equal(doc.rules.length, 36, '36 rules');
+  assert.equal(doc.schemaVersion, '4.1.0');
+  assert.equal(doc.rules.length, 37, '37 rules');
   assert.equal(doc.chapters.length, 7, '7 chapters');
   const conditions = new Set(doc.rules.map((r) => r.condition));
   for (const key of CONDITION_KEYS) {
@@ -63,7 +63,7 @@ const doc = getHouseRulesDoc();
     doc.chapters.map((c) => [c.key, doc.rules.filter((r) => r.chapter === c.key).length])
   );
   assert.equal(byChapter.earning, 6);
-  assert.equal(byChapter.deadlines, 7);
+  assert.equal(byChapter.deadlines, 8);
   assert.equal(byChapter.streaks, 4);
   assert.equal(byChapter.crowns, 7);
   assert.equal(byChapter.rewards, 7);
@@ -73,7 +73,7 @@ const doc = getHouseRulesDoc();
     doc.rules.filter((r) => r.editable).every((r) => Boolean(r.settingKey)),
     'editable rules have settingKey'
   );
-  pass('HR1', 'JSON decodes: 36 rules, 7 chapters, 8 conditions, 15 visuals');
+  pass('HR1', 'JSON decodes: 37 rules, 7 chapters, 8 conditions, 15 visuals');
 }
 
 {
@@ -209,8 +209,8 @@ const doc = getHouseRulesDoc();
   const illustrated = doc.rules.filter((r) => r.visual !== 'none').length;
   const quiet = doc.rules.filter((r) => r.visual === 'none').length;
   assert.equal(illustrated, 14);
-  assert.equal(quiet, 22);
-  pass('HR-V', '14 illustrated, 22 quiet');
+  assert.equal(quiet, 23);
+  pass('HR-V', '14 illustrated, 23 quiet');
 }
 
 {
