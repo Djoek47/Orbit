@@ -185,7 +185,7 @@ function task(partial: Partial<HouseholdTask>): HouseholdTask {
   assert.equal(isExpiredVisibleInTab(old, now), false);
   assert.equal(isActiveTask(recent), false);
   assert.equal(groupExpiredByDay([recent, old], now).length, 1);
-  pass('F5.3', 'Expired 8+ days ago hidden from tab but row kept');
+  pass('F5.3', 'Expired 8+ days ago hidden from tab (purge window)');
 }
 
 console.log('test:revision-f-features OK');

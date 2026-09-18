@@ -28,7 +28,7 @@ export function isCompletedTask(task: HouseholdTask): boolean {
   return task.status === 'Completed';
 }
 
-/** View filter: expiredAt within last 7 days. Hide older; never delete. */
+/** View filter: expiredAt within last 7 days (matches purge window). */
 export function isExpiredVisibleInTab(task: HouseholdTask, now = new Date()): boolean {
   if (!isExpiredTask(task)) return false;
   const stamp = task.expiredAt
@@ -39,7 +39,7 @@ export function isExpiredVisibleInTab(task: HouseholdTask, now = new Date()): bo
         ? new Date(task.dueAt)
         : null;
   if (!stamp || Number.isNaN(stamp.getTime())) return true;
-  return now.getTime() - stamp.getTime() <= expiredPurgeMs();
+  return now.getTime() - stamp.getTime() < expiredPurgeMs();
 }
 
 export function expiredDayLabel(task: HouseholdTask, now = new Date()): string {
