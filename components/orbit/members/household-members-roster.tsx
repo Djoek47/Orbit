@@ -35,6 +35,8 @@ type Props = {
   onAddMember: () => void;
   onShareInvite: (member: HouseholdMember) => void;
   onPersonalize: (memberId: string) => void;
+  /** When set, identity tap opens the face picker instead of switching immediately. */
+  onOpenPersonaSwitch?: () => void;
 };
 
 /** Single source of truth for household member roster UI (Settings + Members modal). */
@@ -44,6 +46,7 @@ export function HouseholdMembersRoster({
   onAddMember,
   onShareInvite,
   onPersonalize,
+  onOpenPersonaSwitch,
 }: Props) {
   const {
     currentMember,
@@ -90,6 +93,14 @@ export function HouseholdMembersRoster({
     'automatic',
     familyCap && counts.awaiting === 0 ? adminSeats : undefined
   );
+
+  const requestSwitch = (memberId: string) => {
+    if (onOpenPersonaSwitch) {
+      onOpenPersonaSwitch();
+      return;
+    }
+    switchPersona(memberId);
+  };
 
   const handleRemoveMember = (member: HouseholdMember) => {
     if (member.role === 'owner') {
@@ -243,7 +254,7 @@ export function HouseholdMembersRoster({
                 active={currentMember?.id === person.id}
                 accent={accent}
                 canManage={permissions.canManageHousehold}
-                onSwitch={() => switchPersona(person.id)}
+                onSwitch={() => requestSwitch(person.id)}
                 onPersonalize={() => onPersonalize(person.id)}
                 onShareInvite={() => onShareInvite(person)}
                 onUnlink={() => toggleSharedLink(device.id, person.id, linkedIds)}
@@ -276,7 +287,7 @@ export function HouseholdMembersRoster({
             renameValue={renamingMemberInput}
             onRenameValueChange={setRenamingMemberInput}
             onPersonalize={() => onPersonalize(member.id)}
-            onSwitchPersona={() => switchPersona(member.id)}
+            onSwitchPersona={() => requestSwitch(member.id)}
             onShareInvite={() => onShareInvite(member)}
             onApprove={() => void approveMember(member.id)}
             onStartRename={() => {

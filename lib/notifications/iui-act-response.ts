@@ -61,7 +61,20 @@ export async function handleIuiActNotificationResponse(input: {
       await openChange(householdId, beat);
       return { handled: true, action: 'change' };
     }
-    await commitIuiBeat(beat, input.writes);
+    try {
+      await commitIuiBeat(beat, input.writes);
+    } catch (error) {
+      const { ActRejectedError, clearRejectedSlot } = await import('@/lib/poppins/validate-act');
+      if (error instanceof ActRejectedError) {
+        const cleared = {
+          ...beat,
+          payload: clearRejectedSlot(beat.payload, error.validation.slot),
+        };
+        await openChange(householdId, cleared);
+        return { handled: true, action: 'change' };
+      }
+      throw error;
+    }
     await input.onApproved?.();
     return { handled: true, action: 'approve' };
   }

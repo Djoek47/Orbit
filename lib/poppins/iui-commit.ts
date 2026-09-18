@@ -1,8 +1,10 @@
 /**
  * Single commit path for IUI acts — stage HOLD and notification Approve share this.
+ * validateAct runs here so every writer shares one gate.
  */
 import { notifyActCommitted } from '@/lib/ai/act-events';
 import { resolvePoppinsChoreTitle } from '@/lib/poppins/catalog-match';
+import { ActRejectedError, validateAct, type ActRejection } from '@/lib/poppins/validate-act';
 import type { IuiBeat } from '@/lib/poppins/ui-scenes';
 import { householdDueTimeLocal } from '@/lib/rules/household-view';
 import { formatLocalDate } from '@/lib/streaks/local-date';
@@ -35,7 +37,19 @@ export type IuiCommitWrites = {
   onVoiceTaskCreated?: (task: HouseholdTask) => void;
 };
 
-export async function commitIuiBeat(beat: IuiBeat, writes: IuiCommitWrites): Promise<void> {
+export type CommitIuiResult =
+  | { ok: true }
+  | { ok: false; slot: string; reason: ActRejection };
+
+export async function commitIuiBeat(
+  beat: IuiBeat,
+  writes: IuiCommitWrites
+): Promise<CommitIuiResult> {
+  const gate = validateAct(beat.payload, beat.scene);
+  if (!gate.ok) {
+    throw new ActRejectedError(gate);
+  }
+
   const {
     household,
     currentMember,
@@ -205,4 +219,5 @@ export async function commitIuiBeat(beat: IuiBeat, writes: IuiCommitWrites): Pro
   if (wrote) {
     await notifyActCommitted(beat.id, write === 'none' ? undefined : write);
   }
+  return { ok: true };
 }

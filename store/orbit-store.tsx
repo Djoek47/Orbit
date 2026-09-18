@@ -117,6 +117,8 @@ import { needsProofOnComplete, proofRequiredForHomeworkAssign } from '@/lib/task
 import { canAdminRequestTaskProof } from '@/lib/tasks/proof-eligibility';
 import {
   loadSidekickSession,
+  loadSidekickSessionFor,
+  listSidekickSessions,
   saveSidekickSession,
   type SidekickSession,
   markSidekickSignedOut,
@@ -1889,13 +1891,25 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await authRepository.persistLocalSession(user, session.memberId);
     await clearSidekickSignedOut();
 
-    const { setupSharedDeviceSession, selectDeviceProfile } = await import('@/lib/device/device-session');
-    await setupSharedDeviceSession({
-      profileMemberIds: [session.memberId],
-      deviceLabel: `${session.displayName}'s device`,
-      hostKind: 'sidekick',
-    });
-    await selectDeviceProfile(session.memberId);
+    const { hostProfileOnDevice, setupSharedDeviceSession, selectDeviceProfile } = await import(
+      '@/lib/device/device-session'
+    );
+    const hosted = await listSidekickSessions();
+    const hostedIds = [...new Set(hosted.map((item) => item.memberId).concat(session.memberId))];
+    if (hostedIds.length > 1) {
+      await setupSharedDeviceSession({
+        profileMemberIds: hostedIds,
+        deviceLabel: 'Family tablet',
+        hostKind: 'shared-tablet',
+      });
+      await selectDeviceProfile(session.memberId);
+    } else {
+      await hostProfileOnDevice({
+        memberId: session.memberId,
+        deviceLabel: `${session.displayName}'s device`,
+        hostKind: 'sidekick',
+      });
+    }
 
     if (dataMode === 'supabase') {
       const sync = await fetchSidekickSync(normalizedCode);
@@ -2024,15 +2038,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await authRepository.persistLocalSession(user, result.member.id);
 
     if (result.status === 'active') {
-      const { setupSharedDeviceSession, selectDeviceProfile } = await import(
-        '@/lib/device/device-session'
-      );
-      await setupSharedDeviceSession({
-        profileMemberIds: [result.member.id],
+      const { hostProfileOnDevice } = await import('@/lib/device/device-session');
+      await hostProfileOnDevice({
+        memberId: result.member.id,
         deviceLabel: `${result.member.name}'s device`,
         hostKind: 'sidekick',
       });
-      await selectDeviceProfile(result.member.id);
     } else if (result.householdId) {
       await stashPendingJoinHouseholdId(result.householdId);
     }
@@ -4918,13 +4929,29 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       target.id,
     );
     void saveActiveMemberId(target.id);
-    void import('@/lib/device/device-session').then(({ loadDeviceSession, selectDeviceProfile }) =>
-      loadDeviceSession().then((session) => {
-        if (session.mode === 'shared') {
-          void selectDeviceProfile(target.id);
+
+    // Switch is a read: set activeMemberId, swap stored profileInviteCode, resync.
+    // No redeem, no QR, never clearSidekickSession.
+    void (async () => {
+      const { loadDeviceSession, selectDeviceProfile } = await import('@/lib/device/device-session');
+      const device = await loadDeviceSession();
+      if (device.mode === 'shared') {
+        await selectDeviceProfile(target.id);
+      }
+      const sidekick = await loadSidekickSessionFor(target.id);
+      if (!sidekick?.profileInviteCode?.trim()) return;
+      const code = normalizeInviteCode(sidekick.profileInviteCode);
+      if (dataMode === 'supabase' && code) {
+        const sync = await fetchSidekickSync(code);
+        if (sync) {
+          await applySidekickSyncPayload(sync, { announceNewTasks: false });
         }
-      })
-    );
+        registerSidekickPushNotifications(code).catch((error) => {
+          console.warn('Sidekick push registration skipped', error);
+        });
+      }
+      await touchSidekickSession();
+    })();
   };
 
   const approveMember = async (memberId: string) => {
@@ -5880,15 +5907,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setActiveMemberId(member.id);
     await authRepository.persistLocalSession(user, member.id);
 
-    const { setupSharedDeviceSession, selectDeviceProfile } = await import(
-      '@/lib/device/device-session'
-    );
-    await setupSharedDeviceSession({
-      profileMemberIds: [member.id],
+    await saveSidekickSession({
+      memberId: member.id,
+      householdId: record?.householdId ?? lookedUp?.householdId ?? household.id,
+      profileInviteCode: code,
+      displayName: member.name,
+      avatar: member.avatar,
+      householdName: lookedUp?.householdName ?? household.householdName,
+    });
+    await clearSidekickSignedOut();
+
+    const { hostProfileOnDevice } = await import('@/lib/device/device-session');
+    await hostProfileOnDevice({
+      memberId: member.id,
       deviceLabel: `${member.name}'s device`,
       hostKind: 'sidekick',
     });
-    await selectDeviceProfile(member.id);
 
     await trackAnalytics(
       'member.child_invite_redeemed',
@@ -5910,7 +5944,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       throw new Error('Add at least one invite code or scan an AirDrop QR.');
     }
 
-    const resolved: HouseholdMember[] = [];
+    const resolved: { member: HouseholdMember; code: string }[] = [];
     for (const code of codes) {
       const record = await loadChildInviteRecord(code);
       const member =
@@ -5920,33 +5954,34 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (!member || (member.status !== 'active' && member.status !== 'invited') || member.role === 'shared-device') {
         throw new Error(`No profile for ${code}. Ask an admin to AirDrop or send that invite.`);
       }
-      if (!resolved.some((item) => item.id === member.id)) {
-        resolved.push(member);
+      if (!resolved.some((item) => item.member.id === member.id)) {
+        resolved.push({ member, code });
       }
     }
 
     // Prefer Rivera/demo household when profiles live there; otherwise merge onto current.
-    const fromDemo = resolved.every((member) =>
+    const membersOnly = resolved.map((item) => item.member);
+    const fromDemo = membersOnly.every((member) =>
       mockHousehold.members.some((item) => item.id === member.id),
     );
     if (fromDemo) {
       setHousehold({
         ...mockHousehold,
-        greetingName: resolved[0]?.name ?? mockHousehold.greetingName,
+        greetingName: membersOnly[0]?.name ?? mockHousehold.greetingName,
       });
     } else {
       setHousehold((current) => {
         const ids = new Set(current.members.map((item) => item.id));
-        const additions = resolved.filter((member) => !ids.has(member.id));
+        const additions = membersOnly.filter((member) => !ids.has(member.id));
         return {
           ...current,
-          greetingName: resolved[0]?.name ?? current.greetingName,
+          greetingName: membersOnly[0]?.name ?? current.greetingName,
           members: additions.length ? [...current.members, ...additions] : current.members,
         };
       });
     }
 
-    const primary = resolved[0]!;
+    const primary = membersOnly[0]!;
     const user: OrbitUser = {
       id: `tablet-local-${primary.id}`,
       email: `tablet-${primary.id}@kids.choremaxx.local`,
@@ -5958,27 +5993,39 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setActiveMemberId(primary.id);
     await authRepository.persistLocalSession(user, primary.id);
 
+    for (const entry of resolved) {
+      await saveSidekickSession({
+        memberId: entry.member.id,
+        householdId: household.id,
+        profileInviteCode: entry.code,
+        displayName: entry.member.name,
+        avatar: entry.member.avatar,
+        householdName: household.householdName,
+      });
+    }
+    await clearSidekickSignedOut();
+
     const { setupSharedDeviceSession, selectDeviceProfile } = await import(
       '@/lib/device/device-session'
     );
     const session = await setupSharedDeviceSession({
-      profileMemberIds: resolved.map((member) => member.id),
+      profileMemberIds: membersOnly.map((member) => member.id),
       deviceLabel: deviceLabel?.trim() || 'Family iPad',
       hostKind: 'shared-tablet',
     });
 
-    const needsProfilePick = resolved.length > 1;
+    const needsProfilePick = membersOnly.length > 1;
     if (!needsProfilePick) {
       await selectDeviceProfile(primary.id);
     }
 
     await trackAnalytics(
       'device.shared_tablet_connected',
-      { count: resolved.length },
+      { count: membersOnly.length },
       { householdId: household.id, userId: user.id },
     );
 
-    return { members: resolved, needsProfilePick: needsProfilePick || session.needsProfilePick };
+    return { members: membersOnly, needsProfilePick: needsProfilePick || session.needsProfilePick };
   };
 
   const splitAllTasksBetweenTwo = async (nameA?: string, nameB?: string) => {

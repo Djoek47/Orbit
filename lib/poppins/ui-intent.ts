@@ -134,6 +134,7 @@ export function parseHouseholdIntent(
         libraryTaskId: resolved.libraryTaskId,
         taskQuery: useCatalog ? undefined : match.taskQuery,
         repeat: repeatFromUtterance(text),
+        provisional: resolved.provisional === true,
       },
     ];
   }
@@ -228,7 +229,8 @@ function enrichGrocery(
   action: Record<string, unknown>,
   utterance: string
 ): Array<Record<string, unknown>> {
-  const name = String(action.name ?? '').trim() || extractItemName(utterance) || 'Item';
+  const name = String(action.name ?? '').trim() || extractItemName(utterance) || undefined;
+  if (!name) return [];
   const shopping = isShoppingIntent(utterance) || action.lane === 'clothing';
   const releaseDate =
     (action.releaseDate ? String(action.releaseDate) : undefined) || parseReleaseDate(utterance);

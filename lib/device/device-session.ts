@@ -131,3 +131,26 @@ export async function setupSharedDeviceSession(input: {
   await saveDeviceSession(next);
   return next;
 }
+
+/**
+ * Add a profile to this device without wiping siblings.
+ * First profile bootstraps shared mode; later joins only append + select.
+ */
+export async function hostProfileOnDevice(input: {
+  memberId: string;
+  deviceLabel?: string;
+  hostKind?: DeviceHostKind;
+  sharedDeviceId?: string | null;
+}): Promise<DeviceSession> {
+  const current = await loadDeviceSession();
+  if (current.mode === 'shared' && current.profileMemberIds.length > 0) {
+    return selectDeviceProfile(input.memberId);
+  }
+  await setupSharedDeviceSession({
+    profileMemberIds: [input.memberId],
+    deviceLabel: input.deviceLabel,
+    hostKind: input.hostKind ?? 'sidekick',
+    sharedDeviceId: input.sharedDeviceId,
+  });
+  return selectDeviceProfile(input.memberId);
+}

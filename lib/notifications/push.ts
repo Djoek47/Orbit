@@ -32,7 +32,7 @@ export async function registerForPushNotifications(userId?: string | null) {
           token,
           platform: Platform.OS,
         },
-        { onConflict: 'token' }
+        { onConflict: 'token,member_id' }
       );
       if (error) {
         console.warn('Failed to persist push token', error.message);

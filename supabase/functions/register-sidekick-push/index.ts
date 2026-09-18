@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
         token,
         platform,
       },
-      { onConflict: 'token' }
+      { onConflict: 'token,member_id' }
     );
 
     if (upsertError) {

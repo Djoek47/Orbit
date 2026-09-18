@@ -58,19 +58,21 @@ function isGroceryMetaDraft(
 }
 
 function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
-  const groceryName = String(action.name ?? action.title ?? '').trim() || 'Item';
+  const groceryName = String(action.name ?? action.title ?? '').trim();
   const storeHint = String(action.storeHint ?? '').trim();
   return [
     beat(
       'grocery_add',
       {
-        groceryName,
+        groceryName: groceryName || undefined,
         aisle: action.category ? String(action.category) : undefined,
-        title: groceryName || 'Grocery',
+        title: groceryName || undefined,
         shoppingLane: action.lane === 'clothing' ? 'clothing' : 'grocery',
         thinkingLine:
           action.lane === 'clothing' ? 'Shopping list' : storeHint || 'Grocery list',
         location: storeHint || undefined,
+        sourceUtterance:
+          typeof action.sourceUtterance === 'string' ? action.sourceUtterance : undefined,
       },
       'hold',
       'add_grocery'
@@ -79,8 +81,8 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
       'result_mark',
       {
         markKind: 'added',
-        title: groceryName || 'Item',
-        groceryName,
+        title: groceryName || undefined,
+        groceryName: groceryName || undefined,
       },
       'none'
     ),
@@ -126,6 +128,13 @@ function taskDraftBeats(action: Record<string, unknown>, prefill: Record<string,
     showEmoji: true,
     thinkingLine: homework ? 'Homework' : 'Assign',
     composeKind: homework ? 'homework' : undefined,
+    provisional: resolved.provisional === true || action.provisional === true,
+    sourceUtterance:
+      typeof action.sourceUtterance === 'string'
+        ? action.sourceUtterance
+        : typeof prefill.sourceUtterance === 'string'
+          ? prefill.sourceUtterance
+          : undefined,
   };
   const payload = homework
     ? withHomeworkComposeProgress(basePayload)

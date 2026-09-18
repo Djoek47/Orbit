@@ -105,6 +105,8 @@ export type IuiPayload = {
   composeReady?: boolean;
   /** Marginal fuzzy fill — do not arm HOLD until confirmed. */
   provisional?: boolean;
+  /** Original user utterance — used by validateAct echo detection. */
+  sourceUtterance?: string;
   /** Current one-beat compose step. */
   composeStep?: 'who' | 'category' | 'task' | 'subject' | 'when' | 'ready';
   /** Optional: show emoji next to library chips. */

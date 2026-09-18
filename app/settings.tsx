@@ -1166,6 +1166,7 @@ export default function SettingsScreen() {
             onAddMember={() => setAddMemberOpen(true)}
             onShareInvite={openMemberInvite}
             onPersonalize={setPersonalizeMemberId}
+            onOpenPersonaSwitch={() => setPersonaSwitchOpen(true)}
           />
         ) : null}
 

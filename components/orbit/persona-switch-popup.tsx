@@ -1,17 +1,18 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
-import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
-import { getAccentTheme } from '@/constants/accent-themes';
+import { IuiFaces } from '@/components/orbit/poppins-stage/iui-faces';
 import { orbitColors, radius, space } from '@/constants/orbit-theme';
+import { loadDeviceSession } from '@/lib/device/device-session';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   findSharedDeviceForMember,
   isSharedDeviceRole,
   resolveSharedDevicePeople,
 } from '@/lib/household/shared-device';
+import type { IuiFace } from '@/lib/poppins/ui-scenes';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -22,12 +23,31 @@ type PersonaSwitchPopupProps = {
   members: HouseholdMember[];
   currentMemberId: string;
   onSwitch: (memberId: string) => void;
+  /** Prefer device-hosted profiles when set (from DeviceSession.profileMemberIds). */
+  hostedMemberIds?: string[];
 };
 
 function switchableAccounts(
   members: HouseholdMember[],
-  currentMemberId: string
+  currentMemberId: string,
+  hostedMemberIds?: string[]
 ): { accounts: HouseholdMember[]; subtitle: string } {
+  if (hostedMemberIds && hostedMemberIds.length > 0) {
+    const accounts = hostedMemberIds
+      .map((id) => members.find((member) => member.id === id))
+      .filter((member): member is HouseholdMember =>
+        Boolean(
+          member &&
+            member.status === 'active' &&
+            !isSharedDeviceRole(member.role) &&
+            member.role !== 'guest'
+        )
+      );
+    if (accounts.length > 0) {
+      return { accounts, subtitle: 'On this device' };
+    }
+  }
+
   const current = members.find((member) => member.id === currentMemberId);
   const shell =
     findSharedDeviceForMember(currentMemberId, members) ??
@@ -51,15 +71,43 @@ function switchableAccounts(
   };
 }
 
+function toFaces(accounts: HouseholdMember[]): IuiFace[] {
+  return accounts.map((member) => ({
+    id: member.id,
+    name: member.name,
+    emoji: memberDisplayEmoji(member),
+    imageUri: isAvatarImageUri(member.avatar) ? member.avatar : undefined,
+  }));
+}
+
 export function PersonaSwitchPopup({
   visible,
   onClose,
   members,
   currentMemberId,
   onSwitch,
+  hostedMemberIds: hostedProp,
 }: PersonaSwitchPopupProps) {
   const { c } = useOrbitColors();
-  const { accounts, subtitle } = switchableAccounts(members, currentMemberId);
+  const [hostedMemberIds, setHostedMemberIds] = useState<string[] | undefined>(hostedProp);
+
+  useEffect(() => {
+    if (hostedProp) {
+      setHostedMemberIds(hostedProp);
+      return;
+    }
+    if (!visible) return;
+    void loadDeviceSession().then((session) => {
+      if (session.mode === 'shared' && session.profileMemberIds.length > 0) {
+        setHostedMemberIds(session.profileMemberIds);
+      }
+    });
+  }, [visible, hostedProp]);
+
+  const { accounts, subtitle } = switchableAccounts(members, currentMemberId, hostedMemberIds);
+  const current = members.find((member) => member.id === currentMemberId);
+  const faces = toFaces(accounts);
+  const accent = orbitColors.accent;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -69,50 +117,23 @@ export function PersonaSwitchPopup({
             <Text style={[styles.title, { color: c.text }]}>Switch account</Text>
             <Text style={[styles.subtitle, { color: c.textMuted }]}>{subtitle}</Text>
 
-            {accounts.length === 0 ? (
+            {faces.length === 0 ? (
               <Text style={[styles.empty, { color: c.textSoft }]}>No other accounts on this device.</Text>
             ) : (
-              <View style={styles.list}>
-                {accounts.map((member) => {
-                  const active = member.id === currentMemberId;
-                  const theme = getAccentTheme(member.accentThemeId);
-                  return (
-                    <Pressable
-                      key={member.id}
-                      style={[styles.row, { borderColor: orbitColors.border }, active && styles.rowActive]}
-                      onPress={() => {
-                        if (!active) {
-                          void Haptics.selectionAsync();
-                          onSwitch(member.id);
-                        }
-                        onClose();
-                      }}>
-                      <View style={[styles.avatar, { borderColor: theme.primary }]}>
-                        <Avatar
-                          name={member.name}
-                          emoji={memberDisplayEmoji(member)}
-                          imageUri={
-                            isAvatarImageUri(member.avatar) ? member.avatar : undefined
-                          }
-                          size="s"
-                        />
-                      </View>
-                      <View style={styles.meta}>
-                        <Text style={[styles.name, { color: c.text }]}>{member.name}</Text>
-                        <Text style={[styles.xp, { color: c.textMuted }]}>
-                          {member.xp} XP · {theme.label}
-                        </Text>
-                      </View>
-                      <View style={[styles.dot, { backgroundColor: theme.primary }]} />
-                      {active ? (
-                        <MaterialIcons name="check" size={18} color={theme.primary} />
-                      ) : (
-                        <View style={styles.checkSpacer} />
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <IuiFaces
+                faces={faces}
+                selectedName={current?.name}
+                accent={accent}
+                onSelect={(name) => {
+                  const member = accounts.find((item) => item.name === name);
+                  if (!member) return;
+                  if (member.id !== currentMemberId) {
+                    void Haptics.selectionAsync();
+                    onSwitch(member.id);
+                  }
+                  onClose();
+                }}
+              />
             )}
           </GlassCard>
         </Pressable>
@@ -124,75 +145,27 @@ export function PersonaSwitchPopup({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(8, 14, 28, 0.55)',
-    justifyContent: 'center',
-    paddingHorizontal: space.md,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'flex-end',
+    padding: space.lg,
   },
   sheet: {
     width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
   },
   card: {
+    padding: space.lg,
+    borderRadius: radius.xl,
     gap: space.md,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 20,
+    fontWeight: '700',
   },
   subtitle: {
-    fontSize: 13,
-    marginBottom: space.md,
+    fontSize: 14,
   },
   empty: {
     fontSize: 14,
     paddingVertical: space.md,
-  },
-  list: {
-    gap: space.md,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    paddingHorizontal: space.md,
-    paddingVertical: 10,
-  },
-  rowActive: {
-    borderColor: 'rgba(255,255,255,0.22)',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    overflow: 'hidden',
-  },
-  meta: {
-    flex: 1,
-    gap: 2,
-  },
-  name: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  xp: {
-    fontSize: 12,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  checkSpacer: {
-    width: 18,
-    height: 18,
   },
 });

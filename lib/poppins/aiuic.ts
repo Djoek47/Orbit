@@ -13,7 +13,8 @@ import {
   type HouseFact,
   type HouseFactKind,
 } from '@/lib/poppins/house-memory';
-import { parseHouseholdIntent, rewriteAiuicActions, type HouseholdIntentOpts } from '@/lib/poppins/ui-intent';
+import { parseCompoundHouseholdIntent } from '@/lib/poppins/clause-segment';
+import { rewriteAiuicActions, type HouseholdIntentOpts } from '@/lib/poppins/ui-intent';
 
 export { rewriteAiuicActions } from '@/lib/poppins/ui-intent';
 
@@ -79,7 +80,7 @@ export function hearAndDrive(
   if (memory) void rememberActiveFact(memory);
   const steered = poppinsUiOrchestrator.applySpeech(cleaned, memberNames, { selfName: opts?.selfName });
   if (!steered) {
-    const inferred = parseHouseholdIntent(cleaned, {
+    const inferred = parseCompoundHouseholdIntent(cleaned, {
       memberNames,
       selfName: opts?.selfName,
       existingTasks: opts?.existingTasks,

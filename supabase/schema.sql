@@ -480,14 +480,15 @@ create table if not exists public.push_tokens (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references public.profiles(id) on delete cascade,
   member_id uuid references public.household_members(id) on delete cascade,
-  token text not null unique,
+  token text not null,
   platform text not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint push_tokens_owner_check check (
     (user_id is not null and member_id is null)
     or (user_id is null and member_id is not null)
-  )
+  ),
+  constraint push_tokens_token_member_unique unique nulls not distinct (token, member_id)
 );
 
 -- Legacy alias view for older app code that referenced nova_briefings

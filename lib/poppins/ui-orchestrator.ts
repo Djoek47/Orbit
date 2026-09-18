@@ -213,7 +213,26 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
   } else if (beat.commit !== 'none') {
     try {
       await commitHandler?.(beat);
-    } catch {
+    } catch (error) {
+      const { ActRejectedError, clearRejectedSlot } = await import('@/lib/poppins/validate-act');
+      const { withComposeProgress } = await import('@/lib/poppins/iui-compose');
+      const { withHomeworkComposeProgress } = await import('@/lib/poppins/homework-compose');
+      if (error instanceof ActRejectedError) {
+        const cleared = clearRejectedSlot(beat.payload, error.validation.slot);
+        const progressed =
+          beat.scene === 'homework_compose'
+            ? withHomeworkComposeProgress(cleared)
+            : withComposeProgress(cleared);
+        patchCurrentPayload(progressed);
+        setState({
+          frozen: false,
+          holding: false,
+          phase: 'unfold',
+          commitFailed: false,
+          thinkingLine: '',
+        });
+        return;
+      }
       setState({
         frozen: true,
         holding: false,
