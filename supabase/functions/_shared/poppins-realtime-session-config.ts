@@ -7,6 +7,7 @@ import {
   getOpenAIRealtimeModel,
   resolveRealtimeReasoningEffort,
 } from './openai-models.ts';
+import { REALTIME_POST_INSTRUCTIONS_TOKEN_LIMIT } from './openai-rates.ts';
 import {
   buildMajordomoSystemPrompt,
   getMajordomoProfile,
@@ -16,7 +17,7 @@ import {
 const IDLE_RAILS = `
 Voice cost rails (smart idle hangup — not a farewell ritual):
 - Prefer ending via end_session when the request is clearly done and the user said thanks/bye or there is no follow-up.
-- Soft check-in is owned by the client after ~45–60s of silence; reply briefly if they are still there.
+- Soft idle is client-enforced (~15s silence); do not invent a spoken “still there?” check-in.
 - Never invent a long “anything else?” ceremony. Keep answers short while tools run.
 - After tools, always continue speaking a short spoken summary — never stay silent in Thinking.
 - Consequential / risky actions must stage confirmation; never silently delete, approve money/rewards, remove members, or wipe lists.
@@ -37,13 +38,13 @@ export type BuildRealtimeSessionInput = {
 export function buildPoppinsRealtimeInstructions(input: BuildRealtimeSessionInput): string {
   const profileId = input.profileId ?? 'poppins';
   const memberRole = input.memberRole ?? 'adult';
-  const soft = input.softPromptMs ?? Number(Deno.env.get('POPPINS_VOICE_SOFT_PROMPT_MS') ?? 50000);
-  const idle = input.idleHangupMs ?? Number(Deno.env.get('POPPINS_VOICE_IDLE_MS') ?? 90000);
+  const soft = input.softPromptMs ?? Number(Deno.env.get('POPPINS_VOICE_SOFT_PROMPT_MS') ?? 15000);
+  const idle = input.idleHangupMs ?? Number(Deno.env.get('POPPINS_VOICE_IDLE_MS') ?? 30000);
 
   return (
     `${buildMajordomoSystemPrompt(profileId, memberRole)}\n` +
     'Speak calmly and briefly (one short sentence per beat). Wait for a tap or HOLD before adding another idea.\n' +
-    `Idle timing hints: soft check-in ~${soft}ms, hangup ~${idle}ms of silence (client-enforced).\n` +
+    `Idle timing hints: soft idle ~${soft}ms, hangup ~${idle}ms of silence (client-enforced; no spoken check-in).\n` +
     IDLE_RAILS +
     (input.capabilityProfile ? `\nCapability focus: ${input.capabilityProfile}.` : '') +
     (input.pageContext ? `\nPage context: ${input.pageContext}` : '') +
@@ -66,6 +67,14 @@ export function buildPoppinsRealtimeSessionConfig(input: BuildRealtimeSessionInp
     instructions,
     tools: poppinsToolsAsRealtimeTools(),
     tool_choice: 'auto',
+    // ESTIMATED ~2 audio turns — OpenAI has no turn-count truncation; see REALTIME_POST_INSTRUCTIONS_TOKEN_LIMIT.
+    truncation: {
+      type: 'retention_ratio',
+      retention_ratio: 0.8,
+      token_limits: {
+        post_instructions: REALTIME_POST_INSTRUCTIONS_TOKEN_LIMIT,
+      },
+    },
     audio: {
       input: {
         noise_reduction: { type: 'near_field' },

@@ -48,13 +48,24 @@ export const COGS_CEILING_USD = 1.2;
 /** Included act tokens per billing period (remote-config shaped). */
 export const TOKENS_PER_MONTH = 300;
 
-/** Soft daily cap (remote-config shaped). */
-export const TOKENS_PER_DAY = 30;
+/**
+ * Soft daily cap (remote-config shaped).
+ * Must stay >= TOKEN_WEIGHT_LIVE so a single Spoken act is expensive, not impossible.
+ * Raised to 300 for measurement (WO3 §7); re-tune after Realtime cost re-measure.
+ */
+export const TOKENS_PER_DAY = 300;
 
 /** Token weights by act mode (commit charge). */
 export const TOKEN_WEIGHT_SILENT = 1;
 export const TOKEN_WEIGHT_SPOKEN = 2;
 export const TOKEN_WEIGHT_LIVE = 40;
+
+/**
+ * Realtime session truncation: max post-instruction conversation tokens.
+ * ESTIMATED ~2 audio turns — not a turn-count API (OpenAI retention_ratio only).
+ * Mirror in supabase/functions/_shared/openai-rates.ts.
+ */
+export const REALTIME_POST_INSTRUCTIONS_TOKEN_LIMIT = 4000;
 
 /** Daily model calls allowed for poppins-monitor when POPPINS_MONITOR_MODEL=on. */
 export const POPPINS_MONITOR_MODEL_CALLS_PER_DAY = 3;
@@ -68,7 +79,7 @@ export const POPPINS_MONITOR_MAX_ROUNDS = 2;
  * POPPINS_ACTS_PER_DAY: act meter cap (UI follow-up; default 30).
  */
 export const POPPINS_MONITOR_MODEL_DEFAULT = 'off' as const;
-export const POPPINS_ACTS_PER_DAY_DEFAULT = 30;
+export const POPPINS_ACTS_PER_DAY_DEFAULT = 300;
 
 /**
  * Four local-day slots for monitor cadence (hour in household timezone, 0–23).
@@ -80,4 +91,10 @@ export function ratesForModel(model: string): { input: number; output: number } 
   const key = model.trim() || 'default';
   const row = MODEL_RATES_USD_PER_MILLION[key] ?? MODEL_RATES_USD_PER_MILLION.default;
   return { input: row.input, output: row.output };
+}
+
+if (TOKENS_PER_DAY < TOKEN_WEIGHT_LIVE) {
+  throw new Error(
+    `TOKENS_PER_DAY (${TOKENS_PER_DAY}) must be >= TOKEN_WEIGHT_LIVE (${TOKEN_WEIGHT_LIVE})`
+  );
 }

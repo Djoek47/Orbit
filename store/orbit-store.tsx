@@ -29,11 +29,19 @@ import {
   buildUsageEvent,
   estimateTokensFromText,
   estimateVoiceUsd,
-  summarizeAiUsage,
   type AiUsageEvent,
   type AiUsageKind,
 } from '@/lib/ai/credits';
 import { loadAiUsageEvents, saveAiUsageEvents } from '@/lib/ai/credit-ledger';
+import {
+  actKindFromWrite,
+  buildActEvent,
+  setActMeterHooks,
+  summarizeActUsage,
+  type ActEvent,
+} from '@/lib/ai/act-events';
+import { loadActEvents, saveActEvents } from '@/lib/ai/act-ledger';
+import { loadPoppinsActMode } from '@/lib/ai/poppins-mode';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { trackAnalytics } from '@/lib/analytics';
 import {
@@ -364,8 +372,10 @@ type OrbitContextValue = {
   inviteLinks: InviteLinks | null;
   askPoppins: (question: string) => Promise<PoppinsConversationAnswer>;
   askPoppinsVoice: (audioUri: string | null) => Promise<PoppinsConversationAnswer>;
-  /** Per-person Poppins spend. Admin surface; trips off at $4. */
+  /** Per-person Poppins COGS (provider USD). Admin surface. */
   aiUsageEvents: import('@/lib/ai/credits').AiUsageEvent[];
+  /** Product act meter — charged on IUI commit. */
+  actEvents: import('@/lib/ai/act-events').ActEvent[];
   recordPoppinsUsage: (
     kind: import('@/lib/ai/credits').AiUsageKind,
     answer: {
@@ -377,6 +387,7 @@ type OrbitContextValue = {
       tokens?: number;
     }
   ) => Promise<void>;
+  recordActEvent: (event: import('@/lib/ai/act-events').ActEvent) => Promise<void>;
   appendPoppinsTurn: (question: string, answer: string) => void;
   switchPersona: (memberId: string) => void;
   approveMember: (memberId: string) => Promise<void>;
@@ -685,6 +696,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [aiUsageEvents, setAiUsageEvents] = useState<AiUsageEvent[]>([]);
   const aiUsageRef = useRef<AiUsageEvent[]>([]);
   aiUsageRef.current = aiUsageEvents;
+  const [actEvents, setActEvents] = useState<ActEvent[]>([]);
+  const actEventsRef = useRef<ActEvent[]>([]);
+  actEventsRef.current = actEvents;
   const [poppinsConversation, setPoppinsConversation] = useState<PoppinsChatMessage[]>([]);
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>('dark');
   const [paletteId, setPaletteId] = useState<ColorPaletteId>(DEFAULT_COLOR_PALETTE_ID);
@@ -734,10 +748,88 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       aiUsageRef.current = events;
       setAiUsageEvents(events);
     });
+    void loadActEvents(household.id).then((events) => {
+      if (cancelled) return;
+      actEventsRef.current = events;
+      setActEvents(events);
+    });
     return () => {
       cancelled = true;
     };
   }, [household.id]);
+
+  const recordActEvent = useCallback(
+    async (event: ActEvent) => {
+      const next = [...actEventsRef.current, event];
+      actEventsRef.current = next;
+      setActEvents(next);
+      await saveActEvents(household.id, next);
+
+      const charged =
+        event.outcome === 'committed' ? Math.max(0, Math.round(event.tokens)) : 0;
+      if (charged > 0 && household.id) {
+        try {
+          const { TOKENS_PER_DAY, TOKENS_PER_MONTH } = await import('@/constants/poppins-ai-rates');
+          const { consumeTopUpTokens, loadTokenGrants, topUpBalanceFromGrants } = await import(
+            '@/lib/billing/token-grants'
+          );
+          const grants = await loadTokenGrants(household.id);
+          const topUp = topUpBalanceFromGrants(grants);
+          const before = summarizeActUsage(actEventsRef.current.slice(0, -1), [], {
+            topUpBalance: topUp,
+          });
+          const monthlyLeft = Math.max(0, TOKENS_PER_MONTH - before.tokensUsedThisPeriod);
+          const dailyLeft = Math.max(0, TOKENS_PER_DAY - before.tokensUsedToday);
+          const allowanceLeft = Math.min(monthlyLeft, dailyLeft);
+          const fromTopUp = Math.max(0, charged - allowanceLeft);
+          if (fromTopUp > 0) {
+            await consumeTopUpTokens(household.id, fromTopUp);
+          }
+        } catch (error) {
+          console.warn('top-up consume skipped', error);
+        }
+      }
+    },
+    [household.id]
+  );
+
+  useEffect(() => {
+    setActMeterHooks({
+      onCommitted: async (beatId, write) => {
+        const kind = actKindFromWrite(write);
+        const member = currentMemberRef.current;
+        if (!kind || !member) return;
+        const mode = await loadPoppinsActMode(household.id);
+        await recordActEvent(
+          buildActEvent({
+            memberId: member.id,
+            memberName: member.name,
+            actKind: kind,
+            mode,
+            beatId,
+            outcome: 'committed',
+          })
+        );
+      },
+      onUndone: async (beatId, write) => {
+        const kind = actKindFromWrite(write);
+        const member = currentMemberRef.current;
+        if (!kind || !member) return;
+        const mode = await loadPoppinsActMode(household.id);
+        await recordActEvent(
+          buildActEvent({
+            memberId: member.id,
+            memberName: member.name,
+            actKind: kind,
+            mode,
+            beatId,
+            outcome: 'undone',
+          })
+        );
+      },
+    });
+    return () => setActMeterHooks(null);
+  }, [household.id, recordActEvent]);
 
   const recordPoppinsUsage = useCallback(
     async (
@@ -774,40 +866,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             ? estimateVoiceUsd()
             : undefined),
         mode: answer.mode,
-        chargeAct: answer.chargeAct,
-        tokens: answer.tokens,
+        // COGS only — never charge act tokens here.
+        chargeAct: false,
+        tokens: 0,
       });
       const next = [...aiUsageRef.current, event];
       aiUsageRef.current = next;
       setAiUsageEvents(next);
       await saveAiUsageEvents(household.id, next);
-
-      // Monthly/daily first (counted in summarize); surplus from top-ups oldest-first.
-      const charged = Math.max(0, Math.round(event.tokens ?? 0));
-      if (charged > 0 && household.id) {
-        try {
-          const { summarizeAiUsage, TOKENS_PER_DAY, TOKENS_PER_MONTH } = await import(
-            '@/lib/ai/credits'
-          );
-          const { consumeTopUpTokens, loadTokenGrants, topUpBalanceFromGrants } = await import(
-            '@/lib/billing/token-grants'
-          );
-          const grants = await loadTokenGrants(household.id);
-          const topUp = topUpBalanceFromGrants(grants);
-          const before = summarizeAiUsage(aiUsageRef.current.slice(0, -1), [], {
-            topUpBalance: topUp,
-          });
-          const monthlyLeft = Math.max(0, TOKENS_PER_MONTH - before.tokensUsedThisPeriod);
-          const dailyLeft = Math.max(0, TOKENS_PER_DAY - before.tokensUsedToday);
-          const allowanceLeft = Math.min(monthlyLeft, dailyLeft);
-          const fromTopUp = Math.max(0, charged - allowanceLeft);
-          if (fromTopUp > 0) {
-            await consumeTopUpTokens(household.id, fromTopUp);
-          }
-        } catch (error) {
-          console.warn('top-up consume skipped', error);
-        }
-      }
     },
     [currentMember, household.id]
   );
@@ -4717,7 +4783,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         answer: 'Poppins is not available on this profile.',
       };
     }
-    if (summarizeAiUsage(aiUsageRef.current).tripped) {
+    if (summarizeActUsage(actEventsRef.current).tripped) {
       return { question, answer: POPPINS_PAUSED_COPY, source: 'meter' };
     }
     setPoppinsAskCount((count) => count + 1);
@@ -4756,7 +4822,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         answer: 'Poppins is not available on this profile.',
       };
     }
-    if (summarizeAiUsage(aiUsageRef.current).tripped) {
+    if (summarizeActUsage(actEventsRef.current).tripped) {
       return { question: '', answer: POPPINS_PAUSED_COPY, source: 'meter' };
     }
     const { transcribeAndAskPoppins } = await import('@/lib/voice/poppins-voice');
@@ -6053,7 +6119,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       askPoppins,
       askPoppinsVoice,
       aiUsageEvents,
+      actEvents,
       recordPoppinsUsage,
+      recordActEvent,
       appendPoppinsTurn,
       switchPersona,
       approveMember,
@@ -6207,7 +6275,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       achievements,
       poppinsAskCount,
       aiUsageEvents,
+      actEvents,
       recordPoppinsUsage,
+      recordActEvent,
       poppinsConversation,
       poppinsBriefing,
       inboxBriefing,

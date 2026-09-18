@@ -247,8 +247,8 @@ export async function teardownAllPoppinsVoiceAndSettle(
   await waitForPendingVoiceNativeSettle();
 }
 
-const SOFT_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_SOFT_PROMPT_MS ?? 50_000);
-const HANGUP_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_IDLE_MS ?? 90_000);
+const SOFT_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_SOFT_PROMPT_MS ?? 15_000);
+const HANGUP_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_IDLE_MS ?? 30_000);
 const BACKGROUND_HANGUP_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_BACKGROUND_MS ?? 20_000);
 const THINKING_RECOVERY_MS = 14_000;
 const OPENER_DELAY_MS = 350;
@@ -366,13 +366,8 @@ export class PoppinsVoiceSession {
         if (this.state !== 'listening' || this.pausedForTools) return;
         this.softIdleFired = true;
         this.callbacks.onSoftIdlePrompt?.();
-        this.sendEvent({
-          type: 'response.create',
-          response: {
-            instructions:
-              'Soft idle check-in only: ask once, briefly, if they are still there. Do not list options.',
-          },
-        });
+        // No spoken check-in — billed output to an empty room. Hangup timer continues.
+        this.armIdleTimers();
       }, SOFT_IDLE_MS);
     }
     this.idleTimer = setTimeout(() => {

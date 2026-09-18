@@ -11,8 +11,8 @@ import { PremiumPaywall } from '@/components/orbit/premium-paywall';
 import { TokenTopUpPicker } from '@/components/orbit/token-top-up-picker';
 import { TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import { space } from '@/constants/orbit-theme';
-import { summarizeAiUsage } from '@/lib/ai/credits';
-import { loadAiUsageEvents } from '@/lib/ai/credit-ledger';
+import { summarizeActUsage } from '@/lib/ai/act-events';
+import { loadActEvents } from '@/lib/ai/act-ledger';
 import {
   fetchEntitlement,
   isPremiumActive,
@@ -45,7 +45,7 @@ export default function PremiumScreen() {
   const [showTopUp, setShowTopUp] = useState(false);
   const [topUpBalance, setTopUpBalance] = useState(0);
   const [usageSummary, setUsageSummary] = useState(() =>
-    summarizeAiUsage(
+    summarizeActUsage(
       [],
       members.map((m) => ({ id: m.id, name: m.name }))
     )
@@ -58,13 +58,13 @@ export default function PremiumScreen() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const events = await loadAiUsageEvents(household?.id);
+      const events = await loadActEvents(household?.id);
       const grants = await loadTokenGrants(household?.id);
       if (cancelled) return;
       const balance = topUpBalanceFromGrants(grants);
       setTopUpBalance(balance);
       setUsageSummary(
-        summarizeAiUsage(
+        summarizeActUsage(
           events,
           members.map((m) => ({ id: m.id, name: m.name })),
           { topUpBalance: balance }
@@ -77,12 +77,12 @@ export default function PremiumScreen() {
   }, [household?.id, members]);
 
   const refreshUsage = async () => {
-    const events = await loadAiUsageEvents(household.id);
+    const events = await loadActEvents(household.id);
     const grants = await loadTokenGrants(household.id);
     const balance = topUpBalanceFromGrants(grants);
     setTopUpBalance(balance);
     setUsageSummary(
-      summarizeAiUsage(
+      summarizeActUsage(
         events,
         members.map((m) => ({ id: m.id, name: m.name })),
         { topUpBalance: balance }

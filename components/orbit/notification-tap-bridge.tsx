@@ -47,7 +47,6 @@ export function NotificationTapBridge() {
     updateTask,
     claimReward,
     advanceItineraryStop,
-    recordPoppinsUsage,
   } = useOrbit();
 
   const writesRef = useRef({
@@ -75,9 +74,6 @@ export function NotificationTapBridge() {
     advanceItineraryStop,
   };
 
-  const chargeRef = useRef(recordPoppinsUsage);
-  chargeRef.current = recordPoppinsUsage;
-
   useEffect(() => {
     const navigateFromResponse = (response: Notifications.NotificationResponse | null) => {
       if (!response) return;
@@ -91,16 +87,6 @@ export function NotificationTapBridge() {
           data: payload,
           writes: writesRef.current,
           defaultActionId: Notifications.DEFAULT_ACTION_IDENTIFIER,
-          onApproved: async () => {
-            await chargeRef.current('notify', {
-              question: 'iui_act_approve',
-              answer: String(payload.titleLine ?? 'approved'),
-              usage: { inputTokens: 0, outputTokens: 0, model: 'iui-act', usd: 0 },
-              mode: 'silent',
-              chargeAct: true,
-              tokens: 1,
-            });
-          },
         });
         if (result.handled) return;
 

@@ -1,6 +1,7 @@
 /**
  * Single commit path for IUI acts — stage HOLD and notification Approve share this.
  */
+import { notifyActCommitted } from '@/lib/ai/act-events';
 import { resolvePoppinsChoreTitle } from '@/lib/poppins/catalog-match';
 import type { IuiBeat } from '@/lib/poppins/ui-scenes';
 import { householdDueTimeLocal } from '@/lib/rules/household-view';
@@ -51,6 +52,7 @@ export async function commitIuiBeat(beat: IuiBeat, writes: IuiCommitWrites): Pro
   const p = beat.payload;
   const write = p.write ?? 'none';
   const isHomeworkWrite = write === 'create_homework' || p.category === 'homework_education';
+  let wrote = false;
 
   if ((write === 'create_task' || write === 'create_homework') && (p.title || p.libraryTaskId)) {
     try {
@@ -106,7 +108,10 @@ export async function commitIuiBeat(beat: IuiBeat, writes: IuiCommitWrites): Pro
           proofRequired: isHomeworkWrite,
         });
       }
-      if (created) onVoiceTaskCreated?.(created);
+      if (created) {
+        wrote = true;
+        onVoiceTaskCreated?.(created);
+      }
     } catch (error) {
       console.warn('IUI create_task failed', error);
       throw error;
@@ -122,6 +127,7 @@ export async function commitIuiBeat(beat: IuiBeat, writes: IuiCommitWrites): Pro
       responsible: p.assignee || currentMember?.name || '',
       category: 'Appointment',
     });
+    wrote = true;
   }
 
   if (write === 'add_grocery' && p.groceryName) {
@@ -130,6 +136,7 @@ export async function commitIuiBeat(beat: IuiBeat, writes: IuiCommitWrites): Pro
       category: p.aisle || (p.shoppingLane === 'clothing' ? 'Clothing' : undefined),
       categoryId: p.shoppingLane === 'clothing' ? 'clothing' : undefined,
     });
+    wrote = true;
   }
 
   if (write === 'complete_task') {
@@ -141,7 +148,10 @@ export async function commitIuiBeat(beat: IuiBeat, writes: IuiCommitWrites): Pro
           item.status !== 'Completed' &&
           item.title.toLowerCase().includes(p.title.toLowerCase())
       )?.id;
-    if (id) await completeTask(id);
+    if (id) {
+      await completeTask(id);
+      wrote = true;
+    }
   }
 
   if (write === 'update_task' && p.taskId) {
@@ -152,6 +162,7 @@ export async function commitIuiBeat(beat: IuiBeat, writes: IuiCommitWrites): Pro
         title: p.title || task.title,
         assignee: p.assignee || task.assignee,
       });
+      wrote = true;
     }
   }
 
@@ -159,7 +170,10 @@ export async function commitIuiBeat(beat: IuiBeat, writes: IuiCommitWrites): Pro
     const reward = household.rewards?.find(
       (item) => item.title.toLowerCase() === p.rewardName!.toLowerCase()
     );
-    if (reward) await claimReward(reward.id);
+    if (reward) {
+      await claimReward(reward.id);
+      wrote = true;
+    }
   }
 
   if (write === 'create_itinerary_stop') {
@@ -176,11 +190,19 @@ export async function commitIuiBeat(beat: IuiBeat, writes: IuiCommitWrites): Pro
         },
       ],
     });
+    wrote = true;
   }
 
   if (write === 'advance_itinerary' && p.itineraryId) {
     const trip = household.itineraries?.find((item) => item.id === p.itineraryId);
     const next = trip?.stops.find((s) => s.status === 'active') ?? trip?.stops[0];
-    if (next) await advanceItineraryStop(p.itineraryId, next.id);
+    if (next) {
+      await advanceItineraryStop(p.itineraryId, next.id);
+      wrote = true;
+    }
+  }
+
+  if (wrote) {
+    await notifyActCommitted(beat.id, write === 'none' ? undefined : write);
   }
 }
