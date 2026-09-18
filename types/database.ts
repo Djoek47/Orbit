@@ -154,6 +154,7 @@ export type RewardRow = {
   title: string;
   cost: number;
   approval_required: boolean;
+  assigned_member_id: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

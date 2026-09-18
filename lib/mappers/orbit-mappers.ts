@@ -281,12 +281,14 @@ export function mapRewardRow(row: {
   title: string;
   cost: number;
   approval_required: boolean;
+  assigned_member_id?: string | null;
 }): Reward {
   return {
     id: row.id,
     title: row.title,
     cost: row.cost,
     approvalRequired: row.approval_required,
+    assignedMemberId: row.assigned_member_id ?? undefined,
   };
 }
 
