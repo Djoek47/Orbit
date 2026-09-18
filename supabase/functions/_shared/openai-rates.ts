@@ -22,9 +22,15 @@ export const MODEL_RATES_USD_PER_MILLION: Record<string, ModelTokenRate> = {
 export const POPPINS_MONITOR_MODEL_CALLS_PER_DAY = 3;
 export const POPPINS_MONITOR_MAX_ROUNDS = 2;
 export const POPPINS_MONITOR_MODEL_DEFAULT = 'off';
-export const POPPINS_ACTS_PER_DAY_DEFAULT = 30;
+export const POPPINS_ACTS_PER_DAY_DEFAULT = 300;
 /** Local hours (household TZ) when monitor may call the model. */
 export const POPPINS_MONITOR_ACTIVE_HOURS = [8, 15, 18, 20] as const;
+
+/**
+ * Realtime truncation post_instructions ceiling (ESTIMATED ~2 audio turns).
+ * Keep in sync with constants/poppins-ai-rates.ts.
+ */
+export const REALTIME_POST_INSTRUCTIONS_TOKEN_LIMIT = 4000;
 
 export function ratesForModel(model: string): { input: number; output: number } {
   const key = model.trim() || 'default';

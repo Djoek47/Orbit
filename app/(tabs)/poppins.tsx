@@ -28,9 +28,8 @@ import {
 import {
   POPPINS_PAUSED_COPY,
   meterCaption,
-  personalTokens,
-  summarizeAiUsage,
 } from '@/lib/ai/credits';
+import { personalActTokens, summarizeActUsage, notifyActUndone } from '@/lib/ai/act-events';
 import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
 import {
   isContinuityFresh,
@@ -93,7 +92,7 @@ export default function PoppinsScreen() {
     household,
     currentMember,
     permissions,
-    aiUsageEvents,
+    actEvents,
     recordPoppinsUsage,
     metrics,
     orbitPalette,
@@ -122,17 +121,26 @@ export default function PoppinsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [household.id, aiUsageEvents]);
+  }, [household.id, actEvents]);
 
   const aiSummary = useMemo(
     () =>
-      summarizeAiUsage(
-        aiUsageEvents,
+      summarizeActUsage(
+        actEvents,
         household.members.map((member) => ({ id: member.id, name: member.name })),
         { topUpBalance }
       ),
-    [aiUsageEvents, household.members, topUpBalance]
+    [actEvents, household.members, topUpBalance]
   );
+
+  useEffect(() => {
+    poppinsUiOrchestrator.setUndoHandler(async (beat) => {
+      await notifyActUndone(beat.id, beat.payload.write);
+    });
+    return () => {
+      poppinsUiOrchestrator.setUndoHandler(null);
+    };
+  }, []);
 
   const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
     idle: {
@@ -859,7 +867,7 @@ export default function PoppinsScreen() {
         <Text
           style={[styles.meterCaption, { color: c.textSubtle }]}
           numberOfLines={1}>
-          {meterCaption(aiSummary, personalTokens(aiSummary, currentMember?.id), permissions.canManageHousehold)}
+          {meterCaption(aiSummary, personalActTokens(aiSummary, currentMember?.id), permissions.canManageHousehold)}
         </Text>
       </View>
 

@@ -35,6 +35,9 @@ export async function recordAiUsageEvent(input: {
   audioOutputSeconds?: number;
   surface?: string | null;
   mode?: string | null;
+  sessionId?: string | null;
+  turnIndex?: number | null;
+  durationMs?: number | null;
   usd?: number;
   occurredAt?: string;
 }): Promise<void> {
@@ -62,6 +65,9 @@ export async function recordAiUsageEvent(input: {
     audio_output_seconds: Number(input.audioOutputSeconds ?? 0) || 0,
     surface: input.surface ?? null,
     mode: input.mode ?? null,
+    session_id: input.sessionId ?? null,
+    turn_index: input.turnIndex ?? null,
+    duration_ms: input.durationMs ?? null,
     usd,
     occurred_at: input.occurredAt ?? new Date().toISOString(),
   };
