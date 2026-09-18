@@ -5,13 +5,19 @@ import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { EmptyState } from '@/components/orbit/empty-state';
+import { GlassCard } from '@/components/orbit/glass-card';
 import { GroceryCategoryGrid } from '@/components/orbit/grocery-category-grid';
-import { GrocerySearchField } from '@/components/orbit/grocery-search-field';
-import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
-import { isClothingCategory, listGroceryCategories } from '@/lib/grocery/classify';
+import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
+import { RefreshIconButton } from '@/components/orbit/refresh-icon-button';
+import { SearchBar } from '@/components/orbit/search-bar';
+import { typography } from '@/constants/orbit-theme';
 import type { CatalogProduct } from '@/lib/grocery/catalog';
-import { iconForGroceryName } from '@/lib/grocery/catalog';
+import { getCatalogProduct, iconForGroceryName } from '@/lib/grocery/catalog';
+import { listGroceryCategories } from '@/lib/grocery/classify';
+import { searchCatalog } from '@/lib/grocery/search-index';
 import {
   listBuyAgainProducts,
   listComplementSuggestions,
@@ -22,8 +28,7 @@ import { useOrbit } from '@/store/orbit-store';
 import type { GroceryItem } from '@/types/orbit';
 
 /**
- * Canada-first grocery planner — search / browse / favorites / buy-again.
- * Rev C list, aisle tags, clear, and shopping mode remain.
+ * Canada-first grocery planner — shared chrome (PageEyebrow, SearchBar, GlassCard, EmptyState).
  */
 export default function GroceriesScreen() {
   const chromePad = useTabChromePaddingTop();
@@ -39,6 +44,7 @@ export default function GroceriesScreen() {
     markGroceriesOpened,
     markGroceryMissing,
     markGroceryPurchased,
+    orbitPalette,
     patchGroceryCategory,
     permissions,
     toggleGroceryFavorite,
@@ -48,7 +54,6 @@ export default function GroceriesScreen() {
   const [busy, setBusy] = useState(false);
   const [showBrowse, setShowBrowse] = useState(false);
   const [chip, setChip] = useState<'favorites' | 'buyAgain' | 'suggest' | null>(null);
-  const [lane, setLane] = useState<'grocery' | 'clothing'>('grocery');
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -58,14 +63,11 @@ export default function GroceriesScreen() {
 
   const listItems = useMemo(
     () =>
-      household.groceries.filter((item) => {
-        const onList =
-          item.status === 'Missing' || item.status === 'Low' || item.status === 'Purchased';
-        if (!onList) return false;
-        const clothing = isClothingCategory(item.categoryId ?? item.category);
-        return lane === 'clothing' ? clothing : !clothing;
-      }),
-    [household.groceries, lane]
+      household.groceries.filter(
+        (item) =>
+          item.status === 'Missing' || item.status === 'Low' || item.status === 'Purchased'
+      ),
+    [household.groceries]
   );
 
   const active = listItems.filter((i) => i.status !== 'Purchased');
@@ -94,6 +96,16 @@ export default function GroceriesScreen() {
         : chip === 'suggest'
           ? suggestProducts
           : [];
+
+  const searchSuggestions = useMemo(() => {
+    if (!draft.trim()) return [];
+    return searchCatalog(draft, 10).map((p) => ({
+      id: p.id,
+      title: p.name,
+      subtitle: p.browseCategory.replace(/_/g, ' '),
+      icon: p.icon,
+    }));
+  }, [draft]);
 
   const isAdmin = permissions.canManageHousehold || permissions.canManageGroceries;
 
@@ -134,7 +146,7 @@ export default function GroceriesScreen() {
   };
 
   const reassignCategory = (item: GroceryItem) => {
-    const cats = listGroceryCategories();
+    const cats = listGroceryCategories().filter((cat) => cat.id !== 'clothing');
     Alert.alert(
       'Category',
       'Pick the aisle for this item',
@@ -212,9 +224,11 @@ export default function GroceriesScreen() {
       }}
       keyboardShouldPersistTaps="handled">
       <View style={styles.headerRow}>
-        <Text style={[styles.title, { color: c.text }]}>
-          {lane === 'clothing' ? 'Clothing' : 'Groceries'}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <PageEyebrow>Buy</PageEyebrow>
+          <Text style={[typography.title1, { color: orbitPalette.text }]}>Groceries</Text>
+        </View>
+        <RefreshIconButton />
         {isAdmin ? (
           <Pressable onPress={openMenu} hitSlop={8} accessibilityLabel="Grocery options">
             <MaterialIcons name="more-horiz" size={22} color={c.textMuted} />
@@ -222,42 +236,20 @@ export default function GroceriesScreen() {
         ) : null}
       </View>
 
-      <View style={styles.chipRow}>
-        {(
-          [
-            { id: 'grocery' as const, label: 'Groceries' },
-            { id: 'clothing' as const, label: 'Clothing' },
-          ] as const
-        ).map((item) => {
-          const on = lane === item.id;
-          return (
-            <Pressable
-              key={item.id}
-              onPress={() => setLane(item.id)}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: on ? `${accentTheme.primary}22` : glass(0.05),
-                  borderColor: on ? `${accentTheme.primary}55` : glassBorder(0.1),
-                },
-              ]}>
-              <Text style={{ color: on ? accentTheme.primary : c.textMuted, fontWeight: '700' }}>
-                {item.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
       {canAddGroceryWishlist ? (
-        <GrocerySearchField
+        <SearchBar
           value={draft}
           onChangeText={setDraft}
-          onSubmitFreeText={() => void quickAdd()}
-          onPickProduct={(p) => void pickProduct(p)}
+          onSubmitEditing={() => void quickAdd()}
+          suggestions={searchSuggestions}
+          onPickSuggestion={(s) => {
+            const product = getCatalogProduct(s.id);
+            if (product) void pickProduct(product);
+          }}
+          showAddAsTyped
           inputRef={inputRef}
           disabled={busy}
-          placeholder={lane === 'clothing' ? 'Jeans, Nike sneakers…' : 'Search milk, shampoo…'}
+          placeholder="Search milk, shampoo…"
         />
       ) : null}
 
@@ -313,25 +305,37 @@ export default function GroceriesScreen() {
         </Pressable>
       </View>
 
-      {chip && chipProducts.length ? (
-        <View style={styles.suggestList}>
-          {chipProducts.map((p) => (
-            <Pressable
-              key={p.id}
-              onPress={() => void pickProduct(p)}
-              onLongPress={() => toggleGroceryFavorite(p.id)}
-              style={[
-                styles.suggestRow,
-                { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
-              ]}>
-              <Text style={{ fontSize: 18 }}>{p.icon}</Text>
-              <Text style={{ flex: 1, color: c.text, fontWeight: '600' }}>{p.name}</Text>
-              <Text style={{ color: accentTheme.primary, fontWeight: '700', fontSize: 12 }}>
-                Add
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+      {chip ? (
+        chipProducts.length ? (
+          <View style={styles.suggestList}>
+            {chipProducts.map((p) => (
+              <GlassCard key={p.id} style={styles.suggestCard}>
+                <Pressable
+                  onPress={() => void pickProduct(p)}
+                  onLongPress={() => toggleGroceryFavorite(p.id)}
+                  style={styles.suggestRow}>
+                  <Text style={{ fontSize: 18 }}>{p.icon}</Text>
+                  <Text style={{ flex: 1, color: c.text, fontWeight: '600' }}>{p.name}</Text>
+                  <Text style={{ color: accentTheme.primary, fontWeight: '700', fontSize: 12 }}>
+                    Add
+                  </Text>
+                </Pressable>
+              </GlassCard>
+            ))}
+          </View>
+        ) : (
+          <EmptyState
+            tone="noResults"
+            title="Nothing here yet"
+            caption={
+              chip === 'favorites'
+                ? 'Long-press a product to favorite it.'
+                : chip === 'buyAgain'
+                  ? 'Buy-again fills in after you shop.'
+                  : 'Add a few items and suggestions will appear.'
+            }
+          />
+        )
       ) : null}
 
       {showBrowse ? (
@@ -356,6 +360,14 @@ export default function GroceriesScreen() {
         <Text style={{ color: accentTheme.primary, fontWeight: '700' }}>Start shopping</Text>
       </Pressable>
 
+      {active.length === 0 && checked.length === 0 ? (
+        <EmptyState
+          tone="noneYet"
+          title="Nothing on the list"
+          caption="Search above or browse an aisle to add items."
+        />
+      ) : null}
+
       {active.length ? (
         <Text style={[styles.sectionLabel, { color: c.textMuted }]}>
           To get · {active.length}
@@ -364,41 +376,37 @@ export default function GroceriesScreen() {
       {active.map((item) => {
         const needsCategorise = !item.category || item.category === 'Other';
         return (
-          <Pressable
-            key={item.id}
-            onPress={() => void toggleItem(item)}
-            style={[
-              styles.row,
-              { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) },
-            ]}>
-            <MaterialIcons
-              name="radio-button-unchecked"
-              size={22}
-              color={accentTheme.primary}
-            />
-            <Text style={{ fontSize: 20, width: 28, textAlign: 'center' }}>
-              {iconForGroceryName(item.name, item.categoryId)}
-            </Text>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.itemName, { color: c.text }]}>
-                {item.name}
-                {item.quantity && item.quantity !== '1' ? `  · ${item.quantity}` : ''}
+          <GlassCard key={item.id} style={styles.itemCard}>
+            <Pressable onPress={() => void toggleItem(item)} style={styles.row}>
+              <MaterialIcons
+                name="radio-button-unchecked"
+                size={22}
+                color={accentTheme.primary}
+              />
+              <Text style={{ fontSize: 20, width: 28, textAlign: 'center' }}>
+                {iconForGroceryName(item.name, item.categoryId)}
               </Text>
-              {needsCategorise ? (
-                <Text style={{ color: c.textSubtle, fontSize: 11 }}>Tap to categorise</Text>
-              ) : null}
-            </View>
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation?.();
-                reassignCategory(item);
-              }}
-              hitSlop={8}>
-              <Text style={[styles.catTag, { color: c.textMuted }]}>
-                {item.category || 'Other'}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.itemName, { color: c.text }]}>
+                  {item.name}
+                  {item.quantity && item.quantity !== '1' ? `  · ${item.quantity}` : ''}
+                </Text>
+                {needsCategorise ? (
+                  <Text style={{ color: c.textSubtle, fontSize: 11 }}>Tap to categorise</Text>
+                ) : null}
+              </View>
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  reassignCategory(item);
+                }}
+                hitSlop={8}>
+                <Text style={[styles.catTag, { color: c.textMuted }]}>
+                  {item.category || 'Other'}
+                </Text>
+              </Pressable>
             </Pressable>
-          </Pressable>
+          </GlassCard>
         );
       })}
 
@@ -408,29 +416,25 @@ export default function GroceriesScreen() {
         </Text>
       ) : null}
       {checked.map((item) => (
-        <Pressable
-          key={item.id}
-          onPress={() => void toggleItem(item)}
-          style={[
-            styles.row,
-            { borderColor: glassBorder(0.1), backgroundColor: glass(0.04), opacity: 0.55 },
-          ]}>
-          <MaterialIcons name="check-circle" size={22} color="#34D399" />
-          <Text style={{ fontSize: 20, width: 28, textAlign: 'center' }}>
-            {iconForGroceryName(item.name, item.categoryId)}
-          </Text>
-          <View style={{ flex: 1 }}>
-            <Text
-              style={[
-                styles.itemName,
-                { color: c.text, textDecorationLine: 'line-through' },
-              ]}>
-              {item.name}
-              {item.quantity && item.quantity !== '1' ? `  · ${item.quantity}` : ''}
+        <GlassCard key={item.id} style={[styles.itemCard, { opacity: 0.55 }]}>
+          <Pressable onPress={() => void toggleItem(item)} style={styles.row}>
+            <MaterialIcons name="check-circle" size={22} color="#34D399" />
+            <Text style={{ fontSize: 20, width: 28, textAlign: 'center' }}>
+              {iconForGroceryName(item.name, item.categoryId)}
             </Text>
-          </View>
-          <Text style={[styles.catTag, { color: c.textMuted }]}>{item.category || 'Other'}</Text>
-        </Pressable>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.itemName,
+                  { color: c.text, textDecorationLine: 'line-through' },
+                ]}>
+                {item.name}
+                {item.quantity && item.quantity !== '1' ? `  · ${item.quantity}` : ''}
+              </Text>
+            </View>
+            <Text style={[styles.catTag, { color: c.textMuted }]}>{item.category || 'Other'}</Text>
+          </Pressable>
+        </GlassCard>
       ))}
     </PersistentScrollView>
   );
@@ -440,9 +444,8 @@ const styles = StyleSheet.create({
   headerRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 4,
   },
-  title: { fontSize: 28, fontWeight: '800' },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '800',
@@ -458,19 +461,17 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   suggestList: { gap: 6 },
+  suggestCard: { padding: 0 },
   suggestRow: {
     alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
     flexDirection: 'row',
     gap: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
+  itemCard: { padding: 0 },
   row: {
     alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
     flexDirection: 'row',
     gap: 10,
     paddingHorizontal: 12,

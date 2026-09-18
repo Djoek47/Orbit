@@ -675,7 +675,7 @@ export function PoppinsStage({
           holding={drive.holding}
           frozen={drive.frozen}>
           <IuiObjectCard
-            title={payload.groceryName ?? payload.title ?? 'Item'}
+            title={payload.groceryName ?? payload.title}
             detail={payload.aisle}
             emoji={payload.shoppingLane === 'clothing' ? '👟' : '🛒'}
             accent={accent}

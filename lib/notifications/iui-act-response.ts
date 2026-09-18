@@ -29,7 +29,7 @@ export async function handleIuiActNotificationResponse(input: {
   actionIdentifier: string;
   data: Record<string, unknown>;
   writes: IuiCommitWrites;
-  /** Charge 1 Silent token after successful Approve. */
+  /** Optional hook after Approve (act tokens now charged in commitIuiBeat). */
   onApproved?: () => void | Promise<void>;
   defaultActionId?: string;
 }): Promise<IuiActResponseResult> {

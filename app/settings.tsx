@@ -87,9 +87,8 @@ import {
   TOKENS_PER_MONTH,
   meterCaption,
   meterNearCap,
-  personalTokens,
-  summarizeAiUsage,
 } from '@/lib/ai/credits';
+import { personalActTokens, summarizeActUsage } from '@/lib/ai/act-events';
 
 type Section = 'main' | 'you' | 'members' | 'house' | 'notifications' | 'places' | 'poppins' | 'premium';
 
@@ -126,7 +125,7 @@ export default function SettingsScreen() {
     updateMemberCapabilities,
     updateSidekickGroceryAdd,
     updatePreferredMapsApp,
-    aiUsageEvents,
+    actEvents,
     refreshHousehold,
     unreadNotificationCount,
   } = useOrbit();
@@ -314,16 +313,16 @@ export default function SettingsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [household.id, aiUsageEvents]);
+  }, [household.id, actEvents]);
 
   const aiSummary = useMemo(
     () =>
-      summarizeAiUsage(
-        aiUsageEvents,
+      summarizeActUsage(
+        actEvents,
         household.members.map((member) => ({ id: member.id, name: member.name })),
         { topUpBalance }
       ),
-    [aiUsageEvents, household.members, topUpBalance]
+    [actEvents, household.members, topUpBalance]
   );
   const lookValue =
     appearanceMode === 'system' ? 'System' : appearanceMode === 'light' ? 'Day' : 'Night';
@@ -575,7 +574,7 @@ export default function SettingsScreen() {
                 label={majordomo.displayName}
                 value={meterCaption(
                   aiSummary,
-                  personalTokens(aiSummary, currentMember?.id),
+                  personalActTokens(aiSummary, currentMember?.id),
                   permissions.canManageHousehold
                 )}
                 last
@@ -1080,7 +1079,7 @@ export default function SettingsScreen() {
                 ]}>
                 {permissions.canManageHousehold
                   ? `${aiSummary.tokensUsedThisPeriod} of ${TOKENS_PER_MONTH}`
-                  : `${personalTokens(aiSummary, currentMember?.id)} of ${TOKENS_PER_DAY} today`}
+                  : `${personalActTokens(aiSummary, currentMember?.id)} of ${TOKENS_PER_DAY} today`}
               </Text>
               <Text style={[styles.caption, { color: c.textMuted }]}>
                 {aiSummary.tripped

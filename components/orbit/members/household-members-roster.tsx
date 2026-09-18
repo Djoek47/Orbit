@@ -50,6 +50,7 @@ export function HouseholdMembersRoster({
     household,
     householdMemberships,
     permissions,
+    approveMember,
     removeMember,
     switchPersona,
     updateMemberDisplayName,
@@ -267,6 +268,7 @@ export function HouseholdMembersRoster({
           <SettingsMemberCard
             key={member.id}
             member={member}
+            members={household.members}
             active={active}
             accent={accent}
             canManage={permissions.canManageHousehold}
@@ -276,6 +278,7 @@ export function HouseholdMembersRoster({
             onPersonalize={() => onPersonalize(member.id)}
             onSwitchPersona={() => switchPersona(member.id)}
             onShareInvite={() => onShareInvite(member)}
+            onApprove={() => void approveMember(member.id)}
             onStartRename={() => {
               setRenamingMemberId(member.id);
               setRenamingMemberInput(member.name);

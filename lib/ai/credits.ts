@@ -49,9 +49,15 @@ export type AiUsageEvent = {
   inputTokens: number;
   outputTokens: number;
   usd: number;
-  /** Weighted act tokens charged on commit (0 for reads / vetoed). */
+  /** Legacy; user meter is ActEvent. Prefer 0 on COGS rows. */
   tokens?: number;
   mode?: PoppinsActMode;
+  cachedInputTokens?: number;
+  audioInSeconds?: number;
+  audioOutSeconds?: number;
+  sessionId?: string;
+  turnIndex?: number;
+  durationMs?: number;
 };
 
 export type AiTokenUsage = {
@@ -174,23 +180,20 @@ export function summarizeAiUsage(
   let householdUsd = 0;
   let tokensUsedThisPeriod = 0;
   let tokensUsedToday = 0;
-  let trippedAt: string | null = null;
   const totals = new Map<string, { name: string; usd: number; tokens: number; events: number }>();
 
   for (const event of chronological) {
     householdUsd = roundUsd(householdUsd + event.usd);
     const at = new Date(event.at);
     const inPeriod = !Number.isNaN(at.getTime()) && at >= periodStart && at < periodEnd;
-    const eventTokens = Math.max(0, Math.round(event.tokens ?? tokenWeightForMode(event.mode)));
+    // COGS only — never invent act tokens from mode (ActEvent owns the user meter).
+    const eventTokens = Math.max(0, Math.round(event.tokens ?? 0));
     if (inPeriod && eventTokens > 0) {
       tokensUsedThisPeriod += eventTokens;
       if (localDayKey(event.at, todayKey) === todayKey) {
         tokensUsedToday += eventTokens;
       }
     }
-    const allowanceExhausted =
-      tokensUsedThisPeriod > TOKENS_PER_MONTH || tokensUsedToday > TOKENS_PER_DAY;
-    if (!trippedAt && allowanceExhausted) trippedAt = event.at;
 
     const prev = totals.get(event.memberId) ?? {
       name: event.memberName,
@@ -209,9 +212,9 @@ export function summarizeAiUsage(
   const monthlyRemaining = Math.max(0, TOKENS_PER_MONTH - tokensUsedThisPeriod);
   const dailyRemaining = Math.max(0, TOKENS_PER_DAY - tokensUsedToday);
   const tokensRemaining = Math.max(0, Math.min(monthlyRemaining, dailyRemaining) + topUpBalance);
-  const allowanceExhausted =
-    tokensUsedThisPeriod >= TOKENS_PER_MONTH || tokensUsedToday >= TOKENS_PER_DAY;
-  const tripped = allowanceExhausted && topUpBalance <= 0;
+  // Speak trip is owned by summarizeActUsage — COGS summary never pauses Speak.
+  const tripped = false;
+  const trippedAt: string | null = null;
   const cogsBreaker = householdUsd >= COGS_CEILING_USD;
 
   const byMember: MemberAiSpend[] = members.map((member) => {
@@ -266,11 +269,16 @@ export function personalTokens(
 }
 
 /** True when Live would not cover ~10 more live acts. */
-export function shouldDropLiveToSpoken(summary: AiUsageSummary): boolean {
+export function shouldDropLiveToSpoken(summary: {
+  tokensRemaining: number;
+}): boolean {
   return summary.tokensRemaining < TOKEN_WEIGHT_LIVE * 10;
 }
 
-export function meterNearCap(summary: AiUsageSummary): boolean {
+export function meterNearCap(summary: {
+  tokensUsedThisPeriod: number;
+  tokensUsedToday: number;
+}): boolean {
   return (
     summary.tokensUsedThisPeriod / TOKENS_PER_MONTH >= 0.8 ||
     summary.tokensUsedToday / TOKENS_PER_DAY >= 0.8
@@ -290,7 +298,11 @@ export function formatUsd(usd: number): string {
 }
 
 export function meterCaption(
-  summary: AiUsageSummary,
+  summary: {
+    tripped: boolean;
+    tokensUsedThisPeriod: number;
+    tokensUsedToday: number;
+  },
   personal: number,
   isAdmin: boolean
 ): string {
@@ -321,18 +333,18 @@ export function buildUsageEvent(input: {
   tokens?: number;
   /** Charge act tokens (commit only). Reads / vetoes pass false. */
   chargeAct?: boolean;
+  sessionId?: string;
+  turnIndex?: number;
+  durationMs?: number;
 }): AiUsageEvent {
   const usd =
     input.usd != null
       ? roundUsd(input.usd)
       : usdForTokens(input.inputTokens, input.outputTokens, input.model);
   const mode = input.mode ?? 'silent';
-  const tokens =
-    input.tokens != null
-      ? Math.max(0, Math.round(input.tokens))
-      : input.chargeAct
-        ? tokenWeightForMode(mode)
-        : 0;
+  // Provider/COGS ledger — act tokens live on ActEvent (chargeAct ignored).
+  const tokens = input.tokens != null ? Math.max(0, Math.round(input.tokens)) : 0;
+  void input.chargeAct;
   return {
     id: input.id ?? `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     at: input.at ?? new Date().toISOString(),
@@ -345,5 +357,8 @@ export function buildUsageEvent(input: {
     usd: usd > 0 ? usd : input.kind === 'voice' ? estimateVoiceUsd() : roundUsd(0.002),
     tokens,
     mode,
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+    ...(input.turnIndex != null ? { turnIndex: Math.max(0, Math.round(input.turnIndex)) } : {}),
+    ...(input.durationMs != null ? { durationMs: Math.max(0, Math.round(input.durationMs)) } : {}),
   };
 }

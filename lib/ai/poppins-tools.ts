@@ -116,7 +116,11 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        assignee: { type: 'string' },
+        assignee: {
+          type: 'string',
+          description:
+            'Assignee display name, or "me" for the speaker. Omit if unknown — the app will ask.',
+        },
         status: { type: 'string' },
         limit: { type: 'number' },
       },
@@ -131,7 +135,11 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        memberName: { type: 'string' },
+        memberName: {
+          type: 'string',
+          description:
+            'Household member display name exactly as known. Omit if the user did not name anyone — the app will ask.',
+        },
         taskId: { type: 'string' },
         reason: { type: 'string' },
       },
@@ -190,7 +198,11 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        name: { type: 'string' },
+        name: {
+          type: 'string',
+          description:
+            'Item name only, e.g. "milk" or "soccer cleats". Never include "add … to the list". Never use placeholders like "something" or "item". If unnamed, OMIT — the app will ask.',
+        },
         category: { type: 'string' },
         lane: { type: 'string', enum: ['grocery', 'clothing'] },
         releaseDate: { type: 'string' },
@@ -236,11 +248,15 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        title: { type: 'string' },
+        title: {
+          type: 'string',
+          description:
+            'Short name the user said. Never invent a placeholder like "something" or "task". If they did not name it, OMIT this field — the app will ask.',
+        },
         detail: { type: 'string' },
         dayLabel: { type: 'string' },
       },
-      required: ['title', 'detail'],
+      required: ['detail'],
       additionalProperties: false,
     },
     risk: 'safe_serial',
@@ -251,7 +267,11 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        memberName: { type: 'string' },
+        memberName: {
+          type: 'string',
+          description:
+            'Household member display name exactly as known. Omit if the user did not name anyone — the app will ask.',
+        },
         question: { type: 'string' },
       },
       required: ['memberName', 'question'],
@@ -349,8 +369,16 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        title: { type: 'string' },
-        assignee: { type: 'string' },
+        title: {
+          type: 'string',
+          description:
+            'The chore itself, as a short imperative: "Clean dishes", "Take out trash". Never include the request wording ("add a task for…"). Never use a placeholder like "something" or "task". If the user did not name the chore, OMIT this field — the app will ask.',
+        },
+        assignee: {
+          type: 'string',
+          description:
+            'Assignee display name, or "me" for the speaker. Omit if unknown — the app will ask.',
+        },
         due: { type: 'string' },
         detail: { type: 'string' },
         category: { type: 'string' },
@@ -369,8 +397,16 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
       type: 'object',
       properties: {
         taskId: { type: 'string' },
-        title: { type: 'string' },
-        assignee: { type: 'string' },
+        title: {
+          type: 'string',
+          description:
+            'The chore itself, as a short imperative: "Clean dishes", "Take out trash". Never include the request wording ("add a task for…"). Never use a placeholder like "something" or "task". If the user did not name the chore, OMIT this field — the app will ask.',
+        },
+        assignee: {
+          type: 'string',
+          description:
+            'Assignee display name, or "me" for the speaker. Omit if unknown — the app will ask.',
+        },
         due: { type: 'string' },
         status: { type: 'string' },
         detail: { type: 'string' },
@@ -388,7 +424,11 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
       type: 'object',
       properties: {
         taskId: { type: 'string' },
-        title: { type: 'string' },
+        title: {
+          type: 'string',
+          description:
+            'Existing item title to match, exactly as known. Omit when an id is provided. Never invent a placeholder.',
+        },
       },
       additionalProperties: false,
     },
@@ -401,13 +441,21 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        title: { type: 'string' },
-        date: { type: 'string' },
+        title: {
+          type: 'string',
+          description:
+            'Short name the user said. Never invent a placeholder like "something" or "task". If they did not name it, OMIT this field — the app will ask.',
+        },
+        date: {
+          type: 'string',
+          description:
+            'Calendar date the user said (ISO or natural). Omit if unknown — the app will ask. Never invent a date.',
+        },
         time: { type: 'string' },
         location: { type: 'string' },
         notes: { type: 'string' },
       },
-      required: ['title', 'date'],
+      required: ['date'],
       additionalProperties: false,
     },
     risk: 'safe_serial',
@@ -419,11 +467,14 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        title: { type: 'string' },
+        title: {
+          type: 'string',
+          description:
+            'Short name the user said. Never invent a placeholder like "something" or "task". If they did not name it, OMIT this field — the app will ask.',
+        },
         startsAt: { type: 'string' },
         notes: { type: 'string' },
       },
-      required: ['title'],
       additionalProperties: false,
     },
     risk: 'safe_serial',
@@ -505,7 +556,11 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
       type: 'object',
       properties: {
         taskId: { type: 'string' },
-        title: { type: 'string' },
+        title: {
+          type: 'string',
+          description:
+            'Existing item title to match, exactly as known. Omit when an id is provided. Never invent a placeholder.',
+        },
       },
       additionalProperties: false,
     },
@@ -524,7 +579,11 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
       type: 'object',
       properties: {
         eventId: { type: 'string' },
-        title: { type: 'string' },
+        title: {
+          type: 'string',
+          description:
+            'Existing item title to match, exactly as known. Omit when an id is provided. Never invent a placeholder.',
+        },
       },
       additionalProperties: false,
     },
@@ -586,7 +645,11 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        memberName: { type: 'string' },
+        memberName: {
+          type: 'string',
+          description:
+            'Household member display name exactly as known. Omit if the user did not name anyone — the app will ask.',
+        },
         amount: { type: 'number' },
         note: { type: 'string' },
       },
@@ -602,7 +665,11 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
       type: 'object',
       properties: {
         memberId: { type: 'string' },
-        memberName: { type: 'string' },
+        memberName: {
+          type: 'string',
+          description:
+            'Household member display name exactly as known. Omit if the user did not name anyone — the app will ask.',
+        },
         reason: { type: 'string' },
       },
       additionalProperties: false,
@@ -616,7 +683,11 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
       type: 'object',
       properties: {
         memberId: { type: 'string' },
-        memberName: { type: 'string' },
+        memberName: {
+          type: 'string',
+          description:
+            'Household member display name exactly as known. Omit if the user did not name anyone — the app will ask.',
+        },
         role: { type: 'string', enum: ['admin', 'adult', 'teen', 'child', 'roommate'] },
       },
       required: ['role'],
@@ -631,7 +702,11 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
       type: 'object',
       properties: {
         fromMemberName: { type: 'string' },
-        toMemberName: { type: 'string' },
+        toMemberName: {
+          type: 'string',
+          description:
+            'Household member display name exactly as known. Omit if the user did not name anyone — the app will ask.',
+        },
         taskIds: { type: 'array', items: { type: 'string' } },
       },
       required: ['toMemberName'],

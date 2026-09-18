@@ -792,18 +792,29 @@ create table if not exists public.ai_usage_events (
   client_key text not null,
   member_id text not null,
   member_name text not null default '',
-  kind text not null check (kind in ('chat', 'voice', 'briefing')),
+  kind text not null check (kind in ('chat', 'voice', 'briefing', 'monitor', 'notify', 'realtime')),
   model text not null default '',
   input_tokens integer not null default 0,
   output_tokens integer not null default 0,
+  cached_input_tokens integer not null default 0,
+  audio_input_seconds numeric not null default 0,
+  audio_output_seconds numeric not null default 0,
+  surface text,
+  mode text,
+  session_id text,
+  turn_index integer,
+  duration_ms integer,
   usd numeric(10, 4) not null,
   occurred_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
-  unique (household_id, client_key)
+  unique (client_key)
 );
 
 create index if not exists ai_usage_events_household_occurred_idx
   on public.ai_usage_events (household_id, occurred_at);
+
+create index if not exists ai_usage_events_household_kind_occurred_idx
+  on public.ai_usage_events (household_id, kind, occurred_at);
 
 alter table public.ai_usage_events enable row level security;
 
@@ -813,6 +824,52 @@ create policy ai_usage_events_select on public.ai_usage_events for select
 
 drop policy if exists ai_usage_events_insert on public.ai_usage_events;
 create policy ai_usage_events_insert on public.ai_usage_events for insert
+  with check (public.is_household_member(household_id));
+
+create table if not exists public.act_events (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  client_key text not null,
+  member_id text not null,
+  member_name text not null default '',
+  act_kind text not null
+    check (act_kind in (
+      'task', 'grocery', 'event', 'homework',
+      'itinerary_stop', 'place_save', 'complete', 'reward'
+    )),
+  voice text not null default 'quiet' check (voice in ('quiet', 'spoken')),
+  control text not null default 'guided' check (control in ('guided', 'direct')),
+  tokens integer not null default 0,
+  outcome text not null default 'committed'
+    check (outcome in ('committed', 'undone', 'vetoed', 'abandoned', 'failed')),
+  utterance_chars integer not null default 0,
+  turns integer not null default 0,
+  beats_played integer not null default 0,
+  slots_from_speech integer not null default 0,
+  slots_from_touch integer not null default 0,
+  slots_inherited integer not null default 0,
+  latency_ms integer not null default 0,
+  beat_id text,
+  session_id text,
+  session_seconds numeric,
+  audio_in_seconds numeric,
+  audio_out_seconds numeric,
+  occurred_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (client_key)
+);
+
+create index if not exists act_events_household_occurred_idx
+  on public.act_events (household_id, occurred_at);
+
+alter table public.act_events enable row level security;
+
+drop policy if exists act_events_select on public.act_events;
+create policy act_events_select on public.act_events for select
+  using (public.is_household_member(household_id));
+
+drop policy if exists act_events_insert on public.act_events;
+create policy act_events_insert on public.act_events for insert
   with check (public.is_household_member(household_id));
 
 -- Revision G RPCs (promote_member_to_admin, generate_member_invite,

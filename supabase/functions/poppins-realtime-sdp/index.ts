@@ -146,10 +146,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (householdId) {
+    const sessionId = householdId ? `realtime-sdp-${householdId}-${Date.now()}` : null;
+    if (householdId && sessionId) {
       await recordAiUsageEvent({
         householdId: String(householdId),
-        clientKey: `realtime-sdp-${householdId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        clientKey: `${sessionId}-${Math.random().toString(36).slice(2, 8)}`,
         memberId: auth.user?.id,
         kind: 'realtime',
         model: String(model),
@@ -157,6 +158,8 @@ Deno.serve(async (req) => {
         outputTokens: 0,
         surface: 'poppins-realtime-sdp',
         mode: 'sdp',
+        sessionId,
+        turnIndex: null,
       });
     }
 
@@ -169,6 +172,7 @@ Deno.serve(async (req) => {
         'X-Poppins-Realtime-Model': model,
         'X-Poppins-Voice': profile.voice,
         'X-Poppins-Majordomo': profile.id,
+        ...(sessionId ? { 'X-Poppins-Session-Id': sessionId } : {}),
       },
     });
   } catch (error) {

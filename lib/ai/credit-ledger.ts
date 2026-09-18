@@ -57,7 +57,7 @@ async function loadRemote(householdId: string): Promise<AiUsageEvent[] | null> {
     const { data, error } = await supabase
       .from('ai_usage_events')
       .select(
-        'client_key, member_id, member_name, kind, model, input_tokens, output_tokens, usd, occurred_at, mode'
+        'client_key, member_id, member_name, kind, model, input_tokens, output_tokens, usd, occurred_at, mode, cached_input_tokens, audio_input_seconds, audio_output_seconds, session_id, turn_index, duration_ms'
       )
       .eq('household_id', householdId)
       .order('occurred_at', { ascending: true });
@@ -91,6 +91,12 @@ async function saveRemote(householdId: string, events: AiUsageEvent[]): Promise<
     usd: event.usd,
     occurred_at: event.at,
     ...(event.mode ? { mode: event.mode } : {}),
+    ...(event.cachedInputTokens != null ? { cached_input_tokens: event.cachedInputTokens } : {}),
+    ...(event.audioInSeconds != null ? { audio_input_seconds: event.audioInSeconds } : {}),
+    ...(event.audioOutSeconds != null ? { audio_output_seconds: event.audioOutSeconds } : {}),
+    ...(event.sessionId ? { session_id: event.sessionId } : {}),
+    ...(event.turnIndex != null ? { turn_index: event.turnIndex } : {}),
+    ...(event.durationMs != null ? { duration_ms: event.durationMs } : {}),
   }));
   try {
     const { error } = await supabase.from('ai_usage_events').upsert(rows as never, {
@@ -119,6 +125,12 @@ function rowToEvent(row: object): AiUsageEvent {
     outputTokens: Number(item.output_tokens ?? 0),
     usd: Number(item.usd ?? 0),
     mode,
+    cachedInputTokens: Number(item.cached_input_tokens ?? 0) || undefined,
+    audioInSeconds: Number(item.audio_input_seconds ?? 0) || undefined,
+    audioOutSeconds: Number(item.audio_output_seconds ?? 0) || undefined,
+    sessionId: item.session_id ? String(item.session_id) : undefined,
+    turnIndex: item.turn_index != null ? Number(item.turn_index) : undefined,
+    durationMs: item.duration_ms != null ? Number(item.duration_ms) : undefined,
   };
 }
 

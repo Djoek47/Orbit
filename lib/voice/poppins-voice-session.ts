@@ -247,8 +247,8 @@ export async function teardownAllPoppinsVoiceAndSettle(
   await waitForPendingVoiceNativeSettle();
 }
 
-const SOFT_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_SOFT_PROMPT_MS ?? 50_000);
-const HANGUP_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_IDLE_MS ?? 90_000);
+const SOFT_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_SOFT_PROMPT_MS ?? 15_000);
+const HANGUP_IDLE_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_IDLE_MS ?? 30_000);
 const BACKGROUND_HANGUP_MS = Number(process.env.EXPO_PUBLIC_POPPINS_VOICE_BACKGROUND_MS ?? 20_000);
 const THINKING_RECOVERY_MS = 14_000;
 const OPENER_DELAY_MS = 350;
@@ -324,14 +324,10 @@ export class PoppinsVoiceSession {
 
   private setState(next: PoppinsVoiceVisualState) {
     if (this.fatal && next !== 'idle') return;
-    const prev = this.state;
     this.state = next;
     this.callbacks.onStateChange?.(next);
-    if (next === 'speaking' && prev !== 'speaking') {
-      this.setMicUplinkEnabled(false);
-    } else if (prev === 'speaking' && next !== 'speaking') {
-      this.setMicUplinkEnabled(true);
-    }
+    // Mic uplink is gated by responseInFlight (half-duplex for the whole assistant
+    // turn including tools), not by visual speaking → thinking transitions.
     if (next === 'thinking' || next === 'speaking' || this.pausedForTools) {
       this.clearIdleTimers();
     } else if (next === 'listening' && this.connected) {
@@ -339,16 +335,36 @@ export class PoppinsVoiceSession {
     }
   }
 
-  /** Gate mic uplink while the assistant speaks — cuts echo + Realtime input cost. */
+  /**
+   * Gate mic uplink for the whole assistant response (WO2 A3c / WO3 §7).
+   * Mute from response.created through done/cancelled — including tool thinking —
+   * so Realtime input tokens and echo stay cut for the full turn.
+   */
   private setMicUplinkEnabled(enabled: boolean) {
     try {
       const tracks = this.localStream?.getAudioTracks?.() ?? [];
       for (const track of tracks) {
         track.enabled = enabled;
       }
+      const senders = this.pc?.getSenders?.() ?? [];
+      for (const sender of senders) {
+        if (sender.track?.kind === 'audio') {
+          sender.track.enabled = enabled;
+        }
+      }
     } catch {
       /* ignore */
     }
+  }
+
+  private beginAssistantResponse() {
+    this.responseInFlight = true;
+    this.setMicUplinkEnabled(false);
+  }
+
+  private endAssistantResponse() {
+    this.responseInFlight = false;
+    this.setMicUplinkEnabled(true);
   }
 
   private clearIdleTimers() {
@@ -366,13 +382,8 @@ export class PoppinsVoiceSession {
         if (this.state !== 'listening' || this.pausedForTools) return;
         this.softIdleFired = true;
         this.callbacks.onSoftIdlePrompt?.();
-        this.sendEvent({
-          type: 'response.create',
-          response: {
-            instructions:
-              'Soft idle check-in only: ask once, briefly, if they are still there. Do not list options.',
-          },
-        });
+        // No spoken check-in — billed output to an empty room. Hangup timer continues.
+        this.armIdleTimers();
       }, SOFT_IDLE_MS);
     }
     this.idleTimer = setTimeout(() => {
@@ -486,7 +497,7 @@ export class PoppinsVoiceSession {
               type: 'response.create',
               response: { instructions: this.openerInstructions },
             });
-            this.responseInFlight = true;
+            this.beginAssistantResponse();
           }, OPENER_DELAY_MS);
         }
       };
@@ -626,6 +637,7 @@ export class PoppinsVoiceSession {
     this.sendEvent({
       type: 'response.create',
     });
+    this.beginAssistantResponse();
     return true;
   }
 
@@ -669,7 +681,7 @@ export class PoppinsVoiceSession {
       },
     });
     if (needsReply) {
-      this.responseInFlight = true;
+      this.beginAssistantResponse();
       this.sendEvent({
         type: 'response.create',
         response: {
@@ -795,12 +807,12 @@ export class PoppinsVoiceSession {
     }
 
     if (type === 'response.created') {
-      this.responseInFlight = true;
+      this.beginAssistantResponse();
     }
 
     if (type === 'response.done' || type === 'response.cancelled') {
       this.clearThinkingRecovery();
-      this.responseInFlight = false;
+      this.endAssistantResponse();
       if (this.assistantBuffer.trim()) {
         this.publishAssistant(this.assistantBuffer.trim());
         this.assistantBuffer = '';
@@ -824,12 +836,12 @@ export class PoppinsVoiceSession {
     if (type === 'error') {
       const disposition = disposeRealtimeError(event);
       if (disposition === 'inject_pending_tap') {
-        this.responseInFlight = false;
+        this.endAssistantResponse();
         this.flushPendingStageTap();
         return;
       }
       if (disposition === 'keep_going') {
-        this.responseInFlight = true;
+        this.beginAssistantResponse();
         return;
       }
       const err =
@@ -1087,7 +1099,7 @@ export class PoppinsVoiceSession {
     this.localStream = null;
     this.remoteStream = null;
     this.pausedForTools = false;
-    this.responseInFlight = false;
+    this.endAssistantResponse();
     this.pendingStageTap = null;
     this.publishedAssistant = '';
     this.assistantBuffer = '';
