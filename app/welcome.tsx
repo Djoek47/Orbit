@@ -6,6 +6,7 @@ import { Animated, Platform, PanResponder, Pressable, ScrollView, StyleSheet, Vi
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChoiceRow } from '@/components/orbit/choice-row';
 import { Avatar } from '@/components/orbit/avatar';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { BrandOpening } from '@/components/orbit/brand-opening';
@@ -153,6 +154,7 @@ type Step =
   | 'motivation'
   | 'reward-system'
   | 'reward-pack'
+  | 'poppins-voice'
   | 'account'
   | 'profile'
   | 'household'
@@ -216,6 +218,7 @@ export default function WelcomeOnboardingScreen() {
     DEFAULT_REWARD_MODEL
   );
   const [selectedRewardMode, setSelectedRewardMode] = useState<RewardMode>('weighted');
+  const [selectedPoppinsVoice, setSelectedPoppinsVoice] = useState<'quiet' | 'spoken'>('quiet');
   const [selectedRewardPackageId, setSelectedRewardPackageId] = useState<RewardPackageId>(
     DEFAULT_REWARD_PACKAGE_ID
   );
@@ -379,6 +382,7 @@ export default function WelcomeOnboardingScreen() {
       case 'motivation':
       case 'reward-system':
       case 'reward-pack':
+      case 'poppins-voice':
         return 0;
       case 'account':
       case 'profile':
@@ -407,12 +411,15 @@ export default function WelcomeOnboardingScreen() {
       case 'reward-pack':
         setStep('reward-system');
         break;
-      case 'account':
+      case 'poppins-voice':
         setStep(
           capabilitiesFor(selectedRewardModel ?? DEFAULT_REWARD_MODEL).rewardsEnabled
             ? 'reward-pack'
             : 'reward-system'
         );
+        break;
+      case 'account':
+        setStep('poppins-voice');
         break;
       case 'profile':
         setStep('account');
@@ -530,7 +537,7 @@ export default function WelcomeOnboardingScreen() {
       setStep('reward-pack');
       return;
     }
-    advanceAfterPrefs();
+    setStep('poppins-voice');
   };
 
   const handleRewardPackContinue = async () => {
@@ -548,6 +555,34 @@ export default function WelcomeOnboardingScreen() {
       setSetupDraft(nextDraft);
     } catch {
       // Draft save is best-effort.
+    }
+    setStep('poppins-voice');
+  };
+
+  const handlePoppinsVoiceContinue = async () => {
+    setError('');
+    const rewardModel = selectedRewardModel ?? DEFAULT_REWARD_MODEL;
+    const rewardMode: RewardMode = selectedRewardMode ?? 'weighted';
+    const voice = selectedPoppinsVoice;
+    try {
+      await saveOnboardingPrefs({
+        role: 'parent',
+        rewardModel,
+        rewardMode,
+        poppinsVoice: voice,
+      });
+      if (hasHousehold) {
+        const { savePoppinsInteractionPrefs, loadPoppinsInteractionPrefs } = await import(
+          '@/lib/poppins/poppins-prefs'
+        );
+        const current = await loadPoppinsInteractionPrefs(household.id);
+        await savePoppinsInteractionPrefs(household.id, {
+          ...current,
+          speakBack: voice === 'spoken',
+        });
+      }
+    } catch {
+      // Prefs are best-effort.
     }
     advanceAfterPrefs();
   };
@@ -1161,6 +1196,32 @@ export default function WelcomeOnboardingScreen() {
                 onSelect={setSelectedRewardPackageId}
               />
               <OrbitButton onPress={() => void handleRewardPackContinue()}>Continue</OrbitButton>
+            </KeyboardScreen>
+          ) : null}
+
+          {step === 'poppins-voice' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <Header progress={progressIndex} accent={accent} onBack={goBack} />
+              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
+                Should Poppins talk back?
+              </Text>
+              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
+                You can change this anytime in Settings. Quiet is free with your plan.
+              </Text>
+              <ChoiceRow
+                label="Poppins voice"
+                options={['Just show me', 'Talk to me']}
+                value={selectedPoppinsVoice === 'spoken' ? 'Talk to me' : 'Just show me'}
+                onChange={(value) =>
+                  setSelectedPoppinsVoice(value === 'Talk to me' ? 'spoken' : 'quiet')
+                }
+              />
+              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textSubtle, marginTop: 12 }]}>
+                {selectedPoppinsVoice === 'spoken'
+                  ? 'Talk to me — uses more of your monthly actions (cost TBD).'
+                  : 'Just show me — Poppins fills the screen as you speak.'}
+              </Text>
+              <OrbitButton onPress={() => void handlePoppinsVoiceContinue()}>Continue</OrbitButton>
             </KeyboardScreen>
           ) : null}
 

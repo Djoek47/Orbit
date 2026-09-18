@@ -28,6 +28,14 @@ import { MapsAppMark } from '@/components/orbit/maps-app-mark';
 import { BUILD_INFO } from '@/constants/build-info';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { VOCAB } from '@/constants/vocabulary';
+import {
+  DEFAULT_POPPINS_INTERACTION_PREFS,
+  SPOKEN_COST_LINE_PLACEHOLDER,
+  derivedModeLine,
+  loadPoppinsInteractionPrefs,
+  savePoppinsInteractionPrefs,
+  type PoppinsInteractionPrefs,
+} from '@/lib/poppins/poppins-prefs';
 import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { memberUsesProfileInvite } from '@/lib/household/member-invite-routing';
@@ -209,6 +217,24 @@ export default function SettingsScreen() {
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
   const [settingsToggleBusy, setSettingsToggleBusy] = useState(false);
   const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [poppinsPrefs, setPoppinsPrefs] = useState<PoppinsInteractionPrefs>(
+    DEFAULT_POPPINS_INTERACTION_PREFS
+  );
+  const poppinsPrefsReadOnly = !permissions.canManageHousehold;
+
+  useEffect(() => {
+    if (section !== 'poppins') return;
+    void loadPoppinsInteractionPrefs(household.id).then(setPoppinsPrefs);
+  }, [section, household.id]);
+
+  const updatePoppinsPrefs = useCallback(
+    async (next: PoppinsInteractionPrefs) => {
+      setPoppinsPrefs(next);
+      await savePoppinsInteractionPrefs(household.id, next);
+    },
+    [household.id]
+  );
+
   const prefs = useMemo(
     () =>
       household.notificationPrefs ?? {
@@ -1059,6 +1085,67 @@ export default function SettingsScreen() {
 
         {section === 'poppins' ? (
           <>
+            <SettingsGroup
+              footer={
+                poppinsPrefsReadOnly
+                  ? 'Only an admin can change how Poppins acts for this household.'
+                  : undefined
+              }>
+              <SettingsToggleRow
+                label="Speak back"
+                subtitle={SPOKEN_COST_LINE_PLACEHOLDER}
+                value={poppinsPrefs.speakBack}
+                disabled={poppinsPrefsReadOnly}
+                onValueChange={(speakBack) => {
+                  if (poppinsPrefsReadOnly) return;
+                  void updatePoppinsPrefs({ ...poppinsPrefs, speakBack });
+                }}
+              />
+              <SettingsToggleRow
+                label="Act immediately"
+                subtitle="Skips the confirm step. Needs a later update before it can turn on."
+                value={false}
+                disabled
+                last
+                onValueChange={() => undefined}
+              />
+            </SettingsGroup>
+            <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 12 }]}>
+              {derivedModeLine({ ...poppinsPrefs, actImmediately: false })}
+            </Text>
+            <SettingsGroup footer="Fine-tune Guided. Children see this read-only.">
+              <SettingsToggleRow
+                label="Show thinking"
+                subtitle="A short thinking beat before the act."
+                value={poppinsPrefs.showThinking}
+                disabled={poppinsPrefsReadOnly}
+                onValueChange={(showThinking) => {
+                  if (poppinsPrefsReadOnly) return;
+                  void updatePoppinsPrefs({ ...poppinsPrefs, showThinking });
+                }}
+              />
+              <SettingsToggleRow
+                label="Written replies"
+                subtitle="Clarifications on the stage in Quiet."
+                value={poppinsPrefs.writtenReplies}
+                disabled={poppinsPrefsReadOnly}
+                onValueChange={(writtenReplies) => {
+                  if (poppinsPrefsReadOnly) return;
+                  void updatePoppinsPrefs({ ...poppinsPrefs, writtenReplies });
+                }}
+              />
+              <SettingsToggleRow
+                label="Notification actions"
+                subtitle="Approve acts from a notification."
+                value={poppinsPrefs.notificationActions}
+                disabled={poppinsPrefsReadOnly}
+                last
+                onValueChange={(notificationActions) => {
+                  if (poppinsPrefsReadOnly) return;
+                  void updatePoppinsPrefs({ ...poppinsPrefs, notificationActions });
+                }}
+              />
+            </SettingsGroup>
             <SettingsGroup footer="Voice and personality for this household.">
               <SettingsNavRow
                 icon="record-voice-over"

@@ -1,10 +1,10 @@
 /**
- * Settle / result mark — one deliberate arrival.
+ * Settle / result mark — one deliberate arrival; tappable undo while the window is live.
  * Mount animation is allowed here: settle is after WebRTC uplink is quiet.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInUp,
@@ -21,6 +21,9 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 type Props = {
   kind?: 'added' | 'done' | 'assigned';
   title?: string;
+  /** When set, one tap reverses the last commit — no dialog. */
+  undoable?: boolean;
+  onUndo?: () => void;
 };
 
 const LABEL: Record<NonNullable<Props['kind']>, string> = {
@@ -30,7 +33,7 @@ const LABEL: Record<NonNullable<Props['kind']>, string> = {
 };
 
 /** Green check after Poppins writes — one deliberate arrival, no toast/sound. */
-export function IuiResultMark({ kind = 'added', title }: Props) {
+export function IuiResultMark({ kind = 'added', title, undoable, onUndo }: Props) {
   const { c } = useOrbitColors();
   const scale = useSharedValue(0.82);
   const markGreen = c.success;
@@ -43,8 +46,8 @@ export function IuiResultMark({ kind = 'added', title }: Props) {
     transform: [{ scale: scale.value }],
   }));
 
-  return (
-    <Animated.View entering={FadeIn.duration(motionDuration.smooth)} style={styles.wrap}>
+  const body = (
+    <>
       <Animated.View style={[styles.badge, { backgroundColor: markGreen }, badgeStyle]}>
         <MaterialIcons name="check" size={36} color="#ECFDF5" />
       </Animated.View>
@@ -55,7 +58,26 @@ export function IuiResultMark({ kind = 'added', title }: Props) {
             {title}
           </Text>
         ) : null}
+        {undoable ? (
+          <Text style={[styles.hint, { color: c.textMuted }]}>Tap to undo</Text>
+        ) : null}
       </Animated.View>
+    </>
+  );
+
+  return (
+    <Animated.View entering={FadeIn.duration(motionDuration.smooth)} style={styles.wrap}>
+      {undoable && onUndo ? (
+        <Pressable
+          onPress={onUndo}
+          accessibilityRole="button"
+          accessibilityLabel="Undo"
+          style={styles.press}>
+          {body}
+        </Pressable>
+      ) : (
+        body
+      )}
     </Animated.View>
   );
 }
@@ -65,6 +87,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space.sm + 2,
     paddingVertical: space.sm,
+  },
+  press: {
+    alignItems: 'center',
+    gap: space.sm + 2,
   },
   badge: {
     alignItems: 'center',
@@ -81,6 +107,11 @@ const styles = StyleSheet.create({
   title: {
     ...typography.subheadline,
     marginTop: space.xxs,
+    textAlign: 'center',
+  },
+  hint: {
+    ...typography.caption1,
+    marginTop: space.xs,
     textAlign: 'center',
   },
 });

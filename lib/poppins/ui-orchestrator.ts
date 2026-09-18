@@ -7,6 +7,7 @@ import { useSyncExternalStore } from 'react';
 import { interpretStageSpeech, matchSpokenTokens } from '@/lib/poppins/ui-speech';
 import { withComposeProgress } from '@/lib/poppins/iui-compose';
 import { withHomeworkComposeProgress } from '@/lib/poppins/homework-compose';
+import type { IuiCommitReverse } from '@/lib/poppins/iui-reverse';
 import { mapUiActionsToPlaylist } from '@/lib/poppins/ui-tool-map';
 import {
   HOLD_MS_DEFAULT,
@@ -46,6 +47,7 @@ export type IuiDriveState = {
   /** Tappable undo window after a successful settle (~5s). */
   undoUntil: number | null;
   undoBeat: IuiBeat | null;
+  undoReverse: IuiCommitReverse | null;
 };
 
 const EMPTY: IuiDriveState = {
@@ -63,6 +65,7 @@ const EMPTY: IuiDriveState = {
   commitFailed: false,
   undoUntil: null,
   undoBeat: null,
+  undoReverse: null,
 };
 
 let state: IuiDriveState = EMPTY;
@@ -73,15 +76,20 @@ let holdTimer: ReturnType<typeof setTimeout> | null = null;
 let unfoldTimer: ReturnType<typeof setTimeout> | null = null;
 let quietTimer: ReturnType<typeof setTimeout> | null = null;
 let undoTimer: ReturnType<typeof setTimeout> | null = null;
-let commitHandler: ((beat: IuiBeat) => void | Promise<void>) | null = null;
-let undoHandler: ((beat: IuiBeat) => void | Promise<void>) | null = null;
+let commitHandler:
+  | ((beat: IuiBeat) => void | Promise<void | { reverse?: IuiCommitReverse | null }>)
+  | null = null;
+let undoHandler:
+  | ((beat: IuiBeat, reverse: IuiCommitReverse | null) => void | Promise<void>)
+  | null = null;
 let coachHandler: ((route: string) => void) | null = null;
 let pendingHandler: ((approved: boolean, ids: string[]) => void) | null = null;
 let hapticHandler: ((kind: IuiHapticKind) => void) | null = null;
 let tapHandler: ((tap: IuiStageTap) => void) | null = null;
 const tapHandlers = new Set<(tap: IuiStageTap) => void>();
 
-const UNDO_MS = 5000;
+/** Undo window after settle — also the result_mark dwell when undoable. */
+export const UNDO_MS = 5000;
 
 const PROTECTED_SLOTS = [
   'assignee',
@@ -188,11 +196,15 @@ function advanceAfterSettle() {
   setTimeout(() => clear(), SETTLE_CLEAR_MS);
 }
 
-function armUndoWindow(beat: IuiBeat) {
+function armUndoWindow(beat: IuiBeat, reverse?: IuiCommitReverse | null) {
   clearUndoTimer();
-  setState({ undoBeat: beat, undoUntil: Date.now() + UNDO_MS });
+  setState({
+    undoBeat: beat,
+    undoUntil: Date.now() + UNDO_MS,
+    undoReverse: reverse ?? null,
+  });
   undoTimer = setTimeout(() => {
-    setState({ undoBeat: null, undoUntil: null });
+    setState({ undoBeat: null, undoUntil: null, undoReverse: null });
   }, UNDO_MS);
 }
 
@@ -208,11 +220,15 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
   if (beat.scene === 'confirm' && beat.payload.confirmationIds?.length) {
     pendingHandler?.(true, beat.payload.confirmationIds);
   }
+  let reverse: IuiCommitReverse | null | undefined;
   if (beat.scene === 'navigate_coach' && beat.payload.route) {
     coachHandler?.(beat.payload.route);
   } else if (beat.commit !== 'none') {
     try {
-      await commitHandler?.(beat);
+      const result = await commitHandler?.(beat);
+      if (result && typeof result === 'object' && 'reverse' in result) {
+        reverse = result.reverse ?? null;
+      }
     } catch (error) {
       const { ActRejectedError, clearRejectedSlot } = await import('@/lib/poppins/validate-act');
       const { withComposeProgress } = await import('@/lib/poppins/iui-compose');
@@ -243,7 +259,9 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
       return;
     }
   }
-  armUndoWindow(beat);
+  if (beat.commit !== 'none') {
+    armUndoWindow(beat, reverse);
+  }
   advanceAfterSettle();
 }
 
@@ -376,8 +394,13 @@ function armBeat() {
   }
 
   if (beat.commit === 'none') {
-    const linger =
-      beat.scene === 'list_peek' || beat.scene === 'member_pick' || beat.scene === 'result_mark'
+    const undoableMark =
+      beat.scene === 'result_mark' &&
+      Boolean(state.undoBeat && state.undoUntil && Date.now() < state.undoUntil);
+    const remainingUndo = state.undoUntil ? Math.max(0, state.undoUntil - Date.now()) : 0;
+    const linger = undoableMark
+      ? Math.max(RESULT_LINGER_MS, remainingUndo)
+      : beat.scene === 'list_peek' || beat.scene === 'member_pick' || beat.scene === 'result_mark'
         ? RESULT_LINGER_MS
         : NONE_LINGER_MS;
     holdTimer = setTimeout(() => {
@@ -423,6 +446,7 @@ function startPlaylist(playlist: IuiBeat[], kid?: boolean) {
     commitFailed: false,
     undoUntil: null,
     undoBeat: null,
+    undoReverse: null,
   });
   armBeat();
 }
@@ -440,10 +464,16 @@ export const poppinsUiOrchestrator = {
     listeners.add(listener);
     return () => listeners.delete(listener);
   },
-  setCommitHandler(handler: ((beat: IuiBeat) => void | Promise<void>) | null) {
+  setCommitHandler(
+    handler:
+      | ((beat: IuiBeat) => void | Promise<void | { reverse?: IuiCommitReverse | null }>)
+      | null
+  ) {
     commitHandler = handler;
   },
-  setUndoHandler(handler: ((beat: IuiBeat) => void | Promise<void>) | null) {
+  setUndoHandler(
+    handler: ((beat: IuiBeat, reverse: IuiCommitReverse | null) => void | Promise<void>) | null
+  ) {
     undoHandler = handler;
   },
   /** Kid vs adult HOLD duration for this Speak session. */
@@ -602,10 +632,16 @@ export const poppinsUiOrchestrator = {
   /** Tap the settle mark within ~5s to reverse the last commit (handler optional). */
   async undoLast() {
     const beat = state.undoBeat;
+    const reverse = state.undoReverse;
     if (!beat || !state.undoUntil || Date.now() > state.undoUntil) return false;
     clearUndoTimer();
-    setState({ undoBeat: null, undoUntil: null });
-    await undoHandler?.(beat);
+    setState({ undoBeat: null, undoUntil: null, undoReverse: null });
+    await undoHandler?.(beat, reverse);
+    // Mark held for undo — advance as soon as reverse lands.
+    if (currentBeat()?.scene === 'result_mark') {
+      clearAllTimers();
+      advanceAfterSettle();
+    }
     return true;
   },
   veto() {

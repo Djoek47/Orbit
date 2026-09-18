@@ -30,6 +30,8 @@ export type OnboardingPrefs = {
   rewardModel: RewardModel;
   /** Meritocracy (`weighted`) vs Equity (`flat`). Defaults to weighted when missing. */
   rewardMode?: RewardMode;
+  /** Quiet default; Spoken opt-in. Missing on old prefs → quiet. */
+  poppinsVoice?: 'quiet' | 'spoken';
   completedAt: string;
 };
 
@@ -133,6 +135,7 @@ export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
       motivation?: MotivationMode;
       rewardModel?: RewardModel | string;
       rewardMode?: RewardMode | string;
+      poppinsVoice?: 'quiet' | 'spoken' | string;
       completedAt?: string;
     };
     const role = normalizeOnboardingRole(parsed.role);
@@ -141,10 +144,15 @@ export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
       motivationToRewardModel(parsed.motivation) ??
       DEFAULT_REWARD_MODEL;
     const rewardMode = normalizeRewardMode(parsed.rewardMode);
+    const poppinsVoice =
+      parsed.poppinsVoice === 'spoken' || parsed.poppinsVoice === 'quiet'
+        ? parsed.poppinsVoice
+        : undefined;
     const prefs: OnboardingPrefs = {
       role,
       rewardModel: migrateLegacyRewardModel({ legacy: rewardModel }),
       rewardMode,
+      poppinsVoice,
       completedAt: parsed.completedAt ?? new Date().toISOString(),
     };
     if (
@@ -171,6 +179,7 @@ export async function saveOnboardingPrefs(
     role: normalizeOnboardingRole(prefs.role),
     rewardModel: migrateLegacyRewardModel({ legacy: rewardModel }),
     rewardMode: normalizeRewardMode(prefs.rewardMode),
+    poppinsVoice: prefs.poppinsVoice === 'spoken' ? 'spoken' : prefs.poppinsVoice === 'quiet' ? 'quiet' : undefined,
     completedAt: new Date().toISOString(),
   };
   await AsyncStorage.setItem(KEY, JSON.stringify(next));

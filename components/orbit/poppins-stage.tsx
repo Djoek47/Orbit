@@ -511,7 +511,8 @@ export function PoppinsStage({
       }
     });
     poppinsUiOrchestrator.setCommitHandler(async (beat: IuiBeat) => {
-      await commitIuiBeat(beat, writesRef.current);
+      const result = await commitIuiBeat(beat, writesRef.current);
+      return { reverse: result.ok ? result.reverse : undefined };
     });
     return () => {
       poppinsUiOrchestrator.setCommitHandler(null);
@@ -684,11 +685,25 @@ export function PoppinsStage({
       ) : null}
 
       {beat.scene === 'task_done' ? (
-        <IuiResultMark kind="done" title={payload.title} />
+        <IuiResultMark
+          kind="done"
+          title={payload.title}
+          undoable={Boolean(drive.undoBeat && drive.undoUntil && Date.now() < drive.undoUntil)}
+          onUndo={() => {
+            void poppinsUiOrchestrator.undoLast();
+          }}
+        />
       ) : null}
 
       {beat.scene === 'result_mark' ? (
-        <IuiResultMark kind={payload.markKind ?? 'added'} title={payload.title ?? payload.groceryName} />
+        <IuiResultMark
+          kind={payload.markKind ?? 'added'}
+          title={payload.title ?? payload.groceryName}
+          undoable={Boolean(drive.undoBeat && drive.undoUntil && Date.now() < drive.undoUntil)}
+          onUndo={() => {
+            void poppinsUiOrchestrator.undoLast();
+          }}
+        />
       ) : null}
 
       {beat.scene === 'reward_mint' ? (

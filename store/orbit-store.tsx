@@ -450,7 +450,8 @@ type OrbitContextValue = {
   cancelTask: (taskId: string, scope?: CancelTaskScope) => Promise<void>;
   /** Evenly reassign every open task between the two family admins (or two chosen members). */
   splitAllTasksBetweenTwo: (nameA?: string, nameB?: string) => Promise<void>;
-  addMissingGrocery: (input: CreateGroceryInput) => void;
+  addMissingGrocery: (input: CreateGroceryInput) => Promise<import('@/types/orbit').GroceryItem | void>;
+  removeGroceryItem: (itemId: string) => Promise<void>;
   /** Add from Canada catalog product (aisle from product.categoryId). */
   addGroceryFromProduct: (productId: string) => Promise<void>;
   toggleGroceryFavorite: (productId: string) => void;
@@ -3530,6 +3531,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       groceries: [grocery, ...current.groceries],
     }));
     await trackAnalytics('grocery.added', { groceryId: grocery.id }, analyticsContext);
+    return grocery;
+  };
+
+  const removeGroceryItem = async (itemId: string) => {
+    await groceryRepository.removeGroceryItems([itemId], household.id);
+    setHousehold((current) => ({
+      ...current,
+      groceries: current.groceries.filter((item) => item.id !== itemId),
+    }));
   };
 
   const addGroceryFromProduct = async (productId: string) => {
@@ -6240,6 +6250,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       cancelTask,
       splitAllTasksBetweenTwo,
       addMissingGrocery,
+      removeGroceryItem,
       addGroceryFromProduct,
       toggleGroceryFavorite,
       listGroceryBuyAgain,

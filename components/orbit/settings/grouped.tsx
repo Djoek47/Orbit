@@ -97,12 +97,14 @@ export function SettingsToggleRow({
   subtitle,
   value,
   last,
+  disabled,
   onValueChange,
 }: {
   label: string;
   subtitle?: string;
   value: boolean;
   last?: boolean;
+  disabled?: boolean;
   onValueChange: (next: boolean) => void;
 }) {
   const { c, glassBorder } = useOrbitColors();
@@ -111,6 +113,7 @@ export function SettingsToggleRow({
       style={[
         styles.row,
         !last && { borderBottomColor: glassBorder(0.08), borderBottomWidth: StyleSheet.hairlineWidth },
+        disabled ? { opacity: 0.55 } : null,
       ]}>
       <View style={styles.rowBody}>
         <Text style={[styles.label, { color: c.text }]}>{label}</Text>
@@ -120,6 +123,7 @@ export function SettingsToggleRow({
       </View>
       <Switch
         value={value}
+        disabled={disabled}
         onValueChange={onValueChange}
         trackColor={{ false: glassBorder(0.14), true: c.primary }}
         thumbColor="#fff"

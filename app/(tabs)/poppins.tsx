@@ -96,6 +96,10 @@ export default function PoppinsScreen() {
     recordPoppinsUsage,
     metrics,
     orbitPalette,
+    deleteTask,
+    deleteEvent,
+    updateTask,
+    removeGroceryItem,
   } = useOrbit();
 
   const majordomo = useMemo(() => {
@@ -134,13 +138,22 @@ export default function PoppinsScreen() {
   );
 
   useEffect(() => {
-    poppinsUiOrchestrator.setUndoHandler(async (beat) => {
+    poppinsUiOrchestrator.setUndoHandler(async (beat, reverse) => {
+      if (reverse) {
+        const { reverseIuiCommit } = await import('@/lib/poppins/iui-reverse');
+        await reverseIuiCommit(reverse, {
+          deleteTask,
+          deleteEvent,
+          removeGroceryItem,
+          updateTask,
+        });
+      }
       await notifyActUndone(beat.id, beat.payload.write);
     });
     return () => {
       poppinsUiOrchestrator.setUndoHandler(null);
     };
-  }, []);
+  }, [deleteTask, deleteEvent, updateTask, removeGroceryItem]);
 
   const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
     idle: {

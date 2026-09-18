@@ -72,7 +72,7 @@ const stage = source('components/orbit/poppins-stage.tsx');
 assert.match(stage, /onVoiceTaskCreated/);
 assert.match(stage, /commitIuiBeat/);
 const iuiCommit = source('lib/poppins/iui-commit.ts');
-assert.match(iuiCommit, /if \(created\) \{\s*wrote = true;\s*onVoiceTaskCreated\?\.\(created\);/);
+assert.match(iuiCommit, /if \(created\) \{\s*wrote = true;\s*reverse = \{ write, entityId: created\.id \};\s*onVoiceTaskCreated\?\.\(created\);/);
 
 const poppins = source('app/(tabs)/poppins.tsx');
 assert.match(poppins, /syncHousehold/);
