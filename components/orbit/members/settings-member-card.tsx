@@ -1,18 +1,21 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { router } from 'expo-router';
 import { ActionSheetIOS, Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import { memberCardStatus } from '@/lib/household/member-card-status';
 import { memberCanReceiveInvite } from '@/lib/household/member-invite-routing';
-import { memberPresenceParts } from '@/lib/household/member-presence';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
-import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 type SettingsMemberCardProps = {
   member: HouseholdMember;
+  /** Full household roster — used to resolve shared-device nesting. */
+  members: HouseholdMember[];
   active: boolean;
   accent: string;
   canManage: boolean;
@@ -26,6 +29,8 @@ type SettingsMemberCardProps = {
   onCommitRename: () => void;
   onRemove: () => void;
   onHomeworkProofChange: (required: boolean) => void;
+  /** Leftover pending adults only — join approval was removed for new invites. */
+  onApprove?: () => void;
 };
 
 function showMemberManageMenu(
@@ -47,9 +52,10 @@ function showMemberManageMenu(
   );
 }
 
-/** Calm member row — connection status in copy, actions in menu or footer pills. */
+/** Calm member row — state + next action visible without a tap. */
 export function SettingsMemberCard({
   member,
+  members,
   active,
   accent,
   canManage,
@@ -63,19 +69,31 @@ export function SettingsMemberCard({
   onCommitRename,
   onRemove,
   onHomeworkProofChange,
+  onApprove,
 }: SettingsMemberCardProps) {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const photo = isAvatarImageUri(member.avatar);
   const showInvite = canManage && memberCanReceiveInvite(member);
   const showHomework = canManage && member.role === 'child';
   const showMenu = canManage && member.role !== 'owner';
-  const presence = memberPresenceParts(member);
-  const inviteLabel =
-    presence.connectionLabel === 'Connected' || presence.connectionLabel === 'Disconnected'
-      ? 'Re-share invite'
-      : 'Share invite';
-  const showLastSeenOnInvite =
-    showInvite && inviteLabel === 'Re-share invite' && Boolean(presence.lastSeenText);
+  const status = memberCardStatus(member, members);
+
+  const runPrimaryAction = () => {
+    switch (status.action) {
+      case 'setup_device':
+        router.push('/setup-kid-device' as never);
+        return;
+      case 'show_code':
+      case 'share_invite':
+        onShareInvite();
+        return;
+      case 'approve':
+        onApprove?.();
+        return;
+      default:
+        return;
+    }
+  };
 
   return (
     <View
@@ -113,7 +131,7 @@ export function SettingsMemberCard({
             </Text>
           )}
           <Text style={[styles.meta, { color: c.textSubtle }]} numberOfLines={1}>
-            {formatHouseholdRole(member.role)} · {presence.connectionLabel}
+            {formatHouseholdRole(member.role)} · {status.line}
           </Text>
           {!isSharedDeviceMember(member) ? (
             <Text style={[styles.xp, { color: accent }]}>{member.xp} XP</Text>
@@ -135,7 +153,29 @@ export function SettingsMemberCard({
         ) : null}
       </View>
 
-      {showInvite ? (
+      {canManage && status.actionLabel ? (
+        <View style={styles.inviteRow}>
+          <Pressable
+            onPress={runPrimaryAction}
+            style={[
+              styles.shareBtn,
+              { backgroundColor: `${accent}14`, borderColor: `${accent}44` },
+            ]}>
+            <MaterialIcons
+              name={
+                status.action === 'setup_device'
+                  ? 'tablet-mac'
+                  : status.action === 'approve'
+                    ? 'check-circle'
+                    : 'qr-code-2'
+              }
+              size={16}
+              color={accent}
+            />
+            <Text style={[styles.shareBtnText, { color: accent }]}>{status.actionLabel}</Text>
+          </Pressable>
+        </View>
+      ) : showInvite && !status.actionLabel ? (
         <View style={styles.inviteRow}>
           <Pressable
             onPress={onShareInvite}
@@ -144,12 +184,7 @@ export function SettingsMemberCard({
               { backgroundColor: `${accent}14`, borderColor: `${accent}44` },
             ]}>
             <MaterialIcons name="qr-code-2" size={16} color={accent} />
-            <Text style={[styles.shareBtnText, { color: accent }]}>{inviteLabel}</Text>
-            {showLastSeenOnInvite ? (
-              <Text style={[styles.lastSeenInline, { color: c.textSubtle }]}>
-                · {presence.lastSeenText}
-              </Text>
-            ) : null}
+            <Text style={[styles.shareBtnText, { color: accent }]}>Share invite</Text>
           </Pressable>
         </View>
       ) : null}
@@ -271,10 +306,6 @@ const styles = StyleSheet.create({
   inviteRow: {
     alignSelf: 'flex-start',
     maxWidth: '100%',
-  },
-  lastSeenInline: {
-    fontSize: 11,
-    fontWeight: '600',
   },
   shareBtnText: {
     fontSize: 13,

@@ -95,13 +95,13 @@
     {
       "id": "clothing",
       "name": "Clothing & Shoes",
-      "description": "Apparel, sneakers, kids clothes — in-store US/CA retail",
+      "description": "Classify-only — Shopping list later; never a grocery browse tile",
       "order": 16
     },
     {
       "id": "other",
       "name": "Other",
-      "description": "Unclassified — tap to assign",
+      "description": "Unclassified — classify-only, never a browse tile",
       "order": 17
     }
   ],

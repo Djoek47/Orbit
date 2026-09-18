@@ -197,7 +197,7 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
         beat(
           'task_done',
           {
-            title: String(action.title ?? 'Task'),
+            title: typeof action.title === 'string' ? action.title.trim() || undefined : undefined,
             taskId: String(action.taskId ?? ''),
             markKind: 'done',
             thinkingLine: 'Done',
@@ -378,7 +378,7 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
               const r = asRecord(row);
               return {
                 id: String(r.id ?? i),
-                title: String(r.title ?? 'Task'),
+                title: typeof r.title === 'string' ? r.title.trim() : '',
                 detail: r.assignee ? String(r.assignee) : undefined,
               };
             }),
