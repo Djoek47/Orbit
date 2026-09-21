@@ -373,6 +373,13 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingBottom: 4,
   },
+  /** Hit target fills the shell without re-applying flex:1. */
+  tabPressable: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    gap: 4,
+    width: '100%',
+  },
   poppinsTab: {
     paddingBottom: 0,
   },
