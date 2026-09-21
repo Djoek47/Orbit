@@ -22,6 +22,7 @@ import {
   View,
 } from 'react-native';
 
+import { TourErrorBoundary } from '@/components/orbit/tour/tour-error-boundary';
 import { TourOverlay } from '@/components/orbit/tour/tour-overlay';
 import { TourWelcome } from '@/components/orbit/tour/tour-welcome';
 import { trackAnalytics } from '@/lib/analytics';
@@ -463,6 +464,15 @@ export function TourProvider({ children }: PropsWithChildren) {
     setWelcomeOpen(false);
   }, [tourState, persist, analyticsContext]);
 
+  const handleTourCrash = useCallback(() => {
+    if (!tourState) {
+      setWelcomeOpen(false);
+      return;
+    }
+    void persist(skipTourState(tourState));
+    setWelcomeOpen(false);
+  }, [persist, tourState]);
+
   const handleWelcomeSkip = useCallback(() => {
     const base = tourState ?? startTourState(tourId);
     void persist(skipTourState(base));
@@ -548,31 +558,33 @@ export function TourProvider({ children }: PropsWithChildren) {
   return (
     <TourRegistryContext.Provider value={registry}>
       {children}
-      <TourWelcome
-        visible={welcomeOpen && Boolean(household?.id && currentMember?.id)}
-        title={welcomeTitle}
-        body={welcomeBody}
-        primaryLabel={def.welcomePrimary}
-        secondaryLabel={def.welcomeSecondary}
-        onStart={() => startTour(tourId)}
-        onSkip={handleWelcomeSkip}
-      />
-      {pointer && targetRect && !paused ? (
-        <TourOverlay
-          target={targetRect}
-          chapterName={pointer.chapter.name}
-          title={pointer.step.title}
-          body={pointer.step.body}
-          stepLabel={`${pointer.stepOrdinal} of ${pointer.stepsInChapter}`}
-          isAction={isAction}
-          isLast={isLast}
-          cardRef={cardRef}
-          onNext={handleNext}
-          onSkipChapter={handleSkipChapter}
-          onSkipStep={handleSkipStep}
-          onClose={handleClose}
+      <TourErrorBoundary onCrash={handleTourCrash}>
+        <TourWelcome
+          visible={welcomeOpen && Boolean(household?.id && currentMember?.id)}
+          title={welcomeTitle}
+          body={welcomeBody}
+          primaryLabel={def.welcomePrimary}
+          secondaryLabel={def.welcomeSecondary}
+          onStart={() => startTour(tourId)}
+          onSkip={handleWelcomeSkip}
         />
-      ) : null}
-      </TourRegistryContext.Provider>
+        {pointer && targetRect && !paused ? (
+          <TourOverlay
+            target={targetRect}
+            chapterName={pointer.chapter.name}
+            title={pointer.step.title}
+            body={pointer.step.body}
+            stepLabel={`${pointer.stepOrdinal} of ${pointer.stepsInChapter}`}
+            isAction={isAction}
+            isLast={isLast}
+            cardRef={cardRef}
+            onNext={handleNext}
+            onSkipChapter={handleSkipChapter}
+            onSkipStep={handleSkipStep}
+            onClose={handleClose}
+          />
+        ) : null}
+      </TourErrorBoundary>
+    </TourRegistryContext.Provider>
   );
 }

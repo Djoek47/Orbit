@@ -1,6 +1,16 @@
+import Constants from 'expo-constants';
+
+type Extra = {
+  gitCommitHash?: string;
+  gitBranch?: string;
+  buildInfoLabel?: string;
+};
+
+const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
+
 /** Injected tip marker so Expo Go / TestFlight can prove which commit is running. */
 export const BUILD_INFO = {
-  branch: 'cursor/make-v21',
-  commit: 'f968cec',
-  label: 'make-v21 · fix-expired · request-proof',
+  branch: extra.gitBranch ?? 'cursor/make-v22',
+  commit: extra.gitCommitHash ?? 'unknown',
+  label: extra.buildInfoLabel ?? `make-v22 · ${extra.gitCommitHash ?? 'unknown'}`,
 } as const;

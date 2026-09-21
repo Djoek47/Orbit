@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -27,6 +28,11 @@ import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { MapsAppMark } from '@/components/orbit/maps-app-mark';
 import { BUILD_INFO } from '@/constants/build-info';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
+import {
+  clearLastAppError,
+  loadLastAppError,
+  type LastAppError,
+} from '@/lib/errors/last-error';
 import { VOCAB } from '@/constants/vocabulary';
 import {
   DEFAULT_POPPINS_INTERACTION_PREFS,
@@ -229,6 +235,7 @@ export default function SettingsScreen() {
     DEFAULT_POPPINS_INTERACTION_PREFS
   );
   const [howActionsOpen, setHowActionsOpen] = useState(false);
+  const [lastAppError, setLastAppError] = useState<LastAppError | null>(null);
   const poppinsPrefsReadOnly = !permissions.canManageHousehold;
 
   useEffect(() => {
@@ -276,6 +283,11 @@ export default function SettingsScreen() {
     void getNotificationPermissionStatus().then((permission) => {
       setOsNotifStatus(isNotificationPermissionGranted(permission) ? 'granted' : 'denied');
     });
+  }, [section]);
+
+  useEffect(() => {
+    if (section !== 'main') return;
+    void loadLastAppError().then(setLastAppError);
   }, [section]);
 
   useEffect(() => {
@@ -661,8 +673,48 @@ export default function SettingsScreen() {
                 iconColor="#34D399"
                 label="Show the checklist"
                 subtitle="Getting started on Home"
-                last
                 onPress={() => tourControls?.showChecklist()}
+              />
+              <SettingsNavRow
+                icon="bug-report"
+                iconColor="#F87171"
+                label="Last error"
+                subtitle={
+                  lastAppError
+                    ? `${lastAppError.at.slice(0, 19)} · ${lastAppError.message.slice(0, 72)}`
+                    : 'None saved'
+                }
+                last
+                onPress={() => {
+                  if (!lastAppError) {
+                    Alert.alert('Last error', 'No crash details saved yet.');
+                    return;
+                  }
+                  const body = [
+                    lastAppError.message,
+                    `At: ${lastAppError.at}`,
+                    lastAppError.stack ?? '',
+                    lastAppError.componentStack ?? '',
+                  ]
+                    .filter(Boolean)
+                    .join('\n\n');
+                  Alert.alert('Last error', lastAppError.message.slice(0, 280), [
+                    {
+                      text: 'Copy',
+                      onPress: () => {
+                        void Clipboard.setStringAsync(body);
+                      },
+                    },
+                    {
+                      text: 'Clear',
+                      style: 'destructive',
+                      onPress: () => {
+                        void clearLastAppError().then(() => setLastAppError(null));
+                      },
+                    },
+                    { text: 'OK', style: 'cancel' },
+                  ]);
+                }}
               />
             </SettingsGroup>
 
