@@ -248,6 +248,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               : inactive;
 
           const tourTargetId = TAB_TOUR_TARGET[route.name as TabRoute];
+          const shellStyle = [styles.tab, isPoppins && styles.poppinsTab];
           const tabInner = (
             <Pressable
               accessibilityRole="tab"
@@ -255,7 +256,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               accessibilityLabel={descriptors[route.key].options.tabBarAccessibilityLabel ?? label}
               onPress={onPress}
               onLongPress={onLongPress}
-              style={[styles.tab, isPoppins && styles.poppinsTab, tourTargetId ? { flex: 1 } : null]}>
+              style={styles.tabPressable}>
               {isPoppins ? (
                 <Animated.View style={{ transform: [{ scale: poppinsPulse }] }}>
                 <LinearGradient
@@ -331,16 +332,18 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
             </Pressable>
           );
 
-          if (!tourTargetId) {
-            return <View key={route.key}>{tabInner}</View>;
+          // Outer shell owns flex:1 once (pre-2dda540 layout). TourTarget only measures.
+          if (tourTargetId) {
+            return (
+              <TourTarget key={route.key} id={tourTargetId} style={shellStyle}>
+                {tabInner}
+              </TourTarget>
+            );
           }
           return (
-            <TourTarget
-              key={route.key}
-              id={tourTargetId}
-              style={[styles.tab, isPoppins && styles.poppinsTab]}>
+            <View key={route.key} style={shellStyle}>
               {tabInner}
-            </TourTarget>
+            </View>
           );
         })}
       </View>
