@@ -58,6 +58,7 @@ import {
   mapCustomHouseRulesFromRows,
   mapHouseholdSettingsFromRow,
 } from '@/lib/household/map-household-settings';
+import { mergeNotificationPrefs } from '@/lib/poppins/prefs-store';
 
 export const householdRepository = {
   async getHousehold(): Promise<HouseholdSnapshot> {
@@ -1600,17 +1601,10 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     rooms: [],
     accentThemeId: 'sky',
     taskTemplates: [],
-    notificationPrefs: {
-      tasks: true,
-      itinerary: true,
-      groceries: true,
-      rewards: true,
-      deals: true,
-      plans: true,
-      xpFairness: true,
-      ...(((household as { notification_prefs?: Record<string, boolean> }).notification_prefs) ??
-        {}),
-    },
+    notificationPrefs: mergeNotificationPrefs({
+      server: (household as { notification_prefs?: Record<string, boolean> }).notification_prefs,
+      local: null,
+    }),
     customHouseRules: mappedCustomRules,
     rewards: (rewards ?? []).map((row) => mapRewardRow(row)),
     badges: (badges ?? []).map((row) => mapBadgeRow(row)),

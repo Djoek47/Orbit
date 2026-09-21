@@ -5,6 +5,27 @@ import type { PoppinsNotificationPrefs } from '@/types/orbit';
 
 const KEY = '@orbit/poppins_notification_prefs';
 
+function isPrefsObject(
+  value: Partial<PoppinsNotificationPrefs> | null | undefined
+): value is Partial<PoppinsNotificationPrefs> {
+  return Boolean(value) && typeof value === 'object' && Object.keys(value).length > 0;
+}
+
+/**
+ * Server-first merge. Local AsyncStorage is only a cache when the household
+ * row has no notification_prefs yet — never overlay phone defaults on top of
+ * another device's saved toggles.
+ */
+export function mergeNotificationPrefs(input: {
+  server?: Partial<PoppinsNotificationPrefs> | null;
+  local?: Partial<PoppinsNotificationPrefs> | null;
+}): PoppinsNotificationPrefs {
+  if (isPrefsObject(input.server)) {
+    return { ...DEFAULT_POPPINS_NOTIFICATION_PREFS, ...input.server };
+  }
+  return { ...DEFAULT_POPPINS_NOTIFICATION_PREFS, ...(input.local ?? {}) };
+}
+
 export async function loadPoppinsNotificationPrefs(
   householdId: string | null | undefined
 ): Promise<PoppinsNotificationPrefs> {

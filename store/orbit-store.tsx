@@ -262,7 +262,11 @@ import {
   type AccentThemeId,
 } from '@/constants/accent-themes';
 import { DEFAULT_HOUSEHOLD_ROOMS } from '@/data/household-rooms';
-import { loadPoppinsNotificationPrefs, savePoppinsNotificationPrefs } from '@/lib/poppins/prefs-store';
+import {
+  loadPoppinsNotificationPrefs,
+  mergeNotificationPrefs,
+  savePoppinsNotificationPrefs,
+} from '@/lib/poppins/prefs-store';
 import {
   applyStoredMemberThemes,
   loadAccentThemeId,
@@ -1384,7 +1388,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         setHousehold({
           ...hydratedHousehold,
           greetingName: session.user.name || hydratedHousehold.greetingName,
-          notificationPrefs: prefs,
+          notificationPrefs: mergeNotificationPrefs({
+            server: hydratedHousehold.notificationPrefs,
+            local: prefs,
+          }),
           accentThemeId: themeId,
           majordomoProfileId: majordomo.householdProfileId,
           members: majordomo.members,
@@ -4183,14 +4190,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const updateNotificationPrefs = (prefs: Partial<PoppinsNotificationPrefs>) => {
     setHousehold((current) => {
-      const next = {
-        ...(current.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS),
-        ...prefs,
-      };
-      void savePoppinsNotificationPrefs(current.id, next);
+      const next = mergeNotificationPrefs({
+        server: current.notificationPrefs,
+        local: null,
+      });
+      const merged = { ...next, ...prefs };
+      void savePoppinsNotificationPrefs(current.id, merged);
       return {
         ...current,
-        notificationPrefs: next,
+        notificationPrefs: merged,
       };
     });
   };
