@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimatedTrophyTab } from '@/components/orbit/animated-trophy-tab';
 import { MorphingTabLabel } from '@/components/orbit/morphing-tab-label';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { orbitTabColors, radius, shadow, space } from '@/constants/orbit-theme';
@@ -17,9 +18,17 @@ import { capabilitiesFor, DEFAULT_REWARD_MODEL } from '@/lib/rewards/reward-mode
 import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
+import type { TourTargetId } from '@/lib/tour/tour-types';
 
 const TAB_ORDER = ['index', 'tasks', 'plan', 'rewards', 'poppins'] as const;
 type TabRoute = (typeof TAB_ORDER)[number];
+
+const TAB_TOUR_TARGET: Partial<Record<TabRoute, TourTargetId>> = {
+  tasks: 'tabbar.tasks',
+  plan: 'tabbar.plan',
+  rewards: 'tabbar.rewards',
+  poppins: 'tabbar.poppins',
+};
 
 const TAB_META: Record<
   TabRoute,
@@ -238,15 +247,15 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               ? accentPrimary
               : inactive;
 
-          return (
+          const tourTargetId = TAB_TOUR_TARGET[route.name as TabRoute];
+          const tabInner = (
             <Pressable
-              key={route.key}
               accessibilityRole="tab"
               accessibilityState={{ selected: isFocused }}
               accessibilityLabel={descriptors[route.key].options.tabBarAccessibilityLabel ?? label}
               onPress={onPress}
               onLongPress={onLongPress}
-              style={[styles.tab, isPoppins && styles.poppinsTab]}>
+              style={[styles.tab, isPoppins && styles.poppinsTab, tourTargetId ? { flex: 1 } : null]}>
               {isPoppins ? (
                 <Animated.View style={{ transform: [{ scale: poppinsPulse }] }}>
                 <LinearGradient
@@ -320,6 +329,18 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                 </Text>
               )}
             </Pressable>
+          );
+
+          if (!tourTargetId) {
+            return <View key={route.key}>{tabInner}</View>;
+          }
+          return (
+            <TourTarget
+              key={route.key}
+              id={tourTargetId}
+              style={[styles.tab, isPoppins && styles.poppinsTab]}>
+              {tabInner}
+            </TourTarget>
           );
         })}
       </View>

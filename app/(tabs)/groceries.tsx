@@ -13,6 +13,7 @@ import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { RefreshIconButton } from '@/components/orbit/refresh-icon-button';
 import { SearchBar } from '@/components/orbit/search-bar';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { typography } from '@/constants/orbit-theme';
 import type { CatalogProduct } from '@/lib/grocery/catalog';
 import { getCatalogProduct, iconForGroceryName } from '@/lib/grocery/catalog';
@@ -237,7 +238,9 @@ export default function GroceriesScreen() {
       </View>
 
       {canAddGroceryWishlist ? (
-        <SearchBar
+        
+        <TourTarget id="groceries.search">
+<SearchBar
           value={draft}
           onChangeText={setDraft}
           onSubmitEditing={() => void quickAdd()}
@@ -251,6 +254,8 @@ export default function GroceriesScreen() {
           disabled={busy}
           placeholder="Search milk, shampoo…"
         />
+
+        </TourTarget>
       ) : null}
 
       <View style={styles.chipRow}>
@@ -339,15 +344,18 @@ export default function GroceriesScreen() {
       ) : null}
 
       {showBrowse ? (
+        <TourTarget id="groceries.aisles">
         <GroceryCategoryGrid
           onSelect={(browse) => {
             setShowBrowse(false);
             router.push({ pathname: '/grocery-browse', params: { browseId: browse.id } } as never);
           }}
         />
+        </TourTarget>
       ) : null}
 
-      <Pressable
+      <TourTarget id="groceries.storeRun">
+        <Pressable
         onPress={() => router.push('/shopping-mode' as never)}
         style={[
           styles.aisleBtn,
@@ -359,6 +367,7 @@ export default function GroceriesScreen() {
         <MaterialIcons name="storefront" size={18} color={accentTheme.primary} />
         <Text style={{ color: accentTheme.primary, fontWeight: '700' }}>Start shopping</Text>
       </Pressable>
+        </TourTarget>
 
       {active.length === 0 && checked.length === 0 ? (
         <EmptyState

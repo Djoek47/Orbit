@@ -7,6 +7,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/orbit/avatar';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { SidekickUnlockSplash } from '@/components/orbit/sidekick-unlock-splash';
 import { getAccentTheme } from '@/constants/accent-themes';
@@ -151,6 +152,7 @@ export default function SelectProfileScreen() {
           Tap your face. Switch anytime from Home.
         </Text>
 
+        <TourTarget id="selectProfile.faces">
         <View style={styles.grid}>
           {profiles.map((member) => {
             const theme = getAccentTheme(member.accentThemeId);
@@ -199,6 +201,7 @@ export default function SelectProfileScreen() {
             <Text style={[styles.name, { color: orbitPalette.textMuted }]}>Add</Text>
           </Pressable>
         </View>
+        </TourTarget>
       </ScrollView>
     </View>
   );

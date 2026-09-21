@@ -7,6 +7,7 @@ import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PlanAddSheet } from '@/components/orbit/plan/plan-add-sheet';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { RefreshIconButton } from '@/components/orbit/refresh-icon-button';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius } from '@/constants/orbit-theme';
@@ -170,6 +171,7 @@ export default function PlanScreen() {
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={accentTheme.primary} />
       }>
+      <TourTarget id="plan.viewSegment">
       <View style={[styles.subNav, { backgroundColor: glass(0.06) }]}>
         {(
           [
@@ -196,6 +198,7 @@ export default function PlanScreen() {
           );
         })}
       </View>
+      </TourTarget>
 
       {subTab === 'calendar' ? (
         <>
@@ -228,11 +231,13 @@ export default function PlanScreen() {
               ))}
             </View>
             {canOpenPlanAdd ? (
+              <TourTarget id="plan.addButton">
               <Pressable
                 style={[styles.plusBtn, { backgroundColor: `${accentTheme.primary}22`, borderColor: `${accentTheme.primary}44` }]}
                 onPress={() => setPlanAddOpen(true)}>
                 <MaterialIcons name="add" size={18} color={accentTheme.primary} />
               </Pressable>
+              </TourTarget>
             ) : null}
             <RefreshIconButton size={20} />
           </View>

@@ -3,8 +3,8 @@
  * Always shows a visible track/thumb — not the fading iOS default.
  */
 
+import { forwardRef, useState } from 'react';
 import { ScrollView, StyleSheet, View, type ScrollViewProps } from 'react-native';
-import { useState } from 'react';
 
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
@@ -12,13 +12,10 @@ type Props = ScrollViewProps & {
   indicatorColor?: string;
 };
 
-export function PersistentScrollView({
-  children,
-  style,
-  contentContainerStyle,
-  indicatorColor,
-  ...rest
-}: Props) {
+export const PersistentScrollView = forwardRef<ScrollView, Props>(function PersistentScrollView(
+  { children, style, contentContainerStyle, indicatorColor, ...rest },
+  ref
+) {
   const { c } = useOrbitColors();
   const [viewport, setViewport] = useState(1);
   const [content, setContent] = useState(1);
@@ -34,6 +31,7 @@ export function PersistentScrollView({
   return (
     <View style={[styles.wrap, style]} onLayout={(e) => setViewport(e.nativeEvent.layout.height)}>
       <ScrollView
+        ref={ref}
         {...rest}
         style={StyleSheet.absoluteFill}
         contentContainerStyle={contentContainerStyle}
@@ -63,7 +61,7 @@ export function PersistentScrollView({
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, position: 'relative' },

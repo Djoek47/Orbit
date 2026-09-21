@@ -10,6 +10,7 @@ import { effectOutbox } from '@/lib/poppins/effect-outbox';
 import type { IuiCommitReverse } from '@/lib/poppins/iui-reverse';
 import { ActRejectedError, validateAct, type ActRejection } from '@/lib/poppins/validate-act';
 import type { IuiBeat, IuiWriteKind } from '@/lib/poppins/ui-scenes';
+import { emitTourEvent } from '@/lib/tour/tour-events';
 import { householdDueTimeLocal } from '@/lib/rules/household-view';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
@@ -322,6 +323,7 @@ export async function commitIuiBeat(
       write === 'none' ? undefined : write,
       beat.payload.actMode
     );
+    emitTourEvent('poppins_act_committed', { beatId: beat.id, write });
   }
   return { ok: true, reverse };
 }

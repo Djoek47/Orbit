@@ -17,6 +17,7 @@ import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { PoppinsLiveCaption } from '@/components/orbit/poppins-live-caption';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PoppinsStage } from '@/components/orbit/poppins-stage';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { PoppinsWaveform } from '@/components/orbit/poppins-waveform';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius, space } from '@/constants/orbit-theme';
@@ -41,6 +42,7 @@ import {
   type IuiContinuity,
 } from '@/lib/poppins/iui-continuity';
 import { commitSpeakOpen, hydrateHouseMemory, prepareSpeakOpen } from '@/lib/poppins/speak-open';
+import { tourForcesQuietSpeak } from '@/lib/tour/tour-store';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
 import { copyIuiVoiceError } from '@/lib/poppins/iui-voice-error';
@@ -454,6 +456,8 @@ export default function PoppinsScreen() {
   };
 
   const connectNativeVoice = async () => {
+    if (tourForcesQuietSpeak()) return; // Tour never opens Realtime
+
     if (voiceRef.current?.isConnected) return voiceRef.current;
     if (voiceSettling) return null;
     setConnecting(true);
@@ -707,7 +711,9 @@ export default function PoppinsScreen() {
     if (!nativeVoice) return;
     if (voiceSettling) return;
 
-    const transport = speakTransportForPrefs(interactionPrefs.speakBack);
+    const transport = speakTransportForPrefs(
+      tourForcesQuietSpeak() ? false : interactionPrefs.speakBack
+    );
 
     // Quiet path — never construct PoppinsVoiceSession.
     if (transport === 'quiet') {
@@ -850,7 +856,7 @@ export default function PoppinsScreen() {
           contentContainerStyle={styles.stageLiveContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <PoppinsStage
+          <TourTarget id="poppins.stage"><PoppinsStage
             onVoiceTaskCreated={(task: HouseholdTask) => {
               const current = householdRef.current;
               const next = {
@@ -867,7 +873,7 @@ export default function PoppinsScreen() {
                 due: task.due,
               });
             }}
-          />
+          /></TourTarget>
         </ScrollView>
       ) : (
       <View style={styles.stage}>
@@ -979,7 +985,7 @@ export default function PoppinsScreen() {
           </Pressable>
 
           {nativeVoice ? (
-            <Pressable
+            <TourTarget id="poppins.speak"><Pressable
               onPress={() => void toggleConnect()}
               disabled={voiceSettling}
               style={styles.micWrap}
@@ -1022,7 +1028,7 @@ export default function PoppinsScreen() {
                   <MaterialIcons name="mic" size={30} color={isDark ? '#fff' : c.text} />
                 )}
               </LinearGradient>
-            </Pressable>
+            </Pressable></TourTarget>
           ) : (
             <View style={styles.micWrap} />
           )}
@@ -1035,11 +1041,11 @@ export default function PoppinsScreen() {
           accessibilityLiveRegion="polite">
           {nativeVoice ? (primaryConnected ? 'Done' : 'Speak') : cfg.label}
         </Text>
-        <Text
+        <TourTarget id="poppins.meter"><Text
           style={[styles.meterCaption, { color: c.textSubtle }]}
           numberOfLines={1}>
           {meterCaption(aiSummary, personalActTokens(aiSummary, currentMember?.id), permissions.canManageHousehold)}
-        </Text>
+        </Text></TourTarget>
       </View>
 
       <Modal

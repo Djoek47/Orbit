@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -141,7 +142,7 @@ export function RewardVaultCard({
 
   return (
     <Animated.View style={[{ flex: 1, minWidth: '46%' }, cardStyle]}>
-      <Pressable
+      <TourTarget id="rewards.holdRequest"><Pressable
         disabled={!interactive}
         onPressIn={startHold}
         onPressOut={clearHold}
@@ -247,6 +248,7 @@ export function RewardVaultCard({
           </View>
         ) : null}
       </Pressable>
+      </TourTarget>
     </Animated.View>
   );
 }

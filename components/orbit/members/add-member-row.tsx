@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { radius, space } from '@/constants/orbit-theme';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { AppText as Text } from '@/components/orbit/app-text';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 
 type Props = {
   accent: string;
@@ -15,6 +16,7 @@ export function AddMemberRow({ accent, onPress }: Props) {
   const { c, isDark, glassBorder } = useOrbitColors();
 
   return (
+    <TourTarget id="members.addMember">
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
@@ -38,6 +40,7 @@ export function AddMemberRow({ accent, onPress }: Props) {
       </View>
       <MaterialIcons name="chevron-right" size={20} color={c.textSubtle} />
     </Pressable>
+    </TourTarget>
   );
 }
 

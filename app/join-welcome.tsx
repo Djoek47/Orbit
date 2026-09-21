@@ -4,6 +4,7 @@ import { View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { AuthShell } from '@/components/orbit/auth-shell';
+import { markJoinedAdultTour } from '@/components/orbit/tour/tour-provider';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -45,7 +46,13 @@ export default function JoinWelcomeScreen() {
             Head to Tasks to see what needs doing, or add homework and calendar items from your tabs.
           </Text>
         )}
-        <OrbitButton onPress={() => router.replace('/(tabs)/tasks' as never)}>
+        <OrbitButton
+          onPress={() => {
+            if (household.id && currentMember?.id) {
+              void markJoinedAdultTour(household.id, currentMember.id);
+            }
+            router.replace('/(tabs)/tasks' as never);
+          }}>
           Continue to Tasks
         </OrbitButton>
       </View>

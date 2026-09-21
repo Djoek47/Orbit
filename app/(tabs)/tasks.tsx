@@ -22,6 +22,8 @@ import { RefreshIconButton } from '@/components/orbit/refresh-icon-button';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { SearchBar } from '@/components/orbit/search-bar';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
+import { registerTourUiHooks } from '@/lib/tour/tour-store';
 import { StreakMarker } from '@/components/orbit/streak-marker';
 import { VOCAB } from '@/constants/vocabulary';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
@@ -604,6 +606,8 @@ function TaskSection({
         tasks.map((task, index) => (
           <View key={task.id}>
             {index > 0 ? <View style={[styles.divider, { backgroundColor: glass(0.08) }]} /> : null}
+            {index === 0 ? (
+              <TourTarget id="tasks.firstRow">
             <TaskItem
               task={task}
               member={getMember(members, task.assignee)}
@@ -625,6 +629,30 @@ function TaskSection({
                 onRequestProof ? () => onRequestProof(task.id) : undefined
               }
             />
+              </TourTarget>
+            ) : (
+            <TaskItem
+              task={task}
+              member={getMember(members, task.assignee)}
+              accentPrimary={accentPrimary}
+              justCompleted={justCompletedId === task.id}
+              canDelete={canDelete}
+              hygieneXpWhenRewarded={hygieneXpWhenRewarded}
+              rewardSettings={rewardSettings}
+              xpEnabled={xpEnabled}
+              interactive={interactive}
+              homeworkCard={homeworkCard}
+              showRequestProof={
+                canRequestProof &&
+                canAdminRequestTaskProof(task, getMember(members, task.assignee))
+              }
+              onToggle={() => onToggle(task.id)}
+              onDelete={() => onDelete(task.id)}
+              onRequestProof={
+                onRequestProof ? () => onRequestProof(task.id) : undefined
+              }
+            />
+            )}
           </View>
         ))
       )}
@@ -652,6 +680,11 @@ export default function TasksScreen() {
   const { refreshing, onRefresh } = useHouseholdRefresh();
   useTasksLiveRefresh(true);
   const [domainTab, setDomainTab] = useState<TaskDomainTab>('chores');
+  useEffect(() => {
+    return registerTourUiHooks({
+      setTasksDomain: (domain) => setDomainTab(domain),
+    });
+  }, []);
   const [statusTab, setStatusTab] = useState<TaskStatusTab>('active');
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [focusMember, setFocusMember] = useState<string | null>(null);
@@ -956,6 +989,7 @@ export default function TasksScreen() {
         <View style={styles.headerActions}>
           <RefreshIconButton />
           {!sharedKidMode && (v2Permissions.canAssignOrEditTask || permissions.canCreateTask) ? (
+          <TourTarget id="tasks.assignButton">
           <Pressable
             onPress={() =>
               router.push({
@@ -972,12 +1006,14 @@ export default function TasksScreen() {
               <MaterialIcons name="add" size={20} color={orbitColors.ink} />
             </LinearGradient>
           </Pressable>
+          </TourTarget>
         ) : null}
         </View>
       </View>
 
       <View style={{ gap: 10, marginBottom: 4 }}>
       {hasKids ? (
+      <TourTarget id="tasks.domainSegment">
       <SegmentedControl
         options={[
           { value: 'chores', label: 'Chores' },
@@ -989,6 +1025,7 @@ export default function TasksScreen() {
           setDomainTab(next);
         }}
       />
+      </TourTarget>
       ) : isAdmin && homeworkReview.length > 0 ? (
         <View style={{ paddingVertical: 8, gap: 6 }}>
           <Text style={[typography.footnote, { color: c.textMuted }]}>

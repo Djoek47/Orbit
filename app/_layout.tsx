@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
 import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
 import { OrbitNavTheme } from '@/components/orbit/orbit-nav-theme';
+import { TourProvider } from '@/components/orbit/tour/tour-provider';
 import { BRICOLAGE_FONT_MAP } from '@/constants/bricolage-font-assets';
 import { useSessionEpoch } from '@/lib/navigation/session-epoch';
 import { PoppinsLiveProvider } from '@/lib/poppins/live-context';
@@ -38,6 +39,7 @@ export default function RootLayout() {
   return (
     <OrbitProvider>
       <PoppinsLiveProvider>
+      <TourProvider>
       <OrbitNavTheme>
         <DeepLinkBridge />
         <OrbitChromeBridge />
@@ -169,6 +171,7 @@ export default function RootLayout() {
         </Stack>
         </LayoutAnimationConfig>
       </OrbitNavTheme>
+      </TourProvider>
       </PoppinsLiveProvider>
     </OrbitProvider>
   );

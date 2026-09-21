@@ -6,6 +6,7 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -102,6 +103,7 @@ export function GlobalHeaderChips() {
             ) : null}
           </Pressable>
 
+          <TourTarget id="header.settings">
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Settings"
@@ -120,6 +122,7 @@ export function GlobalHeaderChips() {
             <MaterialIcons name="settings" size={14} color={accent} />
             <Text style={[styles.settingsLabel, { color: accent }]}>Settings</Text>
           </Pressable>
+          </TourTarget>
         </View>
       </View>
       <View style={[styles.hairline, { backgroundColor: `${accent}66` }]} />

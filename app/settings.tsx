@@ -92,6 +92,10 @@ import { HouseholdMembersRoster } from '@/components/orbit/members/household-mem
 import { useMembersLiveRefresh } from '@/lib/refresh/use-members-live-refresh';
 import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
 import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
+import { useTourControls } from '@/components/orbit/tour/tour-provider';
+import { chaptersForTour } from '@/lib/tour/tour-steps';
+import { resolveTourId } from '@/lib/tour/tour-conditions';
 import {
   POPPINS_PAUSED_COPY,
   TOKENS_PER_DAY,
@@ -140,6 +144,7 @@ export default function SettingsScreen() {
     refreshHousehold,
     unreadNotificationCount,
   } = useOrbit();
+  const tourControls = useTourControls();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
 
   useMembersLiveRefresh(permissions.canManageHousehold);
@@ -506,6 +511,7 @@ export default function SettingsScreen() {
                   onPress={() => setHouseholdSwitchOpen(true)}
                 />
               ) : null}
+              <TourTarget id="settings.members">
               <SettingsNavRow
                 icon="group"
                 iconColor="#38BDF8"
@@ -514,14 +520,17 @@ export default function SettingsScreen() {
                 last={!permissions.canManageHousehold}
                 onPress={() => setSection('members')}
               />
+              </TourTarget>
               {permissions.canManageHousehold ? (
                 <>
+<TourTarget id="settings.houseRules">
                   <SettingsNavRow
                     icon="menu-book"
                     iconColor="#FAC775"
                     label={VOCAB.houseRules}
                     onPress={() => router.push('/house-rules' as never)}
                   />
+                  </TourTarget>
                   <SettingsNavRow
                     icon="tune"
                     iconColor="#A78BFA"
@@ -612,7 +621,52 @@ export default function SettingsScreen() {
               />
             </SettingsGroup>
 
-            <SettingsGroup header="Choremaxx">
+            
+            <SettingsGroup header="Help">
+              <SettingsNavRow
+                icon="map"
+                iconColor="#38BDF8"
+                label="Take the tour again"
+                subtitle="Replay the first-run walkthrough from the start"
+                onPress={() => {
+                  tourControls?.startTour();
+                }}
+              />
+              <SettingsNavRow
+                icon="replay"
+                iconColor="#A78BFA"
+                label="Replay a part"
+                subtitle="Jump to one chapter"
+                onPress={() => {
+                  const tid = resolveTourId({
+                    household,
+                    currentMember,
+                  });
+                  const chapters = chaptersForTour(tid);
+                  Alert.alert(
+                    'Replay a part',
+                    'Pick a chapter to replay.',
+                    [
+                      ...chapters.map((ch) => ({
+                        text: ch.name,
+                        onPress: () => tourControls?.startChapter(tid, ch.id),
+                      })),
+                      { text: 'Cancel', style: 'cancel' as const },
+                    ]
+                  );
+                }}
+              />
+              <SettingsNavRow
+                icon="checklist"
+                iconColor="#34D399"
+                label="Show the checklist"
+                subtitle="Getting started on Home"
+                last
+                onPress={() => tourControls?.showChecklist()}
+              />
+            </SettingsGroup>
+
+<SettingsGroup header="Choremaxx">
               <SettingsNavRow
                 icon="workspace-premium"
                 iconColor="#E9B44C"

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { radius, space } from '@/constants/orbit-theme';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
@@ -19,6 +20,7 @@ export function SharedIpadCard({ accent }: Props) {
   const onIpad = isIpadDevice();
 
   return (
+    <TourTarget id="members.sharedIpad">
     <View style={styles.block}>
       <Text style={[styles.sectionLabel, { color: c.textSubtle }]}>
         {onIpad ? 'SHARED IPAD' : 'FAMILY IPAD'}
@@ -62,6 +64,7 @@ export function SharedIpadCard({ accent }: Props) {
         </Pressable>
       </View>
     </View>
+    </TourTarget>
   );
 }
 

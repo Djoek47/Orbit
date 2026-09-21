@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -581,7 +582,8 @@ export default function RewardsScreen() {
       </View>
 
       {/* Segmented surfaces */}
-      <View style={[styles.segment, { backgroundColor: glass(0.06) }]}>
+      <TourTarget id="rewards.segment">
+          <View style={[styles.segment, { backgroundColor: glass(0.06) }]}>
         {surfaceTabs.map((tab) => {
           const active = surface === tab.id;
           return (
@@ -607,6 +609,7 @@ export default function RewardsScreen() {
           );
         })}
       </View>
+          </TourTarget>
 
       {/* ── REWARDS ── */}
       {surface === 'rewards' ? (
@@ -751,6 +754,7 @@ export default function RewardsScreen() {
           </View>
 
           {isAdmin ? (
+            <TourTarget id="rewards.createReward">
             <Pressable
               onPress={() => router.push('/create-reward' as never)}
               style={[
@@ -762,6 +766,7 @@ export default function RewardsScreen() {
                 {VOCAB.mintAReward}
               </Text>
             </Pressable>
+            </TourTarget>
           ) : null}
 
           <View style={styles.secondaryLinks}>
@@ -1024,6 +1029,7 @@ export default function RewardsScreen() {
                     </View>
                   ))}
 
+<TourTarget id="rewards.createAllowance">
               <Pressable
                 onPress={() => router.push('/create-allowance' as never)}
                 style={[
@@ -1036,6 +1042,7 @@ export default function RewardsScreen() {
                   Create allowance
                 </Text>
               </Pressable>
+              </TourTarget>
             </>
           ) : (
             <GlassCard style={styles.stack}>

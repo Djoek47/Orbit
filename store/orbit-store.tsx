@@ -44,6 +44,7 @@ import { loadActEvents, saveActEvents } from '@/lib/ai/act-ledger';
 import { loadPoppinsActMode } from '@/lib/ai/poppins-mode';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { trackAnalytics } from '@/lib/analytics';
+import { emitTourEvent } from '@/lib/tour/tour-events';
 import {
   buildDailyInsightCandidates,
   countAiInsightsToday,
@@ -2354,6 +2355,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             : [task, ...current.tasks],
         }));
         await trackAnalytics('task.created', { taskId: task.id }, analyticsContext);
+        emitTourEvent(isHomeworkCategory(normalizedInput.category, normalizedInput.title) ? 'homework_created' : 'task_created', { taskId: task.id });
         return task;
       }
 
@@ -2393,6 +2395,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       await persistMockHouseholdSnapshot(nextHousehold);
       if (inserted) {
         await trackAnalytics('task.created', { taskId: task.id }, analyticsContext);
+        emitTourEvent(isHomeworkCategory(normalizedInput.category, normalizedInput.title) ? 'homework_created' : 'task_created', { taskId: task.id });
         const prefs = nextHousehold.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
         const notify = async () => {
           await notifyTaskAssigned(
@@ -3270,6 +3273,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       { taskId, awarded, late, needsProof },
       analyticsContext
     );
+    emitTourEvent('task_completed', { taskId });
     return { awarded, penalty, late, needsProof };
   };
 
@@ -3561,6 +3565,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       groceries: [grocery, ...current.groceries],
     }));
     await trackAnalytics('grocery.added', { groceryId: grocery.id }, analyticsContext);
+    emitTourEvent('grocery_added', { groceryId: grocery.id });
     return grocery;
   };
 
@@ -4005,6 +4010,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       { eventId: event.id, approvalStatus },
       analyticsContext
     );
+    emitTourEvent('event_created', { eventId: event.id });
     return event;
   };
 
@@ -4086,6 +4092,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       itineraries: [itinerary, ...(current.itineraries ?? [])],
     }));
     await trackAnalytics('itinerary.created', { itineraryId: itinerary.id }, analyticsContext);
+    emitTourEvent('itinerary_created', { itineraryId: itinerary.id });
     return itinerary;
   };
 
@@ -5224,6 +5231,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       );
     }
     await trackAnalytics('reward.redemption_requested', { rewardId }, analyticsContext);
+    emitTourEvent('reward_requested');
   };
 
   const claimReward = async (rewardId: string): Promise<'claimed' | 'requested' | null> => {
@@ -5486,6 +5494,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       // Assigned rewards surface in-app; no closed-registry notification for assignment.
     }
     await trackAnalytics('reward.created', { rewardId: reward.id }, analyticsContext);
+    emitTourEvent('reward_created', { rewardId: reward.id });
   };
 
   const updateReward = async (reward: Reward) => {
@@ -5582,6 +5591,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       audienceMemberIds: [grant.memberId],
     });
     await trackAnalytics('allowance.granted', { allowanceId: grant.id }, analyticsContext);
+    emitTourEvent('allowance_created', { allowanceId: grant.id });
     return grant;
   };
 
@@ -5692,6 +5702,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       members: [...current.members, created],
     }));
     await trackAnalytics('member.shared_device_created', { memberId: created.id }, analyticsContext);
+    emitTourEvent('shared_device_set_up', { memberId: created.id });
     return created;
   };
 
@@ -5713,6 +5724,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       { memberId: deviceId, count: memberIds.length },
       analyticsContext
     );
+    emitTourEvent('shared_device_set_up', { memberId: deviceId });
   };
 
   const ensureMemberProfileInviteCode = async (memberId: string) => {
@@ -5780,6 +5792,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           code: already.profileInviteCode,
         });
         created.push(already);
+        emitTourEvent('member_created', { memberId: already.id });
         continue;
       }
 
@@ -5791,6 +5804,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         code: member.profileInviteCode,
       });
       created.push(member);
+      emitTourEvent('member_created', { memberId: member.id });
     }
 
     setHousehold((current) => {

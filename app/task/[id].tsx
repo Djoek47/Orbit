@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { XpWheel } from '@/components/orbit/xp-wheel';
@@ -838,7 +839,7 @@ export default function TaskDetailScreen() {
             !proofReady &&
             canCompleteMine &&
             (task.status === 'Completed' || (split && myShare?.status === 'Completed')) ? (
-              <Pressable
+              <TourTarget id="tasks.proof"><Pressable
                 disabled={proofBusy}
                 onPress={() => void handleAttachProof(split ? currentMember?.name : undefined)}
                 style={[styles.ctaWrap, proofBusy && { opacity: 0.6 }]}>
@@ -858,7 +859,7 @@ export default function TaskDetailScreen() {
                           : 'Attach proof photo'}
                   </Text>
                 </LinearGradient>
-              </Pressable>
+              </Pressable></TourTarget>
             ) : null}
             {needsProof &&
             myProofStatus === 'submitted' &&

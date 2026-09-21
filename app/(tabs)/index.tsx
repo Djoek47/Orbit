@@ -6,6 +6,10 @@ import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native
 
 import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
+import { GettingStartedCard } from '@/components/orbit/tour/getting-started-card';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
+import { TourUpgradeOfferCard } from '@/components/orbit/tour/tour-upgrade-offer';
+import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { HomeHouseRulesCard } from '@/components/orbit/home-house-rules-card';
 import { LargeTitleHeader } from '@/components/orbit/large-title-header';
 import { Leaderboard, type LeaderboardEntry } from '@/components/orbit/leaderboard';
@@ -58,6 +62,7 @@ export default function HomeScreen() {
     v2Permissions,
     orbitPalette,
   } = useOrbit();
+  const tour = useTourControls();
   const { refreshing, onRefresh } = useHouseholdRefresh();
   const { c, glass } = useOrbitColors();
   const rewardSettings = useMemo(
@@ -246,6 +251,7 @@ export default function HomeScreen() {
               size="compact"
             />
             {sharedDevice ? (
+              <TourTarget id="home.switchProfile">
               <Pressable
                 onPress={() => {
                   void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
@@ -262,6 +268,7 @@ export default function HomeScreen() {
                 </Text>
                 <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
               </Pressable>
+              </TourTarget>
             ) : null}
           </View>
           <Pressable
@@ -282,11 +289,24 @@ export default function HomeScreen() {
         </View>
 
         {sharedKidMode ? (
+          <TourTarget id="home.houseRules">
           <HomeHouseRulesCard
             household={household}
             currentMember={currentMember}
             accentColor={accentTheme.primary}
             onPress={() => router.push('/house-rules' as never)}
+          />
+          </TourTarget>
+        ) : null}
+
+        <TourUpgradeOfferCard />
+        {tour?.checklistVisible ? (
+          <GettingStartedCard
+            hidden={Boolean(tour.tourState?.checklistHidden)}
+            onHide={() => tour.hideChecklist()}
+            onAllDoneSeen={() => {
+              /* Persist completed-seen via hide after user dismisses or auto later */
+            }}
           />
         ) : null}
 
@@ -372,6 +392,7 @@ export default function HomeScreen() {
         {/* Today — unified typography-led section (tasks + grocery/event stats together). */}
         <View style={styles.todaySection}>
           <Text style={[typography.title2, { color: orbitPalette.text }]}>Today</Text>
+          <TourTarget id="home.todayTasks">
           <TodayTasksCard
             tasks={household.tasks}
             members={household.members}
@@ -384,13 +405,16 @@ export default function HomeScreen() {
               void awardDailyStreak();
             }}
           />
+          </TourTarget>
           <View style={styles.destRow}>
+            <TourTarget id="home.groceryCard" style={{ flex: 1 }}>
             <Pressable
               style={[
                 styles.destCard,
                 {
                   borderColor: glass(0.1),
                   backgroundColor: glass(0.05),
+                  flex: 1,
                 },
               ]}
               onPress={() => router.push('/(tabs)/groceries' as never)}>
@@ -405,6 +429,7 @@ export default function HomeScreen() {
                 {grocerySubtitle}
               </Text>
             </Pressable>
+            </TourTarget>
             <Pressable
               style={[
                 styles.destCard,
@@ -445,6 +470,7 @@ export default function HomeScreen() {
             ) : null}
           </View>
           {sharedKidMode ? (
+            <TourTarget id="home.streak">
             <View style={styles.personalXpRow}>
               {rewardCapabilities.xpEnabled ? (
                 <>
@@ -472,6 +498,7 @@ export default function HomeScreen() {
                 labelColor={orbitPalette.textSoft}
               />
             </View>
+            </TourTarget>
           ) : rewardCapabilities.xpEnabled && weekLeaders.length > 0 ? (
             <Leaderboard entries={weekLeaders.slice(0, 3)} variant="podium" />
           ) : (

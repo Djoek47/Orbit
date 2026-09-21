@@ -13,6 +13,7 @@ import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/a
 import Icon from '@/components/orbit/design/Icon';
 import { domainIconName } from '@/components/orbit/design/icon-map';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
@@ -347,6 +348,7 @@ export default function AssignTaskScreen() {
           : `Assign ${selected.length} to ${assignee.name}`;
 
   return (
+    <TourTarget id="assign.form" style={{ flex: 1 }}>
     <View style={[styles.shell, { paddingTop: insets.top, backgroundColor: c.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
@@ -649,6 +651,7 @@ export default function AssignTaskScreen() {
         </Pressable>
       </View>
     </View>
+    </TourTarget>
   );
 }
 
