@@ -189,7 +189,6 @@ export function TourProvider({ children }: PropsWithChildren) {
 
       const key = `${household.id}:${currentMember.id}:${activeId}`;
       if (hydratedKey.current === key) return;
-      hydratedKey.current = key;
 
       if (!cancelled) {
         setHostKind(session.hostKind ?? null);
@@ -203,6 +202,7 @@ export function TourProvider({ children }: PropsWithChildren) {
           setTourState(null);
           setWelcomeOpen(false);
           setSessionActive(false);
+          hydratedKey.current = key;
         }
         return;
       }
@@ -224,11 +224,11 @@ export function TourProvider({ children }: PropsWithChildren) {
         if (upgrade) {
           state = offerTourState(activeId);
           await saveTourState(household.id, currentMember.id, state);
-          void trackAnalytics('tour.offered', { tourId: activeId, reason: 'upgrade' }, analyticsContext);
+          void trackAnalytics('tour.offered', { tourId: activeId, reason: 'upgrade' }, analyticsContextRef.current);
         } else {
           // New household — show welcome on Home.
           if (!cancelled) setWelcomeOpen(true);
-          void trackAnalytics('tour.offered', { tourId: activeId, reason: 'new' }, analyticsContext);
+          void trackAnalytics('tour.offered', { tourId: activeId, reason: 'new' }, analyticsContextRef.current);
         }
       } else if (state.status === 'offered') {
         // Upgrade card handled on Home; do not auto-open welcome.
@@ -237,13 +237,15 @@ export function TourProvider({ children }: PropsWithChildren) {
         if (!cancelled) setSessionActive(false);
       }
 
-      if (!cancelled) setTourState(state);
+      if (cancelled) return;
+      setTourState(state);
+      hydratedKey.current = key;
     };
     void run();
     return () => {
       cancelled = true;
     };
-  }, [household, currentMember?.id, analyticsContext]);
+  }, [household, currentMember?.id]);
 
   useEffect(() => {
     void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
