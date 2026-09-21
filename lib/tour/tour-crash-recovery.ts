@@ -8,6 +8,7 @@ import { loadTourState, saveTourState, skipTourState } from '@/lib/tour/tour-sto
 import type { TourId } from '@/lib/tour/tour-types';
 
 const LAUNCH_KEY = 'orbit.tour.launchWatch.v1';
+const RECOVERED_KEY = 'orbit.tour.recoveredAt.v1';
 const TOUR_IDS: TourId[] = ['admin', 'sidekick', 'family_ipad', 'joined_adult'];
 
 type LaunchWatch = {
@@ -38,7 +39,7 @@ async function writeWatch(watch: LaunchWatch): Promise<void> {
   }
 }
 
-/** Call when Home mounts or a tour card becomes visible. */
+/** Call when Home has been mounted 5s, or a tour card is visible. */
 export async function markTourSessionHealthy(): Promise<void> {
   await writeWatch({ blankLaunches: 0, updatedAt: new Date().toISOString() });
 }
@@ -52,6 +53,30 @@ async function skipAllTours(householdId: string, memberId: string): Promise<void
   }
 }
 
+export function shouldRecoverTourError(
+  lastErrorAt: string | undefined,
+  recoveredAt: string | null
+): boolean {
+  if (!lastErrorAt) return false;
+  return lastErrorAt !== recoveredAt;
+}
+
+async function readRecoveredAt(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(RECOVERED_KEY);
+  } catch {
+    return null;
+  }
+}
+
+async function writeRecoveredAt(at: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(RECOVERED_KEY, at);
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Before hydrating the tour: if the last session crashed in the tour layer,
  * or two launches in a row never reached a healthy Home, force every tour skipped.
@@ -61,7 +86,10 @@ export async function recoverStuckTourIfNeeded(
   memberId: string
 ): Promise<{ recovered: boolean; reason?: string }> {
   const lastError = await loadLastAppError();
-  const tourCrashed = Boolean(lastError?.message?.startsWith('tour:'));
+  const recoveredAt = await readRecoveredAt();
+  const tourCrashed =
+    Boolean(lastError?.message?.startsWith('tour:')) &&
+    shouldRecoverTourError(lastError?.at, recoveredAt);
 
   const watch = await readWatch();
   const nextBlank = watch.blankLaunches + 1;
@@ -70,6 +98,9 @@ export async function recoverStuckTourIfNeeded(
   if (tourCrashed || nextBlank >= 2) {
     await skipAllTours(householdId, memberId);
     await writeWatch({ blankLaunches: 0, updatedAt: new Date().toISOString() });
+    if (tourCrashed && lastError?.at) {
+      await writeRecoveredAt(lastError.at);
+    }
     return {
       recovered: true,
       reason: tourCrashed ? 'tour_error' : 'blank_launches',
