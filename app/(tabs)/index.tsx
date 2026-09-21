@@ -9,6 +9,7 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { GettingStartedCard } from '@/components/orbit/tour/getting-started-card';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { TourUpgradeOfferCard } from '@/components/orbit/tour/tour-upgrade-offer';
+import { TourContinueCard } from '@/components/orbit/tour/tour-continue-card';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { HomeHouseRulesCard } from '@/components/orbit/home-house-rules-card';
 import { LargeTitleHeader } from '@/components/orbit/large-title-header';
@@ -300,6 +301,7 @@ export default function HomeScreen() {
         ) : null}
 
         <TourUpgradeOfferCard />
+        <TourContinueCard />
         {tour?.checklistVisible ? (
           <GettingStartedCard
             hidden={Boolean(tour.tourState?.checklistHidden)}

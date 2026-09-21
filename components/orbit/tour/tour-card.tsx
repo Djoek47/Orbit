@@ -1,9 +1,9 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { radius, space, typography } from '@/constants/orbit-theme';
+import { space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type Props = {
@@ -11,13 +11,16 @@ type Props = {
   title: string;
   body: string;
   stepLabel: string;
+  stepIndex: number;
+  stepsInChapter: number;
   isAction: boolean;
   isLast: boolean;
+  primaryLabel?: string;
   cardRef?: React.RefObject<View | null>;
   onNext: () => void;
   onSkipChapter: () => void;
   onSkipStep: () => void;
-  onClose: () => void;
+  onLayoutHeight?: (height: number) => void;
 };
 
 export function TourCard({
@@ -25,51 +28,79 @@ export function TourCard({
   title,
   body,
   stepLabel,
+  stepIndex,
+  stepsInChapter,
   isAction,
   isLast,
+  primaryLabel,
   cardRef,
   onNext,
   onSkipChapter,
   onSkipStep,
-  onClose,
+  onLayoutHeight,
 }: Props) {
   const { c } = useOrbitColors();
 
+  const onLayout = (e: LayoutChangeEvent) => {
+    onLayoutHeight?.(e.nativeEvent.layout.height);
+  };
+
+  const dots = Array.from({ length: Math.max(1, stepsInChapter) }, (_, i) => i);
+
   return (
-    <View ref={cardRef} collapsable={false} style={styles.wrap} accessibilityViewIsModal={!isAction}>
+    <View
+      ref={cardRef}
+      collapsable={false}
+      style={styles.wrap}
+      accessibilityViewIsModal={!isAction}
+      onLayout={onLayout}>
       <GlassCard style={styles.card}>
-        <View style={styles.topRow}>
-          <Text style={[typography.caption1, styles.eyebrow, { color: c.textSubtle }]}>
-            {chapterName}
-          </Text>
-          <Pressable
-            onPress={onClose}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Close tour"
-            style={styles.closeHit}>
-            <Text style={[typography.headline, { color: c.textMuted }]}>×</Text>
-          </Pressable>
-        </View>
+        <Text style={[typography.footnote, styles.eyebrow, { color: c.textSubtle }]}>
+          {chapterName}
+          {stepLabel ? ` · ${stepLabel}` : ''}
+        </Text>
         <Text style={[typography.title3, { color: c.text }]}>{title}</Text>
         <Text style={[typography.body, { color: c.textMuted }]}>{body}</Text>
-        <Text style={[typography.caption1, { color: c.textSubtle }]}>{stepLabel}</Text>
-        <View style={styles.actions}>
-          {isAction ? (
-            <>
-              <Text style={[typography.subheadline, { color: c.text, fontWeight: '600' }]}>
-                Your turn
-              </Text>
-              <Pressable onPress={onSkipStep} hitSlop={8} accessibilityRole="button">
-                <Text style={[typography.footnote, { color: c.primary }]}>Skip this step</Text>
-              </Pressable>
-            </>
-          ) : (
-            <OrbitButton onPress={onNext}>{isLast ? 'Done' : 'Next'}</OrbitButton>
-          )}
-          <Pressable onPress={onSkipChapter} hitSlop={8} accessibilityRole="button" style={styles.skip}>
-            <Text style={[typography.footnote, { color: c.textSubtle }]}>Skip</Text>
-          </Pressable>
+        <View style={styles.footer}>
+          <View style={styles.dots} accessibilityLabel={stepLabel}>
+            {dots.map((i) => (
+              <View
+                key={i}
+                style={[
+                  styles.dot,
+                  {
+                    backgroundColor: i === stepIndex ? c.primary : c.textSubtle,
+                    opacity: i === stepIndex ? 1 : 0.35,
+                  },
+                ]}
+              />
+            ))}
+          </View>
+          <View style={styles.actions}>
+            {isAction ? (
+              <>
+                <Text style={[typography.subheadline, { color: c.text, fontWeight: '600' }]}>
+                  Your turn
+                </Text>
+                <Pressable onPress={onSkipStep} hitSlop={8} accessibilityRole="button">
+                  <Text style={[typography.footnote, { color: c.primary }]}>Skip this step</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Pressable
+                  onPress={onSkipChapter}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  style={styles.skip}>
+                  <Text style={[typography.footnote, { color: c.textSubtle }]}>Skip</Text>
+                </Pressable>
+                <OrbitButton onPress={onNext}>
+                  {primaryLabel ?? (isLast ? 'Done' : 'Next')}
+                </OrbitButton>
+              </>
+            )}
+          </View>
         </View>
       </GlassCard>
     </View>
@@ -83,30 +114,36 @@ const styles = StyleSheet.create({
   },
   card: {
     gap: space.sm,
-  },
-  topRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    padding: 20,
   },
   eyebrow: {
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
-  closeHit: {
+  footer: {
     alignItems: 'center',
-    height: 44,
-    justifyContent: 'center',
-    minWidth: 44,
-  },
-  actions: {
-    alignItems: 'stretch',
+    flexDirection: 'row',
     gap: space.sm,
+    justifyContent: 'space-between',
     marginTop: space.xs,
   },
-  skip: {
+  dots: {
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  dot: {
+    borderRadius: 3,
+    height: 6,
+    width: 6,
+  },
+  actions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: space.sm,
+  },
+  skip: {
     minHeight: 44,
     justifyContent: 'center',
+    paddingHorizontal: 8,
   },
 });

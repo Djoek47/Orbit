@@ -4,7 +4,7 @@
  */
 
 import * as Haptics from 'expo-haptics';
-import { router, usePathname } from 'expo-router';
+import { router, useNavigationContainerRef, usePathname } from 'expo-router';
 import {
   createContext,
   useCallback,
@@ -72,6 +72,9 @@ type TourRegistry = {
   hideChecklist: () => void;
   checklistVisible: boolean;
   tourState: TourState | null;
+  /** True when an in_progress tour is waiting for the user to continue on Home. */
+  awaitingContinue: boolean;
+  continueTour: () => void;
 };
 
 const TourRegistryContext = createContext<TourRegistry | null>(null);
@@ -108,6 +111,7 @@ export async function markJoinedAdultTour(householdId: string, memberId: string)
 export function TourProvider({ children }: PropsWithChildren) {
   const orbit = useOrbitOptional();
   const pathname = usePathname();
+  const navRef = useNavigationContainerRef();
   const household = orbit?.household;
   const currentMember = orbit?.currentMember;
   const analyticsContext = {
@@ -118,6 +122,8 @@ export function TourProvider({ children }: PropsWithChildren) {
   const [tourState, setTourState] = useState<TourState | null>(null);
   const [tourId, setTourId] = useState<TourId>('admin');
   const [welcomeOpen, setWelcomeOpen] = useState(false);
+  /** Overlay only runs after an explicit start/continue this session — never auto-resume. */
+  const [sessionActive, setSessionActive] = useState(false);
   const [paused, setPaused] = useState(false);
   const [targetRect, setTargetRect] = useState<TourRect | null>(null);
   const [hostKind, setHostKind] = useState<'sidekick' | 'shared-tablet' | null>(null);
@@ -130,6 +136,9 @@ export function TourProvider({ children }: PropsWithChildren) {
   const cardRef = useRef<View>(null);
   const hydratedKey = useRef<string | null>(null);
   const pointerRef = useRef<ActiveTourPointer | null>(null);
+  const watchdogStreakRef = useRef(0);
+  const analyticsContextRef = useRef(analyticsContext);
+  analyticsContextRef.current = analyticsContext;
 
   const conditionCtx: TourConditionContext = useMemo(() => {
     const first = household?.tasks?.[0];
@@ -201,7 +210,8 @@ export function TourProvider({ children }: PropsWithChildren) {
       } else if (state.status === 'offered') {
         // Upgrade card handled on Home; do not auto-open welcome.
       } else if (state.status === 'in_progress') {
-        // Resume silently.
+        // Never auto-resume — Home shows "Continue the tour".
+        if (!cancelled) setSessionActive(false);
       }
 
       if (!cancelled) setTourState(state);
@@ -219,7 +229,7 @@ export function TourProvider({ children }: PropsWithChildren) {
   }, []);
 
   const activeStep =
-    tourState && tourState.status === 'in_progress' && !welcomeOpen
+    tourState && tourState.status === 'in_progress' && !welcomeOpen && sessionActive
       ? resolveActivePointer(tourState, conditionCtx)
       : null;
   const actionStep = isTourActionStep(activeStep?.step);
@@ -262,92 +272,107 @@ export function TourProvider({ children }: PropsWithChildren) {
     return () => setTourForcesQuiet(false);
   }, [pointer?.step.id, pointer?.step.onEnter]);
 
-  // Navigate + wait for target
+  // Navigate + wait for target — only when the navigator is ready.
   useEffect(() => {
     if (!pointer) {
       setTargetRect(null);
       return;
     }
 
-    void trackAnalytics(
-      'tour.step_viewed',
-      {
-        tourId: pointer.tourId,
-        chapterId: pointer.chapter.id,
-        stepIndex: pointer.stepIndex,
-      },
-      analyticsContext
-    );
+    try {
+      void trackAnalytics(
+        'tour.step_viewed',
+        {
+          tourId: pointer.tourId,
+          chapterId: pointer.chapter.id,
+          stepIndex: pointer.stepIndex,
+        },
+        analyticsContextRef.current
+      );
 
-    if (!reduceMotion) {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
-    }
-
-    applyTourStepEnter(pointer.step.onEnter);
-
-    const route = pointer.step.route;
-    const onRoute =
-      pathname === route ||
-      pathname?.endsWith(route.replace('/(tabs)', '')) ||
-      (route === '/(tabs)' && (pathname === '/' || pathname === '/index' || pathname?.includes('(tabs)')));
-
-    if (!onRoute) {
-      try {
-        router.navigate(route as never);
-      } catch {
-        router.push(route as never);
+      if (!reduceMotion) {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
       }
-    }
 
-    if (pointer.step.centered) {
-      setTargetRect({ x: 24, y: 160, width: 280, height: 48 });
-      return;
-    }
+      applyTourStepEnter(pointer.step.onEnter);
 
-    if (pointer.step.ensureVisible && scrollRef.current) {
-      const existing = targetsRef.current.get(pointer.step.targetId);
-      if (existing) scrollRef.current(existing.y);
-    }
+      const route = pointer.step.route;
+      const onRoute =
+        pathname === route ||
+        pathname?.endsWith(route.replace('/(tabs)', '')) ||
+        (route === '/(tabs)' &&
+          (pathname === '/' || pathname === '/index' || pathname?.includes('(tabs)')));
 
-    if (waitTimerRef.current) clearTimeout(waitTimerRef.current);
-    const started = Date.now();
-    const poll = () => {
-      const rect = targetsRef.current.get(pointer.step.targetId);
-      if (rect && rect.width > 0) {
-        setTargetRect(rect);
-        // a11y focus card
-        const node = findNodeHandle(cardRef.current);
-        if (node) {
-          AccessibilityInfo.setAccessibilityFocus(node);
+      if (!onRoute) {
+        if (!navRef.isReady()) {
+          return;
         }
+        try {
+          router.navigate(route as never);
+        } catch (error) {
+          console.warn('tour.navigate', error);
+          void trackAnalytics(
+            'tour.navigate_failed',
+            { route, message: error instanceof Error ? error.message : String(error) },
+            analyticsContextRef.current
+          );
+        }
+      }
+
+      if (pointer.step.centered) {
+        setTargetRect({ x: 24, y: 160, width: 280, height: 48 });
         return;
       }
-      if (Date.now() - started > 1500) {
-        void trackAnalytics(
-          'tour.step_skipped_missing_target',
-          {
-            tourId: pointer.tourId,
-            chapterId: pointer.chapter.id,
-            targetId: pointer.step.targetId,
-          },
-          analyticsContext
-        );
-        // Skip silently
-        if (tourState) {
-          const next = advanceAfterStep(tourState, conditionCtx, { skipStep: true });
-          void persist(next);
-        }
-        return;
+
+      if (pointer.step.ensureVisible && scrollRef.current) {
+        const existing = targetsRef.current.get(pointer.step.targetId);
+        if (existing) scrollRef.current(existing.y);
       }
-      waitTimerRef.current = setTimeout(poll, 80);
-    };
-    waitTimerRef.current = setTimeout(poll, 60);
+
+      if (waitTimerRef.current) clearTimeout(waitTimerRef.current);
+      const started = Date.now();
+      const poll = () => {
+        try {
+          const rect = targetsRef.current.get(pointer.step.targetId);
+          if (rect && rect.width > 0) {
+            setTargetRect(rect);
+            const node = findNodeHandle(cardRef.current);
+            if (node) {
+              AccessibilityInfo.setAccessibilityFocus(node);
+            }
+            return;
+          }
+          if (Date.now() - started > 1500) {
+            void trackAnalytics(
+              'tour.step_skipped_missing_target',
+              {
+                tourId: pointer.tourId,
+                chapterId: pointer.chapter.id,
+                targetId: pointer.step.targetId,
+              },
+              analyticsContextRef.current
+            );
+            if (tourState) {
+              const next = advanceAfterStep(tourState, conditionCtx, { skipStep: true });
+              void persist(next);
+            }
+            return;
+          }
+          waitTimerRef.current = setTimeout(poll, 80);
+        } catch (error) {
+          console.warn('tour.waitTarget', error);
+        }
+      };
+      waitTimerRef.current = setTimeout(poll, 60);
+    } catch (error) {
+      console.warn('tour.stepEffect', error);
+    }
 
     return () => {
       if (waitTimerRef.current) clearTimeout(waitTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pointer?.step.id, pathname, paused]);
+  }, [pointer?.step.id, pathname, paused, sessionActive]);
 
   // Listen for event advances from tour state so a pause cannot drop the event.
   useEffect(() => {
@@ -401,42 +426,99 @@ export function TourProvider({ children }: PropsWithChildren) {
     scrollRef.current = fn;
   }, []);
 
+  const dismissModalsThen = useCallback(async (run: () => void) => {
+    try {
+      if (router.canDismiss()) {
+        router.dismissAll();
+      }
+    } catch (error) {
+      console.warn('tour.dismissAll', error);
+    }
+    // Wait until the root navigator is ready and tabs can receive focus.
+    for (let i = 0; i < 30; i++) {
+      if (navRef.isReady()) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    if (!navRef.isReady()) {
+      console.warn('tour.start aborted — navigator not ready');
+      return;
+    }
+    try {
+      router.navigate('/(tabs)' as never);
+    } catch (error) {
+      console.warn('tour.navigate tabs', error);
+    }
+    await new Promise((r) => setTimeout(r, 120));
+    run();
+  }, [navRef]);
+
   const startTour = useCallback(
     (id?: TourId) => {
       const tid = id ?? tourId;
-      const next = startTourState(tid);
-      setTourId(tid);
-      setWelcomeOpen(false);
-      void persist(next);
-      void trackAnalytics('tour.started', { tourId: tid }, analyticsContext);
+      void dismissModalsThen(() => {
+        const next = startTourState(tid);
+        setTourId(tid);
+        setWelcomeOpen(false);
+        setSessionActive(true);
+        watchdogStreakRef.current = 0;
+        void persist(next);
+        void trackAnalytics('tour.started', { tourId: tid }, analyticsContextRef.current);
+      });
     },
-    [tourId, persist, analyticsContext]
+    [tourId, persist, dismissModalsThen]
   );
 
   const startChapter = useCallback(
     (id: TourId, chapterId: string) => {
-      const next = restartChapterState(id, chapterId);
-      setTourId(id);
-      setWelcomeOpen(false);
-      void persist(next);
-      void trackAnalytics('tour.started', { tourId: id, chapterId }, analyticsContext);
+      void dismissModalsThen(() => {
+        const next = restartChapterState(id, chapterId);
+        setTourId(id);
+        setWelcomeOpen(false);
+        setSessionActive(true);
+        watchdogStreakRef.current = 0;
+        void persist(next);
+        void trackAnalytics(
+          'tour.started',
+          { tourId: id, chapterId },
+          analyticsContextRef.current
+        );
+      });
     },
-    [persist, analyticsContext]
+    [persist, dismissModalsThen]
   );
+
+  const continueTour = useCallback(() => {
+    setSessionActive(true);
+    watchdogStreakRef.current = 0;
+  }, []);
 
   const handleNext = useCallback(() => {
     if (!tourState) return;
+    const ptr = pointerRef.current;
+    if (ptr?.step.primaryAction === 'open_settings') {
+      void persist(skipTourState(tourState));
+      setSessionActive(false);
+      setWelcomeOpen(false);
+      try {
+        if (navRef.isReady()) router.push('/settings' as never);
+      } catch (error) {
+        console.warn('tour.open_settings', error);
+      }
+      return;
+    }
+    watchdogStreakRef.current = 0;
     const next = advanceAfterStep(tourState, conditionCtx);
     if (next.status === 'completed') {
+      setSessionActive(false);
       const started = tourState.startedAt ? Date.parse(tourState.startedAt) : Date.now();
       void trackAnalytics(
         'tour.completed',
         { tourId: tourState.tourId, durationMs: Date.now() - started },
-        analyticsContext
+        analyticsContextRef.current
       );
     }
     void persist(next);
-  }, [tourState, conditionCtx, persist, analyticsContext]);
+  }, [tourState, conditionCtx, persist, navRef]);
 
   const handleSkipChapter = useCallback(() => {
     if (!tourState) return;
@@ -458,20 +540,43 @@ export function TourProvider({ children }: PropsWithChildren) {
     void trackAnalytics(
       'tour.dismissed',
       { tourId: tourState.tourId, atChapter: tourState.chapterId },
-      analyticsContext
+      analyticsContextRef.current
     );
     void persist(skipTourState(tourState));
     setWelcomeOpen(false);
-  }, [tourState, persist, analyticsContext]);
+    setSessionActive(false);
+  }, [tourState, persist]);
 
   const handleTourCrash = useCallback(() => {
     if (!tourState) {
       setWelcomeOpen(false);
+      setSessionActive(false);
       return;
     }
     void persist(skipTourState(tourState));
     setWelcomeOpen(false);
+    setSessionActive(false);
   }, [persist, tourState]);
+
+  const handleWatchdogSkip = useCallback(() => {
+    if (!tourState) return;
+    watchdogStreakRef.current += 1;
+    if (watchdogStreakRef.current >= 2) {
+      void trackAnalytics(
+        'tour.aborted_invisible_card',
+        { tourId: tourState.tourId, chapterId: tourState.chapterId },
+        analyticsContextRef.current
+      );
+      void persist(skipTourState(tourState));
+      setSessionActive(false);
+      return;
+    }
+    void persist(advanceAfterStep(tourState, conditionCtx, { skipStep: true }));
+  }, [tourState, conditionCtx, persist]);
+
+  const handleCardReady = useCallback(() => {
+    watchdogStreakRef.current = 0;
+  }, []);
 
   const handleWelcomeSkip = useCallback(() => {
     const base = tourState ?? startTourState(tourId);
@@ -521,6 +626,9 @@ export function TourProvider({ children }: PropsWithChildren) {
     pointer!.chapter.id === getTourDefinition(pointer!.tourId).chapters.slice(-1)[0]?.id &&
     pointer!.stepIndex === pointer!.stepsInChapter - 1;
 
+  const awaitingContinue =
+    Boolean(tourState?.status === 'in_progress') && !sessionActive && !welcomeOpen;
+
   const registry = useMemo<TourRegistry>(
     () => ({
       activeTargetId: pointer?.step.targetId ?? null,
@@ -533,6 +641,8 @@ export function TourProvider({ children }: PropsWithChildren) {
       hideChecklist,
       checklistVisible,
       tourState,
+      awaitingContinue,
+      continueTour,
     }),
     [
       pointer?.step.targetId,
@@ -545,6 +655,8 @@ export function TourProvider({ children }: PropsWithChildren) {
       hideChecklist,
       checklistVisible,
       tourState,
+      awaitingContinue,
+      continueTour,
     ]
   );
 
@@ -568,20 +680,26 @@ export function TourProvider({ children }: PropsWithChildren) {
           onStart={() => startTour(tourId)}
           onSkip={handleWelcomeSkip}
         />
-        {pointer && targetRect && !paused ? (
+        {pointer && !paused ? (
           <TourOverlay
-            target={targetRect}
+            target={pointer.step.centered ? null : targetRect}
             chapterName={pointer.chapter.name}
             title={pointer.step.title}
             body={pointer.step.body}
             stepLabel={`${pointer.stepOrdinal} of ${pointer.stepsInChapter}`}
+            stepIndex={pointer.stepIndex}
+            stepsInChapter={pointer.stepsInChapter}
             isAction={isAction}
             isLast={isLast}
+            centered={Boolean(pointer.step.centered)}
+            primaryLabel={pointer.step.primaryLabel}
             cardRef={cardRef}
             onNext={handleNext}
             onSkipChapter={handleSkipChapter}
             onSkipStep={handleSkipStep}
             onClose={handleClose}
+            onWatchdogSkip={handleWatchdogSkip}
+            onCardReady={handleCardReady}
           />
         ) : null}
       </TourErrorBoundary>

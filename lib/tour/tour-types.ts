@@ -77,6 +77,10 @@ export type TourStep = {
   centered?: boolean;
   /** Side effect when the step becomes active (e.g. switch domain tab). */
   onEnter?: 'tasks.homework' | 'forceQuietSpeak';
+  /** Override primary button label (default Next / Done). */
+  primaryLabel?: string;
+  /** Special primary action instead of advancing. */
+  primaryAction?: 'open_settings';
 };
 
 export type TourChapter = {
