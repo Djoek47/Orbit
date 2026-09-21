@@ -42,7 +42,16 @@ export class AppErrorBoundary extends Component<Props, State> {
         </Text>
         <Pressable
           accessibilityRole="button"
-          onPress={() => this.setState({ error: null })}
+          onPress={() => {
+            void (async () => {
+              try {
+                const Updates = await import('expo-updates');
+                await Updates.reloadAsync();
+              } catch {
+                this.setState({ error: null });
+              }
+            })();
+          }}
           style={styles.button}>
           <Text style={styles.buttonText}>Restart</Text>
         </Pressable>
