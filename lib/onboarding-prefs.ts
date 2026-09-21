@@ -2,6 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { INTRO_SLOGANS } from '@/constants/vocabulary';
 import {
+  DEFAULT_MAJORDOMO_PROFILE_ID,
+  isMajordomoProfileId,
+  type MajordomoProfileId,
+} from '@/lib/ai/majordomo-profiles';
+import {
+  DEFAULT_POPPINS_INTERACTION_PREFS,
+  type PoppinsInteractionPrefs,
+} from '@/lib/poppins/poppins-prefs';
+import {
   DEFAULT_REWARD_MODEL,
   migrateLegacyRewardModel,
   type RewardModel,
@@ -32,8 +41,40 @@ export type OnboardingPrefs = {
   rewardMode?: RewardMode;
   /** Quiet default; Spoken opt-in. Missing on old prefs → quiet. */
   poppinsVoice?: 'quiet' | 'spoken';
+  /** Full Poppins interaction prefs chosen during Get Started. */
+  poppinsInteraction?: PoppinsInteractionPrefs;
+  /** Household majordomo (Poppins / Steward / …) chosen during Get Started. */
+  majordomoProfileId?: MajordomoProfileId;
   completedAt: string;
 };
+
+function normalizePoppinsInteraction(
+  raw: Partial<PoppinsInteractionPrefs> | undefined,
+  poppinsVoice?: 'quiet' | 'spoken'
+): PoppinsInteractionPrefs | undefined {
+  if (!raw && !poppinsVoice) return undefined;
+  const speakBack =
+    typeof raw?.speakBack === 'boolean'
+      ? raw.speakBack
+      : poppinsVoice === 'spoken'
+        ? true
+        : poppinsVoice === 'quiet'
+          ? false
+          : DEFAULT_POPPINS_INTERACTION_PREFS.speakBack;
+  return {
+    ...DEFAULT_POPPINS_INTERACTION_PREFS,
+    ...raw,
+    speakBack,
+    actImmediately: raw?.actImmediately === true,
+    confirmTime:
+      raw?.confirmTime === 'quick' || raw?.confirmTime === 'relaxed' ? raw.confirmTime : 'normal',
+    undoWindowSec:
+      raw?.undoWindowSec === 10 || raw?.undoWindowSec === 15 ? raw.undoWindowSec : 5,
+    showThinking: raw?.showThinking !== false,
+    writtenReplies: raw?.writtenReplies !== false,
+    notificationActions: raw?.notificationActions !== false,
+  };
+}
 
 export const ONBOARDING_ROLES: {
   id: OnboardingRole;
@@ -136,6 +177,8 @@ export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
       rewardModel?: RewardModel | string;
       rewardMode?: RewardMode | string;
       poppinsVoice?: 'quiet' | 'spoken' | string;
+      poppinsInteraction?: Partial<PoppinsInteractionPrefs>;
+      majordomoProfileId?: string;
       completedAt?: string;
     };
     const role = normalizeOnboardingRole(parsed.role);
@@ -148,11 +191,21 @@ export async function loadOnboardingPrefs(): Promise<OnboardingPrefs | null> {
       parsed.poppinsVoice === 'spoken' || parsed.poppinsVoice === 'quiet'
         ? parsed.poppinsVoice
         : undefined;
+    const poppinsInteraction = normalizePoppinsInteraction(parsed.poppinsInteraction, poppinsVoice);
+    const majordomoProfileId = isMajordomoProfileId(parsed.majordomoProfileId)
+      ? parsed.majordomoProfileId
+      : undefined;
     const prefs: OnboardingPrefs = {
       role,
       rewardModel: migrateLegacyRewardModel({ legacy: rewardModel }),
       rewardMode,
-      poppinsVoice,
+      poppinsVoice: poppinsInteraction
+        ? poppinsInteraction.speakBack
+          ? 'spoken'
+          : 'quiet'
+        : poppinsVoice,
+      poppinsInteraction,
+      majordomoProfileId,
       completedAt: parsed.completedAt ?? new Date().toISOString(),
     };
     if (
@@ -175,11 +228,31 @@ export async function saveOnboardingPrefs(
   const rewardModel =
     prefs.rewardModel ??
     (prefs.motivation ? motivationToRewardModel(prefs.motivation) : DEFAULT_REWARD_MODEL);
+  const poppinsInteraction = normalizePoppinsInteraction(
+    prefs.poppinsInteraction,
+    prefs.poppinsVoice
+  );
+  const poppinsVoice = poppinsInteraction
+    ? poppinsInteraction.speakBack
+      ? 'spoken'
+      : 'quiet'
+    : prefs.poppinsVoice === 'spoken'
+      ? 'spoken'
+      : prefs.poppinsVoice === 'quiet'
+        ? 'quiet'
+        : undefined;
+  const majordomoProfileId = isMajordomoProfileId(prefs.majordomoProfileId)
+    ? prefs.majordomoProfileId
+    : prefs.majordomoProfileId === undefined
+      ? undefined
+      : DEFAULT_MAJORDOMO_PROFILE_ID;
   const next: OnboardingPrefs = {
     role: normalizeOnboardingRole(prefs.role),
     rewardModel: migrateLegacyRewardModel({ legacy: rewardModel }),
     rewardMode: normalizeRewardMode(prefs.rewardMode),
-    poppinsVoice: prefs.poppinsVoice === 'spoken' ? 'spoken' : prefs.poppinsVoice === 'quiet' ? 'quiet' : undefined,
+    poppinsVoice,
+    poppinsInteraction,
+    majordomoProfileId,
     completedAt: new Date().toISOString(),
   };
   await AsyncStorage.setItem(KEY, JSON.stringify(next));
