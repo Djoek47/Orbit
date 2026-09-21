@@ -9,12 +9,16 @@ import { executePoppinsTool } from '@/lib/ai/execute-poppins-tool';
 import {
   extractItemName,
   extractSpokenChoreTitle,
+  isGroceryAddIntent,
   matchAssigneeName,
+  matchGroceryCatalog,
   matchLibraryIntent,
   resolvePoppinsChoreTitle,
 } from '@/lib/poppins/catalog-match';
+import { parseCompoundHouseholdIntent } from '@/lib/poppins/clause-segment';
 import { parseHouseholdIntent, rewriteAiuicActions } from '@/lib/poppins/ui-intent';
 import { mapUiActionsToPlaylist } from '@/lib/poppins/ui-tool-map';
+import { validateAct } from '@/lib/poppins/validate-act';
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
 
 const garbled = "I'll set desk for to wash my car";
@@ -53,6 +57,107 @@ assert.equal(
   undefined,
   'do not ship debris phrases as item names'
 );
+assert.equal(extractItemName('we need milk'), 'milk');
+assert.equal(extractItemName("we're out of eggs"), 'eggs');
+assert.equal(extractItemName('we are low on coffee'), 'coffee');
+assert.equal(extractItemName('ran out of paper towels'), 'paper towels');
+
+// --- WO9 A4: groceries never ask who ---
+assert.ok(matchGroceryCatalog('bananas')?.confident);
+assert.ok(matchGroceryCatalog('banana')?.confident);
+assert.ok(matchGroceryCatalog('dish soap')?.confident);
+assert.equal(matchGroceryCatalog('Maya', { excludeNames: ['Maya'] }), null);
+
+assert.equal(isGroceryAddIntent('add bananas'), true);
+assert.equal(isGroceryAddIntent('buy dish soap'), true);
+assert.equal(isGroceryAddIntent('we need milk'), true);
+assert.equal(isGroceryAddIntent("we're out of eggs and bread"), true);
+assert.equal(isGroceryAddIntent('add toilet paper to the list'), true);
+assert.equal(isGroceryAddIntent('add a task to buy milk'), false);
+assert.equal(isGroceryAddIntent('Drako, buy milk on the way home'), false);
+assert.equal(isGroceryAddIntent('add Maya'), false);
+
+{
+  const bananas = parseHouseholdIntent('add bananas');
+  assert.equal(bananas[0]?.type, 'add_grocery');
+  assert.ok(!bananas[0]?.assignee);
+  const playlist = mapUiActionsToPlaylist(bananas);
+  assert.equal(playlist[0]?.scene, 'grocery_add');
+  assert.ok(!playlist[0]?.payload.assignee);
+  assert.ok(!playlist[0]?.payload.faces);
+}
+
+{
+  const need = parseHouseholdIntent('we need milk');
+  assert.equal(need[0]?.type, 'add_grocery');
+}
+
+{
+  const out = parseCompoundHouseholdIntent("we're out of eggs and bread");
+  const groceries = out.filter((a) => String(a.type) === 'add_grocery');
+  assert.equal(groceries.length, 1, `expected one grocery act, got ${JSON.stringify(out)}`);
+  assert.match(String(groceries[0]?.name ?? ''), /eggs/i);
+  assert.match(String(groceries[0]?.name ?? ''), /bread/i);
+}
+
+{
+  const task = parseHouseholdIntent('add a task to buy milk');
+  assert.equal(task[0]?.type, 'create_task_draft');
+}
+
+{
+  const errand = parseHouseholdIntent('Drako, buy milk on the way home', {
+    memberNames: ['Drako', 'Maya'],
+  });
+  assert.equal(errand[0]?.type, 'create_task_draft');
+  assert.equal(errand[0]?.assignee, 'Drako');
+}
+
+{
+  const modelPath = mapUiActionsToPlaylist([
+    { type: 'create_task_draft', title: 'Bananas' },
+  ]);
+  assert.equal(modelPath[0]?.scene, 'grocery_add');
+  assert.ok(!modelPath[0]?.payload.assignee);
+  assert.match(String(modelPath[0]?.payload.groceryName ?? ''), /banana/i);
+}
+
+{
+  const mixed = parseCompoundHouseholdIntent('dishes for Drako and add milk', {
+    memberNames: ['Drako', 'Maya'],
+  });
+  const drafts = mixed.filter((a) => String(a.type) === 'create_task_draft');
+  const groceries = mixed.filter((a) => String(a.type) === 'add_grocery');
+  assert.ok(drafts.length >= 1);
+  assert.equal(drafts[0]?.assignee, 'Drako');
+  assert.equal(groceries.length, 1);
+  assert.ok(!groceries[0]?.assignee);
+  assert.notEqual(String(groceries[0]?.category ?? ''), 'kitchen_dining');
+  const playlist = mapUiActionsToPlaylist(mixed);
+  const groceryBeat = playlist.find((b) => b.scene === 'grocery_add');
+  assert.ok(groceryBeat);
+  assert.ok(!groceryBeat?.payload.assignee);
+  assert.notEqual(String(groceryBeat?.payload.aisle ?? ''), 'kitchen_dining');
+  // Dairy aisle from classifier, not chore domain
+  assert.match(String(groceryBeat?.payload.aisle ?? ''), /dairy|milk|refrigerat/i);
+}
+
+{
+  const mixed2 = parseCompoundHouseholdIntent('add milk and dishes for Drako', {
+    memberNames: ['Drako', 'Maya'],
+  });
+  const groceries = mixed2.filter((a) => String(a.type) === 'add_grocery');
+  assert.equal(groceries.length, 1);
+  assert.ok(!groceries[0]?.assignee, `rule 4 must not push Drako onto grocery: ${JSON.stringify(groceries)}`);
+}
+
+{
+  const leaked = validateAct(
+    { groceryName: 'Milk', assignee: 'Drako', write: 'add_grocery' },
+    'grocery_add'
+  );
+  assert.equal(leaked.ok, true);
+}
 
 // A3d — fuzzy catalog / roster
 const diches = resolvePoppinsChoreTitle('diches');

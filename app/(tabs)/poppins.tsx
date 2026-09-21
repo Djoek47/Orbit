@@ -57,6 +57,14 @@ import {
   type PoppinsPendingConfirmation,
   type PoppinsVoiceVisualState,
 } from '@/lib/voice/poppins-voice-session';
+import { createQuietCapture, type QuietCapture } from '@/lib/voice/quiet-capture';
+import { speakTransportForPrefs } from '@/lib/voice/speak-transport';
+import { setSessionActMode } from '@/lib/poppins/session-act-mode';
+import {
+  loadPoppinsInteractionPrefs,
+  type PoppinsInteractionPrefs,
+  DEFAULT_POPPINS_INTERACTION_PREFS,
+} from '@/lib/poppins/poppins-prefs';
 import type { HouseholdTask } from '@/types/orbit';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
@@ -112,6 +120,21 @@ export default function PoppinsScreen() {
 
   const nativeVoice = isPoppinsNativeVoiceAvailable();
   const [topUpBalance, setTopUpBalance] = useState(0);
+  const [interactionPrefs, setInteractionPrefs] = useState<PoppinsInteractionPrefs>(
+    DEFAULT_POPPINS_INTERACTION_PREFS
+  );
+  const quietRef = useRef<QuietCapture | null>(null);
+  const [quietListening, setQuietListening] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadPoppinsInteractionPrefs(household.id).then((prefs) => {
+      if (!cancelled) setInteractionPrefs(prefs);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [household.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,7 +171,7 @@ export default function PoppinsScreen() {
           updateTask,
         });
       }
-      await notifyActUndone(beat.id, beat.payload.write);
+      await notifyActUndone(beat.id, beat.payload.write, beat.payload.actMode);
     });
     return () => {
       poppinsUiOrchestrator.setUndoHandler(null);
@@ -334,7 +357,7 @@ export default function PoppinsScreen() {
         question: lastUtteranceRef.current,
         answer: liveCaption?.text ?? '',
         usage: { model: 'gpt-realtime-2.1' },
-        mode: 'live',
+        mode: 'spoken',
         sessionId: voiceSessionIdRef.current,
         turnIndex,
       });
@@ -426,6 +449,7 @@ export default function PoppinsScreen() {
     setConnecting(true);
     setError('');
     setLiveCaption(null);
+    setSessionActMode('spoken');
     voiceFailedRef.current = false;
     voiceSessionIdRef.current = `live-${household.id}-${Date.now()}`;
     voiceTurnIndexRef.current = 0;
@@ -542,10 +566,23 @@ export default function PoppinsScreen() {
     }
   };
 
-  const handleSend = async () => {
-    const trimmed = draft.trim();
+  // Mid-session Speak back off → end Realtime immediately (never leave duplex up).
+  useEffect(() => {
+    if (interactionPrefs.speakBack) return;
+    if (voiceRef.current?.isConnected || liveConnected) {
+      void endNativeVoice();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to pref flip / connect state
+  }, [interactionPrefs.speakBack, liveConnected]);
+
+  const submitUtterance = async (
+    text: string,
+    source: 'typed' | 'dictated'
+  ) => {
+    const trimmed = text.trim();
     if (!trimmed || asking) return;
-    setDraft('');
+    if (source === 'typed') setDraft('');
+    setSessionActMode('silent');
     setLiveCaption(applyLiveCaptionTurn(null, 'you', trimmed, true));
     lastUtteranceRef.current = trimmed;
     setError('');
@@ -557,6 +594,7 @@ export default function PoppinsScreen() {
 
     // Live duplex: inject into the same WebRTC conversation.
     if (voiceRef.current?.isConnected) {
+      setSessionActMode('spoken');
       voiceRef.current.sendUserText(trimmed);
       appendPoppinsTurn(trimmed, '(live voice)');
       return;
@@ -584,9 +622,87 @@ export default function PoppinsScreen() {
     }
   };
 
+  const handleSend = async () => {
+    await submitUtterance(draft, 'typed');
+  };
+
+  const startQuietCapture = async () => {
+    if (quietRef.current?.active || asking || connecting || voiceSettling) return;
+    if (aiSummary.tripped) {
+      setError(POPPINS_PAUSED_COPY);
+      return;
+    }
+    setSessionActMode('silent');
+    setError('');
+    const capture = createQuietCapture();
+    quietRef.current = capture;
+    setQuietListening(true);
+    setListening(true);
+    setVoiceState('listening');
+    setLiveCaption(applyLiveCaptionTurn(null, 'you', 'Listening…', true));
+    try {
+      await capture.start({
+        onPartial: (text) => {
+          setLiveCaption(applyLiveCaptionTurn(null, 'you', text, true));
+        },
+        onStatus: (status) => {
+          if (status === 'got_it') {
+            setLiveCaption(applyLiveCaptionTurn(null, 'you', 'Got it', true));
+          }
+          if (status === 'transcribing') {
+            setVoiceState('thinking');
+          }
+        },
+      });
+    } catch (error) {
+      setQuietListening(false);
+      setListening(false);
+      setVoiceState('idle');
+      quietRef.current = null;
+      setError(error instanceof Error ? error.message : 'Could not start listening.');
+    }
+  };
+
+  const stopQuietCapture = async () => {
+    const capture = quietRef.current;
+    if (!capture) return;
+    setQuietListening(false);
+    setListening(false);
+    try {
+      const transcript = await capture.stop(householdRef.current, metrics);
+      quietRef.current = null;
+      if (!transcript) {
+        setVoiceState('idle');
+        setLiveCaption(null);
+        return;
+      }
+      await submitUtterance(transcript, 'dictated');
+    } catch {
+      quietRef.current = null;
+      setVoiceState('idle');
+      setError('Could not hear that. Try again.');
+    }
+  };
+
   const toggleConnect = async () => {
     if (!nativeVoice) return;
     if (voiceSettling) return;
+
+    const transport = speakTransportForPrefs(interactionPrefs.speakBack);
+
+    // Quiet path — never construct PoppinsVoiceSession.
+    if (transport === 'quiet') {
+      if (quietRef.current?.active || quietListening) {
+        await stopQuietCapture();
+        return;
+      }
+      if (liveConnected || voiceRef.current?.isConnected) {
+        await endNativeVoice();
+      }
+      await startQuietCapture();
+      return;
+    }
+
     if (liveConnected || voiceRef.current?.isConnected) {
       await endNativeVoice();
       return;
@@ -596,6 +712,7 @@ export default function PoppinsScreen() {
       setError(POPPINS_PAUSED_COPY);
       return;
     }
+    setSessionActMode('spoken');
     await connectNativeVoice();
   };
 
@@ -661,7 +778,7 @@ export default function PoppinsScreen() {
       connecting ||
       (visualState === 'listening' && !liveText));
   const hasStrip = liveSpeaker !== null;
-  const primaryConnected = liveConnected;
+  const primaryConnected = liveConnected || quietListening;
 
   return (
     <KeyboardAvoidingView

@@ -25,7 +25,7 @@ async function main() {
   assert.equal(RESULT_LINGER_MS, 980);
 
   assert.equal(voiceLabel(false), 'Quiet');
-  assert.equal(voiceLabel(true), 'Spoken');
+  assert.equal(voiceLabel(true), 'Speak back');
   assert.equal(modeFromSpeakBack(false), 'silent');
   assert.equal(modeFromSpeakBack(true), 'spoken');
   assert.match(derivedModeLine(DEFAULT_POPPINS_INTERACTION_PREFS), /Quiet · Guided/);

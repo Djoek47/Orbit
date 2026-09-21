@@ -9,6 +9,7 @@ import { withComposeProgress } from '@/lib/poppins/iui-compose';
 import { withHomeworkComposeProgress } from '@/lib/poppins/homework-compose';
 import type { IuiCommitReverse } from '@/lib/poppins/iui-reverse';
 import { mapUiActionsToPlaylist } from '@/lib/poppins/ui-tool-map';
+import { getSessionActMode } from '@/lib/poppins/session-act-mode';
 import {
   HOLD_MS_DEFAULT,
   HOLD_MS_KID,
@@ -432,15 +433,22 @@ function startPlaylist(playlist: IuiBeat[], kid?: boolean) {
   if (!playlist.length) return;
   clearAllTimers();
   if (kid != null) sessionHoldMs = kid ? HOLD_MS_KID : HOLD_MS_DEFAULT;
+  // Stamp session actMode onto beats that don't already carry one (B2.3).
+  const mode = getSessionActMode();
+  const stamped = playlist.map((beat) =>
+    beat.payload.actMode
+      ? beat
+      : { ...beat, payload: { ...beat.payload, actMode: mode } }
+  );
   setState({
     live: true,
-    playlist,
+    playlist: stamped,
     index: 0,
     phase: 'show',
     holding: false,
     holdMs: sessionHoldMs,
     holdStartedAt: null,
-    thinkingLine: playlist[0]?.payload.thinkingLine ?? '',
+    thinkingLine: stamped[0]?.payload.thinkingLine ?? '',
     frozen: false,
     spoken: '',
     commitFailed: false,

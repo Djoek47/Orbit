@@ -3,10 +3,147 @@
  * Used by AIUIC so Poppins can narrow Kitchen (etc.) instead of dumping the full form.
  */
 
+import { allCatalogProducts, type CatalogProduct } from '@/lib/grocery/catalog';
 import { classifyGroceryItem, isClothingCategory } from '@/lib/grocery/classify';
 import { bestFuzzyMatch, isConfidentFuzzy } from '@/lib/poppins/fuzzy-match';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { allLibraryTasks, choreDomains, homeworkDomain, type LibraryTask } from '@/lib/tasks/task-library';
+
+export type GroceryCatalogMatch = {
+  productId: string;
+  name: string;
+  confident: boolean;
+};
+
+function singularizeToken(token: string): string {
+  if (token.endsWith('ies') && token.length > 4) return `${token.slice(0, -3)}y`;
+  if (token.endsWith('es') && token.length > 4) return token.slice(0, -2);
+  if (token.endsWith('s') && token.length > 3) return token.slice(0, -1);
+  return token;
+}
+
+function pluralizeToken(token: string): string {
+  if (token.endsWith('y') && token.length > 2 && !/[aeiou]y$/i.test(token)) {
+    return `${token.slice(0, -1)}ies`;
+  }
+  if (token.endsWith('s')) return token;
+  return `${token}s`;
+}
+
+function numberVariants(phrase: string): string[] {
+  const normalized = phrase.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!normalized) return [];
+  const tokens = normalized.split(' ');
+  const last = tokens[tokens.length - 1]!;
+  const variants = new Set<string>([normalized]);
+  const singularLast = singularizeToken(last);
+  const pluralLast = pluralizeToken(singularLast === last ? last : singularLast);
+  if (singularLast !== last) {
+    variants.add([...tokens.slice(0, -1), singularLast].join(' ').trim());
+  }
+  if (pluralLast !== last) {
+    variants.add([...tokens.slice(0, -1), pluralLast].join(' ').trim());
+  }
+  return [...variants].filter(Boolean);
+}
+
+let groceryCatalogIndex: Array<{ key: string; value: GroceryCatalogMatch }> | null = null;
+
+function groceryCatalogCandidates(): Array<{ key: string; value: GroceryCatalogMatch }> {
+  if (groceryCatalogIndex) return groceryCatalogIndex;
+  const byKey = new Map<string, GroceryCatalogMatch>();
+
+  const consider = (rawKey: string, product: CatalogProduct) => {
+    for (const key of numberVariants(rawKey)) {
+      if (key.length < 2) continue;
+      const hit: GroceryCatalogMatch = {
+        productId: product.id,
+        name: product.name,
+        confident: true,
+      };
+      const existing = byKey.get(key);
+      // Prefer shorter / more generic display names when aliases collide.
+      if (!existing || product.name.length < existing.name.length) {
+        byKey.set(key, hit);
+      }
+    }
+  };
+
+  for (const product of allCatalogProducts()) {
+    consider(product.name, product);
+    for (const alias of product.aliases) consider(alias, product);
+  }
+
+  groceryCatalogIndex = [...byKey.entries()].map(([key, value]) => ({ key, value }));
+  return groceryCatalogIndex;
+}
+
+function isChoreCatalogTitle(name: string): boolean {
+  const lower = name.trim().toLowerCase();
+  if (!lower || lower.length < 3) return false;
+  for (const task of allLibraryTasks()) {
+    if (isGroceryMetaTask(task)) continue;
+    if (task.name.toLowerCase() === lower) return true;
+    if (task.searchTerms.some((term) => term.toLowerCase() === lower)) return true;
+  }
+  return false;
+}
+
+function matchGroceryCatalogOne(
+  name: string,
+  opts?: { excludeNames?: string[] }
+): GroceryCatalogMatch | null {
+  const needle = name.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!needle || needle.length < 2) return null;
+
+  const excluded = (opts?.excludeNames ?? [])
+    .map((n) => n.trim().toLowerCase())
+    .filter(Boolean);
+  if (excluded.some((n) => n === needle || needle.split(/\s+/).includes(n))) return null;
+  if (isChoreCatalogTitle(needle)) return null;
+
+  const candidates = groceryCatalogCandidates();
+  const exact = candidates.find((row) => row.key === needle);
+  if (exact) {
+    return { ...exact.value, confident: true };
+  }
+
+  for (const variant of numberVariants(needle)) {
+    const hit = candidates.find((row) => row.key === variant);
+    if (hit) return { ...hit.value, confident: true };
+  }
+
+  const fuzzy = bestFuzzyMatch(needle, candidates);
+  if (!fuzzy || !isConfidentFuzzy(fuzzy)) return null;
+  // Short needles (Maya → Mayo) are too ambiguous for edit-distance guesses.
+  if (fuzzy.distance > 0 && needle.replace(/\s+/g, '').length <= 4) return null;
+  return { ...fuzzy.value, confident: true };
+}
+
+/**
+ * Confident match against the grocery catalog (name + aliases).
+ * Singular/plural both match. Never matches member names or chore titles.
+ */
+export function matchGroceryCatalog(
+  name: string,
+  opts?: { excludeNames?: string[] }
+): GroceryCatalogMatch | null {
+  const direct = matchGroceryCatalogOne(name, opts);
+  if (direct) return direct;
+
+  // "eggs and bread" — any catalog part is enough for intent; prefer first hit.
+  const parts = name
+    .split(/\s+and\s+/i)
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 2);
+  if (parts.length > 1) {
+    for (const part of parts) {
+      const hit = matchGroceryCatalogOne(part, opts);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
 
 export type LibraryIntentMatch = {
   domainId?: string;
@@ -31,19 +168,53 @@ export function isGroceryMetaTask(task: Pick<LibraryTask, 'id' | 'name'>): boole
   return GROCERY_META_TASK_TITLES.some((title) => lower === title || lower.includes(title));
 }
 
+const NEED_OUT_LOW_RE =
+  /\b(?:we\s+need|we(?:['’]re| are)\s+(?:out\s+of|low\s+on)|(?:ran\s+)?out\s+of|low\s+on)\b/i;
+
 /** True when the person is adding a product to the grocery/shopping list (not assigning a chore). */
-export function isGroceryAddIntent(text: string): boolean {
+export function isGroceryAddIntent(
+  text: string,
+  opts?: { excludeNames?: string[] }
+): boolean {
   const lower = text.toLowerCase().trim();
   if (!lower) return false;
-  if (/\btask\b/.test(lower) && /\b(chore|assign)\b/.test(lower)) return false;
+
+  // Explicit task/chore framing wins — "add a task to buy milk" stays a task.
+  const listTail = /\b(to|on|onto)\s+(the\s+)?(list|grocer(?:y|ies)|shopping(\s+list)?)\b/.test(
+    lower
+  );
+  if (
+    (/\btask\b/.test(lower) || /\bchore\b/.test(lower) || /\bassign\b/.test(lower)) &&
+    !listTail
+  ) {
+    return false;
+  }
+  // "Drako, buy milk on the way home" — personal errand, not household grocery.
+  if (/^[A-Z][a-zA-Z]{1,20}\s*,/.test(text.trim())) return false;
+
   const itemName = extractItemName(text);
   const listCue =
-    /\b(grocery list|groceries|shopping list|to the list|on the list|grocery)\b/.test(lower);
+    /\b(grocery list|groceries|shopping list|to the list|on the list|onto the list|grocery)\b/.test(
+      lower
+    );
   const addCue = /\b(add|put|get|grab|pick up|buy)\b/.test(lower);
+  const catalogOpts = opts?.excludeNames?.length
+    ? { excludeNames: opts.excludeNames }
+    : undefined;
+
+  // Rule 1: add verb + list cue + item
   if (addCue && listCue && itemName && !/\btask\b/i.test(itemName)) return true;
-  if (addCue && itemName && /\b(milk|eggs|bread|butter|cheese|yogurt|fruit|vegetable)\b/.test(lower)) {
-    return true;
+
+  // Rule 2: add verb + catalog-confident item
+  if (addCue && itemName && matchGroceryCatalog(itemName, catalogOpts)?.confident) return true;
+
+  // Rule 3: need / out / low phrasing + catalog item
+  if (NEED_OUT_LOW_RE.test(lower)) {
+    const needItem = itemName;
+    if (needItem && matchGroceryCatalog(needItem, catalogOpts)?.confident) return true;
   }
+
+  // Rule 4: existing shopping-intent path (clothing / drops)
   if (addCue && itemName && isShoppingIntent(text)) return true;
   return false;
 }
@@ -703,6 +874,26 @@ export function isShoppingIntent(text: string): boolean {
   return isClothingCategory(classified.categoryId);
 }
 
+function cleanExtractedItemName(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const name = raw
+    .replace(/\b(please|thanks|thank you)\b/gi, '')
+    .replace(/\b(today|tomorrow|tonight|this week)\b/gi, '')
+    .replace(/\bon the way home\b/gi, '')
+    .replace(/[?.!,]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (
+    name.length < 2 ||
+    /\btask\b/i.test(name) ||
+    /\bgo to store\b/i.test(name) ||
+    /\b(list|grocery|shopping)\b/i.test(name)
+  ) {
+    return undefined;
+  }
+  return name.slice(0, 48);
+}
+
 export function extractItemName(text: string): string | undefined {
   const cleaned = text
     .replace(/\b(please|thanks|thank you)\b/gi, '')
@@ -719,14 +910,15 @@ export function extractItemName(text: string): string | undefined {
     /\b(?:add|buy|get|grab|pick\s+up|put)\s+(?:some |the |a |an |my )?(?:new )?(.+?)(?:\s+(?:to|on|onto|in|into)\s+(?:the\s+)?(?:list|grocer(?:y|ies)|shopping(?:\s+list)?))\b/i
   );
   if (framed?.[1]) {
-    const name = framed[1]
-      .replace(/\b(please|thanks)\b/gi, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (name.length >= 2 && !/\btask\b/i.test(name) && !/\bgo to store\b/i.test(name)) {
-      return name.slice(0, 48);
-    }
-    return undefined;
+    return cleanExtractedItemName(framed[1]);
+  }
+
+  // Need / out / low: "we need milk", "we're out of eggs", "low on coffee", "ran out of paper towels"
+  const needOut = cleaned.match(
+    /\b(?:we\s+need|we(?:['’]re| are)\s+(?:out\s+of|low\s+on)|(?:ran\s+)?out\s+of|low\s+on)\s+(?:some |the |a |an |my )?(.+)$/i
+  );
+  if (needOut?.[1]) {
+    return cleanExtractedItemName(needOut[1]);
   }
 
   // No list-word: still try a short "add X" when confident.
@@ -734,21 +926,13 @@ export function extractItemName(text: string): string | undefined {
     /\b(?:add|buy|get|grab|pick\s+up)\s+(?:some |the |a |an |my )?(?:new )?([a-z][\w\s'-]{1,40})$/i
   );
   if (bare?.[1]) {
-    const name = bare[1].replace(/\b(please|thanks)\b/gi, '').replace(/\s+/g, ' ').trim();
-    if (
-      name.length >= 2 &&
-      name.split(/\s+/).length <= 5 &&
-      !/\btask\b/i.test(name) &&
-      !/\b(list|grocery|shopping)\b/i.test(name)
-    ) {
-      return name.slice(0, 48);
-    }
+    const name = cleanExtractedItemName(bare[1]);
+    if (name && name.split(/\s+/).length <= 5) return name;
   }
 
   const want = cleaned.match(/\bwant(?: to)?\s+(?:the |a |an )?([a-z][\w\s'-]{1,40})$/i)?.[1];
   if (want) {
-    const name = want.replace(/\s+/g, ' ').trim();
-    if (name.length >= 2 && !/\btask\b/i.test(name)) return name.slice(0, 48);
+    return cleanExtractedItemName(want);
   }
   return undefined;
 }
@@ -784,6 +968,13 @@ export function isChoreAssignIntent(text: string): boolean {
   if (isCompleteIntent(text) || wantsFullEditor(text)) return false;
   if (isGroceryAddIntent(text)) return false;
   if (isScheduleIntent(text)) return false;
+  // "Drako, buy milk on the way home" — named errand stays a task, not grocery.
+  if (
+    /^[A-Z][a-zA-Z]{1,20}\s*,/.test(text.trim()) &&
+    /\b(buy|get|grab|pick\s+up|add|do|clean|wash)\b/.test(lower)
+  ) {
+    return true;
+  }
   if (
     /\b(add|create|make|set up|setup|schedule|set)\b/.test(lower) &&
     (/\btask\b/.test(lower) || /\bdesk\b/.test(lower) || /\bchore\b/.test(lower) || /\bfor\b/.test(lower))
@@ -798,16 +989,26 @@ export function isChoreAssignIntent(text: string): boolean {
 }
 
 export function groceryAddActionsFromUtterance(
-  text: string
+  text: string,
+  opts?: { excludeNames?: string[] }
 ): Array<Record<string, unknown>> | null {
-  if (!isGroceryAddIntent(text)) return null;
+  if (!isGroceryAddIntent(text, opts)) return null;
   const itemName = extractItemName(text);
   if (!itemName || /\btask\b/i.test(itemName)) return null;
+  if (opts?.excludeNames?.length && matchGroceryCatalog(itemName, opts) === null) {
+    // Member-name collision with no catalog hit after exclusions
+    if (!isShoppingIntent(text) && !/\b(list|grocer)/i.test(text)) return null;
+  }
   const shopping = isShoppingIntent(text);
+  const catalogHit = matchGroceryCatalog(itemName, opts);
+  const displayName =
+    catalogHit && !/\sand\s/i.test(itemName)
+      ? catalogHit.name
+      : itemName.replace(/\b(please|thanks)\b/g, '').trim() || itemName;
   const actions: Array<Record<string, unknown>> = [
     {
       type: 'add_grocery',
-      name: itemName.replace(/\b(please|thanks)\b/g, '').trim() || itemName,
+      name: displayName,
       category: shopping ? 'Clothing' : undefined,
       lane: shopping ? 'clothing' : 'grocery',
     },
@@ -816,7 +1017,7 @@ export function groceryAddActionsFromUtterance(
   if (releaseDate) {
     actions.push({
       type: 'create_calendar_event',
-      title: `${itemName} drop`,
+      title: `${displayName} drop`,
       date: releaseDate,
     });
   }

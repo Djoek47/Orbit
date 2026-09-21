@@ -113,7 +113,11 @@ function rowToEvent(row: object): AiUsageEvent {
   const item = row as Record<string, unknown>;
   const modeRaw = String(item.mode ?? '');
   const mode =
-    modeRaw === 'silent' || modeRaw === 'spoken' || modeRaw === 'live' ? modeRaw : undefined;
+    modeRaw === 'silent' || modeRaw === 'spoken'
+      ? modeRaw
+      : modeRaw === 'live'
+        ? 'spoken'
+        : undefined;
   return {
     id: String(item.client_key ?? ''),
     at: String(item.occurred_at ?? ''),

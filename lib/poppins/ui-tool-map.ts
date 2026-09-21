@@ -20,8 +20,10 @@ import {
   isHomeworkIntent,
   isScheduleIntent,
   extractItemName,
+  matchGroceryCatalog,
   resolvePoppinsChoreTitle,
 } from '@/lib/poppins/catalog-match';
+import { classifyGroceryItem } from '@/lib/grocery/classify';
 
 function beat(
   scene: IuiScene,
@@ -60,12 +62,17 @@ function isGroceryMetaDraft(
 function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
   const groceryName = String(action.name ?? action.title ?? '').trim();
   const storeHint = String(action.storeHint ?? '').trim();
+  const classified = groceryName ? classifyGroceryItem(groceryName) : null;
+  const aisle =
+    classified && classified.confidence !== 'fallback'
+      ? classified.categoryName
+      : undefined;
   return [
     beat(
       'grocery_add',
       {
         groceryName: groceryName || undefined,
-        aisle: action.category ? String(action.category) : undefined,
+        aisle,
         title: groceryName || undefined,
         shoppingLane: action.lane === 'clothing' ? 'clothing' : 'grocery',
         thinkingLine:
@@ -73,6 +80,7 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
         location: storeHint || undefined,
         sourceUtterance:
           typeof action.sourceUtterance === 'string' ? action.sourceUtterance : undefined,
+        // Groceries are household-wide — never copy assignee onto the beat.
       },
       'hold',
       'add_grocery'
@@ -250,6 +258,31 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
           )
         );
         continue;
+      }
+      // No assignee + catalog-confident title → grocery (household-wide), not faces.
+      const draftAssignee = action.assignee ?? prefill.assignee;
+      const draftTitle = String(action.title ?? prefill.title ?? '').trim();
+      if (
+        !draftAssignee &&
+        !isHomeworkDraft(action, prefill) &&
+        !isHomeworkIntent(utteranceHint) &&
+        !isScheduleIntent(draftTitle || utteranceHint)
+      ) {
+        const catalogHit =
+          (draftTitle ? matchGroceryCatalog(draftTitle) : null) ||
+          (utteranceHint
+            ? matchGroceryCatalog(extractItemName(utteranceHint) || utteranceHint)
+            : null);
+        if (catalogHit?.confident) {
+          playlist.push(
+            ...groceryBeatsFromAction({
+              ...action,
+              name: catalogHit.name,
+              title: catalogHit.name,
+            })
+          );
+          continue;
+        }
       }
       playlist.push(...taskDraftBeats(action, prefill));
       continue;

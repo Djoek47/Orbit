@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import {
   TOKENS_PER_DAY,
   TOKENS_PER_MONTH,
-  TOKEN_WEIGHT_LIVE,
-  TOKEN_WEIGHT_SILENT,
+  TOKEN_WEIGHT_QUIET,
+  TOKEN_WEIGHT_SPEAK_BACK,
 } from '@/constants/poppins-ai-rates';
 import {
   axesFromPoppinsMode,
@@ -17,9 +17,13 @@ import {
 } from '@/lib/ai/act-events';
 import { meterCaption } from '@/lib/ai/credits';
 
-assert.equal(axesFromPoppinsMode('silent').tokens, TOKEN_WEIGHT_SILENT);
-assert.equal(axesFromPoppinsMode('live').tokens, TOKEN_WEIGHT_LIVE);
+assert.equal(axesFromPoppinsMode('silent').tokens, TOKEN_WEIGHT_QUIET);
+assert.equal(axesFromPoppinsMode('spoken').tokens, TOKEN_WEIGHT_SPEAK_BACK);
+assert.equal(axesFromPoppinsMode('live').tokens, TOKEN_WEIGHT_SPEAK_BACK);
 assert.equal(axesFromPoppinsMode('live').voice, 'spoken');
+assert.equal(axesFromPoppinsMode('spoken').voice, 'spoken');
+assert.equal(TOKEN_WEIGHT_SPEAK_BACK, 35);
+assert.equal(TOKEN_WEIGHT_QUIET, 1);
 
 const members = [
   { id: 'm1', name: 'Sarah' },
@@ -87,7 +91,7 @@ const live = summarizeActUsage(
       memberId: 'm1',
       memberName: 'Sarah',
       actKind: 'task',
-      mode: 'live',
+      mode: 'spoken',
       at: '2026-08-15T12:00:00.000Z',
     }),
   ],
@@ -99,7 +103,7 @@ const live = summarizeActUsage(
     periodEnd: '2026-09-01T00:00:00.000Z',
   }
 );
-assert.equal(live.tokensUsedThisPeriod, TOKEN_WEIGHT_LIVE);
+assert.equal(live.tokensUsedThisPeriod, TOKEN_WEIGHT_SPEAK_BACK);
 
 const committed = buildActEvent({
   id: 'c1',

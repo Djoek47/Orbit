@@ -1,6 +1,7 @@
 /**
- * Household Poppins act mode — Silent default, Live off at launch.
+ * Household Poppins act mode — Quiet (silent) default.
  * Stored locally until a household column ships.
+ * Legacy stored `live` migrates to `spoken` (Speak back).
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -17,8 +18,14 @@ export function defaultPoppinsActMode(): PoppinsActMode {
 }
 
 export function isLiveModeEnabled(): boolean {
-  // Launch: Live stays off until A5 Spoken feels right and metering is trusted.
+  // Launch: duplex Realtime is Speak back (`spoken`), not a third mode.
   return false;
+}
+
+function migrateMode(raw: string | null): PoppinsActMode | null {
+  if (raw === 'silent' || raw === 'spoken') return raw;
+  if (raw === 'live') return 'spoken';
+  return null;
 }
 
 export async function loadPoppinsActMode(
@@ -29,13 +36,13 @@ export async function loadPoppinsActMode(
   if (cached) return cached;
   try {
     const raw = await AsyncStorage.getItem(keyFor(householdId));
-    if (raw === 'spoken' || raw === 'silent') {
-      cache.set(householdId, raw);
-      return raw;
-    }
-    if (raw === 'live' && isLiveModeEnabled()) {
-      cache.set(householdId, 'live');
-      return 'live';
+    const migrated = migrateMode(raw);
+    if (migrated) {
+      if (raw === 'live') {
+        await AsyncStorage.setItem(keyFor(householdId), migrated);
+      }
+      cache.set(householdId, migrated);
+      return migrated;
     }
   } catch {
     /* ignore */
@@ -46,11 +53,10 @@ export async function loadPoppinsActMode(
 
 export async function savePoppinsActMode(
   householdId: string | null | undefined,
-  mode: PoppinsActMode
+  mode: PoppinsActMode | 'live'
 ): Promise<void> {
   if (!householdId) return;
-  const next: PoppinsActMode =
-    mode === 'live' && !isLiveModeEnabled() ? 'spoken' : mode === 'live' ? 'live' : mode;
+  const next: PoppinsActMode = mode === 'live' ? 'spoken' : mode;
   cache.set(householdId, next);
   await AsyncStorage.setItem(keyFor(householdId), next);
 }

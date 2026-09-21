@@ -10,7 +10,9 @@ import {
   COGS_CEILING_USD,
   MODEL_RATES_USD_PER_MILLION,
   TOKEN_WEIGHT_LIVE,
+  TOKEN_WEIGHT_QUIET,
   TOKEN_WEIGHT_SILENT,
+  TOKEN_WEIGHT_SPEAK_BACK,
   TOKEN_WEIGHT_SPOKEN,
   TOKENS_PER_DAY,
   TOKENS_PER_MONTH,
@@ -22,7 +24,9 @@ export {
   COGS_CEILING_USD,
   MODEL_RATES_USD_PER_MILLION,
   TOKEN_WEIGHT_LIVE,
+  TOKEN_WEIGHT_QUIET,
   TOKEN_WEIGHT_SILENT,
+  TOKEN_WEIGHT_SPEAK_BACK,
   TOKEN_WEIGHT_SPOKEN,
   TOKENS_PER_DAY,
   TOKENS_PER_MONTH,
@@ -37,7 +41,7 @@ export const PREMIUM_MONTHLY_USD = IAP_PRODUCTS.monthly.priceUsd;
 export type AiUsageKind = 'chat' | 'voice' | 'briefing' | 'monitor' | 'notify' | 'realtime';
 
 /** Act mode that weights token charge on commit. */
-export type PoppinsActMode = 'silent' | 'spoken' | 'live';
+export type PoppinsActMode = 'silent' | 'spoken';
 
 export type AiUsageEvent = {
   id: string;
@@ -71,13 +75,11 @@ export const POPPINS_PAUSED_COPY =
 
 export function tokenWeightForMode(mode: PoppinsActMode | undefined): number {
   switch (mode) {
-    case 'live':
-      return TOKEN_WEIGHT_LIVE;
     case 'spoken':
-      return TOKEN_WEIGHT_SPOKEN;
+      return TOKEN_WEIGHT_SPEAK_BACK;
     case 'silent':
     default:
-      return TOKEN_WEIGHT_SILENT;
+      return TOKEN_WEIGHT_QUIET;
   }
 }
 
@@ -272,7 +274,7 @@ export function personalTokens(
 export function shouldDropLiveToSpoken(summary: {
   tokensRemaining: number;
 }): boolean {
-  return summary.tokensRemaining < TOKEN_WEIGHT_LIVE * 10;
+  return summary.tokensRemaining < TOKEN_WEIGHT_SPEAK_BACK * 10;
 }
 
 export function meterNearCap(summary: {

@@ -153,9 +153,52 @@ function isAct(action: Record<string, unknown>): boolean {
   );
 }
 
+/** Same-family acts only inherit slots; grocery never gets or donates chore slots. */
+function actFamily(type: string): string {
+  switch (type) {
+    case 'create_task_draft':
+    case 'create_task':
+    case 'assign_task':
+      return 'task';
+    case 'add_grocery':
+      return 'grocery';
+    case 'create_calendar_event':
+    case 'create_event':
+      return 'calendar';
+    case 'create_itinerary':
+      return 'itinerary';
+    case 'complete_task':
+      return 'complete';
+    default:
+      return type;
+  }
+}
+
+function canInheritBetween(
+  from: Record<string, unknown>,
+  to: Record<string, unknown>
+): boolean {
+  const fromFamily = actFamily(String(from.type ?? ''));
+  const toFamily = actFamily(String(to.type ?? ''));
+  if (fromFamily !== toFamily) return false;
+  // Groceries are household-wide — never inherit assignee/due/category/repeat.
+  if (fromFamily === 'grocery' || toFamily === 'grocery') return false;
+  return true;
+}
+
+function stripGroceryChoreSlots(action: Record<string, unknown>): void {
+  if (String(action.type) !== 'add_grocery') return;
+  delete action.assignee;
+  delete action.due;
+  delete action.category;
+  delete action.repeat;
+}
+
 /**
  * Apply L→R inherit, then rule-4 backwards for slots never filled explicitly.
  * Navigates are deferred to the end of the batch (after acts).
+ * Slots inherit only between acts of the same type; grocery never gets/donates
+ * assignee, due, category, or repeat.
  */
 export function inheritSlotsAcrossActions(
   actions: Array<Record<string, unknown>>
@@ -163,6 +206,8 @@ export function inheritSlotsAcrossActions(
   const acts = actions.filter(isAct).map((a) => ({ ...a }));
   const navigates = actions.filter(isNavigate).map((a) => ({ ...a }));
   const other = actions.filter((a) => !isAct(a) && !isNavigate(a)).map((a) => ({ ...a }));
+
+  for (const act of acts) stripGroceryChoreSlots(act);
 
   // Track which slots were explicitly present before inheritance
   const explicit: Array<Partial<Record<InheritSlot, boolean>>> = acts.map((action) => {
@@ -173,10 +218,11 @@ export function inheritSlotsAcrossActions(
     return flags;
   });
 
-  // L→R: fill unfilled from previous
+  // L→R: fill unfilled from previous (same act family only)
   for (let i = 1; i < acts.length; i++) {
     const prev = acts[i - 1]!;
     const cur = acts[i]!;
+    if (!canInheritBetween(prev, cur)) continue;
     for (const slot of INHERIT_SLOTS) {
       if (!readSlot(cur, slot) && readSlot(prev, slot)) {
         cur[slot] = readSlot(prev, slot);
@@ -184,22 +230,26 @@ export function inheritSlotsAcrossActions(
     }
   }
 
-  // Rule 4: trailing explicit slot applies backwards to earlier unfilled-explicit segments
+  // Rule 4: trailing explicit slot applies backwards within the same family
   for (const slot of INHERIT_SLOTS) {
     let trailing: string | undefined;
+    let trailingFamily: string | undefined;
     for (let i = acts.length - 1; i >= 0; i--) {
       if (explicit[i]?.[slot]) {
         trailing = readSlot(acts[i]!, slot);
+        trailingFamily = actFamily(String(acts[i]!.type ?? ''));
         break;
       }
     }
-    if (!trailing) continue;
+    if (!trailing || !trailingFamily || trailingFamily === 'grocery') continue;
     for (let i = 0; i < acts.length; i++) {
-      if (!explicit[i]?.[slot]) {
-        acts[i]![slot] = trailing;
-      }
+      if (explicit[i]?.[slot]) continue;
+      if (actFamily(String(acts[i]!.type ?? '')) !== trailingFamily) continue;
+      acts[i]![slot] = trailing;
     }
   }
+
+  for (const act of acts) stripGroceryChoreSlots(act);
 
   return [...acts, ...other, ...navigates];
 }

@@ -84,7 +84,9 @@ export function parseHouseholdIntent(
     return [{ type: 'complete_task', title: title || 'this task' }];
   }
 
-  const groceryFromSpeech = groceryAddActionsFromUtterance(text);
+  const groceryFromSpeech = groceryAddActionsFromUtterance(text, {
+    excludeNames: memberNames,
+  });
   if (groceryFromSpeech?.length) {
     return groceryFromSpeech;
   }

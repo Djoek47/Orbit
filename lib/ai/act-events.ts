@@ -3,9 +3,8 @@
  * Provider COGS stays on AiUsageEvent (lib/ai/credits.ts).
  */
 import {
-  TOKEN_WEIGHT_LIVE,
-  TOKEN_WEIGHT_SILENT,
-  TOKEN_WEIGHT_SPOKEN,
+  TOKEN_WEIGHT_QUIET,
+  TOKEN_WEIGHT_SPEAK_BACK,
   TOKENS_PER_DAY,
   TOKENS_PER_MONTH,
 } from '@/constants/poppins-ai-rates';
@@ -71,20 +70,19 @@ export type SummarizeActUsageOpts = {
   todayKey?: string;
 };
 
-/** Map legacy PoppinsActMode → WO3 axes + weight (Direct not shipped). */
-export function axesFromPoppinsMode(mode: PoppinsActMode | undefined): {
+/** Map PoppinsActMode → axes + weight. Legacy stored `live` migrates to Speak back. */
+export function axesFromPoppinsMode(mode: PoppinsActMode | 'live' | undefined): {
   voice: ActVoice;
   control: ActControl;
   tokens: number;
 } {
   switch (mode) {
-    case 'live':
-      return { voice: 'spoken', control: 'guided', tokens: TOKEN_WEIGHT_LIVE };
     case 'spoken':
-      return { voice: 'quiet', control: 'guided', tokens: TOKEN_WEIGHT_SPOKEN };
+    case 'live':
+      return { voice: 'spoken', control: 'guided', tokens: TOKEN_WEIGHT_SPEAK_BACK };
     case 'silent':
     default:
-      return { voice: 'quiet', control: 'guided', tokens: TOKEN_WEIGHT_SILENT };
+      return { voice: 'quiet', control: 'guided', tokens: TOKEN_WEIGHT_QUIET };
   }
 }
 
@@ -278,8 +276,16 @@ export function mergeActEvents(local: ActEvent[], remote: ActEvent[]): ActEvent[
 
 /** Module sink so commitIuiBeat can charge without editing stage files. */
 type ActMeterHooks = {
-  onCommitted: (beatId: string, write: IuiWriteKind | undefined) => void | Promise<void>;
-  onUndone: (beatId: string, write: IuiWriteKind | undefined) => void | Promise<void>;
+  onCommitted: (
+    beatId: string,
+    write: IuiWriteKind | undefined,
+    actMode?: PoppinsActMode
+  ) => void | Promise<void>;
+  onUndone: (
+    beatId: string,
+    write: IuiWriteKind | undefined,
+    actMode?: PoppinsActMode
+  ) => void | Promise<void>;
 };
 
 let actMeterHooks: ActMeterHooks | null = null;
@@ -290,14 +296,16 @@ export function setActMeterHooks(hooks: ActMeterHooks | null) {
 
 export async function notifyActCommitted(
   beatId: string,
-  write: IuiWriteKind | undefined
+  write: IuiWriteKind | undefined,
+  actMode?: PoppinsActMode
 ): Promise<void> {
-  await actMeterHooks?.onCommitted(beatId, write);
+  await actMeterHooks?.onCommitted(beatId, write, actMode);
 }
 
 export async function notifyActUndone(
   beatId: string,
-  write: IuiWriteKind | undefined
+  write: IuiWriteKind | undefined,
+  actMode?: PoppinsActMode
 ): Promise<void> {
-  await actMeterHooks?.onUndone(beatId, write);
+  await actMeterHooks?.onUndone(beatId, write, actMode);
 }

@@ -806,11 +806,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     setActMeterHooks({
-      onCommitted: async (beatId, write) => {
+      onCommitted: async (beatId, write, actMode) => {
         const kind = actKindFromWrite(write);
         const member = currentMemberRef.current;
         if (!kind || !member) return;
-        const mode = await loadPoppinsActMode(household.id);
+        const mode = actMode ?? (await loadPoppinsActMode(household.id));
         await recordActEvent(
           buildActEvent({
             memberId: member.id,
@@ -822,11 +822,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           })
         );
       },
-      onUndone: async (beatId, write) => {
+      onUndone: async (beatId, write, actMode) => {
         const kind = actKindFromWrite(write);
         const member = currentMemberRef.current;
         if (!kind || !member) return;
-        const mode = await loadPoppinsActMode(household.id);
+        const mode = actMode ?? (await loadPoppinsActMode(household.id));
         await recordActEvent(
           buildActEvent({
             memberId: member.id,

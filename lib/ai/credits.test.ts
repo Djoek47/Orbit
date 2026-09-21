@@ -101,7 +101,7 @@ assert.equal(buildUsageEvent({
   inputTokens: 10,
   outputTokens: 5,
   chargeAct: true,
-  mode: 'live',
+  mode: 'spoken',
 }).tokens, 0, 'chargeAct no longer writes act tokens onto AiUsageEvent');
 
 console.log('PASS ai credits COGS ledger');

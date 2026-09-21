@@ -10,13 +10,13 @@ import {
   savePoppinsActMode,
 } from '@/lib/ai/poppins-mode';
 import type { PoppinsActMode } from '@/lib/ai/credits';
-import { TOKEN_WEIGHT_LIVE, TOKEN_WEIGHT_SILENT } from '@/constants/poppins-ai-rates';
+import { TOKEN_WEIGHT_QUIET, TOKEN_WEIGHT_SPEAK_BACK } from '@/constants/poppins-ai-rates';
 
 export type PoppinsConfirmTime = 'quick' | 'normal' | 'relaxed';
 export type PoppinsUndoWindowSec = 5 | 10 | 15;
 
 export type PoppinsInteractionPrefs = {
-  /** Speak back on → spoken (or live when enabled); off → silent. */
+  /** Speak back on → spoken Realtime; off → Quiet (silent). */
   speakBack: boolean;
   /**
    * Act immediately → Direct control pref.
@@ -42,12 +42,12 @@ export const DEFAULT_POPPINS_INTERACTION_PREFS: PoppinsInteractionPrefs = {
   notificationActions: true,
 };
 
-/** Placeholder cost line — replace after re-measurement. Do not invent a figure. */
+/** Placeholder cost line — replace after Quiet re-measurement. */
 export const SPOKEN_COST_LINE_PLACEHOLDER =
   'Poppins answers out loud. Uses more of your monthly actions (measured cost TBD).';
 
-export function voiceLabel(speakBack: boolean): 'Quiet' | 'Spoken' {
-  return speakBack ? 'Spoken' : 'Quiet';
+export function voiceLabel(speakBack: boolean): 'Quiet' | 'Speak back' {
+  return speakBack ? 'Speak back' : 'Quiet';
 }
 
 export function controlLabel(actImmediately: boolean): 'Guided' | 'Direct' {
@@ -59,10 +59,11 @@ export function controlLabel(actImmediately: boolean): 'Guided' | 'Direct' {
 export function derivedModeLine(prefs: PoppinsInteractionPrefs): string {
   const voice = voiceLabel(prefs.speakBack);
   const control = controlLabel(prefs.actImmediately);
-  const tokens = prefs.speakBack ? TOKEN_WEIGHT_LIVE : TOKEN_WEIGHT_SILENT;
-  // Live weight is the Spoken meter weight today (legacy naming).
+  const tokens = prefs.speakBack ? TOKEN_WEIGHT_SPEAK_BACK : TOKEN_WEIGHT_QUIET;
   const actions = prefs.speakBack ? Math.max(1, Math.round(tokens)) : 1;
-  return `Now using: ${voice} · ${control} — ${actions} action${actions === 1 ? '' : 's'} each`;
+  return `Now using: ${voice} · ${control} — ${
+    prefs.speakBack ? `about ${actions}` : String(actions)
+  } action${actions === 1 ? '' : 's'} each`;
 }
 
 export function modeFromSpeakBack(speakBack: boolean): PoppinsActMode {

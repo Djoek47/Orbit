@@ -121,6 +121,11 @@ export type IuiPayload = {
   releaseDate?: string;
   /** homework_compose vs generic task_compose. */
   composeKind?: 'homework';
+  /**
+   * Transport that produced this beat — meter charges from the beat, not prefs race.
+   * `silent` = Quiet / typed; `spoken` = Speak back Realtime.
+   */
+  actMode?: 'silent' | 'spoken';
 };
 
 export type IuiWriteKind =

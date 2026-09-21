@@ -325,3 +325,14 @@ A note on item 2: a monitor pass does not need `create_task_draft`, `claim_rewar
 ## 11. Re-measure before trusting any number here
 
 Every dollar figure above is an estimate built on published provider rates and assumed usage. After items 1–3 land, pull a week of `ai_usage_events`, compute real blended cost per household, and rewrite §1 and §8 with measured figures. Set the act cap from the measured p95 household, not from this document.
+
+---
+
+## 12. Quiet re-measure (WO9 B8)
+
+Provisional Speak-back weight is `TOKEN_WEIGHT_SPEAK_BACK = 35`:
+
+- Numerator **MEASURED 2026-09-20**: 5 Speak-back (Realtime) acts ≈ $0.26 → ~$0.052/act.
+- Denominator **ESTIMATED**: Quiet ≈ $0.0015/act → 0.052 / 0.0015 ≈ 35.
+
+**After Quiet ships:** run 5 Quiet acts (Speak back off — batch Whisper + `poppins-chat`), note the OpenAI dashboard delta, divide by 5, replace the Quiet denominator, and recompute `TOKEN_WEIGHT_SPEAK_BACK`. Do not change `TOKENS_PER_MONTH` / `TOKENS_PER_DAY` without a human pricing decision.

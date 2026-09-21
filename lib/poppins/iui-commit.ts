@@ -245,7 +245,11 @@ export async function commitIuiBeat(
   }
 
   if (wrote) {
-    await notifyActCommitted(beat.id, write === 'none' ? undefined : write);
+    await notifyActCommitted(
+      beat.id,
+      write === 'none' ? undefined : write,
+      beat.payload.actMode
+    );
   }
   return { ok: true, reverse };
 }

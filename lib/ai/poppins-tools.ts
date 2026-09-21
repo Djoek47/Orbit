@@ -194,7 +194,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'add_grocery',
     description:
-      'Stage an item on the IUI grocery/shopping card. HOLD silence commits. Clothing, sneakers, Jordan drops go on the shopping lane. If it releases in the future, also call create_calendar_event for that date. Never navigate_to Groceries unless they asked to open the list themselves.',
+      'Groceries and household supplies belong to the whole household. Never ask who they are for and never pass an assignee. Use this — not create_task_draft — for anything to buy. Stage an item on the IUI grocery/shopping card. HOLD silence commits. Clothing, sneakers, Jordan drops go on the shopping lane. If it releases in the future, also call create_calendar_event for that date. Never navigate_to Groceries unless they asked to open the list themselves.',
     parameters: {
       type: 'object',
       properties: {
@@ -207,7 +207,6 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
         lane: { type: 'string', enum: ['grocery', 'clothing'] },
         releaseDate: { type: 'string' },
       },
-      required: ['name'],
       additionalProperties: false,
     },
     risk: 'safe_serial',
@@ -365,7 +364,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'create_task_draft',
     description:
-      'Assign a household task on the IUI stage. Pass a short chore name (“Wash the car”, “tend to the dishes”), never the spoken sentence (“I’ll set a task to…”). If the household already has a close open task, reuse that title. Pass libraryTaskId when it is a catalog chore. Pass assignee when they said me or a member name. Pass category kitchen_dining when they said dishes/kitchen. HOLD writes the task — never say draft. One short spoken sentence per beat; wait for tap or HOLD.',
+      'Assign a household task on the IUI stage. Pass a short chore name (“Wash the car”, “tend to the dishes”), never the spoken sentence (“I’ll set a task to…”). If the household already has a close open task, reuse that title. Pass libraryTaskId when it is a catalog chore. Pass assignee when they said me or a member name. Pass category kitchen_dining when they said dishes/kitchen. HOLD writes the task — never say draft. One short spoken sentence per beat; wait for tap or HOLD. Items to buy (food, supplies, clothes) are not tasks — use add_grocery.',
     parameters: {
       type: 'object',
       properties: {

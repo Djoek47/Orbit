@@ -63,4 +63,27 @@ const members = ['Drako', 'Maya'];
   assert.equal(String(merged[merged.length - 1]?.type), 'navigate');
 }
 
+// WO9 A3.4 — grocery never inherits chore slots (either direction)
+{
+  const forward = inheritSlotsAcrossActions([
+    { type: 'create_task_draft', title: 'Dishes', assignee: 'Drako', category: 'kitchen_dining' },
+    { type: 'add_grocery', name: 'milk' },
+  ]);
+  const grocery = forward.find((a) => String(a.type) === 'add_grocery');
+  assert.ok(grocery);
+  assert.equal(grocery?.assignee, undefined);
+  assert.equal(grocery?.category, undefined);
+
+  const backward = inheritSlotsAcrossActions([
+    { type: 'add_grocery', name: 'milk' },
+    { type: 'create_task_draft', title: 'Dishes', assignee: 'Drako', category: 'kitchen_dining' },
+  ]);
+  const grocery2 = backward.find((a) => String(a.type) === 'add_grocery');
+  assert.ok(grocery2);
+  assert.equal(grocery2?.assignee, undefined);
+  assert.equal(grocery2?.category, undefined);
+  const task = backward.find((a) => String(a.type) === 'create_task_draft');
+  assert.equal(task?.assignee, 'Drako');
+}
+
 console.log('PASS clause-segment (rule 4 + safe and)');

@@ -50,15 +50,29 @@ export const TOKENS_PER_MONTH = 300;
 
 /**
  * Soft daily cap (remote-config shaped).
- * Must stay >= TOKEN_WEIGHT_LIVE so a single Spoken act is expensive, not impossible.
- * Raised to 300 for measurement (WO3 §7); re-tune after Realtime cost re-measure.
+ * Must stay >= TOKEN_WEIGHT_SPEAK_BACK so a single Speak-back act is expensive, not impossible.
+ * Do not change TOKENS_PER_MONTH / TOKENS_PER_DAY here — pricing is a human decision.
  */
 export const TOKENS_PER_DAY = 300;
 
-/** Token weights by act mode (commit charge). */
-export const TOKEN_WEIGHT_SILENT = 1;
-export const TOKEN_WEIGHT_SPOKEN = 2;
-export const TOKEN_WEIGHT_LIVE = 40;
+/**
+ * Token weights by transport that actually ran.
+ * 1 token = one Quiet act (definition).
+ *
+ * TOKEN_WEIGHT_SPEAK_BACK:
+ *   Numerator MEASURED 2026-09-20 — 5 Speak-back acts ≈ $0.26 → ~$0.052/act.
+ *   Denominator ESTIMATED Quiet ≈ $0.0015/act → 0.052 / 0.0015 ≈ 35.
+ *   Re-measure Quiet after Quiet ships; see docs/poppins-pricing-and-metering.md.
+ */
+export const TOKEN_WEIGHT_QUIET = 1;
+export const TOKEN_WEIGHT_SPEAK_BACK = 35;
+
+/** @deprecated Use TOKEN_WEIGHT_QUIET */
+export const TOKEN_WEIGHT_SILENT = TOKEN_WEIGHT_QUIET;
+/** @deprecated Use TOKEN_WEIGHT_SPEAK_BACK — legacy Spoken weight collapsed */
+export const TOKEN_WEIGHT_SPOKEN = TOKEN_WEIGHT_SPEAK_BACK;
+/** @deprecated Use TOKEN_WEIGHT_SPEAK_BACK — stored `live` migrates to `spoken` */
+export const TOKEN_WEIGHT_LIVE = TOKEN_WEIGHT_SPEAK_BACK;
 
 /**
  * Realtime session truncation: max post-instruction conversation tokens.
@@ -93,8 +107,8 @@ export function ratesForModel(model: string): { input: number; output: number } 
   return { input: row.input, output: row.output };
 }
 
-if (TOKENS_PER_DAY < TOKEN_WEIGHT_LIVE) {
+if (TOKENS_PER_DAY < TOKEN_WEIGHT_SPEAK_BACK) {
   throw new Error(
-    `TOKENS_PER_DAY (${TOKENS_PER_DAY}) must be >= TOKEN_WEIGHT_LIVE (${TOKEN_WEIGHT_LIVE})`
+    `TOKENS_PER_DAY (${TOKENS_PER_DAY}) must be >= TOKEN_WEIGHT_SPEAK_BACK (${TOKEN_WEIGHT_SPEAK_BACK})`
   );
 }

@@ -150,7 +150,20 @@ function primarySlot(scene: IuiScene, payload: IuiPayload): {
  * Validate a beat payload immediately before commit.
  * Never substitutes — rejection means ask for that one slot.
  */
+let loggedGroceryAssigneeOnce = false;
+
 export function validateAct(payload: IuiPayload, scene: IuiScene): ActValidation {
+  // Belt-and-braces: groceries are household-wide — strip any leaked assignee.
+  if (scene === 'grocery_add' && payload.assignee) {
+    if (!loggedGroceryAssigneeOnce) {
+      loggedGroceryAssigneeOnce = true;
+      console.warn(
+        '[validateAct] grocery_add beat carried an assignee; stripping (programming error)'
+      );
+    }
+    delete payload.assignee;
+  }
+
   const write = payload.write ?? 'none';
   if (
     write !== 'create_task' &&
