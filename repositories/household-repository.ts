@@ -1230,6 +1230,69 @@ export const householdRepository = {
     return updatedMember;
   },
 
+  /**
+   * Persist `profile_invite_code` when missing (Family iPad Step 3 face select).
+   * Mock + Supabase. Retries on unique collisions.
+   */
+  async ensureMemberProfileInviteCode(
+    member: HouseholdMember,
+    taken: Iterable<string> = [],
+    householdId?: string | null
+  ): Promise<HouseholdMember> {
+    const existing = member.profileInviteCode?.trim();
+    if (existing) {
+      return { ...member, profileInviteCode: normalizeInviteCode(existing) };
+    }
+
+    const takenSet = new Set(
+      [...taken].map((code) => normalizeInviteCode(code)).filter(Boolean)
+    );
+
+    if (isMockMode()) {
+      const code = allocateChildInviteCode(member.name, takenSet);
+      const updatedMember: HouseholdMember = { ...member, profileInviteCode: code };
+      const active = await loadActiveMockHousehold();
+      const patch = (members: HouseholdMember[]) =>
+        members.map((item) => (item.id === member.id ? updatedMember : item));
+      if (active?.id) {
+        await saveActiveMockHousehold({ ...active, members: patch(active.members) });
+      }
+      mockHousehold.members = patch(mockHousehold.members);
+      return updatedMember;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.ensureMemberProfileInviteCode');
+    let lastError: { code?: string; message?: string } | null = null;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const code = allocateChildInviteCode(member.name, takenSet);
+      let query = supabase
+        .from('household_members')
+        .update({ profile_invite_code: code })
+        .eq('id', member.id);
+      if (householdId) {
+        query = query.eq('household_id', householdId);
+      }
+      const { data, error } = await query.select('*').single();
+      if (!error && data) {
+        const mapped = mapMemberRow(
+          data as HouseholdMemberRow & { shared_with_member_ids?: string[] | null }
+        );
+        return {
+          ...mapped,
+          profileInviteCode: mapped.profileInviteCode ?? code,
+        };
+      }
+      lastError = error;
+      if (isUniqueViolation(error)) {
+        takenSet.add(code);
+        continue;
+      }
+      mapDbError('householdRepository.ensureMemberProfileInviteCode', error);
+    }
+    mapDbError('householdRepository.ensureMemberProfileInviteCode', lastError);
+    throw new Error('householdRepository.ensureMemberProfileInviteCode: invite code retry exhausted.');
+  },
+
   async setMemberJoinPreApproved(
     member: HouseholdMember,
     preApproved: boolean

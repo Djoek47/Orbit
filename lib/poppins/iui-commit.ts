@@ -1,10 +1,12 @@
 /**
  * Single commit path for IUI acts — stage HOLD and notification Approve share this.
  * validateAct runs here so every writer shares one gate.
- * Successful writes return a reverse descriptor for the 5s undo window.
+ * Successful writes return a reverse descriptor for the undo window.
+ * Outward notify effects can be deferred via effectOutbox (Direct / Guided undo).
  */
 import { notifyActCommitted } from '@/lib/ai/act-events';
 import { resolvePoppinsChoreTitle } from '@/lib/poppins/catalog-match';
+import { effectOutbox } from '@/lib/poppins/effect-outbox';
 import type { IuiCommitReverse } from '@/lib/poppins/iui-reverse';
 import { ActRejectedError, validateAct, type ActRejection } from '@/lib/poppins/validate-act';
 import type { IuiBeat, IuiWriteKind } from '@/lib/poppins/ui-scenes';
@@ -30,7 +32,13 @@ import type {
 export type IuiCommitWrites = {
   household: HouseholdSnapshot;
   currentMember?: HouseholdMember | null;
-  createTask: (input: CreateTaskInput) => Promise<HouseholdTask | null>;
+  createTask: (
+    input: CreateTaskInput,
+    options?: {
+      deferEffects?: boolean;
+      onDeferredNotify?: (run: () => Promise<void>) => void;
+    }
+  ) => Promise<HouseholdTask | null>;
   createEvent: (input: CreateEventInput) => Promise<HouseholdEvent | null | unknown>;
   createItinerary: (input: CreateItineraryInput) => Promise<Itinerary | null | void>;
   addMissingGrocery: (input: CreateGroceryInput) => void | Promise<GroceryItem | void | unknown>;
@@ -39,16 +47,30 @@ export type IuiCommitWrites = {
   claimReward: (rewardId: string) => Promise<unknown>;
   advanceItineraryStop: (itineraryId: string, stopId: string) => Promise<unknown>;
   onVoiceTaskCreated?: (task: HouseholdTask) => void;
+  /** Undo window ms for deferred notify (other-person acts use ≥10s). */
+  undoWindowMs?: number;
+  /** Direct mode: do not invent assignee/due defaults from speech silence. */
+  directMode?: boolean;
 };
 
 export type CommitIuiResult =
   | { ok: true; reverse?: IuiCommitReverse }
-  | { ok: false; slot: string; reason: ActRejection };
+  | { ok: false; slot: string; reason: ActRejection; ask?: string };
 
 function asId(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const id = (value as { id?: unknown }).id;
   return typeof id === 'string' && id.trim() ? id : undefined;
+}
+
+function isOtherPersonAssignee(
+  assignee: string | undefined,
+  currentMember?: HouseholdMember | null
+): boolean {
+  if (!assignee?.trim()) return false;
+  const self = (currentMember?.name ?? '').trim().toLowerCase();
+  if (!self) return true;
+  return assignee.trim().toLowerCase() !== self && assignee.trim().toLowerCase() !== 'me';
 }
 
 export async function commitIuiBeat(
@@ -72,12 +94,15 @@ export async function commitIuiBeat(
     claimReward,
     advanceItineraryStop,
     onVoiceTaskCreated,
+    undoWindowMs = 5000,
+    directMode = false,
   } = writes;
   const p = beat.payload;
   const write = (p.write ?? 'none') as IuiWriteKind;
   const isHomeworkWrite = write === 'create_homework' || p.category === 'homework_education';
   let wrote = false;
   let reverse: IuiCommitReverse | undefined;
+  let deferredNotify: (() => Promise<void>) | undefined;
 
   if ((write === 'create_task' || write === 'create_homework') && (p.title || p.libraryTaskId)) {
     try {
@@ -91,8 +116,31 @@ export async function commitIuiBeat(
       const library = libraryId
         ? allLibraryTasks().find((item) => item.id === libraryId)
         : undefined;
-      const assignee = p.assignee || currentMember?.name || household.members[0]?.name || 'Me';
-      const dueChip = p.due ?? 'Today';
+
+      // Direct: missing assignee/due from speech is unfilled — ask, don't invent.
+      if (directMode) {
+        if (!p.assignee?.trim()) {
+          return {
+            ok: false,
+            slot: 'assignee',
+            reason: 'missing',
+            ask: 'Who should do this?',
+          };
+        }
+        if (!p.due?.trim()) {
+          return {
+            ok: false,
+            slot: 'due',
+            reason: 'missing',
+            ask: 'When is it due?',
+          };
+        }
+      }
+
+      const assignee = directMode
+        ? String(p.assignee).trim()
+        : p.assignee || currentMember?.name || household.members[0]?.name || 'Me';
+      const dueChip = directMode ? String(p.due).trim() : p.due ?? 'Today';
       const occurrenceDate = occurrenceDateForDueLabel(dueChip);
       const dueLabel = dueLabelForDate(occurrenceDate);
       const [y, m, d] = occurrenceDate.split('-').map(Number);
@@ -104,39 +152,63 @@ export async function commitIuiBeat(
       )?.toISOString();
       const title = resolved.title || p.title;
       let created = null;
+      const createOpts = {
+        deferEffects: true as const,
+        onDeferredNotify: (run: () => Promise<void>) => {
+          deferredNotify = run;
+        },
+      };
       if (library) {
-        created = await createTask({
-          ...buildLibraryAssignInput(
-            library,
-            assignee,
-            library.defaultFrequency,
-            occurrence,
-            householdDueTimeLocal(household, occurrence)
-          ),
-          due: dueLabel,
-          occurrenceDate,
-          dueAt,
-          proofRequired: isHomeworkWrite ? true : undefined,
-        });
+        created = await createTask(
+          {
+            ...buildLibraryAssignInput(
+              library,
+              assignee,
+              library.defaultFrequency,
+              occurrence,
+              householdDueTimeLocal(household, occurrence)
+            ),
+            due: dueLabel,
+            occurrenceDate,
+            dueAt,
+            proofRequired: isHomeworkWrite ? true : undefined,
+          },
+          createOpts
+        );
       } else if (title) {
-        created = await createTask({
-          title,
-          category: p.category ?? p.selectedChipId ?? resolved.category ?? 'home_maintenance',
-          assignee,
-          due: dueLabel,
-          dueAt,
-          xp: 10,
-          repeat: p.repeat === 'Daily' ? 'Daily' : 'None',
-          difficulty: 'medium',
-          weight: 1,
-          occurrenceDate,
-          proofRequired: isHomeworkWrite,
-        });
+        created = await createTask(
+          {
+            title,
+            category: p.category ?? p.selectedChipId ?? resolved.category ?? 'home_maintenance',
+            assignee,
+            due: dueLabel,
+            dueAt,
+            xp: 10,
+            repeat: p.repeat === 'Daily' ? 'Daily' : 'None',
+            difficulty: 'medium',
+            weight: 1,
+            occurrenceDate,
+            proofRequired: isHomeworkWrite,
+          },
+          createOpts
+        );
       }
       if (created) {
         wrote = true;
-        reverse = { write, entityId: created.id };
+        reverse = { write, entityId: created.id, beatId: beat.id };
         onVoiceTaskCreated?.(created);
+        if (deferredNotify) {
+          const other = isOtherPersonAssignee(assignee, currentMember);
+          const window = other ? Math.max(undoWindowMs, 10_000) : undoWindowMs;
+          effectOutbox.enqueue(
+            {
+              id: `notify-${beat.id}`,
+              beatId: beat.id,
+              run: deferredNotify,
+            },
+            window
+          );
+        }
       }
     } catch (error) {
       console.warn('IUI create_task failed', error);

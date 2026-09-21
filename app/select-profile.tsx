@@ -95,7 +95,7 @@ export default function SelectProfileScreen() {
   }
 
   if (profiles.length === 0) {
-    router.replace('/setup-kid-device' as never);
+    router.replace('/setup-kid-device?step=3' as never);
     return null;
   }
 
@@ -125,7 +125,7 @@ export default function SelectProfileScreen() {
           void removeHostedProfile(member.id).then((next) => {
             setSession(next);
             if (next.profileMemberIds.length === 0) {
-              router.replace('/setup-kid-device' as never);
+              router.replace('/setup-kid-device?step=3' as never);
             }
           });
         },
@@ -190,7 +190,7 @@ export default function SelectProfileScreen() {
           })}
           <Pressable
             style={styles.tile}
-            onPress={() => router.push('/setup-kid-device' as never)}
+            onPress={() => router.push('/setup-kid-device?step=3' as never)}
             accessibilityRole="button"
             accessibilityLabel="Add someone to this iPad">
             <View style={[styles.addRing, { borderColor: orbitPalette.border }]}>

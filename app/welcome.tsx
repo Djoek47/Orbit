@@ -30,6 +30,7 @@ import {
   seedOnboardingAvatar,
 } from '@/lib/profile/chosen-avatar';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
+import { TOKEN_WEIGHT_SPEAK_BACK } from '@/constants/poppins-ai-rates';
 import {
   loadOnboardingPrefs,
   saveOnboardingPrefs,
@@ -1218,7 +1219,7 @@ export default function WelcomeOnboardingScreen() {
               />
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textSubtle, marginTop: 12 }]}>
                 {selectedPoppinsVoice === 'spoken'
-                  ? 'Talk to me — uses more of your monthly actions (cost TBD).'
+                  ? `Talk to me — each spoken action uses about ${TOKEN_WEIGHT_SPEAK_BACK} of your monthly actions instead of 1.`
                   : 'Just show me — Poppins fills the screen as you speak.'}
               </Text>
               <OrbitButton onPress={() => void handlePoppinsVoiceContinue()}>Continue</OrbitButton>

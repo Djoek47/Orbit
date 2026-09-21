@@ -1,6 +1,5 @@
 /**
  * Household Poppins interaction prefs — voice/control axes + Guided tuning.
- * Direct control is stored but not runtime-enabled until outbox ships.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -18,10 +17,7 @@ export type PoppinsUndoWindowSec = 5 | 10 | 15;
 export type PoppinsInteractionPrefs = {
   /** Speak back on → spoken Realtime; off → Quiet (silent). */
   speakBack: boolean;
-  /**
-   * Act immediately → Direct control pref.
-   * Runtime stays Guided until Direct/outbox ships.
-   */
+  /** Act immediately → Direct control (skip HOLD when slots filled). */
   actImmediately: boolean;
   confirmTime: PoppinsConfirmTime;
   undoWindowSec: PoppinsUndoWindowSec;
@@ -42,18 +38,12 @@ export const DEFAULT_POPPINS_INTERACTION_PREFS: PoppinsInteractionPrefs = {
   notificationActions: true,
 };
 
-/** Placeholder cost line — replace after Quiet re-measurement. */
-export const SPOKEN_COST_LINE_PLACEHOLDER =
-  'Poppins answers out loud. Uses more of your monthly actions (measured cost TBD).';
-
 export function voiceLabel(speakBack: boolean): 'Quiet' | 'Speak back' {
   return speakBack ? 'Speak back' : 'Quiet';
 }
 
 export function controlLabel(actImmediately: boolean): 'Guided' | 'Direct' {
-  // Direct not runtime-enabled — derived line stays Guided for launch.
-  void actImmediately;
-  return 'Guided';
+  return actImmediately ? 'Direct' : 'Guided';
 }
 
 export function derivedModeLine(prefs: PoppinsInteractionPrefs): string {

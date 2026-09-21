@@ -410,7 +410,12 @@ type OrbitContextValue = {
   updateMemberDisplayName: (memberId: string, name: string) => Promise<void>;
   createTask: (
     input: CreateTaskInput,
-    options?: { householdId?: string | null; selfHomework?: boolean }
+    options?: {
+      householdId?: string | null;
+      selfHomework?: boolean;
+      /** IUI path: defer notifyTaskAssigned into effect outbox. */
+      deferEffects?: boolean;
+    }
   ) => Promise<HouseholdTask | null>;
   updateTask: (
     task: HouseholdTask,
@@ -631,6 +636,11 @@ type OrbitContextValue = {
   createSharedDevice: (name?: string) => Promise<HouseholdMember | null>;
   /** Link / unlink household people on a shared-device profile. */
   updateSharedDeviceLinks: (deviceId: string, memberIds: string[]) => Promise<void>;
+  /**
+   * Ensure a Sidekick has a persisted `profile_invite_code` (derive + write if missing).
+   * Used by Family iPad Step 3 face select — mock and Supabase.
+   */
+  ensureMemberProfileInviteCode: (memberId: string) => Promise<string | null>;
   /**
    * Admin creates 1–2 kid profiles (no child email). Invites are AirDrop/shareable.
    * Household data stays on the admin account.
@@ -2298,7 +2308,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const createTask = async (
     input: CreateTaskInput,
-    options?: { householdId?: string | null; selfHomework?: boolean }
+    options?: {
+      householdId?: string | null;
+      selfHomework?: boolean;
+      deferEffects?: boolean;
+      /** When deferEffects, register the notify thunk here instead of awaiting. */
+      onDeferredNotify?: (run: () => Promise<void>) => void;
+    }
   ): Promise<HouseholdTask | null> => {
     const targetHouseholdId = options?.householdId ?? household.id;
     // Explicit householdId = onboarding materialize (owner perms not flushed yet).
@@ -2378,13 +2394,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (inserted) {
         await trackAnalytics('task.created', { taskId: task.id }, analyticsContext);
         const prefs = nextHousehold.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-        await notifyTaskAssigned(
-          pushNotification,
-          nextHousehold,
-          normalizedInput,
-          task,
-          prefs.tasks !== false
-        );
+        const notify = async () => {
+          await notifyTaskAssigned(
+            pushNotification,
+            nextHousehold,
+            normalizedInput,
+            task,
+            prefs.tasks !== false
+          );
+        };
+        if (options?.deferEffects) {
+          options.onDeferredNotify?.(notify);
+        } else {
+          await notify();
+        }
       }
       return task;
     } catch (error) {
@@ -5692,6 +5715,29 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     );
   };
 
+  const ensureMemberProfileInviteCode = async (memberId: string) => {
+    const member = household.members.find((item) => item.id === memberId);
+    if (!member) return null;
+    if (member.profileInviteCode?.trim()) {
+      return normalizeInviteCode(member.profileInviteCode);
+    }
+    const taken = household.members
+      .map((item) => item.profileInviteCode)
+      .filter((code): code is string => Boolean(code?.trim()));
+    const updated = await householdRepository.ensureMemberProfileInviteCode(
+      member,
+      taken,
+      household.id
+    );
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((item) => (item.id === memberId ? updated : item)),
+    }));
+    return updated.profileInviteCode?.trim()
+      ? normalizeInviteCode(updated.profileInviteCode)
+      : null;
+  };
+
   const createChildInvites = async (
     names: string[],
     options?: { householdId?: string | null; householdName?: string }
@@ -6355,6 +6401,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateMemberRole,
       createSharedDevice,
       updateSharedDeviceLinks,
+      ensureMemberProfileInviteCode,
       createChildInvites,
       addOnboardingMembers,
       redeemChildInvite,

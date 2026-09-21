@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, AppState, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Alert, AppState, Image, Linking, Modal, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -30,12 +30,15 @@ import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { VOCAB } from '@/constants/vocabulary';
 import {
   DEFAULT_POPPINS_INTERACTION_PREFS,
-  SPOKEN_COST_LINE_PLACEHOLDER,
   derivedModeLine,
+  holdMsMultiplier,
   loadPoppinsInteractionPrefs,
   savePoppinsInteractionPrefs,
+  type PoppinsConfirmTime,
   type PoppinsInteractionPrefs,
+  type PoppinsUndoWindowSec,
 } from '@/lib/poppins/poppins-prefs';
+import { TOKEN_WEIGHT_SPEAK_BACK } from '@/constants/poppins-ai-rates';
 import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { memberUsesProfileInvite } from '@/lib/household/member-invite-routing';
@@ -220,6 +223,7 @@ export default function SettingsScreen() {
   const [poppinsPrefs, setPoppinsPrefs] = useState<PoppinsInteractionPrefs>(
     DEFAULT_POPPINS_INTERACTION_PREFS
   );
+  const [howActionsOpen, setHowActionsOpen] = useState(false);
   const poppinsPrefsReadOnly = !permissions.canManageHousehold;
 
   useEffect(() => {
@@ -1093,7 +1097,7 @@ export default function SettingsScreen() {
               }>
               <SettingsToggleRow
                 label="Speak back"
-                subtitle={SPOKEN_COST_LINE_PLACEHOLDER}
+                subtitle={`Poppins answers out loud. Each spoken action uses about ${TOKEN_WEIGHT_SPEAK_BACK} of your actions instead of 1.`}
                 value={poppinsPrefs.speakBack}
                 disabled={poppinsPrefsReadOnly}
                 onValueChange={(speakBack) => {
@@ -1103,20 +1107,63 @@ export default function SettingsScreen() {
               />
               <SettingsToggleRow
                 label="Act immediately"
-                subtitle="Skips the confirm step. Needs a later update before it can turn on."
-                value={false}
-                disabled
+                subtitle="Skips the pause before saving. You can still undo for a few seconds."
+                value={poppinsPrefs.actImmediately}
+                disabled={poppinsPrefsReadOnly}
                 last
-                onValueChange={() => undefined}
+                onValueChange={(actImmediately) => {
+                  if (poppinsPrefsReadOnly) return;
+                  void updatePoppinsPrefs({ ...poppinsPrefs, actImmediately });
+                }}
               />
             </SettingsGroup>
             <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 12 }]}>
-              {derivedModeLine({ ...poppinsPrefs, actImmediately: false })}
+              {derivedModeLine(poppinsPrefs)}
             </Text>
+            <SettingsGroup>
+              <SettingsNavRow
+                icon="info-outline"
+                iconColor={c.textMuted}
+                label="How actions work"
+                last
+                onPress={() => setHowActionsOpen(true)}
+              />
+            </SettingsGroup>
             <SettingsGroup footer="Fine-tune Guided. Children see this read-only.">
+              <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
+                <SegmentedControl
+                  label="Confirm time — How long Poppins waits in silence before saving."
+                  options={[
+                    { value: 'quick', label: 'Quick' },
+                    { value: 'normal', label: 'Normal' },
+                    { value: 'relaxed', label: 'Relaxed' },
+                  ]}
+                  value={poppinsPrefs.confirmTime}
+                  onChange={(confirmTime) => {
+                    if (poppinsPrefsReadOnly) return;
+                    void updatePoppinsPrefs({ ...poppinsPrefs, confirmTime });
+                  }}
+                />
+              </View>
+              <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 }}>
+                <SegmentedControl
+                  label="Undo window — How long the Undo button stays after saving."
+                  options={[
+                    { value: '5', label: '5 s' },
+                    { value: '10', label: '10 s' },
+                    { value: '15', label: '15 s' },
+                  ]}
+                  value={String(poppinsPrefs.undoWindowSec) as '5' | '10' | '15'}
+                  onChange={(sec) => {
+                    if (poppinsPrefsReadOnly) return;
+                    const undoWindowSec = Number(sec) as PoppinsUndoWindowSec;
+                    void updatePoppinsPrefs({ ...poppinsPrefs, undoWindowSec });
+                  }}
+                />
+              </View>
               <SettingsToggleRow
                 label="Show thinking"
-                subtitle="A short thinking beat before the act."
+                subtitle='A short "thinking" moment while Poppins works it out.'
                 value={poppinsPrefs.showThinking}
                 disabled={poppinsPrefsReadOnly}
                 onValueChange={(showThinking) => {
@@ -1126,7 +1173,7 @@ export default function SettingsScreen() {
               />
               <SettingsToggleRow
                 label="Written replies"
-                subtitle="Clarifications on the stage in Quiet."
+                subtitle="Poppins writes its answer on screen. Questions always show."
                 value={poppinsPrefs.writtenReplies}
                 disabled={poppinsPrefsReadOnly}
                 onValueChange={(writtenReplies) => {
@@ -1136,7 +1183,7 @@ export default function SettingsScreen() {
               />
               <SettingsToggleRow
                 label="Notification actions"
-                subtitle="Approve acts from a notification."
+                subtitle="Approve or change Poppins' suggestions right from a notification."
                 value={poppinsPrefs.notificationActions}
                 disabled={poppinsPrefsReadOnly}
                 last
@@ -1385,6 +1432,54 @@ export default function SettingsScreen() {
         await updateMemberAvatar(personalizeMember.id, avatar);
       }}
     />
+    <Modal
+      visible={howActionsOpen}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setHowActionsOpen(false)}>
+      <Pressable
+        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+        onPress={() => setHowActionsOpen(false)}>
+        <Pressable
+          onPress={(e) => e.stopPropagation()}
+          style={{
+            backgroundColor: isDark ? '#1A1A1E' : '#FFFFFF',
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: 24,
+            paddingBottom: Math.max(insets.bottom, 24),
+            gap: 12,
+          }}>
+          <Text style={[styles.nameText, { color: c.text }]}>How actions work</Text>
+          <Text style={[styles.caption, { color: c.textMuted, lineHeight: 20 }]}>
+            Every time Poppins saves something for you — a task, a grocery, an event — it uses an
+            action.
+          </Text>
+          <Text style={[styles.caption, { color: c.textMuted, lineHeight: 20 }]}>
+            Quiet Poppins uses 1 action. Speak back uses about {TOKEN_WEIGHT_SPEAK_BACK}, because
+            talking back costs more to run.
+          </Text>
+          <Text style={[styles.caption, { color: c.textMuted, lineHeight: 20 }]}>
+            The less Poppins talks, the more actions you have.
+          </Text>
+          <Text style={[styles.caption, { color: c.textMuted, lineHeight: 20 }]}>
+            You have {TOKENS_PER_MONTH} actions a month, and they reset on{' '}
+            {new Date(aiSummary.periodResetsAt).toLocaleDateString()}. Typing works the same as
+            speaking.
+          </Text>
+          <Pressable
+            onPress={() => setHowActionsOpen(false)}
+            style={{
+              marginTop: 8,
+              alignSelf: 'flex-end',
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+            }}>
+            <Text style={{ color: accentTheme.primary, fontWeight: '600' }}>Close</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
     <MajordomoProfileSheet
       visible={majordomoOpen}
       onDismiss={() => setMajordomoOpen(false)}

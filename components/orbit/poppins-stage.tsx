@@ -33,6 +33,7 @@ import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orche
 import type { IuiBeat, IuiChip, IuiFace, IuiPayload } from '@/lib/poppins/ui-scenes';
 import { allLibraryTasks, choreDomains, homeworkDomain } from '@/lib/tasks/task-library';
 import { commitIuiBeat } from '@/lib/poppins/iui-commit';
+import { getSessionDirectMode, getSessionUndoMs } from '@/lib/poppins/session-act-mode';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
@@ -476,6 +477,8 @@ export function PoppinsStage({
     claimReward,
     advanceItineraryStop,
     onVoiceTaskCreated,
+    directMode: getSessionDirectMode(),
+    undoWindowMs: getSessionUndoMs(),
   });
   writesRef.current = {
     household,
@@ -489,6 +492,8 @@ export function PoppinsStage({
     claimReward,
     advanceItineraryStop,
     onVoiceTaskCreated,
+    directMode: getSessionDirectMode(),
+    undoWindowMs: getSessionUndoMs(),
   };
 
   useEffect(() => {

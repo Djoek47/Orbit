@@ -63,6 +63,8 @@ export function dispatchIuiActNotification(input: {
   recipientName?: string;
 }): void {
   void (async () => {
+    const { getSessionNotificationActions } = await import('@/lib/poppins/session-act-mode');
+    const withActions = getSessionNotificationActions();
     const { IUI_ACT_CATEGORY } = await import('@/lib/notifications/iui-act-category');
     const { presentLocalBanner } = await import('@/lib/notifications/push');
     const { serializeIuiActNotification } = await import(
@@ -80,7 +82,7 @@ export function dispatchIuiActNotification(input: {
         serialized.title,
         serialized.body,
         serialized.data as unknown as Record<string, unknown>,
-        { categoryIdentifier: IUI_ACT_CATEGORY }
+        withActions ? { categoryIdentifier: IUI_ACT_CATEGORY } : undefined
       );
       return;
     }
@@ -93,7 +95,7 @@ export function dispatchIuiActNotification(input: {
         title: serialized.title,
         body: serialized.body,
         audienceMemberIds: input.audienceMemberIds,
-        categoryId: IUI_ACT_CATEGORY,
+        ...(withActions ? { categoryId: IUI_ACT_CATEGORY } : {}),
         data: serialized.data,
       },
     });

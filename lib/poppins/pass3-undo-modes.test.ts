@@ -10,9 +10,10 @@ import {
   derivedModeLine,
   modeFromSpeakBack,
   voiceLabel,
+  controlLabel,
   DEFAULT_POPPINS_INTERACTION_PREFS,
-  SPOKEN_COST_LINE_PLACEHOLDER,
 } from '@/lib/poppins/poppins-prefs';
+import { TOKEN_WEIGHT_SPEAK_BACK } from '@/constants/poppins-ai-rates';
 import { reverseIuiCommit, type IuiCommitReverse } from '@/lib/poppins/iui-reverse';
 import { UNDO_MS } from '@/lib/poppins/ui-orchestrator';
 import { RESULT_LINGER_MS } from '@/lib/poppins/ui-scenes';
@@ -26,10 +27,15 @@ async function main() {
 
   assert.equal(voiceLabel(false), 'Quiet');
   assert.equal(voiceLabel(true), 'Speak back');
+  assert.equal(controlLabel(false), 'Guided');
+  assert.equal(controlLabel(true), 'Direct');
   assert.equal(modeFromSpeakBack(false), 'silent');
   assert.equal(modeFromSpeakBack(true), 'spoken');
   assert.match(derivedModeLine(DEFAULT_POPPINS_INTERACTION_PREFS), /Quiet · Guided/);
-  assert.match(SPOKEN_COST_LINE_PLACEHOLDER, /TBD|measured/i);
+  assert.match(
+    derivedModeLine({ ...DEFAULT_POPPINS_INTERACTION_PREFS, speakBack: true, actImmediately: true }),
+    new RegExp(`Speak back · Direct — about ${TOKEN_WEIGHT_SPEAK_BACK}`)
+  );
 
   {
     const deleted: string[] = [];

@@ -9,7 +9,8 @@ import { withComposeProgress } from '@/lib/poppins/iui-compose';
 import { withHomeworkComposeProgress } from '@/lib/poppins/homework-compose';
 import type { IuiCommitReverse } from '@/lib/poppins/iui-reverse';
 import { mapUiActionsToPlaylist } from '@/lib/poppins/ui-tool-map';
-import { getSessionActMode } from '@/lib/poppins/session-act-mode';
+import { getSessionActMode, getSessionDirectMode, getSessionHoldMultiplier, getSessionUndoMs } from '@/lib/poppins/session-act-mode';
+import { validateAct } from '@/lib/poppins/validate-act';
 import {
   HOLD_MS_DEFAULT,
   HOLD_MS_KID,
@@ -89,8 +90,17 @@ let hapticHandler: ((kind: IuiHapticKind) => void) | null = null;
 let tapHandler: ((tap: IuiStageTap) => void) | null = null;
 const tapHandlers = new Set<(tap: IuiStageTap) => void>();
 
-/** Undo window after settle — also the result_mark dwell when undoable. */
+/** Default undo window; prefs override via setSessionInteractionPrefs. */
 export const UNDO_MS = 5000;
+
+function effectiveUndoMs(beat?: IuiBeat | null): number {
+  const base = getSessionUndoMs() || UNDO_MS;
+  const assignee = beat?.payload.assignee?.trim();
+  if (assignee && assignee.toLowerCase() !== 'me') {
+    return Math.max(base, 10_000);
+  }
+  return base;
+}
 
 const PROTECTED_SLOTS = [
   'assignee',
@@ -199,14 +209,15 @@ function advanceAfterSettle() {
 
 function armUndoWindow(beat: IuiBeat, reverse?: IuiCommitReverse | null) {
   clearUndoTimer();
+  const ms = effectiveUndoMs(beat);
   setState({
     undoBeat: beat,
-    undoUntil: Date.now() + UNDO_MS,
+    undoUntil: Date.now() + ms,
     undoReverse: reverse ?? null,
   });
   undoTimer = setTimeout(() => {
     setState({ undoBeat: null, undoUntil: null, undoReverse: null });
-  }, UNDO_MS);
+  }, ms);
 }
 
 async function settleCurrent(opts?: { fromTap?: boolean }) {
@@ -286,6 +297,11 @@ function maybeArmHold() {
   // Marginal fuzzy fill — NARROW / wait for certainty, do not silence-commit.
   if (beat.payload.provisional) return;
   if (sceneNeedsUnfold(beat.scene) && state.phase === 'show') return;
+  // Direct: slots filled → commit immediately, no HOLD.
+  if (beatReadyForDirectCommit(beat)) {
+    void settleCurrent({ fromTap: true });
+    return;
+  }
   clearQuietTimer();
   quietTimer = setTimeout(() => {
     if (state.speaking || state.frozen) return;
@@ -412,6 +428,10 @@ function armBeat() {
   }
 
   if (skipShow) {
+    if (beatReadyForDirectCommit(beat)) {
+      void settleCurrent({ fromTap: true });
+      return;
+    }
     maybeArmHold();
     return;
   }
@@ -432,7 +452,11 @@ function resetHoldProgressOnly() {
 function startPlaylist(playlist: IuiBeat[], kid?: boolean) {
   if (!playlist.length) return;
   clearAllTimers();
-  if (kid != null) sessionHoldMs = kid ? HOLD_MS_KID : HOLD_MS_DEFAULT;
+  const mult = getSessionHoldMultiplier();
+  const baseHold = kid != null ? (kid ? HOLD_MS_KID : HOLD_MS_DEFAULT) : sessionHoldMs / (getSessionHoldMultiplier() || 1);
+  const resolvedBase = kid != null ? (kid ? HOLD_MS_KID : HOLD_MS_DEFAULT) : HOLD_MS_DEFAULT;
+  sessionHoldMs = Math.round(resolvedBase * mult);
+  void baseHold;
   // Stamp session actMode onto beats that don't already carry one (B2.3).
   const mode = getSessionActMode();
   const stamped = playlist.map((beat) =>
@@ -457,6 +481,28 @@ function startPlaylist(playlist: IuiBeat[], kid?: boolean) {
     undoReverse: null,
   });
   armBeat();
+}
+
+function beatReadyForDirectCommit(beat: IuiBeat): boolean {
+  if (!getSessionDirectMode()) return false;
+  if (beat.commit !== 'hold') return false;
+  if (beat.payload.provisional === true) return false;
+  if (beat.payload.composeReady === false) return false;
+  const gate = validateAct(beat.payload, beat.scene);
+  if (!gate.ok) return false;
+  const write = beat.payload.write ?? 'none';
+  if (write === 'add_grocery' || beat.scene === 'grocery_add') {
+    return Boolean(beat.payload.groceryName?.trim() || beat.payload.title?.trim());
+  }
+  if (write === 'complete_task') return true;
+  if (write === 'create_task' || write === 'create_homework' || beat.scene === 'task_compose' || beat.scene === 'homework_compose') {
+    const hasTitle = Boolean(beat.payload.title?.trim() || beat.payload.libraryTaskId);
+    const hasAssignee = Boolean(beat.payload.assignee?.trim());
+    const hasDue = Boolean(beat.payload.due?.trim());
+    return hasTitle && hasAssignee && hasDue;
+  }
+  if (write === 'create_event') return Boolean(beat.payload.title?.trim());
+  return gate.ok;
 }
 
 export type IuiDriveSnapshot = Pick<

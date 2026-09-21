@@ -1,21 +1,28 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { AppText as Text } from '@/components/orbit/app-text';
 import { radius, space } from '@/constants/orbit-theme';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { AppText as Text } from '@/components/orbit/app-text';
 
 type Props = {
   accent: string;
 };
 
+function isIpadDevice(): boolean {
+  return Platform.OS === 'ios' && Platform.isPad === true;
+}
+
 export function SharedIpadCard({ accent }: Props) {
   const { c, isDark, glassBorder } = useOrbitColors();
+  const onIpad = isIpadDevice();
 
   return (
     <View style={styles.block}>
-      <Text style={[styles.sectionLabel, { color: c.textSubtle }]}>SHARED IPAD</Text>
+      <Text style={[styles.sectionLabel, { color: c.textSubtle }]}>
+        {onIpad ? 'SHARED IPAD' : 'FAMILY IPAD'}
+      </Text>
       <View
         style={[
           styles.card,
@@ -26,13 +33,21 @@ export function SharedIpadCard({ accent }: Props) {
         ]}>
         <View style={styles.cardHead}>
           <MaterialIcons name="tablet-mac" size={20} color={accent} />
-          <Text style={[styles.cardTitle, { color: c.text }]}>This iPad</Text>
+          <Text style={[styles.cardTitle, { color: c.text }]}>
+            {onIpad ? 'This iPad' : 'Family iPad'}
+          </Text>
         </View>
         <Text style={[styles.cardBody, { color: c.textMuted }]}>
-          Scan each Sidekick&apos;s profile QR. They pick their face when they open the app.
+          {onIpad
+            ? 'Turn this iPad into a family iPad your kids share. Each one taps their face to start.'
+            : 'Kids can share one iPad and switch by tapping their face. Open Choremaxx on the iPad and set it up there.'}
         </Text>
         <Pressable
-          onPress={() => router.push('/setup-kid-device' as never)}
+          onPress={() =>
+            router.push(
+              (onIpad ? '/setup-kid-device' : '/setup-kid-device?readonly=1') as never
+            )
+          }
           style={({ pressed }) => [
             styles.action,
             {
@@ -40,7 +55,9 @@ export function SharedIpadCard({ accent }: Props) {
               backgroundColor: pressed ? `${accent}28` : `${accent}12`,
             },
           ]}>
-          <Text style={[styles.actionText, { color: accent }]}>Set up this iPad</Text>
+          <Text style={[styles.actionText, { color: accent }]}>
+            {onIpad ? 'Set up this iPad' : 'How it works'}
+          </Text>
           <MaterialIcons name="arrow-forward" size={16} color={accent} />
         </Pressable>
       </View>

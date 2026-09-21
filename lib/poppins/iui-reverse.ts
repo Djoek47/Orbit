@@ -1,7 +1,8 @@
 /**
  * Reverse a committed IUI write inside the undo window.
- * Does not retract push / inbox notifications already sent.
+ * With the effect outbox, undo discards deferred notifies so they never leave the device.
  */
+import { effectOutbox } from '@/lib/poppins/effect-outbox';
 import type { IuiWriteKind } from '@/lib/poppins/ui-scenes';
 import type { HouseholdTask } from '@/types/orbit';
 
@@ -14,6 +15,8 @@ export type IuiCommitReverse = {
   itineraryId?: string;
   stopId?: string;
   stopStatus?: string;
+  /** Beat id so undo can discard deferred outbox effects. */
+  beatId?: string;
 };
 
 export type IuiReverseWrites = {
@@ -34,6 +37,9 @@ export async function reverseIuiCommit(
   reverse: IuiCommitReverse,
   writes: IuiReverseWrites
 ): Promise<void> {
+  if (reverse.beatId) {
+    effectOutbox.discard(reverse.beatId);
+  }
   const { write, entityId } = reverse;
   switch (write) {
     case 'create_task':

@@ -59,12 +59,13 @@ import {
 } from '@/lib/voice/poppins-voice-session';
 import { createQuietCapture, type QuietCapture } from '@/lib/voice/quiet-capture';
 import { speakTransportForPrefs } from '@/lib/voice/speak-transport';
-import { setSessionActMode } from '@/lib/poppins/session-act-mode';
 import {
   loadPoppinsInteractionPrefs,
+  holdMsMultiplier,
   type PoppinsInteractionPrefs,
   DEFAULT_POPPINS_INTERACTION_PREFS,
 } from '@/lib/poppins/poppins-prefs';
+import { setSessionActMode, setSessionInteractionPrefs } from '@/lib/poppins/session-act-mode';
 import type { HouseholdTask } from '@/types/orbit';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
@@ -129,7 +130,16 @@ export default function PoppinsScreen() {
   useEffect(() => {
     let cancelled = false;
     void loadPoppinsInteractionPrefs(household.id).then((prefs) => {
-      if (!cancelled) setInteractionPrefs(prefs);
+      if (cancelled) return;
+      setInteractionPrefs(prefs);
+      setSessionInteractionPrefs({
+        actImmediately: prefs.actImmediately,
+        undoWindowSec: prefs.undoWindowSec,
+        confirmTimeMultiplier: holdMsMultiplier(prefs.confirmTime),
+        showThinking: prefs.showThinking,
+        writtenReplies: prefs.writtenReplies,
+        notificationActions: prefs.notificationActions,
+      });
     });
     return () => {
       cancelled = true;
@@ -601,9 +611,18 @@ export default function PoppinsScreen() {
     }
 
     setAsking(true);
-    setVoiceState('thinking');
+    if (interactionPrefs.showThinking) {
+      setVoiceState('thinking');
+    }
+    const thinkStarted = Date.now();
     try {
       const result = await askPoppins(trimmed);
+      if (interactionPrefs.showThinking) {
+        const elapsed = Date.now() - thinkStarted;
+        if (elapsed < 400) {
+          await new Promise((r) => setTimeout(r, 400 - elapsed));
+        }
+      }
       setVoiceState('speaking');
       setLiveCaption(applyLiveCaptionTurn(null, 'poppins', result.answer, true));
       appendPoppinsTurn(trimmed, result.answer);
@@ -743,11 +762,21 @@ export default function PoppinsScreen() {
     : `${greetingWord()}. Type below.`;
 
   const captionTextColor = isDark ? 'rgba(255,255,255,0.9)' : c.text;
+  const isClarifyingQuestion =
+    liveCaption?.speaker === 'poppins' &&
+    (/\?/.test(liveCaption.text) ||
+      /^(who|when|what|which|where)\b/i.test(liveCaption.text.trim()));
+  const showWrittenCaption =
+    Boolean(toolFlash) ||
+    interactionPrefs.writtenReplies ||
+    isClarifyingQuestion ||
+    liveCaption?.speaker === 'you' ||
+    quietListening;
   const liveSpeaker = toolFlash
     ? 'done'
-    : liveCaption
+    : showWrittenCaption && liveCaption
       ? liveCaption.speaker
-      : visualState === 'thinking' || connecting
+      : interactionPrefs.showThinking && (visualState === 'thinking' || connecting)
         ? 'thinking'
         : null;
   const liveLabel =
