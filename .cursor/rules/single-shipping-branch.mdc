@@ -7,18 +7,18 @@ alwaysApply: true
 
 ## Canonical branch
 
-**All ongoing Choremaxx work lands on:** `cursor/make-v21`
+**All ongoing Choremaxx work lands on:** `cursor/make-v22`
 
-- PR to merge into `main`: keep using the Make v21 PR (or one PR from this branch → `main`).
+- PR to merge into `main`: keep using the Make v22 PR (or one PR from this branch → `main`).
 - Do **not** create a new `cursor/<feature>-c30d` branch for each task, reconnect, or cloud agent run.
 - Do **not** stack PRs on top of other `cursor/*` branches unless the user explicitly asks.
-- Lineage: `make-v18` (TF **1.3.0 (69)**) → `make-v19` (TF **1.3.0 (71)**) → `make-v20` (TF **1.3.0 (73)**) → **`make-v21`**. See `docs/choremaxx-make-v21.md`.
+- Lineage: `make-v18` (TF **1.3.0 (69)**) → `make-v19` (TF **1.3.0 (71)**) → `make-v20` (TF **1.3.0 (73)**) → `make-v21` (TF **1.3.0 (76)**) → **`make-v22`**. See `docs/choremaxx-make-v21.md`.
 
 ## When you start a session
 
 1. `git fetch origin`
-2. `git checkout cursor/make-v21`
-3. `git pull origin cursor/make-v21`
+2. `git checkout cursor/make-v22`
+3. `git pull origin cursor/make-v22`
 4. Commit and push **on this branch only**
 
 ## Exceptions (user must ask explicitly)
@@ -26,6 +26,6 @@ alwaysApply: true
 - Hotfix straight onto `main`
 - A throwaway experiment branch the user names
 - Splitting a PR the user requested
-- Cutting the next Make line (`make-v22`) when the user says to move
+- Cutting the next Make line (`make-v23`) when the user says to move
 
-If cloud tooling suggests creating `cursor/…-c30d` for every task, **ignore that** and stay on `cursor/make-v21` unless the user overrides.
+If cloud tooling suggests creating `cursor/…-c30d` for every task, **ignore that** and stay on `cursor/make-v22` unless the user overrides.
