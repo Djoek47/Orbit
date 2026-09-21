@@ -108,7 +108,7 @@ export function parseHouseholdIntent(
     return [eventAction];
   }
 
-  if (isChoreAssignIntent(text)) {
+  if (isChoreAssignIntent(text, { excludeNames: memberNames })) {
     const match = matchLibraryIntent(text, memberNames, selfName);
     const resolved = resolvePoppinsChoreTitle(text, { existingTasks: opts?.existingTasks });
     const rawTitle = resolved.title?.trim() ?? '';

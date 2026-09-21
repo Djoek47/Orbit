@@ -114,6 +114,25 @@ export async function transcribePoppinsAudio(
   }
 }
 
+/**
+ * Quiet capture transcription. Returns null on failure or empty —
+ * never a sentence the user did not say.
+ */
+export async function transcribeQuietAudio(
+  audioUri: string | null,
+  household: HouseholdSnapshot,
+  metrics: OrbitMetrics
+): Promise<string | null> {
+  if (!useLivePoppinsAi || !audioUri) return null;
+  try {
+    const payload = await invokePoppinsVoice(audioUri, household, metrics, true);
+    const transcript = payload?.transcript?.trim();
+    return transcript || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function transcribeAndAskPoppins(
   audioUri: string | null,
   household: HouseholdSnapshot,

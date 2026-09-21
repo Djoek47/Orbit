@@ -42,6 +42,7 @@ import {
 } from '@/lib/ai/act-events';
 import { loadActEvents, saveActEvents } from '@/lib/ai/act-ledger';
 import { loadPoppinsActMode } from '@/lib/ai/poppins-mode';
+import { hydratePoppinsPrefs } from '@/lib/poppins/poppins-prefs';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { trackAnalytics } from '@/lib/analytics';
 import { emitTourEvent } from '@/lib/tour/tour-events';
@@ -762,6 +763,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   }, [activeMemberId, currentUser?.name, household.members]);
   currentMemberRef.current = currentMember ?? null;
   const hasHousehold = Boolean(currentUser && household.id);
+
+  useEffect(() => {
+    if (!household.id) return;
+    void hydratePoppinsPrefs(household.id);
+  }, [household.id]);
 
   useEffect(() => {
     let cancelled = false;

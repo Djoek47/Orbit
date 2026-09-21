@@ -6,7 +6,8 @@
 import { Audio } from 'expo-av';
 
 import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
-import { transcribePoppinsAudio } from '@/lib/voice/poppins-voice';
+import { transcribeQuietAudio } from '@/lib/voice/poppins-voice';
+import { acceptQuietTranscript } from '@/lib/voice/quiet-transcript';
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
 
 const SILENCE_DB = -40;
@@ -19,6 +20,8 @@ export type QuietCapture = {
     onPartial?: (text: string) => void;
     onLevel?: (db: number) => void;
     onStatus?: (status: 'listening' | 'transcribing' | 'got_it') => void;
+    /** Fired when silence or the 30s cap stops the recording. Caller should `stop()`. */
+    onAutoStop?: () => void;
   }): Promise<void>;
   /** Stop recording and return Whisper transcript (transcriptOnly). */
   stop(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<string | null>;
@@ -42,8 +45,10 @@ export function createQuietCapture(): QuietCapture {
   let onLevel: ((db: number) => void) | undefined;
   let onStatus: ((status: 'listening' | 'transcribing' | 'got_it') => void) | undefined;
   let onPartial: ((text: string) => void) | undefined;
+  let onAutoStop: (() => void) | undefined;
   let autoStoppedUri: string | null | undefined;
   let autoStopWaiters: Array<(uri: string | null) => void> = [];
+  let stopRequested = false;
 
   const clearTimers = () => {
     if (pollTimer) {
@@ -83,9 +88,12 @@ export function createQuietCapture(): QuietCapture {
   };
 
   const requestAutoStop = async () => {
-    if (!active || recording == null) return;
+    if (stopRequested || !active || recording == null) return;
     const uri = await finishRecording();
     signalAutoStop(uri);
+    const cb = onAutoStop;
+    onAutoStop = undefined;
+    cb?.();
   };
 
   const api: QuietCapture = {
@@ -101,10 +109,12 @@ export function createQuietCapture(): QuietCapture {
       onLevel = opts.onLevel;
       onStatus = opts.onStatus;
       onPartial = opts.onPartial;
+      onAutoStop = opts.onAutoStop;
       heardSpeech = false;
       silenceSince = null;
       active = true;
       finishing = null;
+      stopRequested = false;
       autoStoppedUri = undefined;
       onStatus?.('listening');
       onPartial?.('Listening…');
@@ -152,6 +162,7 @@ export function createQuietCapture(): QuietCapture {
 
     async stop(household, metrics) {
       if (finishing) return finishing;
+      stopRequested = true;
       finishing = (async () => {
         onStatus?.('got_it');
         onPartial?.('Got it');
@@ -170,10 +181,9 @@ export function createQuietCapture(): QuietCapture {
         }
 
         active = false;
-        if (!uri) return null;
-        const transcript = await transcribePoppinsAudio(uri, household, metrics);
-        const cleaned = transcript.trim();
-        return cleaned || null;
+        if (!heardSpeech || !uri) return null;
+        const transcript = await transcribeQuietAudio(uri, household, metrics);
+        return acceptQuietTranscript(transcript);
       })();
       return finishing;
     },
@@ -192,6 +202,8 @@ export function createQuietCapture(): QuietCapture {
       }
       active = false;
       finishing = null;
+      stopRequested = true;
+      onAutoStop = undefined;
       autoStoppedUri = undefined;
     },
   };

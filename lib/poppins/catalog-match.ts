@@ -168,6 +168,32 @@ export function isGroceryMetaTask(task: Pick<LibraryTask, 'id' | 'name'>): boole
   return GROCERY_META_TASK_TITLES.some((title) => lower === title || lower.includes(title));
 }
 
+const LEADING_FILLER_RE =
+  /^(?:poppins|hey|ok|okay|so|um|uh|alright|please)\b[,.]?\s*/i;
+
+/** Drop a leading "Poppins," / "Hey," / "Okay," so intent sees the real request. */
+export function stripLeadingFiller(text: string): string {
+  let next = text.trim();
+  for (let i = 0; i < 3; i += 1) {
+    const stripped = next.replace(LEADING_FILLER_RE, '').trim();
+    if (stripped === next) break;
+    next = stripped;
+  }
+  return next;
+}
+
+function leadingNameBeforeComma(text: string): string | null {
+  const match = text.trim().match(/^([A-Za-z][a-zA-Z]{1,20})\s*,/);
+  return match?.[1] ?? null;
+}
+
+function isNamedMemberErrand(text: string, names: string[]): boolean {
+  const lead = leadingNameBeforeComma(text);
+  if (!lead || !names.length) return false;
+  const needle = lead.toLowerCase();
+  return names.some((name) => name.trim().toLowerCase() === needle);
+}
+
 const NEED_OUT_LOW_RE =
   /\b(?:we\s+need|we(?:['’]re| are)\s+(?:out\s+of|low\s+on)|(?:ran\s+)?out\s+of|low\s+on)\b/i;
 
@@ -176,7 +202,11 @@ export function isGroceryAddIntent(
   text: string,
   opts?: { excludeNames?: string[] }
 ): boolean {
-  const lower = text.toLowerCase().trim();
+  const names = opts?.excludeNames ?? [];
+  if (isNamedMemberErrand(text, names)) return false;
+  const stripped = stripLeadingFiller(text);
+  if (isNamedMemberErrand(stripped, names)) return false;
+  const lower = stripped.toLowerCase().trim();
   if (!lower) return false;
 
   // Explicit task/chore framing wins — "add a task to buy milk" stays a task.
@@ -189,10 +219,8 @@ export function isGroceryAddIntent(
   ) {
     return false;
   }
-  // "Drako, buy milk on the way home" — personal errand, not household grocery.
-  if (/^[A-Z][a-zA-Z]{1,20}\s*,/.test(text.trim())) return false;
 
-  const itemName = extractItemName(text);
+  const itemName = extractItemName(stripped);
   const listCue =
     /\b(grocery list|groceries|shopping list|to the list|on the list|onto the list|grocery)\b/.test(
       lower
@@ -208,14 +236,21 @@ export function isGroceryAddIntent(
   // Rule 2: add verb + catalog-confident item
   if (addCue && itemName && matchGroceryCatalog(itemName, catalogOpts)?.confident) return true;
 
-  // Rule 3: need / out / low phrasing + catalog item
+  // Rule 3: need / out / low phrasing + catalog item, or a short product phrase
   if (NEED_OUT_LOW_RE.test(lower)) {
     const needItem = itemName;
     if (needItem && matchGroceryCatalog(needItem, catalogOpts)?.confident) return true;
+    if (
+      needItem &&
+      !/\btask\b/i.test(needItem) &&
+      needItem.split(/\s+/).length <= 4
+    ) {
+      return true;
+    }
   }
 
   // Rule 4: existing shopping-intent path (clothing / drops)
-  if (addCue && itemName && isShoppingIntent(text)) return true;
+  if (addCue && itemName && isShoppingIntent(stripped)) return true;
   return false;
 }
 
@@ -621,7 +656,7 @@ export function matchLibraryIntent(
 
   const tasks = allLibraryTasks().filter((task) => !domainId || task.domainId === domainId);
   const scored: Array<{ task: LibraryTask; score: number }> = [];
-  if (isGroceryAddIntent(text)) {
+  if (isGroceryAddIntent(text, { excludeNames: memberNames })) {
     return { assignee };
   }
 
@@ -963,14 +998,21 @@ export function parseReleaseDate(text: string, now = new Date()): string | undef
   return undefined;
 }
 
-export function isChoreAssignIntent(text: string): boolean {
+export function isChoreAssignIntent(
+  text: string,
+  opts?: { excludeNames?: string[] }
+): boolean {
   const lower = text.toLowerCase();
   if (isCompleteIntent(text) || wantsFullEditor(text)) return false;
-  if (isGroceryAddIntent(text)) return false;
+  if (isGroceryAddIntent(text, opts)) return false;
   if (isScheduleIntent(text)) return false;
   // "Drako, buy milk on the way home" — named errand stays a task, not grocery.
+  // Fillers (Poppins, Hey, Okay) are not member names.
+  const lead = leadingNameBeforeComma(text);
+  const filler = lead ? LEADING_FILLER_RE.test(`${lead},`) : false;
   if (
-    /^[A-Z][a-zA-Z]{1,20}\s*,/.test(text.trim()) &&
+    lead &&
+    !filler &&
     /\b(buy|get|grab|pick\s+up|add|do|clean|wash)\b/.test(lower)
   ) {
     return true;
@@ -984,7 +1026,7 @@ export function isChoreAssignIntent(text: string): boolean {
   if (/\bassign\b/.test(lower)) return true;
   if (/\b(clean|wash|tidy|vacuum|mop|laundry|dishes|chore|tend)\b/.test(lower)) return true;
   const domainId = matchLibraryIntent(text).domainId;
-  if (domainId === 'meals_groceries' && isGroceryAddIntent(text)) return false;
+  if (domainId === 'meals_groceries' && isGroceryAddIntent(text, opts)) return false;
   return Boolean(domainId);
 }
 
@@ -996,8 +1038,10 @@ export function groceryAddActionsFromUtterance(
   const itemName = extractItemName(text);
   if (!itemName || /\btask\b/i.test(itemName)) return null;
   if (opts?.excludeNames?.length && matchGroceryCatalog(itemName, opts) === null) {
-    // Member-name collision with no catalog hit after exclusions
-    if (!isShoppingIntent(text) && !/\b(list|grocer)/i.test(text)) return null;
+    const memberItem = opts.excludeNames.some(
+      (name) => name.trim().toLowerCase() === itemName.trim().toLowerCase()
+    );
+    if (memberItem && !isShoppingIntent(text) && !/\b(list|grocer)/i.test(text)) return null;
   }
   const shopping = isShoppingIntent(text);
   const catalogHit = matchGroceryCatalog(itemName, opts);

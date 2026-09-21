@@ -74,8 +74,15 @@ assert.equal(isGroceryAddIntent('we need milk'), true);
 assert.equal(isGroceryAddIntent("we're out of eggs and bread"), true);
 assert.equal(isGroceryAddIntent('add toilet paper to the list'), true);
 assert.equal(isGroceryAddIntent('add a task to buy milk'), false);
-assert.equal(isGroceryAddIntent('Drako, buy milk on the way home'), false);
+assert.equal(
+  isGroceryAddIntent('Drako, buy milk on the way home', { excludeNames: ['Drako'] }),
+  false
+);
 assert.equal(isGroceryAddIntent('add Maya'), false);
+assert.equal(isGroceryAddIntent('Poppins, add milk'), true);
+assert.equal(isGroceryAddIntent('Okay, add bananas'), true);
+assert.equal(isGroceryAddIntent('Hey, we need coffee'), true);
+assert.equal(isGroceryAddIntent('Please add paper towels'), true);
 
 {
   const bananas = parseHouseholdIntent('add bananas');
@@ -111,6 +118,17 @@ assert.equal(isGroceryAddIntent('add Maya'), false);
   });
   assert.equal(errand[0]?.type, 'create_task_draft');
   assert.equal(errand[0]?.assignee, 'Drako');
+}
+
+{
+  const poppinsMilk = parseHouseholdIntent('Poppins, add milk');
+  assert.equal(poppinsMilk[0]?.type, 'add_grocery');
+  assert.match(String(poppinsMilk[0]?.name ?? ''), /milk/i);
+  const okayBananas = parseHouseholdIntent('Okay, add bananas');
+  assert.equal(okayBananas[0]?.type, 'add_grocery');
+  const heyCoffee = parseHouseholdIntent('Hey, we need coffee');
+  assert.equal(heyCoffee[0]?.type, 'add_grocery');
+  assert.match(String(heyCoffee[0]?.name ?? ''), /coffee/i);
 }
 
 {

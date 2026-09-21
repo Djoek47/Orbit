@@ -62,12 +62,11 @@ import {
 import { createQuietCapture, type QuietCapture } from '@/lib/voice/quiet-capture';
 import { speakTransportForPrefs } from '@/lib/voice/speak-transport';
 import {
-  loadPoppinsInteractionPrefs,
-  holdMsMultiplier,
-  type PoppinsInteractionPrefs,
   DEFAULT_POPPINS_INTERACTION_PREFS,
+  subscribePoppinsPrefs,
+  type PoppinsInteractionPrefs,
 } from '@/lib/poppins/poppins-prefs';
-import { setSessionActMode, setSessionInteractionPrefs } from '@/lib/poppins/session-act-mode';
+import { setSessionActMode } from '@/lib/poppins/session-act-mode';
 import type { HouseholdTask } from '@/types/orbit';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
@@ -130,22 +129,9 @@ export default function PoppinsScreen() {
   const [quietListening, setQuietListening] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    void loadPoppinsInteractionPrefs(household.id).then((prefs) => {
-      if (cancelled) return;
+    return subscribePoppinsPrefs(household.id, (prefs) => {
       setInteractionPrefs(prefs);
-      setSessionInteractionPrefs({
-        actImmediately: prefs.actImmediately,
-        undoWindowSec: prefs.undoWindowSec,
-        confirmTimeMultiplier: holdMsMultiplier(prefs.confirmTime),
-        showThinking: prefs.showThinking,
-        writtenReplies: prefs.writtenReplies,
-        notificationActions: prefs.notificationActions,
-      });
     });
-    return () => {
-      cancelled = true;
-    };
   }, [household.id]);
 
   useEffect(() => {
@@ -665,6 +651,9 @@ export default function PoppinsScreen() {
     setLiveCaption(applyLiveCaptionTurn(null, 'you', 'Listening…', true));
     try {
       await capture.start({
+        onAutoStop: () => {
+          void stopQuietCapture();
+        },
         onPartial: (text) => {
           setLiveCaption(applyLiveCaptionTurn(null, 'you', text, true));
         },
@@ -696,7 +685,9 @@ export default function PoppinsScreen() {
       quietRef.current = null;
       if (!transcript) {
         setVoiceState('idle');
-        setLiveCaption(null);
+        setLiveCaption(
+          applyLiveCaptionTurn(null, 'poppins', "Didn't catch that. Tap to try again.", true)
+        );
         return;
       }
       await submitUtterance(transcript, 'dictated');
