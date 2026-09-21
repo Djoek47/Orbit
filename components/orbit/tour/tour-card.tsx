@@ -53,10 +53,10 @@ export function TourCard({
     <View
       ref={cardRef}
       collapsable={false}
-      style={[styles.wrap, maxHeight ? { maxHeight } : null]}
+      style={[styles.wrap, maxHeight ? { maxHeight, overflow: 'hidden' } : null]}
       accessibilityViewIsModal={!isAction}
       onLayout={onLayout}>
-      <GlassCard style={styles.card}>
+      <GlassCard style={[styles.card, maxHeight ? styles.cardFit : null]}>
         <Text style={[typography.footnote, styles.eyebrow, { color: c.textSubtle }]}>
           {chapterName}
           {stepLabel ? ` · ${stepLabel}` : ''}
@@ -127,12 +127,18 @@ const styles = StyleSheet.create({
     gap: space.sm,
     padding: 20,
   },
+  /** Shrink with wrap maxHeight so the body ScrollView yields to the footer. */
+  cardFit: {
+    flexShrink: 1,
+    minHeight: 0,
+  },
   eyebrow: {
     letterSpacing: 0.3,
   },
   footer: {
     alignItems: 'center',
     flexDirection: 'row',
+    flexShrink: 0,
     gap: space.sm,
     justifyContent: 'space-between',
     marginTop: space.xs,
