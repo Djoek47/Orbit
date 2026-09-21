@@ -12,6 +12,15 @@ let sessionHoldMultiplier = 1;
 let sessionShowThinking = true;
 let sessionWrittenReplies = true;
 let sessionNotificationActions = true;
+let sessionSelfName = '';
+
+export function setSessionSelfName(name: string | null | undefined) {
+  sessionSelfName = name?.trim() ?? '';
+}
+
+export function getSessionSelfName(): string {
+  return sessionSelfName;
+}
 
 export function setSessionActMode(mode: SessionActMode) {
   sessionActMode = mode;

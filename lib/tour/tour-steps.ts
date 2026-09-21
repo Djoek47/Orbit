@@ -34,15 +34,6 @@ const ADMIN_HOME: TourChapter = {
       body: 'One shared list for the house. Tap to open it.',
       route: '/(tabs)',
     }),
-    // Admin Home does not render HomeHouseRulesCard — retarget Settings (WO tip).
-    step({
-      id: 'home.rules',
-      targetId: 'settings.houseRules',
-      title: VOCAB.houseRules,
-      body: 'How XP, streaks and deadlines work here. Kids see their own simple version.',
-      route: '/settings',
-      ensureVisible: true,
-    }),
     step({
       id: 'home.settings',
       targetId: 'header.settings',
@@ -266,6 +257,14 @@ const ADMIN_PEOPLE: TourChapter = {
       targetId: 'members.addMember',
       title: 'Add someone',
       body: 'A child uses a device you set up. An adult signs in on their own phone.',
+      route: '/settings',
+      ensureVisible: true,
+    }),
+    step({
+      id: 'people.rules',
+      targetId: 'settings.houseRules',
+      title: VOCAB.houseRules,
+      body: 'How XP, streaks and deadlines work here. Kids see their own simple version.',
       route: '/settings',
       ensureVisible: true,
     }),

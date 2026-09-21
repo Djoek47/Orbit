@@ -10,9 +10,11 @@ import { AppText as Text } from '@/components/orbit/app-text';
 
 type SegmentedControlProps<T extends string> = {
   label?: string;
+  subtitle?: string;
   options: { value: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
+  disabled?: boolean;
 };
 
 /**
@@ -21,9 +23,11 @@ type SegmentedControlProps<T extends string> = {
  */
 export function SegmentedControl<T extends string>({
   label,
+  subtitle,
   options,
   value,
   onChange,
+  disabled,
 }: SegmentedControlProps<T>) {
   const orbit = useOrbitOptional();
   const { c, glass } = useOrbitColors();
@@ -46,10 +50,14 @@ export function SegmentedControl<T extends string>({
       {label ? (
         <Text style={[typography.footnote, styles.label, { color: c.textMuted }]}>{label}</Text>
       ) : null}
+      {subtitle ? (
+        <Text style={[typography.footnote, styles.subtitle, { color: c.textSubtle }]}>{subtitle}</Text>
+      ) : null}
       <View
-        style={[styles.track, { backgroundColor: glass(0.05) }]}
+        style={[styles.track, { backgroundColor: glass(0.05) }, disabled ? { opacity: 0.5 } : null]}
         onLayout={onLayout}
-        accessibilityRole="tablist">
+        accessibilityRole="tablist"
+        accessibilityState={{ disabled: Boolean(disabled) }}>
         {segmentWidth > 0 ? (
           <Animated.View
             style={[
@@ -64,7 +72,10 @@ export function SegmentedControl<T extends string>({
           return (
             <Pressable
               key={option.value}
-              onPress={() => onChange(option.value)}
+              onPress={() => {
+                if (disabled) return;
+                onChange(option.value);
+              }}
               style={styles.segment}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}>
@@ -88,6 +99,10 @@ export function SegmentedControl<T extends string>({
 const styles = StyleSheet.create({
   label: {
     marginBottom: space.xs,
+  },
+  subtitle: {
+    marginBottom: space.xs,
+    marginTop: -2,
   },
   track: {
     borderRadius: radius.control,

@@ -1186,7 +1186,9 @@ export default function SettingsScreen() {
             <SettingsGroup footer="Fine-tune Guided. Children see this read-only.">
               <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
                 <SegmentedControl
-                  label="Confirm time — How long Poppins waits in silence before saving."
+                  label="Confirm time"
+                  subtitle="How long Poppins waits in silence before saving."
+                  disabled={poppinsPrefsReadOnly}
                   options={[
                     { value: 'quick', label: 'Quick' },
                     { value: 'normal', label: 'Normal' },
@@ -1201,7 +1203,9 @@ export default function SettingsScreen() {
               </View>
               <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 }}>
                 <SegmentedControl
-                  label="Undo window — How long the Undo button stays after saving."
+                  label="Undo window"
+                  subtitle="How long the Undo button stays after saving."
+                  disabled={poppinsPrefsReadOnly}
                   options={[
                     { value: '5', label: '5 s' },
                     { value: '10', label: '10 s' },

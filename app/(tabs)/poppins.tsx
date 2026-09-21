@@ -66,7 +66,7 @@ import {
   subscribePoppinsPrefs,
   type PoppinsInteractionPrefs,
 } from '@/lib/poppins/poppins-prefs';
-import { setSessionActMode } from '@/lib/poppins/session-act-mode';
+import { setSessionActMode, setSessionSelfName } from '@/lib/poppins/session-act-mode';
 import type { HouseholdTask } from '@/types/orbit';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
@@ -127,6 +127,10 @@ export default function PoppinsScreen() {
   );
   const quietRef = useRef<QuietCapture | null>(null);
   const [quietListening, setQuietListening] = useState(false);
+
+  useEffect(() => {
+    setSessionSelfName(currentMember?.name);
+  }, [currentMember?.name]);
 
   useEffect(() => {
     return subscribePoppinsPrefs(household.id, (prefs) => {
@@ -582,7 +586,8 @@ export default function PoppinsScreen() {
     const trimmed = text.trim();
     if (!trimmed || asking) return;
     if (source === 'typed') setDraft('');
-    setSessionActMode('silent');
+    const liveSpeak = Boolean(voiceRef.current?.isConnected);
+    setSessionActMode(liveSpeak ? 'spoken' : 'silent');
     setLiveCaption(applyLiveCaptionTurn(null, 'you', trimmed, true));
     lastUtteranceRef.current = trimmed;
     setError('');
@@ -593,8 +598,7 @@ export default function PoppinsScreen() {
     });
 
     // Live duplex: inject into the same WebRTC conversation.
-    if (voiceRef.current?.isConnected) {
-      setSessionActMode('spoken');
+    if (liveSpeak && voiceRef.current?.isConnected) {
       voiceRef.current.sendUserText(trimmed);
       appendPoppinsTurn(trimmed, '(live voice)');
       return;
@@ -699,12 +703,14 @@ export default function PoppinsScreen() {
   };
 
   const toggleConnect = async () => {
-    if (!nativeVoice) return;
     if (voiceSettling) return;
 
     const transport = speakTransportForPrefs(
       tourForcesQuietSpeak() ? false : interactionPrefs.speakBack
     );
+
+    // Quiet uses expo-av and runs in Expo Go. Speak back needs native WebRTC.
+    if (!nativeVoice && transport !== 'quiet') return;
 
     // Quiet path — never construct PoppinsVoiceSession.
     if (transport === 'quiet') {

@@ -64,14 +64,30 @@ function asId(value: unknown): string | undefined {
   return typeof id === 'string' && id.trim() ? id : undefined;
 }
 
-function isOtherPersonAssignee(
+export function isOtherPersonAssignee(
   assignee: string | undefined,
-  currentMember?: HouseholdMember | null
+  currentMember?: Pick<HouseholdMember, 'name'> | null
 ): boolean {
   if (!assignee?.trim()) return false;
   const self = (currentMember?.name ?? '').trim().toLowerCase();
   if (!self) return true;
   return assignee.trim().toLowerCase() !== self && assignee.trim().toLowerCase() !== 'me';
+}
+
+/** Same window the outbox and the Undo button must use. */
+export function undoWindowMsForAssignee(
+  baseMs: number,
+  assignee: string | undefined,
+  currentMember?: Pick<HouseholdMember, 'name'> | null
+): number {
+  return isOtherPersonAssignee(assignee, currentMember) ? Math.max(baseMs, 10_000) : baseMs;
+}
+
+function slotFromModel(
+  payload: IuiBeat['payload'],
+  key: 'assignee' | 'due' | 'date' | 'time' | 'title'
+): boolean {
+  return payload.slotSource?.[key] === 'model';
 }
 
 export async function commitIuiBeat(
@@ -120,7 +136,7 @@ export async function commitIuiBeat(
 
       // Direct: missing assignee/due from speech is unfilled — ask, don't invent.
       if (directMode) {
-        if (!p.assignee?.trim()) {
+        if (!p.assignee?.trim() || slotFromModel(p, 'assignee')) {
           return {
             ok: false,
             slot: 'assignee',
@@ -128,7 +144,7 @@ export async function commitIuiBeat(
             ask: 'Who should do this?',
           };
         }
-        if (!p.due?.trim()) {
+        if (!p.due?.trim() || slotFromModel(p, 'due')) {
           return {
             ok: false,
             slot: 'due',
@@ -199,8 +215,7 @@ export async function commitIuiBeat(
         reverse = { write, entityId: created.id, beatId: beat.id };
         onVoiceTaskCreated?.(created);
         if (deferredNotify) {
-          const other = isOtherPersonAssignee(assignee, currentMember);
-          const window = other ? Math.max(undoWindowMs, 10_000) : undoWindowMs;
+          const window = undoWindowMsForAssignee(undoWindowMs, assignee, currentMember);
           effectOutbox.enqueue(
             {
               id: `notify-${beat.id}`,
@@ -218,10 +233,19 @@ export async function commitIuiBeat(
   }
 
   if (write === 'create_event' && p.title) {
+    const allDay = /\ball[\s-]?day\b/i.test(p.sourceUtterance ?? '');
+    if (directMode) {
+      if (!p.date?.trim() || slotFromModel(p, 'date')) {
+        return { ok: false, slot: 'date', reason: 'missing', ask: 'What day?' };
+      }
+      if (!allDay && (!p.time?.trim() || slotFromModel(p, 'time'))) {
+        return { ok: false, slot: 'time', reason: 'missing', ask: 'What time?' };
+      }
+    }
     const created = await createEvent({
       title: p.title,
-      date: p.date || formatLocalDate(new Date()),
-      time: p.time || '09:00',
+      date: directMode ? String(p.date) : p.date || formatLocalDate(new Date()),
+      time: directMode ? (allDay ? '' : String(p.time)) : p.time || '09:00',
       location: p.location || '',
       responsible: p.assignee || currentMember?.name || '',
       category: 'Appointment',

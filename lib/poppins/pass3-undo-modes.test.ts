@@ -14,6 +14,7 @@ import {
   DEFAULT_POPPINS_INTERACTION_PREFS,
 } from '@/lib/poppins/poppins-prefs';
 import { TOKEN_WEIGHT_SPEAK_BACK } from '@/constants/poppins-ai-rates';
+import { undoWindowMsForAssignee } from '@/lib/poppins/iui-commit';
 import { reverseIuiCommit, type IuiCommitReverse } from '@/lib/poppins/iui-reverse';
 import { UNDO_MS } from '@/lib/poppins/ui-orchestrator';
 import { RESULT_LINGER_MS } from '@/lib/poppins/ui-scenes';
@@ -22,7 +23,9 @@ async function main() {
   const root = process.cwd();
 
   assert.ok(UNDO_MS > RESULT_LINGER_MS, 'undo window must outlast entrance linger');
-  assert.equal(UNDO_MS, 5000);
+  assert.equal(undoWindowMsForAssignee(5000, 'Maya', { name: 'Alex' }), 10000);
+  assert.equal(undoWindowMsForAssignee(5000, 'Alex', { name: 'Alex' }), 5000);
+  assert.equal(undoWindowMsForAssignee(5000, 'me', { name: 'Alex' }), 5000);
   assert.equal(RESULT_LINGER_MS, 980);
 
   assert.equal(voiceLabel(false), 'Quiet');

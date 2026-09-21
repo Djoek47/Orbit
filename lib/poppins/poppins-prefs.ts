@@ -3,6 +3,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { dataMode } from '@/config/data-mode';
 import {
   defaultPoppinsActMode,
   loadPoppinsActMode,
@@ -128,6 +129,7 @@ export async function setPoppinsPrefs(
   try {
     await AsyncStorage.setItem(PREFS_KEY(householdId), JSON.stringify(prefs));
     await savePoppinsActMode(householdId, modeFromSpeakBack(prefs.speakBack));
+    await persistHouseholdPoppinsPrefs(householdId, prefs);
   } catch (error) {
     console.warn('setPoppinsPrefs persist failed', error);
   }
@@ -149,8 +151,10 @@ export async function loadPoppinsInteractionPrefs(
   const mode = await loadPoppinsActMode(householdId);
   let stored: Partial<PoppinsInteractionPrefs> = {};
   try {
+    const remote = await loadHouseholdPoppinsPrefs(householdId);
+    if (remote) stored = remote;
     const raw = await AsyncStorage.getItem(PREFS_KEY(householdId));
-    if (raw) stored = JSON.parse(raw) as Partial<PoppinsInteractionPrefs>;
+    if (raw && !remote) stored = JSON.parse(raw) as Partial<PoppinsInteractionPrefs>;
   } catch {
     /* ignore */
   }
@@ -181,3 +185,36 @@ export function holdMsMultiplier(confirmTime: PoppinsConfirmTime): number {
 }
 
 export { defaultPoppinsActMode };
+
+async function persistHouseholdPoppinsPrefs(
+  householdId: string,
+  prefs: PoppinsInteractionPrefs
+): Promise<void> {
+  if (dataMode !== 'supabase') return;
+  const { getSupabaseClient } = await import('@/lib/supabase/client');
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('households')
+    .update({ poppins_interaction_prefs: prefs } as never)
+    .eq('id', householdId);
+  if (error) console.warn('persistHouseholdPoppinsPrefs', error.message);
+}
+
+async function loadHouseholdPoppinsPrefs(
+  householdId: string
+): Promise<Partial<PoppinsInteractionPrefs> | null> {
+  if (dataMode !== 'supabase') return null;
+  const { getSupabaseClient } = await import('@/lib/supabase/client');
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('households')
+    .select('poppins_interaction_prefs')
+    .eq('id', householdId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const raw = (data as { poppins_interaction_prefs?: unknown }).poppins_interaction_prefs;
+  if (!raw || typeof raw !== 'object') return null;
+  return raw as Partial<PoppinsInteractionPrefs>;
+}

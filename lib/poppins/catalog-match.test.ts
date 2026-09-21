@@ -83,6 +83,9 @@ assert.equal(isGroceryAddIntent('Poppins, add milk'), true);
 assert.equal(isGroceryAddIntent('Okay, add bananas'), true);
 assert.equal(isGroceryAddIntent('Hey, we need coffee'), true);
 assert.equal(isGroceryAddIntent('Please add paper towels'), true);
+assert.equal(isGroceryAddIntent('add organic bananas'), true);
+assert.equal(extractItemName('add 2% milk'), '2% milk');
+assert.equal(isGroceryAddIntent('add 2% milk'), true);
 
 {
   const bananas = parseHouseholdIntent('add bananas');

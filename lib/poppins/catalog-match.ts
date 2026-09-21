@@ -48,9 +48,10 @@ function numberVariants(phrase: string): string[] {
 }
 
 let groceryCatalogIndex: Array<{ key: string; value: GroceryCatalogMatch }> | null = null;
+let groceryCatalogMap: Map<string, GroceryCatalogMatch> | null = null;
 
 function groceryCatalogCandidates(): Array<{ key: string; value: GroceryCatalogMatch }> {
-  if (groceryCatalogIndex) return groceryCatalogIndex;
+  if (groceryCatalogIndex && groceryCatalogMap) return groceryCatalogIndex;
   const byKey = new Map<string, GroceryCatalogMatch>();
 
   const consider = (rawKey: string, product: CatalogProduct) => {
@@ -74,8 +75,21 @@ function groceryCatalogCandidates(): Array<{ key: string; value: GroceryCatalogM
     for (const alias of product.aliases) consider(alias, product);
   }
 
+  groceryCatalogMap = byKey;
   groceryCatalogIndex = [...byKey.entries()].map(([key, value]) => ({ key, value }));
   return groceryCatalogIndex;
+}
+
+function fuzzyCatalogCandidates(needle: string): Array<{ key: string; value: GroceryCatalogMatch }> {
+  const tokens = needle.split(/\s+/).filter(Boolean);
+  if (tokens.length > 3) return [];
+  const candidates = groceryCatalogCandidates();
+  const first = needle[0] ?? '';
+  const len = needle.length;
+  return candidates.filter((row) => {
+    if (!row.key || row.key[0] !== first) return false;
+    return Math.abs(row.key.length - len) <= 2;
+  });
 }
 
 function isChoreCatalogTitle(name: string): boolean {
@@ -102,18 +116,18 @@ function matchGroceryCatalogOne(
   if (excluded.some((n) => n === needle || needle.split(/\s+/).includes(n))) return null;
   if (isChoreCatalogTitle(needle)) return null;
 
-  const candidates = groceryCatalogCandidates();
-  const exact = candidates.find((row) => row.key === needle);
+  groceryCatalogCandidates();
+  const exact = groceryCatalogMap?.get(needle);
   if (exact) {
-    return { ...exact.value, confident: true };
+    return { ...exact, confident: true };
   }
 
   for (const variant of numberVariants(needle)) {
-    const hit = candidates.find((row) => row.key === variant);
-    if (hit) return { ...hit.value, confident: true };
+    const hit = groceryCatalogMap?.get(variant);
+    if (hit) return { ...hit, confident: true };
   }
 
-  const fuzzy = bestFuzzyMatch(needle, candidates);
+  const fuzzy = bestFuzzyMatch(needle, fuzzyCatalogCandidates(needle));
   if (!fuzzy || !isConfidentFuzzy(fuzzy)) return null;
   // Short needles (Maya → Mayo) are too ambiguous for edit-distance guesses.
   if (fuzzy.distance > 0 && needle.replace(/\s+/g, '').length <= 4) return null;
@@ -124,7 +138,30 @@ function matchGroceryCatalogOne(
  * Confident match against the grocery catalog (name + aliases).
  * Singular/plural both match. Never matches member names or chore titles.
  */
+const groceryIntentCache = new Map<string, boolean>();
+const groceryMatchCache = new Map<string, GroceryCatalogMatch | null>();
+
+function cacheGet<T>(map: Map<string, T>, key: string): T | undefined {
+  return map.get(key);
+}
+
+function cacheSet<T>(map: Map<string, T>, key: string, value: T) {
+  if (map.size > 80) map.clear();
+  map.set(key, value);
+}
+
 export function matchGroceryCatalog(
+  name: string,
+  opts?: { excludeNames?: string[] }
+): GroceryCatalogMatch | null {
+  const cacheKey = `${name}\n${(opts?.excludeNames ?? []).join('|')}`;
+  if (groceryMatchCache.has(cacheKey)) return groceryMatchCache.get(cacheKey) ?? null;
+  const result = matchGroceryCatalogUncached(name, opts);
+  cacheSet(groceryMatchCache, cacheKey, result);
+  return result;
+}
+
+function matchGroceryCatalogUncached(
   name: string,
   opts?: { excludeNames?: string[] }
 ): GroceryCatalogMatch | null {
@@ -140,6 +177,19 @@ export function matchGroceryCatalog(
     for (const part of parts) {
       const hit = matchGroceryCatalogOne(part, opts);
       if (hit) return hit;
+    }
+  }
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    const tail2 = words.slice(-2).join(' ');
+    const tailHit = matchGroceryCatalogOne(tail2, opts);
+    if (tailHit) return tailHit;
+  }
+  if (words.length >= 1) {
+    const last = words[words.length - 1]!;
+    if (last !== name.trim().toLowerCase()) {
+      const lastHit = matchGroceryCatalogOne(last, opts);
+      if (lastHit) return lastHit;
     }
   }
   return null;
@@ -199,6 +249,17 @@ const NEED_OUT_LOW_RE =
 
 /** True when the person is adding a product to the grocery/shopping list (not assigning a chore). */
 export function isGroceryAddIntent(
+  text: string,
+  opts?: { excludeNames?: string[] }
+): boolean {
+  const cacheKey = `${text}\n${(opts?.excludeNames ?? []).join('|')}`;
+  if (groceryIntentCache.has(cacheKey)) return groceryIntentCache.get(cacheKey) === true;
+  const result = groceryAddIntentUncached(text, opts);
+  cacheSet(groceryIntentCache, cacheKey, result);
+  return result;
+}
+
+function groceryAddIntentUncached(
   text: string,
   opts?: { excludeNames?: string[] }
 ): boolean {
@@ -958,7 +1019,7 @@ export function extractItemName(text: string): string | undefined {
 
   // No list-word: still try a short "add X" when confident.
   const bare = cleaned.match(
-    /\b(?:add|buy|get|grab|pick\s+up)\s+(?:some |the |a |an |my )?(?:new )?([a-z][\w\s'-]{1,40})$/i
+    /\b(?:add|buy|get|grab|pick\s+up)\s+(?:some |the |a |an |my )?(?:new )?((?:[0-9%]|[a-z])[\w\s'%.+-]{0,40})$/i
   );
   if (bare?.[1]) {
     const name = cleanExtractedItemName(bare[1]);
@@ -1030,6 +1091,13 @@ export function isChoreAssignIntent(
   return Boolean(domainId);
 }
 
+function titleCaseGroceryName(name: string): string {
+  return name
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\b([a-z])/g, (letter) => letter.toUpperCase());
+}
+
 export function groceryAddActionsFromUtterance(
   text: string,
   opts?: { excludeNames?: string[] }
@@ -1044,11 +1112,7 @@ export function groceryAddActionsFromUtterance(
     if (memberItem && !isShoppingIntent(text) && !/\b(list|grocer)/i.test(text)) return null;
   }
   const shopping = isShoppingIntent(text);
-  const catalogHit = matchGroceryCatalog(itemName, opts);
-  const displayName =
-    catalogHit && !/\sand\s/i.test(itemName)
-      ? catalogHit.name
-      : itemName.replace(/\b(please|thanks)\b/g, '').trim() || itemName;
+  const displayName = titleCaseGroceryName(itemName);
   const actions: Array<Record<string, unknown>> = [
     {
       type: 'add_grocery',

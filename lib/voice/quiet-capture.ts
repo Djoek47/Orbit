@@ -40,6 +40,10 @@ export function createQuietCapture(): QuietCapture {
   let hardCapTimer: ReturnType<typeof setTimeout> | null = null;
   let heardSpeech = false;
   let silenceSince: number | null = null;
+  let startedAt = 0;
+  let noiseFloor = SILENCE_DB;
+  let floorLocked = false;
+  const floorSamples: number[] = [];
   let active = false;
   let finishing: Promise<string | null> | null = null;
   let onLevel: ((db: number) => void) | undefined;
@@ -112,6 +116,10 @@ export function createQuietCapture(): QuietCapture {
       onAutoStop = opts.onAutoStop;
       heardSpeech = false;
       silenceSince = null;
+      startedAt = Date.now();
+      noiseFloor = SILENCE_DB;
+      floorLocked = false;
+      floorSamples.length = 0;
       active = true;
       finishing = null;
       stopRequested = false;
@@ -138,7 +146,17 @@ export function createQuietCapture(): QuietCapture {
             if (!status.isRecording) return;
             const db = typeof status.metering === 'number' ? status.metering : -160;
             onLevel?.(db);
-            if (db > SILENCE_DB) {
+            const elapsed = Date.now() - startedAt;
+            if (!floorLocked) {
+              floorSamples.push(db);
+              if (elapsed < 300) return;
+              const sorted = [...floorSamples].sort((a, b) => a - b);
+              const mid = sorted[Math.floor(sorted.length / 2)] ?? SILENCE_DB;
+              noiseFloor = Math.min(-25, Math.max(-50, mid + 10));
+              floorLocked = true;
+            }
+            const threshold = noiseFloor;
+            if (db > threshold) {
               heardSpeech = true;
               silenceSince = null;
               return;

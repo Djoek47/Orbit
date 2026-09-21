@@ -98,7 +98,12 @@ export type IuiPayload = {
    * Provenance for filled slots — speech/touch wins over model merge.
    * Keys are payload field names (`assignee`, `title`, `due`, …).
    */
-  slotSource?: Partial<Record<'assignee' | 'title' | 'due' | 'category' | 'libraryTaskId' | 'groceryName', 'speech' | 'touch' | 'model'>>;
+  slotSource?: Partial<
+    Record<
+      'assignee' | 'title' | 'due' | 'date' | 'time' | 'category' | 'libraryTaskId' | 'groceryName',
+      'speech' | 'touch' | 'model'
+    >
+  >;
   /** Store write kind when HOLD/confirm settles. */
   write?: IuiWriteKind;
   /** False until who/category/task/when are chosen — HOLD must not start. */

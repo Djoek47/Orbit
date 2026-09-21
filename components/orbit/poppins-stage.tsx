@@ -517,7 +517,7 @@ export function PoppinsStage({
     });
     poppinsUiOrchestrator.setCommitHandler(async (beat: IuiBeat) => {
       const result = await commitIuiBeat(beat, writesRef.current);
-      return { reverse: result.ok ? result.reverse : undefined };
+      return result.ok ? { reverse: result.reverse } : { ask: result.ask, reverse: undefined };
     });
     return () => {
       poppinsUiOrchestrator.setCommitHandler(null);

@@ -9,7 +9,8 @@ import { withComposeProgress } from '@/lib/poppins/iui-compose';
 import { withHomeworkComposeProgress } from '@/lib/poppins/homework-compose';
 import type { IuiCommitReverse } from '@/lib/poppins/iui-reverse';
 import { mapUiActionsToPlaylist } from '@/lib/poppins/ui-tool-map';
-import { getSessionActMode, getSessionDirectMode, getSessionHoldMultiplier, getSessionUndoMs } from '@/lib/poppins/session-act-mode';
+import { getSessionActMode, getSessionDirectMode, getSessionHoldMultiplier, getSessionSelfName, getSessionUndoMs } from '@/lib/poppins/session-act-mode';
+import { undoWindowMsForAssignee } from '@/lib/poppins/iui-commit';
 import { validateAct } from '@/lib/poppins/validate-act';
 import {
   HOLD_MS_DEFAULT,
@@ -95,17 +96,16 @@ export const UNDO_MS = 5000;
 
 function effectiveUndoMs(beat?: IuiBeat | null): number {
   const base = getSessionUndoMs() || UNDO_MS;
-  const assignee = beat?.payload.assignee?.trim();
-  if (assignee && assignee.toLowerCase() !== 'me') {
-    return Math.max(base, 10_000);
-  }
-  return base;
+  const self = getSessionSelfName();
+  return undoWindowMsForAssignee(base, beat?.payload.assignee, self ? { name: self } : null);
 }
 
 const PROTECTED_SLOTS = [
   'assignee',
   'title',
   'due',
+  'date',
+  'time',
   'category',
   'libraryTaskId',
   'groceryName',
@@ -238,6 +238,16 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
   } else if (beat.commit !== 'none') {
     try {
       const result = await commitHandler?.(beat);
+      if (result && typeof result === 'object' && 'ask' in result && result.ask) {
+        setState({
+          frozen: false,
+          holding: false,
+          phase: 'unfold',
+          commitFailed: false,
+          thinkingLine: String(result.ask),
+        });
+        return;
+      }
       if (result && typeof result === 'object' && 'reverse' in result) {
         reverse = result.reverse ?? null;
       }
@@ -483,6 +493,15 @@ function startPlaylist(playlist: IuiBeat[], kid?: boolean) {
   armBeat();
 }
 
+function directSlotFilled(
+  beat: IuiBeat,
+  key: 'assignee' | 'title' | 'due' | 'date' | 'time' | 'libraryTaskId' | 'groceryName',
+  value: string | undefined
+): boolean {
+  if (!value?.trim()) return false;
+  return beat.payload.slotSource?.[key] !== 'model';
+}
+
 function beatReadyForDirectCommit(beat: IuiBeat): boolean {
   if (!getSessionDirectMode()) return false;
   if (beat.commit !== 'hold') return false;
@@ -492,16 +511,26 @@ function beatReadyForDirectCommit(beat: IuiBeat): boolean {
   if (!gate.ok) return false;
   const write = beat.payload.write ?? 'none';
   if (write === 'add_grocery' || beat.scene === 'grocery_add') {
-    return Boolean(beat.payload.groceryName?.trim() || beat.payload.title?.trim());
+    return directSlotFilled(beat, 'groceryName', beat.payload.groceryName) ||
+      directSlotFilled(beat, 'title', beat.payload.title);
   }
   if (write === 'complete_task') return true;
   if (write === 'create_task' || write === 'create_homework' || beat.scene === 'task_compose' || beat.scene === 'homework_compose') {
-    const hasTitle = Boolean(beat.payload.title?.trim() || beat.payload.libraryTaskId);
-    const hasAssignee = Boolean(beat.payload.assignee?.trim());
-    const hasDue = Boolean(beat.payload.due?.trim());
+    const hasTitle =
+      directSlotFilled(beat, 'title', beat.payload.title) ||
+      directSlotFilled(beat, 'libraryTaskId', beat.payload.libraryTaskId);
+    const hasAssignee = directSlotFilled(beat, 'assignee', beat.payload.assignee);
+    const hasDue = directSlotFilled(beat, 'due', beat.payload.due);
     return hasTitle && hasAssignee && hasDue;
   }
-  if (write === 'create_event') return Boolean(beat.payload.title?.trim());
+  if (write === 'create_event') {
+    const allDay = /\ball[\s-]?day\b/i.test(beat.payload.sourceUtterance ?? '');
+    return (
+      directSlotFilled(beat, 'title', beat.payload.title) &&
+      directSlotFilled(beat, 'date', beat.payload.date) &&
+      (allDay || directSlotFilled(beat, 'time', beat.payload.time))
+    );
+  }
   return gate.ok;
 }
 
@@ -520,7 +549,7 @@ export const poppinsUiOrchestrator = {
   },
   setCommitHandler(
     handler:
-      | ((beat: IuiBeat) => void | Promise<void | { reverse?: IuiCommitReverse | null }>)
+      | ((beat: IuiBeat) => void | Promise<void | { reverse?: IuiCommitReverse | null; ask?: string }>)
       | null
   ) {
     commitHandler = handler;
