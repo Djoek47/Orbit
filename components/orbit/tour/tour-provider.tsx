@@ -34,17 +34,20 @@ import {
   showRewards,
   type TourConditionContext,
 } from '@/lib/tour/tour-conditions';
-import { onTourEvent } from '@/lib/tour/tour-events';
+import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import { formatWelcomeCopy, getTourDefinition } from '@/lib/tour/tour-steps';
 import {
   advanceAfterStep,
   applyTourStepEnter,
+  bindTourStepAdvance,
+  isTourActionStep,
   loadTourState,
   offerTourState,
   resolveActivePointer,
   restartChapterState,
   saveTourState,
   setTourForcesQuiet,
+  shouldPauseTour,
   skipChapterState,
   skipTourState,
   startTourState,
@@ -53,7 +56,6 @@ import {
 import type { TourId, TourRect, TourState, TourTargetId } from '@/lib/tour/tour-types';
 import { loadDeviceSession } from '@/lib/device/device-session';
 import { loadOnboardingPrefs } from '@/lib/onboarding-prefs';
-import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type ScrollFn = ((y: number) => void) | null;
@@ -215,17 +217,32 @@ export function TourProvider({ children }: PropsWithChildren) {
     return () => sub.remove();
   }, []);
 
-  // Pause when IUI live / keyboard / (Realtime tracked via forceQuiet avoidance)
+  const activeStep =
+    tourState && tourState.status === 'in_progress' && !welcomeOpen
+      ? resolveActivePointer(tourState, conditionCtx)
+      : null;
+  const actionStep = isTourActionStep(activeStep?.step);
+  const actionStepRef = useRef(actionStep);
+  actionStepRef.current = actionStep;
+
+  const pointer = activeStep && !paused ? activeStep : null;
+  pointerRef.current = pointer;
+
+  // Pause when IUI live / keyboard — except during an action step (that is the action).
   useEffect(() => {
-    const unsub = poppinsUiOrchestrator.subscribe(() => {
+    const sync = () => {
       const live = poppinsUiOrchestrator.getState().live;
-      setPaused((p) => (live ? true : p && Keyboard.isVisible() ? true : live));
-      if (!live && !Keyboard.isVisible()) setPaused(false);
-    });
-    const show = Keyboard.addListener('keyboardDidShow', () => setPaused(true));
-    const hide = Keyboard.addListener('keyboardDidHide', () => {
-      if (!poppinsUiOrchestrator.getState().live) setPaused(false);
-    });
+      setPaused(
+        shouldPauseTour({
+          actionStep: actionStepRef.current,
+          stageLive: live,
+          keyboardVisible: Keyboard.isVisible(),
+        })
+      );
+    };
+    const unsub = poppinsUiOrchestrator.subscribe(sync);
+    const show = Keyboard.addListener('keyboardDidShow', sync);
+    const hide = Keyboard.addListener('keyboardDidHide', sync);
     return () => {
       unsub();
       show.remove();
@@ -233,11 +250,9 @@ export function TourProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  const pointer =
-    tourState && tourState.status === 'in_progress' && !paused && !welcomeOpen
-      ? resolveActivePointer(tourState, conditionCtx)
-      : null;
-  pointerRef.current = pointer;
+  useEffect(() => {
+    if (actionStep) setPaused(false);
+  }, [actionStep]);
 
   // Force Quiet during Poppins action step
   useEffect(() => {
@@ -281,6 +296,11 @@ export function TourProvider({ children }: PropsWithChildren) {
       } catch {
         router.push(route as never);
       }
+    }
+
+    if (pointer.step.centered) {
+      setTargetRect({ x: 24, y: 160, width: 280, height: 48 });
+      return;
     }
 
     if (pointer.step.ensureVisible && scrollRef.current) {
@@ -328,16 +348,17 @@ export function TourProvider({ children }: PropsWithChildren) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pointer?.step.id, pathname, paused]);
 
-  // Listen for event advances
+  // Listen for event advances from tour state so a pause cannot drop the event.
   useEffect(() => {
-    if (!pointer || !tourState) return;
-    const adv = pointer.step.advance;
-    if (adv.kind !== 'event' && adv.kind !== 'next_or_event') return;
-    return onTourEvent(adv.event, () => {
-      const next = advanceAfterStep(tourState, conditionCtx);
-      void persist(next);
+    if (!tourState) return;
+    return bindTourStepAdvance({
+      state: tourState,
+      ctx: conditionCtx,
+      onAdvance: (next) => {
+        void persist(next);
+      },
     });
-  }, [pointer?.step.id, tourState, conditionCtx, persist]);
+  }, [tourState, conditionCtx, persist]);
 
   // Action steps advance once the user leaves the current route (they tapped the target).
   useEffect(() => {

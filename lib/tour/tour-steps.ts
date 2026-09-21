@@ -237,6 +237,7 @@ const ADMIN_POPPINS: TourChapter = {
       title: 'Silence means yes',
       body: "Poppins shows what it's about to do. Say nothing and it saves. Say \"no\" to stop.",
       route: '/(tabs)/poppins',
+      centered: true,
     }),
     step({
       id: 'poppins.meter',

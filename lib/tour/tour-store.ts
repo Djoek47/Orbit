@@ -5,6 +5,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { evaluateTourWhen, type TourConditionContext } from '@/lib/tour/tour-conditions';
+import { onTourEvent } from '@/lib/tour/tour-events';
 import { chaptersForTour, getTourDefinition } from '@/lib/tour/tour-steps';
 import {
   emptyTourState,
@@ -102,6 +103,39 @@ export function resolveActivePointer(
     };
   }
   return null;
+}
+
+/** Event / action steps are the thing the user is doing — don't pause over them. */
+export function isTourActionStep(step: { advance: { kind: string } } | undefined): boolean {
+  const kind = step?.advance.kind;
+  return kind === 'event' || kind === 'action' || kind === 'next_or_event';
+}
+
+export function shouldPauseTour(input: {
+  actionStep: boolean;
+  stageLive: boolean;
+  keyboardVisible: boolean;
+}): boolean {
+  if (input.actionStep) return false;
+  return input.stageLive || input.keyboardVisible;
+}
+
+/**
+ * Subscribe from tour state, not from the visible pointer, so a completion
+ * event still advances while the overlay is paused.
+ */
+export function bindTourStepAdvance(opts: {
+  state: TourState;
+  ctx: TourConditionContext;
+  onAdvance: (next: TourState) => void;
+}): () => void {
+  const pointer = resolveActivePointer(opts.state, opts.ctx);
+  if (!pointer) return () => undefined;
+  const adv = pointer.step.advance;
+  if (adv.kind !== 'event' && adv.kind !== 'next_or_event') return () => undefined;
+  return onTourEvent(adv.event, () => {
+    opts.onAdvance(advanceAfterStep(opts.state, opts.ctx));
+  });
 }
 
 export function startTourState(tourId: TourId): TourState {

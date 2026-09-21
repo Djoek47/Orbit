@@ -19,7 +19,7 @@ import { UNDO_MS } from '@/lib/poppins/ui-orchestrator';
 import { RESULT_LINGER_MS } from '@/lib/poppins/ui-scenes';
 
 async function main() {
-  const root = join(import.meta.dirname, '../..');
+  const root = process.cwd();
 
   assert.ok(UNDO_MS > RESULT_LINGER_MS, 'undo window must outlast entrance linger');
   assert.equal(UNDO_MS, 5000);

@@ -73,6 +73,8 @@ export type TourStep = {
   ensureVisible?: boolean;
   /** Condition key evaluated by tour-conditions. */
   when?: string;
+  /** Centred card with no spotlight target (step can show while the stage is live). */
+  centered?: boolean;
   /** Side effect when the step becomes active (e.g. switch domain tab). */
   onEnter?: 'tasks.homework' | 'forceQuietSpeak';
 };

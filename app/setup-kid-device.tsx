@@ -12,7 +12,10 @@ import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { userFacingMessage } from '@/lib/auth/auth-errors';
-import { clearDeviceSession, setupSharedDeviceSession } from '@/lib/device/device-session';
+import { dataMode } from '@/config/data-mode';
+import { clearDeviceSession } from '@/lib/device/device-session';
+import { saveChildInviteRecord } from '@/lib/household/child-invites';
+import { getSupabaseClient } from '@/lib/supabase/client';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   resolveMemberByProfileCode,
@@ -50,6 +53,7 @@ export default function SetupKidDeviceScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ step?: string; readonly?: string }>();
   const {
+    connectSharedTabletProfiles,
     createSharedDevice,
     ensureMemberProfileInviteCode,
     household,
@@ -170,8 +174,22 @@ export default function SetupKidDeviceScreen() {
     try {
       setBusy(true);
       setError('');
+      const codes: string[] = [];
       for (const person of hostedMembers) {
-        await ensureMemberProfileInviteCode(person.id);
+        const code = await ensureMemberProfileInviteCode(person.id);
+        if (!code) {
+          throw new Error(`Could not make a profile code for ${person.name}.`);
+        }
+        codes.push(code);
+        if (!household.id) {
+          throw new Error('Create the household before setting up this iPad.');
+        }
+        await saveChildInviteRecord({
+          member: { ...person, profileInviteCode: code, role: 'child' },
+          householdId: household.id,
+          householdName: household.householdName,
+          code,
+        });
       }
       const label = deviceLabel.trim() || DEFAULT_SHARED_IPAD_NAME;
       let sharedDeviceId: string | null =
@@ -191,12 +209,17 @@ export default function SetupKidDeviceScreen() {
         );
       }
 
-      await setupSharedDeviceSession({
-        profileMemberIds: hostedMembers.map((person) => person.id),
-        deviceLabel: label,
-        sharedDeviceId,
-        hostKind: 'shared-tablet',
-      });
+      await connectSharedTabletProfiles(codes, label);
+
+      // Parent GoTrue session must not stay on the kids' iPad. Local scope only —
+      // do not sign the parent out of their phone.
+      if (dataMode !== 'mock') {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+          if (signOutError) console.warn('setupKidDevice.localSignOut', signOutError.message);
+        }
+      }
 
       router.replace('/select-profile' as never);
     } catch (err) {

@@ -12,7 +12,7 @@ import {
   type SidekickSession,
 } from '@/lib/sidekick/session';
 
-const root = join(import.meta.dirname, '../..');
+const root = process.cwd();
 
 const drako: SidekickSession = {
   memberId: 'drako',
