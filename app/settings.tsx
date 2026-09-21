@@ -102,6 +102,7 @@ import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { chaptersForTour } from '@/lib/tour/tour-steps';
 import { resolveTourId } from '@/lib/tour/tour-conditions';
+import { isTourEnabledSync } from '@/lib/tour/tour-enabled';
 import {
   POPPINS_PAUSED_COPY,
   TOKENS_PER_DAY,
@@ -635,6 +636,8 @@ export default function SettingsScreen() {
 
             
             <SettingsGroup header="Help">
+              {isTourEnabledSync() ? (
+                <>
               <SettingsNavRow
                 icon="map"
                 iconColor="#38BDF8"
@@ -675,6 +678,8 @@ export default function SettingsScreen() {
                 subtitle="Getting started on Home"
                 onPress={() => tourControls?.showChecklist()}
               />
+                </>
+              ) : null}
               <SettingsNavRow
                 icon="bug-report"
                 iconColor="#F87171"

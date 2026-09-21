@@ -57,6 +57,8 @@ import {
 import type { TourId, TourRect, TourState, TourTargetId } from '@/lib/tour/tour-types';
 import { loadDeviceSession } from '@/lib/device/device-session';
 import { loadOnboardingPrefs } from '@/lib/onboarding-prefs';
+import { recoverStuckTourIfNeeded, markTourSessionHealthy } from '@/lib/tour/tour-crash-recovery';
+import { hydrateTourEnabled, isTourEnabledSync } from '@/lib/tour/tour-enabled';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type ScrollFn = ((y: number) => void) | null;
@@ -124,6 +126,7 @@ export function TourProvider({ children }: PropsWithChildren) {
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   /** Overlay only runs after an explicit start/continue this session — never auto-resume. */
   const [sessionActive, setSessionActive] = useState(false);
+  const [tourEnabled, setTourEnabled] = useState(isTourEnabledSync());
   const [paused, setPaused] = useState(false);
   const [targetRect, setTargetRect] = useState<TourRect | null>(null);
   const [hostKind, setHostKind] = useState<'sidekick' | 'shared-tablet' | null>(null);
@@ -191,6 +194,26 @@ export function TourProvider({ children }: PropsWithChildren) {
       if (!cancelled) {
         setHostKind(session.hostKind ?? null);
         setTourId(activeId);
+      }
+
+      const enabled = await hydrateTourEnabled();
+      if (!cancelled) setTourEnabled(enabled);
+      if (!enabled) {
+        if (!cancelled) {
+          setTourState(null);
+          setWelcomeOpen(false);
+          setSessionActive(false);
+        }
+        return;
+      }
+
+      const recovery = await recoverStuckTourIfNeeded(household.id, currentMember.id);
+      if (recovery.recovered) {
+        void trackAnalytics(
+          'tour.recovered_stuck',
+          { reason: recovery.reason },
+          analyticsContextRef.current
+        );
       }
 
       let state = await loadTourState(household.id, currentMember.id, activeId);
@@ -576,6 +599,7 @@ export function TourProvider({ children }: PropsWithChildren) {
 
   const handleCardReady = useCallback(() => {
     watchdogStreakRef.current = 0;
+    void markTourSessionHealthy();
   }, []);
 
   const handleWelcomeSkip = useCallback(() => {
@@ -666,6 +690,22 @@ export function TourProvider({ children }: PropsWithChildren) {
       registerTarget('tour.finish', { x: 40, y: 180, width: 300, height: 40 });
     }
   }, [pointer?.step.targetId, registerTarget]);
+
+  useEffect(() => {
+    if (!tourEnabled) return;
+    // Home reaching the provider with a household counts as a healthy session.
+    if (household?.id && currentMember?.id && !sessionActive) {
+      void markTourSessionHealthy();
+    }
+  }, [tourEnabled, household?.id, currentMember?.id, sessionActive]);
+
+  if (!tourEnabled) {
+    return (
+      <TourRegistryContext.Provider value={registry}>
+        {children}
+      </TourRegistryContext.Provider>
+    );
+  }
 
   return (
     <TourRegistryContext.Provider value={registry}>
