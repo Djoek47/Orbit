@@ -46,9 +46,10 @@ export function isDueToday(
   timeZone?: string
 ): boolean {
   if (task.status === 'Completed' || task.status === 'Cancelled') return false;
+  if (task.status === 'Overdue') return true;
   const occurrence = resolveOccurrenceDate(task, now);
   if (occurrence) return occurrence === formatLocalDate(now, timeZone);
-  return task.status === 'Overdue' || isDueTodayLabel(task.due);
+  return isDueTodayLabel(task.due);
 }
 
 /**
@@ -65,5 +66,5 @@ export function isTodayTask(
   if (task.status === 'Completed') {
     return isCompletedToday(task, now, timeZone);
   }
-  return isDueToday(task);
+  return isDueToday(task, now, timeZone);
 }
