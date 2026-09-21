@@ -85,7 +85,13 @@ async function main() {
 
     const welcome = readFileSync(join(root, 'app/welcome.tsx'), 'utf8');
     assert.match(welcome, /poppins-voice/);
-    assert.match(welcome, /Should Poppins talk back/);
+    assert.match(welcome, /Set up Poppins/);
+    assert.match(welcome, /PoppinsSetupPanel/);
+
+    const panel = readFileSync(join(root, 'components/orbit/onboarding/poppins-setup-panel.tsx'), 'utf8');
+    assert.match(panel, /Just show me/);
+    assert.match(panel, /Talk to me/);
+    assert.match(panel, /Speak back uses more/);
   }
 
   console.log('PASS pass3 undo + modes');
