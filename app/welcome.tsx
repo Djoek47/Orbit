@@ -6,7 +6,6 @@ import { Animated, Platform, PanResponder, Pressable, ScrollView, StyleSheet, Vi
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChoiceRow } from '@/components/orbit/choice-row';
 import { Avatar } from '@/components/orbit/avatar';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { BrandOpening } from '@/components/orbit/brand-opening';
@@ -19,6 +18,7 @@ import { OnboardingPlaces } from '@/components/orbit/onboarding-places';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
+import { PoppinsSetupPanel, type PoppinsSetupValue } from '@/components/orbit/onboarding/poppins-setup-panel';
 import { SetupMemberWizard } from '@/components/orbit/setup-member-wizard';
 import { RewardPackagePicker } from '@/components/orbit/onboarding/reward-package-picker';
 import { SetupRosterHub, type RosterSidekickInvite } from '@/components/orbit/setup-roster-hub';
@@ -30,7 +30,15 @@ import {
   seedOnboardingAvatar,
 } from '@/lib/profile/chosen-avatar';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
-import { TOKEN_WEIGHT_SPEAK_BACK } from '@/constants/poppins-ai-rates';
+import {
+  DEFAULT_MAJORDOMO_PROFILE_ID,
+  isMajordomoProfileId,
+} from '@/lib/ai/majordomo-profiles';
+import { saveMajordomoProfileId } from '@/lib/ai/majordomo-prefs';
+import {
+  DEFAULT_POPPINS_INTERACTION_PREFS,
+  type PoppinsInteractionPrefs,
+} from '@/lib/poppins/poppins-prefs';
 import {
   loadOnboardingPrefs,
   saveOnboardingPrefs,
@@ -195,6 +203,7 @@ export default function WelcomeOnboardingScreen() {
     redeemChildInvite,
     signUp,
     updateHouseholdRewardSettings,
+    updateMajordomoProfile,
     setMemberJoinPreApproved,
   } = useOrbit();
 
@@ -219,7 +228,10 @@ export default function WelcomeOnboardingScreen() {
     DEFAULT_REWARD_MODEL
   );
   const [selectedRewardMode, setSelectedRewardMode] = useState<RewardMode>('weighted');
-  const [selectedPoppinsVoice, setSelectedPoppinsVoice] = useState<'quiet' | 'spoken'>('quiet');
+  const [poppinsSetup, setPoppinsSetup] = useState<PoppinsSetupValue>({
+    prefs: { ...DEFAULT_POPPINS_INTERACTION_PREFS },
+    majordomoProfileId: DEFAULT_MAJORDOMO_PROFILE_ID,
+  });
   const [selectedRewardPackageId, setSelectedRewardPackageId] = useState<RewardPackageId>(
     DEFAULT_REWARD_PACKAGE_ID
   );
@@ -325,6 +337,18 @@ export default function WelcomeOnboardingScreen() {
         setSelectedRole(prefs.role);
         setSelectedRewardModel(prefs.rewardModel ?? DEFAULT_REWARD_MODEL);
         setSelectedRewardMode(prefs.rewardMode ?? 'weighted');
+        const interaction =
+          prefs.poppinsInteraction ??
+          ({
+            ...DEFAULT_POPPINS_INTERACTION_PREFS,
+            speakBack: prefs.poppinsVoice === 'spoken',
+          } satisfies PoppinsInteractionPrefs);
+        setPoppinsSetup({
+          prefs: interaction,
+          majordomoProfileId: isMajordomoProfileId(prefs.majordomoProfileId)
+            ? prefs.majordomoProfileId
+            : DEFAULT_MAJORDOMO_PROFILE_ID,
+        });
       }
       if (draft) {
         setSetupDraft(draft);
@@ -564,23 +588,21 @@ export default function WelcomeOnboardingScreen() {
     setError('');
     const rewardModel = selectedRewardModel ?? DEFAULT_REWARD_MODEL;
     const rewardMode: RewardMode = selectedRewardMode ?? 'weighted';
-    const voice = selectedPoppinsVoice;
+    const voice = poppinsSetup.prefs.speakBack ? 'spoken' : 'quiet';
+    const majordomoProfileId = poppinsSetup.majordomoProfileId;
     try {
       await saveOnboardingPrefs({
         role: 'parent',
         rewardModel,
         rewardMode,
         poppinsVoice: voice,
+        poppinsInteraction: poppinsSetup.prefs,
+        majordomoProfileId,
       });
       if (hasHousehold) {
-        const { savePoppinsInteractionPrefs, loadPoppinsInteractionPrefs } = await import(
-          '@/lib/poppins/poppins-prefs'
-        );
-        const current = await loadPoppinsInteractionPrefs(household.id);
-        await savePoppinsInteractionPrefs(household.id, {
-          ...current,
-          speakBack: voice === 'spoken',
-        });
+        const { savePoppinsInteractionPrefs } = await import('@/lib/poppins/poppins-prefs');
+        await savePoppinsInteractionPrefs(household.id, poppinsSetup.prefs);
+        updateMajordomoProfile(majordomoProfileId);
       }
     } catch {
       // Prefs are best-effort.
@@ -613,6 +635,9 @@ export default function WelcomeOnboardingScreen() {
       role: 'parent',
       rewardModel: selectedRewardModel ?? DEFAULT_REWARD_MODEL,
       rewardMode: selectedRewardMode ?? 'weighted',
+      poppinsVoice: poppinsSetup.prefs.speakBack ? 'spoken' : 'quiet',
+      poppinsInteraction: poppinsSetup.prefs,
+      majordomoProfileId: poppinsSetup.majordomoProfileId,
     });
   };
 
@@ -769,6 +794,15 @@ export default function WelcomeOnboardingScreen() {
     }
     const householdId = createdHousehold.id;
     updateHouseholdRewardSettings({ rewardMode: draft.scoringMode });
+
+    try {
+      const { savePoppinsInteractionPrefs } = await import('@/lib/poppins/poppins-prefs');
+      await savePoppinsInteractionPrefs(householdId, poppinsSetup.prefs);
+      await saveMajordomoProfileId(householdId, poppinsSetup.majordomoProfileId);
+      updateMajordomoProfile(poppinsSetup.majordomoProfileId);
+    } catch {
+      // Poppins prefs are best-effort during household create.
+    }
 
     // Finish-later: persist every named draft person. Create: prefer complete ones,
     // but still keep named incomplete members so Manage Members isn't empty.
@@ -1204,24 +1238,16 @@ export default function WelcomeOnboardingScreen() {
             <KeyboardScreen contentContainerStyle={styles.scroll}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
               <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
-                Should Poppins talk back?
+                Set up Poppins
               </Text>
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                You can change this anytime in Settings. Quiet is free with your plan.
+                Voice, personality, actions, and notifications — all adjustable later in Settings.
               </Text>
-              <ChoiceRow
-                label="Poppins voice"
-                options={['Just show me', 'Talk to me']}
-                value={selectedPoppinsVoice === 'spoken' ? 'Talk to me' : 'Just show me'}
-                onChange={(value) =>
-                  setSelectedPoppinsVoice(value === 'Talk to me' ? 'spoken' : 'quiet')
-                }
+              <PoppinsSetupPanel
+                value={poppinsSetup}
+                accent={accent}
+                onChange={setPoppinsSetup}
               />
-              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textSubtle, marginTop: 12 }]}>
-                {selectedPoppinsVoice === 'spoken'
-                  ? `Talk to me — each spoken action uses about ${TOKEN_WEIGHT_SPEAK_BACK} of your monthly actions instead of 1.`
-                  : 'Just show me — Poppins fills the screen as you speak.'}
-              </Text>
               <OrbitButton onPress={() => void handlePoppinsVoiceContinue()}>Continue</OrbitButton>
             </KeyboardScreen>
           ) : null}
