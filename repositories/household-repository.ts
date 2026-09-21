@@ -1608,6 +1608,8 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
       deals: true,
       plans: true,
       xpFairness: true,
+      ...(((household as { notification_prefs?: Record<string, boolean> }).notification_prefs) ??
+        {}),
     },
     customHouseRules: mappedCustomRules,
     rewards: (rewards ?? []).map((row) => mapRewardRow(row)),

@@ -34,4 +34,19 @@ export async function savePoppinsNotificationPrefs(
   } catch (error) {
     console.warn('savePoppinsNotificationPrefs failed', error);
   }
+
+  try {
+    const { dataMode } = await import('@/config/data-mode');
+    if (dataMode !== 'supabase') return;
+    const { getSupabaseClient } = await import('@/lib/supabase/client');
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    const { error } = await supabase
+      .from('households')
+      .update({ notification_prefs: prefs } as never)
+      .eq('id', householdId);
+    if (error) console.warn('savePoppinsNotificationPrefs supabase', error.message);
+  } catch (error) {
+    console.warn('savePoppinsNotificationPrefs supabase skipped', error);
+  }
 }

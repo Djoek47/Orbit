@@ -1,5 +1,6 @@
 /**
  * Dispatch Expo push notifications to household members by audienceMemberIds.
+ * Honours households.notification_prefs (WO9.3 §6.1).
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
@@ -23,6 +24,32 @@ function audienceMemberIds(data: unknown): string[] {
   const ids = (data as Record<string, unknown>).audienceMemberIds;
   if (!Array.isArray(ids)) return [];
   return ids.filter((id): id is string => typeof id === 'string' && id.length > 0);
+}
+
+/** Map notification category / kind → households.notification_prefs key. */
+function prefKeyForCategory(category: unknown, data: Record<string, unknown>): string | null {
+  const raw = String(category ?? data.category ?? data.kind ?? '').toLowerCase();
+  if (!raw) return null;
+  if (raw.includes('task') || raw === 'nudge') return 'tasks';
+  if (raw.includes('itinerary') || raw.includes('trip')) return 'itinerary';
+  if (raw.includes('grocer') || raw.includes('shop') || raw === 'missingontheway') return 'groceries';
+  if (raw.includes('reward') || raw.includes('allowance') || raw.includes('badge')) return 'rewards';
+  if (raw.includes('deal')) return 'deals';
+  if (raw.includes('plan')) return 'plans';
+  if (raw.includes('fair') || raw.includes('xp') || raw.includes('momentum')) return 'xpFairness';
+  if (raw.includes('nearshop') || raw === 'near_shop') return 'nearShop';
+  return null;
+}
+
+function prefsAllow(
+  prefs: Record<string, unknown> | null | undefined,
+  category: unknown,
+  data: Record<string, unknown>
+): boolean {
+  if (!prefs) return true;
+  const key = prefKeyForCategory(category, data);
+  if (!key) return true;
+  return prefs[key] !== false;
 }
 
 async function sendExpoPush(messages: ExpoPushMessage[]): Promise<void> {
@@ -72,11 +99,18 @@ Deno.serve(async (req) => {
     let memberIds = Array.isArray(body.audienceMemberIds)
       ? body.audienceMemberIds.filter((id: unknown): id is string => typeof id === 'string')
       : [];
+    let category: unknown = body.category ?? data.category ?? null;
+    let householdId: string | null =
+      typeof body.householdId === 'string'
+        ? body.householdId
+        : typeof data.householdId === 'string'
+          ? data.householdId
+          : null;
 
     if (notificationId) {
       const { data: row, error } = await admin
         .from('notifications')
-        .select('title, body, data, category')
+        .select('title, body, data, category, household_id')
         .eq('id', notificationId)
         .maybeSingle();
 
@@ -96,6 +130,11 @@ Deno.serve(async (req) => {
         notificationId,
         category: row.category,
       };
+      category = row.category;
+      householdId =
+        typeof (row as { household_id?: string }).household_id === 'string'
+          ? (row as { household_id: string }).household_id
+          : householdId;
       memberIds = audienceMemberIds(row.data);
     }
 
@@ -103,6 +142,30 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, sent: 0, reason: 'no_audience' }), {
         headers: { ...cors, 'Content-Type': 'application/json' },
       });
+    }
+
+    if (!householdId && memberIds[0]) {
+      const { data: mem } = await admin
+        .from('household_members')
+        .select('household_id')
+        .eq('id', memberIds[0])
+        .maybeSingle();
+      if (mem?.household_id) householdId = mem.household_id;
+    }
+
+    if (householdId) {
+      const { data: hh } = await admin
+        .from('households')
+        .select('notification_prefs')
+        .eq('id', householdId)
+        .maybeSingle();
+      const prefs = (hh?.notification_prefs ?? null) as Record<string, unknown> | null;
+      if (!prefsAllow(prefs, category, data)) {
+        return new Response(
+          JSON.stringify({ ok: true, sent: 0, reason: 'prefs_disabled', category }),
+          { headers: { ...cors, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     const [{ data: memberTokens }, { data: members }] = await Promise.all([

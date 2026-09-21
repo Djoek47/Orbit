@@ -303,7 +303,26 @@ Deno.serve(async (req) => {
           ''
       ).trim() || 'America/Toronto';
 
-    const fired = evaluateHouseholdRules(household as Record<string, unknown>, metrics);
+    // Prefer live notification_prefs from DB so Settings toggles reach the monitor.
+    let householdForRules: Record<string, unknown> = { ...(household as Record<string, unknown>) };
+    try {
+      const { data: hhRow } = await supabase
+        .from('households')
+        .select('notification_prefs')
+        .eq('id', householdId)
+        .maybeSingle();
+      if (hhRow?.notification_prefs && typeof hhRow.notification_prefs === 'object') {
+        householdForRules = {
+          ...householdForRules,
+          notification_prefs: hhRow.notification_prefs,
+          notificationPrefs: hhRow.notification_prefs,
+        };
+      }
+    } catch (error) {
+      console.warn('poppins-monitor prefs load', error);
+    }
+
+    const fired = evaluateHouseholdRules(householdForRules, metrics);
     if (!fired.length) {
       return jsonResponse({
         ok: true,

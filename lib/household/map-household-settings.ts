@@ -41,6 +41,12 @@ export function mapHouseholdSettingsFromRow(
 ): Partial<HouseholdSnapshot> {
   if (!row) return {};
 
+  const prefsRaw = (row as { notification_prefs?: unknown }).notification_prefs;
+  const notificationPrefs =
+    prefsRaw && typeof prefsRaw === 'object'
+      ? (prefsRaw as HouseholdSnapshot['notificationPrefs'])
+      : undefined;
+
   return {
     id: row.id,
     householdName: row.name ?? undefined,
@@ -55,6 +61,7 @@ export function mapHouseholdSettingsFromRow(
     joinApprovalRequired: row.join_approval_required === true,
     sidekickGroceryAdd: Boolean(row.sidekick_grocery_add),
     memberCapabilities: mapMemberCapabilitiesFromRow(row.member_capabilities),
+    ...(notificationPrefs ? { notificationPrefs } : {}),
   };
 }
 
