@@ -44,11 +44,9 @@ import { formatAssigneeLabel } from '@/lib/tasks/split-assign';
 import { formatHomeworkDescription } from '@/lib/tasks/homework-subject';
 import { computeTaskXp, weightForDifficulty } from '@/lib/tasks/xp';
 import { allLibraryTasks, type Frequency } from '@/lib/tasks/task-library';
-import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
+import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
 import { householdDueTimeLocal } from '@/lib/rules/household-view';
 import { dueLabelForDate, occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
-import { mapLibraryRepeat } from '@/lib/tasks/library-repeat';
-import { formatLocalDate } from '@/lib/streaks/local-date';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask, TaskDifficulty } from '@/types/orbit';
 
@@ -834,58 +832,47 @@ export default function CreateTaskScreen() {
     let createdCount = 0;
     let blocked = false;
     let lastError = '';
+    const deadlineHm = householdDueTimeLocal(household);
     for (const id of pickerIds) {
       const task = byId.get(id);
       if (!task) continue;
-      const dueAt = dueAtForFrequency('daily', new Date(), householdDueTimeLocal(household));
-      const occurrenceDate = formatLocalDate(new Date());
-      const payload = buildTaskPayload({
-        title: task.name,
-        category: task.domainId,
-        due: 'Today',
-        xp: task.xp,
-        repeat: mapLibraryRepeat(
-          (pickerFrequencies[id] as Frequency | undefined) ?? task.defaultFrequency
-        ),
-        difficulty: 'medium',
-        weight: 1,
-        proofRequired: false,
-        tracking: task.tracking,
-      });
-      const definitionId = `lib:${task.id}:${payload.assignee}`;
+      const frequency =
+        (pickerFrequencies[id] as Frequency | undefined) ?? task.defaultFrequency;
       try {
         if (task.tracking === 'streak') {
           const kids = childMembers.map((m) => m.name);
           if (kids.length === 0) continue;
-          const kidNames = payload.assignees?.length
-            ? payload.assignees.filter((n) => kids.includes(n))
-            : kids.includes(payload.assignee)
-              ? [payload.assignee]
-              : [kids[0]];
+          const kidNames = resolvedAssigneeNames.filter((n) => kids.includes(n));
+          const names = kidNames.length > 0 ? kidNames : [kids[0]!];
+          const input = buildLibraryAssignInput(task, names[0]!, frequency, {
+            dailyDeadlineHm: deadlineHm,
+            dueTimeLocal: deadlineHm,
+            timezone: household.timezone,
+            assigneeMember: household.members.find((m) => m.name === names[0]) ?? null,
+          });
           const created = await createTask({
-            ...payload,
-            assignee: kidNames[0],
-            assignees: kidNames.length > 1 ? kidNames : undefined,
-            dueAt: dueAt?.toISOString(),
+            ...input,
+            assignee: names[0]!,
+            assignees: names.length > 1 ? names : undefined,
             baseXp: 0,
             xpEligible: false,
-            definitionId: `lib:${task.id}:${kidNames[0]}`,
-            occurrenceDate,
+            definitionId: `lib:${task.id}:${names[0]}`,
           });
           if (created) createdCount += 1;
           else blocked = true;
           continue;
         }
-        const created = await createTask({
-          ...payload,
-          dueAt: dueAt?.toISOString(),
-          baseXp: task.xp,
-          xpEligible: true,
-          definitionId,
-          occurrenceDate,
-        });
-        if (created) createdCount += 1;
-        else blocked = true;
+        for (const assigneeName of resolvedAssigneeNames) {
+          const input = buildLibraryAssignInput(task, assigneeName, frequency, {
+            dailyDeadlineHm: deadlineHm,
+            dueTimeLocal: deadlineHm,
+            timezone: household.timezone,
+            assigneeMember: household.members.find((m) => m.name === assigneeName) ?? null,
+          });
+          const created = await createTask(input);
+          if (created) createdCount += 1;
+          else blocked = true;
+        }
       } catch (error) {
         blocked = true;
         lastError = error instanceof Error ? error.message : 'Unknown error';

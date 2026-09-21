@@ -5,9 +5,13 @@
 import { isOnRecess } from '@/lib/recess/recess-engine';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { expireOpenTasksAtBoundary } from '@/lib/tasks/expire-at-boundary';
+import { resolveHouseholdTimezone } from '@/lib/tasks/household-tz';
 import type { HouseholdSnapshot, HouseholdTask } from '@/types/orbit';
 
-export type HouseholdExpiryContext = Pick<HouseholdSnapshot, 'members' | 'recessPeriods'>;
+export type HouseholdExpiryContext = Pick<
+  HouseholdSnapshot,
+  'members' | 'recessPeriods' | 'timezone'
+>;
 
 export function applyHouseholdTaskExpiry(
   tasks: HouseholdTask[],
@@ -17,6 +21,7 @@ export function applyHouseholdTaskExpiry(
   const expiryHm = getHouseRulesDoc().constants.expiryTime;
   return expireOpenTasksAtBoundary(tasks, now, {
     expiryHm,
+    timezone: resolveHouseholdTimezone(household.timezone),
     assigneeOnRecess: (name, dateKey) =>
       household.members.some(
         (member) =>

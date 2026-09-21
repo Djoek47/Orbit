@@ -186,6 +186,11 @@ import { normalizeRewardSettings } from '@/lib/rewards/reward-mode';
 import { isOnRecess } from '@/lib/recess/recess-engine';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import {
+  addCalendarDays,
+  formatDateInTimezone,
+  resolveHouseholdTimezone,
+} from '@/lib/tasks/household-tz';
+import {
   applyHouseholdTaskExpiry,
   tasksWithExpiryStatusChange,
 } from '@/lib/tasks/apply-household-expiry';
@@ -2678,18 +2683,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const live = snapshot ?? householdRef.current;
     const now = new Date();
     const expiryHm = getHouseRulesDoc().constants.expiryTime;
+    const timezone = resolveHouseholdTimezone(live.timezone);
     let nextTasks = autoConfirmUnreviewed(live.tasks, now);
 
     // Cold-start: resolve intervening days (up to 14) then materialise today.
     const LOOKBACK_DAYS = 7;
+    const todayKey = formatDateInTimezone(now, timezone);
     for (let offset = LOOKBACK_DAYS; offset >= 1; offset -= 1) {
-      const day = new Date(now);
-      day.setDate(day.getDate() - offset);
-      const dayKey = formatLocalDate(day);
+      const dayKey = addCalendarDays(todayKey, -offset);
       nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now, {
         expiryHm,
+        timezone,
         skipAssigneeNames: recessSkipAssignees(live, dayKey),
       });
+      const day = new Date(`${dayKey}T12:00:00`);
       const dayDrafts = ensureOccurrencesForDay(
         nextTasks,
         day,
@@ -2744,11 +2751,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       // After creating past-day open rows, mark them missed if still pending.
       nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now, {
         expiryHm,
+        timezone,
         skipAssigneeNames: recessSkipAssignees(live, dayKey),
       });
     }
 
-    const todayKey = formatLocalDate(now);
     const todayDrafts = ensureOccurrencesForDay(
       nextTasks,
       now,

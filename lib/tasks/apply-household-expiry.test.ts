@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 
 import { applyHouseholdTaskExpiry, tasksWithExpiryStatusChange } from '@/lib/tasks/apply-household-expiry';
+import { wallTimeToUtc } from '@/lib/tasks/household-tz';
 import type { HouseholdTask } from '@/types/orbit';
 
 function task(overrides: Partial<HouseholdTask> & Pick<HouseholdTask, 'id'>): HouseholdTask {
@@ -23,13 +24,17 @@ function task(overrides: Partial<HouseholdTask> & Pick<HouseholdTask, 'id'>): Ho
 }
 
 {
-  const now = new Date(2026, 8, 2, 8, 0, 0);
+  const now = wallTimeToUtc('2026-09-02', '08:00', 'America/Toronto');
   const yesterday = task({
     id: 'y1',
     occurrenceDate: '2026-09-01',
-    dueAt: new Date(2026, 8, 1, 19, 0, 0).toISOString(),
+    dueAt: wallTimeToUtc('2026-09-01', '19:00', 'America/Toronto').toISOString(),
   });
-  const household = { members: [{ id: 'm1', name: 'Maya' } as never], recessPeriods: [] };
+  const household = {
+    members: [{ id: 'm1', name: 'Maya' } as never],
+    recessPeriods: [],
+    timezone: 'America/Toronto',
+  };
   const next = applyHouseholdTaskExpiry([yesterday], household, now);
   assert.equal(next[0]?.status, 'Expired', 'yesterday pending → Expired after boundary');
 

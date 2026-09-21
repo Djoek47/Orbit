@@ -85,6 +85,8 @@ export default function AssignHomeworkScreen() {
           buildLibraryAssignInput(task, assignee.name, task.defaultFrequency, {
             now,
             dueTimeLocal: householdDueTimeLocal(household, now),
+            dailyDeadlineHm: householdDueTimeLocal(household, now),
+            timezone: household.timezone,
             dueLabel: dueOpt.label,
             occurrenceDate,
             dueAt,

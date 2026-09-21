@@ -1,15 +1,18 @@
-import { formatLocalDate } from '@/lib/streaks/local-date';
 import { formatHomeworkDescription } from '@/lib/tasks/homework-subject';
 import { proofRequiredForHomeworkAssign } from '@/lib/tasks/homework-proof';
 import { libraryDefinitionId } from '@/lib/tasks/due-label';
+import { resolveAssignOccurrence } from '@/lib/tasks/assign-occurrence';
 import { mapLibraryRepeat } from '@/lib/tasks/library-repeat';
-import { dueAtForFrequency, DEFAULT_DUE_TIME_LOCAL } from '@/lib/tasks/recurrence-defaults';
+import { DEFAULT_DUE_TIME_LOCAL } from '@/lib/tasks/recurrence-defaults';
 import type { Frequency, LibraryTask } from '@/lib/tasks/task-library';
 import type { CreateTaskInput, HouseholdMember } from '@/types/orbit';
 
 export type LibraryAssignOptions = {
   now?: Date;
   dueTimeLocal?: string;
+  /** Household daily deadline HH:MM — when past, first occurrence is tomorrow. */
+  dailyDeadlineHm?: string;
+  timezone?: string | null;
   dueLabel?: string;
   occurrenceDate?: string;
   dueAt?: string;
@@ -18,9 +21,8 @@ export type LibraryAssignOptions = {
 };
 
 /**
- * First occurrence of a freshly assigned library task is always today.
- * Frequency only sets the repeat rule — using dueAtForFrequency(weekly|monthly)
- * as the first due hid new tasks from Today/Active (they landed next Sunday).
+ * First occurrence is today before the daily deadline, tomorrow after.
+ * Frequency only sets the repeat rule — never parks a fresh assign on next Sunday.
  */
 export function buildLibraryAssignInput(
   task: LibraryTask,
@@ -35,8 +37,24 @@ export function buildLibraryAssignInput(
       : optionsOrNow;
   const now = options.now ?? new Date();
   const dueTimeLocal = options.dueTimeLocal ?? DEFAULT_DUE_TIME_LOCAL;
-  const occurrenceDate = options.occurrenceDate ?? formatLocalDate(now);
-  const dueAt = options.dueAt ?? dueAtForFrequency('daily', now, dueTimeLocal)?.toISOString();
+  const dailyDeadlineHm = options.dailyDeadlineHm ?? dueTimeLocal;
+  const resolved =
+    options.occurrenceDate && options.dueLabel
+      ? {
+          occurrenceDate: options.occurrenceDate,
+          dueLabel: options.dueLabel,
+          dueAt: options.dueAt,
+          rolledToTomorrow: false,
+        }
+      : resolveAssignOccurrence({
+          now,
+          dailyDeadlineHm,
+          dueTimeLocal,
+          timezone: options.timezone,
+        });
+  const occurrenceDate = options.occurrenceDate ?? resolved.occurrenceDate;
+  const dueAt = options.dueAt ?? resolved.dueAt;
+  const dueLabel = options.dueLabel ?? resolved.dueLabel;
   const homeworkSubject = options.homeworkSubject?.trim() || undefined;
   const isHomework = task.domainId === 'homework_education';
 
@@ -44,7 +62,7 @@ export function buildLibraryAssignInput(
     title: task.name,
     category: task.domainId,
     assignee: assigneeName,
-    due: options.dueLabel ?? 'Today',
+    due: dueLabel,
     dueAt,
     xp: task.xp,
     baseXp: task.xp,

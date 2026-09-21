@@ -141,9 +141,14 @@ Deno.serve(async (req) => {
 
     const now = new Date();
     const taskRows = (tasks ?? []) as DbTaskRow[];
+    const householdTimezone =
+      household && typeof (household as { timezone?: string }).timezone === 'string'
+        ? (household as { timezone?: string }).timezone
+        : null;
     const { expired: toExpire } = expireOpenDbTasksAtBoundary(taskRows, now, {
       members: members ?? [],
       recessPeriods: recessPeriods ?? [],
+      timezone: householdTimezone,
     });
 
     if (toExpire.length > 0) {

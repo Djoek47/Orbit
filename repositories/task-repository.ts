@@ -1,10 +1,11 @@
 import { mockHousehold } from '@/data/mock-household';
 import { mapTaskRow, taskRepeatToDb, taskStatusToDb } from '@/lib/mappers/orbit-mappers';
-import { fallbackSeriesDefinitionId } from '@/lib/tasks/recurring';
+import { fallbackSeriesDefinitionId, isExpiredStatus } from '@/lib/tasks/recurring';
 import {
   assertUniqueOccurrenceInsert,
   dedupeOccurrences,
 } from '@/lib/tasks/occurrence-dedupe';
+import { addCalendarDays } from '@/lib/tasks/household-tz';
 import {
   buildShares,
   formatAssigneeLabel,
@@ -16,6 +17,35 @@ import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdI
 import type { CreateTaskInput, HouseholdTask } from '@/types/orbit';
 
 let mockTasksState: HouseholdTask[] = clone(mockHousehold.tasks);
+
+function isDeadOccurrence(task: HouseholdTask): boolean {
+  return (
+    isExpiredStatus(task.status) ||
+    task.status === 'Cancelled' ||
+    task.status === 'Completed'
+  );
+}
+
+/** When same-day row is dead, shift assign to the next calendar day. */
+function rollAssignToNextDay(input: CreateTaskInput): CreateTaskInput {
+  const base = input.occurrenceDate;
+  if (!base) return input;
+  const nextDate = addCalendarDays(base, 1);
+  let dueAt = input.dueAt;
+  if (dueAt) {
+    const prev = new Date(dueAt);
+    if (!Number.isNaN(prev.getTime())) {
+      prev.setUTCDate(prev.getUTCDate() + 1);
+      dueAt = prev.toISOString();
+    }
+  }
+  return {
+    ...input,
+    occurrenceDate: nextDate,
+    due: 'Tomorrow',
+    dueAt,
+  };
+}
 
 /** Test / mock continuity — replace in-memory task list. */
 export function __setMockTasksStateForTests(tasks: HouseholdTask[]) {
@@ -315,8 +345,19 @@ export const taskRepository = {
       });
     }
 
-    return data
-      ? { ...mapTaskRow(data), awardedXp: task.awardedXp, completedAt }
+    const mapped = data ? mapTaskRow(data) : null;
+    return mapped
+      ? {
+          ...mapped,
+          awardedXp: task.awardedXp,
+          completedAt,
+          verification: task.verification ?? mapped.verification ?? 'not_required',
+          proofStatus: task.proofStatus ?? mapped.proofStatus,
+          proofRounds: task.proofRounds ?? mapped.proofRounds,
+          proofPhotoUrls: task.proofPhotoUrls ?? mapped.proofPhotoUrls,
+          definitionId: task.definitionId ?? mapped.definitionId,
+          occurrenceDate: task.occurrenceDate ?? mapped.occurrenceDate,
+        }
       : completed;
   },
 
@@ -381,7 +422,8 @@ export const taskRepository = {
 
   /**
    * Rev F §1.2.b — occurrence insert as upsert on conflict do nothing.
-   * Returns the existing row when (definitionId, occurrenceDate) already exists.
+   * Returns the existing row when (definitionId, occurrenceDate) already exists
+   * and is still open. Dead rows (Expired / Cancelled / Completed) roll to tomorrow.
    */
   async upsertOccurrence(
     householdId: string | null | undefined,
@@ -395,19 +437,25 @@ export const taskRepository = {
             (input.assignees?.[0] ?? input.assignee).trim()
           )
         : undefined);
-    const resolved: CreateTaskInput = { ...input, definitionId };
+    let resolved: CreateTaskInput = { ...input, definitionId };
 
-    if (!resolved.definitionId || !input.occurrenceDate) {
+    if (!resolved.definitionId || !resolved.occurrenceDate) {
       const task = await taskRepository.createTask(householdId, resolved);
       return { task, inserted: true };
     }
 
-    if (isMockMode()) {
-      const existing = mockTasksState.find(
-        (t) =>
-          t.definitionId === resolved.definitionId && t.occurrenceDate === input.occurrenceDate
+    const findExisting = (list: HouseholdTask[], dateKey: string) =>
+      list.find(
+        (t) => t.definitionId === resolved.definitionId && t.occurrenceDate === dateKey
       );
-      if (existing) {
+
+    if (isMockMode()) {
+      let existing = findExisting(mockTasksState, resolved.occurrenceDate);
+      if (existing && isDeadOccurrence(existing)) {
+        resolved = rollAssignToNextDay(resolved);
+        existing = findExisting(mockTasksState, resolved.occurrenceDate!);
+      }
+      if (existing && !isDeadOccurrence(existing)) {
         return { task: existing, inserted: false };
       }
       try {
@@ -415,10 +463,12 @@ export const taskRepository = {
         return { task, inserted: true };
       } catch (error) {
         if (error instanceof Error && error.message.startsWith('UNIQUE_VIOLATION')) {
-          const again = mockTasksState.find(
-            (t) =>
-              t.definitionId === resolved.definitionId && t.occurrenceDate === input.occurrenceDate
-          );
+          const again = findExisting(mockTasksState, resolved.occurrenceDate!);
+          if (again && isDeadOccurrence(again)) {
+            resolved = rollAssignToNextDay(resolved);
+            const task = await taskRepository.createTask(householdId, resolved);
+            return { task, inserted: true };
+          }
           if (again) return { task: again, inserted: false };
         }
         throw error;
@@ -433,10 +483,12 @@ export const taskRepository = {
       const message = error instanceof Error ? error.message : String(error);
       if (/duplicate|unique|23505/i.test(message) && householdId) {
         const all = await taskRepository.getTasks(householdId);
-        const existing = all.find(
-          (t) =>
-            t.definitionId === resolved.definitionId && t.occurrenceDate === input.occurrenceDate
-        );
+        let existing = findExisting(all, resolved.occurrenceDate!);
+        if (existing && isDeadOccurrence(existing)) {
+          resolved = rollAssignToNextDay(resolved);
+          const task = await taskRepository.createTask(householdId, resolved);
+          return { task, inserted: true };
+        }
         if (existing) return { task: existing, inserted: false };
       }
       throw error;

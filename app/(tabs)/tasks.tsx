@@ -43,6 +43,7 @@ import {
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
 import { isSplitTask, taskMatchesAssignee } from '@/lib/tasks/split-assign';
+import { canAdminRequestTaskProof } from '@/lib/tasks/proof-eligibility';
 import { isDueToday } from '@/lib/tasks/today';
 import { displayDueLabel, homeworkDueChip } from '@/lib/tasks/due-label';
 import {
@@ -180,8 +181,10 @@ function TaskItem({
   xpEnabled,
   interactive = true,
   homeworkCard = false,
+  showRequestProof = false,
   onToggle,
   onDelete,
+  onRequestProof,
 }: {
   task: HouseholdTask;
   member?: HouseholdMember;
@@ -193,8 +196,10 @@ function TaskItem({
   xpEnabled: boolean;
   interactive?: boolean;
   homeworkCard?: boolean;
+  showRequestProof?: boolean;
   onToggle: () => void;
   onDelete: () => void;
+  onRequestProof?: () => void;
 }) {
   const { cancelTask } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
@@ -258,7 +263,7 @@ function TaskItem({
       <Animated.View
         style={[
           styles.taskItem,
-          done && !justCompleted && styles.taskItemDone,
+          done && !justCompleted && !showRequestProof && styles.taskItemDone,
           done && { backgroundColor: glass(justCompleted ? 0.1 : 0.03) },
           pillAnim,
         ]}>
@@ -388,6 +393,20 @@ function TaskItem({
             </LinearGradient>
           ) : null}
         </View>
+        {showRequestProof && onRequestProof ? (
+          <Pressable
+            onPress={(event) => {
+              event.stopPropagation?.();
+              onRequestProof();
+            }}
+            style={[
+              styles.requestProofBtn,
+              { borderColor: glassBorder(0.14), backgroundColor: glass(0.06) },
+            ]}>
+            <MaterialIcons name="photo-camera" size={14} color={accentPrimary} />
+            <Text style={[styles.requestProofText, { color: accentPrimary }]}>Request proof</Text>
+          </Pressable>
+        ) : null}
       </View>
 
         {xpEnabled ? (
@@ -437,6 +456,16 @@ function TaskItem({
         { key: 'open', label: 'Open task', icon: 'chevron-right', onPress: openTask },
         ...(!done && !expired && interactive
           ? [{ key: 'complete', label: 'Mark complete', icon: 'check' as const, onPress: onToggle }]
+          : []),
+        ...(showRequestProof && onRequestProof
+          ? [
+              {
+                key: 'proof',
+                label: 'Request proof',
+                icon: 'photo-camera' as const,
+                onPress: onRequestProof,
+              },
+            ]
           : []),
         ...(!done && !expired && canDelete && task.repeat !== 'None'
           ? [
@@ -502,8 +531,10 @@ function TaskSection({
   xpEnabled,
   interactive = true,
   homeworkCard = false,
+  canRequestProof = false,
   onToggle,
   onDelete,
+  onRequestProof,
 }: {
   title: string;
   dotColor: string;
@@ -523,8 +554,10 @@ function TaskSection({
   xpEnabled: boolean;
   interactive?: boolean;
   homeworkCard?: boolean;
+  canRequestProof?: boolean;
   onToggle: (taskId: string) => void;
   onDelete: (taskId: string) => void;
+  onRequestProof?: (taskId: string) => void;
 }) {
   const { c, glass } = useOrbitColors();
   if (tasks.length === 0 && !allowEmpty) return null;
@@ -582,8 +615,15 @@ function TaskSection({
               xpEnabled={xpEnabled}
               interactive={interactive}
               homeworkCard={homeworkCard}
+              showRequestProof={
+                canRequestProof &&
+                canAdminRequestTaskProof(task, getMember(members, task.assignee))
+              }
               onToggle={() => onToggle(task.id)}
               onDelete={() => onDelete(task.id)}
+              onRequestProof={
+                onRequestProof ? () => onRequestProof(task.id) : undefined
+              }
             />
           </View>
         ))
@@ -604,6 +644,7 @@ export default function TasksScreen() {
     household,
     orbitPalette,
     permissions,
+    requestAnotherProof,
     rewardCapabilities,
     switchPersona,
     v2Permissions,
@@ -1166,8 +1207,16 @@ export default function TasksScreen() {
           rewardSettings={rewardSettings}
           xpEnabled={rewardCapabilities.xpEnabled}
           homeworkCard={domainTab === 'homework'}
+          canRequestProof={v2Permissions.canRequestProof && domainTab !== 'homework'}
           onToggle={handleToggle}
           onDelete={handleDelete}
+          onRequestProof={(taskId) => {
+            void requestAnotherProof(taskId).then((ok) => {
+              if (!ok) {
+                Alert.alert('Could not request proof', 'This task may no longer be eligible.');
+              }
+            });
+          }}
         />
       ) : (
         <>
@@ -1438,6 +1487,22 @@ const styles = StyleSheet.create({
   completeCtaText: {
     fontSize: 13,
     fontWeight: '800',
+  },
+  requestProofBtn: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderCurve: 'continuous',
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  requestProofText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   taskBody: {
     flex: 1,

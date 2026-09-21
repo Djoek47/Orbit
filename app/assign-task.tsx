@@ -243,13 +243,13 @@ export default function AssignTaskScreen() {
       const failed: string[] = [];
       for (const item of selected) {
         const task = await createTask(
-          buildLibraryAssignInput(
-            item.task,
-            assignee.name,
-            item.frequency,
-            new Date(),
-            householdDueTimeLocal(household)
-          )
+          buildLibraryAssignInput(item.task, assignee.name, item.frequency, {
+            now: new Date(),
+            dailyDeadlineHm: householdDueTimeLocal(household),
+            dueTimeLocal: householdDueTimeLocal(household),
+            timezone: household.timezone,
+            assigneeMember: assignee,
+          })
         );
         if (task) created += 1;
         else failed.push(item.task.name);

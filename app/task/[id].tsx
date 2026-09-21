@@ -234,7 +234,7 @@ export default function TaskDetailScreen() {
   const handleAskPhoto = () => {
     const firstAsk = task.verification === 'not_required';
     Alert.alert(
-      firstAsk ? 'Ask for photo' : 'Ask for another photo',
+      firstAsk ? 'Request proof' : 'Ask for another photo',
       firstAsk
         ? 'Request a photo of this completed chore?'
         : 'Send a request for another photo?',
@@ -871,7 +871,7 @@ export default function TaskDetailScreen() {
             ) : null}
             {!split &&
             task.status === 'Completed' &&
-            task.verification === 'not_required' &&
+            (task.verification === 'not_required' || !task.verification) &&
             (v2Permissions.canApproveCompletion || canAskForPhoto) ? (
               <View style={{ gap: 8 }}>
                 {canAskForPhoto ? (
@@ -880,7 +880,7 @@ export default function TaskDetailScreen() {
                     onPress={handleAskPhoto}
                     style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
                     <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
-                      {proofBusy ? 'Working…' : 'Ask for photo'}
+                      {proofBusy ? 'Working…' : 'Request proof'}
                     </Text>
                   </Pressable>
                 ) : null}

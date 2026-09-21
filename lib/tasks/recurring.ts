@@ -8,6 +8,7 @@ import { buildShares, getTaskAssignees, isSplitTask } from '@/lib/tasks/split-as
 import { DEFAULT_DUE_TIME_LOCAL, parseLocalHm } from '@/lib/tasks/recurrence-defaults';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { dueLabelForDate } from '@/lib/tasks/due-label';
+import { expiryInstantInTimezone } from '@/lib/tasks/household-tz';
 
 /** @deprecated Prefer ensureOccurrencesForDay — kept for cancel-this cleanup only. */
 export function spawnNextOccurrence(task: HouseholdTask): HouseholdTask | null {
@@ -195,15 +196,21 @@ export function rolloverMissedOccurrences(
   now = new Date(),
   options?: {
     expiryHm?: string;
+    timezone?: string | null;
     skipAssigneeNames?: string[];
   }
 ): HouseholdTask[] {
   const expiredAt = now.toISOString();
   const expiryHm = options?.expiryHm ?? '23:59';
   const skip = new Set(options?.skipAssigneeNames ?? []);
-  const { hours, minutes } = parseLocalHm(expiryHm);
-  const [y, m, d] = previousDateKey.split('-').map(Number);
-  const boundary = new Date(y, (m ?? 1) - 1, d ?? 1, hours, minutes, 59, 999);
+  const timezone = options?.timezone?.trim();
+  const boundary = timezone
+    ? expiryInstantInTimezone(previousDateKey, expiryHm, timezone)
+    : (() => {
+        const { hours, minutes } = parseLocalHm(expiryHm);
+        const [y, m, d] = previousDateKey.split('-').map(Number);
+        return new Date(y, (m ?? 1) - 1, d ?? 1, hours, minutes, 59, 999);
+      })();
   if (now.getTime() <= boundary.getTime()) return tasks;
 
   return tasks.map((task) => {
@@ -220,7 +227,7 @@ export function rolloverMissedOccurrences(
     const due = task.dueAt ? new Date(task.dueAt) : null;
     const belongsToPrevious =
       task.occurrenceDate === previousDateKey ||
-      (due && formatLocalDate(due) === previousDateKey) ||
+      (due && formatLocalDate(due, timezone) === previousDateKey) ||
       /yesterday|overdue/i.test(task.due);
 
     if (!belongsToPrevious) return task;
