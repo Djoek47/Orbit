@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { placeTourCard } from '@/lib/tour/tour-layout';
+import { isTourCardOnScreen, placeTourCard } from '@/lib/tour/tour-layout';
 
 const SCREENS = [
   { w: 375, h: 667, insets: { top: 20, bottom: 0 } },
@@ -98,5 +98,28 @@ describe('placeTourCard', () => {
     });
     assertInsideSafeArea(result.top, 200, { h: 874 }, { top: 59, bottom: 34 });
     assert.ok(result.top + 200 <= 874 - 34 - 8);
+  });
+
+  it('counts clamped center as visible for the watchdog', () => {
+    const tall = 900;
+    const screen = { w: 402, h: 874 };
+    const insets = { top: 59, bottom: 34 };
+    const result = placeTourCard({
+      target: null,
+      cardHeight: tall,
+      screen,
+      insets,
+    });
+    assert.equal(result.placement, 'center');
+    assert.equal(
+      isTourCardOnScreen({
+        placement: result.placement,
+        top: result.top,
+        cardHeight: tall,
+        screen: { h: screen.h },
+        insets,
+      }),
+      true
+    );
   });
 });

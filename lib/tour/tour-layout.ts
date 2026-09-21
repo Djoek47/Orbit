@@ -76,3 +76,17 @@ export function placeTourCard(input: PlaceTourCardInput): PlaceTourCardResult {
 
   return { top: centerTop, placement: 'center', ringOnly: true };
 }
+
+/** Center (including clamped overflow) always counts as visible for the watchdog. */
+export function isTourCardOnScreen(input: {
+  placement: TourCardPlacement;
+  top: number;
+  cardHeight: number;
+  screen: { h: number };
+  insets: { top: number; bottom: number };
+}): boolean {
+  if (input.placement === 'center') return true;
+  const minTop = input.insets.top + EDGE;
+  const maxBottom = input.screen.h - input.insets.bottom - EDGE;
+  return input.top >= minTop - 1 && input.top + input.cardHeight <= maxBottom + 1;
+}

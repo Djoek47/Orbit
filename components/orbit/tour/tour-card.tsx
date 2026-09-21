@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -21,6 +21,7 @@ type Props = {
   onSkipChapter: () => void;
   onSkipStep: () => void;
   onLayoutHeight?: (height: number) => void;
+  maxHeight?: number;
 };
 
 export function TourCard({
@@ -38,6 +39,7 @@ export function TourCard({
   onSkipChapter,
   onSkipStep,
   onLayoutHeight,
+  maxHeight,
 }: Props) {
   const { c } = useOrbitColors();
 
@@ -51,7 +53,7 @@ export function TourCard({
     <View
       ref={cardRef}
       collapsable={false}
-      style={styles.wrap}
+      style={[styles.wrap, maxHeight ? { maxHeight } : null]}
       accessibilityViewIsModal={!isAction}
       onLayout={onLayout}>
       <GlassCard style={styles.card}>
@@ -60,7 +62,12 @@ export function TourCard({
           {stepLabel ? ` · ${stepLabel}` : ''}
         </Text>
         <Text style={[typography.title3, { color: c.text }]}>{title}</Text>
-        <Text style={[typography.body, { color: c.textMuted }]}>{body}</Text>
+        <ScrollView
+          style={maxHeight ? styles.bodyScroll : undefined}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled">
+          <Text style={[typography.body, { color: c.textMuted }]}>{body}</Text>
+        </ScrollView>
         <View style={styles.footer}>
           <View style={styles.dots} accessibilityLabel={stepLabel}>
             {dots.map((i) => (
@@ -111,6 +118,10 @@ const styles = StyleSheet.create({
   wrap: {
     maxWidth: 340,
     width: '100%',
+  },
+  bodyScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
   card: {
     gap: space.sm,

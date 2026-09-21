@@ -24,7 +24,7 @@ import { FullWindowOverlay } from 'react-native-screens';
 
 import { TourCard } from '@/components/orbit/tour/tour-card';
 import { AppText as Text } from '@/components/orbit/app-text';
-import { placeTourCard } from '@/lib/tour/tour-layout';
+import { isTourCardOnScreen, placeTourCard } from '@/lib/tour/tour-layout';
 import type { TourRect } from '@/lib/tour/tour-types';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { radius, typography } from '@/constants/orbit-theme';
@@ -135,10 +135,13 @@ function TourOverlayBody({
   useEffect(() => {
     if (cardHeight <= 0) return;
     const top = placement.top;
-    const bottom = top + cardHeight;
-    const minTop = insets.top + 8;
-    const maxBottom = screenH - insets.bottom - 8;
-    const onScreen = top >= minTop - 1 && bottom <= maxBottom + 1;
+    const onScreen = isTourCardOnScreen({
+      placement: placement.placement,
+      top,
+      cardHeight,
+      screen: { h: screenH },
+      insets: { top: insets.top, bottom: insets.bottom },
+    });
     if (!onScreen) return;
     setCardVisible(true);
     onCardReady?.();
@@ -360,6 +363,7 @@ function TourOverlayBody({
           onLayoutHeight={(h) => {
             if (h > 0 && Math.abs(h - cardHeight) > 1) setCardHeight(h);
           }}
+          maxHeight={Math.max(120, screenH - insets.top - insets.bottom - 16)}
         />
         {placement.placement === 'above' ? (
           <View
@@ -382,6 +386,11 @@ export function TourOverlay(props: Props) {
         <TourOverlayBody {...props} />
       </FullWindowOverlay>
     );
+  }
+
+  // Action steps must not sit in a Modal — Android Modals eat cutout taps.
+  if (props.isAction) {
+    return <TourOverlayBody {...props} />;
   }
 
   return (
