@@ -43,7 +43,6 @@ import {
   bindTourStepAdvance,
   isTourActionStep,
   loadTourState,
-  offerTourState,
   resolveActivePointer,
   restartChapterState,
   saveTourState,
@@ -60,6 +59,7 @@ import { loadDeviceSession } from '@/lib/device/device-session';
 import { loadOnboardingPrefs } from '@/lib/onboarding-prefs';
 import { recoverStuckTourIfNeeded, markTourSessionHealthy } from '@/lib/tour/tour-crash-recovery';
 import { hydrateTourEnabled, isTourEnabledSync } from '@/lib/tour/tour-enabled';
+import { runHydrateTourPass } from '@/lib/tour/tour-hydrate';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type ScrollFn = ((y: number) => void) | null;
@@ -139,6 +139,7 @@ export function TourProvider({ children }: PropsWithChildren) {
   const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardRef = useRef<View>(null);
   const hydratedKey = useRef<string | null>(null);
+  const inFlightKey = useRef<string | null>(null);
   const pointerRef = useRef<ActiveTourPointer | null>(null);
   const watchdogStreakRef = useRef(0);
   const analyticsContextRef = useRef(analyticsContext);
@@ -173,74 +174,105 @@ export function TourProvider({ children }: PropsWithChildren) {
     let cancelled = false;
     const run = async () => {
       if (!household?.id || !currentMember?.id) return;
-      const session = await loadDeviceSession();
-      const joined = await readJoinedFlag(household.id, currentMember.id);
-      const prefs = await loadOnboardingPrefs();
-      const resolved = resolveTourId({
-        household,
-        currentMember,
-        hostKind: session.hostKind ?? null,
-        joinedViaInvite: joined,
-      });
-      // Family iPad face-picker tour is separate and short; sidekick still gets their tour after.
-      const activeId: TourId =
-        session.hostKind === 'shared-tablet' && session.needsProfilePick
-          ? 'family_ipad'
-          : resolved;
-
-      const key = `${household.id}:${currentMember.id}:${activeId}`;
-      if (hydratedKey.current === key) return;
-
-      if (!cancelled) {
-        setHostKind(session.hostKind ?? null);
-        setTourId(activeId);
-      }
-
-      const enabled = await hydrateTourEnabled();
-      if (!cancelled) setTourEnabled(enabled);
-      if (!enabled) {
-        if (!cancelled) {
-          setTourState(null);
-          setWelcomeOpen(false);
-          setSessionActive(false);
-          hydratedKey.current = key;
-        }
+      const householdId = household.id;
+      const memberId = currentMember.id;
+      // Lock before any await so a second effect cannot start recover().
+      const memberKey = `${householdId}:${memberId}`;
+      if (
+        inFlightKey.current === memberKey ||
+        inFlightKey.current?.startsWith(`${memberKey}:`)
+      ) {
         return;
       }
-
-      const recovery = await recoverStuckTourIfNeeded(household.id, currentMember.id);
-      if (recovery.recovered) {
-        void trackAnalytics(
-          'tour.recovered_stuck',
-          { reason: recovery.reason },
-          analyticsContextRef.current
-        );
-      }
-
-      let state = await loadTourState(household.id, currentMember.id, activeId);
-      if (state.status === 'not_started') {
-        const upgrade = isUpgradeHousehold(household, {
-          onboardingCompletedAt: prefs?.completedAt,
+      inFlightKey.current = memberKey;
+      let key = memberKey;
+      try {
+        const session = await loadDeviceSession();
+        const joined = await readJoinedFlag(householdId, memberId);
+        const prefs = await loadOnboardingPrefs();
+        const resolved = resolveTourId({
+          household,
+          currentMember,
+          hostKind: session.hostKind ?? null,
+          joinedViaInvite: joined,
         });
-        if (upgrade) {
-          state = offerTourState(activeId);
-          await saveTourState(household.id, currentMember.id, state);
-          void trackAnalytics('tour.offered', { tourId: activeId, reason: 'upgrade' }, analyticsContextRef.current);
-        } else {
-          // New household — show welcome on Home.
-          if (!cancelled) setWelcomeOpen(true);
-          void trackAnalytics('tour.offered', { tourId: activeId, reason: 'new' }, analyticsContextRef.current);
-        }
-      } else if (state.status === 'offered') {
-        // Upgrade card handled on Home; do not auto-open welcome.
-      } else if (state.status === 'in_progress') {
-        // Never auto-resume — Home shows "Continue the tour".
-        if (!cancelled) setSessionActive(false);
-      }
+        // Family iPad face-picker tour is separate and short; sidekick still gets their tour after.
+        const activeId: TourId =
+          session.hostKind === 'shared-tablet' && session.needsProfilePick
+            ? 'family_ipad'
+            : resolved;
 
-      if (cancelled) return;
-      setTourState(state);
-      hydratedKey.current = key;
+        key = `${memberKey}:${activeId}`;
+        if (hydratedKey.current === key) return;
+        inFlightKey.current = key;
+
+        if (!cancelled) {
+          setHostKind(session.hostKind ?? null);
+          setTourId(activeId);
+        }
+
+        const enabled = await hydrateTourEnabled();
+        if (!cancelled) setTourEnabled(enabled);
+        if (!enabled) {
+          if (!cancelled) {
+            setTourState(null);
+            setWelcomeOpen(false);
+            setSessionActive(false);
+            hydratedKey.current = key;
+          }
+          return;
+        }
+
+        const result = await runHydrateTourPass({
+          key,
+          flight: {
+            begin: (k) => (inFlightKey.current === k ? {} : false),
+            end: () => undefined,
+            isInFlight: (k) => inFlightKey.current === k,
+          },
+          cancelled: () => cancelled,
+          recover: () => recoverStuckTourIfNeeded(householdId, memberId),
+          loadState: () => loadTourState(householdId, memberId, activeId),
+          saveState: (state) => saveTourState(householdId, memberId, state),
+          trackOffered: (reason) => {
+            void trackAnalytics(
+              'tour.offered',
+              { tourId: activeId, reason },
+              analyticsContextRef.current
+            );
+          },
+          isUpgrade: isUpgradeHousehold(household, {
+            onboardingCompletedAt: prefs?.completedAt,
+          }),
+          tourId: activeId,
+        });
+
+        if (cancelled || result.skippedInFlight) return;
+
+        if (result.recovered) {
+          void trackAnalytics(
+            'tour.recovered_stuck',
+            { reason: result.reason },
+            analyticsContextRef.current
+          );
+        }
+
+        if (!result.state) return;
+
+        if (result.openWelcome) {
+          setWelcomeOpen(true);
+        } else if (result.state.status === 'in_progress') {
+          // Never auto-resume — Home shows "Continue the tour".
+          setSessionActive(false);
+        }
+
+        setTourState(result.state);
+        hydratedKey.current = key;
+      } finally {
+        if (inFlightKey.current === memberKey || inFlightKey.current === key) {
+          inFlightKey.current = null;
+        }
+      }
     };
     void run();
     return () => {

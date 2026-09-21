@@ -80,8 +80,15 @@ async function writeRecoveredAt(at: string): Promise<void> {
 /**
  * Before hydrating the tour: if the last session crashed in the tour layer,
  * or two launches in a row never reached a healthy Home, force every tour skipped.
+ * At most one recovery pass per JS runtime (app launch).
  */
-export async function recoverStuckTourIfNeeded(
+let launchRecovery: Promise<{ recovered: boolean; reason?: string }> | null = null;
+
+export function resetTourRecoveryLaunchMemoForTests(): void {
+  launchRecovery = null;
+}
+
+async function recoverStuckTourOnce(
   householdId: string,
   memberId: string
 ): Promise<{ recovered: boolean; reason?: string }> {
@@ -109,3 +116,15 @@ export async function recoverStuckTourIfNeeded(
 
   return { recovered: false };
 }
+
+export function recoverStuckTourIfNeeded(
+  householdId: string,
+  memberId: string
+): Promise<{ recovered: boolean; reason?: string }> {
+  if (!launchRecovery) {
+    launchRecovery = recoverStuckTourOnce(householdId, memberId);
+  }
+  return launchRecovery;
+}
+
+export const TOUR_LAUNCH_WATCH_KEY = LAUNCH_KEY;
