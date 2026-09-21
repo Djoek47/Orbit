@@ -49,6 +49,7 @@ import {
   saveTourState,
   setTourForcesQuiet,
   shouldPauseTour,
+  completeTourState,
   skipChapterState,
   skipTourState,
   startTourState,
@@ -303,6 +304,7 @@ export function TourProvider({ children }: PropsWithChildren) {
       setTargetRect(null);
       return;
     }
+    setTargetRect(null);
 
     try {
       void trackAnalytics(
@@ -521,7 +523,7 @@ export function TourProvider({ children }: PropsWithChildren) {
     if (!tourState) return;
     const ptr = pointerRef.current;
     if (ptr?.step.primaryAction === 'open_settings') {
-      void persist(skipTourState(tourState));
+      void persist(completeTourState(tourState));
       setSessionActive(false);
       setWelcomeOpen(false);
       try {
@@ -692,14 +694,6 @@ export function TourProvider({ children }: PropsWithChildren) {
       registerTarget('tour.finish', { x: 40, y: 180, width: 300, height: 40 });
     }
   }, [pointer?.step.targetId, registerTarget]);
-
-  useEffect(() => {
-    if (!tourEnabled) return;
-    // Home reaching the provider with a household counts as a healthy session.
-    if (household?.id && currentMember?.id && !sessionActive) {
-      void markTourSessionHealthy();
-    }
-  }, [tourEnabled, household?.id, currentMember?.id, sessionActive]);
 
   if (!tourEnabled) {
     return (
