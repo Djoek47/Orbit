@@ -4,7 +4,7 @@
  * - Sidekick: reply with camera / library and optional note
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -49,20 +49,24 @@ export function TaskProofRequestSheet({
   const { c, glass, glassBorder } = useOrbitColors();
   const [note, setNote] = useState('');
 
+  useEffect(() => {
+    if (!visible) setNote('');
+  }, [visible]);
+
   return (
-    <BottomSheet visible={visible} onDismiss={onDismiss} heightRatio={0.52}>
+    <BottomSheet visible={visible} onDismiss={onDismiss} heightRatio={0.5}>
       <View style={styles.body}>
         <View style={[styles.iconBubble, { backgroundColor: `${c.primary}22` }]}>
           <MaterialIcons name="photo-camera" size={28} color={c.primary} />
         </View>
         <Text style={[typography.title2, { color: c.text, textAlign: 'center' }]}>
-          Request proof
+          Ask for a photo
         </Text>
         <Text style={[typography.subheadline, styles.lead, { color: c.textSoft }]}>
-          Ask {sidekickName} for a quick photo of “{taskTitle}”. They can also leave a short note.
+          {sidekickName} already finished “{taskTitle}”. They’ll get a notification, and the task will ask them for a picture.
         </Text>
 
-        <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Optional note</Text>
+        <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Note, if you want</Text>
         <TextInput
           value={note}
           onChangeText={setNote}
@@ -83,7 +87,7 @@ export function TaskProofRequestSheet({
           loading={busy}
           disabled={busy}
           onPress={() => void onSend(note.trim() || undefined)}>
-          Send request
+          Request a photo
         </OrbitButton>
         <OrbitButton tone="secondary" disabled={busy} onPress={onDismiss}>
           Not now
@@ -104,31 +108,37 @@ export function TaskProofReplySheet({
   const { c, glass, glassBorder } = useOrbitColors();
   const [note, setNote] = useState('');
   const [uri, setUri] = useState<string | null>(null);
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState<'camera' | 'library' | null>(null);
+
+  useEffect(() => {
+    if (!visible) {
+      setNote('');
+      setUri(null);
+      setPicking(null);
+    }
+  }, [visible]);
 
   const pick = async (source: 'camera' | 'library') => {
-    setPicking(true);
+    setPicking(source);
     try {
       const next = await pickProofPhoto(source);
       if (next) setUri(next);
     } finally {
-      setPicking(false);
+      setPicking(null);
     }
   };
 
-  const canSend = Boolean(uri || note.trim());
-
   return (
-    <BottomSheet visible={visible} onDismiss={onDismiss} heightRatio={0.62}>
+    <BottomSheet visible={visible} onDismiss={onDismiss} heightRatio={0.72}>
       <View style={styles.body}>
         <View style={[styles.iconBubble, { backgroundColor: `${c.primary}22` }]}>
-          <MaterialIcons name="verified" size={28} color={c.primary} />
+          <MaterialIcons name="photo-camera" size={28} color={c.primary} />
         </View>
         <Text style={[typography.title2, { color: c.text, textAlign: 'center' }]}>
-          Show your work
+          Add a photo
         </Text>
         <Text style={[typography.subheadline, styles.lead, { color: c.textSoft }]}>
-          A grown-up asked for proof of “{taskTitle}”. Snap a photo, pick one, or write a quick note.
+          Show that “{taskTitle}” is done. A picture is what gets sent.
         </Text>
 
         {adminNote ? (
@@ -142,42 +152,48 @@ export function TaskProofReplySheet({
           </View>
         ) : null}
 
-        <View style={styles.pickRow}>
-          <Pressable
-            disabled={busy || picking}
-            onPress={() => void pick('camera')}
-            style={({ pressed }) => [
-              styles.pickCard,
-              {
-                backgroundColor: glass(0.08),
-                borderColor: glassBorder(0.12),
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}>
-            {picking ? (
-              <ActivityIndicator color={c.primary} />
-            ) : (
-              <MaterialIcons name="photo-camera" size={26} color={c.primary} />
-            )}
-            <Text style={[typography.headline, { color: c.text }]}>Camera</Text>
-            <Text style={[typography.caption1, { color: c.textMuted }]}>Take a photo</Text>
-          </Pressable>
-          <Pressable
-            disabled={busy || picking}
-            onPress={() => void pick('library')}
-            style={({ pressed }) => [
-              styles.pickCard,
-              {
-                backgroundColor: glass(0.08),
-                borderColor: glassBorder(0.12),
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}>
-            <MaterialIcons name="photo-library" size={26} color={c.primary} />
-            <Text style={[typography.headline, { color: c.text }]}>Library</Text>
-            <Text style={[typography.caption1, { color: c.textMuted }]}>Choose one</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Take a photo"
+          disabled={busy || picking !== null}
+          onPress={() => void pick('camera')}
+          style={({ pressed }) => [
+            styles.cameraCard,
+            {
+              backgroundColor: `${c.primary}18`,
+              borderColor: `${c.primary}55`,
+              opacity: pressed ? 0.88 : 1,
+            },
+          ]}>
+          {picking === 'camera' ? (
+            <ActivityIndicator color={c.primary} />
+          ) : (
+            <MaterialIcons name="photo-camera" size={28} color={c.primary} />
+          )}
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={[typography.headline, { color: c.text }]}>Take a photo</Text>
+            <Text style={[typography.caption1, { color: c.textMuted }]}>Open the camera</Text>
+          </View>
+          <MaterialIcons name="arrow-forward-ios" size={14} color={c.textMuted} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Choose from library"
+          disabled={busy || picking !== null}
+          onPress={() => void pick('library')}
+          style={({ pressed }) => [
+            styles.libraryRow,
+            { opacity: pressed ? 0.7 : 1 },
+          ]}>
+          {picking === 'library' ? (
+            <ActivityIndicator color={c.primary} size="small" />
+          ) : (
+            <MaterialIcons name="photo-library" size={18} color={c.primary} />
+          )}
+          <Text style={[typography.subheadline, { color: c.primary, fontWeight: '700' }]}>
+            Choose from library
+          </Text>
+        </Pressable>
 
         {uri ? (
           <Image
@@ -187,15 +203,16 @@ export function TaskProofReplySheet({
           />
         ) : null}
 
-        <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Note (optional)</Text>
+        <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Note, if you want</Text>
         <TextInput
           value={note}
           onChangeText={setNote}
-          placeholder="Anything you want them to know…"
+          placeholder="Optional — the photo is the proof"
           placeholderTextColor={c.textSubtle}
           multiline
           style={[
             styles.noteInput,
+            styles.noteInputShort,
             {
               color: c.text,
               backgroundColor: glass(0.06),
@@ -206,14 +223,14 @@ export function TaskProofReplySheet({
 
         <OrbitButton
           loading={busy}
-          disabled={busy || !canSend}
+          disabled={busy || !uri}
           onPress={() =>
             void onSubmit({
               proofUri: uri ?? undefined,
               note: note.trim() || undefined,
             })
           }>
-          Send proof
+          Send photo
         </OrbitButton>
         <OrbitButton tone="secondary" disabled={busy} onPress={onDismiss}>
           Later
@@ -255,24 +272,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     fontSize: 16,
     lineHeight: 22,
-    minHeight: 88,
+    minHeight: 72,
     paddingHorizontal: 14,
     paddingVertical: 12,
     textAlignVertical: 'top',
   },
-  pickRow: {
-    flexDirection: 'row',
-    gap: 10,
+  noteInputShort: {
+    minHeight: 64,
   },
-  pickCard: {
-    alignItems: 'flex-start',
+  cameraCard: {
+    alignItems: 'center',
     borderCurve: 'continuous',
     borderRadius: radius.card,
     borderWidth: 1,
-    flex: 1,
-    gap: 6,
-    minHeight: 108,
-    padding: 14,
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 72,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  libraryRow: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
   },
   preview: {
     borderCurve: 'continuous',

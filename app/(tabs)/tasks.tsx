@@ -14,6 +14,10 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 
 import { ContextMenu } from '@/components/orbit/context-menu';
+import {
+  TaskProofReplySheet,
+  TaskProofRequestSheet,
+} from '@/components/orbit/task-proof-sheets';
 import { EmptyState } from '@/components/orbit/empty-state';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
@@ -45,7 +49,7 @@ import {
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
 import { isSplitTask, taskMatchesAssignee } from '@/lib/tasks/split-assign';
-import { canAdminRequestTaskProof } from '@/lib/tasks/proof-eligibility';
+import { canAdminRequestTaskProof, needsSidekickPhotoReply } from '@/lib/tasks/proof-eligibility';
 import { isDueToday } from '@/lib/tasks/today';
 import { displayDueLabel, homeworkDueChip } from '@/lib/tasks/due-label';
 import {
@@ -184,9 +188,11 @@ function TaskItem({
   interactive = true,
   homeworkCard = false,
   showRequestProof = false,
+  showAddPhoto = false,
   onToggle,
   onDelete,
   onRequestProof,
+  onAddPhoto,
 }: {
   task: HouseholdTask;
   member?: HouseholdMember;
@@ -199,9 +205,11 @@ function TaskItem({
   interactive?: boolean;
   homeworkCard?: boolean;
   showRequestProof?: boolean;
+  showAddPhoto?: boolean;
   onToggle: () => void;
   onDelete: () => void;
   onRequestProof?: () => void;
+  onAddPhoto?: () => void;
 }) {
   const { cancelTask } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
@@ -210,6 +218,9 @@ function TaskItem({
       ? task.shares?.find((share) => share.name === member.name)?.status === 'Completed'
       : undefined;
   const done = shareDone ?? task.status === 'Completed';
+  const photoNeeded = needsSidekickPhotoReply(task);
+  const askAgain =
+    task.verification === 'unreviewed' || task.proofStatus === 'submitted';
   const checkScale = useSharedValue(done ? 1 : 0.001);
   const pillScale = useSharedValue(1);
   const wash = useSharedValue(done && !justCompleted ? 0.4 : 0);
@@ -265,8 +276,13 @@ function TaskItem({
       <Animated.View
         style={[
           styles.taskItem,
-          done && !justCompleted && !showRequestProof && styles.taskItemDone,
-          done && { backgroundColor: glass(justCompleted ? 0.1 : 0.03) },
+          done && !justCompleted && !showRequestProof && !photoNeeded && styles.taskItemDone,
+          done && !photoNeeded && { backgroundColor: glass(justCompleted ? 0.1 : 0.03) },
+          photoNeeded && {
+            backgroundColor: `${c.warning}14`,
+            borderColor: `${c.warning}55`,
+            borderWidth: 1,
+          },
           pillAnim,
         ]}>
         <Animated.View
@@ -308,8 +324,8 @@ function TaskItem({
             style={[
               styles.taskTitle,
               homeworkCard && styles.homeworkTitle,
-              { color: done && !justCompleted ? c.textMuted : c.text },
-              done && !justCompleted && styles.taskTitleDone,
+              { color: photoNeeded ? c.text : done && !justCompleted ? c.textMuted : c.text },
+              done && !justCompleted && !photoNeeded && styles.taskTitleDone,
             ]}
             numberOfLines={2}>
             {task.title}
@@ -374,7 +390,19 @@ function TaskItem({
               <Text style={[styles.metaPillText, { color: c.textMuted }]}>{task.repeat}</Text>
             </View>
           ) : null}
-          {task.proofRequired ? (
+          {photoNeeded ? (
+            <View
+              style={[
+                styles.metaPill,
+                styles.photoNeededPill,
+                { backgroundColor: `${c.warning}22`, borderColor: `${c.warning}66` },
+              ]}>
+              <MaterialIcons name="photo-camera" size={12} color={c.warning} />
+              <Text style={[styles.metaPillText, { color: c.warning, fontWeight: '700' }]}>
+                {showAddPhoto ? 'Photo needed' : 'Waiting on a photo'}
+              </Text>
+            </View>
+          ) : task.proofRequired ? (
             <View
               style={[
                 styles.metaPill,
@@ -382,9 +410,9 @@ function TaskItem({
               ]}>
               <Text style={[styles.metaPillText, { color: c.warning }]}>
                 {task.proofStatus === 'submitted'
-                  ? 'Proof review'
+                  ? 'Photo sent'
                   : task.proofStatus === 'approved'
-                    ? 'Proof ✓'
+                    ? 'Photo ✓'
                     : 'Proof'}
               </Text>
             </View>
@@ -395,8 +423,26 @@ function TaskItem({
             </LinearGradient>
           ) : null}
         </View>
-        {showRequestProof && onRequestProof ? (
+        {showAddPhoto && onAddPhoto ? (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add a photo"
+            onPress={(event) => {
+              event.stopPropagation?.();
+              onAddPhoto();
+            }}
+            style={[
+              styles.requestProofBtn,
+              { borderColor: `${c.warning}66`, backgroundColor: `${c.warning}18` },
+            ]}>
+            <MaterialIcons name="photo-camera" size={15} color={c.warning} />
+            <Text style={[styles.requestProofText, { color: c.warning }]}>Add a photo</Text>
+          </Pressable>
+        ) : null}
+        {showRequestProof && onRequestProof && !photoNeeded ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={askAgain ? 'Ask for another photo' : 'Request a photo'}
             onPress={(event) => {
               event.stopPropagation?.();
               onRequestProof();
@@ -406,7 +452,9 @@ function TaskItem({
               { borderColor: glassBorder(0.14), backgroundColor: glass(0.06) },
             ]}>
             <MaterialIcons name="photo-camera" size={14} color={accentPrimary} />
-            <Text style={[styles.requestProofText, { color: accentPrimary }]}>Request proof</Text>
+            <Text style={[styles.requestProofText, { color: accentPrimary }]}>
+              {askAgain ? 'Ask for another photo' : 'Request a photo'}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -455,16 +503,28 @@ function TaskItem({
     <ContextMenu
       onPress={openTask}
       actions={[
-        { key: 'open', label: 'Open task', icon: 'chevron-right', onPress: openTask },
+        ...(showAddPhoto && onAddPhoto
+          ? [
+              {
+                key: 'add-photo',
+                label: 'Add a photo',
+                icon: 'photo-camera' as const,
+                accent: true,
+                onPress: onAddPhoto,
+              },
+            ]
+          : []),
+        { key: 'open', label: 'Open task', icon: 'chevron-right' as const, onPress: openTask },
         ...(!done && !expired && interactive
           ? [{ key: 'complete', label: 'Mark complete', icon: 'check' as const, onPress: onToggle }]
           : []),
-        ...(showRequestProof && onRequestProof
+        ...(showRequestProof && onRequestProof && !photoNeeded
           ? [
               {
                 key: 'proof',
-                label: 'Request proof',
+                label: askAgain ? 'Ask for another photo' : 'Request a photo',
                 icon: 'photo-camera' as const,
+                accent: true,
                 onPress: onRequestProof,
               },
             ]
@@ -506,6 +566,7 @@ const MEMBER_SECTION_ORDER = ['Sarah', 'David', 'Liam', 'Emma', 'Josh', 'Todd'];
 
 function sortTasksForMember(tasks: HouseholdTask[]) {
   const rank = (task: HouseholdTask) => {
+    if (needsSidekickPhotoReply(task)) return -1;
     if (task.status === 'Completed') return 3;
     if (isDueToday(task)) return 0;
     if (task.status === 'Overdue') return 0;
@@ -534,9 +595,11 @@ function TaskSection({
   interactive = true,
   homeworkCard = false,
   canRequestProof = false,
+  viewerName,
   onToggle,
   onDelete,
   onRequestProof,
+  onAddPhoto,
 }: {
   title: string;
   dotColor: string;
@@ -557,9 +620,11 @@ function TaskSection({
   interactive?: boolean;
   homeworkCard?: boolean;
   canRequestProof?: boolean;
+  viewerName?: string;
   onToggle: (taskId: string) => void;
   onDelete: (taskId: string) => void;
   onRequestProof?: (taskId: string) => void;
+  onAddPhoto?: (taskId: string) => void;
 }) {
   const { c, glass } = useOrbitColors();
   if (tasks.length === 0 && !allowEmpty) return null;
@@ -623,11 +688,17 @@ function TaskSection({
                 canRequestProof &&
                 canAdminRequestTaskProof(task, getMember(members, task.assignee))
               }
+              showAddPhoto={
+                Boolean(viewerName) &&
+                needsSidekickPhotoReply(task) &&
+                taskMatchesAssignee(task, viewerName)
+              }
               onToggle={() => onToggle(task.id)}
               onDelete={() => onDelete(task.id)}
               onRequestProof={
                 onRequestProof ? () => onRequestProof(task.id) : undefined
               }
+              onAddPhoto={onAddPhoto ? () => onAddPhoto(task.id) : undefined}
             />
               </TourTarget>
             ) : (
@@ -646,11 +717,17 @@ function TaskSection({
                 canRequestProof &&
                 canAdminRequestTaskProof(task, getMember(members, task.assignee))
               }
+              showAddPhoto={
+                Boolean(viewerName) &&
+                needsSidekickPhotoReply(task) &&
+                taskMatchesAssignee(task, viewerName)
+              }
               onToggle={() => onToggle(task.id)}
               onDelete={() => onDelete(task.id)}
               onRequestProof={
                 onRequestProof ? () => onRequestProof(task.id) : undefined
               }
+              onAddPhoto={onAddPhoto ? () => onAddPhoto(task.id) : undefined}
             />
             )}
           </View>
@@ -674,6 +751,7 @@ export default function TasksScreen() {
     permissions,
     requestAnotherProof,
     rewardCapabilities,
+    submitProofReply,
     switchPersona,
     v2Permissions,
   } = useOrbit();
@@ -691,6 +769,9 @@ export default function TasksScreen() {
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [proofRequestId, setProofRequestId] = useState<string | null>(null);
+  const [proofReplyId, setProofReplyId] = useState<string | null>(null);
+  const [proofBusy, setProofBusy] = useState(false);
 
   const rewardSettings = useMemo(
     () =>
@@ -758,7 +839,7 @@ export default function TasksScreen() {
       if (task.status === 'Cancelled') return false;
       const homework = isHomework(task);
       if (domainTab === 'homework' ? !homework : homework) return false;
-      if (statusTab === 'active' && !isActiveTask(task)) return false;
+      if (statusTab === 'active' && !isActiveTask(task) && !needsSidekickPhotoReply(task)) return false;
       if (statusTab === 'completed' && !isCompletedTask(task)) return false;
       if (statusTab === 'expired' && !isExpiredVisibleInTab(task)) return false;
       // Shared-tablet accounts only ever see their own tasks (switch account to see the other person).
@@ -788,13 +869,25 @@ export default function TasksScreen() {
 
   const grouped = useMemo(
     () => ({
-      today: filtered.filter((task) => isActiveTask(task) && isDueToday(task)),
+      today: filtered
+        .filter((task) => needsSidekickPhotoReply(task) || (isActiveTask(task) && isDueToday(task)))
+        .sort((a, b) => Number(needsSidekickPhotoReply(b)) - Number(needsSidekickPhotoReply(a))),
       upcoming: filtered.filter((task) => isActiveTask(task) && isUpcoming(task)),
-      done: filtered.filter(isCompletedTask),
+      done: filtered
+        .filter(isCompletedTask)
+        .sort((a, b) => Number(needsSidekickPhotoReply(b)) - Number(needsSidekickPhotoReply(a))),
       expired: filtered.filter(isExpiredTask),
     }),
     [filtered]
   );
+
+  const proofRequestTask = household.tasks.find((task) => task.id === proofRequestId) ?? null;
+  const proofReplyTask = household.tasks.find((task) => task.id === proofReplyId) ?? null;
+  const proofRequestAssignee = proofRequestTask
+    ? household.members.find((member) => member.name === proofRequestTask.assignee) ?? null
+    : null;
+  const proofReplyNote =
+    [...(proofReplyTask?.proofRounds ?? [])].reverse().find((round) => round.note)?.note ?? null;
 
   const expiredGroups = useMemo(() => groupExpiredByDay(grouped.expired), [grouped.expired]);
   const expiredCount = useMemo(() => {
@@ -1196,6 +1289,8 @@ export default function TasksScreen() {
               xpEnabled={rewardCapabilities.xpEnabled}
               onToggle={() => undefined}
               onDelete={handleDelete}
+            viewerName={currentMember?.name}
+            onAddPhoto={(taskId) => setProofReplyId(taskId)}
             />
           ))
         )
@@ -1223,6 +1318,8 @@ export default function TasksScreen() {
             homeworkCard={domainTab === 'homework'}
             onToggle={handleToggle}
             onDelete={handleDelete}
+            viewerName={currentMember?.name}
+            onAddPhoto={(taskId) => setProofReplyId(taskId)}
           />
         ))
       ) : statusTab === 'completed' ? (
@@ -1247,13 +1344,9 @@ export default function TasksScreen() {
           canRequestProof={v2Permissions.canRequestProof && domainTab !== 'homework'}
           onToggle={handleToggle}
           onDelete={handleDelete}
-          onRequestProof={(taskId) => {
-            void requestAnotherProof(taskId).then((ok) => {
-              if (!ok) {
-                Alert.alert('Could not request proof', 'This task may no longer be eligible.');
-              }
-            });
-          }}
+            viewerName={currentMember?.name}
+            onAddPhoto={(taskId) => setProofReplyId(taskId)}
+          onRequestProof={(taskId) => setProofRequestId(taskId)}
         />
       ) : (
         <>
@@ -1273,6 +1366,8 @@ export default function TasksScreen() {
             homeworkCard={domainTab === 'homework'}
             onToggle={handleToggle}
             onDelete={handleDelete}
+            viewerName={currentMember?.name}
+            onAddPhoto={(taskId) => setProofReplyId(taskId)}
           />
 
           <TaskSection
@@ -1290,10 +1385,62 @@ export default function TasksScreen() {
             homeworkCard={domainTab === 'homework'}
             onToggle={handleToggle}
             onDelete={handleDelete}
+            viewerName={currentMember?.name}
+            onAddPhoto={(taskId) => setProofReplyId(taskId)}
           />
         </>
       )}
     </PersistentScrollView>
+
+    <TaskProofRequestSheet
+      visible={Boolean(proofRequestTask)}
+      taskTitle={proofRequestTask?.title ?? ''}
+      sidekickName={proofRequestAssignee?.name ?? 'your Sidekick'}
+      busy={proofBusy}
+      onDismiss={() => setProofRequestId(null)}
+      onSend={async (note) => {
+        if (!proofRequestTask) return;
+        setProofBusy(true);
+        try {
+          await requestAnotherProof(proofRequestTask.id, note);
+          setProofRequestId(null);
+          Alert.alert(
+            'Photo requested',
+            `${proofRequestAssignee?.name ?? 'Your Sidekick'} will get a notification to add a picture.`
+          );
+        } catch (error) {
+          Alert.alert(
+            'Couldn’t request a photo',
+            error instanceof Error ? error.message : 'Try again in a moment.'
+          );
+        } finally {
+          setProofBusy(false);
+        }
+      }}
+    />
+    <TaskProofReplySheet
+      visible={Boolean(proofReplyTask)}
+      taskTitle={proofReplyTask?.title ?? ''}
+      adminNote={proofReplyNote}
+      busy={proofBusy}
+      onDismiss={() => setProofReplyId(null)}
+      onSubmit={async (input) => {
+        if (!proofReplyTask) return;
+        setProofBusy(true);
+        try {
+          await submitProofReply(proofReplyTask.id, input);
+          setProofReplyId(null);
+          Alert.alert('Photo sent', 'A grown-up was notified to look at it.');
+        } catch (error) {
+          Alert.alert(
+            'Couldn’t send the photo',
+            error instanceof Error ? error.message : 'Try again.'
+          );
+        } finally {
+          setProofBusy(false);
+        }
+      }}
+    />
 
     <PersonaSwitchPopup
       visible={personaSwitchOpen}
@@ -1533,9 +1680,17 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 6,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    marginTop: 10,
+    minHeight: 32,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  photoNeededPill: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   requestProofText: {
     fontSize: 12,

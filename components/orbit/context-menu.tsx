@@ -6,7 +6,7 @@ import { Modal, Platform, Pressable, StyleSheet, View, type LayoutRectangle, typ
 
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
-import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { glassCardStrong, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { AppText as Text } from '@/components/orbit/app-text';
 
 export type ContextMenuAction = {
@@ -14,6 +14,8 @@ export type ContextMenuAction = {
   label: string;
   icon?: keyof typeof MaterialIcons.glyphMap;
   destructive?: boolean;
+  /** Primary action — photo request and photo reply. */
+  accent?: boolean;
   onPress: () => void;
 };
 
@@ -29,7 +31,7 @@ type ContextMenuProps = {
  * docs/design-system/05-component-library.md "Context Menu".
  */
 export function ContextMenu({ actions, children, onPress }: ContextMenuProps) {
-  const { c, isDark } = useOrbitColors();
+  const { c, isDark, glassBorder } = useOrbitColors();
   const [visible, setVisible] = useState(false);
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number } | null>(null);
   const layoutRef = useRef<LayoutRectangle | null>(null);
@@ -62,7 +64,9 @@ export function ContextMenu({ actions, children, onPress }: ContextMenuProps) {
                 styles.menu,
                 {
                   top: Math.min(anchor.y, 560),
-                  left: Math.max(space.md, Math.min(anchor.x - 100, 220)),
+                  left: Math.max(space.md, Math.min(anchor.x - 120, 200)),
+                  backgroundColor: glassCardStrong(isDark),
+                  borderColor: glassBorder(0.16),
                 },
               ]}>
               <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -73,33 +77,47 @@ export function ContextMenu({ actions, children, onPress }: ContextMenuProps) {
                   style={StyleSheet.absoluteFill}
                 />
               </View>
-              {actions.map((action, index) => (
+              {actions.map((action, index) => {
+                const color = action.destructive
+                  ? orbitColors.danger
+                  : action.accent
+                    ? c.primary
+                    : c.text;
+                return (
                 <Pressable
                   key={action.key}
                   onPress={() => {
                     close();
                     action.onPress();
                   }}
-                  style={[styles.row, index < actions.length - 1 && styles.rowDivider]}
+                  style={({ pressed }) => [
+                    styles.row,
+                    index < actions.length - 1 && {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: glassBorder(0.12),
+                    },
+                    pressed && { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,28,42,0.05)' },
+                  ]}
                   accessibilityRole="button"
                   accessibilityLabel={action.label}>
                   <Text
                     style={[
                       typography.body,
                       styles.rowLabel,
-                      { color: action.destructive ? orbitColors.danger : c.text },
+                      { color, fontWeight: action.accent ? '700' : '500' },
                     ]}>
                     {action.label}
                   </Text>
                   {action.icon ? (
                     <MaterialIcons
                       name={action.icon}
-                      size={18}
-                      color={action.destructive ? orbitColors.danger : c.textMuted}
+                      size={20}
+                      color={action.destructive ? orbitColors.danger : action.accent ? c.primary : c.textMuted}
                     />
                   ) : null}
                 </Pressable>
-              ))}
+                );
+              })}
             </View>
           ) : null}
         </Pressable>
@@ -113,21 +131,23 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.12)',
-    minWidth: 200,
+    minWidth: 228,
     overflow: 'hidden',
     position: 'absolute',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.28,
+    shadowRadius: 24,
+    elevation: 12,
   },
   row: {
     alignItems: 'center',
     flexDirection: 'row',
+    gap: 12,
     justifyContent: 'space-between',
+    minHeight: 48,
     paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-  },
-  rowDivider: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 12,
   },
   rowLabel: {
     flex: 1,

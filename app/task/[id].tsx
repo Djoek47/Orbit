@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,7 +14,7 @@ import {
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { VOCAB } from '@/constants/vocabulary';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
-import { canAdminRequestTaskProof } from '@/lib/tasks/proof-eligibility';
+import { canAdminRequestTaskProof, needsSidekickPhotoReply } from '@/lib/tasks/proof-eligibility';
 import { typography } from '@/constants/orbit-theme';
 import {
   getShare,
@@ -72,7 +72,8 @@ function proofStatusLabel(status: HouseholdTask['proofStatus'], completed: boole
 
 export default function TaskDetailScreen() {
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, proof: proofParam } = useLocalSearchParams<{ id: string; proof?: string | string[] }>();
+  const proofIntent = Array.isArray(proofParam) ? proofParam[0] : proofParam;
   const {
     accentTheme,
     cancelTask,
@@ -135,6 +136,17 @@ export default function TaskDetailScreen() {
     late: boolean;
     bonus?: number;
   } | null>(null);
+
+  const canOpenProofReply =
+    Boolean(task && currentMember && taskMatchesAssignee(task, currentMember.name)) &&
+    task?.verification === 'proof_requested' &&
+    task?.proofStatus !== 'submitted' &&
+    task?.proofStatus !== 'approved';
+
+  useEffect(() => {
+    if (proofIntent !== 'reply' || !canOpenProofReply) return;
+    setReplySheetOpen(true);
+  }, [canOpenProofReply, proofIntent]);
 
   if (!task) {
     return (
@@ -493,6 +505,24 @@ export default function TaskDetailScreen() {
           </>
         ) : null}
 
+        {needsSidekickPhotoReply(task) && !needsSidekickProofReply ? (
+          <View
+            style={[
+              styles.proofHero,
+              { backgroundColor: `${c.warning}14`, borderColor: `${c.warning}44` },
+            ]}>
+            <View style={[styles.proofHeroIcon, { backgroundColor: `${c.warning}22` }]}>
+              <MaterialIcons name="photo-camera" size={22} color={c.warning} />
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[typography.headline, { color: c.text }]}>Waiting on a photo</Text>
+              <Text style={[typography.footnote, { color: c.textSoft }]}>
+                {assigneeMember?.name ?? 'Your Sidekick'} has been asked for a picture. Their points stay.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         {needsSidekickProofReply ? (
           <Pressable
             onPress={() => setReplySheetOpen(true)}
@@ -507,11 +537,11 @@ export default function TaskDetailScreen() {
               <MaterialIcons name="photo-camera" size={22} color={accentTheme.primary} />
             </View>
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[typography.headline, { color: c.text }]}>Proof requested</Text>
+              <Text style={[typography.headline, { color: c.text }]}>Photo needed</Text>
               <Text style={[typography.footnote, { color: c.textSoft }]}>
                 {latestAdminProofNote
                   ? latestAdminProofNote
-                  : 'Take a photo or leave a short note for your grown-up.'}
+                  : 'Add a picture so it’s clear this is done.'}
               </Text>
             </View>
             <MaterialIcons name="chevron-right" size={22} color={c.textMuted} />
@@ -901,9 +931,9 @@ export default function TaskDetailScreen() {
                       <MaterialIcons name="photo-camera" size={20} color={accentTheme.primary} />
                     </View>
                     <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={[typography.headline, { color: c.text }]}>Request proof</Text>
+                      <Text style={[typography.headline, { color: c.text }]}>Request a photo</Text>
                       <Text style={[typography.footnote, { color: c.textSoft }]}>
-                        Ask {assigneeMember?.name ?? 'your Sidekick'} for a photo or note
+                        Ask {assigneeMember?.name ?? 'your Sidekick'} for a picture
                       </Text>
                     </View>
                     <MaterialIcons name="arrow-forward-ios" size={14} color={c.textMuted} />
@@ -991,15 +1021,7 @@ export default function TaskDetailScreen() {
               </>
             ) : null}
             {needsSidekickProofReply ? (
-              <OrbitButton onPress={() => setReplySheetOpen(true)}>Show your work</OrbitButton>
-            ) : null}
-            {task.verification === 'proof_requested' && canCompleteMine ? (
-              <OrbitButton
-                disabled={proofBusy}
-                loading={proofBusy}
-                onPress={() => setReplySheetOpen(true)}>
-                Add another photo
-              </OrbitButton>
+              <OrbitButton onPress={() => setReplySheetOpen(true)}>Add a photo</OrbitButton>
             ) : null}
             {split && myShare?.status === 'Completed' && task.status !== 'Completed' ? (
               <View style={[styles.waitCard, { borderColor: glassBorder(0.12), backgroundColor: glass(0.05) }]}>
@@ -1063,7 +1085,7 @@ export default function TaskDetailScreen() {
             setRequestSheetOpen(false);
             Alert.alert(
               'Proof requested',
-              `${assigneeMember?.name ?? 'Your Sidekick'} will get a notification to send a photo or note.`
+              `${assigneeMember?.name ?? 'Your Sidekick'} will get a notification to add a picture.`
             );
           } catch (error) {
             Alert.alert(
@@ -1094,7 +1116,7 @@ export default function TaskDetailScreen() {
               await submitProofReply(task.id, input);
             }
             setReplySheetOpen(false);
-            Alert.alert('Proof sent', 'A grown-up was notified to review it.');
+            Alert.alert('Photo sent', 'A grown-up was notified to look at it.');
           } catch (error) {
             Alert.alert(
               'Could not send proof',

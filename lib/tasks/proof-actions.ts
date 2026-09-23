@@ -162,8 +162,8 @@ export function submitProofReply(
   }
   const note = input.note?.trim();
   const uri = input.proofUri?.trim();
-  if (!uri && !note) {
-    return { ok: false, reason: 'Add a photo or a short note.' };
+  if (!uri) {
+    return { ok: false, reason: 'Add a photo of the finished task.' };
   }
 
   let next: HouseholdTask = {

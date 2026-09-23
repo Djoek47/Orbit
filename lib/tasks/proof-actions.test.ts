@@ -92,11 +92,13 @@ const auto = autoConfirmUnreviewed([base({ completedAt: aged, verification: 'unr
 assert(auto[0].verification === 'confirmed', '72h auto-confirm');
 
 const asked = requestAnotherProofOnTask(base(), 'admin-1', 'Show the corners');
-assert(asked.ok);
-const replied = submitProofReply(asked.task, { note: 'All tucked in' });
-assert(replied.ok && replied.task.proofNote === 'All tucked in', 'note-only reply');
-assert(replied.ok && replied.task.verification === 'unreviewed', 'reply → unreviewed');
+if (!asked.ok) throw new Error('ask photo');
+const noteOnly = submitProofReply(asked.task, { note: 'All tucked in' });
+if (noteOnly.ok) throw new Error('a photo is required');
 const photoReply = submitProofReply(asked.task, { proofUri: 'file://bed.jpg', note: 'Done' });
-assert(photoReply.ok && photoReply.task.proofUri === 'file://bed.jpg', 'photo+note');
+if (!photoReply.ok) throw new Error('photo reply');
+assert(photoReply.task.proofUri === 'file://bed.jpg', 'photo+note');
+assert(photoReply.task.proofNote === 'Done', 'optional note kept');
+assert(photoReply.task.verification === 'unreviewed', 'reply → unreviewed');
 
 console.log('test:proof-actions OK');

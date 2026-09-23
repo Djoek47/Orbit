@@ -17,6 +17,7 @@ import { LargeTitleHeader } from '@/components/orbit/large-title-header';
 import { Leaderboard, type LeaderboardEntry } from '@/components/orbit/leaderboard';
 import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { TaskProofRequestSheet } from '@/components/orbit/task-proof-sheets';
 import { StreakRescueSheet } from '@/components/orbit/streak-rescue-sheet';
 import { StreakLostSheet } from '@/components/orbit/streak-lost-sheet';
 import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
@@ -44,6 +45,7 @@ import { visibleEventsForMember } from '@/lib/calendar/plan-visibility';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
+import { canAdminRequestTaskProof, needsSidekickPhotoReply } from '@/lib/tasks/proof-eligibility';
 import { composeHomeGlance, msUntilNextHomeGlance } from '@/lib/poppins/home-glance';
 import { greetingWord } from '@/lib/time/greeting';
 import { useOrbit } from '@/store/orbit-store';
@@ -242,6 +244,9 @@ export default function HomeScreen() {
     estimatedXpCost: number;
     freeEligible: boolean;
   } | null>(null);
+  const [proofTaskId, setProofTaskId] = useState<string | null>(null);
+  const [proofBusy, setProofBusy] = useState(false);
+  const proofRequestTask = household.tasks.find((task) => task.id === proofTaskId) ?? null;
   const [streakLostVisible, setStreakLostVisible] = useState(false);
   const [streakLost, setStreakLost] = useState<{
     streakDays: number;
@@ -417,21 +422,20 @@ export default function HomeScreen() {
                     Confirm
                   </Text>
                 </Pressable>
-                <Pressable
-                  onPress={() => {
-                    void requestAnotherProof(task.id).catch((error: unknown) => {
-                      const detail =
-                        error instanceof Error && error.message
-                          ? error.message
-                          : 'Try again in a moment.';
-                      Alert.alert('Couldn’t request proof', detail);
-                    });
-                  }}
-                  style={[styles.approvalBtn, { backgroundColor: glass(0.08) }]}>
-                  <Text style={{ color: c.textMuted, fontWeight: '700', fontSize: 12 }}>
-                    Ask photo
-                  </Text>
-                </Pressable>
+                {needsSidekickPhotoReply(task) ? (
+                  <View style={[styles.approvalBtn, { backgroundColor: `${c.warning}18` }]}>
+                    <Text style={{ color: c.warning, fontWeight: '700', fontSize: 12 }}>Photo asked</Text>
+                  </View>
+                ) : canAdminRequestTaskProof(
+                    task,
+                    household.members.find((member) => member.name === task.assignee)
+                  ) ? (
+                  <Pressable
+                    onPress={() => setProofTaskId(task.id)}
+                    style={[styles.approvalBtn, { backgroundColor: glass(0.08) }]}>
+                    <Text style={{ color: c.text, fontWeight: '700', fontSize: 12 }}>Ask photo</Text>
+                  </Pressable>
+                ) : null}
                 <Pressable
                   onPress={() => {
                     void markNotDone(task.id).catch((error: unknown) => {
@@ -672,6 +676,35 @@ export default function HomeScreen() {
           });
         }}
         onDismiss={() => setRescueVisible(false)}
+      />
+      <TaskProofRequestSheet
+        visible={Boolean(proofRequestTask)}
+        taskTitle={proofRequestTask?.title ?? ''}
+        sidekickName={
+          household.members.find((member) => member.name === proofRequestTask?.assignee)?.name ??
+          'your Sidekick'
+        }
+        busy={proofBusy}
+        onDismiss={() => setProofTaskId(null)}
+        onSend={async (note) => {
+          if (!proofRequestTask) return;
+          setProofBusy(true);
+          try {
+            await requestAnotherProof(proofRequestTask.id, note);
+            setProofTaskId(null);
+            Alert.alert(
+              'Photo requested',
+              'They’ll get a notification, and the task will ask for a picture.'
+            );
+          } catch (error) {
+            Alert.alert(
+              'Couldn’t request a photo',
+              error instanceof Error ? error.message : 'Try again in a moment.'
+            );
+          } finally {
+            setProofBusy(false);
+          }
+        }}
       />
       <StreakLostSheet
         visible={streakLostVisible}

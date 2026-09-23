@@ -18,6 +18,7 @@ import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { isAvatarImageUri, MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import { tasksTabHref } from '@/lib/navigation/open-tasks-tab';
+import { needsSidekickPhotoReply } from '@/lib/tasks/proof-eligibility';
 import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { isTodayTask } from '@/lib/tasks/today';
 import type { AccentTheme } from '@/constants/accent-themes';
@@ -118,9 +119,14 @@ export function TodayTasksCard({
   }, [accentTheme.primary, members, mineOnly, scoped]);
 
   const preview = scoped
-    .filter((task) => task.status !== 'Completed')
+    .filter((task) => needsSidekickPhotoReply(task))
+    .concat(scoped.filter((task) => task.status !== 'Completed' && !needsSidekickPhotoReply(task)))
     .slice(0, mineOnly ? 6 : 4)
-    .concat(scoped.filter((task) => task.status === 'Completed').slice(0, 2))
+    .concat(
+      scoped
+        .filter((task) => task.status === 'Completed' && !needsSidekickPhotoReply(task))
+        .slice(0, 2)
+    )
     .slice(0, mineOnly ? 6 : 5);
 
   useEffect(() => {
@@ -234,28 +240,38 @@ export function TodayTasksCard({
             <Text style={[styles.eyebrow, { color: c.textSubtle }]}>All clear for today.</Text>
           ) : (
             preview.map((task, index) => {
-              const finished = task.status === 'Completed';
+              const photoNeeded = needsSidekickPhotoReply(task);
+              const finished = task.status === 'Completed' && !photoNeeded;
               return (
                 <Animated.View key={task.id} entering={FadeInDown.delay(80 + index * 40).springify()}>
                   <Pressable
                     style={styles.taskRow}
-                    onPress={() => router.push(`/task/${task.id}` as never)}>
+                    onPress={() =>
+                      router.push(
+                        (photoNeeded ? `/task/${task.id}?proof=reply` : `/task/${task.id}`) as never
+                      )
+                    }>
                     <View
                       style={[
                         styles.check,
-                        { borderColor: glassBorder(0.2) },
+                        { borderColor: photoNeeded ? `${c.warning}88` : glassBorder(0.2) },
                         finished && styles.checkDone,
+                        photoNeeded && { backgroundColor: `${c.warning}22` },
                       ]}>
-                      {finished ? <MaterialIcons name="check" size={12} color={c.ink} /> : null}
+                      {photoNeeded ? (
+                        <MaterialIcons name="photo-camera" size={12} color={c.warning} />
+                      ) : finished ? (
+                        <MaterialIcons name="check" size={12} color={c.ink} />
+                      ) : null}
                     </View>
                     <Text
                       style={[
                         styles.taskText,
-                        { color: finished ? c.textSubtle : c.text },
+                        { color: photoNeeded ? c.text : finished ? c.textSubtle : c.text },
                         finished && styles.taskDone,
                       ]}
                       numberOfLines={1}>
-                      {task.title}
+                      {photoNeeded ? `${task.title} · photo` : task.title}
                     </Text>
                     {!mineOnly ? (
                       <Text style={[styles.assignee, { color: c.textSubtle }]}>

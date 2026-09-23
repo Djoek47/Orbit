@@ -15,7 +15,10 @@ export function getNotificationRoute(item: NotificationItem): string | null {
   if (kind === 'itinerary_leg') {
     return '/(tabs)/plan';
   }
-  if (kind === 'proof_requested' || kind === 'proof_submitted' || kind === 'proof_approved' || notificationId === 'N19' || notificationId === 'N20') {
+  if (kind === 'proof_requested' || notificationId === 'N03') {
+    return taskId ? `/task/${taskId}?proof=reply` : '/(tabs)/tasks';
+  }
+  if (kind === 'proof_submitted' || kind === 'proof_approved' || notificationId === 'N19' || notificationId === 'N20') {
     return taskId ? `/task/${taskId}` : '/(tabs)/tasks';
   }
   if ((item.category === 'tasks' || item.category === 'ai') && taskId) {
