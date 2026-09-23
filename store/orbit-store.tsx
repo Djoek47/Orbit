@@ -2780,6 +2780,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     const updated = await taskRepository.revertCompletion(result.task);
     const reversed = result.reversedXp ?? 0;
+    if (reversed > 0 && household.id) {
+      await taskRepository.awardMemberXp({
+        householdId: household.id,
+        memberName: currentTask.assignee,
+        amount: -reversed,
+        reason: `Marked not done: ${currentTask.title}`,
+        taskId,
+      });
+    }
     const completionDay = currentTask.completedAt
       ? formatLocalDate(new Date(currentTask.completedAt))
       : null;

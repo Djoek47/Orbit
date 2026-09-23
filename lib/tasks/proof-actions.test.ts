@@ -79,6 +79,10 @@ const old = markTaskNotDone(
 );
 assert(!old.ok, 'locked after 7 days');
 
+const legacy = markTaskNotDone(base({ completedAt: undefined, awardedXp: undefined, xp: 10 }));
+assert(legacy.ok && legacy.reversedXp === 10, 'missing completed_at is still reversible');
+assert(legacy.ok && legacy.task.status === 'Pending', 'legacy undo returns to pending');
+
 const resub = resubmitProofPhoto(base({ verification: 'proof_requested' }), 'file://photo2.jpg');
 assert(resub.verification === 'unreviewed', 'resubmit → unreviewed');
 assert(Boolean(resub.proofPhotoUrls?.includes('file://photo2.jpg')), 'photo appended');

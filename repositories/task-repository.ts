@@ -413,6 +413,11 @@ export const taskRepository = {
       .update({
         status: 'completed',
         due_label: 'Completed today',
+        // Persist the snapshot Mark not done reads. Without these, a refresh
+        // drops completedAt and undo reports the 7-day window as closed.
+        completed_at: completedAt,
+        awarded_xp: task.awardedXp ?? 0,
+        completed_late: task.completedLate ?? false,
       })
       .eq('id', task.id)
       .select('*')
@@ -455,7 +460,7 @@ export const taskRepository = {
     reason: string;
     taskId?: string;
   }): Promise<void> {
-    if (isMockMode() || input.amount <= 0) {
+    if (isMockMode() || input.amount === 0) {
       return;
     }
     const supabase = getConfiguredSupabase('taskRepository.awardMemberXp');
@@ -470,8 +475,8 @@ export const taskRepository = {
     const { error: xpError } = await supabase
       .from('household_members')
       .update({
-        xp: (member.xp ?? 0) + input.amount,
-        week_xp: (member.week_xp ?? 0) + input.amount,
+        xp: Math.max(0, (member.xp ?? 0) + input.amount),
+        week_xp: Math.max(0, (member.week_xp ?? 0) + input.amount),
       })
       .eq('id', member.id);
     mapDbError('taskRepository.awardMemberXp.memberXp', xpError);

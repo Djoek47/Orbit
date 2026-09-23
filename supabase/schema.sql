@@ -135,7 +135,7 @@ create table if not exists public.tasks (
   mental_load_value integer not null default 1,
   proof_required boolean not null default false,
   repeat_rule text not null default 'none' check (repeat_rule in ('none', 'daily', 'weekly', 'weekdays')),
-  status text not null default 'pending' check (status in ('pending', 'in_progress', 'completed', 'overdue')),
+  status text not null default 'pending' check (status in ('pending', 'in_progress', 'completed', 'overdue', 'cancelled', 'expired', 'missed')),
   created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

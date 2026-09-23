@@ -82,10 +82,12 @@ export function markTaskNotDone(task: HouseholdTask, now = new Date()): ProofAct
   if (task.status !== 'Completed') {
     return { ok: false, reason: 'Task is not completed.' };
   }
-  if (!canMarkNotDone(task.completedAt, now)) {
+  // Older completes never wrote completed_at. A missing timestamp is still reversible.
+  // A stored timestamp still closes after 7 days.
+  if (task.completedAt && !canMarkNotDone(task.completedAt, now)) {
     return { ok: false, reason: 'Reversal window closed (7 days).' };
   }
-  const reversedXp = task.awardedXp ?? 0;
+  const reversedXp = task.awardedXp ?? task.xp ?? 0;
   let nextStatus: HouseholdTask['status'] = 'Pending';
   if (task.dueAt) {
     const due = new Date(task.dueAt);
