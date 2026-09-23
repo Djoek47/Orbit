@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   summaryGlow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.9,
   },
   summaryTitle: {

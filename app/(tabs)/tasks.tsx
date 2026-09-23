@@ -272,7 +272,7 @@ function TaskItem({
         <Animated.View
           pointerEvents="none"
           style={[
-            StyleSheet.absoluteFillObject,
+            StyleSheet.absoluteFill,
             { backgroundColor: '#34D399', borderRadius: 16 },
             washAnim,
           ]}

@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   glowWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     width: 280,
   },
   glowSpinOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
