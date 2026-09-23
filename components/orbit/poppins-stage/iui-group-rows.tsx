@@ -1,11 +1,10 @@
 /**
  * WO11 — grouped acts on one card: rows with × to drop before commit.
+ * No mount entrance animations — stage is live under WebRTC.
  */
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { motionDuration } from '@/constants/motion-tokens';
 import type { IuiGroupItem } from '@/lib/poppins/ui-scenes';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
@@ -46,14 +45,13 @@ export function IuiGroupRows({
 
   return (
     <View style={styles.stack}>
-      {active.map((item, index) => {
+      {active.map((item) => {
         const detail = rowDetail(item, kind);
         const hint = statusHint(item);
         const failed = item.status === 'failed';
         return (
-          <Animated.View
+          <View
             key={item.id}
-            entering={FadeIn.delay(Math.min(index * 40, 160)).duration(motionDuration.smooth)}
             style={[
               styles.row,
               {
@@ -93,7 +91,7 @@ export function IuiGroupRows({
                 <Text style={[styles.dropMark, { color: c.textSubtle }]}>×</Text>
               </Pressable>
             ) : null}
-          </Animated.View>
+          </View>
         );
       })}
       {queued.map((item) => (
