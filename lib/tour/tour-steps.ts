@@ -69,7 +69,7 @@ const ADMIN_TASKS: TourChapter = {
       id: 'tasks.form',
       targetId: 'assign.form',
       title: 'Your first task',
-      body: 'Choose any chore and a Sidekick, then save.',
+      body: 'A Sidekick and a chore are ready. Tap Assign, or change them first.',
       // Stay on the tab route — /assign-task is a modal the overlay covers via FullWindowOverlay.
       route: '/(tabs)/tasks',
       centered: true,
@@ -81,6 +81,7 @@ const ADMIN_TASKS: TourChapter = {
       title: 'Press and hold',
       body: 'Hold a task to complete it, skip today, or delete it.',
       route: '/(tabs)/tasks',
+      ensureVisible: true,
     }),
   ],
 };

@@ -14,12 +14,18 @@ import Icon from '@/components/orbit/design/Icon';
 import { domainIconName } from '@/components/orbit/design/icon-map';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
+import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  pickTourPracticeAssignee,
+  pickTourPracticeLibraryTask,
+} from '@/lib/tour/tour-demo-task';
 import {
   findSharedDeviceForMember,
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
+import { isSidekickRole } from '@/lib/sidekick/permissions';
 import { choreDomains, type LibraryTask, type TaskDomain } from '@/lib/tasks/task-library';
 import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
 import { householdDueTimeLocal } from '@/lib/rules/household-view';
@@ -154,6 +160,10 @@ export default function AssignTaskScreen() {
   const params = useLocalSearchParams<{ member?: string | string[] }>();
   const memberName = Array.isArray(params.member) ? params.member[0] : params.member;
   const { createTask, household, permissions, v2Permissions, accentTheme } = useOrbit();
+  const tour = useTourControls();
+  const tourGuided =
+    Boolean(tour?.sessionActive) &&
+    (tour?.activeStepId === 'tasks.form' || tour?.activeStepId === 'tasks.assign');
   const canAssign = v2Permissions.canAssignOrEditTask || permissions.canCreateTask;
   const isAdmin = permissions.canManageHousehold;
 
@@ -169,8 +179,12 @@ export default function AssignTaskScreen() {
   const initialId = useMemo(() => {
     const fromParam = people.find((m) => m.name === memberName)?.id;
     if (fromParam) return fromParam;
-    return people[0]?.id ?? null;
-  }, [people, memberName]);
+    if (tourGuided) {
+      return pickTourPracticeAssignee(people)?.id ?? people[0]?.id ?? null;
+    }
+    const sidekick = people.find((m) => isSidekickRole(m.role));
+    return sidekick?.id ?? people[0]?.id ?? null;
+  }, [people, memberName, tourGuided]);
 
   const [assigneeId, setAssigneeId] = useState<string | null>(initialId);
   const [search, setSearch] = useState('');
@@ -179,6 +193,7 @@ export default function AssignTaskScreen() {
   const [busy, setBusy] = useState(false);
   const [freqPickerTaskId, setFreqPickerTaskId] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [tourSeeded, setTourSeeded] = useState(false);
 
   useEffect(() => {
     if (!people.length) {
@@ -188,6 +203,19 @@ export default function AssignTaskScreen() {
     if (assigneeId && people.some((m) => m.id === assigneeId)) return;
     setAssigneeId(initialId);
   }, [people, assigneeId, initialId]);
+
+  useEffect(() => {
+    if (!tourGuided || tourSeeded) return;
+    const practice = pickTourPracticeLibraryTask();
+    if (!practice) return;
+    setSelected((current) => {
+      if (current.some((item) => item.task.id === practice.id)) return current;
+      return [{ task: practice, frequency: practice.defaultFrequency }];
+    });
+    const preferred = pickTourPracticeAssignee(people);
+    if (preferred) setAssigneeId(preferred.id);
+    setTourSeeded(true);
+  }, [tourGuided, tourSeeded, people]);
 
   const assignee = people.find((m) => m.id === assigneeId) ?? null;
 

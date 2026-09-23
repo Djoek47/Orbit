@@ -37,6 +37,11 @@ import {
 } from '@/lib/tour/tour-conditions';
 import { speakAs } from '@/lib/ai/majordomo-name';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
+import {
+  buildTourPracticeTaskInput,
+  householdHasOpenTourPractice,
+  pickTourPracticeAssignee,
+} from '@/lib/tour/tour-demo-task';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import { formatWelcomeCopy, getTourDefinition } from '@/lib/tour/tour-steps';
 import {
@@ -71,6 +76,10 @@ type ScrollFn = ((y: number) => void) | null;
 
 type TourRegistry = {
   activeTargetId: TourTargetId | null;
+  /** Step id even while the overlay is paused over Assign. */
+  activeStepId: string | null;
+  /** True while the first-run tour session is running. */
+  sessionActive: boolean;
   registerTarget: (id: TourTargetId, rect: TourRect) => void;
   unregisterTarget: (id: TourTargetId) => void;
   registerScroll: (fn: ScrollFn) => void;
@@ -306,8 +315,18 @@ export function TourProvider({ children }: PropsWithChildren) {
   pointerRef.current = pointer;
 
   // Pause when IUI live / keyboard — except during an action step (that is the action).
+  // Also pause on Assign / Create modals so the coach card does not sit on the form.
   useEffect(() => {
+    const onAssignModal =
+      Boolean(pathname?.includes('assign-task')) ||
+      Boolean(pathname?.includes('assign-homework')) ||
+      Boolean(pathname?.includes('create-task'));
+
     const sync = () => {
+      if (onAssignModal) {
+        setPaused(true);
+        return;
+      }
       const live = poppinsUiOrchestrator.getState().live;
       setPaused(
         shouldPauseTour({
@@ -317,6 +336,7 @@ export function TourProvider({ children }: PropsWithChildren) {
         })
       );
     };
+    sync();
     const unsub = poppinsUiOrchestrator.subscribe(sync);
     const show = Keyboard.addListener('keyboardDidShow', sync);
     const hide = Keyboard.addListener('keyboardDidHide', sync);
@@ -325,11 +345,15 @@ export function TourProvider({ children }: PropsWithChildren) {
       show.remove();
       hide.remove();
     };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
-    if (actionStep) setPaused(false);
-  }, [actionStep]);
+    const onAssignModal =
+      Boolean(pathname?.includes('assign-task')) ||
+      Boolean(pathname?.includes('assign-homework')) ||
+      Boolean(pathname?.includes('create-task'));
+    if (actionStep && !onAssignModal) setPaused(false);
+  }, [actionStep, pathname]);
 
   // Force Quiet during Poppins action step
   useEffect(() => {
@@ -337,6 +361,20 @@ export function TourProvider({ children }: PropsWithChildren) {
     setTourForcesQuiet(Boolean(force));
     return () => setTourForcesQuiet(false);
   }, [pointer?.step.id, pointer?.step.onEnter]);
+
+  const ensureTourPracticeTask = useCallback(async () => {
+    if (!orbit?.createTask || !household) return;
+    if (householdHasOpenTourPractice(household.tasks ?? [])) return;
+    const assignee = pickTourPracticeAssignee(household.members ?? [], currentMember?.name);
+    if (!assignee) return;
+    const input = buildTourPracticeTaskInput(household, assignee);
+    if (!input) return;
+    try {
+      await orbit.createTask(input);
+    } catch (error) {
+      console.warn('tour.practiceTask', error);
+    }
+  }, [orbit, household, currentMember?.name]);
 
   // Navigate + wait for target — only when the navigator is ready.
   useEffect(() => {
@@ -362,6 +400,22 @@ export function TourProvider({ children }: PropsWithChildren) {
       }
 
       applyTourStepEnter(pointer.step.onEnter);
+
+      if (pointer.step.id === 'tasks.form') {
+        const onAssign =
+          pathname?.includes('assign-task') || pathname?.includes('assign-homework');
+        if (!onAssign && navRef.isReady()) {
+          try {
+            router.push('/assign-task' as never);
+          } catch (error) {
+            console.warn('tour.openAssign', error);
+          }
+        }
+      }
+
+      if (pointer.step.id === 'tasks.hold') {
+        void ensureTourPracticeTask();
+      }
 
       const route = pointer.step.route;
       let navigated = tourRouteMatches(pathname, route);
@@ -614,13 +668,24 @@ export function TourProvider({ children }: PropsWithChildren) {
       { tourId: tourState.tourId, chapterId: tourState.chapterId },
       analyticsContext
     );
-    void persist(skipChapterState(tourState, conditionCtx));
-  }, [tourState, conditionCtx, persist, analyticsContext]);
+    void (async () => {
+      if (tourState.chapterId === 'tasks') {
+        await ensureTourPracticeTask();
+      }
+      void persist(skipChapterState(tourState, conditionCtx));
+    })();
+  }, [tourState, conditionCtx, persist, analyticsContext, ensureTourPracticeTask]);
 
   const handleSkipStep = useCallback(() => {
     if (!tourState) return;
-    void persist(advanceAfterStep(tourState, conditionCtx, { skipStep: true }));
-  }, [tourState, conditionCtx, persist]);
+    const ptr = resolveActivePointer(tourState, conditionCtx);
+    void (async () => {
+      if (ptr?.step.id === 'tasks.form' || ptr?.step.id === 'tasks.assign') {
+        await ensureTourPracticeTask();
+      }
+      void persist(advanceAfterStep(tourState, conditionCtx, { skipStep: true }));
+    })();
+  }, [tourState, conditionCtx, persist, ensureTourPracticeTask]);
 
   const handleClose = useCallback(() => {
     setWelcomeOpen(false);
@@ -723,6 +788,8 @@ export function TourProvider({ children }: PropsWithChildren) {
   const registry = useMemo<TourRegistry>(
     () => ({
       activeTargetId: pointer?.step.targetId ?? null,
+      activeStepId: activeStep?.step.id ?? null,
+      sessionActive,
       registerTarget,
       unregisterTarget,
       registerScroll,
@@ -738,6 +805,8 @@ export function TourProvider({ children }: PropsWithChildren) {
     }),
     [
       pointer?.step.targetId,
+      activeStep?.step.id,
+      sessionActive,
       registerTarget,
       unregisterTarget,
       registerScroll,
