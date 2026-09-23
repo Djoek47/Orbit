@@ -51,7 +51,8 @@ Same as v21 — Sign in (TestFlight):
 | Build | Git | EAS build | Submit |
 |-------|-----|-----------|--------|
 | **1.3.0 (79)** failed | `cursor/make-v23` @ `bbfc01b` | [4e1a3b76](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/4e1a3b76-7f33-4ffa-8d3a-6f2c53916b11) — Xcode 26.6, `expo-av` did not compile | not submitted |
-| **1.3.0 (80)** queued | `cursor/make-v23` @ `8e33b2a` | [d2c64541](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/d2c64541-3e6b-4325-995a-882ec869de84) — **Xcode 26.6 / iOS 26 SDK**, `expo-audio` | [bc5afef5](https://expo.dev/accounts/djoek47/projects/choremaxx/submissions/bc5afef5-7508-4564-ae18-7d1f413591cb) auto-submit |
+| **1.3.0 (80)** submitted | `cursor/make-v23` @ `8e33b2a` | [d2c64541](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/d2c64541-3e6b-4325-995a-882ec869de84) — **Xcode 26.6 / iOS 26 SDK**, `expo-audio` | [bc5afef5](https://expo.dev/accounts/djoek47/projects/choremaxx/submissions/bc5afef5-7508-4564-ae18-7d1f413591cb) |
+| **1.3.0 (81)** queued | `cursor/make-v23` @ `17645a3` | [86842fca](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/86842fca-6850-400c-910f-0f311fc91448) — home glance, majordomo name, photo proof, orb water + month ring, task header Trash + Assign-style actions | [3eda40be](https://expo.dev/accounts/djoek47/projects/choremaxx/submissions/3eda40be-8eb6-4a5e-b956-8d376c58a4e7) |
 
 ## Apple SDK
 
