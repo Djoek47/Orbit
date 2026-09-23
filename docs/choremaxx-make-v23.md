@@ -68,7 +68,7 @@ TestFlight and production iOS builds use EAS image `macos-tahoe-26.5-xcode-26.6`
 ## SQL to apply on staging (if missing)
 
 1. `20260923060000_sidekick_poppins_ai.sql` — Sidekick Poppins flag, default off
-2. `20260923120000_tasks_status_skip_undo.sql` — allow `cancelled` / `expired` and backfill completion timestamps (applied on Choremaxx-Staging 2026-09-23)
+2. `20260923120000_tasks_status_skip_undo.sql` — allow `cancelled` / `expired`, backfill completion timestamps, and stamp `completed_at` on complete (applied on Choremaxx-Staging 2026-09-23)
 3. Carry-forward migrations listed in `docs/choremaxx-make-v21.md` and `docs/choremaxx-make-v20.md`
 
 ## Verify in app

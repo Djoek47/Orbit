@@ -25,3 +25,30 @@ set
   awarded_xp = coalesce(awarded_xp, xp_value)
 where status = 'completed'
   and (completed_at is null or awarded_xp is null);
+
+-- The installed app writes status = completed and then reloads the row.
+-- If completed_at is still null, Mark not done reports the 7-day window as closed.
+-- Fill the snapshot in the same update so that reload can undo.
+create or replace function public.tasks_fill_completion_snapshot()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.status = 'completed' and old.status is distinct from 'completed' then
+    if new.completed_at is null then
+      new.completed_at := now();
+    end if;
+    if new.awarded_xp is null then
+      new.awarded_xp := coalesce(new.xp_value, 0);
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists tasks_fill_completion_snapshot on public.tasks;
+
+create trigger tasks_fill_completion_snapshot
+before update on public.tasks
+for each row
+execute function public.tasks_fill_completion_snapshot();
