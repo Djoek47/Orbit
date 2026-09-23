@@ -44,7 +44,7 @@ export function TourCard({
   cardRef,
   onNext,
   onBack,
-  onSkipChapter,
+  onSkipChapter: _onSkipChapter,
   onSkipStep,
   onLayoutHeight,
   maxHeight,
@@ -146,9 +146,10 @@ export function TourCard({
                 ) : (
                   <>
                     <Pressable
-                      onPress={onSkipChapter}
+                      onPress={onSkipStep}
                       hitSlop={8}
                       accessibilityRole="button"
+                      accessibilityLabel="Skip this step"
                       style={styles.textBtn}>
                       <Text style={[typography.footnote, { color: c.textMuted, fontWeight: '600' }]}>
                         Skip

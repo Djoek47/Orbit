@@ -348,6 +348,7 @@ export async function commitIuiBeat(
       beat.payload.actMode
     );
     emitTourEvent('poppins_act_committed', { beatId: beat.id, write });
+    emitTourEvent('poppins_spoke', { beatId: beat.id, write, phase: 'committed' });
   }
   return { ok: true, reverse };
 }
