@@ -3474,28 +3474,26 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const cancelTask = async (taskId: string, scope: CancelTaskScope = 'this') => {
-    if (!permissions.canManageHousehold) {
-      return;
+    // Match task detail Skip today (canAdjust): assign/create adults, not only
+    // full household managers — silent early-return made Skip look broken.
+    const canSkip =
+      permissions.canManageHousehold ||
+      permissions.canCreateTask ||
+      permissions.canAssignTask;
+    if (!canSkip) {
+      throw new Error('You do not have permission to skip this task.');
     }
     const currentTask = household.tasks.find((item) => item.id === taskId);
     if (!currentTask || currentTask.status === 'Completed' || currentTask.status === 'Cancelled') {
       return;
     }
 
-    const cancelled = await taskRepository.updateTask({
-      ...currentTask,
-      status: 'Cancelled',
-      // Stopping the series: clear repeat so nothing new spawns from this row.
-      repeat: scope === 'future' ? 'None' : currentTask.repeat,
-      due:
-        scope === 'future' && currentTask.repeat !== 'None'
-          ? 'Cancelled · series stopped'
-          : 'Cancelled',
-    });
+    const stopSeries = scope === 'future' && currentTask.repeat !== 'None';
+    const cancelled = await taskRepository.cancelTask(currentTask, { stopSeries });
 
     let nextTasks = household.tasks.map((item) => (item.id === taskId ? cancelled : item));
 
-    if (scope === 'future' && currentTask.repeat !== 'None') {
+    if (stopSeries) {
       const siblings = nextTasks.filter(
         (item) =>
           item.id !== taskId &&
@@ -3503,12 +3501,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           isOpenTask(item)
       );
       for (const sibling of siblings) {
-        const updated = await taskRepository.updateTask({
-          ...sibling,
-          status: 'Cancelled',
-          repeat: 'None',
-          due: 'Cancelled · series stopped',
-        });
+        const updated = await taskRepository.cancelTask(sibling, { stopSeries: true });
         nextTasks = nextTasks.map((item) => (item.id === sibling.id ? updated : item));
       }
     }

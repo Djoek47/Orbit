@@ -406,8 +406,12 @@ export default function TaskDetailScreen() {
     try {
       await cancelTask(task.id, 'this');
       router.back();
-    } catch {
-      Alert.alert('Couldn’t skip', 'Try again in a moment.');
+    } catch (error) {
+      const detail =
+        error instanceof Error && error.message && !error.message.includes('taskRepository')
+          ? error.message
+          : 'Try again in a moment.';
+      Alert.alert('Couldn’t skip', detail);
       setBusy(false);
     }
   };
