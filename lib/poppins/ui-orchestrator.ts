@@ -392,7 +392,10 @@ function startHoldClock(beat: IuiBeat) {
   if (state.frozen || state.speaking || currentBeat()?.id !== beat.id) return;
   if (state.holding) return;
   setState({ holding: true, phase: 'hold', holdStartedAt: Date.now() });
-  hapticHandler?.('hold');
+  // WO11 §2.7 — one haptic for the group (settle), not hold+settle.
+  if (!(beat.payload.items && beat.payload.items.filter((item) => !item.dropped).length > 1)) {
+    hapticHandler?.('hold');
+  }
   clearHoldTimer();
   holdTimer = setTimeout(() => {
     if (state.speaking || state.frozen || currentBeat()?.id !== beat.id) return;
