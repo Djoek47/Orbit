@@ -709,6 +709,9 @@ export default function PoppinsScreen() {
   const toggleConnect = async () => {
     if (voiceSettling) return;
 
+    const { emitTourEvent } = await import('@/lib/tour/tour-events');
+    emitTourEvent('poppins_spoke', { phase: 'press' });
+
     const transport = speakTransportForPrefs(
       tourForcesQuietSpeak() ? false : interactionPrefs.speakBack
     );
@@ -720,10 +723,12 @@ export default function PoppinsScreen() {
     if (transport === 'quiet') {
       if (quietRef.current?.active || quietListening) {
         await stopQuietCapture();
+        emitTourEvent('poppins_spoke', { phase: 'done' });
         return;
       }
       if (liveConnected || voiceRef.current?.isConnected) {
         await endNativeVoice();
+        emitTourEvent('poppins_spoke', { phase: 'done' });
       }
       await startQuietCapture();
       return;
@@ -731,6 +736,7 @@ export default function PoppinsScreen() {
 
     if (liveConnected || voiceRef.current?.isConnected) {
       await endNativeVoice();
+      emitTourEvent('poppins_spoke', { phase: 'done' });
       return;
     }
     if (asking || connecting) return;
@@ -1136,13 +1142,15 @@ export default function PoppinsScreen() {
             {dailyLeft} left today
           </Text>
         </TourTarget>
-        <PoppinsModeCards
-          layout="pills"
-          prefs={interactionPrefs}
-          accent={majordomo.accent}
-          disabled={!permissions.canManageHousehold}
-          onSelectTier={selectPoppinsTier}
-        />
+        <TourTarget id="poppins.mode">
+          <PoppinsModeCards
+            layout="pills"
+            prefs={interactionPrefs}
+            accent={majordomo.accent}
+            disabled={!permissions.canManageHousehold}
+            onSelectTier={selectPoppinsTier}
+          />
+        </TourTarget>
       </View>
 
       <Modal

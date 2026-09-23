@@ -38,12 +38,12 @@ assert.equal(
 );
 
 let state = startTourState('admin');
-state = { ...state, chapterId: 'poppins', stepIndex: 1 };
+state = { ...state, chapterId: 'poppins', stepIndex: 2 };
 assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.try');
 
 const backOne = retreatBeforeStep(state, ctx);
 assert.equal(backOne.chapterId, 'poppins');
-assert.equal(backOne.stepIndex, 0);
+assert.equal(backOne.stepIndex, 1);
 assert.equal(tourCanRetreat(state, ctx), true);
 const first = startTourState('admin');
 assert.equal(tourCanRetreat(first, ctx), false);
@@ -75,7 +75,7 @@ const unsub = bindTourStepAdvance({
   },
 });
 
-emitTourEvent('poppins_act_committed');
+emitTourEvent('poppins_spoke');
 assert.notEqual(resolveActivePointer(state, ctx)?.step.id, 'poppins.try');
 paused = false;
 assert.equal(paused, false);
