@@ -50,7 +50,11 @@ Same as v21 — Sign in (TestFlight):
 
 | Build | Git | EAS build | Submit |
 |-------|-----|-----------|--------|
-| **1.3.0 (79)** queued | `cursor/make-v23` @ `bbfc01b` | [4e1a3b76](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/4e1a3b76-7f33-4ffa-8d3a-6f2c53916b11) | [cb8f2906](https://expo.dev/accounts/djoek47/projects/choremaxx/submissions/cb8f2906-c1f2-4614-b20b-4df1f92c335e) auto-submit |
+| **1.3.0 (79)** in progress | `cursor/make-v23` @ `bbfc01b` | [4e1a3b76](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/4e1a3b76-7f33-4ffa-8d3a-6f2c53916b11) — **Xcode 26.6 / iOS 26 SDK** (`macos-tahoe-26.5-xcode-26.6`) | [cb8f2906](https://expo.dev/accounts/djoek47/projects/choremaxx/submissions/cb8f2906-c1f2-4614-b20b-4df1f92c335e) auto-submit |
+
+## Apple SDK
+
+TestFlight and production iOS builds use EAS image `macos-tahoe-26.5-xcode-26.6` (Xcode 26.6, iOS 26 SDK). That is the SDK Apple has required for App Store Connect since April 28, 2026.
 
 ## TestFlight env (`eas.json`)
 
