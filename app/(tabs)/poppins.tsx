@@ -41,6 +41,7 @@ import {
 } from '@/lib/poppins/local-act-confirm';
 import { filterDuplicateUiActions } from '@/lib/poppins/act-ledger';
 import { parseCompoundHouseholdIntent } from '@/lib/poppins/clause-segment';
+import { preferLocalOnPlanMismatch } from '@/lib/poppins/context-precedence';
 import {
   isContinuityFresh,
   loadIuiContinuity,
@@ -456,17 +457,19 @@ export default function PoppinsScreen() {
         const t = String(a.type ?? '');
         return t === 'member_pick' || t === 'list_members';
       });
+    const local = parseCompoundHouseholdIntent(lastUtteranceRef.current, {
+      memberNames: memberNamesRef.current,
+      selfName: currentMember?.name,
+      existingTasks: household.tasks,
+    });
     if (onlyMemberPick) {
-      const local = parseCompoundHouseholdIntent(lastUtteranceRef.current, {
-        memberNames: memberNamesRef.current,
-        selfName: currentMember?.name,
-        existingTasks: household.tasks,
-      });
       if (local.some((a) => String(a.type) === 'add_grocery')) {
         return;
       }
     }
-    const deduped = filterDuplicateUiActions(actions);
+    // C — local grammar wins when the model plan is a different act family.
+    const preferred = preferLocalOnPlanMismatch(local, actions);
+    const deduped = filterDuplicateUiActions(preferred.actions);
     if (!deduped.length) return;
     driveAiuic(deduped, lastUtteranceRef.current, {
       kid: kidSessionRef.current,
