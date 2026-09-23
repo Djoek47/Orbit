@@ -62,7 +62,11 @@ import {
   type PoppinsPendingConfirmation,
   type PoppinsVoiceVisualState,
 } from '@/lib/voice/poppins-voice-session';
-import { createQuietCapture, type QuietCapture } from '@/lib/voice/quiet-capture';
+import {
+  createQuietCapture,
+  QUIET_FAILURE_MESSAGES,
+  type QuietCapture,
+} from '@/lib/voice/quiet-capture';
 import { speakTransportForPrefs } from '@/lib/voice/speak-transport';
 import {
   DEFAULT_POPPINS_INTERACTION_PREFS,
@@ -689,16 +693,17 @@ export default function PoppinsScreen() {
     setQuietListening(false);
     setListening(false);
     try {
-      const transcript = await capture.stop(householdRef.current, metrics);
+      const result = await capture.stop(householdRef.current, metrics);
       quietRef.current = null;
-      if (!transcript) {
+      if ('failed' in result) {
         setVoiceState('idle');
-        setLiveCaption(
-          applyLiveCaptionTurn(null, 'poppins', "Didn't catch that. Tap to try again.", true)
-        );
+        const line =
+          QUIET_FAILURE_MESSAGES[result.failed] ??
+          "Didn't catch that. Tap to try again.";
+        setLiveCaption(applyLiveCaptionTurn(null, 'poppins', line, true));
         return;
       }
-      await submitUtterance(transcript, 'dictated');
+      await submitUtterance(result.transcript, 'dictated');
     } catch {
       quietRef.current = null;
       setVoiceState('idle');
