@@ -67,6 +67,21 @@ export type IuiStop = {
   needsAddress?: boolean;
 };
 
+export type IuiGroupItem = {
+  id: string;
+  /** Grocery name or task title. */
+  label: string;
+  assignee?: string;
+  due?: string;
+  aisle?: string;
+  libraryTaskId?: string;
+  category?: string;
+  /** Row dropped before commit. */
+  dropped?: boolean;
+  /** Per-row commit status for batch writes. */
+  status?: 'pending' | 'saving' | 'done' | 'failed';
+};
+
 export type IuiPayload = {
   thinkingLine?: string;
   title?: string;
@@ -137,6 +152,10 @@ export type IuiPayload = {
    * `silent` = Quiet / typed; `spoken` = Speak back Realtime.
    */
   actMode?: 'silent' | 'spoken';
+  /** WO11 — grouped same-kind acts on one card (one HOLD). */
+  items?: IuiGroupItem[];
+  /** Progress label e.g. "2 of 3". */
+  progressLabel?: string;
 };
 
 export type IuiWriteKind =
@@ -145,6 +164,7 @@ export type IuiWriteKind =
   | 'create_event'
   | 'create_itinerary_stop'
   | 'add_grocery'
+  | 'clear_grocery'
   | 'complete_task'
   | 'update_task'
   | 'claim_reward'

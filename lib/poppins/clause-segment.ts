@@ -12,11 +12,11 @@ const INHERIT_SLOTS = ['assignee', 'due', 'category', 'repeat'] as const;
 type InheritSlot = (typeof INHERIT_SLOTS)[number];
 
 const CLAUSE_SPLIT =
-  /\s+(?:then|also|plus|after\s+that)\s+|[.!?]+(?:\s+|$)/i;
+  /\s+(?:then|after\s+that|and\s+also|as\s+well\s+as|also|plus)\s+|[.!?;]+(?:\s+|$)/i;
 
 /** Imperative / act-opening verbs that mark a new clause after `and`. */
 const CLAUSE_VERB =
-  /^(add|create|assign|set\s+up|setup|make|schedule|put|remind|open|clean|wash|tidy|vacuum|mop|tend|take|do|get|grab|buy|complete|finish)\b/i;
+  /^(add|create|assign|set\s+up|setup|make|schedule|put|remind|open|clean|wash|tidy|vacuum|mop|tend|take|do|get|grab|buy|complete|finish|clear|mark)\b/i;
 
 /** Capitalized name or known member cue after `and` → stay one clause (two assignees). */
 function looksLikeNameList(afterAnd: string): boolean {
@@ -87,10 +87,11 @@ export function splitClauses(utterance: string): string[] {
     .filter(Boolean);
 
   for (const chunk of coarse) {
-    parts.push(...splitOnAnd(chunk));
+    // Trailing commas from "add bananas, then …" must not kill the grocery extract.
+    parts.push(...splitOnAnd(chunk.replace(/,+\s*$/g, '').trim()));
   }
 
-  return parts.map((p) => p.trim()).filter(Boolean);
+  return parts.map((p) => p.trim().replace(/,+\s*$/g, '')).filter(Boolean);
 }
 
 function splitOnAnd(chunk: string): string[] {
@@ -257,6 +258,7 @@ export function inheritSlotsAcrossActions(
 
 /**
  * Quiet compound entry: segment → parse each → inherit → navigates last.
+ * Cap at 8 acts (WO11 §2.1); preserve order.
  */
 export function parseCompoundHouseholdIntent(
   utterance: string,
@@ -279,27 +281,38 @@ export function parseCompoundHouseholdIntent(
   }
 
   const clauses = splitClauses(text);
+  let parsed: Array<Record<string, unknown>> = [];
+
   if (clauses.length <= 1) {
-    return parseHouseholdIntent(text, opts).map((action) => ({
+    parsed = parseHouseholdIntent(text, opts).map((action) => ({
       ...action,
       sourceUtterance: text,
     }));
-  }
-
-  const parsed: Array<Record<string, unknown>> = [];
-  for (const clause of clauses) {
-    const actions = parseHouseholdIntent(clause, opts);
-    for (const action of actions) {
-      parsed.push({ ...action, sourceUtterance: text });
+  } else {
+    for (const clause of clauses) {
+      const actions = parseHouseholdIntent(clause, opts);
+      for (const action of actions) {
+        parsed.push({ ...action, sourceUtterance: text });
+      }
+    }
+    if (parsed.length === 0) {
+      parsed = parseHouseholdIntent(text, opts).map((action) => ({
+        ...action,
+        sourceUtterance: text,
+      }));
+    } else {
+      parsed = inheritSlotsAcrossActions(parsed);
     }
   }
 
-  if (parsed.length === 0) {
-    return parseHouseholdIntent(text, opts).map((action) => ({
-      ...action,
-      sourceUtterance: text,
-    }));
-  }
+  if (parsed.length <= 8) return parsed;
 
-  return inheritSlotsAcrossActions(parsed);
+  const capped = parsed.slice(0, 8);
+  capped.push({
+    type: 'thinking',
+    note: 'I did the first eight — say the rest.',
+    thinkingLine: 'I did the first eight — say the rest.',
+    sourceUtterance: text,
+  });
+  return capped;
 }

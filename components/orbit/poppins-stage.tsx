@@ -13,6 +13,7 @@ import { IuiDay } from '@/components/orbit/poppins-stage/iui-day';
 import { IuiDomainGrid } from '@/components/orbit/poppins-stage/iui-domain-grid';
 import { IuiFaces } from '@/components/orbit/poppins-stage/iui-faces';
 import { IuiGhostField } from '@/components/orbit/poppins-stage/iui-ghost-field';
+import { IuiGroupRows } from '@/components/orbit/poppins-stage/iui-group-rows';
 import { IuiLattice } from '@/components/orbit/poppins-stage/iui-lattice';
 import { IuiObjectCard } from '@/components/orbit/poppins-stage/iui-object-card';
 import { IuiPeek } from '@/components/orbit/poppins-stage/iui-peek';
@@ -428,6 +429,7 @@ export function PoppinsStage({
     createEvent,
     createItinerary,
     addMissingGrocery,
+    clearGroceryList,
     completeTask,
     updateTask,
     claimReward,
@@ -472,6 +474,7 @@ export function PoppinsStage({
     createEvent,
     createItinerary,
     addMissingGrocery,
+    clearGroceryList,
     completeTask,
     updateTask,
     claimReward,
@@ -487,6 +490,7 @@ export function PoppinsStage({
     createEvent,
     createItinerary,
     addMissingGrocery,
+    clearGroceryList,
     completeTask,
     updateTask,
     claimReward,
@@ -516,7 +520,12 @@ export function PoppinsStage({
       }
     });
     poppinsUiOrchestrator.setCommitHandler(async (beat: IuiBeat) => {
-      const result = await commitIuiBeat(beat, writesRef.current);
+      const result = await commitIuiBeat(beat, {
+        ...writesRef.current,
+        onGroupItemStatus: (itemId, status) => {
+          poppinsUiOrchestrator.patchGroupItemStatus(itemId, status);
+        },
+      });
       return result.ok ? { reverse: result.reverse } : { ask: result.ask, reverse: undefined };
     });
     return () => {
@@ -554,6 +563,34 @@ export function PoppinsStage({
     if (!drive.spoken) return best;
     return drive.spoken.toLowerCase().includes(row.title.toLowerCase()) ? i : best;
   }, -1);
+  const queueAhead = drive.playlist.slice(drive.index + 1);
+  const queuedRows =
+    payload.items && payload.items.length
+      ? queueAhead.flatMap((next) => {
+          if (next.payload.items?.length) {
+            return next.payload.items
+              .filter((item) => !item.dropped)
+              .map((item) => ({ ...item, id: `q-${next.id}-${item.id}` }));
+          }
+          const label =
+            next.payload.groceryName ?? next.payload.title ?? next.payload.thinkingLine ?? '';
+          if (!label.trim() || next.scene === 'result_mark') return [];
+          return [
+            {
+              id: `q-${next.id}`,
+              label: label.trim(),
+              assignee: next.payload.assignee,
+              due: next.payload.due,
+              status: 'pending' as const,
+            },
+          ];
+        })
+      : [];
+  const groupKicker =
+    payload.progressLabel ??
+    (payload.items && payload.items.filter((item) => !item.dropped).length > 1
+      ? `1 of ${payload.items.filter((item) => !item.dropped).length}`
+      : undefined);
 
   return (
     <View key={beat.id} style={styles.root}>
@@ -586,19 +623,52 @@ export function PoppinsStage({
       ) : null}
 
       {beat.scene === 'task_compose' ? (
-        <TaskComposeSteps
-          payload={payload}
-          faces={sceneFaces}
-          selectedName={selectedName}
-          accent={accent}
-          domains={composeDomains}
-          hold={payload.composeReady === true}
-          holdProgress={holdProgress}
-          holding={drive.holding}
-          frozen={drive.frozen}
-          titleHeard={titleHeard}
-          title={title}
-        />
+        payload.items && payload.items.length > 1 ? (
+          <IuiStepper
+            kicker={groupKicker ?? 'Tasks'}
+            accent={accent}
+            hold={payload.composeReady === true}
+            holdProgress={holdProgress}
+            holding={drive.holding}
+            frozen={drive.frozen}>
+            <IuiGroupRows
+              items={payload.items}
+              queued={queuedRows}
+              accent={accent}
+              kind="task"
+              allowDrop={drive.phase !== 'settle'}
+              onDrop={(id) => poppinsUiOrchestrator.dropGroupItem(id)}
+            />
+            {payload.composeReady === false ? (
+              <IuiFaces
+                faces={sceneFaces}
+                selectedName={selectedName}
+                accent={accent}
+                onSelect={(name) =>
+                  poppinsUiOrchestrator.chooseFromTap(
+                    { assignee: name, spokenName: name },
+                    name,
+                    'face'
+                  )
+                }
+              />
+            ) : null}
+          </IuiStepper>
+        ) : (
+          <TaskComposeSteps
+            payload={payload}
+            faces={sceneFaces}
+            selectedName={selectedName}
+            accent={accent}
+            domains={composeDomains}
+            hold={payload.composeReady === true}
+            holdProgress={holdProgress}
+            holding={drive.holding}
+            frozen={drive.frozen}
+            titleHeard={titleHeard}
+            title={title}
+          />
+        )
       ) : null}
 
       {beat.scene === 'homework_compose' ? (
@@ -707,18 +777,32 @@ export function PoppinsStage({
 
       {beat.scene === 'grocery_add' ? (
         <IuiStepper
-          kicker={payload.shoppingLane === 'clothing' ? 'Shopping list' : 'Grocery list'}
+          kicker={
+            groupKicker ??
+            (payload.shoppingLane === 'clothing' ? 'Shopping list' : 'Grocery list')
+          }
           accent={accent}
           hold
           holdProgress={holdProgress}
           holding={drive.holding}
           frozen={drive.frozen}>
-          <IuiObjectCard
-            title={payload.groceryName ?? payload.title}
-            detail={payload.aisle}
-            emoji={payload.shoppingLane === 'clothing' ? '👟' : '🛒'}
-            accent={accent}
-          />
+          {payload.items && payload.items.length > 0 ? (
+            <IuiGroupRows
+              items={payload.items}
+              queued={queuedRows}
+              accent={accent}
+              kind="grocery"
+              allowDrop={drive.phase !== 'settle'}
+              onDrop={(id) => poppinsUiOrchestrator.dropGroupItem(id)}
+            />
+          ) : (
+            <IuiObjectCard
+              title={payload.groceryName ?? payload.title}
+              detail={payload.aisle}
+              emoji={payload.shoppingLane === 'clothing' ? '👟' : '🛒'}
+              accent={accent}
+            />
+          )}
         </IuiStepper>
       ) : null}
 
@@ -726,7 +810,14 @@ export function PoppinsStage({
         <IuiResultMark
           kind="done"
           title={payload.title}
-          undoable={Boolean(drive.undoBeat && drive.undoUntil && Date.now() < drive.undoUntil)}
+          undoable={Boolean(drive.undoUntil && Date.now() < drive.undoUntil && poppinsUiOrchestrator.undoCount() > 0)}
+          undoLabel={
+            poppinsUiOrchestrator.undoCount() > 1
+              ? `Undo ${poppinsUiOrchestrator.undoCount()} things`
+              : poppinsUiOrchestrator.undoCount() === 1
+                ? 'Undo'
+                : undefined
+          }
           onUndo={() => {
             void poppinsUiOrchestrator.undoLast();
           }}
@@ -737,7 +828,14 @@ export function PoppinsStage({
         <IuiResultMark
           kind={payload.markKind ?? 'added'}
           title={payload.title ?? payload.groceryName}
-          undoable={Boolean(drive.undoBeat && drive.undoUntil && Date.now() < drive.undoUntil)}
+          undoable={Boolean(drive.undoUntil && Date.now() < drive.undoUntil && poppinsUiOrchestrator.undoCount() > 0)}
+          undoLabel={
+            poppinsUiOrchestrator.undoCount() > 1
+              ? `Undo ${poppinsUiOrchestrator.undoCount()} things`
+              : poppinsUiOrchestrator.undoCount() === 1
+                ? 'Undo'
+                : undefined
+          }
           onUndo={() => {
             void poppinsUiOrchestrator.undoLast();
           }}

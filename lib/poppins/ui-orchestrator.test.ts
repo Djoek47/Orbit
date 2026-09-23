@@ -377,7 +377,7 @@ void poppinsUiOrchestrator.confirm().then(() => {
   poppinsUiOrchestrator.setCommitHandler(null);
   poppinsUiOrchestrator.clear();
 
-  // A1 — compound playlist: merge must preserve the queued tail beat
+  // A1 / WO11 — compound playlist: consecutive tasks group; merge must not wipe the group
   poppinsUiOrchestrator.drive(
     [
       { type: 'create_task_draft', title: 'Dishes', assignee: 'Drako', due: 'Today' },
@@ -385,25 +385,30 @@ void poppinsUiOrchestrator.confirm().then(() => {
     ],
     { replace: true }
   );
-  assert.equal(poppinsUiOrchestrator.getState().playlist.length >= 2, true, 'starts with 2+ beats');
-  const mayaBefore = poppinsUiOrchestrator
-    .getState()
-    .playlist.find((beat) => beat.payload.assignee === 'Maya' && /trash/i.test(beat.payload.title ?? ''));
-  assert.ok(mayaBefore, 'Maya trash beat queued');
+  const grouped = poppinsUiOrchestrator.getState().playlist.find((beat) => beat.scene === 'task_compose');
+  assert.ok(grouped, 'task compose beat present');
+  assert.ok(
+    grouped?.payload.items?.some((item) => item.assignee === 'Maya' && /trash/i.test(item.label)),
+    'Maya trash row queued in group'
+  );
+  const lenBefore = poppinsUiOrchestrator.getState().playlist.length;
   poppinsUiOrchestrator.drive(
     [{ type: 'create_task_draft', title: 'Dishes', assignee: 'Drako', due: 'Today' }],
     { replace: false }
   );
   assert.equal(
-    poppinsUiOrchestrator.getState().playlist.length >= 2,
+    poppinsUiOrchestrator.getState().playlist.length >= lenBefore,
     true,
-    'merge preserves playlist length'
+    'append preserves playlist length'
   );
   const mayaAfter = poppinsUiOrchestrator
     .getState()
-    .playlist.find((beat) => beat.payload.assignee === 'Maya' && /trash/i.test(beat.payload.title ?? ''));
-  assert.ok(mayaAfter, 'Maya trash beat survives merge');
-  assert.equal(mayaAfter?.payload.title, mayaBefore?.payload.title);
+    .playlist.some(
+      (beat) =>
+        beat.payload.items?.some((item) => item.assignee === 'Maya' && /trash/i.test(item.label)) ||
+        (beat.payload.assignee === 'Maya' && /trash/i.test(beat.payload.title ?? ''))
+    );
+  assert.ok(mayaAfter, 'Maya trash survives append');
   poppinsUiOrchestrator.clear();
 
   console.log('iui orchestrator tests passed');

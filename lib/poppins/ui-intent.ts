@@ -101,6 +101,10 @@ export function parseHouseholdIntent(
     return [{ type: 'complete_task', title: title || 'this task' }];
   }
 
+  if (/\bclear\s+(the\s+)?(grocery\s+|shopping\s+)?list\b/i.test(text)) {
+    return [{ type: 'clear_grocery_list' }];
+  }
+
   const groceryFromSpeech = groceryAddActionsFromUtterance(text, {
     excludeNames: memberNames,
   });
@@ -138,7 +142,9 @@ export function parseHouseholdIntent(
         ? ''
         : rawTitle;
     const due = dueLabelFromUtterance(text);
-    const named = match.assignee ?? text.match(/\bfor\s+([A-Z][a-zA-Z]+)\b/)?.[1];
+    const named =
+      match.assignee ??
+      text.match(/\b(?:for|to)\s+([A-Z][a-zA-Z]+)\b/)?.[1];
     const assignee = named && named.toLowerCase() !== 'me' ? named : match.assignee;
     const useCatalog = Boolean(resolved.libraryTaskId);
     const homework = isHomeworkIntent(text) || resolved.category === 'homework_education';

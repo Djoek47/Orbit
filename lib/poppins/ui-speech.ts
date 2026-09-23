@@ -121,6 +121,16 @@ export function interpretStageSpeech(
     if (extra.length) return { kind: 'splice', actions: extra };
   }
 
+  // WO11 §2.6 — mid-chain "and bananas" / "plus milk" appends, never resets.
+  if (ctx.live && /^(and|plus|as well as)\b/.test(lower)) {
+    const rewritten = text.replace(/^(and|plus|as well as)\b/i, 'add');
+    const extra = parseHouseholdIntent(rewritten, {
+      memberNames: ctx.memberNames,
+      selfName: ctx.selfName,
+    });
+    if (extra.length) return { kind: 'splice', actions: extra };
+  }
+
   const names = (ctx.memberNames ?? []).filter(Boolean);
   const rejected = lower.match(/\bnot\s+([a-z]+)\b/)?.[1];
   if (rejected && names.length) {

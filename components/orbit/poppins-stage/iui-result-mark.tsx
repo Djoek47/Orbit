@@ -23,6 +23,8 @@ type Props = {
   title?: string;
   /** When set, one tap reverses the last commit — no dialog. */
   undoable?: boolean;
+  /** WO11 — e.g. "Undo 3 things". */
+  undoLabel?: string;
   onUndo?: () => void;
 };
 
@@ -33,7 +35,7 @@ const LABEL: Record<NonNullable<Props['kind']>, string> = {
 };
 
 /** Green check after Poppins writes — one deliberate arrival, no toast/sound. */
-export function IuiResultMark({ kind = 'added', title, undoable, onUndo }: Props) {
+export function IuiResultMark({ kind = 'added', title, undoable, undoLabel, onUndo }: Props) {
   const { c } = useOrbitColors();
   const scale = useSharedValue(0.82);
   const markGreen = c.success;
@@ -59,7 +61,9 @@ export function IuiResultMark({ kind = 'added', title, undoable, onUndo }: Props
           </Text>
         ) : null}
         {undoable ? (
-          <Text style={[styles.hint, { color: c.textMuted }]}>Tap to undo</Text>
+          <Text style={[styles.hint, { color: c.textMuted }]}>
+            {undoLabel ?? 'Tap to undo'}
+          </Text>
         ) : null}
       </Animated.View>
     </>
@@ -71,7 +75,7 @@ export function IuiResultMark({ kind = 'added', title, undoable, onUndo }: Props
         <Pressable
           onPress={onUndo}
           accessibilityRole="button"
-          accessibilityLabel="Undo"
+          accessibilityLabel={undoLabel ?? 'Undo'}
           style={styles.press}>
           {body}
         </Pressable>
