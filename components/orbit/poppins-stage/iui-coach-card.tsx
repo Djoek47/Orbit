@@ -5,23 +5,24 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { STAGE, stageFaint, stageMuted } from '@/constants/iui-stage';
+import { STAGE, stageBorder, stageFaint, stageMuted } from '@/constants/iui-stage';
 import type { IuiPayload } from '@/lib/poppins/ui-scenes';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type Props = {
   payload: IuiPayload;
   accent: string;
+  fillAccent?: string;
   onWalkThrough: () => void;
   onJustDoIt?: () => void;
 };
 
-export function IuiCoachCard({ payload, accent, onWalkThrough, onJustDoIt }: Props) {
+export function IuiCoachCard({ payload, accent, fillAccent, onWalkThrough, onJustDoIt }: Props) {
   const { isDark, c } = useOrbitColors();
   const muted = stageMuted(isDark);
-  const faint = stageFaint(isDark);
-  const teach = STAGE.shell.teach;
-  const teachNum = STAGE.shell.teachNum;
+  const fill = fillAccent ?? STAGE.shell.teach;
+  const teach = accent;
+  const teachNum = isDark ? STAGE.shell.teachNum : STAGE.shell.teachLight;
   const steps = payload.coachSteps ?? [];
   const canDo = payload.canDoItForYou === true && Boolean(onJustDoIt);
   const headline = payload.coachLine ?? payload.subtitle ?? 'Here is how.';
@@ -34,8 +35,8 @@ export function IuiCoachCard({ payload, accent, onWalkThrough, onJustDoIt }: Pro
         style={[
           styles.card,
           {
-            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.92)',
-            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.10)',
+            backgroundColor: isDark ? STAGE.surface.card : STAGE.surfaceLight.card,
+            borderColor: stageBorder(isDark),
           },
         ]}
         accessibilityLabel={`How to: ${payload.title ?? 'teach'}`}>
@@ -70,7 +71,7 @@ export function IuiCoachCard({ payload, accent, onWalkThrough, onJustDoIt }: Pro
                 </View>
                 <Text style={[styles.stepText, { color: c.text }]}>{step.text}</Text>
                 {navigates ? (
-                  <Text style={[styles.chevron, { color: faint }]}>›</Text>
+                  <Text style={[styles.chevron, { color: stageFaint(isDark) }]}>›</Text>
                 ) : null}
               </View>
             );
@@ -89,7 +90,7 @@ export function IuiCoachCard({ payload, accent, onWalkThrough, onJustDoIt }: Pro
             onPress={onWalkThrough}
             accessibilityRole="button"
             accessibilityLabel="Walk me through it"
-            style={[styles.primaryBtn, { backgroundColor: teach }]}>
+            style={[styles.primaryBtn, { backgroundColor: fill }]}>
             <Text style={styles.primaryLabel}>Walk me through it</Text>
           </Pressable>
           {canDo ? (
@@ -101,10 +102,10 @@ export function IuiCoachCard({ payload, accent, onWalkThrough, onJustDoIt }: Pro
                 styles.secondaryBtn,
                 {
                   backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,28,42,0.06)',
-                  borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,28,42,0.10)',
+                  borderColor: stageBorder(isDark),
                 },
               ]}>
-              <Text style={[styles.secondaryLabel, { color: isDark ? '#C8D8F0' : c.text }]}>
+              <Text style={[styles.secondaryLabel, { color: isDark ? STAGE.ink.softDark : c.text }]}>
                 Just do it
               </Text>
             </Pressable>
@@ -116,7 +117,7 @@ export function IuiCoachCard({ payload, accent, onWalkThrough, onJustDoIt }: Pro
         style={[
           styles.note,
           {
-            borderColor: isDark ? 'rgba(255,255,255,0.13)' : 'rgba(15,28,42,0.13)',
+            borderColor: stageBorder(isDark, true),
           },
         ]}>
         <Text style={[styles.noteText, { color: muted }]}>
@@ -177,7 +178,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  primaryLabel: { color: '#061424', fontWeight: '600', fontSize: 14 },
+  primaryLabel: { color: STAGE.ink.onAccent, fontWeight: '600', fontSize: 14 },
   secondaryBtn: {
     minHeight: 46,
     borderRadius: STAGE.radius.pill,

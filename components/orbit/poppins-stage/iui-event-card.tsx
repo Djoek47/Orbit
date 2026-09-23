@@ -16,6 +16,7 @@ import type { HouseholdEvent } from '@/types/orbit';
 type Props = {
   payload: IuiPayload;
   accent: string;
+  fillAccent?: string;
   hold: boolean;
   holdProgress: number;
   holding: boolean;
@@ -61,6 +62,7 @@ export function eventClashLine(
 export function IuiEventCard({
   payload,
   accent,
+  fillAccent,
   hold,
   holdProgress,
   holding,
@@ -69,12 +71,14 @@ export function IuiEventCard({
 }: Props) {
   const { c, isDark } = useOrbitColors();
   const muted = stageMuted(isDark);
+  const fill = fillAccent ?? accent;
   const detail = [payload.assignee, payload.time].filter(Boolean).join(' · ');
   const clash = eventClashLine(payload, dayEvents);
 
   return (
     <IuiCard
       accent={accent}
+      fillAccent={fill}
       kicker="Plan"
       hold={hold}
       holding={holding}
@@ -83,7 +87,7 @@ export function IuiEventCard({
       leftFooter="Holding…"
       accessibilityLabel="Event card">
       <View style={styles.header}>
-        <View style={[styles.dateBlock, { backgroundColor: `${accent}24` }]}>
+        <View style={[styles.dateBlock, { backgroundColor: `${fill}24` }]}>
           <Text style={[styles.weekday, { color: accent }]}>
             {weekdayShort(payload.date, payload.due)}
           </Text>
@@ -103,7 +107,7 @@ export function IuiEventCard({
       </View>
 
       {payload.location ? (
-        <IuiRow title={payload.location} detail="Place" status="pending" accent={accent} allowDrop={false} />
+        <IuiRow title={payload.location} detail="Place" status="pending" accent={fill} allowDrop={false} />
       ) : null}
 
       <IuiChips
@@ -113,7 +117,7 @@ export function IuiEventCard({
           { id: 'tell', label: 'Tell someone' },
         ]}
         selectedId={payload.selectedChipId}
-        accent={accent}
+        accent={fill}
         onSelect={(id) => {
           poppinsUiOrchestrator.chooseFromTap({ selectedChipId: id }, id, 'event-chip');
         }}
@@ -128,7 +132,7 @@ export function IuiEventCard({
                 styles.bar,
                 {
                   backgroundColor:
-                    i === 2 ? `${accent}8C` : isDark ? 'rgba(255,255,255,0.07)' : 'rgba(15,28,42,0.07)',
+                    i === 2 ? `${fill}8C` : isDark ? 'rgba(255,255,255,0.07)' : 'rgba(15,28,42,0.07)',
                 },
               ]}
             />

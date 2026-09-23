@@ -5,7 +5,13 @@
  */
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -16,13 +22,16 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { STAGE, stageFaint, stageMuted, stageSurfaces } from '@/constants/iui-stage';
+import { STAGE, stageBorder, stageFaint, stageMuted, stageSurfaces } from '@/constants/iui-stage';
 import { motion, motionDuration } from '@/constants/motion-tokens';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
-  /** Domain colour from stageAccent — never the member accent. */
+  /** Domain TEXT colour from stageAccent(..., isDark). */
   accent: string;
+  /** Fill / ring / dot — stageFill(...). Defaults to accent. */
+  fillAccent?: string;
   /** Caps domain label, e.g. GROCERIES. */
   kicker: string;
   /** Optional right-hand count, e.g. "3 items". */
@@ -37,10 +46,13 @@ type Props = {
   rightFooter?: string;
   children: ReactNode;
   accessibilityLabel?: string;
+  /** Cap body scroll; defaults to window-aware height. */
+  maxBodyHeight?: number;
 };
 
 export function IuiCard({
   accent,
+  fillAccent,
   kicker,
   countLabel,
   holding = false,
@@ -51,11 +63,18 @@ export function IuiCard({
   rightFooter,
   children,
   accessibilityLabel,
+  maxBodyHeight,
 }: Props) {
   const { isDark } = useOrbitColors();
   const surfaces = stageSurfaces(isDark);
   const muted = stageMuted(isDark);
   const faint = stageFaint(isDark);
+  const fill = fillAccent ?? accent;
+  const { height: windowH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const bodyCap =
+    maxBodyHeight ??
+    Math.max(220, Math.min(520, windowH - insets.top - insets.bottom - 16 - 220));
   const scale = useSharedValue(1);
   const ringOpacity = useSharedValue(holding ? 1 : 0);
   const enterOpacity = useSharedValue(0);
@@ -103,7 +122,7 @@ export function IuiCard({
     transform: [{ scale: scale.value }, { translateY: enterY.value }],
   }));
   const ringStyle = useAnimatedStyle(() => ({
-    borderColor: accent,
+    borderColor: fill,
     opacity: ringOpacity.value,
   }));
   const p = Math.min(1, Math.max(0, holdProgress));
@@ -130,12 +149,12 @@ export function IuiCard({
             styles.card,
             {
               backgroundColor: surfaces.card,
-              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.10)',
+              borderColor: stageBorder(isDark),
               borderRadius: STAGE.radius.card,
             },
           ]}>
           <View style={styles.kickerRow}>
-            <View style={[styles.domainDot, { backgroundColor: accent }]} />
+            <View style={[styles.domainDot, { backgroundColor: fill }]} />
             <Text style={[styles.kicker, { color: accent }]} numberOfLines={1}>
               {kicker.toUpperCase()}
             </Text>
@@ -149,7 +168,7 @@ export function IuiCard({
           </View>
 
           <ScrollView
-            style={styles.bodyScroll}
+            style={[styles.bodyScroll, { maxHeight: bodyCap }]}
             contentContainerStyle={styles.body}
             nestedScrollEnabled
             keyboardShouldPersistTaps="handled"
@@ -166,12 +185,12 @@ export function IuiCard({
               <View
                 style={[
                   styles.holdTrack,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.08)' },
+                  { backgroundColor: stageBorder(isDark) },
                 ]}>
                 <View
                   style={[
                     styles.holdFill,
-                    { width: `${p * 100}%`, backgroundColor: accent },
+                    { width: `${p * 100}%`, backgroundColor: fill },
                   ]}
                 />
               </View>
@@ -232,7 +251,6 @@ const styles = StyleSheet.create({
   bodyScroll: {
     flexGrow: 0,
     flexShrink: 1,
-    maxHeight: 420,
   },
   body: {
     paddingHorizontal: 10,

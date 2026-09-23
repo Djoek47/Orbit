@@ -9,7 +9,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
 import { IuiRow } from '@/components/orbit/poppins-stage/iui-row';
 import { IuiTroubleRowFailed } from '@/components/orbit/poppins-stage/iui-trouble';
-import { STAGE, stageFaint, stageMuted } from '@/constants/iui-stage';
+import { STAGE, stageBorder, stageFaint, stageMuted } from '@/constants/iui-stage';
 import type { IuiGroupItem, IuiPayload } from '@/lib/poppins/ui-scenes';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -17,6 +17,7 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 type Props = {
   payload: IuiPayload;
   accent: string;
+  fillAccent?: string;
   hold: boolean;
   holdProgress: number;
   holding: boolean;
@@ -31,6 +32,7 @@ type Props = {
 export function IuiGroceryCard({
   payload,
   accent,
+  fillAccent,
   hold,
   holdProgress,
   holding,
@@ -44,6 +46,7 @@ export function IuiGroceryCard({
   const { isDark, c } = useOrbitColors();
   const muted = stageMuted(isDark);
   const faint = stageFaint(isDark);
+  const fill = fillAccent ?? accent;
   const items =
     payload.items && payload.items.length > 0
       ? payload.items.filter((item) => !item.dropped)
@@ -68,6 +71,7 @@ export function IuiGroceryCard({
     <View style={styles.wrap}>
       <IuiCard
         accent={accent}
+        fillAccent={fill}
         kicker={payload.shoppingLane === 'clothing' ? 'Shopping' : 'Groceries'}
         countLabel={countLabel ?? (multi ? `${items.length} items` : undefined)}
         hold={hold}
@@ -86,7 +90,7 @@ export function IuiGroceryCard({
             <View
               style={[
                 styles.tile,
-                { backgroundColor: `${accent}24`, borderColor: `${accent}38` },
+                { backgroundColor: `${fill}24`, borderColor: `${fill}38` },
               ]}>
               <Text style={styles.tileGlyph}>{payload.shoppingLane === 'clothing' ? '👟' : '🛒'}</Text>
             </View>
@@ -109,7 +113,7 @@ export function IuiGroceryCard({
               trailing={item.aisle}
               status={item.status}
               active={index === items.length - 1 && item.status === 'pending'}
-              accent={accent}
+              accent={fill}
               allowDrop={holding || hold}
               onDrop={() => poppinsUiOrchestrator.dropGroupItem(item.id)}
             />
@@ -119,7 +123,7 @@ export function IuiGroceryCard({
 
       {failedPrimary ? (
         <IuiTroubleRowFailed
-          accent={accent}
+          accent={fill}
           failedLabel={failedPrimary.label}
           savedLine={
             done.length
@@ -146,12 +150,12 @@ export function IuiGroceryCard({
               backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(15,28,42,0.02)',
             },
           ]}>
-          <View style={[styles.queueTile, { backgroundColor: `${accent}1F` }]}>
-            <Text style={{ color: accent, fontSize: 14, fontWeight: '700' }}>✓</Text>
+          <View style={[styles.queueTile, { backgroundColor: `${fill}1F` }]}>
+            <Text style={{ color: fill, fontSize: 14, fontWeight: '700' }}>✓</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.queueKicker, { color: faint }]}>NEXT, ON ITS OWN CARD</Text>
-            <Text style={[styles.queueTitle, { color: isDark ? '#C8D8F0' : c.text }]} numberOfLines={1}>
+            <Text style={[styles.queueTitle, { color: isDark ? STAGE.ink.softDark : c.text }]} numberOfLines={1}>
               {queued[0]?.label}
               {queued[0]?.assignee ? ` → ${queued[0].assignee}` : ''}
               {queued[0]?.due ? ` · ${queued[0].due}` : ''}
@@ -179,7 +183,7 @@ export function IuiGroceryCard({
               onPress={onAddNow}
               accessibilityRole="button"
               accessibilityLabel="Add now"
-              style={[styles.primaryBtn, { backgroundColor: accent }]}>
+              style={[styles.primaryBtn, { backgroundColor: fill }]}>
               <Text style={styles.primaryLabel}>Add now</Text>
             </Pressable>
           ) : null}
@@ -195,7 +199,7 @@ export function IuiGroceryCard({
                   borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,28,42,0.10)',
                 },
               ]}>
-              <Text style={[styles.secondaryLabel, { color: isDark ? '#C8D8F0' : c.text }]}>
+              <Text style={[styles.secondaryLabel, { color: isDark ? STAGE.ink.softDark : c.text }]}>
                 Not that
               </Text>
             </Pressable>
@@ -264,7 +268,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     justifyContent: 'center',
   },
-  primaryLabel: { color: '#061424', fontWeight: '700', fontSize: 13 },
+  primaryLabel: { color: STAGE.ink.onAccent, fontWeight: '700', fontSize: 13 },
   secondaryBtn: {
     minHeight: 44,
     borderRadius: STAGE.radius.pill,

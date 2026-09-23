@@ -10,7 +10,7 @@ import { IuiChips } from '@/components/orbit/poppins-stage/iui-chips';
 import { IuiDomainGrid } from '@/components/orbit/poppins-stage/iui-domain-grid';
 import { IuiFaces } from '@/components/orbit/poppins-stage/iui-faces';
 import { IuiGhostField } from '@/components/orbit/poppins-stage/iui-ghost-field';
-import { STAGE, stageMuted } from '@/constants/iui-stage';
+import { STAGE, stageBorder, stageMuted } from '@/constants/iui-stage';
 import { IUI_CREATED_CHIP_ID, IUI_DUE_CHIPS, nextComposeStep } from '@/lib/poppins/iui-compose';
 import { renderSlotOrder, type SlotKey } from '@/lib/poppins/slot-order';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
@@ -24,6 +24,7 @@ type Props = {
   faces: IuiFace[];
   selectedName?: string;
   accent: string;
+  fillAccent?: string;
   domains: { id: string; label: string }[];
   hold: boolean;
   holdProgress: number;
@@ -92,6 +93,7 @@ export function TaskComposeSteps({
   faces,
   selectedName,
   accent,
+  fillAccent,
   domains,
   hold,
   holdProgress,
@@ -103,6 +105,7 @@ export function TaskComposeSteps({
   const { household } = useOrbit();
   const { c, isDark } = useOrbitColors();
   const muted = stageMuted(isDark);
+  const fill = fillAccent ?? accent;
   const focus = payload.focusSlot ?? (nextComposeStep(payload) === 'who'
     ? 'assignee'
     : nextComposeStep(payload) === 'when'
@@ -158,6 +161,7 @@ export function TaskComposeSteps({
   return (
     <IuiCard
       accent={accent}
+      fillAccent={fill}
       kicker={homework ? 'Homework' : 'Chores'}
       hold={ready}
       holding={holding && ready}
@@ -166,8 +170,8 @@ export function TaskComposeSteps({
       leftFooter={ready ? 'Holding…' : 'Fill the dashed slot'}
       accessibilityLabel="Task card">
       <View style={styles.header}>
-        <View style={[styles.domainTile, { backgroundColor: `${accent}24` }]}>
-          <Text style={styles.domainGlyph}>✓</Text>
+        <View style={[styles.domainTile, { backgroundColor: `${fill}24` }]}>
+          <Text style={[styles.domainGlyph, { color: fill }]}>✓</Text>
         </View>
         <View style={{ flex: 1 }}>
           {displayTitle?.trim() ? (
@@ -183,7 +187,7 @@ export function TaskComposeSteps({
         </View>
       </View>
 
-      <View style={[styles.divider, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.08)' }]} />
+      <View style={[styles.divider, { backgroundColor: stageBorder(isDark) }]} />
 
       {order.map((key) => {
         const filled = slotFilled(key) && (spoken.has(key) || payload.slotSource?.[key] === 'speech' || payload.slotSource?.[key] === 'touch' || focus !== key);
@@ -199,13 +203,13 @@ export function TaskComposeSteps({
             filled={showFilled}
             focused={isFocus}
             dimmed={dimmed}
-            accent={accent}>
+            accent={fill}>
             {isFocus && key === 'assignee' ? (
               <IuiFaces
                 faces={shownFaces}
                 selectedName={selectedName}
                 pulsingName={payload.spokenName}
-                accent={accent}
+                accent={fill}
                 onSelect={(name) =>
                   poppinsUiOrchestrator.chooseFromTap(
                     { assignee: name, spokenName: name },
@@ -219,7 +223,7 @@ export function TaskComposeSteps({
               <IuiChips
                 chips={IUI_DUE_CHIPS.map((chip) => ({ id: chip.id, label: chip.label }))}
                 selectedId={payload.due}
-                accent={accent}
+                accent={fill}
                 onSelect={(id) => {
                   poppinsUiOrchestrator.chooseFromTap(
                     { due: id, repeat: id === 'Daily' ? 'Daily' : undefined },
@@ -235,7 +239,7 @@ export function TaskComposeSteps({
                   <IuiDomainGrid
                     domains={domains}
                     selectedId={categoryId}
-                    accent={accent}
+                    accent={fill}
                     onSelect={(id) => {
                       poppinsUiOrchestrator.chooseFromTap(
                         {
@@ -259,7 +263,7 @@ export function TaskComposeSteps({
                       { id: IUI_CREATED_CHIP_ID, label: displayTitle || 'Custom' },
                     ]}
                     selectedId={payload.libraryTaskId ?? (displayTitle ? IUI_CREATED_CHIP_ID : undefined)}
-                    accent={accent}
+                    accent={fill}
                     onSelect={(id) => {
                       if (id === IUI_CREATED_CHIP_ID) {
                         poppinsUiOrchestrator.chooseFromTap(
@@ -300,7 +304,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  domainGlyph: { fontSize: 22, color: STAGE.domain.chores, fontWeight: '700' },
+  domainGlyph: { fontSize: 22, fontWeight: '700' },
   headerTitle: { fontSize: 24, lineHeight: 29, fontWeight: '600', letterSpacing: -0.3 },
   headerDetail: { fontSize: 13, marginTop: 2, textTransform: 'capitalize' },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 8, marginHorizontal: 8 },

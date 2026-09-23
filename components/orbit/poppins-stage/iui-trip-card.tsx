@@ -15,6 +15,7 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 type Props = {
   payload: IuiPayload;
   accent: string;
+  fillAccent?: string;
   hold: boolean;
   holdProgress: number;
   holding: boolean;
@@ -46,6 +47,7 @@ function placeLine(stop: IuiStop, groceryCount: number): { detail: string; warni
 export function IuiTripCard({
   payload,
   accent,
+  fillAccent,
   hold,
   holdProgress,
   holding,
@@ -54,11 +56,13 @@ export function IuiTripCard({
 }: Props) {
   const { c, isDark } = useOrbitColors();
   const muted = stageMuted(isDark);
+  const fill = fillAccent ?? accent;
   const stops = payload.stops ?? [];
 
   return (
     <IuiCard
       accent={accent}
+      fillAccent={fill}
       kicker="Trip"
       countLabel={stops.length ? `${stops.length} stops` : undefined}
       hold={hold}
@@ -74,7 +78,7 @@ export function IuiTripCard({
 
       <View style={styles.railWrap}>
         <View style={styles.rail}>
-          <View style={[styles.railDot, { backgroundColor: accent }]} />
+          <View style={[styles.railDot, { backgroundColor: fill }]} />
           <View
             style={[
               styles.railLine,
@@ -86,7 +90,7 @@ export function IuiTripCard({
           <View
             style={[
               styles.railDotEnd,
-              { borderColor: accent },
+              { borderColor: fill },
             ]}
           />
         </View>
@@ -100,7 +104,7 @@ export function IuiTripCard({
                 detail={place.detail || undefined}
                 trailing={stop.time}
                 status={place.warning ? 'failed' : 'pending'}
-                accent={place.shop ? STAGE.domain.chores : accent}
+                accent={place.shop ? STAGE.domain.chores : fill}
                 allowDrop={false}
                 onPress={() => {
                   poppinsUiOrchestrator.chooseFromTap(
@@ -122,7 +126,7 @@ export function IuiTripCard({
           { id: 'tomorrow', label: 'Tomorrow' },
         ]}
         selectedId={payload.selectedChipId}
-        accent={accent}
+        accent={fill}
         onSelect={(id) => {
           if (id === 'tomorrow') {
             poppinsUiOrchestrator.chooseFromTap({ due: 'Tomorrow', date: undefined }, id, 'trip-chip');

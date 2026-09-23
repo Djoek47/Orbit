@@ -2,11 +2,12 @@
  * WO12 §F — four trouble states, all inside the same card shell.
  * Never invent a value; never put a failure sentence on a successful act.
  */
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
-import { STAGE, stageMuted } from '@/constants/iui-stage';
+import { STAGE, stageBorder, stageDangerText, stageMuted } from '@/constants/iui-stage';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 /** WO10 §A2 honest quiet-capture reasons, surfaced on the stage. */
@@ -31,6 +32,7 @@ export const NOTHING_HEARD_COPY: Record<string, { title: string; reason: string 
 
 type MissingSlotProps = {
   accent: string;
+  fillAccent?: string;
   question: string;
   why: string;
   chips: Array<{ id: string; label: string }>;
@@ -38,11 +40,22 @@ type MissingSlotProps = {
 };
 
 /** 1. A slot is missing — ask, don't guess. */
-export function IuiTroubleMissingSlot({ accent, question, why, chips, onPick }: MissingSlotProps) {
+export function IuiTroubleMissingSlot({
+  accent,
+  fillAccent,
+  question,
+  why,
+  chips,
+  onPick,
+}: MissingSlotProps) {
   const { isDark, c } = useOrbitColors();
   const muted = stageMuted(isDark);
   return (
-    <IuiCard accent={accent} kicker="Needs you" accessibilityLabel={question}>
+    <IuiCard
+      accent={accent}
+      fillAccent={fillAccent ?? accent}
+      kicker="Needs you"
+      accessibilityLabel={question}>
       <Text style={[styles.q, { color: c.text }]}>{question}</Text>
       <Text style={[styles.why, { color: muted }]}>{why}</Text>
       <View style={styles.chips}>
@@ -56,7 +69,7 @@ export function IuiTroubleMissingSlot({ accent, question, why, chips, onPick }: 
               styles.chip,
               {
                 backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(15,28,42,0.04)',
-                borderColor: isDark ? 'rgba(255,255,255,0.09)' : 'rgba(15,28,42,0.09)',
+                borderColor: stageBorder(isDark),
               },
             ]}>
             <Text style={[styles.chipLabel, { color: c.text }]}>{chip.label}</Text>
@@ -144,10 +157,10 @@ export function IuiTroubleRowFailed({
       accessibilityRole="summary"
       accessibilityLabel={`${failedLabel} didn't save`}>
       <View style={styles.failHead}>
-        <Text style={[styles.failIcon, { color: STAGE.semantic.danger }]}>⚠</Text>
+        <MaterialIcons name="warning" size={19} color={STAGE.semantic.danger} />
         <Text style={[styles.failTitle, { color: c.text }]}>{failedLabel} didn’t save</Text>
       </View>
-      <Text style={[styles.why, { color: isDark ? '#C8D8F0' : stageMuted(false) }]}>{savedLine}</Text>
+      <Text style={[styles.why, { color: isDark ? STAGE.ink.softDark : stageMuted(false) }]}>{savedLine}</Text>
       <View style={styles.failActions}>
         <Pressable
           onPress={onRetry}
@@ -162,7 +175,7 @@ export function IuiTroubleRowFailed({
           accessibilityLabel="Leave it"
           style={[
             styles.leaveBtn,
-            { borderColor: isDark ? 'rgba(255,255,255,0.13)' : 'rgba(15,28,42,0.13)' },
+            { borderColor: stageBorder(isDark, true) },
           ]}>
           <Text style={[styles.leaveLabel, { color: c.text }]}>Leave it</Text>
         </Pressable>
@@ -229,7 +242,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     justifyContent: 'center',
   },
-  againLabel: { color: '#061424', fontWeight: '700', fontSize: 13 },
+  againLabel: { color: STAGE.ink.onAccent, fontWeight: '700', fontSize: 13 },
   failCard: {
     width: '100%',
     borderRadius: 22,
@@ -238,7 +251,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   failHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  failIcon: { fontSize: 19, fontWeight: '700' },
   failTitle: { flex: 1, fontSize: 19, lineHeight: 24, fontWeight: '600' },
   failActions: { flexDirection: 'row', gap: 8 },
   retryBtn: {
@@ -246,9 +258,9 @@ const styles = StyleSheet.create({
     borderRadius: STAGE.radius.pill,
     paddingHorizontal: 17,
     justifyContent: 'center',
-    backgroundColor: '#F0A0A0',
+    backgroundColor: STAGE.ink.retryFill,
   },
-  retryLabel: { color: '#2B0B0B', fontWeight: '700', fontSize: 13 },
+  retryLabel: { color: STAGE.ink.retryInk, fontWeight: '700', fontSize: 13 },
   leaveBtn: {
     minHeight: 44,
     borderRadius: STAGE.radius.pill,

@@ -14,7 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { STAGE, stageFaint, stageMuted } from '@/constants/iui-stage';
+import { STAGE, stageFaint, stageMuted, stageSuccessText } from '@/constants/iui-stage';
 import { motion, motionDuration } from '@/constants/motion-tokens';
 import { space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -59,6 +59,7 @@ export function IuiResultMark({
   const faint = stageFaint(isDark);
   const scale = useSharedValue(0.82);
   const markGreen = STAGE.semantic.success;
+  const markText = stageSuccessText(isDark);
   const [ringProgress, setRingProgress] = useState(1);
 
   useEffect(() => {
@@ -99,9 +100,9 @@ export function IuiResultMark({
         <MaterialIcons name="check" size={46} color={markGreen} />
       </Animated.View>
       <Animated.View entering={FadeInUp.delay(80).duration(motionDuration.smooth + 60)}>
-        <Text style={[styles.label, { color: markGreen }]}>{LABEL[kind]}</Text>
+        <Text style={[styles.label, { color: markText }]}>{LABEL[kind]}</Text>
         {title ? (
-          <Text style={[styles.title, { color: isDark ? '#C8D8F0' : c.text }]} numberOfLines={3}>
+          <Text style={[styles.title, { color: isDark ? STAGE.ink.softDark : c.text }]} numberOfLines={3}>
             {title}
           </Text>
         ) : null}
@@ -126,7 +127,7 @@ export function IuiResultMark({
               <View style={[styles.ledgerDot, { backgroundColor: `${markGreen}29` }]}>
                 <Text style={{ color: markGreen, fontSize: 11, fontWeight: '700' }}>✓</Text>
               </View>
-              <Text style={[styles.ledgerLabel, { color: isDark ? '#C8D8F0' : c.text }]} numberOfLines={1}>
+              <Text style={[styles.ledgerLabel, { color: isDark ? STAGE.ink.softDark : c.text }]} numberOfLines={1}>
                 {row.label}
               </Text>
               {onUndoOne ? (

@@ -5,6 +5,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { STAGE } from '@/constants/iui-stage';
 import type { IuiGroupItem } from '@/lib/poppins/ui-scenes';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
@@ -49,14 +50,15 @@ export function IuiGroupRows({
         const detail = rowDetail(item, kind);
         const hint = statusHint(item);
         const failed = item.status === 'failed';
+        const danger = STAGE.semantic.danger;
         return (
           <View
             key={item.id}
             style={[
               styles.row,
               {
-                borderColor: failed ? `${c.danger ?? '#EF4444'}88` : `${accent}55`,
-                backgroundColor: failed ? `${c.danger ?? '#EF4444'}14` : `${accent}14`,
+                borderColor: failed ? `${danger}88` : `${accent}55`,
+                backgroundColor: failed ? `${danger}14` : `${accent}14`,
               },
             ]}>
             <View style={styles.body}>
@@ -75,7 +77,7 @@ export function IuiGroupRows({
                 <Text
                   style={[
                     styles.detail,
-                    { color: failed ? c.danger ?? '#EF4444' : c.textMuted },
+                    { color: failed ? danger : c.textMuted },
                   ]}>
                   {hint}
                 </Text>

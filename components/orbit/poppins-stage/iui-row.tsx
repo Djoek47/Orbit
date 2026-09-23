@@ -5,7 +5,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { STAGE, stageFaint, stageMuted, stageSurfaces } from '@/constants/iui-stage';
+import { STAGE, stageDangerText, stageFaint, stageMuted, stageSurfaces } from '@/constants/iui-stage';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 export type IuiRowStatus = 'pending' | 'saving' | 'done' | 'failed';
@@ -84,7 +84,7 @@ export function IuiRow({
           {title}
         </Text>
         {detail ? (
-          <Text style={[styles.detail, { color: failed ? STAGE.semantic.danger : muted }]} numberOfLines={2}>
+          <Text style={[styles.detail, { color: failed ? stageDangerText(isDark) : muted }]} numberOfLines={2}>
             {detail}
           </Text>
         ) : null}
