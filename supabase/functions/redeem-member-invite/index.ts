@@ -89,6 +89,7 @@ Deno.serve(async (req) => {
       memberStatus?: string;
       householdName?: string;
       sidekickGroceryAdd?: boolean;
+      sidekickPoppinsAi?: boolean;
       dailyDeadline?: string | null;
       rewardModel?: string | null;
       alreadyMember?: boolean;
@@ -130,6 +131,7 @@ Deno.serve(async (req) => {
         dailyDeadline: household?.daily_deadline ?? payload.dailyDeadline ?? null,
         rewardModel: household?.reward_model ?? payload.rewardModel ?? null,
         sidekickGroceryAdd: Boolean(household?.sidekick_grocery_add ?? payload.sidekickGroceryAdd),
+        sidekickPoppinsAi: Boolean(household?.sidekick_poppins_ai ?? payload.sidekickPoppinsAi),
       },
       todaysTasks: tasks ?? [],
       members: members ?? [],

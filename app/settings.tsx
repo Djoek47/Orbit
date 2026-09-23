@@ -146,6 +146,7 @@ export default function SettingsScreen() {
     updateMemberMajordomoProfile,
     updateMemberCapabilities,
     updateSidekickGroceryAdd,
+    updateSidekickPoppinsAi,
     updatePreferredMapsApp,
     actEvents,
     refreshHousehold,
@@ -1240,6 +1241,20 @@ export default function SettingsScreen() {
                 onPress={() => setHowActionsOpen(true)}
               />
             </SettingsGroup>
+            {permissions.canManageHousehold ? (
+              <SettingsGroup footer="Sidekicks stay off Poppins until you turn this on.">
+                <SettingsToggleRow
+                  label="Allow Sidekick AI"
+                  subtitle="Shows the Poppins tab for children / Sidekicks so they can Speak."
+                  value={household.sidekickPoppinsAi === true}
+                  disabled={settingsToggleBusy}
+                  last
+                  onValueChange={(value) => {
+                    guardSettingsToggle(() => updateSidekickPoppinsAi(value));
+                  }}
+                />
+              </SettingsGroup>
+            ) : null}
             <SettingsGroup footer="Fine-tune Guided. Children see this read-only.">
               <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
                 <SegmentedControl

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { PoppinsLiveCaption } from '@/components/orbit/poppins-live-caption';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
@@ -22,6 +22,7 @@ import { PoppinsWaveform } from '@/components/orbit/poppins-waveform';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius, space } from '@/constants/orbit-theme';
 import { greetingWord } from '@/lib/time/greeting';
+import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
 import {
   getMajordomoProfile,
   resolveMajordomoProfileId,
@@ -811,6 +812,14 @@ export default function PoppinsScreen() {
       (visualState === 'listening' && !liveText));
   const hasStrip = liveSpeaker !== null;
   const primaryConnected = liveConnected || quietListening;
+  const poppinsAllowed = canShowPoppinsTab({
+    role: currentMember?.role,
+    sidekickPoppinsAi: household.sidekickPoppinsAi,
+  });
+
+  if (!poppinsAllowed) {
+    return <Redirect href={'/(tabs)' as never} />;
+  }
 
   return (
     <KeyboardAvoidingView

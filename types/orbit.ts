@@ -747,6 +747,11 @@ export type HouseholdSnapshot = {
    * // TODO(product): Should the grocery permission be per-member rather than household-level?
    */
   sidekickGroceryAdd?: boolean;
+  /**
+   * Household-level, default OFF. When true, Sidekicks see Poppins and may Speak.
+   * Admins enable this from Settings → Poppins.
+   */
+  sidekickPoppinsAi?: boolean;
   rewardProposals?: import('@/lib/rewards/reward-proposals').RewardProposal[];
   /**
    * Household-scoped XP scoring (Meritocracy vs Equity + hygiene opt-in).

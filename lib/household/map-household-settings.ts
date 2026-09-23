@@ -16,6 +16,7 @@ export type HouseholdSettingsRow = {
   allowance_requests_enabled?: boolean | null;
   join_approval_required?: boolean | null;
   sidekick_grocery_add?: boolean | null;
+  sidekick_poppins_ai?: boolean | null;
   member_capabilities?: Record<string, boolean> | null;
 };
 
@@ -60,6 +61,7 @@ export function mapHouseholdSettingsFromRow(
     allowanceRequestsEnabled: row.allowance_requests_enabled !== false,
     joinApprovalRequired: row.join_approval_required === true,
     sidekickGroceryAdd: Boolean(row.sidekick_grocery_add),
+    sidekickPoppinsAi: Boolean(row.sidekick_poppins_ai),
     memberCapabilities: mapMemberCapabilitiesFromRow(row.member_capabilities),
     ...(notificationPrefs ? { notificationPrefs } : {}),
   };

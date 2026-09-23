@@ -108,7 +108,7 @@ import { mapMemberRow, mapTaskRow } from '@/lib/mappers/orbit-mappers';
 import { promoteMemberToAdmin } from '@/lib/household/admin-cap';
 import { canRequestReward } from '@/lib/rewards/can-request-reward';
 import { canProposeReward, type RewardProposal } from '@/lib/rewards/reward-proposals';
-import { groceryAddAllowedForSidekick, isSidekickRole } from '@/lib/sidekick/permissions';
+import { groceryAddAllowedForSidekick, isSidekickRole, poppinsAiAllowedForSidekick } from '@/lib/sidekick/permissions';
 import { assigneeMemberIdsForTask } from '@/lib/sidekick/task-assigned-notify';
 import {
   assigneeMemberForTask,
@@ -632,6 +632,8 @@ type OrbitContextValue = {
   approveRewardProposal: (proposalId: string) => Promise<void>;
   declineRewardProposal: (proposalId: string) => Promise<void>;
   updateSidekickGroceryAdd: (enabled: boolean) => void;
+  /** Admin: let Sidekicks use Poppins AI (default off). */
+  updateSidekickPoppinsAi: (enabled: boolean) => void;
   createReward: (
     input: CreateRewardInput,
     options?: { householdId?: string | null }
@@ -2224,6 +2226,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           id?: string;
           name?: string;
           sidekickGroceryAdd?: boolean;
+          sidekickPoppinsAi?: boolean;
           dailyDeadline?: string | null;
           rewardModel?: string | null;
         };
@@ -2260,6 +2263,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           householdName: boot.household?.name ?? current.householdName,
           sidekickGroceryAdd:
             boot.household?.sidekickGroceryAdd ?? current.sidekickGroceryAdd,
+          sidekickPoppinsAi:
+            boot.household?.sidekickPoppinsAi ?? current.sidekickPoppinsAi,
           dailyDeadline: boot.household?.dailyDeadline ?? current.dailyDeadline,
           tasks,
           members,
@@ -4991,7 +4996,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   );
 
   const askPoppins = async (question: string) => {
-    if (isSidekickRole(currentMember?.role)) {
+    if (
+      !poppinsAiAllowedForSidekick({
+        role: currentMember?.role,
+        householdAllows: household.sidekickPoppinsAi === true,
+      })
+    ) {
       return {
         question,
         answer: 'Poppins is not available on this profile.',
@@ -5030,7 +5040,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const askPoppinsVoice = async (audioUri: string | null) => {
-    if (isSidekickRole(currentMember?.role)) {
+    if (
+      !poppinsAiAllowedForSidekick({
+        role: currentMember?.role,
+        householdAllows: household.sidekickPoppinsAi === true,
+      })
+    ) {
       return {
         question: '',
         answer: 'Poppins is not available on this profile.',
@@ -5598,6 +5613,26 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           ?.from('households')
           .update({ sidekick_grocery_add: enabled })
           .eq('id', current.id);
+      }
+      return next;
+    });
+  };
+
+  const updateSidekickPoppinsAi = (enabled: boolean) => {
+    if (!permissions.canManageHousehold) return;
+    setHousehold((current) => {
+      const next: HouseholdSnapshot = { ...current, sidekickPoppinsAi: enabled };
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      if (dataMode === 'supabase' && current.id && isPersistedHouseholdId(current.id)) {
+        void getSupabaseClient()
+          ?.from('households')
+          .update({ sidekick_poppins_ai: enabled })
+          .eq('id', current.id)
+          .then(({ error }) => {
+            if (error) console.warn('updateSidekickPoppinsAi', error.message);
+          });
       }
       return next;
     });
@@ -6551,6 +6586,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       approveRewardProposal,
       declineRewardProposal,
       updateSidekickGroceryAdd,
+      updateSidekickPoppinsAi,
       createReward,
       updateReward,
       archiveReward,
@@ -6663,6 +6699,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       approveRewardProposal,
       declineRewardProposal,
       updateSidekickGroceryAdd,
+      updateSidekickPoppinsAi,
     ]
   );
 

@@ -42,6 +42,7 @@ import { formatLocalDate } from '@/lib/streaks/local-date';
 import { visibleEventsForMember } from '@/lib/calendar/plan-visibility';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
 import { greetingWord } from '@/lib/time/greeting';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -339,7 +340,14 @@ export default function HomeScreen() {
         <PoppinsCard
           kind="morningBrief"
           message={poppinsBriefing.summary}
-          actions={[{ label: 'Open Poppins', onPress: () => router.push('/(tabs)/poppins' as never) }]}
+          actions={
+            canShowPoppinsTab({
+              role: currentMember?.role,
+              sidekickPoppinsAi: household.sidekickPoppinsAi,
+            })
+              ? [{ label: 'Open Poppins', onPress: () => router.push('/(tabs)/poppins' as never) }]
+              : []
+          }
         />
 
         {v2Permissions.canApproveCompletion && pendingApprovals.length > 0 ? (

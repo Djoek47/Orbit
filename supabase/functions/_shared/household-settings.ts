@@ -5,6 +5,7 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1
 
 export type HouseholdSettings = {
   sidekickGroceryAdd: boolean;
+  sidekickPoppinsAi: boolean;
   memberCapabilities: {
     allowRewardRedeem: boolean;
     allowSpecialRewardRequest: boolean;
@@ -30,7 +31,7 @@ export async function loadHouseholdSettings(
 ): Promise<HouseholdSettings | null> {
   const { data, error } = await admin
     .from('households')
-    .select('sidekick_grocery_add, member_capabilities')
+    .select('sidekick_grocery_add, sidekick_poppins_ai, member_capabilities')
     .eq('id', householdId)
     .maybeSingle();
 
@@ -39,6 +40,7 @@ export async function loadHouseholdSettings(
   const raw = (data.member_capabilities ?? {}) as Record<string, boolean>;
   return {
     sidekickGroceryAdd: Boolean(data.sidekick_grocery_add),
+    sidekickPoppinsAi: Boolean(data.sidekick_poppins_ai),
     memberCapabilities: {
       ...DEFAULT_CAPS,
       ...raw,

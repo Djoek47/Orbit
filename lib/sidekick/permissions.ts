@@ -49,3 +49,21 @@ export function groceryAddAllowedForSidekick(opts: {
   if (!isSidekickRole(opts.role)) return true;
   return opts.householdAllows;
 }
+
+/** Poppins AI for Sidekick — off unless an admin enables it for the household. */
+export function poppinsAiAllowedForSidekick(opts: {
+  role: string | null | undefined;
+  householdAllows: boolean;
+}): boolean {
+  if (!isSidekickRole(opts.role)) return true;
+  return opts.householdAllows;
+}
+
+/** True when this member should see the Poppins tab / Speak entry. */
+export function canShowPoppinsTab(opts: {
+  role: string | null | undefined;
+  sidekickPoppinsAi?: boolean;
+}): boolean {
+  if (!isSidekickRole(opts.role)) return true;
+  return opts.sidekickPoppinsAi === true;
+}
