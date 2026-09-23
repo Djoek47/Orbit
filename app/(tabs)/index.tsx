@@ -43,6 +43,7 @@ import { visibleEventsForMember } from '@/lib/calendar/plan-visibility';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
+import { composeHomeGlance, msUntilNextHomeGlance } from '@/lib/poppins/home-glance';
 import { greetingWord } from '@/lib/time/greeting';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -56,7 +57,6 @@ export default function HomeScreen() {
     household,
     markNotDone,
     metrics,
-    poppinsBriefing,
     currentMember,
     permissions,
     redeemStreak,
@@ -194,6 +194,42 @@ export default function HomeScreen() {
       m.id !== currentMember?.id &&
       isOnRecess(recessPeriods, m.id, todayLocal) &&
       !isSharedDeviceRole(m.role)
+  );
+
+  const [glanceNow, setGlanceNow] = useState(() => new Date());
+  useEffect(() => {
+    const wait = msUntilNextHomeGlance(glanceNow);
+    const id = setTimeout(() => setGlanceNow(new Date()), wait);
+    return () => clearTimeout(id);
+  }, [glanceNow]);
+  const homeGlance = useMemo(
+    () =>
+      composeHomeGlance({
+        now: glanceNow,
+        firstName,
+        memberName: currentMember?.name ?? firstName,
+        householdView: permissions.canManageHousehold,
+        tasks: household.tasks,
+        missingGroceries: household.groceries.filter(
+          (item) => item.status === 'Missing' || item.status === 'Low'
+        ),
+        nextEvent: nextEvent
+          ? { title: nextEvent.title, time: nextEvent.time }
+          : null,
+        pendingApprovals: pendingApprovals.length,
+        timeZone: household.timezone,
+      }),
+    [
+      currentMember?.name,
+      firstName,
+      glanceNow,
+      household.groceries,
+      household.tasks,
+      household.timezone,
+      nextEvent,
+      pendingApprovals.length,
+      permissions.canManageHousehold,
+    ]
   );
 
   const [rescueVisible, setRescueVisible] = useState(false);
@@ -334,10 +370,10 @@ export default function HomeScreen() {
           </GlassCard>
         ) : null}
 
-        {/* Morning Brief — Apple-Intelligence-style card, not a chat entry point. */}
         <PoppinsCard
-          kind="morningBrief"
-          message={poppinsBriefing.summary}
+          kind={homeGlance.kind}
+          speaker="Poppins"
+          message={homeGlance.message}
           actions={
             canShowPoppinsTab({
               role: currentMember?.role,

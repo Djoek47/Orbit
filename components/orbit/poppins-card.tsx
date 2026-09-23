@@ -17,6 +17,8 @@ export type PoppinsCardAction = {
 type PoppinsCardProps = {
   kind?: PoppinsCardKind;
   message: string;
+  /** Who is speaking. Home uses Poppins. */
+  speaker?: string;
   actions?: PoppinsCardAction[];
 };
 
@@ -31,7 +33,12 @@ const KIND_ICON: Record<PoppinsCardKind, keyof typeof MaterialIcons.glyphMap> = 
  * Calm Apple-Intelligence-style summary card with one-tap actions — replaces
  * chat-bubble UI as Poppins's primary surface.
  */
-export function PoppinsCard({ kind = 'recommendation', message, actions = [] }: PoppinsCardProps) {
+export function PoppinsCard({
+  kind = 'recommendation',
+  message,
+  speaker,
+  actions = [],
+}: PoppinsCardProps) {
   const { c, type, glass, glassBorder } = useOrbitColors();
   const accent = c.poppinsCyan;
   const enter = useAnimatedStyle(() => ({
@@ -49,8 +56,13 @@ export function PoppinsCard({ kind = 'recommendation', message, actions = [] }: 
         },
         enter,
       ]}>
-      <View style={[styles.iconWrap, { backgroundColor: `${accent}22` }]}>
-        <MaterialIcons name={KIND_ICON[kind]} size={20} color={accent} />
+      <View style={styles.head}>
+        <View style={[styles.iconWrap, { backgroundColor: `${accent}22` }]}>
+          <MaterialIcons name={KIND_ICON[kind]} size={18} color={accent} />
+        </View>
+        {speaker ? (
+          <Text style={[type.footnote, { color: accent, fontWeight: '700' }]}>{speaker}</Text>
+        ) : null}
       </View>
       <Text style={[type.body, styles.message, { color: c.textSoft }]}>{message}</Text>
       {actions.length > 0 ? (
@@ -76,6 +88,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: space.sm,
     padding: space.xl,
+  },
+  head: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: space.sm,
   },
   iconWrap: {
     alignItems: 'center',
