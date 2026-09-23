@@ -172,21 +172,83 @@ function markSlotSources(
 function patchCurrentPayload(patch: Partial<IuiPayload>) {
   const beat = currentBeat();
   if (!beat) return;
-  const merged = {
+  let merged = {
     ...beat.payload,
     ...patch,
     slotSource: { ...beat.payload.slotSource, ...patch.slotSource },
   };
+  // WO11 — assigning a person fills the first group row missing an assignee.
+  if (patch.assignee && merged.items?.length) {
+    let filled = false;
+    merged = {
+      ...merged,
+      items: merged.items.map((item) => {
+        if (filled || item.dropped || item.assignee?.trim()) return item;
+        filled = true;
+        return { ...item, assignee: String(patch.assignee) };
+      }),
+    };
+    const needsFace = merged.items.some((item) => !item.dropped && !item.assignee?.trim());
+    if (beat.scene === 'task_compose' || beat.scene === 'homework_compose') {
+      merged.composeReady = !needsFace;
+    }
+  }
   const payload =
-    beat.scene === 'task_compose'
+    beat.scene === 'task_compose' && !merged.items?.length
       ? withComposeProgress(merged)
-      : beat.scene === 'homework_compose'
+      : beat.scene === 'homework_compose' && !merged.items?.length
         ? withHomeworkComposeProgress(merged)
         : merged;
   const next = { ...beat, payload };
   setState({
     playlist: state.playlist.map((item, i) => (i === state.index ? next : item)),
   });
+}
+
+function applyGroupItemStatus(
+  itemId: string,
+  status: 'pending' | 'saving' | 'done' | 'failed'
+) {
+  const beat = currentBeat();
+  if (!beat?.payload.items?.length) return;
+  const items = beat.payload.items.map((item) =>
+    item.id === itemId ? { ...item, status } : item
+  );
+  const done = items.filter((item) => !item.dropped && item.status === 'done').length;
+  const total = items.filter((item) => !item.dropped).length;
+  patchCurrentPayload({
+    items,
+    progressLabel: total > 1 ? `${Math.min(done + 1, total)} of ${total}` : undefined,
+  });
+}
+
+function applyDropGroupItem(itemId: string) {
+  const beat = currentBeat();
+  if (!beat?.payload.items?.length) return;
+  const items = beat.payload.items.map((item) =>
+    item.id === itemId ? { ...item, dropped: true } : item
+  );
+  const active = items.filter((item) => !item.dropped && item.label.trim());
+  if (!active.length) {
+    hapticHandler?.('veto');
+    clearAllTimers();
+    clear();
+    return;
+  }
+  const first = active[0]!;
+  const needsFace = active.some((item) => !item.assignee?.trim());
+  patchCurrentPayload({
+    items,
+    groceryName: beat.scene === 'grocery_add' ? first.label : beat.payload.groceryName,
+    title: first.label,
+    assignee: first.assignee ?? beat.payload.assignee,
+    due: first.due ?? beat.payload.due,
+    progressLabel: active.length > 1 ? `1 of ${active.length}` : undefined,
+    composeReady:
+      beat.scene === 'task_compose' || beat.scene === 'homework_compose' ? !needsFace : undefined,
+  });
+  if (state.holding) resetHoldProgressOnly();
+  maybeArmHold();
 }
 
 function advanceAfterSettle() {
@@ -254,14 +316,24 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
       const write = beat.payload.write ?? 'none';
       if (write !== 'none') {
         const { actKeyFromBeat, recordCommittedAct } = await import('@/lib/poppins/act-ledger');
-        recordCommittedAct(
-          write,
-          actKeyFromBeat(write, {
-            groceryName: beat.payload.groceryName,
-            title: beat.payload.title,
-            taskId: beat.payload.taskId,
-          })
-        );
+        const items = beat.payload.items?.filter((item) => !item.dropped && item.status !== 'failed');
+        if (items?.length) {
+          for (const item of items) {
+            recordCommittedAct(
+              write,
+              actKeyFromBeat(write, { groceryName: item.label, title: item.label })
+            );
+          }
+        } else {
+          recordCommittedAct(
+            write,
+            actKeyFromBeat(write, {
+              groceryName: beat.payload.groceryName,
+              title: beat.payload.title,
+              taskId: beat.payload.taskId,
+            })
+          );
+        }
       }
     } catch (error) {
       const { ActRejectedError, clearRejectedSlot } = await import('@/lib/poppins/validate-act');
@@ -354,7 +426,9 @@ function beatCanSkipShow(beat: IuiBeat): boolean {
   if (beat.scene === 'task_compose' || beat.scene === 'homework_compose') {
     return Boolean(p.assignee || p.title || p.libraryTaskId || p.category);
   }
-  if (beat.scene === 'grocery_add') return Boolean(p.groceryName);
+  if (beat.scene === 'grocery_add') {
+    return Boolean(p.groceryName || (p.items && p.items.some((item) => !item.dropped && item.label)));
+  }
   return false;
 }
 
@@ -391,15 +465,48 @@ function mergeIncomingPlaylist(playlist: IuiBeat[]) {
   const current = currentBeat();
   const incoming = playlist[0];
   if (!current || !incoming || !canMergeBeat(current, incoming)) return false;
-  patchCurrentPayload(incoming.payload);
+  // Preserve grouped rows when a refinement beat carries only the head slot.
+  const incomingPayload: Partial<IuiPayload> = { ...incoming.payload };
+  if (!incomingPayload.items?.length && current.payload.items?.length) {
+    delete incomingPayload.items;
+    delete incomingPayload.progressLabel;
+  }
+  patchCurrentPayload(incomingPayload);
   const rest = playlist.slice(1);
   const kept = state.playlist.slice(0, state.index + 1);
   const tail = state.playlist.slice(state.index + 1);
   const seen = new Set(kept.map(beatIdentityKey));
+  // Also fingerprint each group row so a late plan cannot re-queue the same act.
+  for (const beat of kept) {
+    for (const item of beat.payload.items ?? []) {
+      if (item.dropped || !item.label.trim()) continue;
+      seen.add(`${beat.scene}|item|${item.label.trim().toLowerCase()}`);
+    }
+  }
   const mergedTail: IuiBeat[] = [];
   for (const beat of [...rest, ...tail]) {
     const key = beatIdentityKey(beat);
     if (seen.has(key)) continue;
+    if (beat.payload.items?.length) {
+      const filtered = beat.payload.items.filter((item) => {
+        const itemKey = `${beat.scene}|item|${item.label.trim().toLowerCase()}`;
+        if (!item.label.trim() || seen.has(itemKey)) return false;
+        seen.add(itemKey);
+        return true;
+      });
+      if (!filtered.length) continue;
+      seen.add(key);
+      mergedTail.push({
+        ...beat,
+        payload: {
+          ...beat.payload,
+          items: filtered,
+          groceryName: filtered[0]?.label ?? beat.payload.groceryName,
+          title: filtered[0]?.label ?? beat.payload.title,
+        },
+      });
+      continue;
+    }
     seen.add(key);
     mergedTail.push(beat);
   }
@@ -523,11 +630,23 @@ function beatReadyForDirectCommit(beat: IuiBeat): boolean {
   if (!gate.ok) return false;
   const write = beat.payload.write ?? 'none';
   if (write === 'add_grocery' || beat.scene === 'grocery_add') {
+    if (beat.payload.items?.some((item) => !item.dropped && item.label.trim())) {
+      return !beat.payload.items.some(
+        (item) => !item.dropped && item.label.trim() && item.status === 'failed'
+      );
+    }
     return directSlotFilled(beat, 'groceryName', beat.payload.groceryName) ||
       directSlotFilled(beat, 'title', beat.payload.title);
   }
   if (write === 'complete_task') return true;
   if (write === 'create_task' || write === 'create_homework' || beat.scene === 'task_compose' || beat.scene === 'homework_compose') {
+    if (beat.payload.items?.length) {
+      const active = beat.payload.items.filter((item) => !item.dropped);
+      return (
+        active.length > 0 &&
+        active.every((item) => item.label.trim() && item.assignee?.trim() && (item.due ?? beat.payload.due)?.trim())
+      );
+    }
     const hasTitle =
       directSlotFilled(beat, 'title', beat.payload.title) ||
       directSlotFilled(beat, 'libraryTaskId', beat.payload.libraryTaskId);
@@ -640,6 +759,15 @@ export const poppinsUiOrchestrator = {
       return;
     }
     maybeArmHold();
+  },
+  dropGroupItem(itemId: string) {
+    applyDropGroupItem(itemId);
+  },
+  patchGroupItemStatus(
+    itemId: string,
+    status: 'pending' | 'saving' | 'done' | 'failed'
+  ) {
+    applyGroupItemStatus(itemId, status);
   },
   syncSpoken(text: string, memberNames: string[] = []) {
     if (!text.trim()) return;

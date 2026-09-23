@@ -24,6 +24,8 @@ import {
   resolvePoppinsChoreTitle,
 } from '@/lib/poppins/catalog-match';
 import { classifyGroceryItem } from '@/lib/grocery/classify';
+import { groupConsecutiveActs } from '@/lib/poppins/group-acts';
+import type { IuiGroupItem } from '@/lib/poppins/ui-scenes';
 
 function beat(
   scene: IuiScene,
@@ -60,7 +62,7 @@ function isGroceryMetaDraft(
 }
 
 function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
-  const groceryName = String(action.name ?? action.title ?? '').trim();
+  const rawItems = Array.isArray(action.items) ? action.items : null;
   const storeHint = String(action.storeHint ?? '').trim();
   const askLine =
     typeof action.ask === 'string'
@@ -68,11 +70,34 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
       : typeof action.thinkingLine === 'string'
         ? action.thinkingLine
         : undefined;
+
+  const items: IuiGroupItem[] | undefined = rawItems
+    ? rawItems.map((row, index) => {
+        const r = asRecord(row);
+        const label = String(r.label ?? r.name ?? r.title ?? '').trim();
+        const classified = label ? classifyGroceryItem(label) : null;
+        return {
+          id: String(r.id ?? `g-${index}`),
+          label,
+          aisle:
+            classified && classified.confidence !== 'fallback'
+              ? classified.categoryName
+              : undefined,
+          status: 'pending' as const,
+        };
+      })
+    : undefined;
+
+  const groceryName =
+    items?.[0]?.label ||
+    String(action.name ?? action.title ?? '').trim();
   const classified = groceryName ? classifyGroceryItem(groceryName) : null;
   const aisle =
     classified && classified.confidence !== 'fallback'
       ? classified.categoryName
       : undefined;
+  const count = items?.filter((item) => !item.dropped && item.label).length ?? (groceryName ? 1 : 0);
+
   return [
     beat(
       'grocery_add',
@@ -87,15 +112,15 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
         location: storeHint || undefined,
         sourceUtterance:
           typeof action.sourceUtterance === 'string' ? action.sourceUtterance : undefined,
-        // Groceries are household-wide — never copy assignee onto the beat.
-        // Empty name + ask → wait for speech; do not arm HOLD.
+        items,
+        progressLabel: count > 1 ? `1 of ${count}` : undefined,
         composeReady: groceryName ? undefined : false,
         provisional: groceryName ? undefined : true,
       },
       groceryName ? 'hold' : 'none',
       'add_grocery'
     ),
-    ...(groceryName
+    ...(groceryName && !items
       ? [
           beat(
             'result_mark',
@@ -107,7 +132,19 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
             'none'
           ),
         ]
-      : []),
+      : groceryName && items
+        ? [
+            beat(
+              'result_mark',
+              {
+                markKind: 'added' as const,
+                title: count > 1 ? `${count} items` : groceryName,
+                groceryName: groceryName || undefined,
+              },
+              'none'
+            ),
+          ]
+        : []),
   ];
 }
 
@@ -119,7 +156,23 @@ function isHomeworkDraft(action: Record<string, unknown>, prefill: Record<string
 }
 
 function taskDraftBeats(action: Record<string, unknown>, prefill: Record<string, unknown>): IuiBeat[] {
-  const rawTitle = String(action.title ?? prefill.title ?? '');
+  const rawItems = Array.isArray(action.items) ? action.items : null;
+  const items: IuiGroupItem[] | undefined = rawItems
+    ? rawItems.map((row, index) => {
+        const r = asRecord(row);
+        return {
+          id: String(r.id ?? `t-${index}`),
+          label: String(r.label ?? r.title ?? '').trim(),
+          assignee: r.assignee ? String(r.assignee) : undefined,
+          due: r.due ? String(r.due) : undefined,
+          libraryTaskId: r.libraryTaskId ? String(r.libraryTaskId) : undefined,
+          category: r.category ? String(r.category) : undefined,
+          status: 'pending' as const,
+        };
+      })
+    : undefined;
+
+  const rawTitle = String(action.title ?? prefill.title ?? items?.[0]?.label ?? '');
   const resolved = resolvePoppinsChoreTitle(rawTitle);
   const title = resolved.title || rawTitle;
   const libraryTaskId = action.libraryTaskId
@@ -129,14 +182,16 @@ function taskDraftBeats(action: Record<string, unknown>, prefill: Record<string,
       : resolved.libraryTaskId;
   const homework = isHomeworkDraft(action, prefill);
   const scene: IuiScene = homework ? 'homework_compose' : 'task_compose';
+  const activeItems = items?.filter((item) => !item.dropped) ?? [];
+  const needsFace = activeItems.some((item) => !item.assignee?.trim());
   const basePayload: IuiPayload = {
     title,
     assignee: action.assignee
       ? String(action.assignee)
       : prefill.assignee
         ? String(prefill.assignee)
-        : undefined,
-    due: action.due ? String(action.due) : prefill.due ? String(prefill.due) : undefined,
+        : items?.[0]?.assignee,
+    due: action.due ? String(action.due) : prefill.due ? String(prefill.due) : items?.[0]?.due,
     category: homework
       ? 'homework_education'
       : action.category
@@ -157,14 +212,29 @@ function taskDraftBeats(action: Record<string, unknown>, prefill: Record<string,
         : typeof prefill.sourceUtterance === 'string'
           ? prefill.sourceUtterance
           : undefined,
+    items,
+    progressLabel: activeItems.length > 1 ? `1 of ${activeItems.length}` : undefined,
+    // Grouped tasks with every row filled skip the face grid; a missing person opens it for that row.
+    composeReady: items ? !needsFace : undefined,
   };
-  const payload = homework
-    ? withHomeworkComposeProgress(basePayload)
-    : withComposeProgress(basePayload);
+  const payload =
+    items && items.length > 1
+      ? basePayload
+      : homework
+        ? withHomeworkComposeProgress(basePayload)
+        : withComposeProgress(basePayload);
   const write: IuiWriteKind = homework ? 'create_homework' : 'create_task';
   return [
     beat(scene, payload, 'hold', write),
-    beat('result_mark', { markKind: 'assigned', title: payload.title || 'Task' }, 'none'),
+    beat(
+      'result_mark',
+      {
+        markKind: 'assigned',
+        title:
+          activeItems.length > 1 ? `${activeItems.length} tasks` : payload.title || 'Task',
+      },
+      'none'
+    ),
   ];
 }
 
@@ -179,8 +249,9 @@ export function flattenUiActions(
 
 export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>): IuiBeat[] {
   const playlist: IuiBeat[] = [];
+  const grouped = groupConsecutiveActs(actions);
 
-  for (const action of actions) {
+  for (const action of grouped) {
     const type = String(action.type ?? '');
     const prefill = asRecord(action.prefill);
 
@@ -220,6 +291,22 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
 
     if (type === 'add_grocery') {
       playlist.push(...groceryBeatsFromAction(action));
+      continue;
+    }
+
+    if (type === 'clear_grocery_list' || type === 'clear_grocery') {
+      playlist.push(
+        beat(
+          'confirm',
+          {
+            confirmSummary: 'Clear the grocery list?',
+            thinkingLine: 'Clearing the list',
+          },
+          'confirm',
+          'clear_grocery'
+        ),
+        beat('result_mark', { markKind: 'done', title: 'List cleared' }, 'none')
+      );
       continue;
     }
 
@@ -495,13 +582,22 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
 /** B1/B3 — grocery turns never ask who; collapse duplicate grocery names. */
 function sanitizeGroceryPlaylist(playlist: IuiBeat[]): IuiBeat[] {
   const hasGroceryWrite = playlist.some(
-    (item) => item.payload.write === 'add_grocery' || item.scene === 'grocery_add'
+    (item) =>
+      item.payload.write === 'add_grocery' ||
+      item.payload.write === 'clear_grocery' ||
+      item.scene === 'grocery_add'
   );
   let next = playlist;
   if (hasGroceryWrite) {
     next = playlist.filter((item) => item.scene !== 'member_pick');
     next = next.map((item) => {
-      if (item.payload.write !== 'add_grocery' && item.scene !== 'grocery_add') return item;
+      if (
+        item.payload.write !== 'add_grocery' &&
+        item.payload.write !== 'clear_grocery' &&
+        item.scene !== 'grocery_add'
+      ) {
+        return item;
+      }
       if (!item.payload.assignee && !item.payload.spokenName) return item;
       const { assignee: _a, spokenName: _s, ...rest } = item.payload;
       return { ...item, payload: rest };
@@ -511,7 +607,43 @@ function sanitizeGroceryPlaylist(playlist: IuiBeat[]): IuiBeat[] {
   const seenGrocery = new Set<string>();
   const deduped: IuiBeat[] = [];
   for (const item of next) {
+    if (item.payload.write === 'clear_grocery') {
+      deduped.push(item);
+      continue;
+    }
     if (item.payload.write === 'add_grocery' || item.scene === 'grocery_add') {
+      if (item.payload.items?.length) {
+        const unique: typeof item.payload.items = [];
+        for (const row of item.payload.items) {
+          const key = row.label.trim().toLowerCase();
+          if (!key || row.dropped) {
+            unique.push(row);
+            continue;
+          }
+          if (seenGrocery.has(key)) {
+            console.warn('iui.duplicate_suppressed', { write: 'add_grocery', key });
+            continue;
+          }
+          seenGrocery.add(key);
+          unique.push(row);
+        }
+        if (!unique.some((row) => !row.dropped && row.label.trim())) continue;
+        const first = unique.find((row) => !row.dropped && row.label.trim());
+        deduped.push({
+          ...item,
+          payload: {
+            ...item.payload,
+            items: unique,
+            groceryName: first?.label ?? item.payload.groceryName,
+            title: first?.label ?? item.payload.title,
+            progressLabel:
+              unique.filter((row) => !row.dropped).length > 1
+                ? `1 of ${unique.filter((row) => !row.dropped).length}`
+                : undefined,
+          },
+        });
+        continue;
+      }
       const key = (item.payload.groceryName ?? item.payload.title ?? '').trim().toLowerCase();
       if (key && seenGrocery.has(key)) {
         console.warn('iui.duplicate_suppressed', { write: 'add_grocery', key });
@@ -522,7 +654,7 @@ function sanitizeGroceryPlaylist(playlist: IuiBeat[]): IuiBeat[] {
     if (item.scene === 'result_mark' && item.payload.markKind === 'added') {
       const key = (item.payload.groceryName ?? item.payload.title ?? '').trim().toLowerCase();
       // Skip orphan result_mark after a suppressed duplicate grocery_add.
-      if (key && !seenGrocery.has(key)) continue;
+      if (key && !seenGrocery.has(key) && !/^\d+\s+items?$/i.test(key)) continue;
     }
     deduped.push(item);
   }

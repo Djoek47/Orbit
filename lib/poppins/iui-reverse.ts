@@ -17,6 +17,8 @@ export type IuiCommitReverse = {
   stopStatus?: string;
   /** Beat id so undo can discard deferred outbox effects. */
   beatId?: string;
+  /** WO11 — batch group commit: reverse each child newest-first via reverseIuiCommit. */
+  batch?: IuiCommitReverse[];
 };
 
 export type IuiReverseWrites = {
@@ -37,6 +39,13 @@ export async function reverseIuiCommit(
   reverse: IuiCommitReverse,
   writes: IuiReverseWrites
 ): Promise<void> {
+  if (reverse.batch?.length) {
+    // Newest first.
+    for (const child of [...reverse.batch].reverse()) {
+      await reverseIuiCommit(child, writes);
+    }
+    return;
+  }
   if (reverse.beatId) {
     effectOutbox.discard(reverse.beatId);
   }
@@ -51,6 +60,9 @@ export async function reverseIuiCommit(
       return;
     case 'add_grocery':
       await writes.removeGroceryItem?.(entityId);
+      return;
+    case 'clear_grocery':
+      // Cleared list cannot be restored in this pass.
       return;
     case 'complete_task':
     case 'update_task':
