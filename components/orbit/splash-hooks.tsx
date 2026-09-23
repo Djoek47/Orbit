@@ -80,7 +80,7 @@ export function SplashHooks({ visible }: SplashHooksProps) {
           <BlurView
             intensity={48}
             tint={c.isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
           />
         )}
         <View
@@ -130,10 +130,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   pillFill: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   pillScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   row: {
     alignItems: 'center',

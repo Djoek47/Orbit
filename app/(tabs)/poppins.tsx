@@ -1222,7 +1222,7 @@ const styles = StyleSheet.create({
     width: 80,
   },
   micPulse: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 40,
     transform: [{ scale: 1.35 }],
   },

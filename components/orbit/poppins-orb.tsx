@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   glowFill: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 9999,
   },
   core: {

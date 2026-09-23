@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cardInset: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderCurve: 'continuous',
     borderRadius: radius.cardLarge - 1,
     borderWidth: StyleSheet.hairlineWidth,

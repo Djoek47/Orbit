@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   shimmer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   iconWrap: {
     width: 40,

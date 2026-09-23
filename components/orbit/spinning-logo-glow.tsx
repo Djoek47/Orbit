@@ -59,6 +59,6 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   disk: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
 });
