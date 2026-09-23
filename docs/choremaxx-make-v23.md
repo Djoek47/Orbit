@@ -50,7 +50,8 @@ Same as v21 — Sign in (TestFlight):
 
 | Build | Git | EAS build | Submit |
 |-------|-----|-----------|--------|
-| **1.3.0 (79)** in progress | `cursor/make-v23` @ `bbfc01b` | [4e1a3b76](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/4e1a3b76-7f33-4ffa-8d3a-6f2c53916b11) — **Xcode 26.6 / iOS 26 SDK** (`macos-tahoe-26.5-xcode-26.6`) | [cb8f2906](https://expo.dev/accounts/djoek47/projects/choremaxx/submissions/cb8f2906-c1f2-4614-b20b-4df1f92c335e) auto-submit |
+| **1.3.0 (79)** failed | `cursor/make-v23` @ `bbfc01b` | [4e1a3b76](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/4e1a3b76-7f33-4ffa-8d3a-6f2c53916b11) — Xcode 26.6, `expo-av` did not compile | not submitted |
+| **1.3.0 (80)** queued | `cursor/make-v23` @ `8e33b2a` | [d2c64541](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/d2c64541-3e6b-4325-995a-882ec869de84) — **Xcode 26.6 / iOS 26 SDK**, `expo-audio` | [bc5afef5](https://expo.dev/accounts/djoek47/projects/choremaxx/submissions/bc5afef5-7508-4564-ae18-7d1f413591cb) auto-submit |
 
 ## Apple SDK
 
