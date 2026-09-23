@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Pressable, RefreshControl, StyleSheet, View, type ScrollView } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -11,6 +11,7 @@ import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { TourUpgradeOfferCard } from '@/components/orbit/tour/tour-upgrade-offer';
 import { TourContinueCard } from '@/components/orbit/tour/tour-continue-card';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
+import { useTourScroll } from '@/components/orbit/tour/use-tour-scroll';
 import { markTourSessionHealthy } from '@/lib/tour/tour-crash-recovery';
 import { HomeHouseRulesCard } from '@/components/orbit/home-house-rules-card';
 import { LargeTitleHeader } from '@/components/orbit/large-title-header';
@@ -72,6 +73,8 @@ export default function HomeScreen() {
   const { refreshing, onRefresh } = useHouseholdRefresh();
   const majordomoName = useMajordomoName();
   const { c, glass } = useOrbitColors();
+  const scrollRef = useRef<ScrollView>(null);
+  useTourScroll(scrollRef);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -280,6 +283,7 @@ export default function HomeScreen() {
   return (
     <>
       <Animated.ScrollView
+        ref={scrollRef}
         style={[orbitScreen.container, { backgroundColor: orbitPalette.background }]}
         contentContainerStyle={[
           orbitScreen.content,

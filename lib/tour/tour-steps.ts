@@ -26,6 +26,7 @@ const ADMIN_HOME: TourChapter = {
       title: 'Today at a glance',
       body: 'Everything due today, for everyone. Tap a task to open it.',
       route: '/(tabs)',
+      ensureVisible: true,
     }),
     step({
       id: 'home.grocery',
@@ -33,6 +34,7 @@ const ADMIN_HOME: TourChapter = {
       title: 'Your grocery list',
       body: 'One shared list for the house. Tap to open it.',
       route: '/(tabs)',
+      ensureVisible: true,
     }),
     step({
       id: 'home.settings',
@@ -355,6 +357,7 @@ export const SIDEKICK_TOUR: TourDefinition = {
           title: 'Your jobs today',
           body: 'These are yours. Finish them to earn XP.',
           route: '/(tabs)',
+          ensureVisible: true,
         }),
         step({
           id: 'sk.complete',

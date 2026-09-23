@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   BackHandler,
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -192,8 +191,8 @@ function TourOverlayBody({
     ],
   }));
 
-  // Block Home as soon as the overlay mounts — do not wait for card measure.
-  const blockTouches = !isAction;
+  // Dim is paint-only. Action steps add a frame of blockers around the cutout.
+  // Info steps leave the dim open so the screen under the card can still scroll.
   const accentRing = accent;
   const exitBg = accent;
   const exitLabel = c.ink;
@@ -203,11 +202,11 @@ function TourOverlayBody({
       {/* Dim + cutout as four rectangles (no SVG mask — reliable on iOS / Reanimated). */}
       <View
         style={[StyleSheet.absoluteFill, styles.dimLayer]}
-        pointerEvents={isAction ? 'box-none' : blockTouches ? 'auto' : 'none'}>
+        pointerEvents={isAction ? 'box-none' : 'none'}>
         {cutout ? (
           <>
             <Animated.View
-              pointerEvents={blockTouches ? 'auto' : 'none'}
+              pointerEvents="none"
               style={[
                 styles.dimRect,
                 dimStyle,
@@ -215,7 +214,7 @@ function TourOverlayBody({
               ]}
             />
             <Animated.View
-              pointerEvents={blockTouches ? 'auto' : 'none'}
+              pointerEvents="none"
               style={[
                 styles.dimRect,
                 dimStyle,
@@ -229,7 +228,7 @@ function TourOverlayBody({
               ]}
             />
             <Animated.View
-              pointerEvents={blockTouches ? 'auto' : 'none'}
+              pointerEvents="none"
               style={[
                 styles.dimRect,
                 dimStyle,
@@ -243,7 +242,7 @@ function TourOverlayBody({
               ]}
             />
             <Animated.View
-              pointerEvents={blockTouches ? 'auto' : 'none'}
+              pointerEvents="none"
               style={[
                 styles.dimRect,
                 dimStyle,
@@ -272,7 +271,7 @@ function TourOverlayBody({
           </>
         ) : (
           <Animated.View
-            pointerEvents={blockTouches ? 'auto' : 'none'}
+            pointerEvents="none"
             style={[StyleSheet.absoluteFill, dimStyle, { backgroundColor: '#000' }]}
           />
         )}
@@ -403,21 +402,9 @@ export function TourOverlay(props: Props) {
     );
   }
 
-  // Action steps must not sit in a Modal — Android Modals eat cutout taps.
-  if (props.isAction) {
-    return <TourOverlayBody {...props} />;
-  }
-
-  return (
-    <Modal
-      visible
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={props.onClose}>
-      <TourOverlayBody {...props} />
-    </Modal>
-  );
+  // Inline on every step. A Modal sits in its own window and blocks scrolling
+  // the screen under the coach card (and ate cutout taps on action steps).
+  return <TourOverlayBody {...props} />;
 }
 
 const styles = StyleSheet.create({

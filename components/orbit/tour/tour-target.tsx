@@ -41,27 +41,20 @@ export function TourTarget({ id, children, style, onLayout, ...rest }: Props) {
 
   useEffect(() => {
     if (!isActive || !registry) return;
-    const started = Date.now();
-    let prev: string | null = null;
-    let stable = 0;
-
+    let alive = true;
     const tick = () => {
+      if (!alive) return;
       ref.current?.measureInWindow((x, y, width, height) => {
+        if (!alive) return;
         if (width > 0 && height > 0) {
-          const key = `${Math.round(x)}:${Math.round(y)}:${Math.round(width)}:${Math.round(height)}`;
           registry.registerTarget(id, { x, y, width, height });
-          if (key === prev) stable += 1;
-          else {
-            stable = 0;
-            prev = key;
-          }
         }
-        if (stable >= 2 || Date.now() - started > 600) return;
         rafRef.current = requestAnimationFrame(tick);
       });
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => {
+      alive = false;
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     };
   }, [id, isActive, registry]);

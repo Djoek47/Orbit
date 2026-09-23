@@ -401,6 +401,9 @@ export function TourProvider({ children }: PropsWithChildren) {
           if (!wasNavigated && navigated) deadline = Date.now() + 1400;
           const rect = targetsRef.current.get(pointer.step.targetId);
           if (rect && rect.width > 0) {
+            if (pointer.step.ensureVisible && scrollRef.current) {
+              scrollRef.current(rect.y);
+            }
             setTargetRect(rect);
             const node = findNodeHandle(cardRef.current);
             if (node) {
