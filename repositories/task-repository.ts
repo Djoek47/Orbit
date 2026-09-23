@@ -293,6 +293,50 @@ export const taskRepository = {
     return data ? mergeTaskRow(data, next) : next;
   },
 
+  /**
+   * Skip today / cancel occurrence — minimal patch like completeTask.
+   * Full updateTask payloads often fail on staging when optional columns or
+   * null difficulty trip constraints; cancel only needs status + due label
+   * (+ stop-series repeat when scope is future).
+   */
+  async cancelTask(
+    task: HouseholdTask,
+    options: { stopSeries?: boolean } = {}
+  ): Promise<HouseholdTask> {
+    const stopSeries = Boolean(options.stopSeries && task.repeat !== 'None');
+    const cancelled: HouseholdTask = {
+      ...task,
+      status: 'Cancelled',
+      repeat: stopSeries ? 'None' : task.repeat,
+      due: stopSeries ? 'Cancelled · series stopped' : 'Cancelled',
+    };
+
+    if (isMockMode()) {
+      mockTasksState = mockTasksState.map((item) => (item.id === cancelled.id ? cancelled : item));
+      return cancelled;
+    }
+
+    const supabase = getConfiguredSupabase('taskRepository.cancelTask');
+    const payload: Record<string, unknown> = {
+      status: 'cancelled',
+      due_label: cancelled.due,
+    };
+    if (stopSeries) {
+      payload.repeat_rule = 'none';
+    }
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update(payload as never)
+      .eq('id', task.id)
+      .select('*')
+      .single();
+
+    mapDbError('taskRepository.cancelTask', error);
+
+    return data ? mergeTaskRow(data, cancelled) : cancelled;
+  },
+
   async deleteTask(taskId: string): Promise<void> {
     if (isMockMode()) {
       mockTasksState = mockTasksState.filter((item) => item.id !== taskId);
