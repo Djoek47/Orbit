@@ -58,6 +58,8 @@ export type TourTargetId =
   | 'rewards.vault'
   | 'rewards.createReward'
   | 'rewards.createAllowance'
+  | 'rewards.allowanceTab'
+  | 'rewards.ranksTab'
   | 'rewards.holdRequest'
   | 'poppins.speak'
   | 'poppins.stage'
@@ -90,7 +92,9 @@ export type TourStep = {
     | 'forceQuietSpeak'
     | 'plan.itineraries'
     | 'plan.places'
-    | 'rewards.vault';
+    | 'rewards.vault'
+    | 'rewards.allowance'
+    | 'rewards.ranks';
   /** Override primary button label (default Next / Done). */
   primaryLabel?: string;
   /** Special primary action instead of advancing. */

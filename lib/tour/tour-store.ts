@@ -360,6 +360,8 @@ export function applyTourStepEnter(
     | 'plan.itineraries'
     | 'plan.places'
     | 'rewards.vault'
+    | 'rewards.allowance'
+    | 'rewards.ranks'
 ): void {
   if (onEnter === 'tasks.homework') {
     uiHooks.setTasksDomain?.('homework');
@@ -377,6 +379,12 @@ export function applyTourStepEnter(
   }
   if (onEnter === 'rewards.vault') {
     uiHooks.setRewardsSegment?.('rewards');
+  }
+  if (onEnter === 'rewards.allowance') {
+    uiHooks.setRewardsSegment?.('allowance');
+  }
+  if (onEnter === 'rewards.ranks') {
+    uiHooks.setRewardsSegment?.('ranks');
   }
 }
 
