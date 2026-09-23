@@ -6,6 +6,7 @@
  */
 
 import { parseHouseholdIntent, type HouseholdIntentOpts } from '@/lib/poppins/ui-intent';
+import { parseItineraryIntent } from '@/lib/itinerary/itinerary-intent';
 
 const INHERIT_SLOTS = ['assignee', 'due', 'category', 'repeat'] as const;
 type InheritSlot = (typeof INHERIT_SLOTS)[number];
@@ -263,6 +264,19 @@ export function parseCompoundHouseholdIntent(
 ): Array<Record<string, unknown>> {
   const text = utterance.trim();
   if (!text) return [];
+
+  const trip = parseItineraryIntent(text);
+  if (trip) {
+    return [
+      {
+        type: 'create_itinerary',
+        title: trip.title,
+        date: trip.date,
+        stops: trip.stops,
+        sourceUtterance: text,
+      },
+    ];
+  }
 
   const clauses = splitClauses(text);
   if (clauses.length <= 1) {

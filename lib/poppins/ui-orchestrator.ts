@@ -251,6 +251,18 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
       if (result && typeof result === 'object' && 'reverse' in result) {
         reverse = result.reverse ?? null;
       }
+      const write = beat.payload.write ?? 'none';
+      if (write !== 'none') {
+        const { actKeyFromBeat, recordCommittedAct } = await import('@/lib/poppins/act-ledger');
+        recordCommittedAct(
+          write,
+          actKeyFromBeat(write, {
+            groceryName: beat.payload.groceryName,
+            title: beat.payload.title,
+            taskId: beat.payload.taskId,
+          })
+        );
+      }
     } catch (error) {
       const { ActRejectedError, clearRejectedSlot } = await import('@/lib/poppins/validate-act');
       const { withComposeProgress } = await import('@/lib/poppins/iui-compose');
@@ -691,6 +703,21 @@ export const poppinsUiOrchestrator = {
   /** Finger press: stop talking over the choice and apply it now. Auto-HOLD still waits. */
   chooseFromTap(patch: Partial<IuiPayload>, text: string, kind = 'choice') {
     if (state.speaking) setState({ speaking: false });
+    const beat = currentBeat();
+    // B2 — a face tap must never assign a grocery add.
+    if (
+      patch.assignee != null &&
+      beat &&
+      (beat.scene === 'grocery_add' || beat.payload.write === 'add_grocery')
+    ) {
+      console.warn('iui.assignee_ignored', { scene: beat.scene, write: beat.payload.write });
+      const { assignee: _ignored, ...rest } = patch;
+      if (Object.keys(rest).length) {
+        poppinsUiOrchestrator.revise(markSlotSources(rest, 'touch'));
+      }
+      emitTap({ kind, text });
+      return;
+    }
     poppinsUiOrchestrator.revise(markSlotSources(patch, 'touch'));
     emitTap({ kind, text });
   },

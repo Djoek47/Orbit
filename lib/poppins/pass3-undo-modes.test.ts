@@ -82,15 +82,15 @@ async function main() {
     assert.match(settings, /PoppinsModeCards/);
     assert.match(settings, /PoppinsAdvancedSheet/);
     const cards = readFileSync(join(root, 'components/orbit/poppins-mode-cards.tsx'), 'utf8');
-    assert.match(cards, /Poppins Base/);
-    assert.match(cards, /Poppins Max/);
+    assert.match(cards, /title: 'Base'/);
+    assert.match(cards, /title: 'Max'/);
     const advanced = readFileSync(join(root, 'components/orbit/poppins-advanced-sheet.tsx'), 'utf8');
     assert.match(advanced, /Act immediately/);
     assert.match(advanced, /Show thinking/);
 
     const welcome = readFileSync(join(root, 'app/welcome.tsx'), 'utf8');
     assert.match(welcome, /poppins-voice/);
-    assert.match(welcome, /Set up Poppins/);
+    assert.match(welcome, /Set up \{getMajordomoProfile/);
     assert.match(welcome, /PoppinsSetupPanel/);
 
     const panel = readFileSync(join(root, 'components/orbit/onboarding/poppins-setup-panel.tsx'), 'utf8');

@@ -461,16 +461,80 @@ export function executePoppinsTool(
       };
     }
     case 'create_itinerary': {
+      const stopsRaw = Array.isArray(args.stops) ? args.stops : [];
+      const stops = stopsRaw.slice(0, 10).map((row) => {
+        const s = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+        return {
+          label: String(s.label ?? ''),
+          placeQuery: s.placeQuery ?? s.place_query,
+          address: s.address,
+          time: s.time,
+          kind: s.kind ?? 'other',
+          notes: s.notes,
+        };
+      }).filter((s) => s.label.trim());
+      const title = String(args.title ?? (stops[0]?.label || 'Trip'));
       return {
         ui_actions: [
           {
             type: 'create_itinerary',
-            title: String(args.title ?? ''),
+            title,
+            date: args.date,
             startsAt: args.startsAt ?? args.starts_at,
             notes: args.notes,
+            stops: stops.length
+              ? stops
+              : [{ label: title, kind: 'other' }],
           },
         ],
-        note: 'Staged itinerary stop on the IUI stage. HOLD silence commits.',
+        note: 'Staged multi-stop itinerary on the IUI stage. HOLD silence commits.',
+      };
+    }
+    case 'resolve_place': {
+      const query = String(args.query ?? '').trim();
+      const places = Array.isArray(household.savedPlaces)
+        ? (household.savedPlaces as Array<Record<string, unknown>>)
+        : Array.isArray(household.places)
+          ? (household.places as Array<Record<string, unknown>>)
+          : [];
+      const q = query.toLowerCase();
+      const saved = places.find((p) => {
+        const name = String(p.name ?? p.label ?? '').toLowerCase();
+        const kind = String(p.kind ?? '').toLowerCase();
+        return name === q || kind === q || name.includes(q);
+      });
+      if (saved) {
+        return {
+          place: {
+            label: String(saved.name ?? saved.label ?? query),
+            address: String(saved.address ?? ''),
+            lat: saved.lat,
+            lng: saved.lng,
+            source: 'saved',
+          },
+        };
+      }
+      return {
+        place: null,
+        query,
+        note: 'No saved place match. Client may geocode; do not invent an address.',
+      };
+    }
+    case 'list_saved_places': {
+      const places = Array.isArray(household.savedPlaces)
+        ? (household.savedPlaces as Array<Record<string, unknown>>)
+        : Array.isArray(household.places)
+          ? (household.places as Array<Record<string, unknown>>)
+          : [];
+      return {
+        places: places.slice(0, 40).map((p) => ({
+          id: p.id,
+          name: p.name ?? p.label,
+          kind: p.kind,
+          address: p.address,
+          lat: p.lat,
+          lng: p.lng,
+        })),
       };
     }
     case 'advance_itinerary_stop': {

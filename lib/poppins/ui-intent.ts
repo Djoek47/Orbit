@@ -37,6 +37,23 @@ import {
   type ExistingChoreTitle,
 } from '@/lib/poppins/catalog-match';
 
+/** B4 — refuse these as grocery names / task titles. */
+export const FILLER_ITEM_NAMES = new Set([
+  'something',
+  'stuff',
+  'thing',
+  'things',
+  'it',
+  'that',
+  'some',
+  'anything',
+]);
+
+export function isFillerItemName(name: string | undefined | null): boolean {
+  const cleaned = name?.trim().toLowerCase().replace(/[.!?]+$/g, '') ?? '';
+  return Boolean(cleaned) && FILLER_ITEM_NAMES.has(cleaned);
+}
+
 export type HouseholdIntentOpts = {
   memberNames?: string[];
   selfName?: string;
@@ -88,7 +105,7 @@ export function parseHouseholdIntent(
     excludeNames: memberNames,
   });
   if (groceryFromSpeech?.length) {
-    return groceryFromSpeech;
+    return groceryFromSpeech.flatMap((action) => enrichGrocery(action, text));
   }
 
   const wantsItineraryStop =
@@ -117,7 +134,9 @@ export function parseHouseholdIntent(
       !resolved.libraryTaskId &&
       rawTitle.toLowerCase() === String(match.domainLabel).toLowerCase();
     const title =
-      !rawTitle || /^(task|chore)$/i.test(rawTitle) || domainOnly ? '' : rawTitle;
+      !rawTitle || /^(task|chore)$/i.test(rawTitle) || domainOnly || isFillerItemName(rawTitle)
+        ? ''
+        : rawTitle;
     const due = dueLabelFromUtterance(text);
     const named = match.assignee ?? text.match(/\bfor\s+([A-Z][a-zA-Z]+)\b/)?.[1];
     const assignee = named && named.toLowerCase() !== 'me' ? named : match.assignee;
@@ -214,6 +233,11 @@ function enrichTaskDraft(
     }
   }
   if (typeof next.title !== 'string') next.title = '';
+  if (isFillerItemName(String(next.title))) {
+    next.title = '';
+    next.ask = 'What should I add?';
+    next.thinkingLine = 'What should I add?';
+  }
   const assignee = typeof next.assignee === 'string' ? next.assignee : undefined;
   const title = typeof next.title === 'string' ? next.title : undefined;
   if (assigneeBlockedByMemory(getActiveHouseMemory(), assignee, title)) {
@@ -231,8 +255,30 @@ function enrichGrocery(
   action: Record<string, unknown>,
   utterance: string
 ): Array<Record<string, unknown>> {
-  const name = String(action.name ?? '').trim() || extractItemName(utterance) || undefined;
-  if (!name) return [];
+  const rawName = String(action.name ?? '').trim() || extractItemName(utterance) || undefined;
+  if (isFillerItemName(rawName)) {
+    return [
+      {
+        type: 'add_grocery',
+        name: '',
+        ask: 'What should I add?',
+        thinkingLine: 'What should I add?',
+        sourceUtterance: utterance,
+      },
+    ];
+  }
+  const name = rawName;
+  if (!name) {
+    return [
+      {
+        type: 'add_grocery',
+        name: '',
+        ask: 'What should I add?',
+        thinkingLine: 'What should I add?',
+        sourceUtterance: utterance,
+      },
+    ];
+  }
   const shopping = isShoppingIntent(utterance) || action.lane === 'clothing';
   const releaseDate =
     (action.releaseDate ? String(action.releaseDate) : undefined) || parseReleaseDate(utterance);

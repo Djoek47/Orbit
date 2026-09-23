@@ -62,6 +62,12 @@ function isGroceryMetaDraft(
 function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
   const groceryName = String(action.name ?? action.title ?? '').trim();
   const storeHint = String(action.storeHint ?? '').trim();
+  const askLine =
+    typeof action.ask === 'string'
+      ? action.ask
+      : typeof action.thinkingLine === 'string'
+        ? action.thinkingLine
+        : undefined;
   const classified = groceryName ? classifyGroceryItem(groceryName) : null;
   const aisle =
     classified && classified.confidence !== 'fallback'
@@ -76,24 +82,32 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
         title: groceryName || undefined,
         shoppingLane: action.lane === 'clothing' ? 'clothing' : 'grocery',
         thinkingLine:
-          action.lane === 'clothing' ? 'Shopping list' : storeHint || 'Grocery list',
+          askLine ||
+          (action.lane === 'clothing' ? 'Shopping list' : storeHint || 'Grocery list'),
         location: storeHint || undefined,
         sourceUtterance:
           typeof action.sourceUtterance === 'string' ? action.sourceUtterance : undefined,
         // Groceries are household-wide — never copy assignee onto the beat.
+        // Empty name + ask → wait for speech; do not arm HOLD.
+        composeReady: groceryName ? undefined : false,
+        provisional: groceryName ? undefined : true,
       },
-      'hold',
+      groceryName ? 'hold' : 'none',
       'add_grocery'
     ),
-    beat(
-      'result_mark',
-      {
-        markKind: 'added',
-        title: groceryName || undefined,
-        groceryName: groceryName || undefined,
-      },
-      'none'
-    ),
+    ...(groceryName
+      ? [
+          beat(
+            'result_mark',
+            {
+              markKind: 'added' as const,
+              title: groceryName || undefined,
+              groceryName: groceryName || undefined,
+            },
+            'none'
+          ),
+        ]
+      : []),
   ];
 }
 
@@ -306,13 +320,51 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'create_itinerary') {
-      const label = String(action.title ?? prefill.title ?? 'Stop');
+      const stopsRaw = Array.isArray(action.stops) ? action.stops : [];
+      const mappedStops =
+        stopsRaw.length > 0
+          ? stopsRaw.slice(0, 10).map((row, i) => {
+              const s = asRecord(row);
+              const label = String(s.label ?? s.title ?? `Stop ${i + 1}`).trim() || `Stop ${i + 1}`;
+              const address = s.address ? String(s.address) : undefined;
+              const placeQuery = s.placeQuery ? String(s.placeQuery) : undefined;
+              return {
+                id: String(s.id ?? `stop-${i + 1}`),
+                label,
+                emoji:
+                  String(s.kind ?? '') === 'shop' || String(s.kind ?? '') === 'grocery'
+                    ? '🛒'
+                    : String(s.kind ?? '') === 'gym' || String(s.kind ?? '') === 'practice'
+                      ? '🏋️'
+                      : String(s.kind ?? '') === 'work'
+                        ? '💼'
+                        : String(s.kind ?? '') === 'school'
+                          ? '🏫'
+                          : '📍',
+                category: s.kind ? String(s.kind) : undefined,
+                kind: s.kind ? String(s.kind) : undefined,
+                address,
+                placeQuery,
+                time: s.time ? String(s.time) : undefined,
+                needsAddress: !address,
+              };
+            })
+          : [
+              {
+                id: 'stop-1',
+                label: String(action.title ?? prefill.title ?? 'Stop'),
+                emoji: '📍',
+                needsAddress: true,
+              },
+            ];
       playlist.push(
         beat(
           'itinerary_stage',
           {
-            itineraryTitle: label,
-            stops: [{ id: 'stop-1', label, emoji: '🛒', category: 'Shop' }],
+            itineraryTitle: String(action.title ?? prefill.title ?? 'Trip'),
+            date: action.date ? String(action.date) : undefined,
+            stops: mappedStops,
+            thinkingLine: `${mappedStops.length} stop${mappedStops.length === 1 ? '' : 's'}`,
           },
           'hold',
           'create_itinerary_stop'
@@ -437,5 +489,42 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     );
   }
 
-  return playlist;
+  return sanitizeGroceryPlaylist(playlist);
+}
+
+/** B1/B3 — grocery turns never ask who; collapse duplicate grocery names. */
+function sanitizeGroceryPlaylist(playlist: IuiBeat[]): IuiBeat[] {
+  const hasGroceryWrite = playlist.some(
+    (item) => item.payload.write === 'add_grocery' || item.scene === 'grocery_add'
+  );
+  let next = playlist;
+  if (hasGroceryWrite) {
+    next = playlist.filter((item) => item.scene !== 'member_pick');
+    next = next.map((item) => {
+      if (item.payload.write !== 'add_grocery' && item.scene !== 'grocery_add') return item;
+      if (!item.payload.assignee && !item.payload.spokenName) return item;
+      const { assignee: _a, spokenName: _s, ...rest } = item.payload;
+      return { ...item, payload: rest };
+    });
+  }
+
+  const seenGrocery = new Set<string>();
+  const deduped: IuiBeat[] = [];
+  for (const item of next) {
+    if (item.payload.write === 'add_grocery' || item.scene === 'grocery_add') {
+      const key = (item.payload.groceryName ?? item.payload.title ?? '').trim().toLowerCase();
+      if (key && seenGrocery.has(key)) {
+        console.warn('iui.duplicate_suppressed', { write: 'add_grocery', key });
+        continue;
+      }
+      if (key) seenGrocery.add(key);
+    }
+    if (item.scene === 'result_mark' && item.payload.markKind === 'added') {
+      const key = (item.payload.groceryName ?? item.payload.title ?? '').trim().toLowerCase();
+      // Skip orphan result_mark after a suppressed duplicate grocery_add.
+      if (key && !seenGrocery.has(key)) continue;
+    }
+    deduped.push(item);
+  }
+  return deduped;
 }

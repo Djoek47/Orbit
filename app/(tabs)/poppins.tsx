@@ -36,6 +36,13 @@ import { prefsForTier, savePoppinsInteractionPrefs } from '@/lib/poppins/poppins
 import { personalActTokens, summarizeActUsage, notifyActUndone } from '@/lib/ai/act-events';
 import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
 import {
+  confirmationForLocalWrite,
+  findLocalWriteBeat,
+} from '@/lib/poppins/local-act-confirm';
+import { filterDuplicateUiActions } from '@/lib/poppins/act-ledger';
+import { parseCompoundHouseholdIntent } from '@/lib/poppins/clause-segment';
+import { preferLocalOnPlanMismatch } from '@/lib/poppins/context-precedence';
+import {
   isContinuityFresh,
   loadIuiContinuity,
   openActSnapshot,
@@ -62,7 +69,11 @@ import {
   type PoppinsPendingConfirmation,
   type PoppinsVoiceVisualState,
 } from '@/lib/voice/poppins-voice-session';
-import { createQuietCapture, type QuietCapture } from '@/lib/voice/quiet-capture';
+import {
+  createQuietCapture,
+  QUIET_FAILURE_MESSAGES,
+  type QuietCapture,
+} from '@/lib/voice/quiet-capture';
 import { speakTransportForPrefs } from '@/lib/voice/speak-transport';
 import {
   DEFAULT_POPPINS_INTERACTION_PREFS,
@@ -439,7 +450,28 @@ export default function PoppinsScreen() {
 
   const applyUiActions = (actions: Array<Record<string, unknown>>, replace = false) => {
     if (!actions.length) return;
-    driveAiuic(actions, lastUtteranceRef.current, {
+    // B1 — model-only member_pick while the utterance is a grocery add: keep local.
+    const onlyMemberPick =
+      actions.length > 0 &&
+      actions.every((a) => {
+        const t = String(a.type ?? '');
+        return t === 'member_pick' || t === 'list_members';
+      });
+    const local = parseCompoundHouseholdIntent(lastUtteranceRef.current, {
+      memberNames: memberNamesRef.current,
+      selfName: currentMember?.name,
+      existingTasks: household.tasks,
+    });
+    if (onlyMemberPick) {
+      if (local.some((a) => String(a.type) === 'add_grocery')) {
+        return;
+      }
+    }
+    // C — local grammar wins when the model plan is a different act family.
+    const preferred = preferLocalOnPlanMismatch(local, actions);
+    const deduped = filterDuplicateUiActions(preferred.actions);
+    if (!deduped.length) return;
+    driveAiuic(deduped, lastUtteranceRef.current, {
       kid: kidSessionRef.current,
       replace,
       existingTasks: household.tasks,
@@ -595,16 +627,30 @@ export default function PoppinsScreen() {
     setLiveCaption(applyLiveCaptionTurn(null, 'you', trimmed, true));
     lastUtteranceRef.current = trimmed;
     setError('');
-    hearAndDrive(trimmed, memberNamesRef.current, {
+    const tookLocal = hearAndDrive(trimmed, memberNamesRef.current, {
       kid: kidSessionRef.current,
       selfName: currentMember?.name,
       existingTasks: household.tasks,
     });
+    const localWrite = findLocalWriteBeat(
+      poppinsUiOrchestrator.getState().playlist,
+      poppinsUiOrchestrator.getState().index
+    );
+    const localConfirm = localWrite ? confirmationForLocalWrite(localWrite) : null;
 
     // Live duplex: inject into the same WebRTC conversation.
     if (liveSpeak && voiceRef.current?.isConnected) {
       voiceRef.current.sendUserText(trimmed);
       appendPoppinsTurn(trimmed, '(live voice)');
+      return;
+    }
+
+    // A4: local write already staged — confirm from the act, do not ask the model.
+    if (tookLocal && localConfirm) {
+      setVoiceState('speaking');
+      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', localConfirm, true));
+      appendPoppinsTurn(trimmed, localConfirm);
+      setTimeout(() => setVoiceState('idle'), 1800);
       return;
     }
 
@@ -621,18 +667,35 @@ export default function PoppinsScreen() {
           await new Promise((r) => setTimeout(r, 400 - elapsed));
         }
       }
+      // Prefer local confirmation over a model failure / offline sentence.
+      const offline =
+        Boolean(result.error_code) ||
+        result.source === 'openai_error' ||
+        /could not answer|is offline right now/i.test(result.answer ?? '');
+      const answer =
+        offline && localConfirm ? localConfirm : result.answer || localConfirm || '';
       setVoiceState('speaking');
-      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', result.answer, true));
-      appendPoppinsTurn(trimmed, result.answer);
-      if (result.actions?.length) {
+      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', answer, true));
+      appendPoppinsTurn(trimmed, answer);
+      if (!offline && result.actions?.length) {
         flashToolSuccess(result.actions[0]!.label);
       }
-      if (result.ui_actions?.length) {
+      if (!offline && result.ui_actions?.length) {
         applyUiActions(result.ui_actions, true);
       }
-      poppinsUiOrchestrator.syncSpoken(result.answer, memberNamesRef.current);
+      if (!offline) {
+        poppinsUiOrchestrator.syncSpoken(result.answer, memberNamesRef.current);
+      }
     } catch {
-      setError(`${majordomo.displayName} could not answer right now. Try again in a moment.`);
+      if (localConfirm) {
+        setVoiceState('speaking');
+        setLiveCaption(applyLiveCaptionTurn(null, 'poppins', localConfirm, true));
+        appendPoppinsTurn(trimmed, localConfirm);
+      } else {
+        // Still show the user bubble so the thread never loses what they said.
+        appendPoppinsTurn(trimmed, '');
+        setError(`${majordomo.displayName} could not answer right now. Try again in a moment.`);
+      }
     } finally {
       setAsking(false);
       setTimeout(() => setVoiceState('idle'), 1800);
@@ -689,16 +752,17 @@ export default function PoppinsScreen() {
     setQuietListening(false);
     setListening(false);
     try {
-      const transcript = await capture.stop(householdRef.current, metrics);
+      const result = await capture.stop(householdRef.current, metrics);
       quietRef.current = null;
-      if (!transcript) {
+      if ('failed' in result) {
         setVoiceState('idle');
-        setLiveCaption(
-          applyLiveCaptionTurn(null, 'poppins', "Didn't catch that. Tap to try again.", true)
-        );
+        const line =
+          QUIET_FAILURE_MESSAGES[result.failed] ??
+          "Didn't catch that. Tap to try again.";
+        setLiveCaption(applyLiveCaptionTurn(null, 'poppins', line, true));
         return;
       }
-      await submitUtterance(transcript, 'dictated');
+      await submitUtterance(result.transcript, 'dictated');
     } catch {
       quietRef.current = null;
       setVoiceState('idle');

@@ -59,6 +59,12 @@ export type IuiStop = {
   label: string;
   emoji?: string;
   category?: string;
+  address?: string;
+  placeQuery?: string;
+  time?: string;
+  kind?: string;
+  /** Unresolved place — show add-address chip. */
+  needsAddress?: boolean;
 };
 
 export type IuiPayload = {

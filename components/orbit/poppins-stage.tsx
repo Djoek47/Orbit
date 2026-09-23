@@ -658,17 +658,50 @@ export function PoppinsStage({
           holding={drive.holding}
           frozen={drive.frozen}>
           <Text style={[styles.lead, { color: c.text }]}>{payload.itineraryTitle ?? 'Trip'}</Text>
-          <IuiRoad
-            accent={accent}
-            drawRoad={unfolded}
-            stop={
-              payload.stops?.[0] ?? {
-                id: 'stop-1',
-                label: payload.itineraryTitle ?? 'Stop',
-                emoji: '📍',
+          {(payload.stops?.length ?? 0) > 1 ? (
+            <View style={styles.stack}>
+              {(payload.stops ?? []).map((stop, index) => {
+                const place =
+                  stop.address?.trim() ||
+                  (stop.needsAddress ? 'Add address' : stop.placeQuery?.trim()) ||
+                  null;
+                const detail = [stop.time, place].filter(Boolean).join(' · ');
+                return (
+                  <Pressable
+                    key={stop.id}
+                    onPress={() => {
+                      poppinsUiOrchestrator.chooseFromTap(
+                        {
+                          stops: payload.stops,
+                          selectedChipId: stop.id,
+                        },
+                        stop.label,
+                        'stop'
+                      );
+                    }}>
+                    <IuiObjectCard
+                      title={`${index + 1}. ${stop.label}`}
+                      detail={detail || undefined}
+                      emoji={stop.emoji ?? '📍'}
+                      accent={accent}
+                    />
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <IuiRoad
+              accent={accent}
+              drawRoad={unfolded}
+              stop={
+                payload.stops?.[0] ?? {
+                  id: 'stop-1',
+                  label: payload.itineraryTitle ?? 'Stop',
+                  emoji: '📍',
+                }
               }
-            }
-          />
+            />
+          )}
         </IuiStepper>
       ) : null}
 
