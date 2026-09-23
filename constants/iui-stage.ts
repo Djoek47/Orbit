@@ -52,6 +52,21 @@ export const STAGE = {
     faintDark: '#6E88AA',
     faintLight: '#6E88AA',
   },
+  /** Shell / dock — Main / Batch / Coach boards. */
+  shell: {
+    groundDark: '#070D1C',
+    groundLight: '#F0F4F8',
+    /** Teaching accent on coach cards (lighter than household domain). */
+    teach: '#6FA8E8',
+    teachNum: '#9BC6F5',
+    mic: '#2F9E74',
+  },
+  dock: {
+    side: 54,
+    mic: 82,
+    sideRadius: 18,
+    gap: 20,
+  },
 } as const;
 
 export type StageDomain = keyof typeof STAGE.domain;
@@ -59,7 +74,7 @@ export type StageDomain = keyof typeof STAGE.domain;
 /** Domain colour for a beat — fixed, not the member accent. */
 export function stageAccent(scene: IuiScene | string, write?: IuiWriteKind | string): string {
   if (scene === 'coach_steps' || scene === 'navigate_coach' || scene === 'member_pick') {
-    return STAGE.domain.household;
+    return STAGE.shell.teach;
   }
   if (scene === 'reward_mint') return STAGE.domain.rewards;
   if (

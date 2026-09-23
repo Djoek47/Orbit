@@ -927,6 +927,54 @@ export const poppinsUiOrchestrator = {
   dropGroupItem(itemId: string) {
     applyDropGroupItem(itemId);
   },
+  /** Drop a queued upcoming beat (Batch board × on "NEXT, ON ITS OWN CARD"). */
+  dropQueuedBeat(beatId: string) {
+    const id = beatId.replace(/^queue:/, '');
+    if (!id || !state.playlist.length) return;
+    const nextIndex = state.index + 1;
+    const filtered = state.playlist.filter((beat, i) => i <= state.index || beat.id !== id);
+    if (filtered.length === state.playlist.length) return;
+    setState({ playlist: filtered });
+    void nextIndex;
+  },
+  /** Settle ledger labels for the Undo window (newest turn). */
+  undoLedgerRows(): Array<{ id: string; label: string }> {
+    if (!state.undoUntil || Date.now() > state.undoUntil) return [];
+    const ledger = state.undoLedger.length
+      ? state.undoLedger
+      : state.undoBeat
+        ? [{ beat: state.undoBeat, reverse: state.undoReverse }]
+        : [];
+    return ledger.flatMap((entry, index) => {
+      const beat = entry.beat;
+      const items = beat.payload.items?.filter((item) => !item.dropped) ?? [];
+      if (items.length > 1) {
+        return [
+          {
+            id: `${beat.id}-group`,
+            label:
+              beat.scene === 'grocery_add'
+                ? `Groceries · ${items.length} items`
+                : `${items.length} things`,
+          },
+        ];
+      }
+      const label =
+        beat.payload.groceryName ??
+        beat.payload.title ??
+        beat.payload.rewardName ??
+        beat.payload.itineraryTitle ??
+        items[0]?.label ??
+        'Act';
+      const assignee = beat.payload.assignee;
+      const due = beat.payload.due;
+      const detail =
+        assignee || due
+          ? `${label}${assignee ? ` → ${assignee}` : ''}${due ? ` · ${due}` : ''}`
+          : label;
+      return [{ id: `${beat.id}-${index}`, label: detail }];
+    });
+  },
   patchGroupItemStatus(
     itemId: string,
     status: 'pending' | 'saving' | 'done' | 'failed'

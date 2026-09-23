@@ -1,5 +1,7 @@
 /**
  * WO12 §B — grocery and batch rows via IuiCard + IuiRow.
+ * Main board: single item is a horizontal object tile.
+ * Batch board: N rows + one hold + dashed queue row with ×.
  */
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -7,7 +9,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
 import { IuiRow } from '@/components/orbit/poppins-stage/iui-row';
 import { IuiTroubleRowFailed } from '@/components/orbit/poppins-stage/iui-trouble';
-import { STAGE, stageMuted } from '@/constants/iui-stage';
+import { STAGE, stageFaint, stageMuted } from '@/constants/iui-stage';
 import type { IuiGroupItem, IuiPayload } from '@/lib/poppins/ui-scenes';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -23,6 +25,7 @@ type Props = {
   countLabel?: string;
   onAddNow?: () => void;
   onNotThat?: () => void;
+  onDropQueued?: (id: string) => void;
 };
 
 export function IuiGroceryCard({
@@ -36,9 +39,11 @@ export function IuiGroceryCard({
   countLabel,
   onAddNow,
   onNotThat,
+  onDropQueued,
 }: Props) {
   const { isDark, c } = useOrbitColors();
   const muted = stageMuted(isDark);
+  const faint = stageFaint(isDark);
   const items =
     payload.items && payload.items.length > 0
       ? payload.items.filter((item) => !item.dropped)
@@ -53,10 +58,11 @@ export function IuiGroceryCard({
           ]
         : [];
   const multi = items.length > 1;
-  const single = items.length === 1 && !payload.items?.length;
+  const single = items.length === 1 && !(payload.items && payload.items.length > 1);
   const failed = items.filter((item) => item.status === 'failed');
   const done = items.filter((item) => item.status === 'done');
   const failedPrimary = failed[0];
+  const detail = items[0]?.aisle ?? payload.aisle;
 
   return (
     <View style={styles.wrap}>
@@ -68,11 +74,15 @@ export function IuiGroceryCard({
         holding={holding}
         holdProgress={holdProgress}
         frozen={frozen}
-        leftFooter={multi ? 'One hold for all' : 'Holding…'}
-        rightFooter={multi ? 'tap × to drop one' : undefined}
+        leftFooter={
+          multi
+            ? `One hold for all ${items.length === 3 ? 'three' : items.length}`
+            : 'Quiet adds it'
+        }
+        rightFooter={multi ? 'tap × to drop one' : 'speak or tap to change'}
         accessibilityLabel="Grocery card">
         {single ? (
-          <View style={styles.single}>
+          <View style={styles.singleRow}>
             <View
               style={[
                 styles.tile,
@@ -80,21 +90,23 @@ export function IuiGroceryCard({
               ]}>
               <Text style={styles.tileGlyph}>{payload.shoppingLane === 'clothing' ? '👟' : '🛒'}</Text>
             </View>
-            <Text style={[styles.singleTitle, { color: c.text }]} numberOfLines={2}>
-              {items[0]?.label}
-            </Text>
-            {items[0]?.aisle || payload.aisle ? (
-              <Text style={[styles.singleDetail, { color: muted }]}>
-                {items[0]?.aisle ?? payload.aisle}
+            <View style={styles.singleBody}>
+              <Text style={[styles.singleTitle, { color: c.text }]} numberOfLines={2}>
+                {items[0]?.label}
               </Text>
-            ) : null}
+              {detail ? (
+                <Text style={[styles.singleDetail, { color: muted }]} numberOfLines={2}>
+                  {detail}
+                </Text>
+              ) : null}
+            </View>
           </View>
         ) : (
           items.map((item, index) => (
             <IuiRow
               key={item.id}
               title={item.label}
-              detail={item.aisle}
+              trailing={item.aisle}
               status={item.status}
               active={index === items.length - 1 && item.status === 'pending'}
               accent={accent}
@@ -131,20 +143,32 @@ export function IuiGroceryCard({
             styles.queue,
             {
               borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,28,42,0.14)',
-              backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(15,28,42,0.03)',
+              backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(15,28,42,0.02)',
             },
           ]}>
-          <View style={[styles.queueTile, { backgroundColor: `${accent}33` }]} />
+          <View style={[styles.queueTile, { backgroundColor: `${accent}1F` }]}>
+            <Text style={{ color: accent, fontSize: 14, fontWeight: '700' }}>✓</Text>
+          </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.queueKicker, { color: STAGE.text.faintDark }]}>
-              NEXT, ON ITS OWN CARD
-            </Text>
-            <Text style={[styles.queueTitle, { color: c.text }]} numberOfLines={1}>
+            <Text style={[styles.queueKicker, { color: faint }]}>NEXT, ON ITS OWN CARD</Text>
+            <Text style={[styles.queueTitle, { color: isDark ? '#C8D8F0' : c.text }]} numberOfLines={1}>
               {queued[0]?.label}
               {queued[0]?.assignee ? ` → ${queued[0].assignee}` : ''}
               {queued[0]?.due ? ` · ${queued[0].due}` : ''}
             </Text>
           </View>
+          <Pressable
+            onPress={() => {
+              const id = queued[0]?.id;
+              if (!id) return;
+              if (onDropQueued) onDropQueued(id);
+              else poppinsUiOrchestrator.dropQueuedBeat(id);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Drop the next card"
+            style={styles.queueDrop}>
+            <Text style={[styles.queueDropMark, { color: faint }]}>×</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -166,9 +190,14 @@ export function IuiGroceryCard({
               accessibilityLabel="Not that"
               style={[
                 styles.secondaryBtn,
-                { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,28,42,0.05)' },
+                {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,28,42,0.05)',
+                  borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,28,42,0.10)',
+                },
               ]}>
-              <Text style={[styles.secondaryLabel, { color: c.text }]}>Not that</Text>
+              <Text style={[styles.secondaryLabel, { color: isDark ? '#C8D8F0' : c.text }]}>
+                Not that
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -179,7 +208,13 @@ export function IuiGroceryCard({
 
 const styles = StyleSheet.create({
   wrap: { width: '100%', gap: 12, alignItems: 'center' },
-  single: { alignItems: 'center', paddingVertical: 8, gap: 8 },
+  singleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
   tile: {
     width: 54,
     height: 54,
@@ -189,8 +224,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tileGlyph: { fontSize: 24 },
-  singleTitle: { fontSize: 30, lineHeight: 34, fontWeight: '600', letterSpacing: -0.4, textAlign: 'center' },
-  singleDetail: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  singleBody: { flex: 1, gap: 3, minWidth: 0 },
+  singleTitle: { fontSize: 30, lineHeight: 34, fontWeight: '600', letterSpacing: -0.4 },
+  singleDetail: { fontSize: 13, lineHeight: 18 },
   queue: {
     width: '100%',
     maxWidth: 360,
@@ -203,10 +239,24 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 15,
   },
-  queueTile: { width: 26, height: 26, borderRadius: 8 },
-  queueKicker: { fontSize: 11, letterSpacing: 1.1, fontWeight: '600' },
+  queueTile: {
+    width: 26,
+    height: 26,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  queueKicker: { fontSize: 11, letterSpacing: 1.2, fontWeight: '700' },
   queueTitle: { fontSize: 14, marginTop: 2 },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  queueDrop: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -6,
+  },
+  queueDropMark: { fontSize: 22, fontWeight: '400', lineHeight: 24 },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 4 },
   primaryBtn: {
     minHeight: 44,
     borderRadius: STAGE.radius.pill,
@@ -214,13 +264,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     justifyContent: 'center',
   },
-  primaryLabel: { color: '#061424', fontWeight: '700', fontSize: 15 },
+  primaryLabel: { color: '#061424', fontWeight: '700', fontSize: 13 },
   secondaryBtn: {
     minHeight: 44,
     borderRadius: STAGE.radius.pill,
     paddingHorizontal: 20,
     paddingVertical: 12,
     justifyContent: 'center',
+    borderWidth: 1,
   },
-  secondaryLabel: { fontWeight: '600', fontSize: 15 },
+  secondaryLabel: { fontWeight: '600', fontSize: 13 },
 });

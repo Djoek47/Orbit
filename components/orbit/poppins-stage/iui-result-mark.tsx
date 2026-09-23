@@ -1,9 +1,9 @@
 /**
- * WO12 settle — turn ledger with Undo N things (WO11 §2.5).
+ * WO12 settle — turn ledger with Undo N things (Settle.html).
  * Mount animation allowed here: settle is after WebRTC uplink is quiet.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeIn,
@@ -14,8 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { IuiRow } from '@/components/orbit/poppins-stage/iui-row';
-import { STAGE, stageMuted } from '@/constants/iui-stage';
+import { STAGE, stageFaint, stageMuted } from '@/constants/iui-stage';
 import { motion, motionDuration } from '@/constants/motion-tokens';
 import { space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -30,6 +29,7 @@ type Props = {
   title?: string;
   undoable?: boolean;
   undoLabel?: string;
+  undoUntil?: number | null;
   ledger?: LedgerRow[];
   onUndo?: () => void;
   onUndoOne?: (id: string) => void;
@@ -48,6 +48,7 @@ export function IuiResultMark({
   title,
   undoable,
   undoLabel,
+  undoUntil,
   ledger,
   onUndo,
   onUndoOne,
@@ -55,12 +56,29 @@ export function IuiResultMark({
 }: Props) {
   const { c, isDark } = useOrbitColors();
   const muted = stageMuted(isDark);
+  const faint = stageFaint(isDark);
   const scale = useSharedValue(0.82);
   const markGreen = STAGE.semantic.success;
+  const [ringProgress, setRingProgress] = useState(1);
 
   useEffect(() => {
     scale.value = withSpring(1, motion.settle);
   }, [scale]);
+
+  useEffect(() => {
+    if (!undoable || !undoUntil) {
+      setRingProgress(1);
+      return;
+    }
+    const total = Math.max(1, undoUntil - Date.now());
+    const tick = () => {
+      const left = Math.max(0, undoUntil - Date.now());
+      setRingProgress(left / total);
+    };
+    tick();
+    const id = setInterval(tick, 50);
+    return () => clearInterval(id);
+  }, [undoable, undoUntil]);
 
   const badgeStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -74,6 +92,7 @@ export function IuiResultMark({
           {
             backgroundColor: `${markGreen}24`,
             borderColor: `${markGreen}47`,
+            shadowColor: markGreen,
           },
           badgeStyle,
         ]}>
@@ -82,7 +101,7 @@ export function IuiResultMark({
       <Animated.View entering={FadeInUp.delay(80).duration(motionDuration.smooth + 60)}>
         <Text style={[styles.label, { color: markGreen }]}>{LABEL[kind]}</Text>
         {title ? (
-          <Text style={[styles.title, { color: c.text }]} numberOfLines={3}>
+          <Text style={[styles.title, { color: isDark ? '#C8D8F0' : c.text }]} numberOfLines={3}>
             {title}
           </Text>
         ) : null}
@@ -98,19 +117,29 @@ export function IuiResultMark({
           style={[
             styles.ledger,
             {
-              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.92)',
-              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.10)',
+              backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.92)',
+              borderColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(15,28,42,0.10)',
             },
           ]}>
           {ledger.map((row) => (
-            <IuiRow
-              key={row.id}
-              title={row.label}
-              status="done"
-              allowDrop={Boolean(onUndoOne)}
-              dropLabel={`Undo ${row.label}`}
-              onDrop={onUndoOne ? () => onUndoOne(row.id) : undefined}
-            />
+            <View key={row.id} style={styles.ledgerRow}>
+              <View style={[styles.ledgerDot, { backgroundColor: `${markGreen}29` }]}>
+                <Text style={{ color: markGreen, fontSize: 11, fontWeight: '700' }}>✓</Text>
+              </View>
+              <Text style={[styles.ledgerLabel, { color: isDark ? '#C8D8F0' : c.text }]} numberOfLines={1}>
+                {row.label}
+              </Text>
+              {onUndoOne ? (
+                <Pressable
+                  onPress={() => onUndoOne(row.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Undo ${row.label}`}
+                  hitSlop={8}
+                  style={styles.ledgerUndo}>
+                  <Text style={[styles.ledgerUndoLabel, { color: muted }]}>Undo</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ))}
         </View>
       ) : null}
@@ -120,15 +149,34 @@ export function IuiResultMark({
           onPress={onUndo}
           accessibilityRole="button"
           accessibilityLabel={undoLabel ?? 'Undo'}
-          style={[styles.undoPill, { borderColor: `${markGreen}55` }]}>
-          <Text style={[styles.undoText, { color: markGreen }]}>
-            {undoLabel ?? 'Undo'}
-          </Text>
+          style={[
+            styles.undoPill,
+            {
+              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,28,42,0.05)',
+              borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,28,42,0.10)',
+            },
+          ]}>
+          <Text style={[styles.undoText, { color: c.text }]}>{undoLabel ?? 'Undo'}</Text>
+          <View
+            style={[
+              styles.ring,
+              {
+                borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,28,42,0.14)',
+                borderTopColor: ringProgress > 0.5 ? markGreen : 'transparent',
+                borderRightColor: ringProgress > 0.25 ? markGreen : 'transparent',
+                borderBottomColor: ringProgress > 0 ? markGreen : 'transparent',
+                borderLeftColor: ringProgress > 0.75 ? markGreen : 'transparent',
+                opacity: Math.max(0.35, ringProgress),
+              },
+            ]}
+          />
         </Pressable>
       ) : null}
 
       {undoable ? (
-        <Text style={[styles.hint, { color: muted }]}>Five seconds, then the stage clears.</Text>
+        <Text style={[styles.hint, { color: faint }]}>
+          Five seconds, then the stage clears and Poppins goes quiet.
+        </Text>
       ) : null}
     </Animated.View>
   );
@@ -148,6 +196,9 @@ const styles = StyleSheet.create({
     width: 108,
     justifyContent: 'center',
     borderWidth: 1,
+    shadowOpacity: 0.18,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 0 },
   },
   label: {
     ...typography.title2,
@@ -163,6 +214,7 @@ const styles = StyleSheet.create({
     marginTop: space.xxs,
     textAlign: 'center',
     paddingHorizontal: 16,
+    maxWidth: 280,
   },
   offline: {
     fontSize: 13,
@@ -174,25 +226,55 @@ const styles = StyleSheet.create({
   ledger: {
     width: '100%',
     maxWidth: 360,
-    borderRadius: STAGE.radius.card,
+    borderRadius: 22,
     borderWidth: 1,
     padding: 6,
-    gap: 3,
+    gap: 2,
     marginTop: 8,
   },
-  undoPill: {
-    marginTop: 8,
-    minHeight: 44,
-    paddingHorizontal: 18,
+  ledgerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     paddingVertical: 10,
-    borderRadius: STAGE.radius.pill,
-    borderWidth: 1,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    minHeight: 44,
+  },
+  ledgerDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  undoText: { fontSize: 15, fontWeight: '700' },
+  ledgerLabel: { flex: 1, fontSize: 14 },
+  ledgerUndo: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
+  ledgerUndoLabel: { fontSize: 12, fontWeight: '500' },
+  undoPill: {
+    marginTop: 8,
+    minHeight: 46,
+    paddingLeft: 20,
+    paddingRight: 12,
+    paddingVertical: 11,
+    borderRadius: STAGE.radius.pill,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  undoText: { fontSize: 14, fontWeight: '600' },
+  ring: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+  },
   hint: {
     ...typography.caption1,
     marginTop: space.xs,
     textAlign: 'center',
+    maxWidth: 260,
+    lineHeight: 17,
   },
 });

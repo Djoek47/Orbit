@@ -20,7 +20,7 @@ import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PoppinsStage } from '@/components/orbit/poppins-stage';
 import { IuiTroubleNothingHeard } from '@/components/orbit/poppins-stage/iui-trouble';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
-import { STAGE } from '@/constants/iui-stage';
+import { STAGE, stageAccent } from '@/constants/iui-stage';
 import { PoppinsWaveform } from '@/components/orbit/poppins-waveform';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius, space } from '@/constants/orbit-theme';
@@ -943,11 +943,34 @@ export default function PoppinsScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: isDark ? '#000000' : orbitPalette.background }]}
+      style={[
+        styles.container,
+        {
+          backgroundColor: drive.live
+            ? isDark
+              ? STAGE.shell.groundDark
+              : STAGE.shell.groundLight
+            : isDark
+              ? STAGE.shell.groundDark
+              : orbitPalette.background,
+        },
+      ]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={24}>
       <PoppinsRemoteAudio streamURL={remoteStreamUrl} />
-      {drive.live ? null : (
+      {(drive.live || visualState !== 'idle') ? (
+        <View
+          style={[
+            styles.ambient,
+            {
+              backgroundColor: drive.live
+                ? `${stageAccent(drive.playlist[drive.index]?.scene ?? 'grocery_add', drive.playlist[drive.index]?.payload.write)}12`
+                : ambient,
+            },
+          ]}
+          pointerEvents="none"
+        />
+      ) : (
         <View style={[styles.ambient, { backgroundColor: ambient }]} pointerEvents="none" />
       )}
 
@@ -962,30 +985,55 @@ export default function PoppinsScreen() {
               monthGlow={monthGlow}
               accent={majordomo.accent}
             />
-          ) : null}
-          <Text style={[styles.kicker, { color: isDark ? 'rgba(255,255,255,0.3)' : c.textSubtle }]}>
-            {majordomo.displayName.toUpperCase()}
+          ) : (
+            <View
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 4,
+                backgroundColor: drive.live
+                  ? stageAccent(
+                      drive.playlist[drive.index]?.scene ?? 'grocery_add',
+                      drive.playlist[drive.index]?.payload.write
+                    )
+                  : cfg.color,
+              }}
+            />
+          )}
+          <Text
+            style={[
+              styles.kicker,
+              { color: isDark ? STAGE.text.mutedDark : STAGE.text.mutedLight },
+            ]}>
+            {drive.live
+              ? `${(drive.playlist[drive.index]?.scene ?? 'stage').replace(/_/g, ' ').toUpperCase()} · LIVE`
+              : majordomo.displayName.toUpperCase()}
           </Text>
         </View>
-        <Pressable
-          style={[
-            styles.activityBtn,
-            {
-              backgroundColor: glass(0.06),
-              borderColor: glassBorder(0.1),
-            },
-          ]}
-          onPress={() => {
-            if (drive.live) return;
-            router.push({
-              pathname: '/notifications',
-              params: { tab: 'activity', from: 'poppins' },
-            } as never);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Activity">
-          <PoppinsHourglass size={18} color="#2DD4BF" active={isActive} />
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={[styles.kicker, { color: STAGE.text.faintDark }]}>{dailyLeft} LEFT</Text>
+          <Pressable
+            style={[
+              styles.activityBtn,
+              {
+                backgroundColor: glass(0.06),
+                borderColor: glassBorder(0.1),
+                opacity: drive.live ? 0 : 1,
+              },
+            ]}
+            onPress={() => {
+              if (drive.live) return;
+              router.push({
+                pathname: '/notifications',
+                params: { tab: 'activity', from: 'poppins' },
+              } as never);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Activity"
+            pointerEvents={drive.live ? 'none' : 'auto'}>
+            <PoppinsHourglass size={18} color="#2DD4BF" active={isActive} />
+          </Pressable>
+        </View>
       </View>
 
       {nothingHeard && !drive.live ? (
@@ -1218,14 +1266,14 @@ export default function PoppinsScreen() {
                     ? ['rgba(248,113,113,0.95)', 'rgba(239,68,68,0.85)']
                     : connecting
                       ? ['rgba(167,139,250,0.9)', 'rgba(139,92,246,0.8)']
-                      : isDark
-                        ? ['rgba(52,211,153,0.9)', 'rgba(16,185,129,0.8)']
-                        : [`${c.primary}55`, `${c.primary}33`]
+                      : [STAGE.shell.mic, '#248A64']
                 }
                 style={[
                   styles.micBtn,
                   {
-                    borderColor: primaryConnected ? 'rgba(255,255,255,0.25)' : glassBorder(0.14),
+                    borderColor: primaryConnected
+                      ? 'rgba(255,255,255,0.25)'
+                      : 'rgba(118,196,174,0.28)',
                   },
                 ]}>
                 {primaryConnected ? (
@@ -1233,7 +1281,7 @@ export default function PoppinsScreen() {
                 ) : connecting ? (
                   <MaterialIcons name="graphic-eq" size={28} color="#fff" />
                 ) : (
-                  <MaterialIcons name="mic" size={30} color={isDark ? '#fff' : c.text} />
+                  <MaterialIcons name="mic" size={28} color="#FFFFFF" />
                 )}
               </LinearGradient>
             </Pressable></TourTarget>
@@ -1241,7 +1289,22 @@ export default function PoppinsScreen() {
             <View style={styles.micWrap} />
           )}
 
-          <View style={styles.speakBalance} pointerEvents="none" />
+          <Pressable
+            onPress={() => {
+              setShowText(true);
+              setDraft((prev) => (prev.trim() ? prev : 'how do I '));
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Show me how"
+            style={[
+              styles.sideBtn,
+              {
+                backgroundColor: `${STAGE.domain.household}24`,
+                borderColor: `${STAGE.domain.household}57`,
+              },
+            ]}>
+            <MaterialIcons name="help-outline" size={21} color={STAGE.shell.teach} />
+          </Pressable>
         </View>
 
         <Text
@@ -1318,12 +1381,13 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   ambient: {
     position: 'absolute',
-    top: '12%',
-    left: '10%',
-    right: '10%',
-    height: 340,
+    top: 96,
+    left: '50%',
+    marginLeft: -310,
+    width: 620,
+    height: 620,
     borderRadius: 999,
-    opacity: 0.9,
+    opacity: 1,
   },
   header: {
     alignItems: 'center',
@@ -1467,34 +1531,34 @@ const styles = StyleSheet.create({
   },
   sideBtn: {
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    height: 48,
+    height: 54,
     justifyContent: 'center',
-    width: 48,
+    width: 54,
   },
   speakBalance: {
-    height: 48,
-    width: 48,
+    height: 54,
+    width: 54,
   },
   micWrap: {
     alignItems: 'center',
-    height: 80,
+    height: 82,
     justifyContent: 'center',
-    width: 80,
+    width: 82,
   },
   micPulse: {
     ...StyleSheet.absoluteFill,
-    borderRadius: 40,
+    borderRadius: 41,
     transform: [{ scale: 1.35 }],
   },
   micBtn: {
     alignItems: 'center',
-    borderRadius: 40,
-    borderWidth: 1.5,
-    height: 80,
+    borderRadius: 41,
+    borderWidth: 3,
+    height: 82,
     justifyContent: 'center',
-    width: 80,
+    width: 82,
   },
   stopSquare: {
     backgroundColor: '#fff',

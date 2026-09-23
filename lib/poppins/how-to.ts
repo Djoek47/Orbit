@@ -19,6 +19,8 @@ export type HowToEntry = {
   id: string;
   title: string;
   answer: string;
+  /** Optional supporting line under the answer (Coach board detail). */
+  detail?: string;
   patterns: string[];
   steps: HowToStep[];
   canDoItForYou: boolean;
@@ -30,7 +32,9 @@ export const HOW_TO_INDEX: HowToEntry[] = [
   {
     id: 'proof-on-chore',
     title: 'Proof on a chore',
-    answer: 'Turn on photo proof when you create or edit the chore.',
+    answer: 'Three taps, on the chore itself',
+    detail:
+      'Turn it on per chore, not per person — the photo is asked for when it\'s marked done.',
     patterns: [
       'how do i make a chore need a photo',
       'require proof',
@@ -298,7 +302,7 @@ export function howToUiAction(entry: HowToEntry, utterance: string): Record<stri
     payload: {
       coachLine: entry.answer,
       title: entry.title,
-      subtitle: entry.answer,
+      subtitle: entry.detail ?? entry.answer,
       sourceUtterance: utterance,
       howToId: entry.id,
       canDoItForYou: entry.canDoItForYou,

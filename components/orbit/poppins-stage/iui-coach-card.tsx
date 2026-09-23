@@ -1,11 +1,10 @@
 /**
- * WO12 §D2 — coach_steps card: numbered how-to + Walk me through / Just do it.
- * Domain-cyan (household) kicker. Teaching never arms a hold.
+ * WO12 §D2 — coach_steps card (Coach.html).
+ * Teaching never arms a hold and never costs an action.
  */
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
 import { STAGE, stageFaint, stageMuted } from '@/constants/iui-stage';
 import type { IuiPayload } from '@/lib/poppins/ui-scenes';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -21,54 +20,76 @@ export function IuiCoachCard({ payload, accent, onWalkThrough, onJustDoIt }: Pro
   const { isDark, c } = useOrbitColors();
   const muted = stageMuted(isDark);
   const faint = stageFaint(isDark);
+  const teach = STAGE.shell.teach;
+  const teachNum = STAGE.shell.teachNum;
   const steps = payload.coachSteps ?? [];
   const canDo = payload.canDoItForYou === true && Boolean(onJustDoIt);
+  const headline = payload.coachLine ?? payload.subtitle ?? 'Here is how.';
+  const detail =
+    payload.subtitle && payload.subtitle !== headline ? payload.subtitle : undefined;
 
   return (
     <View style={styles.wrap}>
-      <IuiCard
-        accent={accent}
-        kicker="Teaching · free"
-        countLabel="No actions used"
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.92)',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.10)',
+          },
+        ]}
         accessibilityLabel={`How to: ${payload.title ?? 'teach'}`}>
         <View style={styles.head}>
-          <Text style={[styles.titleKicker, { color: accent }]} numberOfLines={1}>
+          <Text style={[styles.titleKicker, { color: teach }]} numberOfLines={1}>
             {(payload.title ?? 'How to').toUpperCase()}
           </Text>
-          <Text style={[styles.answer, { color: c.text }]}>
-            {payload.coachLine ?? payload.subtitle ?? 'Here is how.'}
-          </Text>
-          {payload.sourceUtterance ? (
-            <Text style={[styles.quote, { color: muted }]} numberOfLines={2}>
+          <Text style={[styles.answer, { color: c.text }]}>{headline}</Text>
+          {detail ? (
+            <Text style={[styles.detail, { color: muted }]}>{detail}</Text>
+          ) : payload.sourceUtterance ? (
+            <Text style={[styles.detail, { color: muted }]} numberOfLines={2}>
               “{payload.sourceUtterance}”
             </Text>
           ) : null}
         </View>
 
         <View style={styles.steps}>
-          {steps.map((step, index) => (
-            <View
-              key={step.id}
-              style={[
-                styles.stepRow,
-                {
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(15,28,42,0.04)',
-                },
-              ]}>
-              <View style={[styles.stepNum, { backgroundColor: `${accent}2E` }]}>
-                <Text style={[styles.stepNumLabel, { color: accent }]}>{index + 1}</Text>
+          {steps.map((step, index) => {
+            const navigates = Boolean(step.route || step.targetId);
+            return (
+              <View
+                key={step.id}
+                style={[
+                  styles.stepRow,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(15,28,42,0.04)',
+                  },
+                ]}>
+                <View style={[styles.stepNum, { backgroundColor: `${STAGE.domain.household}2E` }]}>
+                  <Text style={[styles.stepNumLabel, { color: teachNum }]}>{index + 1}</Text>
+                </View>
+                <Text style={[styles.stepText, { color: c.text }]}>{step.text}</Text>
+                {navigates ? (
+                  <Text style={[styles.chevron, { color: faint }]}>›</Text>
+                ) : null}
               </View>
-              <Text style={[styles.stepText, { color: c.text }]}>{step.text}</Text>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
-        <View style={[styles.footer, { backgroundColor: `${accent}14`, borderTopColor: `${accent}33` }]}>
+        <View
+          style={[
+            styles.footer,
+            {
+              backgroundColor: `${STAGE.domain.household}14`,
+              borderTopColor: `${STAGE.domain.household}33`,
+            },
+          ]}>
           <Pressable
             onPress={onWalkThrough}
             accessibilityRole="button"
             accessibilityLabel="Walk me through it"
-            style={[styles.primaryBtn, { backgroundColor: accent }]}>
+            style={[styles.primaryBtn, { backgroundColor: teach }]}>
             <Text style={styles.primaryLabel}>Walk me through it</Text>
           </Pressable>
           {canDo ? (
@@ -83,11 +104,13 @@ export function IuiCoachCard({ payload, accent, onWalkThrough, onJustDoIt }: Pro
                   borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,28,42,0.10)',
                 },
               ]}>
-              <Text style={[styles.secondaryLabel, { color: c.text }]}>Just do it</Text>
+              <Text style={[styles.secondaryLabel, { color: isDark ? '#C8D8F0' : c.text }]}>
+                Just do it
+              </Text>
             </Pressable>
           ) : null}
         </View>
-      </IuiCard>
+      </View>
 
       <View
         style={[
@@ -100,18 +123,24 @@ export function IuiCoachCard({ payload, accent, onWalkThrough, onJustDoIt }: Pro
           Teaching never costs an action. Asking how something works is free — only doing it counts.
         </Text>
       </View>
-      <Text style={[styles.freeHint, { color: faint }]}>0 actions</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { width: '100%', gap: 12, alignItems: 'center' },
-  head: { gap: 8, paddingBottom: 4 },
+  card: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  head: { gap: 8, paddingTop: 20, paddingHorizontal: 20, paddingBottom: 14 },
   titleKicker: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2 },
   answer: { fontSize: 21, lineHeight: 27, fontWeight: '600' },
-  quote: { fontSize: 13, lineHeight: 18 },
-  steps: { gap: 8, paddingBottom: 4 },
+  detail: { fontSize: 13, lineHeight: 19 },
+  steps: { gap: 8, paddingHorizontal: 20, paddingBottom: 16 },
   stepRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -129,33 +158,31 @@ const styles = StyleSheet.create({
   },
   stepNumLabel: { fontSize: 12, fontWeight: '700' },
   stepText: { flex: 1, fontSize: 14, lineHeight: 19 },
+  chevron: { fontSize: 22, fontWeight: '300', lineHeight: 24 },
   footer: {
-    marginHorizontal: -4,
-    marginBottom: -4,
-    marginTop: 4,
     paddingTop: 14,
-    paddingBottom: 4,
-    paddingHorizontal: 4,
+    paddingBottom: 18,
+    paddingHorizontal: 20,
     borderTopWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   primaryBtn: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 46,
     borderRadius: STAGE.radius.pill,
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 13,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  primaryLabel: { color: '#061424', fontWeight: '700', fontSize: 14 },
+  primaryLabel: { color: '#061424', fontWeight: '600', fontSize: 14 },
   secondaryBtn: {
-    minHeight: 44,
+    minHeight: 46,
     borderRadius: STAGE.radius.pill,
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 13,
     justifyContent: 'center',
     borderWidth: 1,
   },
@@ -170,5 +197,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   noteText: { fontSize: 12, lineHeight: 17 },
-  freeHint: { fontSize: 11, fontWeight: '600', letterSpacing: 1.1 },
 });

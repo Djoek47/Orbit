@@ -361,33 +361,44 @@ export function PoppinsStage({
     return drive.spoken.toLowerCase().includes(row.title.toLowerCase()) ? i : best;
   }, -1);
   const queueAhead = drive.playlist.slice(drive.index + 1);
-  const queuedRows =
-    payload.items && payload.items.length
-      ? queueAhead.flatMap((next) => {
-          if (next.payload.items?.length) {
-            return next.payload.items
-              .filter((item) => !item.dropped)
-              .map((item) => ({ ...item, id: `q-${next.id}-${item.id}` }));
-          }
-          const label =
-            next.payload.groceryName ?? next.payload.title ?? next.payload.thinkingLine ?? '';
-          if (!label.trim() || next.scene === 'result_mark') return [];
-          return [
-            {
-              id: `q-${next.id}`,
-              label: label.trim(),
-              assignee: next.payload.assignee,
-              due: next.payload.due,
-              status: 'pending' as const,
-            },
-          ];
-        })
-      : [];
+  const queuedRows = queueAhead.flatMap((next) => {
+    if (next.scene === 'result_mark' || next.scene === 'thinking') return [];
+    if (next.payload.items?.length) {
+      const live = next.payload.items.filter((i) => !i.dropped);
+      return [
+        {
+          id: `queue:${next.id}`,
+          label:
+            next.scene === 'grocery_add'
+              ? `Groceries · ${live.length} items`
+              : live.map((i) => i.label).join(', '),
+          assignee: next.payload.assignee,
+          due: next.payload.due,
+          status: 'pending' as const,
+        },
+      ];
+    }
+    const label =
+      next.payload.groceryName ?? next.payload.title ?? next.payload.thinkingLine ?? '';
+    if (!label.trim()) return [];
+    return [
+      {
+        id: `queue:${next.id}`,
+        label: label.trim(),
+        assignee: next.payload.assignee,
+        due: next.payload.due,
+        status: 'pending' as const,
+      },
+    ];
+  });
   const groupKicker =
     payload.progressLabel ??
     (payload.items && payload.items.filter((item) => !item.dropped).length > 1
-      ? `1 of ${payload.items.filter((item) => !item.dropped).length}`
+      ? `${payload.items.filter((item) => !item.dropped).length} items`
       : undefined);
+  const undoRows = poppinsUiOrchestrator.undoLedgerRows();
+  const undoCount = poppinsUiOrchestrator.undoCount();
+  const undoOpen = Boolean(drive.undoUntil && Date.now() < drive.undoUntil && undoCount > 0);
 
   return (
     <View key={beat.id} style={styles.root}>
@@ -538,6 +549,7 @@ export function PoppinsStage({
             countLabel={groupKicker}
             onAddNow={() => void poppinsUiOrchestrator.confirm({ fromTap: true })}
             onNotThat={() => poppinsUiOrchestrator.veto()}
+            onDropQueued={(id) => poppinsUiOrchestrator.dropQueuedBeat(id)}
           />
         )
       ) : null}
@@ -547,14 +559,16 @@ export function PoppinsStage({
           kind="done"
           title={payload.title}
           modelOffline={payload.modelOffline === true}
-          undoable={Boolean(drive.undoUntil && Date.now() < drive.undoUntil && poppinsUiOrchestrator.undoCount() > 0)}
+          undoable={undoOpen}
+          undoUntil={drive.undoUntil}
           undoLabel={
-            poppinsUiOrchestrator.undoCount() > 1
-              ? `Undo ${poppinsUiOrchestrator.undoCount()} things`
-              : poppinsUiOrchestrator.undoCount() === 1
+            undoCount > 1
+              ? `Undo all ${undoCount === 4 ? 'four' : undoCount}`
+              : undoCount === 1
                 ? 'Undo'
                 : undefined
           }
+          ledger={undoRows}
           onUndo={() => {
             void poppinsUiOrchestrator.undoLast();
           }}
@@ -566,14 +580,16 @@ export function PoppinsStage({
           kind={payload.markKind ?? 'added'}
           title={payload.title ?? payload.groceryName}
           modelOffline={payload.modelOffline === true}
-          undoable={Boolean(drive.undoUntil && Date.now() < drive.undoUntil && poppinsUiOrchestrator.undoCount() > 0)}
+          undoable={undoOpen}
+          undoUntil={drive.undoUntil}
           undoLabel={
-            poppinsUiOrchestrator.undoCount() > 1
-              ? `Undo ${poppinsUiOrchestrator.undoCount()} things`
-              : poppinsUiOrchestrator.undoCount() === 1
+            undoCount > 1
+              ? `Undo all ${undoCount === 4 ? 'four' : undoCount}`
+              : undoCount === 1
                 ? 'Undo'
                 : undefined
           }
+          ledger={undoRows}
           onUndo={() => {
             void poppinsUiOrchestrator.undoLast();
           }}
@@ -696,10 +712,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   spoken: {
-    fontSize: 15,
+    fontSize: 14,
+    lineHeight: 19,
     fontWeight: '400',
     letterSpacing: -0.2,
     textAlign: 'center',
+    maxWidth: 310,
     paddingHorizontal: 12,
   },
   lead: {
