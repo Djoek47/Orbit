@@ -40,6 +40,12 @@ import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import { formatWelcomeCopy, getTourDefinition } from '@/lib/tour/tour-steps';
 import {
+  howToStepsToTourSteps,
+  setAdHocTourHooks,
+  type AdHocTourOptions,
+} from '@/lib/tour/ad-hoc-tour';
+import { isCoachDoItSpeech, isCoachStopSpeech } from '@/lib/poppins/how-to';
+import {
   advanceAfterStep,
   applyTourStepEnter,
   bindTourStepAdvance,
@@ -59,7 +65,7 @@ import {
   tourRouteMatches,
   type ActiveTourPointer,
 } from '@/lib/tour/tour-store';
-import type { TourId, TourRect, TourState, TourTargetId } from '@/lib/tour/tour-types';
+import type { TourId, TourRect, TourState, TourStep, TourTargetId } from '@/lib/tour/tour-types';
 import { loadDeviceSession } from '@/lib/device/device-session';
 import { loadOnboardingPrefs } from '@/lib/onboarding-prefs';
 import { recoverStuckTourIfNeeded, markTourSessionHealthy } from '@/lib/tour/tour-crash-recovery';
@@ -76,6 +82,9 @@ type TourRegistry = {
   registerScroll: (fn: ScrollFn) => void;
   startTour: (tourId?: TourId) => void;
   startChapter: (tourId: TourId, chapterId: string) => void;
+  /** WO12 §D3 — walk-through from a how-to, reusing the same overlay. */
+  startAdHocTour: (opts: AdHocTourOptions) => void;
+  stopAdHocTour: () => void;
   showChecklist: () => void;
   hideChecklist: () => void;
   checklistVisible: boolean;
@@ -141,6 +150,14 @@ export function TourProvider({ children }: PropsWithChildren) {
   const [hostKind, setHostKind] = useState<'sidekick' | 'shared-tablet' | null>(null);
   const [checklistForced, setChecklistForced] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [adHoc, setAdHoc] = useState<{
+    steps: TourStep[];
+    index: number;
+    returnRoute: string;
+    canDoItForYou: boolean;
+    onDoItForMe?: () => void;
+    title?: string;
+  } | null>(null);
 
   const targetsRef = useRef(new Map<TourTargetId, TourRect>());
   const scrollRef = useRef<ScrollFn>(null);
@@ -294,16 +311,37 @@ export function TourProvider({ children }: PropsWithChildren) {
     return () => sub.remove();
   }, []);
 
+  const adHocPointer: ActiveTourPointer | null = useMemo(() => {
+    if (!adHoc || !adHoc.steps.length) return null;
+    const step = adHoc.steps[Math.min(adHoc.index, adHoc.steps.length - 1)];
+    if (!step) return null;
+    return {
+      tourId: 'admin',
+      chapter: {
+        id: 'adhoc',
+        name: adHoc.title ? `Step` : 'Walkthrough',
+        steps: adHoc.steps,
+      },
+      chapterIndex: 0,
+      step,
+      stepIndex: Math.min(adHoc.index, adHoc.steps.length - 1),
+      stepOrdinal: Math.min(adHoc.index, adHoc.steps.length - 1) + 1,
+      stepsInChapter: adHoc.steps.length,
+    };
+  }, [adHoc]);
+
   const activeStep =
-    tourState && tourState.status === 'in_progress' && !welcomeOpen && sessionActive
+    adHocPointer ??
+    (tourState && tourState.status === 'in_progress' && !welcomeOpen && sessionActive
       ? resolveActivePointer(tourState, conditionCtx)
-      : null;
+      : null);
   const actionStep = isTourActionStep(activeStep?.step);
   const actionStepRef = useRef(actionStep);
   actionStepRef.current = actionStep;
 
-  const pointer = activeStep && !paused ? activeStep : null;
+  const pointer = activeStep && (!paused || Boolean(adHoc)) ? activeStep : null;
   pointerRef.current = pointer;
+  const isAdHoc = Boolean(adHoc);
 
   // Pause when IUI live / keyboard — except during an action step (that is the action).
   useEffect(() => {
@@ -421,6 +459,13 @@ export function TourProvider({ children }: PropsWithChildren) {
             if (tourState) {
               const next = advanceAfterStep(tourState, conditionCtx, { skipStep: true });
               void persist(next);
+            } else if (adHoc) {
+              setAdHoc((prev) => {
+                if (!prev) return null;
+                const nextIndex = prev.index + 1;
+                if (nextIndex >= prev.steps.length) return null;
+                return { ...prev, index: nextIndex };
+              });
             }
             return;
           }
@@ -454,7 +499,7 @@ export function TourProvider({ children }: PropsWithChildren) {
 
   // Action steps advance once the user leaves the current route (they tapped the target).
   useEffect(() => {
-    if (!pointer || !tourState) return;
+    if (!pointer) return;
     if (pointer.step.advance.kind !== 'action') return;
     const stepRoute = pointer.step.route;
     const stillOnStep =
@@ -464,6 +509,16 @@ export function TourProvider({ children }: PropsWithChildren) {
     // Only advance when we have moved away from the step's home route.
     if (stillOnStep && pathname?.includes(stepRoute.split('/').pop() ?? '___')) return;
     if (pathname === stepRoute) return;
+    if (adHoc) {
+      setAdHoc((prev) => {
+        if (!prev) return null;
+        const nextIndex = prev.index + 1;
+        if (nextIndex >= prev.steps.length) return null;
+        return { ...prev, index: nextIndex };
+      });
+      return;
+    }
+    if (!tourState) return;
     // Special-case: assign button lives on tasks; tapping opens /assign-task.
     if (
       pointer.step.targetId === 'tasks.assignButton' &&
@@ -475,7 +530,7 @@ export function TourProvider({ children }: PropsWithChildren) {
     if (pointer.step.targetId === 'selectProfile.faces' && !pathname?.includes('select-profile')) {
       void persist(advanceAfterStep(tourState, conditionCtx));
     }
-  }, [pathname, pointer?.step.id, tourState, conditionCtx, persist]);
+  }, [pathname, pointer?.step.id, tourState, conditionCtx, persist, adHoc]);
 
   const registerTarget = useCallback((id: TourTargetId, rect: TourRect) => {
     targetsRef.current.set(id, rect);
@@ -521,6 +576,7 @@ export function TourProvider({ children }: PropsWithChildren) {
   const startTour = useCallback(
     (id?: TourId) => {
       const tid = id ?? tourId;
+      setAdHoc(null);
       void dismissModalsThen(() => {
         const next = startTourState(tid);
         setTourId(tid);
@@ -533,6 +589,94 @@ export function TourProvider({ children }: PropsWithChildren) {
     },
     [tourId, persist, dismissModalsThen]
   );
+
+  const stopAdHocTour = useCallback(() => {
+    const route = adHoc?.returnRoute ?? '/(tabs)/poppins';
+    setAdHoc(null);
+    setSessionActive(false);
+    try {
+      if (navRef.isReady()) router.navigate(route as never);
+    } catch (error) {
+      console.warn('tour.adhoc.return', error);
+    }
+  }, [adHoc?.returnRoute, navRef]);
+
+  const advanceAdHoc = useCallback(() => {
+    setAdHoc((prev) => {
+      if (!prev) return null;
+      const nextIndex = prev.index + 1;
+      if (nextIndex >= prev.steps.length) {
+        const route = prev.returnRoute;
+        queueMicrotask(() => {
+          try {
+            if (navRef.isReady()) router.navigate(route as never);
+          } catch {
+            /* ignore */
+          }
+        });
+        return null;
+      }
+      return { ...prev, index: nextIndex };
+    });
+  }, [navRef]);
+
+  const startAdHocTour = useCallback(
+    (opts: AdHocTourOptions) => {
+      const steps = howToStepsToTourSteps(opts.steps, opts.title);
+      if (!steps.length) return;
+      setWelcomeOpen(false);
+      setSessionActive(true);
+      watchdogStreakRef.current = 0;
+      setAdHoc({
+        steps,
+        index: 0,
+        returnRoute: opts.returnRoute ?? '/(tabs)/poppins',
+        canDoItForYou: opts.canDoItForYou === true,
+        onDoItForMe: opts.onDoItForMe,
+        title: opts.title,
+      });
+      const first = steps[0];
+      if (first?.route && navRef.isReady()) {
+        try {
+          router.navigate(first.route as never);
+        } catch (error) {
+          console.warn('tour.adhoc.navigate', error);
+        }
+      }
+    },
+    [navRef]
+  );
+
+  const handleAdHocDoIt = useCallback(() => {
+    const cb = adHoc?.onDoItForMe;
+    if (cb) {
+      cb();
+      stopAdHocTour();
+      return;
+    }
+    advanceAdHoc();
+  }, [adHoc?.onDoItForMe, advanceAdHoc, stopAdHocTour]);
+
+  useEffect(() => {
+    setAdHocTourHooks({
+      startAdHocTour,
+      stopAdHocTour,
+      isAdHocActive: () => Boolean(adHoc),
+      handleSpeech: (text) => {
+        if (!adHoc) return false;
+        if (isCoachStopSpeech(text)) {
+          stopAdHocTour();
+          return true;
+        }
+        if (isCoachDoItSpeech(text)) {
+          handleAdHocDoIt();
+          return true;
+        }
+        return false;
+      },
+    });
+    return () => setAdHocTourHooks(null);
+  }, [adHoc, startAdHocTour, stopAdHocTour, handleAdHocDoIt]);
 
   const startChapter = useCallback(
     (id: TourId, chapterId: string) => {
@@ -577,6 +721,10 @@ export function TourProvider({ children }: PropsWithChildren) {
   }, [tourState, conditionCtx, persist]);
 
   const handleNext = useCallback(() => {
+    if (adHoc) {
+      advanceAdHoc();
+      return;
+    }
     if (!tourState) return;
     const ptr = pointerRef.current;
     if (ptr?.step.primaryAction === 'open_settings') {
@@ -602,9 +750,13 @@ export function TourProvider({ children }: PropsWithChildren) {
       );
     }
     void persist(next);
-  }, [tourState, conditionCtx, persist, navRef]);
+  }, [adHoc, advanceAdHoc, tourState, conditionCtx, persist, navRef]);
 
   const handleSkipChapter = useCallback(() => {
+    if (adHoc) {
+      stopAdHocTour();
+      return;
+    }
     if (!tourState) return;
     void trackAnalytics(
       'tour.chapter_skipped',
@@ -612,14 +764,22 @@ export function TourProvider({ children }: PropsWithChildren) {
       analyticsContext
     );
     void persist(skipChapterState(tourState, conditionCtx));
-  }, [tourState, conditionCtx, persist, analyticsContext]);
+  }, [adHoc, stopAdHocTour, tourState, conditionCtx, persist, analyticsContext]);
 
   const handleSkipStep = useCallback(() => {
+    if (adHoc) {
+      advanceAdHoc();
+      return;
+    }
     if (!tourState) return;
     void persist(advanceAfterStep(tourState, conditionCtx, { skipStep: true }));
-  }, [tourState, conditionCtx, persist]);
+  }, [adHoc, advanceAdHoc, tourState, conditionCtx, persist]);
 
   const handleClose = useCallback(() => {
+    if (adHoc) {
+      stopAdHocTour();
+      return;
+    }
     setWelcomeOpen(false);
     setSessionActive(false);
     if (!tourState) return;
@@ -630,9 +790,14 @@ export function TourProvider({ children }: PropsWithChildren) {
     );
     // Exit is for good: no Continue card, and no Getting Started leftover.
     void persist({ ...skipTourState(tourState), checklistHidden: true });
-  }, [tourState, persist]);
+  }, [adHoc, stopAdHocTour, tourState, persist]);
 
   const handleTourCrash = useCallback(() => {
+    if (adHoc) {
+      setAdHoc(null);
+      setSessionActive(false);
+      return;
+    }
     if (!tourState) {
       setWelcomeOpen(false);
       setSessionActive(false);
@@ -641,9 +806,13 @@ export function TourProvider({ children }: PropsWithChildren) {
     void persist(skipTourState(tourState));
     setWelcomeOpen(false);
     setSessionActive(false);
-  }, [persist, tourState]);
+  }, [adHoc, persist, tourState]);
 
   const handleWatchdogSkip = useCallback(() => {
+    if (adHoc) {
+      advanceAdHoc();
+      return;
+    }
     if (!tourState) return;
     watchdogStreakRef.current += 1;
     if (watchdogStreakRef.current >= 2) {
@@ -657,7 +826,7 @@ export function TourProvider({ children }: PropsWithChildren) {
       return;
     }
     void persist(advanceAfterStep(tourState, conditionCtx, { skipStep: true }));
-  }, [tourState, conditionCtx, persist]);
+  }, [adHoc, advanceAdHoc, tourState, conditionCtx, persist]);
 
   const handleCardReady = useCallback(() => {
     watchdogStreakRef.current = 0;
@@ -709,13 +878,14 @@ export function TourProvider({ children }: PropsWithChildren) {
   const isAction =
     pointer?.step.advance.kind === 'action' ||
     pointer?.step.advance.kind === 'event';
-  const isLast =
-    Boolean(pointer) &&
-    pointer!.chapter.id === getTourDefinition(pointer!.tourId).chapters.slice(-1)[0]?.id &&
-    pointer!.stepIndex === pointer!.stepsInChapter - 1;
+  const isLast = isAdHoc
+    ? Boolean(pointer && pointer.stepIndex >= pointer.stepsInChapter - 1)
+    : Boolean(pointer) &&
+      pointer!.chapter.id === getTourDefinition(pointer!.tourId).chapters.slice(-1)[0]?.id &&
+      pointer!.stepIndex === pointer!.stepsInChapter - 1;
 
   const awaitingContinue =
-    Boolean(tourState?.status === 'in_progress') && !sessionActive && !welcomeOpen;
+    Boolean(tourState?.status === 'in_progress') && !sessionActive && !welcomeOpen && !adHoc;
 
   const registry = useMemo<TourRegistry>(
     () => ({
@@ -725,6 +895,8 @@ export function TourProvider({ children }: PropsWithChildren) {
       registerScroll,
       startTour,
       startChapter,
+      startAdHocTour,
+      stopAdHocTour,
       showChecklist,
       hideChecklist,
       checklistVisible,
@@ -740,6 +912,8 @@ export function TourProvider({ children }: PropsWithChildren) {
       registerScroll,
       startTour,
       startChapter,
+      startAdHocTour,
+      stopAdHocTour,
       showChecklist,
       hideChecklist,
       checklistVisible,
@@ -757,7 +931,7 @@ export function TourProvider({ children }: PropsWithChildren) {
     }
   }, [pointer?.step.targetId, registerTarget]);
 
-  if (!tourEnabled) {
+  if (!tourEnabled && !isAdHoc) {
     return (
       <TourRegistryContext.Provider value={registry}>
         {children}
@@ -769,31 +943,45 @@ export function TourProvider({ children }: PropsWithChildren) {
     <TourRegistryContext.Provider value={registry}>
       {children}
       <TourErrorBoundary onCrash={handleTourCrash}>
-        <TourWelcome
-          visible={welcomeOpen && Boolean(household?.id && currentMember?.id)}
-          title={welcomeTitle}
-          body={welcomeBody}
-          primaryLabel={def.welcomePrimary}
-          secondaryLabel={def.welcomeSecondary}
-          onStart={() => startTour(tourId)}
-          onSkip={handleWelcomeSkip}
-        />
-        {pointer && !paused ? (
+        {tourEnabled ? (
+          <TourWelcome
+            visible={welcomeOpen && Boolean(household?.id && currentMember?.id)}
+            title={welcomeTitle}
+            body={welcomeBody}
+            primaryLabel={def.welcomePrimary}
+            secondaryLabel={def.welcomeSecondary}
+            onStart={() => startTour(tourId)}
+            onSkip={handleWelcomeSkip}
+          />
+        ) : null}
+        {pointer && (!paused || isAdHoc) ? (
           <TourOverlay
             target={pointer.step.centered ? null : targetRect}
-            chapterName={speakAs(majordomoName, pointer.chapter.name)}
+            chapterName={
+              isAdHoc
+                ? `Step ${pointer.stepOrdinal} of ${pointer.stepsInChapter}`
+                : speakAs(majordomoName, pointer.chapter.name)
+            }
             title={speakAs(majordomoName, pointer.step.title)}
             body={speakAs(majordomoName, pointer.step.body)}
-            stepLabel={`${pointer.stepOrdinal} of ${pointer.stepsInChapter}`}
+            stepLabel={
+              isAdHoc
+                ? `Step ${pointer.stepOrdinal} of ${pointer.stepsInChapter}`
+                : `${pointer.stepOrdinal} of ${pointer.stepsInChapter}`
+            }
             stepIndex={pointer.stepIndex}
             stepsInChapter={pointer.stepsInChapter}
             isAction={isAction}
             isLast={isLast}
             centered={Boolean(pointer.step.centered)}
             primaryLabel={pointer.step.primaryLabel}
+            adHoc={isAdHoc}
+            canDoItForYou={adHoc?.canDoItForYou === true}
+            onDoItForMe={isAdHoc ? handleAdHocDoIt : undefined}
+            closeLabel={isAdHoc ? 'Stop the tour' : undefined}
             cardRef={cardRef}
             onNext={handleNext}
-            onBack={canGoBack ? handleBack : undefined}
+            onBack={canGoBack && !isAdHoc ? handleBack : undefined}
             onSkipChapter={handleSkipChapter}
             onSkipStep={handleSkipStep}
             onClose={handleClose}

@@ -15,6 +15,7 @@ import {
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import type { PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { attachIntentActions } from '@/lib/poppins/ui-intent';
+import { howToUiAction, matchHowTo } from '@/lib/poppins/how-to';
 import { resolveMajordomoDisplayName, speakAs } from '@/lib/ai/majordomo-name';
 import {
   isMajordomoProfileId,
@@ -5030,6 +5031,42 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (summarizeActUsage(actEventsRef.current).tripped) {
       return { question, answer: POPPINS_PAUSED_COPY, source: 'meter' };
     }
+
+    // WO12 §D — local how-to: never call the chat model; record coach at weight 0.
+    const howTo = matchHowTo(question);
+    if (howTo) {
+      const member = currentMember;
+      if (member) {
+        await recordActEvent(
+          buildActEvent({
+            memberId: member.id,
+            memberName: member.name,
+            actKind: 'coach',
+            mode: 'silent',
+            outcome: 'committed',
+            utteranceChars: question.length,
+          })
+        );
+      }
+      const uiAction = howToUiAction(howTo, question);
+      setPoppinsConversation((current) => [
+        ...current,
+        { role: 'user', content: question },
+        { role: 'assistant', content: howTo.answer },
+      ]);
+      await trackAnalytics(
+        'poppins.how_to',
+        { howToId: howTo.id, questionLength: question.length },
+        analyticsContext
+      );
+      return {
+        question,
+        answer: howTo.answer,
+        source: 'how-to' as const,
+        ui_actions: [uiAction],
+      };
+    }
+
     setPoppinsAskCount((count) => count + 1);
     const profileId = resolveMajordomoProfileId({
       householdProfileId: household.majordomoProfileId,

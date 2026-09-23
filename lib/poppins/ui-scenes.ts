@@ -14,6 +14,7 @@ export const IUI_SCENES = [
   'member_pick',
   'confirm',
   'navigate_coach',
+  'coach_steps',
   'task_done',
   'result_mark',
 ] as const;
@@ -102,6 +103,12 @@ export type IuiPayload = {
   peek?: IuiPeekRow[];
   route?: string;
   coachLine?: string;
+  /** WO12 §D — how-to id for coach_steps. */
+  howToId?: string;
+  /** Numbered teaching steps on the coach card. */
+  coachSteps?: Array<{ id: string; text: string; route?: string; targetId?: string }>;
+  /** Show "Just do it" when the how-to can run as a normal act. */
+  canDoItForYou?: boolean;
   confirmSummary?: string;
   confirmationIds?: string[];
   rewardName?: string;
@@ -212,6 +219,7 @@ export function defaultCommitForScene(scene: IuiScene): IuiCommitKind {
   if ((HOLD_SCENES as readonly string[]).includes(scene)) return 'hold';
   if (scene === 'reward_mint' || scene === 'confirm') return 'confirm';
   if (scene === 'task_done') return 'hold';
+  if (scene === 'coach_steps') return 'none';
   return 'none';
 }
 
@@ -221,7 +229,9 @@ export function coerceCommit(
   route?: string
 ): IuiCommitKind {
   const next = commit ?? defaultCommitForScene(scene);
-  if (scene === 'navigate_coach' || (route && isCoachRoute(route))) return 'none';
+  if (scene === 'navigate_coach' || scene === 'coach_steps' || (route && isCoachRoute(route))) {
+    return 'none';
+  }
   if (next === 'hold' && !(HOLD_SCENES as readonly string[]).includes(scene)) {
     return defaultCommitForScene(scene);
   }

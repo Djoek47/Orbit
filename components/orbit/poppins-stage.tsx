@@ -9,6 +9,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiChips } from '@/components/orbit/poppins-stage/iui-chips';
+import { IuiCoachCard } from '@/components/orbit/poppins-stage/iui-coach-card';
 import { IuiDay } from '@/components/orbit/poppins-stage/iui-day';
 import { IuiDomainGrid } from '@/components/orbit/poppins-stage/iui-domain-grid';
 import { IuiEventCard } from '@/components/orbit/poppins-stage/iui-event-card';
@@ -24,7 +25,9 @@ import { IuiRoad } from '@/components/orbit/poppins-stage/iui-road';
 import { IuiStepper } from '@/components/orbit/poppins-stage/iui-stepper';
 import { IuiTripCard } from '@/components/orbit/poppins-stage/iui-trip-card';
 import { TaskComposeSteps } from '@/components/orbit/poppins-stage/task-compose-steps';
+import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { stageAccent, stageDomainLabel } from '@/constants/iui-stage';
+import { HOW_TO_INDEX } from '@/lib/poppins/how-to';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { householdHasChildren } from '@/lib/household/has-children';
 import { composeStepLabel, IUI_CREATED_CHIP_ID, IUI_DUE_CHIPS, nextComposeStep } from '@/lib/poppins/iui-compose';
@@ -228,6 +231,7 @@ export function PoppinsStage({
     advanceItineraryStop,
     accentTheme,
   } = useOrbit();
+  const tour = useTourControls();
   const accent = accentTheme.primary;
   const [holdProgress, setHoldProgress] = useState(0);
 
@@ -581,6 +585,50 @@ export function PoppinsStage({
         <View style={styles.stack}>
           <Text style={[styles.lead, { color: c.text }]}>{payload.coachLine ?? 'Opening that now.'}</Text>
         </View>
+      ) : null}
+
+      {beat.scene === 'coach_steps' ? (
+        <IuiCoachCard
+          payload={payload}
+          accent={stageAccent(beat.scene, payload.write)}
+          onWalkThrough={() => {
+            const entry = HOW_TO_INDEX.find((item) => item.id === payload.howToId);
+            const steps =
+              entry?.steps ??
+              (payload.coachSteps ?? []).map((step) => ({
+                text: step.text,
+                route: step.route,
+                targetId: step.targetId as never,
+              }));
+            tour?.startAdHocTour({
+              steps,
+              title: payload.title,
+              canDoItForYou: payload.canDoItForYou === true,
+              returnRoute: '/(tabs)/poppins',
+              onDoItForMe: entry?.canDoItForYou
+                ? () => {
+                    if (entry.doItAction) {
+                      poppinsUiOrchestrator.drive([entry.doItAction], { replace: true });
+                    } else {
+                      router.push('/(tabs)/tasks' as never);
+                    }
+                  }
+                : undefined,
+            });
+          }}
+          onJustDoIt={
+            payload.canDoItForYou
+              ? () => {
+                  const entry = HOW_TO_INDEX.find((item) => item.id === payload.howToId);
+                  if (entry?.doItAction) {
+                    poppinsUiOrchestrator.drive([entry.doItAction], { replace: true });
+                  } else {
+                    router.push('/(tabs)/tasks' as never);
+                  }
+                }
+              : undefined
+          }
+        />
       ) : null}
 
       {beat.commit === 'hold' && beat.payload.composeReady === true ? (

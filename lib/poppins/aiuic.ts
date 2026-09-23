@@ -6,6 +6,7 @@
  * Coach-navigate only when the person asked to drive the full human screen.
  */
 
+import { getAdHocTourHooks } from '@/lib/tour/ad-hoc-tour';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import {
   parseHouseMemoryUtterance,
@@ -13,6 +14,7 @@ import {
   type HouseFact,
   type HouseFactKind,
 } from '@/lib/poppins/house-memory';
+import { howToUiAction, matchHowTo } from '@/lib/poppins/how-to';
 import { parseCompoundHouseholdIntent } from '@/lib/poppins/clause-segment';
 import { rewriteAiuicActions, type HouseholdIntentOpts } from '@/lib/poppins/ui-intent';
 
@@ -76,6 +78,28 @@ export function hearAndDrive(
     .replace(/^(oh[, ]+)?i['’]?ll\s+/i, '')
     .trim();
   if (!cleaned) return false;
+
+  // Ad-hoc coach tour: "do it for me" / "stop" — never re-ask the model.
+  const adHoc = getAdHocTourHooks();
+  if (adHoc?.isAdHocActive() && adHoc.handleSpeech(cleaned)) {
+    poppinsUiOrchestrator.syncSpoken(cleaned, memberNames);
+    return true;
+  }
+
+  // Local how-to match — paint coach_steps, never call the chat model.
+  const howTo = matchHowTo(cleaned);
+  if (howTo) {
+    driveAiuic([howToUiAction(howTo, cleaned)], cleaned, {
+      kid: opts?.kid,
+      replace: true,
+      existingTasks: opts?.existingTasks,
+      memberNames,
+      selfName: opts?.selfName,
+    });
+    poppinsUiOrchestrator.syncSpoken(cleaned, memberNames);
+    return true;
+  }
+
   const memory = parseHouseMemoryUtterance(cleaned);
   if (memory) void rememberActiveFact(memory);
   const steered = poppinsUiOrchestrator.applySpeech(cleaned, memberNames, { selfName: opts?.selfName });
@@ -97,4 +121,9 @@ export function hearAndDrive(
   }
   poppinsUiOrchestrator.syncSpoken(cleaned, memberNames);
   return steered || poppinsUiOrchestrator.getState().live;
+}
+
+/** True when the utterance is teaching — callers must not ask the chat model. */
+export function isLocalHowTo(text: string): boolean {
+  return matchHowTo(text) != null;
 }

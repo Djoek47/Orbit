@@ -33,8 +33,8 @@ import {
 } from '@/lib/ai/credits';
 import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import { prefsForTier, savePoppinsInteractionPrefs } from '@/lib/poppins/poppins-prefs';
-import { personalActTokens, summarizeActUsage, notifyActUndone } from '@/lib/ai/act-events';
-import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
+import { personalActTokens, summarizeActUsage, notifyActUndone, buildActEvent } from '@/lib/ai/act-events';
+import { driveAiuic, hearAndDrive, isLocalHowTo } from '@/lib/poppins/aiuic';
 import {
   confirmationForLocalWrite,
   findLocalWriteBeat,
@@ -119,6 +119,7 @@ export default function PoppinsScreen() {
     actEvents,
     poppinsConversation,
     recordPoppinsUsage,
+    recordActEvent,
     metrics,
     orbitPalette,
     deleteTask,
@@ -650,6 +651,29 @@ export default function PoppinsScreen() {
       setVoiceState('speaking');
       setLiveCaption(applyLiveCaptionTurn(null, 'poppins', localConfirm, true));
       appendPoppinsTurn(trimmed, localConfirm);
+      setTimeout(() => setVoiceState('idle'), 1800);
+      return;
+    }
+
+    // WO12 §D — teaching matched locally: coach card is free, never call the model.
+    const liveBeat = poppinsUiOrchestrator.getState().playlist[poppinsUiOrchestrator.getState().index];
+    if (tookLocal && (liveBeat?.scene === 'coach_steps' || isLocalHowTo(trimmed))) {
+      const answer = liveBeat?.payload.coachLine ?? liveBeat?.payload.subtitle ?? 'Here is how.';
+      if (currentMember) {
+        void recordActEvent(
+          buildActEvent({
+            memberId: currentMember.id,
+            memberName: currentMember.name,
+            actKind: 'coach',
+            mode: 'silent',
+            outcome: 'committed',
+            utteranceChars: trimmed.length,
+          })
+        );
+      }
+      setVoiceState('speaking');
+      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', answer, true));
+      appendPoppinsTurn(trimmed, answer);
       setTimeout(() => setVoiceState('idle'), 1800);
       return;
     }
