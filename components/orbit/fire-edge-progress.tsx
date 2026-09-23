@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     top: 0,
   },
   fieryGlow: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(251,146,60,0.08)',
     borderColor: 'rgba(251,191,36,0.35)',
     borderWidth: 1,

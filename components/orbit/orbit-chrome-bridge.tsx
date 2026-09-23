@@ -12,7 +12,10 @@ export function OrbitChromeBridge() {
   useSidekickLiveSync();
   return (
     <>
-      <StatusBar style={orbitPalette.isDark ? 'light' : 'dark'} />
+      <StatusBar
+        backgroundColor={orbitPalette.background}
+        style={orbitPalette.isDark ? 'light' : 'dark'}
+      />
       <NearShopWatcher />
       <NotificationTapBridge />
       <PoppinsInPlaceSheet />

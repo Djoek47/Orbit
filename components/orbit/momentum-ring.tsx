@@ -83,7 +83,7 @@ export function MomentumRing({
 
 const styles = StyleSheet.create({
   center: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     gap: 1,
     justifyContent: 'center',

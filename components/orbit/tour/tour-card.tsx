@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   frostBg: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
   },
   bodyScroll: {
     flexGrow: 0,

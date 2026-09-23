@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   segLabel: { fontSize: 13, fontWeight: '600' },
   foot: { fontSize: 11.5, lineHeight: 18, marginTop: 8, paddingBottom: 12 },
   sheetMask: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',

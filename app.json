@@ -8,6 +8,23 @@
     "icon": "./assets/images/icon.png",
     "scheme": "choremaxx",
     "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "linking": {
+      "prefixes": [
+        "choremaxx://",
+        "https://choremaxx.app",
+        "https://www.choremaxx.app",
+        "orbit://",
+        "https://orbit.app"
+      ],
+      "config": {
+        "screens": {
+          "join/[code]": "join/:code",
+          "auth/callback": "auth/callback",
+          "confirm-email": "confirm-email"
+        }
+      }
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.choremaxx.household",
@@ -75,6 +92,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
+      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {

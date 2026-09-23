@@ -1,6 +1,6 @@
 # Expo HAS CHANGED
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
+Read the exact versioned docs at https://docs.expo.dev/versions/v54.0.0/ before writing any code.
 
 # Orbit / Choremaxx UI Guidance
 
@@ -36,7 +36,7 @@ Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clo
 
 ## Cursor Cloud specific instructions
 
-- **Current runtime is Expo Go (SDK 57).** Keep `EXPO_PUBLIC_DATA_MODE=mock` unless the user explicitly asks for Supabase.
+- **Current runtime is Expo Go.** Keep `EXPO_PUBLIC_DATA_MODE=mock` unless the user explicitly asks for Supabase.
 - After clone / on cloud VM: `git checkout cursor/make-v22 && git pull`, then `npm install`, `cp -n .env.example .env`, then use **`npm run start:persistent`** (keep-alive supervisor). Do **not** use bare `expo start` / LAN URLs — phones cannot reach `exp://172…`. The pipeline is:
   1. `scripts/expo-keep-alive.sh` — outer supervisor (tmux + heal loop)
   2. `scripts/expo-persistent.sh` — Metro + Expo tunnel watchdog

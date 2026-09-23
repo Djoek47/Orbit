@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   pickerOverlay: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
     zIndex: 30,
   },
