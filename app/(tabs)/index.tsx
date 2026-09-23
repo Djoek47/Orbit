@@ -417,46 +417,61 @@ export default function HomeScreen() {
           />
           </TourTarget>
           <View style={styles.destRow}>
-            <TourTarget id="home.groceryCard" style={{ flex: 1 }}>
-            <Pressable
-              style={[
-                styles.destCard,
-                {
-                  borderColor: glass(0.1),
-                  backgroundColor: glass(0.05),
-                  flex: 1,
-                },
-              ]}
-              onPress={() => router.push('/(tabs)/groceries' as never)}>
-              {groceryHasNewBadge ? (
-                <View style={[styles.destBadge, { backgroundColor: accentTheme.primary }]} />
-              ) : null}
-              <MaterialIcons name="shopping-cart" size={28} color={accentTheme.primary} />
-              <Text style={[typography.headline, { color: orbitPalette.text }]}>Groceries</Text>
-              <Text
-                style={[typography.footnote, { color: orbitPalette.textSoft, textAlign: 'center' }]}
-                numberOfLines={2}>
-                {grocerySubtitle}
-              </Text>
-            </Pressable>
+            <TourTarget id="home.groceryCard" style={styles.destSlot}>
+              <Pressable
+                style={[
+                  styles.destCard,
+                  {
+                    borderColor: glass(0.1),
+                    backgroundColor: glass(0.05),
+                  },
+                ]}
+                onPress={() => router.push('/(tabs)/groceries' as never)}>
+                {groceryHasNewBadge ? (
+                  <View style={[styles.destBadge, { backgroundColor: accentTheme.primary }]} />
+                ) : null}
+                <MaterialIcons name="shopping-cart" size={28} color={accentTheme.primary} />
+                <Text
+                  style={[typography.headline, { color: orbitPalette.text, textAlign: 'center' }]}
+                  numberOfLines={1}>
+                  Groceries
+                </Text>
+                <Text
+                  style={[
+                    typography.footnote,
+                    { color: orbitPalette.textSoft, textAlign: 'center' },
+                  ]}
+                  numberOfLines={2}>
+                  {grocerySubtitle}
+                </Text>
+              </Pressable>
             </TourTarget>
-            <Pressable
-              style={[
-                styles.destCard,
-                {
-                  borderColor: glass(0.1),
-                  backgroundColor: glass(0.05),
-                },
-              ]}
-              onPress={() => router.push('/(tabs)/plan' as never)}>
-              <MaterialIcons name="calendar-today" size={28} color={accentTheme.primary} />
-              <Text style={[typography.headline, { color: orbitPalette.text }]}>Plan</Text>
-              <Text
-                style={[typography.footnote, { color: orbitPalette.textSoft, textAlign: 'center' }]}
-                numberOfLines={2}>
-                {nextEvent ? `${nextEvent.title} · ${nextEvent.time}` : 'Nothing on the calendar'}
-              </Text>
-            </Pressable>
+            <View style={styles.destSlot}>
+              <Pressable
+                style={[
+                  styles.destCard,
+                  {
+                    borderColor: glass(0.1),
+                    backgroundColor: glass(0.05),
+                  },
+                ]}
+                onPress={() => router.push('/(tabs)/plan' as never)}>
+                <MaterialIcons name="calendar-today" size={28} color={accentTheme.primary} />
+                <Text
+                  style={[typography.headline, { color: orbitPalette.text, textAlign: 'center' }]}
+                  numberOfLines={1}>
+                  Plan
+                </Text>
+                <Text
+                  style={[
+                    typography.footnote,
+                    { color: orbitPalette.textSoft, textAlign: 'center' },
+                  ]}
+                  numberOfLines={2}>
+                  {nextEvent ? `${nextEvent.title} · ${nextEvent.time}` : 'Nothing on the calendar'}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -679,21 +694,30 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   destRow: {
+    alignItems: 'stretch',
+    alignSelf: 'stretch',
     flexDirection: 'row',
     gap: space.md,
+    width: '100%',
+  },
+  /** Equal-width slots so TourTarget wrapping Groceries does not skew Plan. */
+  destSlot: {
+    flex: 1,
+    minWidth: 0,
   },
   destCard: {
     alignItems: 'center',
+    alignSelf: 'stretch',
     aspectRatio: 1,
     borderCurve: 'continuous',
     borderRadius: radius.card,
     borderWidth: 1,
-    flex: 1,
     gap: space.xs,
     justifyContent: 'center',
     paddingHorizontal: space.sm,
     paddingVertical: space.md,
     position: 'relative',
+    width: '100%',
   },
   destBadge: {
     borderRadius: 5,
