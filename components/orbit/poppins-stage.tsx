@@ -810,7 +810,14 @@ export function PoppinsStage({
         <IuiResultMark
           kind="done"
           title={payload.title}
-          undoable={Boolean(drive.undoBeat && drive.undoUntil && Date.now() < drive.undoUntil)}
+          undoable={Boolean(drive.undoUntil && Date.now() < drive.undoUntil && poppinsUiOrchestrator.undoCount() > 0)}
+          undoLabel={
+            poppinsUiOrchestrator.undoCount() > 1
+              ? `Undo ${poppinsUiOrchestrator.undoCount()} things`
+              : poppinsUiOrchestrator.undoCount() === 1
+                ? 'Undo'
+                : undefined
+          }
           onUndo={() => {
             void poppinsUiOrchestrator.undoLast();
           }}
@@ -821,7 +828,14 @@ export function PoppinsStage({
         <IuiResultMark
           kind={payload.markKind ?? 'added'}
           title={payload.title ?? payload.groceryName}
-          undoable={Boolean(drive.undoBeat && drive.undoUntil && Date.now() < drive.undoUntil)}
+          undoable={Boolean(drive.undoUntil && Date.now() < drive.undoUntil && poppinsUiOrchestrator.undoCount() > 0)}
+          undoLabel={
+            poppinsUiOrchestrator.undoCount() > 1
+              ? `Undo ${poppinsUiOrchestrator.undoCount()} things`
+              : poppinsUiOrchestrator.undoCount() === 1
+                ? 'Undo'
+                : undefined
+          }
           onUndo={() => {
             void poppinsUiOrchestrator.undoLast();
           }}

@@ -47,10 +47,13 @@ export type IuiDriveState = {
   spoken: string;
   /** True after a failed commit — retry or dismiss advances. */
   commitFailed: boolean;
-  /** Tappable undo window after a successful settle (~5s). */
+  /** Tappable undo window after a successful settle (~5s from last commit). */
   undoUntil: number | null;
+  /** @deprecated Prefer undoLedger — kept as the latest entry for older UI. */
   undoBeat: IuiBeat | null;
   undoReverse: IuiCommitReverse | null;
+  /** WO11 §2.5 — every commit since the turn began. */
+  undoLedger: Array<{ beat: IuiBeat; reverse: IuiCommitReverse | null }>;
 };
 
 const EMPTY: IuiDriveState = {
@@ -69,6 +72,7 @@ const EMPTY: IuiDriveState = {
   undoUntil: null,
   undoBeat: null,
   undoReverse: null,
+  undoLedger: [],
 };
 
 let state: IuiDriveState = EMPTY;
@@ -269,16 +273,29 @@ function advanceAfterSettle() {
   setTimeout(() => clear(), SETTLE_CLEAR_MS);
 }
 
+function reverseCount(reverse: IuiCommitReverse | null | undefined): number {
+  if (!reverse) return 1;
+  if (reverse.batch?.length) return reverse.batch.length;
+  return 1;
+}
+
+function turnUndoCount(ledger: IuiDriveState['undoLedger']): number {
+  return ledger.reduce((sum, entry) => sum + reverseCount(entry.reverse), 0);
+}
+
 function armUndoWindow(beat: IuiBeat, reverse?: IuiCommitReverse | null) {
   clearUndoTimer();
   const ms = effectiveUndoMs(beat);
+  const entry = { beat, reverse: reverse ?? null };
+  const undoLedger = [...state.undoLedger, entry];
   setState({
     undoBeat: beat,
     undoUntil: Date.now() + ms,
     undoReverse: reverse ?? null,
+    undoLedger,
   });
   undoTimer = setTimeout(() => {
-    setState({ undoBeat: null, undoUntil: null, undoReverse: null });
+    setState({ undoBeat: null, undoUntil: null, undoReverse: null, undoLedger: [] });
   }, ms);
 }
 
@@ -629,6 +646,7 @@ function startPlaylist(playlist: IuiBeat[], kid?: boolean) {
     undoUntil: null,
     undoBeat: null,
     undoReverse: null,
+    undoLedger: [],
   });
   armBeat();
 }
@@ -979,20 +997,32 @@ export const poppinsUiOrchestrator = {
     setState({ commitFailed: false, frozen: false, thinkingLine: '' });
     advanceAfterSettle();
   },
-  /** Tap the settle mark within ~5s to reverse the last commit (handler optional). */
+  /** Tap the settle mark within ~5s to reverse every commit in the turn (newest first). */
   async undoLast() {
-    const beat = state.undoBeat;
-    const reverse = state.undoReverse;
-    if (!beat || !state.undoUntil || Date.now() > state.undoUntil) return false;
+    const ledger = state.undoLedger.length
+      ? state.undoLedger
+      : state.undoBeat
+        ? [{ beat: state.undoBeat, reverse: state.undoReverse }]
+        : [];
+    if (!ledger.length || !state.undoUntil || Date.now() > state.undoUntil) return false;
     clearUndoTimer();
-    setState({ undoBeat: null, undoUntil: null, undoReverse: null });
-    await undoHandler?.(beat, reverse);
+    setState({ undoBeat: null, undoUntil: null, undoReverse: null, undoLedger: [] });
+    // Newest first.
+    for (const entry of [...ledger].reverse()) {
+      await undoHandler?.(entry.beat, entry.reverse);
+    }
     // Mark held for undo — advance as soon as reverse lands.
     if (currentBeat()?.scene === 'result_mark') {
       clearAllTimers();
       advanceAfterSettle();
     }
     return true;
+  },
+  /** How many acts the current undo window covers. */
+  undoCount(): number {
+    if (!state.undoUntil || Date.now() > state.undoUntil) return 0;
+    if (state.undoLedger.length) return turnUndoCount(state.undoLedger);
+    return state.undoBeat ? reverseCount(state.undoReverse) : 0;
   },
   veto() {
     const beat = currentBeat();
