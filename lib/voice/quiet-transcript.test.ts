@@ -13,6 +13,11 @@ assert.equal(acceptQuietTranscript('you'), null);
 assert.equal(acceptQuietTranscript('Thank you.'), null);
 assert.equal(acceptQuietTranscript('Thanks for watching'), null);
 assert.equal(acceptQuietTranscript('Bye!'), null);
+assert.equal(
+  acceptQuietTranscript('What should our household focus on right now?'),
+  null,
+  'A3 fabricated Whisper fallback must be rejected'
+);
 assert.equal(acceptQuietTranscript('add milk'), 'add milk');
 
 console.log('quiet-transcript.test.ts ok');
