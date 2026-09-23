@@ -52,6 +52,7 @@ import {
 import { rankCrownPeriod, type ChampionsRecord } from '@/lib/scoring/crowns';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import type { XpLedgerEntry } from '@/lib/streaks/xp-ledger';
+import { registerTourUiHooks } from '@/lib/tour/tour-store';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
@@ -264,6 +265,18 @@ export default function RewardsScreen() {
     setSurface(next);
     router.setParams({ surface: next } as never);
   };
+
+  useEffect(() => {
+    return registerTourUiHooks({
+      setRewardsSegment: (segment) => {
+        if (segment === 'allowance' && !showAllowance) return;
+        if (segment === 'rewards' && !showRewards) return;
+        if (segment === 'ranks' && !showRanks) return;
+        setSurface(segment);
+        router.setParams({ surface: segment } as never);
+      },
+    });
+  }, [showAllowance, showRanks, showRewards]);
 
   const vaultMembers = useMemo(
     () =>
@@ -708,6 +721,7 @@ export default function RewardsScreen() {
             </View>
           ) : null}
 
+          <TourTarget id="rewards.vault">
           <View style={styles.vaultGrid}>
             {catalogRewards.map((reward, index) => {
               return (
@@ -752,6 +766,7 @@ export default function RewardsScreen() {
               );
             })}
           </View>
+          </TourTarget>
 
           {isAdmin ? (
             <TourTarget id="rewards.createReward">
