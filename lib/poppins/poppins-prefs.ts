@@ -40,6 +40,37 @@ export const DEFAULT_POPPINS_INTERACTION_PREFS: PoppinsInteractionPrefs = {
   notificationActions: true,
 };
 
+export type PoppinsTier = 'base' | 'max' | 'custom';
+
+/** Advanced knobs that do not change the token weight. */
+const TIER_ADVANCED_KEYS = [
+  'actImmediately',
+  'confirmTime',
+  'undoWindowSec',
+  'showThinking',
+  'writtenReplies',
+  'notificationActions',
+] as const satisfies readonly (keyof PoppinsInteractionPrefs)[];
+
+/** Base is Quiet (1 action). Max is the same Guided defaults with Speak back on. */
+export function prefsForTier(tier: 'base' | 'max'): PoppinsInteractionPrefs {
+  return {
+    ...DEFAULT_POPPINS_INTERACTION_PREFS,
+    speakBack: tier === 'max',
+  };
+}
+
+/**
+ * Custom is derived: Speak back still picks Base vs Max, but any Advanced
+ * knob that left the preset clears the highlight.
+ */
+export function poppinsTier(prefs: PoppinsInteractionPrefs): PoppinsTier {
+  const preset = prefsForTier(prefs.speakBack ? 'max' : 'base');
+  const tuned = TIER_ADVANCED_KEYS.some((key) => prefs[key] !== preset[key]);
+  if (tuned) return 'custom';
+  return prefs.speakBack ? 'max' : 'base';
+}
+
 export function voiceLabel(speakBack: boolean): 'Quiet' | 'Speak back' {
   return speakBack ? 'Speak back' : 'Quiet';
 }

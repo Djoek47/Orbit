@@ -1,8 +1,16 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -50,6 +58,23 @@ export function MajordomoProfileSheet({
   const usingPersonal = Boolean(memberProfileId);
 
   const rows = useMemo(() => MAJORDOMO_PROFILES, []);
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    const duration = 1700 + (active.accent.charCodeAt(1) % 8) * 220;
+    pulse.value = 0;
+    pulse.value = withRepeat(
+      withTiming(1, { duration, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, [active.accent, active.id, pulse]);
+  const heroMotion = useAnimatedStyle(() => ({
+    opacity: 0.28 + pulse.value * 0.5,
+    transform: [
+      { scale: 0.9 + pulse.value * 0.18 },
+      { translateX: (pulse.value - 0.5) * 24 },
+    ],
+  }));
 
   return (
     <BottomSheet visible={visible} onDismiss={onDismiss} heightRatio={0.82} accentColor={active.accent}>
@@ -66,6 +91,7 @@ export function MajordomoProfileSheet({
         </Animated.View>
 
         <Animated.View
+          key={active.id}
           entering={FadeInDown.delay(60).duration(320)}
           style={[styles.hero, { borderColor: `${active.accent}55` }]}>
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -81,6 +107,14 @@ export function MajordomoProfileSheet({
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
+            />
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.heroBloom,
+                { backgroundColor: active.accent },
+                heroMotion,
+              ]}
             />
           </View>
           <View style={[styles.heroDot, { backgroundColor: active.accent }]} />
@@ -257,6 +291,14 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 18,
     overflow: 'hidden',
+  },
+  heroBloom: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    right: -20,
+    top: -30,
   },
   heroDot: {
     width: 14,

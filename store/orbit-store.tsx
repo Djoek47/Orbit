@@ -108,7 +108,7 @@ import { mapMemberRow, mapTaskRow } from '@/lib/mappers/orbit-mappers';
 import { promoteMemberToAdmin } from '@/lib/household/admin-cap';
 import { canRequestReward } from '@/lib/rewards/can-request-reward';
 import { canProposeReward, type RewardProposal } from '@/lib/rewards/reward-proposals';
-import { groceryAddAllowedForSidekick, isSidekickRole } from '@/lib/sidekick/permissions';
+import { groceryAddAllowedForSidekick, isSidekickRole, poppinsAiAllowedForSidekick } from '@/lib/sidekick/permissions';
 import { assigneeMemberIdsForTask } from '@/lib/sidekick/task-assigned-notify';
 import {
   assigneeMemberForTask,
@@ -439,7 +439,16 @@ type OrbitContextValue = {
     /** Proof should be attached after this completion (preset / create flag). */
     needsProof?: boolean;
   } | null>;
-  submitTaskProof: (taskId: string, proofUri: string, options?: { forAssignee?: string }) => Promise<void>;
+  submitTaskProof: (
+    taskId: string,
+    proofUri: string,
+    options?: { forAssignee?: string; note?: string }
+  ) => Promise<void>;
+  /** Sidekick reply after proof was requested — photo and/or note. */
+  submitProofReply: (
+    taskId: string,
+    input: { proofUri?: string; note?: string }
+  ) => Promise<void>;
   approveTaskProof: (taskId: string, options?: { forAssignee?: string }) => Promise<void>;
   /** Admin: confirm completion verification (XP already awarded). */
   confirmVerification: (taskId: string) => Promise<boolean>;
@@ -623,6 +632,8 @@ type OrbitContextValue = {
   approveRewardProposal: (proposalId: string) => Promise<void>;
   declineRewardProposal: (proposalId: string) => Promise<void>;
   updateSidekickGroceryAdd: (enabled: boolean) => void;
+  /** Admin: let Sidekicks use Poppins AI (default off). */
+  updateSidekickPoppinsAi: (enabled: boolean) => void;
   createReward: (
     input: CreateRewardInput,
     options?: { householdId?: string | null }
@@ -2215,6 +2226,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           id?: string;
           name?: string;
           sidekickGroceryAdd?: boolean;
+          sidekickPoppinsAi?: boolean;
           dailyDeadline?: string | null;
           rewardModel?: string | null;
         };
@@ -2251,6 +2263,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           householdName: boot.household?.name ?? current.householdName,
           sidekickGroceryAdd:
             boot.household?.sidekickGroceryAdd ?? current.sidekickGroceryAdd,
+          sidekickPoppinsAi:
+            boot.household?.sidekickPoppinsAi ?? current.sidekickPoppinsAi,
           dailyDeadline: boot.household?.dailyDeadline ?? current.dailyDeadline,
           tasks,
           members,
@@ -2521,7 +2535,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const submitTaskProof = async (
     taskId: string,
     proofUri: string,
-    options?: { forAssignee?: string }
+    options?: { forAssignee?: string; note?: string }
   ) => {
     const currentTask = household.tasks.find((item) => item.id === taskId);
     if (!currentTask) {
@@ -2533,7 +2547,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       (isSplitTask(currentTask) ? currentMember?.name : undefined) ||
       currentTask.assignee;
 
-    const withProof = resubmitProofPhoto(currentTask, proofUri);
+    const withProof = {
+      ...resubmitProofPhoto(currentTask, proofUri),
+      proofNote: options?.note?.trim() || undefined,
+    };
     const profileAuth = await usesProfileCodeAuth();
     let updated: HouseholdTask;
     if (profileAuth) {
@@ -2580,6 +2597,155 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('task.proof_submitted', { taskId, forAssignee }, analyticsContext);
   };
 
+  const submitProofReply = async (
+    taskId: string,
+    input: { proofUri?: string; note?: string }
+  ) => {
+    const currentTask = household.tasks.find((item) => item.id === taskId);
+    if (!currentTask) {
+      throw new Error('Task not found.');
+    }
+    const { submitProofReply: buildReply } = await import('@/lib/tasks/proof-actions');
+    const result = buildReply(currentTask, input);
+    if (!result.ok) {
+      throw new Error(result.reason);
+    }
+
+    const forAssignee =
+      (isSplitTask(currentTask) ? currentMember?.name : undefined) || currentTask.assignee;
+    const profileAuth = await usesProfileCodeAuth();
+    let updated: HouseholdTask;
+    if (profileAuth && input.proofUri) {
+      updated = await sidekickSubmitTaskProof({
+        code: profileAuth.code,
+        taskId,
+        task: result.task,
+        proofUri: input.proofUri,
+      });
+    } else {
+      // Minimal patch — verification + proof fields only
+      const payloadTask = result.task;
+      if (isMockMode()) {
+        updated = await taskRepository.updateTask(payloadTask);
+      } else {
+        const supabase = (await import('@/repositories/repository-utils')).getConfiguredSupabase(
+          'taskRepository.submitProofReply'
+        );
+        const { taskStatusToDb } = await import('@/lib/mappers/orbit-mappers');
+        const { data, error } = await supabase
+          .from('tasks')
+          .update({
+            status: taskStatusToDb(payloadTask.status),
+            verification: payloadTask.verification ?? 'unreviewed',
+            proof_status: payloadTask.proofStatus ?? 'submitted',
+            proof_uri: payloadTask.proofUri ?? null,
+            proof_photo_urls: payloadTask.proofPhotoUrls ?? [],
+            proof_rounds: payloadTask.proofRounds ?? [],
+          } as never)
+          .eq('id', taskId)
+          .select('*')
+          .single();
+        (await import('@/repositories/repository-utils')).mapDbError(
+          'taskRepository.submitProofReply',
+          error
+        );
+        updated = data
+          ? { ...payloadTask, ...(await import('@/lib/mappers/orbit-mappers')).mapTaskRow(data) }
+          : payloadTask;
+      }
+    }
+
+    setHousehold((current) => ({
+      ...current,
+      tasks: current.tasks.map((item) =>
+        item.id === taskId ? { ...updated, proofNote: result.task.proofNote } : item
+      ),
+    }));
+
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    if (!profileAuth) {
+      const created = await poppinsNotifications.proofSubmitted(pushNotification, prefs, {
+        title: currentTask.title,
+        assignee: forAssignee,
+        taskId,
+        proofUri: input.proofUri,
+        audienceRoles: [...PROOF_REVIEW_ROLES],
+        homework: isHomeworkCategory(currentTask.category, currentTask.title),
+      });
+      if (created) {
+        await scheduleLocalReminder(created.title, created.body, 2).catch((error) =>
+          console.warn('Proof admin reminder skipped', error)
+        );
+      }
+    }
+    await trackAnalytics(
+      'task.proof_submitted',
+      { taskId, forAssignee, hasNote: Boolean(input.note), hasPhoto: Boolean(input.proofUri) },
+      analyticsContext
+    );
+  };
+
+  const requestAnotherProof = async (taskId: string, note?: string) => {
+    if (!v2Permissions.canRequestProof) {
+      throw new Error('Only an admin can request proof.');
+    }
+    const currentTask = household.tasks.find((item) => item.id === taskId);
+    if (!currentTask || !currentMember) {
+      throw new Error('Task not found.');
+    }
+    const assigneeMember = assigneeMemberForTask(household.members, currentTask);
+    if (!canAdminRequestTaskProof(currentTask, assigneeMember)) {
+      throw new Error('Proof can only be requested from a Sidekick within 7 days of completion.');
+    }
+    const result = requestAnotherProofOnTask(currentTask, currentMember.id, note);
+    if (!result.ok) {
+      throw new Error(result.reason);
+    }
+
+    let updated: HouseholdTask;
+    if (isMockMode()) {
+      updated = await taskRepository.updateTask(result.task);
+    } else {
+      const { getConfiguredSupabase, mapDbError } = await import('@/repositories/repository-utils');
+      const { mapTaskRow } = await import('@/lib/mappers/orbit-mappers');
+      const supabase = getConfiguredSupabase('taskRepository.requestProof');
+      const { data, error } = await supabase
+        .from('tasks')
+        .update({
+          verification: 'proof_requested',
+          proof_required: true,
+          proof_status: 'none',
+          proof_rounds: result.task.proofRounds ?? [],
+        } as never)
+        .eq('id', taskId)
+        .select('*')
+        .single();
+      mapDbError('taskRepository.requestProof', error);
+      updated = data
+        ? {
+            ...result.task,
+            ...mapTaskRow(data),
+            proofRounds: result.task.proofRounds,
+          }
+        : result.task;
+    }
+
+    setHousehold((current) => ({
+      ...current,
+      tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
+    }));
+    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    await poppinsNotifications.proofRequested(pushNotification, prefs, {
+      title: currentTask.title,
+      adminName: currentMember.name,
+      taskId,
+      note,
+      audienceMemberIds: assigneeMember ? [assigneeMember.id] : undefined,
+    });
+    await trackAnalytics('task.proof_requested', { taskId, hasNote: Boolean(note) }, analyticsContext);
+    return true;
+  };
+
   const approveTaskProof = async (taskId: string, options?: { forAssignee?: string }) => {
     await confirmVerification(taskId);
     void options;
@@ -2596,44 +2762,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
     }));
-    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    void prefs;
-    // Confirmation is silent to the helper — XP already landed; no Rev E registry id for "proof approved".
     await trackAnalytics('task.verification_confirmed', { taskId }, analyticsContext);
     return true;
   };
 
-  const requestAnotherProof = async (taskId: string, note?: string) => {
-    if (!v2Permissions.canRequestProof) return false;
-    const currentTask = household.tasks.find((item) => item.id === taskId);
-    if (!currentTask || !currentMember) return false;
-    const assigneeMember = assigneeMemberForTask(household.members, currentTask);
-    if (!canAdminRequestTaskProof(currentTask, assigneeMember)) return false;
-    const result = requestAnotherProofOnTask(currentTask, currentMember.id, note);
-    if (!result.ok) return false;
-    const updated = await taskRepository.updateTask(result.task);
-    setHousehold((current) => ({
-      ...current,
-      tasks: current.tasks.map((item) => (item.id === taskId ? updated : item)),
-    }));
-    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    await poppinsNotifications.proofRequested(pushNotification, prefs, {
-      title: currentTask.title,
-      adminName: currentMember.name,
-      taskId,
-      audienceMemberIds: assigneeMember ? [assigneeMember.id] : undefined,
-    });
-    await trackAnalytics('task.proof_requested', { taskId }, analyticsContext);
-    return true;
-  };
-
   const markNotDone = async (taskId: string, note?: string) => {
-    if (!v2Permissions.canApproveCompletion) return false;
+    if (!v2Permissions.canApproveCompletion) {
+      throw new Error('Only an admin can mark a task not done.');
+    }
     const currentTask = household.tasks.find((item) => item.id === taskId);
-    if (!currentTask || !currentMember) return false;
+    if (!currentTask || !currentMember) {
+      throw new Error('Task not found.');
+    }
     const result = markTaskNotDone(currentTask);
-    if (!result.ok) return false;
-    const updated = await taskRepository.updateTask(result.task);
+    if (!result.ok) {
+      throw new Error(result.reason);
+    }
+    const updated = await taskRepository.revertCompletion(result.task);
     const reversed = result.reversedXp ?? 0;
     const completionDay = currentTask.completedAt
       ? formatLocalDate(new Date(currentTask.completedAt))
@@ -3474,28 +3619,26 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const cancelTask = async (taskId: string, scope: CancelTaskScope = 'this') => {
-    if (!permissions.canManageHousehold) {
-      return;
+    // Match task detail Skip today (canAdjust): assign/create adults, not only
+    // full household managers — silent early-return made Skip look broken.
+    const canSkip =
+      permissions.canManageHousehold ||
+      permissions.canCreateTask ||
+      permissions.canAssignTask;
+    if (!canSkip) {
+      throw new Error('You do not have permission to skip this task.');
     }
     const currentTask = household.tasks.find((item) => item.id === taskId);
     if (!currentTask || currentTask.status === 'Completed' || currentTask.status === 'Cancelled') {
       return;
     }
 
-    const cancelled = await taskRepository.updateTask({
-      ...currentTask,
-      status: 'Cancelled',
-      // Stopping the series: clear repeat so nothing new spawns from this row.
-      repeat: scope === 'future' ? 'None' : currentTask.repeat,
-      due:
-        scope === 'future' && currentTask.repeat !== 'None'
-          ? 'Cancelled · series stopped'
-          : 'Cancelled',
-    });
+    const stopSeries = scope === 'future' && currentTask.repeat !== 'None';
+    const cancelled = await taskRepository.cancelTask(currentTask, { stopSeries });
 
     let nextTasks = household.tasks.map((item) => (item.id === taskId ? cancelled : item));
 
-    if (scope === 'future' && currentTask.repeat !== 'None') {
+    if (stopSeries) {
       const siblings = nextTasks.filter(
         (item) =>
           item.id !== taskId &&
@@ -3503,12 +3646,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           isOpenTask(item)
       );
       for (const sibling of siblings) {
-        const updated = await taskRepository.updateTask({
-          ...sibling,
-          status: 'Cancelled',
-          repeat: 'None',
-          due: 'Cancelled · series stopped',
-        });
+        const updated = await taskRepository.cancelTask(sibling, { stopSeries: true });
         nextTasks = nextTasks.map((item) => (item.id === sibling.id ? updated : item));
       }
     }
@@ -4858,7 +4996,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   );
 
   const askPoppins = async (question: string) => {
-    if (isSidekickRole(currentMember?.role)) {
+    if (
+      !poppinsAiAllowedForSidekick({
+        role: currentMember?.role,
+        householdAllows: household.sidekickPoppinsAi === true,
+      })
+    ) {
       return {
         question,
         answer: 'Poppins is not available on this profile.',
@@ -4897,7 +5040,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const askPoppinsVoice = async (audioUri: string | null) => {
-    if (isSidekickRole(currentMember?.role)) {
+    if (
+      !poppinsAiAllowedForSidekick({
+        role: currentMember?.role,
+        householdAllows: household.sidekickPoppinsAi === true,
+      })
+    ) {
       return {
         question: '',
         answer: 'Poppins is not available on this profile.',
@@ -5465,6 +5613,26 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           ?.from('households')
           .update({ sidekick_grocery_add: enabled })
           .eq('id', current.id);
+      }
+      return next;
+    });
+  };
+
+  const updateSidekickPoppinsAi = (enabled: boolean) => {
+    if (!permissions.canManageHousehold) return;
+    setHousehold((current) => {
+      const next: HouseholdSnapshot = { ...current, sidekickPoppinsAi: enabled };
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      if (dataMode === 'supabase' && current.id && isPersistedHouseholdId(current.id)) {
+        void getSupabaseClient()
+          ?.from('households')
+          .update({ sidekick_poppins_ai: enabled })
+          .eq('id', current.id)
+          .then(({ error }) => {
+            if (error) console.warn('updateSidekickPoppinsAi', error.message);
+          });
       }
       return next;
     });
@@ -6318,6 +6486,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       forgotPassword,
       completeTask,
       submitTaskProof,
+      submitProofReply,
       approveTaskProof,
       confirmVerification,
       requestAnotherProof,
@@ -6417,6 +6586,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       approveRewardProposal,
       declineRewardProposal,
       updateSidekickGroceryAdd,
+      updateSidekickPoppinsAi,
       createReward,
       updateReward,
       archiveReward,
@@ -6529,6 +6699,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       approveRewardProposal,
       declineRewardProposal,
       updateSidekickGroceryAdd,
+      updateSidekickPoppinsAi,
     ]
   );
 

@@ -100,6 +100,12 @@ export function markTaskNotDone(task: HouseholdTask, now = new Date()): ProofAct
     task: {
       ...task,
       status: nextStatus,
+      due:
+        nextStatus === 'Expired'
+          ? 'Expired'
+          : nextStatus === 'Overdue'
+            ? 'Overdue'
+            : 'Today',
       verification: 'rejected',
       awardedXp: 0,
       completedAt: undefined,
@@ -138,4 +144,43 @@ export function resubmitProofPhoto(task: HouseholdTask, proofUri: string): House
     verification: 'unreviewed',
     proofStatus: 'submitted',
   };
+}
+
+/**
+ * Sidekick reply after an admin requested proof — photo and/or a short note.
+ */
+export function submitProofReply(
+  task: HouseholdTask,
+  input: { proofUri?: string; note?: string }
+): ProofActionResult {
+  if (task.verification !== 'proof_requested' && task.verification !== 'rejected') {
+    if (task.status !== 'Completed' || !task.proofRequired) {
+      return { ok: false, reason: 'No proof was requested for this task.' };
+    }
+  }
+  const note = input.note?.trim();
+  const uri = input.proofUri?.trim();
+  if (!uri && !note) {
+    return { ok: false, reason: 'Add a photo or a short note.' };
+  }
+
+  let next: HouseholdTask = {
+    ...task,
+    verification: 'unreviewed',
+    proofStatus: 'submitted',
+    proofNote: note || undefined,
+  };
+  if (uri) {
+    next = resubmitProofPhoto(next, uri);
+    next = { ...next, proofNote: note || undefined };
+  }
+
+  const rounds = [...(task.proofRounds ?? [])];
+  if (rounds.length > 0) {
+    const last = rounds[rounds.length - 1]!;
+    rounds[rounds.length - 1] = { ...last, responseNote: note || last.responseNote };
+    next = { ...next, proofRounds: rounds };
+  }
+
+  return { ok: true, task: next };
 }

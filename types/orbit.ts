@@ -137,7 +137,15 @@ export type HouseholdTask = {
     | 'proof_requested'
     | 'rejected';
   proofPhotoUrls?: string[];
-  proofRounds?: { note?: string; requestedAt: string; requestedByMemberId?: string }[];
+  proofRounds?: {
+    note?: string;
+    /** Sidekick reply when they submit proof (photo and/or written note). */
+    responseNote?: string;
+    requestedAt: string;
+    requestedByMemberId?: string;
+  }[];
+  /** Latest sidekick proof note (convenience mirror of last round responseNote). */
+  proofNote?: string;
   verifiedBy?: string;
   verifiedAt?: string;
   /** True when completedAt > dueAt (informational; never reduces XP). */
@@ -739,6 +747,11 @@ export type HouseholdSnapshot = {
    * // TODO(product): Should the grocery permission be per-member rather than household-level?
    */
   sidekickGroceryAdd?: boolean;
+  /**
+   * Household-level, default OFF. When true, Sidekicks see Poppins and may Speak.
+   * Admins enable this from Settings → Poppins.
+   */
+  sidekickPoppinsAi?: boolean;
   rewardProposals?: import('@/lib/rewards/reward-proposals').RewardProposal[];
   /**
    * Household-scoped XP scoring (Meritocracy vs Equity + hygiene opt-in).

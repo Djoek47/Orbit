@@ -147,23 +147,29 @@ export const poppinsNotifications = {
   async proofRequested(
     push: PushFn,
     prefs: PoppinsNotificationPrefs,
-    input: { title: string; adminName: string; taskId: string; audienceMemberIds?: string[] }
+    input: {
+      title: string;
+      adminName: string;
+      taskId: string;
+      note?: string;
+      audienceMemberIds?: string[];
+    }
   ) {
     if (!prefs.tasks) return null;
-    return pushRegistry(
-      push,
-      'N03',
-      { admin: input.adminName, task: input.title },
-      {
-        category: 'tasks',
-        priority: 'high',
-        data: {
-          taskId: input.taskId,
-          kind: 'proof_requested',
-          audienceMemberIds: input.audienceMemberIds,
-        },
-      }
-    );
+    const noteBit = input.note?.trim() ? ` “${input.note.trim()}”` : '';
+    const def = getNotification('N03');
+    return push({
+      title: def.title,
+      body: `${formatNotificationBody(def.body, { admin: input.adminName, task: input.title })}${noteBit}`,
+      category: 'tasks',
+      priority: 'high',
+      data: {
+        taskId: input.taskId,
+        kind: 'proof_requested',
+        audienceMemberIds: input.audienceMemberIds,
+        note: input.note,
+      },
+    });
   },
 
   async taskNotDone(

@@ -19,6 +19,8 @@ import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet'
 import { ProfileInviteSheet } from '@/components/orbit/profile-invite-sheet';
 import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
 import { MajordomoProfileSheet } from '@/components/orbit/majordomo-profile-sheet';
+import { PoppinsAdvancedSheet } from '@/components/orbit/poppins-advanced-sheet';
+import { PoppinsModeCards } from '@/components/orbit/poppins-mode-cards';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import {
   getMajordomoProfile,
@@ -36,13 +38,10 @@ import {
 import { VOCAB } from '@/constants/vocabulary';
 import {
   DEFAULT_POPPINS_INTERACTION_PREFS,
-  derivedModeLine,
-  holdMsMultiplier,
   loadPoppinsInteractionPrefs,
+  prefsForTier,
   savePoppinsInteractionPrefs,
-  type PoppinsConfirmTime,
   type PoppinsInteractionPrefs,
-  type PoppinsUndoWindowSec,
 } from '@/lib/poppins/poppins-prefs';
 import { TOKEN_WEIGHT_SPEAK_BACK } from '@/constants/poppins-ai-rates';
 import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
@@ -146,6 +145,7 @@ export default function SettingsScreen() {
     updateMemberMajordomoProfile,
     updateMemberCapabilities,
     updateSidekickGroceryAdd,
+    updateSidekickPoppinsAi,
     updatePreferredMapsApp,
     actEvents,
     refreshHousehold,
@@ -229,6 +229,7 @@ export default function SettingsScreen() {
   const [householdSwitchOpen, setHouseholdSwitchOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [majordomoOpen, setMajordomoOpen] = useState(false);
+  const [poppinsAdvancedOpen, setPoppinsAdvancedOpen] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
   const [settingsToggleBusy, setSettingsToggleBusy] = useState(false);
   const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
@@ -1200,37 +1201,30 @@ export default function SettingsScreen() {
 
         {section === 'poppins' ? (
           <>
-            <SettingsGroup
-              footer={
-                poppinsPrefsReadOnly
-                  ? 'Only an admin can change how Poppins acts for this household.'
-                  : undefined
-              }>
-              <SettingsToggleRow
-                label="Speak back"
-                subtitle={`Poppins answers out loud. Each spoken action uses about ${TOKEN_WEIGHT_SPEAK_BACK} of your actions instead of 1.`}
-                value={poppinsPrefs.speakBack}
-                disabled={poppinsPrefsReadOnly}
-                onValueChange={(speakBack) => {
-                  if (poppinsPrefsReadOnly) return;
-                  void updatePoppinsPrefs({ ...poppinsPrefs, speakBack });
-                }}
-              />
-              <SettingsToggleRow
-                label="Act immediately"
-                subtitle="Skips the pause before saving. You can still undo for a few seconds."
-                value={poppinsPrefs.actImmediately}
-                disabled={poppinsPrefsReadOnly}
+            <PoppinsModeCards
+              prefs={poppinsPrefs}
+              accent={accentTheme.primary}
+              disabled={poppinsPrefsReadOnly}
+              onSelectTier={(tier) => {
+                if (poppinsPrefsReadOnly) return;
+                void updatePoppinsPrefs(prefsForTier(tier));
+              }}
+            />
+            {poppinsPrefsReadOnly ? (
+              <Text style={[styles.caption, { color: orbitPalette.textMuted, marginTop: 8 }]}>
+                Only an admin can change how Poppins acts for this household.
+              </Text>
+            ) : null}
+            <SettingsGroup>
+              <SettingsNavRow
+                icon="tune"
+                iconColor={c.textMuted}
+                label="Advanced"
+                subtitle="Confirm time, undo, thinking, written replies, notifications."
                 last
-                onValueChange={(actImmediately) => {
-                  if (poppinsPrefsReadOnly) return;
-                  void updatePoppinsPrefs({ ...poppinsPrefs, actImmediately });
-                }}
+                onPress={() => setPoppinsAdvancedOpen(true)}
               />
             </SettingsGroup>
-            <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 12 }]}>
-              {derivedModeLine(poppinsPrefs)}
-            </Text>
             <SettingsGroup>
               <SettingsNavRow
                 icon="info-outline"
@@ -1240,74 +1234,20 @@ export default function SettingsScreen() {
                 onPress={() => setHowActionsOpen(true)}
               />
             </SettingsGroup>
-            <SettingsGroup footer="Fine-tune Guided. Children see this read-only.">
-              <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
-                <SegmentedControl
-                  label="Confirm time"
-                  subtitle="How long Poppins waits in silence before saving."
-                  disabled={poppinsPrefsReadOnly}
-                  options={[
-                    { value: 'quick', label: 'Quick' },
-                    { value: 'normal', label: 'Normal' },
-                    { value: 'relaxed', label: 'Relaxed' },
-                  ]}
-                  value={poppinsPrefs.confirmTime}
-                  onChange={(confirmTime) => {
-                    if (poppinsPrefsReadOnly) return;
-                    void updatePoppinsPrefs({ ...poppinsPrefs, confirmTime });
+            {permissions.canManageHousehold ? (
+              <SettingsGroup footer="Sidekicks stay off Poppins until you turn this on.">
+                <SettingsToggleRow
+                  label="Allow Sidekick AI"
+                  subtitle="Shows the Poppins tab for children / Sidekicks so they can Speak."
+                  value={household.sidekickPoppinsAi === true}
+                  disabled={settingsToggleBusy}
+                  last
+                  onValueChange={(value) => {
+                    guardSettingsToggle(() => updateSidekickPoppinsAi(value));
                   }}
                 />
-              </View>
-              <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 }}>
-                <SegmentedControl
-                  label="Undo window"
-                  subtitle="How long the Undo button stays after saving."
-                  disabled={poppinsPrefsReadOnly}
-                  options={[
-                    { value: '5', label: '5 s' },
-                    { value: '10', label: '10 s' },
-                    { value: '15', label: '15 s' },
-                  ]}
-                  value={String(poppinsPrefs.undoWindowSec) as '5' | '10' | '15'}
-                  onChange={(sec) => {
-                    if (poppinsPrefsReadOnly) return;
-                    const undoWindowSec = Number(sec) as PoppinsUndoWindowSec;
-                    void updatePoppinsPrefs({ ...poppinsPrefs, undoWindowSec });
-                  }}
-                />
-              </View>
-              <SettingsToggleRow
-                label="Show thinking"
-                subtitle='A short "thinking" moment while Poppins works it out.'
-                value={poppinsPrefs.showThinking}
-                disabled={poppinsPrefsReadOnly}
-                onValueChange={(showThinking) => {
-                  if (poppinsPrefsReadOnly) return;
-                  void updatePoppinsPrefs({ ...poppinsPrefs, showThinking });
-                }}
-              />
-              <SettingsToggleRow
-                label="Written replies"
-                subtitle="Poppins writes its answer on screen. Questions always show."
-                value={poppinsPrefs.writtenReplies}
-                disabled={poppinsPrefsReadOnly}
-                onValueChange={(writtenReplies) => {
-                  if (poppinsPrefsReadOnly) return;
-                  void updatePoppinsPrefs({ ...poppinsPrefs, writtenReplies });
-                }}
-              />
-              <SettingsToggleRow
-                label="Notification actions"
-                subtitle="Approve or change Poppins' suggestions right from a notification."
-                value={poppinsPrefs.notificationActions}
-                disabled={poppinsPrefsReadOnly}
-                last
-                onValueChange={(notificationActions) => {
-                  if (poppinsPrefsReadOnly) return;
-                  void updatePoppinsPrefs({ ...poppinsPrefs, notificationActions });
-                }}
-              />
-            </SettingsGroup>
+              </SettingsGroup>
+            ) : null}
             <SettingsGroup footer="Voice and personality for this household.">
               <SettingsNavRow
                 icon="record-voice-over"
@@ -1604,6 +1544,15 @@ export default function SettingsScreen() {
       canManageHousehold={permissions.canManageHousehold}
       onSelectHousehold={(id) => updateMajordomoProfile(id)}
       onSelectPersonal={(id) => updateMemberMajordomoProfile(id)}
+    />
+    <PoppinsAdvancedSheet
+      visible={poppinsAdvancedOpen}
+      prefs={poppinsPrefs}
+      disabled={poppinsPrefsReadOnly}
+      onDismiss={() => setPoppinsAdvancedOpen(false)}
+      onChange={(next) => {
+        void updatePoppinsPrefs(next);
+      }}
     />
     <DeadlinePickerSheet
       visible={deadlineOpen}

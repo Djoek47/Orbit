@@ -3,37 +3,22 @@
  * Mirrors Settings → Poppins with onboarding-first hierarchy and cost clarity.
  */
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import Animated, {
-  FadeInDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { SegmentedControl } from '@/components/orbit/segmented-control';
-import { SettingsGroup, SettingsToggleRow } from '@/components/orbit/settings/grouped';
-import { motion } from '@/constants/motion-tokens';
-import { radius, space, typography } from '@/constants/orbit-theme';
-import {
-  TOKEN_WEIGHT_QUIET,
-  TOKEN_WEIGHT_SPEAK_BACK,
-  TOKENS_PER_MONTH,
-} from '@/constants/poppins-ai-rates';
+import { PoppinsAdvancedSheet } from '@/components/orbit/poppins-advanced-sheet';
+import { PoppinsModeCards } from '@/components/orbit/poppins-mode-cards';
+import { radius, space } from '@/constants/orbit-theme';
 import {
   MAJORDOMO_PROFILES,
   getMajordomoProfile,
   type MajordomoProfileId,
 } from '@/lib/ai/majordomo-profiles';
 import {
-  derivedModeLine,
-  type PoppinsConfirmTime,
+  prefsForTier,
   type PoppinsInteractionPrefs,
-  type PoppinsUndoWindowSec,
 } from '@/lib/poppins/poppins-prefs';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
@@ -56,107 +41,6 @@ const FEATURED_PERSONAS: MajordomoProfileId[] = [
   'companion',
   'operator',
 ];
-
-function VoiceModeCard({
-  active,
-  accent,
-  title,
-  subtitle,
-  costLabel,
-  costDetail,
-  icon,
-  onPress,
-  index,
-}: {
-  active: boolean;
-  accent: string;
-  title: string;
-  subtitle: string;
-  costLabel: string;
-  costDetail: string;
-  icon: keyof typeof MaterialIcons.glyphMap;
-  onPress: () => void;
-  index: number;
-}) {
-  const { c, glass, glassBorder, isDark } = useOrbitColors();
-  const scale = useSharedValue(active ? 1 : 0.985);
-
-  useEffect(() => {
-    scale.value = withSpring(active ? 1 : 0.985, motion.snappy);
-  }, [active, scale]);
-
-  const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <Animated.View
-      entering={FadeInDown.delay(40 + index * 45).springify()}
-      style={styles.voiceCardWrap}>
-      <Pressable
-        accessibilityRole="radio"
-        accessibilityState={{ selected: active }}
-        accessibilityLabel={`${title}. ${costDetail}`}
-        onPress={onPress}>
-        <Animated.View
-          style={[
-            styles.voiceCard,
-            cardStyle,
-            {
-              backgroundColor: active
-                ? isDark
-                  ? `${accent}1A`
-                  : `${accent}14`
-                : glass(0.05),
-              borderColor: active ? `${accent}77` : glassBorder(0.1),
-            },
-          ]}>
-          {active ? (
-            <LinearGradient
-              colors={[`${accent}33`, 'transparent']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-          ) : null}
-          <View style={[styles.voiceIconWell, { backgroundColor: active ? `${accent}28` : glass(0.08) }]}>
-            <MaterialIcons name={icon} size={22} color={active ? accent : c.textMuted} />
-          </View>
-          <Text style={[styles.voiceTitle, { color: c.text }]}>{title}</Text>
-          <Text style={[styles.voiceSubtitle, { color: c.textMuted }]} numberOfLines={3}>
-            {subtitle}
-          </Text>
-          <View
-            style={[
-              styles.costPill,
-              {
-                backgroundColor: active ? `${accent}22` : glass(0.06),
-                borderColor: active ? `${accent}44` : glassBorder(0.08),
-              },
-            ]}>
-            <Text style={[styles.costPillText, { color: active ? accent : c.textSoft }]}>
-              {costLabel}
-            </Text>
-          </View>
-          <Text style={[styles.costDetail, { color: c.textSubtle }]}>{costDetail}</Text>
-          <View
-            style={[
-              styles.radio,
-              {
-                borderColor: active ? accent : glassBorder(0.22),
-                backgroundColor: active ? accent : 'transparent',
-              },
-            ]}>
-            {active ? (
-              <MaterialIcons name="check" size={14} color={c.ink} />
-            ) : null}
-          </View>
-        </Animated.View>
-      </Pressable>
-    </Animated.View>
-  );
-}
 
 function PersonaChip({
   profileId,
@@ -201,20 +85,13 @@ function PersonaChip({
 /** Full Poppins onboarding settings — voice, persona, control, notifications. */
 export function PoppinsSetupPanel({ value, onChange, accent }: PoppinsSetupPanelProps) {
   const { c, glass, glassBorder } = useOrbitColors();
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const resolvedAccent = accent ?? c.primary;
   const { prefs, majordomoProfileId } = value;
   const activePersona = getMajordomoProfile(majordomoProfileId);
-  const speakBack = prefs.speakBack;
-  const quietActs = Math.floor(TOKENS_PER_MONTH / TOKEN_WEIGHT_QUIET);
-  const spokenActs = Math.floor(TOKENS_PER_MONTH / TOKEN_WEIGHT_SPEAK_BACK);
 
   const patchPrefs = (patch: Partial<PoppinsInteractionPrefs>) => {
     onChange({ ...value, prefs: { ...prefs, ...patch } });
-  };
-
-  const selectVoice = (nextSpeakBack: boolean) => {
-    void Haptics.selectionAsync();
-    patchPrefs({ speakBack: nextSpeakBack });
   };
 
   const selectPersona = (id: MajordomoProfileId) => {
@@ -232,61 +109,26 @@ export function PoppinsSetupPanel({ value, onChange, accent }: PoppinsSetupPanel
           </Text>
         </View>
         <Text style={[styles.lead, { color: c.textMuted }]}>
-          Choose how {activePersona.displayName} talks, acts, and notifies your household. You can
-          change every setting later.
+          Choose Poppins Base or Poppins Max. You can fine-tune later in Advanced.
         </Text>
       </Animated.View>
 
-      <Text style={[styles.sectionLabel, { color: c.textSubtle }]}>Reply style</Text>
-      <View style={styles.voiceRow}>
-        <VoiceModeCard
-          index={0}
-          active={!speakBack}
-          accent={resolvedAccent}
-          icon="visibility"
-          title="Just show me"
-          subtitle="Poppins listens quietly and fills the screen. Best for shared rooms and kids."
-          costLabel={`${TOKEN_WEIGHT_QUIET} action each`}
-          costDetail={`~${quietActs}/mo on your plan`}
-          onPress={() => selectVoice(false)}
-        />
-        <VoiceModeCard
-          index={1}
-          active={speakBack}
-          accent={resolvedAccent}
-          icon="record-voice-over"
-          title="Talk to me"
-          subtitle="Poppins answers out loud with a live voice. Richer — and costs more per action."
-          costLabel={`~${TOKEN_WEIGHT_SPEAK_BACK} actions each`}
-          costDetail={`~${spokenActs}/mo on your plan`}
-          onPress={() => selectVoice(true)}
-        />
-      </View>
+      <PoppinsModeCards
+        prefs={prefs}
+        accent={resolvedAccent}
+        onSelectTier={(tier) => {
+          onChange({ ...value, prefs: prefsForTier(tier) });
+        }}
+      />
 
-      <View
-        style={[
-          styles.costBanner,
-          {
-            backgroundColor: glass(0.05),
-            borderColor: glassBorder(0.1),
-          },
-        ]}>
-        <MaterialIcons
-          name={speakBack ? 'graphic-eq' : 'graphic-eq'}
-          size={18}
-          color={speakBack ? c.warning : c.success}
-        />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[styles.costBannerTitle, { color: c.text }]}>
-            {speakBack ? 'Speak back uses more of your monthly actions' : 'Quiet is the lighter option'}
-          </Text>
-          <Text style={[styles.costBannerBody, { color: c.textMuted }]}>
-            {speakBack
-              ? `Each spoken turn uses about ${TOKEN_WEIGHT_SPEAK_BACK} actions (vs ${TOKEN_WEIGHT_QUIET} for Just show me). Your plan includes ${TOKENS_PER_MONTH} actions per month.`
-              : `Each quiet turn uses ${TOKEN_WEIGHT_QUIET} action. Talk to me is available anytime when you want a spoken reply.`}
-          </Text>
-        </View>
-      </View>
+      <Pressable
+        onPress={() => setAdvancedOpen(true)}
+        style={[styles.advancedRow, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
+        <Text style={[styles.advancedLabel, { color: c.text }]}>Advanced</Text>
+        <Text style={[styles.advancedHint, { color: c.textMuted }]}>
+          Confirm, undo, thinking, replies, notifications
+        </Text>
+      </Pressable>
 
       <Text style={[styles.sectionLabel, { color: c.textSubtle }]}>Who speaks</Text>
       <Text style={[styles.sectionHint, { color: c.textMuted }]}>
@@ -319,96 +161,12 @@ export function PoppinsSetupPanel({ value, onChange, accent }: PoppinsSetupPanel
       <Text style={[styles.personaPersonality, { color: c.textSubtle }]}>
         {activePersona.personality}
       </Text>
-
-      <Text style={[styles.sectionLabel, { color: c.textSubtle }]}>How Poppins acts</Text>
-      <SettingsGroup footer="Act immediately skips the pause before saving. You can still undo for a few seconds.">
-        <SettingsToggleRow
-          label="Act immediately"
-          subtitle="Skip the hold — Direct control when slots are filled."
-          value={prefs.actImmediately}
-          onValueChange={(actImmediately) => {
-            void Haptics.selectionAsync();
-            patchPrefs({ actImmediately });
-          }}
-        />
-        <SettingsToggleRow
-          label="Show thinking"
-          subtitle='A short "thinking" moment while Poppins works it out.'
-          value={prefs.showThinking}
-          onValueChange={(showThinking) => {
-            void Haptics.selectionAsync();
-            patchPrefs({ showThinking });
-          }}
-        />
-        <SettingsToggleRow
-          label="Written replies"
-          subtitle="Show answers on screen. Questions always appear."
-          value={prefs.writtenReplies}
-          last
-          onValueChange={(writtenReplies) => {
-            void Haptics.selectionAsync();
-            patchPrefs({ writtenReplies });
-          }}
-        />
-      </SettingsGroup>
-
-      {!prefs.actImmediately ? (
-        <SettingsGroup footer="Fine-tune Guided confirm and undo timing.">
-          <View style={styles.segmentPad}>
-            <SegmentedControl
-              label="Confirm time — silence before saving"
-              options={[
-                { value: 'quick', label: 'Quick' },
-                { value: 'normal', label: 'Normal' },
-                { value: 'relaxed', label: 'Relaxed' },
-              ]}
-              value={prefs.confirmTime}
-              onChange={(confirmTime: PoppinsConfirmTime) => {
-                void Haptics.selectionAsync();
-                patchPrefs({ confirmTime });
-              }}
-            />
-          </View>
-          <View style={[styles.segmentPad, { paddingBottom: 12 }]}>
-            <SegmentedControl
-              label="Undo window — after saving"
-              options={[
-                { value: '5', label: '5 s' },
-                { value: '10', label: '10 s' },
-                { value: '15', label: '15 s' },
-              ]}
-              value={String(prefs.undoWindowSec) as '5' | '10' | '15'}
-              onChange={(sec) => {
-                void Haptics.selectionAsync();
-                patchPrefs({ undoWindowSec: Number(sec) as PoppinsUndoWindowSec });
-              }}
-            />
-          </View>
-        </SettingsGroup>
-      ) : null}
-
-      <Text style={[styles.sectionLabel, { color: c.textSubtle }]}>Notifications</Text>
-      <SettingsGroup footer="Approve or change suggestions without opening the app.">
-        <SettingsToggleRow
-          label="Notification actions"
-          subtitle="Approve or change Poppins' suggestions from a notification."
-          value={prefs.notificationActions}
-          last
-          onValueChange={(notificationActions) => {
-            void Haptics.selectionAsync();
-            patchPrefs({ notificationActions });
-          }}
-        />
-      </SettingsGroup>
-
-      <View
-        style={[
-          styles.summaryBar,
-          { backgroundColor: `${resolvedAccent}14`, borderColor: `${resolvedAccent}33` },
-        ]}>
-        <MaterialIcons name="auto-awesome" size={16} color={resolvedAccent} />
-        <Text style={[styles.summaryText, { color: c.textSoft }]}>{derivedModeLine(prefs)}</Text>
-      </View>
+      <PoppinsAdvancedSheet
+        visible={advancedOpen}
+        prefs={prefs}
+        onDismiss={() => setAdvancedOpen(false)}
+        onChange={(next) => patchPrefs(next)}
+      />
     </View>
   );
 }
@@ -580,24 +338,20 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: -4,
   },
-  segmentPad: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
-  },
-  summaryBar: {
-    alignItems: 'center',
+  advancedRow: {
     borderCurve: 'continuous',
-    borderRadius: 14,
+    borderRadius: radius.card,
     borderWidth: 1,
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 12,
+    gap: 2,
+    paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  summaryText: {
-    flex: 1,
-    fontSize: 13,
+  advancedLabel: {
+    fontSize: 16,
     fontWeight: '600',
-    lineHeight: 18,
+  },
+  advancedHint: {
+    fontSize: 12,
+    lineHeight: 16,
   },
 });

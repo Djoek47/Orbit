@@ -26,6 +26,7 @@ import type { HouseholdSnapshot } from '@/types/orbit';
     allowance_requests_enabled: false,
     join_approval_required: true,
     sidekick_grocery_add: true,
+    sidekick_poppins_ai: false,
     member_capabilities: {
       allowRewardRedeem: false,
       allowCalendarCreate: true,
@@ -41,6 +42,7 @@ import type { HouseholdSnapshot } from '@/types/orbit';
   assert.equal(patch.dailyDeadlinePending, '22:00');
   assert.equal(patch.allowanceRequestsEnabled, false);
   assert.equal(patch.sidekickGroceryAdd, true);
+  assert.equal(patch.sidekickPoppinsAi, false);
   assert.equal(patch.memberCapabilities?.allowRewardRedeem, false);
   assert.equal(patch.memberCapabilities?.allowCalendarCreate, true);
 
