@@ -124,9 +124,13 @@ function primarySlot(scene: IuiScene, payload: IuiPayload): {
   required: boolean;
 } {
   if (scene === 'grocery_add') {
+    const fromItems = payload.items
+      ?.filter((item) => !item.dropped && item.label.trim())
+      .map((item) => item.label)
+      .join(', ');
     return {
       slot: 'groceryName',
-      value: payload.groceryName ?? payload.title,
+      value: payload.groceryName ?? payload.title ?? fromItems,
       required: true,
     };
   }

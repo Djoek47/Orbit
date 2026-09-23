@@ -9,6 +9,8 @@ import {
 import { getOpenAIPoppinsChatModel } from '../_shared/openai-models.ts';
 import { recordAiUsageEvent, usageFromOpenAIPayload } from '../_shared/ai-usage.ts';
 
+const FALLBACK_FOCUS_QUESTION = 'What should our household focus on right now?';
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -30,8 +32,17 @@ Deno.serve(async (req) => {
     const transcriptOnly = String(form.get('transcriptOnly') ?? '') === '1';
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiKey) {
+      if (transcriptOnly) {
+        return jsonResponse({
+          transcript: '',
+          answer: '',
+          error: 'whisper_failed',
+          detail: 'OPENAI_API_KEY missing',
+          source: 'fallback',
+        });
+      }
       return jsonResponse({
-        transcript: 'What should our household focus on right now?',
+        transcript: FALLBACK_FOCUS_QUESTION,
         answer: 'Voice mode needs OPENAI_API_KEY configured on the edge function.',
         source: 'fallback',
       });
@@ -46,9 +57,30 @@ Deno.serve(async (req) => {
       // use empty objects
     }
 
-    let transcript = 'What should our household focus on right now?';
+    // Non-transcriptOnly legacy path may still seed a spoken prompt; transcriptOnly
+    // must never invent a user sentence (A3 / WO9.1).
+    let transcript = transcriptOnly ? '' : FALLBACK_FOCUS_QUESTION;
+    let whisperDetail: string | undefined;
 
-    if (audio instanceof File) {
+    if (!(audio instanceof File)) {
+      whisperDetail = 'audio_not_file';
+      if (transcriptOnly) {
+        console.error(
+          JSON.stringify({
+            event: 'poppins_voice.whisper_failed',
+            detail: whisperDetail,
+            audioType: typeof audio,
+          })
+        );
+        return jsonResponse({
+          transcript: '',
+          answer: '',
+          error: 'whisper_failed',
+          detail: whisperDetail,
+          source: 'whisper',
+        });
+      }
+    } else {
       const whisperForm = new FormData();
       whisperForm.append('file', audio, 'poppins.m4a');
       whisperForm.append('model', 'whisper-1');
@@ -59,8 +91,42 @@ Deno.serve(async (req) => {
         body: whisperForm,
       });
       const whisperPayload = await whisperRes.json();
-      if (whisperPayload.text) {
+      if (!whisperRes.ok) {
+        whisperDetail = `http_${whisperRes.status}`;
+        console.error(
+          JSON.stringify({
+            event: 'poppins_voice.whisper_failed',
+            httpStatus: whisperRes.status,
+            body: whisperPayload,
+          })
+        );
+        if (transcriptOnly) {
+          return jsonResponse({
+            transcript: '',
+            answer: '',
+            error: 'whisper_failed',
+            detail: whisperDetail,
+            source: 'whisper',
+          });
+        }
+      } else if (whisperPayload.text) {
         transcript = String(whisperPayload.text).trim();
+      } else if (transcriptOnly) {
+        console.error(
+          JSON.stringify({
+            event: 'poppins_voice.whisper_failed',
+            detail: 'empty_text',
+            httpStatus: whisperRes.status,
+            body: whisperPayload,
+          })
+        );
+        return jsonResponse({
+          transcript: '',
+          answer: '',
+          error: 'whisper_failed',
+          detail: 'empty_text',
+          source: 'whisper',
+        });
       }
     }
 

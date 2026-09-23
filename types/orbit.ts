@@ -263,6 +263,9 @@ export type ItineraryStop = {
   eventId?: string;
   groceryListId?: string;
   etaMinutes?: number;
+  /** Optional clock / relative time for the stop (WO10 D). */
+  time?: string;
+  notes?: string;
   sortOrder: number;
   status: ItineraryStopStatus;
   savedPlaceId?: string;
@@ -433,6 +436,8 @@ export type PoppinsConversationAnswer = {
   /** Closed IUI scene graph for the Activity stage (not generated JSX). */
   ui_actions?: Array<Record<string, unknown>>;
   source?: string;
+  /** Present when poppins-chat could not get a model message (offline / API error). */
+  error_code?: string;
   usage?: {
     inputTokens: number;
     outputTokens: number;

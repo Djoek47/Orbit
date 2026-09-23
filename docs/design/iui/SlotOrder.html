@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The card follows the sentence</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&display=swap">
+<style>
+body{margin:0;font-family:"Bricolage Grotesque",-apple-system,system-ui,sans-serif;background:#030810}
+a{color:#76C4AE}a:hover{color:#8FD6C2}
+</style>
+</helmet>
+<div style="width: 880px; height: 700px; box-sizing: border-box; background: #070D1C; color: #EEF2FF; padding: 42px 46px; display: flex; flex-direction: column; gap: 22px;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <span style="font-size: 11px; font-weight: 700; letter-spacing: 1.4px; color: #76C4AE;">SLOT ORDER</span>
+    <h1 style="margin: 0; font-size: 32px; font-weight: 600; line-height: 38px; letter-spacing: -0.4px;">The card is built in the order they said it</h1>
+    <p style="margin: 0; font-size: 14px; line-height: 20px; color: #9DB4D2; max-width: 690px;">A slot the person filled is never asked for again, and the first empty slot is the one in focus. Whatever they said first sits at the top of the card — so the same sentence in a different order gives a different card, and both feel obvious.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;">
+
+    <div style="box-sizing: border-box; padding: 18px; border-radius: 22px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 13px;">
+      <span style="font-size: 12px; line-height: 17px; color: #9DB4D2;">“add <b style="color: #EEF2FF; font-weight: 600;">the dishes</b>… for <b style="color: #EEF2FF; font-weight: 600;">Mia</b>”</span>
+      <div style="display: flex; flex-direction: column; gap: 7px;">
+        <div style="padding: 11px 13px; border-radius: 14px; background: rgba(118,196,174,0.10); border: 1px solid rgba(118,196,174,0.30); display: flex; align-items: center; gap: 9px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.1px; color: #76C4AE; width: 42px;">WHAT</span>
+          <span style="flex-grow: 1; font-size: 15px; font-weight: 600;">Dishes</span>
+        </div>
+        <div style="padding: 11px 13px; border-radius: 14px; background: rgba(118,196,174,0.10); border: 1px solid rgba(118,196,174,0.30); display: flex; align-items: center; gap: 9px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.1px; color: #76C4AE; width: 42px;">WHO</span>
+          <span style="flex-grow: 1; font-size: 15px; font-weight: 600;">Mia</span>
+        </div>
+        <div style="padding: 11px 13px; border-radius: 14px; background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.20); display: flex; align-items: center; gap: 9px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.1px; color: #6E88AA; width: 42px;">WHEN</span>
+          <span style="flex-grow: 1; font-size: 15px; color: #9DB4D2;">in focus</span>
+        </div>
+      </div>
+      <span style="font-size: 12px; line-height: 17px; color: #6E88AA;">Only the day is asked for, with Today / Tomorrow ready.</span>
+    </div>
+
+    <div style="box-sizing: border-box; padding: 18px; border-radius: 22px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 13px;">
+      <span style="font-size: 12px; line-height: 17px; color: #9DB4D2;">“<b style="color: #EEF2FF; font-weight: 600;">Mia</b> should do <b style="color: #EEF2FF; font-weight: 600;">the dishes</b>”</span>
+      <div style="display: flex; flex-direction: column; gap: 7px;">
+        <div style="padding: 11px 13px; border-radius: 14px; background: rgba(118,196,174,0.10); border: 1px solid rgba(118,196,174,0.30); display: flex; align-items: center; gap: 9px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.1px; color: #76C4AE; width: 42px;">WHO</span>
+          <span style="flex-grow: 1; font-size: 15px; font-weight: 600;">Mia</span>
+        </div>
+        <div style="padding: 11px 13px; border-radius: 14px; background: rgba(118,196,174,0.10); border: 1px solid rgba(118,196,174,0.30); display: flex; align-items: center; gap: 9px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.1px; color: #76C4AE; width: 42px;">WHAT</span>
+          <span style="flex-grow: 1; font-size: 15px; font-weight: 600;">Dishes</span>
+        </div>
+        <div style="padding: 11px 13px; border-radius: 14px; background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.20); display: flex; align-items: center; gap: 9px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.1px; color: #6E88AA; width: 42px;">WHEN</span>
+          <span style="flex-grow: 1; font-size: 15px; color: #9DB4D2;">in focus</span>
+        </div>
+      </div>
+      <span style="font-size: 12px; line-height: 17px; color: #6E88AA;">Mia's face is already lit at the top. No picker opens.</span>
+    </div>
+
+    <div style="box-sizing: border-box; padding: 18px; border-radius: 22px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 13px;">
+      <span style="font-size: 12px; line-height: 17px; color: #9DB4D2;">“<b style="color: #EEF2FF; font-weight: 600;">tomorrow</b>, someone needs to do <b style="color: #EEF2FF; font-weight: 600;">the dishes</b>”</span>
+      <div style="display: flex; flex-direction: column; gap: 7px;">
+        <div style="padding: 11px 13px; border-radius: 14px; background: rgba(118,196,174,0.10); border: 1px solid rgba(118,196,174,0.30); display: flex; align-items: center; gap: 9px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.1px; color: #76C4AE; width: 42px;">WHEN</span>
+          <span style="flex-grow: 1; font-size: 15px; font-weight: 600;">Tomorrow</span>
+        </div>
+        <div style="padding: 11px 13px; border-radius: 14px; background: rgba(118,196,174,0.10); border: 1px solid rgba(118,196,174,0.30); display: flex; align-items: center; gap: 9px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.1px; color: #76C4AE; width: 42px;">WHAT</span>
+          <span style="flex-grow: 1; font-size: 15px; font-weight: 600;">Dishes</span>
+        </div>
+        <div style="padding: 11px 13px; border-radius: 14px; background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.20); display: flex; align-items: center; gap: 9px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.1px; color: #6E88AA; width: 42px;">WHO</span>
+          <span style="flex-grow: 1; font-size: 15px; color: #9DB4D2;">in focus</span>
+        </div>
+      </div>
+      <span style="font-size: 12px; line-height: 17px; color: #6E88AA;">Faces come up last, because that is the only gap left.</span>
+    </div>
+
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;">
+    <div style="box-sizing: border-box; padding: 16px 18px; border-radius: 20px; background: rgba(118,196,174,0.07); border: 1px solid rgba(118,196,174,0.26); display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 1.2px; color: #76C4AE;">FILLED BY SPEECH</span>
+      <span style="font-size: 13px; line-height: 18px; color: #C8D8F0;">Mint fill, no question. It is never re-asked, and a later guess from the model cannot overwrite it.</span>
+    </div>
+    <div style="box-sizing: border-box; padding: 16px 18px; border-radius: 20px; background: rgba(255,255,255,0.04); border: 1px dashed rgba(255,255,255,0.20); display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 1.2px; color: #9DB4D2;">IN FOCUS</span>
+      <span style="font-size: 13px; line-height: 18px; color: #C8D8F0;">The first empty slot, dashed, with its chips ready. Exactly one at a time.</span>
+    </div>
+    <div style="box-sizing: border-box; padding: 16px 18px; border-radius: 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 1.2px; color: #6E88AA;">STILL TO COME</span>
+      <span style="font-size: 13px; line-height: 18px; color: #C8D8F0;">Dimmed and unlabelled until its turn, so the card never looks like a form.</span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":880,"height":700}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

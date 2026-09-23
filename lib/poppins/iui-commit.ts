@@ -43,6 +43,7 @@ export type IuiCommitWrites = {
   createEvent: (input: CreateEventInput) => Promise<HouseholdEvent | null | unknown>;
   createItinerary: (input: CreateItineraryInput) => Promise<Itinerary | null | void>;
   addMissingGrocery: (input: CreateGroceryInput) => void | Promise<GroceryItem | void | unknown>;
+  clearGroceryList?: () => void | Promise<void>;
   completeTask: (taskId: string) => Promise<unknown>;
   updateTask: (task: HouseholdTask) => Promise<unknown>;
   claimReward: (rewardId: string) => Promise<unknown>;
@@ -52,6 +53,12 @@ export type IuiCommitWrites = {
   undoWindowMs?: number;
   /** Direct mode: do not invent assignee/due defaults from speech silence. */
   directMode?: boolean;
+  /** WO11 — per-row progress while a group batch writes. */
+  onGroupItemStatus?: (
+    itemId: string,
+    status: 'saving' | 'done' | 'failed',
+    entityId?: string
+  ) => void;
 };
 
 export type CommitIuiResult =
@@ -106,6 +113,7 @@ export async function commitIuiBeat(
     createEvent,
     createItinerary,
     addMissingGrocery,
+    clearGroceryList,
     completeTask,
     updateTask,
     claimReward,
@@ -113,6 +121,7 @@ export async function commitIuiBeat(
     onVoiceTaskCreated,
     undoWindowMs = 5000,
     directMode = false,
+    onGroupItemStatus,
   } = writes;
   const p = beat.payload;
   const write = (p.write ?? 'none') as IuiWriteKind;
@@ -120,6 +129,106 @@ export async function commitIuiBeat(
   let wrote = false;
   let reverse: IuiCommitReverse | undefined;
   let deferredNotify: (() => Promise<void>) | undefined;
+
+  // WO11 §2.4 — batch grocery group (one HOLD; parallel writes).
+  if (write === 'add_grocery' && p.items && p.items.length > 0) {
+    const active = p.items.filter((item) => !item.dropped && item.label.trim());
+    const batch: IuiCommitReverse[] = [];
+    let anyOk = false;
+    await Promise.all(
+      active.map(async (item) => {
+        onGroupItemStatus?.(item.id, 'saving');
+        try {
+          const created = await addMissingGrocery({
+            name: item.label,
+            category: item.aisle || (p.shoppingLane === 'clothing' ? 'Clothing' : undefined),
+            categoryId: p.shoppingLane === 'clothing' ? 'clothing' : undefined,
+          });
+          const entityId = asId(created);
+          anyOk = true;
+          if (entityId) {
+            batch.push({ write: 'add_grocery', entityId, beatId: beat.id });
+            onGroupItemStatus?.(item.id, 'done', entityId);
+          } else {
+            onGroupItemStatus?.(item.id, 'done');
+          }
+        } catch (error) {
+          console.warn('IUI batch add_grocery failed', item.label, error);
+          onGroupItemStatus?.(item.id, 'failed');
+        }
+      })
+    );
+    if (!anyOk) {
+      return { ok: false, slot: 'groceryName', reason: 'missing', ask: "Couldn't save — retry" };
+    }
+    wrote = true;
+    if (batch.length) {
+      reverse = {
+        write: 'add_grocery',
+        entityId: batch[batch.length - 1]!.entityId,
+        beatId: beat.id,
+        batch,
+      };
+    }
+    await notifyActCommitted(beat.id, write, beat.payload.actMode);
+    emitTourEvent('poppins_act_committed', { beatId: beat.id, write });
+    return { ok: true, reverse };
+  }
+
+  // WO11 §2.4 — batch task group (serial — shared household state).
+  if (
+    (write === 'create_task' || write === 'create_homework') &&
+    p.items &&
+    p.items.length > 0
+  ) {
+    const active = p.items.filter((item) => !item.dropped && item.label.trim());
+    const batch: IuiCommitReverse[] = [];
+    for (const item of active) {
+      onGroupItemStatus?.(item.id, 'saving');
+      try {
+        const rowBeat: IuiBeat = {
+          ...beat,
+          payload: {
+            ...p,
+            title: item.label,
+            assignee: item.assignee ?? p.assignee,
+            due: item.due ?? p.due,
+            libraryTaskId: item.libraryTaskId ?? p.libraryTaskId,
+            category: item.category ?? p.category,
+            write,
+            items: undefined,
+          },
+        };
+        const rowResult = await commitIuiBeat(rowBeat, {
+          ...writes,
+          onGroupItemStatus: undefined,
+        });
+        if (rowResult.ok && rowResult.reverse) {
+          batch.push(rowResult.reverse);
+          onGroupItemStatus?.(item.id, 'done', rowResult.reverse.entityId);
+        } else if (rowResult.ok) {
+          onGroupItemStatus?.(item.id, 'done');
+        } else {
+          onGroupItemStatus?.(item.id, 'failed');
+        }
+      } catch (error) {
+        console.warn('IUI batch create_task failed', item.label, error);
+        onGroupItemStatus?.(item.id, 'failed');
+      }
+    }
+    if (!batch.length) {
+      return { ok: false, slot: 'title', reason: 'missing', ask: "Couldn't save — retry" };
+    }
+    reverse = {
+      write,
+      entityId: batch[batch.length - 1]!.entityId,
+      beatId: beat.id,
+      batch,
+    };
+    // Child commits already notified; one tour ping for the group.
+    emitTourEvent('poppins_act_committed', { beatId: beat.id, write });
+    return { ok: true, reverse };
+  }
 
   if ((write === 'create_task' || write === 'create_homework') && (p.title || p.libraryTaskId)) {
     try {
@@ -266,6 +375,12 @@ export async function commitIuiBeat(
     if (entityId) reverse = { write, entityId };
   }
 
+  if (write === 'clear_grocery') {
+    await clearGroceryList?.();
+    wrote = true;
+    reverse = { write, entityId: 'grocery-list', beatId: beat.id };
+  }
+
   if (write === 'complete_task') {
     const prior =
       (p.taskId ? household.tasks.find((item) => item.id === p.taskId) : undefined) ??
@@ -307,18 +422,43 @@ export async function commitIuiBeat(
   }
 
   if (write === 'create_itinerary_stop') {
-    const stopLabel = p.stops?.[0]?.label ?? p.itineraryTitle ?? 'Stop';
+    const { mapStopKindToStore } = await import('@/lib/itinerary/itinerary-intent');
+    const stops = (p.stops ?? []).map((stop, index) => {
+      const kindRaw = String(stop.kind ?? stop.category ?? 'other');
+      const kind = mapStopKindToStore(
+        kindRaw as
+          | 'shop'
+          | 'school'
+          | 'work'
+          | 'gym'
+          | 'appointment'
+          | 'other'
+          | 'practice'
+          | 'pickup'
+      );
+      return {
+        label: stop.label,
+        kind,
+        sortOrder: index,
+        address: stop.address,
+        placeQuery: stop.placeQuery ?? stop.label,
+        time: stop.time,
+      };
+    });
+    const fallbackLabel = p.itineraryTitle ?? 'Trip';
     const created = await createItinerary({
-      title: p.itineraryTitle ?? stopLabel,
-      date: formatLocalDate(new Date()),
+      title: p.itineraryTitle ?? stops[0]?.label ?? fallbackLabel,
+      date: p.date ? String(p.date) : formatLocalDate(new Date()),
       suggestedByPoppins: true,
-      stops: [
-        {
-          label: stopLabel,
-          kind: 'shop',
-          sortOrder: 0,
-        },
-      ],
+      stops: stops.length
+        ? stops
+        : [
+            {
+              label: fallbackLabel,
+              kind: 'shop' as const,
+              sortOrder: 0,
+            },
+          ],
     });
     const entityId = asId(created);
     wrote = true;

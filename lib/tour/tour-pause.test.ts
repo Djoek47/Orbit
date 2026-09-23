@@ -90,7 +90,7 @@ assert.equal(tourRouteMatches('/tasks', '/(tabs)/tasks'), true);
 assert.equal(tourRouteMatches('/(tabs)', '/(tabs)/tasks'), false);
 
 let paused = true;
-state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 1 };
+state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 2 };
 const unsub = bindTourStepAdvance({
   state,
   ctx,

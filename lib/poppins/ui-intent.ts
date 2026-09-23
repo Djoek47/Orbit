@@ -32,10 +32,28 @@ import {
   resolvePoppinsChoreTitle,
   scheduleTitleFromUtterance,
   timeFromUtterance,
+  toChoreDisplayTitle,
   wantsFullEditor,
   looksLikeSpokenSentence,
   type ExistingChoreTitle,
 } from '@/lib/poppins/catalog-match';
+
+/** B4 — refuse these as grocery names / task titles. */
+export const FILLER_ITEM_NAMES = new Set([
+  'something',
+  'stuff',
+  'thing',
+  'things',
+  'it',
+  'that',
+  'some',
+  'anything',
+]);
+
+export function isFillerItemName(name: string | undefined | null): boolean {
+  const cleaned = name?.trim().toLowerCase().replace(/[.!?]+$/g, '') ?? '';
+  return Boolean(cleaned) && FILLER_ITEM_NAMES.has(cleaned);
+}
 
 export type HouseholdIntentOpts = {
   memberNames?: string[];
@@ -44,6 +62,25 @@ export type HouseholdIntentOpts = {
 };
 
 export function parseHouseholdIntent(
+  utterance: string,
+  opts?: HouseholdIntentOpts
+): Array<Record<string, unknown>> {
+  const text = utterance.trim();
+  if (!text) return [];
+  const raw = parseHouseholdIntentRaw(text, opts);
+  return raw.map((action) => {
+    const type = String(action.type ?? '');
+    if (type === 'create_task' || type === 'create_task_draft' || type === 'assign_task') {
+      return enrichTaskDraft(action, text, opts);
+    }
+    if (type === 'add_grocery') {
+      return enrichGrocery(action, text)[0] ?? action;
+    }
+    return action;
+  });
+}
+
+function parseHouseholdIntentRaw(
   utterance: string,
   opts?: HouseholdIntentOpts
 ): Array<Record<string, unknown>> {
@@ -84,11 +121,15 @@ export function parseHouseholdIntent(
     return [{ type: 'complete_task', title: title || 'this task' }];
   }
 
+  if (/\bclear\s+(the\s+)?(grocery\s+|shopping\s+)?list\b/i.test(text)) {
+    return [{ type: 'clear_grocery_list' }];
+  }
+
   const groceryFromSpeech = groceryAddActionsFromUtterance(text, {
     excludeNames: memberNames,
   });
   if (groceryFromSpeech?.length) {
-    return groceryFromSpeech;
+    return groceryFromSpeech.flatMap((action) => enrichGrocery(action, text));
   }
 
   const wantsItineraryStop =
@@ -117,9 +158,13 @@ export function parseHouseholdIntent(
       !resolved.libraryTaskId &&
       rawTitle.toLowerCase() === String(match.domainLabel).toLowerCase();
     const title =
-      !rawTitle || /^(task|chore)$/i.test(rawTitle) || domainOnly ? '' : rawTitle;
+      !rawTitle || /^(task|chore)$/i.test(rawTitle) || domainOnly || isFillerItemName(rawTitle)
+        ? ''
+        : rawTitle;
     const due = dueLabelFromUtterance(text);
-    const named = match.assignee ?? text.match(/\bfor\s+([A-Z][a-zA-Z]+)\b/)?.[1];
+    const named =
+      match.assignee ??
+      text.match(/\b(?:for|to)\s+([A-Z][a-zA-Z]+)\b/)?.[1];
     const assignee = named && named.toLowerCase() !== 'me' ? named : match.assignee;
     const useCatalog = Boolean(resolved.libraryTaskId);
     const homework = isHomeworkIntent(text) || resolved.category === 'homework_education';
@@ -178,7 +223,12 @@ function enrichTaskDraft(
   utterance: string,
   opts?: HouseholdIntentOpts
 ): Record<string, unknown> {
-  const groceryRewrite = groceryRewriteFromDraft(action, utterance);
+  // Person-assigned errands stay chores — don't rewrite "Drako, buy milk" into a grocery add.
+  const namedAssignee =
+    typeof action.assignee === 'string' && action.assignee.trim()
+      ? action.assignee
+      : utterance.match(/\b([A-Z][a-zA-Z]{1,20})\s*,/)?.[1];
+  const groceryRewrite = namedAssignee ? null : groceryRewriteFromDraft(action, utterance);
   if (groceryRewrite?.length) {
     return groceryRewrite[0]!;
   }
@@ -192,10 +242,24 @@ function enrichTaskDraft(
   const spoken = repeatFromUtterance(utterance);
   if (spoken && !next.repeat) next.repeat = spoken;
   const existingTitle = String(next.title ?? '').trim();
-  const resolved = resolvePoppinsChoreTitle(existingTitle || utterance, {
+  const heard = extractSpokenChoreTitle(utterance);
+  const resolved = resolvePoppinsChoreTitle(existingTitle || heard || utterance, {
     existingTasks: opts?.existingTasks,
   });
-  if (resolved.title) {
+  if (heard) {
+    // Prefer a confident catalog match over a free-text extract.
+    if (resolved.libraryTaskId && resolved.title && !resolved.provisional) {
+      next.title = resolved.title;
+      next.libraryTaskId = resolved.libraryTaskId;
+      next.category = resolved.category ?? next.category;
+    } else {
+      next.title = heard;
+      if (resolved.libraryTaskId && !resolved.provisional) {
+        next.libraryTaskId = resolved.libraryTaskId;
+        next.category = resolved.category ?? next.category;
+      }
+    }
+  } else if (resolved.title && !looksLikeSpokenSentence(resolved.title) && !resolved.provisional) {
     next.title = resolved.title;
     if (resolved.libraryTaskId && !next.libraryTaskId) {
       next.libraryTaskId = resolved.libraryTaskId;
@@ -203,17 +267,40 @@ function enrichTaskDraft(
     }
   } else if (!existingTitle || looksLikeSpokenSentence(existingTitle)) {
     next.title = '';
-    if (match.task && !next.libraryTaskId) {
+    if (match.task && !next.libraryTaskId && !match.taskQuery) {
       next.libraryTaskId = match.task.id;
       next.title = match.task.name;
       next.category = match.task.domainId;
-    } else {
-      const heard = extractSpokenChoreTitle(utterance);
-      if (heard) next.title = heard;
-      if (match.taskQuery && !next.taskQuery) next.taskQuery = match.taskQuery;
+    } else if (match.taskQuery) {
+      next.taskQuery = match.taskQuery;
+      // Domain-only queries (kitchen, laundry) stay empty — pick from catalog.
+      const domainOnly =
+        Boolean(match.domainLabel) &&
+        match.taskQuery.toLowerCase() === String(match.domainLabel).toLowerCase();
+      if (!domainOnly) {
+        next.title = toChoreDisplayTitle(match.taskQuery);
+      }
+    }
+  }
+  if (match.taskQuery && !next.taskQuery) next.taskQuery = match.taskQuery;
+  // Prefer the spoken object over a provisional fuzzy library miss.
+  if (match.taskQuery && (resolved.provisional || looksLikeSpokenSentence(String(next.title ?? '')))) {
+    const domainOnly =
+      Boolean(match.domainLabel) &&
+      match.taskQuery.toLowerCase() === String(match.domainLabel).toLowerCase();
+    if (!domainOnly) {
+      next.title = toChoreDisplayTitle(match.taskQuery);
+    }
+    if (resolved.provisional) {
+      delete next.libraryTaskId;
     }
   }
   if (typeof next.title !== 'string') next.title = '';
+  if (isFillerItemName(String(next.title))) {
+    next.title = '';
+    next.ask = 'What should I add?';
+    next.thinkingLine = 'What should I add?';
+  }
   const assignee = typeof next.assignee === 'string' ? next.assignee : undefined;
   const title = typeof next.title === 'string' ? next.title : undefined;
   if (assigneeBlockedByMemory(getActiveHouseMemory(), assignee, title)) {
@@ -222,8 +309,10 @@ function enrichTaskDraft(
   if (isHomeworkIntent(utterance) || next.category === 'homework_education') {
     next.category = 'homework_education';
   }
-  const postRewrite = groceryRewriteFromDraft(next, utterance);
-  if (postRewrite?.length) return postRewrite[0]!;
+  if (!namedAssignee) {
+    const postRewrite = groceryRewriteFromDraft(next, utterance);
+    if (postRewrite?.length) return postRewrite[0]!;
+  }
   return next;
 }
 
@@ -231,8 +320,30 @@ function enrichGrocery(
   action: Record<string, unknown>,
   utterance: string
 ): Array<Record<string, unknown>> {
-  const name = String(action.name ?? '').trim() || extractItemName(utterance) || undefined;
-  if (!name) return [];
+  const rawName = String(action.name ?? '').trim() || extractItemName(utterance) || undefined;
+  if (isFillerItemName(rawName)) {
+    return [
+      {
+        type: 'add_grocery',
+        name: '',
+        ask: 'What should I add?',
+        thinkingLine: 'What should I add?',
+        sourceUtterance: utterance,
+      },
+    ];
+  }
+  const name = rawName;
+  if (!name) {
+    return [
+      {
+        type: 'add_grocery',
+        name: '',
+        ask: 'What should I add?',
+        thinkingLine: 'What should I add?',
+        sourceUtterance: utterance,
+      },
+    ];
+  }
   const shopping = isShoppingIntent(utterance) || action.lane === 'clothing';
   const releaseDate =
     (action.releaseDate ? String(action.releaseDate) : undefined) || parseReleaseDate(utterance);

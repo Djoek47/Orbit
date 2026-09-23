@@ -5,6 +5,7 @@
 
 import type { AudioRecorder } from 'expo-audio';
 
+import { saveLastAppError } from '@/lib/errors/last-error';
 import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
 import {
   finishMicRecorder,
@@ -18,8 +19,21 @@ import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
 
 const SILENCE_DB = -40;
 const SILENCE_AFTER_SPEECH_MS = 1200;
+/** Fixed silence auto-stop when metering never arrives (expo-audio optional metering). */
+const METERING_FALLBACK_AUTO_STOP_MS = 2500;
 const HARD_CAP_MS = 30_000;
 const POLL_MS = 100;
+/** Min recording length before we bother Whisper (A1). */
+const MIN_WHISPER_MS = 700;
+/** After this many polls with no metering number, fall back (A1). */
+const METERING_PROBE_POLLS = 10;
+
+export type QuietStopFailure = {
+  failed: 'no_audio' | 'too_short' | 'transcribe_failed' | 'empty_transcript';
+  detail?: string;
+};
+
+export type QuietStopResult = { transcript: string } | QuietStopFailure;
 
 export type QuietCapture = {
   start(opts: {
@@ -29,12 +43,26 @@ export type QuietCapture = {
     /** Fired when silence or the 30s cap stops the recording. Caller should `stop()`. */
     onAutoStop?: () => void;
   }): Promise<void>;
-  /** Stop recording and return Whisper transcript (transcriptOnly). */
-  stop(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<string | null>;
+  /** Stop recording and return Whisper transcript or a typed failure (A2). */
+  stop(household: HouseholdSnapshot, metrics: OrbitMetrics): Promise<QuietStopResult>;
   cancel(): Promise<void>;
   readonly streaming: boolean;
   readonly active: boolean;
 };
+
+export const QUIET_FAILURE_MESSAGES: Record<QuietStopFailure['failed'], string> = {
+  no_audio: "The microphone didn't record anything. Check microphone access in iOS Settings.",
+  too_short: 'That was too short — hold the button and say it again.',
+  transcribe_failed: "I couldn't reach the transcriber. Check your connection.",
+  empty_transcript: "I didn't hear words. The mic recorded silence. Hold, speak, let go.",
+};
+
+function persistVoiceFailure(failed: QuietStopFailure['failed'], detail?: string) {
+  void saveLastAppError({
+    message: `voice:${failed}${detail ? ` ${detail}` : ''}`,
+    at: new Date().toISOString(),
+  });
+}
 
 /**
  * Batch Quiet capture via expo-audio → Whisper (`transcriptOnly`).
@@ -44,6 +72,7 @@ export function createQuietCapture(): QuietCapture {
   let recording: AudioRecorder | null = null;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let hardCapTimer: ReturnType<typeof setTimeout> | null = null;
+  let meteringFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   let heardSpeech = false;
   let silenceSince: number | null = null;
   let startedAt = 0;
@@ -51,7 +80,7 @@ export function createQuietCapture(): QuietCapture {
   let floorLocked = false;
   const floorSamples: number[] = [];
   let active = false;
-  let finishing: Promise<string | null> | null = null;
+  let finishing: Promise<QuietStopResult> | null = null;
   let onLevel: ((db: number) => void) | undefined;
   let onStatus: ((status: 'listening' | 'transcribing' | 'got_it') => void) | undefined;
   let onPartial: ((text: string) => void) | undefined;
@@ -59,6 +88,10 @@ export function createQuietCapture(): QuietCapture {
   let autoStoppedUri: string | null | undefined;
   let autoStopWaiters: Array<(uri: string | null) => void> = [];
   let stopRequested = false;
+  let pollCount = 0;
+  let meteringSeen = false;
+  let meteringUnavailableLogged = false;
+  let meteringFallbackArmed = false;
 
   const clearTimers = () => {
     if (pollTimer) {
@@ -68,6 +101,10 @@ export function createQuietCapture(): QuietCapture {
     if (hardCapTimer) {
       clearTimeout(hardCapTimer);
       hardCapTimer = null;
+    }
+    if (meteringFallbackTimer) {
+      clearTimeout(meteringFallbackTimer);
+      meteringFallbackTimer = null;
     }
   };
 
@@ -102,6 +139,18 @@ export function createQuietCapture(): QuietCapture {
     cb?.();
   };
 
+  const armMeteringFallback = () => {
+    if (meteringFallbackArmed || meteringSeen) return;
+    meteringFallbackArmed = true;
+    if (!meteringUnavailableLogged) {
+      meteringUnavailableLogged = true;
+      console.warn('voice.metering_unavailable');
+    }
+    meteringFallbackTimer = setTimeout(() => {
+      void requestAutoStop();
+    }, METERING_FALLBACK_AUTO_STOP_MS);
+  };
+
   const api: QuietCapture = {
     get streaming() {
       return false;
@@ -126,6 +175,10 @@ export function createQuietCapture(): QuietCapture {
       finishing = null;
       stopRequested = false;
       autoStoppedUri = undefined;
+      pollCount = 0;
+      meteringSeen = false;
+      meteringUnavailableLogged = false;
+      meteringFallbackArmed = false;
       onStatus?.('listening');
       onPartial?.('Listening…');
 
@@ -145,8 +198,16 @@ export function createQuietCapture(): QuietCapture {
           try {
             const status = recording.getStatus();
             if (!status.isRecording) return;
-            const db = typeof status.metering === 'number' ? status.metering : -160;
+            pollCount += 1;
+            const hasMetering = typeof status.metering === 'number';
+            if (hasMetering) meteringSeen = true;
+            else if (pollCount >= METERING_PROBE_POLLS) armMeteringFallback();
+
+            const db = hasMetering ? status.metering! : -160;
             onLevel?.(db);
+            // Metering is only for silence auto-stop + level UI — not a Whisper gate (A1).
+            if (!hasMetering) return;
+
             const elapsed = Date.now() - startedAt;
             if (!floorLocked) {
               floorSamples.push(db);
@@ -182,10 +243,12 @@ export function createQuietCapture(): QuietCapture {
     async stop(household, metrics) {
       if (finishing) return finishing;
       stopRequested = true;
-      finishing = (async () => {
+      finishing = (async (): Promise<QuietStopResult> => {
         onStatus?.('got_it');
         onPartial?.('Got it');
         onStatus?.('transcribing');
+
+        const durationMillis = Date.now() - startedAt;
 
         let uri: string | null;
         if (autoStoppedUri !== undefined) {
@@ -200,9 +263,41 @@ export function createQuietCapture(): QuietCapture {
         }
 
         active = false;
-        if (!heardSpeech || !uri) return null;
-        const transcript = await transcribeQuietAudio(uri, household, metrics);
-        return acceptQuietTranscript(transcript);
+
+        if (!uri) {
+          const result: QuietStopFailure = { failed: 'no_audio' };
+          persistVoiceFailure(result.failed);
+          return result;
+        }
+
+        // A1: send to Whisper whenever URI exists and duration >= 700ms — ignore heardSpeech.
+        if (durationMillis < MIN_WHISPER_MS) {
+          const result: QuietStopFailure = {
+            failed: 'too_short',
+            detail: `durationMs=${durationMillis}`,
+          };
+          persistVoiceFailure(result.failed, result.detail);
+          return result;
+        }
+
+        try {
+          const transcript = await transcribeQuietAudio(uri, household, metrics);
+          const accepted = acceptQuietTranscript(transcript);
+          if (!accepted) {
+            const result: QuietStopFailure = {
+              failed: 'empty_transcript',
+              detail: transcript ? `raw=${transcript.slice(0, 80)}` : undefined,
+            };
+            persistVoiceFailure(result.failed, result.detail);
+            return result;
+          }
+          return { transcript: accepted };
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error);
+          const result: QuietStopFailure = { failed: 'transcribe_failed', detail };
+          persistVoiceFailure(result.failed, detail);
+          return result;
+        }
       })();
       return finishing;
     },

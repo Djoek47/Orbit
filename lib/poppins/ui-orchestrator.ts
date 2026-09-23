@@ -47,10 +47,13 @@ export type IuiDriveState = {
   spoken: string;
   /** True after a failed commit — retry or dismiss advances. */
   commitFailed: boolean;
-  /** Tappable undo window after a successful settle (~5s). */
+  /** Tappable undo window after a successful settle (~5s from last commit). */
   undoUntil: number | null;
+  /** @deprecated Prefer undoLedger — kept as the latest entry for older UI. */
   undoBeat: IuiBeat | null;
   undoReverse: IuiCommitReverse | null;
+  /** WO11 §2.5 — every commit since the turn began. */
+  undoLedger: Array<{ beat: IuiBeat; reverse: IuiCommitReverse | null }>;
 };
 
 const EMPTY: IuiDriveState = {
@@ -69,6 +72,7 @@ const EMPTY: IuiDriveState = {
   undoUntil: null,
   undoBeat: null,
   undoReverse: null,
+  undoLedger: [],
 };
 
 let state: IuiDriveState = EMPTY;
@@ -172,21 +176,83 @@ function markSlotSources(
 function patchCurrentPayload(patch: Partial<IuiPayload>) {
   const beat = currentBeat();
   if (!beat) return;
-  const merged = {
+  let merged = {
     ...beat.payload,
     ...patch,
     slotSource: { ...beat.payload.slotSource, ...patch.slotSource },
   };
+  // WO11 — assigning a person fills the first group row missing an assignee.
+  if (patch.assignee && merged.items?.length) {
+    let filled = false;
+    merged = {
+      ...merged,
+      items: merged.items.map((item) => {
+        if (filled || item.dropped || item.assignee?.trim()) return item;
+        filled = true;
+        return { ...item, assignee: String(patch.assignee) };
+      }),
+    };
+    const needsFace = merged.items?.some((item) => !item.dropped && !item.assignee?.trim()) ?? false;
+    if (beat.scene === 'task_compose' || beat.scene === 'homework_compose') {
+      merged.composeReady = !needsFace;
+    }
+  }
   const payload =
-    beat.scene === 'task_compose'
+    beat.scene === 'task_compose' && !merged.items?.length
       ? withComposeProgress(merged)
-      : beat.scene === 'homework_compose'
+      : beat.scene === 'homework_compose' && !merged.items?.length
         ? withHomeworkComposeProgress(merged)
         : merged;
   const next = { ...beat, payload };
   setState({
     playlist: state.playlist.map((item, i) => (i === state.index ? next : item)),
   });
+}
+
+function applyGroupItemStatus(
+  itemId: string,
+  status: 'pending' | 'saving' | 'done' | 'failed'
+) {
+  const beat = currentBeat();
+  if (!beat?.payload.items?.length) return;
+  const items = beat.payload.items.map((item) =>
+    item.id === itemId ? { ...item, status } : item
+  );
+  const done = items.filter((item) => !item.dropped && item.status === 'done').length;
+  const total = items.filter((item) => !item.dropped).length;
+  patchCurrentPayload({
+    items,
+    progressLabel: total > 1 ? `${Math.min(done + 1, total)} of ${total}` : undefined,
+  });
+}
+
+function applyDropGroupItem(itemId: string) {
+  const beat = currentBeat();
+  if (!beat?.payload.items?.length) return;
+  const items = beat.payload.items.map((item) =>
+    item.id === itemId ? { ...item, dropped: true } : item
+  );
+  const active = items.filter((item) => !item.dropped && item.label.trim());
+  if (!active.length) {
+    hapticHandler?.('veto');
+    clearAllTimers();
+    clear();
+    return;
+  }
+  const first = active[0]!;
+  const needsFace = active.some((item) => !item.assignee?.trim());
+  patchCurrentPayload({
+    items,
+    groceryName: beat.scene === 'grocery_add' ? first.label : beat.payload.groceryName,
+    title: first.label,
+    assignee: first.assignee ?? beat.payload.assignee,
+    due: first.due ?? beat.payload.due,
+    progressLabel: active.length > 1 ? `1 of ${active.length}` : undefined,
+    composeReady:
+      beat.scene === 'task_compose' || beat.scene === 'homework_compose' ? !needsFace : undefined,
+  });
+  if (state.holding) resetHoldProgressOnly();
+  maybeArmHold();
 }
 
 function advanceAfterSettle() {
@@ -207,16 +273,29 @@ function advanceAfterSettle() {
   setTimeout(() => clear(), SETTLE_CLEAR_MS);
 }
 
+function reverseCount(reverse: IuiCommitReverse | null | undefined): number {
+  if (!reverse) return 1;
+  if (reverse.batch?.length) return reverse.batch.length;
+  return 1;
+}
+
+function turnUndoCount(ledger: IuiDriveState['undoLedger']): number {
+  return ledger.reduce((sum, entry) => sum + reverseCount(entry.reverse), 0);
+}
+
 function armUndoWindow(beat: IuiBeat, reverse?: IuiCommitReverse | null) {
   clearUndoTimer();
   const ms = effectiveUndoMs(beat);
+  const entry = { beat, reverse: reverse ?? null };
+  const undoLedger = [...state.undoLedger, entry];
   setState({
     undoBeat: beat,
     undoUntil: Date.now() + ms,
     undoReverse: reverse ?? null,
+    undoLedger,
   });
   undoTimer = setTimeout(() => {
-    setState({ undoBeat: null, undoUntil: null, undoReverse: null });
+    setState({ undoBeat: null, undoUntil: null, undoReverse: null, undoLedger: [] });
   }, ms);
 }
 
@@ -250,6 +329,28 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
       }
       if (result && typeof result === 'object' && 'reverse' in result) {
         reverse = result.reverse ?? null;
+      }
+      const write = beat.payload.write ?? 'none';
+      if (write !== 'none') {
+        const { actKeyFromBeat, recordCommittedAct } = await import('@/lib/poppins/act-ledger');
+        const items = beat.payload.items?.filter((item) => !item.dropped && item.status !== 'failed');
+        if (items?.length) {
+          for (const item of items) {
+            recordCommittedAct(
+              write,
+              actKeyFromBeat(write, { groceryName: item.label, title: item.label })
+            );
+          }
+        } else {
+          recordCommittedAct(
+            write,
+            actKeyFromBeat(write, {
+              groceryName: beat.payload.groceryName,
+              title: beat.payload.title,
+              taskId: beat.payload.taskId,
+            })
+          );
+        }
       }
     } catch (error) {
       const { ActRejectedError, clearRejectedSlot } = await import('@/lib/poppins/validate-act');
@@ -291,7 +392,10 @@ function startHoldClock(beat: IuiBeat) {
   if (state.frozen || state.speaking || currentBeat()?.id !== beat.id) return;
   if (state.holding) return;
   setState({ holding: true, phase: 'hold', holdStartedAt: Date.now() });
-  hapticHandler?.('hold');
+  // WO11 §2.7 — one haptic for the group (settle), not hold+settle.
+  if (!(beat.payload.items && beat.payload.items.filter((item) => !item.dropped).length > 1)) {
+    hapticHandler?.('hold');
+  }
   clearHoldTimer();
   holdTimer = setTimeout(() => {
     if (state.speaking || state.frozen || currentBeat()?.id !== beat.id) return;
@@ -342,7 +446,9 @@ function beatCanSkipShow(beat: IuiBeat): boolean {
   if (beat.scene === 'task_compose' || beat.scene === 'homework_compose') {
     return Boolean(p.assignee || p.title || p.libraryTaskId || p.category);
   }
-  if (beat.scene === 'grocery_add') return Boolean(p.groceryName);
+  if (beat.scene === 'grocery_add') {
+    return Boolean(p.groceryName || (p.items && p.items.some((item) => !item.dropped && item.label)));
+  }
   return false;
 }
 
@@ -359,6 +465,37 @@ function canMergeBeat(current: IuiBeat, incoming: IuiBeat): boolean {
     }
   }
   return true;
+}
+
+/** Drop model values that would overwrite a spoken/touch slot in slotOrder. */
+function scrubModelOverwrite(current: IuiPayload, incoming: IuiPayload): IuiPayload {
+  const next = { ...incoming };
+  const spoken = new Set(current.slotOrder ?? []);
+  for (const key of PROTECTED_SLOTS) {
+    const inSlotOrder = spoken.has(key as 'title' | 'assignee' | 'due' | 'category' | 'date' | 'time');
+    const source = current.slotSource?.[key];
+    if (!inSlotOrder && source !== 'speech' && source !== 'touch') continue;
+    const currentVal = String(current[key] ?? '').trim();
+    const incomingVal = String(incoming[key] ?? '').trim();
+    const incomingSource = incoming.slotSource?.[key];
+    if (
+      currentVal &&
+      incomingVal &&
+      currentVal.toLowerCase() !== incomingVal.toLowerCase() &&
+      incomingSource !== 'speech' &&
+      incomingSource !== 'touch'
+    ) {
+      console.warn('iui.model_overwrite_blocked', { slot: key, kept: currentVal, dropped: incomingVal });
+      (next as Record<string, unknown>)[key] = current[key];
+      next.slotSource = { ...next.slotSource, [key]: source ?? 'speech' };
+    }
+  }
+  // Keep the person's slot order.
+  if (current.slotOrder?.length) {
+    next.slotOrder = current.slotOrder;
+    next.focusSlot = current.focusSlot;
+  }
+  return next;
 }
 
 /** Stable identity for playlist dedupe when merging a model refinement. */
@@ -379,15 +516,69 @@ function mergeIncomingPlaylist(playlist: IuiBeat[]) {
   const current = currentBeat();
   const incoming = playlist[0];
   if (!current || !incoming || !canMergeBeat(current, incoming)) return false;
-  patchCurrentPayload(incoming.payload);
+  // Preserve / merge grouped rows when a refinement arrives.
+  const incomingPayload: Partial<IuiPayload> = { ...incoming.payload };
+  if (current.payload.items?.length) {
+    if (!incomingPayload.items?.length) {
+      delete incomingPayload.items;
+      delete incomingPayload.progressLabel;
+    } else {
+      const seen = new Set(
+        current.payload.items
+          .filter((item) => !item.dropped && item.label.trim())
+          .map((item) => item.label.trim().toLowerCase())
+      );
+      const mergedItems = [...current.payload.items];
+      for (const item of incomingPayload.items) {
+        const key = item.label.trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        mergedItems.push(item);
+      }
+      incomingPayload.items = mergedItems;
+      const active = mergedItems.filter((item) => !item.dropped);
+      incomingPayload.progressLabel =
+        active.length > 1 ? `1 of ${active.length}` : undefined;
+      incomingPayload.groceryName = active[0]?.label ?? incomingPayload.groceryName;
+      incomingPayload.title = active[0]?.label ?? incomingPayload.title;
+    }
+  }
+  patchCurrentPayload(scrubModelOverwrite(current.payload, incomingPayload as IuiPayload));
   const rest = playlist.slice(1);
   const kept = state.playlist.slice(0, state.index + 1);
   const tail = state.playlist.slice(state.index + 1);
   const seen = new Set(kept.map(beatIdentityKey));
+  // Also fingerprint each group row so a late plan cannot re-queue the same act.
+  for (const beat of kept) {
+    for (const item of beat.payload.items ?? []) {
+      if (item.dropped || !item.label.trim()) continue;
+      seen.add(`${beat.scene}|item|${item.label.trim().toLowerCase()}`);
+    }
+  }
   const mergedTail: IuiBeat[] = [];
   for (const beat of [...rest, ...tail]) {
     const key = beatIdentityKey(beat);
     if (seen.has(key)) continue;
+    if (beat.payload.items?.length) {
+      const filtered = beat.payload.items.filter((item) => {
+        const itemKey = `${beat.scene}|item|${item.label.trim().toLowerCase()}`;
+        if (!item.label.trim() || seen.has(itemKey)) return false;
+        seen.add(itemKey);
+        return true;
+      });
+      if (!filtered.length) continue;
+      seen.add(key);
+      mergedTail.push({
+        ...beat,
+        payload: {
+          ...beat.payload,
+          items: filtered,
+          groceryName: filtered[0]?.label ?? beat.payload.groceryName,
+          title: filtered[0]?.label ?? beat.payload.title,
+        },
+      });
+      continue;
+    }
     seen.add(key);
     mergedTail.push(beat);
   }
@@ -489,6 +680,7 @@ function startPlaylist(playlist: IuiBeat[], kid?: boolean) {
     undoUntil: null,
     undoBeat: null,
     undoReverse: null,
+    undoLedger: [],
   });
   armBeat();
 }
@@ -511,11 +703,23 @@ function beatReadyForDirectCommit(beat: IuiBeat): boolean {
   if (!gate.ok) return false;
   const write = beat.payload.write ?? 'none';
   if (write === 'add_grocery' || beat.scene === 'grocery_add') {
+    if (beat.payload.items?.some((item) => !item.dropped && item.label.trim())) {
+      return !beat.payload.items.some(
+        (item) => !item.dropped && item.label.trim() && item.status === 'failed'
+      );
+    }
     return directSlotFilled(beat, 'groceryName', beat.payload.groceryName) ||
       directSlotFilled(beat, 'title', beat.payload.title);
   }
   if (write === 'complete_task') return true;
   if (write === 'create_task' || write === 'create_homework' || beat.scene === 'task_compose' || beat.scene === 'homework_compose') {
+    if (beat.payload.items?.length) {
+      const active = beat.payload.items.filter((item) => !item.dropped);
+      return (
+        active.length > 0 &&
+        active.every((item) => item.label.trim() && item.assignee?.trim() && (item.due ?? beat.payload.due)?.trim())
+      );
+    }
     const hasTitle =
       directSlotFilled(beat, 'title', beat.payload.title) ||
       directSlotFilled(beat, 'libraryTaskId', beat.payload.libraryTaskId);
@@ -532,6 +736,80 @@ function beatReadyForDirectCommit(beat: IuiBeat): boolean {
     );
   }
   return gate.ok;
+}
+
+/** True when a live playlist still has work that has not settled. */
+function chainHasUncommittedWork(): boolean {
+  if (!state.live || !state.playlist.length) return false;
+  // Current beat not yet settled, or anything still queued behind it.
+  if (state.index < state.playlist.length && state.phase !== 'settle') return true;
+  return state.index + 1 < state.playlist.length;
+}
+
+function appendAndDedupePlaylist(playlist: IuiBeat[], opts?: { blockedReplace?: boolean }) {
+  if (opts?.blockedReplace) {
+    console.warn('iui.chain_replaced_blocked', {
+      index: state.index,
+      phase: state.phase,
+      queued: Math.max(0, state.playlist.length - state.index - 1),
+      incoming: playlist.length,
+    });
+  }
+  const kept = state.playlist.slice(0, Math.max(state.index + 1, 0));
+  const tail = state.playlist.slice(state.index + 1);
+  const seen = new Set(kept.map(beatIdentityKey));
+  for (const beat of kept) {
+    for (const item of beat.payload.items ?? []) {
+      if (item.dropped || !item.label.trim()) continue;
+      seen.add(`${beat.scene}|item|${item.label.trim().toLowerCase()}`);
+    }
+  }
+  const mergedTail: IuiBeat[] = [];
+  for (const beat of [...playlist, ...tail]) {
+    const key = beatIdentityKey(beat);
+    if (seen.has(key)) continue;
+    if (beat.payload.items?.length) {
+      const filtered = beat.payload.items.filter((item) => {
+        const itemKey = `${beat.scene}|item|${item.label.trim().toLowerCase()}`;
+        if (!item.label.trim() || seen.has(itemKey)) return false;
+        seen.add(itemKey);
+        return true;
+      });
+      if (!filtered.length) continue;
+      seen.add(key);
+      mergedTail.push({
+        ...beat,
+        payload: {
+          ...beat.payload,
+          items: filtered,
+          groceryName: filtered[0]?.label ?? beat.payload.groceryName,
+          title: filtered[0]?.label ?? beat.payload.title,
+        },
+      });
+      continue;
+    }
+    seen.add(key);
+    mergedTail.push(beat);
+  }
+  const added = Math.max(0, mergedTail.length - tail.length);
+  const current = currentBeat();
+  if (current && added > 0) {
+    const activeCount =
+      current.payload.items?.filter((item) => !item.dropped).length ??
+      (current.payload.groceryName || current.payload.title ? 1 : 0);
+    const total = activeCount + added;
+    patchCurrentPayload({
+      progressLabel:
+        total > 1 ? `${Math.min(activeCount, total)} of ${total}` : current.payload.progressLabel,
+      thinkingLine:
+        added === 1 ? `+1` : added > 1 ? `+${added}` : current.payload.thinkingLine,
+    });
+  }
+  setState({
+    playlist: [...kept, ...mergedTail],
+    live: true,
+    holdMs: sessionHoldMs,
+  });
 }
 
 export type IuiDriveSnapshot = Pick<
@@ -601,11 +879,24 @@ export const poppinsUiOrchestrator = {
       sessionHoldMs = opts.kid ? HOLD_MS_KID : HOLD_MS_DEFAULT;
       setState({ holdMs: sessionHoldMs });
     }
+    const liveUncommitted = state.live && state.playlist.length && chainHasUncommittedWork();
     if (state.live && state.playlist.length && mergeIncomingPlaylist(playlist)) {
+      if (opts?.replace && liveUncommitted) {
+        console.warn('iui.chain_replaced_blocked', {
+          via: 'merge',
+          index: state.index,
+          phase: state.phase,
+        });
+      }
+      return;
+    }
+    // WO11 §2.6 — never wipe a live chain: replace downgrades to append+dedupe.
+    if (liveUncommitted) {
+      appendAndDedupePlaylist(playlist, { blockedReplace: opts?.replace === true });
       return;
     }
     if (state.live && state.playlist.length && !opts?.replace) {
-      setState({ playlist: [...state.playlist, ...playlist], live: true, holdMs: sessionHoldMs });
+      appendAndDedupePlaylist(playlist);
       return;
     }
     startPlaylist(playlist, opts?.kid);
@@ -614,6 +905,10 @@ export const poppinsUiOrchestrator = {
     const extra = mapUiActionsToPlaylist(actions);
     if (!extra.length) return;
     const wasEmpty = !state.playlist.length;
+    if (state.live && state.playlist.length) {
+      appendAndDedupePlaylist(extra);
+      return;
+    }
     setState({ playlist: [...state.playlist, ...extra], live: true, holdMs: sessionHoldMs });
     if (wasEmpty) armBeat();
   },
@@ -628,6 +923,15 @@ export const poppinsUiOrchestrator = {
       return;
     }
     maybeArmHold();
+  },
+  dropGroupItem(itemId: string) {
+    applyDropGroupItem(itemId);
+  },
+  patchGroupItemStatus(
+    itemId: string,
+    status: 'pending' | 'saving' | 'done' | 'failed'
+  ) {
+    applyGroupItemStatus(itemId, status);
   },
   syncSpoken(text: string, memberNames: string[] = []) {
     if (!text.trim()) return;
@@ -691,6 +995,21 @@ export const poppinsUiOrchestrator = {
   /** Finger press: stop talking over the choice and apply it now. Auto-HOLD still waits. */
   chooseFromTap(patch: Partial<IuiPayload>, text: string, kind = 'choice') {
     if (state.speaking) setState({ speaking: false });
+    const beat = currentBeat();
+    // B2 — a face tap must never assign a grocery add.
+    if (
+      patch.assignee != null &&
+      beat &&
+      (beat.scene === 'grocery_add' || beat.payload.write === 'add_grocery')
+    ) {
+      console.warn('iui.assignee_ignored', { scene: beat.scene, write: beat.payload.write });
+      const { assignee: _ignored, ...rest } = patch;
+      if (Object.keys(rest).length) {
+        poppinsUiOrchestrator.revise(markSlotSources(rest, 'touch'));
+      }
+      emitTap({ kind, text });
+      return;
+    }
     poppinsUiOrchestrator.revise(markSlotSources(patch, 'touch'));
     emitTap({ kind, text });
   },
@@ -712,20 +1031,53 @@ export const poppinsUiOrchestrator = {
     setState({ commitFailed: false, frozen: false, thinkingLine: '' });
     advanceAfterSettle();
   },
-  /** Tap the settle mark within ~5s to reverse the last commit (handler optional). */
+  /** WO12 §F4 — mark the turn as model-offline without failing the act. */
+  flagModelOffline() {
+    const beat = currentBeat();
+    if (!beat) return;
+    if (beat.scene === 'result_mark' || beat.scene === 'task_done') {
+      patchCurrentPayload({ modelOffline: true });
+      return;
+    }
+    const nextMark = state.playlist.find(
+      (item, i) => i > state.index && (item.scene === 'result_mark' || item.scene === 'task_done')
+    );
+    if (nextMark) {
+      setState({
+        playlist: state.playlist.map((item) =>
+          item.id === nextMark.id
+            ? { ...item, payload: { ...item.payload, modelOffline: true } }
+            : item
+        ),
+      });
+    }
+  },
+  /** Tap the settle mark within ~5s to reverse every commit in the turn (newest first). */
   async undoLast() {
-    const beat = state.undoBeat;
-    const reverse = state.undoReverse;
-    if (!beat || !state.undoUntil || Date.now() > state.undoUntil) return false;
+    const ledger = state.undoLedger.length
+      ? state.undoLedger
+      : state.undoBeat
+        ? [{ beat: state.undoBeat, reverse: state.undoReverse }]
+        : [];
+    if (!ledger.length || !state.undoUntil || Date.now() > state.undoUntil) return false;
     clearUndoTimer();
-    setState({ undoBeat: null, undoUntil: null, undoReverse: null });
-    await undoHandler?.(beat, reverse);
+    setState({ undoBeat: null, undoUntil: null, undoReverse: null, undoLedger: [] });
+    // Newest first.
+    for (const entry of [...ledger].reverse()) {
+      await undoHandler?.(entry.beat, entry.reverse);
+    }
     // Mark held for undo — advance as soon as reverse lands.
     if (currentBeat()?.scene === 'result_mark') {
       clearAllTimers();
       advanceAfterSettle();
     }
     return true;
+  },
+  /** How many acts the current undo window covers. */
+  undoCount(): number {
+    if (!state.undoUntil || Date.now() > state.undoUntil) return 0;
+    if (state.undoLedger.length) return turnUndoCount(state.undoLedger);
+    return state.undoBeat ? reverseCount(state.undoReverse) : 0;
   },
   veto() {
     const beat = currentBeat();

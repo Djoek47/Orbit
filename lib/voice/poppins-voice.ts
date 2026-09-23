@@ -121,22 +121,24 @@ export async function transcribePoppinsAudio(
 }
 
 /**
- * Quiet capture transcription. Returns null on failure or empty —
- * never a sentence the user did not say.
+ * Quiet capture transcription. Returns null on empty transcript.
+ * Throws on network / edge failure so Quiet can show `transcribe_failed` (A2).
+ * Never invents a sentence the user did not say.
  */
 export async function transcribeQuietAudio(
   audioUri: string | null,
   household: HouseholdSnapshot,
   metrics: OrbitMetrics
 ): Promise<string | null> {
-  if (!useLivePoppinsAi || !audioUri) return null;
-  try {
-    const payload = await invokePoppinsVoice(audioUri, household, metrics, true);
-    const transcript = payload?.transcript?.trim();
-    return transcript || null;
-  } catch {
-    return null;
+  if (!useLivePoppinsAi || !audioUri) {
+    throw new Error('Voice AI unavailable');
   }
+  const payload = await invokePoppinsVoice(audioUri, household, metrics, true);
+  if (!payload) {
+    throw new Error('Voice request returned empty');
+  }
+  const transcript = payload.transcript?.trim();
+  return transcript || null;
 }
 
 export async function transcribeAndAskPoppins(

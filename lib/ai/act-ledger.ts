@@ -22,6 +22,7 @@ const ACT_KINDS: ActKind[] = [
   'place_save',
   'complete',
   'reward',
+  'coach',
 ];
 const OUTCOMES: ActOutcome[] = ['committed', 'undone', 'vetoed', 'abandoned', 'failed'];
 const VOICES: ActVoice[] = ['quiet', 'spoken'];

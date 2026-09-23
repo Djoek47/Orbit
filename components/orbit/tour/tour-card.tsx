@@ -18,6 +18,10 @@ type Props = {
   isAction: boolean;
   isLast: boolean;
   primaryLabel?: string;
+  /** WO12 §D3 coach walkthrough. */
+  adHoc?: boolean;
+  canDoItForYou?: boolean;
+  onDoItForMe?: () => void;
   cardRef?: React.RefObject<View | null>;
   onNext: () => void;
   onBack?: () => void;
@@ -41,6 +45,9 @@ export function TourCard({
   isAction,
   isLast,
   primaryLabel,
+  adHoc,
+  canDoItForYou,
+  onDoItForMe,
   cardRef,
   onNext,
   onBack,
@@ -133,7 +140,36 @@ export function TourCard({
                 <View />
               )}
               <View style={styles.actionRight}>
-                {isAction ? (
+                {adHoc ? (
+                  <>
+                    {canDoItForYou && onDoItForMe ? (
+                      <Pressable
+                        onPress={onDoItForMe}
+                        accessibilityRole="button"
+                        accessibilityLabel="Do it for me"
+                        style={({ pressed }) => [pressed && { opacity: 0.88 }]}>
+                        <LinearGradient
+                          colors={[accent, accentEnd]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.next}>
+                          <Text style={[typography.footnote, styles.nextLabel]} numberOfLines={1}>
+                            Do it for me
+                          </Text>
+                        </LinearGradient>
+                      </Pressable>
+                    ) : null}
+                    <Pressable
+                      onPress={onNext}
+                      accessibilityRole="button"
+                      accessibilityLabel={primaryLabel ?? (isLast ? 'Done' : 'Next')}
+                      style={styles.textBtn}>
+                      <Text style={[typography.footnote, { color: c.textMuted, fontWeight: '600' }]}>
+                        {primaryLabel ?? (isLast ? 'Done' : 'Next')}
+                      </Text>
+                    </Pressable>
+                  </>
+                ) : isAction ? (
                   <Pressable
                     onPress={onSkipStep}
                     hitSlop={8}

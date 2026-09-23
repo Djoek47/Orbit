@@ -282,6 +282,7 @@ function groceryAddIntentUncached(
   }
 
   const itemName = extractItemName(stripped);
+  const itemParts = itemName ? splitGroceryObjectNames(itemName) : [];
   const listCue =
     /\b(grocery list|groceries|shopping list|to the list|on the list|onto the list|grocery)\b/.test(
       lower
@@ -291,11 +292,45 @@ function groceryAddIntentUncached(
     ? { excludeNames: opts.excludeNames }
     : undefined;
 
+  const anyCatalog = itemParts.some(
+    (part) => matchGroceryCatalog(part, catalogOpts)?.confident
+  );
+  const shortBare =
+    itemParts.length > 0 &&
+    itemParts.every(
+      (part) =>
+        part.split(/\s+/).length <= 3 &&
+        !/\b(task|chore|dishes|laundry|vacuum|trash|homework)\b/i.test(part)
+    );
+
   // Rule 1: add verb + list cue + item
   if (addCue && listCue && itemName && !/\btask\b/i.test(itemName)) return true;
 
-  // Rule 2: add verb + catalog-confident item
-  if (addCue && itemName && matchGroceryCatalog(itemName, catalogOpts)?.confident) return true;
+  // Rule 2: add verb + catalog-confident item (or any part of a list)
+  if (addCue && anyCatalog) return true;
+
+  // Rule 2b (WO11): multi-item lists, or short product with list cue / catalog.
+  // Do not treat "add Maya" as grocery without a roster exclude or catalog hit.
+  if (
+    addCue &&
+    shortBare &&
+    !/\btask\b/i.test(itemName ?? '') &&
+    (listCue || itemParts.length > 1 || anyCatalog)
+  ) {
+    return true;
+  }
+
+  // Rule 2c: single short add without list — only when catalog-confident (Rule 2)
+  // or the item is a lowercase product word (not a Capitalized name token).
+  if (
+    addCue &&
+    itemParts.length === 1 &&
+    shortBare &&
+    !/\btask\b/i.test(itemName ?? '') &&
+    /^[a-z0-9]/.test(itemParts[0]!.trim())
+  ) {
+    return true;
+  }
 
   // Rule 3: need / out / low phrasing + catalog item, or a short product phrase
   if (NEED_OUT_LOW_RE.test(lower)) {
@@ -527,7 +562,7 @@ function isOpenTaskStatus(status?: string): boolean {
   return value !== 'completed' && value !== 'cancelled' && value !== 'expired' && value !== 'missed';
 }
 
-function toChoreDisplayTitle(extracted: string): string {
+export function toChoreDisplayTitle(extracted: string): string {
   const cleaned = extracted
     .replace(/\b(my|our|your)\b/gi, ' ')
     .replace(/\s+/g, ' ')
@@ -558,6 +593,57 @@ export function extractSpokenChoreTitle(text: string): string | undefined {
   );
   raw = raw.replace(/^(let'?s)\s+/i, '');
   raw = raw.replace(/^(set\s+)?desk\s+for\s+to\s+/i, '');
+
+  // WO11 §2.2 — strip leading act verbs and trailing person / due framing.
+  let strippedAssignFrame = false;
+  const assignFramed = raw.match(
+    /^(?:assign|give)\s+(?:me\s+)?(?:the\s+|a\s+|an\s+)?(.+)$/i
+  );
+  if (assignFramed?.[1]) {
+    raw = assignFramed[1];
+    strippedAssignFrame = true;
+  }
+  const remindFramed = raw.match(/^remind\s+(?:me\s+)?(?:to\s+)?(.+)$/i);
+  if (remindFramed?.[1]) {
+    raw = remindFramed[1];
+    strippedAssignFrame = true;
+  }
+
+  raw = raw
+    .replace(/\s+(?:to|for)\s+[A-Z][a-zA-Z]{1,20}\b/g, ' ')
+    .replace(/\b(today|tomorrow|tonight|this week|every day|daily)\b/gi, ' ')
+    .replace(/\bat\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/gi, ' ')
+    .replace(/\s+(?:to|for)\s*$/i, '')
+    .replace(/^(?:to|for)\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // "add the dishes for Mia" / "add dishes to Mia" — object before for/to person
+  const addObjectForPerson = raw.match(
+    /\b(?:add|create|make|schedule|set\s+up)\s+(?:me\s+)?(?:the\s+|a\s+|an\s+)?(.+?)\s+(?:for|to)\s+[A-Z][a-zA-Z]{1,20}\b/i
+  );
+  if (addObjectForPerson?.[1]) {
+    const object = addObjectForPerson[1]
+      .replace(/\b(?:task|chore|todo|desk)s?\b/gi, ' ')
+      .replace(/\b(quick|new|small|simple|cleaning)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (object.length >= 2 && !/^(the|a|an)$/i.test(object)) {
+      return toChoreDisplayTitle(object);
+    }
+  }
+
+  // "Mia should do the dishes" / "someone needs to do the dishes"
+  const doObject = raw.match(
+    /\b(?:should|needs?\s+to|need\s+to|has\s+to|have\s+to|must)?\s*do\s+(?:the\s+|a\s+|an\s+)?(.+)$/i
+  );
+  if (doObject?.[1]) {
+    const object = doObject[1]
+      .replace(/\b(please|now|for me)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (object.length >= 2) return toChoreDisplayTitle(object);
+  }
 
   // "… task to clean the dishes" / "… chore to wash car"
   const toVerb = raw.match(
@@ -632,7 +718,7 @@ export function extractSpokenChoreTitle(text: string): string | undefined {
   // Bare chore verb + object: "clean the dishes", "tend to the dishes", "wash my car"
   const bare = raw.match(new RegExp(`^(${CHORE_VERBS})(?:\\s+to)?\\s+(.+)$`, 'i'));
   if (bare) {
-    const object = bare[2]
+    let object = bare[2]
       .replace(
         /\b(for\s+[A-Z][a-zA-Z]{1,20}|assign(?: them| it| this| that)?(?: to me)?|for me|to me)\b/gi,
         ' '
@@ -641,7 +727,25 @@ export function extractSpokenChoreTitle(text: string): string | undefined {
       .replace(/[?.!,]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+    // "vacuum to Sylla" already stripped person above → object may be empty → verb alone.
+    if (/^[A-Z][a-zA-Z]{1,20}$/.test(object)) object = '';
     if (object.length >= 2) return toChoreDisplayTitle(`${bare[1]} ${object}`);
+    return toChoreDisplayTitle(bare[1]!);
+  }
+
+  // Verb alone after person/due were stripped ("vacuum to Sylla tomorrow" → "vacuum").
+  if (new RegExp(`^(${CHORE_VERBS})$`, 'i').test(raw)) {
+    return toChoreDisplayTitle(raw);
+  }
+
+  // Remaining noun phrase only after assign/remind framing ("assign the dishes…" → Dishes).
+  if (
+    strippedAssignFrame &&
+    raw.length >= 2 &&
+    raw.split(/\s+/).length <= 6 &&
+    !/^(to|for|and|the|a|an)$/i.test(raw)
+  ) {
+    return toChoreDisplayTitle(raw.replace(/^(the|a|an)\s+/i, ''));
   }
 
   return undefined;
@@ -653,7 +757,9 @@ export function matchAssigneeName(
   selfName?: string
 ): string | undefined {
   if (selfName && wantsSelfAssignee(text)) return selfName;
-  const named = text.match(/\bfor\s+([A-Z][a-zA-Z]{1,20})\b/)?.[1];
+  const named =
+    text.match(/\b(?:for|to)\s+([A-Z][a-zA-Z]{1,20})\b/)?.[1] ??
+    text.match(/\bfor\s+([A-Z][a-zA-Z]{1,20})\b/)?.[1];
   if (named && named.toLowerCase() !== 'me') {
     const exact = memberNames.find((name) => name.toLowerCase() === named.toLowerCase());
     if (exact) return exact;
@@ -664,6 +770,8 @@ export function matchAssigneeName(
     if (fuzzy && isConfidentFuzzy(fuzzy)) return fuzzy.value;
     // Named person not on roster — keep literal only if it looks like a name token.
     if (!memberNames.length) return named;
+    // Prefer literal when "to/for Name" was explicit even if roster misspelled.
+    if (/\b(?:for|to)\s+[A-Z]/.test(text)) return named;
   }
   const lower = text.toLowerCase();
   const exactWord = memberNames.find((name) => hasWord(lower, name.toLowerCase()));
@@ -999,6 +1107,7 @@ export function extractItemName(text: string): string | undefined {
     .replace(/\bcoming out .+$/i, '')
     .replace(/\bin \d+ weeks?\b/gi, '')
     .replace(/\bin (a|one|two|three|four|five) weeks?\b/gi, '')
+    .replace(/,+\s*$/g, '')
     .trim();
 
   // Additive: verb + item noun. List preposition (to|on|onto|in|into) strips the tail.
@@ -1017,13 +1126,15 @@ export function extractItemName(text: string): string | undefined {
     return cleanExtractedItemName(needOut[1]);
   }
 
-  // No list-word: still try a short "add X" when confident.
+  // No list-word: still try a short "add X" when confident (allow commas inside the object).
   const bare = cleaned.match(
-    /\b(?:add|buy|get|grab|pick\s+up)\s+(?:some |the |a |an |my )?(?:new )?((?:[0-9%]|[a-z])[\w\s'%.+-]{0,40})$/i
+    /\b(?:add|buy|get|grab|pick\s+up)\s+(?:some |the |a |an |my )?(?:new )?((?:[0-9%]|[a-z])[\w\s,'%.+-]{0,60})$/i
   );
   if (bare?.[1]) {
     const name = cleanExtractedItemName(bare[1]);
-    if (name && name.split(/\s+/).length <= 5) return name;
+    if (name && splitGroceryObjectNames(name).every((part) => part.split(/\s+/).length <= 5)) {
+      return name;
+    }
   }
 
   const want = cleaned.match(/\bwant(?: to)?\s+(?:the |a |an )?([a-z][\w\s'-]{1,40})$/i)?.[1];
@@ -1031,6 +1142,23 @@ export function extractItemName(text: string): string | undefined {
     return cleanExtractedItemName(want);
   }
   return undefined;
+}
+
+/** Split "milk, eggs and bread" / "milk and bread" into separate product names. */
+export function splitGroceryObjectNames(raw: string): string[] {
+  const text = raw.trim();
+  if (!text) return [];
+  // Never treat "Milk And Bread" as one product when "and" joins two short nouns.
+  const parts = text
+    .split(/\s*,\s*|\s+and\s+/i)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.replace(/^(some|the|a|an|my)\s+/i, '').trim())
+    .filter(Boolean);
+  if (parts.length <= 1) return text ? [text] : [];
+  // Guard: "peanut and jelly" style compounds stay one item when both sides are tiny
+  // and neither side is a known catalog product — still prefer split when WO11 lists.
+  return parts;
 }
 
 export function parseReleaseDate(text: string, now = new Date()): string | undefined {
@@ -1085,6 +1213,7 @@ export function isChoreAssignIntent(
     return true;
   }
   if (/\bassign\b/.test(lower)) return true;
+  if (/\bremind\s+(me\s+)?to\b/.test(lower)) return true;
   if (/\b(clean|wash|tidy|vacuum|mop|laundry|dishes|chore|tend)\b/.test(lower)) return true;
   const domainId = matchLibraryIntent(text).domainId;
   if (domainId === 'meals_groceries' && isGroceryAddIntent(text, opts)) return false;
@@ -1105,27 +1234,36 @@ export function groceryAddActionsFromUtterance(
   if (!isGroceryAddIntent(text, opts)) return null;
   const itemName = extractItemName(text);
   if (!itemName || /\btask\b/i.test(itemName)) return null;
-  if (opts?.excludeNames?.length && matchGroceryCatalog(itemName, opts) === null) {
-    const memberItem = opts.excludeNames.some(
-      (name) => name.trim().toLowerCase() === itemName.trim().toLowerCase()
-    );
-    if (memberItem && !isShoppingIntent(text) && !/\b(list|grocer)/i.test(text)) return null;
-  }
+  const parts = splitGroceryObjectNames(itemName);
+  if (!parts.length) return null;
+
   const shopping = isShoppingIntent(text);
-  const displayName = titleCaseGroceryName(itemName);
-  const actions: Array<Record<string, unknown>> = [
-    {
+  const releaseDate = parseReleaseDate(text);
+  const actions: Array<Record<string, unknown>> = [];
+
+  for (const part of parts) {
+    if (opts?.excludeNames?.length && matchGroceryCatalog(part, opts) === null) {
+      const memberItem = opts.excludeNames.some(
+        (name) => name.trim().toLowerCase() === part.trim().toLowerCase()
+      );
+      if (memberItem && !isShoppingIntent(text) && !/\b(list|grocer)/i.test(text)) continue;
+    }
+    const catalog = matchGroceryCatalog(part, opts);
+    const displayName = titleCaseGroceryName(catalog?.name ?? part);
+    actions.push({
       type: 'add_grocery',
       name: displayName,
       category: shopping ? 'Clothing' : undefined,
       lane: shopping ? 'clothing' : 'grocery',
-    },
-  ];
-  const releaseDate = parseReleaseDate(text);
-  if (releaseDate) {
+    });
+  }
+
+  if (!actions.length) return null;
+
+  if (releaseDate && actions.length === 1) {
     actions.push({
       type: 'create_calendar_event',
-      title: `${displayName} drop`,
+      title: `${String(actions[0]!.name)} drop`,
       date: releaseDate,
     });
   }
