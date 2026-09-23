@@ -137,9 +137,6 @@ export async function transcribeQuietAudio(
   if (!payload) {
     throw new Error('Voice request returned empty');
   }
-  if ((payload as { error?: string }).error) {
-    throw new Error(String((payload as { error: string }).error));
-  }
   const transcript = payload.transcript?.trim();
   return transcript || null;
 }
