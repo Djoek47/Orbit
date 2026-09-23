@@ -8,6 +8,7 @@ import { PlanAddSheet } from '@/components/orbit/plan/plan-add-sheet';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
+import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { RefreshIconButton } from '@/components/orbit/refresh-icon-button';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius } from '@/constants/orbit-theme';
@@ -94,6 +95,7 @@ export default function PlanScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [layerFilter, setLayerFilter] = useState<PlanLayerFilter>('all');
   const [planAddOpen, setPlanAddOpen] = useState(false);
+  const tour = useTourControls();
 
   useEffect(() => {
     return registerTourUiHooks({
@@ -101,6 +103,26 @@ export default function PlanScreen() {
       setPlanTripsSection: (section) => setTripsSection(section),
     });
   }, []);
+
+  // Apply itinerary/places focus from the active tour step — hooks alone can race mount.
+  useEffect(() => {
+    const id = tour?.activeStepId;
+    if (!id?.startsWith('plan.')) return;
+    if (
+      id === 'plan.itineraries' ||
+      id === 'plan.smartTrips' ||
+      id === 'plan.newTrip' ||
+      id === 'plan.askBundle'
+    ) {
+      setSubTab('itinerary');
+      setTripsSection('trips');
+      return;
+    }
+    if (id === 'plan.places' || id === 'plan.saveHome' || id === 'plan.reusePlaces') {
+      setSubTab('itinerary');
+      setTripsSection('places');
+    }
+  }, [tour?.activeStepId]);
 
   const focusedCalendar = usesFocusedCalendar(currentMember?.role);
 
@@ -189,6 +211,25 @@ export default function PlanScreen() {
           ] as const
         ).map((item) => {
           const active = subTab === item.id;
+          if (item.id === 'itinerary') {
+            return (
+              <TourTarget id="plan.itinerariesTab" key={item.id} style={{ flex: 1 }}>
+                <Pressable
+                  onPress={() => setSubTab(item.id)}
+                  style={[styles.subChip, active && styles.subChipActive]}>
+                  <MaterialIcons name={item.icon} size={14} color={active ? '#A78BFA' : c.textMuted} />
+                  <Text
+                    style={[
+                      styles.subLabel,
+                      { color: c.textMuted },
+                      active && styles.subLabelActive,
+                    ]}>
+                    {item.label}
+                  </Text>
+                </Pressable>
+              </TourTarget>
+            );
+          }
           return (
             <Pressable
               key={item.id}

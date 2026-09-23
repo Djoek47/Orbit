@@ -397,9 +397,8 @@ export function PlanTripsPanel({
         ).map((tab) => {
           const active = section === tab.id;
           const inactiveColor = c.textMuted;
-          return (
+          const btn = (
             <Pressable
-              key={tab.id}
               onPress={() => {
                 LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                 setSection(tab.id);
@@ -430,6 +429,14 @@ export function PlanTripsPanel({
               ) : null}
             </Pressable>
           );
+          if (tab.id === 'places') {
+            return (
+              <TourTarget id="plan.placesSegment" key={tab.id} style={{ flex: 1 }}>
+                {btn}
+              </TourTarget>
+            );
+          }
+          return <View key={tab.id} style={{ flex: 1 }}>{btn}</View>;
         })}
       </View>
       </TourTarget>
