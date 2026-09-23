@@ -55,6 +55,7 @@ function groceryCatalogCandidates(): Array<{ key: string; value: GroceryCatalogM
   const byKey = new Map<string, GroceryCatalogMatch>();
 
   const consider = (rawKey: string, product: CatalogProduct) => {
+    const canonical = product.name.trim().toLowerCase();
     for (const key of numberVariants(rawKey)) {
       if (key.length < 2) continue;
       const hit: GroceryCatalogMatch = {
@@ -63,8 +64,18 @@ function groceryCatalogCandidates(): Array<{ key: string; value: GroceryCatalogM
         confident: true,
       };
       const existing = byKey.get(key);
-      // Prefer shorter / more generic display names when aliases collide.
-      if (!existing || product.name.length < existing.name.length) {
+      if (!existing) {
+        byKey.set(key, hit);
+        continue;
+      }
+      // Prefer the catalog entry whose display name matches this key
+      // ("eggs" → Eggs, not Egg via singular→plural alias). Matching still
+      // accepts both number forms; display keeps the spoken plurality.
+      const existingExact = existing.name.trim().toLowerCase() === key;
+      const newExact = canonical === key;
+      if (newExact && !existingExact) {
+        byKey.set(key, hit);
+      } else if (newExact === existingExact && product.name.length < existing.name.length) {
         byKey.set(key, hit);
       }
     }

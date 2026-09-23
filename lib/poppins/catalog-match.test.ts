@@ -108,7 +108,7 @@ assert.equal(isGroceryAddIntent('add 2% milk'), true);
   assert.equal(groceries.length, 2, `expected two grocery acts, got ${JSON.stringify(out)}`);
   assert.deepEqual(
     groceries.map((a) => String(a.name)).sort(),
-    ['Bread', 'Egg'].sort()
+    ['Bread', 'Eggs'].sort()
   );
 }
 

@@ -53,7 +53,7 @@ const members = ['Drako', 'Maya'];
   assert.equal(actions.filter((a) => String(a.type) === 'add_grocery').length, 2);
   assert.deepEqual(
     actions.filter((a) => String(a.type) === 'add_grocery').map((a) => String(a.name)),
-    ['Milk', 'Egg']
+    ['Milk', 'Eggs']
   );
 }
 

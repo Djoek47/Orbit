@@ -98,6 +98,12 @@ export type TaskRow = {
   room_id: string | null;
   repeat_rule: 'none' | 'daily' | 'weekly' | 'weekdays';
   status: 'pending' | 'in_progress' | 'completed' | 'overdue' | 'cancelled';
+  /** Set on complete; cleared on Mark not done (20260803010000). */
+  completed_at: Timestamp | null;
+  /** XP snapshot at complete time (20260803010000 / 20260923120000 backfill). */
+  awarded_xp: number | null;
+  /** Late-complete flag from scoring revision (20260805220000). */
+  completed_late: boolean;
   created_by: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;

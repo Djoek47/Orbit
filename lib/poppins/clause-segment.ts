@@ -35,6 +35,9 @@ function isSafeAnd(before: string, after: string): boolean {
   const afterTrim = after.trim();
   const beforeTrim = before.trim();
 
+  // New imperative after `and` is never a list join — "add coffee and clear the list".
+  if (CLAUSE_VERB.test(afterTrim)) return false;
+
   // "milk and eggs to the list" — bare values into one grocery act
   if (
     /\b(add|put|get|grab|buy|pick up)\b/i.test(beforeTrim) &&
@@ -198,16 +201,18 @@ function stripGroceryChoreSlots(action: Record<string, unknown>): void {
 
 /**
  * Apply L→R inherit, then rule-4 backwards for slots never filled explicitly.
- * Navigates are deferred to the end of the batch (after acts).
- * Slots inherit only between acts of the same type; grocery never gets/donates
- * assignee, due, category, or repeat.
+ * Preserve spoken order for every act (including clear_grocery_list, etc.);
+ * only navigates may move to the end of the batch.
+ * Slots inherit only between same-family inventoriable acts; grocery never
+ * gets/donates assignee, due, category, or repeat.
  */
 export function inheritSlotsAcrossActions(
   actions: Array<Record<string, unknown>>
 ): Array<Record<string, unknown>> {
-  const acts = actions.filter(isAct).map((a) => ({ ...a }));
-  const navigates = actions.filter(isNavigate).map((a) => ({ ...a }));
-  const other = actions.filter((a) => !isAct(a) && !isNavigate(a)).map((a) => ({ ...a }));
+  const ordered = actions.map((a) => ({ ...a }));
+  const navigates = ordered.filter(isNavigate);
+  const nonNavigates = ordered.filter((a) => !isNavigate(a));
+  const acts = nonNavigates.filter(isAct);
 
   for (const act of acts) stripGroceryChoreSlots(act);
 
@@ -253,7 +258,7 @@ export function inheritSlotsAcrossActions(
 
   for (const act of acts) stripGroceryChoreSlots(act);
 
-  return [...acts, ...other, ...navigates];
+  return [...nonNavigates, ...navigates];
 }
 
 /**

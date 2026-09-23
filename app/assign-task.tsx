@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
   },
   tourHint: {
     borderCurve: 'continuous',
-    borderRadius: radius.md,
+    borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: space.sm,
     marginHorizontal: space.md,

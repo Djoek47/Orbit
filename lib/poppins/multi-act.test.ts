@@ -29,7 +29,7 @@ function tasks(out: Array<Record<string, unknown>>) {
 
 {
   const out = acts('add milk, eggs and bread');
-  assert.deepEqual(groceryNames(out).sort(), ['Bread', 'Egg', 'Milk'].sort(), 'comma list → three');
+  assert.deepEqual(groceryNames(out).sort(), ['Bread', 'Eggs', 'Milk'].sort(), 'comma list → three');
 }
 
 {
@@ -46,9 +46,20 @@ function tasks(out: Array<Record<string, unknown>>) {
 
 {
   const out = acts('clear the list and add coffee');
-  assert.ok(
-    out.some((a) => String(a.type) === 'clear_grocery_list'),
-    `expected clear, got ${JSON.stringify(out)}`
+  assert.deepEqual(
+    out.map((a) => String(a.type)),
+    ['clear_grocery_list', 'add_grocery'],
+    `spoken order: clear then add, got ${JSON.stringify(out)}`
+  );
+  assert.deepEqual(groceryNames(out), ['Coffee']);
+}
+
+{
+  const out = acts('add coffee and clear the list');
+  assert.deepEqual(
+    out.map((a) => String(a.type)),
+    ['add_grocery', 'clear_grocery_list'],
+    `spoken order: add then clear (add must not drop), got ${JSON.stringify(out)}`
   );
   assert.deepEqual(groceryNames(out), ['Coffee']);
 }
