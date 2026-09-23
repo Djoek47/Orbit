@@ -13,6 +13,7 @@ const store = readFileSync(join(root, 'store/orbit-store.tsx'), 'utf8');
 const detail = readFileSync(join(root, 'app/task/[id].tsx'), 'utf8');
 
 assert.match(repo, /async cancelTask\(/);
+assert.match(repo, /async revertCompletion\(/);
 assert.match(repo, /status:\s*'cancelled'/);
 assert.match(repo, /due_label:\s*cancelled\.due/);
 assert.doesNotMatch(

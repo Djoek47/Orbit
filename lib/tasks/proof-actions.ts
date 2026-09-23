@@ -100,6 +100,12 @@ export function markTaskNotDone(task: HouseholdTask, now = new Date()): ProofAct
     task: {
       ...task,
       status: nextStatus,
+      due:
+        nextStatus === 'Expired'
+          ? 'Expired'
+          : nextStatus === 'Overdue'
+            ? 'Overdue'
+            : 'Today',
       verification: 'rejected',
       awardedXp: 0,
       completedAt: undefined,

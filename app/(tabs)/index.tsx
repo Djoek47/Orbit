@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -379,7 +379,15 @@ export default function HomeScreen() {
                   </Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => void markNotDone(task.id)}
+                  onPress={() => {
+                    void markNotDone(task.id).catch((error: unknown) => {
+                      const detail =
+                        error instanceof Error && error.message
+                          ? error.message
+                          : 'Try again in a moment.';
+                      Alert.alert('Couldn’t undo', detail);
+                    });
+                  }}
                   style={[styles.approvalBtn, { backgroundColor: 'rgba(248,113,113,0.12)' }]}>
                   <Text style={{ color: '#F87171', fontWeight: '700', fontSize: 12 }}>
                     Not done

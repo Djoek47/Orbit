@@ -2628,12 +2628,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const markNotDone = async (taskId: string, note?: string) => {
-    if (!v2Permissions.canApproveCompletion) return false;
+    if (!v2Permissions.canApproveCompletion) {
+      throw new Error('Only an admin can mark a task not done.');
+    }
     const currentTask = household.tasks.find((item) => item.id === taskId);
-    if (!currentTask || !currentMember) return false;
+    if (!currentTask || !currentMember) {
+      throw new Error('Task not found.');
+    }
     const result = markTaskNotDone(currentTask);
-    if (!result.ok) return false;
-    const updated = await taskRepository.updateTask(result.task);
+    if (!result.ok) {
+      throw new Error(result.reason);
+    }
+    const updated = await taskRepository.revertCompletion(result.task);
     const reversed = result.reversedXp ?? 0;
     const completionDay = currentTask.completedAt
       ? formatLocalDate(new Date(currentTask.completedAt))

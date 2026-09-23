@@ -1,5 +1,4 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -7,6 +6,7 @@ import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { XpWheel } from '@/components/orbit/xp-wheel';
+import { OrbitButton } from '@/components/orbit/orbit-button';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { VOCAB } from '@/constants/vocabulary';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
@@ -140,9 +140,11 @@ export default function TaskDetailScreen() {
         ]}>
         <Stack.Screen options={{ headerShown: false }} />
         <Text style={[styles.missingTitle, { color: c.text }]}>Task not found</Text>
-        <Pressable onPress={() => router.back()} style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-          <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>Back</Text>
-        </Pressable>
+        <View style={{ paddingHorizontal: 20 }}>
+          <OrbitButton tone="secondary" onPress={() => router.back()}>
+            Back
+          </OrbitButton>
+        </View>
       </View>
     );
   }
@@ -269,6 +271,12 @@ export default function TaskDetailScreen() {
             setProofBusy(true);
             try {
               await markNotDone(task.id);
+            } catch (error) {
+              const detail =
+                error instanceof Error && error.message
+                  ? error.message
+                  : 'Try again in a moment.';
+              Alert.alert('Couldn’t undo', detail);
             } finally {
               setProofBusy(false);
             }
@@ -806,98 +814,87 @@ export default function TaskDetailScreen() {
         )}
 
         {editing ? (
-          <>
-            <Pressable disabled={busy || title.trim().length < 2} onPress={() => void handleSave()} style={styles.ctaWrap}>
-              <LinearGradient
-                colors={[accentTheme.primary, accentTheme.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.cta}>
-                <Text style={styles.ctaText}>{busy ? 'Saving…' : 'Save changes'}</Text>
-              </LinearGradient>
-            </Pressable>
-            <Pressable onPress={() => setEditing(false)} style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-              <Text style={[styles.secondaryMuted, { color: c.textMuted }]}>Cancel edit</Text>
-            </Pressable>
-          </>
+          <View style={styles.actionStack}>
+            <OrbitButton
+              disabled={busy || title.trim().length < 2}
+              loading={busy}
+              onPress={() => void handleSave()}>
+              Save changes
+            </OrbitButton>
+            <OrbitButton tone="secondary" disabled={busy} onPress={() => setEditing(false)}>
+              Cancel
+            </OrbitButton>
+          </View>
         ) : (
-          <>
+          <View style={styles.actionStack}>
             {task.status !== 'Completed' &&
             task.status !== 'Cancelled' &&
             canCompleteMine ? (
-              <Pressable
-                onPress={() => void handleComplete(split ? currentMember?.name : undefined)}
-                style={styles.ctaWrap}>
-                <LinearGradient
-                  colors={[accentTheme.primary, accentTheme.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cta}>
-                  <Text style={styles.ctaText}>
-                    {split ? 'Mark my share complete' : 'Mark complete'}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
+              <OrbitButton onPress={() => void handleComplete(split ? currentMember?.name : undefined)}>
+                {split ? 'Mark my share complete' : 'Mark complete'}
+              </OrbitButton>
             ) : null}
             {needsProof &&
             !proofReady &&
             canCompleteMine &&
             (task.status === 'Completed' || (split && myShare?.status === 'Completed')) ? (
-              <TourTarget id="tasks.proof"><Pressable
-                disabled={proofBusy}
-                onPress={() => void handleAttachProof(split ? currentMember?.name : undefined)}
-                style={[styles.ctaWrap, proofBusy && { opacity: 0.6 }]}>
-                <LinearGradient
-                  colors={[accentTheme.primary, accentTheme.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cta}>
-                  <MaterialIcons name="photo-camera" size={18} color="#04101F" />
-                  <Text style={styles.ctaText}>
-                    {proofBusy
-                      ? 'Sending proof…'
-                      : myProofStatus === 'rejected'
-                        ? 'Re-attach proof photo'
-                        : split
-                          ? 'Attach my proof photo'
-                          : 'Attach proof photo'}
-                  </Text>
-                </LinearGradient>
-              </Pressable></TourTarget>
+              <TourTarget id="tasks.proof">
+                <OrbitButton
+                  disabled={proofBusy}
+                  loading={proofBusy}
+                  onPress={() => void handleAttachProof(split ? currentMember?.name : undefined)}>
+                  {myProofStatus === 'rejected'
+                    ? 'Re-attach proof photo'
+                    : split
+                      ? 'Attach my proof photo'
+                      : 'Attach proof photo'}
+                </OrbitButton>
+              </TourTarget>
             ) : null}
             {needsProof &&
             myProofStatus === 'submitted' &&
             !permissions.canApproveReward &&
             canCompleteMine ? (
-              <View style={styles.waitCard}>
+              <View style={[styles.waitCard, { borderColor: glassBorder(0.12), backgroundColor: glass(0.05) }]}>
                 <MaterialIcons name="hourglass-top" size={18} color={c.warning} />
-                <Text style={styles.waitText}>Proof sent to admin for review.</Text>
+                <Text style={[styles.waitText, { color: c.textSoft }]}>
+                  Proof sent to admin for review.
+                </Text>
               </View>
             ) : null}
             {!split &&
             task.status === 'Completed' &&
             (task.verification === 'not_required' || !task.verification) &&
             (v2Permissions.canApproveCompletion || canAskForPhoto) ? (
-              <View style={{ gap: 8 }}>
+              <>
                 {canAskForPhoto ? (
-                  <Pressable
+                  <OrbitButton
+                    tone="secondary"
                     disabled={proofBusy}
-                    onPress={handleAskPhoto}
-                    style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-                    <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
-                      {proofBusy ? 'Working…' : 'Request proof'}
-                    </Text>
-                  </Pressable>
+                    loading={proofBusy}
+                    onPress={handleAskPhoto}>
+                    Request proof
+                  </OrbitButton>
                 ) : null}
                 {v2Permissions.canApproveCompletion ? (
                   <Pressable
                     disabled={proofBusy}
                     onPress={handleMarkNotDone}
-                    style={[styles.secondaryBtn, { borderColor: 'rgba(248,113,113,0.35)', backgroundColor: 'rgba(248,113,113,0.08)' }]}>
-                    <Text style={[styles.secondaryText, { color: '#F87171' }]}>Mark not done</Text>
+                    accessibilityRole="button"
+                    accessibilityLabel="Mark not done"
+                    style={({ pressed }) => [
+                      styles.ghostDanger,
+                      { borderColor: `${c.danger}55`, backgroundColor: `${c.danger}12` },
+                      pressed && { opacity: 0.85 },
+                      proofBusy && { opacity: 0.5 },
+                    ]}>
+                    <MaterialIcons name="undo" size={18} color={c.danger} />
+                    <Text style={[styles.ghostDangerText, { color: c.danger }]}>
+                      {proofBusy ? 'Working…' : 'Mark not done'}
+                    </Text>
                   </Pressable>
                 ) : null}
-              </View>
+              </>
             ) : null}
             {!split &&
             task.status === 'Completed' &&
@@ -905,97 +902,90 @@ export default function TaskDetailScreen() {
               task.verification === 'proof_requested' ||
               task.proofStatus === 'submitted') &&
             v2Permissions.canApproveCompletion ? (
-              <View style={{ gap: 8 }}>
-                <Pressable
+              <>
+                <OrbitButton
                   disabled={proofBusy}
-                  onPress={() => void handleConfirm()}
-                  style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-                  <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
-                    {proofBusy ? 'Working…' : 'Confirm'}
-                  </Text>
-                </Pressable>
+                  loading={proofBusy}
+                  onPress={() => void handleConfirm()}>
+                  Confirm
+                </OrbitButton>
                 {canAskForPhoto ? (
-                  <Pressable
-                    disabled={proofBusy}
-                    onPress={handleAskPhoto}
-                    style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-                    <Text style={[styles.secondaryText, { color: c.textMuted }]}>
-                      Ask for another photo
-                    </Text>
-                  </Pressable>
+                  <OrbitButton tone="secondary" disabled={proofBusy} onPress={handleAskPhoto}>
+                    Ask for another photo
+                  </OrbitButton>
                 ) : null}
                 <Pressable
                   disabled={proofBusy}
                   onPress={handleMarkNotDone}
-                  style={[styles.secondaryBtn, { borderColor: 'rgba(248,113,113,0.35)', backgroundColor: 'rgba(248,113,113,0.08)' }]}>
-                  <Text style={[styles.secondaryText, { color: '#F87171' }]}>Mark not done</Text>
+                  accessibilityRole="button"
+                  accessibilityLabel="Mark not done"
+                  style={({ pressed }) => [
+                    styles.ghostDanger,
+                    { borderColor: `${c.danger}55`, backgroundColor: `${c.danger}12` },
+                    pressed && { opacity: 0.85 },
+                    proofBusy && { opacity: 0.5 },
+                  ]}>
+                  <MaterialIcons name="undo" size={18} color={c.danger} />
+                  <Text style={[styles.ghostDangerText, { color: c.danger }]}>
+                    {proofBusy ? 'Working…' : 'Mark not done'}
+                  </Text>
                 </Pressable>
-              </View>
+              </>
             ) : null}
             {task.verification === 'proof_requested' && canCompleteMine ? (
-              <Pressable
+              <OrbitButton
                 disabled={proofBusy}
-                onPress={() => void handleAttachProof(split ? currentMember?.name : undefined)}
-                style={[styles.ctaWrap, proofBusy && { opacity: 0.6 }]}>
-                <LinearGradient
-                  colors={[accentTheme.primary, accentTheme.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cta}>
-                  <MaterialIcons name="photo-camera" size={18} color="#04101F" />
-                  <Text style={styles.ctaText}>
-                    {proofBusy ? 'Sending…' : 'Add another photo'}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
+                loading={proofBusy}
+                onPress={() => void handleAttachProof(split ? currentMember?.name : undefined)}>
+                Add another photo
+              </OrbitButton>
             ) : null}
             {split && myShare?.status === 'Completed' && task.status !== 'Completed' ? (
-              <View style={styles.waitCard}>
+              <View style={[styles.waitCard, { borderColor: glassBorder(0.12), backgroundColor: glass(0.05) }]}>
                 <MaterialIcons name="check-circle" size={18} color={c.success} />
-                <Text style={styles.waitText}>
+                <Text style={[styles.waitText, { color: c.textSoft }]}>
                   Your share is done. Waiting on others — all-done bonus when everyone finishes.
                 </Text>
               </View>
             ) : null}
             {canSendReminder ? (
-              <Pressable
+              <OrbitButton
+                tone="secondary"
                 disabled={reminderBusy}
-                onPress={handleSendReminder}
-                style={[styles.secondaryBtn, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
-                <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
-                  {reminderBusy ? 'Sending…' : 'Send reminder'}
-                </Text>
-              </Pressable>
+                loading={reminderBusy}
+                onPress={handleSendReminder}>
+                Send reminder
+              </OrbitButton>
             ) : null}
             {canAdjust && isOpenWork ? (
-              <Pressable
+              <OrbitButton
+                tone="secondary"
                 disabled={busy}
-                onPress={() => void skipToday()}
-                accessibilityRole="button"
-                accessibilityLabel={task.repeat !== 'None' ? 'Skip today' : 'Cancel this task'}
-                style={[
-                  styles.secondaryBtn,
-                  { borderColor: glassBorder(0.08), backgroundColor: glass(0.03) },
-                ]}>
-                <Text style={[styles.secondaryText, { color: c.textSoft }]}>
-                  {task.repeat !== 'None' ? 'Skip today' : 'Cancel task'}
-                </Text>
-              </Pressable>
+                onPress={() => void skipToday()}>
+                {task.repeat !== 'None' ? 'Skip today' : 'Cancel task'}
+              </OrbitButton>
             ) : null}
             {task.status === 'Cancelled' ? (
-              <View style={styles.waitCard}>
-                <MaterialIcons name="block" size={18} color="#94A3B8" />
-                <Text style={[styles.waitText, { color: '#94A3B8' }]}>
+              <View style={[styles.waitCard, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
+                <MaterialIcons name="block" size={18} color={c.textMuted} />
+                <Text style={[styles.waitText, { color: c.textMuted }]}>
                   Cancelled by admin · not deleted
                 </Text>
               </View>
             ) : null}
             {canEdit ? (
-              <Pressable onPress={confirmDelete} style={styles.dangerBtn}>
-                <Text style={styles.dangerText}>Delete task</Text>
+              <Pressable
+                onPress={confirmDelete}
+                accessibilityRole="button"
+                accessibilityLabel="Delete task"
+                style={({ pressed }) => [
+                  styles.plainDanger,
+                  pressed && { opacity: 0.7 },
+                ]}>
+                <Text style={[styles.plainDangerText, { color: c.danger }]}>Delete task</Text>
               </Pressable>
             ) : null}
-          </>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -1130,7 +1120,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  waitText: { flex: 1, color: '#FB923C', fontSize: 13, fontWeight: '700' },
+  waitText: { flex: 1, fontSize: 13, fontWeight: '700' },
+  actionStack: {
+    gap: 10,
+    marginTop: 4,
+  },
+  ghostDanger: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  ghostDangerText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  plainDanger: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  plainDangerText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
   input: {
     borderRadius: 16,
     borderWidth: 1,

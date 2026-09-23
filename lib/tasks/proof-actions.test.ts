@@ -69,6 +69,7 @@ assert(!capped.ok, 'cap at 3 rounds');
 const reversed = markTaskNotDone(base({ awardedXp: 15 }));
 assert(reversed.ok && reversed.reversedXp === 15, 'reverse xp');
 assert(reversed.ok && reversed.task.status === 'Pending', 'back to pending');
+assert(reversed.ok && reversed.task.due === 'Today', 'due restored');
 
 const old = markTaskNotDone(
   base({
