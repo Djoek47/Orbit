@@ -562,7 +562,7 @@ function isOpenTaskStatus(status?: string): boolean {
   return value !== 'completed' && value !== 'cancelled' && value !== 'expired' && value !== 'missed';
 }
 
-function toChoreDisplayTitle(extracted: string): string {
+export function toChoreDisplayTitle(extracted: string): string {
   const cleaned = extracted
     .replace(/\b(my|our|your)\b/gi, ' ')
     .replace(/\s+/g, ' ')
@@ -617,6 +617,33 @@ export function extractSpokenChoreTitle(text: string): string | undefined {
     .replace(/^(?:to|for)\s+/i, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+  // "add the dishes for Mia" / "add dishes to Mia" — object before for/to person
+  const addObjectForPerson = raw.match(
+    /\b(?:add|create|make|schedule|set\s+up)\s+(?:me\s+)?(?:the\s+|a\s+|an\s+)?(.+?)\s+(?:for|to)\s+[A-Z][a-zA-Z]{1,20}\b/i
+  );
+  if (addObjectForPerson?.[1]) {
+    const object = addObjectForPerson[1]
+      .replace(/\b(?:task|chore|todo|desk)s?\b/gi, ' ')
+      .replace(/\b(quick|new|small|simple|cleaning)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (object.length >= 2 && !/^(the|a|an)$/i.test(object)) {
+      return toChoreDisplayTitle(object);
+    }
+  }
+
+  // "Mia should do the dishes" / "someone needs to do the dishes"
+  const doObject = raw.match(
+    /\b(?:should|needs?\s+to|need\s+to|has\s+to|have\s+to|must)?\s*do\s+(?:the\s+|a\s+|an\s+)?(.+)$/i
+  );
+  if (doObject?.[1]) {
+    const object = doObject[1]
+      .replace(/\b(please|now|for me)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (object.length >= 2) return toChoreDisplayTitle(object);
+  }
 
   // "… task to clean the dishes" / "… chore to wash car"
   const toVerb = raw.match(

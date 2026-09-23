@@ -156,6 +156,10 @@ export type IuiPayload = {
   items?: IuiGroupItem[];
   /** Progress label e.g. "2 of 3". */
   progressLabel?: string;
+  /** WO12 §C — slots filled by speech, ordered by character offset. */
+  slotOrder?: Array<'title' | 'assignee' | 'due' | 'category' | 'date' | 'time'>;
+  /** First empty slot — the one in focus. */
+  focusSlot?: 'title' | 'assignee' | 'due' | 'category' | 'date' | 'time' | null;
 };
 
 export type IuiWriteKind =
