@@ -50,7 +50,7 @@ Same as v21 — Sign in (TestFlight):
 
 | Build | Git | EAS build | Submit |
 |-------|-----|-----------|--------|
-| _(pending)_ | `cursor/make-v23` | — | — |
+| **1.3.0 (79)** queued | `cursor/make-v23` @ `bbfc01b` | [4e1a3b76](https://expo.dev/accounts/djoek47/projects/choremaxx/builds/4e1a3b76-7f33-4ffa-8d3a-6f2c53916b11) | [cb8f2906](https://expo.dev/accounts/djoek47/projects/choremaxx/submissions/cb8f2906-c1f2-4614-b20b-4df1f92c335e) auto-submit |
 
 ## TestFlight env (`eas.json`)
 
