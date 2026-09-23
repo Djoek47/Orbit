@@ -26,6 +26,7 @@ import {
 import { classifyGroceryItem } from '@/lib/grocery/classify';
 import { groupConsecutiveActs } from '@/lib/poppins/group-acts';
 import type { IuiGroupItem } from '@/lib/poppins/ui-scenes';
+import { applySlotOrder } from '@/lib/poppins/slot-order';
 
 function beat(
   scene: IuiScene,
@@ -209,20 +210,31 @@ function taskDraftBeats(action: Record<string, unknown>, prefill: Record<string,
     sourceUtterance:
       typeof action.sourceUtterance === 'string'
         ? action.sourceUtterance
-        : typeof prefill.sourceUtterance === 'string'
-          ? prefill.sourceUtterance
-          : undefined,
+        : typeof action.utterance === 'string'
+          ? action.utterance
+          : typeof prefill.sourceUtterance === 'string'
+            ? prefill.sourceUtterance
+            : undefined,
     items,
     progressLabel: activeItems.length > 1 ? `1 of ${activeItems.length}` : undefined,
     // Grouped tasks with every row filled skip the face grid; a missing person opens it for that row.
     composeReady: items ? !needsFace : undefined,
   };
+  // Mark speech-filled slots so model merge cannot overwrite them (WO12 §C3).
+  const slotSource: NonNullable<IuiPayload['slotSource']> = { ...(basePayload.slotSource ?? {}) };
+  if (basePayload.title?.trim()) slotSource.title = slotSource.title ?? 'speech';
+  if (basePayload.assignee?.trim()) slotSource.assignee = slotSource.assignee ?? 'speech';
+  if (basePayload.due?.trim()) slotSource.due = slotSource.due ?? 'speech';
+  if (basePayload.libraryTaskId?.trim()) slotSource.libraryTaskId = slotSource.libraryTaskId ?? 'speech';
+  basePayload.slotSource = slotSource;
+
+  const ordered = applySlotOrder(basePayload);
   const payload =
     items && items.length > 1
-      ? basePayload
+      ? ordered
       : homework
-        ? withHomeworkComposeProgress(basePayload)
-        : withComposeProgress(basePayload);
+        ? withHomeworkComposeProgress(ordered)
+        : withComposeProgress(ordered);
   const write: IuiWriteKind = homework ? 'create_homework' : 'create_task';
   return [
     beat(scene, payload, 'hold', write),

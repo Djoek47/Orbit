@@ -45,6 +45,11 @@ type Props = {
   isLast: boolean;
   centered?: boolean;
   primaryLabel?: string;
+  /** WO12 §D3 — coach walkthrough chrome. */
+  adHoc?: boolean;
+  canDoItForYou?: boolean;
+  onDoItForMe?: () => void;
+  closeLabel?: string;
   cardRef?: React.RefObject<View | null>;
   onNext: () => void;
   onBack?: () => void;
@@ -69,6 +74,10 @@ function TourOverlayBody({
   isLast,
   centered,
   primaryLabel,
+  adHoc,
+  canDoItForYou,
+  onDoItForMe,
+  closeLabel,
   cardRef,
   onNext,
   onBack,
@@ -347,6 +356,9 @@ function TourOverlayBody({
           isAction={isAction}
           isLast={isLast}
           primaryLabel={primaryLabel}
+          adHoc={adHoc}
+          canDoItForYou={canDoItForYou}
+          onDoItForMe={onDoItForMe}
           cardRef={cardRef}
           onNext={onNext}
           onBack={onBack}
@@ -376,7 +388,7 @@ function TourOverlayBody({
           onPress={onClose}
           hitSlop={16}
           accessibilityRole="button"
-          accessibilityLabel="Exit tour"
+          accessibilityLabel={closeLabel ?? 'Exit tour'}
           style={({ pressed }) => [
             styles.exitPill,
             {
@@ -386,7 +398,7 @@ function TourOverlayBody({
             },
           ]}>
           <Text style={[typography.footnote, styles.exitLabel, { color: exitLabel }]}>
-            Exit tour
+            {closeLabel ?? 'Exit tour'}
           </Text>
         </Pressable>
       </View>

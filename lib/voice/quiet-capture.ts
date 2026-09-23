@@ -54,7 +54,7 @@ export const QUIET_FAILURE_MESSAGES: Record<QuietStopFailure['failed'], string> 
   no_audio: "The microphone didn't record anything. Check microphone access in iOS Settings.",
   too_short: 'That was too short — hold the button and say it again.',
   transcribe_failed: "I couldn't reach the transcriber. Check your connection.",
-  empty_transcript: "I didn't hear words in that. Try again.",
+  empty_transcript: "I didn't hear words. The mic recorded silence. Hold, speak, let go.",
 };
 
 function persistVoiceFailure(failed: QuietStopFailure['failed'], detail?: string) {

@@ -192,7 +192,7 @@ function patchCurrentPayload(patch: Partial<IuiPayload>) {
         return { ...item, assignee: String(patch.assignee) };
       }),
     };
-    const needsFace = merged.items.some((item) => !item.dropped && !item.assignee?.trim());
+    const needsFace = merged.items?.some((item) => !item.dropped && !item.assignee?.trim()) ?? false;
     if (beat.scene === 'task_compose' || beat.scene === 'homework_compose') {
       merged.composeReady = !needsFace;
     }
@@ -467,6 +467,37 @@ function canMergeBeat(current: IuiBeat, incoming: IuiBeat): boolean {
   return true;
 }
 
+/** Drop model values that would overwrite a spoken/touch slot in slotOrder. */
+function scrubModelOverwrite(current: IuiPayload, incoming: IuiPayload): IuiPayload {
+  const next = { ...incoming };
+  const spoken = new Set(current.slotOrder ?? []);
+  for (const key of PROTECTED_SLOTS) {
+    const inSlotOrder = spoken.has(key as 'title' | 'assignee' | 'due' | 'category' | 'date' | 'time');
+    const source = current.slotSource?.[key];
+    if (!inSlotOrder && source !== 'speech' && source !== 'touch') continue;
+    const currentVal = String(current[key] ?? '').trim();
+    const incomingVal = String(incoming[key] ?? '').trim();
+    const incomingSource = incoming.slotSource?.[key];
+    if (
+      currentVal &&
+      incomingVal &&
+      currentVal.toLowerCase() !== incomingVal.toLowerCase() &&
+      incomingSource !== 'speech' &&
+      incomingSource !== 'touch'
+    ) {
+      console.warn('iui.model_overwrite_blocked', { slot: key, kept: currentVal, dropped: incomingVal });
+      (next as Record<string, unknown>)[key] = current[key];
+      next.slotSource = { ...next.slotSource, [key]: source ?? 'speech' };
+    }
+  }
+  // Keep the person's slot order.
+  if (current.slotOrder?.length) {
+    next.slotOrder = current.slotOrder;
+    next.focusSlot = current.focusSlot;
+  }
+  return next;
+}
+
 /** Stable identity for playlist dedupe when merging a model refinement. */
 function beatIdentityKey(beat: IuiBeat): string {
   const p = beat.payload;
@@ -512,7 +543,7 @@ function mergeIncomingPlaylist(playlist: IuiBeat[]) {
       incomingPayload.title = active[0]?.label ?? incomingPayload.title;
     }
   }
-  patchCurrentPayload(incomingPayload);
+  patchCurrentPayload(scrubModelOverwrite(current.payload, incomingPayload as IuiPayload));
   const rest = playlist.slice(1);
   const kept = state.playlist.slice(0, state.index + 1);
   const tail = state.playlist.slice(state.index + 1);
@@ -999,6 +1030,27 @@ export const poppinsUiOrchestrator = {
     if (!state.commitFailed) return;
     setState({ commitFailed: false, frozen: false, thinkingLine: '' });
     advanceAfterSettle();
+  },
+  /** WO12 §F4 — mark the turn as model-offline without failing the act. */
+  flagModelOffline() {
+    const beat = currentBeat();
+    if (!beat) return;
+    if (beat.scene === 'result_mark' || beat.scene === 'task_done') {
+      patchCurrentPayload({ modelOffline: true });
+      return;
+    }
+    const nextMark = state.playlist.find(
+      (item, i) => i > state.index && (item.scene === 'result_mark' || item.scene === 'task_done')
+    );
+    if (nextMark) {
+      setState({
+        playlist: state.playlist.map((item) =>
+          item.id === nextMark.id
+            ? { ...item, payload: { ...item.payload, modelOffline: true } }
+            : item
+        ),
+      });
+    }
   },
   /** Tap the settle mark within ~5s to reverse every commit in the turn (newest first). */
   async undoLast() {

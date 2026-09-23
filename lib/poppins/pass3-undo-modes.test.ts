@@ -66,7 +66,7 @@ async function main() {
 
   {
     const mark = readFileSync(join(root, 'components/orbit/poppins-stage/iui-result-mark.tsx'), 'utf8');
-    assert.match(mark, /Tap to undo/);
+    assert.match(mark, /Undo/);
     assert.match(mark, /onUndo/);
 
     const orch = readFileSync(join(root, 'lib/poppins/ui-orchestrator.ts'), 'utf8');

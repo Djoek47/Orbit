@@ -19,7 +19,8 @@ export type ActKind =
   | 'itinerary_stop'
   | 'place_save'
   | 'complete'
-  | 'reward';
+  | 'reward'
+  | 'coach';
 
 export type ActOutcome = 'committed' | 'undone' | 'vetoed' | 'abandoned' | 'failed';
 
@@ -122,7 +123,9 @@ export function buildActEvent(input: {
 }): ActEvent {
   const axes = axesFromPoppinsMode(input.mode);
   const outcome = input.outcome ?? 'committed';
-  const tokens = outcome === 'committed' ? axes.tokens : 0;
+  // Teaching never costs an action — weight 0 even when Speak back is on.
+  const tokens =
+    input.actKind === 'coach' ? 0 : outcome === 'committed' ? axes.tokens : 0;
   return {
     id: input.id ?? `act-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     at: input.at ?? new Date().toISOString(),

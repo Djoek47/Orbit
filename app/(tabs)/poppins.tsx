@@ -18,7 +18,9 @@ import { PoppinsLiveCaption } from '@/components/orbit/poppins-live-caption';
 import { PoppinsModeCards } from '@/components/orbit/poppins-mode-cards';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PoppinsStage } from '@/components/orbit/poppins-stage';
+import { IuiTroubleNothingHeard } from '@/components/orbit/poppins-stage/iui-trouble';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
+import { STAGE } from '@/constants/iui-stage';
 import { PoppinsWaveform } from '@/components/orbit/poppins-waveform';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius, space } from '@/constants/orbit-theme';
@@ -33,8 +35,8 @@ import {
 } from '@/lib/ai/credits';
 import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import { prefsForTier, savePoppinsInteractionPrefs } from '@/lib/poppins/poppins-prefs';
-import { personalActTokens, summarizeActUsage, notifyActUndone } from '@/lib/ai/act-events';
-import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
+import { personalActTokens, summarizeActUsage, notifyActUndone, buildActEvent } from '@/lib/ai/act-events';
+import { driveAiuic, hearAndDrive, isLocalHowTo } from '@/lib/poppins/aiuic';
 import {
   confirmationForLocalWrite,
   findLocalWriteBeat,
@@ -119,6 +121,7 @@ export default function PoppinsScreen() {
     actEvents,
     poppinsConversation,
     recordPoppinsUsage,
+    recordActEvent,
     metrics,
     orbitPalette,
     deleteTask,
@@ -142,6 +145,9 @@ export default function PoppinsScreen() {
   );
   const quietRef = useRef<QuietCapture | null>(null);
   const [quietListening, setQuietListening] = useState(false);
+  const [nothingHeard, setNothingHeard] = useState<
+    null | 'no_audio' | 'too_short' | 'transcribe_failed' | 'empty_transcript'
+  >(null);
 
   useEffect(() => {
     setSessionSelfName(currentMember?.name);
@@ -654,6 +660,29 @@ export default function PoppinsScreen() {
       return;
     }
 
+    // WO12 §D — teaching matched locally: coach card is free, never call the model.
+    const liveBeat = poppinsUiOrchestrator.getState().playlist[poppinsUiOrchestrator.getState().index];
+    if (tookLocal && (liveBeat?.scene === 'coach_steps' || isLocalHowTo(trimmed))) {
+      const answer = liveBeat?.payload.coachLine ?? liveBeat?.payload.subtitle ?? 'Here is how.';
+      if (currentMember) {
+        void recordActEvent(
+          buildActEvent({
+            memberId: currentMember.id,
+            memberName: currentMember.name,
+            actKind: 'coach',
+            mode: 'silent',
+            outcome: 'committed',
+            utteranceChars: trimmed.length,
+          })
+        );
+      }
+      setVoiceState('speaking');
+      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', answer, true));
+      appendPoppinsTurn(trimmed, answer);
+      setTimeout(() => setVoiceState('idle'), 1800);
+      return;
+    }
+
     setAsking(true);
     if (interactionPrefs.showThinking) {
       setVoiceState('thinking');
@@ -672,6 +701,9 @@ export default function PoppinsScreen() {
         Boolean(result.error_code) ||
         result.source === 'openai_error' ||
         /could not answer|is offline right now/i.test(result.answer ?? '');
+      if (offline && (localConfirm || tookLocal)) {
+        poppinsUiOrchestrator.flagModelOffline();
+      }
       const answer =
         offline && localConfirm ? localConfirm : result.answer || localConfirm || '';
       setVoiceState('speaking');
@@ -714,6 +746,7 @@ export default function PoppinsScreen() {
     }
     setSessionActMode('silent');
     setError('');
+    setNothingHeard(null);
     const capture = createQuietCapture();
     quietRef.current = capture;
     setQuietListening(true);
@@ -756,12 +789,14 @@ export default function PoppinsScreen() {
       quietRef.current = null;
       if ('failed' in result) {
         setVoiceState('idle');
+        setNothingHeard(result.failed);
         const line =
           QUIET_FAILURE_MESSAGES[result.failed] ??
           "Didn't catch that. Tap to try again.";
         setLiveCaption(applyLiveCaptionTurn(null, 'poppins', line, true));
         return;
       }
+      setNothingHeard(null);
       await submitUtterance(result.transcript, 'dictated');
     } catch {
       quietRef.current = null;
@@ -946,6 +981,19 @@ export default function PoppinsScreen() {
           <PoppinsHourglass size={18} color="#2DD4BF" active={isActive} />
         </Pressable>
       </View>
+
+      {nothingHeard && !drive.live ? (
+        <View style={{ paddingHorizontal: 22, marginBottom: 12 }}>
+          <IuiTroubleNothingHeard
+            accent={STAGE.domain.chores}
+            failed={nothingHeard}
+            onRetry={() => {
+              setNothingHeard(null);
+              void startQuietCapture();
+            }}
+          />
+        </View>
+      ) : null}
 
       {drive.live ? (
         <ScrollView
