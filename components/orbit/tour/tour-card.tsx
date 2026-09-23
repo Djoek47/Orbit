@@ -1,11 +1,12 @@
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Platform, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { OrbitButton } from '@/components/orbit/orbit-button';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
-import { radius, space, typography } from '@/constants/orbit-theme';
+import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useOrbitOptional } from '@/store/orbit-store';
 
 type Props = {
   chapterName: string;
@@ -19,6 +20,7 @@ type Props = {
   primaryLabel?: string;
   cardRef?: React.RefObject<View | null>;
   onNext: () => void;
+  onBack?: () => void;
   onSkipChapter: () => void;
   onSkipStep: () => void;
   onLayoutHeight?: (height: number) => void;
@@ -41,12 +43,16 @@ export function TourCard({
   primaryLabel,
   cardRef,
   onNext,
+  onBack,
   onSkipChapter,
   onSkipStep,
   onLayoutHeight,
   maxHeight,
 }: Props) {
   const { c, isDark } = useOrbitColors();
+  const orbit = useOrbitOptional();
+  const accent = orbit?.accentTheme.primary ?? c.primary;
+  const accentEnd = orbit?.accentTheme.secondary ?? accent;
 
   const onLayout = (e: LayoutChangeEvent) => {
     onLayoutHeight?.(e.nativeEvent.layout.height);
@@ -103,37 +109,69 @@ export function TourCard({
                   style={[
                     styles.dot,
                     {
-                      backgroundColor: i === stepIndex ? c.primary : c.textSubtle,
+                      backgroundColor: i === stepIndex ? accent : c.textSubtle,
                       opacity: i === stepIndex ? 1 : 0.35,
+                      width: i === stepIndex ? 16 : 6,
                     },
                   ]}
                 />
               ))}
             </View>
             <View style={styles.actions}>
-              {isAction ? (
-                <>
-                  <Text style={[typography.subheadline, { color: c.text, fontWeight: '600' }]}>
-                    Your turn
+              {onBack ? (
+                <Pressable
+                  onPress={onBack}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous step"
+                  style={styles.textBtn}>
+                  <Text style={[typography.footnote, { color: c.textMuted, fontWeight: '600' }]}>
+                    Back
                   </Text>
-                  <Pressable onPress={onSkipStep} hitSlop={8} accessibilityRole="button">
-                    <Text style={[typography.footnote, { color: c.primary }]}>Skip this step</Text>
-                  </Pressable>
-                </>
+                </Pressable>
               ) : (
-                <>
+                <View />
+              )}
+              <View style={styles.actionRight}>
+                {isAction ? (
                   <Pressable
-                    onPress={onSkipChapter}
+                    onPress={onSkipStep}
                     hitSlop={8}
                     accessibilityRole="button"
-                    style={styles.skip}>
-                    <Text style={[typography.footnote, { color: c.textMuted }]}>Skip</Text>
+                    style={styles.textBtn}>
+                    <Text style={[typography.footnote, { color: accent, fontWeight: '600' }]}>
+                      Skip this step
+                    </Text>
                   </Pressable>
-                  <OrbitButton onPress={onNext}>
-                    {primaryLabel ?? (isLast ? 'Done' : 'Next')}
-                  </OrbitButton>
-                </>
-              )}
+                ) : (
+                  <>
+                    <Pressable
+                      onPress={onSkipChapter}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      style={styles.textBtn}>
+                      <Text style={[typography.footnote, { color: c.textMuted, fontWeight: '600' }]}>
+                        Skip
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={onNext}
+                      accessibilityRole="button"
+                      accessibilityLabel={primaryLabel ?? (isLast ? 'Done' : 'Next')}
+                      style={({ pressed }) => [pressed && { opacity: 0.88 }]}>
+                      <LinearGradient
+                        colors={[accent, accentEnd]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.next}>
+                        <Text style={[typography.footnote, styles.nextLabel]} numberOfLines={1}>
+                          {primaryLabel ?? (isLast ? 'Done' : 'Next')}
+                        </Text>
+                      </LinearGradient>
+                    </Pressable>
+                  </>
+                )}
+              </View>
             </View>
           </View>
         </View>
@@ -174,31 +212,48 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   footer: {
-    alignItems: 'center',
-    flexDirection: 'row',
     flexShrink: 0,
-    gap: space.sm,
-    justifyContent: 'space-between',
+    gap: 12,
     marginTop: space.xs,
   },
   dots: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 6,
+    justifyContent: 'center',
   },
   dot: {
     borderRadius: 3,
     height: 6,
-    width: 6,
   },
   actions: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: space.sm,
-  },
-  skip: {
+    justifyContent: 'space-between',
     minHeight: 44,
+  },
+  actionRight: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexShrink: 1,
+    gap: 4,
+    justifyContent: 'flex-end',
+  },
+  textBtn: {
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    minHeight: 44,
+    paddingHorizontal: 10,
+  },
+  next: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.full,
+    justifyContent: 'center',
+    minHeight: 40,
+    paddingHorizontal: 18,
+  },
+  nextLabel: {
+    color: orbitColors.ink,
+    fontWeight: '700',
   },
 });

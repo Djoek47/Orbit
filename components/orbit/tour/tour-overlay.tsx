@@ -47,6 +47,7 @@ type Props = {
   primaryLabel?: string;
   cardRef?: React.RefObject<View | null>;
   onNext: () => void;
+  onBack?: () => void;
   onSkipChapter: () => void;
   onSkipStep: () => void;
   onClose: () => void;
@@ -70,6 +71,7 @@ function TourOverlayBody({
   primaryLabel,
   cardRef,
   onNext,
+  onBack,
   onSkipChapter,
   onSkipStep,
   onClose,
@@ -347,6 +349,7 @@ function TourOverlayBody({
           primaryLabel={primaryLabel}
           cardRef={cardRef}
           onNext={onNext}
+          onBack={onBack}
           onSkipChapter={onSkipChapter}
           onSkipStep={onSkipStep}
           onLayoutHeight={(h) => {

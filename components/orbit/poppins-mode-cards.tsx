@@ -191,7 +191,7 @@ function ModeCard({
             backgroundColor: selected ? accent : 'transparent',
           },
         ]}>
-        {selected ? <MaterialIcons name="check" size={14} color="#041018" /> : null}
+        {selected ? <MaterialIcons name="check" size={14} color={isDark ? '#041018' : '#FFFFFF'} /> : null}
       </View>
     </Pressable>
   );

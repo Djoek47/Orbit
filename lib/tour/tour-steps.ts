@@ -291,7 +291,7 @@ const ADMIN_FINISH: TourChapter = {
       id: 'finish.done',
       targetId: 'tour.finish',
       title: "You're set",
-      body: 'Your checklist on Home keeps track of the rest. You can replay any part of this tour in Settings → Help.',
+      body: 'Replay any part of this tour from Settings, under Help.',
       route: '/(tabs)',
     }),
   ],

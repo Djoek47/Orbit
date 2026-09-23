@@ -1,26 +1,43 @@
-import { Pressable, StyleSheet } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
-import { typography } from '@/constants/orbit-theme';
+import { radius, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 /** Home card when a tour was left mid-way — never auto-resumes the overlay. */
 export function TourContinueCard() {
   const registry = useTourControls();
-  const { c } = useOrbitColors();
+  const { c, glassBorder } = useOrbitColors();
 
   if (!registry?.awaitingContinue) return null;
+  if (registry.tourState?.status === 'completed') return null;
 
   return (
     <GlassCard style={styles.card}>
-      <Text style={[typography.body, { color: c.text, flex: 1 }]}>Continue the tour?</Text>
-      <Pressable onPress={() => registry.continueTour()} hitSlop={8} accessibilityRole="button">
+      <View style={styles.head}>
+        <View style={styles.copy}>
+          <Text style={[typography.headline, { color: c.text }]}>Continue the tour?</Text>
+          <Text style={[typography.caption1, { color: c.textMuted }]}>
+            Pick up where you left off, or close this for good.
+          </Text>
+        </View>
+        <Pressable
+          onPress={() => registry.dismissTourPrompt()}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Close tour prompt"
+          style={[styles.close, { borderColor: glassBorder(0.16) }]}>
+          <MaterialIcons name="close" size={18} color={c.textMuted} />
+        </Pressable>
+      </View>
+      <Pressable
+        onPress={() => registry.continueTour()}
+        accessibilityRole="button"
+        style={[styles.continueBtn, { backgroundColor: `${c.primary}22` }]}>
         <Text style={[typography.footnote, { color: c.primary, fontWeight: '700' }]}>Continue</Text>
-      </Pressable>
-      <Pressable onPress={() => registry.startTour(registry.tourState?.tourId)} hitSlop={8}>
-        <Text style={[typography.footnote, { color: c.textSubtle }]}>Restart</Text>
       </Pressable>
     </GlassCard>
   );
@@ -28,9 +45,33 @@ export function TourContinueCard() {
 
 const styles = StyleSheet.create({
   card: {
-    alignItems: 'center',
+    gap: 14,
+  },
+  head: {
+    alignItems: 'flex-start',
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 12,
+  },
+  copy: {
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
+  },
+  continueBtn: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderCurve: 'continuous',
+    borderRadius: radius.full,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  close: {
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
   },
 });

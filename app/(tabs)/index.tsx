@@ -315,9 +315,7 @@ export default function HomeScreen() {
           <GettingStartedCard
             hidden={Boolean(tour.tourState?.checklistHidden)}
             onHide={() => tour.hideChecklist()}
-            onAllDoneSeen={() => {
-              /* Persist completed-seen via hide after user dismisses or auto later */
-            }}
+            onAllDoneSeen={() => tour.hideChecklist()}
           />
         ) : null}
 

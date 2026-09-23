@@ -7,9 +7,13 @@ import assert from 'node:assert/strict';
 import { emitTourEvent } from '@/lib/tour/tour-events';
 import {
   bindTourStepAdvance,
+  completeTourState,
   resolveActivePointer,
+  retreatBeforeStep,
   shouldPauseTour,
   startTourState,
+  tourCanRetreat,
+  tourRouteMatches,
 } from '@/lib/tour/tour-store';
 import type { TourConditionContext } from '@/lib/tour/tour-conditions';
 import type { HouseholdSnapshot } from '@/types/orbit';
@@ -36,6 +40,31 @@ assert.equal(
 let state = startTourState('admin');
 state = { ...state, chapterId: 'poppins', stepIndex: 1 };
 assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.try');
+
+const backOne = retreatBeforeStep(state, ctx);
+assert.equal(backOne.chapterId, 'poppins');
+assert.equal(backOne.stepIndex, 0);
+assert.equal(tourCanRetreat(state, ctx), true);
+const first = startTourState('admin');
+assert.equal(tourCanRetreat(first, ctx), false);
+assert.equal(retreatBeforeStep(first, ctx).stepIndex, 0);
+
+const atTasks = { ...startTourState('admin'), chapterId: 'tasks', stepIndex: 0 };
+const backToHome = retreatBeforeStep(atTasks, ctx);
+assert.equal(backToHome.chapterId, 'home');
+assert.equal(backToHome.stepIndex, 2);
+assert.equal(tourCanRetreat(atTasks, ctx), true);
+
+const done = completeTourState(startTourState('admin'));
+assert.equal(done.status, 'completed');
+assert.equal(done.checklistHidden, true);
+
+assert.equal(tourRouteMatches('/(tabs)/groceries', '/(tabs)'), false);
+assert.equal(tourRouteMatches('/(tabs)', '/(tabs)'), true);
+assert.equal(tourRouteMatches('/(tabs)/index', '/(tabs)'), true);
+assert.equal(tourRouteMatches('/(tabs)/tasks', '/(tabs)/tasks'), true);
+assert.equal(tourRouteMatches('/tasks', '/(tabs)/tasks'), true);
+assert.equal(tourRouteMatches('/(tabs)', '/(tabs)/tasks'), false);
 
 let paused = true;
 const unsub = bindTourStepAdvance({

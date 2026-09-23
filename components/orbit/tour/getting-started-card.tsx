@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -138,8 +138,10 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
   const doneCount = items.filter((i) => i.done).length;
   const allDone = doneCount === items.length && items.length > 0;
 
+  const allDoneSeen = useRef(false);
   useEffect(() => {
-    if (allDone) {
+    if (allDone && !allDoneSeen.current) {
+      allDoneSeen.current = true;
       onAllDoneSeen();
     }
   }, [allDone, onAllDoneSeen]);

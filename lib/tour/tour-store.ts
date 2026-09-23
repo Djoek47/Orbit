@@ -17,6 +17,30 @@ import {
   type TourStep,
 } from '@/lib/tour/tour-types';
 
+/**
+ * True when the screen is already the step's route.
+ * Home (`/(tabs)`) is the index tab only — other tabs must still navigate.
+ */
+export function tourRouteMatches(pathname: string | null | undefined, route: string): boolean {
+  if (!pathname) return false;
+  const path = pathname.split('?')[0] ?? pathname;
+  if (path === route) return true;
+  const home =
+    route === '/' || route === '/(tabs)' || route === '/(tabs)/' || route === '/(tabs)/index';
+  if (home) {
+    return (
+      path === '/' ||
+      path === '/index' ||
+      path === '/(tabs)' ||
+      path === '/(tabs)/' ||
+      path === '/(tabs)/index'
+    );
+  }
+  const bare = route.replace('/(tabs)', '');
+  if (!bare) return false;
+  return path === bare || path.endsWith(bare);
+}
+
 export type ActiveTourPointer = {
   tourId: TourId;
   chapter: TourChapter;
@@ -175,6 +199,7 @@ export function completeTourState(prev: TourState): TourState {
     completedChapters: chapters.map((c) => c.id),
     chapterId: undefined,
     stepIndex: undefined,
+    checklistHidden: true,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -224,6 +249,46 @@ export function advanceAfterStep(
   }
 
   return completeTourState({ ...state, completedChapters });
+}
+
+/** Step backward within the chapter, then into the previous chapter's last step. */
+export function retreatBeforeStep(state: TourState, ctx: TourConditionContext): TourState {
+  const pointer = resolveActivePointer(state, ctx);
+  if (!pointer) return state;
+
+  if (pointer.stepIndex > 0) {
+    return {
+      ...state,
+      chapterId: pointer.chapter.id,
+      stepIndex: pointer.stepIndex - 1,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  const chapters = chaptersForTour(state.tourId);
+  for (let ci = pointer.chapterIndex - 1; ci >= 0; ci--) {
+    const chapter = chapters[ci];
+    if (!chapter) continue;
+    if (state.skippedChapters.includes(chapter.id)) continue;
+    const steps = filterChapterSteps(chapter, ctx);
+    if (!steps.length) continue;
+    return {
+      ...state,
+      completedChapters: state.completedChapters.filter((id) => id !== chapter.id),
+      chapterId: chapter.id,
+      stepIndex: steps.length - 1,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  return state;
+}
+
+export function tourCanRetreat(state: TourState, ctx: TourConditionContext): boolean {
+  const pointer = resolveActivePointer(state, ctx);
+  if (!pointer) return false;
+  const next = retreatBeforeStep(state, ctx);
+  return next.chapterId !== pointer.chapter.id || next.stepIndex !== pointer.stepIndex;
 }
 
 export function skipChapterState(state: TourState, ctx: TourConditionContext): TourState {
