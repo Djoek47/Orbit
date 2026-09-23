@@ -1,53 +1,94 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
-import { GlassCard } from '@/components/orbit/glass-card';
+import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
+import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitColors } from '@/constants/orbit-theme';
+import { authIssue, resolveAuthIssue, type AuthIssue } from '@/lib/auth/auth-errors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function ForgotPasswordScreen() {
-  const { forgotPassword } = useOrbit();
-  const [email, setEmail] = useState('sarah@orbit.test');
+  const { accentTheme, forgotPassword, orbitPalette } = useOrbit();
+  const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [issue, setIssue] = useState<AuthIssue | null>(null);
+  const [sending, setSending] = useState(false);
 
   const handleReset = async () => {
-    await forgotPassword(email);
-    setMessage('Mock reset link queued. Real email delivery will come with Supabase auth.');
+    if (!email.trim()) {
+      setIssue(authIssue('missing_fields', { message: 'Enter the email for your Choremaxx account.' }));
+      setMessage('');
+      return;
+    }
+    setSending(true);
+    setIssue(null);
+    setMessage('');
+    try {
+      await forgotPassword(email);
+      setMessage('If this email is on file, a reset link is on its way. Check your inbox and spam folder.');
+    } catch (error) {
+      setIssue(resolveAuthIssue(error));
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>Account recovery</Text>
-        <Text style={orbitTypography.display}>Reset password</Text>
-        <Text style={orbitTypography.body}>This placeholder keeps the auth structure ready for Supabase.</Text>
-      </View>
-
-      <GlassCard elevated style={styles.form}>
-        <OrbitInput label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
-        {message ? <Text style={styles.message}>{message}</Text> : null}
-        <OrbitButton onPress={handleReset}>Send Reset Link</OrbitButton>
-        <OrbitButton tone="secondary" onPress={() => router.back()}>
-          Back
-        </OrbitButton>
-      </GlassCard>
-    </ScrollView>
+    <AuthShell
+      showBack
+      kicker="Account recovery"
+      title="Reset password"
+      subtitle="Enter your Choremaxx email for a reset link."
+      footer={
+        <Pressable
+          onPress={() => router.back()}
+          style={[
+            styles.secondary,
+            {
+              backgroundColor: orbitPalette.card,
+              borderColor: orbitPalette.border,
+            },
+          ]}>
+          <Text style={[styles.secondaryText, { color: accentTheme.primary }]}>
+            Back to sign in
+          </Text>
+        </Pressable>
+      }>
+      <OrbitInput
+        autoCapitalize="none"
+        label="Email"
+        value={email}
+        onChangeText={(value) => {
+          setEmail(value);
+          if (issue) setIssue(null);
+        }}
+        keyboardType="email-address"
+        placeholder="you@home.com"
+      />
+      <AuthErrorBanner issue={issue} onDismiss={() => setIssue(null)} />
+      {message ? (
+        <Text style={[styles.message, { color: orbitPalette.success }]}>{message}</Text>
+      ) : null}
+      <OrbitButton disabled={sending || !email.trim()} onPress={() => void handleReset()}>
+        {sending ? 'Sending…' : 'Send reset link'}
+      </OrbitButton>
+    </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  form: {
-    gap: orbitSpacing.md,
+  message: { color: orbitColors.success, fontSize: 13, fontWeight: '700', lineHeight: 18 },
+  secondary: {
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingVertical: 14,
   },
-  message: {
-    color: orbitColors.success,
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  secondaryText: { fontSize: 14, fontWeight: '700' },
 });
