@@ -8,6 +8,7 @@ import {
   markTaskNotDone,
   requestAnotherProofOnTask,
   resubmitProofPhoto,
+  submitProofReply,
 } from '@/lib/tasks/proof-actions';
 import type { HouseholdTask } from '@/types/orbit';
 
@@ -85,5 +86,13 @@ assert(Boolean(resub.proofPhotoUrls?.includes('file://photo2.jpg')), 'photo appe
 const aged = new Date(Date.now() - 73 * 60 * 60 * 1000).toISOString();
 const auto = autoConfirmUnreviewed([base({ completedAt: aged, verification: 'unreviewed' })]);
 assert(auto[0].verification === 'confirmed', '72h auto-confirm');
+
+const asked = requestAnotherProofOnTask(base(), 'admin-1', 'Show the corners');
+assert(asked.ok);
+const replied = submitProofReply(asked.task, { note: 'All tucked in' });
+assert(replied.ok && replied.task.proofNote === 'All tucked in', 'note-only reply');
+assert(replied.ok && replied.task.verification === 'unreviewed', 'reply → unreviewed');
+const photoReply = submitProofReply(asked.task, { proofUri: 'file://bed.jpg', note: 'Done' });
+assert(photoReply.ok && photoReply.task.proofUri === 'file://bed.jpg', 'photo+note');
 
 console.log('test:proof-actions OK');

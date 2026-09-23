@@ -372,7 +372,15 @@ export default function HomeScreen() {
                   </Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => void requestAnotherProof(task.id)}
+                  onPress={() => {
+                    void requestAnotherProof(task.id).catch((error: unknown) => {
+                      const detail =
+                        error instanceof Error && error.message
+                          ? error.message
+                          : 'Try again in a moment.';
+                      Alert.alert('Couldn’t request proof', detail);
+                    });
+                  }}
                   style={[styles.approvalBtn, { backgroundColor: glass(0.08) }]}>
                   <Text style={{ color: c.textMuted, fontWeight: '700', fontSize: 12 }}>
                     Ask photo

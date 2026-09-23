@@ -137,7 +137,15 @@ export type HouseholdTask = {
     | 'proof_requested'
     | 'rejected';
   proofPhotoUrls?: string[];
-  proofRounds?: { note?: string; requestedAt: string; requestedByMemberId?: string }[];
+  proofRounds?: {
+    note?: string;
+    /** Sidekick reply when they submit proof (photo and/or written note). */
+    responseNote?: string;
+    requestedAt: string;
+    requestedByMemberId?: string;
+  }[];
+  /** Latest sidekick proof note (convenience mirror of last round responseNote). */
+  proofNote?: string;
   verifiedBy?: string;
   verifiedAt?: string;
   /** True when completedAt > dueAt (informational; never reduces XP). */

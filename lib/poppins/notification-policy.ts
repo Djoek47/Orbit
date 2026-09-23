@@ -52,6 +52,8 @@ export type HouseholdFact = {
   category?: NotificationItem['category'];
   templateTitle?: string;
   templateBody?: string;
+  /** Optional coaching note (e.g. admin proof request). */
+  note?: string;
   extra?: Record<string, unknown>;
 };
 
@@ -211,7 +213,12 @@ function interruptCopy(fact: HouseholdFact): { title: string; body: string; cta?
     case 'proof_requested':
       return {
         title: 'Poppins · Photo',
-        body: stripExampleCopy(fact.templateBody || `A grown-up asked for a photo of ${entity}.`),
+        body: stripExampleCopy(
+          fact.templateBody ||
+            (fact.note
+              ? `A grown-up asked for a photo of ${entity}: “${fact.note}”.`
+              : `A grown-up asked for a photo of ${entity}.`)
+        ),
         cta: 'Open Task',
         category: 'tasks',
       };
