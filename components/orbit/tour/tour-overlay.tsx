@@ -41,6 +41,8 @@ type Props = {
   stepIndex: number;
   stepsInChapter: number;
   isAction: boolean;
+  /** Only true for tap-the-target steps — blocks outside the spotlight. */
+  lockCutout?: boolean;
   isLast: boolean;
   centered?: boolean;
   primaryLabel?: string;
@@ -65,6 +67,7 @@ function TourOverlayBody({
   stepIndex,
   stepsInChapter,
   isAction,
+  lockCutout = false,
   isLast,
   centered,
   primaryLabel,
@@ -191,8 +194,8 @@ function TourOverlayBody({
     ],
   }));
 
-  // Dim is paint-only. Action steps add a frame of blockers around the cutout.
-  // Info steps leave the dim open so the screen under the card can still scroll.
+  // Dim is paint-only by default. Only lockCutout (true action taps) blocks
+  // outside the spotlight — event steps like Poppins Speak stay interactive.
   const accentRing = accent;
   const exitBg = accent;
   const exitLabel = c.ink;
@@ -202,7 +205,7 @@ function TourOverlayBody({
       {/* Dim + cutout as four rectangles (no SVG mask — reliable on iOS / Reanimated). */}
       <View
         style={[StyleSheet.absoluteFill, styles.dimLayer]}
-        pointerEvents={isAction ? 'box-none' : 'none'}>
+        pointerEvents={lockCutout ? 'box-none' : 'none'}>
         {cutout ? (
           <>
             <Animated.View
@@ -276,7 +279,7 @@ function TourOverlayBody({
           />
         )}
 
-        {isAction && cutout ? (
+        {lockCutout && cutout ? (
           <>
             <View
               pointerEvents="auto"
@@ -394,7 +397,9 @@ function TourOverlayBody({
 }
 
 export function TourOverlay(props: Props) {
-  if (Platform.OS === 'ios') {
+  // FullWindowOverlay sits in its own window and eats pans/taps under the card.
+  // Only use it when we must float above a modal AND lock the cutout (true actions).
+  if (Platform.OS === 'ios' && props.lockCutout) {
     return (
       <FullWindowOverlay>
         <TourOverlayBody {...props} />
@@ -402,8 +407,6 @@ export function TourOverlay(props: Props) {
     );
   }
 
-  // Inline on every step. A Modal sits in its own window and blocks scrolling
-  // the screen under the coach card (and ate cutout taps on action steps).
   return <TourOverlayBody {...props} />;
 }
 

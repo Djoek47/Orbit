@@ -346,9 +346,9 @@ const ADMIN_POPPINS: TourChapter = {
       id: 'poppins.try',
       targetId: 'poppins.speak',
       title: 'Try it',
-      body: 'Tap Speak and say "add milk to the list". Tap Done when you finish.',
+      body: 'Pick Base or Max, then tap Speak. One tap or Done advances — Skip goes to the next tip.',
       route: '/(tabs)/poppins',
-      advance: { kind: 'event', event: 'poppins_spoke' },
+      advance: { kind: 'next_or_event', event: 'poppins_spoke' },
       onEnter: 'forceQuietSpeak',
     }),
     step({

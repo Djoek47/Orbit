@@ -774,9 +774,11 @@ export function TourProvider({ children }: PropsWithChildren) {
 
   const canGoBack = Boolean(tourState && tourCanRetreat(tourState, conditionCtx));
 
-  const isAction =
-    pointer?.step.advance.kind === 'action' ||
-    pointer?.step.advance.kind === 'event';
+  const advanceKind = pointer?.step.advance.kind;
+  /** Only tap-the-spotlight steps lock the rest of the screen. */
+  const lockCutout = advanceKind === 'action';
+  /** Event steps still use the action skip label, but keep the UI interactive. */
+  const isAction = advanceKind === 'action' || advanceKind === 'event';
   const isLast =
     Boolean(pointer) &&
     pointer!.chapter.id === getTourDefinition(pointer!.tourId).chapters.slice(-1)[0]?.id &&
@@ -860,6 +862,7 @@ export function TourProvider({ children }: PropsWithChildren) {
             stepIndex={pointer.stepIndex}
             stepsInChapter={pointer.stepsInChapter}
             isAction={isAction}
+            lockCutout={lockCutout}
             isLast={isLast}
             centered={Boolean(pointer.step.centered)}
             primaryLabel={pointer.step.primaryLabel}
