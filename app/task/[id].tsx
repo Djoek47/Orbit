@@ -828,7 +828,7 @@ export default function TaskDetailScreen() {
         )}
 
         {editing ? (
-          <View style={styles.actionStack}>
+          <View style={[styles.actionStack, { backgroundColor: glass(0.05), borderColor: glassBorder(0.12) }]}>
             <OrbitButton
               disabled={busy || title.trim().length < 2}
               loading={busy}
@@ -840,7 +840,7 @@ export default function TaskDetailScreen() {
             </OrbitButton>
           </View>
         ) : (
-          <View style={styles.actionStack}>
+          <View style={[styles.actionStack, { backgroundColor: glass(0.05), borderColor: glassBorder(0.12) }]}>
             {task.status !== 'Completed' &&
             task.status !== 'Cancelled' &&
             canCompleteMine ? (
@@ -1273,8 +1273,12 @@ const styles = StyleSheet.create({
   },
   waitText: { flex: 1, fontSize: 13, fontWeight: '700' },
   actionStack: {
+    borderCurve: 'continuous',
+    borderRadius: 24,
+    borderWidth: 1,
     gap: 10,
-    marginTop: 8,
+    marginTop: 16,
+    padding: 14,
   },
   ghostDanger: {
     alignItems: 'center',

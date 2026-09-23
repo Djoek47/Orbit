@@ -79,9 +79,14 @@ async function main() {
     assert.match(commit, /entityId/);
 
     const settings = readFileSync(join(root, 'app/settings.tsx'), 'utf8');
-    assert.match(settings, /Speak back/);
-    assert.match(settings, /Act immediately/);
-    assert.match(settings, /derivedModeLine/);
+    assert.match(settings, /PoppinsModeCards/);
+    assert.match(settings, /PoppinsAdvancedSheet/);
+    const cards = readFileSync(join(root, 'components/orbit/poppins-mode-cards.tsx'), 'utf8');
+    assert.match(cards, /Poppins Base/);
+    assert.match(cards, /Poppins Max/);
+    const advanced = readFileSync(join(root, 'components/orbit/poppins-advanced-sheet.tsx'), 'utf8');
+    assert.match(advanced, /Act immediately/);
+    assert.match(advanced, /Show thinking/);
 
     const welcome = readFileSync(join(root, 'app/welcome.tsx'), 'utf8');
     assert.match(welcome, /poppins-voice/);
@@ -89,9 +94,8 @@ async function main() {
     assert.match(welcome, /PoppinsSetupPanel/);
 
     const panel = readFileSync(join(root, 'components/orbit/onboarding/poppins-setup-panel.tsx'), 'utf8');
-    assert.match(panel, /Just show me/);
-    assert.match(panel, /Talk to me/);
-    assert.match(panel, /Speak back uses more/);
+    assert.match(panel, /PoppinsModeCards/);
+    assert.match(panel, /Advanced/);
   }
 
   console.log('PASS pass3 undo + modes');

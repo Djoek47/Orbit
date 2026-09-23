@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_POPPINS_INTERACTION_PREFS,
   getPoppinsPrefs,
+  poppinsTier,
+  prefsForTier,
   savePoppinsInteractionPrefs,
   subscribePoppinsPrefs,
   type PoppinsInteractionPrefs,
@@ -35,6 +37,20 @@ async function apply(patch: Partial<PoppinsInteractionPrefs>) {
 }
 
 async function main() {
+assert.equal(poppinsTier(DEFAULT_POPPINS_INTERACTION_PREFS), 'base');
+assert.equal(poppinsTier(prefsForTier('max')), 'max');
+assert.equal(prefsForTier('base').speakBack, false);
+assert.equal(prefsForTier('max').speakBack, true);
+assert.equal(prefsForTier('max').undoWindowSec, 5);
+assert.equal(
+  poppinsTier({ ...DEFAULT_POPPINS_INTERACTION_PREFS, showThinking: false }),
+  'custom'
+);
+assert.equal(
+  poppinsTier({ ...prefsForTier('max'), actImmediately: true }),
+  'custom'
+);
+
 await apply({ speakBack: true });
 assert.equal(getSessionActMode(), 'spoken');
 assert.equal(getPoppinsPrefs(householdId).speakBack, true);

@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Redirect, router } from 'expo-router';
 import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { PoppinsLiveCaption } from '@/components/orbit/poppins-live-caption';
+import { PoppinsModeCards } from '@/components/orbit/poppins-mode-cards';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PoppinsStage } from '@/components/orbit/poppins-stage';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
@@ -29,8 +30,9 @@ import {
 } from '@/lib/ai/majordomo-profiles';
 import {
   POPPINS_PAUSED_COPY,
-  meterCaption,
 } from '@/lib/ai/credits';
+import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
+import { prefsForTier, savePoppinsInteractionPrefs } from '@/lib/poppins/poppins-prefs';
 import { personalActTokens, summarizeActUsage, notifyActUndone } from '@/lib/ai/act-events';
 import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
 import {
@@ -104,6 +106,7 @@ export default function PoppinsScreen() {
     currentMember,
     permissions,
     actEvents,
+    poppinsConversation,
     recordPoppinsUsage,
     metrics,
     orbitPalette,
@@ -812,6 +815,18 @@ export default function PoppinsScreen() {
       (visualState === 'listening' && !liveText));
   const hasStrip = liveSpeaker !== null;
   const primaryConnected = liveConnected || quietListening;
+  const personalUsed = personalActTokens(aiSummary, currentMember?.id);
+  const dailyLeft = Math.max(0, TOKENS_PER_DAY - personalUsed);
+  const dailyFill = TOKENS_PER_DAY > 0 ? dailyLeft / TOKENS_PER_DAY : 0;
+  const monthLeft = Math.max(0, TOKENS_PER_MONTH - aiSummary.tokensUsedThisPeriod);
+  const monthGlow = permissions.canManageHousehold
+    ? monthLeft / TOKENS_PER_MONTH
+    : dailyFill;
+  const selectPoppinsTier = (tier: 'base' | 'max') => {
+    if (!permissions.canManageHousehold) return;
+    void savePoppinsInteractionPrefs(household.id, prefsForTier(tier));
+  };
+
   const poppinsAllowed = canShowPoppinsTab({
     role: currentMember?.role,
     sidekickPoppinsAi: household.sidekickPoppinsAi,
@@ -832,9 +847,21 @@ export default function PoppinsScreen() {
       )}
 
       <View style={[styles.header, { paddingTop: chromePad }]}>
-        <Text style={[styles.kicker, { color: isDark ? 'rgba(255,255,255,0.3)' : c.textSubtle }]}>
-          {majordomo.displayName.toUpperCase()}
-        </Text>
+        <View style={styles.headerLead}>
+          {showText && !drive.live ? (
+            <PoppinsOrb
+              size={44}
+              state={visualState}
+              speaking={visualState === 'speaking'}
+              dailyFill={dailyFill}
+              monthGlow={monthGlow}
+              accent={majordomo.accent}
+            />
+          ) : null}
+          <Text style={[styles.kicker, { color: isDark ? 'rgba(255,255,255,0.3)' : c.textSubtle }]}>
+            {majordomo.displayName.toUpperCase()}
+          </Text>
+        </View>
         <Pressable
           style={[
             styles.activityBtn,
@@ -881,6 +908,49 @@ export default function PoppinsScreen() {
             }}
           /></TourTarget>
         </ScrollView>
+      ) : showText ? (
+        <ScrollView
+          style={styles.thread}
+          contentContainerStyle={styles.threadContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          {poppinsConversation.length === 0 && !liveText ? (
+            <Text style={[styles.idleHint, { color: isDark ? 'rgba(255,255,255,0.28)' : c.textMuted }]}>
+              {idleHint}
+            </Text>
+          ) : null}
+          {poppinsConversation.slice(-16).map((message, index) => {
+            const mine = message.role === 'user';
+            return (
+              <View
+                key={`${message.role}-${index}`}
+                style={[
+                  styles.bubble,
+                  mine ? styles.bubbleMine : styles.bubbleTheirs,
+                  {
+                    backgroundColor: mine ? glass(0.08) : `${majordomo.accent}22`,
+                    borderColor: mine ? glassBorder(0.12) : `${majordomo.accent}55`,
+                  },
+                ]}>
+                <Text style={[styles.bubbleText, { color: c.text }]}>{message.content}</Text>
+              </View>
+            );
+          })}
+          {liveText ? (
+            <View
+              style={[
+                styles.bubble,
+                styles.bubbleTheirs,
+                {
+                  backgroundColor: `${majordomo.accent}22`,
+                  borderColor: `${majordomo.accent}55`,
+                },
+              ]}>
+              <Text style={[styles.bubbleKicker, { color: majordomo.accent }]}>{liveLabel}</Text>
+              <Text style={[styles.bubbleText, { color: c.text }]}>{liveText}</Text>
+            </View>
+          ) : null}
+        </ScrollView>
       ) : (
       <View style={styles.stage}>
         <View style={styles.transcriptBlock}>
@@ -911,10 +981,24 @@ export default function PoppinsScreen() {
             accessible
             accessibilityRole="image"
             accessibilityLabel={`${majordomo.displayName}, ${cfg.label}`}>
-            <PoppinsOrb size={176} state={visualState} speaking={visualState === 'speaking'} />
+            <PoppinsOrb
+              size={196}
+              state={visualState}
+              speaking={visualState === 'speaking'}
+              dailyFill={dailyFill}
+              monthGlow={monthGlow}
+              accent={majordomo.accent}
+            />
           </View>
         ) : (
-          <PoppinsOrb size={176} state={visualState} speaking={visualState === 'speaking'} />
+          <PoppinsOrb
+            size={196}
+            state={visualState}
+            speaking={visualState === 'speaking'}
+            dailyFill={dailyFill}
+            monthGlow={monthGlow}
+            accent={majordomo.accent}
+          />
         )}
 
         <View style={styles.waveWrap}>
@@ -1047,11 +1131,18 @@ export default function PoppinsScreen() {
           accessibilityLiveRegion="polite">
           {nativeVoice ? (primaryConnected ? 'Done' : 'Speak') : cfg.label}
         </Text>
-        <TourTarget id="poppins.meter"><Text
-          style={[styles.meterCaption, { color: c.textSubtle }]}
-          numberOfLines={1}>
-          {meterCaption(aiSummary, personalActTokens(aiSummary, currentMember?.id), permissions.canManageHousehold)}
-        </Text></TourTarget>
+        <TourTarget id="poppins.meter">
+          <Text style={[styles.meterCaption, { color: c.textSubtle }]} numberOfLines={1}>
+            {dailyLeft} left today
+          </Text>
+        </TourTarget>
+        <PoppinsModeCards
+          layout="pills"
+          prefs={interactionPrefs}
+          accent={majordomo.accent}
+          disabled={!permissions.canManageHousehold}
+          onSelectTier={selectPoppinsTier}
+        />
       </View>
 
       <Modal
@@ -1122,6 +1213,46 @@ const styles = StyleSheet.create({
     paddingBottom: space.sm,
     zIndex: 2,
   },
+  headerLead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  thread: {
+    flex: 1,
+    zIndex: 2,
+  },
+  threadContent: {
+    flexGrow: 1,
+    gap: 10,
+    justifyContent: 'flex-end',
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+  },
+  bubble: {
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    borderWidth: 1,
+    maxWidth: '86%',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  bubbleMine: {
+    alignSelf: 'flex-end',
+  },
+  bubbleTheirs: {
+    alignSelf: 'flex-start',
+  },
+  bubbleKicker: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  bubbleText: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
   kicker: {
     fontSize: 11,
     fontWeight: '600',
@@ -1185,13 +1316,15 @@ const styles = StyleSheet.create({
   },
   textComposer: {
     alignItems: 'center',
-    borderRadius: 18,
+    borderCurve: 'continuous',
+    borderRadius: 22,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
     marginBottom: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   textInput: {
     flex: 1,
