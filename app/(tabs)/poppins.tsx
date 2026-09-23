@@ -36,6 +36,10 @@ import { prefsForTier, savePoppinsInteractionPrefs } from '@/lib/poppins/poppins
 import { personalActTokens, summarizeActUsage, notifyActUndone } from '@/lib/ai/act-events';
 import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
 import {
+  confirmationForLocalWrite,
+  findLocalWriteBeat,
+} from '@/lib/poppins/local-act-confirm';
+import {
   isContinuityFresh,
   loadIuiContinuity,
   openActSnapshot,
@@ -599,16 +603,30 @@ export default function PoppinsScreen() {
     setLiveCaption(applyLiveCaptionTurn(null, 'you', trimmed, true));
     lastUtteranceRef.current = trimmed;
     setError('');
-    hearAndDrive(trimmed, memberNamesRef.current, {
+    const tookLocal = hearAndDrive(trimmed, memberNamesRef.current, {
       kid: kidSessionRef.current,
       selfName: currentMember?.name,
       existingTasks: household.tasks,
     });
+    const localWrite = findLocalWriteBeat(
+      poppinsUiOrchestrator.getState().playlist,
+      poppinsUiOrchestrator.getState().index
+    );
+    const localConfirm = localWrite ? confirmationForLocalWrite(localWrite) : null;
 
     // Live duplex: inject into the same WebRTC conversation.
     if (liveSpeak && voiceRef.current?.isConnected) {
       voiceRef.current.sendUserText(trimmed);
       appendPoppinsTurn(trimmed, '(live voice)');
+      return;
+    }
+
+    // A4: local write already staged — confirm from the act, do not ask the model.
+    if (tookLocal && localConfirm) {
+      setVoiceState('speaking');
+      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', localConfirm, true));
+      appendPoppinsTurn(trimmed, localConfirm);
+      setTimeout(() => setVoiceState('idle'), 1800);
       return;
     }
 
@@ -625,18 +643,35 @@ export default function PoppinsScreen() {
           await new Promise((r) => setTimeout(r, 400 - elapsed));
         }
       }
+      // Prefer local confirmation over a model failure / offline sentence.
+      const offline =
+        Boolean(result.error_code) ||
+        result.source === 'openai_error' ||
+        /could not answer|is offline right now/i.test(result.answer ?? '');
+      const answer =
+        offline && localConfirm ? localConfirm : result.answer || localConfirm || '';
       setVoiceState('speaking');
-      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', result.answer, true));
-      appendPoppinsTurn(trimmed, result.answer);
-      if (result.actions?.length) {
+      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', answer, true));
+      appendPoppinsTurn(trimmed, answer);
+      if (!offline && result.actions?.length) {
         flashToolSuccess(result.actions[0]!.label);
       }
-      if (result.ui_actions?.length) {
+      if (!offline && result.ui_actions?.length) {
         applyUiActions(result.ui_actions, true);
       }
-      poppinsUiOrchestrator.syncSpoken(result.answer, memberNamesRef.current);
+      if (!offline) {
+        poppinsUiOrchestrator.syncSpoken(result.answer, memberNamesRef.current);
+      }
     } catch {
-      setError(`${majordomo.displayName} could not answer right now. Try again in a moment.`);
+      if (localConfirm) {
+        setVoiceState('speaking');
+        setLiveCaption(applyLiveCaptionTurn(null, 'poppins', localConfirm, true));
+        appendPoppinsTurn(trimmed, localConfirm);
+      } else {
+        // Still show the user bubble so the thread never loses what they said.
+        appendPoppinsTurn(trimmed, '');
+        setError(`${majordomo.displayName} could not answer right now. Try again in a moment.`);
+      }
     } finally {
       setAsking(false);
       setTimeout(() => setVoiceState('idle'), 1800);
