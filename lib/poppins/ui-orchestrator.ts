@@ -465,11 +465,32 @@ function mergeIncomingPlaylist(playlist: IuiBeat[]) {
   const current = currentBeat();
   const incoming = playlist[0];
   if (!current || !incoming || !canMergeBeat(current, incoming)) return false;
-  // Preserve grouped rows when a refinement beat carries only the head slot.
+  // Preserve / merge grouped rows when a refinement arrives.
   const incomingPayload: Partial<IuiPayload> = { ...incoming.payload };
-  if (!incomingPayload.items?.length && current.payload.items?.length) {
-    delete incomingPayload.items;
-    delete incomingPayload.progressLabel;
+  if (current.payload.items?.length) {
+    if (!incomingPayload.items?.length) {
+      delete incomingPayload.items;
+      delete incomingPayload.progressLabel;
+    } else {
+      const seen = new Set(
+        current.payload.items
+          .filter((item) => !item.dropped && item.label.trim())
+          .map((item) => item.label.trim().toLowerCase())
+      );
+      const mergedItems = [...current.payload.items];
+      for (const item of incomingPayload.items) {
+        const key = item.label.trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        mergedItems.push(item);
+      }
+      incomingPayload.items = mergedItems;
+      const active = mergedItems.filter((item) => !item.dropped);
+      incomingPayload.progressLabel =
+        active.length > 1 ? `1 of ${active.length}` : undefined;
+      incomingPayload.groceryName = active[0]?.label ?? incomingPayload.groceryName;
+      incomingPayload.title = active[0]?.label ?? incomingPayload.title;
+    }
   }
   patchCurrentPayload(incomingPayload);
   const rest = playlist.slice(1);
@@ -665,6 +686,80 @@ function beatReadyForDirectCommit(beat: IuiBeat): boolean {
   return gate.ok;
 }
 
+/** True when a live playlist still has work that has not settled. */
+function chainHasUncommittedWork(): boolean {
+  if (!state.live || !state.playlist.length) return false;
+  // Current beat not yet settled, or anything still queued behind it.
+  if (state.index < state.playlist.length && state.phase !== 'settle') return true;
+  return state.index + 1 < state.playlist.length;
+}
+
+function appendAndDedupePlaylist(playlist: IuiBeat[], opts?: { blockedReplace?: boolean }) {
+  if (opts?.blockedReplace) {
+    console.warn('iui.chain_replaced_blocked', {
+      index: state.index,
+      phase: state.phase,
+      queued: Math.max(0, state.playlist.length - state.index - 1),
+      incoming: playlist.length,
+    });
+  }
+  const kept = state.playlist.slice(0, Math.max(state.index + 1, 0));
+  const tail = state.playlist.slice(state.index + 1);
+  const seen = new Set(kept.map(beatIdentityKey));
+  for (const beat of kept) {
+    for (const item of beat.payload.items ?? []) {
+      if (item.dropped || !item.label.trim()) continue;
+      seen.add(`${beat.scene}|item|${item.label.trim().toLowerCase()}`);
+    }
+  }
+  const mergedTail: IuiBeat[] = [];
+  for (const beat of [...playlist, ...tail]) {
+    const key = beatIdentityKey(beat);
+    if (seen.has(key)) continue;
+    if (beat.payload.items?.length) {
+      const filtered = beat.payload.items.filter((item) => {
+        const itemKey = `${beat.scene}|item|${item.label.trim().toLowerCase()}`;
+        if (!item.label.trim() || seen.has(itemKey)) return false;
+        seen.add(itemKey);
+        return true;
+      });
+      if (!filtered.length) continue;
+      seen.add(key);
+      mergedTail.push({
+        ...beat,
+        payload: {
+          ...beat.payload,
+          items: filtered,
+          groceryName: filtered[0]?.label ?? beat.payload.groceryName,
+          title: filtered[0]?.label ?? beat.payload.title,
+        },
+      });
+      continue;
+    }
+    seen.add(key);
+    mergedTail.push(beat);
+  }
+  const added = Math.max(0, mergedTail.length - tail.length);
+  const current = currentBeat();
+  if (current && added > 0) {
+    const activeCount =
+      current.payload.items?.filter((item) => !item.dropped).length ??
+      (current.payload.groceryName || current.payload.title ? 1 : 0);
+    const total = activeCount + added;
+    patchCurrentPayload({
+      progressLabel:
+        total > 1 ? `${Math.min(activeCount, total)} of ${total}` : current.payload.progressLabel,
+      thinkingLine:
+        added === 1 ? `+1` : added > 1 ? `+${added}` : current.payload.thinkingLine,
+    });
+  }
+  setState({
+    playlist: [...kept, ...mergedTail],
+    live: true,
+    holdMs: sessionHoldMs,
+  });
+}
+
 export type IuiDriveSnapshot = Pick<
   IuiDriveState,
   'playlist' | 'index' | 'phase' | 'frozen' | 'holdMs' | 'thinkingLine'
@@ -732,11 +827,24 @@ export const poppinsUiOrchestrator = {
       sessionHoldMs = opts.kid ? HOLD_MS_KID : HOLD_MS_DEFAULT;
       setState({ holdMs: sessionHoldMs });
     }
+    const liveUncommitted = state.live && state.playlist.length && chainHasUncommittedWork();
     if (state.live && state.playlist.length && mergeIncomingPlaylist(playlist)) {
+      if (opts?.replace && liveUncommitted) {
+        console.warn('iui.chain_replaced_blocked', {
+          via: 'merge',
+          index: state.index,
+          phase: state.phase,
+        });
+      }
+      return;
+    }
+    // WO11 §2.6 — never wipe a live chain: replace downgrades to append+dedupe.
+    if (liveUncommitted) {
+      appendAndDedupePlaylist(playlist, { blockedReplace: opts?.replace === true });
       return;
     }
     if (state.live && state.playlist.length && !opts?.replace) {
-      setState({ playlist: [...state.playlist, ...playlist], live: true, holdMs: sessionHoldMs });
+      appendAndDedupePlaylist(playlist);
       return;
     }
     startPlaylist(playlist, opts?.kid);
@@ -745,6 +853,10 @@ export const poppinsUiOrchestrator = {
     const extra = mapUiActionsToPlaylist(actions);
     if (!extra.length) return;
     const wasEmpty = !state.playlist.length;
+    if (state.live && state.playlist.length) {
+      appendAndDedupePlaylist(extra);
+      return;
+    }
     setState({ playlist: [...state.playlist, ...extra], live: true, holdMs: sessionHoldMs });
     if (wasEmpty) armBeat();
   },
