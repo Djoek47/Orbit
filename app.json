@@ -106,7 +106,7 @@
         }
       ],
       [
-        "expo-av",
+        "expo-audio",
         {
           "microphonePermission": "Choremaxx uses the microphone so you can talk to Poppins."
         }

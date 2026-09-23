@@ -5,9 +5,9 @@ import { resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
 import { POPPINS_TOOL_DEFINITIONS, type PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import {
-  expoAvUnavailableMessage,
-  getExpoAv,
-} from '@/lib/voice/expo-av-safe';
+  micUnavailableMessage,
+  requestMicPermission,
+} from '@/lib/voice/mic-capture';
 import {
   startVoiceCapture,
   stopVoiceCapture,
@@ -296,13 +296,12 @@ export class PoppinsRealtimeSession {
 
   async beginListen() {
     this.callbacks.onStateChange?.('listening');
-    const av = getExpoAv();
-    if (!av) {
-      this.callbacks.onError?.(expoAvUnavailableMessage());
+    const allowed = await requestMicPermission();
+    if (!allowed) {
+      this.callbacks.onError?.(micUnavailableMessage());
       this.callbacks.onStateChange?.('idle');
       return;
     }
-    await av.Audio.requestPermissionsAsync();
     await startVoiceCapture();
   }
 

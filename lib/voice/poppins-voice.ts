@@ -5,13 +5,14 @@ import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
 import {
-  expoAvUnavailableMessage,
-  getExpoAv,
-} from '@/lib/voice/expo-av-safe';
+  finishMicRecorder,
+  micUnavailableMessage,
+  requestMicPermission,
+  startMicRecorder,
+} from '@/lib/voice/mic-capture';
 import { poppinsService } from '@/services/poppins-service';
+import type { AudioRecorder } from 'expo-audio';
 import type { HouseholdSnapshot, PoppinsConversationAnswer, OrbitMetrics } from '@/types/orbit';
-
-type AvRecording = InstanceType<NonNullable<ReturnType<typeof getExpoAv>>['Audio']['Recording']>;
 
 export async function speakPoppins(text: string) {
   Speech.stop();
@@ -27,20 +28,15 @@ export async function stopSpeaking() {
   Speech.stop();
 }
 
-let recording: AvRecording | null = null;
+let recording: AudioRecorder | null = null;
 
 export async function startVoiceCapture() {
-  const av = getExpoAv();
-  if (!av) {
-    throw new Error(expoAvUnavailableMessage());
+  const allowed = await requestMicPermission();
+  if (!allowed) {
+    throw new Error(micUnavailableMessage());
   }
-  const { Audio } = av;
-  await Audio.requestPermissionsAsync();
   await configurePoppinsSpeakerAudio();
-
-  recording = new Audio.Recording();
-  await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-  await recording.startAsync();
+  recording = await startMicRecorder(false);
   return recording;
 }
 
@@ -49,9 +45,9 @@ export async function stopVoiceCapture() {
     return null;
   }
 
-  await recording.stopAndUnloadAsync();
-  const uri = recording.getURI();
+  const current = recording;
   recording = null;
+  const uri = await finishMicRecorder(current);
   await restorePoppinsAudio();
   return uri;
 }

@@ -3,16 +3,18 @@
  * Never opens a Realtime / PoppinsVoiceSession.
  */
 
+import type { AudioRecorder } from 'expo-audio';
+
 import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
 import {
-  expoAvUnavailableMessage,
-  getExpoAv,
-} from '@/lib/voice/expo-av-safe';
+  finishMicRecorder,
+  micUnavailableMessage,
+  requestMicPermission,
+  startMicRecorder,
+} from '@/lib/voice/mic-capture';
 import { transcribeQuietAudio } from '@/lib/voice/poppins-voice';
 import { acceptQuietTranscript } from '@/lib/voice/quiet-transcript';
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
-
-type AvRecording = InstanceType<NonNullable<ReturnType<typeof getExpoAv>>['Audio']['Recording']>;
 
 const SILENCE_DB = -40;
 const SILENCE_AFTER_SPEECH_MS = 1200;
@@ -35,11 +37,11 @@ export type QuietCapture = {
 };
 
 /**
- * Batch Quiet capture via expo-av → Whisper (`transcriptOnly`).
+ * Batch Quiet capture via expo-audio → Whisper (`transcriptOnly`).
  * Streaming on-device recognition is intentionally not used this pass (Expo Go).
  */
 export function createQuietCapture(): QuietCapture {
-  let recording: AvRecording | null = null;
+  let recording: AudioRecorder | null = null;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let hardCapTimer: ReturnType<typeof setTimeout> | null = null;
   let heardSpeech = false;
@@ -75,11 +77,7 @@ export function createQuietCapture(): QuietCapture {
     recording = null;
     if (!current) return autoStoppedUri ?? null;
     try {
-      const status = await current.getStatusAsync();
-      if (status.isRecording) {
-        await current.stopAndUnloadAsync();
-      }
-      const uri = current.getURI();
+      const uri = await finishMicRecorder(current);
       await restorePoppinsAudio();
       return uri;
     } catch {
@@ -131,29 +129,21 @@ export function createQuietCapture(): QuietCapture {
       onStatus?.('listening');
       onPartial?.('Listening…');
 
-      const av = getExpoAv();
-      if (!av) {
+      const allowed = await requestMicPermission();
+      if (!allowed) {
         active = false;
-        throw new Error(expoAvUnavailableMessage());
+        throw new Error(micUnavailableMessage());
       }
-      const { Audio } = av;
 
-      await Audio.requestPermissionsAsync();
       await configurePoppinsSpeakerAudio();
-
-      const next = new Audio.Recording();
-      await next.prepareToRecordAsync({
-        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-        isMeteringEnabled: true,
-      });
-      await next.startAsync();
+      const next = await startMicRecorder(true);
       recording = next;
 
       pollTimer = setInterval(() => {
         void (async () => {
           if (!recording || !active) return;
           try {
-            const status = await recording.getStatusAsync();
+            const status = recording.getStatus();
             if (!status.isRecording) return;
             const db = typeof status.metering === 'number' ? status.metering : -160;
             onLevel?.(db);
@@ -222,7 +212,7 @@ export function createQuietCapture(): QuietCapture {
       signalAutoStop(null);
       if (recording) {
         try {
-          await recording.stopAndUnloadAsync();
+          await finishMicRecorder(recording);
         } catch {
           /* ignore */
         }

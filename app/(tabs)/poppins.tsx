@@ -713,7 +713,7 @@ export default function PoppinsScreen() {
       tourForcesQuietSpeak() ? false : interactionPrefs.speakBack
     );
 
-    // Quiet uses expo-av and runs in Expo Go. Speak back needs native WebRTC.
+    // Quiet uses expo-audio. Speak back needs native WebRTC.
     if (!nativeVoice && transport !== 'quiet') return;
 
     // Quiet path — never construct PoppinsVoiceSession.
