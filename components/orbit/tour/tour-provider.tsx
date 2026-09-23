@@ -159,8 +159,12 @@ export function TourProvider({ children }: PropsWithChildren) {
   const inFlightKey = useRef<string | null>(null);
   const pointerRef = useRef<ActiveTourPointer | null>(null);
   const watchdogStreakRef = useRef(0);
+  /** Saw Assign while on tasks.form — used to seed if they back out without creating. */
+  const assignFormSeenRef = useRef(false);
+  const tourStateRef = useRef<TourState | null>(null);
   const analyticsContextRef = useRef(analyticsContext);
   analyticsContextRef.current = analyticsContext;
+  tourStateRef.current = tourState;
 
   const conditionCtx: TourConditionContext = useMemo(() => {
     const first = household?.tasks?.[0];
@@ -314,8 +318,12 @@ export function TourProvider({ children }: PropsWithChildren) {
   const pointer = activeStep && !paused ? activeStep : null;
   pointerRef.current = pointer;
 
+  // Assign form step: never show the coach card on the sheet — the presets are the guide.
+  const overlayPointer =
+    pointer && pointer.step.id !== 'tasks.form' ? pointer : null;
+
   // Pause when IUI live / keyboard — except during an action step (that is the action).
-  // Also pause on Assign / Create modals so the coach card does not sit on the form.
+  // Always pause on Assign / Create modals so the coach card never sits on the form.
   useEffect(() => {
     const onAssignModal =
       Boolean(pathname?.includes('assign-task')) ||
@@ -352,8 +360,35 @@ export function TourProvider({ children }: PropsWithChildren) {
       Boolean(pathname?.includes('assign-task')) ||
       Boolean(pathname?.includes('assign-homework')) ||
       Boolean(pathname?.includes('create-task'));
-    if (actionStep && !onAssignModal) setPaused(false);
+    // Never clear pause while Assign is open — even for event/action steps.
+    if (onAssignModal) {
+      setPaused(true);
+      return;
+    }
+    if (actionStep) setPaused(false);
   }, [actionStep, pathname]);
+
+  // Reset dismiss-seed latch when leaving the form step.
+  useEffect(() => {
+    if (activeStep?.step.id !== 'tasks.form') {
+      assignFormSeenRef.current = false;
+    }
+  }, [activeStep?.step.id]);
+
+  // Open Assign for the form step even when the coach card is hidden/paused.
+  useEffect(() => {
+    if (!sessionActive || !activeStep) return;
+    if (activeStep.step.id !== 'tasks.form') return;
+    const onAssign =
+      Boolean(pathname?.includes('assign-task')) ||
+      Boolean(pathname?.includes('assign-homework'));
+    if (onAssign || !navRef.isReady()) return;
+    try {
+      router.push('/assign-task' as never);
+    } catch (error) {
+      console.warn('tour.openAssign', error);
+    }
+  }, [activeStep?.step.id, pathname, sessionActive, navRef]);
 
   // Force Quiet during Poppins action step
   useEffect(() => {
@@ -365,7 +400,8 @@ export function TourProvider({ children }: PropsWithChildren) {
   const ensureTourPracticeTask = useCallback(async () => {
     if (!orbit?.createTask || !household) return;
     if (householdHasOpenTourPractice(household.tasks ?? [])) return;
-    const assignee = pickTourPracticeAssignee(household.members ?? [], currentMember?.name);
+    // Prefer a Sidekick so Press-and-hold later matches a real kid chore.
+    const assignee = pickTourPracticeAssignee(household.members ?? []);
     if (!assignee) return;
     const input = buildTourPracticeTaskInput(household, assignee);
     if (!input) return;
@@ -374,7 +410,7 @@ export function TourProvider({ children }: PropsWithChildren) {
     } catch (error) {
       console.warn('tour.practiceTask', error);
     }
-  }, [orbit, household, currentMember?.name]);
+  }, [orbit, household]);
 
   // Navigate + wait for target — only when the navigator is ready.
   useEffect(() => {
@@ -509,30 +545,52 @@ export function TourProvider({ children }: PropsWithChildren) {
     });
   }, [tourState, conditionCtx, persist]);
 
-  // Action steps advance once the user leaves the current route (they tapped the target).
+  // Action steps advance from activeStep (not the visible pointer). Pausing the
+  // overlay on Assign would otherwise null the pointer and stall the chapter.
   useEffect(() => {
-    if (!pointer || !tourState) return;
-    if (pointer.step.advance.kind !== 'action') return;
-    const stepRoute = pointer.step.route;
-    const stillOnStep =
-      pathname === stepRoute ||
-      (stepRoute === '/(tabs)' && (pathname === '/' || pathname?.includes('index'))) ||
-      pathname?.includes(stepRoute.replace('/(tabs)', '').replace(/^\//, ''));
-    // Only advance when we have moved away from the step's home route.
-    if (stillOnStep && pathname?.includes(stepRoute.split('/').pop() ?? '___')) return;
+    if (!activeStep || !tourState || !sessionActive) return;
+    if (activeStep.step.advance.kind !== 'action') return;
+    const stepRoute = activeStep.step.route;
     if (pathname === stepRoute) return;
     // Special-case: assign button lives on tasks; tapping opens /assign-task.
     if (
-      pointer.step.targetId === 'tasks.assignButton' &&
+      activeStep.step.targetId === 'tasks.assignButton' &&
       (pathname?.includes('assign-task') || pathname?.includes('assign-homework'))
     ) {
       void persist(advanceAfterStep(tourState, conditionCtx));
       return;
     }
-    if (pointer.step.targetId === 'selectProfile.faces' && !pathname?.includes('select-profile')) {
+    if (
+      activeStep.step.targetId === 'selectProfile.faces' &&
+      !pathname?.includes('select-profile')
+    ) {
       void persist(advanceAfterStep(tourState, conditionCtx));
     }
-  }, [pathname, pointer?.step.id, tourState, conditionCtx, persist]);
+  }, [pathname, activeStep?.step.id, tourState, conditionCtx, persist, sessionActive]);
+
+  // Left Assign without creating — seed a practice chore; task_created advances the form step.
+  useEffect(() => {
+    if (!activeStep || !sessionActive) return;
+    if (activeStep.step.id !== 'tasks.form') return;
+    const onAssign =
+      Boolean(pathname?.includes('assign-task')) ||
+      Boolean(pathname?.includes('assign-homework')) ||
+      Boolean(pathname?.includes('create-task'));
+    if (onAssign) {
+      assignFormSeenRef.current = true;
+      return;
+    }
+    if (!assignFormSeenRef.current) return;
+    assignFormSeenRef.current = false;
+    const timer = setTimeout(() => {
+      const latest = tourStateRef.current;
+      if (!latest) return;
+      // Real Assign already moved us on via task_created.
+      if (resolveActivePointer(latest, conditionCtx)?.step.id !== 'tasks.form') return;
+      void ensureTourPracticeTask();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [pathname, activeStep?.step.id, conditionCtx, sessionActive, ensureTourPracticeTask]);
 
   const registerTarget = useCallback((id: TourTargetId, rect: TourRect) => {
     targetsRef.current.set(id, rect);
@@ -680,7 +738,12 @@ export function TourProvider({ children }: PropsWithChildren) {
     if (!tourState) return;
     const ptr = resolveActivePointer(tourState, conditionCtx);
     void (async () => {
-      if (ptr?.step.id === 'tasks.form' || ptr?.step.id === 'tasks.assign') {
+      if (ptr?.step.id === 'tasks.form') {
+        // Seeding emits task_created, which advances the form step — do not skip twice.
+        await ensureTourPracticeTask();
+        return;
+      }
+      if (ptr?.step.id === 'tasks.assign') {
         await ensureTourPracticeTask();
       }
       void persist(advanceAfterStep(tourState, conditionCtx, { skipStep: true }));
@@ -831,6 +894,9 @@ export function TourProvider({ children }: PropsWithChildren) {
 
   // flex:1 host so inline TourOverlay absoluteFill covers the navigator and
   // info-step pans reach the ScrollView underneath (no FullWindowOverlay).
+  // flex:1 host so inline TourOverlay absoluteFill covers the navigator and
+  // info-step pans reach the ScrollView underneath (no FullWindowOverlay).
+  // Assign form step uses overlayPointer so the coach card stays off the sheet.
   return (
     <TourRegistryContext.Provider value={registry}>
       <View style={{ flex: 1 }} collapsable={false}>
@@ -846,19 +912,19 @@ export function TourProvider({ children }: PropsWithChildren) {
               onStart={() => startTour(tourId)}
               onSkip={handleWelcomeSkip}
             />
-            {pointer && !paused ? (
+            {overlayPointer && !paused ? (
               <TourOverlay
-                target={pointer.step.centered ? null : targetRect}
-                chapterName={speakAs(majordomoName, pointer.chapter.name)}
-                title={speakAs(majordomoName, pointer.step.title)}
-                body={speakAs(majordomoName, pointer.step.body)}
-                stepLabel={`${pointer.stepOrdinal} of ${pointer.stepsInChapter}`}
-                stepIndex={pointer.stepIndex}
-                stepsInChapter={pointer.stepsInChapter}
+                target={overlayPointer.step.centered ? null : targetRect}
+                chapterName={speakAs(majordomoName, overlayPointer.chapter.name)}
+                title={speakAs(majordomoName, overlayPointer.step.title)}
+                body={speakAs(majordomoName, overlayPointer.step.body)}
+                stepLabel={`${overlayPointer.stepOrdinal} of ${overlayPointer.stepsInChapter}`}
+                stepIndex={overlayPointer.stepIndex}
+                stepsInChapter={overlayPointer.stepsInChapter}
                 isAction={isAction}
                 isLast={isLast}
-                centered={Boolean(pointer.step.centered)}
-                primaryLabel={pointer.step.primaryLabel}
+                centered={Boolean(overlayPointer.step.centered)}
+                primaryLabel={overlayPointer.step.primaryLabel}
                 cardRef={cardRef}
                 onNext={handleNext}
                 onBack={canGoBack ? handleBack : undefined}

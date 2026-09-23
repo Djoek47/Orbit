@@ -70,7 +70,7 @@ const ADMIN_TASKS: TourChapter = {
       targetId: 'assign.form',
       title: 'Your first task',
       body: 'A Sidekick and a chore are ready. Tap Assign, or change them first.',
-      // Stay on the tab route — /assign-task is a modal the overlay covers via FullWindowOverlay.
+      // Overlay stays hidden on the Assign sheet; presets seed the form.
       route: '/(tabs)/tasks',
       centered: true,
       advance: { kind: 'event', event: 'task_created' },

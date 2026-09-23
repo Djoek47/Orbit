@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 
 import { emitTourEvent } from '@/lib/tour/tour-events';
 import {
+  advanceAfterStep,
   bindTourStepAdvance,
   completeTourState,
   resolveActivePointer,
@@ -38,7 +39,29 @@ assert.equal(
 );
 
 let state = startTourState('admin');
-state = { ...state, chapterId: 'poppins', stepIndex: 1 };
+state = { ...state, chapterId: 'tasks', stepIndex: 1 }; // tasks.assign
+assert.equal(resolveActivePointer(state, ctx)?.step.id, 'tasks.assign');
+assert.equal(resolveActivePointer(state, ctx)?.step.advance.kind, 'action');
+
+// Opening Assign must advance even if the overlay pointer is paused/hidden.
+const afterAssignOpen = advanceAfterStep(state, ctx);
+assert.equal(resolveActivePointer(afterAssignOpen, ctx)?.step.id, 'tasks.form');
+assert.equal(resolveActivePointer(afterAssignOpen, ctx)?.step.advance.kind, 'event');
+
+state = afterAssignOpen;
+const unsubForm = bindTourStepAdvance({
+  state,
+  ctx,
+  onAdvance: (next) => {
+    state = next;
+  },
+});
+emitTourEvent('task_created');
+assert.equal(resolveActivePointer(state, ctx)?.step.id, 'tasks.hold');
+unsubForm();
+
+// Poppins try step
+state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 1 };
 assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.try');
 
 const backOne = retreatBeforeStep(state, ctx);
@@ -67,6 +90,7 @@ assert.equal(tourRouteMatches('/tasks', '/(tabs)/tasks'), true);
 assert.equal(tourRouteMatches('/(tabs)', '/(tabs)/tasks'), false);
 
 let paused = true;
+state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 1 };
 const unsub = bindTourStepAdvance({
   state,
   ctx,
