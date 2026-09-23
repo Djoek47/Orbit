@@ -38,6 +38,8 @@ export type PoppinsToolName =
   | 'complete_task'
   | 'create_calendar_event'
   | 'create_itinerary'
+  | 'resolve_place'
+  | 'list_saved_places'
   | 'advance_itinerary_stop'
   | 'claim_reward'
   | 'navigate_to'
@@ -455,21 +457,66 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'create_itinerary',
     description:
-      'Stage a Plan stop on the IUI itinerary stage. HOLD silence commits. Use navigate_to /create-itinerary only if they asked for the full editor.',
+      'Stage a multi-stop Plan trip on the IUI itinerary stage (1–10 ordered stops). HOLD silence commits the whole trip. Never invent addresses — call resolve_place or list_saved_places. Unresolved places still stage with a label. Use navigate_to /create-itinerary only if they asked for the full editor.',
     parameters: {
       type: 'object',
       properties: {
         title: {
           type: 'string',
           description:
-            'Short name the user said. Never invent a placeholder like "something" or "task". If they did not name it, OMIT this field — the app will ask.',
+            'Short trip name. Never invent a placeholder like "something". If unnamed, OMIT — the app will ask.',
         },
+        date: { type: 'string' },
         startsAt: { type: 'string' },
         notes: { type: 'string' },
+        stops: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 10,
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string' },
+              placeQuery: { type: 'string' },
+              address: { type: 'string' },
+              time: { type: 'string' },
+              kind: {
+                type: 'string',
+                enum: ['shop', 'school', 'work', 'gym', 'appointment', 'other', 'practice', 'pickup'],
+              },
+              notes: { type: 'string' },
+            },
+            required: ['label'],
+            additionalProperties: false,
+          },
+        },
       },
       additionalProperties: false,
     },
     risk: 'safe_serial',
+  },
+  {
+    name: 'resolve_place',
+    description:
+      'Resolve a place query to the best saved household place first, then a geocoded suggestion. Never invent an address — call this instead.',
+    parameters: {
+      type: 'object',
+      properties: { query: { type: 'string' } },
+      required: ['query'],
+      additionalProperties: false,
+    },
+    risk: 'safe_parallel',
+  },
+  {
+    name: 'list_saved_places',
+    description:
+      'List the household saved places (work, school, gym, …) so itinerary stops can reuse real addresses.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    },
+    risk: 'safe_parallel',
   },
   {
     name: 'advance_itinerary_stop',

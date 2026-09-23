@@ -263,6 +263,9 @@ export type ItineraryStop = {
   eventId?: string;
   groceryListId?: string;
   etaMinutes?: number;
+  /** Optional clock / relative time for the stop (WO10 D). */
+  time?: string;
+  notes?: string;
   sortOrder: number;
   status: ItineraryStopStatus;
   savedPlaceId?: string;

@@ -320,13 +320,51 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'create_itinerary') {
-      const label = String(action.title ?? prefill.title ?? 'Stop');
+      const stopsRaw = Array.isArray(action.stops) ? action.stops : [];
+      const mappedStops =
+        stopsRaw.length > 0
+          ? stopsRaw.slice(0, 10).map((row, i) => {
+              const s = asRecord(row);
+              const label = String(s.label ?? s.title ?? `Stop ${i + 1}`).trim() || `Stop ${i + 1}`;
+              const address = s.address ? String(s.address) : undefined;
+              const placeQuery = s.placeQuery ? String(s.placeQuery) : undefined;
+              return {
+                id: String(s.id ?? `stop-${i + 1}`),
+                label,
+                emoji:
+                  String(s.kind ?? '') === 'shop' || String(s.kind ?? '') === 'grocery'
+                    ? '🛒'
+                    : String(s.kind ?? '') === 'gym' || String(s.kind ?? '') === 'practice'
+                      ? '🏋️'
+                      : String(s.kind ?? '') === 'work'
+                        ? '💼'
+                        : String(s.kind ?? '') === 'school'
+                          ? '🏫'
+                          : '📍',
+                category: s.kind ? String(s.kind) : undefined,
+                kind: s.kind ? String(s.kind) : undefined,
+                address,
+                placeQuery,
+                time: s.time ? String(s.time) : undefined,
+                needsAddress: !address,
+              };
+            })
+          : [
+              {
+                id: 'stop-1',
+                label: String(action.title ?? prefill.title ?? 'Stop'),
+                emoji: '📍',
+                needsAddress: true,
+              },
+            ];
       playlist.push(
         beat(
           'itinerary_stage',
           {
-            itineraryTitle: label,
-            stops: [{ id: 'stop-1', label, emoji: '🛒', category: 'Shop' }],
+            itineraryTitle: String(action.title ?? prefill.title ?? 'Trip'),
+            date: action.date ? String(action.date) : undefined,
+            stops: mappedStops,
+            thinkingLine: `${mappedStops.length} stop${mappedStops.length === 1 ? '' : 's'}`,
           },
           'hold',
           'create_itinerary_stop'

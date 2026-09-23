@@ -307,18 +307,43 @@ export async function commitIuiBeat(
   }
 
   if (write === 'create_itinerary_stop') {
-    const stopLabel = p.stops?.[0]?.label ?? p.itineraryTitle ?? 'Stop';
+    const { mapStopKindToStore } = await import('@/lib/itinerary/itinerary-intent');
+    const stops = (p.stops ?? []).map((stop, index) => {
+      const kindRaw = String(stop.kind ?? stop.category ?? 'other');
+      const kind = mapStopKindToStore(
+        kindRaw as
+          | 'shop'
+          | 'school'
+          | 'work'
+          | 'gym'
+          | 'appointment'
+          | 'other'
+          | 'practice'
+          | 'pickup'
+      );
+      return {
+        label: stop.label,
+        kind,
+        sortOrder: index,
+        address: stop.address,
+        placeQuery: stop.placeQuery ?? stop.label,
+        time: stop.time,
+      };
+    });
+    const fallbackLabel = p.itineraryTitle ?? 'Trip';
     const created = await createItinerary({
-      title: p.itineraryTitle ?? stopLabel,
-      date: formatLocalDate(new Date()),
+      title: p.itineraryTitle ?? stops[0]?.label ?? fallbackLabel,
+      date: p.date ? String(p.date) : formatLocalDate(new Date()),
       suggestedByPoppins: true,
-      stops: [
-        {
-          label: stopLabel,
-          kind: 'shop',
-          sortOrder: 0,
-        },
-      ],
+      stops: stops.length
+        ? stops
+        : [
+            {
+              label: fallbackLabel,
+              kind: 'shop' as const,
+              sortOrder: 0,
+            },
+          ],
     });
     const entityId = asId(created);
     wrote = true;
