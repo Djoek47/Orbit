@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { router, usePathname } from 'expo-router';
 
+import { resolveMajordomoDisplayName } from '@/lib/ai/majordomo-name';
 import { useOrbitOptional } from '@/store/orbit-store';
 import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
 import {
@@ -141,11 +142,25 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
         setVisual('speaking');
         setTimeout(() => setVisual('idle'), 1600);
       } catch {
-        setError('Poppins could not answer right now. Try again in a moment.');
+        setError(
+          `${resolveMajordomoDisplayName({
+            householdProfileId: orbit?.household.majordomoProfileId,
+            memberProfileId: orbit?.currentMember?.majordomoProfileId,
+          })} could not answer right now. Try again in a moment.`
+        );
         setVisual('idle');
       }
     },
-    [appendPoppinsTurn, askPoppins, household?.tasks, kid, memberNames, selfName]
+    [
+      appendPoppinsTurn,
+      askPoppins,
+      household?.tasks,
+      kid,
+      memberNames,
+      orbit?.currentMember?.majordomoProfileId,
+      orbit?.household.majordomoProfileId,
+      selfName,
+    ]
   );
 
   const value = useMemo<PoppinsLiveValue>(

@@ -15,6 +15,7 @@ import {
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import type { PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { attachIntentActions } from '@/lib/poppins/ui-intent';
+import { resolveMajordomoDisplayName, speakAs } from '@/lib/ai/majordomo-name';
 import {
   isMajordomoProfileId,
   resolveMajordomoProfileId,
@@ -4070,7 +4071,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return null;
     }
 
-    const fact = factFromNotificationInput(input);
+    const speaker = resolveMajordomoDisplayName({
+      householdProfileId: household.majordomoProfileId,
+      memberProfileId: currentMember?.majordomoProfileId,
+    });
+    const named = {
+      ...input,
+      title: speakAs(speaker, input.title),
+      body: speakAs(speaker, input.body),
+    };
+
+    const fact = factFromNotificationInput(named);
     setPoppinsActivityFacts((current) => [fact, ...current].slice(0, 80));
     const lane = laneForKind(fact.kind);
 
@@ -4082,7 +4093,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       await flushGlanceFacts();
       const [decision] = coalesceFacts([fact], { now: Date.now() });
       if (!decision) return null;
-      const item = await persistInboxRow(decision, input);
+      const item = await persistInboxRow(decision, named);
       if (item) maybeRewriteWithLuna(item, [fact], decision);
       return item;
     }
@@ -4098,16 +4109,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     const passthrough: ComposeDecision = {
       decision: 'send',
-      urgency: input.priority === 'high' || input.priority === 'critical' ? 'needs_action' : 'today',
-      title: input.title,
-      body: input.body,
-      category: input.category,
-      priority: input.priority ?? 'medium',
+      urgency: named.priority === 'high' || named.priority === 'critical' ? 'needs_action' : 'today',
+      title: named.title,
+      body: named.body,
+      category: named.category,
+      priority: named.priority ?? 'medium',
       kind: fact.kind,
       factIds: [fact.id],
       banner: true,
     };
-    return persistInboxRow(passthrough, input);
+    return persistInboxRow(passthrough, named);
   };
 
   const createEvent = async (input: CreateEventInput): Promise<HouseholdEvent | null> => {

@@ -32,6 +32,7 @@ import {
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import {
   DEFAULT_MAJORDOMO_PROFILE_ID,
+  getMajordomoProfile,
   isMajordomoProfileId,
 } from '@/lib/ai/majordomo-profiles';
 import { saveMajordomoProfileId } from '@/lib/ai/majordomo-prefs';
@@ -1238,7 +1239,7 @@ export default function WelcomeOnboardingScreen() {
             <KeyboardScreen contentContainerStyle={styles.scroll}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
               <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
-                Set up Poppins
+                Set up {getMajordomoProfile(poppinsSetup.majordomoProfileId).displayName}
               </Text>
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
                 Voice, personality, actions, and notifications — all adjustable later in Settings.

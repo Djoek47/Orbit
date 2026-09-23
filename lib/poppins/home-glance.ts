@@ -31,14 +31,9 @@ type ComposeHomeGlanceInput = {
   nextEvent?: GlanceEvent | null;
   pendingApprovals?: number;
   timeZone?: string;
+  /** Active majordomo. Defaults to Poppins. */
+  speaker?: string;
 };
-
-const CLOSERS = [
-  'Poppins will speak up if something else needs you.',
-  "That's the short version from Poppins.",
-  'Poppins is keeping watch on the rest.',
-  'Poppins has the rest of the picture.',
-];
 
 function firstNameOf(name: string): string {
   return name.trim().split(/\s+/)[0] || name.trim();
@@ -58,9 +53,16 @@ export function msUntilNextHomeGlance(now = new Date()): number {
   return Math.max(1000, next.getTime() - now.getTime());
 }
 
-function closer(now: Date): string {
+function closer(now: Date, speaker: string): string {
+  const name = speaker.trim() || 'Poppins';
+  const lines = [
+    `${name} will speak up if something else needs you.`,
+    `That's the short version from ${name}.`,
+    `${name} is keeping watch on the rest.`,
+    `${name} has the rest of the picture.`,
+  ];
   const slot = Math.floor(now.getHours() / 2);
-  return CLOSERS[slot % CLOSERS.length] ?? CLOSERS[0];
+  return lines[slot % lines.length] ?? lines[0];
 }
 
 function whoLine(task: HouseholdTask, memberName: string): string {
@@ -143,6 +145,6 @@ export function composeHomeGlance(input: ComposeHomeGlanceInput): HomeGlance {
   const body = bits.slice(0, 2).join(' ');
   return {
     kind,
-    message: `${greeting}, ${name}. ${body} ${closer(now)}`,
+    message: `${greeting}, ${name}. ${body} ${closer(now, input.speaker ?? 'Poppins')}`,
   };
 }

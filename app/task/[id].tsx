@@ -32,6 +32,7 @@ import {
 import { isTaskLate } from '@/lib/tasks/xp';
 import { displayDueLabel } from '@/lib/tasks/due-label';
 import { TASK_REPEAT_CHOICES } from '@/lib/tasks/series-edit';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
@@ -93,6 +94,7 @@ export default function TaskDetailScreen() {
     v2Permissions,
   } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
+  const majordomoName = useMajordomoName();
   const rewardSettings = useMemo(
     () =>
       normalizeRewardSettings({
@@ -281,7 +283,7 @@ export default function TaskDetailScreen() {
       streak >= 2 ? ` Their ${streak}-day streak is at risk if this stays open.` : '';
     Alert.alert(
       'Send reminder?',
-      `Poppins will notify ${assigneeMember.name} about “${task.title}”.${streakNote}`,
+      `${majordomoName} will notify ${assigneeMember.name} about “${task.title}”.${streakNote}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {

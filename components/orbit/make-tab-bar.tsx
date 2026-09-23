@@ -16,6 +16,7 @@ import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { usePoppinsLive } from '@/lib/poppins/live-context';
 import { capabilitiesFor, DEFAULT_REWARD_MODEL } from '@/lib/rewards/reward-model';
 import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbitOptional } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 import type { TourTargetId } from '@/lib/tour/tour-types';
@@ -53,6 +54,7 @@ const LABEL_CYCLE_MS = 3400;
 export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const orbit = useOrbitOptional();
+  const majordomoName = useMajordomoName();
   const poppinsLive = usePoppinsLive();
   const poppinsPulse = useRef(new Animated.Value(1)).current;
   const accentPrimary = orbit?.accentTheme.primary ?? '#38BDF8';
@@ -186,7 +188,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
 
           const isPoppins = route.name === 'poppins';
           const isRewards = route.name === 'rewards';
-          const label = isRewards ? rewardsLabel : meta.label;
+          const label = isRewards ? rewardsLabel : isPoppins ? majordomoName : meta.label;
           const color = isFocused
             ? accentPrimary
             : isRewards && canAffordRedeem
@@ -317,6 +319,9 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                 </View>
               ) : (
                 <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
                   style={[
                     styles.label,
                     {

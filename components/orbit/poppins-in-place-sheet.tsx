@@ -8,6 +8,7 @@ import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PoppinsStage } from '@/components/orbit/poppins-stage';
 import { usePoppinsLive } from '@/lib/poppins/live-context';
 import { usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 /** Compact Ask Poppins — stays on the current screen while the tab button animates. */
@@ -16,6 +17,7 @@ export function PoppinsInPlaceSheet() {
   const drive = usePoppinsUiDrive();
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
+  const majordomoName = useMajordomoName();
   const [draft, setDraft] = useState('');
   const pathname = usePathname();
   const onPoppinsTab = pathname?.includes('poppins') ?? false;
@@ -78,7 +80,7 @@ export function PoppinsInPlaceSheet() {
           <TextInput
             value={draft}
             onChangeText={setDraft}
-            placeholder="Ask Poppins…"
+            placeholder={`Ask ${majordomoName}…`}
             placeholderTextColor={c.textFaint}
             onSubmitEditing={() => {
               const next = draft;

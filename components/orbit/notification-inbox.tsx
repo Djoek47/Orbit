@@ -25,6 +25,8 @@ import {
   type SheetNotificationCard,
 } from '@/lib/poppins/notification-buckets';
 import { factToActivityItem } from '@/lib/poppins/notification-policy';
+import { speakAs } from '@/lib/ai/majordomo-name';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type {
@@ -88,6 +90,7 @@ export function NotificationInbox({
 }: NotificationInboxProps) {
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
+  const majordomoName = useMajordomoName();
   const {
     accentTheme,
     clearAllInbox,
@@ -170,7 +173,7 @@ export function NotificationInbox({
         : 'You are caught up'
       : activityItems.length > 0
         ? `${activityItems.length} recent signals`
-        : 'Poppins is monitoring quietly';
+        : `${majordomoName} is monitoring quietly`;
 
   const openCard = async (card: SheetNotificationCard) => {
     if (card.source && !card.source.isRead) {
@@ -347,6 +350,7 @@ function AlertCard({
   onOpen: (card: SheetNotificationCard) => void;
 }) {
   const { c, glass, glassBorder } = useOrbitColors();
+  const majordomoName = useMajordomoName();
   const unread = Boolean(card.source && !card.source.isRead);
   const route = routeForSheetCard(card);
 
@@ -374,7 +378,7 @@ function AlertCard({
                 { color: c.text, fontWeight: unread ? '700' : '600', flex: 1 },
               ]}
               numberOfLines={2}>
-              {card.title}
+              {speakAs(majordomoName, card.title)}
             </Text>
           </View>
           <Pressable
@@ -432,6 +436,7 @@ function ActivityFeed({
   weekly: PoppinsWeeklyBriefing;
 }) {
   const { c, glass, glassBorder } = useOrbitColors();
+  const majordomoName = useMajordomoName();
 
   const weekStats = [
     { val: String(weekly.tasksCompleted || taskCompletedFallback), label: 'Managed', emoji: '✅' },
@@ -455,7 +460,7 @@ function ActivityFeed({
           <PoppinsHourglass size={16} color="#2DD4BF" active />
           <View style={{ flex: 1 }}>
             <Text style={[typography.caption1, { color: '#2DD4BF', fontWeight: '700' }]}>
-              Poppins is active
+              {majordomoName} is active
             </Text>
             <Text style={[typography.caption2, { color: c.textMuted }]}>
               Schedules, streaks, and household patterns are monitored in the background.
@@ -465,7 +470,7 @@ function ActivityFeed({
         <EmptyState
           tone="allClear"
           title="No activity yet"
-          caption="When Poppins acts — reminders, insights, monitor passes — it shows up here alongside your alerts."
+          caption={`When ${majordomoName} acts — reminders, insights, monitor passes — it shows up here alongside your alerts.`}
         />
         <WeekSummary stats={weekStats} />
       </View>

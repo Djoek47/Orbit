@@ -12,6 +12,7 @@ import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme'
 import { optimizeDraftStops } from '@/lib/calendar/suggest-itinerary';
 import { shopNearStops, findNearbyStores } from '@/lib/places/nearby-stores';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent, ItineraryStopKind, PreferredStore, SavedPlace } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -113,6 +114,7 @@ function eventToStop(event: HouseholdEvent): DraftStop {
 
 export default function CreateItineraryScreen() {
   const { createItinerary, household, preferredStore, accentTheme } = useOrbit();
+  const majordomoName = useMajordomoName();
   const { c, glass, glassBorder } = useOrbitColors();
   const params = useLocalSearchParams<{
     title?: string | string[];
@@ -408,7 +410,7 @@ export default function CreateItineraryScreen() {
             <Text style={[typography.headline, { color: c.text }]}>Stop order</Text>
             <Pressable onPress={handleOptimize} hitSlop={8}>
               <Text style={[styles.optimizeLink, { color: accentTheme.primary }]}>
-                Optimize with Poppins
+                Optimize with {majordomoName}
               </Text>
             </Pressable>
           </View>

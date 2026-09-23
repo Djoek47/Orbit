@@ -19,6 +19,7 @@ import {
   tripIntent,
 } from '@/lib/itinerary/trip-intent';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
 import type { ItineraryStop, ItineraryStopKind } from '@/types/orbit';
 
@@ -45,6 +46,7 @@ export default function ItineraryDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { c } = useOrbitColors();
+  const majordomoName = useMajordomoName();
   const {
     advanceItineraryStop,
     accentTheme,
@@ -182,7 +184,7 @@ export default function ItineraryDetailScreen() {
           <Text style={[styles.summary, { color: c.textMuted }]}>{itinerary.summary}</Text>
         ) : null}
         {itinerary.suggestedByPoppins ? (
-          <Text style={[styles.poppinsCredit, { color: c.textSubtle }]}>Suggested by Poppins</Text>
+          <Text style={[styles.poppinsCredit, { color: c.textSubtle }]}>Suggested by {majordomoName}</Text>
         ) : null}
       </View>
 

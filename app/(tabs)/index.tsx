@@ -21,6 +21,7 @@ import { StreakRescueSheet } from '@/components/orbit/streak-rescue-sheet';
 import { StreakLostSheet } from '@/components/orbit/streak-lost-sheet';
 import { TodayTasksCard } from '@/components/orbit/today-tasks-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { VOCAB } from '@/constants/vocabulary';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
@@ -67,6 +68,7 @@ export default function HomeScreen() {
   } = useOrbit();
   const tour = useTourControls();
   const { refreshing, onRefresh } = useHouseholdRefresh();
+  const majordomoName = useMajordomoName();
   const { c, glass } = useOrbitColors();
 
   useEffect(() => {
@@ -217,6 +219,7 @@ export default function HomeScreen() {
           ? { title: nextEvent.title, time: nextEvent.time }
           : null,
         pendingApprovals: pendingApprovals.length,
+        speaker: majordomoName,
         timeZone: household.timezone,
       }),
     [
@@ -227,6 +230,7 @@ export default function HomeScreen() {
       household.tasks,
       household.timezone,
       nextEvent,
+      majordomoName,
       pendingApprovals.length,
       permissions.canManageHousehold,
     ]
@@ -372,14 +376,14 @@ export default function HomeScreen() {
 
         <PoppinsCard
           kind={homeGlance.kind}
-          speaker="Poppins"
+          speaker={majordomoName}
           message={homeGlance.message}
           actions={
             canShowPoppinsTab({
               role: currentMember?.role,
               sidekickPoppinsAi: household.sidekickPoppinsAi,
             })
-              ? [{ label: 'Open Poppins', onPress: () => router.push('/(tabs)/poppins' as never) }]
+              ? [{ label: `Open ${majordomoName}`, onPress: () => router.push('/(tabs)/poppins' as never) }]
               : []
           }
         />

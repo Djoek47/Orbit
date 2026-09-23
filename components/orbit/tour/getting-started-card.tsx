@@ -12,6 +12,7 @@ import { showRewards } from '@/lib/tour/tour-conditions';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import { trackAnalytics } from '@/lib/analytics';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
 
 type Item = {
@@ -29,6 +30,7 @@ type Props = {
 
 export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
   const { household, currentMember, permissions } = useOrbit();
+  const majordomoName = useMajordomoName();
   const analyticsContext = {
     householdId: household.id,
     userId: currentMember?.userId ?? currentMember?.id,
@@ -114,7 +116,7 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
     list.push(
       {
         id: 'ask_poppins',
-        label: 'Ask Poppins to do something',
+        label: `Ask ${majordomoName} to do something`,
         done: poppinsDone,
         onPress: () => router.push('/(tabs)/poppins' as never),
       },
@@ -133,7 +135,7 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
     );
 
     return list;
-  }, [household, tick, poppinsDone]);
+  }, [household, majordomoName, tick, poppinsDone]);
 
   const doneCount = items.filter((i) => i.done).length;
   const allDone = doneCount === items.length && items.length > 0;

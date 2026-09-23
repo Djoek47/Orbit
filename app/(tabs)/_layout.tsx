@@ -8,6 +8,7 @@ import { MakeTabBar } from '@/components/orbit/make-tab-bar';
 import { loadDeviceSession } from '@/lib/device/device-session';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { loadOnboardingPrefs, type OnboardingRole } from '@/lib/onboarding-prefs';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -25,6 +26,7 @@ function resolveUiRole(
 export default function TabLayout() {
   const { currentUser, currentMember, hasHousehold, household, isLoading, isSignedIn, orbitPalette } =
     useOrbit();
+  const majordomoName = useMajordomoName();
   const [onboardingRole, setOnboardingRole] = useState<OnboardingRole | null>(null);
   const [needsPick, setNeedsPick] = useState(false);
 
@@ -121,7 +123,7 @@ export default function TabLayout() {
             title: uiRole === 'child' ? 'Ranks' : 'Rewards',
           }}
         />
-        <Tabs.Screen name="poppins" options={{ href: showPoppins ? undefined : null, title: 'Poppins' }} />
+        <Tabs.Screen name="poppins" options={{ href: showPoppins ? undefined : null, title: majordomoName }} />
       </Tabs>
 
       <GlobalHeaderChips />

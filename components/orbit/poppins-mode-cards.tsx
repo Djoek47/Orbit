@@ -11,6 +11,7 @@ import {
   type PoppinsInteractionPrefs,
   type PoppinsTier,
 } from '@/lib/poppins/poppins-prefs';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type PoppinsModeCardsProps = {
@@ -18,6 +19,8 @@ type PoppinsModeCardsProps = {
   accent: string;
   disabled?: boolean;
   layout?: 'stack' | 'pills';
+  /** Character name. Defaults to the household majordomo. */
+  name?: string;
   onSelectTier: (tier: 'base' | 'max') => void;
 };
 
@@ -30,14 +33,14 @@ const MODES: {
 }[] = [
   {
     tier: 'base',
-    title: 'Poppins Base',
+    title: 'Base',
     line: 'Lighter. About 1 action each.',
     detail: 'Quiet replies on screen. Best for everyday use.',
     icon: 'water-drop',
   },
   {
     tier: 'max',
-    title: 'Poppins Max',
+    title: 'Max',
     line: `Speaks back. About ${TOKEN_WEIGHT_SPEAK_BACK} actions each.`,
     detail: 'Live voice. Richer, and it spends the month faster.',
     icon: 'graphic-eq',
@@ -49,9 +52,16 @@ export function PoppinsModeCards({
   accent,
   disabled,
   layout = 'stack',
+  name,
   onSelectTier,
 }: PoppinsModeCardsProps) {
+  const storedName = useMajordomoName();
+  const speaker = name?.trim() || storedName;
   const tier = poppinsTier(prefs);
+  const modes = MODES.map((mode) => ({
+    ...mode,
+    title: `${speaker} ${mode.title}`,
+  }));
   if (layout === 'pills') {
     return (
       <ModePills
@@ -59,12 +69,13 @@ export function PoppinsModeCards({
         accent={accent}
         disabled={disabled}
         onSelectTier={onSelectTier}
+        modes={modes}
       />
     );
   }
   return (
     <View style={styles.stack}>
-      {MODES.map((mode) => (
+      {modes.map((mode) => (
         <ModeCard
           key={mode.tier}
           mode={mode}
@@ -83,18 +94,20 @@ function ModePills({
   tier,
   accent,
   disabled,
+  modes,
   onSelectTier,
 }: {
   tier: PoppinsTier;
   accent: string;
   disabled?: boolean;
+  modes: typeof MODES;
   onSelectTier: (tier: 'base' | 'max') => void;
 }) {
   const { c, glass, glassBorder } = useOrbitColors();
   return (
     <View style={styles.pillBlock}>
       <View style={[styles.pillRow, { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) }]}>
-        {MODES.map((mode) => {
+        {modes.map((mode) => {
           const selected = tier === mode.tier;
           return (
             <Pressable

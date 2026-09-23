@@ -632,7 +632,7 @@ export default function PoppinsScreen() {
       }
       poppinsUiOrchestrator.syncSpoken(result.answer, memberNamesRef.current);
     } catch {
-      setError('Poppins could not answer right now. Try again in a moment.');
+      setError(`${majordomo.displayName} could not answer right now. Try again in a moment.`);
     } finally {
       setAsking(false);
       setTimeout(() => setVoiceState('idle'), 1800);
@@ -1059,7 +1059,7 @@ export default function PoppinsScreen() {
           <Pressable
             onPress={() => setShowText((v) => !v)}
             accessibilityRole="button"
-            accessibilityLabel={showText ? 'Hide keyboard' : 'Type to Poppins'}
+            accessibilityLabel={showText ? 'Hide keyboard' : `Type to ${majordomo.displayName}`}
             style={[
               styles.sideBtn,
               {

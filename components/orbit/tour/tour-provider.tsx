@@ -35,6 +35,8 @@ import {
   showRewards,
   type TourConditionContext,
 } from '@/lib/tour/tour-conditions';
+import { speakAs } from '@/lib/ai/majordomo-name';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import { formatWelcomeCopy, getTourDefinition } from '@/lib/tour/tour-steps';
 import {
@@ -117,6 +119,7 @@ export async function markJoinedAdultTour(householdId: string, memberId: string)
 }
 
 export function TourProvider({ children }: PropsWithChildren) {
+  const majordomoName = useMajordomoName();
   const orbit = useOrbitOptional();
   const pathname = usePathname();
   const navRef = useNavigationContainerRef();
@@ -778,9 +781,9 @@ export function TourProvider({ children }: PropsWithChildren) {
         {pointer && !paused ? (
           <TourOverlay
             target={pointer.step.centered ? null : targetRect}
-            chapterName={pointer.chapter.name}
-            title={pointer.step.title}
-            body={pointer.step.body}
+            chapterName={speakAs(majordomoName, pointer.chapter.name)}
+            title={speakAs(majordomoName, pointer.step.title)}
+            body={speakAs(majordomoName, pointer.step.body)}
             stepLabel={`${pointer.stepOrdinal} of ${pointer.stepsInChapter}`}
             stepIndex={pointer.stepIndex}
             stepsInChapter={pointer.stepsInChapter}

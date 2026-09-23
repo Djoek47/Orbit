@@ -21,6 +21,7 @@ import { HR, resolveHouseRulesPalette, type HouseRulesVoice } from '@/lib/rules/
 import { interpolateHouseRulesCopy } from '@/lib/rules/interpolate';
 import { visibleRules } from '@/lib/rules/visible-rules';
 import { hasAllowanceModel, normalizeRewardModel } from '@/lib/rules/visibility';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { usePoppinsLive } from '@/lib/poppins/live-context';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -42,6 +43,7 @@ export default function HouseRulesScreen() {
   const { household, currentMember, permissions, queueDailyDeadline, setAllowanceRequestsEnabled } =
     useOrbit();
   const live = usePoppinsLive();
+  const majordomoName = useMajordomoName();
   const doc = useMemo(() => getHouseRulesDoc(), []);
   const isAdminSession = isHouseRulesAdminRole(currentMember?.role) && permissions.canManageHousehold;
   const [adminPreview, setAdminPreview] = useState<HouseRulesVoice>(doc.modes.admin.defaultVersion);
@@ -96,8 +98,8 @@ export default function HouseRulesScreen() {
     voice === 'sidekick' ? (
       <Pressable
         onPress={() => void live?.startInPlace('house-rules')}
-        accessibilityLabel="Ask Poppins">
-        <Text style={[styles.nav, { color: palette.nav, fontWeight: '600' }]}>Ask Poppins</Text>
+        accessibilityLabel={`Ask ${majordomoName}`}>
+        <Text style={[styles.nav, { color: palette.nav, fontWeight: '600' }]}>Ask {majordomoName}</Text>
       </Pressable>
     ) : canEdit ? (
       <Pressable onPress={() => router.push('/settings' as never)} accessibilityLabel="Edit">

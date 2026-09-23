@@ -79,4 +79,16 @@ const later = composeHomeGlance({
 });
 assert.notEqual(glance.message, later.message);
 
+const steward = composeHomeGlance({
+  now: morning,
+  firstName: 'Mike',
+  memberName: 'Mike',
+  householdView: true,
+  speaker: 'Steward',
+  tasks: [task({ id: '4', title: 'Load the dishwasher', status: 'Pending' })],
+  missingGroceries: [],
+});
+assert.match(steward.message, /Steward/);
+assert.doesNotMatch(steward.message, /Poppins/);
+
 console.log('home-glance.test.ts ok');

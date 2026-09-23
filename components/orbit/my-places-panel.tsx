@@ -7,6 +7,7 @@ import { LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, UIManager
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
 import type { SavedPlace, SavedPlaceKind } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
@@ -54,6 +55,7 @@ export function MyPlacesPanel({
     suggestPoppinsItinerary,
     upsertSavedPlace,
   } = useOrbit();
+  const majordomoName = useMajordomoName();
   const { c, glass } = useOrbitColors();
   const places = useMemo(() => household.savedPlaces ?? [], [household.savedPlaces]);
   const [filterKind, setFilterKind] = useState<SavedPlaceKind | 'all'>('all');
@@ -136,9 +138,9 @@ export function MyPlacesPanel({
               <MaterialIcons name="auto-awesome" size={18} color="#A78BFA" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.trainTitle, { color: c.text }]}>Train Poppins</Text>
+              <Text style={[styles.trainTitle, { color: c.text }]}>Train {majordomoName}</Text>
               <Text style={[styles.trainBody, { color: c.textMuted }]}>
-                Add stores, schools & activities so Poppins can plan optimised routes and pickup
+                Add stores, schools & activities so {majordomoName} can plan optimised routes and pickup
                 reminders.
               </Text>
             </View>
@@ -257,7 +259,7 @@ export function MyPlacesPanel({
             <MaterialIcons name="route" size={16} color={accentTheme.primary} />
             <Text style={[styles.summaryCtaText, { color: accentTheme.primary }]}>
               {suggestBusy
-                ? 'Asking Poppins…'
+                ? `Asking ${majordomoName}…`
                 : summary.groups.some((g) => g.groceryLinked)
                   ? 'Open shopping list'
                   : 'Plan a pickup trip'}
@@ -304,6 +306,7 @@ function PlaceCard({
   onEdit: () => void;
 }) {
   const { c, glass } = useOrbitColors();
+  const majordomoName = useMajordomoName();
   const meta = KIND_META[place.kind];
   const pickups = place.pickupItemNames ?? [];
   const emoji = place.emoji ?? meta.emoji;
@@ -392,7 +395,7 @@ function PlaceCard({
             </View>
           ) : (
             <Text style={[styles.pickupEmpty, { color: c.textFaint }]}>
-              No items yet — Poppins will remind you when passing by.
+              No items yet — {majordomoName} will remind you when passing by.
             </Text>
           )}
 

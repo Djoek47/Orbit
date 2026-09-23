@@ -10,6 +10,7 @@ import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RouteSteps, type RouteStepItem } from '@/components/orbit/route-steps';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { usePoppinsLive } from '@/lib/poppins/live-context';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -119,6 +120,7 @@ function TripCard({
   onStartTrip: (trip: Itinerary) => void;
 }) {
   const { c, glass, glassBorder } = useOrbitColors();
+  const majordomoName = useMajordomoName();
   const [expanded, setExpanded] = useState(index === 0);
   const [activated, setActivated] = useState(false);
   const color = TRIP_COLORS[index % TRIP_COLORS.length];
@@ -216,7 +218,7 @@ function TripCard({
           <View style={styles.poppinsReason}>
             <MaterialIcons name="auto-awesome" size={13} color="#06B6D4" />
             <Text style={[styles.heroBody, { color: c.textSoft }]}>
-              <Text style={{ color: '#06B6D4', fontWeight: '700' }}>Poppins: </Text>
+              <Text style={{ color: '#06B6D4', fontWeight: '700' }}>{majordomoName}: </Text>
               {poppinsReasonForTrip(trip)}
             </Text>
           </View>
@@ -275,6 +277,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
     suggestPoppinsItinerary,
   } = useOrbit();
   const poppinsLive = usePoppinsLive();
+  const majordomoName = useMajordomoName();
   const { c, glass, glassBorder } = useOrbitColors();
   const [section, setSection] = useState<TripsSection>('trips');
   const [mode, setMode] = useState<SuggestMode>('efficient');
@@ -359,7 +362,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
   return (
     <View style={styles.wrap}>
       <View style={styles.itinHeader}>
-        <PageEyebrow>Poppins Smart Trips</PageEyebrow>
+        <PageEyebrow>{majordomoName} Smart Trips</PageEyebrow>
         <Text style={[styles.h1, { color: c.text }]}>Itineraries</Text>
       </View>
 
@@ -509,7 +512,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
             />
             <ComposeChip
               icon="auto-awesome"
-              label="Ask Poppins"
+              label={`Ask ${majordomoName}`}
               accent={accentTheme.primary}
               busy={busy}
               onPress={() => void runAskPoppins()}
@@ -544,7 +547,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
                 ]}>
                 <Text style={[styles.emptyTripsTitle, { color: c.text }]}>No active trips yet</Text>
                 <Text style={[styles.emptyTripsBody, { color: c.textMuted }]}>
-                  Ask Poppins to propose a Plan draft, or build one from your calendar.
+                  Ask {majordomoName} to propose a Plan draft, or build one from your calendar.
                 </Text>
               </View>
             ) : (

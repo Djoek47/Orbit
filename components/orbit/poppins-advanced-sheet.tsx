@@ -10,6 +10,8 @@ import {
   type PoppinsInteractionPrefs,
   type PoppinsUndoWindowSec,
 } from '@/lib/poppins/poppins-prefs';
+import { speakAs } from '@/lib/ai/majordomo-name';
+import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type PoppinsAdvancedSheetProps = {
@@ -29,6 +31,8 @@ export function PoppinsAdvancedSheet({
   onChange,
 }: PoppinsAdvancedSheetProps) {
   const { c } = useOrbitColors();
+  const speaker = useMajordomoName();
+  const say = (copy: string) => speakAs(speaker, copy);
   const patch = (next: Partial<PoppinsInteractionPrefs>) => {
     if (disabled) return;
     onChange({ ...prefs, ...next });
@@ -39,8 +43,9 @@ export function PoppinsAdvancedSheet({
       <View style={styles.body}>
         <Text style={[typography.title2, { color: c.text }]}>Advanced</Text>
         <Text style={[typography.footnote, { color: c.textMuted, marginBottom: 8 }]}>
-          These change how Poppins waits, writes, and notifies. They do not change Base or Max cost.
-          Tuning them marks this household as Custom.
+          {say(
+            'These change how Poppins waits, writes, and notifies. They do not change Base or Max cost. Tuning them marks this household as Custom.'
+          )}
         </Text>
         <SettingsGroup footer="Act immediately skips the pause before saving. You can still undo.">
           <SettingsToggleRow
@@ -52,21 +57,21 @@ export function PoppinsAdvancedSheet({
           />
           <SettingsToggleRow
             label="Show thinking"
-            subtitle='A short "thinking" moment while Poppins works it out.'
+            subtitle={say('A short "thinking" moment while Poppins works it out.')}
             value={prefs.showThinking}
             disabled={disabled}
             onValueChange={(showThinking) => patch({ showThinking })}
           />
           <SettingsToggleRow
             label="Written replies"
-            subtitle="Poppins writes its answer on screen. Questions always show."
+            subtitle={say('Poppins writes its answer on screen. Questions always show.')}
             value={prefs.writtenReplies}
             disabled={disabled}
             onValueChange={(writtenReplies) => patch({ writtenReplies })}
           />
           <SettingsToggleRow
             label="Notification actions"
-            subtitle="Approve or change Poppins' suggestions right from a notification."
+            subtitle={say("Approve or change Poppins' suggestions right from a notification.")}
             value={prefs.notificationActions}
             disabled={disabled}
             last
@@ -77,7 +82,7 @@ export function PoppinsAdvancedSheet({
           <View style={styles.segmentPad}>
             <SegmentedControl
               label="Confirm time"
-              subtitle="How long Poppins waits in silence before saving."
+              subtitle={say('How long Poppins waits in silence before saving.')}
               disabled={disabled}
               options={[
                 { value: 'quick', label: 'Quick' },

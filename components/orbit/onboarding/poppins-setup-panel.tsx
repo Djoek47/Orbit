@@ -109,12 +109,13 @@ export function PoppinsSetupPanel({ value, onChange, accent }: PoppinsSetupPanel
           </Text>
         </View>
         <Text style={[styles.lead, { color: c.textMuted }]}>
-          Choose Poppins Base or Poppins Max. You can fine-tune later in Advanced.
+          Choose {activePersona.displayName} Base or {activePersona.displayName} Max. You can fine-tune later in Advanced.
         </Text>
       </Animated.View>
 
       <PoppinsModeCards
         prefs={prefs}
+        name={activePersona.displayName}
         accent={resolvedAccent}
         onSelectTier={(tier) => {
           onChange({ ...value, prefs: prefsForTier(tier) });

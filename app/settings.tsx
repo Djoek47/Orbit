@@ -22,6 +22,7 @@ import { MajordomoProfileSheet } from '@/components/orbit/majordomo-profile-shee
 import { PoppinsAdvancedSheet } from '@/components/orbit/poppins-advanced-sheet';
 import { PoppinsModeCards } from '@/components/orbit/poppins-mode-cards';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
+import { speakAs } from '@/lib/ai/majordomo-name';
 import {
   getMajordomoProfile,
   resolveMajordomoProfileId,
@@ -613,7 +614,7 @@ export default function SettingsScreen() {
             </SettingsGroup>
 
             <SettingsGroup
-              header="Poppins"
+              header={majordomo.displayName}
               footer={
                 aiSummary.tripped
                   ? 'Speak is paused until the next reset or a top-up. Typing still works.'
@@ -1212,7 +1213,7 @@ export default function SettingsScreen() {
             />
             {poppinsPrefsReadOnly ? (
               <Text style={[styles.caption, { color: orbitPalette.textMuted, marginTop: 8 }]}>
-                Only an admin can change how Poppins acts for this household.
+                {speakAs(majordomo.displayName, 'Only an admin can change how Poppins acts for this household.')}
               </Text>
             ) : null}
             <SettingsGroup>
@@ -1235,10 +1236,10 @@ export default function SettingsScreen() {
               />
             </SettingsGroup>
             {permissions.canManageHousehold ? (
-              <SettingsGroup footer="Sidekicks stay off Poppins until you turn this on.">
+              <SettingsGroup footer={speakAs(majordomo.displayName, 'Sidekicks stay off Poppins until you turn this on.')}>
                 <SettingsToggleRow
                   label="Allow Sidekick AI"
-                  subtitle="Shows the Poppins tab for children / Sidekicks so they can Speak."
+                  subtitle={speakAs(majordomo.displayName, 'Shows the Poppins tab for children / Sidekicks so they can Speak.')}
                   value={household.sidekickPoppinsAi === true}
                   disabled={settingsToggleBusy}
                   last
@@ -1415,7 +1416,7 @@ export default function SettingsScreen() {
             )}
 
             <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>
-              Choose which Poppins alerts you want ({enabledCount} on)
+              {speakAs(majordomo.displayName, 'Choose which Poppins alerts you want')} ({enabledCount} on)
             </Text>
             {(
               [
@@ -1507,15 +1508,17 @@ export default function SettingsScreen() {
           }}>
           <Text style={[styles.nameText, { color: c.text }]}>How actions work</Text>
           <Text style={[styles.caption, { color: c.textMuted, lineHeight: 20 }]}>
-            Every time Poppins saves something for you — a task, a grocery, an event — it uses an
-            action.
+            {speakAs(
+              majordomo.displayName,
+              'Every time Poppins saves something for you — a task, a grocery, an event — it uses an action.'
+            )}
           </Text>
           <Text style={[styles.caption, { color: c.textMuted, lineHeight: 20 }]}>
-            Quiet Poppins uses 1 action. Speak back uses about {TOKEN_WEIGHT_SPEAK_BACK}, because
-            talking back costs more to run.
+            {speakAs(majordomo.displayName, 'Quiet Poppins uses 1 action.')} Speak back uses about{' '}
+            {TOKEN_WEIGHT_SPEAK_BACK}, because talking back costs more to run.
           </Text>
           <Text style={[styles.caption, { color: c.textMuted, lineHeight: 20 }]}>
-            The less Poppins talks, the more actions you have.
+            {speakAs(majordomo.displayName, 'The less Poppins talks, the more actions you have.')}
           </Text>
           <Text style={[styles.caption, { color: c.textMuted, lineHeight: 20 }]}>
             You have {TOKENS_PER_MONTH} actions a month, and they reset on{' '}
