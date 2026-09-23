@@ -433,6 +433,8 @@ export type PoppinsConversationAnswer = {
   /** Closed IUI scene graph for the Activity stage (not generated JSX). */
   ui_actions?: Array<Record<string, unknown>>;
   source?: string;
+  /** Present when poppins-chat could not get a model message (offline / API error). */
+  error_code?: string;
   usage?: {
     inputTokens: number;
     outputTokens: number;
