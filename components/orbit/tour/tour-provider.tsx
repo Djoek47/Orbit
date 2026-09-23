@@ -595,6 +595,8 @@ export function TourProvider({ children }: PropsWithChildren) {
   }, [tourState, conditionCtx, persist]);
 
   const handleClose = useCallback(() => {
+    setWelcomeOpen(false);
+    setSessionActive(false);
     if (!tourState) return;
     void trackAnalytics(
       'tour.dismissed',
@@ -602,8 +604,6 @@ export function TourProvider({ children }: PropsWithChildren) {
       analyticsContextRef.current
     );
     void persist(skipTourState(tourState));
-    setWelcomeOpen(false);
-    setSessionActive(false);
   }, [tourState, persist]);
 
   const handleTourCrash = useCallback(() => {

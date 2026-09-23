@@ -27,6 +27,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { isTourCardOnScreen, placeTourCard } from '@/lib/tour/tour-layout';
 import type { TourRect } from '@/lib/tour/tour-types';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useOrbitOptional } from '@/store/orbit-store';
 import { radius, typography } from '@/constants/orbit-theme';
 
 const PAD = 8;
@@ -76,6 +77,8 @@ function TourOverlayBody({
   onCardReady,
 }: Props) {
   const { c, isDark } = useOrbitColors();
+  const orbit = useOrbitOptional();
+  const accent = orbit?.accentTheme.primary ?? c.primary;
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -159,7 +162,7 @@ function TourOverlayBody({
     cardSlide,
   ]);
 
-  const dim = isDark ? 0.65 : 0.55;
+  const dim = isDark ? 0.78 : 0.62;
   const cutout = target && !centered && !placement.ringOnly
     ? {
         left: Math.max(0, target.x - PAD),
@@ -187,14 +190,17 @@ function TourOverlayBody({
     ],
   }));
 
-  const blockTouches = cardVisible && !isAction;
-  const accentRing = c.primary;
+  // Block Home as soon as the overlay mounts — do not wait for card measure.
+  const blockTouches = !isAction;
+  const accentRing = accent;
+  const exitBg = accent;
+  const exitLabel = c.ink;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* Dim + cutout as four rectangles (no SVG mask — reliable on iOS 27 / Reanimated 4). */}
+      {/* Dim + cutout as four rectangles (no SVG mask — reliable on iOS / Reanimated). */}
       <View
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, styles.dimLayer]}
         pointerEvents={isAction ? 'box-none' : blockTouches ? 'auto' : 'none'}>
         {cutout ? (
           <>
@@ -257,7 +263,7 @@ function TourOverlayBody({
                   top: cutout.top,
                   width: cutout.width,
                   height: cutout.height,
-                  borderColor: `${accentRing}99`,
+                  borderColor: `${accentRing}CC`,
                 },
               ]}
             />
@@ -309,23 +315,6 @@ function TourOverlayBody({
         ) : null}
       </View>
 
-      {/* Always-visible Exit — independent of the card */}
-      <Pressable
-        onPress={onClose}
-        hitSlop={12}
-        accessibilityRole="button"
-        accessibilityLabel="Exit tour"
-        style={[
-          styles.exitPill,
-          {
-            top: insets.top + 8,
-            backgroundColor: isDark ? 'rgba(15,25,40,0.92)' : 'rgba(255,255,255,0.94)',
-            borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)',
-          },
-        ]}>
-        <Text style={[typography.footnote, { color: c.text, fontWeight: '600' }]}>Exit tour</Text>
-      </Pressable>
-
       <Animated.View
         pointerEvents="box-none"
         style={[
@@ -342,7 +331,7 @@ function TourOverlayBody({
             style={[
               styles.nub,
               styles.nubUp,
-              { borderBottomColor: isDark ? 'rgba(30,40,55,0.95)' : 'rgba(255,255,255,0.92)' },
+              { borderBottomColor: isDark ? 'rgba(18,24,38,0.96)' : 'rgba(255,255,255,0.96)' },
             ]}
           />
         ) : null}
@@ -370,11 +359,34 @@ function TourOverlayBody({
             style={[
               styles.nub,
               styles.nubDown,
-              { borderTopColor: isDark ? 'rgba(30,40,55,0.95)' : 'rgba(255,255,255,0.92)' },
+              { borderTopColor: isDark ? 'rgba(18,24,38,0.96)' : 'rgba(255,255,255,0.96)' },
             ]}
           />
         ) : null}
       </Animated.View>
+
+      {/* Exit last + highest zIndex so the card never steals its taps. */}
+      <View
+        pointerEvents="box-none"
+        style={[styles.exitBar, { top: insets.top + 8 }]}>
+        <Pressable
+          onPress={onClose}
+          hitSlop={16}
+          accessibilityRole="button"
+          accessibilityLabel="Exit tour"
+          style={({ pressed }) => [
+            styles.exitPill,
+            {
+              backgroundColor: exitBg,
+              borderColor: exitBg,
+              opacity: pressed ? 0.88 : 1,
+            },
+          ]}>
+          <Text style={[typography.footnote, styles.exitLabel, { color: exitLabel }]}>
+            Exit tour
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -406,33 +418,47 @@ export function TourOverlay(props: Props) {
 }
 
 const styles = StyleSheet.create({
+  dimLayer: {
+    elevation: 1,
+    zIndex: 1,
+  },
   dimRect: {
     position: 'absolute',
   },
   ring: {
     borderRadius: 16,
-    borderWidth: 2,
+    borderWidth: 2.5,
     position: 'absolute',
+  },
+  exitBar: {
+    elevation: 40,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    zIndex: 40,
   },
   exitPill: {
     alignItems: 'center',
+    alignSelf: 'flex-end',
     borderCurve: 'continuous',
     borderRadius: radius.full,
     borderWidth: StyleSheet.hairlineWidth,
     justifyContent: 'center',
-    minHeight: 36,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    position: 'absolute',
-    right: 16,
-    zIndex: 20,
+    marginRight: 16,
+    minHeight: 40,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  exitLabel: {
+    fontWeight: '700',
   },
   cardSlot: {
     alignItems: 'center',
+    elevation: 20,
     left: 0,
     position: 'absolute',
     right: 0,
-    zIndex: 10,
+    zIndex: 20,
   },
   nub: {
     alignSelf: 'center',
