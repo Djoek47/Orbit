@@ -837,9 +837,11 @@ export function TourProvider({ children }: PropsWithChildren) {
 
   const canGoBack = Boolean(tourState && tourCanRetreat(tourState, conditionCtx));
 
-  const isAction =
-    pointer?.step.advance.kind === 'action' ||
-    pointer?.step.advance.kind === 'event';
+  const advanceKind = pointer?.step.advance.kind;
+  /** Only tap-the-spotlight steps lock the rest of the screen. */
+  const lockCutout = advanceKind === 'action';
+  /** Event steps still use the action skip label, but keep the UI interactive. */
+  const isAction = advanceKind === 'action' || advanceKind === 'event';
   const isLast =
     Boolean(pointer) &&
     pointer!.chapter.id === getTourDefinition(pointer!.tourId).chapters.slice(-1)[0]?.id &&
@@ -894,8 +896,6 @@ export function TourProvider({ children }: PropsWithChildren) {
 
   // flex:1 host so inline TourOverlay absoluteFill covers the navigator and
   // info-step pans reach the ScrollView underneath (no FullWindowOverlay).
-  // flex:1 host so inline TourOverlay absoluteFill covers the navigator and
-  // info-step pans reach the ScrollView underneath (no FullWindowOverlay).
   // Assign form step uses overlayPointer so the coach card stays off the sheet.
   return (
     <TourRegistryContext.Provider value={registry}>
@@ -922,6 +922,7 @@ export function TourProvider({ children }: PropsWithChildren) {
                 stepIndex={overlayPointer.stepIndex}
                 stepsInChapter={overlayPointer.stepsInChapter}
                 isAction={isAction}
+                lockCutout={lockCutout}
                 isLast={isLast}
                 centered={Boolean(overlayPointer.step.centered)}
                 primaryLabel={overlayPointer.step.primaryLabel}

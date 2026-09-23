@@ -60,13 +60,13 @@ emitTourEvent('task_created');
 assert.equal(resolveActivePointer(state, ctx)?.step.id, 'tasks.hold');
 unsubForm();
 
-// Poppins try step
-state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 1 };
+// Poppins try step (mode card sits at index 1 after the itinerary tour pass)
+state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 2 };
 assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.try');
 
 const backOne = retreatBeforeStep(state, ctx);
 assert.equal(backOne.chapterId, 'poppins');
-assert.equal(backOne.stepIndex, 0);
+assert.equal(backOne.stepIndex, 1);
 assert.equal(tourCanRetreat(state, ctx), true);
 const first = startTourState('admin');
 assert.equal(tourCanRetreat(first, ctx), false);
@@ -99,7 +99,7 @@ const unsub = bindTourStepAdvance({
   },
 });
 
-emitTourEvent('poppins_act_committed');
+emitTourEvent('poppins_spoke');
 assert.notEqual(resolveActivePointer(state, ctx)?.step.id, 'poppins.try');
 paused = false;
 assert.equal(paused, false);

@@ -43,6 +43,8 @@ type Props = {
   stepIndex: number;
   stepsInChapter: number;
   isAction: boolean;
+  /** Only true for tap-the-target steps — blocks outside the spotlight. */
+  lockCutout?: boolean;
   isLast: boolean;
   centered?: boolean;
   primaryLabel?: string;
@@ -67,6 +69,7 @@ function TourOverlayBody({
   stepIndex,
   stepsInChapter,
   isAction,
+  lockCutout = false,
   isLast,
   centered,
   primaryLabel,
@@ -193,8 +196,8 @@ function TourOverlayBody({
     ],
   }));
 
-  // Dim is paint-only. Action steps add a frame of blockers around the cutout.
-  // Info steps leave the dim open so the screen under the card can still scroll.
+  // Dim is paint-only by default. Only lockCutout (true action taps) blocks
+  // outside the spotlight — event steps like Poppins Speak stay interactive.
   const accentRing = accent;
   const exitBg = accent;
   const exitLabel = c.ink;
@@ -204,7 +207,7 @@ function TourOverlayBody({
       {/* Dim + cutout as four rectangles (no SVG mask — reliable on iOS / Reanimated). */}
       <View
         style={[StyleSheet.absoluteFill, styles.dimLayer]}
-        pointerEvents={isAction ? 'box-none' : 'none'}>
+        pointerEvents={lockCutout ? 'box-none' : 'none'}>
         {cutout ? (
           <>
             <Animated.View
@@ -278,7 +281,7 @@ function TourOverlayBody({
           />
         )}
 
-        {isAction && cutout ? (
+        {lockCutout && cutout ? (
           <>
             <View
               pointerEvents="auto"
@@ -398,8 +401,8 @@ function TourOverlayBody({
 export function TourOverlay(props: Props) {
   // Info steps stay inline so the screen under the coach card can scroll.
   // FullWindowOverlay (iOS) sits in its own window and eats pan gestures —
-  // only use it for action steps that must float above assign / create modals.
-  if (Platform.OS === 'ios' && props.isAction) {
+  // only true action steps (lockCutout) float above assign / create modals.
+  if (Platform.OS === 'ios' && props.lockCutout) {
     return (
       <FullWindowOverlay>
         <TourOverlayBody {...props} />
