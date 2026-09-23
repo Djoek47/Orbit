@@ -3,12 +3,16 @@
  * Never opens a Realtime / PoppinsVoiceSession.
  */
 
-import { Audio } from 'expo-av';
-
 import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
+import {
+  expoAvUnavailableMessage,
+  getExpoAv,
+} from '@/lib/voice/expo-av-safe';
 import { transcribeQuietAudio } from '@/lib/voice/poppins-voice';
 import { acceptQuietTranscript } from '@/lib/voice/quiet-transcript';
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
+
+type AvRecording = InstanceType<NonNullable<ReturnType<typeof getExpoAv>>['Audio']['Recording']>;
 
 const SILENCE_DB = -40;
 const SILENCE_AFTER_SPEECH_MS = 1200;
@@ -35,7 +39,7 @@ export type QuietCapture = {
  * Streaming on-device recognition is intentionally not used this pass (Expo Go).
  */
 export function createQuietCapture(): QuietCapture {
-  let recording: Audio.Recording | null = null;
+  let recording: AvRecording | null = null;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let hardCapTimer: ReturnType<typeof setTimeout> | null = null;
   let heardSpeech = false;
@@ -126,6 +130,13 @@ export function createQuietCapture(): QuietCapture {
       autoStoppedUri = undefined;
       onStatus?.('listening');
       onPartial?.('Listening…');
+
+      const av = getExpoAv();
+      if (!av) {
+        active = false;
+        throw new Error(expoAvUnavailableMessage());
+      }
+      const { Audio } = av;
 
       await Audio.requestPermissionsAsync();
       await configurePoppinsSpeakerAudio();

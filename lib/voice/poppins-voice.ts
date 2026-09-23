@@ -1,12 +1,17 @@
 import * as Speech from 'expo-speech';
-import { Audio } from 'expo-av';
 
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
+import {
+  expoAvUnavailableMessage,
+  getExpoAv,
+} from '@/lib/voice/expo-av-safe';
 import { poppinsService } from '@/services/poppins-service';
 import type { HouseholdSnapshot, PoppinsConversationAnswer, OrbitMetrics } from '@/types/orbit';
+
+type AvRecording = InstanceType<NonNullable<ReturnType<typeof getExpoAv>>['Audio']['Recording']>;
 
 export async function speakPoppins(text: string) {
   Speech.stop();
@@ -22,9 +27,14 @@ export async function stopSpeaking() {
   Speech.stop();
 }
 
-let recording: Audio.Recording | null = null;
+let recording: AvRecording | null = null;
 
 export async function startVoiceCapture() {
+  const av = getExpoAv();
+  if (!av) {
+    throw new Error(expoAvUnavailableMessage());
+  }
+  const { Audio } = av;
   await Audio.requestPermissionsAsync();
   await configurePoppinsSpeakerAudio();
 

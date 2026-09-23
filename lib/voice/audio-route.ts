@@ -1,4 +1,4 @@
-import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+import { getExpoAv } from '@/lib/voice/expo-av-safe';
 
 /**
  * Route Poppins audio through the loudspeaker (media volume keys),
@@ -9,8 +9,13 @@ import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
  * This JS helper covers Android, Whisper capture, and TTS; it is also
  * re-applied after WebRTC `ontrack` because the native stack can overwrite
  * the session when the peer connection starts.
+ *
+ * No-ops on Expo Go SDK 57+ where `ExponentAV` is missing.
  */
 export async function configurePoppinsSpeakerAudio(): Promise<void> {
+  const av = getExpoAv();
+  if (!av) return;
+  const { Audio, InterruptionModeAndroid, InterruptionModeIOS } = av;
   try {
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: true,
@@ -28,6 +33,9 @@ export async function configurePoppinsSpeakerAudio(): Promise<void> {
 
 /** Playback through the speaker after a live session or Whisper capture ends. */
 export async function restorePoppinsAudio(): Promise<void> {
+  const av = getExpoAv();
+  if (!av) return;
+  const { Audio, InterruptionModeAndroid, InterruptionModeIOS } = av;
   try {
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,

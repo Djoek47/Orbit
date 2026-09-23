@@ -17,6 +17,7 @@ import { resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
 import { orderPoppinsToolCalls, type PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { configurePoppinsSpeakerAudio, restorePoppinsAudio } from '@/lib/voice/audio-route';
+import { getExpoAv } from '@/lib/voice/expo-av-safe';
 import { realtimeTextContent } from '@/lib/voice/realtime-content';
 import { mergeTranscript } from '@/lib/voice/transcript-merge';
 import { formatStageTapUserLine } from '@/lib/poppins/stage-tap';
@@ -186,13 +187,14 @@ function streamHasLiveAudio(stream: MediaStream | null): boolean {
 export async function warmPoppinsMicrophone(): Promise<boolean> {
   const webrtc = loadReactNativeWebRtc();
   if (!webrtc) return false;
-  try {
-    const { Audio } = await import('expo-av');
-    const perm = await Audio.getPermissionsAsync();
-    if (!perm.granted) return false;
-  } catch {
-    return false;
-  }
+    const av = getExpoAv();
+    if (!av) return false;
+    try {
+      const perm = await av.Audio.getPermissionsAsync();
+      if (!perm.granted) return false;
+    } catch {
+      return false;
+    }
   try {
     if (streamHasLiveAudio(warmedMic)) return true;
     releaseWarmedMicrophone();

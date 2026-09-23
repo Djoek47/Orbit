@@ -1,11 +1,13 @@
-import { Audio } from 'expo-av';
-
 import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
 import { toolResultToMonitorAction } from '@/lib/ai/execute-poppins-tool';
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import { resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
 import { POPPINS_TOOL_DEFINITIONS, type PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import {
+  expoAvUnavailableMessage,
+  getExpoAv,
+} from '@/lib/voice/expo-av-safe';
 import {
   startVoiceCapture,
   stopVoiceCapture,
@@ -294,7 +296,13 @@ export class PoppinsRealtimeSession {
 
   async beginListen() {
     this.callbacks.onStateChange?.('listening');
-    await Audio.requestPermissionsAsync();
+    const av = getExpoAv();
+    if (!av) {
+      this.callbacks.onError?.(expoAvUnavailableMessage());
+      this.callbacks.onStateChange?.('idle');
+      return;
+    }
+    await av.Audio.requestPermissionsAsync();
     await startVoiceCapture();
   }
 
