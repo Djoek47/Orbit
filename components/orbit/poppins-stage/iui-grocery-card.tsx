@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
 import { IuiRow } from '@/components/orbit/poppins-stage/iui-row';
+import { IuiTroubleRowFailed } from '@/components/orbit/poppins-stage/iui-trouble';
 import { STAGE, stageMuted } from '@/constants/iui-stage';
 import type { IuiGroupItem, IuiPayload } from '@/lib/poppins/ui-scenes';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
@@ -53,6 +54,9 @@ export function IuiGroceryCard({
         : [];
   const multi = items.length > 1;
   const single = items.length === 1 && !payload.items?.length;
+  const failed = items.filter((item) => item.status === 'failed');
+  const done = items.filter((item) => item.status === 'done');
+  const failedPrimary = failed[0];
 
   return (
     <View style={styles.wrap}>
@@ -100,6 +104,26 @@ export function IuiGroceryCard({
           ))
         )}
       </IuiCard>
+
+      {failedPrimary ? (
+        <IuiTroubleRowFailed
+          accent={accent}
+          failedLabel={failedPrimary.label}
+          savedLine={
+            done.length
+              ? `${done.map((item) => item.label).join(' and ')} ${done.length === 1 ? 'is' : 'are'} on the list. Only ${failedPrimary.label.toLowerCase()} came back.`
+              : `Only ${failedPrimary.label.toLowerCase()} came back.`
+          }
+          onRetry={() => {
+            poppinsUiOrchestrator.patchGroupItemStatus(failedPrimary.id, 'pending');
+            void poppinsUiOrchestrator.confirm({ fromTap: true });
+          }}
+          onLeave={() => {
+            poppinsUiOrchestrator.dropGroupItem(failedPrimary.id);
+            poppinsUiOrchestrator.dismissFailed();
+          }}
+        />
+      ) : null}
 
       {queued.length ? (
         <View

@@ -4,8 +4,8 @@
  * Rule: a card never contains a card.
  */
 import type { ReactNode } from 'react';
-import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AccessibilityInfo, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -58,11 +58,36 @@ export function IuiCard({
   const faint = stageFaint(isDark);
   const scale = useSharedValue(1);
   const ringOpacity = useSharedValue(holding ? 1 : 0);
+  const enterOpacity = useSharedValue(0);
+  const enterY = useSharedValue(8);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    const dur = motionDuration.smooth;
+    enterOpacity.value = withTiming(1, {
+      duration: dur,
+      easing: Easing.out(Easing.cubic),
+    });
+    enterY.value = withTiming(0, {
+      duration: reduceMotion ? 0 : dur,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [enterOpacity, enterY, reduceMotion]);
 
   useEffect(() => {
     if (frozen) return;
     if (holding) {
-      scale.value = withRepeat(withSpring(1.045, motion.snappy), -1, true);
+      if (reduceMotion) {
+        scale.value = withTiming(1, { duration: motionDuration.snappy });
+      } else {
+        scale.value = withRepeat(withSpring(1.045, motion.snappy), -1, true);
+      }
       ringOpacity.value = withTiming(1, { duration: motionDuration.snappy });
     } else {
       scale.value = withSpring(1, motion.snappy);
@@ -71,9 +96,12 @@ export function IuiCard({
         easing: Easing.out(Easing.cubic),
       });
     }
-  }, [frozen, holding, hold, scale, ringOpacity]);
+  }, [frozen, holding, hold, scale, ringOpacity, reduceMotion]);
 
-  const breath = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const breath = useAnimatedStyle(() => ({
+    opacity: enterOpacity.value,
+    transform: [{ scale: scale.value }, { translateY: enterY.value }],
+  }));
   const ringStyle = useAnimatedStyle(() => ({
     borderColor: accent,
     opacity: ringOpacity.value,
@@ -120,7 +148,14 @@ export function IuiCard({
             )}
           </View>
 
-          <View style={styles.body}>{children}</View>
+          <ScrollView
+            style={styles.bodyScroll}
+            contentContainerStyle={styles.body}
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            {children}
+          </ScrollView>
 
           {showFooter ? (
             <View
@@ -194,6 +229,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   countSpacer: { width: 8 },
+  bodyScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+    maxHeight: 420,
+  },
   body: {
     paddingHorizontal: 10,
     paddingBottom: 6,

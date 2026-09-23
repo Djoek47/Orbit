@@ -161,6 +161,8 @@ export type IuiPayload = {
   actMode?: 'silent' | 'spoken';
   /** WO11 — grouped same-kind acts on one card (one HOLD). */
   items?: IuiGroupItem[];
+  /** WO12 §F4 — talking part offline; act still succeeded. */
+  modelOffline?: boolean;
   /** Progress label e.g. "2 of 3". */
   progressLabel?: string;
   /** WO12 §C — slots filled by speech, ordered by character offset. */

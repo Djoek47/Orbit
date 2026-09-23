@@ -1031,6 +1031,27 @@ export const poppinsUiOrchestrator = {
     setState({ commitFailed: false, frozen: false, thinkingLine: '' });
     advanceAfterSettle();
   },
+  /** WO12 §F4 — mark the turn as model-offline without failing the act. */
+  flagModelOffline() {
+    const beat = currentBeat();
+    if (!beat) return;
+    if (beat.scene === 'result_mark' || beat.scene === 'task_done') {
+      patchCurrentPayload({ modelOffline: true });
+      return;
+    }
+    const nextMark = state.playlist.find(
+      (item, i) => i > state.index && (item.scene === 'result_mark' || item.scene === 'task_done')
+    );
+    if (nextMark) {
+      setState({
+        playlist: state.playlist.map((item) =>
+          item.id === nextMark.id
+            ? { ...item, payload: { ...item.payload, modelOffline: true } }
+            : item
+        ),
+      });
+    }
+  },
   /** Tap the settle mark within ~5s to reverse every commit in the turn (newest first). */
   async undoLast() {
     const ledger = state.undoLedger.length

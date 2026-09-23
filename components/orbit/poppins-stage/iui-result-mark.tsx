@@ -33,6 +33,8 @@ type Props = {
   ledger?: LedgerRow[];
   onUndo?: () => void;
   onUndoOne?: (id: string) => void;
+  /** WO12 §F4 — talking part offline; never a failure sentence on success. */
+  modelOffline?: boolean;
 };
 
 const LABEL: Record<NonNullable<Props['kind']>, string> = {
@@ -49,6 +51,7 @@ export function IuiResultMark({
   ledger,
   onUndo,
   onUndoOne,
+  modelOffline,
 }: Props) {
   const { c, isDark } = useOrbitColors();
   const muted = stageMuted(isDark);
@@ -81,6 +84,11 @@ export function IuiResultMark({
         {title ? (
           <Text style={[styles.title, { color: c.text }]} numberOfLines={3}>
             {title}
+          </Text>
+        ) : null}
+        {modelOffline ? (
+          <Text style={[styles.offline, { color: muted }]}>
+            The talking part is offline — everything you asked for still happened.
           </Text>
         ) : null}
       </Animated.View>
@@ -155,6 +163,13 @@ const styles = StyleSheet.create({
     marginTop: space.xxs,
     textAlign: 'center',
     paddingHorizontal: 16,
+  },
+  offline: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
   ledger: {
     width: '100%',

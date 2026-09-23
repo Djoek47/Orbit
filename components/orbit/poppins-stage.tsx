@@ -23,6 +23,7 @@ import { IuiPeek } from '@/components/orbit/poppins-stage/iui-peek';
 import { IuiResultMark } from '@/components/orbit/poppins-stage/iui-result-mark';
 import { IuiRoad } from '@/components/orbit/poppins-stage/iui-road';
 import { IuiStepper } from '@/components/orbit/poppins-stage/iui-stepper';
+import { IuiTroubleMissingSlot } from '@/components/orbit/poppins-stage/iui-trouble';
 import { IuiTripCard } from '@/components/orbit/poppins-stage/iui-trip-card';
 import { TaskComposeSteps } from '@/components/orbit/poppins-stage/task-compose-steps';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
@@ -507,24 +508,45 @@ export function PoppinsStage({
       ) : null}
 
       {beat.scene === 'grocery_add' ? (
-        <IuiGroceryCard
-          payload={payload}
-          accent={stageAccent(beat.scene, payload.write)}
-          hold
-          holdProgress={holdProgress}
-          holding={drive.holding}
-          frozen={drive.frozen}
-          queued={queuedRows}
-          countLabel={groupKicker}
-          onAddNow={() => void poppinsUiOrchestrator.confirm({ fromTap: true })}
-          onNotThat={() => poppinsUiOrchestrator.veto()}
-        />
+        !(payload.groceryName || payload.title || (payload.items && payload.items.length)) ? (
+          <IuiTroubleMissingSlot
+            accent={stageAccent(beat.scene, payload.write)}
+            question="What should I add?"
+            why="I heard the list, not the thing."
+            chips={[
+              { id: 'milk', label: 'Milk' },
+              { id: 'coffee', label: 'Coffee' },
+              { id: 'eggs', label: 'Eggs' },
+            ]}
+            onPick={(_id, label) =>
+              poppinsUiOrchestrator.chooseFromTap(
+                { groceryName: label, title: label },
+                label,
+                'grocery'
+              )
+            }
+          />
+        ) : (
+          <IuiGroceryCard
+            payload={payload}
+            accent={stageAccent(beat.scene, payload.write)}
+            hold
+            holdProgress={holdProgress}
+            holding={drive.holding}
+            frozen={drive.frozen}
+            queued={queuedRows}
+            countLabel={groupKicker}
+            onAddNow={() => void poppinsUiOrchestrator.confirm({ fromTap: true })}
+            onNotThat={() => poppinsUiOrchestrator.veto()}
+          />
+        )
       ) : null}
 
       {beat.scene === 'task_done' ? (
         <IuiResultMark
           kind="done"
           title={payload.title}
+          modelOffline={payload.modelOffline === true}
           undoable={Boolean(drive.undoUntil && Date.now() < drive.undoUntil && poppinsUiOrchestrator.undoCount() > 0)}
           undoLabel={
             poppinsUiOrchestrator.undoCount() > 1
@@ -543,6 +565,7 @@ export function PoppinsStage({
         <IuiResultMark
           kind={payload.markKind ?? 'added'}
           title={payload.title ?? payload.groceryName}
+          modelOffline={payload.modelOffline === true}
           undoable={Boolean(drive.undoUntil && Date.now() < drive.undoUntil && poppinsUiOrchestrator.undoCount() > 0)}
           undoLabel={
             poppinsUiOrchestrator.undoCount() > 1
