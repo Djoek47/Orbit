@@ -335,6 +335,9 @@ export function tourForcesQuietSpeak(): boolean {
 
 type TourUiHooks = {
   setTasksDomain?: (domain: 'chores' | 'homework') => void;
+  setPlanSubTab?: (tab: 'calendar' | 'itinerary') => void;
+  setPlanTripsSection?: (section: 'trips' | 'places') => void;
+  setRewardsSegment?: (segment: 'rewards' | 'allowance' | 'ranks') => void;
 };
 
 let uiHooks: TourUiHooks = {};
@@ -342,16 +345,38 @@ let uiHooks: TourUiHooks = {};
 export function registerTourUiHooks(hooks: TourUiHooks): () => void {
   uiHooks = { ...uiHooks, ...hooks };
   return () => {
-    uiHooks = {};
+    const next = { ...uiHooks };
+    for (const key of Object.keys(hooks) as (keyof TourUiHooks)[]) {
+      if (next[key] === hooks[key]) delete next[key];
+    }
+    uiHooks = next;
   };
 }
 
-export function applyTourStepEnter(onEnter?: 'tasks.homework' | 'forceQuietSpeak'): void {
+export function applyTourStepEnter(
+  onEnter?:
+    | 'tasks.homework'
+    | 'forceQuietSpeak'
+    | 'plan.itineraries'
+    | 'plan.places'
+    | 'rewards.vault'
+): void {
   if (onEnter === 'tasks.homework') {
     uiHooks.setTasksDomain?.('homework');
   }
   if (onEnter === 'forceQuietSpeak') {
     setTourForcesQuiet(true);
+  }
+  if (onEnter === 'plan.itineraries') {
+    uiHooks.setPlanSubTab?.('itinerary');
+    uiHooks.setPlanTripsSection?.('trips');
+  }
+  if (onEnter === 'plan.places') {
+    uiHooks.setPlanSubTab?.('itinerary');
+    uiHooks.setPlanTripsSection?.('places');
+  }
+  if (onEnter === 'rewards.vault') {
+    uiHooks.setRewardsSegment?.('rewards');
   }
 }
 

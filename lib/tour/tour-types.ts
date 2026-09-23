@@ -19,6 +19,7 @@ export type TourEventName =
   | 'reward_created'
   | 'allowance_created'
   | 'poppins_act_committed'
+  | 'poppins_spoke'
   | 'member_created'
   | 'shared_device_set_up'
   | 'task_completed'
@@ -44,16 +45,22 @@ export type TourTargetId =
   | 'assign.form'
   | 'plan.addButton'
   | 'plan.viewSegment'
+  | 'plan.smartTrips'
+  | 'plan.myPlaces'
+  | 'plan.addPlace'
+  | 'plan.newTrip'
   | 'groceries.search'
   | 'groceries.aisles'
   | 'groceries.storeRun'
   | 'rewards.segment'
+  | 'rewards.vault'
   | 'rewards.createReward'
   | 'rewards.createAllowance'
   | 'rewards.holdRequest'
   | 'poppins.speak'
   | 'poppins.stage'
   | 'poppins.meter'
+  | 'poppins.mode'
   | 'settings.members'
   | 'members.addMember'
   | 'members.sharedIpad'
@@ -76,7 +83,12 @@ export type TourStep = {
   /** Centred card with no spotlight target (step can show while the stage is live). */
   centered?: boolean;
   /** Side effect when the step becomes active (e.g. switch domain tab). */
-  onEnter?: 'tasks.homework' | 'forceQuietSpeak';
+  onEnter?:
+    | 'tasks.homework'
+    | 'forceQuietSpeak'
+    | 'plan.itineraries'
+    | 'plan.places'
+    | 'rewards.vault';
   /** Override primary button label (default Next / Done). */
   primaryLabel?: string;
   /** Special primary action instead of advancing. */

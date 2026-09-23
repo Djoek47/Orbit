@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { PoppinsCard } from '@/components/orbit/poppins-card';
@@ -37,6 +37,7 @@ import {
   visibleEventsForMember,
   visibleTasksForMember,
 } from '@/lib/calendar/plan-visibility';
+import { registerTourUiHooks } from '@/lib/tour/tour-store';
 import { homeworkSubjectMeta } from '@/lib/tasks/homework-subject';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
@@ -87,11 +88,19 @@ export default function PlanScreen() {
   const { c, glass, glassBorder } = useOrbitColors();
   const [buildingTrip, setBuildingTrip] = useState(false);
   const [subTab, setSubTab] = useState<PlanSubTab>('calendar');
+  const [tripsSection, setTripsSection] = useState<'trips' | 'places'>('trips');
   const [view, setView] = useState<CalView>('month');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [layerFilter, setLayerFilter] = useState<PlanLayerFilter>('all');
   const [planAddOpen, setPlanAddOpen] = useState(false);
+
+  useEffect(() => {
+    return registerTourUiHooks({
+      setPlanSubTab: (tab) => setSubTab(tab),
+      setPlanTripsSection: (section) => setTripsSection(section),
+    });
+  }, []);
 
   const focusedCalendar = usesFocusedCalendar(currentMember?.role);
 
@@ -560,7 +569,11 @@ export default function PlanScreen() {
           </View>
         </>
       ) : (
-        <PlanTripsPanel selectedDateKey={selectedKey} />
+        <PlanTripsPanel
+          selectedDateKey={selectedKey}
+          section={tripsSection}
+          onSectionChange={setTripsSection}
+        />
       )}
     </ScrollView>
     <PlanAddSheet visible={planAddOpen} onDismiss={() => setPlanAddOpen(false)} />

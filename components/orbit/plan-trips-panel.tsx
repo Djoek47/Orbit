@@ -9,6 +9,7 @@ import { MyPlacesPanel } from '@/components/orbit/my-places-panel';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RouteSteps, type RouteStepItem } from '@/components/orbit/route-steps';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { usePoppinsLive } from '@/lib/poppins/live-context';
@@ -267,7 +268,15 @@ function TripCard({
 /**
  * Full Poppins Smart Trips experience — Design 8 glass + My Places segment.
  */
-export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string }) {
+export function PlanTripsPanel({
+  selectedDateKey,
+  section: sectionProp,
+  onSectionChange,
+}: {
+  selectedDateKey: string;
+  section?: TripsSection;
+  onSectionChange?: (section: TripsSection) => void;
+}) {
   const {
     accentTheme,
     askPoppins,
@@ -279,12 +288,16 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
   const poppinsLive = usePoppinsLive();
   const majordomoName = useMajordomoName();
   const { c, glass, glassBorder } = useOrbitColors();
-  const [section, setSection] = useState<TripsSection>('trips');
+  const [sectionLocal, setSectionLocal] = useState<TripsSection>('trips');
+  const section = sectionProp ?? sectionLocal;
+  const setSection = (next: TripsSection) => {
+    if (onSectionChange) onSectionChange(next);
+    else setSectionLocal(next);
+  };
   const [mode, setMode] = useState<SuggestMode>('efficient');
   const [busy, setBusy] = useState(false);
   const [highlightPreferred, setHighlightPreferred] = useState(false);
   const [askHint, setAskHint] = useState('');
-
   const itineraries = household.itineraries ?? [];
   const activeTrips = itineraries.filter((t) => t.status !== 'completed');
   const preferredTrips = itineraries.filter((t) => t.favorite);
@@ -367,6 +380,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
       </View>
 
       {/* Smart Trips | My Places */}
+      <TourTarget id="plan.smartTrips">
       <View
         style={[
           styles.segment,
@@ -418,9 +432,16 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
           );
         })}
       </View>
+      </TourTarget>
 
       {section === 'places' ? (
-        <MyPlacesPanel compact showFab />
+        <TourTarget id="plan.myPlaces">
+          <View>
+            <TourTarget id="plan.addPlace">
+              <MyPlacesPanel compact showFab />
+            </TourTarget>
+          </View>
+        </TourTarget>
       ) : (
         <>
           <LinearGradient
@@ -503,6 +524,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
             })}
           </View>
 
+          <TourTarget id="plan.newTrip">
           <View style={styles.composeRow}>
             <ComposeChip
               icon="add"
@@ -533,6 +555,7 @@ export function PlanTripsPanel({ selectedDateKey }: { selectedDateKey: string })
               }}
             />
           </View>
+          </TourTarget>
 
           {askHint ? (
             <Text style={[styles.emptyTripsBody, { color: c.textMuted, marginBottom: 8 }]}>{askHint}</Text>
