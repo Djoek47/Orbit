@@ -194,7 +194,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'add_grocery',
     description:
-      'Groceries and household supplies belong to the whole household. Never ask who they are for and never pass an assignee. Use this — not create_task_draft — for anything to buy. Stage an item on the IUI grocery/shopping card. HOLD silence commits. Clothing, sneakers, Jordan drops go on the shopping lane. If it releases in the future, also call create_calendar_event for that date. Never navigate_to Groceries unless they asked to open the list themselves.',
+      'Groceries and household supplies belong to the whole household. Never ask who they are for and never pass an assignee. A grocery or shopping-list item is never assigned to a person. Never emit member_pick, list_members or an assignee for add_grocery. Use this — not create_task_draft — for anything to buy. Stage an item on the IUI grocery/shopping card. HOLD silence commits. Clothing, sneakers, Jordan drops go on the shopping lane. If it releases in the future, also call create_calendar_event for that date. Never navigate_to Groceries unless they asked to open the list themselves.',
     parameters: {
       type: 'object',
       properties: {
@@ -519,7 +519,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'present_ui_scene',
     description:
-      'Advance a closed IUI beat (thinking, task_compose, calendar_zoom, itinerary_stage, grocery_add, reward_mint, list_peek, member_pick, confirm, navigate_coach, task_done, result_mark). Never invent widgets. Prefer create_task_draft / add_grocery over navigate_coach. After HOLD, the task exists — say assigned, never draft.',
+      'Advance a closed IUI beat (thinking, task_compose, calendar_zoom, itinerary_stage, grocery_add, reward_mint, list_peek, member_pick, confirm, navigate_coach, task_done, result_mark). Never invent widgets. Prefer create_task_draft / add_grocery over navigate_coach. After HOLD, the task exists — say assigned, never draft. A grocery or shopping-list item is never assigned to a person — never emit member_pick, list_members or an assignee for add_grocery / grocery_add.',
     parameters: {
       type: 'object',
       properties: {

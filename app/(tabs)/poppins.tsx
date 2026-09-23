@@ -39,6 +39,8 @@ import {
   confirmationForLocalWrite,
   findLocalWriteBeat,
 } from '@/lib/poppins/local-act-confirm';
+import { filterDuplicateUiActions } from '@/lib/poppins/act-ledger';
+import { parseCompoundHouseholdIntent } from '@/lib/poppins/clause-segment';
 import {
   isContinuityFresh,
   loadIuiContinuity,
@@ -447,7 +449,26 @@ export default function PoppinsScreen() {
 
   const applyUiActions = (actions: Array<Record<string, unknown>>, replace = false) => {
     if (!actions.length) return;
-    driveAiuic(actions, lastUtteranceRef.current, {
+    // B1 — model-only member_pick while the utterance is a grocery add: keep local.
+    const onlyMemberPick =
+      actions.length > 0 &&
+      actions.every((a) => {
+        const t = String(a.type ?? '');
+        return t === 'member_pick' || t === 'list_members';
+      });
+    if (onlyMemberPick) {
+      const local = parseCompoundHouseholdIntent(lastUtteranceRef.current, {
+        memberNames: memberNamesRef.current,
+        selfName: currentMember?.name,
+        existingTasks: household.tasks,
+      });
+      if (local.some((a) => String(a.type) === 'add_grocery')) {
+        return;
+      }
+    }
+    const deduped = filterDuplicateUiActions(actions);
+    if (!deduped.length) return;
+    driveAiuic(deduped, lastUtteranceRef.current, {
       kid: kidSessionRef.current,
       replace,
       existingTasks: household.tasks,
