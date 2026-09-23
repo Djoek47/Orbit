@@ -63,6 +63,25 @@ export function homeworkDomain(): TaskDomain | undefined {
   return TASK_LIBRARY.domains.find((d) => d.tab === 'homework');
 }
 
+/** Human category for headers. `trash_recycling` → Trash, never the storage id. */
+export function categoryDisplayLabel(category: string | null | undefined): string {
+  const raw = (category ?? '').trim();
+  if (!raw) return 'Task';
+  const key = raw.toLowerCase().replace(/[\s-]+/g, '_');
+  const domain = TASK_LIBRARY.domains.find(
+    (item) =>
+      item.id === key ||
+      item.shortName?.toLowerCase() === raw.toLowerCase() ||
+      item.name.toLowerCase() === raw.toLowerCase()
+  );
+  if (domain?.shortName) return domain.shortName;
+  if (domain?.name) return domain.name;
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export function allLibraryTasks(): LibraryTask[] {
   return TASK_LIBRARY.domains.flatMap((d) => d.groups.flatMap((g) => g.tasks));
 }

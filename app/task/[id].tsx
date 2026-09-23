@@ -1,12 +1,11 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { XpWheel } from '@/components/orbit/xp-wheel';
-import { OrbitButton } from '@/components/orbit/orbit-button';
 import {
   TaskProofReplySheet,
   TaskProofRequestSheet,
@@ -32,6 +31,7 @@ import {
 import { isTaskLate } from '@/lib/tasks/xp';
 import { displayDueLabel } from '@/lib/tasks/due-label';
 import { TASK_REPEAT_CHOICES } from '@/lib/tasks/series-edit';
+import { categoryDisplayLabel } from '@/lib/tasks/task-library';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
@@ -162,9 +162,7 @@ export default function TaskDetailScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <Text style={[styles.missingTitle, { color: c.text }]}>Task not found</Text>
         <View style={{ paddingHorizontal: 20 }}>
-          <OrbitButton tone="secondary" onPress={() => router.back()}>
-            Back
-          </OrbitButton>
+          <DetailAction label="Back" onPress={() => router.back()} />
         </View>
       </View>
     );
@@ -446,7 +444,7 @@ export default function TaskDetailScreen() {
           <MaterialIcons name="close" size={18} color={c.textMuted} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={[styles.kicker, { color: c.textMuted }]}>{task.category}</Text>
+          <Text style={[styles.kicker, { color: c.textMuted }]}>{categoryDisplayLabel(task.category)}</Text>
           <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>
             {editing ? 'Edit task' : 'Task'}
           </Text>
@@ -858,41 +856,42 @@ export default function TaskDetailScreen() {
         )}
 
         {editing ? (
-          <View style={[styles.actionStack, { backgroundColor: glass(0.05), borderColor: glassBorder(0.12) }]}>
-            <OrbitButton
+          <View style={styles.actionStack}>
+            <DetailAction
               disabled={busy || title.trim().length < 2}
               loading={busy}
-              onPress={() => void handleSave()}>
-              Save changes
-            </OrbitButton>
-            <OrbitButton tone="secondary" disabled={busy} onPress={() => setEditing(false)}>
-              Cancel
-            </OrbitButton>
+              label="Save changes"
+              onPress={() => void handleSave()}
+            />
+            <DetailAction disabled={busy} label="Cancel" onPress={() => setEditing(false)} />
           </View>
         ) : (
-          <View style={[styles.actionStack, { backgroundColor: glass(0.05), borderColor: glassBorder(0.12) }]}>
+          <View style={styles.actionStack}>
             {task.status !== 'Completed' &&
             task.status !== 'Cancelled' &&
             canCompleteMine ? (
-              <OrbitButton onPress={() => void handleComplete(split ? currentMember?.name : undefined)}>
-                {split ? 'Mark my share complete' : 'Mark complete'}
-              </OrbitButton>
+              <DetailAction
+                label={split ? 'Mark my share complete' : 'Mark complete'}
+                onPress={() => void handleComplete(split ? currentMember?.name : undefined)}
+              />
             ) : null}
             {needsProof &&
             !proofReady &&
             canCompleteMine &&
             (task.status === 'Completed' || (split && myShare?.status === 'Completed')) ? (
               <TourTarget id="tasks.proof">
-                <OrbitButton
+                <DetailAction
                   disabled={proofBusy}
                   loading={proofBusy}
-                  onPress={() => void handleAttachProof(split ? currentMember?.name : undefined)}>
-                  {myProofStatus === 'rejected'
-                    ? 'Re-attach proof photo'
-                    : split
-                      ? 'Attach my proof photo'
-                      : 'Attach proof photo'}
-                </OrbitButton>
+                  label={
+                    myProofStatus === 'rejected'
+                      ? 'Re-attach proof photo'
+                      : split
+                        ? 'Attach my proof photo'
+                        : 'Attach proof photo'
+                  }
+                  onPress={() => void handleAttachProof(split ? currentMember?.name : undefined)}
+                />
               </TourTarget>
             ) : null}
             {needsProof &&
@@ -966,12 +965,12 @@ export default function TaskDetailScreen() {
               task.proofStatus === 'submitted') &&
             v2Permissions.canApproveCompletion ? (
               <>
-                <OrbitButton
+                <DetailAction
                   disabled={proofBusy}
                   loading={proofBusy}
-                  onPress={() => void handleConfirm()}>
-                  Confirm
-                </OrbitButton>
+                  label="Confirm"
+                  onPress={() => void handleConfirm()}
+                />
                 {canAskForPhoto ? (
                   <Pressable
                     disabled={proofBusy}
@@ -1021,7 +1020,7 @@ export default function TaskDetailScreen() {
               </>
             ) : null}
             {needsSidekickProofReply ? (
-              <OrbitButton onPress={() => setReplySheetOpen(true)}>Add a photo</OrbitButton>
+              <DetailAction label="Add a photo" onPress={() => setReplySheetOpen(true)} />
             ) : null}
             {split && myShare?.status === 'Completed' && task.status !== 'Completed' ? (
               <View style={[styles.waitCard, { borderColor: glassBorder(0.12), backgroundColor: glass(0.05) }]}>
@@ -1032,21 +1031,19 @@ export default function TaskDetailScreen() {
               </View>
             ) : null}
             {canSendReminder ? (
-              <OrbitButton
-                tone="secondary"
+              <DetailAction
                 disabled={reminderBusy}
                 loading={reminderBusy}
-                onPress={handleSendReminder}>
-                Send reminder
-              </OrbitButton>
+                label="Send reminder"
+                onPress={handleSendReminder}
+              />
             ) : null}
             {canAdjust && isOpenWork ? (
-              <OrbitButton
-                tone="secondary"
+              <DetailAction
                 disabled={busy}
-                onPress={() => void skipToday()}>
-                {task.repeat !== 'None' ? 'Skip today' : 'Cancel task'}
-              </OrbitButton>
+                label={task.repeat !== 'None' ? 'Skip today' : 'Cancel task'}
+                onPress={() => void skipToday()}
+              />
             ) : null}
             {task.status === 'Cancelled' ? (
               <View style={[styles.waitCard, { borderColor: glassBorder(0.1), backgroundColor: glass(0.04) }]}>
@@ -1128,6 +1125,42 @@ export default function TaskDetailScreen() {
         }}
       />
     </View>
+  );
+}
+
+function DetailAction({
+  label,
+  onPress,
+  disabled = false,
+  loading = false,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  const { accentTheme } = useOrbit();
+  const { c } = useOrbitColors();
+  const inactive = disabled || loading;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      disabled={inactive}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.detailAction,
+        {
+          backgroundColor: accentTheme.primary,
+          opacity: inactive ? 0.5 : pressed ? 0.88 : 1,
+        },
+      ]}>
+      {loading ? (
+        <ActivityIndicator color={c.ink} />
+      ) : (
+        <Text style={[typography.headline, { color: c.ink, fontWeight: '700' }]}>{label}</Text>
+      )}
+    </Pressable>
   );
 }
 
@@ -1295,12 +1328,17 @@ const styles = StyleSheet.create({
   },
   waitText: { flex: 1, fontSize: 13, fontWeight: '700' },
   actionStack: {
-    borderCurve: 'continuous',
-    borderRadius: 24,
-    borderWidth: 1,
     gap: 10,
-    marginTop: 16,
-    padding: 14,
+    marginTop: 8,
+  },
+  detailAction: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    justifyContent: 'center',
+    minHeight: 54,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   ghostDanger: {
     alignItems: 'center',
