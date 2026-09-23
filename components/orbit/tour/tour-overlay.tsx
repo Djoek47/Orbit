@@ -1,6 +1,8 @@
 /**
- * Tour overlay — always on top (FullWindowOverlay / Modal), safe placement,
- * Exit pill + watchdog. Work Order 9.3 §3.1–3.4, §3.7.
+ * Tour overlay — safe placement, Exit pill + watchdog.
+ * Info steps render inline so Home (etc.) can scroll under the coach card.
+ * Action steps on iOS use FullWindowOverlay to float above assign/create modals.
+ * Work Order 9.3 §3.1–3.4, §3.7.
  */
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -198,7 +200,7 @@ function TourOverlayBody({
   const exitLabel = c.ink;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View style={[StyleSheet.absoluteFill, styles.root]} pointerEvents="box-none">
       {/* Dim + cutout as four rectangles (no SVG mask — reliable on iOS / Reanimated). */}
       <View
         style={[StyleSheet.absoluteFill, styles.dimLayer]}
@@ -394,7 +396,10 @@ function TourOverlayBody({
 }
 
 export function TourOverlay(props: Props) {
-  if (Platform.OS === 'ios') {
+  // Info steps stay inline so the screen under the coach card can scroll.
+  // FullWindowOverlay (iOS) sits in its own window and eats pan gestures —
+  // only use it for action steps that must float above assign / create modals.
+  if (Platform.OS === 'ios' && props.isAction) {
     return (
       <FullWindowOverlay>
         <TourOverlayBody {...props} />
@@ -402,12 +407,14 @@ export function TourOverlay(props: Props) {
     );
   }
 
-  // Inline on every step. A Modal sits in its own window and blocks scrolling
-  // the screen under the coach card (and ate cutout taps on action steps).
   return <TourOverlayBody {...props} />;
 }
 
 const styles = StyleSheet.create({
+  root: {
+    elevation: 80,
+    zIndex: 80,
+  },
   dimLayer: {
     elevation: 1,
     zIndex: 1,
