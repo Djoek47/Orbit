@@ -834,49 +834,53 @@ export function TourProvider({ children }: PropsWithChildren) {
   if (!tourEnabled) {
     return (
       <TourRegistryContext.Provider value={registry}>
-        {children}
+        <View style={{ flex: 1 }} collapsable={false}>
+          {children}
+        </View>
       </TourRegistryContext.Provider>
     );
   }
 
   return (
     <TourRegistryContext.Provider value={registry}>
-      {children}
-      <TourErrorBoundary onCrash={handleTourCrash}>
-        <TourWelcome
-          visible={welcomeOpen && Boolean(household?.id && currentMember?.id)}
-          title={welcomeTitle}
-          body={welcomeBody}
-          primaryLabel={def.welcomePrimary}
-          secondaryLabel={def.welcomeSecondary}
-          onStart={() => startTour(tourId)}
-          onSkip={handleWelcomeSkip}
-        />
-        {pointer && !paused ? (
-          <TourOverlay
-            target={pointer.step.centered ? null : targetRect}
-            chapterName={speakAs(majordomoName, pointer.chapter.name)}
-            title={speakAs(majordomoName, pointer.step.title)}
-            body={speakAs(majordomoName, pointer.step.body)}
-            stepLabel={`${pointer.stepOrdinal} of ${pointer.stepsInChapter}`}
-            stepIndex={pointer.stepIndex}
-            stepsInChapter={pointer.stepsInChapter}
-            isAction={isAction}
-            lockCutout={lockCutout}
-            isLast={isLast}
-            centered={Boolean(pointer.step.centered)}
-            primaryLabel={pointer.step.primaryLabel}
-            cardRef={cardRef}
-            onNext={handleNext}
-            onBack={canGoBack ? handleBack : undefined}
-            onSkipChapter={handleSkipChapter}
-            onSkipStep={handleSkipStep}
-            onClose={handleClose}
-            onWatchdogSkip={handleWatchdogSkip}
-            onCardReady={handleCardReady}
+      <View style={{ flex: 1 }} collapsable={false}>
+        {children}
+        <TourErrorBoundary onCrash={handleTourCrash}>
+          <TourWelcome
+            visible={welcomeOpen && Boolean(household?.id && currentMember?.id)}
+            title={welcomeTitle}
+            body={welcomeBody}
+            primaryLabel={def.welcomePrimary}
+            secondaryLabel={def.welcomeSecondary}
+            onStart={() => startTour(tourId)}
+            onSkip={handleWelcomeSkip}
           />
-        ) : null}
-      </TourErrorBoundary>
+          {pointer && !paused ? (
+            <TourOverlay
+              target={pointer.step.centered ? null : targetRect}
+              chapterName={speakAs(majordomoName, pointer.chapter.name)}
+              title={speakAs(majordomoName, pointer.step.title)}
+              body={speakAs(majordomoName, pointer.step.body)}
+              stepLabel={`${pointer.stepOrdinal} of ${pointer.stepsInChapter}`}
+              stepIndex={pointer.stepIndex}
+              stepsInChapter={pointer.stepsInChapter}
+              isAction={isAction}
+              lockCutout={lockCutout}
+              isLast={isLast}
+              centered={Boolean(pointer.step.centered)}
+              primaryLabel={pointer.step.primaryLabel}
+              cardRef={cardRef}
+              onNext={handleNext}
+              onBack={canGoBack ? handleBack : undefined}
+              onSkipChapter={handleSkipChapter}
+              onSkipStep={handleSkipStep}
+              onClose={handleClose}
+              onWatchdogSkip={handleWatchdogSkip}
+              onCardReady={handleCardReady}
+            />
+          ) : null}
+        </TourErrorBoundary>
+      </View>
     </TourRegistryContext.Provider>
   );
 }
