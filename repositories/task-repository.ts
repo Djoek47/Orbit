@@ -293,6 +293,89 @@ export const taskRepository = {
     return data ? mergeTaskRow(data, next) : next;
   },
 
+  /**
+   * Skip today / cancel occurrence — minimal patch like completeTask.
+   * Full updateTask payloads often fail on staging when optional columns or
+   * null difficulty trip constraints; cancel only needs status + due label
+   * (+ stop-series repeat when scope is future).
+   */
+  async cancelTask(
+    task: HouseholdTask,
+    options: { stopSeries?: boolean } = {}
+  ): Promise<HouseholdTask> {
+    const stopSeries = Boolean(options.stopSeries && task.repeat !== 'None');
+    const cancelled: HouseholdTask = {
+      ...task,
+      status: 'Cancelled',
+      repeat: stopSeries ? 'None' : task.repeat,
+      due: stopSeries ? 'Cancelled · series stopped' : 'Cancelled',
+    };
+
+    if (isMockMode()) {
+      mockTasksState = mockTasksState.map((item) => (item.id === cancelled.id ? cancelled : item));
+      return cancelled;
+    }
+
+    const supabase = getConfiguredSupabase('taskRepository.cancelTask');
+    const payload: Record<string, unknown> = {
+      status: 'cancelled',
+      due_label: cancelled.due,
+    };
+    if (stopSeries) {
+      payload.repeat_rule = 'none';
+    }
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update(payload as never)
+      .eq('id', task.id)
+      .select('*')
+      .single();
+
+    mapDbError('taskRepository.cancelTask', error);
+
+    return data ? mergeTaskRow(data, cancelled) : cancelled;
+  },
+
+  /**
+   * Admin “Mark not done” — reverse a completion with a minimal patch
+   * (same rationale as cancelTask / completeTask).
+   */
+  async revertCompletion(task: HouseholdTask): Promise<HouseholdTask> {
+    const next: HouseholdTask = {
+      ...task,
+      title: task.title.trim(),
+      due: task.due.trim(),
+    };
+
+    if (isMockMode()) {
+      mockTasksState = mockTasksState.map((item) => (item.id === next.id ? next : item));
+      return next;
+    }
+
+    const supabase = getConfiguredSupabase('taskRepository.revertCompletion');
+    const payload = {
+      status: taskStatusToDb(next.status),
+      due_label: next.due,
+      awarded_xp: 0,
+      completed_at: null,
+      completed_late: false,
+      verification: next.verification ?? 'rejected',
+      proof_status: next.proofStatus ?? null,
+    };
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update(payload as never)
+      .eq('id', next.id)
+      .select('*')
+      .single();
+
+    mapDbError('taskRepository.revertCompletion', error);
+
+    return data ? mergeTaskRow(data, next) : next;
+  },
+
   async deleteTask(taskId: string): Promise<void> {
     if (isMockMode()) {
       mockTasksState = mockTasksState.filter((item) => item.id !== taskId);

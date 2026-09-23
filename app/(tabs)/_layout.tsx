@@ -8,6 +8,7 @@ import { MakeTabBar } from '@/components/orbit/make-tab-bar';
 import { loadDeviceSession } from '@/lib/device/device-session';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { loadOnboardingPrefs, type OnboardingRole } from '@/lib/onboarding-prefs';
+import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
 import { useOrbit } from '@/store/orbit-store';
 
 /** Map household role → onboarding role for tab visibility. */
@@ -76,7 +77,10 @@ export default function TabLayout() {
 
   const showPlan = true;
   const showRewards = true;
-  const showPoppins = uiRole !== 'child';
+  const showPoppins = canShowPoppinsTab({
+    role: currentMember?.role,
+    sidekickPoppinsAi: household.sidekickPoppinsAi,
+  });
 
   return (
     <View style={[styles.shell, { backgroundColor: orbitPalette.background }]}>

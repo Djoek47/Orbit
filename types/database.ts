@@ -32,6 +32,7 @@ export type HouseholdRow = {
   join_approval_required?: boolean | null;
   /** Revision G — household-level, default off. */
   sidekick_grocery_add?: boolean | null;
+  sidekick_poppins_ai?: boolean | null;
   deleted_at?: string | null;
   deletion_scheduled_for?: string | null;
   deletion_requested_by?: string | null;

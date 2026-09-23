@@ -12,6 +12,8 @@ export type TaskVerification =
 
 export type ProofRound = {
   note?: string;
+  /** Sidekick written reply when they answer a proof request. */
+  responseNote?: string;
   requestedAt: string;
   requestedByMemberId?: string;
 };

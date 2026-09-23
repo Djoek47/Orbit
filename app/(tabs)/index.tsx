@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -42,6 +42,7 @@ import { formatLocalDate } from '@/lib/streaks/local-date';
 import { visibleEventsForMember } from '@/lib/calendar/plan-visibility';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
 import { greetingWord } from '@/lib/time/greeting';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -339,7 +340,14 @@ export default function HomeScreen() {
         <PoppinsCard
           kind="morningBrief"
           message={poppinsBriefing.summary}
-          actions={[{ label: 'Open Poppins', onPress: () => router.push('/(tabs)/poppins' as never) }]}
+          actions={
+            canShowPoppinsTab({
+              role: currentMember?.role,
+              sidekickPoppinsAi: household.sidekickPoppinsAi,
+            })
+              ? [{ label: 'Open Poppins', onPress: () => router.push('/(tabs)/poppins' as never) }]
+              : []
+          }
         />
 
         {v2Permissions.canApproveCompletion && pendingApprovals.length > 0 ? (
@@ -372,14 +380,30 @@ export default function HomeScreen() {
                   </Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => void requestAnotherProof(task.id)}
+                  onPress={() => {
+                    void requestAnotherProof(task.id).catch((error: unknown) => {
+                      const detail =
+                        error instanceof Error && error.message
+                          ? error.message
+                          : 'Try again in a moment.';
+                      Alert.alert('Couldn’t request proof', detail);
+                    });
+                  }}
                   style={[styles.approvalBtn, { backgroundColor: glass(0.08) }]}>
                   <Text style={{ color: c.textMuted, fontWeight: '700', fontSize: 12 }}>
                     Ask photo
                   </Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => void markNotDone(task.id)}
+                  onPress={() => {
+                    void markNotDone(task.id).catch((error: unknown) => {
+                      const detail =
+                        error instanceof Error && error.message
+                          ? error.message
+                          : 'Try again in a moment.';
+                      Alert.alert('Couldn’t undo', detail);
+                    });
+                  }}
                   style={[styles.approvalBtn, { backgroundColor: 'rgba(248,113,113,0.12)' }]}>
                   <Text style={{ color: '#F87171', fontWeight: '700', fontSize: 12 }}>
                     Not done
