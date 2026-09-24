@@ -8,7 +8,7 @@ import { resolveBaseUtterance } from '@/lib/poppins/base-utterance';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 
 async function main() {
-  poppinsUiOrchestrator.reset();
+  poppinsUiOrchestrator.clear();
 
   const result = await resolveBaseUtterance('add jam to the list', {
     memberNames: ['Nero', 'Mia'],

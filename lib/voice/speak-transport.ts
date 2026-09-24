@@ -3,9 +3,6 @@
  * WO15 §1.1: gate the mic by transport, never by WebRTC alone.
  */
 
-import { loadExpoAudio } from '@/lib/voice/mic-capture';
-import { isPoppinsNativeVoiceAvailable } from '@/lib/voice/poppins-voice-session';
-
 export type SpeakTransport = 'quiet' | 'realtime';
 
 export function speakTransportForPrefs(speakBack: boolean): SpeakTransport {
@@ -17,14 +14,26 @@ export function usesPoppinsVoiceSession(transport: SpeakTransport): boolean {
   return transport === 'realtime';
 }
 
-/** Base / Quiet needs only expo-audio. */
+/** Base / Quiet needs only expo-audio. Lazy require keeps Node tests free of RN. */
 export function quietCaptureAvailable(): boolean {
-  return loadExpoAudio() != null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { loadExpoAudio } = require('@/lib/voice/mic-capture') as typeof import('@/lib/voice/mic-capture');
+    return loadExpoAudio() != null;
+  } catch {
+    return false;
+  }
 }
 
 /** Max / Speak back needs the WebRTC native module + flag. */
 export function realtimeCaptureAvailable(): boolean {
-  return isPoppinsNativeVoiceAvailable();
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { isPoppinsNativeVoiceAvailable } = require('@/lib/voice/poppins-voice-session') as typeof import('@/lib/voice/poppins-voice-session');
+    return isPoppinsNativeVoiceAvailable();
+  } catch {
+    return false;
+  }
 }
 
 export type MicUiKind =

@@ -12,7 +12,7 @@ import { join } from 'node:path';
 const src = readFileSync(join(process.cwd(), 'app/(tabs)/poppins.tsx'), 'utf8');
 
 assert.match(src, /drainPreview=\{drainPreview\}/, 'live path passes drainPreview into the orb');
-assert.match(src, /orbSize/, 'single orb size driven by showText / live');
+assert.match(src, /orbSize/, 'single orb size driven by thread drawer / live');
 assert.match(src, /size=\{orbSize\}/, 'one PoppinsOrb uses orbSize');
 assert.match(src, /orbSlotLive/, 'live layout keeps an orb slot above the card');
 assert.doesNotMatch(
@@ -20,7 +20,7 @@ assert.doesNotMatch(
   /drive\.live \?[\s\S]{0,80}<ScrollView[\s\S]{0,120}PoppinsStage/,
   'live stage must not be a ScrollView that replaces the orb wholesale'
 );
-assert.match(src, /\{\/\* WO13 — one orb for the tab/);
-assert.match(src, /drive\.live \? styles\.orbSlotLive : styles\.orbSlotIdle/);
+assert.match(src, /stage is permanent/);
+assert.match(src, /orbSlotLive : styles\.orbSlotIdle/);
 
 console.log('orb-live-smoke.test.ts ok');

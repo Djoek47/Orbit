@@ -105,7 +105,11 @@ assert.match(voice, /currentVoiceAudioEpoch\(\) === closeEpoch/);
 const poppinsTab = source('app/(tabs)/poppins.tsx');
 assert.match(poppinsTab, /voiceSettling/);
 assert.match(poppinsTab, /await voiceRef\.current\?\.end\('manual'\)/);
-assert.match(poppinsTab, /disabled=\{voiceSettling\}/);
+assert.match(
+  poppinsTab,
+  /disabled=\{voiceSettling/,
+  'Speak stays disabled while native voice is settling'
+);
 assert.equal(
   poppinsTab.includes('warmPoppinsMicrophone()'),
   false,

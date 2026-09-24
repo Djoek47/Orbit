@@ -332,7 +332,7 @@ export default function PoppinsScreen() {
     const copy = copyIuiVoiceError(raw);
     console.warn('[poppins-voice] surface', copy.kind, copy.detail || raw);
     setError(copy.message);
-    if (copy.kind === 'mic_denied') setShowText(true);
+    if (copy.kind === 'mic_denied') setThreadOpen(true);
     setConnecting(false);
     setLiveConnected(false);
     setVoiceState('idle');
@@ -901,10 +901,7 @@ export default function PoppinsScreen() {
         }
 
         setNothingHeard(
-          failed === 'no_audio' ||
-            failed === 'too_short' ||
-            failed === 'transcribe_failed' ||
-            failed === 'empty_transcript'
+          failed === 'no_audio' || failed === 'transcribe_failed' || failed === 'empty_transcript'
             ? failed
             : 'empty_transcript'
         );
