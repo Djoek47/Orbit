@@ -8,10 +8,13 @@ import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
 import { IuiChips } from '@/components/orbit/poppins-stage/iui-chips';
 import { IuiRow } from '@/components/orbit/poppins-stage/iui-row';
 import { STAGE, stageMuted } from '@/constants/iui-stage';
+import { eventLeaveByLine } from '@/lib/poppins/event-leave-by';
 import type { IuiPayload } from '@/lib/poppins/ui-scenes';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdEvent } from '@/types/orbit';
+
+export { eventLeaveByLine };
 
 type Props = {
   payload: IuiPayload;
@@ -57,31 +60,6 @@ export function eventClashLine(
   if (!others.length) return 'Nothing else that afternoon.';
   const names = others.slice(0, 2).map((event) => event.title);
   return `Clashes with ${names.join(' and ')}.`;
-}
-
-/** Leave-by hint from time — on-device, never invents traffic. */
-export function eventLeaveByLine(payload: IuiPayload): string | null {
-  const time = (payload.time ?? '').trim();
-  if (!time) return null;
-  // Parse "4:30 PM" / "16:30" loosely — suggest leave ~30m earlier when a place exists.
-  const match = time.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
-  if (!match) return null;
-  let hour = Number(match[1]);
-  const mins = Number(match[2] ?? '0');
-  const mer = (match[3] ?? '').toLowerCase();
-  if (mer === 'pm' && hour < 12) hour += 12;
-  if (mer === 'am' && hour === 12) hour = 0;
-  let leaveMins = hour * 60 + mins - 30;
-  if (leaveMins < 0) leaveMins += 24 * 60;
-  const lh = Math.floor(leaveMins / 60) % 24;
-  const lm = leaveMins % 60;
-  const displayH = ((lh + 11) % 12) + 1;
-  const ampm = lh >= 12 ? 'PM' : 'AM';
-  const label = `${displayH}:${lm.toString().padStart(2, '0')} ${ampm}`;
-  if (payload.location?.trim()) {
-    return `Leave by ${label} · ~25 min drive`;
-  }
-  return `Leave by ${label}`;
 }
 
 export function IuiEventCard({

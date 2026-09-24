@@ -214,7 +214,7 @@ export async function commitIuiBeat(
           onGroupItemStatus: undefined,
         });
         if (rowResult.ok && rowResult.reverse) {
-          batch.push(rowResult.reverse);
+          batch.push({ ...rowResult.reverse, itemId: item.id, label: item.label });
           onGroupItemStatus?.(item.id, 'done', rowResult.reverse.entityId);
         } else if (rowResult.ok) {
           onGroupItemStatus?.(item.id, 'done');
