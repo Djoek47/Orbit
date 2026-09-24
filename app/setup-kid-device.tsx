@@ -521,6 +521,11 @@ export default function SetupKidDeviceScreen() {
               <>
                 <OrbitButton
                   onPress={() => {
+                    addingAnotherRef.current = true;
+                    hydratedExisting.current = true;
+                    setDeviceLabel('');
+                    setSelectedIds([]);
+                    setError('');
                     setFlowOpen(true);
                     setStep(1);
                   }}>
