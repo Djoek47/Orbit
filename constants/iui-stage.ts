@@ -110,13 +110,23 @@ function domainKeyFor(scene: IuiScene | string, write?: IuiWriteKind | string): 
   if (scene === 'coach_steps' || scene === 'navigate_coach' || scene === 'member_pick') {
     return 'teach';
   }
-  if (scene === 'reward_mint') return 'rewards';
+  if (
+    scene === 'reward_mint' ||
+    scene === 'allowance_act' ||
+    scene === 'ranks_peek' ||
+    write === 'claim_reward' ||
+    write === 'grant_allowance'
+  ) {
+    return 'rewards';
+  }
   if (
     scene === 'calendar_zoom' ||
     scene === 'itinerary_stage' ||
+    scene === 'place_save' ||
     write === 'create_event' ||
     write === 'create_itinerary_stop' ||
-    write === 'advance_itinerary'
+    write === 'advance_itinerary' ||
+    write === 'upsert_place'
   ) {
     return 'plan';
   }
@@ -135,6 +145,7 @@ function domainKeyFor(scene: IuiScene | string, write?: IuiWriteKind | string): 
     return 'chores';
   }
   if (scene === 'result_mark') return 'success';
+  if (scene === 'memory_note') return 'household';
   return 'chores';
 }
 
@@ -172,6 +183,10 @@ export function stageDangerText(isDark: boolean): string {
 
 export function stageDomainLabel(scene: IuiScene | string, write?: IuiWriteKind | string): string {
   const key = domainKeyFor(scene, write);
+  if (scene === 'place_save' || write === 'upsert_place') return 'Places';
+  if (scene === 'allowance_act' || write === 'grant_allowance') return 'Allowance';
+  if (scene === 'ranks_peek') return 'Ranks';
+  if (scene === 'memory_note') return 'Memory';
   if (key === 'plan') return 'Plan';
   if (key === 'rewards') return 'Rewards';
   if (key === 'household' || key === 'teach') return 'Home';

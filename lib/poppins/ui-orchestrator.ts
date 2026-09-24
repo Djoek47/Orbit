@@ -873,7 +873,11 @@ export const poppinsUiOrchestrator = {
   },
   drive(actions: Array<Record<string, unknown>>, opts?: { kid?: boolean; replace?: boolean }) {
     let playlist = mapUiActionsToPlaylist(actions);
-    if (opts?.kid) playlist = playlist.filter((beat) => beat.scene !== 'reward_mint');
+    if (opts?.kid) {
+      playlist = playlist.filter(
+        (beat) => beat.scene !== 'reward_mint' && beat.scene !== 'allowance_act'
+      );
+    }
     if (!playlist.length) return;
     if (opts?.kid != null) {
       sessionHoldMs = opts.kid ? HOLD_MS_KID : HOLD_MS_DEFAULT;

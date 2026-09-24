@@ -287,6 +287,42 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
         playlist.push(...taskDraftBeats(action, prefill));
         continue;
       }
+      // Ranks tab → read-only peek on stage (unless they asked for the full editor).
+      if ((route.includes('/rewards') || route.includes('/ranks')) && !openEditor) {
+        playlist.push(
+          beat(
+            'ranks_peek',
+            {
+              peek: [],
+              thinkingLine: 'Who’s ahead this week.',
+            },
+            'none'
+          )
+        );
+        continue;
+      }
+      // Grant-allowance surface → stage confirm card.
+      if (route.includes('grant-allowance') || route.includes('create-allowance')) {
+        playlist.push(
+          beat(
+            'allowance_act',
+            {
+              allowanceMemberName: String(
+                action.memberName ?? prefill.memberName ?? action.assignee ?? 'someone'
+              ),
+              allowanceAmountLabel: String(
+                action.amountLabel ?? prefill.amountLabel ?? action.amount ?? 'Allowance'
+              ),
+              allowanceNote: action.note ? String(action.note) : undefined,
+              allowanceKind: 'grant',
+              confirmSummary: 'Grant allowance?',
+            },
+            'confirm',
+            'grant_allowance'
+          )
+        );
+        continue;
+      }
       playlist.push(
         beat(
           'navigate_coach',
@@ -495,12 +531,111 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
           {
             rewardName: String(action.rewardName ?? 'Reward'),
             title: String(action.rewardName ?? 'Reward'),
-            confirmSummary: `Mint ${String(action.rewardName ?? 'this reward')}?`,
+            confirmSummary: `Claim ${String(action.rewardName ?? 'this reward')}?`,
           },
           'confirm',
           'claim_reward'
         )
       );
+      continue;
+    }
+
+    if (type === 'save_place' || type === 'upsert_place' || type === 'remember_place') {
+      const placeName = String(action.name ?? action.placeName ?? action.title ?? 'Place').trim();
+      const placeKind = String(action.kind ?? action.placeKind ?? 'custom').trim() || 'custom';
+      const placeAddress = String(action.address ?? action.placeAddress ?? action.placeQuery ?? '').trim();
+      playlist.push(
+        beat(
+          'place_save',
+          {
+            placeName,
+            placeKind,
+            placeAddress,
+            title: placeName,
+            location: placeAddress || undefined,
+            thinkingLine: 'Saving a place.',
+            confirmSummary: placeAddress
+              ? `Save ${placeName} · ${placeAddress}?`
+              : `Save ${placeName}?`,
+          },
+          'hold',
+          'upsert_place'
+        )
+      );
+      continue;
+    }
+
+    if (type === 'grant_allowance' || type === 'allowance_act') {
+      const memberName = String(action.memberName ?? action.assignee ?? 'someone').trim();
+      const amountLabel = String(action.amountLabel ?? action.amount ?? '').trim() || 'Allowance';
+      playlist.push(
+        beat(
+          'allowance_act',
+          {
+            allowanceMemberId: action.memberId ? String(action.memberId) : undefined,
+            allowanceMemberName: memberName,
+            allowanceAmountLabel: amountLabel,
+            allowanceAmountXp:
+              typeof action.amountXp === 'number'
+                ? action.amountXp
+                : Number(action.amountXp) || undefined,
+            allowanceNote: action.note ? String(action.note) : undefined,
+            allowanceKind:
+              action.kind === 'hold' || action.kind === 'payout' ? action.kind : 'grant',
+            title: amountLabel,
+            confirmSummary: `Grant ${amountLabel} to ${memberName}?`,
+          },
+          'confirm',
+          'grant_allowance'
+        )
+      );
+      continue;
+    }
+
+    if (type === 'ranks_peek' || type === 'show_ranks') {
+      const rows = Array.isArray(action.rows) ? action.rows : [];
+      playlist.push(
+        beat(
+          'ranks_peek',
+          {
+            peek: rows.map((row, i) => {
+              const r = asRecord(row);
+              return {
+                id: String(r.id ?? i),
+                title: String(r.title ?? r.name ?? 'Member'),
+                detail: r.detail ? String(r.detail) : undefined,
+              };
+            }),
+            thinkingLine: 'Who’s ahead this week.',
+          },
+          'none'
+        )
+      );
+      continue;
+    }
+
+    if (type === 'remember_house_fact') {
+      const text = String(action.text ?? '').trim();
+      if (text) {
+        playlist.push(
+          beat(
+            'memory_note',
+            {
+              memoryText: text,
+              memorySubject: String(action.subject ?? 'house'),
+              memoryKind:
+                action.kind === 'like' ||
+                action.kind === 'dislike' ||
+                action.kind === 'routine' ||
+                action.kind === 'note'
+                  ? action.kind
+                  : 'note',
+              title: text,
+            },
+            'none'
+          )
+        );
+      }
       continue;
     }
 

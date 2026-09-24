@@ -33,6 +33,8 @@ export type IuiReverseWrites = {
     stopId: string,
     status: string
   ) => Promise<void>;
+  removeSavedPlace?: (placeId: string) => void;
+  rejectAllowance?: (allowanceId: string) => Promise<void>;
 };
 
 export async function reverseIuiCommit(
@@ -84,6 +86,12 @@ export async function reverseIuiCommit(
       return;
     case 'claim_reward':
       // No reliable unclaim API this pass — meter still reverses via ActEvent.
+      return;
+    case 'upsert_place':
+      writes.removeSavedPlace?.(entityId);
+      return;
+    case 'grant_allowance':
+      await writes.rejectAllowance?.(entityId);
       return;
     default:
       return;

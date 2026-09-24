@@ -48,6 +48,10 @@ export type IuiCommitWrites = {
   updateTask: (task: HouseholdTask) => Promise<unknown>;
   claimReward: (rewardId: string) => Promise<unknown>;
   advanceItineraryStop: (itineraryId: string, stopId: string) => Promise<unknown>;
+  upsertSavedPlace?: (place: import('@/types/orbit').SavedPlace) => void;
+  grantAllowance?: (
+    input: Omit<import('@/types/orbit').CreateAllowanceInput, 'kind'>
+  ) => Promise<import('@/types/orbit').AllowanceGrant | null>;
   onVoiceTaskCreated?: (task: HouseholdTask) => void;
   /** Undo window ms for deferred notify (other-person acts use ≥10s). */
   undoWindowMs?: number;
@@ -418,6 +422,57 @@ export async function commitIuiBeat(
       await claimReward(reward.id);
       wrote = true;
       reverse = { write, entityId: reward.id };
+    }
+  }
+
+  if (write === 'upsert_place' && (p.placeName || p.title)) {
+    const name = String(p.placeName ?? p.title ?? 'Place').trim();
+    const kindRaw = String(p.placeKind ?? 'custom').toLowerCase();
+    const allowed = new Set([
+      'home',
+      'work',
+      'school',
+      'shop',
+      'practice',
+      'family',
+      'cafe',
+      'pickup',
+      'clothing',
+      'custom',
+    ]);
+    const kind = (allowed.has(kindRaw) ? kindRaw : 'custom') as import('@/types/orbit').SavedPlaceKind;
+    const address = String(p.placeAddress ?? p.location ?? '').trim();
+    const id = `place-${Date.now().toString(36)}`;
+    const place = {
+      id,
+      name,
+      kind,
+      address: address || name,
+      placeQuery: address || name,
+    };
+    writes.upsertSavedPlace?.(place);
+    wrote = true;
+    reverse = { write, entityId: id };
+  }
+
+  if (write === 'grant_allowance' && p.allowanceMemberName && p.allowanceAmountLabel) {
+    const member =
+      household.members.find((m) => m.id === p.allowanceMemberId) ??
+      household.members.find(
+        (m) => m.name.toLowerCase() === p.allowanceMemberName!.trim().toLowerCase()
+      );
+    if (member && writes.grantAllowance) {
+      const grant = await writes.grantAllowance({
+        memberId: member.id,
+        memberName: member.name,
+        amountLabel: p.allowanceAmountLabel,
+        amountXp: p.allowanceAmountXp,
+        note: p.allowanceNote,
+      });
+      if (grant) {
+        wrote = true;
+        reverse = { write, entityId: grant.id };
+      }
     }
   }
 

@@ -21,6 +21,9 @@ import { IuiGroupRows } from '@/components/orbit/poppins-stage/iui-group-rows';
 import { IuiLattice } from '@/components/orbit/poppins-stage/iui-lattice';
 import { IuiObjectCard } from '@/components/orbit/poppins-stage/iui-object-card';
 import { IuiPeek } from '@/components/orbit/poppins-stage/iui-peek';
+import { IuiPlaceCard } from '@/components/orbit/poppins-stage/iui-place-card';
+import { IuiAllowanceCard } from '@/components/orbit/poppins-stage/iui-allowance-card';
+import { IuiMemoryNote } from '@/components/orbit/poppins-stage/iui-memory-note';
 import { IuiResultMark } from '@/components/orbit/poppins-stage/iui-result-mark';
 import { IuiRoad } from '@/components/orbit/poppins-stage/iui-road';
 import { IuiStepper } from '@/components/orbit/poppins-stage/iui-stepper';
@@ -231,6 +234,8 @@ export function PoppinsStage({
     updateTask,
     claimReward,
     advanceItineraryStop,
+    upsertSavedPlace,
+    grantAllowance,
     accentTheme,
   } = useOrbit();
   const tour = useTourControls();
@@ -265,6 +270,20 @@ export function PoppinsStage({
     return [...chores, { id: hw.id, label: hw.shortName ?? 'Homework' }];
   }, [hasKids]);
 
+  const ranksPeekRows = useMemo(() => {
+    const active = household.members.filter(
+      (m) => m.status === 'active' && m.role !== 'guest' && m.role !== 'shared-device'
+    );
+    return [...active]
+      .sort((a, b) => (b.weekXp ?? 0) - (a.weekXp ?? 0))
+      .slice(0, 5)
+      .map((m, i) => ({
+        id: m.id,
+        title: `${i + 1}. ${m.name}`,
+        detail: `${m.weekXp ?? 0} XP this week`,
+      }));
+  }, [household.members]);
+
   const writesRef = useRef({
     household,
     currentMember,
@@ -277,6 +296,8 @@ export function PoppinsStage({
     updateTask,
     claimReward,
     advanceItineraryStop,
+    upsertSavedPlace,
+    grantAllowance,
     onVoiceTaskCreated,
     directMode: getSessionDirectMode(),
     undoWindowMs: getSessionUndoMs(),
@@ -293,6 +314,8 @@ export function PoppinsStage({
     updateTask,
     claimReward,
     advanceItineraryStop,
+    upsertSavedPlace,
+    grantAllowance,
     onVoiceTaskCreated,
     directMode: getSessionDirectMode(),
     undoWindowMs: getSessionUndoMs(),
@@ -636,9 +659,66 @@ export function PoppinsStage({
             accent={stageInk('reward_mint')}
           />
           <Text style={[styles.hint, { color: c.textMuted }]}>
-            {payload.confirmSummary ?? 'Say yes to mint.'}
+            {payload.confirmSummary ?? 'Say yes to claim.'}
           </Text>
         </View>
+      ) : null}
+
+      {beat.scene === 'place_save' ? (
+        <IuiPlaceCard
+          accent={stageText('place_save')}
+          fillAccent={stageInk('place_save')}
+          name={payload.placeName ?? payload.title ?? 'Place'}
+          kind={payload.placeKind}
+          address={payload.placeAddress ?? payload.location}
+          holding={drive.holding}
+          holdProgress={holdProgress}
+        />
+      ) : null}
+
+      {beat.scene === 'allowance_act' ? (
+        <IuiAllowanceCard
+          accent={stageText('allowance_act')}
+          fillAccent={stageInk('allowance_act')}
+          memberName={payload.allowanceMemberName ?? 'someone'}
+          amountLabel={payload.allowanceAmountLabel ?? 'Allowance'}
+          note={payload.allowanceNote}
+          kind={payload.allowanceKind}
+        />
+      ) : null}
+
+      {beat.scene === 'ranks_peek' ? (
+        <View style={styles.stack}>
+          <IuiCard
+            accent={stageText('ranks_peek')}
+            fillAccent={stageInk('ranks_peek')}
+            kicker="Ranks"
+            countLabel="This week"
+            accessibilityLabel="Who is ahead this week">
+            <IuiPeek
+              rows={
+                payload.peek?.length
+                  ? payload.peek
+                  : ranksPeekRows.length
+                    ? ranksPeekRows
+                    : [{ id: 'empty', title: 'No ranks yet', detail: 'Finish a chore to climb.' }]
+              }
+              accent={stageInk('ranks_peek')}
+              highlightIndex={0}
+            />
+          </IuiCard>
+          <Text style={[styles.hint, { color: c.textMuted }]}>
+            Read-only on the stage — fairness notes stay in Ranks.
+          </Text>
+        </View>
+      ) : null}
+
+      {beat.scene === 'memory_note' ? (
+        <IuiMemoryNote
+          text={payload.memoryText ?? payload.title ?? ''}
+          subject={payload.memorySubject}
+          kind={payload.memoryKind}
+        />
       ) : null}
 
       {beat.scene === 'list_peek' ? (

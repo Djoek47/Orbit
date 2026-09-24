@@ -13,7 +13,7 @@ import {
   matchHowTo,
 } from '@/lib/poppins/how-to';
 
-assert.equal(HOW_TO_INDEX.length, 20, 'twenty how-to entries');
+assert.equal(HOW_TO_INDEX.length, 22, 'twenty-two how-to entries');
 
 const cases: Array<{ q: string; id: string }> = [
   { q: 'how do I make a chore need a photo?', id: 'proof-on-chore' },
@@ -24,6 +24,8 @@ const cases: Array<{ q: string; id: string }> = [
   { q: 'how does allowance work', id: 'allowance' },
   { q: 'mint a reward', id: 'mint-reward' },
   { q: 'approve a claim', id: 'approve-claim' },
+  { q: 'how do ranks work', id: 'ranks-fairness' },
+  { q: 'household members', id: 'invite-members' },
   { q: 'assign homework', id: 'homework' },
   { q: 'groceries vs clothing', id: 'groceries-vs-clothing' },
   { q: 'shopping mode', id: 'shopping-mode' },

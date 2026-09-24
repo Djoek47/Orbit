@@ -11,6 +11,8 @@ const LOCAL_WRITE_KINDS = new Set<IuiWriteKind>([
   'create_homework',
   'complete_task',
   'create_event',
+  'upsert_place',
+  'grant_allowance',
 ]);
 
 export function isLocalWriteBeat(beat: IuiBeat | null | undefined): boolean {
@@ -21,6 +23,8 @@ export function isLocalWriteBeat(beat: IuiBeat | null | undefined): boolean {
   if (beat.scene === 'task_compose' || beat.scene === 'homework_compose') return true;
   if (beat.scene === 'task_done') return true;
   if (beat.scene === 'calendar_zoom') return true;
+  if (beat.scene === 'place_save') return true;
+  if (beat.scene === 'allowance_act') return true;
   return false;
 }
 
@@ -51,6 +55,15 @@ export function confirmationForLocalWrite(beat: IuiBeat): string {
     const title = beat.payload.title?.trim() || 'that event';
     const when = [beat.payload.date, beat.payload.time].filter(Boolean).join(' ');
     return when ? `Scheduled ${title} for ${when}.` : `Scheduled ${title}.`;
+  }
+  if (write === 'upsert_place' || beat.scene === 'place_save') {
+    const name = beat.payload.placeName?.trim() || beat.payload.title?.trim() || 'that place';
+    return `Saved ${name}.`;
+  }
+  if (write === 'grant_allowance' || beat.scene === 'allowance_act') {
+    const amount = beat.payload.allowanceAmountLabel?.trim() || 'allowance';
+    const who = beat.payload.allowanceMemberName?.trim() || 'them';
+    return `Granted ${amount} to ${who}.`;
   }
   // create_task / create_homework / task_compose
   const title = beat.payload.title?.trim() || 'that task';
