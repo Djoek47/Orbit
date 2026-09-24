@@ -85,6 +85,7 @@ export default function SetupKidDeviceScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const hydratedExisting = useRef(false);
+  const addingAnotherRef = useRef(false);
   const pagerRef = useRef<FlatList>(null);
   const screenW = Dimensions.get('window').width;
   const cardW = screenW - H_PAD * 2 - PEEK;
@@ -111,6 +112,9 @@ export default function SetupKidDeviceScreen() {
 
   useEffect(() => {
     if (hydratedExisting.current) return;
+    // Only prefill when opening an empty flow with exactly one existing device
+    // and the user did not tap "Add another".
+    if (addingAnotherRef.current) return;
     const existing = devices[0];
     if (!existing) return;
     hydratedExisting.current = true;
@@ -234,10 +238,9 @@ export default function SetupKidDeviceScreen() {
         });
       }
       const label = deviceLabel.trim() || DEFAULT_SHARED_IPAD_NAME;
+      // Match by name only — never fall back to devices[0] (audit WO14 P1).
       let sharedDeviceId: string | null =
-        listSharedDevices(household.members).find((d) => d.name === label)?.id ??
-        listSharedDevices(household.members)[0]?.id ??
-        null;
+        listSharedDevices(household.members).find((d) => d.name === label)?.id ?? null;
 
       if (!sharedDeviceId) {
         const created = await createSharedDevice(label);
