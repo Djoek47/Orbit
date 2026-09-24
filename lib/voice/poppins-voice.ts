@@ -10,7 +10,7 @@ import {
   requestMicPermission,
   startMicRecorder,
 } from '@/lib/voice/mic-capture';
-import { VoiceFailureError } from '@/lib/voice/quiet-failures';
+import { VoiceFailureError, classifyVoiceFailure } from '@/lib/voice/quiet-failures';
 import { poppinsService } from '@/services/poppins-service';
 import type { AudioRecorder } from 'expo-audio';
 import type { HouseholdSnapshot, PoppinsConversationAnswer, OrbitMetrics } from '@/types/orbit';
@@ -58,17 +58,17 @@ async function invokePoppinsVoice(
   household: HouseholdSnapshot,
   metrics: OrbitMetrics,
   transcriptOnly = false
-): Promise<{ transcript: string; answer: string } | null> {
+): Promise<{ transcript: string; answer: string }> {
   const supabase = getSupabaseClient();
   const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   if (!supabase || !baseUrl) {
-    return null;
+    throw new VoiceFailureError('whisper_failed', 'no_supabase_config');
   }
 
   const session = await supabase.auth.getSession();
   const token = session.data.session?.access_token;
   if (!token) {
-    return null;
+    throw new VoiceFailureError('signed_out');
   }
 
   const form = new FormData();
@@ -100,8 +100,12 @@ async function invokePoppinsVoice(
 
   const payload = await response.json().catch(() => ({} as { error?: string }));
   if (!response.ok || payload.error) {
-    const err = String(payload.error ?? 'Voice request failed');
-    throw new VoiceFailureError('whisper_failed', err);
+    const err = String(payload.error ?? `Voice request failed (${response.status})`);
+    if (response.status === 401 || response.status === 403) {
+      throw new VoiceFailureError('signed_out', err);
+    }
+    const cause = classifyVoiceFailure(err);
+    throw new VoiceFailureError(cause, err);
   }
 
   return {
@@ -145,9 +149,6 @@ export async function transcribeQuietAudio(
     throw new VoiceFailureError('whisper_failed', 'no_audio_uri');
   }
   const payload = await invokePoppinsVoice(audioUri, household, metrics, true);
-  if (!payload) {
-    throw new VoiceFailureError('signed_out');
-  }
   const transcript = payload.transcript?.trim();
   return transcript || null;
 }
@@ -165,9 +166,6 @@ export async function transcribeAndAskPoppins(
 
   try {
     const payload = await invokePoppinsVoice(audioUri, household, metrics, false);
-    if (!payload) {
-      return poppinsService.answerQuestion(fallbackQuestion, household, metrics);
-    }
     return {
       question: payload.transcript || fallbackQuestion,
       answer: payload.answer || 'I could not respond just now.',

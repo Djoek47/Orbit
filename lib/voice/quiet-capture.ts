@@ -14,6 +14,7 @@ import {
   startMicRecorder,
 } from '@/lib/voice/mic-capture';
 import { transcribeQuietAudio } from '@/lib/voice/poppins-voice';
+import { POPPINS_PAUSED_COPY } from '@/lib/ai/credits';
 import {
   classifyVoiceFailure,
   persistVoiceFailure,
@@ -63,7 +64,7 @@ export const QUIET_FAILURE_MESSAGES: Record<string, string> = {
   ai_off: 'Poppins AI is off in this build.',
   signed_out: "You're signed out — sign in to use Poppins.",
   whisper_failed: "I couldn't reach the transcriber.",
-  budget_tripped: "You're out of actions until tomorrow.",
+  budget_tripped: POPPINS_PAUSED_COPY,
 };
 
 /**
@@ -232,7 +233,7 @@ export function createQuietCapture(): QuietCapture {
 
         if (!uri) {
           const result: QuietStopFailure = { failed: 'no_audio' };
-          persistVoiceFailure('whisper_failed', 'no_audio');
+          // Mic issue — not one of the four voice: causes; do not mislabel as whisper.
           return result;
         }
 

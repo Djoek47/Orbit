@@ -15,9 +15,13 @@ import { loadLastAppError, clearLastAppError } from '@/lib/errors/last-error';
 
 {
   assert.equal(classifyVoiceFailure('Voice AI unavailable'), 'ai_off');
-  assert.equal(classifyVoiceFailure('Voice request returned empty'), 'signed_out');
+  assert.equal(classifyVoiceFailure(''), 'whisper_failed');
+  assert.equal(classifyVoiceFailure(null), 'whisper_failed');
+  assert.equal(classifyVoiceFailure('401 unauthorized'), 'signed_out');
+  assert.equal(classifyVoiceFailure('jwt expired'), 'signed_out');
   assert.equal(classifyVoiceFailure('whisper_failed'), 'whisper_failed');
   assert.equal(classifyVoiceFailure('budget tripped'), 'budget_tripped');
+  assert.equal(classifyVoiceFailure('Voice request returned empty'), 'whisper_failed');
 }
 
 {
@@ -27,10 +31,7 @@ import { loadLastAppError, clearLastAppError } from '@/lib/errors/last-error';
     "You're signed out — sign in to use Poppins."
   );
   assert.equal(voiceFailureMessage('whisper_failed'), "I couldn't reach the transcriber.");
-  assert.equal(
-    voiceFailureMessage('budget_tripped'),
-    "You're out of actions until tomorrow."
-  );
+  assert.match(voiceFailureMessage('budget_tripped'), /billing date|top-up/i);
 }
 
 {

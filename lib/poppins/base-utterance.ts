@@ -1,5 +1,6 @@
 /**
  * WO15 §2 — Base utterance resolution without requiring the chat model for acts.
+ * Used by PoppinsScreen.submitUtterance — do not leave this as an unused twin.
  */
 import { hearAndDrive, isLocalHowTo } from '@/lib/poppins/aiuic';
 import {
@@ -17,11 +18,19 @@ export type AskPoppinsFn = (question: string) => Promise<{
   ui_actions?: unknown[];
 }>;
 
+export type BaseUtteranceKind = 'local_write' | 'coach' | 'model' | 'offline_local' | 'model_error';
+
 export type BaseUtteranceResult = {
   tookLocal: boolean;
   answer: string;
   calledModel: boolean;
   localConfirm: string | null;
+  kind: BaseUtteranceKind;
+  /** Present when kind is `model` and the model returned UI actions. */
+  actions?: { label: string }[];
+  ui_actions?: unknown[];
+  modelAnswer?: string;
+  offline?: boolean;
 };
 
 /**
@@ -50,14 +59,26 @@ export async function resolveBaseUtterance(
   const localConfirm = localWrite ? confirmationForLocalWrite(localWrite) : null;
 
   if (tookLocal && localConfirm) {
-    return { tookLocal: true, answer: localConfirm, calledModel: false, localConfirm };
+    return {
+      tookLocal: true,
+      answer: localConfirm,
+      calledModel: false,
+      localConfirm,
+      kind: 'local_write',
+    };
   }
 
   const liveBeat = state.playlist[state.index];
   if (tookLocal && (liveBeat?.scene === 'coach_steps' || isLocalHowTo(trimmed))) {
     const answer =
       liveBeat?.payload.coachLine ?? liveBeat?.payload.subtitle ?? 'Here is how.';
-    return { tookLocal: true, answer, calledModel: false, localConfirm: null };
+    return {
+      tookLocal: true,
+      answer,
+      calledModel: false,
+      localConfirm: null,
+      kind: 'coach',
+    };
   }
 
   try {
@@ -66,6 +87,9 @@ export async function resolveBaseUtterance(
       Boolean(result.error_code) ||
       result.source === 'openai_error' ||
       /could not answer|is offline right now/i.test(result.answer ?? '');
+    if (offline && (localConfirm || tookLocal)) {
+      poppinsUiOrchestrator.flagModelOffline();
+    }
     const answer =
       offline && localConfirm ? localConfirm : result.answer || localConfirm || '';
     return {
@@ -73,10 +97,23 @@ export async function resolveBaseUtterance(
       answer,
       calledModel: !offline,
       localConfirm,
+      kind: offline && localConfirm ? 'offline_local' : offline ? 'model_error' : 'model',
+      actions: result.actions,
+      ui_actions: result.ui_actions,
+      modelAnswer: result.answer,
+      offline,
     };
   } catch {
     if (localConfirm) {
-      return { tookLocal, answer: localConfirm, calledModel: false, localConfirm };
+      poppinsUiOrchestrator.flagModelOffline();
+      return {
+        tookLocal,
+        answer: localConfirm,
+        calledModel: false,
+        localConfirm,
+        kind: 'offline_local',
+        offline: true,
+      };
     }
     throw new Error('model_unavailable');
   }

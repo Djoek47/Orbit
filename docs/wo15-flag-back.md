@@ -6,48 +6,32 @@ Branch: `cursor/wo15-base-voice-c30d` (off `cursor/make-v24`).
 
 | Claim | Verdict |
 | --- | --- |
-| §1.1 Mic gated on `nativeVoice` / WebRTC at `poppins.tsx:141`, `:1262`, `:1332` | **Confirmed.** Pre-fix rendered `{nativeVoice ? <Pressable/> : <View style={styles.micWrap} />}` and labeled with `cfg.label` when WebRTC was missing. Root cause of Base having no button. |
-| §1.1 Fix: gate by transport | **Done.** `micUiForPrefs` / `speakTransportForPrefs` decide. Base needs `expo-audio`; Max without WebRTC shows disabled mic + "switch to Base". Never an empty `micWrap`. |
-| §1.2 Four failures, one face | **Confirmed + fixed.** Quiet path now classifies `ai_off` / `signed_out` / `whisper_failed` / `budget_tripped`, writes `orbit.lastError.v1` with `voice:` prefix, and shows distinct copy. |
-| §1.3 `prefsForTier` wiped advanced keys | **Confirmed + fixed.** `prefsForTier(tier, current)` preserves advanced knobs; only `speakBack` flips. Wired in Poppins tab + Settings. |
+| §1.1 Mic gated on `nativeVoice` / WebRTC | **Confirmed + fixed** via `micUiForPrefs`. |
+| §1.2 Four failures, one face | **Fixed**; see audit follow-up below for mis-routing fixes. |
+| §1.3 `prefsForTier` wiped advanced keys | **Fixed** in prefs + Settings + onboarding panel. |
 
-## Contract / capture / keyboard
+## Audit 24 Sep follow-up (WO15 §3)
 
-| Section | Status |
+| Finding | Status |
 | --- | --- |
-| §2 Base contract | `docs/poppins-base.md` + `lib/poppins/base-offline.test.ts` (`askPoppins` throw → jam still commits). |
-| §3 Hold-to-talk | Hold records; release sends; tap → 10s window with countdown + Stop; &lt;700ms → "Hold while you speak" tip only; metering waveform-only. |
-| §4 Thread drawer | Stage permanent; keyboard opens lower-half drawer; orb stays at 72; "Show me how" removed; typed turns inject into live Max session unchanged. |
+| P1 offline test stubs unused module | **Fixed** — `submitUtterance` calls `resolveBaseUtterance`; test commits through `commitIuiBeat` and asserts jam lands. |
+| P1 re-entrant `stopQuietCapture` | **Fixed** — null `quietRef` before await + `quietStoppingRef`. |
+| P2 longPress swallows next tap | **Fixed** — clear `longPressArmedRef` on `pressOut`; `delayLongPress={700}`. |
+| P2 budget error tone / "until tomorrow" | **Fixed** — `POPPINS_PAUSED_COPY` as muted `statusNotice`, not danger. |
+| P2 glyph on wrong messages | **Fixed** — sources keyed by absolute user ordinal. |
+| P2 onboarding `prefsForTier` wipe | **Fixed** — passes `current` prefs. |
+| P2 waveform never sees metering | **Fixed** — `onLevel` → `levelDb` on waveform. |
+| P2 classify mis-routes | **Fixed** — empty→whisper; 401/expired→signed_out; no config→whisper detail; no_audio no longer writes `voice:whisper_failed`. |
 
-## Env / build questions (need from user where noted)
+## Env / build (§7)
 
-### `EXPO_PUBLIC_POPPINS_VOICE_WEBRTC` and `EXPO_PUBLIC_POPPINS_AI` in TestFlight profile?
+- **`EXPO_PUBLIC_POPPINS_VOICE_WEBRTC` / `EXPO_PUBLIC_POPPINS_AI` in TestFlight?** Yes in `eas.json` testflight + production.
+- **`react-native-webrtc` in build 81?** Not verifiable here.
+- **`poppins-voice` + `OPENAI_API_KEY`?** Need live Supabase confirm.
+- **Exact Base error + `voice:` last-error** — still needed from device.
 
-**Yes, in `eas.json`.** Both `testflight` and `production` set:
+## Merge order (audit §0.1)
 
-- `EXPO_PUBLIC_POPPINS_AI`: `"openai"`
-- `EXPO_PUBLIC_POPPINS_VOICE_WEBRTC`: `"1"`
-- plus `EXPO_PUBLIC_POPPINS_REALTIME`: `"1"`
-
-(`development` / `preview` do **not** set the Poppins AI / WebRTC flags.)
-
-### Does `react-native-webrtc` actually load in build 81?
-
-**Cannot verify from this cloud run** (no device / no IPA inspect). Code path: `isPoppinsNativeVoiceAvailable()` = flag `=== '1'` **and** `loadReactNativeWebRtc() != null`. Build 81 was TestFlight **1.3.0 (81)** on `cursor/make-v23` @ `17645a3` (`docs/choremaxx-make-v23.md`). Max working on device is strong evidence WebRTC loaded; Base’s empty mic was the transport-gate bug, not necessarily a missing native module.
-
-**Ask on device:** Settings → Help → Last error after a Base attempt, and whether Speak shows on Base after this build.
-
-### Is `poppins-voice` deployed with `OPENAI_API_KEY` on the TestFlight Supabase project?
-
-**Documented as required** (`docs/testflight-setup.md`, `docs/supabase-staging-setup.md`, `supabase/functions/README.md`). Staging project ref in older notes: `dejrbyufotcvcillnneo`. This agent cannot read live Supabase secrets from here.
-
-**Need from user:** confirm `npx supabase functions list` shows `poppins-voice` ACTIVE and secrets include `OPENAI_API_KEY` on the TF project.
-
-### Exact Base error text on device
-
-**Still needed from user** (§7). After this fix, each cause should surface as:
-
-- `Poppins AI is off in this build.` → `voice:ai_off`
-- `You're signed out — sign in to use Poppins.` → `voice:signed_out`
-- `I couldn't reach the transcriber.` → `voice:whisper_failed`
-- `You're out of actions until tomorrow.` → `voice:budget_tripped`
+1. `wo14-settings-c30d`
+2. `wo15-base-voice-c30d` (this branch)
+3. `iui-board-gaps-c30d` last — keep WO15 mic/dock/orbSize; take IUI light colours + `STAGE.dock`; merge both `test:iui` lists; add `undoWindowOpen` into `orbIsSettle`.

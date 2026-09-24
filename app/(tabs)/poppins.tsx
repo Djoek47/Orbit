@@ -34,11 +34,9 @@ import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import { drainPreviewFill, turnActCost } from '@/lib/poppins/orb-levels';
 import { prefsForTier, savePoppinsInteractionPrefs } from '@/lib/poppins/poppins-prefs';
 import { personalActTokens, summarizeActUsage, notifyActUndone, buildActEvent } from '@/lib/ai/act-events';
-import { driveAiuic, hearAndDrive, isLocalHowTo } from '@/lib/poppins/aiuic';
-import {
-  confirmationForLocalWrite,
-  findLocalWriteBeat,
-} from '@/lib/poppins/local-act-confirm';
+import { POPPINS_PAUSED_COPY } from '@/lib/ai/credits';
+import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
+import { resolveBaseUtterance } from '@/lib/poppins/base-utterance';
 import { filterDuplicateUiActions } from '@/lib/poppins/act-ledger';
 import { parseCompoundHouseholdIntent } from '@/lib/poppins/clause-segment';
 import { preferLocalOnPlanMismatch } from '@/lib/poppins/context-precedence';
@@ -160,6 +158,7 @@ export default function PoppinsScreen() {
     DEFAULT_POPPINS_INTERACTION_PREFS
   );
   const quietRef = useRef<QuietCapture | null>(null);
+  const quietStoppingRef = useRef(false);
   const [quietListening, setQuietListening] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode | null>(null);
   const captureModeRef = useRef<CaptureMode | null>(null);
@@ -168,7 +167,11 @@ export default function PoppinsScreen() {
   const [tapSecondsLeft, setTapSecondsLeft] = useState<number | null>(null);
   const [capSecondsLeft, setCapSecondsLeft] = useState<number | null>(null);
   const [holdTip, setHoldTip] = useState<string | null>(null);
-  const [userInputSources, setUserInputSources] = useState<TurnInputSource[]>([]);
+  const [waveLevelDb, setWaveLevelDb] = useState<number | null>(null);
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
+  /** Maps absolute user-turn ordinal → input source (session only). */
+  const sourceByUserOrdinal = useRef(new Map<number, TurnInputSource>());
+  const [sourceEpoch, setSourceEpoch] = useState(0);
   const [nothingHeard, setNothingHeard] = useState<
     null | 'no_audio' | 'too_short' | 'transcribe_failed' | 'empty_transcript'
   >(null);
@@ -303,7 +306,9 @@ export default function PoppinsScreen() {
   };
 
   const rememberInputSource = (source: TurnInputSource) => {
-    setUserInputSources((prev) => [...prev, source].slice(-32));
+    const ordinal = poppinsConversation.filter((m) => m.role === 'user').length;
+    sourceByUserOrdinal.current.set(ordinal, source);
+    setSourceEpoch((n) => n + 1);
   };
   const continuityRef = useRef<IuiContinuity | null>(null);
   const wasLiveRef = useRef(false);
@@ -691,17 +696,8 @@ export default function PoppinsScreen() {
     setLiveCaption(applyLiveCaptionTurn(null, 'you', trimmed, true));
     lastUtteranceRef.current = trimmed;
     setError('');
+    setStatusNotice(null);
     setHoldTip(null);
-    const tookLocal = hearAndDrive(trimmed, memberNamesRef.current, {
-      kid: kidSessionRef.current,
-      selfName: currentMember?.name,
-      existingTasks: household.tasks,
-    });
-    const localWrite = findLocalWriteBeat(
-      poppinsUiOrchestrator.getState().playlist,
-      poppinsUiOrchestrator.getState().index
-    );
-    const localConfirm = localWrite ? confirmationForLocalWrite(localWrite) : null;
 
     // Live duplex: inject into the same WebRTC conversation (WO15 §4).
     if (liveSpeak && voiceRef.current?.isConnected) {
@@ -710,20 +706,21 @@ export default function PoppinsScreen() {
       return;
     }
 
-    // A4: local write already staged — confirm from the act, do not ask the model.
-    if (tookLocal && localConfirm) {
-      setVoiceState('speaking');
-      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', localConfirm, true));
-      appendPoppinsTurn(trimmed, localConfirm);
-      setTimeout(() => setVoiceState('idle'), 1800);
-      return;
+    setAsking(true);
+    if (interactionPrefs.showThinking) {
+      setVoiceState('thinking');
     }
+    const thinkStarted = Date.now();
+    try {
+      const resolved = await resolveBaseUtterance(trimmed, {
+        memberNames: memberNamesRef.current,
+        kid: kidSessionRef.current,
+        selfName: currentMember?.name,
+        existingTasks: household.tasks,
+        ask: askPoppins,
+      });
 
-    // WO12 §D — teaching matched locally: coach card is free, never call the model.
-    const liveBeat = poppinsUiOrchestrator.getState().playlist[poppinsUiOrchestrator.getState().index];
-    if (tookLocal && (liveBeat?.scene === 'coach_steps' || isLocalHowTo(trimmed))) {
-      const answer = liveBeat?.payload.coachLine ?? liveBeat?.payload.subtitle ?? 'Here is how.';
-      if (currentMember) {
+      if (resolved.kind === 'coach' && currentMember) {
         void recordActEvent(
           buildActEvent({
             memberId: currentMember.id,
@@ -735,58 +732,32 @@ export default function PoppinsScreen() {
           })
         );
       }
-      setVoiceState('speaking');
-      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', answer, true));
-      appendPoppinsTurn(trimmed, answer);
-      setTimeout(() => setVoiceState('idle'), 1800);
-      return;
-    }
 
-    setAsking(true);
-    if (interactionPrefs.showThinking) {
-      setVoiceState('thinking');
-    }
-    const thinkStarted = Date.now();
-    try {
-      const result = await askPoppins(trimmed);
-      if (interactionPrefs.showThinking) {
+      if (interactionPrefs.showThinking && resolved.calledModel) {
         const elapsed = Date.now() - thinkStarted;
         if (elapsed < 400) {
           await new Promise((r) => setTimeout(r, 400 - elapsed));
         }
       }
-      // Prefer local confirmation over a model failure / offline sentence.
-      const offline =
-        Boolean(result.error_code) ||
-        result.source === 'openai_error' ||
-        /could not answer|is offline right now/i.test(result.answer ?? '');
-      if (offline && (localConfirm || tookLocal)) {
-        poppinsUiOrchestrator.flagModelOffline();
-      }
-      const answer =
-        offline && localConfirm ? localConfirm : result.answer || localConfirm || '';
+
       setVoiceState('speaking');
-      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', answer, true));
-      appendPoppinsTurn(trimmed, answer);
-      if (!offline && result.actions?.length) {
-        flashToolSuccess(result.actions[0]!.label);
-      }
-      if (!offline && result.ui_actions?.length) {
-        applyUiActions(result.ui_actions, true);
-      }
-      if (!offline) {
-        poppinsUiOrchestrator.syncSpoken(result.answer, memberNamesRef.current);
+      setLiveCaption(applyLiveCaptionTurn(null, 'poppins', resolved.answer, true));
+      appendPoppinsTurn(trimmed, resolved.answer);
+
+      if (resolved.kind === 'model') {
+        if (resolved.actions?.length) {
+          flashToolSuccess(resolved.actions[0]!.label);
+        }
+        if (resolved.ui_actions?.length) {
+          applyUiActions(resolved.ui_actions as Record<string, unknown>[], true);
+        }
+        if (resolved.modelAnswer) {
+          poppinsUiOrchestrator.syncSpoken(resolved.modelAnswer, memberNamesRef.current);
+        }
       }
     } catch {
-      if (localConfirm) {
-        setVoiceState('speaking');
-        setLiveCaption(applyLiveCaptionTurn(null, 'poppins', localConfirm, true));
-        appendPoppinsTurn(trimmed, localConfirm);
-      } else {
-        // Still show the user bubble so the thread never loses what they said.
-        appendPoppinsTurn(trimmed, '');
-        setError(`${majordomo.displayName} could not answer right now. Try again in a moment.`);
-      }
+      appendPoppinsTurn(trimmed, '');
+      setError(`${majordomo.displayName} could not answer right now. Try again in a moment.`);
     } finally {
       setAsking(false);
       setTimeout(() => setVoiceState('idle'), 1800);
@@ -807,17 +778,21 @@ export default function PoppinsScreen() {
   };
 
   const startQuietCapture = async (mode: CaptureMode) => {
-    if (quietRef.current?.active || asking || connecting || voiceSettling) return;
+    if (quietRef.current?.active || quietStoppingRef.current || asking || connecting || voiceSettling)
+      return;
     if (aiSummary.tripped) {
       persistVoiceFailure('budget_tripped');
-      setError("You're out of actions until tomorrow.");
+      setError('');
+      setStatusNotice(POPPINS_PAUSED_COPY);
       return;
     }
     setSessionActMode('silent');
     setError('');
+    setStatusNotice(null);
     setHoldTip(null);
     setNothingHeard(null);
     setCapSecondsLeft(null);
+    setWaveLevelDb(null);
     const capture = createQuietCapture();
     quietRef.current = capture;
     captureModeRef.current = mode;
@@ -834,6 +809,9 @@ export default function PoppinsScreen() {
         onCapCountdown: (secondsLeft) => {
           setCapSecondsLeft(secondsLeft);
         },
+        onLevel: (db) => {
+          setWaveLevelDb(db);
+        },
         onPartial: (text) => {
           setLiveCaption(applyLiveCaptionTurn(null, 'you', text, true));
         },
@@ -843,6 +821,7 @@ export default function PoppinsScreen() {
           }
           if (status === 'transcribing') {
             setVoiceState('thinking');
+            setWaveLevelDb(null);
           }
         },
       });
@@ -861,6 +840,7 @@ export default function PoppinsScreen() {
     } catch (error) {
       resetCaptureUi();
       quietRef.current = null;
+      setWaveLevelDb(null);
       setVoiceState('idle');
       setError(error instanceof Error ? error.message : 'Could not start listening.');
     }
@@ -868,13 +848,16 @@ export default function PoppinsScreen() {
 
   const stopQuietCapture = async () => {
     const capture = quietRef.current;
-    if (!capture) return;
+    if (!capture || quietStoppingRef.current) return;
+    quietStoppingRef.current = true;
+    // Null before await so overlapping stop/pressOut/cap cannot double-submit (audit §3 P1).
+    quietRef.current = null;
     clearTapTimer();
     setQuietListening(false);
     setListening(false);
+    setWaveLevelDb(null);
     try {
       const result = await capture.stop(householdRef.current, metrics);
-      quietRef.current = null;
       setCaptureMode(null);
       captureModeRef.current = null;
       setCapSecondsLeft(null);
@@ -886,7 +869,6 @@ export default function PoppinsScreen() {
           "Didn't catch that. Hold while you speak.";
 
         if (failed === 'too_short') {
-          // Tip only — no error card, no last-error (WO15 §3).
           setHoldTip('Hold while you speak');
           setLiveCaption(applyLiveCaptionTurn(null, 'poppins', line, true));
           setNothingHeard(null);
@@ -895,7 +877,13 @@ export default function PoppinsScreen() {
 
         if (VOICE_FAILURE_CAUSES.has(failed)) {
           setNothingHeard(null);
-          setError(line);
+          if (failed === 'budget_tripped') {
+            setError('');
+            setStatusNotice(line);
+          } else {
+            setStatusNotice(null);
+            setError(line);
+          }
           setLiveCaption(applyLiveCaptionTurn(null, 'poppins', line, true));
           return;
         }
@@ -910,14 +898,14 @@ export default function PoppinsScreen() {
       }
       setNothingHeard(null);
       setHoldTip(null);
-      // Show transcript in the person's bubble before the act (WO15 §3).
       setLiveCaption(applyLiveCaptionTurn(null, 'you', result.transcript, true));
       await submitUtterance(result.transcript, 'dictated');
     } catch {
-      quietRef.current = null;
       resetCaptureUi();
       setVoiceState('idle');
       setError('Could not hear that. Try again.');
+    } finally {
+      quietStoppingRef.current = false;
     }
   };
 
@@ -934,7 +922,8 @@ export default function PoppinsScreen() {
     if (asking || connecting) return;
     if (aiSummary.tripped) {
       persistVoiceFailure('budget_tripped');
-      setError("You're out of actions until tomorrow.");
+      setError('');
+      setStatusNotice(POPPINS_PAUSED_COPY);
       return;
     }
     setSessionActMode('spoken');
@@ -969,8 +958,16 @@ export default function PoppinsScreen() {
   };
 
   const onMicPressOut = () => {
-    if (captureModeRef.current === 'hold' && (quietRef.current?.active || quietListening)) {
-      void stopQuietCapture();
+    if (captureModeRef.current === 'hold' && (quietListening || quietStoppingRef.current === false)) {
+      if (quietRef.current?.active || quietListening) {
+        void stopQuietCapture();
+      }
+    }
+    // After a long-press, RN does not fire onPress — clear so the next tap works (audit §3 P2).
+    if (longPressArmedRef.current) {
+      requestAnimationFrame(() => {
+        longPressArmedRef.current = false;
+      });
     }
   };
 
@@ -981,7 +978,7 @@ export default function PoppinsScreen() {
       return;
     }
     if (!micUi.micEnabled) {
-      if (micUi.offerSwitchToBase) switchToBaseFromMic();
+      if (micUi.offerSwitchToBase && permissions.canManageHousehold) switchToBaseFromMic();
       return;
     }
 
@@ -1220,7 +1217,7 @@ export default function PoppinsScreen() {
       {micUi.hint && !micUi.micEnabled && !drive.live ? (
         <View style={styles.transportHint}>
           <Text style={[styles.transportHintText, { color: c.textMuted }]}>{micUi.hint}</Text>
-          {micUi.offerSwitchToBase ? (
+          {micUi.offerSwitchToBase && permissions.canManageHousehold ? (
             <Pressable
               onPress={switchToBaseFromMic}
               accessibilityRole="button"
@@ -1311,6 +1308,7 @@ export default function PoppinsScreen() {
               <PoppinsWaveform
                 active={visualState === 'listening' || visualState === 'speaking'}
                 color={cfg.color}
+                levelDb={waveLevelDb}
               />
             </View>
           )}
@@ -1340,13 +1338,27 @@ export default function PoppinsScreen() {
                 </Text>
               ) : null}
               {(() => {
+                void sourceEpoch;
                 const recent = poppinsConversation.slice(-16);
-                const recentUsers = recent.filter((m) => m.role === 'user').length;
-                const sourceOffset = Math.max(0, userInputSources.length - recentUsers);
-                let userIdx = 0;
+                const fullUserOrdinals: number[] = [];
+                let ordinal = 0;
+                for (const message of poppinsConversation) {
+                  if (message.role === 'user') {
+                    fullUserOrdinals.push(ordinal);
+                    ordinal += 1;
+                  } else {
+                    fullUserOrdinals.push(-1);
+                  }
+                }
+                const recentStart = Math.max(0, poppinsConversation.length - recent.length);
                 return recent.map((message, index) => {
                   const mine = message.role === 'user';
-                  const source = mine ? userInputSources[sourceOffset + userIdx++] : undefined;
+                  const globalIndex = recentStart + index;
+                  const userOrdinal = fullUserOrdinals[globalIndex] ?? -1;
+                  const source =
+                    mine && userOrdinal >= 0
+                      ? sourceByUserOrdinal.current.get(userOrdinal)
+                      : undefined;
                   return (
                     <View
                       key={`${message.role}-${index}`}
@@ -1433,6 +1445,11 @@ export default function PoppinsScreen() {
             {error}
           </Text>
         ) : null}
+        {statusNotice ? (
+          <Text style={[styles.statusNotice, { color: c.textMuted }]} selectable numberOfLines={6}>
+            {statusNotice}
+          </Text>
+        ) : null}
 
         <View style={styles.controlRow}>
           <Pressable
@@ -1458,7 +1475,7 @@ export default function PoppinsScreen() {
               onPress={onMicPress}
               onLongPress={onMicLongPress}
               onPressOut={onMicPressOut}
-              delayLongPress={280}
+              delayLongPress={700}
               disabled={voiceSettling || (!micUi.micEnabled && !micUi.offerSwitchToBase)}
               style={[styles.micWrap, !micUi.micEnabled ? styles.micDisabled : null]}
               accessibilityRole="button"
@@ -1481,7 +1498,7 @@ export default function PoppinsScreen() {
               accessibilityState={{
                 busy: connecting || voiceSettling,
                 selected: primaryConnected,
-                disabled: voiceSettling || !micUi.micEnabled,
+                disabled: voiceSettling || (!micUi.micEnabled && !micUi.offerSwitchToBase),
               }}>
               {primaryConnected ? (
                 <View style={[styles.micPulse, { backgroundColor: 'rgba(52,211,153,0.2)' }]} />
@@ -1792,6 +1809,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   error: {
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  statusNotice: {
     fontSize: 12,
     fontWeight: '500',
     lineHeight: 16,
