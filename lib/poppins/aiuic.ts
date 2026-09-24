@@ -51,9 +51,9 @@ export function driveAiuic(
     selfName: opts?.selfName,
   });
   persistMemoryActions(next);
-  const stage = next.filter((action) => String(action.type) !== 'remember_house_fact');
-  if (!stage.length) return false;
-  poppinsUiOrchestrator.drive(stage, opts);
+  // memory_note paints on stage; persist already happened above.
+  if (!next.length) return false;
+  poppinsUiOrchestrator.drive(next, opts);
   return true;
 }
 
@@ -117,6 +117,25 @@ export function hearAndDrive(
         memberNames,
         selfName: opts?.selfName,
       });
+    } else if (memory) {
+      // Memory-only utterance — paint the note strip (fact already persisted).
+      driveAiuic(
+        [
+          {
+            type: 'remember_house_fact',
+            kind: memory.kind,
+            subject: memory.subject,
+            text: memory.text,
+          },
+        ],
+        cleaned,
+        {
+          kid: opts?.kid,
+          replace: true,
+          memberNames,
+          selfName: opts?.selfName,
+        }
+      );
     }
   }
   poppinsUiOrchestrator.syncSpoken(cleaned, memberNames);

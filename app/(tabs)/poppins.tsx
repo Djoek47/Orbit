@@ -142,6 +142,8 @@ export default function PoppinsScreen() {
     deleteEvent,
     updateTask,
     removeGroceryItem,
+    removeSavedPlace,
+    rejectAllowance,
   } = useOrbit();
 
   const majordomo = useMemo(() => {
@@ -228,6 +230,8 @@ export default function PoppinsScreen() {
           deleteEvent,
           removeGroceryItem,
           updateTask,
+          removeSavedPlace,
+          rejectAllowance,
         });
       }
       await notifyActUndone(beat.id, beat.payload.write, beat.payload.actMode);
@@ -235,7 +239,7 @@ export default function PoppinsScreen() {
     return () => {
       poppinsUiOrchestrator.setUndoHandler(null);
     };
-  }, [deleteTask, deleteEvent, updateTask, removeGroceryItem]);
+  }, [deleteTask, deleteEvent, updateTask, removeGroceryItem, removeSavedPlace, rejectAllowance]);
 
   const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
     idle: {
@@ -1085,16 +1089,20 @@ export default function PoppinsScreen() {
     : dailyFill;
 
   // WO13 / WO15 — one orb. Live or thread drawer: 72. Idle stage: 196.
+  // Orb is the tick: keep success tint for the full local undo window.
   const liveScene = drive.playlist[drive.index]?.scene;
+  const undoWindowOpen = Boolean(drive.undoUntil && Date.now() < drive.undoUntil);
   const orbIsSettle =
-    drive.live &&
-    (drive.phase === 'settle' || liveScene === 'result_mark' || liveScene === 'task_done');
+    undoWindowOpen ||
+    (drive.live &&
+      (drive.phase === 'settle' || liveScene === 'result_mark' || liveScene === 'task_done'));
   const orbSize = drive.live || threadOpen ? 72 : 196;
   const orbVisual: PoppinsVisualState = orbIsSettle
     ? 'success'
     : visualState === 'success'
       ? 'success'
       : visualState;
+  // Drain dashed line off during success / undo window — orb carries the tick.
   const showDrainPreview =
     drive.live &&
     !orbIsSettle &&
@@ -1451,7 +1459,13 @@ export default function PoppinsScreen() {
           </Text>
         ) : null}
 
-        <View style={styles.controlRow}>
+        <View
+          style={[
+            styles.controlRow,
+            {
+              gap: STAGE.dock.gap,
+            },
+          ]}>
           <Pressable
             onPress={() => setThreadOpen((v) => !v)}
             accessibilityRole="button"
@@ -1459,6 +1473,9 @@ export default function PoppinsScreen() {
             style={[
               styles.sideBtn,
               {
+                width: STAGE.dock.side,
+                height: STAGE.dock.side,
+                borderRadius: STAGE.dock.sideRadius,
                 backgroundColor: threadOpen ? 'rgba(56,189,248,0.15)' : glass(0.07),
                 borderColor: threadOpen ? 'rgba(56,189,248,0.3)' : glassBorder(0.1),
               },
@@ -1477,7 +1494,11 @@ export default function PoppinsScreen() {
               onPressOut={onMicPressOut}
               delayLongPress={700}
               disabled={voiceSettling || (!micUi.micEnabled && !micUi.offerSwitchToBase)}
-              style={[styles.micWrap, !micUi.micEnabled ? styles.micDisabled : null]}
+              style={[
+                styles.micWrap,
+                !micUi.micEnabled ? styles.micDisabled : null,
+                { width: STAGE.dock.mic, height: STAGE.dock.mic },
+              ]}
               accessibilityRole="button"
               accessibilityLabel={
                 primaryConnected
@@ -1501,7 +1522,17 @@ export default function PoppinsScreen() {
                 disabled: voiceSettling || (!micUi.micEnabled && !micUi.offerSwitchToBase),
               }}>
               {primaryConnected ? (
-                <View style={[styles.micPulse, { backgroundColor: 'rgba(52,211,153,0.2)' }]} />
+                <View
+                  style={[
+                    styles.micPulse,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(52,211,153,0.2)'
+                        : 'rgba(15,111,85,0.16)',
+                      borderRadius: STAGE.dock.mic / 2,
+                    },
+                  ]}
+                />
               ) : null}
               <LinearGradient
                 colors={
@@ -1511,14 +1542,22 @@ export default function PoppinsScreen() {
                       ? ['rgba(248,113,113,0.95)', 'rgba(239,68,68,0.85)']
                       : connecting
                         ? ['rgba(167,139,250,0.9)', 'rgba(139,92,246,0.8)']
-                        : [STAGE.shell.mic, '#248A64']
+                        : isDark
+                          ? [STAGE.shell.mic, '#248A64']
+                          : [STAGE.domainLight.chores, '#0A5A44']
                 }
                 style={[
                   styles.micBtn,
                   {
+                    width: STAGE.dock.mic,
+                    height: STAGE.dock.mic,
+                    borderRadius: STAGE.dock.mic / 2,
+                    borderWidth: 3,
                     borderColor: primaryConnected
                       ? 'rgba(255,255,255,0.25)'
-                      : 'rgba(118,196,174,0.28)',
+                      : isDark
+                        ? 'rgba(118,196,174,0.28)'
+                        : 'rgba(15,111,85,0.28)',
                     opacity: micUi.micEnabled ? 1 : 0.72,
                   },
                 ]}>
@@ -1541,7 +1580,7 @@ export default function PoppinsScreen() {
           </TourTarget>
 
           {/* Balance the keyboard button — dock is type + talk only (WO15 §4). */}
-          <View style={styles.speakBalance} />
+          <View style={[styles.speakBalance, { width: STAGE.dock.side, height: STAGE.dock.side }]} />
         </View>
 
         <Text
@@ -1856,16 +1895,12 @@ const styles = StyleSheet.create({
   controlRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 20,
     justifyContent: 'center',
   },
   sideBtn: {
     alignItems: 'center',
-    borderRadius: 18,
     borderWidth: 1,
-    height: 54,
     justifyContent: 'center',
-    width: 54,
   },
   speakBalance: {
     height: 54,
@@ -1873,25 +1908,18 @@ const styles = StyleSheet.create({
   },
   micWrap: {
     alignItems: 'center',
-    height: 82,
     justifyContent: 'center',
-    width: 82,
   },
   micDisabled: {
     opacity: 0.9,
   },
   micPulse: {
     ...StyleSheet.absoluteFill,
-    borderRadius: 41,
     transform: [{ scale: 1.35 }],
   },
   micBtn: {
     alignItems: 'center',
-    borderRadius: 41,
-    borderWidth: 3,
-    height: 82,
     justifyContent: 'center',
-    width: 82,
   },
   stopSquare: {
     backgroundColor: '#fff',

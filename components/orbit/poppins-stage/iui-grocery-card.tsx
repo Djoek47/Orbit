@@ -65,7 +65,9 @@ export function IuiGroceryCard({
   const failed = items.filter((item) => item.status === 'failed');
   const done = items.filter((item) => item.status === 'done');
   const failedPrimary = failed[0];
-  const detail = items[0]?.aisle ?? payload.aisle;
+  const aisleLine = items[0]?.aisle ?? payload.aisle;
+  const storeLine = payload.location?.trim() || undefined;
+  const detail = [aisleLine, storeLine].filter(Boolean).join(' · ') || undefined;
 
   return (
     <View style={styles.wrap}>
@@ -111,6 +113,7 @@ export function IuiGroceryCard({
               key={item.id}
               title={item.label}
               trailing={item.aisle}
+              detail={storeLine && index === 0 ? storeLine : undefined}
               status={item.status}
               active={index === items.length - 1 && item.status === 'pending'}
               accent={fill}

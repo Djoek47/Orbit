@@ -5,7 +5,7 @@
 
 import { allCatalogProducts, type CatalogProduct } from '@/lib/grocery/catalog';
 import { classifyGroceryItem, isClothingCategory } from '@/lib/grocery/classify';
-import { bestFuzzyMatch, isConfidentFuzzy } from '@/lib/poppins/fuzzy-match';
+import { bestFuzzyMatch, isConfidentFuzzy, nearTieFuzzyMatches } from '@/lib/poppins/fuzzy-match';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { allLibraryTasks, choreDomains, homeworkDomain, type LibraryTask } from '@/lib/tasks/task-library';
 
@@ -143,6 +143,54 @@ function matchGroceryCatalogOne(
   // Short needles (Maya → Mayo) are too ambiguous for edit-distance guesses.
   if (fuzzy.distance > 0 && needle.replace(/\s+/g, '').length <= 4) return null;
   return { ...fuzzy.value, confident: true };
+}
+
+/**
+ * Near-tie grocery disambiguation — exactly two chips for Narrow.
+ * Uses a wider candidate pool than the first-letter fuzzy filter so pairs like
+ * Jam / Ham can surface from a mangled token (e.g. "kam").
+ */
+export function narrowGroceryChoices(
+  name: string,
+  opts?: { excludeNames?: string[] }
+): Array<{ id: string; label: string }> | null {
+  const needle = name.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!needle || needle.length < 2) return null;
+
+  const excluded = (opts?.excludeNames ?? [])
+    .map((n) => n.trim().toLowerCase())
+    .filter(Boolean);
+  if (excluded.some((n) => n === needle || needle.split(/\s+/).includes(n))) return null;
+  if (isChoreCatalogTitle(needle)) return null;
+
+  // Exact / number-variant hits are confident — skip Narrow.
+  groceryCatalogCandidates();
+  if (groceryCatalogMap?.get(needle)) return null;
+  for (const variant of numberVariants(needle)) {
+    if (groceryCatalogMap?.get(variant)) return null;
+  }
+
+  // Clear winner on the tight first-letter pool → no Narrow.
+  const tight = fuzzyCatalogCandidates(needle);
+  if (bestFuzzyMatch(needle, tight) && isConfidentFuzzy(bestFuzzyMatch(needle, tight))) {
+    return null;
+  }
+
+  const len = needle.length;
+  const wide = groceryCatalogCandidates().filter((row) => {
+    if (!row.key) return false;
+    return Math.abs(row.key.length - len) <= 2;
+  });
+  const tie = nearTieFuzzyMatches(needle, wide);
+  if (!tie) return null;
+  const [a, b] = tie;
+  const labelA = a.value.name;
+  const labelB = b.value.name;
+  if (labelA.toLowerCase() === labelB.toLowerCase()) return null;
+  return [
+    { id: a.value.productId || `narrow-a-${labelA}`, label: labelA },
+    { id: b.value.productId || `narrow-b-${labelB}`, label: labelB },
+  ];
 }
 
 /**
@@ -1260,6 +1308,20 @@ export function groceryAddActionsFromUtterance(
       if (memberItem && !isShoppingIntent(text) && !/\b(list|grocer)/i.test(text)) continue;
     }
     const catalog = matchGroceryCatalog(part, opts);
+    if (!catalog) {
+      const narrow = narrowGroceryChoices(part, opts);
+      if (narrow?.length === 2) {
+        actions.push({
+          type: 'add_grocery',
+          name: '',
+          provisional: true,
+          chips: narrow,
+          lane: shopping ? 'clothing' : 'grocery',
+          category: shopping ? 'Clothing' : undefined,
+        });
+        continue;
+      }
+    }
     const displayName = titleCaseGroceryName(catalog?.name ?? part);
     actions.push({
       type: 'add_grocery',

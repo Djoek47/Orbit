@@ -116,6 +116,55 @@ function parseHouseholdIntentRaw(
     return [{ type: 'navigate', route: '/settings', reason: 'I can open Settings for you.' }];
   }
 
+  // Ranks peek — read-only leaderboard on the stage (not a write).
+  if (
+    /\b(who('?s| is) ahead|show (me )?(the )?ranks|leaderboard|rankings|who('?s| is) winning)\b/i.test(
+      text
+    )
+  ) {
+    return [{ type: 'ranks_peek', rows: [] }];
+  }
+
+  // Save place — HOLD on the Places card.
+  const savePlace = text.match(
+    /\b(?:save|remember|add)\s+(?:(?:the|this|our)\s+)?(?:place|address|spot)\s+(?:as\s+)?(.+?)(?:\s+at\s+(.+))?$/i
+  ) ?? text.match(
+    /\b(?:save|remember)\s+(.+?)\s+(?:as\s+)?(?:a\s+)?(?:place|address|spot)(?:\s+at\s+(.+))?$/i
+  );
+  if (savePlace) {
+    const placeName = (savePlace[1] ?? '').trim().replace(/[.!?]+$/, '');
+    const placeAddress = (savePlace[2] ?? '').trim().replace(/[.!?]+$/, '');
+    if (placeName && !isFillerItemName(placeName)) {
+      return [
+        {
+          type: 'save_place',
+          name: placeName,
+          address: placeAddress || undefined,
+          kind: 'custom',
+        },
+      ];
+    }
+  }
+
+  // Grant allowance — confirm-only on stage.
+  const allowance = text.match(
+    /\b(?:grant|give|pay)\s+([A-Z][a-zA-Z]+)\s+(?:an?\s+)?(?:allowance\s+of\s+)?(?:\$\s*)?(\d+(?:\.\d{1,2})?)\b/i
+  ) ?? text.match(
+    /\b(?:grant|give)\s+([A-Z][a-zA-Z]+)\s+(?:\$\s*)?(\d+(?:\.\d{1,2})?)\s+(?:allowance|bucks|dollars|xp)\b/i
+  );
+  if (allowance) {
+    const memberName = allowance[1]!.trim();
+    const amount = allowance[2]!;
+    return [
+      {
+        type: 'grant_allowance',
+        memberName,
+        amountLabel: `$${amount}`,
+        kind: 'grant',
+      },
+    ];
+  }
+
   if (isCompleteIntent(text)) {
     const title = completeTitleFromUtterance(text);
     return [{ type: 'complete_task', title: title || 'this task' }];
@@ -320,6 +369,22 @@ function enrichGrocery(
   action: Record<string, unknown>,
   utterance: string
 ): Array<Record<string, unknown>> {
+  // Narrow near-tie — keep chips / provisional; do not invent a name.
+  if (
+    action.provisional === true &&
+    Array.isArray(action.chips) &&
+    action.chips.length === 2 &&
+    !String(action.name ?? '').trim()
+  ) {
+    return [
+      {
+        ...action,
+        type: 'add_grocery',
+        name: '',
+        sourceUtterance: utterance,
+      },
+    ];
+  }
   const rawName = String(action.name ?? '').trim() || extractItemName(utterance) || undefined;
   if (isFillerItemName(rawName)) {
     return [

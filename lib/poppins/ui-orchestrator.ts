@@ -598,6 +598,21 @@ function armBeat() {
   clearAllTimers();
   const beat = currentBeat();
   if (!beat || state.frozen) return;
+  // Narrow: provisional + exactly two chips — wait for a tap; do not SHOW→HOLD.
+  if (
+    beat.payload.provisional === true &&
+    beat.payload.chips?.length === 2 &&
+    beat.commit === 'hold'
+  ) {
+    setState({
+      phase: 'narrow',
+      holding: false,
+      holdStartedAt: null,
+      thinkingLine: beat.payload.thinkingLine || 'Which one?',
+    });
+    hapticHandler?.('show');
+    return;
+  }
   const skipShow = beatCanSkipShow(beat);
   setState({
     phase: skipShow ? 'unfold' : 'show',
@@ -873,7 +888,11 @@ export const poppinsUiOrchestrator = {
   },
   drive(actions: Array<Record<string, unknown>>, opts?: { kid?: boolean; replace?: boolean }) {
     let playlist = mapUiActionsToPlaylist(actions);
-    if (opts?.kid) playlist = playlist.filter((beat) => beat.scene !== 'reward_mint');
+    if (opts?.kid) {
+      playlist = playlist.filter(
+        (beat) => beat.scene !== 'reward_mint' && beat.scene !== 'allowance_act'
+      );
+    }
     if (!playlist.length) return;
     if (opts?.kid != null) {
       sessionHoldMs = opts.kid ? HOLD_MS_KID : HOLD_MS_DEFAULT;
@@ -947,8 +966,25 @@ export const poppinsUiOrchestrator = {
         : [];
     return ledger.flatMap((entry, index) => {
       const beat = entry.beat;
+      const reverse = entry.reverse;
+      // Multi-write batch → one row per child so per-row undo can target an entity.
+      if (reverse?.batch?.length) {
+        const items = beat.payload.items?.filter((item) => !item.dropped) ?? [];
+        return reverse.batch.map((child, childIndex) => {
+          const item = items[childIndex];
+          const label =
+            item?.label ??
+            beat.payload.groceryName ??
+            beat.payload.title ??
+            child.write.replace(/_/g, ' ');
+          return {
+            id: child.entityId || `${beat.id}-batch-${childIndex}`,
+            label,
+          };
+        });
+      }
       const items = beat.payload.items?.filter((item) => !item.dropped) ?? [];
-      if (items.length > 1) {
+      if (items.length > 1 && !reverse?.batch?.length) {
         return [
           {
             id: `${beat.id}-group`,
@@ -960,19 +996,26 @@ export const poppinsUiOrchestrator = {
         ];
       }
       const label =
+        beat.payload.placeName ??
         beat.payload.groceryName ??
         beat.payload.title ??
         beat.payload.rewardName ??
+        beat.payload.allowanceAmountLabel ??
         beat.payload.itineraryTitle ??
         items[0]?.label ??
         'Act';
-      const assignee = beat.payload.assignee;
+      const assignee = beat.payload.assignee ?? beat.payload.allowanceMemberName;
       const due = beat.payload.due;
       const detail =
         assignee || due
           ? `${label}${assignee ? ` → ${assignee}` : ''}${due ? ` · ${due}` : ''}`
           : label;
-      return [{ id: `${beat.id}-${index}`, label: detail }];
+      return [
+        {
+          id: reverse?.entityId || `${beat.id}-${index}`,
+          label: detail,
+        },
+      ];
     });
   },
   patchGroupItemStatus(
@@ -1058,7 +1101,24 @@ export const poppinsUiOrchestrator = {
       emitTap({ kind, text });
       return;
     }
-    poppinsUiOrchestrator.revise(markSlotSources(patch, 'touch'));
+    // Narrow chip → fill slots, clear provisional, leave Narrow for HOLD.
+    const fromNarrow =
+      state.phase === 'narrow' ||
+      (beat?.payload.provisional === true && (beat.payload.chips?.length ?? 0) === 2);
+    const cleared: Partial<IuiPayload> = fromNarrow
+      ? {
+          ...patch,
+          provisional: false,
+          composeReady: true,
+          chips: undefined,
+          selectedChipId: patch.selectedChipId ?? patch.libraryTaskId,
+        }
+      : patch;
+    poppinsUiOrchestrator.revise(markSlotSources(cleared, 'touch'));
+    if (fromNarrow) {
+      setState({ phase: 'unfold' });
+      maybeArmHold();
+    }
     emitTap({ kind, text });
   },
   confirm(opts?: { fromTap?: boolean }) {
@@ -1120,6 +1180,81 @@ export const poppinsUiOrchestrator = {
       advanceAfterSettle();
     }
     return true;
+  },
+  /**
+   * Per-row undo inside the ~5s window — reverse one ledger entry (or one batch child)
+   * and leave the rest. Pass the row id from `undoLedgerRows()`.
+   */
+  async undoOne(rowId: string) {
+    if (!rowId || !state.undoUntil || Date.now() > state.undoUntil) return false;
+    const ledger = state.undoLedger.length
+      ? state.undoLedger
+      : state.undoBeat
+        ? [{ beat: state.undoBeat, reverse: state.undoReverse }]
+        : [];
+    if (!ledger.length) return false;
+
+    for (let i = 0; i < ledger.length; i++) {
+      const entry = ledger[i]!;
+      const reverse = entry.reverse;
+      if (reverse?.batch?.length) {
+        const childIndex = reverse.batch.findIndex(
+          (child, idx) =>
+            child.entityId === rowId || `${entry.beat.id}-batch-${idx}` === rowId
+        );
+        if (childIndex >= 0) {
+          const child = reverse.batch[childIndex]!;
+          await undoHandler?.(entry.beat, child);
+          const nextBatch = reverse.batch.filter((_, idx) => idx !== childIndex);
+          const nextLedger = [...ledger];
+          if (nextBatch.length === 0) {
+            nextLedger.splice(i, 1);
+          } else {
+            nextLedger[i] = {
+              beat: entry.beat,
+              reverse: { ...reverse, batch: nextBatch, entityId: nextBatch[0]?.entityId ?? reverse.entityId },
+            };
+          }
+          const still = nextLedger.length > 0;
+          setState({
+            undoLedger: nextLedger,
+            undoBeat: still ? nextLedger[nextLedger.length - 1]!.beat : null,
+            undoReverse: still ? nextLedger[nextLedger.length - 1]!.reverse : null,
+            undoUntil: still ? state.undoUntil : null,
+          });
+          if (!still) {
+            clearUndoTimer();
+            if (currentBeat()?.scene === 'result_mark') {
+              clearAllTimers();
+              advanceAfterSettle();
+            }
+          }
+          return true;
+        }
+      }
+      const entryId = reverse?.entityId || `${entry.beat.id}-${i}`;
+      const groupId = `${entry.beat.id}-group`;
+      if (rowId === entryId || rowId === groupId || rowId === entry.beat.id) {
+        await undoHandler?.(entry.beat, reverse);
+        const nextLedger = ledger.filter((_, idx) => idx !== i);
+        const still = nextLedger.length > 0;
+        setState({
+          undoLedger: nextLedger,
+          undoBeat: still ? nextLedger[nextLedger.length - 1]!.beat : null,
+          undoReverse: still ? nextLedger[nextLedger.length - 1]!.reverse : null,
+          undoUntil: still ? state.undoUntil : null,
+        });
+        if (!still) {
+          clearUndoTimer();
+          if (currentBeat()?.scene === 'result_mark') {
+            clearAllTimers();
+            advanceAfterSettle();
+          }
+        }
+        return true;
+      }
+    }
+    return false;
   },
   /** How many acts the current undo window covers. */
   undoCount(): number {

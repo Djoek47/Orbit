@@ -55,10 +55,15 @@ const IUI_SCENES = [
   'itinerary_stage',
   'grocery_add',
   'reward_mint',
+  'place_save',
+  'allowance_act',
+  'ranks_peek',
+  'memory_note',
   'list_peek',
   'member_pick',
   'confirm',
   'navigate_coach',
+  'coach_steps',
   'task_done',
   'result_mark',
 ] as const;
@@ -356,12 +361,27 @@ export function executePoppinsTool(
       };
     }
     case 'list_rewards': {
+      const rankRows = members
+        .filter((m) => {
+          const status = String(m.status ?? 'active');
+          const role = String(m.role ?? '');
+          return status === 'active' && role !== 'guest' && role !== 'shared-device';
+        })
+        .slice()
+        .sort((a, b) => Number(b.weekXp ?? b.week_xp ?? 0) - Number(a.weekXp ?? a.week_xp ?? 0))
+        .slice(0, 5)
+        .map((m, i) => ({
+          id: m.id,
+          title: `${i + 1}. ${String(m.name ?? 'Member')}`,
+          detail: `${Number(m.weekXp ?? m.week_xp ?? 0)} XP this week`,
+        }));
       return {
         rewards: rewards.slice(0, 20).map((r) => ({
           id: r.id,
           title: r.title ?? r.name,
           cost: r.cost,
         })),
+        ui_actions: [{ type: 'ranks_peek', rows: rankRows }],
       };
     }
     case 'search_house_rules': {
@@ -629,7 +649,31 @@ export function executePoppinsTool(
     case 'reject_redemption':
     case 'approve_allowance':
     case 'reject_allowance':
-    case 'grant_allowance':
+    case 'grant_allowance': {
+      const memberName = String(args.memberName ?? args.member_name ?? '').trim();
+      const amountRaw = args.amount ?? args.amountLabel ?? args.amount_label;
+      const amountLabel =
+        typeof amountRaw === 'number'
+          ? `$${amountRaw}`
+          : String(amountRaw ?? '').trim() || 'Allowance';
+      if (!memberName) {
+        return pendingConfirm(name, args, 'grant allowance requires a member');
+      }
+      return {
+        ui_actions: [
+          {
+            type: 'grant_allowance',
+            memberName,
+            memberId: args.memberId ?? args.member_id,
+            amountLabel,
+            amountXp: typeof args.amountXp === 'number' ? args.amountXp : undefined,
+            note: args.note ? String(args.note) : undefined,
+            kind: args.kind === 'hold' || args.kind === 'payout' ? args.kind : 'grant',
+          },
+        ],
+        note: 'Staged allowance on the IUI stage — confirm required.',
+      };
+    }
     case 'remove_member':
     case 'change_member_role':
     case 'mass_reassign_tasks':

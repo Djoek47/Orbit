@@ -10,6 +10,10 @@ export const IUI_SCENES = [
   'itinerary_stage',
   'grocery_add',
   'reward_mint',
+  'place_save',
+  'allowance_act',
+  'ranks_peek',
+  'memory_note',
   'list_peek',
   'member_pick',
   'confirm',
@@ -113,6 +117,25 @@ export type IuiPayload = {
   confirmationIds?: string[];
   rewardName?: string;
   groceryName?: string;
+  /** place_save — display name for the saved place. */
+  placeName?: string;
+  /** place_save — SavedPlaceKind string. */
+  placeKind?: string;
+  /** place_save — street / query address. */
+  placeAddress?: string;
+  /** allowance_act — member to pay. */
+  allowanceMemberId?: string;
+  allowanceMemberName?: string;
+  /** allowance_act — human label e.g. "$5" or "10 XP". */
+  allowanceAmountLabel?: string;
+  allowanceAmountXp?: number;
+  allowanceNote?: string;
+  /** allowance_act mode. */
+  allowanceKind?: 'grant' | 'hold' | 'payout';
+  /** memory_note — house fact text. */
+  memoryText?: string;
+  memorySubject?: string;
+  memoryKind?: 'like' | 'dislike' | 'routine' | 'note';
   itineraryId?: string;
   itineraryTitle?: string;
   taskId?: string;
@@ -181,6 +204,8 @@ export type IuiWriteKind =
   | 'complete_task'
   | 'update_task'
   | 'claim_reward'
+  | 'upsert_place'
+  | 'grant_allowance'
   | 'advance_itinerary'
   | 'none';
 
@@ -191,6 +216,7 @@ export const HOLD_SCENES: readonly IuiScene[] = [
   'calendar_zoom',
   'itinerary_stage',
   'grocery_add',
+  'place_save',
   'task_done',
 ];
 
@@ -219,9 +245,9 @@ export const SETTLE_CLEAR_MS = 420;
 
 export function defaultCommitForScene(scene: IuiScene): IuiCommitKind {
   if ((HOLD_SCENES as readonly string[]).includes(scene)) return 'hold';
-  if (scene === 'reward_mint' || scene === 'confirm') return 'confirm';
+  if (scene === 'reward_mint' || scene === 'confirm' || scene === 'allowance_act') return 'confirm';
   if (scene === 'task_done') return 'hold';
-  if (scene === 'coach_steps') return 'none';
+  if (scene === 'coach_steps' || scene === 'memory_note' || scene === 'ranks_peek') return 'none';
   return 'none';
 }
 
@@ -246,7 +272,9 @@ export function sceneNeedsUnfold(scene: IuiScene): boolean {
     scene === 'homework_compose' ||
     scene === 'calendar_zoom' ||
     scene === 'itinerary_stage' ||
-    scene === 'grocery_add'
+    scene === 'grocery_add' ||
+    scene === 'place_save' ||
+    scene === 'allowance_act'
   );
 }
 

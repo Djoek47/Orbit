@@ -94,10 +94,14 @@ An unresolved stop is warning-tinted and its line reads "Which address? tap to s
 the hold**.
 Chips under the rail: Reorder · Add a stop · Tomorrow.
 
-### 4.6 Settled
+### 4.6 Settled (WO13 — orb is the tick)
 
-108 px success circle (14% fill, 28% border, 46 px check, glow `0 0 60 rgba(52,211,153,0.18)`).
-"All set" 32/38 at −0.5 in `#34D399`, then one sentence naming what happened, 15/21.
+The Poppins orb above the stage is the success mark — sizes 196 / 72 / 34, liquid water, month rim.
+On settle (and for the full ~5s undo window) the same orb uses the success tint + check; **never** a
+second 108 px success circle under the stage. Drain dashed line is off while success is showing.
+
+Stage result UI is copy + undo ledger only (`IuiResultMark`):
+"All set" 32/38 at −0.5 in success text, then one sentence naming what happened, 15/21.
 A 6 px-padded ledger card listing each act with its own Undo (44 px target).
 Then the turn pill: "Undo all four" + a 28 px ring with two success-coloured quadrants counting down.
 Footer line: "Five seconds, then the stage clears."
