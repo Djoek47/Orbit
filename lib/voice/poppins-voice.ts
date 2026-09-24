@@ -10,6 +10,7 @@ import {
   requestMicPermission,
   startMicRecorder,
 } from '@/lib/voice/mic-capture';
+import { VoiceFailureError } from '@/lib/voice/quiet-failures';
 import { poppinsService } from '@/services/poppins-service';
 import type { AudioRecorder } from 'expo-audio';
 import type { HouseholdSnapshot, PoppinsConversationAnswer, OrbitMetrics } from '@/types/orbit';
@@ -83,17 +84,24 @@ async function invokePoppinsVoice(
     form.append('transcriptOnly', '1');
   }
 
-  const response = await fetch(`${baseUrl}/functions/v1/poppins-voice`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: form,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/functions/v1/poppins-voice`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: form,
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new VoiceFailureError('whisper_failed', detail);
+  }
 
-  const payload = await response.json();
+  const payload = await response.json().catch(() => ({} as { error?: string }));
   if (!response.ok || payload.error) {
-    throw new Error(payload.error ?? 'Voice request failed');
+    const err = String(payload.error ?? 'Voice request failed');
+    throw new VoiceFailureError('whisper_failed', err);
   }
 
   return {
@@ -122,7 +130,7 @@ export async function transcribePoppinsAudio(
 
 /**
  * Quiet capture transcription. Returns null on empty transcript.
- * Throws on network / edge failure so Quiet can show `transcribe_failed` (A2).
+ * Throws VoiceFailureError so Quiet can show a distinct §1.2 line.
  * Never invents a sentence the user did not say.
  */
 export async function transcribeQuietAudio(
@@ -130,12 +138,15 @@ export async function transcribeQuietAudio(
   household: HouseholdSnapshot,
   metrics: OrbitMetrics
 ): Promise<string | null> {
-  if (!useLivePoppinsAi || !audioUri) {
-    throw new Error('Voice AI unavailable');
+  if (!useLivePoppinsAi) {
+    throw new VoiceFailureError('ai_off');
+  }
+  if (!audioUri) {
+    throw new VoiceFailureError('whisper_failed', 'no_audio_uri');
   }
   const payload = await invokePoppinsVoice(audioUri, household, metrics, true);
   if (!payload) {
-    throw new Error('Voice request returned empty');
+    throw new VoiceFailureError('signed_out');
   }
   const transcript = payload.transcript?.trim();
   return transcript || null;

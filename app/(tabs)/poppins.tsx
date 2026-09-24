@@ -30,9 +30,6 @@ import {
   getMajordomoProfile,
   resolveMajordomoProfileId,
 } from '@/lib/ai/majordomo-profiles';
-import {
-  POPPINS_PAUSED_COPY,
-} from '@/lib/ai/credits';
 import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import { drainPreviewFill, turnActCost } from '@/lib/poppins/orb-levels';
 import { prefsForTier, savePoppinsInteractionPrefs } from '@/lib/poppins/poppins-prefs';
@@ -77,7 +74,14 @@ import {
   QUIET_FAILURE_MESSAGES,
   type QuietCapture,
 } from '@/lib/voice/quiet-capture';
-import { speakTransportForPrefs } from '@/lib/voice/speak-transport';
+import {
+  micUiForPrefs,
+  quietCaptureAvailable,
+  speakTransportForPrefs,
+} from '@/lib/voice/speak-transport';
+import {
+  persistVoiceFailure,
+} from '@/lib/voice/quiet-failures';
 import {
   DEFAULT_POPPINS_INTERACTION_PREFS,
   subscribePoppinsPrefs,
@@ -87,7 +91,19 @@ import { getSessionActMode, setSessionActMode, setSessionSelfName } from '@/lib/
 import type { HouseholdTask } from '@/types/orbit';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
+
 type PoppinsVisualState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'success';
+type CaptureMode = 'hold' | 'tap10';
+type TurnInputSource = 'typed' | 'dictated';
+
+const VOICE_FAILURE_CAUSES: ReadonlySet<string> = new Set([
+  'ai_off',
+  'signed_out',
+  'whisper_failed',
+  'budget_tripped',
+]);
+
+const TAP10_MS = 10_000;
 
 function PoppinsRemoteAudio({ streamURL }: { streamURL: string | null }) {
   if (!streamURL || Platform.OS === 'web') return null;
@@ -145,9 +161,26 @@ export default function PoppinsScreen() {
   );
   const quietRef = useRef<QuietCapture | null>(null);
   const [quietListening, setQuietListening] = useState(false);
+  const [captureMode, setCaptureMode] = useState<CaptureMode | null>(null);
+  const captureModeRef = useRef<CaptureMode | null>(null);
+  const longPressArmedRef = useRef(false);
+  const tapTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [tapSecondsLeft, setTapSecondsLeft] = useState<number | null>(null);
+  const [capSecondsLeft, setCapSecondsLeft] = useState<number | null>(null);
+  const [holdTip, setHoldTip] = useState<string | null>(null);
+  const [userInputSources, setUserInputSources] = useState<TurnInputSource[]>([]);
   const [nothingHeard, setNothingHeard] = useState<
     null | 'no_audio' | 'too_short' | 'transcribe_failed' | 'empty_transcript'
   >(null);
+
+  const micUi = useMemo(
+    () =>
+      micUiForPrefs(tourForcesQuietSpeak() ? false : interactionPrefs.speakBack, {
+        quiet: quietCaptureAvailable(),
+        realtime: nativeVoice,
+      }),
+    [interactionPrefs.speakBack, nativeVoice]
+  );
 
   useEffect(() => {
     setSessionSelfName(currentMember?.name);
@@ -203,7 +236,9 @@ export default function PoppinsScreen() {
 
   const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
     idle: {
-      label: nativeVoice ? `${majordomo.displayName} · Tap to speak` : `${majordomo.displayName} · Ready`,
+      label: micUi.micEnabled
+        ? `${majordomo.displayName} · Hold to speak`
+        : `${majordomo.displayName} · Ready`,
       color: majordomo.accent,
     },
     listening: { label: `${majordomo.displayName} · Listening`, color: '#34D399' },
@@ -212,7 +247,7 @@ export default function PoppinsScreen() {
     success: { label: `${majordomo.displayName} · Done`, color: '#34D399' },
   };
 
-  const [showText, setShowText] = useState(() => !isPoppinsNativeVoiceAvailable());
+  const [threadOpen, setThreadOpen] = useState(() => micUi.preferKeyboard);
   const [draft, setDraft] = useState('');
   const [asking, setAsking] = useState(false);
   const [listening, setListening] = useState(false);
@@ -248,6 +283,28 @@ export default function PoppinsScreen() {
   const billedSpeakRef = useRef(false);
   const voiceSessionIdRef = useRef<string | null>(null);
   const voiceTurnIndexRef = useRef(0);
+
+  useEffect(() => {
+    if (micUi.preferKeyboard) setThreadOpen(true);
+  }, [micUi.preferKeyboard]);
+
+  useEffect(() => {
+    return () => {
+      if (tapTimerRef.current) clearInterval(tapTimerRef.current);
+    };
+  }, []);
+
+  const clearTapTimer = () => {
+    if (tapTimerRef.current) {
+      clearInterval(tapTimerRef.current);
+      tapTimerRef.current = null;
+    }
+    setTapSecondsLeft(null);
+  };
+
+  const rememberInputSource = (source: TurnInputSource) => {
+    setUserInputSources((prev) => [...prev, source].slice(-32));
+  };
   const continuityRef = useRef<IuiContinuity | null>(null);
   const wasLiveRef = useRef(false);
 
@@ -628,11 +685,13 @@ export default function PoppinsScreen() {
     const trimmed = text.trim();
     if (!trimmed || asking) return;
     if (source === 'typed') setDraft('');
+    rememberInputSource(source);
     const liveSpeak = Boolean(voiceRef.current?.isConnected);
     setSessionActMode(liveSpeak ? 'spoken' : 'silent');
     setLiveCaption(applyLiveCaptionTurn(null, 'you', trimmed, true));
     lastUtteranceRef.current = trimmed;
     setError('');
+    setHoldTip(null);
     const tookLocal = hearAndDrive(trimmed, memberNamesRef.current, {
       kid: kidSessionRef.current,
       selfName: currentMember?.name,
@@ -644,7 +703,7 @@ export default function PoppinsScreen() {
     );
     const localConfirm = localWrite ? confirmationForLocalWrite(localWrite) : null;
 
-    // Live duplex: inject into the same WebRTC conversation.
+    // Live duplex: inject into the same WebRTC conversation (WO15 §4).
     if (liveSpeak && voiceRef.current?.isConnected) {
       voiceRef.current.sendUserText(trimmed);
       appendPoppinsTurn(trimmed, '(live voice)');
@@ -738,17 +797,31 @@ export default function PoppinsScreen() {
     await submitUtterance(draft, 'typed');
   };
 
-  const startQuietCapture = async () => {
+  const resetCaptureUi = () => {
+    clearTapTimer();
+    setCapSecondsLeft(null);
+    setCaptureMode(null);
+    captureModeRef.current = null;
+    setQuietListening(false);
+    setListening(false);
+  };
+
+  const startQuietCapture = async (mode: CaptureMode) => {
     if (quietRef.current?.active || asking || connecting || voiceSettling) return;
     if (aiSummary.tripped) {
-      setError(POPPINS_PAUSED_COPY);
+      persistVoiceFailure('budget_tripped');
+      setError("You're out of actions until tomorrow.");
       return;
     }
     setSessionActMode('silent');
     setError('');
+    setHoldTip(null);
     setNothingHeard(null);
+    setCapSecondsLeft(null);
     const capture = createQuietCapture();
     quietRef.current = capture;
+    captureModeRef.current = mode;
+    setCaptureMode(mode);
     setQuietListening(true);
     setListening(true);
     setVoiceState('listening');
@@ -757,6 +830,9 @@ export default function PoppinsScreen() {
       await capture.start({
         onAutoStop: () => {
           void stopQuietCapture();
+        },
+        onCapCountdown: (secondsLeft) => {
+          setCapSecondsLeft(secondsLeft);
         },
         onPartial: (text) => {
           setLiveCaption(applyLiveCaptionTurn(null, 'you', text, true));
@@ -770,11 +846,22 @@ export default function PoppinsScreen() {
           }
         },
       });
+      if (mode === 'tap10') {
+        const startedAt = Date.now();
+        setTapSecondsLeft(10);
+        tapTimerRef.current = setInterval(() => {
+          const left = Math.max(0, Math.ceil((TAP10_MS - (Date.now() - startedAt)) / 1000));
+          setTapSecondsLeft(left);
+          if (left <= 0) {
+            clearTapTimer();
+            void stopQuietCapture();
+          }
+        }, 200);
+      }
     } catch (error) {
-      setQuietListening(false);
-      setListening(false);
-      setVoiceState('idle');
+      resetCaptureUi();
       quietRef.current = null;
+      setVoiceState('idle');
       setError(error instanceof Error ? error.message : 'Could not start listening.');
     }
   };
@@ -782,56 +869,65 @@ export default function PoppinsScreen() {
   const stopQuietCapture = async () => {
     const capture = quietRef.current;
     if (!capture) return;
+    clearTapTimer();
     setQuietListening(false);
     setListening(false);
     try {
       const result = await capture.stop(householdRef.current, metrics);
       quietRef.current = null;
+      setCaptureMode(null);
+      captureModeRef.current = null;
+      setCapSecondsLeft(null);
       if ('failed' in result) {
         setVoiceState('idle');
-        setNothingHeard(result.failed);
+        const failed = result.failed;
         const line =
-          QUIET_FAILURE_MESSAGES[result.failed] ??
-          "Didn't catch that. Tap to try again.";
+          QUIET_FAILURE_MESSAGES[failed] ??
+          "Didn't catch that. Hold while you speak.";
+
+        if (failed === 'too_short') {
+          // Tip only — no error card, no last-error (WO15 §3).
+          setHoldTip('Hold while you speak');
+          setLiveCaption(applyLiveCaptionTurn(null, 'poppins', line, true));
+          setNothingHeard(null);
+          return;
+        }
+
+        if (VOICE_FAILURE_CAUSES.has(failed)) {
+          setNothingHeard(null);
+          setError(line);
+          setLiveCaption(applyLiveCaptionTurn(null, 'poppins', line, true));
+          return;
+        }
+
+        setNothingHeard(
+          failed === 'no_audio' ||
+            failed === 'too_short' ||
+            failed === 'transcribe_failed' ||
+            failed === 'empty_transcript'
+            ? failed
+            : 'empty_transcript'
+        );
         setLiveCaption(applyLiveCaptionTurn(null, 'poppins', line, true));
         return;
       }
       setNothingHeard(null);
+      setHoldTip(null);
+      // Show transcript in the person's bubble before the act (WO15 §3).
+      setLiveCaption(applyLiveCaptionTurn(null, 'you', result.transcript, true));
       await submitUtterance(result.transcript, 'dictated');
     } catch {
       quietRef.current = null;
+      resetCaptureUi();
       setVoiceState('idle');
       setError('Could not hear that. Try again.');
     }
   };
 
-  const toggleConnect = async () => {
+  const connectOrToggleRealtime = async () => {
     if (voiceSettling) return;
-
     const { emitTourEvent } = await import('@/lib/tour/tour-events');
     emitTourEvent('poppins_spoke', { phase: 'press' });
-
-    const transport = speakTransportForPrefs(
-      tourForcesQuietSpeak() ? false : interactionPrefs.speakBack
-    );
-
-    // Quiet uses expo-audio. Speak back needs native WebRTC.
-    if (!nativeVoice && transport !== 'quiet') return;
-
-    // Quiet path — never construct PoppinsVoiceSession.
-    if (transport === 'quiet') {
-      if (quietRef.current?.active || quietListening) {
-        await stopQuietCapture();
-        emitTourEvent('poppins_spoke', { phase: 'done' });
-        return;
-      }
-      if (liveConnected || voiceRef.current?.isConnected) {
-        await endNativeVoice();
-        emitTourEvent('poppins_spoke', { phase: 'done' });
-      }
-      await startQuietCapture();
-      return;
-    }
 
     if (liveConnected || voiceRef.current?.isConnected) {
       await endNativeVoice();
@@ -840,11 +936,75 @@ export default function PoppinsScreen() {
     }
     if (asking || connecting) return;
     if (aiSummary.tripped) {
-      setError(POPPINS_PAUSED_COPY);
+      persistVoiceFailure('budget_tripped');
+      setError("You're out of actions until tomorrow.");
       return;
     }
     setSessionActMode('spoken');
     await connectNativeVoice();
+  };
+
+  const beginQuietMic = async (mode: CaptureMode) => {
+    const { emitTourEvent } = await import('@/lib/tour/tour-events');
+    emitTourEvent('poppins_spoke', { phase: 'press' });
+    if (quietRef.current?.active || quietListening) {
+      await stopQuietCapture();
+      emitTourEvent('poppins_spoke', { phase: 'done' });
+      return;
+    }
+    if (liveConnected || voiceRef.current?.isConnected) {
+      await endNativeVoice();
+    }
+    await startQuietCapture(mode);
+  };
+
+  const onMicLongPress = () => {
+    if (voiceSettling || !micUi.micEnabled) return;
+    longPressArmedRef.current = true;
+    const transport = speakTransportForPrefs(
+      tourForcesQuietSpeak() ? false : interactionPrefs.speakBack
+    );
+    if (transport === 'quiet') {
+      void beginQuietMic('hold');
+      return;
+    }
+    void connectOrToggleRealtime();
+  };
+
+  const onMicPressOut = () => {
+    if (captureModeRef.current === 'hold' && (quietRef.current?.active || quietListening)) {
+      void stopQuietCapture();
+    }
+  };
+
+  const onMicPress = () => {
+    if (voiceSettling) return;
+    if (longPressArmedRef.current) {
+      longPressArmedRef.current = false;
+      return;
+    }
+    if (!micUi.micEnabled) {
+      if (micUi.offerSwitchToBase) switchToBaseFromMic();
+      return;
+    }
+
+    const transport = speakTransportForPrefs(
+      tourForcesQuietSpeak() ? false : interactionPrefs.speakBack
+    );
+    if (transport === 'quiet') {
+      if (quietRef.current?.active || quietListening) {
+        void stopQuietCapture();
+        return;
+      }
+      void beginQuietMic('tap10');
+      return;
+    }
+    void connectOrToggleRealtime();
+  };
+
+  const switchToBaseFromMic = () => {
+    if (!permissions.canManageHousehold) return;
+    void savePoppinsInteractionPrefs(household.id, prefsForTier('base', interactionPrefs));
   };
 
   const confirmPending = (approved: boolean) => {
@@ -869,9 +1029,11 @@ export default function PoppinsScreen() {
               ? 'rgba(56,189,248,0.06)'
               : `${orbitPalette.primary}18`;
 
-  const idleHint = nativeVoice
-    ? `${greetingWord()}. Tap to speak.`
-    : `${greetingWord()}. Type below.`;
+  const idleHint = micUi.micEnabled
+    ? `${greetingWord()}. Hold to speak — or tap for 10 seconds.`
+    : micUi.preferKeyboard
+      ? `${greetingWord()}. Type below.`
+      : `${greetingWord()}. ${micUi.hint ?? 'Type below.'}`;
 
   const captionTextColor = isDark ? 'rgba(255,255,255,0.9)' : c.text;
   const isClarifyingQuestion =
@@ -928,12 +1090,12 @@ export default function PoppinsScreen() {
     ? monthLeft / TOKENS_PER_MONTH
     : dailyFill;
 
-  // WO13 — one orb, three sizes. Never unmount while the tab is open.
+  // WO13 / WO15 — one orb. Live or thread drawer: 72. Idle stage: 196.
   const liveScene = drive.playlist[drive.index]?.scene;
   const orbIsSettle =
     drive.live &&
     (drive.phase === 'settle' || liveScene === 'result_mark' || liveScene === 'task_done');
-  const orbSize = showText && !drive.live ? 34 : drive.live ? 72 : 196;
+  const orbSize = drive.live || threadOpen ? 72 : 196;
   const orbVisual: PoppinsVisualState = orbIsSettle
     ? 'success'
     : visualState === 'success'
@@ -949,7 +1111,7 @@ export default function PoppinsScreen() {
 
   const selectPoppinsTier = (tier: 'base' | 'max') => {
     if (!permissions.canManageHousehold) return;
-    void savePoppinsInteractionPrefs(household.id, prefsForTier(tier));
+    void savePoppinsInteractionPrefs(household.id, prefsForTier(tier, interactionPrefs));
   };
 
   const poppinsAllowed = canShowPoppinsTab({
@@ -996,30 +1158,19 @@ export default function PoppinsScreen() {
 
       <View style={[styles.header, { paddingTop: chromePad }]}>
         <View style={styles.headerLead}>
-          {showText && !drive.live ? (
-            <PoppinsOrb
-              size={34}
-              state={orbVisual}
-              speaking={visualState === 'speaking'}
-              dailyFill={dailyFill}
-              monthGlow={monthGlow}
-              accent={majordomo.accent}
-            />
-          ) : (
-            <View
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: 4,
-                backgroundColor: drive.live
-                  ? stageAccent(
-                      drive.playlist[drive.index]?.scene ?? 'grocery_add',
-                      drive.playlist[drive.index]?.payload.write
-                    )
-                  : cfg.color,
-              }}
-            />
-          )}
+          <View
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: 4,
+              backgroundColor: drive.live
+                ? stageAccent(
+                    drive.playlist[drive.index]?.scene ?? 'grocery_add',
+                    drive.playlist[drive.index]?.payload.write
+                  )
+                : cfg.color,
+            }}
+          />
           <Text
             style={[
               styles.kicker,
@@ -1063,136 +1214,220 @@ export default function PoppinsScreen() {
             failed={nothingHeard}
             onRetry={() => {
               setNothingHeard(null);
-              void startQuietCapture();
+              void startQuietCapture('tap10');
             }}
           />
         </View>
       ) : null}
 
-      {/* WO13 — one orb for the tab. Live: 72 above the card. Idle: 196 centre. Text: 34 in header. */}
-      <View style={styles.body}>
-        {showText && !drive.live ? (
-          <ScrollView
-            style={styles.thread}
-            contentContainerStyle={styles.threadContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
-            {poppinsConversation.length === 0 && !liveText ? (
-              <Text style={[styles.idleHint, { color: isDark ? 'rgba(255,255,255,0.28)' : c.textMuted }]}>
-                {idleHint}
-              </Text>
-            ) : null}
-            {poppinsConversation.slice(-16).map((message, index) => {
-              const mine = message.role === 'user';
-              return (
-                <View
-                  key={`${message.role}-${index}`}
-                  style={[
-                    styles.bubble,
-                    mine ? styles.bubbleMine : styles.bubbleTheirs,
-                    {
-                      backgroundColor: mine ? glass(0.08) : `${majordomo.accent}22`,
-                      borderColor: mine ? glassBorder(0.12) : `${majordomo.accent}55`,
-                    },
-                  ]}>
-                  <Text style={[styles.bubbleText, { color: c.text }]}>{message.content}</Text>
-                </View>
-              );
-            })}
-            {liveText ? (
-              <View
-                style={[
-                  styles.bubble,
-                  styles.bubbleTheirs,
-                  {
-                    backgroundColor: `${majordomo.accent}22`,
-                    borderColor: `${majordomo.accent}55`,
-                  },
-                ]}>
-                <Text style={[styles.bubbleKicker, { color: majordomo.accent }]}>{liveLabel}</Text>
-                <Text style={[styles.bubbleText, { color: c.text }]}>{liveText}</Text>
-              </View>
-            ) : null}
-          </ScrollView>
-        ) : (
-          <>
-            {!drive.live ? (
-              <View style={styles.transcriptBlock}>
-                {hasStrip && liveSpeaker ? (
-                  <PoppinsLiveCaption
-                    key={liveSpeaker}
-                    speaker={liveSpeaker}
-                    label={liveLabel}
-                    text={liveText}
-                    accent={liveAccent}
-                    textColor={captionTextColor}
-                    showDots={showCaptionDots}
-                  />
-                ) : (
-                  <Text
-                    style={[
-                      styles.idleHint,
-                      { color: isDark ? 'rgba(255,255,255,0.25)' : c.textMuted },
-                    ]}>
-                    {continuityRef.current &&
-                    isContinuityFresh(continuityRef.current) &&
-                    continuityRef.current.householdId === household.id
-                      ? 'Tap to continue.'
-                      : idleHint}
-                  </Text>
-                )}
-              </View>
-            ) : null}
+      {micUi.hint && !micUi.micEnabled && !drive.live ? (
+        <View style={styles.transportHint}>
+          <Text style={[styles.transportHintText, { color: c.textMuted }]}>{micUi.hint}</Text>
+          {micUi.offerSwitchToBase ? (
+            <Pressable
+              onPress={switchToBaseFromMic}
+              accessibilityRole="button"
+              accessibilityLabel="Switch to Base"
+              style={[styles.switchBaseBtn, { backgroundColor: glass(0.08), borderColor: glassBorder(0.12) }]}>
+              <Text style={{ color: c.text, fontWeight: '600', fontSize: 13 }}>Switch to Base</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
-            <View
-              style={[styles.orbSlot, drive.live ? styles.orbSlotLive : styles.orbSlotIdle]}
-              accessible
-              accessibilityRole="image"
-              accessibilityLabel={`${majordomo.displayName}, ${cfg.label}`}>
-              <PoppinsOrb
-                size={orbSize}
-                state={orbVisual}
-                speaking={visualState === 'speaking'}
-                dailyFill={dailyFill}
-                monthGlow={monthGlow}
-                accent={majordomo.accent}
-                drainPreview={drainPreview}
+      {holdTip && !drive.live ? (
+        <Text style={[styles.holdTip, { color: c.textMuted }]}>{holdTip}</Text>
+      ) : null}
+
+      {/* WO15 §4 — stage is permanent; thread is a drawer over the lower half. */}
+      <View style={styles.body}>
+        <View style={[styles.stagePermanent, threadOpen ? styles.stageWithDrawer : null]}>
+          {!drive.live ? (
+            <View style={styles.transcriptBlock}>
+              {hasStrip && liveSpeaker ? (
+                <PoppinsLiveCaption
+                  key={liveSpeaker}
+                  speaker={liveSpeaker}
+                  label={liveLabel}
+                  text={liveText}
+                  accent={liveAccent}
+                  textColor={captionTextColor}
+                  showDots={showCaptionDots}
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.idleHint,
+                    { color: isDark ? 'rgba(255,255,255,0.25)' : c.textMuted },
+                  ]}>
+                  {continuityRef.current &&
+                  isContinuityFresh(continuityRef.current) &&
+                  continuityRef.current.householdId === household.id
+                    ? 'Tap to continue.'
+                    : idleHint}
+                </Text>
+              )}
+            </View>
+          ) : null}
+
+          <View
+            style={[styles.orbSlot, drive.live || threadOpen ? styles.orbSlotLive : styles.orbSlotIdle]}
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={`${majordomo.displayName}, ${cfg.label}`}>
+            <PoppinsOrb
+              size={orbSize}
+              state={orbVisual}
+              speaking={visualState === 'speaking'}
+              dailyFill={dailyFill}
+              monthGlow={monthGlow}
+              accent={majordomo.accent}
+              drainPreview={drainPreview}
+            />
+          </View>
+
+          {drive.live ? (
+            <View style={styles.stageLive}>
+              <TourTarget id="poppins.stage" style={styles.stageTour}>
+                <PoppinsStage
+                  onVoiceTaskCreated={(task: HouseholdTask) => {
+                    const current = householdRef.current;
+                    const next = {
+                      ...current,
+                      tasks: current.tasks.some((item) => item.id === task.id)
+                        ? current.tasks
+                        : [task, ...current.tasks],
+                    };
+                    householdRef.current = next;
+                    voiceRef.current?.syncHousehold(next);
+                    voiceRef.current?.notifyTaskCommitted({
+                      title: task.title,
+                      assignee: task.assignee,
+                      due: task.due,
+                    });
+                  }}
+                />
+              </TourTarget>
+            </View>
+          ) : (
+            <View style={styles.waveWrap}>
+              <PoppinsWaveform
+                active={visualState === 'listening' || visualState === 'speaking'}
+                color={cfg.color}
               />
             </View>
+          )}
+        </View>
 
-            {drive.live ? (
-              <View style={styles.stageLive}>
-                <TourTarget id="poppins.stage" style={styles.stageTour}>
-                  <PoppinsStage
-                    onVoiceTaskCreated={(task: HouseholdTask) => {
-                      const current = householdRef.current;
-                      const next = {
-                        ...current,
-                        tasks: current.tasks.some((item) => item.id === task.id)
-                          ? current.tasks
-                          : [task, ...current.tasks],
-                      };
-                      householdRef.current = next;
-                      voiceRef.current?.syncHousehold(next);
-                      voiceRef.current?.notifyTaskCommitted({
-                        title: task.title,
-                        assignee: task.assignee,
-                        due: task.due,
-                      });
-                    }}
-                  />
-                </TourTarget>
-              </View>
-            ) : (
-              <View style={styles.waveWrap}>
-                <PoppinsWaveform
-                  active={visualState === 'listening' || visualState === 'speaking'}
-                  color={cfg.color}
+        {threadOpen ? (
+          <View
+            style={[
+              styles.threadDrawer,
+              {
+                backgroundColor: isDark ? 'rgba(10,14,20,0.96)' : 'rgba(247,245,242,0.97)',
+                borderColor: glassBorder(0.12),
+              },
+            ]}>
+            <ScrollView
+              style={styles.thread}
+              contentContainerStyle={styles.threadContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
+              {poppinsConversation.length === 0 && !liveText ? (
+                <Text
+                  style={[
+                    styles.idleHint,
+                    { color: isDark ? 'rgba(255,255,255,0.28)' : c.textMuted },
+                  ]}>
+                  {idleHint}
+                </Text>
+              ) : null}
+              {(() => {
+                const recent = poppinsConversation.slice(-16);
+                const recentUsers = recent.filter((m) => m.role === 'user').length;
+                const sourceOffset = Math.max(0, userInputSources.length - recentUsers);
+                let userIdx = 0;
+                return recent.map((message, index) => {
+                  const mine = message.role === 'user';
+                  const source = mine ? userInputSources[sourceOffset + userIdx++] : undefined;
+                  return (
+                    <View
+                      key={`${message.role}-${index}`}
+                      style={[
+                        styles.bubble,
+                        mine ? styles.bubbleMine : styles.bubbleTheirs,
+                        {
+                          backgroundColor: mine ? glass(0.08) : `${majordomo.accent}22`,
+                          borderColor: mine ? glassBorder(0.12) : `${majordomo.accent}55`,
+                        },
+                      ]}>
+                      {mine && source ? (
+                        <View style={styles.bubbleMeta}>
+                          <MaterialIcons
+                            name={source === 'dictated' ? 'mic' : 'keyboard'}
+                            size={12}
+                            color={c.textSubtle}
+                          />
+                        </View>
+                      ) : null}
+                      <Text style={[styles.bubbleText, { color: c.text }]}>{message.content}</Text>
+                    </View>
+                  );
+                });
+              })()}
+              {liveText ? (
+                <View
+                  style={[
+                    styles.bubble,
+                    styles.bubbleTheirs,
+                    {
+                      backgroundColor: `${majordomo.accent}22`,
+                      borderColor: `${majordomo.accent}55`,
+                    },
+                  ]}>
+                  <Text style={[styles.bubbleKicker, { color: majordomo.accent }]}>{liveLabel}</Text>
+                  <Text style={[styles.bubbleText, { color: c.text }]}>{liveText}</Text>
+                </View>
+              ) : null}
+            </ScrollView>
+            <View
+              style={[
+                styles.textComposer,
+                {
+                  backgroundColor: glass(0.06),
+                  borderColor: glassBorder(0.12),
+                },
+              ]}>
+              <TextInput
+                value={draft}
+                onChangeText={setDraft}
+                placeholder={
+                  liveConnected
+                    ? `Type into the live session…`
+                    : `Type to ${majordomo.displayName}…`
+                }
+                placeholderTextColor={c.textSubtle}
+                style={[styles.textInput, { color: c.text }]}
+                onSubmitEditing={() => void handleSend()}
+                returnKeyType="send"
+              />
+              <Pressable
+                onPress={() => void handleSend()}
+                style={[
+                  styles.sendBtn,
+                  {
+                    backgroundColor: draft.trim() ? '#38BDF8' : glass(0.08),
+                  },
+                ]}>
+                <MaterialIcons
+                  name="send"
+                  size={16}
+                  color={draft.trim() ? '#041018' : c.textSubtle}
                 />
-              </View>
-            )}
-          </>
-        )}
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
       </View>
 
       <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
@@ -1201,91 +1436,68 @@ export default function PoppinsScreen() {
             {error}
           </Text>
         ) : null}
-        {showText ? (
-          <View
-            style={[
-              styles.textComposer,
-              {
-                backgroundColor: glass(0.06),
-                borderColor: glassBorder(0.12),
-              },
-            ]}>
-            <TextInput
-              value={draft}
-              onChangeText={setDraft}
-              placeholder={
-                liveConnected
-                  ? `Type into the live session…`
-                  : `Type to ${majordomo.displayName}…`
-              }
-              placeholderTextColor={c.textSubtle}
-              style={[styles.textInput, { color: c.text }]}
-              onSubmitEditing={() => void handleSend()}
-              returnKeyType="send"
-            />
-            <Pressable
-              onPress={() => void handleSend()}
-              style={[
-                styles.sendBtn,
-                {
-                  backgroundColor: draft.trim() ? '#38BDF8' : glass(0.08),
-                },
-              ]}>
-              <MaterialIcons
-                name="send"
-                size={16}
-                color={draft.trim() ? '#041018' : c.textSubtle}
-              />
-            </Pressable>
-          </View>
-        ) : null}
 
         <View style={styles.controlRow}>
           <Pressable
-            onPress={() => setShowText((v) => !v)}
+            onPress={() => setThreadOpen((v) => !v)}
             accessibilityRole="button"
-            accessibilityLabel={showText ? 'Hide keyboard' : `Type to ${majordomo.displayName}`}
+            accessibilityLabel={threadOpen ? 'Hide thread' : `Type to ${majordomo.displayName}`}
             style={[
               styles.sideBtn,
               {
-                backgroundColor: showText ? 'rgba(56,189,248,0.15)' : glass(0.07),
-                borderColor: showText ? 'rgba(56,189,248,0.3)' : glassBorder(0.1),
+                backgroundColor: threadOpen ? 'rgba(56,189,248,0.15)' : glass(0.07),
+                borderColor: threadOpen ? 'rgba(56,189,248,0.3)' : glassBorder(0.1),
               },
             ]}>
             <MaterialIcons
-              name={showText ? 'close' : 'keyboard'}
+              name={threadOpen ? 'close' : 'keyboard'}
               size={20}
-              color={showText ? '#38BDF8' : c.textMuted}
+              color={threadOpen ? '#38BDF8' : c.textMuted}
             />
           </Pressable>
 
-          {nativeVoice ? (
-            <TourTarget id="poppins.speak"><Pressable
-              onPress={() => void toggleConnect()}
-              disabled={voiceSettling}
-              style={styles.micWrap}
+          <TourTarget id="poppins.speak">
+            <Pressable
+              onPress={onMicPress}
+              onLongPress={onMicLongPress}
+              onPressOut={onMicPressOut}
+              delayLongPress={280}
+              disabled={voiceSettling || (!micUi.micEnabled && !micUi.offerSwitchToBase)}
+              style={[styles.micWrap, !micUi.micEnabled ? styles.micDisabled : null]}
               accessibilityRole="button"
-              accessibilityLabel={primaryConnected ? 'Done' : 'Speak'}
+              accessibilityLabel={
+                primaryConnected
+                  ? captureMode === 'tap10'
+                    ? 'Stop'
+                    : 'Done'
+                  : micUi.micEnabled
+                    ? 'Speak'
+                    : micUi.offerSwitchToBase
+                      ? 'Switch to Base to talk'
+                      : 'Voice unavailable'
+              }
               accessibilityHint={
                 primaryConnected
                   ? 'Stops listening and keeps what is on screen'
-                  : 'Starts listening'
+                  : 'Hold to talk, or tap for a 10 second window'
               }
               accessibilityState={{
                 busy: connecting || voiceSettling,
                 selected: primaryConnected,
-                disabled: voiceSettling,
+                disabled: voiceSettling || !micUi.micEnabled,
               }}>
               {primaryConnected ? (
                 <View style={[styles.micPulse, { backgroundColor: 'rgba(52,211,153,0.2)' }]} />
               ) : null}
               <LinearGradient
                 colors={
-                  primaryConnected
-                    ? ['rgba(248,113,113,0.95)', 'rgba(239,68,68,0.85)']
-                    : connecting
-                      ? ['rgba(167,139,250,0.9)', 'rgba(139,92,246,0.8)']
-                      : [STAGE.shell.mic, '#248A64']
+                  !micUi.micEnabled
+                    ? ['rgba(100,116,139,0.7)', 'rgba(71,85,105,0.65)']
+                    : primaryConnected
+                      ? ['rgba(248,113,113,0.95)', 'rgba(239,68,68,0.85)']
+                      : connecting
+                        ? ['rgba(167,139,250,0.9)', 'rgba(139,92,246,0.8)']
+                        : [STAGE.shell.mic, '#248A64']
                 }
                 style={[
                   styles.micBtn,
@@ -1293,43 +1505,41 @@ export default function PoppinsScreen() {
                     borderColor: primaryConnected
                       ? 'rgba(255,255,255,0.25)'
                       : 'rgba(118,196,174,0.28)',
+                    opacity: micUi.micEnabled ? 1 : 0.72,
                   },
                 ]}>
                 {primaryConnected ? (
-                  <View style={styles.stopSquare} />
+                  captureMode === 'tap10' && tapSecondsLeft != null ? (
+                    <Text style={styles.tapCountdown}>{tapSecondsLeft}</Text>
+                  ) : (
+                    <View style={styles.stopSquare} />
+                  )
                 ) : connecting ? (
                   <MaterialIcons name="graphic-eq" size={28} color="#fff" />
                 ) : (
                   <MaterialIcons name="mic" size={28} color="#FFFFFF" />
                 )}
               </LinearGradient>
-            </Pressable></TourTarget>
-          ) : (
-            <View style={styles.micWrap} />
-          )}
+              {capSecondsLeft != null && capSecondsLeft <= 5 ? (
+                <Text style={styles.capCountdown}>{capSecondsLeft}s</Text>
+              ) : null}
+            </Pressable>
+          </TourTarget>
 
-          <Pressable
-            onPress={() => {
-              setShowText(true);
-              setDraft((prev) => (prev.trim() ? prev : 'how do I '));
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Show me how"
-            style={[
-              styles.sideBtn,
-              {
-                backgroundColor: `${STAGE.domain.household}24`,
-                borderColor: `${STAGE.domain.household}57`,
-              },
-            ]}>
-            <MaterialIcons name="help-outline" size={21} color={STAGE.shell.teach} />
-          </Pressable>
+          {/* Balance the keyboard button — dock is type + talk only (WO15 §4). */}
+          <View style={styles.speakBalance} />
         </View>
 
         <Text
           style={[styles.stateLabel, { color: isActive ? cfg.color : c.textSubtle }]}
           accessibilityLiveRegion="polite">
-          {nativeVoice ? (primaryConnected ? 'Done' : 'Speak') : cfg.label}
+          {micUi.micEnabled
+            ? primaryConnected
+              ? captureMode === 'tap10'
+                ? 'Stop'
+                : 'Done'
+              : 'Speak'
+            : cfg.label}
         </Text>
         <TourTarget id="poppins.meter">
           <Text style={[styles.meterCaption, { color: c.textSubtle }]} numberOfLines={1}>
@@ -1432,6 +1642,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
   },
+  threadDrawer: {
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderTopWidth: 1,
+    bottom: 0,
+    left: 0,
+    maxHeight: '52%',
+    minHeight: '42%',
+    paddingBottom: 8,
+    paddingTop: 10,
+    position: 'absolute',
+    right: 0,
+    zIndex: 4,
+  },
+  stagePermanent: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+  },
+  stageWithDrawer: {
+    paddingBottom: '44%',
+  },
+  transportHint: {
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    paddingHorizontal: space.lg,
+  },
+  transportHintText: {
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  switchBaseBtn: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  holdTip: {
+    fontSize: 13,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
   bubble: {
     borderCurve: 'continuous',
     borderRadius: 20,
@@ -1445,6 +1699,9 @@ const styles = StyleSheet.create({
   },
   bubbleTheirs: {
     alignSelf: 'flex-start',
+  },
+  bubbleMeta: {
+    marginBottom: 4,
   },
   bubbleKicker: {
     fontSize: 10,
@@ -1599,6 +1856,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 82,
   },
+  micDisabled: {
+    opacity: 0.9,
+  },
   micPulse: {
     ...StyleSheet.absoluteFill,
     borderRadius: 41,
@@ -1617,6 +1877,19 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     height: 20,
     width: 20,
+  },
+  tapCountdown: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  capCountdown: {
+    color: '#FBBF24',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 4,
+    position: 'absolute',
+    top: -2,
   },
   stateLabel: {
     fontSize: 12,
