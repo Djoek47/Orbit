@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { ScrollView } from 'react-native';
+import { Stack } from 'expo-router';
 
 import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
 import { ProfileInviteSheet } from '@/components/orbit/profile-invite-sheet';
 import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
 import { HouseholdMembersRoster } from '@/components/orbit/members/household-members-roster';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
-import { orbitScreen } from '@/constants/orbit-theme';
+import { SettingsModalChrome } from '@/components/orbit/settings/modal-chrome';
 import type { MemberInvite } from '@/lib/household/member-invites';
 import {
   memberCanReceiveInvite,
@@ -60,18 +61,24 @@ export default function HouseholdMembersScreen() {
 
   return (
     <>
-      <ScrollView
-        style={[orbitScreen.container, { backgroundColor: c.background }]}
-        contentContainerStyle={orbitScreen.content}
-        contentInsetAdjustmentBehavior="automatic">
-        <HouseholdMembersRoster
-          accent={accentTheme.primary}
-          variant="screen"
-          onAddMember={() => setWizardOpen(true)}
-          onShareInvite={openInvite}
-          onPersonalize={setPersonalizeMemberId}
-        />
-      </ScrollView>
+      <Stack.Screen options={{ headerShown: false }} />
+      <SettingsModalChrome
+        backLabel="Settings"
+        title="People"
+        purpose="Tap anyone to change what they can do">
+        <ScrollView
+          style={{ flex: 1, backgroundColor: c.background }}
+          contentContainerStyle={{ gap: 12, paddingHorizontal: 20, paddingBottom: 40 }}
+          contentInsetAdjustmentBehavior="automatic">
+          <HouseholdMembersRoster
+            accent={accentTheme.primary}
+            variant="embedded"
+            onAddMember={() => setWizardOpen(true)}
+            onShareInvite={openInvite}
+            onPersonalize={setPersonalizeMemberId}
+          />
+        </ScrollView>
+      </SettingsModalChrome>
 
       <AddMemberSheet
         visible={wizardOpen}
