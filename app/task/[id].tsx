@@ -1,11 +1,21 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { MemberGlyph } from '@/components/orbit/member-glyph';
-import { TourTarget } from '@/components/orbit/tour/tour-target';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MemberGlyph } from '@/components/orbit/member-glyph';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { XpWheel } from '@/components/orbit/xp-wheel';
 import {
   TaskProofReplySheet,
@@ -33,6 +43,7 @@ import { isTaskLate } from '@/lib/tasks/xp';
 import { displayDueLabel } from '@/lib/tasks/due-label';
 import { TASK_REPEAT_CHOICES } from '@/lib/tasks/series-edit';
 import { categoryDisplayLabel } from '@/lib/tasks/task-library';
+import { isLocalProofUri } from '@/lib/tasks/proof-uri';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
@@ -442,11 +453,11 @@ export default function TaskDetailScreen() {
   };
 
   return (
-    <View
-      style={[
-        styles.root,
-        { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft },
-      ]}>
+    <KeyboardAvoidingView
+      style={[styles.root, { backgroundColor: orbitPalette.backgroundSoft }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
+      <View style={[styles.root, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.handle, { backgroundColor: glass(0.18) }]} />
       <View style={[styles.header, { borderBottomColor: glassBorder(0.08) }]}>
@@ -469,9 +480,11 @@ export default function TaskDetailScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: 20 }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled">
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
         {!editing ? (
           <>
             <Text style={[typography.title1, { color: c.text, marginTop: 4 }]}>{task.title}</Text>
@@ -855,7 +868,7 @@ export default function TaskDetailScreen() {
             {showProofPreview ? (
               <View style={styles.detailRow}>
                 <Text style={[styles.label, { color: c.textMuted }]}>Attached photo</Text>
-                <Image source={{ uri: myProofUri }} style={[styles.proofImage, { backgroundColor: glass(0.06) }]} resizeMode="cover" />
+                <ProofPhotoPreview uri={myProofUri!} />
               </View>
             ) : null}
             <View style={styles.detailRow}>
@@ -864,7 +877,23 @@ export default function TaskDetailScreen() {
             </View>
           </View>
         )}
+      </ScrollView>
 
+      <View
+        style={[
+          styles.footer,
+          {
+            borderTopColor: glassBorder(0.1),
+            backgroundColor: orbitPalette.backgroundSoft,
+            paddingBottom: Math.max(insets.bottom, 12) + 8,
+          },
+        ]}>
+        <ScrollView
+          style={styles.footerScroll}
+          contentContainerStyle={styles.footerContent}
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
         {editing ? (
           <View style={styles.actionStack}>
             <DetailAction
@@ -1077,7 +1106,8 @@ export default function TaskDetailScreen() {
             ) : null}
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       <TaskProofRequestSheet
         visible={requestSheetOpen}
@@ -1134,7 +1164,8 @@ export default function TaskDetailScreen() {
           }
         }}
       />
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1184,8 +1215,50 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Renders a durable proof URL, or a clear empty state when the URI cannot load. */
+function ProofPhotoPreview({ uri }: { uri: string }) {
+  const { c, glass, glassBorder } = useOrbitColors();
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <View
+        style={[
+          styles.proofEmpty,
+          { backgroundColor: glass(0.06), borderColor: glassBorder(0.12) },
+        ]}>
+        <MaterialIcons name="broken-image" size={28} color={c.textMuted} />
+        <Text style={[typography.footnote, { color: c.textSoft, textAlign: 'center' }]}>
+          {isLocalProofUri(uri)
+            ? 'This photo stayed on the Sidekick’s device. Ask them to send it again.'
+            : 'Photo couldn’t load. Ask them to send it again.'}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      key={uri}
+      source={{ uri }}
+      style={[styles.proofImage, { backgroundColor: glass(0.06) }]}
+      resizeMode="cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  scroll: { flex: 1 },
+  footer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    maxHeight: '42%',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  footerScroll: { flexGrow: 0 },
+  footerContent: { gap: 10, paddingBottom: 4 },
   shareRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -1324,8 +1397,19 @@ const styles = StyleSheet.create({
   avatarEmoji: { fontSize: 16 },
   proofImage: {
     width: '100%',
-    height: 200,
+    height: 220,
     borderRadius: 16,
+  },
+  proofEmpty: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    justifyContent: 'center',
+    minHeight: 160,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
   },
   waitCard: {
     flexDirection: 'row',
