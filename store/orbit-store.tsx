@@ -2534,6 +2534,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('task.updated', { taskId: task.id, scope }, analyticsContext);
   };
 
+  const resolveDurableProofUri = async (taskId: string, localUri: string): Promise<string> => {
+    const householdId = household.id?.trim();
+    if (!householdId) {
+      throw new Error('Household not ready — try again in a moment.');
+    }
+    const { resolveProofUriForSync } = await import('@/lib/tasks/upload-proof');
+    return resolveProofUriForSync({
+      localUri,
+      householdId,
+      taskId,
+    });
+  };
+
   const submitTaskProof = async (
     taskId: string,
     proofUri: string,
@@ -2549,11 +2562,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       (isSplitTask(currentTask) ? currentMember?.name : undefined) ||
       currentTask.assignee;
 
+    const profileAuth = await usesProfileCodeAuth();
+    let durableUri = proofUri;
+    // Sidekick edge uploads bytes itself; admin JWT path uploads from the client.
+    if (!profileAuth) {
+      durableUri = await resolveDurableProofUri(taskId, proofUri);
+    }
+
     const withProof = {
-      ...resubmitProofPhoto(currentTask, proofUri),
+      ...resubmitProofPhoto(currentTask, durableUri),
       proofNote: options?.note?.trim() || undefined,
     };
-    const profileAuth = await usesProfileCodeAuth();
     let updated: HouseholdTask;
     if (profileAuth) {
       updated = await sidekickSubmitTaskProof({
@@ -2567,7 +2586,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         ...withProof,
         shares: currentTask.shares.map((share) =>
           share.name === forAssignee
-            ? { ...share, proofUri, proofStatus: 'submitted' }
+            ? { ...share, proofUri: durableUri, proofStatus: 'submitted' }
             : share
         ),
         status: currentTask.status === 'Pending' ? 'In Progress' : currentTask.status,
@@ -2586,7 +2605,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         title: currentTask.title,
         assignee: forAssignee,
         taskId,
-        proofUri,
+        proofUri: updated.proofUri ?? durableUri,
         audienceRoles: [...PROOF_REVIEW_ROLES],
         homework: isHomeworkCategory(currentTask.category, currentTask.title),
       });
@@ -2607,15 +2626,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!currentTask) {
       throw new Error('Task not found.');
     }
+
+    const profileAuth = await usesProfileCodeAuth();
+    let durableInput = input;
+    if (input.proofUri && !profileAuth) {
+      const durableUri = await resolveDurableProofUri(taskId, input.proofUri);
+      durableInput = { ...input, proofUri: durableUri };
+    }
+
     const { submitProofReply: buildReply } = await import('@/lib/tasks/proof-actions');
-    const result = buildReply(currentTask, input);
+    const result = buildReply(currentTask, durableInput);
     if (!result.ok) {
       throw new Error(result.reason);
     }
 
     const forAssignee =
       (isSplitTask(currentTask) ? currentMember?.name : undefined) || currentTask.assignee;
-    const profileAuth = await usesProfileCodeAuth();
     let updated: HouseholdTask;
     if (profileAuth && input.proofUri) {
       updated = await sidekickSubmitTaskProof({
@@ -2670,7 +2696,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         title: currentTask.title,
         assignee: forAssignee,
         taskId,
-        proofUri: input.proofUri,
+        proofUri: updated.proofUri ?? durableInput.proofUri,
         audienceRoles: [...PROOF_REVIEW_ROLES],
         homework: isHomeworkCategory(currentTask.category, currentTask.title),
       });
@@ -2682,7 +2708,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     await trackAnalytics(
       'task.proof_submitted',
-      { taskId, forAssignee, hasNote: Boolean(input.note), hasPhoto: Boolean(input.proofUri) },
+      {
+        taskId,
+        forAssignee,
+        hasNote: Boolean(input.note),
+        hasPhoto: Boolean(input.proofUri),
+      },
       analyticsContext
     );
   };
