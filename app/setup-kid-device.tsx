@@ -46,7 +46,7 @@ function isTruthyParam(raw: string | string[] | undefined): boolean {
 }
 
 /**
- * Family iPad setup — 4 steps: What / Name / Who / Ready.
+ * Shared devices setup — 4 steps: Name / Who / Faces / Hand over.
  * Entry: Step 1 by default; `?step=3` from face picker; `?readonly=1` explainer from phone.
  */
 export default function SetupKidDeviceScreen() {
@@ -230,7 +230,7 @@ export default function SetupKidDeviceScreen() {
   };
 
   const useAsPersonalPhone = () => {
-    Alert.alert('Use as a personal phone?', 'This iPad will stop asking who is using it.', [
+    Alert.alert('Use as a personal phone?', 'This device will stop asking who is using it.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Use as personal',

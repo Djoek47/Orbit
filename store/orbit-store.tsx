@@ -6326,7 +6326,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     );
     const session = await setupSharedDeviceSession({
       profileMemberIds: membersOnly.map((member) => member.id),
-      deviceLabel: deviceLabel?.trim() || 'Family iPad',
+      deviceLabel: deviceLabel?.trim() || 'Shared device',
       hostKind: 'shared-tablet',
     });
 

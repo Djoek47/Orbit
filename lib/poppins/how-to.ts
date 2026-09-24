@@ -51,9 +51,9 @@ export const HOW_TO_INDEX: HowToEntry[] = [
   },
   {
     id: 'family-ipad',
-    title: 'Family iPad',
+    title: 'Shared devices',
     answer: 'Shared devices use profile codes — switch faces on the Home screen.',
-    patterns: ['family ipad', 'shared device', 'tablet profile', 'kid device'],
+    patterns: ['family ipad', 'shared device', 'shared devices', 'tablet profile', 'kid device'],
     steps: [
       { text: 'Open Home', route: '/(tabs)' },
       { text: 'Tap the face to switch profiles' },

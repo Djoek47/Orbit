@@ -384,7 +384,7 @@ const ADMIN_PEOPLE: TourChapter = {
     step({
       id: 'people.ipad',
       targetId: 'tour.finish',
-      title: 'Family iPad',
+      title: 'Shared devices',
       body: 'Kids can share one iPad and switch by tapping their face. Set it up from Settings → Members.',
       route: '/(tabs)',
       centered: true,
@@ -536,7 +536,7 @@ export const SIDEKICK_TOUR: TourDefinition = {
 
 export const FAMILY_IPAD_TOUR: TourDefinition = {
   tourId: 'family_ipad',
-  welcomeTitle: 'Family iPad',
+  welcomeTitle: 'Shared devices',
   welcomeBody: 'Tap your face to open your own tasks, XP and rewards.',
   welcomePrimary: 'Got it',
   welcomeSecondary: 'Skip',
