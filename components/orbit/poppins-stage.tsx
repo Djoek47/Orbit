@@ -736,10 +736,12 @@ export function PoppinsStage({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    width: '100%',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: 8,
-    gap: 16,
+    gap: 12,
+    paddingTop: 4,
   },
   think: {
     fontSize: 11,

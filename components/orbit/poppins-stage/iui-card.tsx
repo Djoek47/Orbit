@@ -77,8 +77,8 @@ export function IuiCard({
     Math.max(220, Math.min(520, windowH - insets.top - insets.bottom - 16 - 220));
   const scale = useSharedValue(1);
   const ringOpacity = useSharedValue(holding ? 1 : 0);
-  const enterOpacity = useSharedValue(0);
-  const enterY = useSharedValue(8);
+  const enterOpacity = useSharedValue(1);
+  const enterY = useSharedValue(0);
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
@@ -88,13 +88,21 @@ export function IuiCard({
   }, []);
 
   useEffect(() => {
+    // Card must be visible immediately (blank-stage bug). Soft settle only if motion is on.
+    if (reduceMotion) {
+      enterOpacity.value = 1;
+      enterY.value = 0;
+      return;
+    }
+    enterOpacity.value = 0.92;
+    enterY.value = 6;
     const dur = motionDuration.smooth;
     enterOpacity.value = withTiming(1, {
       duration: dur,
       easing: Easing.out(Easing.cubic),
     });
     enterY.value = withTiming(0, {
-      duration: reduceMotion ? 0 : dur,
+      duration: dur,
       easing: Easing.out(Easing.cubic),
     });
   }, [enterOpacity, enterY, reduceMotion]);

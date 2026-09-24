@@ -34,6 +34,7 @@ import {
   POPPINS_PAUSED_COPY,
 } from '@/lib/ai/credits';
 import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
+import { drainPreviewFill, turnActCost } from '@/lib/poppins/orb-levels';
 import { prefsForTier, savePoppinsInteractionPrefs } from '@/lib/poppins/poppins-prefs';
 import { personalActTokens, summarizeActUsage, notifyActUndone, buildActEvent } from '@/lib/ai/act-events';
 import { driveAiuic, hearAndDrive, isLocalHowTo } from '@/lib/poppins/aiuic';
@@ -82,11 +83,10 @@ import {
   subscribePoppinsPrefs,
   type PoppinsInteractionPrefs,
 } from '@/lib/poppins/poppins-prefs';
-import { setSessionActMode, setSessionSelfName } from '@/lib/poppins/session-act-mode';
+import { getSessionActMode, setSessionActMode, setSessionSelfName } from '@/lib/poppins/session-act-mode';
 import type { HouseholdTask } from '@/types/orbit';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
-
 type PoppinsVisualState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'success';
 
 function PoppinsRemoteAudio({ streamURL }: { streamURL: string | null }) {
@@ -927,6 +927,26 @@ export default function PoppinsScreen() {
   const monthGlow = permissions.canManageHousehold
     ? monthLeft / TOKENS_PER_MONTH
     : dailyFill;
+
+  // WO13 — one orb, three sizes. Never unmount while the tab is open.
+  const liveScene = drive.playlist[drive.index]?.scene;
+  const orbIsSettle =
+    drive.live &&
+    (drive.phase === 'settle' || liveScene === 'result_mark' || liveScene === 'task_done');
+  const orbSize = showText && !drive.live ? 34 : drive.live ? 72 : 196;
+  const orbVisual: PoppinsVisualState = orbIsSettle
+    ? 'success'
+    : visualState === 'success'
+      ? 'success'
+      : visualState;
+  const showDrainPreview =
+    drive.live &&
+    !orbIsSettle &&
+    (drive.holding || drive.phase === 'hold' || drive.phase === 'unfold');
+  const drainPreview = showDrainPreview
+    ? drainPreviewFill(dailyFill, turnActCost(getSessionActMode()), TOKENS_PER_DAY)
+    : null;
+
   const selectPoppinsTier = (tier: 'base' | 'max') => {
     if (!permissions.canManageHousehold) return;
     void savePoppinsInteractionPrefs(household.id, prefsForTier(tier));
@@ -978,8 +998,8 @@ export default function PoppinsScreen() {
         <View style={styles.headerLead}>
           {showText && !drive.live ? (
             <PoppinsOrb
-              size={44}
-              state={visualState}
+              size={34}
+              state={orbVisual}
               speaking={visualState === 'speaking'}
               dailyFill={dailyFill}
               monthGlow={monthGlow}
@@ -1049,132 +1069,131 @@ export default function PoppinsScreen() {
         </View>
       ) : null}
 
-      {drive.live ? (
-        <ScrollView
-          style={styles.stageLive}
-          contentContainerStyle={styles.stageLiveContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <TourTarget id="poppins.stage"><PoppinsStage
-            onVoiceTaskCreated={(task: HouseholdTask) => {
-              const current = householdRef.current;
-              const next = {
-                ...current,
-                tasks: current.tasks.some((item) => item.id === task.id)
-                  ? current.tasks
-                  : [task, ...current.tasks],
-              };
-              householdRef.current = next;
-              voiceRef.current?.syncHousehold(next);
-              voiceRef.current?.notifyTaskCommitted({
-                title: task.title,
-                assignee: task.assignee,
-                due: task.due,
-              });
-            }}
-          /></TourTarget>
-        </ScrollView>
-      ) : showText ? (
-        <ScrollView
-          style={styles.thread}
-          contentContainerStyle={styles.threadContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          {poppinsConversation.length === 0 && !liveText ? (
-            <Text style={[styles.idleHint, { color: isDark ? 'rgba(255,255,255,0.28)' : c.textMuted }]}>
-              {idleHint}
-            </Text>
-          ) : null}
-          {poppinsConversation.slice(-16).map((message, index) => {
-            const mine = message.role === 'user';
-            return (
+      {/* WO13 — one orb for the tab. Live: 72 above the card. Idle: 196 centre. Text: 34 in header. */}
+      <View style={styles.body}>
+        {showText && !drive.live ? (
+          <ScrollView
+            style={styles.thread}
+            contentContainerStyle={styles.threadContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            {poppinsConversation.length === 0 && !liveText ? (
+              <Text style={[styles.idleHint, { color: isDark ? 'rgba(255,255,255,0.28)' : c.textMuted }]}>
+                {idleHint}
+              </Text>
+            ) : null}
+            {poppinsConversation.slice(-16).map((message, index) => {
+              const mine = message.role === 'user';
+              return (
+                <View
+                  key={`${message.role}-${index}`}
+                  style={[
+                    styles.bubble,
+                    mine ? styles.bubbleMine : styles.bubbleTheirs,
+                    {
+                      backgroundColor: mine ? glass(0.08) : `${majordomo.accent}22`,
+                      borderColor: mine ? glassBorder(0.12) : `${majordomo.accent}55`,
+                    },
+                  ]}>
+                  <Text style={[styles.bubbleText, { color: c.text }]}>{message.content}</Text>
+                </View>
+              );
+            })}
+            {liveText ? (
               <View
-                key={`${message.role}-${index}`}
                 style={[
                   styles.bubble,
-                  mine ? styles.bubbleMine : styles.bubbleTheirs,
+                  styles.bubbleTheirs,
                   {
-                    backgroundColor: mine ? glass(0.08) : `${majordomo.accent}22`,
-                    borderColor: mine ? glassBorder(0.12) : `${majordomo.accent}55`,
+                    backgroundColor: `${majordomo.accent}22`,
+                    borderColor: `${majordomo.accent}55`,
                   },
                 ]}>
-                <Text style={[styles.bubbleText, { color: c.text }]}>{message.content}</Text>
+                <Text style={[styles.bubbleKicker, { color: majordomo.accent }]}>{liveLabel}</Text>
+                <Text style={[styles.bubbleText, { color: c.text }]}>{liveText}</Text>
               </View>
-            );
-          })}
-          {liveText ? (
-            <View
-              style={[
-                styles.bubble,
-                styles.bubbleTheirs,
-                {
-                  backgroundColor: `${majordomo.accent}22`,
-                  borderColor: `${majordomo.accent}55`,
-                },
-              ]}>
-              <Text style={[styles.bubbleKicker, { color: majordomo.accent }]}>{liveLabel}</Text>
-              <Text style={[styles.bubbleText, { color: c.text }]}>{liveText}</Text>
-            </View>
-          ) : null}
-        </ScrollView>
-      ) : (
-      <View style={styles.stage}>
-        <View style={styles.transcriptBlock}>
-          {hasStrip && liveSpeaker ? (
-            <PoppinsLiveCaption
-              key={liveSpeaker}
-              speaker={liveSpeaker}
-              label={liveLabel}
-              text={liveText}
-              accent={liveAccent}
-              textColor={captionTextColor}
-              showDots={showCaptionDots}
-            />
-          ) : (
-            <Text
-              style={[styles.idleHint, { color: isDark ? 'rgba(255,255,255,0.25)' : c.textMuted }]}>
-              {continuityRef.current &&
-              isContinuityFresh(continuityRef.current) &&
-              continuityRef.current.householdId === household.id
-                ? 'Tap to continue.'
-                : idleHint}
-            </Text>
-          )}
-        </View>
-
-        {nativeVoice ? (
-          <View
-            accessible
-            accessibilityRole="image"
-            accessibilityLabel={`${majordomo.displayName}, ${cfg.label}`}>
-            <PoppinsOrb
-              size={196}
-              state={visualState}
-              speaking={visualState === 'speaking'}
-              dailyFill={dailyFill}
-              monthGlow={monthGlow}
-              accent={majordomo.accent}
-            />
-          </View>
+            ) : null}
+          </ScrollView>
         ) : (
-          <PoppinsOrb
-            size={196}
-            state={visualState}
-            speaking={visualState === 'speaking'}
-            dailyFill={dailyFill}
-            monthGlow={monthGlow}
-            accent={majordomo.accent}
-          />
-        )}
+          <>
+            {!drive.live ? (
+              <View style={styles.transcriptBlock}>
+                {hasStrip && liveSpeaker ? (
+                  <PoppinsLiveCaption
+                    key={liveSpeaker}
+                    speaker={liveSpeaker}
+                    label={liveLabel}
+                    text={liveText}
+                    accent={liveAccent}
+                    textColor={captionTextColor}
+                    showDots={showCaptionDots}
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      styles.idleHint,
+                      { color: isDark ? 'rgba(255,255,255,0.25)' : c.textMuted },
+                    ]}>
+                    {continuityRef.current &&
+                    isContinuityFresh(continuityRef.current) &&
+                    continuityRef.current.householdId === household.id
+                      ? 'Tap to continue.'
+                      : idleHint}
+                  </Text>
+                )}
+              </View>
+            ) : null}
 
-        <View style={styles.waveWrap}>
-          <PoppinsWaveform
-            active={visualState === 'listening' || visualState === 'speaking'}
-            color={cfg.color}
-          />
-        </View>
+            <View
+              style={[styles.orbSlot, drive.live ? styles.orbSlotLive : styles.orbSlotIdle]}
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel={`${majordomo.displayName}, ${cfg.label}`}>
+              <PoppinsOrb
+                size={orbSize}
+                state={orbVisual}
+                speaking={visualState === 'speaking'}
+                dailyFill={dailyFill}
+                monthGlow={monthGlow}
+                accent={majordomo.accent}
+                drainPreview={drainPreview}
+              />
+            </View>
+
+            {drive.live ? (
+              <View style={styles.stageLive}>
+                <TourTarget id="poppins.stage" style={styles.stageTour}>
+                  <PoppinsStage
+                    onVoiceTaskCreated={(task: HouseholdTask) => {
+                      const current = householdRef.current;
+                      const next = {
+                        ...current,
+                        tasks: current.tasks.some((item) => item.id === task.id)
+                          ? current.tasks
+                          : [task, ...current.tasks],
+                      };
+                      householdRef.current = next;
+                      voiceRef.current?.syncHousehold(next);
+                      voiceRef.current?.notifyTaskCommitted({
+                        title: task.title,
+                        assignee: task.assignee,
+                        due: task.due,
+                      });
+                    }}
+                  />
+                </TourTarget>
+              </View>
+            ) : (
+              <View style={styles.waveWrap}>
+                <PoppinsWaveform
+                  active={visualState === 'listening' || visualState === 'speaking'}
+                  color={cfg.color}
+                />
+              </View>
+            )}
+          </>
+        )}
       </View>
-      )}
 
       <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
         {error ? (
@@ -1457,10 +1476,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     zIndex: 2,
   },
+  body: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+    zIndex: 2,
+  },
+  orbSlot: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  orbSlotIdle: {
+    flex: 1,
+    minHeight: 196,
+  },
+  orbSlotLive: {
+    flexGrow: 0,
+    flexShrink: 0,
+    paddingBottom: 10,
+    paddingTop: 4,
+  },
   stageLive: {
     flex: 1,
     minHeight: 0,
-    zIndex: 2,
+    width: '100%',
+    paddingHorizontal: space.md,
+  },
+  stageTour: {
+    flex: 1,
+    width: '100%',
+  },
+  stageIdle: {
+    alignItems: 'center',
+    flexGrow: 0,
+    justifyContent: 'flex-start',
+    paddingHorizontal: space.lg,
+    width: '100%',
   },
   stageLiveContent: {
     flexGrow: 1,

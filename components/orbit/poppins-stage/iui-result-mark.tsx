@@ -1,21 +1,14 @@
 /**
  * WO12 settle — turn ledger with Undo N things (Settle.html).
- * Mount animation allowed here: settle is after WebRTC uplink is quiet.
+ * WO13 — the Poppins orb above the stage is the tick; no separate success circle.
  */
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInUp,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { STAGE, stageFaint, stageMuted, stageSuccessText } from '@/constants/iui-stage';
-import { motion, motionDuration } from '@/constants/motion-tokens';
+import { motionDuration } from '@/constants/motion-tokens';
 import { space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
@@ -57,14 +50,9 @@ export function IuiResultMark({
   const { c, isDark } = useOrbitColors();
   const muted = stageMuted(isDark);
   const faint = stageFaint(isDark);
-  const scale = useSharedValue(0.82);
   const markGreen = STAGE.semantic.success;
   const markText = stageSuccessText(isDark);
   const [ringProgress, setRingProgress] = useState(1);
-
-  useEffect(() => {
-    scale.value = withSpring(1, motion.settle);
-  }, [scale]);
 
   useEffect(() => {
     if (!undoable || !undoUntil) {
@@ -81,28 +69,14 @@ export function IuiResultMark({
     return () => clearInterval(id);
   }, [undoable, undoUntil]);
 
-  const badgeStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   return (
     <Animated.View entering={FadeIn.duration(motionDuration.smooth)} style={styles.wrap}>
-      <Animated.View
-        style={[
-          styles.badge,
-          {
-            backgroundColor: `${markGreen}24`,
-            borderColor: `${markGreen}47`,
-            shadowColor: markGreen,
-          },
-          badgeStyle,
-        ]}>
-        <MaterialIcons name="check" size={46} color={markGreen} />
-      </Animated.View>
-      <Animated.View entering={FadeInUp.delay(80).duration(motionDuration.smooth + 60)}>
+      <Animated.View entering={FadeInUp.delay(40).duration(motionDuration.smooth + 60)}>
         <Text style={[styles.label, { color: markText }]}>{LABEL[kind]}</Text>
         {title ? (
-          <Text style={[styles.title, { color: isDark ? STAGE.ink.softDark : c.text }]} numberOfLines={3}>
+          <Text
+            style={[styles.title, { color: isDark ? STAGE.ink.softDark : c.text }]}
+            numberOfLines={3}>
             {title}
           </Text>
         ) : null}
@@ -127,7 +101,9 @@ export function IuiResultMark({
               <View style={[styles.ledgerDot, { backgroundColor: `${markGreen}29` }]}>
                 <Text style={{ color: markGreen, fontSize: 11, fontWeight: '700' }}>✓</Text>
               </View>
-              <Text style={[styles.ledgerLabel, { color: isDark ? STAGE.ink.softDark : c.text }]} numberOfLines={1}>
+              <Text
+                style={[styles.ledgerLabel, { color: isDark ? STAGE.ink.softDark : c.text }]}
+                numberOfLines={1}>
                 {row.label}
               </Text>
               {onUndoOne ? (
@@ -189,17 +165,6 @@ const styles = StyleSheet.create({
     gap: space.sm + 2,
     paddingVertical: space.sm,
     width: '100%',
-  },
-  badge: {
-    alignItems: 'center',
-    borderRadius: 54,
-    height: 108,
-    width: 108,
-    justifyContent: 'center',
-    borderWidth: 1,
-    shadowOpacity: 0.18,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: 0 },
   },
   label: {
     ...typography.title2,
