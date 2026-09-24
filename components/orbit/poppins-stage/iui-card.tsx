@@ -138,6 +138,8 @@ export function IuiCard({
 
   return (
     <Animated.View
+      accessible
+      accessibilityRole="summary"
       style={[styles.wrap, breath]}
       accessibilityViewIsModal={holding || undefined}
       accessibilityLabel={accessibilityLabel ?? kicker}>

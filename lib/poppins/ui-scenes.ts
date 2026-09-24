@@ -161,6 +161,11 @@ export type IuiPayload = {
   composeReady?: boolean;
   /** Marginal fuzzy fill — do not arm HOLD until confirmed. */
   provisional?: boolean;
+  /**
+   * Explicit Narrow flag — two chips awaiting a choice. Do not infer from
+   * `provisional && chips.length === 2` alone (WO16 §1.1).
+   */
+  narrow?: boolean;
   /** Original user utterance — used by validateAct echo detection. */
   sourceUtterance?: string;
   /** Current one-beat compose step. */

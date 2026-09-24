@@ -86,24 +86,11 @@ export function hearAndDrive(
     return true;
   }
 
-  // Local how-to match — paint coach_steps, never call the chat model.
-  const howTo = matchHowTo(cleaned);
-  if (howTo) {
-    driveAiuic([howToUiAction(howTo, cleaned)], cleaned, {
-      kid: opts?.kid,
-      replace: true,
-      existingTasks: opts?.existingTasks,
-      memberNames,
-      selfName: opts?.selfName,
-    });
-    poppinsUiOrchestrator.syncSpoken(cleaned, memberNames);
-    return true;
-  }
-
   const memory = parseHouseMemoryUtterance(cleaned);
   if (memory) void rememberActiveFact(memory);
   const steered = poppinsUiOrchestrator.applySpeech(cleaned, memberNames, { selfName: opts?.selfName });
   if (!steered) {
+    // WO16 §2.3 — act grammar before how-to so Pass A capabilities are not shadowed.
     const inferred = parseCompoundHouseholdIntent(cleaned, {
       memberNames,
       selfName: opts?.selfName,
@@ -117,7 +104,25 @@ export function hearAndDrive(
         memberNames,
         selfName: opts?.selfName,
       });
-    } else if (memory) {
+      poppinsUiOrchestrator.syncSpoken(cleaned, memberNames);
+      return true;
+    }
+
+    // Local how-to match — paint coach_steps, never call the chat model.
+    const howTo = matchHowTo(cleaned);
+    if (howTo) {
+      driveAiuic([howToUiAction(howTo, cleaned)], cleaned, {
+        kid: opts?.kid,
+        replace: true,
+        existingTasks: opts?.existingTasks,
+        memberNames,
+        selfName: opts?.selfName,
+      });
+      poppinsUiOrchestrator.syncSpoken(cleaned, memberNames);
+      return true;
+    }
+
+    if (memory) {
       // Memory-only utterance — paint the note strip (fact already persisted).
       driveAiuic(
         [

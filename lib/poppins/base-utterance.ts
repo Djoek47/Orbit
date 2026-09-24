@@ -5,7 +5,7 @@
 import { hearAndDrive, isLocalHowTo } from '@/lib/poppins/aiuic';
 import {
   confirmationForLocalWrite,
-  findLocalWriteBeat,
+  findCommittableLocalWriteBeat,
 } from '@/lib/poppins/local-act-confirm';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import type { HouseholdTask } from '@/types/orbit';
@@ -36,7 +36,7 @@ export type BaseUtteranceResult = {
 /**
  * Resolve a Base (Quiet) utterance.
  * Local grammar wins for acts; the model is only called when grammar misses.
- * If `ask` throws and a local confirm exists, the confirm is still returned.
+ * Short-circuit depends on a *committable* local write (WO16 §2.4), not only copy.
  */
 export async function resolveBaseUtterance(
   text: string,
@@ -55,15 +55,15 @@ export async function resolveBaseUtterance(
     existingTasks: opts.existingTasks,
   });
   const state = poppinsUiOrchestrator.getState();
-  const localWrite = findLocalWriteBeat(state.playlist, state.index);
+  const localWrite = findCommittableLocalWriteBeat(state.playlist, state.index);
   const localConfirm = localWrite ? confirmationForLocalWrite(localWrite) : null;
 
-  if (tookLocal && localConfirm) {
+  if (tookLocal && localWrite) {
     return {
       tookLocal: true,
-      answer: localConfirm,
+      answer: localConfirm || 'On it.',
       calledModel: false,
-      localConfirm,
+      localConfirm: localConfirm || 'On it.',
       kind: 'local_write',
     };
   }
@@ -104,13 +104,30 @@ export async function resolveBaseUtterance(
       offline,
     };
   } catch {
-    if (localConfirm) {
+    if (localConfirm || localWrite) {
       poppinsUiOrchestrator.flagModelOffline();
+      const answer = localConfirm || (localWrite ? confirmationForLocalWrite(localWrite) : '') || 'On it.';
       return {
         tookLocal,
-        answer: localConfirm,
+        answer,
         calledModel: false,
-        localConfirm,
+        localConfirm: answer,
+        kind: 'offline_local',
+        offline: true,
+      };
+    }
+    // Model down but a non-committable local act is already on stage (e.g. confirm clear).
+    const anyLocal = state.playlist.find(
+      (beat) => beat.commit !== 'none' && (beat.payload.write ?? 'none') !== 'none'
+    );
+    if (tookLocal && anyLocal) {
+      poppinsUiOrchestrator.flagModelOffline();
+      const answer = confirmationForLocalWrite(anyLocal) || 'On it.';
+      return {
+        tookLocal: true,
+        answer,
+        calledModel: false,
+        localConfirm: answer,
         kind: 'offline_local',
         offline: true,
       };

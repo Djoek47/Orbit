@@ -109,6 +109,8 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
       ? classified.categoryName
       : undefined;
   const count = items?.filter((item) => !item.dropped && item.label).length ?? (groceryName ? 1 : 0);
+  // Missing required slot → hold + composeReady:false (waits), never commit:'none' (WO16 §2.2).
+  const missingName = !groceryName && !isNarrow && !items?.length;
 
   return [
     beat(
@@ -122,20 +124,22 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
           askLine ||
           (isNarrow
             ? 'Which one?'
-            : action.lane === 'clothing'
-              ? 'Shopping list'
-              : storeHint || 'Grocery list'),
+            : missingName
+              ? 'What should I add?'
+              : action.lane === 'clothing'
+                ? 'Shopping list'
+                : storeHint || 'Grocery list'),
         location: storeHint || undefined,
         sourceUtterance:
           typeof action.sourceUtterance === 'string' ? action.sourceUtterance : undefined,
         items,
         progressLabel: count > 1 ? `1 of ${count}` : undefined,
-        composeReady: groceryName ? undefined : false,
+        composeReady: groceryName || isNarrow ? (isNarrow ? false : undefined) : false,
         provisional: isNarrow || (groceryName ? undefined : true),
+        narrow: isNarrow || undefined,
         chips: isNarrow ? narrowChips : undefined,
       },
-      // Narrow keeps hold commit so a chip tap can arm silence-assent; blocked while provisional.
-      groceryName || isNarrow ? 'hold' : 'none',
+      'hold',
       'add_grocery'
     ),
     ...(groceryName && !items
@@ -164,11 +168,11 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
           ]
         : isNarrow
           ? [
+              // Empty title so sanitizeGroceryPlaylist does not treat "Added" as an orphan key.
               beat(
                 'result_mark',
                 {
                   markKind: 'added' as const,
-                  title: 'Added',
                 },
                 'none'
               ),
@@ -829,9 +833,34 @@ function sanitizeGroceryPlaylist(playlist: IuiBeat[]): IuiBeat[] {
     if (item.scene === 'result_mark' && item.payload.markKind === 'added') {
       const key = (item.payload.groceryName ?? item.payload.title ?? '').trim().toLowerCase();
       // Skip orphan result_mark after a suppressed duplicate grocery_add.
+      // Empty key = Narrow companion waiting for a chip (WO16 §3.1) — keep it.
       if (key && !seenGrocery.has(key) && !/^\d+\s+items?$/i.test(key)) continue;
     }
     deduped.push(item);
   }
-  return deduped;
+  return assertPlaylistShape(deduped);
+}
+
+/** WO16 §5 — every write beat needs a commit path; every non-none commit needs a write. */
+function assertPlaylistShape(playlist: IuiBeat[]): IuiBeat[] {
+  const dev =
+    (typeof __DEV__ !== 'undefined' && __DEV__) ||
+    (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production');
+  if (!dev) return playlist;
+  for (const beat of playlist) {
+    const write = beat.payload.write ?? 'none';
+    if (beat.commit !== 'none' && write === 'none') {
+      console.warn('iui.shape: commit without write', {
+        scene: beat.scene,
+        commit: beat.commit,
+      });
+    }
+    if (write !== 'none' && beat.commit === 'none' && beat.scene !== 'result_mark') {
+      console.warn('iui.shape: write without commit path', {
+        scene: beat.scene,
+        write,
+      });
+    }
+  }
+  return playlist;
 }

@@ -122,7 +122,48 @@ function parseHouseholdIntentRaw(
       text
     )
   ) {
-    return [{ type: 'ranks_peek', rows: [] }];
+    const rows = (opts?.memberNames ?? []).map((name, i) => ({
+      id: `rank-${i}`,
+      title: name,
+      detail: undefined as string | undefined,
+    }));
+    return [{ type: 'ranks_peek', rows }];
+  }
+
+  // WO16 §2.5 — "next stop" / "what's overdue" as local Base capabilities.
+  if (/\bnext stop\b/i.test(text) || /\badvance (the )?(trip|itinerary|route)\b/i.test(text)) {
+    return [{ type: 'advance_itinerary_stop' }];
+  }
+  if (
+    /\bwhat('?s| is) overdue\b/i.test(text) ||
+    /\boverdue (tasks?|chores?)\b/i.test(text) ||
+    /\bwhat('?s| is) on my list\b/i.test(text)
+  ) {
+    const tasks = opts?.existingTasks ?? [];
+    const overdue = tasks.filter((t) => {
+      const status = String((t as { status?: string }).status ?? '').toLowerCase();
+      if (status === 'done' || status === 'completed') return false;
+      const due = String((t as { dueDate?: string; due?: string }).dueDate ?? (t as { due?: string }).due ?? '');
+      return /overdue|yesterday|past/i.test(due) || status === 'overdue';
+    });
+    const rows = (overdue.length ? overdue : tasks.filter((t) => {
+      const status = String((t as { status?: string }).status ?? '').toLowerCase();
+      return status !== 'done' && status !== 'completed';
+    }))
+      .slice(0, 3)
+      .map((t, i) => ({
+        id: String((t as { id?: string }).id ?? i),
+        title: String((t as { title?: string }).title ?? 'Task'),
+        assignee: (t as { assigneeName?: string; assignee?: string }).assigneeName
+          ?? (t as { assignee?: string }).assignee,
+      }));
+    return [
+      {
+        type: /\boverdue\b/i.test(text) ? 'list_overdue' : 'list_peek',
+        rows,
+        thinkingLine: /\boverdue\b/i.test(text) ? 'Overdue' : 'On your list',
+      },
+    ];
   }
 
   // Save place — HOLD on the Places card.

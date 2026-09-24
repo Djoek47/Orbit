@@ -2,6 +2,7 @@
  * Places capability — violet plan card for saving an address.
  */
 import { StyleSheet, View } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
@@ -29,10 +30,11 @@ export function IuiPlaceCard({
 }: Props) {
   const { c, isDark } = useOrbitColors();
   const muted = stageMuted(isDark);
+  const fill = fillAccent ?? accent;
   return (
     <IuiCard
       accent={accent}
-      fillAccent={fillAccent ?? accent}
+      fillAccent={fill}
       kicker="Places"
       holding={holding}
       hold={holding}
@@ -41,8 +43,8 @@ export function IuiPlaceCard({
       rightFooter="Reuse on trips"
       accessibilityLabel={`Save place ${name}`}>
       <View style={styles.body}>
-        <View style={[styles.tile, { backgroundColor: `${fillAccent ?? accent}22` }]}>
-          <Text style={styles.emoji}>📍</Text>
+        <View style={[styles.tile, { backgroundColor: `${fill}22` }]}>
+          <MaterialIcons name="place" size={28} color={accent} />
         </View>
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={[styles.title, { color: c.text }]}>{name || 'Place'}</Text>

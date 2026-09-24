@@ -78,6 +78,8 @@ const EMPTY: IuiDriveState = {
 let state: IuiDriveState = EMPTY;
 /** Session hold duration from active member — survives playlist clear/append. */
 let sessionHoldMs = HOLD_MS_DEFAULT;
+/** WO16 §1.3 — elapsed hold ms preserved across speech pause so the ring resumes. */
+let holdElapsedMs = 0;
 const listeners = new Set<() => void>();
 let holdTimer: ReturnType<typeof setTimeout> | null = null;
 let unfoldTimer: ReturnType<typeof setTimeout> | null = null;
@@ -207,6 +209,21 @@ function patchCurrentPayload(patch: Partial<IuiPayload>) {
   setState({
     playlist: state.playlist.map((item, i) => (i === state.index ? next : item)),
   });
+  // WO16 §1.1 — stay in narrow only while exactly two chips remain.
+  dropNarrowIfChipsGone();
+}
+
+/** Leave narrow the moment chips are gone — even while speaking (WO16 §1.1). */
+function dropNarrowIfChipsGone() {
+  if (state.phase !== 'narrow') return;
+  const beat = currentBeat();
+  const chips = beat?.payload.chips;
+  const stillNarrow =
+    (beat?.payload.narrow === true || beat?.payload.provisional === true) &&
+    chips?.length === 2;
+  if (!stillNarrow) {
+    setState({ phase: 'unfold' });
+  }
 }
 
 function applyGroupItemStatus(
@@ -274,7 +291,8 @@ function advanceAfterSettle() {
 }
 
 function reverseCount(reverse: IuiCommitReverse | null | undefined): number {
-  if (!reverse) return 1;
+  // WO16 §3.3 — null reverse means nothing to undo; do not invent a count of 1.
+  if (!reverse) return 0;
   if (reverse.batch?.length) return reverse.batch.length;
   return 1;
 }
@@ -284,6 +302,8 @@ function turnUndoCount(ledger: IuiDriveState['undoLedger']): number {
 }
 
 function armUndoWindow(beat: IuiBeat, reverse?: IuiCommitReverse | null) {
+  // If it cannot be reversed, do not offer Undo.
+  if (reverseCount(reverse) <= 0) return;
   clearUndoTimer();
   const ms = effectiveUndoMs(beat);
   const entry = { beat, reverse: reverse ?? null };
@@ -307,6 +327,7 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
   }
   if (state.speaking && beat.commit === 'hold' && !opts?.fromTap) return;
   setState({ phase: 'settle', holding: false, holdStartedAt: null, commitFailed: false });
+  holdElapsedMs = 0;
   hapticHandler?.('settle');
   if (beat.scene === 'confirm' && beat.payload.confirmationIds?.length) {
     pendingHandler?.(true, beat.payload.confirmationIds);
@@ -391,7 +412,14 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
 function startHoldClock(beat: IuiBeat) {
   if (state.frozen || state.speaking || currentBeat()?.id !== beat.id) return;
   if (state.holding) return;
-  setState({ holding: true, phase: 'hold', holdStartedAt: Date.now() });
+  const elapsed = Math.min(holdElapsedMs, state.holdMs);
+  const remaining = Math.max(50, state.holdMs - elapsed);
+  setState({
+    holding: true,
+    phase: 'hold',
+    // Back-date so the ring resumes from where speech paused it (WO16 §1.3).
+    holdStartedAt: Date.now() - elapsed,
+  });
   // WO11 §2.7 — one haptic for the group (settle), not hold+settle.
   if (!(beat.payload.items && beat.payload.items.filter((item) => !item.dropped).length > 1)) {
     hapticHandler?.('hold');
@@ -399,8 +427,9 @@ function startHoldClock(beat: IuiBeat) {
   clearHoldTimer();
   holdTimer = setTimeout(() => {
     if (state.speaking || state.frozen || currentBeat()?.id !== beat.id) return;
+    holdElapsedMs = 0;
     void settleCurrent();
-  }, state.holdMs);
+  }, remaining);
 }
 
 function maybeArmHold() {
@@ -495,6 +524,19 @@ function scrubModelOverwrite(current: IuiPayload, incoming: IuiPayload): IuiPayl
     next.slotOrder = current.slotOrder;
     next.focusSlot = current.focusSlot;
   }
+  // WO16 §1.1 — model merge must not erase Narrow chips / flag before a chip is chosen.
+  if (current.narrow === true && !current.selectedChipId) {
+    next.narrow = true;
+    if (current.chips?.length === 2 && (next.chips?.length !== 2)) {
+      next.chips = current.chips;
+    }
+    // Do not accept a mangled grocery name until a chip is picked.
+    if (!next.selectedChipId) {
+      next.groceryName = current.groceryName;
+      next.title = current.title ?? next.title;
+      next.provisional = true;
+    }
+  }
   return next;
 }
 
@@ -544,6 +586,17 @@ function mergeIncomingPlaylist(playlist: IuiBeat[]) {
     }
   }
   patchCurrentPayload(scrubModelOverwrite(current.payload, incomingPayload as IuiPayload));
+  // Preserve Narrow flag across model merge unless a chip was already chosen.
+  const after = currentBeat();
+  if (
+    after &&
+    current.payload.narrow === true &&
+    !after.payload.selectedChipId &&
+    after.payload.narrow !== true
+  ) {
+    patchCurrentPayload({ narrow: true });
+  }
+  dropNarrowIfChipsGone();
   const rest = playlist.slice(1);
   const kept = state.playlist.slice(0, state.index + 1);
   const tail = state.playlist.slice(state.index + 1);
@@ -596,14 +649,15 @@ function mergeIncomingPlaylist(playlist: IuiBeat[]) {
 
 function armBeat() {
   clearAllTimers();
+  holdElapsedMs = 0;
   const beat = currentBeat();
   if (!beat || state.frozen) return;
-  // Narrow: provisional + exactly two chips — wait for a tap; do not SHOW→HOLD.
-  if (
-    beat.payload.provisional === true &&
-    beat.payload.chips?.length === 2 &&
-    beat.commit === 'hold'
-  ) {
+  // Narrow: explicit flag, or legacy provisional + exactly two chips.
+  const isNarrow =
+    beat.commit === 'hold' &&
+    ((beat.payload.narrow === true && beat.payload.chips?.length === 2) ||
+      (beat.payload.provisional === true && beat.payload.chips?.length === 2));
+  if (isNarrow) {
     setState({
       phase: 'narrow',
       holding: false,
@@ -880,7 +934,14 @@ export const poppinsUiOrchestrator = {
     if (speaking && state.holding) {
       clearHoldTimer();
       clearQuietTimer();
-      setState({ speaking: true, holding: false, phase: 'unfold' });
+      // Pause the ring — keep elapsed so we resume, not restart (WO16 §1.3).
+      if (state.holdStartedAt) {
+        holdElapsedMs = Math.min(
+          state.holdMs,
+          Math.max(holdElapsedMs, Date.now() - state.holdStartedAt)
+        );
+      }
+      setState({ speaking: true, holding: false, phase: 'unfold', holdStartedAt: null });
       return;
     }
     setState({ speaking });
@@ -1104,14 +1165,16 @@ export const poppinsUiOrchestrator = {
       emitTap({ kind, text });
       return;
     }
-    // Narrow chip → fill slots, clear provisional, leave Narrow for HOLD.
+    // Narrow chip → fill slots, clear provisional/narrow, leave Narrow for HOLD.
     const fromNarrow =
       state.phase === 'narrow' ||
+      beat?.payload.narrow === true ||
       (beat?.payload.provisional === true && (beat.payload.chips?.length ?? 0) === 2);
     const cleared: Partial<IuiPayload> = fromNarrow
       ? {
           ...patch,
           provisional: false,
+          narrow: false,
           composeReady: true,
           chips: undefined,
           selectedChipId: patch.selectedChipId ?? patch.libraryTaskId,
@@ -1317,9 +1380,21 @@ export const poppinsUiOrchestrator = {
 };
 
 function clear() {
-  clearAllTimers();
+  // Keep the undo window alive after the card dismisses (WO16 §3.1).
+  clearHoldTimer();
+  clearUnfoldTimer();
+  clearQuietTimer();
+  holdElapsedMs = 0;
   const speaking = state.speaking;
-  state = { ...EMPTY, speaking, holdMs: sessionHoldMs };
+  state = {
+    ...EMPTY,
+    speaking,
+    holdMs: sessionHoldMs,
+    undoUntil: state.undoUntil,
+    undoBeat: state.undoBeat,
+    undoReverse: state.undoReverse,
+    undoLedger: state.undoLedger,
+  };
   emit();
 }
 

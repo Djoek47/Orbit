@@ -19,6 +19,10 @@ export function IuiPeek({ rows, accent, highlightIndex = 0 }: Props) {
         return (
           <View
             key={row.id}
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel={`${row.title}${row.detail ? `, ${row.detail}` : ''}${on ? ', highlighted' : ''}`}
+            accessibilityState={{ selected: on }}
             style={[
               styles.row,
               {

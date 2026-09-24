@@ -11,21 +11,17 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
 import { IuiChips } from '@/components/orbit/poppins-stage/iui-chips';
 import { IuiCoachCard } from '@/components/orbit/poppins-stage/iui-coach-card';
-import { IuiDay } from '@/components/orbit/poppins-stage/iui-day';
-import { IuiDomainGrid } from '@/components/orbit/poppins-stage/iui-domain-grid';
 import { IuiEventCard } from '@/components/orbit/poppins-stage/iui-event-card';
 import { IuiFaces } from '@/components/orbit/poppins-stage/iui-faces';
 import { IuiGhostField } from '@/components/orbit/poppins-stage/iui-ghost-field';
 import { IuiGroceryCard } from '@/components/orbit/poppins-stage/iui-grocery-card';
 import { IuiGroupRows } from '@/components/orbit/poppins-stage/iui-group-rows';
-import { IuiLattice } from '@/components/orbit/poppins-stage/iui-lattice';
 import { IuiObjectCard } from '@/components/orbit/poppins-stage/iui-object-card';
 import { IuiPeek } from '@/components/orbit/poppins-stage/iui-peek';
 import { IuiPlaceCard } from '@/components/orbit/poppins-stage/iui-place-card';
 import { IuiAllowanceCard } from '@/components/orbit/poppins-stage/iui-allowance-card';
 import { IuiMemoryNote } from '@/components/orbit/poppins-stage/iui-memory-note';
 import { IuiResultMark } from '@/components/orbit/poppins-stage/iui-result-mark';
-import { IuiRoad } from '@/components/orbit/poppins-stage/iui-road';
 import { IuiStepper } from '@/components/orbit/poppins-stage/iui-stepper';
 import { IuiTroubleMissingSlot, IuiTroubleModelDown } from '@/components/orbit/poppins-stage/iui-trouble';
 import { IuiTripCard } from '@/components/orbit/poppins-stage/iui-trip-card';
@@ -35,7 +31,7 @@ import { stageAccent, stageDomainLabel, stageFill } from '@/constants/iui-stage'
 import { HOW_TO_INDEX } from '@/lib/poppins/how-to';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { householdHasChildren } from '@/lib/household/has-children';
-import { composeStepLabel, IUI_CREATED_CHIP_ID, IUI_DUE_CHIPS, nextComposeStep } from '@/lib/poppins/iui-compose';
+import { IUI_CREATED_CHIP_ID } from '@/lib/poppins/iui-compose';
 import {
   HOMEWORK_DUE_CHIPS,
   HOMEWORK_SUBJECT_CHIPS,
@@ -45,33 +41,12 @@ import {
 } from '@/lib/poppins/homework-compose';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import type { IuiBeat, IuiChip, IuiFace, IuiPayload } from '@/lib/poppins/ui-scenes';
-import { allLibraryTasks, choreDomains, homeworkDomain } from '@/lib/tasks/task-library';
+import { choreDomains, homeworkDomain } from '@/lib/tasks/task-library';
 import { commitIuiBeat } from '@/lib/poppins/iui-commit';
 import { getSessionDirectMode, getSessionUndoMs } from '@/lib/poppins/session-act-mode';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
-
-function monthLabel(date?: string) {
-  const d = date ? new Date(date) : new Date();
-  if (Number.isNaN(d.getTime())) return new Date().toLocaleString('en', { month: 'long' });
-  return d.toLocaleString('en', { month: 'long' });
-}
-
-function dayNumber(date?: string) {
-  const d = date ? new Date(date) : new Date();
-  if (Number.isNaN(d.getTime())) return new Date().getDate();
-  return d.getDate();
-}
-
-function weekdayLabel(date?: string, due?: string) {
-  if (due && /^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i.test(due)) {
-    return due;
-  }
-  const d = date ? new Date(date) : null;
-  if (!d || Number.isNaN(d.getTime())) return undefined;
-  return d.toLocaleString('en', { weekday: 'long' });
-}
 
 function HomeworkComposeSteps({
   payload,
@@ -376,8 +351,6 @@ export function PoppinsStage({
   const payload = beat.payload;
   const sceneFaces = payload.faces?.length ? payload.faces : faces;
   const selectedName = payload.assignee;
-  const unfolded =
-    drive.phase === 'unfold' || drive.phase === 'hold' || drive.phase === 'settle';
   const title = payload.title ?? '';
   const titleHeard = Boolean(title && drive.spoken.toLowerCase().includes(title.toLowerCase()));
   const peekHighlight = (payload.peek ?? []).reduce((best, row, i) => {
@@ -484,12 +457,12 @@ export function PoppinsStage({
       ) : null}
 
       {drive.phase !== 'narrow' && beat.scene === 'member_pick' ? (
-        <IuiStepper kicker="Who" accent={accent}>
+        <IuiStepper kicker={stageDomainLabel('member_pick', beat.payload.write)} accent={stageText()}>
           <IuiFaces
             faces={sceneFaces}
             selectedName={selectedName}
             pulsingName={payload.spokenName}
-            accent={accent}
+            accent={stageInk()}
             onSelect={(name) =>
               poppinsUiOrchestrator.chooseFromTap({ assignee: name, spokenName: name }, name, 'face')
             }
@@ -502,7 +475,7 @@ export function PoppinsStage({
           <IuiCard
             accent={stageText()}
             fillAccent={stageInk()}
-            kicker="Chores"
+            kicker={stageDomainLabel('task_compose', beat.payload.write)}
             countLabel={groupKicker ?? `${payload.items.filter((i) => !i.dropped).length} tasks`}
             hold={payload.composeReady === true}
             holdProgress={holdProgress}
@@ -555,18 +528,58 @@ export function PoppinsStage({
       ) : null}
 
       {drive.phase !== 'narrow' && beat.scene === 'homework_compose' ? (
-        <HomeworkComposeSteps
-          payload={payload}
-          faces={sceneFaces}
-          selectedName={selectedName}
-          accent={stageText()}
-          hold={payload.composeReady === true}
-          holdProgress={holdProgress}
-          holding={drive.holding}
-          frozen={drive.frozen}
-          titleHeard={titleHeard}
-          title={title}
-        />
+        payload.items && payload.items.length > 1 ? (
+          <IuiCard
+            accent={stageText()}
+            fillAccent={stageInk()}
+            kicker={stageDomainLabel('homework_compose', beat.payload.write)}
+            countLabel={groupKicker ?? `${payload.items.filter((i) => !i.dropped).length} tasks`}
+            hold={payload.composeReady === true}
+            holdProgress={holdProgress}
+            holding={drive.holding}
+            frozen={drive.frozen}
+            leftFooter={
+              payload.composeReady === true ? 'One hold for all' : 'Fill who is missing'
+            }
+            rightFooter="tap × to drop one"
+            accessibilityLabel="Homework batch card">
+            <IuiGroupRows
+              items={payload.items}
+              queued={queuedRows}
+              accent={stageInk()}
+              kind="task"
+              allowDrop={drive.phase !== 'settle'}
+              onDrop={(id) => poppinsUiOrchestrator.dropGroupItem(id)}
+            />
+            {payload.composeReady === false ? (
+              <IuiFaces
+                faces={sceneFaces}
+                selectedName={selectedName}
+                accent={stageInk()}
+                onSelect={(name) =>
+                  poppinsUiOrchestrator.chooseFromTap(
+                    { assignee: name, spokenName: name },
+                    name,
+                    'face'
+                  )
+                }
+              />
+            ) : null}
+          </IuiCard>
+        ) : (
+          <HomeworkComposeSteps
+            payload={payload}
+            faces={sceneFaces}
+            selectedName={selectedName}
+            accent={stageText()}
+            hold={payload.composeReady === true}
+            holdProgress={holdProgress}
+            holding={drive.holding}
+            frozen={drive.frozen}
+            titleHeard={titleHeard}
+            title={title}
+          />
+        )
       ) : null}
 
       {drive.phase !== 'narrow' && beat.scene === 'calendar_zoom' ? (
@@ -583,16 +596,34 @@ export function PoppinsStage({
       ) : null}
 
       {drive.phase !== 'narrow' && beat.scene === 'itinerary_stage' ? (
-        <IuiTripCard
-          payload={payload}
-          accent={stageText()}
-          fillAccent={stageInk()}
-          hold
-          holdProgress={holdProgress}
-          holding={drive.holding}
-          frozen={drive.frozen}
-          groceryCount={(household.groceries ?? []).filter((g) => g.status !== 'Purchased').length}
-        />
+        <View style={styles.stack}>
+          <IuiTripCard
+            payload={{
+              ...payload,
+              stops:
+                payload.stops?.length
+                  ? payload.stops
+                  : (household.itineraries ?? [])
+                      .find((trip) => trip.id === payload.itineraryId)
+                      ?.stops?.map((stop, i) => ({
+                        id: stop.id ?? `stop-${i}`,
+                        label: stop.label ?? `Stop ${i + 1}`,
+                        kind: String(stop.kind ?? 'other'),
+                      })) ??
+                    [],
+            }}
+            accent={stageText()}
+            fillAccent={stageInk()}
+            hold={beat.commit === 'hold'}
+            holdProgress={holdProgress}
+            holding={drive.holding}
+            frozen={drive.frozen}
+            groceryCount={(household.groceries ?? []).filter((g) => g.status !== 'Purchased').length}
+          />
+          {payload.confirmSummary ? (
+            <Text style={[styles.hint, { color: c.textMuted }]}>{payload.confirmSummary}</Text>
+          ) : null}
+        </View>
       ) : null}
 
       {drive.phase !== 'narrow' && beat.scene === 'grocery_add' ? (
@@ -738,7 +769,7 @@ export function PoppinsStage({
           <IuiCard
             accent={stageText('ranks_peek')}
             fillAccent={stageInk('ranks_peek')}
-            kicker="Ranks"
+            kicker={stageDomainLabel('ranks_peek')}
             countLabel="This week"
             accessibilityLabel="Who is ahead this week">
             <IuiPeek
@@ -833,8 +864,12 @@ export function PoppinsStage({
         />
       ) : null}
 
-      {beat.commit === 'hold' && beat.payload.composeReady === true ? (
-        <Pressable onPress={() => poppinsUiOrchestrator.confirm({ fromTap: true })} hitSlop={12}>
+      {beat.commit === 'hold' && payload.composeReady !== false ? (
+        <Pressable
+          onPress={() => poppinsUiOrchestrator.confirm({ fromTap: true })}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={drive.frozen ? 'Tap to confirm' : 'Or tap to confirm'}>
           <Text style={[styles.fallback, { color: c.textSubtle }]}>
             {drive.frozen ? 'Tap to confirm' : 'or tap to confirm'}
           </Text>
@@ -845,18 +880,72 @@ export function PoppinsStage({
         <View style={styles.confirmRow}>
           <Pressable
             onPress={() => poppinsUiOrchestrator.veto()}
+            accessibilityRole="button"
+            accessibilityLabel="No"
             style={[styles.quietBtn, { borderColor: glassBorder(0.12) }]}>
             <Text style={{ color: c.text }}>No</Text>
           </Pressable>
           <Pressable
             onPress={() => poppinsUiOrchestrator.confirm({ fromTap: true })}
+            accessibilityRole="button"
+            accessibilityLabel="Yes"
             style={[styles.quietBtn, { borderColor: `${accent}66` }]}>
             <Text style={{ color: c.text }}>Yes</Text>
           </Pressable>
         </View>
       ) : null}
+
+      {/* WO16 §5 — default branch so an unmapped / gated-off beat never blanks the stage. */}
+      {!renderedKnownScene(beat.scene, drive.phase, payload) ? (
+        <IuiCard
+          accent={stageText()}
+          fillAccent={stageInk()}
+          kicker={stageDomainLabel(beat.scene, beat.payload.write)}
+          accessibilityLabel="Unrecognized stage card">
+          <Text style={[styles.lead, { color: c.text }]}>
+            {payload.title ?? payload.groceryName ?? payload.thinkingLine ?? 'Something went sideways.'}
+          </Text>
+          <Pressable
+            onPress={() => poppinsUiOrchestrator.clear()}
+            accessibilityRole="button"
+            accessibilityLabel="Retry"
+            style={[styles.quietBtn, { borderColor: glassBorder(0.12), marginTop: 12 }]}>
+            <Text style={{ color: c.text }}>Retry</Text>
+          </Pressable>
+        </IuiCard>
+      ) : null}
     </View>
   );
+}
+
+function renderedKnownScene(
+  scene: string,
+  phase: string,
+  payload: IuiPayload
+): boolean {
+  if (phase === 'narrow' && payload.chips?.length === 2) return true;
+  const known = new Set([
+    'thinking',
+    'member_pick',
+    'task_compose',
+    'homework_compose',
+    'calendar_zoom',
+    'itinerary_stage',
+    'grocery_add',
+    'task_done',
+    'result_mark',
+    'reward_mint',
+    'place_save',
+    'allowance_act',
+    'ranks_peek',
+    'memory_note',
+    'list_peek',
+    'confirm',
+    'navigate_coach',
+    'coach_steps',
+  ]);
+  if (phase === 'narrow') return false;
+  return known.has(scene);
 }
 
 const styles = StyleSheet.create({

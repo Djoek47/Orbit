@@ -505,9 +505,22 @@ export default function PoppinsScreen() {
     if (!text.trim()) return;
     if (role === 'user') {
       lastUtteranceRef.current = text;
-      // Defence in depth: never parse while Poppins is still speaking (echo path).
+      // Echo guard by *content*, not speaking state — barge-in corrections must land (WO16 §1.2).
       if (voiceStateRef.current === 'speaking') {
-        return;
+        const turns = continuityRef.current?.turns ?? [];
+        const lastAssistant = [...turns].reverse().find((t) => t.role === 'assistant')?.text ?? '';
+        const norm = (s: string) =>
+          s
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const a = norm(text);
+        const b = norm(lastAssistant);
+        if (a && b && (a === b || (a.length > 8 && b.includes(a)) || (b.length > 8 && a.includes(b)))) {
+          return;
+        }
+        // Caption already updated above — continue to parse the correction.
       }
       continuityRef.current = rememberTurn(continuityRef.current, household.id, {
         role: 'user',

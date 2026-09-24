@@ -40,6 +40,7 @@ export function IuiFaces({ faces, selectedName, pulsingName, onSelect, accent }:
               onPress={() => onSelect?.(face.name)}
               accessibilityRole="button"
               accessibilityLabel={face.name}
+              accessibilityState={{ selected }}
               style={styles.item}>
               <View
                 style={[

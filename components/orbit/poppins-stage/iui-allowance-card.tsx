@@ -19,8 +19,9 @@ type Props = {
 
 const KIND_LABEL: Record<NonNullable<Props['kind']>, string> = {
   grant: 'Grant',
-  hold: 'Hold',
-  payout: 'Pay out',
+  // Hold / Pay out are label-only until iui-commit wires them (WO16 §3.7).
+  hold: 'Grant',
+  payout: 'Grant',
 };
 
 export function IuiAllowanceCard({
@@ -44,9 +45,6 @@ export function IuiAllowanceCard({
         <Text style={[styles.amount, { color: c.text }]}>{amountLabel}</Text>
         <Text style={[styles.to, { color: muted }]}>to {memberName}</Text>
         {note ? <Text style={[styles.note, { color: muted }]}>{note}</Text> : null}
-        <Text style={[styles.hint, { color: muted }]}>
-          Money always confirms — say yes, or wait. I will not assume.
-        </Text>
       </View>
     </IuiCard>
   );
