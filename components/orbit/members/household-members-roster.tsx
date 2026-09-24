@@ -61,11 +61,11 @@ function todayProgress(
   const today = new Date().toISOString().slice(0, 10);
   const mine = household.tasks.filter((t) => {
     const ids = t.assignees?.length ? t.assignees : [t.assignee];
-    return ids.includes(member.id) && t.due.startsWith(today);
+    return (
+      (ids.includes(member.id) || ids.includes(member.name)) && t.due.startsWith(today)
+    );
   });
-  const done = mine.filter(
-    (t) => t.status === 'Completed' || t.status === 'Approved' || t.status === 'Done'
-  ).length;
+  const done = mine.filter((t) => t.status === 'Completed').length;
   const total = mine.length;
   return { done, total, ratio: total === 0 ? 0 : done / total };
 }

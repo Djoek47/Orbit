@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Image, Linking, Modal, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -95,6 +95,9 @@ import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
 import { SidekickSettingsScreen } from '@/components/orbit/sidekick-settings-screen';
 import { HouseholdMembersRoster } from '@/components/orbit/members/household-members-roster';
+import { RewardsXpPanel } from '@/components/orbit/settings/rewards-xp-panel';
+import { SidekickPermissionsPanel } from '@/components/orbit/settings/sidekick-permissions-panel';
+import { applyGroceryPermissionMerge } from '@/lib/household/migrate-grocery-permission';
 import { useMembersLiveRefresh } from '@/lib/refresh/use-members-live-refresh';
 import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
 import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
@@ -112,7 +115,17 @@ import {
 } from '@/lib/ai/credits';
 import { personalActTokens, summarizeActUsage } from '@/lib/ai/act-events';
 
-type Section = 'main' | 'you' | 'members' | 'house' | 'notifications' | 'places' | 'poppins' | 'premium';
+type Section =
+  | 'main'
+  | 'you'
+  | 'members'
+  | 'house'
+  | 'rewards'
+  | 'sidekick-perms'
+  | 'notifications'
+  | 'places'
+  | 'poppins'
+  | 'premium';
 
 /** Make AdminScreen.tsx — Settings sheet chrome. */
 export default function SettingsScreen() {
@@ -176,6 +189,27 @@ export default function SettingsScreen() {
   );
 
   const [section, setSection] = useState<Section>('main');
+  const groceryMergedRef = useRef(false);
+
+  useEffect(() => {
+    if (groceryMergedRef.current || !permissions.canManageHousehold) return;
+    groceryMergedRef.current = true;
+    const merged = applyGroceryPermissionMerge(household);
+    const caps = resolveMemberCapabilities(household);
+    const groceryChanged = merged.sidekickGroceryAdd !== (household.sidekickGroceryAdd === true);
+    const capsChanged = caps.allowGroceryAdd !== merged.sidekickGroceryAdd;
+    if (groceryChanged) {
+      void updateSidekickGroceryAdd(merged.sidekickGroceryAdd);
+    }
+    if (capsChanged) {
+      updateMemberCapabilities({ allowGroceryAdd: merged.sidekickGroceryAdd });
+    }
+  }, [
+    household,
+    permissions.canManageHousehold,
+    updateMemberCapabilities,
+    updateSidekickGroceryAdd,
+  ]);
 
   useEffect(() => {
     if (section !== 'members' || !permissions.canManageHousehold) return;
@@ -423,7 +457,7 @@ export default function SettingsScreen() {
         {section !== 'main' ? (
           <Pressable style={styles.backRow} onPress={() => setSection('main')}>
             <Text style={[styles.backChevron, { color: accentTheme.primary }]}>‹</Text>
-            <Text style={[styles.backLabel, { color: accentTheme.primary }]}>Back</Text>
+            <Text style={[styles.backLabel, { color: accentTheme.primary }]}>Settings</Text>
           </Pressable>
         ) : (
           <View style={styles.titleRow}>
@@ -438,6 +472,18 @@ export default function SettingsScreen() {
         </Pressable>
       </View>
 
+      {section === 'rewards' ? (
+        <Text style={[styles.sectionHeading, { color: c.text }]}>Rewards & XP</Text>
+      ) : null}
+      {section === 'sidekick-perms' ? (
+        <Text style={[styles.sectionHeading, { color: c.text }]}>Sidekick permissions</Text>
+      ) : null}
+      {section === 'members' ? (
+        <Text style={[styles.sectionHeading, { color: c.text }]}>People</Text>
+      ) : null}
+      {section === 'you' ? (
+        <Text style={[styles.sectionHeading, { color: c.text }]}>You</Text>
+      ) : null}
       <KeyboardScreen
         offset={12}
         style={styles.scroll}
@@ -516,7 +562,7 @@ export default function SettingsScreen() {
               <MaterialIcons name="chevron-right" size={18} color={c.textSubtle} />
             </Pressable>
 
-            <SettingsGroup header="Household">
+            <SettingsGroup header="The household">
               {canSwitchHousehold ? (
                 <SettingsNavRow
                   icon="swap-horiz"
@@ -527,38 +573,57 @@ export default function SettingsScreen() {
                 />
               ) : null}
               <TourTarget id="settings.members">
-              <SettingsNavRow
-                icon="group"
-                iconColor="#38BDF8"
-                label="People"
-                value={`${household.members.filter((m) => m.role !== 'shared-device').length}`}
-                last={!permissions.canManageHousehold}
-                onPress={() => setSection('members')}
-              />
+                <SettingsNavRow
+                  icon="group"
+                  iconColor="#38BDF8"
+                  label="People"
+                  subtitle={`${household.members.filter((m) => m.role !== 'shared-device' && m.status === 'active').length} members${
+                    household.members.some((m) => m.status === 'invited' || m.status === 'pending')
+                      ? ` · ${household.members.filter((m) => m.status === 'invited' || m.status === 'pending').length} invited`
+                      : ''
+                  }`}
+                  onPress={() => setSection('members')}
+                />
               </TourTarget>
               {permissions.canManageHousehold ? (
                 <>
-<TourTarget id="settings.houseRules">
-                  <SettingsNavRow
-                    icon="menu-book"
-                    iconColor="#FAC775"
-                    label={VOCAB.houseRules}
-                    onPress={() => router.push('/house-rules' as never)}
-                  />
+                  <TourTarget id="settings.houseRules">
+                    <SettingsNavRow
+                      icon="menu-book"
+                      iconColor="#FAC775"
+                      label={VOCAB.houseRules}
+                      subtitle="Six chapters"
+                      onPress={() => router.push('/house-rules' as never)}
+                    />
                   </TourTarget>
                   <SettingsNavRow
-                    icon="tune"
+                    icon="emoji-events"
                     iconColor="#A78BFA"
-                    label="House"
-                    value="Chores · permissions"
-                    onPress={() => setSection('house')}
+                    label="Rewards & XP"
+                    subtitle={`${
+                      (household.rewardModel ?? DEFAULT_REWARD_MODEL) === 'full'
+                        ? 'Everything'
+                        : REWARD_MODEL_OPTIONS.find((o) => o.id === household.rewardModel)?.title ??
+                          'Custom'
+                    } · ${rewardSettings.rewardMode === 'weighted' ? 'by effort' : 'the same'}`}
+                    onPress={() => setSection('rewards')}
                   />
                   <SettingsNavRow
-                    icon="beach-access"
-                    iconColor="#38BDF8"
-                    label={VOCAB.recess}
+                    icon="child-care"
+                    iconColor="#34D399"
+                    label="Sidekick permissions"
+                    subtitle={`${
+                      [
+                        resolveMemberCapabilities(household).allowRewardRedeem,
+                        resolveMemberCapabilities(household).allowSpecialRewardRequest,
+                        resolveMemberCapabilities(household).allowAllowance,
+                        household.sidekickGroceryAdd === true,
+                        resolveMemberCapabilities(household).allowCalendarCreate,
+                        household.sidekickPoppinsAi === true,
+                      ].filter(Boolean).length
+                    } of 8 allowed`}
                     last
-                    onPress={() => router.push('/recess' as never)}
+                    onPress={() => setSection('sidekick-perms')}
                   />
                 </>
               ) : (
@@ -572,61 +637,40 @@ export default function SettingsScreen() {
               )}
             </SettingsGroup>
 
-            <SettingsGroup header="Alerts">
+            <SettingsGroup header="Day to day">
               <SettingsNavRow
-                icon="inbox"
-                iconColor={accentTheme.primary}
-                label="Inbox"
-                subtitle={
-                  unreadNotificationCount > 0
-                    ? `${unreadNotificationCount} unread household alert${unreadNotificationCount === 1 ? '' : 's'}`
-                    : 'Tasks, plan, groceries, and rewards'
-                }
-                onPress={() => router.push('/notifications' as never)}
+                icon="place"
+                iconColor="#38BDF8"
+                label="Places"
+                subtitle={`${(household.savedPlaces ?? []).length} saved · ${
+                  preferredMapsApp === 'auto'
+                    ? 'Auto'
+                    : preferredMapsApp === 'apple'
+                      ? 'Apple Maps'
+                      : preferredMapsApp === 'google'
+                        ? 'Google Maps'
+                        : 'Waze'
+                }`}
+                onPress={() => router.push('/places' as never)}
               />
               <SettingsNavRow
                 icon="notifications-none"
                 iconColor="#A78BFA"
-                label="Alert preferences"
-                value={osNotifStatus === 'granted' ? 'On' : 'Off'}
-                last
+                label="Alerts"
+                subtitle={
+                  unreadNotificationCount > 0
+                    ? `${unreadNotificationCount} unread`
+                    : osNotifStatus === 'granted'
+                      ? 'On'
+                      : 'Off'
+                }
                 onPress={() => setSection('notifications')}
               />
-            </SettingsGroup>
-
-            <SettingsGroup header="Places">
-              <SettingsNavRow
-                icon="place"
-                iconColor="#38BDF8"
-                label="Places & maps"
-                value={
-                  preferredMapsApp === 'auto'
-                    ? 'Auto'
-                    : preferredMapsApp === 'apple'
-                      ? 'Apple'
-                      : preferredMapsApp === 'google'
-                        ? 'Google'
-                        : 'Waze'
-                }
-                last
-                onPress={() => setSection('places')}
-              />
-            </SettingsGroup>
-
-            <SettingsGroup
-              header={majordomo.displayName}
-              footer={
-                aiSummary.tripped
-                  ? 'Speak is paused until the next reset or a top-up. Typing still works.'
-                  : permissions.canManageHousehold
-                    ? `${TOKENS_PER_MONTH} actions / month · ${TOKENS_PER_DAY} / day. Silent is the default.`
-                    : undefined
-              }>
               <SettingsNavRow
                 icon="record-voice-over"
                 iconColor={majordomo.accent}
-                label={majordomo.displayName}
-                value={meterCaption(
+                label="Poppins"
+                subtitle={meterCaption(
                   aiSummary,
                   personalActTokens(aiSummary, currentMember?.id),
                   permissions.canManageHousehold
@@ -636,7 +680,17 @@ export default function SettingsScreen() {
               />
             </SettingsGroup>
 
-            
+            <SettingsGroup header="You">
+              <SettingsNavRow
+                icon="person"
+                iconColor={accentTheme.primary}
+                label="You"
+                subtitle={lookValue}
+                last
+                onPress={() => setSection('you')}
+              />
+            </SettingsGroup>
+
             <SettingsGroup header="Help">
               {isTourEnabledSync() ? (
                 <>
@@ -890,253 +944,65 @@ export default function SettingsScreen() {
           </>
         ) : null}
 
+        {section === 'rewards' ? (
+          <RewardsXpPanel
+            rewardModel={(household.rewardModel ?? DEFAULT_REWARD_MODEL) as RewardModel}
+            rewardMode={rewardSettings.rewardMode}
+            hygieneRewarded={rewardSettings.hygieneRewarded}
+            hygieneXp={rewardSettings.hygieneXp}
+            allowanceRequestsEnabled={household.allowanceRequestsEnabled !== false}
+            dailyDeadlineLabel={dailyDeadlineSubtitle}
+            accent={accentTheme.primary}
+            onRewardModel={(model) => updateHouseholdRewardModel(model)}
+            onRewardMode={(mode) => updateHouseholdRewardSettings({ rewardMode: mode })}
+            onHygiene={(rewarded) => {
+              if (rewarded) {
+                Alert.alert(
+                  'Reward hygiene tasks?',
+                  'Brushing teeth and similar tasks will start earning XP. Streaks keep working either way.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Turn on',
+                      onPress: () =>
+                        updateHouseholdRewardSettings({
+                          hygieneRewarded: true,
+                          hygieneXp: rewardSettings.hygieneXp,
+                        }),
+                    },
+                  ]
+                );
+                return;
+              }
+              updateHouseholdRewardSettings({ hygieneRewarded: false });
+            }}
+            onAllowanceRequests={(value) => void setAllowanceRequestsEnabled(value)}
+            onOpenDeadline={() => setDeadlineOpen(true)}
+          />
+        ) : null}
+
+        {section === 'sidekick-perms' ? (
+          <SidekickPermissionsPanel
+            household={household}
+            accent={accentTheme.primary}
+            busy={settingsToggleBusy}
+            onCapabilities={(patch) =>
+              guardSettingsToggle(() => updateMemberCapabilities(patch))
+            }
+            onGrocery={(value) =>
+              guardSettingsToggle(() => {
+                updateSidekickGroceryAdd(value);
+                updateMemberCapabilities({ allowGroceryAdd: value });
+              })
+            }
+            onPoppinsAi={(value) =>
+              guardSettingsToggle(() => updateSidekickPoppinsAi(value))
+            }
+          />
+        ) : null}
+
         {section === 'house' ? (
           <>
-            {permissions.canManageHousehold ? (
-              <SectionCard title="What Sidekicks can do">
-                <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 8 }]}>
-                  What Sidekicks and other members can do
-                </Text>
-                {(
-                  [
-                    ['allowRewardRedeem', 'Allow redeeming rewards', 'Members can spend XP on catalogue rewards'],
-                    ['allowSpecialRewardRequest', 'Allow reward suggestions', 'Sidekicks can suggest something not in the catalogue yet'],
-                    ['allowAllowance', 'Allow allowance', 'Shows Allowance in Rewards Center'],
-                    ['allowGroceryAdd', 'Allow grocery list adds', 'Non-admins can add items'],
-                    ['allowCalendarCreate', 'Allow calendar adds', 'Sidekicks can add school, practice, and family events'],
-                    ['requireSidekickEventApproval', 'Require approval for events', 'School and activities wait for a parent — homework is always instant'],
-                  ] as const
-                ).map(([key, label, sub]) => {
-                  const caps = resolveMemberCapabilities(household);
-                  return (
-                    <View
-                      key={key}
-                      style={[
-                        styles.prefRow,
-                        {
-                          backgroundColor: glassFill(isDark),
-                          borderColor: glassBorder(0.08),
-                        },
-                      ]}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.memberName, { color: orbitPalette.text }]}>{label}</Text>
-                        <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>{sub}</Text>
-                      </View>
-                      <Switch
-                        value={caps[key]}
-                        disabled={settingsToggleBusy}
-                        onValueChange={(value) =>
-                          guardSettingsToggle(() => updateMemberCapabilities({ [key]: value }))
-                        }
-                        trackColor={{ false: glassBorder(0.1), true: accentTheme.primary }}
-                        thumbColor="#fff"
-                      />
-                    </View>
-                  );
-                })}
-                <View
-                  style={[
-                    styles.prefRow,
-                    {
-                      backgroundColor: glassFill(isDark),
-                      borderColor: glassBorder(0.08),
-                    },
-                  ]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.memberName, { color: orbitPalette.text }]}>
-                      Let sidekicks add to the grocery list
-                    </Text>
-                    <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
-                      Household-wide. Sidekicks can add items only — not check off or edit.
-                    </Text>
-                  </View>
-                  <Switch
-                    value={household.sidekickGroceryAdd === true}
-                    disabled={settingsToggleBusy}
-                    onValueChange={(value) => guardSettingsToggle(() => updateSidekickGroceryAdd(value))}
-                    trackColor={{ false: glassBorder(0.1), true: accentTheme.primary }}
-                    thumbColor="#fff"
-                  />
-                </View>
-              </SectionCard>
-            ) : null}
-            {permissions.canManageHousehold ? (
-              <SectionCard title="Rewards & XP">
-                <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
-                  XP system — which parts of ChoreMaxx are on
-                </Text>
-                <View style={{ gap: 8, marginBottom: 16 }}>
-                  {REWARD_MODEL_OPTIONS.map((opt) => {
-                    const active =
-                      (household.rewardModel ?? DEFAULT_REWARD_MODEL) === opt.id;
-                    return (
-                      <Pressable
-                        key={opt.id}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: active }}
-                        onPress={() => updateHouseholdRewardModel(opt.id as RewardModel)}
-                        style={[
-                          styles.prefRow,
-                          {
-                            backgroundColor: active
-                              ? `${accentTheme.primary}22`
-                              : glassFill(isDark),
-                            borderColor: active
-                              ? `${accentTheme.primary}55`
-                              : glassBorder(0.08),
-                          },
-                        ]}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.memberName, { color: c.text }]}>
-                            {opt.title}
-                            {opt.recommended ? ' · Recommended' : ''}
-                          </Text>
-                          <Text style={[styles.caption, { color: c.textSubtle }]}>
-                            {opt.subtitle}
-                          </Text>
-                        </View>
-                        {active ? (
-                          <MaterialIcons name="check-circle" size={20} color={accentTheme.primary} />
-                        ) : (
-                          <MaterialIcons name="radio-button-unchecked" size={20} color={c.textSubtle} />
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
-                  How points are scored
-                </Text>
-                <View style={{ gap: 8, marginBottom: 12 }}>
-                  {(['weighted', 'flat'] as RewardMode[]).map((mode) => {
-                    const copy = REWARD_MODE_COPY[mode];
-                    const active = rewardSettings.rewardMode === mode;
-                    return (
-                      <Pressable
-                        key={mode}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: active }}
-                        onPress={() => updateHouseholdRewardSettings({ rewardMode: mode })}
-                        style={[
-                          styles.prefRow,
-                          {
-                            backgroundColor: active
-                              ? `${accentTheme.primary}22`
-                              : glassFill(isDark),
-                            borderColor: active
-                              ? `${accentTheme.primary}55`
-                              : glassBorder(0.08),
-                          },
-                        ]}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.memberName, { color: c.text }]}>
-                            {copy.label}
-                            {mode === 'weighted' ? ' · Recommended' : ''}
-                          </Text>
-                          <Text style={[styles.caption, { color: c.textSubtle }]}>
-                            {copy.blurb}
-                          </Text>
-                        </View>
-                        {active ? (
-                          <MaterialIcons name="check-circle" size={20} color={accentTheme.primary} />
-                        ) : (
-                          <MaterialIcons name="radio-button-unchecked" size={20} color={c.textSubtle} />
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
-                  {STREAK_FOOTNOTE}
-                </Text>
-                <View
-                  style={[
-                    styles.prefRow,
-                    {
-                      backgroundColor: glassFill(isDark),
-                      borderColor: glassBorder(0.08),
-                    },
-                  ]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.memberName, { color: c.text }]}>Reward hygiene tasks</Text>
-                    <Text style={[styles.caption, { color: c.textSubtle }]}>
-                      Off by default. Hygiene builds streaks, explained in House Rules.
-                    </Text>
-                  </View>
-                  <Switch
-                    value={rewardSettings.hygieneRewarded}
-                    onValueChange={(value) => {
-                      if (value) {
-                        Alert.alert(
-                          'Reward hygiene tasks?',
-                          'Brushing teeth, showering and similar tasks will start earning 5 XP each and will count on the leaderboard. Streaks keep working either way.',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            {
-                              text: 'Turn on',
-                              onPress: () =>
-                                updateHouseholdRewardSettings({
-                                  hygieneRewarded: true,
-                                  hygieneXp: rewardSettings.hygieneXp,
-                                }),
-                            },
-                          ]
-                        );
-                        return;
-                      }
-                      Alert.alert(
-                        'Stop rewarding hygiene tasks?',
-                        "These tasks go back to streaks only. Points already earned won't change.",
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Turn off',
-                            style: 'destructive',
-                            onPress: () => updateHouseholdRewardSettings({ hygieneRewarded: false }),
-                          },
-                        ]
-                      );
-                    }}
-                    trackColor={{ false: glassBorder(0.1), true: accentTheme.primary }}
-                    thumbColor="#fff"
-                  />
-                </View>
-                {rewardSettings.hygieneRewarded ? (
-                  <View style={{ marginTop: 12 }}>
-                    <SegmentedControl
-                      label="Points per hygiene task"
-                      value={String(rewardSettings.hygieneXp) as '5' | '10'}
-                      onChange={(xp) =>
-                        updateHouseholdRewardSettings({ hygieneXp: xp === '10' ? 10 : 5 })
-                      }
-                      options={[
-                        { value: '5', label: '5' },
-                        { value: '10', label: '10' },
-                      ]}
-                    />
-                  </View>
-                ) : null}
-              </SectionCard>
-            ) : null}
-            {permissions.canManageHousehold ? (
-              <SettingsRow
-                icon="schedule"
-                iconColor="#E9B44C"
-                label={houseRulesDoc.settings.dailyDeadline.label}
-                subtitle={dailyDeadlineSubtitle}
-                onPress={() => setDeadlineOpen(true)}
-              />
-            ) : null}
-            {permissions.canManageHousehold && hasAllowanceModel(household.rewardModel) ? (
-              <SettingsGroup>
-                <SettingsToggleRow
-                  label={houseRulesDoc.settings.allowanceRequests.label}
-                  subtitle={houseRulesDoc.settings.allowanceRequests.help}
-                  value={household.allowanceRequestsEnabled !== false}
-                  onValueChange={(value) => setAllowanceRequestsEnabled(value)}
-                />
-              </SettingsGroup>
-            ) : null}
             {currentMember?.role === 'owner' ? (
               <Pressable
                 onPress={() => router.push('/delete-household' as never)}
@@ -1350,6 +1216,7 @@ export default function SettingsScreen() {
         ) : null}
 
         {section === 'members' ? (
+          <>
           <HouseholdMembersRoster
             accent={accentTheme.primary}
             variant="embedded"
@@ -1358,6 +1225,16 @@ export default function SettingsScreen() {
             onPersonalize={setPersonalizeMemberId}
             onOpenPersonaSwitch={() => setPersonaSwitchOpen(true)}
           />
+          {currentMember?.role === 'owner' ? (
+            <Pressable
+              onPress={() => router.push('/delete-household' as never)}
+              style={[styles.accountBtn, { backgroundColor: '#F8717110', marginTop: 16 }]}>
+              <Text style={[styles.accountBtnText, { color: '#F87171', textAlign: 'center' }]}>
+                Delete household
+              </Text>
+            </Pressable>
+          ) : null}
+          </>
         ) : null}
 
         {section === 'notifications' ? (
@@ -1686,6 +1563,13 @@ const styles = StyleSheet.create({
     width: 32,
   },
   title: { fontSize: 18, fontWeight: '700' },
+  sectionHeading: {
+    fontSize: 28,
+    fontWeight: '600',
+    letterSpacing: -0.5,
+    paddingHorizontal: 20,
+    paddingBottom: 4,
+  },
   close: {
     alignItems: 'center',
     borderRadius: 16,
