@@ -151,7 +151,13 @@ export async function commitIuiBeat(
           const entityId = asId(created);
           anyOk = true;
           if (entityId) {
-            batch.push({ write: 'add_grocery', entityId, beatId: beat.id });
+            batch.push({
+              write: 'add_grocery',
+              entityId,
+              beatId: beat.id,
+              itemId: item.id,
+              label: item.label,
+            });
             onGroupItemStatus?.(item.id, 'done', entityId);
           } else {
             onGroupItemStatus?.(item.id, 'done');
@@ -380,9 +386,20 @@ export async function commitIuiBeat(
   }
 
   if (write === 'clear_grocery') {
+    const grocerySnapshot = (household.groceries ?? []).map((item) => ({
+      name: item.name,
+      category: item.category,
+      categoryId: item.categoryId,
+      quantity: item.quantity != null ? String(item.quantity) : undefined,
+    }));
     await clearGroceryList?.();
     wrote = true;
-    reverse = { write, entityId: 'grocery-list', beatId: beat.id };
+    reverse = {
+      write,
+      entityId: 'grocery-list',
+      beatId: beat.id,
+      grocerySnapshot,
+    };
   }
 
   if (write === 'complete_task') {
@@ -421,7 +438,7 @@ export async function commitIuiBeat(
     if (reward) {
       await claimReward(reward.id);
       wrote = true;
-      reverse = { write, entityId: reward.id };
+      // No reliable unclaim — omit reverse so Undo is not offered (audit IUI P1).
     }
   }
 
@@ -517,7 +534,8 @@ export async function commitIuiBeat(
     });
     const entityId = asId(created);
     wrote = true;
-    if (entityId) reverse = { write, entityId };
+    // No deleteItinerary in store yet — omit reverse so Undo is honest (audit IUI P1).
+    void entityId;
   }
 
   if (write === 'advance_itinerary' && p.itineraryId) {
@@ -526,13 +544,7 @@ export async function commitIuiBeat(
     if (next) {
       await advanceItineraryStop(p.itineraryId, next.id);
       wrote = true;
-      reverse = {
-        write,
-        entityId: next.id,
-        itineraryId: p.itineraryId,
-        stopId: next.id,
-        stopStatus: next.status,
-      };
+      // No rewindItineraryStop in store yet — omit reverse.
     }
   }
 
@@ -544,6 +556,17 @@ export async function commitIuiBeat(
     );
     emitTourEvent('poppins_act_committed', { beatId: beat.id, write });
     emitTourEvent('poppins_spoke', { beatId: beat.id, write, phase: 'committed' });
+    return { ok: true, reverse };
+  }
+
+  // Write beat that did not land — never settle as "All set" (audit IUI P1).
+  if (write !== 'none') {
+    return {
+      ok: false,
+      slot: write,
+      reason: 'missing',
+      ask: "I couldn't do that — check the name and try again.",
+    };
   }
   return { ok: true, reverse };
 }

@@ -31,21 +31,19 @@ export function mergeGroceryPermission(sources: GroceryPermissionSources): boole
   return sidekick;
 }
 
-/** Apply merge onto a household snapshot (syncs both fields to the merged value). */
+/** Apply merge onto a household snapshot (syncs both fields to the merged value).
+ * After WO14 the Sidekick-permissions screen owns `sidekickGroceryAdd` — do not
+ * re-OR it with legacy caps on every Settings mount (audit WO14 P2).
+ */
 export function applyGroceryPermissionMerge(
   household: Pick<HouseholdSnapshot, 'sidekickGroceryAdd' | 'memberCapabilities'>
 ): { sidekickGroceryAdd: boolean; memberCapabilities: MemberCapabilities | undefined } {
   const caps = household.memberCapabilities;
-  const merged = mergeGroceryPermission({
-    sidekickGroceryAdd: household.sidekickGroceryAdd,
-    allowGroceryAdd: caps?.allowGroceryAdd,
-    sidekickGroceryAddWasSet: household.sidekickGroceryAdd !== undefined,
-    allowGroceryAddWasSet: caps != null && Object.prototype.hasOwnProperty.call(caps, 'allowGroceryAdd'),
-  });
+  const sidekick = household.sidekickGroceryAdd === true;
   return {
-    sidekickGroceryAdd: merged,
+    sidekickGroceryAdd: sidekick,
     memberCapabilities: caps
-      ? { ...caps, allowGroceryAdd: merged }
+      ? { ...caps, allowGroceryAdd: sidekick }
       : undefined,
   };
 }

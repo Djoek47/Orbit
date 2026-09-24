@@ -53,6 +53,7 @@ import {
 }
 
 {
+  // Screen of truth: sidekickGroceryAdd. Do not OR legacy caps back on.
   const out = applyGroceryPermissionMerge({
     sidekickGroceryAdd: false,
     memberCapabilities: {
@@ -64,8 +65,8 @@ import {
       requireSidekickEventApproval: true,
     },
   });
-  assert.equal(out.sidekickGroceryAdd, true);
-  assert.equal(out.memberCapabilities?.allowGroceryAdd, true);
+  assert.equal(out.sidekickGroceryAdd, false);
+  assert.equal(out.memberCapabilities?.allowGroceryAdd, false);
   console.log('PASS applyGroceryPermissionMerge');
 }
 

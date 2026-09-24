@@ -144,6 +144,7 @@ export default function PoppinsScreen() {
     removeGroceryItem,
     removeSavedPlace,
     rejectAllowance,
+    addMissingGrocery,
   } = useOrbit();
 
   const majordomo = useMemo(() => {
@@ -232,6 +233,7 @@ export default function PoppinsScreen() {
           updateTask,
           removeSavedPlace,
           rejectAllowance,
+          addMissingGrocery,
         });
       }
       await notifyActUndone(beat.id, beat.payload.write, beat.payload.actMode);
@@ -239,7 +241,15 @@ export default function PoppinsScreen() {
     return () => {
       poppinsUiOrchestrator.setUndoHandler(null);
     };
-  }, [deleteTask, deleteEvent, updateTask, removeGroceryItem, removeSavedPlace, rejectAllowance]);
+  }, [
+    deleteTask,
+    deleteEvent,
+    updateTask,
+    removeGroceryItem,
+    removeSavedPlace,
+    rejectAllowance,
+    addMissingGrocery,
+  ]);
 
   const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
     idle: {

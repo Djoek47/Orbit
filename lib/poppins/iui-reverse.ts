@@ -19,6 +19,16 @@ export type IuiCommitReverse = {
   beatId?: string;
   /** WO11 — batch group commit: reverse each child newest-first via reverseIuiCommit. */
   batch?: IuiCommitReverse[];
+  /** Payload item id / label at commit time — never re-derive by index (audit IUI P1). */
+  itemId?: string;
+  label?: string;
+  /** Snapshot of grocery rows before clear_grocery. */
+  grocerySnapshot?: Array<{
+    name: string;
+    category?: string;
+    categoryId?: string;
+    quantity?: string;
+  }>;
 };
 
 export type IuiReverseWrites = {
@@ -26,6 +36,13 @@ export type IuiReverseWrites = {
   deleteEvent?: (eventId: string) => Promise<void>;
   removeGroceryItem?: (itemId: string) => Promise<void>;
   updateTask?: (task: HouseholdTask) => Promise<unknown>;
+  /** Restore clear_grocery from snapshot. */
+  addMissingGrocery?: (input: {
+    name: string;
+    category?: string;
+    categoryId?: string;
+    quantity?: string;
+  }) => void | Promise<unknown>;
   /** Best-effort; may be absent if itinerary delete is unsupported. */
   deleteItinerary?: (itineraryId: string) => Promise<void>;
   rewindItineraryStop?: (
@@ -64,7 +81,11 @@ export async function reverseIuiCommit(
       await writes.removeGroceryItem?.(entityId);
       return;
     case 'clear_grocery':
-      // Cleared list cannot be restored in this pass.
+      if (reverse.grocerySnapshot?.length) {
+        for (const item of reverse.grocerySnapshot) {
+          await writes.addMissingGrocery?.(item);
+        }
+      }
       return;
     case 'complete_task':
     case 'update_task':

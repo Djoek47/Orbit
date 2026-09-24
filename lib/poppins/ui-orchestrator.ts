@@ -971,9 +971,12 @@ export const poppinsUiOrchestrator = {
       if (reverse?.batch?.length) {
         const items = beat.payload.items?.filter((item) => !item.dropped) ?? [];
         return reverse.batch.map((child, childIndex) => {
-          const item = items[childIndex];
+          const byId = child.itemId
+            ? items.find((item) => item.id === child.itemId)
+            : undefined;
           const label =
-            item?.label ??
+            child.label ??
+            byId?.label ??
             beat.payload.groceryName ??
             beat.payload.title ??
             child.write.replace(/_/g, ' ');
