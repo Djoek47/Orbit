@@ -933,16 +933,20 @@ export default function PoppinsScreen() {
     : dailyFill;
 
   // WO13 — one orb, three sizes. Never unmount while the tab is open.
+  // Orb is the tick: keep success tint for the full local undo window.
   const liveScene = drive.playlist[drive.index]?.scene;
+  const undoWindowOpen = Boolean(drive.undoUntil && Date.now() < drive.undoUntil);
   const orbIsSettle =
-    drive.live &&
-    (drive.phase === 'settle' || liveScene === 'result_mark' || liveScene === 'task_done');
+    undoWindowOpen ||
+    (drive.live &&
+      (drive.phase === 'settle' || liveScene === 'result_mark' || liveScene === 'task_done'));
   const orbSize = showText && !drive.live ? 34 : drive.live ? 72 : 196;
   const orbVisual: PoppinsVisualState = orbIsSettle
     ? 'success'
     : visualState === 'success'
       ? 'success'
       : visualState;
+  // Drain dashed line off during success / undo window — orb carries the tick.
   const showDrainPreview =
     drive.live &&
     !orbIsSettle &&
@@ -1244,7 +1248,13 @@ export default function PoppinsScreen() {
           </View>
         ) : null}
 
-        <View style={styles.controlRow}>
+        <View
+          style={[
+            styles.controlRow,
+            {
+              gap: STAGE.dock.gap,
+            },
+          ]}>
           <Pressable
             onPress={() => setShowText((v) => !v)}
             accessibilityRole="button"
@@ -1252,6 +1262,9 @@ export default function PoppinsScreen() {
             style={[
               styles.sideBtn,
               {
+                width: STAGE.dock.side,
+                height: STAGE.dock.side,
+                borderRadius: STAGE.dock.sideRadius,
                 backgroundColor: showText ? 'rgba(56,189,248,0.15)' : glass(0.07),
                 borderColor: showText ? 'rgba(56,189,248,0.3)' : glassBorder(0.1),
               },
@@ -1267,7 +1280,10 @@ export default function PoppinsScreen() {
             <TourTarget id="poppins.speak"><Pressable
               onPress={() => void toggleConnect()}
               disabled={voiceSettling}
-              style={styles.micWrap}
+              style={[
+                styles.micWrap,
+                { width: STAGE.dock.mic, height: STAGE.dock.mic },
+              ]}
               accessibilityRole="button"
               accessibilityLabel={primaryConnected ? 'Done' : 'Speak'}
               accessibilityHint={
@@ -1281,7 +1297,17 @@ export default function PoppinsScreen() {
                 disabled: voiceSettling,
               }}>
               {primaryConnected ? (
-                <View style={[styles.micPulse, { backgroundColor: 'rgba(52,211,153,0.2)' }]} />
+                <View
+                  style={[
+                    styles.micPulse,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(52,211,153,0.2)'
+                        : 'rgba(15,111,85,0.16)',
+                      borderRadius: STAGE.dock.mic / 2,
+                    },
+                  ]}
+                />
               ) : null}
               <LinearGradient
                 colors={
@@ -1289,14 +1315,22 @@ export default function PoppinsScreen() {
                     ? ['rgba(248,113,113,0.95)', 'rgba(239,68,68,0.85)']
                     : connecting
                       ? ['rgba(167,139,250,0.9)', 'rgba(139,92,246,0.8)']
-                      : [STAGE.shell.mic, '#248A64']
+                      : isDark
+                        ? [STAGE.shell.mic, '#248A64']
+                        : [STAGE.domainLight.chores, '#0A5A44']
                 }
                 style={[
                   styles.micBtn,
                   {
+                    width: STAGE.dock.mic,
+                    height: STAGE.dock.mic,
+                    borderRadius: STAGE.dock.mic / 2,
+                    borderWidth: 3,
                     borderColor: primaryConnected
                       ? 'rgba(255,255,255,0.25)'
-                      : 'rgba(118,196,174,0.28)',
+                      : isDark
+                        ? 'rgba(118,196,174,0.28)'
+                        : 'rgba(15,111,85,0.28)',
                   },
                 ]}>
                 {primaryConnected ? (
@@ -1309,7 +1343,7 @@ export default function PoppinsScreen() {
               </LinearGradient>
             </Pressable></TourTarget>
           ) : (
-            <View style={styles.micWrap} />
+            <View style={[styles.micWrap, { width: STAGE.dock.mic, height: STAGE.dock.mic }]} />
           )}
 
           <Pressable
@@ -1322,11 +1356,22 @@ export default function PoppinsScreen() {
             style={[
               styles.sideBtn,
               {
-                backgroundColor: `${STAGE.domain.household}24`,
-                borderColor: `${STAGE.domain.household}57`,
+                width: STAGE.dock.side,
+                height: STAGE.dock.side,
+                borderRadius: STAGE.dock.sideRadius,
+                backgroundColor: isDark
+                  ? `${STAGE.domain.household}24`
+                  : `${STAGE.domainLight.household}18`,
+                borderColor: isDark
+                  ? `${STAGE.domain.household}57`
+                  : `${STAGE.domainLight.household}40`,
               },
             ]}>
-            <MaterialIcons name="help-outline" size={21} color={STAGE.shell.teach} />
+            <MaterialIcons
+              name="help-outline"
+              size={21}
+              color={isDark ? STAGE.shell.teach : STAGE.shell.teachLight}
+            />
           </Pressable>
         </View>
 
@@ -1582,16 +1627,12 @@ const styles = StyleSheet.create({
   controlRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 20,
     justifyContent: 'center',
   },
   sideBtn: {
     alignItems: 'center',
-    borderRadius: 18,
     borderWidth: 1,
-    height: 54,
     justifyContent: 'center',
-    width: 54,
   },
   speakBalance: {
     height: 54,
@@ -1599,22 +1640,15 @@ const styles = StyleSheet.create({
   },
   micWrap: {
     alignItems: 'center',
-    height: 82,
     justifyContent: 'center',
-    width: 82,
   },
   micPulse: {
     ...StyleSheet.absoluteFill,
-    borderRadius: 41,
     transform: [{ scale: 1.35 }],
   },
   micBtn: {
     alignItems: 'center',
-    borderRadius: 41,
-    borderWidth: 3,
-    height: 82,
     justifyContent: 'center',
-    width: 82,
   },
   stopSquare: {
     backgroundColor: '#fff',

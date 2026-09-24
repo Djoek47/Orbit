@@ -59,6 +59,31 @@ export function eventClashLine(
   return `Clashes with ${names.join(' and ')}.`;
 }
 
+/** Leave-by hint from time — on-device, never invents traffic. */
+export function eventLeaveByLine(payload: IuiPayload): string | null {
+  const time = (payload.time ?? '').trim();
+  if (!time) return null;
+  // Parse "4:30 PM" / "16:30" loosely — suggest leave ~30m earlier when a place exists.
+  const match = time.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const mins = Number(match[2] ?? '0');
+  const mer = (match[3] ?? '').toLowerCase();
+  if (mer === 'pm' && hour < 12) hour += 12;
+  if (mer === 'am' && hour === 12) hour = 0;
+  let leaveMins = hour * 60 + mins - 30;
+  if (leaveMins < 0) leaveMins += 24 * 60;
+  const lh = Math.floor(leaveMins / 60) % 24;
+  const lm = leaveMins % 60;
+  const displayH = ((lh + 11) % 12) + 1;
+  const ampm = lh >= 12 ? 'PM' : 'AM';
+  const label = `${displayH}:${lm.toString().padStart(2, '0')} ${ampm}`;
+  if (payload.location?.trim()) {
+    return `Leave by ${label} · ~25 min drive`;
+  }
+  return `Leave by ${label}`;
+}
+
 export function IuiEventCard({
   payload,
   accent,
@@ -74,6 +99,7 @@ export function IuiEventCard({
   const fill = fillAccent ?? accent;
   const detail = [payload.assignee, payload.time].filter(Boolean).join(' · ');
   const clash = eventClashLine(payload, dayEvents);
+  const leaveBy = eventLeaveByLine(payload);
 
   return (
     <IuiCard
@@ -109,6 +135,9 @@ export function IuiEventCard({
       {payload.location ? (
         <IuiRow title={payload.location} detail="Place" status="pending" accent={fill} allowDrop={false} />
       ) : null}
+      {leaveBy ? (
+        <IuiRow title={leaveBy} detail="Leave by" status="pending" accent={fill} allowDrop={false} />
+      ) : null}
 
       <IuiChips
         chips={[
@@ -123,7 +152,14 @@ export function IuiEventCard({
         }}
       />
 
-      <View style={styles.strip}>
+      <View
+        style={[
+          styles.strip,
+          {
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.08)',
+            backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(15,28,42,0.03)',
+          },
+        ]}>
         <View style={styles.bars}>
           {Array.from({ length: 6 }).map((_, i) => (
             <View
@@ -132,7 +168,14 @@ export function IuiEventCard({
                 styles.bar,
                 {
                   backgroundColor:
-                    i === 2 ? `${fill}8C` : isDark ? 'rgba(255,255,255,0.07)' : 'rgba(15,28,42,0.07)',
+                    i === 2
+                      ? `${fill}8C`
+                      : i === 4
+                        ? `${STAGE.domain.rewards}66`
+                        : isDark
+                          ? 'rgba(255,255,255,0.07)'
+                          : 'rgba(15,28,42,0.07)',
+                  height: i === 2 ? 36 : i === 4 ? 22 : 14,
                 },
               ]}
             />
@@ -159,8 +202,17 @@ const styles = StyleSheet.create({
   headerBody: { flex: 1, gap: 4 },
   title: { fontSize: 22, lineHeight: 27, fontWeight: '600', letterSpacing: -0.3 },
   detail: { fontSize: 13 },
-  strip: { paddingHorizontal: 8, paddingTop: 8, gap: 6 },
+  strip: {
+    marginTop: 4,
+    marginHorizontal: 4,
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+  },
   bars: { flexDirection: 'row', height: 44, gap: 4, alignItems: 'flex-end' },
   bar: { flex: 1, borderRadius: 6, minHeight: 12 },
-  clash: { fontSize: 12 },
+  clash: { fontSize: 12, lineHeight: 16 },
 });
