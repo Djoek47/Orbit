@@ -32,26 +32,23 @@ export type FuzzyHit<T> = {
   distance: number;
   /** 0–1; higher is better. */
   confidence: number;
+  /** Candidate key that scored (for chip labels). */
+  key?: string;
 };
 
-/**
- * Pick the best closed-set candidate. Returns null on empty, no hit, or a near-tie
- * (two candidates within the same distance / confidence margin).
- */
-export function bestFuzzyMatch<T>(
+function scoreFuzzyCandidates<T>(
   needle: string,
-  candidates: Array<{ key: string; value: T }>,
-  opts?: { margin?: number }
-): FuzzyHit<T> | null {
+  candidates: Array<{ key: string; value: T }>
+): FuzzyHit<T>[] {
   const q = needle.trim().toLowerCase();
-  if (!q || q.length < 2) return null;
+  if (!q || q.length < 2) return [];
   const maxDist = maxEditDistance(q);
   const scored: FuzzyHit<T>[] = [];
   for (const candidate of candidates) {
     const key = candidate.key.trim().toLowerCase();
     if (!key) continue;
     if (key === q) {
-      scored.push({ value: candidate.value, distance: 0, confidence: 1 });
+      scored.push({ value: candidate.value, distance: 0, confidence: 1, key: candidate.key });
       continue;
     }
     // Prefer matching against whole key and each token of multi-word keys.
@@ -63,11 +60,29 @@ export function bestFuzzyMatch<T>(
     }
     if (best <= maxDist) {
       const confidence = Math.max(0, 1 - best / Math.max(q.length, 1));
-      scored.push({ value: candidate.value, distance: best, confidence });
+      scored.push({
+        value: candidate.value,
+        distance: best,
+        confidence,
+        key: candidate.key,
+      });
     }
   }
-  if (!scored.length) return null;
   scored.sort((a, b) => a.distance - b.distance || b.confidence - a.confidence);
+  return scored;
+}
+
+/**
+ * Pick the best closed-set candidate. Returns null on empty, no hit, or a near-tie
+ * (two candidates within the same distance / confidence margin).
+ */
+export function bestFuzzyMatch<T>(
+  needle: string,
+  candidates: Array<{ key: string; value: T }>,
+  opts?: { margin?: number }
+): FuzzyHit<T> | null {
+  const scored = scoreFuzzyCandidates(needle, candidates);
+  if (!scored.length) return null;
   const first = scored[0]!;
   const second = scored[1];
   const margin = opts?.margin ?? 0.12;
@@ -75,6 +90,26 @@ export function bestFuzzyMatch<T>(
     return null; // near-tie → NARROW, do not guess
   }
   return first;
+}
+
+/**
+ * When `bestFuzzyMatch` returns null because of a near-tie, return exactly the
+ * top two candidates for Narrow chips. Otherwise null (no hit, or a clear winner).
+ */
+export function nearTieFuzzyMatches<T>(
+  needle: string,
+  candidates: Array<{ key: string; value: T }>,
+  opts?: { margin?: number }
+): [FuzzyHit<T>, FuzzyHit<T>] | null {
+  const scored = scoreFuzzyCandidates(needle, candidates);
+  if (scored.length < 2) return null;
+  const first = scored[0]!;
+  const second = scored[1]!;
+  const margin = opts?.margin ?? 0.12;
+  if (second.distance === first.distance && first.confidence - second.confidence < margin) {
+    return [first, second];
+  }
+  return null;
 }
 
 /** High-confidence enough to arm HOLD for consequential acts. */

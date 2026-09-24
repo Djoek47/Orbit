@@ -439,11 +439,51 @@ export function PoppinsStage({
         </Text>
       ) : null}
 
-      {beat.scene === 'thinking' ? (
+      {drive.phase === 'narrow' && payload.chips?.length === 2 ? (
+        <View style={styles.stack}>
+          <Text style={[styles.lead, { color: c.text }]}>Which one?</Text>
+          <IuiChips
+            chips={payload.chips}
+            selectedId={payload.selectedChipId}
+            accent={stageInk()}
+            onSelect={(id) => {
+              const chip = payload.chips?.find((item) => item.id === id);
+              const label = chip?.label ?? id;
+              if (beat.scene === 'grocery_add') {
+                poppinsUiOrchestrator.chooseFromTap(
+                  {
+                    groceryName: label,
+                    title: label,
+                    selectedChipId: id,
+                    provisional: false,
+                    composeReady: true,
+                  },
+                  label,
+                  'chip'
+                );
+                return;
+              }
+              poppinsUiOrchestrator.chooseFromTap(
+                {
+                  title: label,
+                  selectedChipId: id,
+                  libraryTaskId: id,
+                  provisional: false,
+                  composeReady: true,
+                },
+                label,
+                'chip'
+              );
+            }}
+          />
+        </View>
+      ) : null}
+
+      {drive.phase !== 'narrow' && beat.scene === 'thinking' ? (
         <Text style={[styles.lead, { color: c.text }]}>{payload.thinkingLine || 'Working.'}</Text>
       ) : null}
 
-      {beat.scene === 'member_pick' ? (
+      {drive.phase !== 'narrow' && beat.scene === 'member_pick' ? (
         <IuiStepper kicker="Who" accent={accent}>
           <IuiFaces
             faces={sceneFaces}
@@ -457,7 +497,7 @@ export function PoppinsStage({
         </IuiStepper>
       ) : null}
 
-      {beat.scene === 'task_compose' ? (
+      {drive.phase !== 'narrow' && beat.scene === 'task_compose' ? (
         payload.items && payload.items.length > 1 ? (
           <IuiCard
             accent={stageText()}
@@ -514,7 +554,7 @@ export function PoppinsStage({
         )
       ) : null}
 
-      {beat.scene === 'homework_compose' ? (
+      {drive.phase !== 'narrow' && beat.scene === 'homework_compose' ? (
         <HomeworkComposeSteps
           payload={payload}
           faces={sceneFaces}
@@ -529,7 +569,7 @@ export function PoppinsStage({
         />
       ) : null}
 
-      {beat.scene === 'calendar_zoom' ? (
+      {drive.phase !== 'narrow' && beat.scene === 'calendar_zoom' ? (
         <IuiEventCard
           payload={payload}
           accent={stageText()}
@@ -542,7 +582,7 @@ export function PoppinsStage({
         />
       ) : null}
 
-      {beat.scene === 'itinerary_stage' ? (
+      {drive.phase !== 'narrow' && beat.scene === 'itinerary_stage' ? (
         <IuiTripCard
           payload={payload}
           accent={stageText()}
@@ -555,7 +595,7 @@ export function PoppinsStage({
         />
       ) : null}
 
-      {beat.scene === 'grocery_add' ? (
+      {drive.phase !== 'narrow' && beat.scene === 'grocery_add' ? (
         !(payload.groceryName || payload.title || (payload.items && payload.items.length)) ? (
           <IuiTroubleMissingSlot
             accent={stageText()}
@@ -618,6 +658,9 @@ export function PoppinsStage({
             onUndo={() => {
               void poppinsUiOrchestrator.undoLast();
             }}
+            onUndoOne={(id) => {
+              void poppinsUiOrchestrator.undoOne(id);
+            }}
           />
         </>
       ) : null}
@@ -646,6 +689,9 @@ export function PoppinsStage({
             ledger={undoRows}
             onUndo={() => {
               void poppinsUiOrchestrator.undoLast();
+            }}
+            onUndoOne={(id) => {
+              void poppinsUiOrchestrator.undoOne(id);
             }}
           />
         </>

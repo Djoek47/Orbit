@@ -369,6 +369,22 @@ function enrichGrocery(
   action: Record<string, unknown>,
   utterance: string
 ): Array<Record<string, unknown>> {
+  // Narrow near-tie — keep chips / provisional; do not invent a name.
+  if (
+    action.provisional === true &&
+    Array.isArray(action.chips) &&
+    action.chips.length === 2 &&
+    !String(action.name ?? '').trim()
+  ) {
+    return [
+      {
+        ...action,
+        type: 'add_grocery',
+        name: '',
+        sourceUtterance: utterance,
+      },
+    ];
+  }
   const rawName = String(action.name ?? '').trim() || extractItemName(utterance) || undefined;
   if (isFillerItemName(rawName)) {
     return [

@@ -92,6 +92,17 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
   const groceryName =
     items?.[0]?.label ||
     String(action.name ?? action.title ?? '').trim();
+  const narrowChips = Array.isArray(action.chips)
+    ? (action.chips as Array<Record<string, unknown>>)
+        .slice(0, 2)
+        .map((chip, i) => ({
+          id: String(chip.id ?? `narrow-${i}`),
+          label: String(chip.label ?? chip.name ?? '').trim(),
+          kind: 'library' as const,
+        }))
+        .filter((chip) => chip.label)
+    : undefined;
+  const isNarrow = Boolean(action.provisional === true && narrowChips?.length === 2 && !groceryName);
   const classified = groceryName ? classifyGroceryItem(groceryName) : null;
   const aisle =
     classified && classified.confidence !== 'fallback'
@@ -109,16 +120,22 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
         shoppingLane: action.lane === 'clothing' ? 'clothing' : 'grocery',
         thinkingLine:
           askLine ||
-          (action.lane === 'clothing' ? 'Shopping list' : storeHint || 'Grocery list'),
+          (isNarrow
+            ? 'Which one?'
+            : action.lane === 'clothing'
+              ? 'Shopping list'
+              : storeHint || 'Grocery list'),
         location: storeHint || undefined,
         sourceUtterance:
           typeof action.sourceUtterance === 'string' ? action.sourceUtterance : undefined,
         items,
         progressLabel: count > 1 ? `1 of ${count}` : undefined,
         composeReady: groceryName ? undefined : false,
-        provisional: groceryName ? undefined : true,
+        provisional: isNarrow || (groceryName ? undefined : true),
+        chips: isNarrow ? narrowChips : undefined,
       },
-      groceryName ? 'hold' : 'none',
+      // Narrow keeps hold commit so a chip tap can arm silence-assent; blocked while provisional.
+      groceryName || isNarrow ? 'hold' : 'none',
       'add_grocery'
     ),
     ...(groceryName && !items
@@ -145,7 +162,18 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
               'none'
             ),
           ]
-        : []),
+        : isNarrow
+          ? [
+              beat(
+                'result_mark',
+                {
+                  markKind: 'added' as const,
+                  title: 'Added',
+                },
+                'none'
+              ),
+            ]
+          : []),
   ];
 }
 
