@@ -1074,7 +1074,7 @@ export default function SettingsScreen() {
               disabled={poppinsPrefsReadOnly}
               onSelectTier={(tier) => {
                 if (poppinsPrefsReadOnly) return;
-                void updatePoppinsPrefs(prefsForTier(tier));
+                void updatePoppinsPrefs(prefsForTier(tier, poppinsPrefs));
               }}
             />
             {poppinsPrefsReadOnly ? (

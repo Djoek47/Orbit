@@ -10,6 +10,7 @@ import {
   requestMicPermission,
   startMicRecorder,
 } from '@/lib/voice/mic-capture';
+import { VoiceFailureError, classifyVoiceFailure } from '@/lib/voice/quiet-failures';
 import { poppinsService } from '@/services/poppins-service';
 import type { AudioRecorder } from 'expo-audio';
 import type { HouseholdSnapshot, PoppinsConversationAnswer, OrbitMetrics } from '@/types/orbit';
@@ -57,17 +58,17 @@ async function invokePoppinsVoice(
   household: HouseholdSnapshot,
   metrics: OrbitMetrics,
   transcriptOnly = false
-): Promise<{ transcript: string; answer: string } | null> {
+): Promise<{ transcript: string; answer: string }> {
   const supabase = getSupabaseClient();
   const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   if (!supabase || !baseUrl) {
-    return null;
+    throw new VoiceFailureError('whisper_failed', 'no_supabase_config');
   }
 
   const session = await supabase.auth.getSession();
   const token = session.data.session?.access_token;
   if (!token) {
-    return null;
+    throw new VoiceFailureError('signed_out');
   }
 
   const form = new FormData();
@@ -83,17 +84,28 @@ async function invokePoppinsVoice(
     form.append('transcriptOnly', '1');
   }
 
-  const response = await fetch(`${baseUrl}/functions/v1/poppins-voice`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: form,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/functions/v1/poppins-voice`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: form,
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new VoiceFailureError('whisper_failed', detail);
+  }
 
-  const payload = await response.json();
+  const payload = await response.json().catch(() => ({} as { error?: string }));
   if (!response.ok || payload.error) {
-    throw new Error(payload.error ?? 'Voice request failed');
+    const err = String(payload.error ?? `Voice request failed (${response.status})`);
+    if (response.status === 401 || response.status === 403) {
+      throw new VoiceFailureError('signed_out', err);
+    }
+    const cause = classifyVoiceFailure(err);
+    throw new VoiceFailureError(cause, err);
   }
 
   return {
@@ -122,7 +134,7 @@ export async function transcribePoppinsAudio(
 
 /**
  * Quiet capture transcription. Returns null on empty transcript.
- * Throws on network / edge failure so Quiet can show `transcribe_failed` (A2).
+ * Throws VoiceFailureError so Quiet can show a distinct §1.2 line.
  * Never invents a sentence the user did not say.
  */
 export async function transcribeQuietAudio(
@@ -130,13 +142,13 @@ export async function transcribeQuietAudio(
   household: HouseholdSnapshot,
   metrics: OrbitMetrics
 ): Promise<string | null> {
-  if (!useLivePoppinsAi || !audioUri) {
-    throw new Error('Voice AI unavailable');
+  if (!useLivePoppinsAi) {
+    throw new VoiceFailureError('ai_off');
+  }
+  if (!audioUri) {
+    throw new VoiceFailureError('whisper_failed', 'no_audio_uri');
   }
   const payload = await invokePoppinsVoice(audioUri, household, metrics, true);
-  if (!payload) {
-    throw new Error('Voice request returned empty');
-  }
   const transcript = payload.transcript?.trim();
   return transcript || null;
 }
@@ -154,9 +166,6 @@ export async function transcribeAndAskPoppins(
 
   try {
     const payload = await invokePoppinsVoice(audioUri, household, metrics, false);
-    if (!payload) {
-      return poppinsService.answerQuestion(fallbackQuestion, household, metrics);
-    }
     return {
       question: payload.transcript || fallbackQuestion,
       answer: payload.answer || 'I could not respond just now.',

@@ -17,8 +17,8 @@ export const NOTHING_HEARD_COPY: Record<string, { title: string; reason: string 
     reason: "The microphone didn't record anything. Check mic access in Settings.",
   },
   too_short: {
-    title: 'That was too short',
-    reason: 'Hold, speak, then let go.',
+    title: 'Hold while you speak',
+    reason: 'Press and hold the mic, then let go when you finish.',
   },
   empty_transcript: {
     title: "I didn't hear words",
