@@ -392,6 +392,21 @@ export default function AssignTaskScreen() {
         <View style={{ width: 36 }} />
       </View>
 
+      {tourGuided ? (
+        <View
+          style={[
+            styles.tourHint,
+            {
+              backgroundColor: `${accentTheme.primary}22`,
+              borderColor: `${accentTheme.primary}55`,
+            },
+          ]}>
+          <Text style={[typography.footnote, { color: c.textSoft, fontWeight: '600' }]}>
+            Tour: a Sidekick and chore are ready. Tap Assign when you like them.
+          </Text>
+        </View>
+      ) : null}
+
       {/* Who — always choosable (route param only seeds the selection) */}
       <View style={styles.whoBlock}>
         <Text style={[styles.sectionLabel, styles.sectionPad, { color: c.textMuted }]}>Who</Text>
@@ -692,6 +707,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingTop: space.xs,
     paddingBottom: space.sm,
+  },
+  tourHint: {
+    borderCurve: 'continuous',
+    borderRadius: radius.control,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: space.sm,
+    marginHorizontal: space.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
   iconBtn: {
     alignItems: 'center',

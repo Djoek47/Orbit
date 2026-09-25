@@ -33,7 +33,7 @@ const child: HouseholdMember = {
     profileMemberIds: ['m1', 'm2'],
     activeMemberId: null,
     needsProfilePick: true,
-    deviceLabel: 'Family iPad',
+    deviceLabel: 'Shared device',
   };
   assert.equal(isPersonalSidekickDevice(session, [child]), false);
 }

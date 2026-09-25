@@ -4,6 +4,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEve
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
+import { STAGE } from '@/constants/iui-stage';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
@@ -18,6 +19,10 @@ type Props = {
   isAction: boolean;
   isLast: boolean;
   primaryLabel?: string;
+  /** WO12 §D3 coach walkthrough. */
+  adHoc?: boolean;
+  canDoItForYou?: boolean;
+  onDoItForMe?: () => void;
   cardRef?: React.RefObject<View | null>;
   onNext: () => void;
   onBack?: () => void;
@@ -41,10 +46,13 @@ export function TourCard({
   isAction,
   isLast,
   primaryLabel,
+  adHoc,
+  canDoItForYou,
+  onDoItForMe,
   cardRef,
   onNext,
   onBack,
-  onSkipChapter,
+  onSkipChapter: _onSkipChapter,
   onSkipStep,
   onLayoutHeight,
   maxHeight,
@@ -90,10 +98,38 @@ export function TourCard({
           <View style={[StyleSheet.absoluteFill, { backgroundColor: frostFill }]} />
         </View>
         <View style={[styles.card, maxHeight ? styles.cardFit : null]}>
-          <Text style={[typography.footnote, styles.eyebrow, { color: c.textMuted }]}>
-            {chapterName}
-            {stepLabel ? ` · ${stepLabel}` : ''}
-          </Text>
+          {adHoc ? (
+            <View style={styles.adHocHead}>
+              <Text style={[styles.adHocStep, { color: STAGE.shell.teach }]}>
+                {`STEP ${stepIndex + 1} OF ${Math.max(1, stepsInChapter)}`}
+              </Text>
+              <View style={styles.adHocBars}>
+                {dots.map((i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.adHocBar,
+                      {
+                        backgroundColor:
+                          i === stepIndex
+                            ? STAGE.shell.teach
+                            : i < stepIndex
+                              ? 'rgba(111,168,232,0.45)'
+                              : isDark
+                                ? 'rgba(255,255,255,0.14)'
+                                : 'rgba(15,28,42,0.14)',
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : (
+            <Text style={[typography.footnote, styles.eyebrow, { color: c.textMuted }]}>
+              {chapterName}
+              {stepLabel ? ` · ${stepLabel}` : ''}
+            </Text>
+          )}
           <Text style={[typography.title3, { color: c.text }]}>{title}</Text>
           <ScrollView
             style={maxHeight ? styles.bodyScroll : undefined}
@@ -102,21 +138,23 @@ export function TourCard({
             <Text style={[typography.body, { color: c.textSoft }]}>{body}</Text>
           </ScrollView>
           <View style={styles.footer}>
-            <View style={styles.dots} accessibilityLabel={stepLabel}>
-              {dots.map((i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.dot,
-                    {
-                      backgroundColor: i === stepIndex ? accent : c.textSubtle,
-                      opacity: i === stepIndex ? 1 : 0.35,
-                      width: i === stepIndex ? 16 : 6,
-                    },
-                  ]}
-                />
-              ))}
-            </View>
+            {adHoc ? null : (
+              <View style={styles.dots} accessibilityLabel={stepLabel}>
+                {dots.map((i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.dot,
+                      {
+                        backgroundColor: i === stepIndex ? accent : c.textSubtle,
+                        opacity: i === stepIndex ? 1 : 0.35,
+                        width: i === stepIndex ? 16 : 6,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
             <View style={styles.actions}>
               {onBack ? (
                 <Pressable
@@ -133,7 +171,37 @@ export function TourCard({
                 <View />
               )}
               <View style={styles.actionRight}>
-                {isAction ? (
+                {adHoc ? (
+                  <>
+                    {canDoItForYou && onDoItForMe ? (
+                      <Pressable
+                        onPress={onDoItForMe}
+                        accessibilityRole="button"
+                        accessibilityLabel="Do it for me"
+                        style={({ pressed }) => [
+                          styles.adHocPrimary,
+                          { backgroundColor: STAGE.shell.teach, opacity: pressed ? 0.88 : 1 },
+                        ]}>
+                        <Text style={styles.adHocPrimaryLabel}>Do it for me</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable
+                      onPress={onNext}
+                      accessibilityRole="button"
+                      accessibilityLabel={primaryLabel ?? (isLast ? 'Done' : 'Next')}
+                      style={[
+                        styles.adHocSecondary,
+                        {
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,28,42,0.06)',
+                          borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,28,42,0.10)',
+                        },
+                      ]}>
+                      <Text style={[typography.footnote, { color: isDark ? '#C8D8F0' : c.text, fontWeight: '600' }]}>
+                        {primaryLabel ?? (isLast ? 'Done' : 'Next')}
+                      </Text>
+                    </Pressable>
+                  </>
+                ) : isAction ? (
                   <Pressable
                     onPress={onSkipStep}
                     hitSlop={8}
@@ -146,9 +214,10 @@ export function TourCard({
                 ) : (
                   <>
                     <Pressable
-                      onPress={onSkipChapter}
+                      onPress={onSkipStep}
                       hitSlop={8}
                       accessibilityRole="button"
+                      accessibilityLabel="Skip this step"
                       style={styles.textBtn}>
                       <Text style={[typography.footnote, { color: c.textMuted, fontWeight: '600' }]}>
                         Skip
@@ -255,5 +324,47 @@ const styles = StyleSheet.create({
   nextLabel: {
     color: orbitColors.ink,
     fontWeight: '700',
+  },
+  adHocHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  adHocStep: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
+  adHocBars: {
+    flexDirection: 'row',
+    gap: 5,
+    alignItems: 'center',
+  },
+  adHocBar: {
+    width: 18,
+    height: 3,
+    borderRadius: 999,
+  },
+  adHocPrimary: {
+    minHeight: 46,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  adHocPrimaryLabel: {
+    color: '#061424',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  adHocSecondary: {
+    minHeight: 46,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    justifyContent: 'center',
+    borderWidth: 1,
   },
 });

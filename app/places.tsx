@@ -7,12 +7,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PlaceMap } from '@/components/orbit/place-map';
+import { MapsAppMark } from '@/components/orbit/maps-app-mark';
+import { SettingsModalChrome } from '@/components/orbit/settings/modal-chrome';
 import { radius, space } from '@/constants/orbit-theme';
 import { openDirections } from '@/lib/maps/directions';
 import { formatUsCaAddress } from '@/lib/places/address-format';
 import { searchAddresses, type AddressSuggestion } from '@/lib/places/address-search';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
-import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { placeUsedForSubtitle } from '@/lib/places/place-used-for';
+import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import type { PreferredMapsApp } from '@/lib/theme/appearance-prefs';
 import {
   findNearbyStores,
   getCurrentCoords,
@@ -26,18 +30,36 @@ import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/a
 const HOME_ID = 'place-home';
 const WORK_ID = 'place-work';
 
-const KIND_OPTIONS: { id: SavedPlaceKind; label: string; emoji: string; color: string }[] = [
-  { id: 'home', label: 'Home', emoji: '🏠', color: '#38BDF8' },
-  { id: 'work', label: 'Work', emoji: '💼', color: '#7C9CC0' },
-  { id: 'school', label: 'School', emoji: '🏫', color: '#A78BFA' },
-  { id: 'shop', label: 'Grocery', emoji: '🛒', color: '#34D399' },
-  { id: 'clothing', label: 'Clothing', emoji: '👕', color: '#F472B6' },
-  { id: 'practice', label: 'Activity', emoji: '⚽', color: '#F59E0B' },
-  { id: 'family', label: 'Family', emoji: '👵', color: '#EC4899' },
-  { id: 'cafe', label: 'Café', emoji: '☕', color: '#FB923C' },
-  { id: 'pickup', label: 'Pickup', emoji: '📦', color: '#EC4899' },
-  { id: 'custom', label: 'Other', emoji: '📍', color: '#7C9CC0' },
+type KindMeta = {
+  id: SavedPlaceKind;
+  label: string;
+  icon: keyof typeof MaterialIcons.glyphMap;
+  color: string;
+  /** Filter chip group on Places list. */
+  filter?: 'shops' | 'school' | 'activities';
+};
+
+const KIND_OPTIONS: KindMeta[] = [
+  { id: 'home', label: 'Home', icon: 'home', color: '#38BDF8' },
+  { id: 'work', label: 'Work', icon: 'work', color: '#7C9CC0' },
+  { id: 'school', label: 'School', icon: 'school', color: '#A78BFA', filter: 'school' },
+  { id: 'shop', label: 'Shops', icon: 'storefront', color: '#34D399', filter: 'shops' },
+  { id: 'clothing', label: 'Clothing', icon: 'checkroom', color: '#F472B6', filter: 'shops' },
+  { id: 'practice', label: 'Activities', icon: 'sports', color: '#F59E0B', filter: 'activities' },
+  { id: 'family', label: 'Family', icon: 'favorite', color: '#EC4899' },
+  { id: 'cafe', label: 'Café', icon: 'local-cafe', color: '#FB923C', filter: 'shops' },
+  { id: 'pickup', label: 'Pickup', icon: 'local-shipping', color: '#EC4899', filter: 'activities' },
+  { id: 'custom', label: 'Other', icon: 'place', color: '#7C9CC0' },
 ];
+
+const MAPS_OPTS: { value: PreferredMapsApp; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'apple', label: 'Apple' },
+  { value: 'google', label: 'Google' },
+  { value: 'waze', label: 'Waze' },
+];
+
+type FilterId = 'all' | 'shops' | 'school' | 'activities';
 
 const EMOJI_PRESETS = ['🏠', '💼', '🏫', '🛒', '⚽', '☕', '📦', '🎯', '👵', '📍', '🏋️', '🍕'];
 
@@ -56,6 +78,31 @@ type EditorState = {
 
 function kindMeta(kind: SavedPlaceKind) {
   return KIND_OPTIONS.find((k) => k.id === kind) ?? KIND_OPTIONS[KIND_OPTIONS.length - 1]!;
+}
+
+function defaultEmoji(kind: SavedPlaceKind): string {
+  switch (kind) {
+    case 'home':
+      return '🏠';
+    case 'work':
+      return '💼';
+    case 'school':
+      return '🏫';
+    case 'shop':
+      return '🛒';
+    case 'clothing':
+      return '👕';
+    case 'practice':
+      return '⚽';
+    case 'family':
+      return '👵';
+    case 'cafe':
+      return '☕';
+    case 'pickup':
+      return '📦';
+    default:
+      return '📍';
+  }
 }
 
 function formatCoordsLabel(lat: number, lng: number) {
@@ -91,7 +138,7 @@ function placeToEditor(place: SavedPlace, isNew = false): EditorState {
     name: place.name,
     kind: place.kind,
     address: place.address,
-    emoji: place.emoji ?? meta.emoji,
+    emoji: place.emoji ?? defaultEmoji(meta.id),
     isFavorite: place.isFavorite ?? false,
     pickupItemNames: [...(place.pickupItemNames ?? [])],
     lat: place.lat,
@@ -110,10 +157,12 @@ export default function PlacesScreen() {
     suggestPoppinsItinerary,
     upsertSavedPlace,
     preferredMapsApp,
+    updatePreferredMapsApp,
   } = useOrbit();
-  const { glass } = useOrbitColors();
+  const { glass, c, isDark, glassBorder } = useOrbitColors();
   const places = useMemo(() => household.savedPlaces ?? [], [household.savedPlaces]);
   const [editor, setEditor] = useState<EditorState | null>(null);
+  const [kindFilter, setKindFilter] = useState<FilterId>('all');
   const [locating, setLocating] = useState(false);
   const [itemInput, setItemInput] = useState('');
   const [suggestBusy, setSuggestBusy] = useState(false);
@@ -130,6 +179,31 @@ export default function PlacesScreen() {
     () => places.filter((p) => p.id !== home?.id && p.id !== work?.id),
     [places, home?.id, work?.id]
   );
+
+  const filteredExtras = useMemo(() => {
+    if (kindFilter === 'all') return extras;
+    return extras.filter((p) => kindMeta(p.kind).filter === kindFilter);
+  }, [extras, kindFilter]);
+
+  const filterChips = useMemo(() => {
+    const counts: Record<FilterId, number> = {
+      all: places.length,
+      shops: 0,
+      school: 0,
+      activities: 0,
+    };
+    for (const p of places) {
+      const f = kindMeta(p.kind).filter;
+      if (f) counts[f] += 1;
+    }
+    const chips: { id: FilterId; label: string }[] = [
+      { id: 'all', label: `All ${counts.all}` },
+    ];
+    if (counts.shops > 0) chips.push({ id: 'shops', label: 'Shops' });
+    if (counts.school > 0) chips.push({ id: 'school', label: 'School' });
+    if (counts.activities > 0) chips.push({ id: 'activities', label: 'Activities' });
+    return chips;
+  }, [places]);
 
   const summary = useMemo(
     () => buildPickupSummary(places, household.groceries, household.preferredStoreId),
@@ -218,7 +292,6 @@ export default function PlacesScreen() {
   }, [editor?.address, editor]);
 
   const openSlot = (kind: 'home' | 'work', existing?: SavedPlace) => {
-    const meta = kindMeta(kind);
     setEditor(
       placeToEditor(
         existing ?? {
@@ -226,7 +299,7 @@ export default function PlacesScreen() {
           name: kind === 'home' ? 'Home' : 'Work',
           kind,
           address: '',
-          emoji: meta.emoji,
+          emoji: defaultEmoji(kind),
           isFavorite: true,
           pickupItemNames: [],
         },
@@ -237,15 +310,15 @@ export default function PlacesScreen() {
   };
 
   const openExtra = (place?: SavedPlace) => {
-    const meta = kindMeta(place?.kind ?? 'custom');
+    const kind = place?.kind ?? 'custom';
     setEditor(
       placeToEditor(
         place ?? {
           id: createLocalId('place'),
           name: '',
-          kind: 'custom',
+          kind,
           address: '',
-          emoji: meta.emoji,
+          emoji: defaultEmoji(kind),
           isFavorite: false,
           pickupItemNames: [],
         },
@@ -338,31 +411,180 @@ export default function PlacesScreen() {
 
   const cat = editor ? kindMeta(editor.kind) : null;
 
+  if (!editor) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <SettingsModalChrome
+          backLabel="Settings"
+          title="Places"
+          purpose={'So a trip can say “work” and mean it'}
+          right={
+            <Pressable
+              onPress={() => openExtra()}
+              accessibilityRole="button"
+              accessibilityLabel="Add place"
+              hitSlop={8}
+              style={{ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialIcons name="add" size={22} color={accentTheme.primary} />
+            </Pressable>
+          }>
+          <ScrollView
+            contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
+            showsVerticalScrollIndicator={false}>
+            <View style={styles.pinRow}>
+              <PinTile
+                title="Home"
+                address={home?.address}
+                color="#38BDF8"
+                icon="home"
+                onPress={() => openSlot('home', home)}
+              />
+              <PinTile
+                title="Work"
+                address={work?.address}
+                color="#7C9CC0"
+                icon="work"
+                onPress={() => openSlot('work', work)}
+              />
+            </View>
+
+            {places.length === 0 ? (
+              <View
+                style={[
+                  styles.emptyBlock,
+                  { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
+                ]}>
+                {[
+                  { title: 'Work', sub: '1250 René-Lévesque' },
+                  { title: 'School', sub: 'Pickup 15:30' },
+                  { title: "Grandma's", sub: 'Family' },
+                ].map((ex) => (
+                  <View key={ex.title} style={[styles.emptyRow, { opacity: 0.45 }]}>
+                    <Text style={[styles.rowTitle, { color: c.text }]}>{ex.title}</Text>
+                    <Text style={[styles.rowSubtitle, { color: c.textMuted }]}>{ex.sub}</Text>
+                  </View>
+                ))}
+                <Text style={[styles.emptyHint, { color: c.textMuted }]}>
+                  Poppins can save these as you talk: say &apos;work is on René-Lévesque&apos;.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.filterRow}>
+                  {filterChips.map((chip) => {
+                    const active = kindFilter === chip.id;
+                    return (
+                      <Pressable
+                        key={chip.id}
+                        onPress={() => setKindFilter(chip.id)}
+                        style={[
+                          styles.filterChip,
+                          {
+                            backgroundColor: active ? accentTheme.primary : glassFill(isDark),
+                            borderColor: active ? accentTheme.primary : glassBorder(0.1),
+                          },
+                        ]}>
+                        <Text
+                          style={[
+                            styles.filterLabel,
+                            { color: active ? (isDark ? '#041018' : '#fff') : c.textMuted },
+                          ]}>
+                          {chip.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {filteredExtras.map((place) => {
+                  const meta = kindMeta(place.kind);
+                  const used = placeUsedForSubtitle(place, household);
+                  return (
+                    <PlaceRow
+                      key={place.id}
+                      icon={meta.icon}
+                      title={place.name}
+                      subtitle={used.text}
+                      needsAddress={used.needsAddress}
+                      accent={meta.color}
+                      onPress={() => openExtra(place)}
+                      onSet={() => openExtra(place)}
+                    />
+                  );
+                })}
+              </>
+            )}
+
+            <Text style={[styles.mapsLabel, { color: c.textSubtle }]}>DIRECTIONS OPEN IN</Text>
+            <View style={styles.mapsRow}>
+              {MAPS_OPTS.map((opt) => {
+                const active = preferredMapsApp === opt.value;
+                return (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => updatePreferredMapsApp(opt.value)}
+                    style={[
+                      styles.mapsTile,
+                      {
+                        backgroundColor: glassFill(isDark),
+                        borderColor: active ? accentTheme.primary : glassBorder(0.1),
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}>
+                    <MapsAppMark app={opt.value} size={28} />
+                    <Text style={[styles.mapsTileLabel, { color: c.text }]}>{opt.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {summary.total > 0 ? (
+              <Pressable
+                onPress={() => void handlePickupCta()}
+                disabled={suggestBusy}
+                style={[
+                  styles.summaryCta,
+                  { borderColor: `${accentTheme.primary}44`, backgroundColor: glass(0.04) },
+                ]}>
+                <MaterialIcons name="route" size={16} color={accentTheme.primary} />
+                <Text style={[styles.summaryCtaText, { color: accentTheme.primary }]}>
+                  {suggestBusy
+                    ? 'Asking Poppins…'
+                    : summary.groups.some((g) => g.groceryLinked)
+                      ? 'Open shopping list'
+                      : 'Plan a pickup trip'}
+                </Text>
+              </Pressable>
+            ) : null}
+          </ScrollView>
+        </SettingsModalChrome>
+      </>
+    );
+  }
+
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.handle, { backgroundColor: glass(0.18) }]} />
       <View style={styles.header}>
         <Pressable
-          onPress={() => (editor ? setEditor(null) : router.back())}
+          onPress={() => setEditor(null)}
           style={[styles.iconBtn, { backgroundColor: glass(0.06) }]}
           hitSlop={8}>
-          <MaterialIcons
-            name={editor ? 'arrow-back' : 'close'}
-            size={18}
-            color={orbitPalette.textMuted}
-          />
+          <MaterialIcons name="arrow-back" size={18} color={orbitPalette.textMuted} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={[styles.kicker, { color: orbitPalette.textSubtle }]}>Household</Text>
+          <Text style={[styles.kicker, { color: orbitPalette.textSubtle }]}>Places</Text>
           <Text style={[styles.title, { color: orbitPalette.text }]}>
-            {editor ? (editor.isNew ? 'Add place' : 'Edit place') : 'My Places'}
+            {editor.isNew ? 'Add place' : 'Edit place'}
           </Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
 
-      {editor && cat ? (
+      {cat ? (
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
           keyboardShouldPersistTaps="handled"
@@ -386,7 +608,8 @@ export default function PlacesScreen() {
                     setEditor({
                       ...editor,
                       kind: k.id,
-                      emoji: editor.emoji === cat.emoji ? k.emoji : editor.emoji,
+                      emoji:
+                        editor.emoji === defaultEmoji(cat.id) ? defaultEmoji(k.id) : editor.emoji,
                     })
                   }
                   style={[
@@ -396,7 +619,11 @@ export default function PlacesScreen() {
                       borderColor: active ? `${k.color}55` : orbitPalette.border,
                     },
                   ]}>
-                  <Text style={{ fontSize: 12 }}>{k.emoji}</Text>
+                  <MaterialIcons
+                    name={k.icon}
+                    size={14}
+                    color={active ? k.color : orbitPalette.textMuted}
+                  />
                   <Text style={{ fontSize: 12, color: active ? k.color : orbitPalette.textSubtle, fontWeight: active ? '700' : '500' }}>
                     {k.label}
                   </Text>
@@ -611,273 +838,101 @@ export default function PlacesScreen() {
 
           <OrbitButton onPress={saveEditor}>Save place</OrbitButton>
         </ScrollView>
-      ) : (
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
-          showsVerticalScrollIndicator={false}>
-          <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
-            Train Poppins with home, work, stores, and pickup spots — Plan trips reuse them.
-          </Text>
-
-          <PlaceMap
-            height={200}
-            locating={locating && !gps}
-            permissionDenied={permissionDenied}
-            userLocation={gps ?? (home?.lat != null && home?.lng != null ? { lat: home.lat, lng: home.lng } : null)}
-            emptyHint="Allow location to preload the map. After you add Home, nearby stores appear here."
-            markers={[
-              ...places
-                .filter((p) => p.lat != null && p.lng != null)
-                .map((p) => ({
-                  id: p.id,
-                  title: p.name,
-                  lat: p.lat as number,
-                  lng: p.lng as number,
-                })),
-              ...nearby
-                .filter((s) => s.lat != null && s.lng != null && !places.some((p) => p.id === s.id))
-                .slice(0, 12)
-                .map((s) => ({
-                  id: s.id,
-                  title: s.name,
-                  lat: s.lat as number,
-                  lng: s.lng as number,
-                  color: s.shopKind === 'clothing' ? '#F472B6' : '#34D399',
-                })),
-              ...itineraryPins,
-            ]}
-            onMarkerPress={(id) => {
-              const place = places.find((p) => p.id === id);
-              if (place) openExtra(place);
-            }}
-          />
-
-          {home?.address && nearby.length > 0 ? (
-            <View style={{ gap: 8 }}>
-              <Text style={[styles.label, { color: orbitPalette.textSubtle }]}>
-                {nearbyBusy ? 'FINDING STORES NEAR HOME' : 'NEAR HOME'}
-              </Text>
-              {nearby.slice(0, 6).map((store) => {
-                const saved = places.some((p) => p.id === store.id);
-                return (
-                  <Pressable
-                    key={store.id}
-                    onPress={() => {
-                      if (saved) return;
-                      upsertSavedPlace({
-                        id: store.id,
-                        name: store.name,
-                        kind: store.shopKind === 'clothing' ? 'clothing' : 'shop',
-                        address: store.address,
-                        placeQuery: store.placeQuery,
-                        lat: store.lat,
-                        lng: store.lng,
-                        emoji: store.shopKind === 'clothing' ? '👕' : '🛒',
-                        isFavorite: false,
-                        pickupItemNames: [],
-                      });
-                    }}
-                    style={[
-                      styles.locateBtn,
-                      { borderColor: orbitPalette.border, backgroundColor: glass(0.04) },
-                    ]}>
-                    <MaterialIcons
-                      name={store.shopKind === 'clothing' ? 'checkroom' : 'storefront'}
-                      size={16}
-                      color={accentTheme.primary}
-                    />
-                    <Text style={[styles.locateText, { color: orbitPalette.text, flex: 1 }]}>
-                      {store.name}
-                      {store.distanceMeters != null
-                        ? ` · ${(store.distanceMeters / 1000).toFixed(1)} km`
-                        : ''}
-                    </Text>
-                    <Text style={[styles.locateText, { color: accentTheme.primary }]}>
-                      {saved ? 'Saved' : 'Add'}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : null}
-
-          <PlaceRow
-            palette={orbitPalette}
-            emoji={home?.emoji ?? '🏠'}
-            title="Home"
-            subtitle={home?.address || 'Add home address…'}
-            empty={!home?.address}
-            favorite={home?.isFavorite}
-            pickupCount={home?.pickupItemNames?.length ?? 0}
-            accent={accentTheme.primary}
-            onPress={() => openSlot('home', home)}
-            onClear={home?.address ? () => clearOrDelete(home, 'home') : undefined}
-          />
-          <PlaceRow
-            palette={orbitPalette}
-            emoji={work?.emoji ?? '💼'}
-            title="Work"
-            subtitle={work?.address || 'Add work address…'}
-            empty={!work?.address}
-            favorite={work?.isFavorite}
-            pickupCount={work?.pickupItemNames?.length ?? 0}
-            accent={accentTheme.primary}
-            onPress={() => openSlot('work', work)}
-            onClear={work?.address ? () => clearOrDelete(work, 'work') : undefined}
-          />
-
-          {extras.map((place) => {
-            const meta = kindMeta(place.kind);
-            return (
-              <PlaceRow
-                key={place.id}
-                palette={orbitPalette}
-                emoji={place.emoji ?? meta.emoji}
-                title={place.name}
-                subtitle={place.address}
-                favorite={place.isFavorite}
-                pickupCount={place.pickupItemNames?.length ?? 0}
-                accent={meta.color}
-                onPress={() => openExtra(place)}
-                onClear={() => clearOrDelete(place, 'extra')}
-              />
-            );
-          })}
-
-          <Pressable style={styles.addRow} onPress={() => openExtra()}>
-            <View style={[styles.addIcon, { backgroundColor: glass(0.06) }]}>
-              <MaterialIcons name="add" size={20} color={orbitPalette.textMuted} />
-            </View>
-            <Text style={[styles.addLabel, { color: orbitPalette.textMuted }]}>Add a place…</Text>
-          </Pressable>
-
-          {summary.total > 0 ? (
-            <View
-              style={[
-                styles.summaryCard,
-                {
-                  backgroundColor: 'rgba(236,72,153,0.1)',
-                  borderColor: 'rgba(236,72,153,0.22)',
-                },
-              ]}>
-              <View style={styles.summaryHead}>
-                <MaterialIcons name="shopping-cart" size={14} color="#EC4899" />
-                <Text style={styles.summaryTitle}>Pickup Summary</Text>
-                <View style={styles.summaryBadge}>
-                  <Text style={styles.summaryBadgeText}>{summary.total} items</Text>
-                </View>
-              </View>
-              {summary.groups.map((group, i) => (
-                <View
-                  key={group.placeId}
-                  style={[
-                    styles.summaryGroup,
-                    i > 0 && {
-                      borderTopWidth: StyleSheet.hairlineWidth,
-                      borderTopColor: 'rgba(236,72,153,0.15)',
-                    },
-                  ]}>
-                  <View style={styles.summaryPlaceRow}>
-                    <Text style={{ fontSize: 13 }}>{group.emoji ?? '📍'}</Text>
-                    <Text style={[styles.summaryPlaceName, { color: orbitPalette.text }]}>
-                      {group.placeName}
-                    </Text>
-                    {group.groceryLinked ? (
-                      <View style={styles.groceryPill}>
-                        <Text style={styles.groceryPillText}>Groceries</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <View style={styles.summaryItems}>
-                    {group.items.map((item) => (
-                      <View key={`${group.placeId}-${item}`} style={styles.itemPill}>
-                        <Text style={styles.itemPillText}>{item}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              ))}
-              <Pressable
-                onPress={() => void handlePickupCta()}
-                disabled={suggestBusy}
-                style={[
-                  styles.summaryCta,
-                  { borderColor: `${accentTheme.primary}44`, backgroundColor: glass(0.04) },
-                ]}>
-                <MaterialIcons name="route" size={16} color={accentTheme.primary} />
-                <Text style={[styles.summaryCtaText, { color: accentTheme.primary }]}>
-                  {suggestBusy
-                    ? 'Asking Poppins…'
-                    : summary.groups.some((g) => g.groceryLinked)
-                      ? 'Open shopping list'
-                      : 'Plan a pickup trip'}
-                </Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </ScrollView>
-      )}
+      ) : null}
     </View>
   );
 }
 
-function PlaceRow({
-  palette,
-  emoji,
+function PinTile({
   title,
-  subtitle,
-  empty,
-  favorite,
-  pickupCount,
-  accent,
+  address,
+  color,
+  icon,
   onPress,
-  onClear,
 }: {
-  palette: { text: string; textMuted: string; textSubtle: string; border: string };
-  emoji: string;
   title: string;
-  subtitle: string;
-  empty?: boolean;
-  favorite?: boolean;
-  pickupCount: number;
-  accent: string;
+  address?: string;
+  color: string;
+  icon: keyof typeof MaterialIcons.glyphMap;
   onPress: () => void;
-  onClear?: () => void;
 }) {
-  const { glass } = useOrbitColors();
+  const { c, isDark, glassBorder } = useOrbitColors();
+  const empty = !address?.trim();
   return (
     <Pressable
-      style={[styles.row, { backgroundColor: glass(0.05), borderColor: palette.border }]}
+      onPress={onPress}
+      style={[
+        styles.pinTile,
+        {
+          backgroundColor: glassFill(isDark),
+          borderColor: empty ? '#F59E0B88' : glassBorder(0.1),
+        },
+      ]}>
+      <View style={[styles.pinIcon, { backgroundColor: `${color}22` }]}>
+        <MaterialIcons name={icon} size={18} color={color} />
+      </View>
+      <Text style={[styles.pinTitle, { color: c.text }]}>{title}</Text>
+      <Text style={[styles.pinSub, { color: empty ? '#F59E0B' : c.textMuted }]} numberOfLines={2}>
+        {empty ? 'Add' : address}
+      </Text>
+    </Pressable>
+  );
+}
+
+function PlaceRow({
+  icon,
+  title,
+  subtitle,
+  needsAddress,
+  accent,
+  onPress,
+  onSet,
+}: {
+  icon: keyof typeof MaterialIcons.glyphMap;
+  title: string;
+  subtitle: string;
+  needsAddress?: boolean;
+  accent: string;
+  onPress: () => void;
+  onSet?: () => void;
+}) {
+  const { c, isDark, glassBorder } = useOrbitColors();
+  return (
+    <Pressable
+      style={[
+        styles.row,
+        {
+          backgroundColor: glassFill(isDark),
+          borderColor: needsAddress ? '#F59E0B88' : glassBorder(0.1),
+        },
+      ]}
       onPress={onPress}>
       <View style={[styles.rowIcon, { backgroundColor: `${accent}22`, borderColor: `${accent}40` }]}>
-        <Text style={{ fontSize: 20 }}>{emoji}</Text>
+        <MaterialIcons name={icon} size={18} color={accent} />
       </View>
       <View style={styles.rowCopy}>
-        <View style={styles.rowTitleRow}>
-          <Text style={[styles.rowTitle, { color: palette.text }]}>{title}</Text>
-          {favorite ? <MaterialIcons name="star" size={14} color="#F59E0B" /> : null}
-        </View>
+        <Text style={[styles.rowTitle, { color: c.text }]}>{title}</Text>
         <Text
-          style={[styles.rowSubtitle, { color: empty ? palette.textSubtle : palette.textMuted }]}
+          style={[styles.rowSubtitle, { color: needsAddress ? '#F59E0B' : c.textMuted }]}
           numberOfLines={2}>
           {subtitle}
         </Text>
       </View>
-      {pickupCount > 0 ? (
-        <View style={styles.pickupBadge}>
-          <MaterialIcons name="shopping-cart" size={10} color="#EC4899" />
-          <Text style={styles.pickupBadgeText}>{pickupCount}</Text>
-        </View>
-      ) : null}
-      <MaterialIcons name="edit" size={18} color={palette.textSubtle} />
-      {onClear ? (
-        <Pressable onPress={onClear} hitSlop={10} style={styles.rowAction}>
-          <MaterialIcons name="close" size={18} color={palette.textSubtle} />
+      {needsAddress ? (
+        <Pressable
+          onPress={onSet}
+          style={styles.setBtn}
+          accessibilityRole="button"
+          accessibilityLabel={`Set address for ${title}`}>
+          <Text style={styles.setLabel}>Set</Text>
         </Pressable>
-      ) : null}
+      ) : (
+        <MaterialIcons name="chevron-right" size={18} color={c.textSubtle} />
+      )}
     </Pressable>
   );
 }
+
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -913,6 +968,63 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '800' },
   content: { paddingHorizontal: 20, gap: 12, paddingTop: 8 },
   subtitle: { fontSize: 14, lineHeight: 20, marginBottom: 4 },
+  pinRow: { flexDirection: 'row', gap: 12 },
+  pinTile: {
+    flex: 1,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+    minHeight: 110,
+    padding: 14,
+  },
+  pinIcon: {
+    alignItems: 'center',
+    borderRadius: 10,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  pinTitle: { fontSize: 16, fontWeight: '700' },
+  pinSub: { fontSize: 13, lineHeight: 18 },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filterChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  filterLabel: { fontSize: 13, fontWeight: '600' },
+  emptyBlock: { borderRadius: 20, borderWidth: 1, gap: 10, padding: 16 },
+  emptyRow: { gap: 2 },
+  emptyHint: { fontSize: 13, lineHeight: 18, marginTop: 4 },
+  mapsLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    marginTop: 8,
+  },
+  mapsRow: { flexDirection: 'row', gap: 8 },
+  mapsTile: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    flex: 1,
+    gap: 6,
+    minHeight: 72,
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  mapsTileLabel: { fontSize: 12, fontWeight: '600' },
+  setBtn: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 999,
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  setLabel: { color: '#1A1208', fontSize: 13, fontWeight: '700' },
   label: {
     fontSize: 11,
     fontWeight: '700',

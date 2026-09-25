@@ -10,10 +10,15 @@ export const IUI_SCENES = [
   'itinerary_stage',
   'grocery_add',
   'reward_mint',
+  'place_save',
+  'allowance_act',
+  'ranks_peek',
+  'memory_note',
   'list_peek',
   'member_pick',
   'confirm',
   'navigate_coach',
+  'coach_steps',
   'task_done',
   'result_mark',
 ] as const;
@@ -59,6 +64,27 @@ export type IuiStop = {
   label: string;
   emoji?: string;
   category?: string;
+  address?: string;
+  placeQuery?: string;
+  time?: string;
+  kind?: string;
+  /** Unresolved place — show add-address chip. */
+  needsAddress?: boolean;
+};
+
+export type IuiGroupItem = {
+  id: string;
+  /** Grocery name or task title. */
+  label: string;
+  assignee?: string;
+  due?: string;
+  aisle?: string;
+  libraryTaskId?: string;
+  category?: string;
+  /** Row dropped before commit. */
+  dropped?: boolean;
+  /** Per-row commit status for batch writes. */
+  status?: 'pending' | 'saving' | 'done' | 'failed';
 };
 
 export type IuiPayload = {
@@ -81,10 +107,35 @@ export type IuiPayload = {
   peek?: IuiPeekRow[];
   route?: string;
   coachLine?: string;
+  /** WO12 §D — how-to id for coach_steps. */
+  howToId?: string;
+  /** Numbered teaching steps on the coach card. */
+  coachSteps?: Array<{ id: string; text: string; route?: string; targetId?: string }>;
+  /** Show "Just do it" when the how-to can run as a normal act. */
+  canDoItForYou?: boolean;
   confirmSummary?: string;
   confirmationIds?: string[];
   rewardName?: string;
   groceryName?: string;
+  /** place_save — display name for the saved place. */
+  placeName?: string;
+  /** place_save — SavedPlaceKind string. */
+  placeKind?: string;
+  /** place_save — street / query address. */
+  placeAddress?: string;
+  /** allowance_act — member to pay. */
+  allowanceMemberId?: string;
+  allowanceMemberName?: string;
+  /** allowance_act — human label e.g. "$5" or "10 XP". */
+  allowanceAmountLabel?: string;
+  allowanceAmountXp?: number;
+  allowanceNote?: string;
+  /** allowance_act mode. */
+  allowanceKind?: 'grant' | 'hold' | 'payout';
+  /** memory_note — house fact text. */
+  memoryText?: string;
+  memorySubject?: string;
+  memoryKind?: 'like' | 'dislike' | 'routine' | 'note';
   itineraryId?: string;
   itineraryTitle?: string;
   taskId?: string;
@@ -110,6 +161,11 @@ export type IuiPayload = {
   composeReady?: boolean;
   /** Marginal fuzzy fill — do not arm HOLD until confirmed. */
   provisional?: boolean;
+  /**
+   * Explicit Narrow flag — two chips awaiting a choice. Do not infer from
+   * `provisional && chips.length === 2` alone (WO16 §1.1).
+   */
+  narrow?: boolean;
   /** Original user utterance — used by validateAct echo detection. */
   sourceUtterance?: string;
   /** Current one-beat compose step. */
@@ -131,6 +187,16 @@ export type IuiPayload = {
    * `silent` = Quiet / typed; `spoken` = Speak back Realtime.
    */
   actMode?: 'silent' | 'spoken';
+  /** WO11 — grouped same-kind acts on one card (one HOLD). */
+  items?: IuiGroupItem[];
+  /** WO12 §F4 — talking part offline; act still succeeded. */
+  modelOffline?: boolean;
+  /** Progress label e.g. "2 of 3". */
+  progressLabel?: string;
+  /** WO12 §C — slots filled by speech, ordered by character offset. */
+  slotOrder?: Array<'title' | 'assignee' | 'due' | 'category' | 'date' | 'time'>;
+  /** First empty slot — the one in focus. */
+  focusSlot?: 'title' | 'assignee' | 'due' | 'category' | 'date' | 'time' | null;
 };
 
 export type IuiWriteKind =
@@ -139,9 +205,12 @@ export type IuiWriteKind =
   | 'create_event'
   | 'create_itinerary_stop'
   | 'add_grocery'
+  | 'clear_grocery'
   | 'complete_task'
   | 'update_task'
   | 'claim_reward'
+  | 'upsert_place'
+  | 'grant_allowance'
   | 'advance_itinerary'
   | 'none';
 
@@ -152,6 +221,7 @@ export const HOLD_SCENES: readonly IuiScene[] = [
   'calendar_zoom',
   'itinerary_stage',
   'grocery_add',
+  'place_save',
   'task_done',
 ];
 
@@ -180,8 +250,9 @@ export const SETTLE_CLEAR_MS = 420;
 
 export function defaultCommitForScene(scene: IuiScene): IuiCommitKind {
   if ((HOLD_SCENES as readonly string[]).includes(scene)) return 'hold';
-  if (scene === 'reward_mint' || scene === 'confirm') return 'confirm';
+  if (scene === 'reward_mint' || scene === 'confirm' || scene === 'allowance_act') return 'confirm';
   if (scene === 'task_done') return 'hold';
+  if (scene === 'coach_steps' || scene === 'memory_note' || scene === 'ranks_peek') return 'none';
   return 'none';
 }
 
@@ -191,7 +262,9 @@ export function coerceCommit(
   route?: string
 ): IuiCommitKind {
   const next = commit ?? defaultCommitForScene(scene);
-  if (scene === 'navigate_coach' || (route && isCoachRoute(route))) return 'none';
+  if (scene === 'navigate_coach' || scene === 'coach_steps' || (route && isCoachRoute(route))) {
+    return 'none';
+  }
   if (next === 'hold' && !(HOLD_SCENES as readonly string[]).includes(scene)) {
     return defaultCommitForScene(scene);
   }
@@ -204,7 +277,9 @@ export function sceneNeedsUnfold(scene: IuiScene): boolean {
     scene === 'homework_compose' ||
     scene === 'calendar_zoom' ||
     scene === 'itinerary_stage' ||
-    scene === 'grocery_add'
+    scene === 'grocery_add' ||
+    scene === 'place_save' ||
+    scene === 'allowance_act'
   );
 }
 

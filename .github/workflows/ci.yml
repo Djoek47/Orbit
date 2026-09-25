@@ -23,3 +23,5 @@ jobs:
       - run: npm run lint
       - run: npm run test:logic
       - run: npm run test:iui
+      - run: npm run test:chapters
+      - run: npm run test:grocery-merge
