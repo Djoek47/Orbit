@@ -66,8 +66,24 @@ export type IuiCommitWrites = {
 };
 
 export type CommitIuiResult =
-  | { ok: true; reverse?: IuiCommitReverse }
+  | {
+      ok: true;
+      reverse?: IuiCommitReverse;
+      /** Replaces the title on the result mark that follows ("Sent to a parent to approve"). */
+      note?: string;
+    }
   | { ok: false; slot: string; reason: ActRejection; ask?: string };
+
+/**
+ * The write was refused for a reason retrying won't fix (no permission). The stage shows
+ * the message as-is, without "Tap to try again".
+ */
+export class CommitRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CommitRefusedError';
+  }
+}
 
 function asId(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -132,6 +148,7 @@ export async function commitIuiBeat(
   const isHomeworkWrite = write === 'create_homework' || p.category === 'homework_education';
   let wrote = false;
   let reverse: IuiCommitReverse | undefined;
+  let eventNote: string | undefined;
   let deferredNotify: (() => Promise<void>) | undefined;
 
   // WO11 §2.4 — batch grocery group (one HOLD; parallel writes).
@@ -392,9 +409,19 @@ export async function commitIuiBeat(
       category: 'Appointment',
       remindMe: p.remind !== false && !allDay,
     });
+    // The store answers null when this person may not add to the family calendar. Never
+    // let that read as "All set".
+    if (!created) {
+      throw new CommitRefusedError(
+        "You can't add to the family calendar yet. Ask a parent to turn on Calendar for you."
+      );
+    }
     const entityId = asId(created);
     wrote = true;
     if (entityId) reverse = { write, entityId };
+    if ((created as { approvalStatus?: string }).approvalStatus === 'pending') {
+      eventNote = `${p.title} · sent to a parent to approve`;
+    }
     // "Add travel": a travel block ending when the event starts.
     if (p.addTravel && !allDay && entityId) {
       const { addMinutesToTime } = await import('@/lib/poppins/when-parse');
@@ -600,7 +627,7 @@ export async function commitIuiBeat(
     );
     emitTourEvent('poppins_act_committed', { beatId: beat.id, write });
     emitTourEvent('poppins_spoke', { beatId: beat.id, write, phase: 'committed' });
-    return { ok: true, reverse };
+    return eventNote ? { ok: true, reverse, note: eventNote } : { ok: true, reverse };
   }
 
   // Write beat that did not land — never settle as "All set" (audit IUI P1).

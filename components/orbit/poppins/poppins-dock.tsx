@@ -180,6 +180,25 @@ export function PoppinsDock({ p, bottomInset, showTierPills }: Props) {
                 <MaterialIcons name="mic" size={28} color="#FFFFFF" />
               )}
             </LinearGradient>
+            {p.isBaseTier && micUi.micEnabled && !maxLive ? (
+              // Base writes down what you say and never talks back — the captions mark says so
+              // before the first tap, where the button alone would look like a call.
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.baseBadge,
+                  {
+                    backgroundColor: isDark ? '#0B1220' : '#FFFFFF',
+                    borderColor: isDark ? 'rgba(52,211,153,0.55)' : 'rgba(15,111,85,0.45)',
+                  },
+                ]}>
+                <MaterialIcons
+                  name="closed-caption"
+                  size={13}
+                  color={isDark ? '#34D399' : '#0F6F55'}
+                />
+              </View>
+            ) : null}
             {p.capSecondsLeft != null && p.capSecondsLeft <= 5 ? (
               <Text style={styles.capCountdown}>{p.capSecondsLeft}s</Text>
             ) : null}
@@ -235,6 +254,17 @@ const styles = StyleSheet.create({
   sideBtn: {
     alignItems: 'center',
     borderWidth: 1,
+    justifyContent: 'center',
+  },
+  baseBadge: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   micWrap: {

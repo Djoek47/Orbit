@@ -109,6 +109,13 @@ const LEAD_IN =
 const CALENDAR_TAIL =
   /\b(?:on|to|in|into) (?:the |my |our )?(?:family |shared |house )?calendar\b|\bto (?:the )?(?:plan|plans)\b/gi;
 
+const PART_OF_DAY_START: Record<NonNullable<WhenParse['partOfDay']>, string> = {
+  morning: '09:00',
+  afternoon: '14:00',
+  evening: '18:00',
+  night: '20:00',
+};
+
 export function parseEventUtterance(text: string, opts: EventParseOpts = {}): EventParse {
   const now = opts.now ?? new Date();
   const when = parseWhen(text, now);
@@ -166,6 +173,12 @@ export function parseEventUtterance(text: string, opts: EventParseOpts = {}): Ev
   }
 
   let title = body
+    // Time-of-day and repetition words are about *when*, never part of the name:
+    // "vet saturday morning" → "Vet", "piano every Tuesday" → "Piano".
+    .replace(/\b(this|tomorrow|tonight|in the)?\s*(morning|afternoon|evening|night|matin|après-midi|apres-midi|soir)\b/gi, ' ')
+    .replace(/\b(every|each|chaque|tous les|toutes les)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
     .replace(/^(an?|the|some|my|our)\s+/i, '')
     .replace(/\s+(on|at|for|from|to|with|and|this|next|a|an|the)$/i, '')
     .replace(/[.,!?]+$/, '')
@@ -175,6 +188,12 @@ export function parseEventUtterance(text: string, opts: EventParseOpts = {}): Ev
   title = title.replace(/^(.+?)\s+(appointment|appt|rendez-vous)\b/i, '$1');
   title = capitalise(title || 'Event');
 
+  // "Saturday morning" with no clock time: start at a sensible hour, flagged as a guess so
+  // the card shows it for a tap to change instead of asking out loud.
+  if (!when.time && !when.allDay && when.partOfDay) {
+    when.time = PART_OF_DAY_START[when.partOfDay];
+    when.timeGuessed = true;
+  }
   const durationMin = when.durationMin ?? (when.time ? defaultEventMinutes(title) : undefined);
   const endTime = when.endTime ?? (when.time && durationMin ? addMinutesToTime(when.time, durationMin) : undefined);
 

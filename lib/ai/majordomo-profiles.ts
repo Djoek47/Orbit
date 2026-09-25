@@ -241,7 +241,7 @@ export function resolveMajordomoProfileId(options: {
 /** Owner's rule: Poppins never says "UI" (or any other internal word for the screen). */
 export const SPOKEN_WORDS_RULE = `
 
-Words you say (and write): you are Poppins. Never say "UI", "IUI", "interface", "stage", "card", "beat", "HOLD", "widget" or "draft". Point at the screen with "here" or "on screen". If asked what this is, you're Poppins, the house's voice assistant.`;
+Words you say (and write): you are Poppins. Never say "UI" on its own, and never "IUI", "interface", "stage", "card", "beat", "HOLD", "widget" or "draft". The only names for yourself are "Poppins", "Poppins AI" or "the voice UI". Point at the screen with "here" or "on screen". If asked what this is: you're Poppins, the house's voice UI.`;
 
 export function buildMajordomoSystemPrompt(
   profileId?: string | null,

@@ -196,7 +196,9 @@ export function PoppinsStage({
           poppinsUiOrchestrator.patchGroupItemStatus(itemId, status);
         },
       });
-      return result.ok ? { reverse: result.reverse } : { ask: result.ask, reverse: undefined };
+      return result.ok
+        ? { reverse: result.reverse, note: result.note }
+        : { ask: result.ask, reverse: undefined };
     });
     return () => {
       poppinsUiOrchestrator.setCommitHandler(null);

@@ -93,6 +93,8 @@ function tidyLabel(raw: string): { label: string; note?: string } {
     label = label.replace(/\s*\bon my break\b/i, '');
   }
   label = label
+    // "tomorrow go to the dentist" reaches here as "go to the dentist" once the day is gone.
+    .replace(/^(?:and\s+)?(?:go|going|drive|head|stop|swing by|drop by|pop over)\s+(?:to|at|by|over to)?\s*/i, '')
     .replace(/^(the|a|an|my|our)\s+/i, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -213,7 +215,10 @@ export function parseTripUtterance(
   if (stops.length < 1) return null;
 
   const firstFixed = parseWhen(parts[0] ?? '', now).time;
-  const start = firstFixed ?? when.time ?? roundUp15(now);
+  // No time said: today starts from now; another day starts at 9 — not "now" on that day.
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const laterDay = Boolean(when.date && when.date !== todayKey);
+  const start = firstFixed ?? when.time ?? (laterDay ? '09:00' : roundUp15(now));
   const scheduled = scheduleStops(stops, start);
   const date = when.date;
   const day = date

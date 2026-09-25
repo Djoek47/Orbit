@@ -84,6 +84,17 @@ export function loadSpeechNative(): SpeechNative | null {
 }
 
 /** True when this build can listen at all (the native module is present). */
+/**
+ * True when this build carries the iPhone recognizer at all. Base routes on this, not on
+ * `baseListeningAvailable()`: when the recognizer is in the build but switched off
+ * (Siri & Dictation disabled), Base must say so and offer typing — never fall back to the
+ * old server recorder, which is where "couldn't reach the transcriber" and the countdown
+ * hold came from.
+ */
+export function baseListenerInstalled(): boolean {
+  return loadSpeechNative() != null;
+}
+
 export function baseListeningAvailable(): boolean {
   const native = loadSpeechNative();
   if (!native) return false;
