@@ -141,7 +141,7 @@ let unfoldTimer: ReturnType<typeof setTimeout> | null = null;
 let quietTimer: ReturnType<typeof setTimeout> | null = null;
 let undoTimer: ReturnType<typeof setTimeout> | null = null;
 let commitHandler:
-  | ((beat: IuiBeat) => void | Promise<void | { reverse?: IuiCommitReverse | null }>)
+  | ((beat: IuiBeat) => void | Promise<void | { reverse?: IuiCommitReverse | null; note?: string }>)
   | null = null;
 let undoHandler:
   | ((beat: IuiBeat, reverse: IuiCommitReverse | null) => void | Promise<void>)
@@ -431,6 +431,16 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
       if (result && typeof result === 'object' && 'reverse' in result) {
         reverse = result.reverse ?? null;
       }
+      // "Sent to a parent to approve" — the mark that follows says what really happened.
+      const note = result && typeof result === 'object' && 'note' in result ? result.note : undefined;
+      if (typeof note === 'string' && note.trim()) {
+        const nextBeat = state.playlist[state.index + 1];
+        if (nextBeat?.scene === 'result_mark') {
+          const playlist = state.playlist.slice();
+          playlist[state.index + 1] = { ...nextBeat, payload: { ...nextBeat.payload, title: note } };
+          setState({ playlist });
+        }
+      }
       const write = beat.payload.write ?? 'none';
       if (write !== 'none') {
         const { actKeyFromBeat, recordCommittedAct } = await import('@/lib/poppins/act-ledger');
@@ -473,12 +483,16 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
         });
         return;
       }
+      const { CommitRefusedError } = await import('@/lib/poppins/iui-commit');
       setState({
         frozen: true,
         holding: false,
         phase: 'unfold',
         commitFailed: true,
-        thinkingLine: "Couldn't save that. Tap to try again, or skip.",
+        thinkingLine:
+          error instanceof CommitRefusedError
+            ? error.message
+            : "Couldn't save that. Tap to try again, or skip.",
       });
       return;
     }
@@ -1141,7 +1155,7 @@ export const poppinsUiOrchestrator = {
   },
   setCommitHandler(
     handler:
-      | ((beat: IuiBeat) => void | Promise<void | { reverse?: IuiCommitReverse | null; ask?: string }>)
+      | ((beat: IuiBeat) => void | Promise<void | { reverse?: IuiCommitReverse | null; ask?: string; note?: string }>)
       | null
   ) {
     commitHandler = handler;

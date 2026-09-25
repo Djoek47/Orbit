@@ -15,7 +15,7 @@
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
@@ -27,6 +27,11 @@ import type { IuiPayload, IuiStop } from '@/lib/poppins/ui-scenes';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import { dateKey, formatTime12 } from '@/lib/poppins/when-parse';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+
+/** Six stops fit the stage (the design board); longer runs scroll inside the card. */
+const MAX_VISIBLE_STOPS = 6;
+/** One stop row plus its gap, in points. */
+const STOP_ROW_PITCH = 62;
 
 type Props = {
   payload: IuiPayload;
@@ -169,6 +174,12 @@ export function IuiTripCard({
         </Text>
       </View>
 
+      {/* A long run scrolls inside the card so the stage stays bounded; six stops fit. */}
+      <ScrollView
+        style={stops.length > MAX_VISIBLE_STOPS ? { maxHeight: MAX_VISIBLE_STOPS * STOP_ROW_PITCH } : undefined}
+        scrollEnabled={stops.length > MAX_VISIBLE_STOPS}
+        nestedScrollEnabled
+        showsVerticalScrollIndicator={stops.length > MAX_VISIBLE_STOPS}>
       <View style={styles.railWrap}>
         <View style={styles.rail}>
           <View style={[styles.railDot, { backgroundColor: fill }]} />
@@ -238,6 +249,12 @@ export function IuiTripCard({
           })}
         </View>
       </View>
+      </ScrollView>
+      {stops.length > MAX_VISIBLE_STOPS ? (
+        <Text style={[styles.moreHint, { color: muted }]}>
+          Scroll for {stops.length - MAX_VISIBLE_STOPS} more
+        </Text>
+      ) : null}
 
       {editing ? (
         <View style={[styles.editor, { borderColor: stageBorder(isDark, true) }]}>
@@ -321,6 +338,7 @@ const styles = StyleSheet.create({
   railDotEnd: { width: 10, height: 10, borderRadius: 5, borderWidth: 2, backgroundColor: 'transparent' },
   railLine: { flex: 1, width: 2, marginVertical: 4, borderRadius: 1 },
   stopList: { flex: 1, gap: 6 },
+  moreHint: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 4 },
   stopRow: {
     flexDirection: 'row',
     alignItems: 'center',

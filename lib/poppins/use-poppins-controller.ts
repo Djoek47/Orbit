@@ -88,6 +88,7 @@ import {
 } from '@/lib/voice/quiet-capture';
 import {
   BaseListener,
+  baseListenerInstalled,
   baseListeningAvailable,
   listenLocale,
   vocabularyFor,
@@ -215,7 +216,7 @@ export function usePoppinsController() {
   const micUi = useMemo(
     () =>
       micUiForPrefs(tourForcesQuietSpeak() ? false : interactionPrefs.speakBack, {
-        quiet: baseListeningAvailable() || quietCaptureAvailable(),
+        quiet: baseListenerInstalled() || quietCaptureAvailable(),
         realtime: nativeVoice,
       }),
     [interactionPrefs.speakBack, nativeVoice]
@@ -462,12 +463,83 @@ export function usePoppinsController() {
       baseRef.current?.abort();
       baseRef.current = null;
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+      // Leaving Poppins ends the conversation. A card mid-build is paused (a tap resumes
+      // it); anything finished — "All set", the Undo row, a trouble card — closes, so the
+      // stage never waits frozen for the next visit.
+      settleStageOnExit();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount only
+  }, []);
+
+  // Backgrounding the app: iOS takes the mic away, so the conversation is over. Close it the
+  // same way a tap would, instead of leaving "Listening" or "All set" on screen.
+  useEffect(() => {
+    let sub: { remove: () => void } | undefined;
+    void import('react-native').then(({ AppState }) => {
+      sub = AppState.addEventListener('change', (next) => {
+        if (next !== 'background') return;
+        if (baseRef.current) {
+          const listener = baseRef.current;
+          baseRef.current = null;
+          listener.abort();
+          setBaseOn(false);
+          setListening(false);
+          setVoiceState('idle');
+          setWaveLevelDb(null);
+        }
+        if (voiceRef.current?.isConnected) {
+          void endNativeVoice();
+          return; // endNativeVoice resets the stage
+        }
+        settleStageOnExit();
+        setBaseAfter(null);
+        setBaseLive('');
+        setBaseTrouble(null);
+      });
+    });
+    return () => sub?.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one subscription
   }, []);
 
   useEffect(() => {
     void hydrateHouseMemory(household.id);
   }, [household.id]);
+
+  // Every error sentence the person actually sees lands in the activity log with what they
+  // had just said — whatever raised it. Specific sites add detail; this is the net.
+  useEffect(() => {
+    if (!error) return;
+    void logAssistantError({
+      householdId: householdRef.current.id ?? '',
+      memberId: currentMember?.id,
+      tier: voiceRef.current?.isConnected ? 'max' : 'base',
+      stage: 'shown:error',
+      message: error,
+      transcript: lastUtteranceRef.current || undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- log each new sentence once
+  }, [error]);
+
+  // A row that came back failed ("Bread didn't save") is an error the person saw, too.
+  const loggedFailedRef = useRef('');
+  useEffect(() => {
+    const failed = poppinsUiOrchestrator.failedRows();
+    const key = failed ? failed.items.map((item) => item.id).join(',') : '';
+    if (!key || key === loggedFailedRef.current) {
+      if (!key) loggedFailedRef.current = '';
+      return;
+    }
+    loggedFailedRef.current = key;
+    void logAssistantError({
+      householdId: householdRef.current.id ?? '',
+      memberId: currentMember?.id,
+      tier: voiceRef.current?.isConnected ? 'max' : 'base',
+      stage: `shown:row_failed:${failed!.beat.scene}`,
+      message: `didn't save: ${failed!.items.map((item) => item.label).join(', ')}`,
+      transcript: lastUtteranceRef.current || undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts to the stage snapshot
+  }, [drive]);
 
   useEffect(() => {
     let cancelled = false;
@@ -551,8 +623,29 @@ export function usePoppinsController() {
     };
   }, []);
 
+  /**
+   * "No, that's wrong" in any tier — keep what was said before and the correction, with what
+   * the stage showed, so the misread can be fixed later. One report per sentence.
+   */
+  const lastReportedRef = useRef('');
+  const prevUserTextRef = useRef('');
+  const reportIfCorrection = (text: string, tier: 'base' | 'max') => {
+    const previous = prevUserTextRef.current;
+    prevUserTextRef.current = text;
+    if (!isCorrectionUtterance(text) || lastReportedRef.current === text) return;
+    lastReportedRef.current = text;
+    void logAssistantReport({
+      householdId: householdRef.current.id ?? '',
+      memberId: currentMember?.id,
+      tier,
+      transcript: previous ? `${previous} → ${text}` : text,
+      note: stageSummary(),
+    });
+  };
+
   /** The person spoke or typed something final: start a turn and paint the local plan. */
   const planLocally = (text: string) => {
+    reportIfCorrection(text, voiceRef.current?.isConnected ? 'max' : 'base');
     poppinsUiOrchestrator.beginTurn();
     lastUtteranceRef.current = text;
     continuityRef.current = rememberTurn(continuityRef.current, householdRef.current.id, {
@@ -763,6 +856,17 @@ export function usePoppinsController() {
     return session;
   };
 
+  /** Exit without a tap: keep a card that's still being built (paused), close everything else. */
+  const settleStageOnExit = () => {
+    const iui = poppinsUiOrchestrator.getState();
+    if (iui.live && (iui.holding || iui.phase === 'hold' || iui.phase === 'unfold')) {
+      poppinsUiOrchestrator.pause();
+      persistContinuity();
+      return;
+    }
+    if (iui.live) poppinsUiOrchestrator.clear();
+  };
+
   /**
    * Closing is a reset (owner's rule): the stage, the caption and any half-made act go
    * away, so the next open starts clean — never "blocked" on an old All set.
@@ -936,15 +1040,8 @@ export function usePoppinsController() {
     setBaseHeard(trimmed);
 
     // "No, that's wrong" — keep the pair so it can be fixed later. It still steers the card.
-    if (isCorrectionUtterance(trimmed)) {
-      void logAssistantReport({
-        householdId,
-        memberId: currentMember?.id,
-        tier: 'base',
-        transcript: previous ? `${previous} → ${trimmed}` : trimmed,
-        note: stageSummary(),
-      });
-    }
+    prevUserTextRef.current = previous;
+    reportIfCorrection(trimmed, 'base');
 
     if (isEndOfSessionUtterance(trimmed) && !poppinsUiOrchestrator.getState().live) {
       endBaseSession();
@@ -1320,7 +1417,7 @@ export function usePoppinsController() {
     longPressArmedRef.current = true;
     if (currentTransport() === 'quiet') {
       // Base listens on a tap; a long press is the same gesture, not a timer.
-      if (baseListeningAvailable()) {
+      if (baseListenerInstalled()) {
         void toggleBaseSession();
         return;
       }
@@ -1358,7 +1455,7 @@ export function usePoppinsController() {
       return;
     }
     if (currentTransport() === 'quiet') {
-      if (baseListeningAvailable()) {
+      if (baseListenerInstalled()) {
         void toggleBaseSession();
         return;
       }
@@ -1380,7 +1477,7 @@ export function usePoppinsController() {
 
   const retryAfterNothingHeard = () => {
     setNothingHeard(null);
-    if (baseListeningAvailable()) {
+    if (baseListenerInstalled()) {
       void startBaseSession();
       return;
     }
@@ -1512,7 +1609,9 @@ export function usePoppinsController() {
         ? captureMode === 'tap'
           ? 'Stop'
           : 'Done'
-        : 'Speak'
+        : isBaseTier
+          ? 'Speak · Poppins writes it down'
+          : 'Speak'
     : cfg.label;
 
   /** The sentence above the card: what Poppins heard (Base shows words as they arrive). */

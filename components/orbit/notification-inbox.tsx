@@ -302,12 +302,14 @@ export function NotificationInbox({
         showsVerticalScrollIndicator={false}>
         {segment === 'alerts' ? (
           <AlertsFeed
+            isAdmin={isAdmin}
             sections={sections}
             onOpen={(card) => void openCard(card)}
             onDismiss={(card) => void dismissCard(card)}
           />
         ) : (
           <ActivityFeed
+            isAdmin={isAdmin}
             items={activityItems}
             metrics={metrics}
             weekly={poppinsWeeklyBriefing}
@@ -320,10 +322,12 @@ export function NotificationInbox({
 }
 
 function AlertsFeed({
+  isAdmin,
   onDismiss,
   onOpen,
   sections,
 }: {
+  isAdmin: boolean;
   onDismiss: (card: SheetNotificationCard) => void;
   onOpen: (card: SheetNotificationCard) => void;
   sections: InboxSection[];
@@ -345,7 +349,7 @@ function AlertsFeed({
       {sections.map((section) => (
         <SectionBlock key={section.id} color={section.color} count={section.cards.length} label={section.label}>
           {section.cards.map((card) => (
-            <AlertCard key={card.id} card={card} onDismiss={onDismiss} onOpen={onOpen} />
+            <AlertCard key={card.id} card={card} isAdmin={isAdmin} onDismiss={onDismiss} onOpen={onOpen} />
           ))}
         </SectionBlock>
       ))}
@@ -358,10 +362,12 @@ function AlertsFeed({
 
 function AlertCard({
   card,
+  isAdmin,
   onDismiss,
   onOpen,
 }: {
   card: SheetNotificationCard;
+  isAdmin: boolean;
   onDismiss: (card: SheetNotificationCard) => void;
   onOpen: (card: SheetNotificationCard) => void;
 }) {
@@ -434,18 +440,62 @@ function AlertCard({
             </Text>
           ) : null}
           {unread ? <View style={[styles.unreadDot, { backgroundColor: card.color }]} /> : null}
+          {isAdmin && card.source?.id ? (
+            <Pressable
+              onPress={(event) => {
+                event.stopPropagation();
+                router.push(`/activity-log/${card.source!.id}` as never);
+              }}
+              hitSlop={8}
+              style={styles.historyLink}
+              accessibilityRole="button"
+              accessibilityLabel="History for this notification"
+              accessibilityHint="When it was sent, received, opened, dismissed or deleted">
+              <MaterialIcons name="history" size={12} color={c.textSubtle} />
+              <Text style={[typography.caption2, { color: c.textSubtle, fontWeight: '600' }]}>
+                History
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </Pressable>
     </Animated.View>
   );
 }
 
+/** Admins: the full, undeletable record of every notification — the first thing in Activity. */
+function HistoryLogEntry() {
+  const { c, glass, glassBorder } = useOrbitColors();
+  return (
+    <Pressable
+      onPress={() => router.push('/activity-log' as never)}
+      accessibilityRole="button"
+      accessibilityLabel="History log"
+      accessibilityHint="Every notification: sent, received, opened, dismissed, deleted"
+      style={[styles.historyEntry, { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) }]}>
+      <View style={[styles.historyIcon, { backgroundColor: 'rgba(56,189,248,0.14)' }]}>
+        <MaterialIcons name="history" size={18} color="#38BDF8" />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={[typography.subheadline, { color: c.text, fontWeight: '700' }]}>History log</Text>
+        <Text style={[typography.caption1, { color: c.textMuted }]}>
+          Every notification — when it was sent, received, opened, dismissed or deleted. Kept even
+          if someone deletes the alert.
+        </Text>
+      </View>
+      <MaterialIcons name="chevron-right" size={20} color={c.textSubtle} />
+    </Pressable>
+  );
+}
+
 function ActivityFeed({
+  isAdmin,
   items,
   metrics,
   taskCompletedFallback,
   weekly,
 }: {
+  isAdmin: boolean;
   items: ActivityItem[];
   metrics?: OrbitMetrics | null;
   taskCompletedFallback: number;
@@ -472,6 +522,7 @@ function ActivityFeed({
   if (items.length === 0) {
     return (
       <View style={styles.feed}>
+        {isAdmin ? <HistoryLogEntry /> : null}
         <View style={[styles.liveBar, { backgroundColor: 'rgba(45,212,191,0.06)', borderColor: 'rgba(45,212,191,0.16)' }]}>
           <PoppinsHourglass size={16} color="#2DD4BF" active />
           <View style={{ flex: 1 }}>
@@ -495,6 +546,7 @@ function ActivityFeed({
 
   return (
     <Animated.View entering={FadeIn.duration(180)} style={styles.feed}>
+      {isAdmin ? <HistoryLogEntry /> : null}
       <View style={[styles.liveBar, { backgroundColor: 'rgba(45,212,191,0.06)', borderColor: 'rgba(45,212,191,0.16)' }]}>
         <PoppinsHourglass size={16} color="#2DD4BF" active />
         <Text style={[typography.caption1, { color: '#2DD4BF', fontWeight: '700' }]}>
@@ -586,6 +638,27 @@ const styles = StyleSheet.create({
   },
   headerCopy: { flex: 1, gap: 2 },
   headerActions: { flexDirection: 'row', gap: space.xs },
+  historyEntry: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+  },
+  historyIcon: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  historyLink: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 3,
+    marginLeft: 'auto',
+  },
   closeBtn: {
     alignItems: 'center',
     borderRadius: 16,
