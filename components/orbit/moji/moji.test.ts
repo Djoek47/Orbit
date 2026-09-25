@@ -47,8 +47,9 @@ for (const name of names) {
   assert.ok(art.length > 0, `${name} has no shapes`);
   for (const shape of art) {
     assert.ok(PALETTE.has(shape.f), `${name}: ${shape.f} is not a palette colour`);
-    const opacity = (shape as { o?: number }).o;
-    if (opacity != null) assert.ok(opacity > 0 && opacity <= 1, `${name}: bad opacity`);
+    if ('o' in shape && shape.o != null) {
+      assert.ok(shape.o > 0 && shape.o <= 1, `${name}: bad opacity`);
+    }
     const numbers =
       shape.t === 'p'
         ? [...shape.d.matchAll(/-?\d+(\.\d+)?/g)].map((m) => Number(m[0]))
