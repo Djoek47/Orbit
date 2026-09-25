@@ -390,6 +390,14 @@ export function PoppinsStage({
           hold={Boolean(payload.title)}
           {...holdState}
           dayEvents={household.events ?? []}
+          tellCandidate={
+            household.members.find(
+              (m) =>
+                (m.role === 'admin' || m.role === 'owner' || m.role === 'adult') &&
+                m.name !== payload.assignee &&
+                m.id !== currentMember?.id
+            )?.name
+          }
         />
       );
       break;

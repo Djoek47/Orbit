@@ -352,26 +352,58 @@ export async function commitIuiBeat(
   }
 
   if (write === 'create_event' && p.title) {
-    const allDay = /\ball[\s-]?day\b/i.test(p.sourceUtterance ?? '');
-    if (directMode) {
-      if (!p.date?.trim() || slotFromModel(p, 'date')) {
-        return { ok: false, slot: 'date', reason: 'missing', ask: 'What day?' };
-      }
-      if (!allDay && (!p.time?.trim() || slotFromModel(p, 'time'))) {
-        return { ok: false, slot: 'time', reason: 'missing', ask: 'What time?' };
-      }
+    const allDay = p.allDay === true || /\ball[\s-]?day\b/i.test(p.sourceUtterance ?? '');
+    // Ask, don't guess: a calendar entry without a day (or a time, unless all-day) is not saved.
+    if (!p.date?.trim() || (directMode && slotFromModel(p, 'date'))) {
+      return { ok: false, slot: 'date', reason: 'missing', ask: 'What day?' };
     }
+    if (!allDay && (!p.time?.trim() || (directMode && slotFromModel(p, 'time')))) {
+      return { ok: false, slot: 'time', reason: 'missing', ask: 'What time?' };
+    }
+    const { buildStartsAtIso, formatStoredDateLabel } = await import('@/lib/calendar/event-date');
+    const { formatTime12 } = await import('@/lib/poppins/when-parse');
+    const dateKey = String(p.date);
+    const time = allDay ? '' : String(p.time);
+    const byName = (name?: string) =>
+      name ? household.members.find((m) => m.name.trim().toLowerCase() === name.trim().toLowerCase()) : undefined;
+    const responsible = byName(p.assignee) ?? currentMember ?? undefined;
+    const attendees = [
+      ...(p.withWho ?? []).map((name) => byName(name)?.id),
+      byName(p.tellWho)?.id,
+      responsible?.id,
+    ].filter((id): id is string => Boolean(id));
     const created = await createEvent({
       title: p.title,
-      date: directMode ? String(p.date) : p.date || formatLocalDate(new Date()),
-      time: directMode ? (allDay ? '' : String(p.time)) : p.time || '09:00',
+      date: formatStoredDateLabel(dateKey),
+      dateKey,
+      startsAt: buildStartsAtIso(dateKey, allDay ? '12:00' : formatTime12(time)),
+      time: allDay ? 'All day' : formatTime12(time),
       location: p.location || '',
-      responsible: p.assignee || currentMember?.name || '',
+      responsible: responsible?.name ?? p.assignee ?? '',
+      responsibleMemberId: responsible?.id ?? null,
+      attendeeMemberIds: attendees.length > 1 ? Array.from(new Set(attendees)) : undefined,
       category: 'Appointment',
+      remindMe: p.remind !== false && !allDay,
     });
     const entityId = asId(created);
     wrote = true;
     if (entityId) reverse = { write, entityId };
+    // "Add travel": a travel block ending when the event starts.
+    if (p.addTravel && !allDay && entityId) {
+      const { addMinutesToTime } = await import('@/lib/poppins/when-parse');
+      const leave = addMinutesToTime(time, -30);
+      await createEvent({
+        title: `Travel to ${p.title}`,
+        date: formatStoredDateLabel(dateKey),
+        dateKey,
+        startsAt: buildStartsAtIso(dateKey, formatTime12(leave)),
+        time: formatTime12(leave),
+        location: p.location || '',
+        responsible: responsible?.name ?? '',
+        responsibleMemberId: responsible?.id ?? null,
+        category: 'Routine',
+      }).catch(() => undefined);
+    }
   }
 
   if (write === 'add_grocery' && p.groceryName) {

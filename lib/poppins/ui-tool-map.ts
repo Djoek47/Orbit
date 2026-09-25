@@ -483,14 +483,28 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'create_calendar_event' || type === 'create_event') {
+      const date = String(action.date ?? prefill.date ?? '');
+      const time = String(action.time ?? prefill.time ?? '');
+      const allDay = action.allDay === true || /\ball[\s-]?day\b/i.test(String(action.sourceUtterance ?? ''));
+      const ready = Boolean(date) && (Boolean(time) || allDay);
+      const assignee = action.assignee ?? action.responsible ?? action.who ?? prefill.assignee;
       playlist.push(
         beat(
           'calendar_zoom',
           {
             title: String(action.title ?? prefill.title ?? 'Event'),
-            date: String(action.date ?? prefill.date ?? ''),
-            time: String(action.time ?? prefill.time ?? ''),
+            date,
+            time,
+            endTime: action.endTime ? String(action.endTime) : undefined,
+            allDay: allDay || undefined,
+            timeGuessed: action.timeGuessed === true || undefined,
             location: String(action.location ?? prefill.location ?? ''),
+            assignee: assignee ? String(assignee) : undefined,
+            withWho: Array.isArray(action.withWho) ? action.withWho.map(String) : undefined,
+            // The design's default: remind an hour before, unless they said otherwise.
+            remind: action.remind === false ? false : true,
+            composeReady: ready,
+            focusSlot: !date ? 'date' : !ready ? 'time' : null,
           },
           'hold',
           'create_event'

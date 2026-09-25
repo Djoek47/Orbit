@@ -98,6 +98,12 @@ export function interpretStageSpeech(
 
   if (/\b(wait|hold on|pause|freeze)\b/.test(lower)) return { kind: 'freeze' };
 
+  // "No, Mia" / "actually tomorrow" is a correction, not a veto — when the rest steers.
+  if (ctx.live && /^(?:no|nope|actually|sorry|oops)[,.!\s]+\S/.test(lower)) {
+    const inner = interpretStageSpeech(text.replace(/^(?:no|nope|actually|sorry|oops)[,.!\s]+/i, ''), ctx);
+    if (inner.kind === 'revise' || inner.kind === 'splice') return inner;
+  }
+
   if (
     /^(no|nope|veto)\b/.test(lower) ||
     /\b(cancel|never mind|nevermind|stop that|don't|do not)\b/.test(lower)

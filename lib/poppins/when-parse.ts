@@ -386,14 +386,24 @@ export function parseWhen(input: string, now: Date = new Date()): WhenParse {
 export function stripWhen(input: string, when: WhenParse): string {
   let text = normalise(input);
   const spans = [...when.spans].filter(Boolean).sort((a, b) => b.length - a.length);
+  const W = '[\\p{L}\\p{N}]';
   for (const span of spans) {
     const escaped = span.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    text = text.replace(new RegExp(`\\b(on|at|for|from|to|until|till|by|this|next|à|a|le|the)?\\s*${escaped}\\b`), ' ');
+    const lead = /^[\p{L}\p{N}]/u.test(span) ? `(?<!${W})` : '';
+    const trail = /[\p{L}\p{N}]$/u.test(span) ? `(?!${W})` : '';
+    const glue = `(?:(?<!${W})(?:on|at|for|from|to|until|till|by|this|next|à|a|le|the)\\s+)?`;
+    text = text.replace(new RegExp(`${glue}${lead}${escaped}${trail}`, 'u'), ' ');
   }
-  return text
-    .replace(/\b(from|to|until|till|between|and|at|on)\s*$/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  let out = text.replace(/\s+/g, ' ').trim();
+  // Glue left dangling at either end once the time words are gone ("…at", "à", "-").
+  for (let i = 0; i < 3; i += 1) {
+    out = out
+      .replace(/(?:^|\s)(?:from|to|until|till|between|and|at|on|à|a|de|-|–)\s*$/u, '')
+      .replace(/^(?:-|–)\s*/u, '')
+      .replace(/\s-\s/g, ' ')
+      .trim();
+  }
+  return out;
 }
 
 /** "Thu", "2", "Oct" for the date tile. */
