@@ -14,17 +14,23 @@ import { undoWindowMsForAssignee } from '@/lib/poppins/iui-commit';
 import { validateAct } from '@/lib/poppins/validate-act';
 import {
   actFamilyOfBeat,
+  actsOfBeat,
+  beatSubjectText,
   beginTurn as beginOwnershipTurn,
+  bestMatch,
   commitFingerprint,
   forgetCommit,
-  noteCommitted,
-  noteStaged,
+  itemAsPayload,
+  markCommitted,
   refinementPatch,
+  registerStaged,
   rememberCommit,
-  toolFamily,
-  turnOwnsFamily,
+  subjectOf,
+  turnActs,
+  turnHasPendingAct,
   wasCommittedRecently,
-  type ActFamily,
+  type PlanSource,
+  type TurnAct,
 } from '@/lib/poppins/turn-ownership';
 import {
   HOLD_MS_DEFAULT,
@@ -92,6 +98,15 @@ const EMPTY: IuiDriveState = {
 let state: IuiDriveState = EMPTY;
 /** Session hold duration from active member — survives playlist clear/append. */
 let sessionHoldMs = HOLD_MS_DEFAULT;
+/** Which planner staged each beat — the recent-commit guard only ever applies to model plans. */
+const beatSource = new Map<string, PlanSource>();
+function noteBeatSource(beats: IuiBeat[], source: PlanSource) {
+  for (const beat of beats) beatSource.set(beat.id, source);
+  if (beatSource.size > 400) {
+    const keep = new Set(state.playlist.map((b) => b.id));
+    for (const id of beatSource.keys()) if (!keep.has(id)) beatSource.delete(id);
+  }
+}
 /** WO16 §1.3 — elapsed hold ms preserved across speech pause so the ring resumes. */
 let holdElapsedMs = 0;
 const listeners = new Set<() => void>();
@@ -348,8 +363,13 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
   }
   let reverse: IuiCommitReverse | null | undefined;
   const fingerprint = beat.commit !== 'none' ? commitFingerprint(beat) : null;
-  if (fingerprint && wasCommittedRecently(fingerprint)) {
-    // The identical act already landed moments ago (a late second plan). Never write twice.
+  if (
+    fingerprint &&
+    beatSource.get(beat.id) === 'model' &&
+    wasCommittedRecently(fingerprint)
+  ) {
+    // A model plan for an act that already landed moments ago. A person saying it twice
+    // is always written; only a late model echo is skipped.
     console.warn('iui.duplicate_commit_skipped', { fingerprint });
     advanceAfterSettle();
     return;
@@ -426,31 +446,110 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
   }
   if (beat.commit !== 'none') {
     rememberCommit(fingerprint);
-    noteCommitted(actFamilyOfBeat(beat));
+    markCommitted(beat.id);
     armUndoWindow(beat, reverse);
   }
   advanceAfterSettle();
 }
 
-/** A beat of this family is on the stage and not yet settled. */
-function liveChainHasUncommittedFamily(family: ActFamily): boolean {
-  if (!state.live) return false;
+/**
+ * Acts on the stage that have not settled yet — including cards from an earlier turn, so a
+ * correction ("…no, to Mia") refines the card on screen instead of spawning a copy.
+ */
+function liveChainActs(): TurnAct[] {
+  if (!state.live) return [];
+  const acts: TurnAct[] = [];
   for (let i = state.index; i < state.playlist.length; i++) {
     const beat = state.playlist[i]!;
     if (i === state.index && state.phase === 'settle') continue;
-    if (actFamilyOfBeat(beat) === family) return true;
+    acts.push(...actsOfBeat(beat, beatSource.get(beat.id) ?? 'local'));
   }
-  return false;
+  return acts;
+}
+
+/** Turn acts plus live cards, each key once (turn memory wins — it knows what committed). */
+function matchCandidates(): TurnAct[] {
+  const byKey = new Map<string, TurnAct>();
+  for (const act of liveChainActs()) byKey.set(act.key, act);
+  for (const act of turnActs()) byKey.set(act.key, act);
+  return [...byKey.values()];
 }
 
 /**
- * A model plan arriving for a family the turn already owns becomes a refinement of the
- * live beat (empty slots only) instead of a second act. Companion beats (the settle mark)
- * travel with their act and are dropped with it.
+ * Fill empty slots on the card an absorbed model beat stands for. Never touches a committed
+ * act, a settling card, or anything the person already said.
+ */
+function absorbIntoAct(act: TurnAct, incoming: Partial<IuiPayload>) {
+  if (act.state === 'committed') return;
+  const index = state.playlist.findIndex((beat) => beat.id === act.beatId);
+  if (index < 0 || index < state.index) return;
+  if (index === state.index && state.phase === 'settle') return;
+  const beat = state.playlist[index]!;
+
+  if (act.itemId) {
+    const items = beat.payload.items ?? [];
+    let changed = false;
+    const nextItems = items.map((item) => {
+      if (item.id !== act.itemId) return item;
+      const assignee = item.assignee?.trim() ? item.assignee : incoming.assignee;
+      const due = item.due?.trim() ? item.due : incoming.due;
+      if (assignee === item.assignee && due === item.due) return item;
+      changed = true;
+      return { ...item, assignee: assignee ?? item.assignee, due: due ?? item.due };
+    });
+    if (!changed) return;
+    const needsFace = nextItems.some((item) => !item.dropped && !item.assignee?.trim());
+    const payload = {
+      ...beat.payload,
+      items: nextItems,
+      ...(beat.scene === 'task_compose' || beat.scene === 'homework_compose'
+        ? { composeReady: !needsFace }
+        : {}),
+    };
+    setState({
+      playlist: state.playlist.map((b, i) => (i === index ? { ...b, payload } : b)),
+    });
+  } else {
+    const patch = refinementPatch(beat.payload, incoming);
+    if (!Object.keys(patch).length) return;
+    if (index === state.index) {
+      patchCurrentPayload(markSlotSources(patch, 'model'));
+    } else {
+      const marked = markSlotSources(patch, 'model');
+      setState({
+        playlist: state.playlist.map((b, i) =>
+          i === index
+            ? {
+                ...b,
+                payload: {
+                  ...b.payload,
+                  ...marked,
+                  slotSource: { ...b.payload.slotSource, ...marked.slotSource },
+                },
+              }
+            : b
+        ),
+      });
+    }
+  }
+  if (index === state.index) {
+    if (state.holding) resetHoldProgressOnly();
+    maybeArmHold();
+  }
+}
+
+/**
+ * A model plan is matched act-by-act, by subject, against what is already staged or done.
+ * A matched act only fills empty slots on its card; an act with a new subject stages as
+ * usual. Matching is one-to-one within a plan, so two different tasks from the model never
+ * collapse into one. Companion beats (the settle mark) travel with their act.
  */
 function reconcileModelPlaylist(playlist: IuiBeat[]): IuiBeat[] {
+  const candidates = matchCandidates();
+  const claimed = new Set<string>();
   const kept: IuiBeat[] = [];
   let dropCompanions = false;
+
   for (const beat of playlist) {
     const family = actFamilyOfBeat(beat);
     if (family == null) {
@@ -458,28 +557,55 @@ function reconcileModelPlaylist(playlist: IuiBeat[]): IuiBeat[] {
       continue;
     }
     dropCompanions = false;
-    const owned = turnOwnsFamily(family) || liveChainHasUncommittedFamily(family);
-    if (!owned) {
-      noteStaged(family);
-      kept.push(beat);
+
+    const rows = (beat.payload.items ?? []).filter((item) => !item.dropped && item.label.trim());
+    if (rows.length) {
+      const remaining = rows.filter((item) => {
+        const match = bestMatch(family, subjectOf(item.label), candidates, claimed);
+        if (!match) return true;
+        claimed.add(match.key);
+        absorbIntoAct(match, itemAsPayload(item));
+        return false;
+      });
+      if (!remaining.length) {
+        console.warn('iui.model_plan_refined', { family, rows: rows.length });
+        dropCompanions = true;
+        continue;
+      }
+      let next: IuiBeat = beat;
+      if (remaining.length < rows.length) {
+        next =
+          remaining.length === 1
+            ? {
+                ...beat,
+                payload: {
+                  ...beat.payload,
+                  items: undefined,
+                  progressLabel: undefined,
+                  title: remaining[0]!.label,
+                  groceryName:
+                    beat.scene === 'grocery_add' ? remaining[0]!.label : beat.payload.groceryName,
+                  assignee: remaining[0]!.assignee ?? beat.payload.assignee,
+                  due: remaining[0]!.due ?? beat.payload.due,
+                },
+              }
+            : { ...beat, payload: { ...beat.payload, items: remaining } };
+      }
+      kept.push(next);
+      registerStaged([next], 'model');
       continue;
     }
-    const current = currentBeat();
-    if (
-      state.live &&
-      current &&
-      state.phase !== 'settle' &&
-      actFamilyOfBeat(current) === family
-    ) {
-      const patch = refinementPatch(current.payload, beat.payload);
-      if (Object.keys(patch).length) {
-        patchCurrentPayload(markSlotSources(patch, 'model'));
-        if (state.holding) resetHoldProgressOnly();
-        maybeArmHold();
-      }
+
+    const match = bestMatch(family, subjectOf(beatSubjectText(beat.payload)), candidates, claimed);
+    if (match) {
+      claimed.add(match.key);
+      absorbIntoAct(match, beat.payload);
+      console.warn('iui.model_plan_refined', { family });
+      dropCompanions = true;
+      continue;
     }
-    console.warn('iui.model_plan_refined', { family });
-    dropCompanions = true;
+    kept.push(beat);
+    registerStaged([beat], 'model');
   }
   return kept;
 }
@@ -1029,11 +1155,13 @@ export const poppinsUiOrchestrator = {
   beginTurn() {
     return beginOwnershipTurn();
   },
-  /** True when this turn already has an act for the server tool's family. */
-  ownsToolFamily(tool: string) {
-    const family = toolFamily(tool);
-    if (!family) return false;
-    return turnOwnsFamily(family) || liveChainHasUncommittedFamily(family);
+  /**
+   * True when the stage already holds (or already committed) the act a model confirmation
+   * is asking about — same kind AND same subject. A confirmation for a different task is
+   * not "handled" just because some task is on screen.
+   */
+  stageHasActFor(tool: string, args: Record<string, unknown> = {}) {
+    return turnHasPendingAct(tool, args, liveChainActs());
   },
   drive(
     actions: Array<Record<string, unknown>>,
@@ -1047,8 +1175,10 @@ export const poppinsUiOrchestrator = {
     }
     if (opts?.source === 'model') {
       playlist = reconcileModelPlaylist(playlist);
+      noteBeatSource(playlist, 'model');
     } else {
-      for (const beat of playlist) noteStaged(actFamilyOfBeat(beat));
+      registerStaged(playlist, 'local');
+      noteBeatSource(playlist, 'local');
     }
     if (!playlist.length) return;
     if (opts?.kid != null) {

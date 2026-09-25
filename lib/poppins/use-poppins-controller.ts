@@ -578,7 +578,9 @@ export function usePoppinsController() {
       },
       onTranscript: applyTranscript,
       onPendingConfirmations: (items) => {
-        const handled = items.filter((item) => poppinsUiOrchestrator.ownsToolFamily(item.tool));
+        const handled = items.filter((item) =>
+          poppinsUiOrchestrator.stageHasActFor(item.tool, item.args ?? {})
+        );
         const autoApprove = items.filter(
           (item) => !handled.includes(item) && HOLD_WRITE_TOOLS.has(item.tool)
         );
