@@ -24,6 +24,10 @@ const cases: Array<[string, Partial<ReturnType<typeof parseWhen>>]> = [
   ['meeting tomorrow at 2 for an hour', { date: '2026-09-26', time: '14:00', endTime: '15:00' }],
   ['family dinner sunday', { date: '2026-09-27' }],
   ['fair all day saturday', { date: '2026-09-26', allDay: true }],
+  ['soccer saturday 10am for 1 hour', { date: '2026-09-26', time: '10:00', endTime: '11:00', durationMin: 60 }],
+  ['mia piano 6-7', { time: '18:00', endTime: '19:00' }],
+  ['swim class 4-5pm tuesday', { date: '2026-09-29', time: '16:00', endTime: '17:00' }],
+  ['study group for 2 hours tomorrow at 3', { date: '2026-09-26', time: '15:00', endTime: '17:00' }],
 ];
 
 for (const [input, expected] of cases) {
@@ -48,6 +52,7 @@ assert.equal(stripWhen('dentist for Noah next Thursday at half four', w('dentist
 assert.equal(stripWhen('soccer practice saturday at 10', w('soccer practice saturday at 10')), 'soccer practice');
 assert.equal(stripWhen('piano lesson monday from 4 to 5:30', w('piano lesson monday from 4 to 5:30')), 'piano lesson');
 
+assert.equal(stripWhen('soccer saturday 10am for 1 hour', w('soccer saturday 10am for 1 hour')), 'soccer');
 assert.equal(formatTime12('16:30'), '4:30 PM');
 assert.equal(formatTime12('09:00', { compact: true }), '9 AM');
 assert.equal(friendlyDay('2026-09-26', NOW), 'Tomorrow');

@@ -112,6 +112,13 @@
         }
       ],
       [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Choremaxx uses the microphone so you can talk to Poppins.",
+          "speechRecognitionPermission": "Poppins turns what you say into tasks, lists and plans. On supported iPhones this happens on the device."
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Choremaxx uses the camera to scan invite QR codes and attach task proof photos.",
