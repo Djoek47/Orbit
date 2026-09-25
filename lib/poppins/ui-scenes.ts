@@ -113,6 +113,8 @@ export type IuiPayload = {
   timeGuessed?: boolean;
   /** Event: other members going along ("with Ama"). */
   withWho?: string[];
+  /** The person renamed this card themselves — keep the name exactly, no catalog swap. */
+  namedByPerson?: boolean;
   /** Event: remind an hour before. */
   remind?: boolean;
   /** Event: add a travel block before it. */
