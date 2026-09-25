@@ -1,10 +1,10 @@
 # Orbit Technical Blueprint
 
-The source architecture docs target SwiftUI, but this project is Expo SDK 54. Preserve the system design while implementing with Expo Router and React Native.
+The source architecture docs target SwiftUI, but this project is Expo SDK 57. Preserve the system design while implementing with Expo Router and React Native.
 
 ## Stack Translation
 
-- Client: Expo SDK 54, React Native, Expo Router.
+- Client: Expo SDK 57, React Native, Expo Router.
 - Runtime: Bun for package management and scripts.
 - Backend target: Supabase.
 - Database: PostgreSQL.

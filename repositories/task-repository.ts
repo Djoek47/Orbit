@@ -1,9 +1,159 @@
 import { mockHousehold } from '@/data/mock-household';
 import { mapTaskRow, taskRepeatToDb, taskStatusToDb } from '@/lib/mappers/orbit-mappers';
-import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
+import { fallbackSeriesDefinitionId, isExpiredStatus } from '@/lib/tasks/recurring';
+import {
+  assertUniqueOccurrenceInsert,
+  dedupeOccurrences,
+} from '@/lib/tasks/occurrence-dedupe';
+import { addCalendarDays } from '@/lib/tasks/household-tz';
+import {
+  buildShares,
+  formatAssigneeLabel,
+  getTaskAssignees,
+  isSplitTask,
+} from '@/lib/tasks/split-assign';
+import { isTaskLate } from '@/lib/tasks/xp';
+import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, mapDbError } from '@/repositories/repository-utils';
 import type { CreateTaskInput, HouseholdTask } from '@/types/orbit';
 
 let mockTasksState: HouseholdTask[] = clone(mockHousehold.tasks);
+
+function isDeadOccurrence(task: HouseholdTask): boolean {
+  return (
+    isExpiredStatus(task.status) ||
+    task.status === 'Cancelled' ||
+    task.status === 'Completed'
+  );
+}
+
+/** When same-day row is dead, shift assign to the next calendar day. */
+function rollAssignToNextDay(input: CreateTaskInput): CreateTaskInput {
+  const base = input.occurrenceDate;
+  if (!base) return input;
+  const nextDate = addCalendarDays(base, 1);
+  let dueAt = input.dueAt;
+  if (dueAt) {
+    const prev = new Date(dueAt);
+    if (!Number.isNaN(prev.getTime())) {
+      prev.setUTCDate(prev.getUTCDate() + 1);
+      dueAt = prev.toISOString();
+    }
+  }
+  return {
+    ...input,
+    occurrenceDate: nextDate,
+    due: 'Tomorrow',
+    dueAt,
+  };
+}
+
+/** Test / mock continuity — replace in-memory task list. */
+export function __setMockTasksStateForTests(tasks: HouseholdTask[]) {
+  mockTasksState = clone(tasks);
+}
+
+export function __resetTasksMockStateForTests() {
+  mockTasksState = clone(mockHousehold.tasks);
+}
+
+/**
+ * Columns known to exist on the live TestFlight Supabase project.
+ * Extended v2 columns (definition_id, verification, …) ship via migration
+ * 20260803010000 — omit them from writes until that migration is applied,
+ * otherwise inserts fail and Assign appears to do nothing on device.
+ */
+function buildCoreTaskInsert(input: {
+  householdId: string;
+  task: HouseholdTask;
+  assigneeMemberId: string | null;
+}) {
+  return {
+    household_id: input.householdId,
+    title: input.task.title,
+    description: input.task.description ?? null,
+    category: input.task.category,
+    assignee_name: input.task.assignee,
+    assignee_member_id: input.assigneeMemberId,
+    due_label: input.task.due,
+    due_at: input.task.dueAt ?? null,
+    xp_value: input.task.xp,
+    repeat_rule: taskRepeatToDb(input.task.repeat),
+    status: 'pending' as const,
+    weight: input.task.weight ?? 1,
+    // NOT NULL on live Postgres (`default 'medium'`). Explicit null skips the
+    // default and every Assign save fails with "Could not save: …".
+    difficulty: input.task.difficulty ?? 'medium',
+    proof_required: input.task.proofRequired ?? false,
+    room_id: input.task.roomId ?? null,
+    homework_subject: input.task.homeworkSubject ?? null,
+    ...(input.task.definitionId ? { definition_id: input.task.definitionId } : {}),
+    ...(input.task.occurrenceDate ? { occurrence_date: input.task.occurrenceDate } : {}),
+  };
+}
+
+function buildCoreTaskUpdate(task: HouseholdTask) {
+  return {
+    title: task.title,
+    description: task.description ?? null,
+    category: task.category,
+    assignee_name: task.assignee,
+    due_label: task.due,
+    due_at: task.dueAt ?? null,
+    xp_value: task.xp,
+    repeat_rule: taskRepeatToDb(task.repeat),
+    status: taskStatusToDb(task.status),
+    room_id: task.roomId ?? null,
+    weight: task.weight ?? null,
+    difficulty: task.difficulty ?? null,
+    proof_required: task.proofRequired ?? false,
+    proof_uri: task.proofUri ?? null,
+    proof_status: task.proofStatus ?? null,
+    homework_subject: task.homeworkSubject ?? null,
+    verification: task.verification ?? null,
+    proof_photo_urls: task.proofPhotoUrls ?? [],
+    proof_rounds: task.proofRounds ?? [],
+    awarded_xp: task.awardedXp ?? null,
+    completed_at: task.completedAt ?? null,
+    completed_late: task.completedLate ?? null,
+    verified_by: task.verifiedBy ?? null,
+    verified_at: task.verifiedAt ?? null,
+    expired_at: task.expiredAt ?? null,
+    ...(task.definitionId ? { definition_id: task.definitionId } : {}),
+    ...(task.occurrenceDate ? { occurrence_date: task.occurrenceDate } : {}),
+  };
+}
+
+/** Merge DB row with client-only / not-yet-migrated fields. */
+function mergeTaskRow(data: Parameters<typeof mapTaskRow>[0], local: HouseholdTask): HouseholdTask {
+  const mapped = mapTaskRow(data);
+  return {
+    ...mapped,
+    roomId: local.roomId ?? mapped.roomId,
+    weight: local.weight ?? mapped.weight,
+    difficulty: local.difficulty ?? mapped.difficulty,
+    proofRequired: local.proofRequired ?? mapped.proofRequired,
+    tracking: local.tracking,
+    definitionId: local.definitionId,
+    occurrenceDate: mapped.occurrenceDate ?? local.occurrenceDate,
+    verification: local.verification,
+    awardedXp: local.awardedXp,
+    completedAt: local.completedAt,
+    completedLate: local.completedLate,
+    proofPhotoUrls: local.proofPhotoUrls,
+    proofRounds: local.proofRounds,
+    verifiedBy: local.verifiedBy,
+    verifiedAt: local.verifiedAt,
+    assignees: local.assignees,
+    shares: local.shares,
+    splitXpEach: local.splitXpEach,
+    splitBonusXp: local.splitBonusXp,
+    splitPenaltyXp: local.splitPenaltyXp,
+    sharedDeviceId: local.sharedDeviceId,
+    xpEligible: local.xpEligible,
+    homeworkSubject: local.homeworkSubject ?? mapped.homeworkSubject,
+    baseXp: local.baseXp,
+  };
+}
 
 export const taskRepository = {
   async getTasks(householdId: string | null | undefined): Promise<HouseholdTask[]> {
@@ -11,7 +161,7 @@ export const taskRepository = {
       return clone(mockTasksState);
     }
 
-    if (!householdId) {
+    if (!isPersistedHouseholdId(householdId)) {
       return [];
     }
 
@@ -27,59 +177,91 @@ export const taskRepository = {
   },
 
   async createTask(householdId: string | null | undefined, input: CreateTaskInput): Promise<HouseholdTask> {
+    const assigneeNames = (input.assignees?.length ? input.assignees : [input.assignee])
+      .map((name) => name.trim())
+      .filter(Boolean);
+    const uniqueNames = [...new Set(assigneeNames)];
+    const split = uniqueNames.length > 1;
+    const definitionId =
+      input.definitionId ||
+      (input.repeat !== 'None'
+        ? fallbackSeriesDefinitionId(input.title.trim(), uniqueNames[0] ?? input.assignee.trim())
+        : undefined);
+
     const task: HouseholdTask = {
       id: createLocalId('task'),
       title: input.title.trim(),
       description: input.description?.trim() || undefined,
       category: input.category,
-      assignee: input.assignee,
+      assignee: split ? formatAssigneeLabel(uniqueNames) : uniqueNames[0] ?? input.assignee,
+      assignees: split ? uniqueNames : undefined,
+      shares: split ? buildShares(uniqueNames, input.proofRequired) : undefined,
+      splitXpEach: split ? input.splitXpEach ?? input.xp : undefined,
+      splitBonusXp: split ? input.splitBonusXp : undefined,
+      splitPenaltyXp: split ? input.splitPenaltyXp : undefined,
       due: input.due.trim(),
       xp: input.xp,
+      baseXp: input.baseXp ?? input.xp,
+      xpEligible: input.xpEligible,
+      weight: input.weight,
+      difficulty: input.difficulty,
+      tracking: input.tracking,
+      proofRequired: input.proofRequired,
+      proofStatus: input.proofRequired && !split ? 'none' : undefined,
+      verification: input.proofRequired ? 'not_required' : 'not_required',
+      homeworkSubject: input.homeworkSubject,
+      dueAt: input.dueAt,
+      roomId: input.roomId,
+      sharedDeviceId: input.sharedDeviceId,
+      definitionId,
+      occurrenceDate: input.occurrenceDate,
       repeat: input.repeat,
       status: 'Pending',
     };
 
     if (isMockMode()) {
+      assertUniqueOccurrenceInsert(mockTasksState, task);
       mockTasksState = [task, ...mockTasksState];
       return task;
     }
 
-    if (!householdId) {
+    if (!isPersistedHouseholdId(householdId)) {
       throw new Error('taskRepository.createTask: householdId is required in Supabase mode.');
     }
 
     const supabase = getConfiguredSupabase('taskRepository.createTask');
 
+    // Resolve member by first assignee name (split labels are not a single display_name).
+    const lookupName = uniqueNames[0] ?? input.assignee.trim();
     const { data: member } = await supabase
       .from('household_members')
       .select('id')
       .eq('household_id', householdId)
-      .ilike('display_name', input.assignee.trim())
+      .ilike('display_name', lookupName)
       .maybeSingle();
 
+    const corePayload = buildCoreTaskInsert({
+      householdId,
+      task,
+      assigneeMemberId: member?.id ?? null,
+    });
+
+    // Write only columns that exist on production today. Extended v2 columns
+    // (definition_id / occurrence_date / verification) are kept on the client
+    // object until migration 20260803010000 is applied to Supabase.
     const { data, error } = await supabase
       .from('tasks')
-      .insert({
-        household_id: householdId,
-        title: task.title,
-        description: task.description ?? null,
-        category: task.category,
-        assignee_name: task.assignee,
-        assignee_member_id: member?.id ?? null,
-        due_label: task.due,
-        xp_value: task.xp,
-        repeat_rule: taskRepeatToDb(task.repeat),
-        status: 'pending',
-      })
+      .insert(corePayload as never)
       .select('*')
       .single();
+
     mapDbError('taskRepository.createTask', error);
 
     if (!data) {
       throw new Error('taskRepository.createTask: Insert returned no row.');
     }
 
-    return mapTaskRow(data);
+    return mergeTaskRow(data, task);
   },
 
   async updateTask(task: HouseholdTask): Promise<HouseholdTask> {
@@ -96,34 +278,128 @@ export const taskRepository = {
     }
 
     const supabase = getConfiguredSupabase('taskRepository.updateTask');
+    const corePayload = buildCoreTaskUpdate(next);
+
+    // Same as create — core columns only until the occurrence migration is live.
     const { data, error } = await supabase
       .from('tasks')
-      .update({
-        title: next.title,
-        description: next.description ?? null,
-        category: next.category,
-        assignee_name: next.assignee,
-        due_label: next.due,
-        xp_value: next.xp,
-        repeat_rule: taskRepeatToDb(next.repeat),
-        status: taskStatusToDb(next.status),
-      })
+      .update(corePayload as never)
       .eq('id', next.id)
       .select('*')
       .single();
+
     mapDbError('taskRepository.updateTask', error);
 
-    return data ? mapTaskRow(data) : next;
+    return data ? mergeTaskRow(data, next) : next;
+  },
+
+  /**
+   * Skip today / cancel occurrence — minimal patch like completeTask.
+   * Full updateTask payloads often fail on staging when optional columns or
+   * null difficulty trip constraints; cancel only needs status + due label
+   * (+ stop-series repeat when scope is future).
+   */
+  async cancelTask(
+    task: HouseholdTask,
+    options: { stopSeries?: boolean } = {}
+  ): Promise<HouseholdTask> {
+    const stopSeries = Boolean(options.stopSeries && task.repeat !== 'None');
+    const cancelled: HouseholdTask = {
+      ...task,
+      status: 'Cancelled',
+      repeat: stopSeries ? 'None' : task.repeat,
+      due: stopSeries ? 'Cancelled · series stopped' : 'Cancelled',
+    };
+
+    if (isMockMode()) {
+      mockTasksState = mockTasksState.map((item) => (item.id === cancelled.id ? cancelled : item));
+      return cancelled;
+    }
+
+    const supabase = getConfiguredSupabase('taskRepository.cancelTask');
+    const payload: Record<string, unknown> = {
+      status: 'cancelled',
+      due_label: cancelled.due,
+    };
+    if (stopSeries) {
+      payload.repeat_rule = 'none';
+    }
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update(payload as never)
+      .eq('id', task.id)
+      .select('*')
+      .single();
+
+    mapDbError('taskRepository.cancelTask', error);
+
+    return data ? mergeTaskRow(data, cancelled) : cancelled;
+  },
+
+  /**
+   * Admin “Mark not done” — reverse a completion with a minimal patch
+   * (same rationale as cancelTask / completeTask).
+   */
+  async revertCompletion(task: HouseholdTask): Promise<HouseholdTask> {
+    const next: HouseholdTask = {
+      ...task,
+      title: task.title.trim(),
+      due: task.due.trim(),
+    };
+
+    if (isMockMode()) {
+      mockTasksState = mockTasksState.map((item) => (item.id === next.id ? next : item));
+      return next;
+    }
+
+    const supabase = getConfiguredSupabase('taskRepository.revertCompletion');
+    const payload = {
+      status: taskStatusToDb(next.status),
+      due_label: next.due,
+      awarded_xp: 0,
+      completed_at: null,
+      completed_late: false,
+      verification: next.verification ?? 'rejected',
+      proof_status: next.proofStatus ?? null,
+    };
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update(payload as never)
+      .eq('id', next.id)
+      .select('*')
+      .single();
+
+    mapDbError('taskRepository.revertCompletion', error);
+
+    return data ? mergeTaskRow(data, next) : next;
+  },
+
+  async deleteTask(taskId: string): Promise<void> {
+    if (isMockMode()) {
+      mockTasksState = mockTasksState.filter((item) => item.id !== taskId);
+      return;
+    }
+
+    const supabase = getConfiguredSupabase('taskRepository.deleteTask');
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+    mapDbError('taskRepository.deleteTask', error);
   },
 
   async completeTask(
     task: HouseholdTask,
     householdId?: string | null
   ): Promise<HouseholdTask> {
+    const completedAt = task.completedAt ?? new Date().toISOString();
     const completed: HouseholdTask = {
       ...task,
       due: 'Completed today',
       status: 'Completed',
+      awardedXp: task.awardedXp,
+      completedAt,
+      // Keep prior proof status (usually 'none') — attach happens after complete.
+      proofStatus: task.proofStatus,
     };
 
     if (isMockMode()) {
@@ -137,6 +413,11 @@ export const taskRepository = {
       .update({
         status: 'completed',
         due_label: 'Completed today',
+        // Persist the snapshot Mark not done reads. Without these, a refresh
+        // drops completedAt and undo reports the 7-day window as closed.
+        completed_at: completedAt,
+        awarded_xp: task.awardedXp ?? 0,
+        completed_late: task.completedLate ?? false,
       })
       .eq('id', task.id)
       .select('*')
@@ -144,21 +425,192 @@ export const taskRepository = {
     mapDbError('taskRepository.completeTask', error);
 
     const resolvedHouseholdId = householdId ?? data?.household_id;
-    if (resolvedHouseholdId && task.xp > 0) {
-      await awardTaskXp(supabase, resolvedHouseholdId, data ?? null, task);
+    const xpToAward = task.awardedXp ?? 0;
+    if (resolvedHouseholdId && xpToAward > 0) {
+      await awardTaskXp(supabase, resolvedHouseholdId, data ?? null, {
+        ...task,
+        awardedXp: xpToAward,
+      });
     }
 
-    return data ? mapTaskRow(data) : completed;
+    const mapped = data ? mapTaskRow(data) : null;
+    return mapped
+      ? {
+          ...mapped,
+          awardedXp: task.awardedXp,
+          completedAt,
+          verification: task.verification ?? mapped.verification ?? 'not_required',
+          proofStatus: task.proofStatus ?? mapped.proofStatus,
+          proofRounds: task.proofRounds ?? mapped.proofRounds,
+          proofPhotoUrls: task.proofPhotoUrls ?? mapped.proofPhotoUrls,
+          definitionId: task.definitionId ?? mapped.definitionId,
+          occurrenceDate: task.occurrenceDate ?? mapped.occurrenceDate,
+        }
+      : completed;
+  },
+
+  /**
+   * Award a pre-resolved XP snapshot to a named member (split shares).
+   * Does not re-run resolveCompletionXp — caller owns the snapshot.
+   */
+  async awardMemberXp(input: {
+    householdId: string;
+    memberName: string;
+    amount: number;
+    reason: string;
+    taskId?: string;
+  }): Promise<void> {
+    if (isMockMode() || input.amount === 0) {
+      return;
+    }
+    const supabase = getConfiguredSupabase('taskRepository.awardMemberXp');
+    const { data: member } = await supabase
+      .from('household_members')
+      .select('id, xp, week_xp')
+      .eq('household_id', input.householdId)
+      .ilike('display_name', input.memberName)
+      .maybeSingle();
+    if (!member) return;
+
+    const { error: xpError } = await supabase
+      .from('household_members')
+      .update({
+        xp: Math.max(0, (member.xp ?? 0) + input.amount),
+        week_xp: Math.max(0, (member.week_xp ?? 0) + input.amount),
+      })
+      .eq('id', member.id);
+    mapDbError('taskRepository.awardMemberXp.memberXp', xpError);
+
+    const { data: authData } = await supabase.auth.getUser();
+    const { error: txError } = await supabase.from('xp_transactions').insert({
+      household_id: input.householdId,
+      user_id: authData.user?.id ?? null,
+      member_id: member.id,
+      amount: input.amount,
+      reason: input.reason,
+      related_task_id: input.taskId ?? null,
+    });
+    mapDbError('taskRepository.awardMemberXp.xpTransaction', txError);
+  },
+
+  async updateMemberStreak(input: {
+    householdId: string;
+    memberId: string;
+    streak: number;
+  }): Promise<void> {
+    if (isMockMode()) return;
+    const supabase = getConfiguredSupabase('taskRepository.updateMemberStreak');
+    const { error } = await supabase
+      .from('household_members')
+      .update({ streak: input.streak })
+      .eq('id', input.memberId)
+      .eq('household_id', input.householdId);
+    mapDbError('taskRepository.updateMemberStreak', error);
+  },
+
+  /**
+   * Rev F §1.2.b — occurrence insert as upsert on conflict do nothing.
+   * Returns the existing row when (definitionId, occurrenceDate) already exists
+   * and is still open. Dead rows (Expired / Cancelled / Completed) roll to tomorrow.
+   */
+  async upsertOccurrence(
+    householdId: string | null | undefined,
+    input: CreateTaskInput
+  ): Promise<{ task: HouseholdTask; inserted: boolean }> {
+    const definitionId =
+      input.definitionId ||
+      (input.repeat !== 'None'
+        ? fallbackSeriesDefinitionId(
+            input.title.trim(),
+            (input.assignees?.[0] ?? input.assignee).trim()
+          )
+        : undefined);
+    let resolved: CreateTaskInput = { ...input, definitionId };
+
+    if (!resolved.definitionId || !resolved.occurrenceDate) {
+      const task = await taskRepository.createTask(householdId, resolved);
+      return { task, inserted: true };
+    }
+
+    const findExisting = (list: HouseholdTask[], dateKey: string) =>
+      list.find(
+        (t) => t.definitionId === resolved.definitionId && t.occurrenceDate === dateKey
+      );
+
+    if (isMockMode()) {
+      let existing = findExisting(mockTasksState, resolved.occurrenceDate);
+      if (existing && isDeadOccurrence(existing)) {
+        resolved = rollAssignToNextDay(resolved);
+        existing = findExisting(mockTasksState, resolved.occurrenceDate!);
+      }
+      if (existing && !isDeadOccurrence(existing)) {
+        return { task: existing, inserted: false };
+      }
+      try {
+        const task = await taskRepository.createTask(householdId, resolved);
+        return { task, inserted: true };
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith('UNIQUE_VIOLATION')) {
+          const again = findExisting(mockTasksState, resolved.occurrenceDate!);
+          if (again && isDeadOccurrence(again)) {
+            resolved = rollAssignToNextDay(resolved);
+            const task = await taskRepository.createTask(householdId, resolved);
+            return { task, inserted: true };
+          }
+          if (again) return { task: again, inserted: false };
+        }
+        throw error;
+      }
+    }
+
+    // Supabase: try insert; unique index rejects duplicates.
+    try {
+      const task = await taskRepository.createTask(householdId, resolved);
+      return { task, inserted: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/duplicate|unique|23505/i.test(message) && householdId) {
+        const all = await taskRepository.getTasks(householdId);
+        let existing = findExisting(all, resolved.occurrenceDate!);
+        if (existing && isDeadOccurrence(existing)) {
+          resolved = rollAssignToNextDay(resolved);
+          const task = await taskRepository.createTask(householdId, resolved);
+          return { task, inserted: true };
+        }
+        if (existing) return { task: existing, inserted: false };
+      }
+      throw error;
+    }
+  },
+
+  /** Rev F §1.2.d — apply in-memory dedupe (mock / catch-up). */
+  applyOccurrenceDedupe(): { deletedCount: number; xpReconciled: number } {
+    const report = dedupeOccurrences(mockTasksState);
+    mockTasksState = report.kept;
+    return { deletedCount: report.deletedCount, xpReconciled: report.xpReconciled };
   },
 };
 
+/**
+ * Award XP using the completion snapshot on `task.awardedXp`.
+ * Never re-resolves mode/late math — that would double-penalize.
+ */
 async function awardTaskXp(
   supabase: ReturnType<typeof getConfiguredSupabase>,
   householdId: string,
   taskRow: { assignee_member_id: string | null; assignee_name: string; id: string } | null,
   task: HouseholdTask
 ) {
+  const awarded = task.awardedXp ?? 0;
+  if (awarded <= 0) {
+    return;
+  }
+
   let memberId = taskRow?.assignee_member_id ?? null;
+  const late = isTaskLate(task);
+  const reason = late
+    ? `Completed task (late): ${task.title}`
+    : `Completed task: ${task.title}`;
 
   if (!memberId) {
     const { data: member } = await supabase
@@ -173,8 +625,8 @@ async function awardTaskXp(
       const { error: xpError } = await supabase
         .from('household_members')
         .update({
-          xp: (member.xp ?? 0) + task.xp,
-          week_xp: (member.week_xp ?? 0) + task.xp,
+          xp: (member.xp ?? 0) + awarded,
+          week_xp: (member.week_xp ?? 0) + awarded,
         })
         .eq('id', member.id);
       mapDbError('taskRepository.completeTask.memberXp', xpError);
@@ -190,8 +642,8 @@ async function awardTaskXp(
       const { error: xpError } = await supabase
         .from('household_members')
         .update({
-          xp: (member.xp ?? 0) + task.xp,
-          week_xp: (member.week_xp ?? 0) + task.xp,
+          xp: (member.xp ?? 0) + awarded,
+          week_xp: (member.week_xp ?? 0) + awarded,
         })
         .eq('id', member.id);
       mapDbError('taskRepository.completeTask.memberXp', xpError);
@@ -203,8 +655,8 @@ async function awardTaskXp(
     household_id: householdId,
     user_id: authData.user?.id ?? null,
     member_id: memberId,
-    amount: task.xp,
-    reason: `Completed task: ${task.title}`,
+    amount: awarded,
+    reason,
     related_task_id: task.id,
   });
   mapDbError('taskRepository.completeTask.xpTransaction', txError);

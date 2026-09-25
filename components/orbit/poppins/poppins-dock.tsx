@@ -1,0 +1,306 @@
+/**
+ * The Poppins dock: one status line, [type] [talk] [balance], the mic's label, and the
+ * Base / Max pills.
+ *
+ * The dock is a fixed region below the stage — never over it. While a card is live the
+ * tier pills step aside (unless the tour is pointing at them) so the card gets the room.
+ */
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, StyleSheet, View } from 'react-native';
+
+import { AppText as Text } from '@/components/orbit/app-text';
+import { PoppinsModeCards } from '@/components/orbit/poppins-mode-cards';
+import { TourTarget } from '@/components/orbit/tour/tour-target';
+import { STAGE } from '@/constants/iui-stage';
+import { space } from '@/constants/orbit-theme';
+import type { PoppinsController } from '@/lib/poppins/use-poppins-controller';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+
+type Props = {
+  p: PoppinsController;
+  bottomInset: number;
+  showTierPills: boolean;
+};
+
+export function PoppinsDock({ p, bottomInset, showTierPills }: Props) {
+  const { c, isDark, glass, glassBorder } = useOrbitColors();
+  const { micUi, primaryConnected, connecting, voiceSettling, captureMode } = p;
+  const micDisabled = voiceSettling || (!micUi.micEnabled && !micUi.offerSwitchToBase);
+  // Base listens and never talks back, so its mic looks like listening, not like a call:
+  // it stays green, keeps the mic glyph, and a ring breathes with the person's own voice.
+  const baseListening = p.baseOn;
+  const level = p.waveLevelDb == null ? 0 : Math.max(0, Math.min(1, (p.waveLevelDb + 60) / 60));
+  const maxLive = primaryConnected && !baseListening;
+
+  return (
+    <View style={[styles.dock, { paddingBottom: Math.max(bottomInset, 16) + 8 }]}>
+      {p.error ? (
+        <Text style={[styles.status, { color: c.danger }]} selectable numberOfLines={8}>
+          {p.error}
+        </Text>
+      ) : p.statusNotice ? (
+        <Text style={[styles.status, { color: c.textMuted }]} selectable numberOfLines={6}>
+          {p.statusNotice}
+        </Text>
+      ) : null}
+
+      <View style={[styles.row, { gap: STAGE.dock.gap }]}>
+        <Pressable
+          onPress={() => p.setThreadOpen((open) => !open)}
+          accessibilityRole="button"
+          accessibilityLabel={p.threadOpen ? 'Hide typing' : `Type to ${p.majordomo.displayName}`}
+          accessibilityState={{ expanded: p.threadOpen }}
+          style={[
+            styles.sideBtn,
+            {
+              width: STAGE.dock.side,
+              height: STAGE.dock.side,
+              borderRadius: STAGE.dock.sideRadius,
+              backgroundColor: p.threadOpen ? 'rgba(56,189,248,0.15)' : glass(0.07),
+              borderColor: p.threadOpen ? 'rgba(56,189,248,0.3)' : glassBorder(0.1),
+            },
+          ]}>
+          <MaterialIcons
+            name={p.threadOpen ? 'close' : 'keyboard'}
+            size={20}
+            color={p.threadOpen ? '#38BDF8' : c.textMuted}
+          />
+        </Pressable>
+
+        <TourTarget id="poppins.speak">
+          <Pressable
+            onPress={p.onMicPress}
+            onLongPress={p.onMicLongPress}
+            onPressOut={p.onMicPressOut}
+            delayLongPress={700}
+            disabled={micDisabled}
+            style={[styles.micWrap, { width: STAGE.dock.mic, height: STAGE.dock.mic }]}
+            accessibilityRole="button"
+            accessibilityLabel={
+              baseListening
+                ? 'Listening. Tap to close'
+                : primaryConnected
+                ? captureMode === 'tap'
+                  ? 'Stop'
+                  : 'Done'
+                : micUi.micEnabled
+                  ? 'Speak'
+                  : micUi.offerSwitchToBase
+                    ? 'Switch to Base to talk'
+                    : 'Voice unavailable'
+            }
+            accessibilityHint={
+              baseListening
+                ? 'Stops listening and clears the screen'
+                : primaryConnected
+                  ? 'Ends the conversation and clears the screen'
+                  : micUi.micEnabled
+                    ? p.isBaseTier
+                      ? 'Starts listening. Poppins writes down what you say and sets it up'
+                      : 'Starts a conversation with Poppins'
+                    : undefined
+            }
+            accessibilityState={{
+              busy: connecting || voiceSettling,
+              selected: primaryConnected,
+              disabled: micDisabled,
+            }}>
+            {baseListening ? (
+              <>
+                <View
+                  style={[
+                    styles.micPulse,
+                    {
+                      borderRadius: STAGE.dock.mic / 2,
+                      borderWidth: 2,
+                      borderColor: isDark ? 'rgba(52,211,153,0.55)' : 'rgba(15,111,85,0.45)',
+                      transform: [{ scale: 1.12 + level * 0.38 }],
+                      opacity: 0.35 + level * 0.65,
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.micPulse,
+                    {
+                      backgroundColor: isDark ? 'rgba(52,211,153,0.12)' : 'rgba(15,111,85,0.1)',
+                      borderRadius: STAGE.dock.mic / 2,
+                      transform: [{ scale: 1.5 + level * 0.25 }],
+                    },
+                  ]}
+                />
+              </>
+            ) : primaryConnected ? (
+              <View
+                style={[
+                  styles.micPulse,
+                  {
+                    backgroundColor: isDark ? 'rgba(52,211,153,0.2)' : 'rgba(15,111,85,0.16)',
+                    borderRadius: STAGE.dock.mic / 2,
+                  },
+                ]}
+              />
+            ) : null}
+            <LinearGradient
+              colors={
+                !micUi.micEnabled
+                  ? ['rgba(100,116,139,0.7)', 'rgba(71,85,105,0.65)']
+                  : maxLive
+                    ? ['rgba(248,113,113,0.95)', 'rgba(239,68,68,0.85)']
+                    : connecting
+                      ? ['rgba(167,139,250,0.9)', 'rgba(139,92,246,0.8)']
+                      : isDark
+                        ? [STAGE.shell.mic, '#248A64']
+                        : [STAGE.domainLight.chores, '#0A5A44']
+              }
+              style={[
+                styles.micBtn,
+                {
+                  width: STAGE.dock.mic,
+                  height: STAGE.dock.mic,
+                  borderRadius: STAGE.dock.mic / 2,
+                  borderColor: primaryConnected
+                    ? baseListening
+                      ? 'rgba(255,255,255,0.4)'
+                      : 'rgba(255,255,255,0.25)'
+                    : isDark
+                      ? 'rgba(118,196,174,0.28)'
+                      : 'rgba(15,111,85,0.28)',
+                  opacity: micUi.micEnabled ? 1 : 0.72,
+                },
+              ]}>
+              {baseListening ? (
+                <MaterialIcons name="mic" size={28} color="#FFFFFF" />
+              ) : primaryConnected ? (
+                <View style={styles.stopSquare} />
+              ) : connecting ? (
+                <MaterialIcons name="graphic-eq" size={28} color="#fff" />
+              ) : (
+                <MaterialIcons name="mic" size={28} color="#FFFFFF" />
+              )}
+            </LinearGradient>
+            {p.isBaseTier && micUi.micEnabled && !maxLive ? (
+              // Base writes down what you say and never talks back — the captions mark says so
+              // before the first tap, where the button alone would look like a call.
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.baseBadge,
+                  {
+                    backgroundColor: isDark ? '#0B1220' : '#FFFFFF',
+                    borderColor: isDark ? 'rgba(52,211,153,0.55)' : 'rgba(15,111,85,0.45)',
+                  },
+                ]}>
+                <MaterialIcons
+                  name="closed-caption"
+                  size={13}
+                  color={isDark ? '#34D399' : '#0F6F55'}
+                />
+              </View>
+            ) : null}
+            {p.capSecondsLeft != null && p.capSecondsLeft <= 5 ? (
+              <Text style={styles.capCountdown}>{p.capSecondsLeft}s</Text>
+            ) : null}
+          </Pressable>
+        </TourTarget>
+
+        {/* Keeps the mic centred: the dock is type + talk. */}
+        <View style={{ width: STAGE.dock.side, height: STAGE.dock.side }} />
+      </View>
+
+      <Text
+        style={[styles.micLabel, { color: p.isActive ? p.stateColor : c.textSubtle }]}
+        accessibilityLiveRegion="polite">
+        {p.micLabel}
+      </Text>
+
+      {showTierPills ? (
+        <TourTarget id="poppins.mode">
+          <View style={styles.pills}>
+            <PoppinsModeCards
+              layout="pills"
+              prefs={p.interactionPrefs}
+              accent={p.majordomo.accent}
+              disabled={!p.canManageHousehold}
+              onSelectTier={p.selectPoppinsTier}
+            />
+          </View>
+        </TourTarget>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  dock: {
+    flexShrink: 0,
+    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
+    alignItems: 'stretch',
+  },
+  status: {
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  row: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  sideBtn: {
+    alignItems: 'center',
+    borderWidth: 1,
+    justifyContent: 'center',
+  },
+  baseBadge: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micPulse: {
+    ...StyleSheet.absoluteFill,
+    transform: [{ scale: 1.35 }],
+  },
+  micBtn: {
+    alignItems: 'center',
+    borderWidth: 3,
+    justifyContent: 'center',
+  },
+  stopSquare: {
+    backgroundColor: '#fff',
+    borderRadius: 4,
+    height: 20,
+    width: 20,
+  },
+  capCountdown: {
+    color: '#FBBF24',
+    fontSize: 11,
+    fontWeight: '700',
+    position: 'absolute',
+    top: -2,
+  },
+  micLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.5,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  pills: {
+    marginTop: 10,
+  },
+});

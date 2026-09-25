@@ -30,8 +30,15 @@ if (!fs.existsSync(sourceDir)) {
 
 const state = JSON.parse(fs.readFileSync(syncStatePath, 'utf8'));
 
-if (state.fileKey !== '4J6d4LW335tDyEDpqq3VD1') {
-  fail(`unexpected fileKey: ${state.fileKey}`);
+const EXPECTED_FILE_KEY = 'nwBB1pEqZMWxsm6WE7dFeS';
+const PREVIOUS_FILE_KEY = '4J6d4LW335tDyEDpqq3VD1';
+
+if (state.fileKey !== EXPECTED_FILE_KEY) {
+  fail(`unexpected fileKey: ${state.fileKey} (expected Design 8 ${EXPECTED_FILE_KEY})`);
+}
+
+if (state.previousFileKey && state.previousFileKey !== PREVIOUS_FILE_KEY) {
+  fail(`unexpected previousFileKey: ${state.previousFileKey}`);
 }
 
 if (!state.rootNodeId) {

@@ -1,11 +1,11 @@
 # Figma Make design registry
 
-This folder is the **saved mirror** of the Orbit Figma Make source
-(`fileKey=4J6d4LW335tDyEDpqq3VD1`).
+This folder is the **saved mirror** of the Choremaxx Figma Make source
+(`fileKey=4J6d4LW335tDyEDpqq3VD1`, Make v7+).
 
 ## Layout
 
-- `SYNC_STATE.json` — last sync metadata (hash, commit, timestamp)
+- `SYNC_STATE.json` — last sync metadata (hash, commit, timestamp, brand, version)
 - `source/` — Make source files pulled via Figma MCP
   (`file://figma/make/source/4J6d4LW335tDyEDpqq3VD1/...`)
 - `CHANGELOG.md` — human-readable sync notes per PR

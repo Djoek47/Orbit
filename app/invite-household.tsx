@@ -1,143 +1,170 @@
+/**
+ * Household invite — one calm composition: code, QR, Share.
+ * Apple-level restraint: no noise, one primary action.
+ */
 import * as Clipboard from 'expo-clipboard';
-import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-import { GlassCard } from '@/components/orbit/glass-card';
+import { AppText as Text } from '@/components/orbit/app-text';
+import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
-import { householdRepository } from '@/repositories';
+import { radius, space, typography } from '@/constants/orbit-theme';
+import { buildInviteLinks } from '@/lib/invites/parse-invite';
+import { shareInvite } from '@/lib/invites/share-invite';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-import type { InviteLinks } from '@/types/orbit';
 
 export default function InviteHouseholdScreen() {
-  const { household, inviteLinks, permissions, refreshInviteLinks } = useOrbit();
-  const [links, setLinks] = useState<InviteLinks | null>(inviteLinks);
-  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const { c, glass, glassBorder } = useOrbitColors();
+  const { household, inviteLinks, refreshInviteLinks, accentTheme } = useOrbit();
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const ensureLinks = useCallback(async () => {
+    setLoading(true);
+    try {
+      return inviteLinks ?? (await refreshInviteLinks());
+    } finally {
+      setLoading(false);
+    }
+  }, [inviteLinks, refreshInviteLinks]);
 
   useEffect(() => {
-    let mounted = true;
-    async function load() {
-      if (inviteLinks) {
-        setLinks(inviteLinks);
-        return;
-      }
-      if (!household.id) {
-        return;
-      }
-      const next = await householdRepository.getInviteLink(household.id);
-      if (mounted) {
-        setLinks(next);
-      }
+    void ensureLinks();
+  }, [ensureLinks]);
+
+  const code = inviteLinks?.code || household.inviteCode || '';
+  const links = code ? buildInviteLinks(code) : null;
+
+  const onShare = async () => {
+    if (!links) {
+      setStatus('Invite isn’t ready yet.');
+      return;
     }
-    load().catch(console.warn);
-    return () => {
-      mounted = false;
-    };
-  }, [household.id, inviteLinks]);
-
-  const inviteCode = links?.code || household.inviteCode || 'ORBIT-0000';
-  const deepLink = links?.deepLink || `orbit://join/${inviteCode}`;
-  const webLink = links?.webLink || `https://orbit.app/join/${inviteCode}`;
-
-  if (!permissions.canInviteMembers) {
-    return (
-      <ScrollView style={orbitScreen.container} contentContainerStyle={orbitScreen.content}>
-        <Text style={orbitTypography.title}>Invites locked</Text>
-        <Text style={orbitTypography.body}>Only owners and admins can invite new household members.</Text>
-      </ScrollView>
-    );
-  }
-
-  const handleCopyCode = async () => {
-    await Clipboard.setStringAsync(inviteCode);
-    setCopied('code');
-  };
-
-  const handleCopyLink = async () => {
-    await Clipboard.setStringAsync(webLink);
-    setCopied('link');
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
+    setBusy(true);
+    setStatus('');
     try {
-      const next =
-        (await refreshInviteLinks()) ?? (household.id ? await householdRepository.refreshInvite(household.id) : null);
-      if (next) {
-        setLinks(next);
+      const result = await shareInvite({
+        householdName: household.householdName,
+        inviteCode: links.code,
+        deepLink: links.deepLink,
+        webLink: links.webLink,
+      });
+      if (result === 'shared') {
+        setStatus('Sent.');
       }
+    } catch {
+      setStatus('Couldn’t share. Try again.');
     } finally {
-      setRefreshing(false);
+      setBusy(false);
     }
+  };
+
+  const onCopy = async () => {
+    if (!links) return;
+    await Clipboard.setStringAsync(links.code);
+    setStatus('Code copied.');
   };
 
   return (
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>{household.householdName}</Text>
-        <Text style={orbitTypography.display}>Invite members</Text>
-        <Text style={orbitTypography.body}>
-          Share the QR code or invite code. New members wait for owner/admin approval before full access.
-        </Text>
+    <AuthShell
+      showBack
+      kicker="Household"
+      title="Invite"
+      subtitle="Share with AirDrop or Messages. They open Choremaxx and join."
+      footer={
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Text style={[styles.footerLink, { color: c.textMuted }]}>Done</Text>
+        </Pressable>
+      }>
+      <View
+        style={[
+          styles.stage,
+          {
+            backgroundColor: glass(0.04),
+            borderColor: glassBorder(0.08),
+          },
+        ]}>
+        {loading && !links ? (
+          <ActivityIndicator color={accentTheme.primary} style={styles.loader} />
+        ) : (
+          <>
+            <View style={styles.qrPlate}>
+              {links ? (
+                <QRCode
+                  value={links.deepLink}
+                  size={168}
+                  backgroundColor="transparent"
+                  color={c.text}
+                />
+              ) : null}
+            </View>
+
+            <Pressable onPress={() => void onCopy()} accessibilityLabel="Copy invite code" hitSlop={8}>
+              <Text style={[typography.caption1, styles.codeLabel, { color: c.textMuted }]}>
+                Code
+              </Text>
+              <Text selectable style={[styles.code, { color: c.text }]}>
+                {links?.code ?? '—'}
+              </Text>
+            </Pressable>
+          </>
+        )}
       </View>
 
-      <GlassCard elevated style={styles.card}>
-        <StatusPill label="Scan to join" tone="cyan" />
-        <View style={styles.qrWrap}>
-          <QRCode value={webLink} size={180} backgroundColor="#FFFFFF" color="#070B14" />
-        </View>
-        <Text style={orbitTypography.caption}>Encodes {webLink}</Text>
-      </GlassCard>
+      <OrbitButton disabled={busy || !links} onPress={() => void onShare()}>
+        {busy ? 'Sharing…' : 'Share Invite'}
+      </OrbitButton>
 
-      <GlassCard style={styles.card}>
-        <StatusPill label="Invite code" tone="blue" />
-        <Text selectable style={styles.code}>
-          {inviteCode}
+      {status ? (
+        <Text style={[typography.footnote, styles.status, { color: c.textMuted }]}>{status}</Text>
+      ) : (
+        <Text style={[typography.footnote, styles.status, { color: c.textSubtle }]}>
+          Tap the code to copy
         </Text>
-        <OrbitButton onPress={handleCopyCode}>{copied === 'code' ? 'Copied' : 'Copy Invite Code'}</OrbitButton>
-        <OrbitButton disabled={refreshing || !household.id} tone="secondary" onPress={handleRefresh}>
-          {refreshing ? 'Refreshing…' : 'Refresh code'}
-        </OrbitButton>
-      </GlassCard>
-
-      <GlassCard style={styles.card}>
-        <Text style={orbitTypography.cardTitle}>Invite links</Text>
-        <Text selectable style={orbitTypography.caption}>
-          {webLink}
-        </Text>
-        <Text selectable style={orbitTypography.caption}>
-          {deepLink}
-        </Text>
-        <OrbitButton tone="secondary" onPress={handleCopyLink}>
-          {copied === 'link' ? 'Link copied' : 'Copy web link'}
-        </OrbitButton>
-      </GlassCard>
-    </ScrollView>
+      )}
+    </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: orbitSpacing.md,
+  stage: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.cardLarge,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: space.md,
+    paddingVertical: space.xl,
+    paddingHorizontal: space.lg,
+  },
+  loader: { marginVertical: space.xxl },
+  qrPlate: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: space.sm,
+  },
+  codeLabel: {
+    letterSpacing: 0.6,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
   code: {
-    color: orbitColors.text,
-    fontSize: 34,
-    fontVariant: ['tabular-nums'],
-    fontWeight: '900',
-    letterSpacing: 0,
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textAlign: 'center',
   },
-  qrWrap: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: orbitRadius.md,
-    padding: orbitSpacing.md,
+  status: {
+    textAlign: 'center',
+  },
+  footerLink: {
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

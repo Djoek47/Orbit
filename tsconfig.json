@@ -2,6 +2,7 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "types": ["node"],
     "paths": {
       "@/*": [
         "./*"
@@ -16,6 +17,8 @@
   ],
   "exclude": [
     "supabase/functions/**",
-    "node_modules"
+    "node_modules",
+    "design/make/source/**",
+    "site/**"
   ]
 }

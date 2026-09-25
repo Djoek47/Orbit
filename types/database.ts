@@ -20,6 +20,22 @@ export type HouseholdRow = {
   owner_id: string;
   timezone: string;
   country: string | null;
+  reward_mode?: 'weighted' | 'flat';
+  reward_model?: 'xp_only' | 'allowance' | 'xp_rewards' | 'xp_allowance' | 'full';
+  hygiene_rewarded?: boolean;
+  hygiene_xp?: 5 | 10;
+  member_capabilities?: Record<string, boolean> | null;
+  daily_deadline?: string | null;
+  daily_deadline_pending?: string | null;
+  daily_deadline_applies_on?: string | null;
+  allowance_requests_enabled?: boolean | null;
+  join_approval_required?: boolean | null;
+  /** Revision G — household-level, default off. */
+  sidekick_grocery_add?: boolean | null;
+  sidekick_poppins_ai?: boolean | null;
+  deleted_at?: string | null;
+  deletion_scheduled_for?: string | null;
+  deletion_requested_by?: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -29,13 +45,22 @@ export type HouseholdMemberRow = {
   household_id: string;
   user_id: string | null;
   display_name: string | null;
-  role: 'owner' | 'admin' | 'adult' | 'child' | 'guest';
+  role: 'owner' | 'admin' | 'adult' | 'child' | 'guest' | 'shared-device';
   status: 'invited' | 'pending' | 'active' | 'removed';
   avatar_symbol: string | null;
   xp: number;
   week_xp: number;
   streak: number;
   load_share: number;
+  /** Member ids who use this shared phone/tablet profile. */
+  shared_with_member_ids?: string[] | null;
+  /** Kid / shared-device invite, e.g. CMX-EMMA. */
+  profile_invite_code?: string | null;
+  planned_task_library_ids?: string[] | null;
+  /** Frequency overrides keyed by library task id. */
+  planned_task_frequencies?: Record<string, string> | null;
+  /** Admin pre-approval — join lands active when household requires approval. */
+  join_pre_approved?: boolean | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -64,11 +89,21 @@ export type TaskRow = {
   due_label: string;
   due_at: Timestamp | null;
   xp_value: number;
-  difficulty: 'easy' | 'medium' | 'hard';
+  difficulty: 'easy' | 'medium' | 'hard' | null;
+  weight: number | null;
   mental_load_value: number;
   proof_required: boolean;
+  proof_uri: string | null;
+  proof_status: 'none' | 'submitted' | 'approved' | 'rejected' | null;
+  room_id: string | null;
   repeat_rule: 'none' | 'daily' | 'weekly' | 'weekdays';
-  status: 'pending' | 'in_progress' | 'completed' | 'overdue';
+  status: 'pending' | 'in_progress' | 'completed' | 'overdue' | 'cancelled';
+  /** Set on complete; cleared on Mark not done (20260803010000). */
+  completed_at: Timestamp | null;
+  /** XP snapshot at complete time (20260803010000 / 20260923120000 backfill). */
+  awarded_xp: number | null;
+  /** Late-complete flag from scoring revision (20260805220000). */
+  completed_late: boolean;
   created_by: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -82,6 +117,13 @@ export type GroceryItemRow = {
   quantity: string;
   location: 'fridge' | 'freezer' | 'pantry' | 'bathroom' | 'cleaning';
   status: 'available' | 'low' | 'missing' | 'purchased';
+  note: string | null;
+  barcode: string | null;
+  typical_price: number | null;
+  sale_price: number | null;
+  aisle: string | null;
+  store_id: string | null;
+  requested_by: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -119,6 +161,7 @@ export type RewardRow = {
   title: string;
   cost: number;
   approval_required: boolean;
+  assigned_member_id: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -182,19 +225,60 @@ export type AiBriefingRow = {
   updated_at: Timestamp;
 };
 
+export type AiConversationRow = {
+  id: string;
+  household_id: string;
+  user_id: string;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+};
+
+export type AiMessageRow = {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: Timestamp;
+};
+
 export type NotificationRow = {
   id: string;
   household_id: string;
   user_id: string | null;
   title: string;
   body: string;
-  category: 'tasks' | 'groceries' | 'events' | 'rewards' | 'ai' | 'general';
+  category: 'tasks' | 'groceries' | 'events' | 'rewards' | 'ai' | 'general' | 'members';
   priority: 'low' | 'medium' | 'high' | 'critical';
   is_read: boolean;
   data: Json;
   scheduled_for: Timestamp | null;
   sent_at: Timestamp | null;
   created_at: Timestamp;
+};
+
+/** Append-only audit trail (20260925090000_activity_log.sql). */
+export type ActivityLogRow = {
+  id: string;
+  household_id: string;
+  created_at: Timestamp;
+  kind:
+    | 'notification_created'
+    | 'notification_push_sent'
+    | 'notification_received'
+    | 'notification_opened'
+    | 'notification_read'
+    | 'notification_dismissed'
+    | 'notification_deleted'
+    | 'assistant_error'
+    | 'assistant_report';
+  notification_id: string | null;
+  member_id: string | null;
+  actor_user_id: string | null;
+  title: string | null;
+  body: string | null;
+  category: string | null;
+  device: string | null;
+  detail: Json;
 };
 
 export type StoreRecommendationRow = {
@@ -233,7 +317,8 @@ export type SmartHomeSceneRow = {
 
 export type PushTokenRow = {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  member_id: string | null;
   token: string;
   platform: string;
   created_at: Timestamp;
@@ -261,7 +346,7 @@ export type XPTransaction = XPTransactionRow;
 /** @deprecated Prefer HouseholdScoreRow */
 export type HouseholdMomentum = HouseholdScoreRow;
 /** @deprecated Prefer AiBriefingRow */
-export type NovaBriefing = AiBriefingRow;
+export type PoppinsBriefing = AiBriefingRow;
 
 type TableDef<Row, Insert = Partial<Row> & Record<string, unknown>, Update = Partial<Row>> = {
   Row: Row;
@@ -351,6 +436,18 @@ export type Database = {
           Partial<Omit<AiBriefingRow, 'household_id' | 'title' | 'summary'>>,
         Partial<Omit<AiBriefingRow, 'id'>>
       >;
+      ai_conversations: TableDef<
+        AiConversationRow,
+        Pick<AiConversationRow, 'household_id' | 'user_id'> &
+          Partial<Omit<AiConversationRow, 'household_id' | 'user_id'>>,
+        Partial<Omit<AiConversationRow, 'id'>>
+      >;
+      ai_messages: TableDef<
+        AiMessageRow,
+        Pick<AiMessageRow, 'conversation_id' | 'role' | 'content'> &
+          Partial<Omit<AiMessageRow, 'conversation_id' | 'role' | 'content'>>,
+        Partial<Omit<AiMessageRow, 'id'>>
+      >;
       nova_briefings: TableDef<
         Omit<AiBriefingRow, 'briefing_type'>,
         never,
@@ -361,6 +458,12 @@ export type Database = {
         Pick<NotificationRow, 'household_id' | 'title' | 'body'> &
           Partial<Omit<NotificationRow, 'household_id' | 'title' | 'body'>>,
         Partial<Omit<NotificationRow, 'id'>>
+      >;
+      activity_log: TableDef<
+        ActivityLogRow,
+        Pick<ActivityLogRow, 'household_id' | 'kind'> &
+          Partial<Omit<ActivityLogRow, 'household_id' | 'kind'>>,
+        never
       >;
       store_recommendations: TableDef<
         StoreRecommendationRow,
@@ -405,14 +508,158 @@ export type Database = {
       >;
       push_tokens: TableDef<
         PushTokenRow,
-        Pick<PushTokenRow, 'user_id' | 'token' | 'platform'> & Partial<Omit<PushTokenRow, 'user_id' | 'token' | 'platform'>>,
+        Pick<PushTokenRow, 'token' | 'platform'> &
+          Partial<Pick<PushTokenRow, 'user_id' | 'member_id'>> &
+          ({ user_id: string; member_id?: null } | { user_id?: null; member_id: string }),
         Partial<Omit<PushTokenRow, 'id'>>
+      >;
+      ai_usage_events: TableDef<
+        {
+          id: string;
+          household_id: string;
+          client_key: string;
+          member_id: string;
+          member_name: string;
+          kind: string;
+          model: string;
+          input_tokens: number;
+          output_tokens: number;
+          cached_input_tokens?: number;
+          audio_input_seconds?: number;
+          audio_output_seconds?: number;
+          surface?: string | null;
+          mode?: string | null;
+          session_id?: string | null;
+          turn_index?: number | null;
+          duration_ms?: number | null;
+          usd: number;
+          occurred_at: Timestamp;
+          created_at: Timestamp;
+        },
+        {
+          household_id: string;
+          client_key: string;
+          member_id: string;
+          usd: number;
+          member_name?: string;
+          kind?: string;
+          model?: string;
+          input_tokens?: number;
+          output_tokens?: number;
+          cached_input_tokens?: number;
+          audio_input_seconds?: number;
+          audio_output_seconds?: number;
+          surface?: string | null;
+          mode?: string | null;
+          session_id?: string | null;
+          turn_index?: number | null;
+          duration_ms?: number | null;
+          occurred_at?: Timestamp;
+          id?: string;
+          created_at?: Timestamp;
+        },
+        Partial<{
+          member_name: string;
+          kind: string;
+          model: string;
+          input_tokens: number;
+          output_tokens: number;
+          cached_input_tokens: number;
+          audio_input_seconds: number;
+          audio_output_seconds: number;
+          surface: string | null;
+          mode: string | null;
+          session_id: string | null;
+          turn_index: number | null;
+          duration_ms: number | null;
+          usd: number;
+          occurred_at: Timestamp;
+        }>
+      >;
+      act_events: TableDef<
+        {
+          id: string;
+          household_id: string;
+          client_key: string;
+          member_id: string;
+          member_name: string;
+          act_kind: string;
+          voice: string;
+          control: string;
+          tokens: number;
+          outcome: string;
+          utterance_chars: number;
+          turns: number;
+          beats_played: number;
+          slots_from_speech: number;
+          slots_from_touch: number;
+          slots_inherited: number;
+          latency_ms: number;
+          beat_id: string | null;
+          session_id: string | null;
+          session_seconds: number | null;
+          audio_in_seconds: number | null;
+          audio_out_seconds: number | null;
+          occurred_at: Timestamp;
+          created_at: Timestamp;
+        },
+        {
+          household_id: string;
+          client_key: string;
+          member_id: string;
+          act_kind: string;
+          member_name?: string;
+          voice?: string;
+          control?: string;
+          tokens?: number;
+          outcome?: string;
+          utterance_chars?: number;
+          turns?: number;
+          beats_played?: number;
+          slots_from_speech?: number;
+          slots_from_touch?: number;
+          slots_inherited?: number;
+          latency_ms?: number;
+          beat_id?: string | null;
+          session_id?: string | null;
+          session_seconds?: number | null;
+          audio_in_seconds?: number | null;
+          audio_out_seconds?: number | null;
+          occurred_at?: Timestamp;
+          id?: string;
+          created_at?: Timestamp;
+        },
+        Partial<{
+          member_name: string;
+          act_kind: string;
+          voice: string;
+          control: string;
+          tokens: number;
+          outcome: string;
+          utterance_chars: number;
+          turns: number;
+          beats_played: number;
+          slots_from_speech: number;
+          slots_from_touch: number;
+          slots_inherited: number;
+          latency_ms: number;
+          beat_id: string | null;
+          session_id: string | null;
+          session_seconds: number | null;
+          audio_in_seconds: number | null;
+          audio_out_seconds: number | null;
+          occurred_at: Timestamp;
+        }>
       >;
     };
     Views: Record<string, never>;
     Functions: {
       delete_own_account: {
         Args: Record<string, never>;
+        Returns: undefined;
+      };
+      submit_account_deletion_feedback: {
+        Args: { p_reason: string; p_detail?: string | null };
         Returns: undefined;
       };
       is_household_member: {
@@ -426,6 +673,34 @@ export type Database = {
       is_household_admin: {
         Args: { target_household: string };
         Returns: boolean;
+      };
+      promote_member_to_admin: {
+        Args: { p_member_id: string };
+        Returns: Json;
+      };
+      generate_member_invite: {
+        Args: { p_member_id: string; p_requested_role: string };
+        Returns: Json;
+      };
+      redeem_member_invite: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      submit_reward_proposal: {
+        Args: { p_title: string; p_note?: string | null };
+        Returns: Json;
+      };
+      decide_reward_proposal: {
+        Args: { p_proposal_id: string; p_approve: boolean };
+        Returns: Json;
+      };
+      request_household_deletion: {
+        Args: { p_household_id: string };
+        Returns: string;
+      };
+      cancel_household_deletion: {
+        Args: { p_household_id: string };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;

@@ -1,9 +1,14 @@
 import { mockHousehold } from '@/data/mock-household';
+import { buildStartsAtIso, formatStoredDateLabel } from '@/lib/calendar/event-date';
 import { mapEventRow } from '@/lib/mappers/orbit-mappers';
-import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
+import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, mapDbError } from '@/repositories/repository-utils';
 import type { CreateEventInput, HouseholdEvent } from '@/types/orbit';
 
 let mockEventsState: HouseholdEvent[] = clone(mockHousehold.events);
+
+export function __setMockEventsStateForTests(items: HouseholdEvent[]) {
+  mockEventsState = clone(items);
+}
 
 function normalizeCategory(category?: CreateEventInput['category'] | HouseholdEvent['category']): HouseholdEvent['category'] {
   const value = (category ?? 'Family').trim();
@@ -22,19 +27,28 @@ export const calendarRepository = {
       return clone(mockEventsState);
     }
 
-    if (!householdId) {
+    if (!isPersistedHouseholdId(householdId)) {
       return [];
     }
 
     const supabase = getConfiguredSupabase('calendarRepository.getEvents');
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('*')
+      .select('*, event_assignments(member_id)')
       .eq('household_id', householdId)
       .order('created_at', { ascending: false });
     mapDbError('calendarRepository.getEvents', error);
 
-    return (data ?? []).map((row) => mapEventRow(row));
+    return (data ?? []).map((row) => {
+      const assignments = (row as { event_assignments?: { member_id?: string | null }[] }).event_assignments;
+      const attendeeMemberIds = (assignments ?? [])
+        .map((item) => item.member_id)
+        .filter((id): id is string => Boolean(id));
+      return {
+        ...mapEventRow(row as Parameters<typeof mapEventRow>[0]),
+        attendeeMemberIds: attendeeMemberIds.length ? attendeeMemberIds : undefined,
+      };
+    });
   },
 
   async getById(eventId: string): Promise<HouseholdEvent | null> {
@@ -53,14 +67,32 @@ export const calendarRepository = {
     householdId: string | null | undefined,
     input: CreateEventInput
   ): Promise<HouseholdEvent> {
+    const dateKey = input.dateKey?.trim();
+    const dateLabel =
+      dateKey && /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
+        ? formatStoredDateLabel(dateKey)
+        : input.date.trim();
+    const startsAt =
+      input.startsAt ??
+      (dateKey && /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
+        ? buildStartsAtIso(dateKey, input.time)
+        : undefined);
+    const attendeeIds = input.attendeeMemberIds?.filter(Boolean) ?? [];
+
     const event: HouseholdEvent = {
       id: createLocalId('event'),
       title: input.title.trim(),
       category: normalizeCategory(input.category),
-      date: input.date.trim(),
+      date: dateLabel,
       time: input.time.trim(),
       location: input.location.trim(),
       responsible: input.responsible,
+      responsibleMemberId: input.responsibleMemberId ?? null,
+      attendeeMemberIds: attendeeIds.length ? attendeeIds : undefined,
+      householdWide: input.householdWide === true,
+      startsAt,
+      approvalStatus: input.approvalStatus ?? 'approved',
+      createdByMemberId: input.createdByMemberId ?? null,
     };
 
     if (isMockMode()) {
@@ -83,7 +115,12 @@ export const calendarRepository = {
         time_label: event.time,
         location: event.location,
         responsible_name: event.responsible,
-      })
+        responsible_member_id: event.responsibleMemberId ?? null,
+        household_wide: event.householdWide === true,
+        starts_at: event.startsAt ?? null,
+        approval_status: event.approvalStatus ?? 'approved',
+        created_by_member_id: event.createdByMemberId ?? null,
+      } as never)
       .select('*')
       .single();
     mapDbError('calendarRepository.createEvent', error);
@@ -92,7 +129,19 @@ export const calendarRepository = {
       throw new Error('calendarRepository.createEvent: Insert returned no row.');
     }
 
-    return mapEventRow(data);
+    const mapped = mapEventRow(data);
+    if (attendeeIds.length) {
+      await supabase.from('event_assignments').insert(
+        attendeeIds.map((memberId) => ({
+          event_id: mapped.id,
+          household_id: householdId,
+          member_id: memberId,
+        })) as never
+      );
+      return { ...mapped, attendeeMemberIds: attendeeIds };
+    }
+
+    return mapped;
   },
 
   async updateEvent(event: HouseholdEvent): Promise<HouseholdEvent> {
@@ -120,7 +169,12 @@ export const calendarRepository = {
         time_label: next.time,
         location: next.location,
         responsible_name: next.responsible,
-      })
+        responsible_member_id: next.responsibleMemberId ?? null,
+        household_wide: next.householdWide === true,
+        starts_at: next.startsAt ?? null,
+        approval_status: next.approvalStatus ?? 'approved',
+        created_by_member_id: next.createdByMemberId ?? null,
+      } as never)
       .eq('id', next.id)
       .select('*')
       .single();
