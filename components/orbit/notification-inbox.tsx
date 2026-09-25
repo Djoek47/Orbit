@@ -27,6 +27,7 @@ import {
 } from '@/lib/poppins/notification-buckets';
 import { factToActivityItem } from '@/lib/poppins/notification-policy';
 import { speakAs } from '@/lib/ai/majordomo-name';
+import { isAdminRole } from '@/lib/household/admins';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -110,6 +111,7 @@ export function NotificationInbox({
     unreadNotificationCount,
   } = useOrbit();
 
+  const isAdmin = Boolean(currentMember && isAdminRole(currentMember.role));
   const [segment, setSegment] = useState<InboxSegment>(initialSegment);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [clearing, setClearing] = useState(false);
@@ -230,13 +232,26 @@ export function NotificationInbox({
           </Text>
           <Text style={[typography.footnote, { color: c.textMuted }]}>{statusLine}</Text>
         </View>
-        <Pressable
-          onPress={onClose}
-          style={[styles.closeBtn, { backgroundColor: glass(0.08) }]}
-          hitSlop={8}
-          accessibilityLabel="Close inbox">
-          <MaterialIcons name="close" size={18} color={c.textMuted} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          {isAdmin ? (
+            <Pressable
+              onPress={() => router.push('/activity-log' as never)}
+              style={[styles.closeBtn, { backgroundColor: glass(0.08) }]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Activity log"
+              accessibilityHint="Notification history and assistant errors, admins only">
+              <MaterialIcons name="history" size={18} color={c.textMuted} />
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={onClose}
+            style={[styles.closeBtn, { backgroundColor: glass(0.08) }]}
+            hitSlop={8}
+            accessibilityLabel="Close inbox">
+            <MaterialIcons name="close" size={18} color={c.textMuted} />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.segmentWrap}>
@@ -570,6 +585,7 @@ const styles = StyleSheet.create({
     paddingBottom: space.sm,
   },
   headerCopy: { flex: 1, gap: 2 },
+  headerActions: { flexDirection: 'row', gap: space.xs },
   closeBtn: {
     alignItems: 'center',
     borderRadius: 16,

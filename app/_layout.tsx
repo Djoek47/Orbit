@@ -221,6 +221,14 @@ export default function RootLayout() {
                     name="allowance-history"
                     options={{ presentation: 'modal', headerShown: false, title: 'Allowance history' }}
                   />
+                  <Stack.Screen
+                    name="activity-log/index"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Activity log' }}
+                  />
+                  <Stack.Screen
+                    name="activity-log/[notificationId]"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Notification history' }}
+                  />
                 </Stack>
               </LayoutAnimationConfig>
             </OrbitNavTheme>
