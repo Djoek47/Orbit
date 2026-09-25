@@ -176,8 +176,14 @@ export function usePoppinsController() {
     setSessionSelfName(currentMember?.name);
   }, [currentMember?.name]);
 
+  /**
+   * The tier the household is actually on — null until prefs first load. The defaults this
+   * hook starts with are not a tier choice, so their arrival is never a "switch".
+   */
+  const tierRef = useRef<boolean | null>(null);
   useEffect(() => {
     return subscribePoppinsPrefs(household.id, (prefs) => {
+      if (tierRef.current === null) tierRef.current = prefs.speakBack;
       setInteractionPrefs(prefs);
     });
   }, [household.id]);
@@ -468,7 +474,7 @@ export function usePoppinsController() {
   const planLocally = (text: string) => {
     poppinsUiOrchestrator.beginTurn();
     lastUtteranceRef.current = text;
-    continuityRef.current = rememberTurn(continuityRef.current, household.id, {
+    continuityRef.current = rememberTurn(continuityRef.current, householdRef.current.id, {
       role: 'user',
       text,
     });
@@ -476,7 +482,7 @@ export function usePoppinsController() {
     hearAndDrive(text, memberNamesRef.current, {
       kid: kidSessionRef.current,
       selfName: currentMember?.name,
-      existingTasks: household.tasks,
+      existingTasks: householdRef.current.tasks,
       userOriginated: true,
     });
   };
@@ -505,14 +511,21 @@ export function usePoppinsController() {
     if (!text.trim()) return;
     if (role === 'user') {
       // Partial transcripts drive the caption only. Planning on every delta made the stage
-      // reshape itself mid-sentence ("assign" → "assign a task" → …).
-      if (!meta?.final) return;
+      // reshape itself mid-sentence ("assign" → "assign a task" → …). They still update
+      // what the person is saying now, so a model plan that lands before the final
+      // transcript is compared against this sentence — not the previous one.
+      if (!meta?.final) {
+        if (!(voiceStateRef.current === 'speaking' && isEchoOfAssistant(text))) {
+          lastUtteranceRef.current = text;
+        }
+        return;
+      }
       // Echo guard by content, so a spoken correction over Poppins still lands.
       if (voiceStateRef.current === 'speaking' && isEchoOfAssistant(text)) return;
       planLocally(text);
       return;
     }
-    continuityRef.current = rememberTurn(continuityRef.current, household.id, {
+    continuityRef.current = rememberTurn(continuityRef.current, householdRef.current.id, {
       role: 'assistant',
       text,
     });
@@ -530,7 +543,7 @@ export function usePoppinsController() {
     const local = parseCompoundHouseholdIntent(lastUtteranceRef.current, {
       memberNames: memberNamesRef.current,
       selfName: currentMember?.name,
-      existingTasks: household.tasks,
+      existingTasks: householdRef.current.tasks,
     });
     // Groceries never ask "who".
     if (onlyMemberPick && local.some((a) => String(a.type) === 'add_grocery')) return;
@@ -540,7 +553,7 @@ export function usePoppinsController() {
     driveAiuic(deduped, lastUtteranceRef.current, {
       kid: kidSessionRef.current,
       replace,
-      existingTasks: household.tasks,
+      existingTasks: householdRef.current.tasks,
       memberNames: memberNamesRef.current,
       selfName: currentMember?.name,
       source: 'model',
@@ -684,9 +697,9 @@ export function usePoppinsController() {
 
   // Switching tier is a clean slate: no leftover error, notice, or half-finished chain from
   // the other tier. (A card in its Undo window is kept — the person may still want it.)
-  const tierRef = useRef(interactionPrefs.speakBack);
+  // Only a change after prefs loaded counts; the first load just records the tier.
   useEffect(() => {
-    if (tierRef.current === interactionPrefs.speakBack) return;
+    if (tierRef.current === null || tierRef.current === interactionPrefs.speakBack) return;
     tierRef.current = interactionPrefs.speakBack;
     setError('');
     setStatusNotice(null);
