@@ -66,10 +66,14 @@ export type PoppinsPendingConfirmation = {
 
 export type PoppinsVoiceSessionCallbacks = {
   onStateChange?: (state: PoppinsVoiceVisualState) => void;
+  /**
+   * `final` is true only for the completed user transcript (and typed text). Partial deltas
+   * arrive with it false — use them for the caption, never to plan an act.
+   */
   onTranscript?: (
     role: 'user' | 'assistant',
     text: string,
-    meta?: { replace?: boolean }
+    meta?: { replace?: boolean; final?: boolean }
   ) => void;
   onPendingConfirmations?: (items: PoppinsPendingConfirmation[]) => void;
   onUiActions?: (actions: Array<Record<string, unknown>>) => void;
@@ -619,7 +623,7 @@ export class PoppinsVoiceSession {
     const trimmed = text.trim();
     if (!trimmed || !this.isConnected) return false;
     this.noteUserActivity();
-    this.callbacks.onTranscript?.('user', trimmed, { replace: true });
+    this.callbacks.onTranscript?.('user', trimmed, { replace: true, final: true });
     this.setState('thinking');
     this.sendEvent({
       type: 'conversation.item.create',
@@ -768,7 +772,7 @@ export class PoppinsVoiceSession {
         const replace = this.pendingUserReplace || !this.userTranscriptBuffer;
         this.pendingUserReplace = false;
         this.userTranscriptBuffer = next;
-        this.callbacks.onTranscript?.('user', next, { replace });
+        this.callbacks.onTranscript?.('user', next, { replace, final: true });
       }
       this.noteUserActivity();
     }
@@ -1061,6 +1065,26 @@ export class PoppinsVoiceSession {
       type: 'response.create',
     });
     this.setState('thinking');
+  }
+
+  /**
+   * The stage already owns this act (the person's own words staged it). Tell the model not
+   * to execute its pending copy — without asking it to speak.
+   */
+  notifyHandledOnStage(confirmationIds: string[], summary?: string) {
+    if (!this.isConnected || !confirmationIds.length) return;
+    const what = summary?.trim() ? ` (${summary.trim()})` : '';
+    this.sendEvent({
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'user',
+        content: realtimeTextContent(
+          'user',
+          `Already handled on screen${what}: ${confirmationIds.join(', ')}. Do not execute these or ask again.`
+        ),
+      },
+    });
   }
 
   async end(reason = 'manual') {
