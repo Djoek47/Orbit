@@ -23,21 +23,28 @@ assert.ok(!/if \(drive\.live\) setInboxOpen\(true\)/.test(chips), 'live IUI must
 assert.match(chips, /accessibilityLabel="Notifications"/);
 assert.match(chips, /router\.push\('\/notifications'/);
 
+// The tab is layout; behaviour lives in the controller, the mic and status in the dock.
 const poppinsTab = source('app/(tabs)/poppins.tsx');
+const poppinsDock = source('components/orbit/poppins/poppins-dock.tsx');
+const poppinsController = source('lib/poppins/use-poppins-controller.ts');
 assert.match(poppinsTab, /PoppinsHourglass/);
 assert.match(poppinsTab, /tab: 'activity'/);
 assert.match(poppinsTab, /accessibilityLabel="Activity"/);
-assert.match(poppinsTab, /active=\{isActive\}/, 'hourglass animates while Poppins is live');
+assert.match(poppinsTab, /active=\{p\.isActive\}/, 'hourglass animates while Poppins is live');
 assert.ok(
-  !poppinsTab.includes('active={isActive || monitorFeed.length > 0}'),
+  !poppinsTab.includes('monitorFeed.length > 0'),
   'hourglass must not spin unprompted'
 );
 assert.ok(!poppinsTab.includes('Type instead'), 'Type is a door, not the error product');
-assert.match(poppinsTab, /selectable/, 'Speak errors stay copyable');
-assert.match(poppinsTab, /numberOfLines=\{8\}/, 'raw Speak dump is not clipped to two lines');
-assert.match(poppinsTab, /start_failed: connect returned false with no onError/);
+assert.ok(!poppinsDock.includes('Type instead'), 'Type is a door, not the error product');
+assert.match(poppinsDock, /selectable numberOfLines=\{8\}/, 'Speak errors stay copyable and unclipped');
+assert.match(poppinsController, /start_failed: connect returned false with no onError/);
 assert.match(poppinsTab, /STAGE\.shell\.groundDark/, 'live stage uses board ground');
-assert.ok(poppinsTab.includes('if (drive.live) return'), 'hourglass does not overlay a live scene');
+assert.match(
+  poppinsTab,
+  /\{!live \? \(\s*<Pressable[\s\S]*?accessibilityLabel="Activity"/,
+  'hourglass does not overlay a live scene'
+);
 
 const inbox = source('components/orbit/notification-inbox.tsx');
 assert.match(inbox, /Inbox/);
