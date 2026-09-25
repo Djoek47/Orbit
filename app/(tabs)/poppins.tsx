@@ -26,7 +26,11 @@ import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { PoppinsLiveCaption } from '@/components/orbit/poppins-live-caption';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PoppinsStage } from '@/components/orbit/poppins-stage';
-import { IuiTroubleNothingHeard } from '@/components/orbit/poppins-stage/iui-trouble';
+import {
+  IuiTroubleMissingSlot,
+  IuiTroubleNothingHeard,
+} from '@/components/orbit/poppins-stage/iui-trouble';
+import { REFRAME_CHIPS, type ReframeFamily } from '@/lib/poppins/base-session';
 import { PoppinsWaveform } from '@/components/orbit/poppins-waveform';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
@@ -119,12 +123,40 @@ export default function PoppinsScreen() {
         <View style={styles.stageRegion}>
           {!live ? (
             <View style={styles.idleTop}>
-              {p.nothingHeard ? (
-                <IuiTroubleNothingHeard
-                  accent={STAGE.domain.chores}
-                  failed={p.nothingHeard}
-                  onRetry={p.retryAfterNothingHeard}
-                />
+              {p.baseTrouble?.kind === 'unknown' ? (
+                <View style={styles.troubleWrap}>
+                  <IuiTroubleMissingSlot
+                    accent={STAGE.domain.chores}
+                    question={p.baseTrouble.title}
+                    why={p.baseTrouble.reason}
+                    chips={REFRAME_CHIPS}
+                    onPick={(id) => p.reframeBaseSentence(id as ReframeFamily)}
+                  />
+                </View>
+              ) : p.baseTrouble ? (
+                <View style={styles.troubleWrap}>
+                  <IuiTroubleNothingHeard
+                    accent={STAGE.domain.chores}
+                    title={p.baseTrouble.title}
+                    reason={p.baseTrouble.reason}
+                    actionLabel={
+                      p.baseTrouble.action === 'settings'
+                        ? 'Settings'
+                        : p.baseTrouble.action === 'type'
+                          ? 'Type'
+                          : 'Again'
+                    }
+                    onRetry={() => p.onBaseTroubleAction(p.baseTrouble?.action ?? 'again')}
+                  />
+                </View>
+              ) : p.nothingHeard ? (
+                <View style={styles.troubleWrap}>
+                  <IuiTroubleNothingHeard
+                    accent={STAGE.domain.chores}
+                    failed={p.nothingHeard}
+                    onRetry={p.retryAfterNothingHeard}
+                  />
+                </View>
               ) : p.micUi.hint && !p.micUi.micEnabled ? (
                 <View style={styles.transportHint}>
                   <Text style={[styles.transportHintText, { color: c.textMuted }]}>{p.micUi.hint}</Text>
@@ -153,6 +185,13 @@ export default function PoppinsScreen() {
                   {p.continueHint ?? p.idleHint}
                 </Text>
               )}
+              {p.baseAfter && !p.baseTrouble ? (
+                <Text
+                  style={[styles.baseAfter, { color: isDark ? STAGE.text.mutedDark : STAGE.text.mutedLight }]}
+                  accessibilityLiveRegion="polite">
+                  {p.baseAfter}
+                </Text>
+              ) : null}
               {p.holdTip ? (
                 <Text style={[styles.holdTip, { color: c.textMuted }]}>{p.holdTip}</Text>
               ) : null}
@@ -182,6 +221,20 @@ export default function PoppinsScreen() {
               contentContainerStyle={styles.stageScrollContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}>
+              {p.heard ? (
+                <Text
+                  style={[
+                    styles.heard,
+                    {
+                      color: isDark ? STAGE.text.mutedDark : STAGE.text.mutedLight,
+                      opacity: p.heard.live ? 0.6 : 1,
+                    },
+                  ]}
+                  numberOfLines={3}
+                  accessibilityLabel={`You said: ${p.heard.text}`}>
+                  “{p.heard.text}”
+                </Text>
+              ) : null}
               <TourTarget id="poppins.stage" style={styles.stageTour}>
                 <PoppinsStage onVoiceTaskCreated={p.onVoiceTaskCreated} />
               </TourTarget>
@@ -249,7 +302,7 @@ const styles = StyleSheet.create({
   idleTop: {
     alignItems: 'center',
     gap: 8,
-    maxHeight: 260,
+    maxHeight: 340,
     minHeight: 96,
     overflow: 'hidden',
     paddingHorizontal: space.lg,
@@ -266,6 +319,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   holdTip: { fontSize: 13, textAlign: 'center' },
+  baseAfter: { fontSize: 14, lineHeight: 20, textAlign: 'center', paddingHorizontal: space.md },
+  troubleWrap: { alignSelf: 'stretch' },
+  heard: {
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: 'center',
+    paddingHorizontal: space.md,
+    paddingBottom: space.sm,
+  },
   idleHint: { fontSize: 14, letterSpacing: 0.2, textAlign: 'center' },
   orbSlot: { alignItems: 'center', justifyContent: 'center', width: '100%' },
   orbSlotIdle: { flex: 1, minHeight: 196 },

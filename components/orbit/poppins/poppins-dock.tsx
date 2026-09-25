@@ -27,6 +27,11 @@ export function PoppinsDock({ p, bottomInset, showTierPills }: Props) {
   const { c, isDark, glass, glassBorder } = useOrbitColors();
   const { micUi, primaryConnected, connecting, voiceSettling, captureMode } = p;
   const micDisabled = voiceSettling || (!micUi.micEnabled && !micUi.offerSwitchToBase);
+  // Base listens and never talks back, so its mic looks like listening, not like a call:
+  // it stays green, keeps the mic glyph, and a ring breathes with the person's own voice.
+  const baseListening = p.baseOn;
+  const level = p.waveLevelDb == null ? 0 : Math.max(0, Math.min(1, (p.waveLevelDb + 60) / 60));
+  const maxLive = primaryConnected && !baseListening;
 
   return (
     <View style={[styles.dock, { paddingBottom: Math.max(bottomInset, 16) + 8 }]}>
@@ -73,8 +78,10 @@ export function PoppinsDock({ p, bottomInset, showTierPills }: Props) {
             style={[styles.micWrap, { width: STAGE.dock.mic, height: STAGE.dock.mic }]}
             accessibilityRole="button"
             accessibilityLabel={
-              primaryConnected
-                ? captureMode === 'tap10'
+              baseListening
+                ? 'Listening. Tap to close'
+                : primaryConnected
+                ? captureMode === 'tap'
                   ? 'Stop'
                   : 'Done'
                 : micUi.micEnabled
@@ -84,18 +91,47 @@ export function PoppinsDock({ p, bottomInset, showTierPills }: Props) {
                     : 'Voice unavailable'
             }
             accessibilityHint={
-              primaryConnected
-                ? 'Stops listening and keeps what is on screen'
-                : micUi.micEnabled
-                  ? 'Hold to talk, or tap for a 10 second window'
-                  : undefined
+              baseListening
+                ? 'Stops listening and clears the screen'
+                : primaryConnected
+                  ? 'Ends the conversation and clears the screen'
+                  : micUi.micEnabled
+                    ? p.isBaseTier
+                      ? 'Starts listening. Poppins writes down what you say and sets it up'
+                      : 'Starts a conversation with Poppins'
+                    : undefined
             }
             accessibilityState={{
               busy: connecting || voiceSettling,
               selected: primaryConnected,
               disabled: micDisabled,
             }}>
-            {primaryConnected ? (
+            {baseListening ? (
+              <>
+                <View
+                  style={[
+                    styles.micPulse,
+                    {
+                      borderRadius: STAGE.dock.mic / 2,
+                      borderWidth: 2,
+                      borderColor: isDark ? 'rgba(52,211,153,0.55)' : 'rgba(15,111,85,0.45)',
+                      transform: [{ scale: 1.12 + level * 0.38 }],
+                      opacity: 0.35 + level * 0.65,
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.micPulse,
+                    {
+                      backgroundColor: isDark ? 'rgba(52,211,153,0.12)' : 'rgba(15,111,85,0.1)',
+                      borderRadius: STAGE.dock.mic / 2,
+                      transform: [{ scale: 1.5 + level * 0.25 }],
+                    },
+                  ]}
+                />
+              </>
+            ) : primaryConnected ? (
               <View
                 style={[
                   styles.micPulse,
@@ -110,7 +146,7 @@ export function PoppinsDock({ p, bottomInset, showTierPills }: Props) {
               colors={
                 !micUi.micEnabled
                   ? ['rgba(100,116,139,0.7)', 'rgba(71,85,105,0.65)']
-                  : primaryConnected
+                  : maxLive
                     ? ['rgba(248,113,113,0.95)', 'rgba(239,68,68,0.85)']
                     : connecting
                       ? ['rgba(167,139,250,0.9)', 'rgba(139,92,246,0.8)']
@@ -125,19 +161,19 @@ export function PoppinsDock({ p, bottomInset, showTierPills }: Props) {
                   height: STAGE.dock.mic,
                   borderRadius: STAGE.dock.mic / 2,
                   borderColor: primaryConnected
-                    ? 'rgba(255,255,255,0.25)'
+                    ? baseListening
+                      ? 'rgba(255,255,255,0.4)'
+                      : 'rgba(255,255,255,0.25)'
                     : isDark
                       ? 'rgba(118,196,174,0.28)'
                       : 'rgba(15,111,85,0.28)',
                   opacity: micUi.micEnabled ? 1 : 0.72,
                 },
               ]}>
-              {primaryConnected ? (
-                captureMode === 'tap10' && p.tapSecondsLeft != null ? (
-                  <Text style={styles.tapCountdown}>{p.tapSecondsLeft}</Text>
-                ) : (
-                  <View style={styles.stopSquare} />
-                )
+              {baseListening ? (
+                <MaterialIcons name="mic" size={28} color="#FFFFFF" />
+              ) : primaryConnected ? (
+                <View style={styles.stopSquare} />
               ) : connecting ? (
                 <MaterialIcons name="graphic-eq" size={28} color="#fff" />
               ) : (
@@ -219,11 +255,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     height: 20,
     width: 20,
-  },
-  tapCountdown: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: '700',
   },
   capCountdown: {
     color: '#FBBF24',

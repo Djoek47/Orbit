@@ -13,10 +13,21 @@
  *    is gone — and a pending act the person's own words already staged is closed with the
  *    model instead of being asked twice.
  *  - Switching Base ↔ Max clears errors and any stale chain from the other tier.
+ *
+ * Base is Max without the voice. One tap opens a listening session on the iPhone's own
+ * recognizer (base-listener.ts): the words appear as they are heard, each finished sentence
+ * drives the stage exactly like a Max transcript would, and it keeps listening after an act
+ * lands so the next one can follow. Nothing is uploaded and nothing talks back. Tap again —
+ * or say "that's all" — and the session and the stage close and reset.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
+import {
+  isCorrectionUtterance,
+  logAssistantError,
+  logAssistantReport,
+} from '@/lib/activity/activity-log';
 import { stageAccent } from '@/constants/iui-stage';
 import { POPPINS_PAUSED_COPY } from '@/lib/ai/credits';
 import {
@@ -73,6 +84,13 @@ import {
   QUIET_FAILURE_MESSAGES,
   type QuietCapture,
 } from '@/lib/voice/quiet-capture';
+import {
+  BaseListener,
+  baseListeningAvailable,
+  listenLocale,
+  vocabularyFor,
+  type BaseListenFailure,
+} from '@/lib/voice/base-listener';
 import { persistVoiceFailure } from '@/lib/voice/quiet-failures';
 import { micUiForPrefs, quietCaptureAvailable, speakTransportForPrefs } from '@/lib/voice/speak-transport';
 import {
@@ -82,9 +100,19 @@ import {
 } from '@/lib/voice/transcript-merge';
 import type { HouseholdTask } from '@/types/orbit';
 import { useOrbit } from '@/store/orbit-store';
+import {
+  baseTroubleForFailure,
+  isEndOfSessionUtterance,
+  reframeUtterance,
+  SILENT_START_TROUBLE,
+  unknownSentenceTrouble,
+  type BaseTrouble,
+  type BaseTroubleAction,
+  type ReframeFamily,
+} from '@/lib/poppins/base-session';
 
 export type PoppinsVisualState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'success';
-export type CaptureMode = 'hold' | 'tap10';
+export type CaptureMode = 'hold' | 'tap';
 export type TurnInputSource = 'typed' | 'dictated';
 export type NothingHeard = null | 'no_audio' | 'too_short' | 'transcribe_failed' | 'empty_transcript';
 
@@ -95,7 +123,8 @@ const VOICE_FAILURE_CAUSES: ReadonlySet<string> = new Set([
   'budget_tripped',
 ]);
 
-const TAP10_MS = 10_000;
+/** After an act lands in Base, the line that invites the next one. */
+export const BASE_AFTER_LINE = "All set. Say what's next — or tap the mic to close.";
 
 /** Server tools whose confirmations the stage's HOLD already answers. */
 const HOLD_WRITE_TOOLS = new Set([
@@ -162,11 +191,23 @@ export function usePoppinsController() {
   const sourceByUserOrdinal = useRef(new Map<number, TurnInputSource>());
   const [sourceEpoch, setSourceEpoch] = useState(0);
   const [nothingHeard, setNothingHeard] = useState<NothingHeard>(null);
+  // Base listening session (see file header).
+  const baseRef = useRef<BaseListener | null>(null);
+  const baseQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const [baseOn, setBaseOn] = useState(false);
+  /** Words arriving right now, before the sentence ends. */
+  const [baseLive, setBaseLive] = useState('');
+  /** The last finished sentence — shown above the card it made. */
+  const [baseHeard, setBaseHeard] = useState('');
+  const baseHeardRef = useRef('');
+  /** "All set. Say what's next — or tap the mic to close." */
+  const [baseAfter, setBaseAfter] = useState<string | null>(null);
+  const [baseTrouble, setBaseTrouble] = useState<BaseTrouble | null>(null);
 
   const micUi = useMemo(
     () =>
       micUiForPrefs(tourForcesQuietSpeak() ? false : interactionPrefs.speakBack, {
-        quiet: quietCaptureAvailable(),
+        quiet: baseListeningAvailable() || quietCaptureAvailable(),
         realtime: nativeVoice,
       }),
     [interactionPrefs.speakBack, nativeVoice]
@@ -362,7 +403,7 @@ export function usePoppinsController() {
   const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
     idle: {
       label: micUi.micEnabled
-        ? `${majordomo.displayName} · Hold to speak`
+        ? `${majordomo.displayName} · Tap to speak`
         : `${majordomo.displayName} · Ready`,
       color: majordomo.accent,
     },
@@ -380,6 +421,8 @@ export function usePoppinsController() {
     return () => {
       voiceRef.current?.disconnect();
       voiceRef.current = null;
+      baseRef.current?.abort();
+      baseRef.current = null;
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, []);
@@ -625,12 +668,15 @@ export function usePoppinsController() {
         setLiveConnected(false);
         setVoiceState('idle');
         setLiveCaption(null);
+        if (endingManuallyRef.current) return; // endNativeVoice resets the stage itself
         const iui = poppinsUiOrchestrator.getState();
-        if (iui.live && (iui.holding || iui.frozen || iui.phase === 'hold' || iui.phase === 'unfold')) {
+        // The line dropped mid-act: keep the card, paused, so a tap resumes it. Anything
+        // already done (settle, "All set", Undo) closes — it never stays up frozen.
+        if (iui.live && (iui.holding || iui.phase === 'hold' || iui.phase === 'unfold')) {
           poppinsUiOrchestrator.pause();
           persistContinuity();
         } else {
-          persistContinuity(snapshotFromDrive(continuityRef.current, household.id, iui));
+          resetStageForClose();
         }
       },
       onSoftIdlePrompt: () => {
@@ -677,10 +723,27 @@ export function usePoppinsController() {
     return session;
   };
 
+  /**
+   * Closing is a reset (owner's rule): the stage, the caption and any half-made act go
+   * away, so the next open starts clean — never "blocked" on an old All set.
+   * Anything already saved stays saved.
+   */
+  const resetStageForClose = () => {
+    poppinsUiOrchestrator.clear();
+    setLiveCaption(null);
+    setBaseAfter(null);
+    setBaseHeard('');
+    baseHeardRef.current = '';
+    setBaseLive('');
+    setBaseTrouble(null);
+    setNothingHeard(null);
+    setHoldTip(null);
+    persistContinuity(snapshotFromDrive(continuityRef.current, household.id, poppinsUiOrchestrator.getState()));
+  };
+
+  const endingManuallyRef = useRef(false);
   const endNativeVoice = async () => {
-    const iui = poppinsUiOrchestrator.getState();
-    if (iui.live) poppinsUiOrchestrator.pause();
-    persistContinuity();
+    endingManuallyRef.current = true;
     setVoiceSettling(true);
     try {
       await voiceRef.current?.end('manual');
@@ -690,8 +753,9 @@ export function usePoppinsController() {
       setVoiceState('idle');
       setListening(false);
       setRemoteStreamUrl(null);
-      setLiveCaption(null);
       setVoiceSettling(false);
+      resetStageForClose();
+      endingManuallyRef.current = false;
     }
   };
 
@@ -732,6 +796,14 @@ export function usePoppinsController() {
     if (liveSpeak && voiceRef.current?.isConnected) {
       voiceRef.current.sendUserText(trimmed);
       appendPoppinsTurn(trimmed, '(live voice)');
+      return;
+    }
+
+    // Base: typing is just another way of saying it.
+    if (currentTransport() === 'quiet') {
+      baseQueueRef.current = baseQueueRef.current
+        .then(() => runBaseTurn(trimmed, source))
+        .catch(() => undefined);
       return;
     }
 
@@ -792,6 +864,262 @@ export function usePoppinsController() {
     await submitUtterance(draft, 'typed');
   };
 
+  // ── Base ──────────────────────────────────────────────────────────────────────────────
+
+  const stageSummary = () => {
+    const s = poppinsUiOrchestrator.getState();
+    const beat = s.playlist[s.index];
+    if (!beat) return 'stage empty';
+    const p = beat.payload;
+    return `${beat.scene}: ${p.title ?? p.groceryName ?? p.itineraryTitle ?? ''}${p.assignee ? ` → ${p.assignee}` : ''}`;
+  };
+
+  /**
+   * One sentence, heard or typed, in Base. The words drive the stage through the same
+   * grammar as Max; the model is asked only when the grammar found nothing to put on stage,
+   * and nothing is ever spoken back.
+   */
+  const runBaseTurn = async (text: string, source: TurnInputSource) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const householdId = householdRef.current.id ?? '';
+    setBaseTrouble(null);
+    setBaseAfter(null);
+    setNothingHeard(null);
+    setError('');
+    setStatusNotice(null);
+    setHoldTip(null);
+    if (source === 'dictated') rememberInputSource('dictated');
+
+    const previous = baseHeardRef.current;
+    baseHeardRef.current = trimmed;
+    setBaseHeard(trimmed);
+
+    // "No, that's wrong" — keep the pair so it can be fixed later. It still steers the card.
+    if (isCorrectionUtterance(trimmed)) {
+      void logAssistantReport({
+        householdId,
+        memberId: currentMember?.id,
+        tier: 'base',
+        transcript: previous ? `${previous} → ${trimmed}` : trimmed,
+        note: stageSummary(),
+      });
+    }
+
+    if (isEndOfSessionUtterance(trimmed) && !poppinsUiOrchestrator.getState().live) {
+      endBaseSession();
+      return;
+    }
+
+    setSessionActMode('silent');
+    setLiveCaption(applyLiveCaptionTurn(null, 'you', trimmed, true));
+    lastUtteranceRef.current = trimmed;
+    continuityRef.current = rememberTurn(continuityRef.current, householdId, { role: 'user', text: trimmed });
+    void saveIuiContinuity(continuityRef.current);
+    poppinsUiOrchestrator.beginTurn();
+    setAsking(true);
+    try {
+      const resolved = await resolveBaseUtterance(trimmed, {
+        memberNames: memberNamesRef.current,
+        kid: kidSessionRef.current,
+        selfName: currentMember?.name,
+        existingTasks: householdRef.current.tasks,
+        ask: askPoppins,
+        askWhenStaged: false,
+      });
+      appendPoppinsTurn(trimmed, resolved.localConfirm ?? '');
+
+      if (resolved.kind === 'coach' && currentMember) {
+        void recordActEvent(
+          buildActEvent({
+            memberId: currentMember.id,
+            memberName: currentMember.name,
+            actKind: 'coach',
+            mode: 'silent',
+            outcome: 'committed',
+            utteranceChars: trimmed.length,
+          })
+        );
+      }
+
+      const staged = () => poppinsUiOrchestrator.getState().live;
+      if (resolved.kind === 'model') {
+        if (resolved.ui_actions?.length) applyUiActions(resolved.ui_actions as Record<string, unknown>[], true);
+        if (!staged()) {
+          // A question, not a request: Base writes the answer, it doesn't say it.
+          const written = (resolved.modelAnswer ?? '').trim();
+          if (written) setLiveCaption(applyLiveCaptionTurn(null, 'poppins', written, true));
+          else setBaseTrouble(unknownSentenceTrouble(trimmed));
+        }
+      } else if (resolved.kind === 'model_error' && !staged()) {
+        setBaseTrouble(unknownSentenceTrouble(trimmed));
+        void logAssistantError({
+          householdId,
+          memberId: currentMember?.id,
+          tier: 'base',
+          stage: 'plan',
+          message: 'grammar found no act and the model did not answer',
+          transcript: trimmed,
+        });
+      }
+    } catch (err) {
+      if (!poppinsUiOrchestrator.getState().live) setBaseTrouble(unknownSentenceTrouble(trimmed));
+      void logAssistantError({
+        householdId,
+        memberId: currentMember?.id,
+        tier: 'base',
+        stage: 'plan',
+        message: err instanceof Error ? err.message : String(err),
+        transcript: trimmed,
+      });
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  const listenVocabulary = () => {
+    const h = householdRef.current;
+    return vocabularyFor([
+      ...h.members.map((member) => member.name),
+      ...(h.savedPlaces ?? []).map((place) => place.name),
+      ...h.tasks.slice(0, 40).map((task) => task.title),
+      ...(h.groceries ?? []).slice(0, 30).map((item) => item.name),
+      'Poppins',
+    ]);
+  };
+
+  const startBaseSession = async () => {
+    if (baseRef.current?.active || voiceSettling) return;
+    if (aiSummary.tripped) {
+      persistVoiceFailure('budget_tripped');
+      setError('');
+      setStatusNotice(POPPINS_PAUSED_COPY);
+      return;
+    }
+    if (liveConnected || voiceRef.current?.isConnected) await endNativeVoice();
+    const { emitTourEvent } = await import('@/lib/tour/tour-events');
+    emitTourEvent('poppins_spoke', { phase: 'press' });
+    setBaseTrouble(null);
+    setNothingHeard(null);
+    setError('');
+    setStatusNotice(null);
+    setBaseAfter(null);
+    setBaseLive('');
+    setSessionActMode('silent');
+    const listener = new BaseListener();
+    baseRef.current = listener;
+    setBaseOn(true);
+    setListening(true);
+    setVoiceState('listening');
+    const ok = await listener.start(
+      {
+        onLive: (text) => {
+          setBaseLive(text);
+          if (text) {
+            lastUtteranceRef.current = text;
+            setBaseAfter(null);
+            setBaseTrouble(null);
+          }
+        },
+        onUtterance: (text) => {
+          setBaseLive('');
+          baseQueueRef.current = baseQueueRef.current
+            .then(() => runBaseTurn(text, 'dictated'))
+            .catch(() => undefined);
+        },
+        onLevel: (level) => setWaveLevelDb(level > 0.02 ? -60 + level * 60 : null),
+        onFailure: (reason: BaseListenFailure, detail) => {
+          setBaseTrouble(baseTroubleForFailure(reason));
+          if (reason === 'permission' || reason === 'unavailable' || reason === 'language') setThreadOpen(true);
+          void logAssistantError({
+            householdId: householdRef.current.id ?? '',
+            memberId: currentMember?.id,
+            tier: 'base',
+            stage: `listen:${reason}`,
+            message: detail,
+          });
+        },
+        onEnded: (why) => {
+          if (baseRef.current === listener) baseRef.current = null;
+          setBaseOn(false);
+          setListening(false);
+          setBaseLive('');
+          setWaveLevelDb(null);
+          setVoiceState('idle');
+          if (why === 'silent_start') setBaseTrouble(SILENT_START_TROUBLE);
+          if (why === 'idle') setBaseAfter(null);
+          void import('@/lib/tour/tour-events').then(({ emitTourEvent: emit }) =>
+            emit('poppins_spoke', { phase: 'done' })
+          );
+        },
+      },
+      {
+        locale: listenLocale(),
+        vocabulary: listenVocabulary(),
+        keepOpen: () => poppinsUiOrchestrator.getState().live,
+        idleCloseMs: 30_000,
+        silentStartMs: 12_000,
+      }
+    );
+    if (!ok) {
+      if (baseRef.current === listener) baseRef.current = null;
+      setBaseOn(false);
+      setListening(false);
+      setVoiceState('idle');
+    }
+  };
+
+  /** Tap to close: stop listening and reset the stage. Half a sentence is dropped. */
+  const endBaseSession = () => {
+    const listener = baseRef.current;
+    baseRef.current = null;
+    listener?.abort();
+    setBaseOn(false);
+    setListening(false);
+    setVoiceState('idle');
+    setWaveLevelDb(null);
+    resetStageForClose();
+  };
+
+  const toggleBaseSession = async () => {
+    if (baseRef.current?.active || baseOn) {
+      endBaseSession();
+      return;
+    }
+    await startBaseSession();
+  };
+
+  /** A sentence the grammar missed, re-read as the kind of thing the person picked. */
+  const reframeBaseSentence = (family: ReframeFamily) => {
+    const heard = baseTrouble?.heard ?? baseHeardRef.current;
+    if (!heard) return;
+    setBaseTrouble(null);
+    baseQueueRef.current = baseQueueRef.current
+      .then(() => runBaseTurn(reframeUtterance(heard, family), 'typed'))
+      .catch(() => undefined);
+  };
+
+  const onBaseTroubleAction = (action: BaseTroubleAction) => {
+    if (action === 'settings') {
+      void import('react-native').then(({ Linking }) => Linking.openSettings());
+      return;
+    }
+    if (action === 'type') {
+      setBaseTrouble(null);
+      setThreadOpen(true);
+      return;
+    }
+    setBaseTrouble(null);
+    void startBaseSession();
+  };
+
+  // When the act a sentence made has landed and the stage clears, invite the next one.
+  const baseWasLiveRef = useRef(false);
+  useEffect(() => {
+    if (baseOn && baseWasLiveRef.current && !drive.live) setBaseAfter(BASE_AFTER_LINE);
+    baseWasLiveRef.current = drive.live;
+  }, [drive.live, baseOn]);
+
   const resetCaptureUi = () => {
     clearTapTimer();
     setCapSecondsLeft(null);
@@ -842,18 +1170,6 @@ export function usePoppinsController() {
           }
         },
       });
-      if (mode === 'tap10') {
-        const startedAt = Date.now();
-        setTapSecondsLeft(10);
-        tapTimerRef.current = setInterval(() => {
-          const left = Math.max(0, Math.ceil((TAP10_MS - (Date.now() - startedAt)) / 1000));
-          setTapSecondsLeft(left);
-          if (left <= 0) {
-            clearTapTimer();
-            void stopQuietCapture();
-          }
-        }, 200);
-      }
     } catch (err) {
       resetCaptureUi();
       quietRef.current = null;
@@ -960,6 +1276,11 @@ export function usePoppinsController() {
     if (voiceSettling || !micUi.micEnabled) return;
     longPressArmedRef.current = true;
     if (currentTransport() === 'quiet') {
+      // Base listens on a tap; a long press is the same gesture, not a timer.
+      if (baseListeningAvailable()) {
+        void toggleBaseSession();
+        return;
+      }
       void beginQuietMic('hold');
       return;
     }
@@ -994,11 +1315,16 @@ export function usePoppinsController() {
       return;
     }
     if (currentTransport() === 'quiet') {
+      if (baseListeningAvailable()) {
+        void toggleBaseSession();
+        return;
+      }
+      // Older build without the recognizer: tap to start recording, tap to stop.
       if (quietRef.current?.active || quietListening) {
         void stopQuietCapture();
         return;
       }
-      void beginQuietMic('tap10');
+      void beginQuietMic('tap');
       return;
     }
     void connectOrToggleRealtime();
@@ -1011,7 +1337,11 @@ export function usePoppinsController() {
 
   const retryAfterNothingHeard = () => {
     setNothingHeard(null);
-    void startQuietCapture('tap10');
+    if (baseListeningAvailable()) {
+      void startBaseSession();
+      return;
+    }
+    void startQuietCapture('tap');
   };
 
   /** After a HOLD creates a task: keep the live session's picture of the house current. */
@@ -1031,8 +1361,11 @@ export function usePoppinsController() {
   };
 
   // ── What the view shows ─────────────────────────────────────────────────────────────
+  const isBaseTier = currentTransport() === 'quiet';
   const idleHint = micUi.micEnabled
-    ? `${greetingWord()}. Hold to speak — or tap for 10 seconds.`
+    ? isBaseTier
+      ? `${greetingWord()}. Tap the mic and say what you need — Poppins writes it down and sets it up.`
+      : `${greetingWord()}. Tap the mic to talk with ${majordomo.displayName}.`
     : micUi.preferKeyboard
       ? `${greetingWord()}. Type below.`
       : `${greetingWord()}. ${micUi.hint ?? 'Type below.'}`;
@@ -1051,7 +1384,9 @@ export function usePoppinsController() {
     interactionPrefs.writtenReplies ||
     isClarifyingQuestion ||
     liveCaption?.speaker === 'you' ||
-    quietListening;
+    quietListening ||
+    baseOn ||
+    isBaseTier;
   const liveSpeaker: 'you' | 'poppins' | 'done' | 'thinking' | null = toolFlash
     ? 'done'
     : showWrittenCaption && liveCaption
@@ -1070,7 +1405,9 @@ export function usePoppinsController() {
           : majordomo.displayName.toUpperCase();
   const liveText = toolFlash
     ? toolFlash
-    : connecting
+    : baseOn && baseLive
+      ? baseLive
+      : connecting
       ? 'Tuning in to the house…'
       : liveCaption?.text
         ? captionWindow(liveCaption.text)
@@ -1084,7 +1421,7 @@ export function usePoppinsController() {
     (visualState === 'thinking' || connecting || (visualState === 'listening' && !liveText));
   const captionTextColor = isDark ? 'rgba(255,255,255,0.9)' : c.text;
 
-  const primaryConnected = liveConnected || quietListening;
+  const primaryConnected = liveConnected || quietListening || baseOn;
   const personalUsed = personalActTokens(aiSummary, currentMember?.id);
   const dailyLeft = Math.max(0, TOKENS_PER_DAY - personalUsed);
   const dailyFill = TOKENS_PER_DAY > 0 ? dailyLeft / TOKENS_PER_DAY : 0;
@@ -1126,12 +1463,24 @@ export function usePoppinsController() {
   const headerDot = drive.live && stageTint ? stageTint : cfg.color;
 
   const micLabel = micUi.micEnabled
-    ? primaryConnected
-      ? captureMode === 'tap10'
-        ? 'Stop'
-        : 'Done'
-      : 'Speak'
+    ? baseOn
+      ? 'Listening · tap to close'
+      : primaryConnected
+        ? captureMode === 'tap'
+          ? 'Stop'
+          : 'Done'
+        : 'Speak'
     : cfg.label;
+
+  /** The sentence above the card: what Poppins heard (Base shows words as they arrive). */
+  const heard: { text: string; live: boolean } | null =
+    baseOn && baseLive
+      ? { text: baseLive, live: true }
+      : baseHeard
+        ? { text: baseHeard, live: false }
+        : liveCaption?.speaker === 'you' && liveCaption.text.trim()
+          ? { text: liveCaption.text.trim(), live: false }
+          : null;
 
   const poppinsAllowed = canShowPoppinsTab({
     role: currentMember?.role,
@@ -1182,6 +1531,14 @@ export function usePoppinsController() {
     holdTip,
     nothingHeard,
     retryAfterNothingHeard,
+    // Base
+    isBaseTier,
+    baseOn,
+    baseAfter,
+    baseTrouble,
+    heard,
+    onBaseTroubleAction,
+    reframeBaseSentence,
     // mic & dock
     micUi,
     micLabel,

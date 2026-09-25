@@ -18,12 +18,12 @@ export const NOTHING_HEARD_COPY: Record<string, { title: string; reason: string 
     reason: "The microphone didn't record anything. Check mic access in Settings.",
   },
   too_short: {
-    title: 'Hold while you speak',
-    reason: 'Press and hold the mic, then let go when you finish.',
+    title: 'That was very short',
+    reason: 'Tap the mic, say the whole thing, then tap again.',
   },
   empty_transcript: {
     title: "I didn't hear words",
-    reason: 'The mic recorded silence. Hold, speak, let go.',
+    reason: 'The mic recorded silence. Tap the mic and talk.',
   },
   transcribe_failed: {
     title: "Couldn't reach the transcriber",
@@ -86,6 +86,8 @@ type NothingHeardProps = {
   failed?: keyof typeof NOTHING_HEARD_COPY | string;
   title?: string;
   reason?: string;
+  /** Button label — "Again" unless the fix is somewhere else ("Open Settings", "Type"). */
+  actionLabel?: string;
   onRetry: () => void;
 };
 
@@ -95,14 +97,15 @@ export function IuiTroubleNothingHeard({
   failed = 'empty_transcript',
   title,
   reason,
+  actionLabel = 'Again',
   onRetry,
 }: NothingHeardProps) {
   const { isDark, c } = useOrbitColors();
   const muted = stageMuted(isDark);
-  const copy = NOTHING_HEARD_COPY[failed] ?? {
-    title: title ?? "I didn't hear words",
-    reason: reason ?? 'Hold, speak, let go.',
-  };
+  const copy =
+    title || reason
+      ? { title: title ?? "I didn't hear words", reason: reason ?? '' }
+      : NOTHING_HEARD_COPY[failed] ?? { title: "I didn't hear words", reason: 'Tap the mic and talk.' };
   return (
     <IuiCard accent={accent} kicker="Nothing heard" accessibilityLabel={copy.title}>
       <View style={styles.heardRow}>
@@ -121,9 +124,9 @@ export function IuiTroubleNothingHeard({
         <Pressable
           onPress={onRetry}
           accessibilityRole="button"
-          accessibilityLabel="Again"
+          accessibilityLabel={actionLabel}
           style={[styles.again, { backgroundColor: accent }]}>
-          <Text style={styles.againLabel}>Again</Text>
+          <Text style={styles.againLabel}>{actionLabel}</Text>
         </Pressable>
       </View>
     </IuiCard>
