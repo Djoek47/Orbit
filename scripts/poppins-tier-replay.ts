@@ -15,10 +15,17 @@ import { stageSceneKey } from '@/lib/poppins/stage-scene';
 import { resetTurnOwnership } from '@/lib/poppins/turn-ownership';
 import { poppinsUiOrchestrator as O } from '@/lib/poppins/ui-orchestrator';
 import { IUI_SCENES } from '@/lib/poppins/ui-scenes';
+import { setIntentPlaces } from '@/lib/poppins/ui-intent';
+import { parseWhen } from '@/lib/poppins/when-parse';
 
-const MEMBERS = ['Nero', 'Mia'];
+const MEMBERS = ['Nero', 'Mia', 'Noah'];
+setIntentPlaces([
+  { id: 'p1', name: 'Parc Jarry', address: 'Parc Jarry', kind: 'practice' },
+  { id: 'p2', name: 'Work', address: '1250 René-Lévesque O', kind: 'work' },
+]);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const writes: string[] = [];
+const failNames = new Set<string>();
 const blanks: string[] = [];
 const CARDED = new Set<string>([...IUI_SCENES, 'narrow']);
 
@@ -42,12 +49,28 @@ function watch(tag: string) {
 
 function reset() {
   writes.length = 0;
+  failNames.clear();
   resetTurnOwnership();
   O.clear();
   O.setSpeaking(false);
   O.setCommitHandler(async (beat) => {
     const p = beat.payload;
-    writes.push(`${p.write}:${p.groceryName ?? p.title ?? ''}${p.assignee ? `>${p.assignee}` : ''}`);
+    if (p.write === 'create_event') {
+      writes.push(`create_event:${p.title}${p.assignee ? `>${p.assignee}` : ''}@${p.date} ${p.allDay ? 'all day' : p.time}`);
+    } else if (p.write === 'create_itinerary_stop') {
+      writes.push(`trip:${p.itineraryTitle}:${(p.stops ?? []).map((s) => `${s.time} ${s.label}`).join('|')}`);
+    } else if (p.items?.length) {
+      for (const item of p.items.filter((i) => !i.dropped)) {
+        if (failNames.has(item.label.toLowerCase())) {
+          O.patchGroupItemStatus(item.id, 'failed');
+          continue;
+        }
+        writes.push(`${p.write}:${item.label}`);
+        O.patchGroupItemStatus(item.id, 'done');
+      }
+    } else {
+      writes.push(`${p.write}:${p.groceryName ?? p.title ?? ''}${p.assignee ? `>${p.assignee}` : ''}`);
+    }
     return { reverse: { write: p.write as never, entityId: `e${writes.length}`, beatId: beat.id } };
   });
   O.setUndoHandler(async () => undefined);
@@ -131,7 +154,137 @@ async function main() {
     assert.deepEqual(writes, []);
   });
 
+  // ── BASE · the design pages ─────────────────────────────────────────────────────────
+  const say = (text: string) => {
+    O.beginTurn();
+    hearAndDrive(text, MEMBERS, { userOriginated: true });
+  };
+  const w = (text: string) => parseWhen(text);
+
+  await scenario('BASE · calendar event — "dentist for Noah next Thursday at half four"', async () => {
+    say('dentist for Noah next Thursday at half four');
+    await sleep(200);
+    console.log(`  card:    ${snapshot()}`);
+    await sleep(2600);
+    assert.deepEqual(writes, [`create_event:Dentist>Noah@${w('next thursday').date} 16:30`]);
+  });
+
+  await scenario('BASE · event asks what is missing — "put soccer practice on the calendar" → "saturday" → "at 10"', async () => {
+    say('put soccer practice on the calendar');
+    await sleep(2000);
+    assert.deepEqual(writes, [], 'no day, no save — the card asks');
+    console.log(`  asks:    ${snapshot()} focus=${O.getState().playlist[O.getState().index]?.payload.focusSlot}`);
+    say('saturday');
+    await sleep(1600);
+    assert.deepEqual(writes, [], 'no time yet');
+    say('at 10');
+    await sleep(2600);
+    assert.deepEqual(writes, [`create_event:Soccer practice@${w('saturday').date} 10:00`]);
+  });
+
+  await scenario('BASE · event correction — "Mia has piano monday from 4 to 5" → "actually tuesday"', async () => {
+    say('Mia has piano monday from 4 to 5');
+    await sleep(300);
+    say('actually tuesday');
+    await sleep(2600);
+    assert.deepEqual(writes, [`create_event:Piano>Mia@${w('tuesday').date} 16:00`]);
+  });
+
+  await scenario('BASE · a trip, six stops', async () => {
+    say('starting at 4, practice, then work, shopping on my break, back to work, gym, then pick up the kids');
+    await sleep(200);
+    console.log(`  card:    ${snapshot()}`);
+    await sleep(2600);
+    assert.equal(writes.length, 1);
+    assert.match(writes[0]!, /^trip:\w+ run:16:00 Practice\|17:15 Work\|19:00 Shopping\|19:45 Back to work\|21:00 Gym\|22:15 Pick up the kids$/);
+  });
+
+  await scenario('BASE · trip steered by voice — tomorrow, add the bank, skip the gym', async () => {
+    say('plan a trip to the gym then the grocery store');
+    await sleep(200);
+    say('tomorrow');
+    say('add a stop at the bank');
+    say('skip the gym');
+    await sleep(2600);
+    assert.equal(writes.length, 1);
+    assert.match(writes[0]!, /Grocery store\|.*Bank$/);
+    assert.ok(!/Gym/.test(writes[0]!), 'the gym was skipped');
+  });
+
+  await scenario('BASE · show me how — "how do I make a chore need a photo?" teaches, writes nothing', async () => {
+    say('how do I make a chore need a photo?');
+    await sleep(300);
+    const beat = O.getState().playlist[O.getState().index];
+    console.log(`  card:    ${snapshot()}`);
+    assert.equal(beat?.scene, 'coach_steps');
+    assert.equal(beat?.payload.howToId, 'proof-on-chore');
+    await sleep(1500);
+    assert.deepEqual(writes, []);
+  });
+
+  await scenario('BASE · keeps listening — one act lands, the next sentence makes another', async () => {
+    say('add milk');
+    await sleep(2400);
+    say('assign the dishes to Nero today');
+    await sleep(2400);
+    assert.deepEqual(writes, ['add_grocery:Milk', 'create_task:Dishes>Nero']);
+  });
+
+  await scenario('BASE · rename on the go — "call it Deep clean the kitchen"', async () => {
+    say('assign the dishes to Nero today');
+    await sleep(200);
+    say('call it Deep clean the kitchen');
+    await sleep(2400);
+    assert.deepEqual(writes, ['create_task:Deep clean the kitchen>Nero']);
+  });
+
+  await scenario('BASE · one row failed — milk and eggs saved, bread asks to retry, stage waits', async () => {
+    failNames.add('bread');
+    say('add milk, eggs and bread');
+    await sleep(2600);
+    assert.deepEqual(writes, ['add_grocery:Milk', 'add_grocery:Eggs']);
+    const failed = O.failedRows();
+    assert.ok(failed && failed.items.map((i) => i.label).join() === 'Bread', 'bread is the failed row');
+    await sleep(2200);
+    assert.equal(O.getState().live, true, 'the stage stays up for the failed row');
+    O.patchBeatItem(failed!.beat.id, failed!.items[0]!.id, { status: 'done' });
+    await sleep(2200);
+    assert.equal(O.getState().live, false, 'resolved → the stage clears');
+  });
+
   // ── MAX ─────────────────────────────────────────────────────────────────────────────
+  await scenario('MAX · event — words stage it, the model plans the same event, one write', async () => {
+    say('dentist for Noah next Thursday at half four');
+    O.setSpeaking(true);
+    await sleep(500);
+    driveAiuic(
+      [{ type: 'create_calendar_event', title: 'Dentist appointment', date: w('next thursday').date, time: '16:30', assignee: 'Noah' }],
+      'dentist for Noah next Thursday at half four',
+      { memberNames: MEMBERS, source: 'model' }
+    );
+    await sleep(500);
+    O.setSpeaking(false);
+    await sleep(2600);
+    assert.equal(writes.length, 1, `one event: ${writes}`);
+    assert.match(writes[0]!, /^create_event:Dentist.*>Noah@/);
+  });
+
+  await scenario('MAX · trip — words stage six stops, the model plan does not duplicate it', async () => {
+    say('practice, then work, shopping on my break, back to work, gym, then pick up the kids');
+    O.setSpeaking(true);
+    await sleep(500);
+    driveAiuic(
+      [{ type: 'create_itinerary', title: 'Trip', stops: [{ label: 'Practice' }, { label: 'Work' }] }],
+      'practice, then work, shopping on my break, back to work, gym, then pick up the kids',
+      { memberNames: MEMBERS, source: 'model' }
+    );
+    await sleep(400);
+    O.setSpeaking(false);
+    await sleep(2600);
+    assert.equal(writes.length, 1, `one trip: ${writes}`);
+    assert.match(writes[0]!, /Practice\|.*Pick up the kids$/, 'the six stops the words built survive the model plan');
+  });
+
   await scenario('MAX · screenshot 6 — words stage "Clean Dishes", model plans "Wash the dishes → Nero"', async () => {
     O.beginTurn();
     hearAndDrive('assign a task to clean my dishes', MEMBERS, { userOriginated: true });

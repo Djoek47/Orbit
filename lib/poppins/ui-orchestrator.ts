@@ -1052,8 +1052,11 @@ function beatReadyForDirectCommit(beat: IuiBeat): boolean {
 /** True when a live playlist still has work that has not settled. */
 function chainHasUncommittedWork(): boolean {
   if (!state.live || !state.playlist.length) return false;
+  const beat = state.playlist[state.index];
+  // A result card ("All set", the Done check) is the end of the chain, whatever its phase.
+  const atResult = beat?.scene === 'result_mark' || beat?.scene === 'task_done';
   // Current beat not yet settled, or anything still queued behind it.
-  if (state.index < state.playlist.length && state.phase !== 'settle') return true;
+  if (!atResult && state.index < state.playlist.length && state.phase !== 'settle') return true;
   return state.index + 1 < state.playlist.length;
 }
 
@@ -1411,6 +1414,16 @@ export const poppinsUiOrchestrator = {
     opts?: { selfName?: string }
   ): 'freeze' | 'unfreeze' | 'veto' | 'confirm' | 'revise' | 'splice' | false {
     if (!state.live) return false;
+    // A finished card ("All set", the Done check) is not listening for corrections: the next
+    // sentence is a new request. (Undo still works by tap or by saying "undo".)
+    const settledBeat = currentBeat();
+    if (
+      state.phase === 'settle' ||
+      settledBeat?.scene === 'result_mark' ||
+      settledBeat?.scene === 'task_done'
+    ) {
+      return false;
+    }
     // First: is this sentence about the card on screen? ("make it 5", "call it deep clean")
     const cardPatch = state.frozen
       ? null

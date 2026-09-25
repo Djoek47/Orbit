@@ -63,7 +63,12 @@ export const TOOL_FAMILY: Record<string, ActFamily> = {
 };
 
 /** Families with no subject — there is one grocery list, one "next stop". */
-const SUBJECTLESS = new Set(['grocery_clear', 'trip_advance']);
+/**
+ * Families matched by kind alone. A turn builds one trip: the model's plan for "a trip" is
+ * the trip the words already staged, whatever it calls it — it may fill gaps, never replace
+ * the stops.
+ */
+const SUBJECTLESS = new Set(['grocery_clear', 'trip_advance', 'trip']);
 
 /** Beats that only accompany an act (the settle mark, a thinking line). */
 const COMPANION_SCENES = new Set(['result_mark', 'thinking']);
