@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PlanAddSheet } from '@/components/orbit/plan/plan-add-sheet';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
@@ -454,7 +455,7 @@ export default function PlanScreen() {
                 styles.emptyDay,
                 { backgroundColor: glass(0.03), borderColor: glassBorder(0.06) },
               ]}>
-              <Text style={{ fontSize: 32 }}>✨</Text>
+              <Moji name="sparkles" size={34} />
               <Text style={[styles.eyebrow, { color: c.textSubtle }]}>
                 Nothing scheduled — a free day!
               </Text>
@@ -475,15 +476,17 @@ export default function PlanScreen() {
                     <View style={[styles.eventBar, { backgroundColor: color }]} />
                     <View style={{ flex: 1 }}>
                       <View style={styles.eventBadgeRow}>
-                        <View style={[styles.typePill, { backgroundColor: `${color}22` }]}>
+                        <View style={[styles.typePill, styles.typePillRow, { backgroundColor: `${color}22` }]}>
+                          <Moji emoji={cfg.emoji} size={13} />
                           <Text style={[styles.typePillText, { color }]}>
-                            {cfg.emoji} {planItemTypeLabel(item)}
+                            {planItemTypeLabel(item)}
                           </Text>
                         </View>
                         {item.homeworkSubject ? (
-                          <View style={[styles.typePill, { backgroundColor: `${homeworkSubjectMeta(item.homeworkSubject).color}22` }]}>
+                          <View style={[styles.typePill, styles.typePillRow, { backgroundColor: `${homeworkSubjectMeta(item.homeworkSubject).color}22` }]}>
+                            <Moji emoji={homeworkSubjectMeta(item.homeworkSubject).emoji} size={13} />
                             <Text style={[styles.typePillText, { color: homeworkSubjectMeta(item.homeworkSubject).color }]}>
-                              {homeworkSubjectMeta(item.homeworkSubject).emoji} {item.homeworkSubject}
+                              {item.homeworkSubject}
                             </Text>
                           </View>
                         ) : null}
@@ -774,6 +777,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   typePill: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  typePillRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   typePillText: { fontSize: 10, fontWeight: '700' },
   viewChip: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   viewChipActive: { backgroundColor: 'rgba(56,189,248,0.2)' },

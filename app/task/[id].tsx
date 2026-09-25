@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -628,7 +629,7 @@ export default function TaskDetailScreen() {
                   <View style={styles.assigneeRow}>
                     {assigneeMember ? (
                       <View style={[styles.avatar, { backgroundColor: `${memberColor}33` }]}>
-                        <Text style={styles.avatarEmoji}>{memberDisplayEmoji(assigneeMember)}</Text>
+                        <MemberGlyph member={assigneeMember} size={18} />
                       </View>
                     ) : null}
                     <Text style={[styles.value, { color: c.text }]}>{task.assignee}</Text>
@@ -639,7 +640,7 @@ export default function TaskDetailScreen() {
                 <View style={styles.assigneeRow}>
                   {assigneeMember && !split ? (
                     <View style={[styles.avatar, { backgroundColor: `${memberColor}33` }]}>
-                      <Text style={styles.avatarEmoji}>{memberDisplayEmoji(assigneeMember)}</Text>
+                      <MemberGlyph member={assigneeMember} size={18} />
                     </View>
                   ) : null}
                   <Text style={[styles.value, { color: c.text }]}>{task.assignee}</Text>
@@ -663,7 +664,7 @@ export default function TaskDetailScreen() {
                           { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) },
                           active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` },
                         ]}>
-                        <Text style={styles.choiceEmoji}>{member ? memberDisplayEmoji(member) : '👤'}</Text>
+                        <MemberGlyph member={member} size={18} />
                         <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>
                           {name}
                         </Text>
@@ -726,7 +727,7 @@ export default function TaskDetailScreen() {
                     <View key={share.name} style={styles.shareRow}>
                       <View style={[styles.avatar, { backgroundColor: `${color}33` }]}>
                         <Text style={styles.avatarEmoji}>
-                          {person ? memberDisplayEmoji(person) : '👤'}
+                          <MemberGlyph member={person} size={14} />
                         </Text>
                       </View>
                       <View style={{ flex: 1 }}>

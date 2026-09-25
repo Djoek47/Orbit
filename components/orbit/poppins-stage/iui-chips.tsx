@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import Icon from '@/components/orbit/design/Icon';
 import { domainIconName } from '@/components/orbit/design/icon-map';
@@ -53,7 +54,7 @@ export function IuiChips({
               },
             ]}>
             {icon ? <Icon name={icon} size={22} /> : null}
-            {showEmoji && chip.emoji && !icon ? <Text style={styles.emoji}>{chip.emoji}</Text> : null}
+            {showEmoji && chip.emoji && !icon ? <Moji emoji={chip.emoji} size={17} /> : null}
             <Text
               style={[
                 styles.label,
@@ -81,6 +82,5 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
-  emoji: { fontSize: 16 },
   label: { fontSize: 15, fontWeight: '500' },
 });

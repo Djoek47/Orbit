@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 
+import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { MemberConnectionCaption } from '@/components/orbit/member-connection-badge';
 import { space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
@@ -46,7 +47,7 @@ export function SharedAccountRow({
           {photo ? (
             <Image source={{ uri: person.avatar }} style={styles.avatarImage} />
           ) : (
-            <Text style={styles.avatarEmoji}>{memberDisplayEmoji(person)}</Text>
+            <MemberGlyph member={person} size={18} />
           )}
         </Pressable>
 

@@ -5,6 +5,7 @@
  */
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
 import { IuiRow } from '@/components/orbit/poppins-stage/iui-row';
@@ -94,7 +95,7 @@ export function IuiGroceryCard({
                 styles.tile,
                 { backgroundColor: `${fill}24`, borderColor: `${fill}38` },
               ]}>
-              <Text style={styles.tileGlyph}>{payload.shoppingLane === 'clothing' ? '👟' : '🛒'}</Text>
+              <Moji name={payload.shoppingLane === 'clothing' ? 'sneaker' : 'cart'} size={26} />
             </View>
             <View style={styles.singleBody}>
               <Text style={[styles.singleTitle, { color: c.text }]} numberOfLines={2}>
@@ -230,7 +231,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tileGlyph: { fontSize: 24 },
   singleBody: { flex: 1, gap: 3, minWidth: 0 },
   singleTitle: { fontSize: 30, lineHeight: 34, fontWeight: '600', letterSpacing: -0.4 },
   singleDetail: { fontSize: 13, lineHeight: 18 },

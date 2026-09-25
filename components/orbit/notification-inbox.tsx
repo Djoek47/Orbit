@@ -11,6 +11,7 @@ import {
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { EmptyState } from '@/components/orbit/empty-state';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
@@ -521,7 +522,7 @@ function WeekSummary({ stats }: { stats: { val: string; label: string; emoji: st
       <View style={styles.weekGrid}>
         {stats.map((stat) => (
           <View key={stat.label} style={[styles.weekStat, { backgroundColor: glass(0.06) }]}>
-            <Text style={{ fontSize: 16 }}>{stat.emoji}</Text>
+            <Moji emoji={stat.emoji} size={18} />
             <Text style={{ color: '#2DD4BF', fontWeight: '800', fontSize: 14 }}>{stat.val}</Text>
             <Text style={[typography.caption2, { color: c.textSubtle }]}>{stat.label}</Text>
           </View>

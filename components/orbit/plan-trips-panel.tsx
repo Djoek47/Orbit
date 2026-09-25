@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { MyPlacesPanel } from '@/components/orbit/my-places-panel';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
@@ -256,7 +257,7 @@ function TripCard({
                 styles.clipboardBtn,
                 { backgroundColor: glass(0.07), borderColor: glassBorder(0.1) },
               ]}>
-              <Text style={{ fontSize: 16 }}>📋</Text>
+              <Moji name="clipboard" size={18} />
             </Pressable>
           </View>
         </View>
@@ -612,7 +613,7 @@ export function PlanTripsPanel({
                     styles.completedRow,
                     i > 0 && { borderTopColor: glassBorder(0.04), borderTopWidth: 1 },
                   ]}>
-                  <Text style={{ fontSize: 16 }}>⭐</Text>
+                  <Moji name="star" size={18} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.completedName, { color: c.textSoft }]}>{t.title}</Text>
                     <Text style={[styles.completedMeta, { color: c.textSubtle }]}>
@@ -644,7 +645,7 @@ export function PlanTripsPanel({
                     styles.completedRow,
                     i > 0 && { borderTopColor: glassBorder(0.04), borderTopWidth: 1 },
                   ]}>
-                  <Text style={{ fontSize: 16 }}>✅</Text>
+                  <Moji name="check" size={18} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.completedName, { color: c.textSoft }]}>{t.title}</Text>
                     <Text style={[styles.completedMeta, { color: c.textSubtle }]}>

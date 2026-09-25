@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -108,7 +109,7 @@ export default function GrantAllowanceScreen() {
                     backgroundColor: active ? `${accentTheme.primary}33` : c.card,
                   },
                 ]}>
-                <Text style={styles.emoji}>{memberDisplayEmoji(member)}</Text>
+                <MemberGlyph member={member} size={20} />
                 <Text
                   style={[
                     styles.chipText,

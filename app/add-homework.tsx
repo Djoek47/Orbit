@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { buildSelfHomeworkTaskInput } from '@/lib/calendar/sidekick-homework';
@@ -134,8 +135,9 @@ export default function AddHomeworkScreen() {
                     backgroundColor: active ? `${accentTheme.primary}18` : glass(0.04),
                   },
                 ]}>
+                <Moji emoji={chip.emoji} size={14} />
                 <Text style={[styles.chipText, { color: active ? accentTheme.primary : c.text }]}>
-                  {chip.emoji} {chip.label}
+                  {chip.label}
                 </Text>
               </Pressable>
             );
@@ -235,6 +237,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderCurve: 'continuous',
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,

@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbit } from '@/store/orbit-store';
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 
 export type RouteStepItem = {
@@ -52,7 +53,7 @@ export function RouteSteps({ steps, accentColor, emphasized = true }: RouteSteps
                     borderColor: tileBorder,
                   },
                 ]}>
-                <Text style={styles.emoji}>{step.emoji}</Text>
+                <Moji emoji={step.emoji} size={20} />
               </View>
               {!isLast ? (
                 <View style={styles.connector}>
@@ -143,7 +144,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderCurve: 'continuous',
   },
-  emoji: { fontSize: 18 },
   connector: {
     flex: 1,
     alignItems: 'center',
