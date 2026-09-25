@@ -19,6 +19,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
+import { IuiEditableTitle } from '@/components/orbit/poppins-stage/iui-editable-title';
 import { STAGE, stageBorder, stageMuted } from '@/constants/iui-stage';
 import { intentPlaces } from '@/lib/poppins/ui-intent';
 import { kindOfStop, resolveStopPlace, scheduleStops, tripSpan } from '@/lib/poppins/trip-parse';
@@ -154,9 +155,14 @@ export function IuiTripCard({
       leftFooter={holding ? 'Saving the whole run…' : 'One hold saves the whole run · an address can come later'}
       accessibilityLabel={`${payload.itineraryTitle ?? 'Trip'}, ${stops.length} stops`}>
       <View style={styles.titleRow}>
-        <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>
-          {payload.itineraryTitle ?? 'Trip'}
-        </Text>
+        <View style={{ flexShrink: 1 }}>
+          <IuiEditableTitle
+            title={payload.itineraryTitle ?? 'Trip'}
+            style={[styles.title, { color: c.text }]}
+            numberOfLines={1}
+            toPatch={(name) => ({ itineraryTitle: name })}
+          />
+        </View>
         <Text style={[styles.count, { color: muted }]}>
           {stops.length} stop{stops.length === 1 ? '' : 's'}
           {span ? ` · ${span}` : ''}

@@ -9,6 +9,7 @@ import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
 import { IuiChips } from '@/components/orbit/poppins-stage/iui-chips';
 import { IuiDomainGrid } from '@/components/orbit/poppins-stage/iui-domain-grid';
 import { IuiFaces } from '@/components/orbit/poppins-stage/iui-faces';
+import { IuiEditableTitle } from '@/components/orbit/poppins-stage/iui-editable-title';
 import { IuiGhostField } from '@/components/orbit/poppins-stage/iui-ghost-field';
 import { STAGE, stageBorder, stageMuted } from '@/constants/iui-stage';
 import { IUI_CREATED_CHIP_ID, IUI_DUE_CHIPS, nextComposeStep } from '@/lib/poppins/iui-compose';
@@ -175,9 +176,7 @@ export function TaskComposeSteps({
         </View>
         <View style={{ flex: 1 }}>
           {displayTitle?.trim() ? (
-            <Text style={[styles.headerTitle, { color: c.text }]} numberOfLines={2}>
-              {displayTitle}
-            </Text>
+            <IuiEditableTitle title={displayTitle} style={[styles.headerTitle, { color: c.text }]} />
           ) : (
             <IuiGhostField text="What is it called?" accent={accent} />
           )}

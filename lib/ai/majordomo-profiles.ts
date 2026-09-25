@@ -238,13 +238,18 @@ export function resolveMajordomoProfileId(options: {
   return DEFAULT_MAJORDOMO_PROFILE_ID;
 }
 
+/** Owner's rule: Poppins never says "UI" (or any other internal word for the screen). */
+export const SPOKEN_WORDS_RULE = `
+
+Words you say (and write): you are Poppins. Never say "UI", "IUI", "interface", "stage", "card", "beat", "HOLD", "widget" or "draft". Point at the screen with "here" or "on screen". If asked what this is, you're Poppins, the house's voice assistant.`;
+
 export function buildMajordomoSystemPrompt(
   profileId?: string | null,
   viewerRole?: string
 ): string {
   const profile = getMajordomoProfile(profileId);
   const roleLine = viewerRole ? `\nViewer role: ${viewerRole}.` : '';
-  return `${MAJORDOMO_SYSTEM_CORE}\n\n${profile.systemAddon}${roleLine}`;
+  return `${MAJORDOMO_SYSTEM_CORE}\n\n${profile.systemAddon}${roleLine}${SPOKEN_WORDS_RULE}`;
 }
 
 /** @deprecated Prefer buildMajordomoSystemPrompt — kept for older imports. */

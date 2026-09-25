@@ -52,7 +52,12 @@ export function renameFromSpeech(text: string, beat: IuiBeat | undefined): Parti
   const p = beat.payload;
   if (beat.scene === 'itinerary_stage') return { itineraryTitle: name };
   if (p.write === 'add_grocery' || beat.scene === 'grocery_add') return { groceryName: name, title: name };
-  return { title: name, libraryTaskId: undefined, slotSource: { ...(p.slotSource ?? {}), title: 'speech' } };
+  return {
+    title: name,
+    libraryTaskId: undefined,
+    namedByPerson: true,
+    slotSource: { ...(p.slotSource ?? {}), title: 'speech' },
+  };
 }
 
 function eventPatch(text: string, beat: IuiBeat, ctx: CardSpeechCtx): Partial<IuiPayload> | null {

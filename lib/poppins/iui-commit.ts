@@ -248,7 +248,14 @@ export async function commitIuiBeat(
           status: task.status,
         })),
       });
-      const libraryId = p.libraryTaskId || resolved.libraryTaskId;
+      // A name the person gave (typed or "call it …") is kept as said — never swapped for a
+      // catalog title.
+      const namedByPerson = p.namedByPerson === true;
+      if (namedByPerson) {
+        resolved.title = String(p.title ?? '');
+        resolved.libraryTaskId = undefined;
+      }
+      const libraryId = namedByPerson ? p.libraryTaskId : p.libraryTaskId || resolved.libraryTaskId;
       const library = libraryId
         ? allLibraryTasks().find((item) => item.id === libraryId)
         : undefined;

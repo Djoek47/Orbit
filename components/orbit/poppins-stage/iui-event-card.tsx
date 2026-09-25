@@ -19,6 +19,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { DayStrip } from '@/components/orbit/event/day-strip';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
+import { IuiEditableTitle } from '@/components/orbit/poppins-stage/iui-editable-title';
 import { STAGE, stageBorder, stageFaint, stageMuted } from '@/constants/iui-stage';
 import { dayStripItems, hhmmToMinutes, layoutDayStrip, timeRangeLabel } from '@/lib/calendar/day-strip';
 import { eventLeaveByLine } from '@/lib/poppins/event-leave-by';
@@ -202,9 +203,7 @@ export function IuiEventCard({
           <Text style={[styles.month, { color: muted }]}>{tile?.month ?? ''}</Text>
         </View>
         <View style={styles.headerBody}>
-          <Text style={[styles.title, { color: c.text }]} numberOfLines={2}>
-            {payload.title ?? 'Event'}
-          </Text>
+          <IuiEditableTitle title={payload.title ?? 'Event'} style={[styles.title, { color: c.text }]} />
           {detail ? (
             <Text style={[styles.detail, { color: muted }]} numberOfLines={2}>
               {detail}

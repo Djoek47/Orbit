@@ -685,7 +685,7 @@ export class PoppinsVoiceSession {
         type: 'response.create',
         response: {
           instructions:
-            'They used the IUI. Do not re-offer that choice. If something is still unknown, ask only for that in one short sentence. Otherwise stay quiet.',
+            'They tapped their choice on screen. Do not re-offer it. If something is still unknown, ask only for that in one short sentence. Otherwise stay quiet.',
         },
       });
       this.setState('thinking');
