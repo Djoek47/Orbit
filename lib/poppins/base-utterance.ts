@@ -18,7 +18,13 @@ export type AskPoppinsFn = (question: string) => Promise<{
   ui_actions?: unknown[];
 }>;
 
-export type BaseUtteranceKind = 'local_write' | 'coach' | 'model' | 'offline_local' | 'model_error';
+export type BaseUtteranceKind =
+  | 'local_write'
+  | 'local_staged'
+  | 'coach'
+  | 'model'
+  | 'offline_local'
+  | 'model_error';
 
 export type BaseUtteranceResult = {
   tookLocal: boolean;
@@ -46,6 +52,13 @@ export async function resolveBaseUtterance(
     existingTasks?: HouseholdTask[];
     kid?: boolean;
     ask: AskPoppinsFn;
+    /**
+     * Ask the model even when the grammar already put an act on stage (the default, for
+     * the typed Max path). Base listening passes false: whatever the grammar staged is the
+     * answer, and the next sentence steers it — the model is only for sentences the
+     * grammar can't place at all.
+     */
+    askWhenStaged?: boolean;
   }
 ): Promise<BaseUtteranceResult> {
   const trimmed = text.trim();
@@ -78,6 +91,16 @@ export async function resolveBaseUtterance(
       calledModel: false,
       localConfirm: null,
       kind: 'coach',
+    };
+  }
+
+  if (opts.askWhenStaged === false && tookLocal && state.live) {
+    return {
+      tookLocal: true,
+      answer: localConfirm ?? '',
+      calledModel: false,
+      localConfirm,
+      kind: 'local_staged',
     };
   }
 
