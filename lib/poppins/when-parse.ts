@@ -293,6 +293,17 @@ function findTimes(text: string, part: PartOfDay | undefined): TimeHit[] {
     const min = MINUTE_WORDS[m[2]!.replace(' ', '-')] ?? MINUTE_WORDS[m[2]!];
     if (h != null && h <= 12 && min != null) push(m.index!, m[0], h, min);
   }
+  // Hyphen ranges: "6-7", "4-5pm", "6 - 7:30".
+  for (const m of all(/\b(\d{1,2})(?::(\d{2}))? ?- ?(\d{1,2})(?::(\d{2}))? ?(am|pm)?\b/g)) {
+    const h1 = Number(m[1]);
+    const h2 = Number(m[3]);
+    if (h1 > 24 || h2 > 24) continue;
+    const mer = m[5] as 'am' | 'pm' | undefined;
+    // "4-5pm": the meridiem said once covers both ends.
+    push(m.index!, `${m[1]}${m[2] ? `:${m[2]}` : ''}`, h1, m[2] ? Number(m[2]) : 0, mer);
+    const tail = m[0].slice(m[0].indexOf('-'));
+    push(m.index! + m[0].indexOf('-'), tail, h2, m[4] ? Number(m[4]) : 0, mer);
+  }
   // Bare hour after a time preposition: "at 4", "from 4 to 5", "until 6", "à 4".
   for (const m of all(new RegExp(`\\b(at|from|to|until|till|til|between|and|à|a|-)\\s?${HOUR}\\b(?!\\s?(days?|weeks?|minutes?|mins?|hours?|stops?|items?|kids?|people))`, 'g'))) {
     const h = hourValue(m[2]!);
@@ -312,8 +323,9 @@ function findDuration(text: string): { minutes: number; span: string } | null {
   if ((m = text.match(/\bfor (an|one|a) hour and a half\b/))) return { minutes: 90, span: m[0] };
   if ((m = text.match(/\bfor (an|one|a) (hour|hr)\b/))) return { minutes: 60, span: m[0] };
   if ((m = text.match(/\bfor half an hour\b/))) return { minutes: 30, span: m[0] };
-  if ((m = text.match(/\bfor (\d+|two|three|four|five) (hours|hrs)\b/))) {
-    return { minutes: (hourValue(m[1]!) ?? 1) * 60, span: m[0] };
+  if ((m = text.match(/\bfor (\d+(?:\.5)?|one|two|three|four|five) ?(hours?|hrs?|h)\b/))) {
+    const n = /^\d/.test(m[1]!) ? Number(m[1]) : hourValue(m[1]!) ?? 1;
+    return { minutes: Math.round(n * 60), span: m[0] };
   }
   if ((m = text.match(/\bfor (\d+) ?(minutes|mins|min)\b/))) return { minutes: Number(m[1]), span: m[0] };
   return null;
