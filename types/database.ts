@@ -256,6 +256,31 @@ export type NotificationRow = {
   created_at: Timestamp;
 };
 
+/** Append-only audit trail (20260925090000_activity_log.sql). */
+export type ActivityLogRow = {
+  id: string;
+  household_id: string;
+  created_at: Timestamp;
+  kind:
+    | 'notification_created'
+    | 'notification_push_sent'
+    | 'notification_received'
+    | 'notification_opened'
+    | 'notification_read'
+    | 'notification_dismissed'
+    | 'notification_deleted'
+    | 'assistant_error'
+    | 'assistant_report';
+  notification_id: string | null;
+  member_id: string | null;
+  actor_user_id: string | null;
+  title: string | null;
+  body: string | null;
+  category: string | null;
+  device: string | null;
+  detail: Json;
+};
+
 export type StoreRecommendationRow = {
   id: string;
   household_id: string;
@@ -433,6 +458,12 @@ export type Database = {
         Pick<NotificationRow, 'household_id' | 'title' | 'body'> &
           Partial<Omit<NotificationRow, 'household_id' | 'title' | 'body'>>,
         Partial<Omit<NotificationRow, 'id'>>
+      >;
+      activity_log: TableDef<
+        ActivityLogRow,
+        Pick<ActivityLogRow, 'household_id' | 'kind'> &
+          Partial<Omit<ActivityLogRow, 'household_id' | 'kind'>>,
+        never
       >;
       store_recommendations: TableDef<
         StoreRecommendationRow,
