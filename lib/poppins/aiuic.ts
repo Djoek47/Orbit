@@ -93,8 +93,28 @@ export function hearAndDrive(
 
   const memory = parseHouseMemoryUtterance(cleaned);
   if (memory) void rememberActiveFact(memory);
-  const steered = poppinsUiOrchestrator.applySpeech(cleaned, memberNames, { selfName: opts?.selfName });
-  if (!steered) {
+
+  const liveBeatId = () => {
+    const s = poppinsUiOrchestrator.getState();
+    return s.live ? (s.playlist[s.index]?.id ?? null) : null;
+  };
+  const cardBefore = liveBeatId();
+  /**
+   * A sentence's names and dates belong on the card on screen only when the sentence was
+   * about that card: a correction to it ("…to Mia"), a yes, or the card this sentence just
+   * put there. A sentence that added a different act ("and walk the dog for Mia") keeps its
+   * names to itself.
+   */
+  const finish = (steer: string | false, handled: boolean) => {
+    const cardAfter = liveBeatId();
+    const aboutCard =
+      steer === 'revise' || steer === 'confirm' || (cardAfter != null && cardAfter !== cardBefore);
+    poppinsUiOrchestrator.syncSpoken(cleaned, memberNames, { patchCard: aboutCard });
+    return handled || steer !== false || poppinsUiOrchestrator.getState().live;
+  };
+
+  const steer = poppinsUiOrchestrator.applySpeech(cleaned, memberNames, { selfName: opts?.selfName });
+  if (!steer) {
     // WO16 §2.3 — act grammar before how-to so Pass A capabilities are not shadowed.
     const inferred = parseCompoundHouseholdIntent(cleaned, {
       memberNames,
@@ -109,8 +129,7 @@ export function hearAndDrive(
         memberNames,
         selfName: opts?.selfName,
       });
-      poppinsUiOrchestrator.syncSpoken(cleaned, memberNames);
-      return true;
+      return finish(false, true);
     }
 
     // Local how-to match — paint coach_steps, never call the chat model.
@@ -123,8 +142,7 @@ export function hearAndDrive(
         memberNames,
         selfName: opts?.selfName,
       });
-      poppinsUiOrchestrator.syncSpoken(cleaned, memberNames);
-      return true;
+      return finish(false, true);
     }
 
     if (memory) {
@@ -148,8 +166,7 @@ export function hearAndDrive(
       );
     }
   }
-  poppinsUiOrchestrator.syncSpoken(cleaned, memberNames);
-  return steered || poppinsUiOrchestrator.getState().live;
+  return finish(steer, false);
 }
 
 /** True when the utterance is teaching — callers must not ask the chat model. */

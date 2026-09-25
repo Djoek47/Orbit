@@ -577,6 +577,33 @@ const TITLE_STOP = new Set([
   'set',
   'schedule',
   'put',
+  // Sentence frames and modals — never part of a chore's name, and never a fuzzy needle
+  // ("have Mia walk the dog" once fuzzy-matched have → shave → "Trim or shave").
+  'have',
+  'has',
+  'get',
+  'let',
+  'lets',
+  'ask',
+  'tell',
+  'need',
+  'needs',
+  'want',
+  'wants',
+  'should',
+  'could',
+  'would',
+  'will',
+  'can',
+  'must',
+  'also',
+  'then',
+  'plus',
+  'okay',
+  'assign',
+  'going',
+  'gonna',
+  'like',
 ]);
 
 export type ExistingChoreTitle = {
