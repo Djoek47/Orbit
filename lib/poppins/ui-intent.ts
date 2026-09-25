@@ -50,6 +50,69 @@ export const FILLER_ITEM_NAMES = new Set([
   'anything',
 ]);
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const WEEKDAYS = 'monday|tuesday|wednesday|thursday|friday|saturday|sunday';
+
+/**
+ * The task itself, from a spoken sentence: openers, the person, and the day removed — each
+ * of those is its own slot. Pure. Returns '' when nothing is left.
+ *
+ *   "and walk the dog for Mia"        → "walk the dog"
+ *   "have Mia walk the dog tomorrow"  → "walk the dog"
+ *   "Mia should walk the dog"         → "walk the dog"
+ *   "also take out the trash for Nero"→ "take out the trash"
+ */
+export function taskPhraseFromUtterance(text: string, memberNames: string[] = []): string {
+  const names = [...memberNames, 'me', 'myself', 'us']
+    .map((n) => n.trim())
+    .filter(Boolean)
+    .map(escapeRegExp);
+  const who = names.length ? `(?:${names.join('|')})` : '(?!)';
+  let s = ` ${text.trim()} `;
+
+  // Openers: greetings, fillers, conjunctions, polite frames. Repeated, in any order.
+  const opener = new RegExp(
+    String.raw`^\s*(?:(?:hi|hey|hello)(?:\s+there)?(?:\s+poppins)?|poppins|and|also|so|then|plus|oh|ok(?:ay)?|um+|uh+|please|` +
+      String.raw`(?:can|could|would|will)\s+you(?:\s+please)?|i(?:'d|\s+would)\s+like(?:\s+you)?\s+to|` +
+      String.raw`i\s+(?:want|need)(?:\s+you)?\s+to|we\s+need\s+to|let'?s)\b[,\s]*`,
+    'i'
+  );
+  for (let i = 0; i < 6; i++) {
+    const next = s.replace(opener, ' ');
+    if (next === s) break;
+    s = next;
+  }
+
+  // The person as the subject: "have/get/ask/tell Mia (to) …", "Mia should/needs to …".
+  s = s.replace(new RegExp(String.raw`^\s*(?:have|get|ask|tell|let)\s+${who}\s+(?:to\s+)?`, 'i'), ' ');
+  s = s.replace(
+    new RegExp(
+      String.raw`^\s*${who}\s+(?:should|needs\s+to|has\s+to|must|can|could|will|is\s+going\s+to|is\s+gonna)\s+`,
+      'i'
+    ),
+    ' '
+  );
+  // The person as the target: "… for Mia", "… to Nero" (a member name only — "to the store" stays).
+  s = s.replace(new RegExp(String.raw`\s(?:for|to)\s+${who}\b`, 'gi'), ' ');
+
+  // The day and time: slots of their own.
+  s = s.replace(
+    new RegExp(
+      String.raw`\b(?:today|tonight|tomorrow(?:\s+(?:morning|afternoon|evening|night))?|` +
+        String.raw`this\s+(?:morning|afternoon|evening|weekend)|every\s*day|daily|` +
+        String.raw`(?:on|every|next)\s+(?:${WEEKDAYS})|(?:${WEEKDAYS})|` +
+        String.raw`at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?|by\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b`,
+      'gi'
+    ),
+    ' '
+  );
+
+  return s.replace(/[.,!?;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 export function isFillerItemName(name: string | undefined | null): boolean {
   const cleaned = name?.trim().toLowerCase().replace(/[.!?]+$/g, '') ?? '';
   return Boolean(cleaned) && FILLER_ITEM_NAMES.has(cleaned);
@@ -241,7 +304,10 @@ function parseHouseholdIntentRaw(
 
   if (isChoreAssignIntent(text, { excludeNames: memberNames })) {
     const match = matchLibraryIntent(text, memberNames, selfName);
-    const resolved = resolvePoppinsChoreTitle(text, { existingTasks: opts?.existingTasks });
+    // Resolve the title from the task itself — not the openers, the person, or the day,
+    // which are slots of their own ("and walk the dog for Mia" → "walk the dog").
+    const phrase = taskPhraseFromUtterance(text, memberNames);
+    const resolved = resolvePoppinsChoreTitle(phrase || text, { existingTasks: opts?.existingTasks });
     const rawTitle = resolved.title?.trim() ?? '';
     const domainOnly =
       Boolean(match.domainLabel) &&
