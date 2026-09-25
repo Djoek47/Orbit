@@ -299,8 +299,14 @@ async function main() {
   // ── E. Max plans only from final transcripts; the header speaks human ────────────────
   {
     const controller = src('lib/poppins/use-poppins-controller.ts');
-    const finalGate = controller.indexOf('if (!meta?.final) return;');
-    assert.ok(finalGate > 0 && controller.indexOf('planLocally(text)', finalGate) > finalGate);
+    // Partials update the caption and the current utterance, then return — they never plan.
+    const finalGate = controller.indexOf('if (!meta?.final) {');
+    assert.ok(finalGate > 0, 'a final-transcript gate exists');
+    const gateBlock = controller.slice(finalGate, controller.indexOf('\n      }', finalGate));
+    assert.ok(gateBlock.includes('return;'), 'the partial branch returns');
+    assert.ok(!gateBlock.includes('planLocally'), 'partials never plan');
+    assert.ok(gateBlock.includes('lastUtteranceRef.current = text'), 'partials keep the utterance current');
+    assert.ok(controller.indexOf('planLocally(text)', finalGate) > finalGate, 'finals plan');
     const session = src('lib/voice/poppins-voice-session.ts');
     assert.equal((session.match(/final: true/g) ?? []).length, 2, 'final only on completed + typed');
     assert.match(controller, /source: 'model'/, 'model plans are marked as such');
@@ -363,6 +369,50 @@ async function main() {
     assert.ok(noKey && /http 200/.test(noKey.message), 'and the HTTP status');
     assert.equal(failure({ error: 'Unauthorized' }, 401)?.causeCode, 'signed_out');
     console.log('F PASS Base upload + named failures');
+  }
+
+  // ── G. Every model confirmation gets exactly one answer ──────────────────────────────
+  {
+    const answers: string[] = [];
+    const listen = () =>
+      O.setPendingHandler((approved, ids) => answers.push(`${approved ? 'yes' : 'no'}:${ids.join(',')}`));
+
+    // G1 — a confirmation queued behind a task card; the person vetoes the task card.
+    reset();
+    listen();
+    answers.length = 0;
+    O.beginTurn();
+    hearAndDrive('assign a task to clean my dishes', MEMBERS, { userOriginated: true });
+    driveAiuic([{ type: 'confirm', confirmSummary: 'Delete 3 old tasks?', confirmationIds: ['pc-1'] }], 'x', {
+      memberNames: MEMBERS,
+      source: 'model',
+    });
+    assert.ok(O.getState().playlist.some((b) => b.scene === 'confirm'), 'the confirm card is queued');
+    O.veto();
+    O.clear();
+    assert.deepEqual(answers, ['no:pc-1'], `declined once when the stage cleared: ${answers}`);
+
+    // G2 — a confirmation approved on its card is never declined afterwards.
+    reset();
+    listen();
+    answers.length = 0;
+    driveAiuic([{ type: 'confirm', confirmSummary: 'Clear the list?', confirmationIds: ['pc-2'] }], 'x', {
+      memberNames: MEMBERS,
+      source: 'model',
+    });
+    await O.confirm({ fromTap: true });
+    await sleep(100);
+    O.clear();
+    assert.deepEqual(answers, ['yes:pc-2'], `approved once, never re-declined: ${answers}`);
+    O.setPendingHandler(null);
+    console.log('G PASS every confirmation answered exactly once');
+
+    // G3 — the first prefs load records the tier; it is not a tier switch.
+    const controller = src('lib/poppins/use-poppins-controller.ts');
+    assert.match(controller, /const tierRef = useRef<boolean \| null>\(null\)/);
+    assert.match(controller, /if \(tierRef\.current === null\) tierRef\.current = prefs\.speakBack;/);
+    assert.match(controller, /if \(tierRef\.current === null \|\| tierRef\.current === interactionPrefs\.speakBack\) return;/);
+    console.log('G3 PASS first prefs load is not a tier switch');
   }
 
   O.clear();

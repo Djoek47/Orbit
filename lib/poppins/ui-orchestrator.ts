@@ -98,6 +98,29 @@ const EMPTY: IuiDriveState = {
 let state: IuiDriveState = EMPTY;
 /** Session hold duration from active member — survives playlist clear/append. */
 let sessionHoldMs = HOLD_MS_DEFAULT;
+/**
+ * Model confirmations already answered. Every confirmation that reaches the stage gets
+ * exactly one answer: Yes when its card settles, No when it is vetoed or cleared away
+ * unanswered — the model must never be left waiting on a card that no longer exists.
+ */
+const resolvedConfirmations = new Set<string>();
+function resolveConfirmations(approved: boolean, ids: readonly string[] | undefined) {
+  const open = (ids ?? []).filter((id) => !resolvedConfirmations.has(id));
+  if (!open.length) return;
+  for (const id of open) resolvedConfirmations.add(id);
+  if (resolvedConfirmations.size > 200) {
+    const oldest = [...resolvedConfirmations].slice(0, resolvedConfirmations.size - 200);
+    for (const id of oldest) resolvedConfirmations.delete(id);
+  }
+  pendingHandler?.(approved, open);
+}
+/** Decline every confirmation still waiting on the stage (the stage is going away). */
+function declineOpenConfirmations() {
+  const ids = state.playlist.flatMap((beat) =>
+    beat.scene === 'confirm' ? beat.payload.confirmationIds ?? [] : []
+  );
+  resolveConfirmations(false, ids);
+}
 /** Which planner staged each beat — the recent-commit guard only ever applies to model plans. */
 const beatSource = new Map<string, PlanSource>();
 function noteBeatSource(beats: IuiBeat[], source: PlanSource) {
@@ -359,7 +382,7 @@ async function settleCurrent(opts?: { fromTap?: boolean }) {
   holdElapsedMs = 0;
   hapticHandler?.('settle');
   if (beat.scene === 'confirm' && beat.payload.confirmationIds?.length) {
-    pendingHandler?.(true, beat.payload.confirmationIds);
+    resolveConfirmations(true, beat.payload.confirmationIds);
   }
   let reverse: IuiCommitReverse | null | undefined;
   const fingerprint = beat.commit !== 'none' ? commitFingerprint(beat) : null;
@@ -922,6 +945,8 @@ function resetHoldProgressOnly() {
 
 function startPlaylist(playlist: IuiBeat[], kid?: boolean) {
   if (!playlist.length) return;
+  // Replacing the chain: any confirmation still waiting on the old one is answered No.
+  declineOpenConfirmations();
   clearAllTimers();
   const mult = getSessionHoldMultiplier();
   const baseHold = kid != null ? (kid ? HOLD_MS_KID : HOLD_MS_DEFAULT) : sessionHoldMs / (getSessionHoldMultiplier() || 1);
@@ -1560,7 +1585,7 @@ export const poppinsUiOrchestrator = {
   veto() {
     const beat = currentBeat();
     if (beat?.scene === 'confirm' && beat.payload.confirmationIds?.length) {
-      pendingHandler?.(false, beat.payload.confirmationIds);
+      resolveConfirmations(false, beat.payload.confirmationIds);
     }
     hapticHandler?.('veto');
     clearAllTimers();
@@ -1609,6 +1634,8 @@ export const poppinsUiOrchestrator = {
 };
 
 function clear() {
+  // A confirmation still queued behind the card being dismissed is answered No.
+  declineOpenConfirmations();
   // Keep the undo window alive after the card dismisses (WO16 §3.1).
   clearHoldTimer();
   clearUnfoldTimer();
