@@ -415,6 +415,41 @@ async function main() {
     console.log('G3 PASS first prefs load is not a tier switch');
   }
 
+  // ── H. Conversational phrasing: the right title, the right person, on the right card ─
+  {
+    const { taskPhraseFromUtterance } = await import('@/lib/poppins/ui-intent');
+    assert.equal(taskPhraseFromUtterance('and walk the dog for Mia', MEMBERS), 'walk the dog');
+    assert.equal(taskPhraseFromUtterance('have Mia walk the dog tomorrow', MEMBERS), 'walk the dog');
+    assert.equal(taskPhraseFromUtterance('Mia should walk the dog', MEMBERS), 'walk the dog');
+    assert.equal(taskPhraseFromUtterance('also take out the trash for Nero', MEMBERS), 'take out the trash');
+    assert.equal(
+      taskPhraseFromUtterance('take out the trash to the curb', MEMBERS),
+      'take out the trash to the curb',
+      '"to" a place is part of the task — only a member name is stripped'
+    );
+
+    const cardsAfter = (steps: string[]) => {
+      reset();
+      for (const s of steps) {
+        O.beginTurn();
+        hearAndDrive(s, MEMBERS, { userOriginated: true });
+      }
+      return liveWriteBeats().map(
+        (b) => `${b.payload.title ?? b.payload.groceryName ?? ''}${b.payload.assignee ? `>${b.payload.assignee}` : ''}`
+      );
+    };
+    assert.deepEqual(cardsAfter(['have Mia walk the dog tomorrow']), ['Walk the dog>Mia'], 'never "Trim or shave"');
+    assert.deepEqual(
+      cardsAfter(['assign a task to clean my dishes', 'and walk the dog for Mia']),
+      ['Clean Dishes', 'Walk the dog>Mia'],
+      'a new act keeps its person; the waiting card is untouched'
+    );
+    assert.deepEqual(cardsAfter(['assign a task to clean my dishes', 'to Mia']), ['Clean Dishes>Mia']);
+    assert.deepEqual(cardsAfter(['assign a task to clean my dishes', 'Nero']), ['Clean Dishes>Nero']);
+    assert.deepEqual(cardsAfter(['add milk to the list', 'and bananas']), ['Milk', 'Bananas'], 'bare items still add');
+    console.log('H PASS conversational titles, and names on the right card');
+  }
+
   O.clear();
   console.log('poppins-rebuild.test.ts ok');
   process.exit(0);

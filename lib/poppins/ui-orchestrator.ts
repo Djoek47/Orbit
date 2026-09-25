@@ -1339,10 +1339,15 @@ export const poppinsUiOrchestrator = {
   ) {
     applyGroupItemStatus(itemId, status);
   },
-  syncSpoken(text: string, memberNames: string[] = []) {
+  /**
+   * Show what was just said, and let its names and dates land on the card on screen.
+   * `patchCard: false` shows the words only — for a sentence that was about a different act
+   * ("…and walk the dog for Mia" must not put Mia on the dishes card).
+   */
+  syncSpoken(text: string, memberNames: string[] = [], opts?: { patchCard?: boolean }) {
     if (!text.trim()) return;
     setState({ spoken: text });
-    if (!state.live) return;
+    if (!state.live || opts?.patchCard === false) return;
     const beat = currentBeat();
     if (!beat) return;
     const names =
@@ -1356,7 +1361,15 @@ export const poppinsUiOrchestrator = {
       maybeArmHold();
     }
   },
-  applySpeech(text: string, memberNames: string[] = [], opts?: { selfName?: string }) {
+  /**
+   * Speech while a card is live. Returns which steer it was (a correction to the card on
+   * screen, a new act spliced after it, …) or false when the sentence did not steer.
+   */
+  applySpeech(
+    text: string,
+    memberNames: string[] = [],
+    opts?: { selfName?: string }
+  ): 'freeze' | 'unfreeze' | 'veto' | 'confirm' | 'revise' | 'splice' | false {
     if (!state.live) return false;
     const steer = interpretStageSpeech(text, {
       memberNames,
@@ -1366,27 +1379,27 @@ export const poppinsUiOrchestrator = {
     });
     if (steer.kind === 'freeze') {
       poppinsUiOrchestrator.freeze();
-      return true;
+      return 'freeze';
     }
     if (steer.kind === 'unfreeze') {
       poppinsUiOrchestrator.unfreeze();
-      return true;
+      return 'unfreeze';
     }
     if (steer.kind === 'veto') {
       poppinsUiOrchestrator.veto();
-      return true;
+      return 'veto';
     }
     if (steer.kind === 'confirm') {
       poppinsUiOrchestrator.confirm();
-      return true;
+      return 'confirm';
     }
     if (steer.kind === 'revise') {
       poppinsUiOrchestrator.revise(steer.patch);
-      return true;
+      return 'revise';
     }
     if (steer.kind === 'splice') {
       poppinsUiOrchestrator.splice(steer.actions);
-      return true;
+      return 'splice';
     }
     return false;
   },

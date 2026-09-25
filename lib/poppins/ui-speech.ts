@@ -113,21 +113,24 @@ export function interpretStageSpeech(
     return { kind: 'confirm' };
   }
 
+  // WO11 §2.6 — mid-chain "and bananas" / "plus milk" / "also walk the dog" appends, never
+  // resets. The sentence is parsed as said first ("walk the dog for Mia" is a task); only a
+  // bare item with no verb of its own ("bananas") is read as "add bananas". Rewriting every
+  // "and" to "add" titled tasks "Add Walk the Dog".
+  const splice = (rest: string): Array<Record<string, unknown>> => {
+    const intentOpts = { memberNames: ctx.memberNames, selfName: ctx.selfName };
+    const asSaid = rest.trim() ? parseHouseholdIntent(rest, intentOpts) : [];
+    if (asSaid.length) return asSaid;
+    return rest.trim() ? parseHouseholdIntent(`add ${rest.trim()}`, intentOpts) : [];
+  };
+
   if (/\balso\b/.test(lower) && ctx.live) {
-    const extra = parseHouseholdIntent(text.replace(/\balso\b/i, 'add'), {
-      memberNames: ctx.memberNames,
-      selfName: ctx.selfName,
-    });
+    const extra = splice(text.replace(/\balso\b[,\s]*/i, ' ').trim());
     if (extra.length) return { kind: 'splice', actions: extra };
   }
 
-  // WO11 §2.6 — mid-chain "and bananas" / "plus milk" appends, never resets.
   if (ctx.live && /^(and|plus|as well as)\b/.test(lower)) {
-    const rewritten = text.replace(/^(and|plus|as well as)\b/i, 'add');
-    const extra = parseHouseholdIntent(rewritten, {
-      memberNames: ctx.memberNames,
-      selfName: ctx.selfName,
-    });
+    const extra = splice(text.replace(/^(and|plus|as well as)\b[,\s]*/i, ''));
     if (extra.length) return { kind: 'splice', actions: extra };
   }
 
