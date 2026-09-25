@@ -10,7 +10,8 @@ import {
   requestMicPermission,
   startMicRecorder,
 } from '@/lib/voice/mic-capture';
-import { VoiceFailureError, classifyVoiceFailure } from '@/lib/voice/quiet-failures';
+import { VoiceFailureError } from '@/lib/voice/quiet-failures';
+import { serverNeedsMultipart, voiceResult, type VoiceResponse } from '@/lib/voice/voice-response';
 import { poppinsService } from '@/services/poppins-service';
 import type { AudioRecorder } from 'expo-audio';
 import type { HouseholdSnapshot, PoppinsConversationAnswer, OrbitMetrics } from '@/types/orbit';
@@ -71,6 +72,29 @@ async function invokePoppinsVoice(
     throw new VoiceFailureError('signed_out');
   }
 
+  const url = `${baseUrl}/functions/v1/poppins-voice`;
+  const householdPayload = buildPoppinsHouseholdPayload(household, metrics);
+
+  // JSON first: the audio travels as base64 text. A multipart file upload goes through
+  // RCTBlobManager, which is what broke the Realtime SDP upload on iOS 27 (see
+  // webrtc-teardown.test.ts) — Quiet was never moved off it. An older deployment of the
+  // function only reads multipart; if it rejects JSON we fall back to the form upload.
+  const audioBase64 = await readAudioBase64(audioUri);
+  if (audioBase64) {
+    const json = await postVoice(url, token, {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        audioBase64,
+        mimeType: 'audio/m4a',
+        householdId: household.id ?? '',
+        metrics,
+        household: householdPayload,
+        transcriptOnly,
+      }),
+    });
+    if (!serverNeedsMultipart(json)) return voiceResult(json);
+  }
+
   const form = new FormData();
   form.append('audio', {
     uri: audioUri,
@@ -79,39 +103,47 @@ async function invokePoppinsVoice(
   } as unknown as Blob);
   form.append('householdId', household.id ?? '');
   form.append('metrics', JSON.stringify(metrics));
-  form.append('household', JSON.stringify(buildPoppinsHouseholdPayload(household, metrics)));
+  form.append('household', JSON.stringify(householdPayload));
   if (transcriptOnly) {
     form.append('transcriptOnly', '1');
   }
+  return voiceResult(await postVoice(url, token, { body: form }, 'form'));
+}
 
+/** Read the recording as base64 without a multipart upload. Null when unavailable. */
+async function readAudioBase64(audioUri: string): Promise<string | null> {
+  try {
+    const FileSystem = await import('expo-file-system/legacy');
+    const data = await FileSystem.readAsStringAsync(audioUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return data && data.length > 0 ? data : null;
+  } catch (error) {
+    console.warn('[poppins-voice] base64 read failed; using form upload', error);
+    return null;
+  }
+}
+
+async function postVoice(
+  url: string,
+  token: string,
+  init: { headers?: Record<string, string>; body: BodyInit },
+  via: 'json' | 'form' = 'json'
+): Promise<VoiceResponse> {
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}/functions/v1/poppins-voice`, {
+    response = await fetch(url, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: form,
+      headers: { Authorization: `Bearer ${token}`, ...(init.headers ?? {}) },
+      body: init.body,
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    throw new VoiceFailureError('whisper_failed', detail);
+    // The network or the upload itself failed before the function answered.
+    throw new VoiceFailureError('whisper_failed', `${via} upload: ${detail}`);
   }
-
-  const payload = await response.json().catch(() => ({} as { error?: string }));
-  if (!response.ok || payload.error) {
-    const err = String(payload.error ?? `Voice request failed (${response.status})`);
-    if (response.status === 401 || response.status === 403) {
-      throw new VoiceFailureError('signed_out', err);
-    }
-    const cause = classifyVoiceFailure(err);
-    throw new VoiceFailureError(cause, err);
-  }
-
-  return {
-    transcript: String(payload.transcript ?? ''),
-    answer: String(payload.answer ?? ''),
-  };
+  const payload = (await response.json().catch(() => ({}))) as VoiceResponse['payload'];
+  return { status: response.status, ok: response.ok, payload };
 }
 
 /** Whisper-only transcription for Realtime text turns (Expo Go). */
