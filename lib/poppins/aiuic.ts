@@ -40,10 +40,15 @@ function persistMemoryActions(actions: Array<Record<string, unknown>>) {
   }
 }
 
+/**
+ * Stage a plan. `source: 'model'` marks a plan from the chat/realtime model: for any act
+ * family this turn already owns it only refines the live beat (see turn-ownership.ts).
+ * Local plans (the grammar, coach "do it for me") omit it.
+ */
 export function driveAiuic(
   actions: Array<Record<string, unknown>> | undefined,
   utterance: string,
-  opts?: { kid?: boolean; replace?: boolean } & HouseholdIntentOpts
+  opts?: { kid?: boolean; replace?: boolean; source?: 'local' | 'model' } & HouseholdIntentOpts
 ) {
   const next = rewriteAiuicActions(actions ?? [], utterance, {
     existingTasks: opts?.existingTasks,

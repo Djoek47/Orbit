@@ -10,6 +10,7 @@ import { mapUiActionsToPlaylist } from '@/lib/poppins/ui-tool-map';
 import { poppinsUiOrchestrator as O } from '@/lib/poppins/ui-orchestrator';
 import type { IuiBeat } from '@/lib/poppins/ui-scenes';
 import type { IuiCommitReverse } from '@/lib/poppins/iui-reverse';
+import { resetTurnOwnership } from '@/lib/poppins/turn-ownership';
 
 const commits: string[] = [];
 
@@ -30,6 +31,8 @@ function reset(
   handler?: (beat: IuiBeat) => Promise<{ ok: boolean; reverse?: IuiCommitReverse | null }>
 ) {
   commits.length = 0;
+  // Each case is a fresh session: no turn or commit memory carried from the last case.
+  resetTurnOwnership();
   O.clear();
   O.setSpeaking(false);
   O.setCommitHandler(async (beat) => {
