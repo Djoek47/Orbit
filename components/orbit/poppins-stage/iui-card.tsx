@@ -1,31 +1,31 @@
 /**
- * WO12 §A2 — the shell every stage scene renders inside.
- * Folds the old stepper kicker + hold ring into one card.
+ * The shell every stage scene renders inside: kicker row, body, optional hold footer.
  * Rule: a card never contains a card.
+ *
+ * The hold ring is a HALO drawn beside the card, never its container. It used to wrap
+ * the card, so its opacity (0 unless holding) hid every card that was waiting for input —
+ * the "blank stage". The card itself is always fully opaque; only the halo fades.
+ *
+ * The body does not scroll on its own. The Poppins screen scrolls the whole stage as one
+ * unit, bounded above the dock, so a nested scroll can never steal a tap.
  */
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import {
-  AccessibilityInfo,
-  ScrollView,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { AccessibilityInfo, StyleSheet, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withSpring,
   withTiming,
-  Easing,
 } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { STAGE, stageBorder, stageFaint, stageMuted, stageSurfaces } from '@/constants/iui-stage';
 import { motion, motionDuration } from '@/constants/motion-tokens';
+import { haloOpacity } from '@/lib/poppins/stage-scene';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
   /** Domain TEXT colour from stageAccent(..., isDark). */
@@ -36,18 +36,16 @@ type Props = {
   kicker: string;
   /** Optional right-hand count, e.g. "3 items". */
   countLabel?: string;
-  /** Hold armed — shows accent ring + footer progress. */
+  /** Hold running — full halo, gentle breath, footer progress. */
   holding?: boolean;
   holdProgress?: number;
   frozen?: boolean;
-  /** Show the hold footer (even before progress starts). */
+  /** Hold armed — faint halo and the footer track, before progress starts. */
   hold?: boolean;
   leftFooter?: string;
   rightFooter?: string;
   children: ReactNode;
   accessibilityLabel?: string;
-  /** Cap body scroll; defaults to window-aware height. */
-  maxBodyHeight?: number;
 };
 
 export function IuiCard({
@@ -63,20 +61,14 @@ export function IuiCard({
   rightFooter,
   children,
   accessibilityLabel,
-  maxBodyHeight,
 }: Props) {
   const { isDark } = useOrbitColors();
   const surfaces = stageSurfaces(isDark);
   const muted = stageMuted(isDark);
   const faint = stageFaint(isDark);
   const fill = fillAccent ?? accent;
-  const { height: windowH } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const bodyCap =
-    maxBodyHeight ??
-    Math.max(220, Math.min(520, windowH - insets.top - insets.bottom - 16 - 220));
   const scale = useSharedValue(1);
-  const ringOpacity = useSharedValue(holding ? 1 : 0);
+  const halo = useSharedValue(haloOpacity({ hold, holding }));
   const enterOpacity = useSharedValue(1);
   const enterY = useSharedValue(0);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -88,7 +80,7 @@ export function IuiCard({
   }, []);
 
   useEffect(() => {
-    // Card must be visible immediately (blank-stage bug). Soft settle only if motion is on.
+    // Never start invisible: a soft settle from 0.92, only when motion is on.
     if (reduceMotion) {
       enterOpacity.value = 1;
       enterY.value = 0;
@@ -96,64 +88,51 @@ export function IuiCard({
     }
     enterOpacity.value = 0.92;
     enterY.value = 6;
-    const dur = motionDuration.smooth;
-    enterOpacity.value = withTiming(1, {
-      duration: dur,
-      easing: Easing.out(Easing.cubic),
-    });
-    enterY.value = withTiming(0, {
-      duration: dur,
-      easing: Easing.out(Easing.cubic),
-    });
+    const easing = Easing.out(Easing.cubic);
+    enterOpacity.value = withTiming(1, { duration: motionDuration.smooth, easing });
+    enterY.value = withTiming(0, { duration: motionDuration.smooth, easing });
   }, [enterOpacity, enterY, reduceMotion]);
 
   useEffect(() => {
     if (frozen) return;
-    if (holding) {
-      if (reduceMotion) {
-        scale.value = withTiming(1, { duration: motionDuration.snappy });
-      } else {
-        scale.value = withRepeat(withSpring(1.045, motion.snappy), -1, true);
-      }
-      ringOpacity.value = withTiming(1, { duration: motionDuration.snappy });
+    if (holding && !reduceMotion) {
+      scale.value = withRepeat(withSpring(1.02, motion.snappy), -1, true);
     } else {
       scale.value = withSpring(1, motion.snappy);
-      ringOpacity.value = withTiming(hold ? 0.45 : 0, {
-        duration: motionDuration.snappy,
-        easing: Easing.out(Easing.cubic),
-      });
     }
-  }, [frozen, holding, hold, scale, ringOpacity, reduceMotion]);
+    halo.value = withTiming(haloOpacity({ hold, holding }), {
+      duration: motionDuration.snappy,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [frozen, holding, hold, scale, halo, reduceMotion]);
 
-  const breath = useAnimatedStyle(() => ({
+  const cardMotion = useAnimatedStyle(() => ({
     opacity: enterOpacity.value,
     transform: [{ scale: scale.value }, { translateY: enterY.value }],
   }));
-  const ringStyle = useAnimatedStyle(() => ({
-    borderColor: fill,
-    opacity: ringOpacity.value,
-  }));
+  const haloStyle = useAnimatedStyle(() => ({ opacity: halo.value }));
   const p = Math.min(1, Math.max(0, holdProgress));
   const showFooter = hold || holding;
 
   return (
     <Animated.View
-      accessible
-      accessibilityRole="summary"
-      style={[styles.wrap, breath]}
-      accessibilityViewIsModal={holding || undefined}
+      accessible={false}
+      style={[styles.wrap, cardMotion]}
       accessibilityLabel={accessibilityLabel ?? kicker}>
-      <Animated.View
-        style={[
-          styles.ring,
-          {
-            borderRadius: STAGE.radius.ring,
-            borderWidth: STAGE.ringWidth,
-            padding: 5,
-          },
-          ringStyle,
-        ]}
-        pointerEvents="box-none">
+      <View style={styles.frame}>
+        {/* Halo: a sibling overlay. Its opacity never reaches the card. */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.halo,
+            {
+              borderColor: fill,
+              borderRadius: STAGE.radius.ring,
+              borderWidth: STAGE.ringWidth,
+            },
+            haloStyle,
+          ]}
+        />
         <View
           style={[
             styles.card,
@@ -163,7 +142,7 @@ export function IuiCard({
               borderRadius: STAGE.radius.card,
             },
           ]}>
-          <View style={styles.kickerRow}>
+          <View style={styles.kickerRow} accessible accessibilityRole="header">
             <View style={[styles.domainDot, { backgroundColor: fill }]} />
             <Text style={[styles.kicker, { color: accent }]} numberOfLines={1}>
               {kicker.toUpperCase()}
@@ -177,32 +156,20 @@ export function IuiCard({
             )}
           </View>
 
-          <ScrollView
-            style={[styles.bodyScroll, { maxHeight: bodyCap }]}
-            contentContainerStyle={styles.body}
-            nestedScrollEnabled
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
-            {children}
-          </ScrollView>
+          <View style={styles.body}>{children}</View>
 
           {showFooter ? (
             <View
               style={[
                 styles.footer,
                 { borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,28,42,0.08)' },
-              ]}>
-              <View
-                style={[
-                  styles.holdTrack,
-                  { backgroundColor: stageBorder(isDark) },
-                ]}>
-                <View
-                  style={[
-                    styles.holdFill,
-                    { width: `${p * 100}%`, backgroundColor: fill },
-                  ]}
-                />
+              ]}
+              accessible
+              accessibilityRole="progressbar"
+              accessibilityLabel={leftFooter ?? (holding ? 'Holding' : 'One hold')}
+              accessibilityValue={{ min: 0, max: 100, now: Math.round(p * 100) }}>
+              <View style={[styles.holdTrack, { backgroundColor: stageBorder(isDark) }]}>
+                <View style={[styles.holdFill, { width: `${p * 100}%`, backgroundColor: fill }]} />
               </View>
               <View style={styles.footerLabels}>
                 <Text style={[styles.footerLeft, { color: muted }]} numberOfLines={1}>
@@ -215,19 +182,25 @@ export function IuiCard({
             </View>
           ) : null}
         </View>
-      </Animated.View>
+      </View>
     </Animated.View>
   );
 }
+
+const HALO_GAP = 5;
 
 const styles = StyleSheet.create({
   wrap: {
     width: '100%',
     alignItems: 'center',
   },
-  ring: {
+  frame: {
     width: '100%',
     maxWidth: 360,
+    padding: HALO_GAP,
+  },
+  halo: {
+    ...StyleSheet.absoluteFill,
   },
   card: {
     width: '100%',
@@ -258,10 +231,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   countSpacer: { width: 8 },
-  bodyScroll: {
-    flexGrow: 0,
-    flexShrink: 1,
-  },
   body: {
     paddingHorizontal: 10,
     paddingBottom: 6,
