@@ -13,12 +13,14 @@
  * Returns a patch for the current card, or null when the sentence isn't about it.
  */
 import { defaultEventMinutes } from '@/lib/poppins/event-parse';
+import { kindOfStop, resolveStopPlace, scheduleStops, type TripPlace } from '@/lib/poppins/trip-parse';
 import { addMinutesToTime, minutesBetween, parseWhen } from '@/lib/poppins/when-parse';
 import type { IuiBeat, IuiPayload } from '@/lib/poppins/ui-scenes';
 
 export type CardSpeechCtx = {
   memberNames?: string[];
   placeNames?: string[];
+  places?: TripPlace[];
   selfName?: string;
   now?: Date;
 };
@@ -33,6 +35,11 @@ function capitalise(text: string) {
 
 function escape(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** True when the sentence only renames the card — its words are a name, not slots. */
+export function isRenameSpeech(text: string): boolean {
+  return RENAME.test(text.trim());
 }
 
 /** "call it deep clean" → "Deep clean", for whatever kind of card is up. */
@@ -125,6 +132,56 @@ function eventPatch(text: string, beat: IuiBeat, ctx: CardSpeechCtx): Partial<Iu
   return patch;
 }
 
+function tripPatch(text: string, beat: IuiBeat, ctx: CardSpeechCtx): Partial<IuiPayload> | null {
+  const p = beat.payload;
+  const stops = p.stops ?? [];
+  const lower = text.toLowerCase().trim().replace(/[.!?]+$/, '');
+  const start = p.time ?? stops[0]?.time ?? '16:00';
+  const places = ctx.places ?? [];
+
+  // "tomorrow" / "make it today"
+  const day = parseWhen(lower.replace(/^(make it|do it|move it to)\s+/, ''), ctx.now);
+  if (/^(?:make it |do it |move it to )?(today|tomorrow|tonight|demain)$/.test(lower) && day.date) {
+    return { date: day.date, itineraryTitle: runTitle(day.date) };
+  }
+  // "start at 3" / "leave at 5:30"
+  const startAt = lower.match(/^(?:start|starting|leave|leaving|begin|go)\s+(?:at\s+)?(.+)$/);
+  if (startAt) {
+    const when = parseWhen(`at ${startAt[1]}`, ctx.now);
+    if (when.time) return { time: when.time, stops: scheduleStops(stops, when.time) };
+  }
+  // "add a stop at the bank" / "add the pharmacy" / "and then the library"
+  const add = text.trim().match(/^(?:and\s+)?(?:then\s+)?(?:add|plus)\s+(?:a\s+stop\s+(?:at|to|for)\s+)?(?:the\s+)?(.+?)[.!?]*$/i)
+    ?? text.trim().match(/^and then\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (add?.[1] && !/\b(list|groceries|grocery)\b/i.test(add[1])) {
+    const label = add[1][0]!.toUpperCase() + add[1].slice(1);
+    const kind = kindOfStop(label);
+    const place = resolveStopPlace(label, kind, places, stops);
+    return { stops: scheduleStops([...stops, { id: `stop-${Date.now()}`, label, kind, category: kind, ...place }], start) };
+  }
+  // "skip the gym" / "remove the bank" / "no gym"
+  const drop = lower.match(/^(?:skip|remove|drop|take out|no|forget)\s+(?:the\s+)?(.+)$/);
+  if (drop?.[1]) {
+    const target = drop[1];
+    const index = stops.findIndex((s) => s.label.toLowerCase().includes(target) || target.includes(s.label.toLowerCase()));
+    if (index >= 0 && stops.length > 1) return { stops: scheduleStops(stops.filter((_, i) => i !== index), start) };
+  }
+  // An address for the stop that's asking: "it's 4200 Rue Beaubien" / "the kids are at Saint-Joseph"
+  const asking = stops.find((s) => s.needsAddress && !s.address);
+  const address = text.trim().match(/^(?:it's|it is|that's|at|the address is|they're at|the kids are at|c'est au|c'est à)\s+(.+?)[.!?]*$/i);
+  if (asking && address?.[1]) {
+    return {
+      stops: stops.map((s) => (s.id === asking.id ? { ...s, address: address[1], placeQuery: address[1], needsAddress: false } : s)),
+    };
+  }
+  return null;
+}
+
+function runTitle(date: string) {
+  const d = new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)));
+  return `${d.toLocaleString('en', { weekday: 'long' })} run`;
+}
+
 /** A patch for the card on screen, or null when the sentence is about something else. */
 export function interpretCardSpeech(
   text: string,
@@ -134,10 +191,17 @@ export function interpretCardSpeech(
   if (!beat || !text.trim()) return null;
   const rename = renameFromSpeech(text, beat);
   if (rename) return rename;
+  if (beat.scene === 'itinerary_stage' || beat.payload.write === 'create_itinerary_stop') {
+    const trip = tripPatch(text, beat, ctx);
+    if (trip) return trip;
+  }
   // A sentence that starts a new thing is not a correction to this card.
   if (/^(?:and\s+)?(?:also\s+)?(?:add|put|buy|get|assign|schedule|book|plan|remind|clean|wash)\b/i.test(text.trim()) &&
       !/^(?:add|with) travel\b/i.test(text.trim())) {
     return null;
+  }
+  if (beat.scene === 'itinerary_stage' || beat.payload.write === 'create_itinerary_stop') {
+    return tripPatch(text, beat, ctx);
   }
   if (beat.scene === 'calendar_zoom' || beat.payload.write === 'create_event') {
     return eventPatch(text, beat, ctx);

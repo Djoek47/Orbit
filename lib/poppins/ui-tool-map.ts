@@ -517,14 +517,18 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
       const stopsRaw = Array.isArray(action.stops) ? action.stops : [];
       const mappedStops =
         stopsRaw.length > 0
-          ? stopsRaw.slice(0, 10).map((row, i) => {
+          ? stopsRaw.slice(0, 20).map((row, i) => {
               const s = asRecord(row);
               const label = String(s.label ?? s.title ?? `Stop ${i + 1}`).trim() || `Stop ${i + 1}`;
               const address = s.address ? String(s.address) : undefined;
               const placeQuery = s.placeQuery ? String(s.placeQuery) : undefined;
+              const time = s.time ? String(s.time) : undefined;
               return {
                 id: String(s.id ?? `stop-${i + 1}`),
                 label,
+                stayMin: typeof s.stayMin === 'number' ? s.stayMin : undefined,
+                savedPlaceId: s.savedPlaceId ? String(s.savedPlaceId) : undefined,
+                note: s.note ? String(s.note) : undefined,
                 emoji:
                   String(s.kind ?? '') === 'shop' || String(s.kind ?? '') === 'grocery'
                     ? '🛒'
@@ -539,8 +543,11 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
                 kind: s.kind ? String(s.kind) : undefined,
                 address,
                 placeQuery,
-                time: s.time ? String(s.time) : undefined,
-                needsAddress: !address,
+                time,
+                needsAddress:
+                  typeof s.needsAddress === 'boolean'
+                    ? s.needsAddress
+                    : !address && String(s.kind ?? '') !== 'shop',
               };
             })
           : [
@@ -557,6 +564,7 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
           {
             itineraryTitle: String(action.title ?? prefill.title ?? 'Trip'),
             date: action.date ? String(action.date) : undefined,
+            time: action.start ? String(action.start) : undefined,
             stops: mappedStops,
             thinkingLine: `${mappedStops.length} stop${mappedStops.length === 1 ? '' : 's'}`,
           },

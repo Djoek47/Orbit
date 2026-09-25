@@ -973,9 +973,17 @@ function scoreLibraryTask(task: LibraryTask, tokens: string[], domainId?: string
   return { score, unmatched };
 }
 
+const ROOM_WORDS =
+  /\b(living room|bedroom|kitchen|bathroom|basement|garage|stairs|car|main floor|hallway|office|playroom|dining room|laundry room|yard|deck|patio|porch|entryway|mudroom)\b/i;
+
 function matchCatalogForChore(chore: string, utterance?: string): LibraryTask | undefined {
   const fromIntent = matchLibraryIntent(utterance || chore).task;
-  if (fromIntent && !isGroceryMetaTask(fromIntent)) return fromIntent;
+  // A catalog chore for a different room is a different chore ("vacuum the living room" is
+  // not "Vacuum the bedroom").
+  const room = chore.match(ROOM_WORDS)?.[1]?.toLowerCase();
+  const sameRoom = (task: LibraryTask) =>
+    !room || `${task.name} ${task.searchTerms.join(' ')}`.toLowerCase().includes(room);
+  if (fromIntent && !isGroceryMetaTask(fromIntent) && sameRoom(fromIntent)) return fromIntent;
   const tokens = contentTokens(chore);
   if (!tokens.length) return undefined;
   const domainId = matchLibraryIntent(utterance || chore).domainId;

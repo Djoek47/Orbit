@@ -527,6 +527,7 @@ export async function commitIuiBeat(
 
   if (write === 'create_itinerary_stop') {
     const { mapStopKindToStore } = await import('@/lib/itinerary/itinerary-intent');
+    const { formatTime12 } = await import('@/lib/poppins/when-parse');
     const stops = (p.stops ?? []).map((stop, index) => {
       const kindRaw = String(stop.kind ?? stop.category ?? 'other');
       const kind = mapStopKindToStore(
@@ -539,6 +540,7 @@ export async function commitIuiBeat(
           | 'other'
           | 'practice'
           | 'pickup'
+          | 'home'
       );
       return {
         label: stop.label,
@@ -546,7 +548,10 @@ export async function commitIuiBeat(
         sortOrder: index,
         address: stop.address,
         placeQuery: stop.placeQuery ?? stop.label,
-        time: stop.time,
+        // Stored the way the Plan tab shows times.
+        time: stop.time && /^\d{2}:\d{2}$/.test(stop.time) ? formatTime12(stop.time) : stop.time,
+        savedPlaceId: stop.savedPlaceId,
+        notes: stop.note && !stop.note.includes('saved place') ? stop.note : undefined,
       };
     });
     const fallbackLabel = p.itineraryTitle ?? 'Trip';
