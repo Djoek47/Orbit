@@ -298,6 +298,8 @@ export class PoppinsVoiceSession {
   private pausedForTools = false;
   private openerInstructions: string | null = null;
   private heardUserBeforeOpen = false;
+  /** The greeting is being spoken right now — the person's first words cut it off. */
+  private openerSpeaking = false;
   private openerTimer: ReturnType<typeof setTimeout> | null = null;
   private listenPrompt = '';
   private seedTurns: Array<{ role: 'user' | 'assistant'; text: string }> = [];
@@ -496,7 +498,10 @@ export class PoppinsVoiceSession {
               type: 'response.create',
               response: { instructions: this.openerInstructions },
             });
-            this.beginAssistantResponse();
+            this.openerSpeaking = true;
+            // The greeting is the one reply you can talk over: the mic stays open so the
+            // person's first words cut it off (and reach the stage) instead of being dropped.
+            this.responseInFlight = true;
           }, OPENER_DELAY_MS);
         }
       };
@@ -738,6 +743,13 @@ export class PoppinsVoiceSession {
         clearTimeout(this.openerTimer);
         this.openerTimer = null;
       }
+      // They started talking over the greeting: the stage is already acting on their words,
+      // so the greeting stops here rather than trailing behind them.
+      if (this.openerSpeaking) {
+        this.openerSpeaking = false;
+        this.sendEvent({ type: 'response.cancel' });
+        this.sendEvent({ type: 'output_audio_buffer.clear' });
+      }
       if (type === 'input_audio_buffer.committed') {
         this.noteUserActivity();
         return;
@@ -810,6 +822,7 @@ export class PoppinsVoiceSession {
     }
 
     if (type === 'response.done' || type === 'response.cancelled') {
+      this.openerSpeaking = false;
       this.clearThinkingRecovery();
       this.endAssistantResponse();
       if (this.assistantBuffer.trim()) {
