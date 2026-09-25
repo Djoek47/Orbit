@@ -59,6 +59,7 @@
     "test:chapters": "npx --yes tsx lib/rules/chapters.test.ts",
     "test:grocery-merge": "npx --yes tsx lib/household/migrate-grocery-permission.test.ts",
     "test:revision-e": "npx --yes tsx lib/rewards/revision-e.test.ts",
+    "test:moji": "npx --yes tsx components/orbit/moji/moji.test.ts",
     "test:grocery-classify": "npx --yes tsx lib/grocery/classify.test.ts",
     "test:grocery-catalog": "npx --yes tsx lib/grocery/catalog.test.ts",
     "test:shopping": "npx --yes tsx lib/grocery/shopping-palette.test.ts",
