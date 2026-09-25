@@ -52,8 +52,15 @@ function prefsAllow(
   return prefs[key] !== false;
 }
 
-async function sendExpoPush(messages: ExpoPushMessage[]): Promise<void> {
-  if (!messages.length) return;
+type ExpoPushResult = {
+  httpStatus: number | null;
+  ticketIds: string[];
+  errors: string[];
+};
+
+async function sendExpoPush(messages: ExpoPushMessage[]): Promise<ExpoPushResult> {
+  const result: ExpoPushResult = { httpStatus: null, ticketIds: [], errors: [] };
+  if (!messages.length) return result;
 
   const accessToken = Deno.env.get('EXPO_ACCESS_TOKEN');
   const headers: Record<string, string> = {
@@ -69,10 +76,57 @@ async function sendExpoPush(messages: ExpoPushMessage[]): Promise<void> {
     headers,
     body: JSON.stringify(messages),
   });
+  result.httpStatus = response.status;
 
   if (!response.ok) {
     const text = await response.text();
     console.warn('dispatch-member-push expo error', response.status, text);
+    result.errors.push(`http_${response.status}`);
+    return result;
+  }
+
+  // Tickets are only used for the activity log — never fail the send on parse.
+  try {
+    const json = (await response.json()) as {
+      data?: { status?: string; id?: string; message?: string }[];
+    };
+    for (const ticket of json.data ?? []) {
+      if (ticket.status === 'ok' && ticket.id) result.ticketIds.push(ticket.id);
+      else if (ticket.message) result.errors.push(ticket.message);
+    }
+  } catch {
+    // ignore
+  }
+  return result;
+}
+
+/** Append-only activity log row (see 20260925090000_activity_log.sql). Best-effort. */
+async function logPushSent(
+  admin: ReturnType<typeof createClient>,
+  input: {
+    householdId: string;
+    notificationId: string;
+    title: string;
+    body: string;
+    category: unknown;
+    memberIds: string[];
+    detail: Record<string, unknown>;
+  }
+): Promise<void> {
+  try {
+    const { error } = await admin.from('activity_log').insert({
+      household_id: input.householdId,
+      kind: 'notification_push_sent',
+      notification_id: input.notificationId,
+      member_id: input.memberIds.length === 1 ? input.memberIds[0] : null,
+      title: input.title,
+      body: input.body,
+      category: typeof input.category === 'string' ? input.category : null,
+      detail: { audience_member_ids: input.memberIds, ...input.detail },
+    });
+    if (error) console.warn('dispatch-member-push activity_log', error.message);
+  } catch (error) {
+    console.warn('dispatch-member-push activity_log', String(error));
   }
 }
 
@@ -161,6 +215,17 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const prefs = (hh?.notification_prefs ?? null) as Record<string, unknown> | null;
       if (!prefsAllow(prefs, category, data)) {
+        if (notificationId) {
+          await logPushSent(admin, {
+            householdId,
+            notificationId,
+            title,
+            body: pushBody,
+            category,
+            memberIds,
+            detail: { devices: 0, reason: 'prefs_disabled' },
+          });
+        }
         return new Response(
           JSON.stringify({ ok: true, sent: 0, reason: 'prefs_disabled', category }),
           { headers: { ...cors, 'Content-Type': 'application/json' } }
@@ -210,7 +275,25 @@ Deno.serve(async (req) => {
       data,
     }));
 
-    await sendExpoPush(messages);
+    const push = await sendExpoPush(messages);
+
+    if (notificationId && householdId) {
+      await logPushSent(admin, {
+        householdId,
+        notificationId,
+        title,
+        body: pushBody,
+        category,
+        memberIds,
+        detail: {
+          devices: messages.length,
+          ticket_ids: push.ticketIds,
+          errors: push.errors,
+          http_status: push.httpStatus,
+          ...(messages.length === 0 ? { reason: 'no_push_tokens' } : {}),
+        },
+      });
+    }
 
     return new Response(JSON.stringify({ ok: true, sent: messages.length }), {
       headers: { ...cors, 'Content-Type': 'application/json' },
