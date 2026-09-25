@@ -68,6 +68,7 @@ import {
 import { commitSpeakOpen, hydrateHouseMemory, prepareSpeakOpen } from '@/lib/poppins/speak-open';
 import { stageHeaderLabel } from '@/lib/poppins/stage-header';
 import { setIntentPlaces } from '@/lib/poppins/ui-intent';
+import { getAdHocTourHooks } from '@/lib/tour/ad-hoc-tour';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
 import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
@@ -123,6 +124,10 @@ const VOICE_FAILURE_CAUSES: ReadonlySet<string> = new Set([
   'whisper_failed',
   'budget_tripped',
 ]);
+
+/** Max couldn't reach the talking part — Base listening takes over. */
+export const MODEL_DOWN_NOTICE =
+  "The talking part is offline, so I'll keep it short until it's back. Everything you ask for still happens.";
 
 /** After an act lands in Base, the line that invites the next one. */
 export const BASE_AFTER_LINE = "All set. Say what's next — or tap the mic to close.";
@@ -194,6 +199,8 @@ export function usePoppinsController() {
   const [nothingHeard, setNothingHeard] = useState<NothingHeard>(null);
   // Base listening session (see file header).
   const baseRef = useRef<BaseListener | null>(null);
+  /** Max fell back to Base listening this session: results say the talking part is offline. */
+  const modelDownRef = useRef(false);
   const baseQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [baseOn, setBaseOn] = useState(false);
   /** Words arriving right now, before the sentence ends. */
@@ -376,7 +383,25 @@ export function usePoppinsController() {
     voiceFailedRef.current = true;
     const copy = copyIuiVoiceError(raw);
     console.warn('[poppins-voice] surface', copy.kind, copy.detail || raw);
-    setError(copy.message);
+    void logAssistantError({
+      householdId: householdRef.current.id ?? '',
+      memberId: currentMember?.id,
+      tier: 'max',
+      stage: `voice:${copy.kind}`,
+      message: copy.detail || copy.message,
+      transcript: lastUtteranceRef.current || undefined,
+    });
+    // The talking part is down; the acts are not. Keep listening the Base way, say so once.
+    const canFallBack =
+      copy.kind !== 'mic_denied' && copy.kind !== 'signed_out' && baseListeningAvailable();
+    if (canFallBack) {
+      modelDownRef.current = true;
+      setError('');
+      setStatusNotice(MODEL_DOWN_NOTICE);
+      setTimeout(() => void startBaseSession(), 0);
+    } else {
+      setError(copy.message);
+    }
     if (copy.kind === 'mic_denied') setThreadOpen(true);
     setConnecting(false);
     setLiveConnected(false);
@@ -730,6 +755,8 @@ export function usePoppinsController() {
       return null;
     }
     void commitSpeakOpen(prep.memory, prep.opening);
+    modelDownRef.current = false;
+    setStatusNotice(null);
     voiceRef.current = session;
     setLiveConnected(true);
     poppinsUiOrchestrator.unfreeze();
@@ -956,6 +983,7 @@ export function usePoppinsController() {
       }
 
       const staged = () => poppinsUiOrchestrator.getState().live;
+      if (modelDownRef.current && staged()) poppinsUiOrchestrator.flagModelOffline();
       if (resolved.kind === 'model') {
         if (resolved.ui_actions?.length) applyUiActions(resolved.ui_actions as Record<string, unknown>[], true);
         if (!staged()) {
@@ -1069,7 +1097,9 @@ export function usePoppinsController() {
       {
         locale: listenLocale(),
         vocabulary: listenVocabulary(),
-        keepOpen: () => poppinsUiOrchestrator.getState().live,
+        // A card on stage, or a walkthrough in progress ("do it for me" must be heard).
+        keepOpen: () =>
+          poppinsUiOrchestrator.getState().live || Boolean(getAdHocTourHooks()?.isAdHocActive()),
         idleCloseMs: 30_000,
         silentStartMs: 12_000,
       }
@@ -1523,6 +1553,10 @@ export function usePoppinsController() {
       label: `${majordomo.displayName}, ${cfg.label}`,
     },
     dailyLeft,
+    meterLabel:
+      drive.live && (liveScene === 'coach_steps' || liveScene === 'navigate_coach')
+        ? 'NO ACTIONS USED'
+        : `${dailyLeft} LEFT`,
     // caption
     caption: {
       speaker: liveSpeaker,

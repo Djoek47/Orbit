@@ -14,7 +14,7 @@ export function stageHeaderLabel(
   const beat = drive.live ? drive.playlist[drive.index] : undefined;
   if (!beat) return idleName.toUpperCase();
   if (beat.scene === 'result_mark') return 'ALL SET';
-  if (beat.scene === 'coach_steps' || beat.scene === 'navigate_coach') return 'HOW TO';
+  if (beat.scene === 'coach_steps' || beat.scene === 'navigate_coach') return 'TEACHING · FREE';
   if (beat.scene === 'thinking') return 'WORKING';
   const domain =
     beat.scene === 'confirm' && (beat.payload.write ?? 'none') === 'none'

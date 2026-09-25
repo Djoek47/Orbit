@@ -98,7 +98,7 @@ export default function PoppinsScreen() {
             <Text
               style={[styles.kicker, { color: stageFaint(isDark) }]}
               accessibilityLabel={`${p.dailyLeft} actions left today`}>
-              {p.dailyLeft} LEFT
+              {p.meterLabel}
             </Text>
           </TourTarget>
           {!live ? (

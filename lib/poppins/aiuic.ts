@@ -15,7 +15,7 @@ import {
   type HouseFact,
   type HouseFactKind,
 } from '@/lib/poppins/house-memory';
-import { howToUiAction, matchHowTo } from '@/lib/poppins/how-to';
+import { howToUiAction, isTeachingQuestion, matchHowTo } from '@/lib/poppins/how-to';
 import { parseCompoundHouseholdIntent } from '@/lib/poppins/clause-segment';
 import { rewriteAiuicActions, type HouseholdIntentOpts } from '@/lib/poppins/ui-intent';
 
@@ -114,6 +114,23 @@ export function hearAndDrive(
     poppinsUiOrchestrator.syncSpoken(cleaned, memberNames, { patchCard: aboutCard && !isRenameSpeech(cleaned) });
     return handled || steer !== false || poppinsUiOrchestrator.getState().live;
   };
+
+  // A how-question teaches — before the act grammar can read its verbs as a chore.
+  if (isTeachingQuestion(cleaned)) {
+    const lesson = matchHowTo(cleaned);
+    if (lesson) {
+      driveAiuic([howToUiAction(lesson, cleaned)], cleaned, {
+        kid: opts?.kid,
+        replace: true,
+        existingTasks: opts?.existingTasks,
+        memberNames,
+        selfName: opts?.selfName,
+      });
+      return finish(false, true);
+    }
+    // No lesson for it: not an act either. The caller may ask the model for a written answer.
+    return false;
+  }
 
   const steer = poppinsUiOrchestrator.applySpeech(cleaned, memberNames, { selfName: opts?.selfName });
   if (!steer) {

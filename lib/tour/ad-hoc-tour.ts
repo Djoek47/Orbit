@@ -82,9 +82,9 @@ export function howToStepsToTourSteps(steps: HowToStep[], title?: string): TourS
       id: `adhoc-${index}`,
       targetId: resolveAdHocTargetId(step.targetId),
       title: step.text,
-      body: title
-        ? `I'll wait here — do this, or say “do it for me”.`
-        : `I'll wait — flip it and I'll take you onward.`,
+      body:
+        step.detail ??
+        (title ? `I'll wait here — do this, or say “do it for me”.` : `I'll wait — do it and I'll take you onward.`),
       route: step.route ?? '/(tabs)/poppins',
       advance: last ? { kind: 'next' } : { kind: 'action' },
       ensureVisible: true,
