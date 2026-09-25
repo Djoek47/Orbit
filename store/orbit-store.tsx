@@ -4182,11 +4182,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       events: [event, ...current.events.filter((item) => item.id !== event.id)],
     }));
     if (input.remindMe && approvalStatus === 'approved') {
-      await scheduleLocalReminder(
-        event.title,
-        `${event.time} · ${event.responsible}`,
-        20
-      ).catch((error) => console.warn('Local reminder skipped', error));
+      // An hour before it starts — the label promises that. Skip if that's already past.
+      const startsAt = input.startsAt ?? event.startsAt;
+      const start = startsAt ? new Date(startsAt).getTime() : NaN;
+      const seconds = Number.isFinite(start) ? Math.round((start - 60 * 60 * 1000 - Date.now()) / 1000) : NaN;
+      if (Number.isFinite(seconds) && seconds > 30) {
+        await scheduleLocalReminder(
+          `${event.title} in an hour`,
+          [event.time, event.responsible, event.location].filter(Boolean).join(' · '),
+          seconds
+        ).catch((error) => console.warn('Local reminder skipped', error));
+      }
     }
     await trackAnalytics(
       approvalStatus === 'pending' ? 'event.submitted' : 'event.created',

@@ -5,6 +5,7 @@
  */
 
 import { formatLocalDate } from '@/lib/streaks/local-date';
+import { isEventUtterance, parseEventUtterance } from '@/lib/poppins/event-parse';
 import { occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
 import {
   assigneeBlockedByMemory,
@@ -122,7 +123,42 @@ export type HouseholdIntentOpts = {
   memberNames?: string[];
   selfName?: string;
   existingTasks?: ExistingChoreTitle[];
+  /** Saved place names; defaults to the session's (setIntentPlaceNames). */
+  placeNames?: string[];
 };
+
+let sessionPlaceNames: string[] = [];
+/** The household's saved place names — events and trips resolve "at school" against them. */
+export function setIntentPlaceNames(names: string[]) {
+  sessionPlaceNames = names.filter(Boolean);
+}
+export function intentPlaceNames(): string[] {
+  return sessionPlaceNames;
+}
+
+/** A calendar sentence → one create_calendar_event act with every slot the words carried. */
+export function eventActionFromUtterance(
+  text: string,
+  opts?: HouseholdIntentOpts
+): Record<string, unknown> {
+  const parsed = parseEventUtterance(text, {
+    memberNames: opts?.memberNames,
+    placeNames: opts?.placeNames ?? sessionPlaceNames,
+  });
+  return {
+    type: 'create_calendar_event',
+    title: parsed.title,
+    date: parsed.date ?? '',
+    time: parsed.time ?? '',
+    endTime: parsed.endTime,
+    allDay: parsed.allDay || undefined,
+    timeGuessed: parsed.timeGuessed || undefined,
+    location: parsed.location ?? '',
+    assignee: parsed.who,
+    withWho: parsed.withWho,
+    remind: parsed.remind,
+  };
+}
 
 export function parseHouseholdIntent(
   utterance: string,
@@ -278,6 +314,11 @@ function parseHouseholdIntentRaw(
     return [{ type: 'clear_grocery_list' }];
   }
 
+  // A calendar sentence, before the grocery reader can mistake "piano monday" for an item.
+  if (isEventUtterance(text, { memberNames, placeNames: opts?.placeNames ?? sessionPlaceNames })) {
+    return [eventActionFromUtterance(text, opts)];
+  }
+
   const groceryFromSpeech = groceryAddActionsFromUtterance(text, {
     excludeNames: memberNames,
   });
@@ -289,13 +330,11 @@ function parseHouseholdIntentRaw(
     /\b(store|shop|stop)\b/.test(lower) && /\b(itinerary|trip|route)\b/.test(lower);
 
   if (isScheduleIntent(text)) {
-    const due = dueLabelFromUtterance(text);
-    const eventAction: Record<string, unknown> = {
-      type: 'create_calendar_event',
-      title: scheduleTitleFromUtterance(text),
-      date: due ? occurrenceDateForDueLabel(due) : formatLocalDate(new Date()),
-      time: timeFromUtterance(text) ?? '',
-    };
+    // "a store on the itinerary then a dentist appointment" — the event is its own clause.
+    const eventText = wantsItineraryStop
+      ? text.split(/\bthen\b/i).find((part) => isScheduleIntent(part)) ?? text
+      : text;
+    const eventAction = eventActionFromUtterance(eventText, opts);
     if (wantsItineraryStop) {
       return [{ type: 'create_itinerary', title: 'Store' }, eventAction];
     }

@@ -5,6 +5,8 @@
 import { useSyncExternalStore } from 'react';
 
 import { interpretStageSpeech, matchSpokenTokens } from '@/lib/poppins/ui-speech';
+import { interpretCardSpeech } from '@/lib/poppins/card-speech';
+import { intentPlaceNames } from '@/lib/poppins/ui-intent';
 import { withComposeProgress } from '@/lib/poppins/iui-compose';
 import { withHomeworkComposeProgress } from '@/lib/poppins/homework-compose';
 import type { IuiCommitReverse } from '@/lib/poppins/iui-reverse';
@@ -1371,6 +1373,18 @@ export const poppinsUiOrchestrator = {
     opts?: { selfName?: string }
   ): 'freeze' | 'unfreeze' | 'veto' | 'confirm' | 'revise' | 'splice' | false {
     if (!state.live) return false;
+    // First: is this sentence about the card on screen? ("make it 5", "call it deep clean")
+    const cardPatch = state.frozen
+      ? null
+      : interpretCardSpeech(text, currentBeat() ?? undefined, {
+          memberNames,
+          placeNames: intentPlaceNames(),
+          selfName: opts?.selfName,
+        });
+    if (cardPatch) {
+      poppinsUiOrchestrator.revise(cardPatch);
+      return 'revise';
+    }
     const steer = interpretStageSpeech(text, {
       memberNames,
       live: true,

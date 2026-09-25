@@ -66,8 +66,15 @@ export type IuiStop = {
   category?: string;
   address?: string;
   placeQuery?: string;
+  /** HH:MM — when the person should be at this stop. */
   time?: string;
+  /** Minutes spent at the stop before driving on. */
+  stayMin?: number;
   kind?: string;
+  /** Saved place this stop resolved to. */
+  savedPlaceId?: string;
+  /** Detail line: "saved place", "Your list comes along · 6 items", an address. */
+  note?: string;
   /** Unresolved place — show add-address chip. */
   needsAddress?: boolean;
 };
@@ -98,6 +105,20 @@ export type IuiPayload = {
   due?: string;
   date?: string;
   time?: string;
+  /** Event end, HH:MM. */
+  endTime?: string;
+  /** Event takes the whole day (no time slot). */
+  allDay?: boolean;
+  /** AM/PM was inferred — the card offers the other half of the day. */
+  timeGuessed?: boolean;
+  /** Event: other members going along ("with Ama"). */
+  withWho?: string[];
+  /** Event: remind an hour before. */
+  remind?: boolean;
+  /** Event: add a travel block before it. */
+  addTravel?: boolean;
+  /** Event: tell this member once it's saved. */
+  tellWho?: string;
   location?: string;
   category?: string;
   aisle?: string;
