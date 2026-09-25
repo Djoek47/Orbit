@@ -5,8 +5,13 @@
  * Does not change beat / orchestrator / scene behaviour — intent layer only.
  */
 
-import { parseHouseholdIntent, type HouseholdIntentOpts } from '@/lib/poppins/ui-intent';
-import { parseItineraryIntent } from '@/lib/itinerary/itinerary-intent';
+import {
+  intentPlaceNames,
+  parseHouseholdIntent,
+  tripActionFromUtterance,
+  type HouseholdIntentOpts,
+} from '@/lib/poppins/ui-intent';
+import { isTripUtterance } from '@/lib/poppins/trip-parse';
 
 const INHERIT_SLOTS = ['assignee', 'due', 'category', 'repeat'] as const;
 type InheritSlot = (typeof INHERIT_SLOTS)[number];
@@ -272,17 +277,10 @@ export function parseCompoundHouseholdIntent(
   const text = utterance.trim();
   if (!text) return [];
 
-  const trip = parseItineraryIntent(text);
-  if (trip) {
-    return [
-      {
-        type: 'create_itinerary',
-        title: trip.title,
-        date: trip.date,
-        stops: trip.stops,
-        sourceUtterance: text,
-      },
-    ];
+  // A run of places is one trip, however many stops — never an event plus a grocery item.
+  if (isTripUtterance(text, intentPlaceNames())) {
+    const trip = tripActionFromUtterance(text);
+    if (trip) return [trip];
   }
 
   const clauses = splitClauses(text);

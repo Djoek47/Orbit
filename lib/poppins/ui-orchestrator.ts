@@ -6,7 +6,7 @@ import { useSyncExternalStore } from 'react';
 
 import { interpretStageSpeech, matchSpokenTokens } from '@/lib/poppins/ui-speech';
 import { interpretCardSpeech } from '@/lib/poppins/card-speech';
-import { intentPlaceNames } from '@/lib/poppins/ui-intent';
+import { intentPlaceNames, intentPlaces } from '@/lib/poppins/ui-intent';
 import { withComposeProgress } from '@/lib/poppins/iui-compose';
 import { withHomeworkComposeProgress } from '@/lib/poppins/homework-compose';
 import type { IuiCommitReverse } from '@/lib/poppins/iui-reverse';
@@ -1379,6 +1379,7 @@ export const poppinsUiOrchestrator = {
       : interpretCardSpeech(text, currentBeat() ?? undefined, {
           memberNames,
           placeNames: intentPlaceNames(),
+          places: intentPlaces(),
           selfName: opts?.selfName,
         });
     if (cardPatch) {

@@ -67,6 +67,7 @@ import {
 } from '@/lib/poppins/session-act-mode';
 import { commitSpeakOpen, hydrateHouseMemory, prepareSpeakOpen } from '@/lib/poppins/speak-open';
 import { stageHeaderLabel } from '@/lib/poppins/stage-header';
+import { setIntentPlaces } from '@/lib/poppins/ui-intent';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
 import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
@@ -216,6 +217,18 @@ export function usePoppinsController() {
   useEffect(() => {
     setSessionSelfName(currentMember?.name);
   }, [currentMember?.name]);
+
+  // Events and trips resolve "at school" / "work" against the household's saved places.
+  useEffect(() => {
+    setIntentPlaces(
+      (household.savedPlaces ?? []).map((place) => ({
+        id: place.id,
+        name: place.name,
+        address: place.address,
+        kind: place.kind,
+      }))
+    );
+  }, [household.savedPlaces]);
 
   /**
    * The tier the household is actually on — null until prefs first load. The defaults this

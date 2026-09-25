@@ -6,6 +6,7 @@
 
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { isEventUtterance, parseEventUtterance } from '@/lib/poppins/event-parse';
+import { parseTripUtterance, type TripPlace } from '@/lib/poppins/trip-parse';
 import { occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
 import {
   assigneeBlockedByMemory,
@@ -128,12 +129,35 @@ export type HouseholdIntentOpts = {
 };
 
 let sessionPlaceNames: string[] = [];
+let sessionPlaces: TripPlace[] = [];
 /** The household's saved place names — events and trips resolve "at school" against them. */
 export function setIntentPlaceNames(names: string[]) {
   sessionPlaceNames = names.filter(Boolean);
 }
+/** The household's saved places (name, address, kind) — trips resolve stops against them. */
+export function setIntentPlaces(places: TripPlace[]) {
+  sessionPlaces = places.filter((place) => place.name?.trim());
+  sessionPlaceNames = sessionPlaces.map((place) => place.name);
+}
 export function intentPlaceNames(): string[] {
   return sessionPlaceNames;
+}
+export function intentPlaces(): TripPlace[] {
+  return sessionPlaces;
+}
+
+/** A run of stops → one create_itinerary act, times laid out, saved places resolved. */
+export function tripActionFromUtterance(text: string): Record<string, unknown> | null {
+  const trip = parseTripUtterance(text, { places: sessionPlaces });
+  if (!trip) return null;
+  return {
+    type: 'create_itinerary',
+    title: trip.title,
+    date: trip.date,
+    start: trip.start,
+    stops: trip.stops,
+    sourceUtterance: text,
+  };
 }
 
 /** A calendar sentence → one create_calendar_event act with every slot the words carried. */
@@ -437,7 +461,10 @@ function enrichTaskDraft(
   const spoken = repeatFromUtterance(utterance);
   if (spoken && !next.repeat) next.repeat = spoken;
   const existingTitle = String(next.title ?? '').trim();
-  const heard = extractSpokenChoreTitle(utterance);
+  // In a sentence with several acts ("clean the dishes then vacuum"), the whole sentence is
+  // not this act's title — the clause already gave it one.
+  const severalActs = /\s(?:then|and also|also|plus|after that)\s|[.;!?]\s/i.test(utterance);
+  const heard = severalActs && existingTitle ? '' : extractSpokenChoreTitle(utterance);
   const resolved = resolvePoppinsChoreTitle(existingTitle || heard || utterance, {
     existingTasks: opts?.existingTasks,
   });

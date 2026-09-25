@@ -7,7 +7,7 @@ export type ItineraryStopIntent = {
   placeQuery?: string;
   address?: string;
   time?: string;
-  kind: 'shop' | 'school' | 'work' | 'gym' | 'appointment' | 'other' | 'practice' | 'pickup';
+  kind: 'shop' | 'school' | 'work' | 'gym' | 'appointment' | 'other' | 'practice' | 'pickup' | 'home';
   notes?: string;
 };
 
@@ -145,6 +145,8 @@ export function mapStopKindToStore(
       return 'practice';
     case 'pickup':
       return 'pickup';
+    case 'home':
+      return 'home';
     case 'appointment':
     case 'other':
     default:

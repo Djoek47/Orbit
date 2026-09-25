@@ -6,6 +6,7 @@
  * Coach-navigate only when the person asked to drive the full human screen.
  */
 
+import { isRenameSpeech } from '@/lib/poppins/card-speech';
 import { getAdHocTourHooks } from '@/lib/tour/ad-hoc-tour';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import {
@@ -109,7 +110,8 @@ export function hearAndDrive(
     const cardAfter = liveBeatId();
     const aboutCard =
       steer === 'revise' || steer === 'confirm' || (cardAfter != null && cardAfter !== cardBefore);
-    poppinsUiOrchestrator.syncSpoken(cleaned, memberNames, { patchCard: aboutCard });
+    // "Call it Big Wednesday" is a name — its words must not re-read as a day or a person.
+    poppinsUiOrchestrator.syncSpoken(cleaned, memberNames, { patchCard: aboutCard && !isRenameSpeech(cleaned) });
     return handled || steer !== false || poppinsUiOrchestrator.getState().live;
   };
 
