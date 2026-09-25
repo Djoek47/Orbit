@@ -1,7 +1,17 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 
+import { AppText as Text } from '@/components/orbit/app-text';
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
 import { AVATAR_EMOJIS } from '@/constants/accent-themes';
 import { space, typography } from '@/constants/orbit-theme';
@@ -10,9 +20,12 @@ import {
   canUseImagePlayground,
   createAvatarWithImagePlayground,
   pickAvatarFromLibrary,
+  pickPlaygroundSourcePhoto,
+  PLAYGROUND_STYLE_LABELS,
+  PLAYGROUND_STYLES,
+  type PlaygroundStyle,
 } from '@/lib/profile/pick-avatar';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { AppText as Text } from '@/components/orbit/app-text';
 
 type PersonalizeLookSheetProps = {
   visible: boolean;
@@ -24,8 +37,9 @@ type PersonalizeLookSheetProps = {
 };
 
 /**
- * Calm sheet to set a profile look: Photos, Image Playground (native),
- * instructional fallback, or emoji.
+ * Make your character. Apple Image Playground is the main path: choose a look, say what
+ * the character should be like, optionally start from a photo, then Apple draws it and we
+ * import the result. Photos and emoji stay as quieter fallbacks underneath.
  */
 export function PersonalizeLookSheet({
   visible,
@@ -34,19 +48,20 @@ export function PersonalizeLookSheet({
   onDismiss,
   onSelect,
 }: PersonalizeLookSheetProps) {
-  const { c, glass, glassBorder, isDark } = useOrbitColors();
+  const { c, glass, glassBorder } = useOrbitColors();
   const [playgroundReady, setPlaygroundReady] = useState(false);
+  const [style, setStyle] = useState<PlaygroundStyle>('illustration');
+  const [description, setDescription] = useState('');
+  const [sourcePhoto, setSourcePhoto] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
     let mounted = true;
+    setShowGuide(false);
     canUseImagePlayground().then((ok) => {
-      if (mounted) {
-        setPlaygroundReady(ok);
-        setShowGuide(false);
-      }
+      if (mounted) setPlaygroundReady(ok);
     });
     return () => {
       mounted = false;
@@ -61,13 +76,32 @@ export function PersonalizeLookSheet({
   const handlePhotos = async () => {
     setBusy(true);
     try {
-      const uri = await pickAvatarFromLibrary();
-      await finish(uri);
+      await finish(await pickAvatarFromLibrary());
     } catch (error) {
       if (error instanceof AvatarPickError && error.code === 'cancelled') return;
-      const message =
-        error instanceof AvatarPickError ? error.message : 'Could not open Photos.';
-      Alert.alert('Photos', message);
+      Alert.alert(
+        'Photos',
+        error instanceof AvatarPickError ? error.message : 'Could not open Photos.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSourcePhoto = async () => {
+    if (sourcePhoto) {
+      setSourcePhoto(null);
+      return;
+    }
+    setBusy(true);
+    try {
+      setSourcePhoto(await pickPlaygroundSourcePhoto());
+    } catch (error) {
+      if (error instanceof AvatarPickError && error.code === 'cancelled') return;
+      Alert.alert(
+        'Photos',
+        error instanceof AvatarPickError ? error.message : 'Could not open Photos.'
+      );
     } finally {
       setBusy(false);
     }
@@ -80,7 +114,12 @@ export function PersonalizeLookSheet({
     }
     setBusy(true);
     try {
-      const uri = await createAvatarWithImagePlayground({ nameHint: memberName });
+      const uri = await createAvatarWithImagePlayground({
+        nameHint: memberName,
+        description,
+        style,
+        sourceImageUri: sourcePhoto,
+      });
       if (uri) await finish(uri);
     } catch (error) {
       setShowGuide(true);
@@ -92,89 +131,131 @@ export function PersonalizeLookSheet({
     }
   };
 
+  const border = glassBorder(0.1);
+
   return (
-    <BottomSheet visible={visible} onDismiss={onDismiss} heightRatio={0.72}>
+    <BottomSheet visible={visible} onDismiss={onDismiss} heightRatio={0.9}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <Text style={[typography.title3, { color: c.text }]}>Personalize your look</Text>
+        <Text style={[typography.title3, { color: c.text }]}>Make your character</Text>
         <Text style={[typography.subheadline, { color: c.textMuted, marginTop: 6 }]}>
-          Choose a photo for {memberName}, create one with Apple Image Playground, or pick an emoji.
+          Apple Image Playground draws it on this iPhone. Three quick choices, then tap Create.
         </Text>
 
-        <View style={styles.actions}>
-          <ActionRow
-            icon="photo-library"
-            title="Choose from Photos"
-            subtitle="Gallery, camera roll, or a saved Memoji"
-            color={c.primary}
-            glass={glass}
-            border={glassBorder(0.1)}
-            text={c.text}
-            muted={c.textMuted}
-            disabled={busy}
-            onPress={() => void handlePhotos()}
-          />
-          <ActionRow
-            icon="auto-awesome"
-            title="Create with Image Playground"
-            subtitle={
-              playgroundReady
-                ? 'Open Apple Intelligence in Choremaxx'
-                : 'See how to create a look, then pick it from Photos'
-            }
-            color={c.poppinsCyan ?? '#06B6D4'}
-            glass={glass}
-            border={glassBorder(0.1)}
-            text={c.text}
-            muted={c.textMuted}
-            disabled={busy}
-            onPress={() => void handlePlayground()}
-          />
+        <Step n={1} title="Pick a look" color={c.textSubtle} text={c.text} />
+        <View style={styles.styleRow}>
+          {PLAYGROUND_STYLES.map((option) => {
+            const active = style === option;
+            return (
+              <Pressable
+                key={option}
+                onPress={() => setStyle(option)}
+                style={[
+                  styles.styleChip,
+                  {
+                    backgroundColor: active ? `${c.primary}22` : glass(0.05),
+                    borderColor: active ? c.primary : border,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    typography.footnote,
+                    { color: active ? c.primary : c.textMuted, fontWeight: '700' },
+                  ]}>
+                  {PLAYGROUND_STYLE_LABELS[option]}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
-        {busy ? (
-          <View style={styles.busyRow}>
-            <ActivityIndicator color={c.primary} />
-            <Text style={[typography.footnote, { color: c.textMuted }]}>Working…</Text>
-          </View>
-        ) : null}
+        <Step n={2} title="Say what they're like" color={c.textSubtle} text={c.text} />
+        <TextInput
+          value={description}
+          onChangeText={setDescription}
+          placeholder="curly hair, red hoodie, big smile"
+          placeholderTextColor={c.textSubtle}
+          style={[
+            styles.input,
+            { backgroundColor: glass(0.05), borderColor: border, color: c.text },
+          ]}
+          multiline
+        />
+        <Text style={[typography.caption1, { color: c.textSubtle, marginTop: 6 }]}>
+          A few words, separated by commas. Leave it blank and Apple will surprise you.
+        </Text>
+
+        <Step n={3} title="Start from a photo (optional)" color={c.textSubtle} text={c.text} />
+        <Pressable
+          onPress={() => void handleSourcePhoto()}
+          disabled={busy}
+          style={[styles.sourceRow, { backgroundColor: glass(0.05), borderColor: border }]}>
+          {sourcePhoto ? (
+            <Image source={{ uri: sourcePhoto }} style={styles.sourceThumb} contentFit="cover" />
+          ) : (
+            <View style={[styles.sourceThumb, { backgroundColor: glass(0.08) }]}>
+              <MaterialIcons name="add-a-photo" size={20} color={c.textMuted} />
+            </View>
+          )}
+          <Text style={[typography.footnote, { color: c.textMuted, flex: 1 }]}>
+            {sourcePhoto
+              ? 'Using this photo as the starting point — tap to remove'
+              : 'Pick a photo and Playground will draw the character from it'}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => void handlePlayground()}
+          disabled={busy}
+          style={[styles.cta, { backgroundColor: c.primary, opacity: busy ? 0.6 : 1 }]}>
+          {busy ? (
+            <ActivityIndicator color={c.ink} />
+          ) : (
+            <>
+              <MaterialIcons name="auto-awesome" size={18} color={c.ink} />
+              <Text style={[typography.headline, { color: c.ink }]}>
+                Create with Image Playground
+              </Text>
+            </>
+          )}
+        </Pressable>
+        <Text style={[typography.caption1, { color: c.textSubtle, textAlign: 'center' }]}>
+          Apple&apos;s sheet opens — swipe through its ideas, tap Done, and it lands here.
+        </Text>
 
         {showGuide ? (
-          <View
-            style={[
-              styles.guide,
-              {
-                backgroundColor: glass(0.05),
-                borderColor: glassBorder(0.1),
-              },
-            ]}>
+          <View style={[styles.guide, { backgroundColor: glass(0.05), borderColor: border }]}>
             <Text style={[typography.headline, { color: c.text }]}>
-              Create a look with Apple Image Playground
+              Image Playground isn&apos;t available here
             </Text>
-            <Text style={[typography.footnote, { color: c.textSoft, marginTop: 8, lineHeight: 20 }]}>
-              1. Open Image Playground (or Photos → Create) on this iPhone{'\n'}
-              2. Describe yourself — e.g. “friendly house manager, soft portrait”{'\n'}
-              3. Tap Done / save the image to Photos{'\n'}
-              4. Return here and tap Choose from Photos
+            <Text
+              style={[typography.footnote, { color: c.textSoft, marginTop: 8, lineHeight: 20 }]}>
+              It needs an iPhone on iOS 18.2 or later with Apple Intelligence turned on. You can
+              still make a character in the Image Playground app, save it to Photos, then pick it
+              below.
             </Text>
-            <Text style={[typography.caption1, { color: c.textSubtle, marginTop: 10, lineHeight: 18 }]}>
-              Needs iOS 18.2+, Apple Intelligence, and Image Playground enabled in Settings. You can
-              also use a Memoji screenshot saved to Photos.
-            </Text>
-            <Pressable
-              onPress={() => void handlePhotos()}
-              style={[styles.guideCta, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.06)' }]}
-              disabled={busy}>
-              <Text style={[typography.headline, { color: c.primary }]}>
-                Got it — Choose from Photos
-              </Text>
-            </Pressable>
           </View>
         ) : null}
 
-        <Text style={[typography.eyebrow, { color: c.textSubtle, marginTop: space.md }]}>Emoji</Text>
+        <View style={[styles.divider, { backgroundColor: border }]} />
+
+        <Pressable
+          onPress={() => void handlePhotos()}
+          disabled={busy}
+          style={[styles.secondaryRow, { backgroundColor: glass(0.05), borderColor: border }]}>
+          <MaterialIcons name="photo-library" size={20} color={c.textMuted} />
+          <Text style={[typography.footnote, { color: c.text, flex: 1 }]}>
+            Choose an image from Photos instead
+          </Text>
+          <MaterialIcons name="chevron-right" size={20} color={c.textSubtle} />
+        </Pressable>
+
+        <Text style={[typography.eyebrow, { color: c.textSubtle, marginTop: space.md }]}>
+          Or pick an emoji
+        </Text>
         <View style={styles.emojiGrid}>
           {AVATAR_EMOJIS.map((emoji) => {
             const selected = currentAvatar === emoji;
@@ -185,7 +266,7 @@ export function PersonalizeLookSheet({
                   styles.emojiChip,
                   {
                     backgroundColor: glass(0.05),
-                    borderColor: selected ? c.primary : glassBorder(0.1),
+                    borderColor: selected ? c.primary : border,
                   },
                 ]}
                 disabled={busy}
@@ -200,46 +281,22 @@ export function PersonalizeLookSheet({
   );
 }
 
-function ActionRow({
-  icon,
+function Step({
+  n,
   title,
-  subtitle,
   color,
-  glass,
-  border,
   text,
-  muted,
-  disabled,
-  onPress,
 }: {
-  icon: keyof typeof MaterialIcons.glyphMap;
+  n: number;
   title: string;
-  subtitle: string;
   color: string;
-  glass: (a?: number) => string;
-  border: string;
   text: string;
-  muted: string;
-  disabled?: boolean;
-  onPress: () => void;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={[
-        styles.actionRow,
-        { backgroundColor: glass(0.05), borderColor: border, opacity: disabled ? 0.55 : 1 },
-      ]}>
-      <View style={[styles.actionIcon, { backgroundColor: `${color}22` }]}>
-        <MaterialIcons name={icon} size={22} color={color} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[typography.headline, { color: text }]}>{title}</Text>
-        <Text style={[typography.footnote, { color: muted, marginTop: 2 }]}>{subtitle}</Text>
-      </View>
-      <MaterialIcons name="chevron-right" size={22} color={muted} />
-    </Pressable>
+    <View style={styles.stepRow}>
+      <Text style={[typography.caption1, { color, fontWeight: '800' }]}>{n}</Text>
+      <Text style={[typography.headline, { color: text }]}>{title}</Text>
+    </View>
   );
 }
 
@@ -250,27 +307,55 @@ const styles = StyleSheet.create({
     paddingBottom: space.xl,
     gap: 4,
   },
-  actions: { marginTop: space.md, gap: 10 },
-  actionRow: {
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: space.md,
+    marginBottom: 8,
+  },
+  styleRow: { flexDirection: 'row', gap: 8 },
+  styleChip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  input: {
+    minHeight: 64,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 12,
+    fontSize: 15,
+  },
+  sourceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 14,
+    padding: 10,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  actionIcon: {
-    width: 40,
-    height: 40,
+  sourceThumb: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  busyRow: {
+  cta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 12,
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: space.lg,
+    marginBottom: 8,
+    paddingVertical: 15,
+    borderRadius: 16,
   },
   guide: {
     marginTop: space.md,
@@ -278,11 +363,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  guideCta: {
-    marginTop: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: space.md,
+  },
+  secondaryRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   emojiGrid: {
     flexDirection: 'row',
