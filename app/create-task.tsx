@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MemberGlyph } from '@/components/orbit/member-glyph';
+import { Moji } from '@/components/orbit/moji/moji';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
@@ -219,11 +221,11 @@ function AssignEmojiGrid({
               ]}>
               {selected ? (
                 <LinearGradient colors={gradient} style={styles.memberInner}>
-                  <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                  <MemberGlyph member={member} size={16} />
                 </LinearGradient>
               ) : (
                 <View style={[styles.memberInnerMuted, { backgroundColor: glass(0.08) }]}>
-                  <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                  <MemberGlyph member={member} size={16} />
                 </View>
               )}
               {onShared ? (
@@ -500,7 +502,8 @@ export default function CreateTaskScreen() {
         const fallback = labels[kind];
         return {
           kind,
-          title: `${fallback.emoji} ${fallback.name}`,
+          emoji: fallback.emoji,
+          title: fallback.name,
           items: buckets.get(kind) ?? [],
         };
       });
@@ -1433,13 +1436,16 @@ export default function CreateTaskScreen() {
           <View style={styles.librarySections}>
             {libraryByRoom.map((section) => (
               <View key={section.kind} style={styles.librarySection}>
-                <Text style={[styles.librarySectionTitle, { color: orbitPalette.text }]}>
-                  {section.title}
-                  <Text style={[styles.librarySectionCount, { color: orbitPalette.textSubtle }]}>
-                    {' '}
-                    · {section.items.length}
+                <View style={styles.librarySectionHead}>
+                  <Moji emoji={section.emoji} size={16} />
+                  <Text style={[styles.librarySectionTitle, { color: orbitPalette.text }]}>
+                    {section.title}
+                    <Text style={[styles.librarySectionCount, { color: orbitPalette.textSubtle }]}>
+                      {' '}
+                      · {section.items.length}
+                    </Text>
                   </Text>
-                </Text>
+                </View>
                 <View style={styles.presetGrid}>
                   {section.items.map((preset) => {
                     const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
@@ -1549,7 +1555,7 @@ export default function CreateTaskScreen() {
                         borderColor: active ? `${item.color}44` : glassBorder(0.08),
                       },
                     ]}>
-                    <Text style={styles.subjectEmoji}>{item.emoji}</Text>
+                    <Moji emoji={item.emoji} size={15} />
                     <Text style={[styles.subjectText, { color: active ? item.color : c.textMuted }]}>
                       {item.label}
                     </Text>
@@ -1707,7 +1713,7 @@ export default function CreateTaskScreen() {
               <StreakMarker variant="asterisk" xpWhenRewarded={hygieneXpWhenRewarded} />
             ) : (
               <>
-                <Text style={styles.xpBolt}>⚡</Text>
+                <Moji name="bolt" size={18} />
                 <Text style={[styles.xpAmount, { color: accentTheme.primary }]}>
                   +{resolveTaskXp({ baseXp: baseXp || 10, xpEligible: true }, xpCtx)}
                 </Text>
@@ -2124,9 +2130,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8
   },
-  subjectEmoji: {
-    fontSize: 14
-  },
   subjectText: {
     fontSize: 12,
     fontWeight: '600'
@@ -2272,9 +2275,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 6
-  },
-  xpBolt: {
-    fontSize: 18
   },
   xpAmount: {
     fontSize: 18,
@@ -2431,6 +2431,11 @@ const styles = StyleSheet.create({
   },
   librarySection: {
     gap: 10
+  },
+  librarySectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
   },
   librarySectionTitle: {
     fontSize: 15,

@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MemberGlyph } from '@/components/orbit/member-glyph';
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoiceRow } from '@/components/orbit/choice-row';
 import { EventDatePicker } from '@/components/orbit/event-date-picker';
@@ -263,7 +265,7 @@ export default function EventDetailScreen() {
                   styles.categoryChip,
                   { backgroundColor: typeStyle.bg, borderColor: `${typeStyle.color}44` },
                 ]}>
-                <Text style={styles.categoryEmoji}>{typeStyle.emoji}</Text>
+                <Moji emoji={typeStyle.emoji} size={18} />
                 <Text style={[typography.caption1, { color: typeStyle.color, fontWeight: '700' }]}>
                   {event.category}
                 </Text>
@@ -362,7 +364,7 @@ export default function EventDetailScreen() {
                 leading={
                   responsibleMember ? (
                     <View style={[styles.avatar, { backgroundColor: glass(0.08) }]}>
-                      <Text style={styles.avatarEmoji}>{memberDisplayEmoji(responsibleMember)}</Text>
+                      <MemberGlyph member={responsibleMember} size={18} />
                     </View>
                   ) : undefined
                 }
@@ -400,7 +402,7 @@ export default function EventDetailScreen() {
                       accessibilityRole="button"
                       accessibilityState={{ selected }}
                       accessibilityLabel={`${member.name}${isSelf ? ', you' : ''}`}>
-                      <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                      <MemberGlyph member={member} size={16} />
                       <Text
                         style={[
                           typography.caption1,
@@ -531,9 +533,6 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
-  },
-  categoryEmoji: {
-    fontSize: 13,
   },
   approvalRow: {
     gap: 10,

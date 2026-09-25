@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Moji } from '@/components/orbit/moji/moji';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -124,7 +125,7 @@ function SharedTabletChip({ device }: { device: HouseholdMember }) {
         styles.deviceChip,
         { backgroundColor: glass(0.06), borderColor: glassBorder(0.12) },
       ]}>
-      <Text style={{ fontSize: 11 }}>{device.avatar || '📱'}</Text>
+      {device.avatar ? <Text style={{ fontSize: 11 }}>{device.avatar}</Text> : <Moji name="phone" size={12} />}
       <Text style={[typography.caption2, { color: c.textMuted }]} numberOfLines={1}>
         {device.name}
       </Text>
@@ -721,7 +722,7 @@ export default function RewardsScreen() {
                 },
               ]}>
               <View style={styles.pendingHead}>
-                <Text style={{ fontSize: 16 }}>🔔</Text>
+                <Moji name="bell" size={18} />
                 <Text style={[typography.headline, { color: '#F59E0B' }]}>Pending Approvals</Text>
               </View>
               {pendingRedemptions.map((redemption) => {
@@ -1249,7 +1250,7 @@ export default function RewardsScreen() {
                     key={member.id}
                     entering={FadeInUp.delay(i * 80)}
                     style={styles.podiumItem}>
-                    {displayIdx === 0 ? <Text style={{ fontSize: 18 }}>👑</Text> : null}
+                    {displayIdx === 0 ? <Moji name="crown" size={20} /> : null}
                     <Avatar
                       name={member.name}
                       emoji={member.avatarEmoji}

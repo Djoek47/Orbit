@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
+import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { ContextMenu } from '@/components/orbit/context-menu';
 import {
   TaskProofReplySheet,
@@ -29,6 +30,7 @@ import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { registerTourUiHooks } from '@/lib/tour/tour-store';
 import { StreakMarker } from '@/components/orbit/streak-marker';
+import { Moji } from '@/components/orbit/moji/moji';
 import { VOCAB } from '@/constants/vocabulary';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
@@ -170,7 +172,7 @@ function XPBadge({
         done && { backgroundColor: glass(0.1), opacity: 0.55 },
         !done && { backgroundColor: `${accent}1F` },
       ]}>
-      <Text style={styles.xpBolt}>⚡</Text>
+      <Moji name="bolt" size={11} />
       <Text style={[styles.xpBadgeText, { color: done ? c.textSubtle : accent }]}>+{xp}</Text>
     </View>
   );
@@ -314,9 +316,10 @@ function TaskItem({
         <View style={styles.taskBody}>
         <View style={styles.titleRow}>
           {isHomework(task) && sub ? (
-            <View style={[styles.subjectPill, homeworkCard && styles.subjectPillLarge, { backgroundColor: `${sub.color}18` }]}>
+            <View style={[styles.subjectPill, styles.subjectPillRow, homeworkCard && styles.subjectPillLarge, { backgroundColor: `${sub.color}18` }]}>
+              <Moji emoji={sub.emoji} size={homeworkCard ? 16 : 12} />
               <Text style={[styles.subjectPillText, homeworkCard && styles.subjectPillTextLarge, { color: sub.color }]}>
-                {sub.emoji} {sub.label}
+                {sub.label}
               </Text>
             </View>
           ) : null}
@@ -412,14 +415,14 @@ function TaskItem({
                 {task.proofStatus === 'submitted'
                   ? 'Photo sent'
                   : task.proofStatus === 'approved'
-                    ? 'Photo ✓'
+                    ? 'Photo added'
                     : 'Proof'}
               </Text>
             </View>
           ) : null}
           {member ? (
             <LinearGradient colors={avatarGradient} style={styles.assigneeDot}>
-              <Text style={styles.assigneeEmoji}>{memberDisplayEmoji(member)}</Text>
+              <MemberGlyph member={member} size={13} />
             </LinearGradient>
           ) : null}
         </View>
@@ -466,7 +469,7 @@ function TaskItem({
                 <StreakMarker variant="asterisk" xpWhenRewarded={hygieneXpWhenRewarded} />
               ) : (
                 <>
-                  <Text style={styles.celebrateBolt}>⚡</Text>
+                  <Moji name="bolt" size={17} />
                   <Text style={[styles.celebrateXp, { color: accentPrimary }]}>+{displayXp}</Text>
                 </>
               )}
@@ -1071,7 +1074,7 @@ export default function TasksScreen() {
                   borderColor: `${accentTheme.primary}66`,
                 },
               ]}>
-              <Text style={{ fontSize: 16 }}>{sharedDevice.avatar || '📱'}</Text>
+              {sharedDevice.avatar ? <Text style={{ fontSize: 16 }}>{sharedDevice.avatar}</Text> : <Moji name="phone" size={16} />}
               <Text style={[styles.deviceSwitchText, { color: accentTheme.primary }]}>
                 Who&apos;s on · {currentMember?.name}
               </Text>
@@ -1211,9 +1214,7 @@ export default function TasksScreen() {
             styles.focusChip,
             { backgroundColor: `${focusedAccent}22`, borderColor: `${focusedAccent}66` },
           ]}>
-          <Text style={{ fontSize: 14 }}>
-            {focusedMemberRecord ? memberDisplayEmoji(focusedMemberRecord) : '👤'}
-          </Text>
+          <MemberGlyph member={focusedMemberRecord} size={14} />
           <Text style={[styles.focusChipText, { color: focusedAccent }]}>
             Viewing {focusMember}
           </Text>
@@ -1496,9 +1497,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 4,
-  },
-  celebrateBolt: {
-    fontSize: 16,
   },
   celebrateXp: {
     fontSize: 14,
@@ -1787,7 +1785,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  xpBolt: {
-    fontSize: 10,
+  subjectPillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
 });

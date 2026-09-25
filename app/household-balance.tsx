@@ -11,6 +11,8 @@ import {
 } from '@/lib/home-health-metrics';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
+import { MemberGlyph } from '@/components/orbit/member-glyph';
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function HouseholdBalanceScreen() {
@@ -115,7 +117,7 @@ export default function HouseholdBalanceScreen() {
             {sorted.map((member) => (
               <View key={member.id} style={styles.memberCard}>
                 <View style={[styles.avatar, { backgroundColor: `${accentTheme.primary}22` }]}>
-                  <Text style={styles.avatarEmoji}>{memberDisplayEmoji(member)}</Text>
+                  <MemberGlyph member={member} size={18} />
                 </View>
                 <View style={styles.memberInfo}>
                   <Text style={[styles.memberName, { color: orbitPalette.text }]}>{member.name}</Text>
@@ -142,7 +144,7 @@ export default function HouseholdBalanceScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomStrip}>
               {cleaningByRoom.map(({ room, overdue, completed, lastTitle }) => (
                 <View key={room.id} style={styles.roomCard}>
-                  <Text style={styles.roomEmoji}>{room.emoji}</Text>
+                  <Moji emoji={room.emoji} size={18} />
                   <Text style={[styles.roomName, { color: orbitPalette.text }]}>{room.name}</Text>
                   <Text style={[styles.roomMeta, { color: orbitPalette.textMuted }]}>
                     {completed} done · {overdue} open
@@ -253,7 +255,6 @@ const styles = StyleSheet.create({
     padding: 14,
     width: 140,
   },
-  roomEmoji: { fontSize: 22 },
   roomName: { fontSize: 14, fontWeight: '700' },
   roomMeta: { fontSize: 11 },
   roomLast: { fontSize: 11 },

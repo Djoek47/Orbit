@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { FlatList, Platform, Pressable, StyleSheet, TextInput as RNTextInput, View, type TextInput as RNTextInputType } from 'react-native';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { motionDuration } from '@/constants/motion-tokens';
@@ -144,7 +145,7 @@ export function SearchBar({
                   onPickSuggestion?.(item);
                 }}
                 style={styles.suggestionRow}>
-                {item.icon ? <Text style={styles.suggestionIcon}>{item.icon}</Text> : null}
+                {item.icon ? <Moji emoji={item.icon} size={24} style={styles.suggestionIcon} /> : null}
                 <View style={{ flex: 1 }}>
                   <Text style={[typography.subheadline, { color: c.text, fontWeight: '600' }]}>
                     {item.title}
@@ -224,7 +225,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  suggestionIcon: { fontSize: 22, width: 28, textAlign: 'center' },
+  suggestionIcon: { width: 28 },
   freeText: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 14,

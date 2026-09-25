@@ -10,6 +10,7 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
 import type { SavedPlace, SavedPlaceKind } from '@/types/orbit';
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -167,7 +168,7 @@ export function MyPlacesPanel({
                   borderColor: active ? `${chip.color}55` : c.border,
                 },
               ]}>
-              {chip.emoji ? <Text style={styles.chipEmoji}>{chip.emoji}</Text> : null}
+              {chip.emoji ? <Moji emoji={chip.emoji} size={14} /> : null}
               <Text
                 style={[
                   styles.chipLabel,
@@ -197,7 +198,7 @@ export function MyPlacesPanel({
         ))}
         {filtered.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={{ fontSize: 32, marginBottom: 8 }}>📍</Text>
+            <Moji name="pin" size={34} style={{ marginBottom: 8 }} />
             <Text style={[styles.emptyTitle, { color: c.textSubtle }]}>No places yet</Text>
             <Text style={[styles.emptyBody, { color: c.textFaint }]}>
               Tap + Add Place to get started
@@ -230,7 +231,7 @@ export function MyPlacesPanel({
                 i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(236,72,153,0.15)' },
               ]}>
               <View style={styles.summaryPlaceRow}>
-                <Text style={{ fontSize: 13 }}>{group.emoji ?? '📍'}</Text>
+                <Moji emoji={group.emoji ?? '📍'} size={15} />
                 <Text style={[styles.summaryPlaceName, { color: c.text }]}>
                   {group.placeName}
                 </Text>
@@ -322,7 +323,7 @@ function PlaceCard({
       ]}>
       <Pressable onPress={onToggleExpand} style={styles.placeHead}>
         <View style={[styles.placeEmoji, { backgroundColor: `${meta.color}22`, borderColor: `${meta.color}40` }]}>
-          <Text style={{ fontSize: 18 }}>{emoji}</Text>
+          <Moji emoji={emoji} size={20} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[styles.placeName, { color: c.text }]} numberOfLines={1}>
@@ -365,9 +366,10 @@ function PlaceCard({
         <View style={styles.placeBody}>
           <View style={[styles.divider, { backgroundColor: c.border }]} />
           <View style={styles.placeMetaRow}>
-            <Text style={[styles.kindLabel, { color: meta.color }]}>
-              {meta.emoji} {meta.label}
-            </Text>
+            <View style={styles.kindLabelRow}>
+              <Moji emoji={meta.emoji} size={13} />
+              <Text style={[styles.kindLabel, { color: meta.color }]}>{meta.label}</Text>
+            </View>
             <View style={styles.placeMetaActions}>
               <Pressable
                 onPress={onEdit}
@@ -459,7 +461,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     borderWidth: 1,
   },
-  chipEmoji: { fontSize: 12 },
   chipLabel: { fontSize: 12 },
   list: { gap: 10 },
   placeCard: {
@@ -508,6 +509,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   kindLabel: { fontSize: 12, fontWeight: '600' },
+  kindLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   placeMetaActions: { flexDirection: 'row', gap: 8 },
   miniAction: {
     flexDirection: 'row',
