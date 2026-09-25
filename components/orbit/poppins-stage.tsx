@@ -34,7 +34,10 @@ import { IuiPlaceCard } from '@/components/orbit/poppins-stage/iui-place-card';
 import { IuiResultMark } from '@/components/orbit/poppins-stage/iui-result-mark';
 import { IuiStepper } from '@/components/orbit/poppins-stage/iui-stepper';
 import { IuiTripCard } from '@/components/orbit/poppins-stage/iui-trip-card';
-import { IuiTroubleMissingSlot } from '@/components/orbit/poppins-stage/iui-trouble';
+import {
+  IuiTroubleMissingSlot,
+  IuiTroubleRowFailed,
+} from '@/components/orbit/poppins-stage/iui-trouble';
 import { TaskComposeSteps } from '@/components/orbit/poppins-stage/task-compose-steps';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { stageAccent, stageDomainLabel, stageFill } from '@/constants/iui-stage';
@@ -244,18 +247,63 @@ export function PoppinsStage({
   const pickFace = (name: string) =>
     poppinsUiOrchestrator.chooseFromTap({ assignee: name, spokenName: name }, name, 'face');
 
+  // Design "one row failed — the rest stand": the rows that saved keep their checks; the
+  // one that didn't gets its own card with Retry / Leave it.
+  const failed = poppinsUiOrchestrator.failedRows();
+  const retryFailed = async () => {
+    if (!failed) return;
+    for (const item of failed.items) {
+      poppinsUiOrchestrator.patchBeatItem(failed.beat.id, item.id, { status: 'saving' });
+      try {
+        const result = await commitIuiBeat(
+          { ...failed.beat, payload: { ...failed.beat.payload, items: [{ ...item, status: 'pending' }] } },
+          { ...writesRef.current, onGroupItemStatus: undefined }
+        );
+        poppinsUiOrchestrator.patchBeatItem(failed.beat.id, item.id, { status: result.ok ? 'done' : 'failed' });
+      } catch {
+        poppinsUiOrchestrator.patchBeatItem(failed.beat.id, item.id, { status: 'failed' });
+      }
+    }
+  };
+  const leaveFailed = () => {
+    if (!failed) return;
+    for (const item of failed.items) poppinsUiOrchestrator.patchBeatItem(failed.beat.id, item.id, { dropped: true });
+  };
+  const failedLabel = failed ? failed.items.map((item) => item.label).join(' and ') : '';
+  const savedLabels = failed
+    ? (failed.beat.payload.items ?? []).filter((item) => item.status === 'done' && !item.dropped).map((item) => item.label)
+    : [];
+  const savedLine = failed
+    ? savedLabels.length
+      ? `${joinWords(savedLabels)} ${savedLabels.length === 1 ? 'is' : 'are'} ${
+          failed.beat.payload.write === 'add_grocery' ? 'on the list' : 'saved'
+        }. Only ${failedLabel.toLowerCase()} came back.`
+      : `Only ${failedLabel.toLowerCase()} came back.`
+    : '';
+
   const resultMark = (
-    <IuiResultMark
-      kind={payload.markKind ?? 'added'}
-      title={resultMarkTitle(payload, undoOpen ? undoRows : [])}
-      modelOffline={payload.modelOffline === true}
-      undoable={undoOpen}
-      undoUntil={drive.undoUntil}
-      undoLabel={undoLabelFor(undoCount)}
-      ledger={undoOpen ? undoRows : []}
-      onUndo={() => void poppinsUiOrchestrator.undoLast()}
-      onUndoOne={(id) => void poppinsUiOrchestrator.undoOne(id)}
-    />
+    <View style={styles.stack}>
+      <IuiResultMark
+        kind={payload.markKind ?? 'added'}
+        title={resultMarkTitle(payload, undoOpen ? undoRows : [])}
+        modelOffline={payload.modelOffline === true}
+        undoable={undoOpen}
+        undoUntil={drive.undoUntil}
+        undoLabel={undoLabelFor(undoCount)}
+        ledger={undoOpen ? undoRows : []}
+        onUndo={() => void poppinsUiOrchestrator.undoLast()}
+        onUndoOne={(id) => void poppinsUiOrchestrator.undoOne(id)}
+      />
+      {failed ? (
+        <IuiTroubleRowFailed
+          accent={text()}
+          failedLabel={failedLabel}
+          savedLine={savedLine}
+          onRetry={() => void retryFailed()}
+          onLeave={leaveFailed}
+        />
+      ) : null}
+    </View>
   );
 
   const batchCard = (label: string) => (
@@ -851,3 +899,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
+
+/** "Milk", "Milk and eggs", "Milk, eggs and jam". */
+function joinWords(words: string[]): string {
+  if (words.length <= 1) return words[0] ?? '';
+  return `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
+}

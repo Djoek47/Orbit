@@ -44,6 +44,7 @@ import {
   SPEECH_QUIET_MS,
   sceneNeedsUnfold,
   type IuiBeat,
+  type IuiGroupItem,
   type IuiPayload,
   type IuiPhase,
 } from '@/lib/poppins/ui-scenes';
@@ -341,7 +342,20 @@ function advanceAfterSettle() {
     armBeat();
     return;
   }
-  setTimeout(() => clear(), SETTLE_CLEAR_MS);
+  // A row that didn't save keeps the stage up until the person retries it or leaves it.
+  setTimeout(() => {
+    if (!failedRowsIn(state.playlist)) clear();
+  }, SETTLE_CLEAR_MS);
+}
+
+/** The committed group card that has rows which didn't save, if any. */
+function failedRowsIn(playlist: IuiBeat[]): { beat: IuiBeat; items: IuiGroupItem[] } | null {
+  for (let i = playlist.length - 1; i >= 0; i -= 1) {
+    const beat = playlist[i]!;
+    const items = (beat.payload.items ?? []).filter((item) => item.status === 'failed' && !item.dropped);
+    if (items.length) return { beat, items };
+  }
+  return null;
 }
 
 function reverseCount(reverse: IuiCommitReverse | null | undefined): number {
@@ -1340,6 +1354,30 @@ export const poppinsUiOrchestrator = {
     status: 'pending' | 'saving' | 'done' | 'failed'
   ) {
     applyGroupItemStatus(itemId, status);
+  },
+  /** Rows of a committed group card that didn't save (for the "didn't save" card). */
+  failedRows(): { beat: IuiBeat; items: IuiGroupItem[] } | null {
+    return failedRowsIn(state.playlist);
+  },
+  /** Update one row of any card in the playlist (a retry after the card settled). */
+  patchBeatItem(beatId: string, itemId: string, patch: Partial<IuiGroupItem>) {
+    const playlist = state.playlist.map((beat) =>
+      beat.id !== beatId
+        ? beat
+        : {
+            ...beat,
+            payload: {
+              ...beat.payload,
+              items: beat.payload.items?.map((item) => (item.id === itemId ? { ...item, ...patch } : item)),
+            },
+          }
+    );
+    setState({ playlist });
+    if (state.phase === 'settle' || currentBeat()?.scene === 'result_mark') {
+      if (!failedRowsIn(playlist)) setTimeout(() => {
+        if (!failedRowsIn(state.playlist)) clear();
+      }, SETTLE_CLEAR_MS);
+    }
   },
   /**
    * Show what was just said, and let its names and dates land on the card on screen.

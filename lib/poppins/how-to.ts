@@ -11,6 +11,8 @@ import { bestFuzzyMatch } from '@/lib/poppins/fuzzy-match';
 
 export type HowToStep = {
   text: string;
+  /** The walkthrough's line under the step ("I'll wait — …"). */
+  detail?: string;
   route?: string;
   targetId?: TourTargetId;
 };
@@ -32,22 +34,40 @@ export const HOW_TO_INDEX: HowToEntry[] = [
   {
     id: 'proof-on-chore',
     title: 'Proof on a chore',
-    answer: 'Three taps, on the chore itself',
+    answer: 'Ask for a photo once it\'s marked done',
     detail:
-      'Turn it on per chore, not per person — the photo is asked for when it\'s marked done.',
+      'When a kid marks a chore done, Request a photo shows on it in Tasks for a day. Homework asks for one on its own.',
     patterns: [
       'how do i make a chore need a photo',
       'require proof',
       'photo proof',
       'proof on a chore',
       'need a picture',
+      'ask for a photo',
+      'request a photo',
+      'proof',
     ],
     steps: [
-      { text: 'Open Tasks, tap the chore', route: '/(tabs)/tasks', targetId: 'tasks.firstRow' },
-      { text: 'Scroll to Proof, switch it on', route: '/(tabs)/tasks', targetId: 'tasks.proof' },
-      { text: 'Pick who reviews it — you, or any adult', targetId: 'tasks.proof' },
+      {
+        text: 'Open Tasks',
+        detail: "Chores your kids finished today sit at the top. I'll wait here.",
+        route: '/(tabs)/tasks',
+        targetId: 'tabbar.tasks',
+      },
+      {
+        text: 'Find a chore a kid just marked done',
+        detail: 'The camera button only shows on a kid\'s finished chore, for a day after.',
+        route: '/(tabs)/tasks',
+        targetId: 'tasks.firstRow',
+      },
+      {
+        text: 'Tap Request a photo',
+        detail: "They get a nudge to send one, and it comes back to you to approve.",
+        route: '/(tabs)/tasks',
+        targetId: 'tasks.firstRow',
+      },
     ],
-    canDoItForYou: true,
+    canDoItForYou: false,
   },
   {
     id: 'family-ipad',
@@ -317,6 +337,45 @@ function normalizeQuestion(text: string): string {
     .trim();
 }
 
+/**
+ * A question about how the app works — never an act, whatever verbs it contains.
+ * "how do I make a chore need a photo?" must teach, not create a chore called
+ * "I Make a Chore Need a Photo?".
+ */
+export function isTeachingQuestion(text: string): boolean {
+  const t = text.trim().toLowerCase().replace(/^(hey |ok |okay )?(poppins[, ]+)?/, '');
+  return /^(how (do|can|does|should|would|could) (i|we|you|it|this|that|one|people|kids|my|our)\b|how to\b|how does\b|how do\b|show me how|can you show me|could you show me|teach me|walk me through|explain( how| what)?\b|what's the (way|difference)|what is the difference|where do i\b|where can i\b|where is the\b|is there a way to|comment (je|on|faire|est-ce)\b|montre-moi|explique)/.test(
+    t
+  );
+}
+
+const HOWTO_STOP = new Set(
+  'a an the i we you it is are do does can could should would how what where to of on in for my our me show teach explain walk through with and or way work works working use using set make get'.split(
+    ' '
+  )
+);
+
+function contentWords(text: string): string[] {
+  return normalizeQuestion(text)
+    .split(' ')
+    .map((w) => w.replace(/s$/, ''))
+    .filter((w) => w.length > 2 && !HOWTO_STOP.has(w));
+}
+
+/** Best lesson by shared content words ("how does proof work" → Proof on a chore). */
+function scoreHowTo(question: string): HowToEntry | null {
+  const words = new Set(contentWords(question));
+  if (!words.size) return null;
+  let best: { entry: HowToEntry; score: number } | null = null;
+  for (const entry of HOW_TO_INDEX) {
+    const hay = new Set(contentWords([entry.title, ...entry.patterns].join(' ')));
+    let score = 0;
+    for (const word of words) if (hay.has(word)) score += 1;
+    if (score > (best?.score ?? 0)) best = { entry, score };
+  }
+  return best && best.score >= 1 ? best.entry : null;
+}
+
 /** Local fuzzy match against the how-to index. Null → fall through to the model. */
 export function matchHowTo(question: string): HowToEntry | null {
   const q = normalizeQuestion(question);
@@ -338,8 +397,9 @@ export function matchHowTo(question: string): HowToEntry | null {
     entry.patterns.map((pattern) => ({ key: pattern, value: entry }))
   );
   const hit = bestFuzzyMatch(q, corpus);
-  if (!hit || hit.distance > 2) return null;
-  return hit.value;
+  if (hit && hit.distance <= 2) return hit.value;
+  // A real question with no exact pattern still gets the closest lesson by its words.
+  return isTeachingQuestion(question) ? scoreHowTo(question) : null;
 }
 
 /** Teaching records weight 0 — never charge the meter. */
