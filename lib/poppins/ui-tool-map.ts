@@ -22,6 +22,7 @@ import {
   extractItemName,
   matchGroceryCatalog,
   resolvePoppinsChoreTitle,
+  toChoreDisplayTitle,
 } from '@/lib/poppins/catalog-match';
 import { classifyGroceryItem } from '@/lib/grocery/classify';
 import { groupConsecutiveActs } from '@/lib/poppins/group-acts';
@@ -207,7 +208,15 @@ function taskDraftBeats(action: Record<string, unknown>, prefill: Record<string,
 
   const rawTitle = String(action.title ?? prefill.title ?? items?.[0]?.label ?? '');
   const resolved = resolvePoppinsChoreTitle(rawTitle);
-  const title = resolved.title || rawTitle;
+  // The title arriving here is usually already resolved upstream. Re-resolving a display
+  // title is lossy ("Clean Dishes" → "Clean": the second pass strips "Dishes" as a domain
+  // word). Take the resolver's title only when it found a catalog task.
+  const title =
+    resolved.libraryTaskId && resolved.title
+      ? resolved.title
+      : rawTitle.trim()
+        ? toChoreDisplayTitle(rawTitle.trim())
+        : resolved.title || '';
   const libraryTaskId = action.libraryTaskId
     ? String(action.libraryTaskId)
     : prefill.libraryTaskId
@@ -391,18 +400,22 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'complete_task') {
+      const doneTitle =
+        typeof action.title === 'string' ? action.title.trim() || undefined : undefined;
       playlist.push(
         beat(
           'task_done',
           {
-            title: typeof action.title === 'string' ? action.title.trim() || undefined : undefined,
+            title: doneTitle,
             taskId: String(action.taskId ?? ''),
             markKind: 'done',
             thinkingLine: 'Done',
           },
           'hold',
           'complete_task'
-        )
+        ),
+        // Every act gets a settle mark so its Undo has somewhere to live.
+        beat('result_mark', { markKind: 'done', title: doneTitle }, 'none')
       );
       continue;
     }
