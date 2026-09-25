@@ -205,9 +205,50 @@ async function main() {
     reset();
     O.beginTurn();
     hearAndDrive('clear the grocery list', MEMBERS, { userOriginated: true });
-    assert.equal(O.ownsToolFamily('clear_grocery_list'), true);
-    assert.equal(O.ownsToolFamily('grant_allowance'), false);
+    assert.equal(O.stageHasActFor('clear_grocery_list'), true);
+    assert.equal(O.stageHasActFor('grant_allowance', { memberName: 'Mia', amount: 5 }), false);
     console.log('C6 PASS pending confirmation for an owned act is handled on stage');
+
+    // C8 — a card waiting for "who" must not swallow a different task said next.
+    reset();
+    O.beginTurn();
+    hearAndDrive('assign a task to clean my dishes', MEMBERS, { userOriginated: true });
+    O.beginTurn();
+    driveAiuic([{ type: 'create_task_draft', title: 'Walk the dog', assignee: 'Mia' }], 'and walk the dog', {
+      memberNames: MEMBERS,
+      source: 'model',
+    });
+    const c8 = liveWriteBeats().map((b) => b.payload.title);
+    assert.deepEqual(c8, ['Clean Dishes', 'Walk the dog'], `a new subject stages: ${c8}`);
+    assert.equal(liveWriteBeats()[0]!.payload.assignee ?? '', '', 'the waiting card is untouched');
+    console.log('C8 PASS a different task is never absorbed by a waiting card');
+
+    // C9 — a model plan with one known and one new act: one refines, one stages.
+    reset();
+    O.beginTurn();
+    hearAndDrive('assign a task to clean my dishes', MEMBERS, { userOriginated: true });
+    driveAiuic(
+      [
+        { type: 'create_task_draft', title: 'Wash the dishes', assignee: 'Nero' },
+        { type: 'create_task_draft', title: 'Take out the bins', assignee: 'Mia' },
+      ],
+      'clean the dishes for Nero and the bins for Mia',
+      { memberNames: MEMBERS, source: 'model' }
+    );
+    const c9 = liveWriteBeats();
+    assert.equal(c9.length, 2, `two acts, not three: ${c9.map((b) => b.payload.title)}`);
+    assert.equal(c9[0]!.payload.title, 'Clean Dishes');
+    assert.equal(c9[0]!.payload.assignee, 'Nero');
+    assert.match(String(c9[1]!.payload.title), /bin/i);
+    console.log('C9 PASS mixed model plan → one refine + one new act');
+
+    // C10 — a confirmation for a different task is not "handled" by the card on screen.
+    reset();
+    O.beginTurn();
+    hearAndDrive('assign a task to clean my dishes', MEMBERS, { userOriginated: true });
+    assert.equal(O.stageHasActFor('create_task', { title: 'Wash the dishes' }), true);
+    assert.equal(O.stageHasActFor('create_task', { title: 'Walk the dog' }), false);
+    console.log('C10 PASS confirmations are matched by subject');
 
     // C7 — Undo, then say it again: it lands (the duplicate guard forgets undone acts).
     reset();
