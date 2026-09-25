@@ -102,20 +102,30 @@ assert.equal(
 assert.match(voice, /beginVoiceAudioEpoch/);
 assert.match(voice, /currentVoiceAudioEpoch\(\) === closeEpoch/);
 
+// The tab is layout; the session lifecycle lives in the controller, the mic in the dock.
 const poppinsTab = source('app/(tabs)/poppins.tsx');
-assert.match(poppinsTab, /voiceSettling/);
-assert.match(poppinsTab, /await voiceRef\.current\?\.end\('manual'\)/);
+const poppinsController = source('lib/poppins/use-poppins-controller.ts');
+const poppinsDock = source('components/orbit/poppins/poppins-dock.tsx');
+assert.match(poppinsController, /voiceSettling/);
+assert.match(poppinsController, /await voiceRef\.current\?\.end\('manual'\)/);
 assert.match(
-  poppinsTab,
-  /disabled=\{voiceSettling/,
+  poppinsDock,
+  /const micDisabled = voiceSettling \|\|/,
   'Speak stays disabled while native voice is settling'
 );
-assert.equal(
-  poppinsTab.includes('warmPoppinsMicrophone()'),
-  false,
-  'Speak must not warm the mic before native settle'
-);
-assert.match(poppinsTab, /await waitForPendingVoiceNativeSettle\(\)/);
+assert.match(poppinsDock, /disabled=\{micDisabled\}/);
+for (const [name, src] of [
+  ['tab', poppinsTab],
+  ['controller', poppinsController],
+  ['dock', poppinsDock],
+] as const) {
+  assert.equal(
+    src.includes('warmPoppinsMicrophone()'),
+    false,
+    `Speak must not warm the mic before native settle (${name})`
+  );
+}
+assert.match(poppinsController, /await waitForPendingVoiceNativeSettle\(\)/);
 
 resetVoiceNativeClosePendingForTests();
 assert.equal(remainingVoiceSettleMs(), 0);
