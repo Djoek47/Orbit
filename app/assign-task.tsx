@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import Icon from '@/components/orbit/design/Icon';
 import { domainIconName } from '@/components/orbit/design/icon-map';
@@ -134,7 +135,7 @@ function PersonChip({
           {photo ? (
             <Image source={{ uri: member.avatar }} style={styles.personAvatarImage} />
           ) : (
-            <Text style={styles.personEmoji}>{memberDisplayEmoji(member)}</Text>
+            <MemberGlyph member={member} size={20} />
           )}
         </View>
       </View>

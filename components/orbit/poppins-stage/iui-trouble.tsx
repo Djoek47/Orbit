@@ -5,6 +5,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
 import { STAGE, stageBorder, stageDangerText, stageMuted } from '@/constants/iui-stage';
@@ -110,7 +111,7 @@ export function IuiTroubleNothingHeard({
             styles.micTile,
             { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,28,42,0.05)' },
           ]}>
-          <Text style={[styles.micGlyph, { color: muted }]}>🎤</Text>
+          <Moji name="mic" size={20} />
           <View style={[styles.micSlash, { backgroundColor: muted }]} />
         </View>
         <View style={{ flex: 1, gap: 3 }}>
@@ -228,7 +229,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  micGlyph: { fontSize: 18 },
   micSlash: {
     position: 'absolute',
     width: 22,

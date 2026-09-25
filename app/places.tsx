@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PlaceMap } from '@/components/orbit/place-map';
 import { MapsAppMark } from '@/components/orbit/maps-app-mark';
@@ -632,7 +633,7 @@ export default function PlacesScreen() {
             })}
           </View>
 
-          <Text style={[styles.label, { color: orbitPalette.textSubtle }]}>EMOJI</Text>
+          <Text style={[styles.label, { color: orbitPalette.textSubtle }]}>MARK</Text>
           <View style={styles.emojiRow}>
             {EMOJI_PRESETS.map((e) => {
               const active = editor.emoji === e;
@@ -647,7 +648,7 @@ export default function PlacesScreen() {
                       borderColor: active ? `${cat.color}55` : orbitPalette.border,
                     },
                   ]}>
-                  <Text style={{ fontSize: 18 }}>{e}</Text>
+                  <Moji emoji={e} size={22} />
                 </Pressable>
               );
             })}

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { ChoiceRow } from '@/components/orbit/choice-row';
 import { EventDatePicker } from '@/components/orbit/event-date-picker';
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -238,7 +239,7 @@ export default function CreateEventScreen() {
                               backgroundColor: active ? `${c.planPurple}18` : glass(0.04),
                             },
                           ]}>
-                          <Text style={{ fontSize: 14 }}>{memberDisplayEmoji(member)}</Text>
+                          <MemberGlyph member={member} size={14} />
                           <Text
                             style={[
                               typography.caption1,

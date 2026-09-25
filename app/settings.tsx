@@ -11,6 +11,7 @@ import {
   migrateAccentThemeId,
   type AccentThemeId,
 } from '@/constants/accent-themes';
+import { Moji } from '@/components/orbit/moji/moji';
 import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { HouseholdSwitchSheet } from '@/components/orbit/household-switch-sheet';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
@@ -1323,7 +1324,7 @@ export default function SettingsScreen() {
                     borderColor: glassBorder(0.08),
                   },
                 ]}>
-                <Text style={{ fontSize: 22 }}>{emoji}</Text>
+                <Moji emoji={emoji} size={24} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.memberName, { color: orbitPalette.text }]}>{label}</Text>
                   <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>{sub}</Text>
@@ -1523,7 +1524,7 @@ function SettingsRow({
       onPress={onPress}>
       <View style={[styles.settingsIcon, { backgroundColor: glass(0.06) }]}>
         {emoji ? (
-          <Text style={{ fontSize: 18 }}>{emoji}</Text>
+          <Moji emoji={emoji} size={18} />
         ) : (
           <MaterialIcons name={icon!} size={16} color={iconColor ?? c.textMuted} />
         )}
