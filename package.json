@@ -92,7 +92,8 @@
     "test:webrtc-speaker": "npx --yes tsx lib/voice/webrtc-speaker-plugin.test.ts",
     "test:transcript-merge": "npx --yes tsx lib/voice/transcript-merge.test.ts",
     "smoke:poppins": "bash ./scripts/smoke-poppins-openai.sh",
-    "test:cancel-task": "npx --yes tsx lib/tasks/cancel-task.test.ts"
+    "test:cancel-task": "npx --yes tsx lib/tasks/cancel-task.test.ts",
+    "test:activity-log": "npx --yes tsx lib/activity/activity-log.test.ts"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",

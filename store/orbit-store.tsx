@@ -58,6 +58,7 @@ import {
   shouldSkipKindToday,
   withMemberDismissed,
 } from '@/lib/ai/daily-insight';
+import { logActivity } from '@/lib/activity/activity-log';
 import { unreadInboxCount } from '@/lib/poppins/inbox-visibility';
 import {
   filterOutDismissedIds,
@@ -3978,6 +3979,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       userId: targetUserId,
     });
     setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
+    void logActivity({
+      householdId: household.id,
+      kind: 'notification_created',
+      notificationId: item.id,
+      memberId: pushMemberIds.length === 1 ? pushMemberIds[0] : null,
+      title: item.title,
+      body: item.body,
+      category: item.category,
+      detail: { audience_member_ids: pushMemberIds, priority: item.priority },
+    });
 
     if (dataMode === 'supabase' && pushMemberIds.length > 0) {
       dispatchMemberPush(item.id);
@@ -5248,7 +5259,31 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('member.declined', { memberId }, analyticsContext);
   };
 
+  /** Local activity-log copy (DB triggers write the authoritative remote row). */
+  const logInboxActivity = (
+    kind: 'notification_read' | 'notification_dismissed',
+    notificationIds: string[]
+  ) => {
+    const householdId = household.id;
+    if (!householdId) return;
+    const memberId = currentMemberRef.current?.id ?? null;
+    for (const notificationId of notificationIds) {
+      if (notificationId === 'morning-brief') continue;
+      const item = notificationsRef.current.find((row) => row.id === notificationId);
+      void logActivity({
+        householdId,
+        kind,
+        notificationId,
+        memberId,
+        title: item?.title ?? null,
+        body: item?.body ?? null,
+        category: item?.category ?? null,
+      });
+    }
+  };
+
   const markNotificationRead = async (notificationId: string) => {
+    logInboxActivity('notification_read', [notificationId]);
     setNotifications((current) =>
       current.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item))
     );
@@ -5290,6 +5325,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    logInboxActivity('notification_dismissed', [notificationId]);
     const memberId = currentMemberRef.current?.id;
     const data = memberId
       ? withMemberDismissed(current.data, memberId)
@@ -5340,6 +5376,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       )
       .map((item) => item.id);
 
+    logInboxActivity('notification_dismissed', ids);
     const nextTombstones = new Set([...dismissedNotificationIdsRef.current, ...ids]);
     setDismissedNotificationIds(nextTombstones);
     setNotifications([]);
@@ -5383,6 +5420,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const markAllNotificationsRead = async () => {
     const ids = notificationsRef.current.map((item) => item.id);
+    logInboxActivity(
+      'notification_read',
+      notificationsRef.current.filter((item) => !item.isRead).map((item) => item.id)
+    );
     setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
     void syncAppBadge(0);
     try {
