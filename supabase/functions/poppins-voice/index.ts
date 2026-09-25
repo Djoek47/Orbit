@@ -10,6 +10,56 @@ import { getOpenAIPoppinsChatModel } from '../_shared/openai-models.ts';
 import { recordAiUsageEvent, usageFromOpenAIPayload } from '../_shared/ai-usage.ts';
 
 const FALLBACK_FOCUS_QUESTION = 'What should our household focus on right now?';
+/** ~6 MB of audio as base64 — far above a 30 s Quiet capture. */
+const MAX_AUDIO_BASE64_CHARS = 8_000_000;
+
+type VoiceRequest = {
+  audio: FormDataEntryValue | File | null;
+  householdId: string;
+  metricsRaw: string;
+  householdRaw: string;
+  transcriptOnly: boolean;
+};
+
+function base64ToArrayBuffer(b64: string): ArrayBuffer {
+  const binary = atob(b64);
+  const buffer = new ArrayBuffer(binary.length);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return buffer;
+}
+
+/**
+ * Two shapes. JSON with `audioBase64` is what current clients send — it avoids the
+ * multipart upload that iOS 27's RCTBlobManager breaks. Multipart stays for older builds.
+ */
+async function readVoiceRequest(req: Request): Promise<VoiceRequest> {
+  const contentType = req.headers.get('content-type') ?? '';
+  if (contentType.includes('application/json')) {
+    const body = (await req.json()) as Record<string, unknown>;
+    const b64 = typeof body.audioBase64 === 'string' ? body.audioBase64 : '';
+    let audio: File | null = null;
+    if (b64 && b64.length <= MAX_AUDIO_BASE64_CHARS) {
+      const mimeType = typeof body.mimeType === 'string' ? body.mimeType : 'audio/m4a';
+      audio = new File([base64ToArrayBuffer(b64)], 'poppins.m4a', { type: mimeType });
+    }
+    return {
+      audio,
+      householdId: String(body.householdId ?? ''),
+      metricsRaw: JSON.stringify(body.metrics ?? {}),
+      householdRaw: JSON.stringify(body.household ?? {}),
+      transcriptOnly: body.transcriptOnly === true || body.transcriptOnly === '1',
+    };
+  }
+  const form = await req.formData();
+  return {
+    audio: form.get('audio'),
+    householdId: String(form.get('householdId') ?? ''),
+    metricsRaw: String(form.get('metrics') ?? '{}'),
+    householdRaw: String(form.get('household') ?? '{}'),
+    transcriptOnly: String(form.get('transcriptOnly') ?? '') === '1',
+  };
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,18 +68,14 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
-    const form = await req.formData();
-    const audio = form.get('audio');
-    const householdId = String(form.get('householdId') ?? '');
-    const metricsRaw = String(form.get('metrics') ?? '{}');
-    const householdRaw = String(form.get('household') ?? '{}');
+    const { audio, householdId, metricsRaw, householdRaw, transcriptOnly } =
+      await readVoiceRequest(req);
 
     const auth = await requireActiveMember(authHeader, householdId);
     if (auth.error) {
       return auth.error;
     }
 
-    const transcriptOnly = String(form.get('transcriptOnly') ?? '') === '1';
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiKey) {
       if (transcriptOnly) {
