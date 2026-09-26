@@ -360,7 +360,10 @@ function createSupabaseRemote(): ActivityRemote {
 
 async function defaultDeviceLabel(): Promise<string | null> {
   try {
-    const { Platform } = await import('react-native');
+    // Plain require, never a dynamic namespace import of react-native: that enumerates every
+    // export and trips the removed PushNotificationIOS getter in release builds.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Platform } = require('react-native') as typeof import('react-native');
     let model: string | null = null;
     try {
       const Device = await import('expo-device');

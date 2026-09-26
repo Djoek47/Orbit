@@ -22,6 +22,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { AppState, Linking } from 'react-native';
 import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import {
   isCorrectionUtterance,
@@ -474,30 +475,27 @@ export function usePoppinsController() {
   // Backgrounding the app: iOS takes the mic away, so the conversation is over. Close it the
   // same way a tap would, instead of leaving "Listening" or "All set" on screen.
   useEffect(() => {
-    let sub: { remove: () => void } | undefined;
-    void import('react-native').then(({ AppState }) => {
-      sub = AppState.addEventListener('change', (next) => {
-        if (next !== 'background') return;
-        if (baseRef.current) {
-          const listener = baseRef.current;
-          baseRef.current = null;
-          listener.abort();
-          setBaseOn(false);
-          setListening(false);
-          setVoiceState('idle');
-          setWaveLevelDb(null);
-        }
-        if (voiceRef.current?.isConnected) {
-          void endNativeVoice();
-          return; // endNativeVoice resets the stage
-        }
-        settleStageOnExit();
-        setBaseAfter(null);
-        setBaseLive('');
-        setBaseTrouble(null);
-      });
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'background') return;
+      if (baseRef.current) {
+        const listener = baseRef.current;
+        baseRef.current = null;
+        listener.abort();
+        setBaseOn(false);
+        setListening(false);
+        setVoiceState('idle');
+        setWaveLevelDb(null);
+      }
+      if (voiceRef.current?.isConnected) {
+        void endNativeVoice();
+        return; // endNativeVoice resets the stage
+      }
+      settleStageOnExit();
+      setBaseAfter(null);
+      setBaseLive('');
+      setBaseTrouble(null);
     });
-    return () => sub?.remove();
+    return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one subscription
   }, []);
 
@@ -1241,7 +1239,7 @@ export function usePoppinsController() {
 
   const onBaseTroubleAction = (action: BaseTroubleAction) => {
     if (action === 'settings') {
-      void import('react-native').then(({ Linking }) => Linking.openSettings());
+      void Linking.openSettings();
       return;
     }
     if (action === 'type') {

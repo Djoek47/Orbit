@@ -5,10 +5,12 @@
  *   C — an event the store refuses never reads as "All set"; a pending one says so
  *   D — Base routes on "is the recognizer in this build", never falls back to the server
  *   E — Poppins' naming rule matches the owner's words in both prompt copies
+ *   F — no dynamic import('react-native') anywhere: in a release build it enumerates every
+ *       export, hits the removed PushNotificationIOS getter and kills the app (build 85)
  * Run: npx --yes tsx lib/poppins/base-pass.test.ts
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { parseEventUtterance } from '@/lib/poppins/event-parse';
@@ -115,6 +117,35 @@ async function main() {
     assert.match(src, /Never say "UI" on its own/, `${file}: bare "UI" is banned`);
     assert.match(src, /"Poppins", "Poppins AI" or "the voice UI"/, `${file}: the allowed names`);
   }
+
+  // ── F ──────────────────────────────────────────────────────────────
+  const walk = (dir: string, out: string[] = []): string[] => {
+    for (const entry of readdirSync(dir)) {
+      if (entry === 'node_modules' || entry.startsWith('.')) continue;
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) walk(full, out);
+      else if (/\.(ts|tsx)$/.test(entry) && !entry.includes('.test.')) out.push(full);
+    }
+    return out;
+  };
+  const offenders: string[] = [];
+  for (const dir of ['app', 'components', 'lib', 'store', 'hooks']) {
+    let files: string[] = [];
+    try {
+      files = walk(join(ROOT, dir));
+    } catch {
+      continue;
+    }
+    for (const file of files) {
+      const src = readFileSync(file, 'utf8');
+      if (/(?<!typeof\s)\bimport\(\s*['"]react-native['"]\s*\)/.test(src)) offenders.push(file.slice(ROOT.length + 1));
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `dynamic import('react-native') crashes release builds — use a static import:\n${offenders.join('\n')}`
+  );
 
   console.log('base-pass: ok');
 }
