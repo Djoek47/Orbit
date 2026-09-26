@@ -14,6 +14,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 
 import { needsProofOnComplete } from '@/lib/tasks/homework-proof';
+import { HomeworkBoard } from '@/components/orbit/homework/homework-board';
 import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { ContextMenu } from '@/components/orbit/context-menu';
 import {
@@ -303,7 +304,7 @@ function TaskItem({
             washAnim,
           ]}
         />
-        {interactive && canFinish && !isExpiredStatus(task.status) ? (
+        {interactive && canFinish && !homeworkOpen && !isExpiredStatus(task.status) ? (
         <Pressable
           onPress={onToggle}
           style={[
@@ -317,8 +318,17 @@ function TaskItem({
             {done ? <MaterialIcons name="check" size={12} color={c.ink} /> : null}
           </Animated.View>
         </Pressable>
-        ) : (
+        ) : isExpiredStatus(task.status) ? (
           <View style={[styles.checkbox, { borderColor: `${c.warning}66`, opacity: 0.5 }]} />
+        ) : (
+          // State only — the action is the Complete button (or it's someone else's to finish).
+          <View
+            style={[
+              styles.checkbox,
+              { borderColor, backgroundColor: done ? accent : 'transparent', opacity: done ? 1 : 0.7 },
+            ]}>
+            {done ? <MaterialIcons name="check" size={12} color={c.ink} /> : null}
+          </View>
         )}
 
         <View style={styles.taskBody}>
@@ -1250,6 +1260,19 @@ export default function TasksScreen() {
           </Text>
           <MaterialIcons name="close" size={16} color={focusedAccent} />
         </Pressable>
+      ) : null}
+
+      {domainTab === 'homework' && statusTab === 'active' ? (
+        <HomeworkBoard
+          tasks={household.tasks.filter((task) => {
+            if (!isHomework(task)) return false;
+            const whose = sharedKidMode || !isAdmin ? currentMember?.name : focusMember;
+            return !whose || taskMatchesAssignee(task, whose);
+          })}
+          members={household.members}
+          showChildren={isAdmin && !sharedKidMode && !focusMember}
+          ownerName={sharedKidMode || !isAdmin ? currentMember?.name?.split(' ')[0] : focusMember ?? undefined}
+        />
       ) : null}
 
       {empty ? (

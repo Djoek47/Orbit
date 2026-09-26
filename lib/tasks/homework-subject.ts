@@ -9,6 +9,8 @@ export const HOMEWORK_SUBJECT_META: Record<string, { color: string; emoji: strin
   Reading: { color: '#A78BFA', emoji: '📚' },
   Art: { color: '#F472B6', emoji: '🎨' },
   PE: { color: '#FBBF24', emoji: '⚽' },
+  French: { color: '#60A5FA', emoji: '📖' },
+  Music: { color: '#F472B6', emoji: '🎤' },
   Homework: { color: '#A78BFA', emoji: '📚' },
 };
 

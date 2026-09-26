@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { memberHomeworkProofRequired } from '@/lib/tasks/homework-proof';
 import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { Moji } from '@/components/orbit/moji/moji';
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -43,7 +44,7 @@ import {
   XP_LADDER,
 } from '@/lib/rewards/reward-mode';
 import { formatAssigneeLabel } from '@/lib/tasks/split-assign';
-import { formatHomeworkDescription } from '@/lib/tasks/homework-subject';
+import { formatHomeworkDescription, homeworkSubjectMeta } from '@/lib/tasks/homework-subject';
 import { computeTaskXp, weightForDifficulty } from '@/lib/tasks/xp';
 import { allLibraryTasks, type Frequency } from '@/lib/tasks/task-library';
 import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
@@ -1528,6 +1529,40 @@ export default function CreateTaskScreen() {
           </Pressable>
         </View>
 
+        {type === 'homework' ? (
+          // Reads back what's being set, as it's filled in — same idea as the event preview.
+          <View
+            style={[
+              styles.homeworkPreview,
+              {
+                backgroundColor: `${homeworkSubjectMeta(customSubject.trim() || subject).color}14`,
+                borderColor: `${homeworkSubjectMeta(customSubject.trim() || subject).color}40`,
+              },
+            ]}
+            accessibilityLiveRegion="polite">
+            <Moji emoji={homeworkSubjectMeta(customSubject.trim() || subject).emoji} size={30} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[typography.headline, { color: c.text }]} numberOfLines={2}>
+                {title.trim() || `${customSubject.trim() || subject} homework`}
+              </Text>
+              <Text style={[typography.footnote, { color: c.textMuted }]} numberOfLines={2}>
+                {[
+                  resolvedAssigneeNames.length ? resolvedAssigneeNames.join(' & ') : 'Pick a child',
+                  `due ${String(due).toLowerCase()}`,
+                  repeatLabel(repeat).toLowerCase(),
+                  resolvedAssigneeNames.some((name) =>
+                    memberHomeworkProofRequired(childMembers.find((m) => m.name === name))
+                  )
+                    ? 'photo when done'
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.field}>
           <Text style={[styles.label, { color: c.textMuted }]}>{type === 'homework' ? 'ASSIGNMENT' : 'TASK'}</Text>
           <TextInput
@@ -2436,6 +2471,15 @@ const styles = StyleSheet.create({
   },
   librarySection: {
     gap: 10
+  },
+  homeworkPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 12,
   },
   librarySectionHead: {
     flexDirection: 'row',
