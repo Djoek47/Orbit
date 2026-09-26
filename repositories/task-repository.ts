@@ -155,7 +155,43 @@ function mergeTaskRow(data: Parameters<typeof mapTaskRow>[0], local: HouseholdTa
   };
 }
 
+/** Supabase returns at most this many rows per request; history is read page by page. */
+const HISTORY_PAGE = 1000;
+
 export const taskRepository = {
+  /**
+   * Every completion since `sinceIso`, paged — the household snapshot is one request and
+   * stops at 1,000 rows, which a year of daily chores passes. For the breakdown dashboard.
+   */
+  async listCompletedSince(
+    householdId: string | null | undefined,
+    sinceIso: string
+  ): Promise<HouseholdTask[]> {
+    if (isMockMode()) {
+      return clone(mockTasksState).filter(
+        (task) => task.completedAt && task.completedAt >= sinceIso
+      );
+    }
+    if (!isPersistedHouseholdId(householdId)) return [];
+    const supabase = getConfiguredSupabase('taskRepository.listCompletedSince');
+    const rows: HouseholdTask[] = [];
+    for (let from = 0; from < 50 * HISTORY_PAGE; from += HISTORY_PAGE) {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('household_id', householdId)
+        .in('status', ['completed', 'in_progress'])
+        .gte('completed_at', sinceIso)
+        .order('completed_at', { ascending: true })
+        .range(from, from + HISTORY_PAGE - 1);
+      mapDbError('taskRepository.listCompletedSince', error);
+      const page = (data ?? []).map((row) => mapTaskRow(row));
+      rows.push(...page);
+      if (page.length < HISTORY_PAGE) break;
+    }
+    return rows;
+  },
+
   async getTasks(householdId: string | null | undefined): Promise<HouseholdTask[]> {
     if (isMockMode()) {
       return clone(mockTasksState);

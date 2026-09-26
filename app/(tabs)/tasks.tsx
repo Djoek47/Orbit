@@ -15,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 
 import { needsProofOnComplete } from '@/lib/tasks/homework-proof';
 import { HomeworkBoard } from '@/components/orbit/homework/homework-board';
+import { CompletedBreakdownCard } from '@/components/orbit/completed-breakdown-card';
 import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { ContextMenu } from '@/components/orbit/context-menu';
 import {
@@ -1197,7 +1198,13 @@ export default function TasksScreen() {
       />
       </View>
 
-      {rewardCapabilities.xpEnabled ? (
+      {statusTab === 'completed' ? (
+        <CompletedBreakdownCard
+          tasks={household.tasks}
+          members={household.members}
+          accent={accentTheme.primary}
+        />
+      ) : rewardCapabilities.xpEnabled ? (
         <LinearGradient
           colors={[`${accentTheme.primary}1F`, 'rgba(52,211,153,0.08)']}
           start={{ x: 0, y: 0 }}

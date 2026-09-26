@@ -153,6 +153,10 @@ export default function RootLayout() {
                     name="household-balance"
                     options={{ presentation: 'modal', headerShown: false, title: 'Household Health' }}
                   />
+                  <Stack.Screen
+                    name="completed-breakdown"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Completed' }}
+                  />
                   <Stack.Screen name="weekly-report" options={{ title: 'Weekly Report' }} />
                   <Stack.Screen name="badge-gallery" options={{ title: 'Badge Gallery' }} />
                   <Stack.Screen

@@ -34,10 +34,11 @@ function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export function nextDateForWeekday(name: string): string {
+/** The coming weekday — said on that very day it means today, same as parseWhen. */
+export function nextDateForWeekday(name: string, now = new Date()): string {
   const target = WEEKDAYS.indexOf(name as (typeof WEEKDAYS)[number]);
-  const d = new Date();
-  const diff = (target + 7 - d.getDay()) % 7 || 7;
+  const d = new Date(now);
+  const diff = (target + 7 - d.getDay()) % 7;
   d.setDate(d.getDate() + diff);
   return formatLocalDate(d);
 }
