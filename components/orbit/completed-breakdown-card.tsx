@@ -38,7 +38,7 @@ export function CompletedBreakdownCard({ tasks, members, accent }: Props) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`This week: ${done} tasks done, ${formatMinutes(minutesSaved)} saved. Open full breakdown`}
-      onPress={() => router.push('/completed-breakdown')}
+      onPress={() => router.push('/completed-breakdown' as never)}
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: glass(0.06), borderColor: glassBorder(0.1), opacity: pressed ? 0.85 : 1 },
