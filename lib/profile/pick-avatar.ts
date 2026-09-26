@@ -10,6 +10,7 @@
  */
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
+import { ImagePlaygroundNative } from '@/modules/choremaxx-image-playground';
 
 export type AvatarPickErrorCode = 'permission_denied' | 'cancelled' | 'unavailable' | 'failed';
 
@@ -85,19 +86,61 @@ export async function pickAvatarFromLibrary(): Promise<string> {
   return persistAvatarImage(result.assets[0].uri);
 }
 
+/** Why Image Playground can or can't open on this phone. */
+export type PlaygroundAvailability =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: 'not_ios' | 'not_in_build' | 'os_too_old' | 'apple_intelligence_off';
+      /** One sentence the sheet shows as-is. */
+      message: string;
+    };
+
 /**
- * True when Apple Image Playground can be presented in-process
- * (native iOS build on supported hardware — not Expo Go).
+ * Ask the native side directly. The reasons are distinct because the fixes are:
+ * a build without the module needs a new TestFlight build, an old iOS needs an update,
+ * and "off" is a Settings switch (or models still downloading, or a language/region
+ * Apple Intelligence doesn't cover yet).
  */
-export async function canUseImagePlayground(): Promise<boolean> {
-  if (Platform.OS !== 'ios') return false;
-  try {
-    const mod = await import('torch-image-playground');
-    const playground = mod.default;
-    return Boolean(playground?.isSupported?.());
-  } catch {
-    return false;
+export function imagePlaygroundAvailability(): PlaygroundAvailability {
+  if (Platform.OS !== 'ios') {
+    return { ok: false, reason: 'not_ios', message: 'Image Playground is on iPhone only.' };
   }
+  const native = ImagePlaygroundNative;
+  if (!native) {
+    return {
+      ok: false,
+      reason: 'not_in_build',
+      message: 'This build of Choremaxx is missing Image Playground. Update from TestFlight.',
+    };
+  }
+  let status: { osSupported?: boolean; available?: boolean } = {};
+  try {
+    status = native.status();
+  } catch {
+    status = { osSupported: true, available: Boolean(native.isSupported()) };
+  }
+  if (!status.osSupported) {
+    return {
+      ok: false,
+      reason: 'os_too_old',
+      message: 'Image Playground needs iOS 18.2 or later. Update your iPhone in Settings.',
+    };
+  }
+  if (!status.available) {
+    return {
+      ok: false,
+      reason: 'apple_intelligence_off',
+      message:
+        'Turn on Apple Intelligence in Settings → Apple Intelligence & Siri, and let it finish downloading. It also needs a language and region Apple Intelligence supports.',
+    };
+  }
+  return { ok: true };
+}
+
+/** True when Apple Image Playground can be presented right now. */
+export async function canUseImagePlayground(): Promise<boolean> {
+  return imagePlaygroundAvailability().ok;
 }
 
 export type PlaygroundRequest = {
@@ -132,17 +175,12 @@ export async function createAvatarWithImagePlayground(
     throw new AvatarPickError('unavailable', 'Image Playground is available on iPhone only.');
   }
 
+  const availability = imagePlaygroundAvailability();
+  if (!availability.ok) throw new AvatarPickError('unavailable', availability.message);
+  const playground = ImagePlaygroundNative!;
+
   let result: string | null | undefined;
   try {
-    const mod = await import('torch-image-playground');
-    const playground = mod.default;
-    if (!playground?.isSupported?.()) {
-      throw new AvatarPickError(
-        'unavailable',
-        'Image Playground needs iOS 18.2+, Apple Intelligence, and a supported iPhone.'
-      );
-    }
-
     const hint = options?.nameHint?.trim();
     const words = conceptsFromDescription(options?.description);
     const text = [...(hint ? [hint] : []), ...words, 'friendly character', 'profile picture'];
@@ -155,10 +193,14 @@ export async function createAvatarWithImagePlayground(
       personalizationPolicy: 'automatic',
     });
   } catch (error) {
-    if (error instanceof AvatarPickError) throw error;
+    // A real failure inside Playground (a photo that wouldn't load, the sheet refusing a
+    // style) is not "unavailable" — say what happened.
+    const detail = error instanceof Error ? error.message : String(error);
     throw new AvatarPickError(
-      'unavailable',
-      'Image Playground is not available in this build. Create a look in the Image Playground app, save it to Photos, then choose it here.'
+      'failed',
+      /source image/i.test(detail)
+        ? "That photo couldn't be opened for Image Playground. Try another one, or start without a photo."
+        : `Image Playground stopped: ${detail}`
     );
   }
 

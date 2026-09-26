@@ -5,6 +5,8 @@
  *   C — an event the store refuses never reads as "All set"; a pending one says so
  *   D — Base routes on "is the recognizer in this build", never falls back to the server
  *   E — Poppins' naming rule matches the owner's words in both prompt copies
+ *   G — every native module we depend on links: none declares a newer iOS than the app's
+ *       floor (Expo autolinking silently drops those — that's how Image Playground went missing)
  *   F — no dynamic import('react-native') anywhere: in a release build it enumerates every
  *       export, hits the removed PushNotificationIOS getter and kills the app (build 85)
  * Run: npx --yes tsx lib/poppins/base-pass.test.ts
@@ -145,6 +147,38 @@ async function main() {
     offenders,
     [],
     `dynamic import('react-native') crashes release builds — use a static import:\n${offenders.join('\n')}`
+  );
+
+  // ── G ──────────────────────────────────────────────────────────────
+  const APP_IOS_FLOOR = 16.4;
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
+    dependencies?: Record<string, string>;
+  };
+  const podDirs = [
+    ...Object.keys(pkg.dependencies ?? {}).map((name) => join(ROOT, 'node_modules', name, 'ios')),
+    ...readdirSync(join(ROOT, 'modules')).map((name) => join(ROOT, 'modules', name, 'ios')),
+  ];
+  const tooNew: string[] = [];
+  for (const dir of podDirs) {
+    let specs: string[] = [];
+    try {
+      specs = readdirSync(dir).filter((file) => file.endsWith('.podspec'));
+    } catch {
+      continue;
+    }
+    for (const spec of specs) {
+      const code = readFileSync(join(dir, spec), 'utf8')
+        .split('\n')
+        .filter((line) => !line.trim().startsWith('#'))
+        .join('\n');
+      const min = code.match(/:ios\s*=>\s*['"]([0-9.]+)['"]/)?.[1] ?? code.match(/ios\.deployment_target\s*=\s*['"]([0-9.]+)['"]/)?.[1];
+      if (min && Number.parseFloat(min) > APP_IOS_FLOOR) tooNew.push(`${spec} needs iOS ${min}`);
+    }
+  }
+  assert.deepEqual(tooNew, [], `these native modules would be silently left out of the build:\n${tooNew.join('\n')}`);
+  assert.ok(
+    readdirSync(join(ROOT, 'modules')).includes('choremaxx-image-playground'),
+    'Image Playground ships as a local module'
   );
 
   console.log('base-pass: ok');

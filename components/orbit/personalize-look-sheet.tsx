@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,8 +18,9 @@ import { AVATAR_EMOJIS } from '@/constants/accent-themes';
 import { space, typography } from '@/constants/orbit-theme';
 import {
   AvatarPickError,
-  canUseImagePlayground,
   createAvatarWithImagePlayground,
+  imagePlaygroundAvailability,
+  type PlaygroundAvailability,
   pickAvatarFromLibrary,
   pickPlaygroundSourcePhoto,
   PLAYGROUND_STYLE_LABELS,
@@ -49,7 +51,8 @@ export function PersonalizeLookSheet({
   onSelect,
 }: PersonalizeLookSheetProps) {
   const { c, glass, glassBorder } = useOrbitColors();
-  const [playgroundReady, setPlaygroundReady] = useState(false);
+  const [availability, setAvailability] = useState<PlaygroundAvailability>({ ok: false, reason: 'not_ios', message: '' });
+  const playgroundReady = availability.ok;
   const [style, setStyle] = useState<PlaygroundStyle>('illustration');
   const [description, setDescription] = useState('');
   const [sourcePhoto, setSourcePhoto] = useState<string | null>(null);
@@ -58,14 +61,8 @@ export function PersonalizeLookSheet({
 
   useEffect(() => {
     if (!visible) return;
-    let mounted = true;
     setShowGuide(false);
-    canUseImagePlayground().then((ok) => {
-      if (mounted) setPlaygroundReady(ok);
-    });
-    return () => {
-      mounted = false;
-    };
+    setAvailability(imagePlaygroundAvailability());
   }, [visible]);
 
   const finish = async (value: string) => {
@@ -123,7 +120,10 @@ export function PersonalizeLookSheet({
       if (uri) await finish(uri);
     } catch (error) {
       setShowGuide(true);
-      if (error instanceof AvatarPickError && error.code !== 'unavailable') {
+      if (error instanceof AvatarPickError && error.code === 'unavailable') {
+        setAvailability(imagePlaygroundAvailability());
+      } else if (error instanceof AvatarPickError) {
+        setShowGuide(false);
         Alert.alert('Image Playground', error.message);
       }
     } finally {
@@ -229,13 +229,25 @@ export function PersonalizeLookSheet({
         {showGuide ? (
           <View style={[styles.guide, { backgroundColor: glass(0.05), borderColor: border }]}>
             <Text style={[typography.headline, { color: c.text }]}>
-              Image Playground isn&apos;t available here
+              Image Playground can&apos;t open yet
             </Text>
             <Text
               style={[typography.footnote, { color: c.textSoft, marginTop: 8, lineHeight: 20 }]}>
-              It needs an iPhone on iOS 18.2 or later with Apple Intelligence turned on. You can
-              still make a character in the Image Playground app, save it to Photos, then pick it
-              below.
+              {availability.ok ? '' : availability.message}
+            </Text>
+            {!availability.ok && availability.reason === 'apple_intelligence_off' ? (
+              <Pressable
+                onPress={() => void Linking.openSettings()}
+                style={[styles.settingsBtn, { borderColor: border }]}
+                accessibilityRole="button">
+                <Text style={[typography.footnote, { color: c.primary, fontWeight: '700' }]}>
+                  Open Settings
+                </Text>
+              </Pressable>
+            ) : null}
+            <Text
+              style={[typography.caption1, { color: c.textSubtle, marginTop: 10, lineHeight: 18 }]}>
+              Or make a character in the Image Playground app, save it to Photos, and pick it below.
             </Text>
           </View>
         ) : null}
@@ -356,6 +368,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingVertical: 15,
     borderRadius: 16,
+  },
+  settingsBtn: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   guide: {
     marginTop: space.md,
