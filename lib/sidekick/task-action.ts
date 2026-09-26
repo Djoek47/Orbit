@@ -105,13 +105,26 @@ export async function sidekickSubmitTaskProof(input: {
     throw new Error('Supabase client unavailable');
   }
 
+  const { isLocalProofUri, proofBytesForEdge } = await import('@/lib/tasks/upload-proof');
+  const body: Record<string, unknown> = {
+    action: 'submit_proof',
+    code: input.code,
+    taskId: input.taskId,
+  };
+
+  // Sidekick devices have no Storage JWT — send bytes so the edge function
+  // can upload a durable https URL every household member can load.
+  if (isLocalProofUri(input.proofUri)) {
+    const bytes = await proofBytesForEdge(input.proofUri);
+    body.proofBase64 = bytes.proofBase64;
+    body.proofMime = bytes.proofMime;
+    body.proofExt = bytes.proofExt;
+  } else {
+    body.proofUri = input.proofUri;
+  }
+
   const { data, error } = await supabase.functions.invoke('sidekick-task-action', {
-    body: {
-      action: 'submit_proof',
-      code: input.code,
-      taskId: input.taskId,
-      proofUri: input.proofUri,
-    },
+    body,
   });
 
   if (error) {
@@ -123,9 +136,14 @@ export async function sidekickSubmitTaskProof(input: {
     throw new Error(payload?.error ?? 'sidekickSubmitTaskProof empty response');
   }
 
+  const remoteUri =
+    typeof payload.task.proof_uri === 'string' && payload.task.proof_uri.trim()
+      ? payload.task.proof_uri.trim()
+      : input.proofUri;
+
   return mapSidekickTaskRow(payload.task, {
     ...input.task,
-    proofUri: input.proofUri,
+    proofUri: remoteUri,
     proofStatus: 'submitted',
   });
 }

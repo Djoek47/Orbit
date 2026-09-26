@@ -44,4 +44,15 @@ const refreshed = refreshStaleDueLabels(
 );
 assert.equal(refreshed[0]?.due, 'Today');
 
+// Weekday names and exact dates (voice homework "due Friday" used to land on today).
+{
+  const fri = new Date(2026, 8, 25, 10, 0); // Fri 25 Sep 2026
+  assert.equal(occurrenceDateForDueLabel('Friday', fri), '2026-09-25');
+  assert.equal(occurrenceDateForDueLabel('Monday', fri), '2026-09-28');
+  assert.equal(occurrenceDateForDueLabel('next Thursday', fri), '2026-10-01');
+  assert.equal(occurrenceDateForDueLabel('thu', fri), '2026-10-01');
+  assert.equal(occurrenceDateForDueLabel('2026-10-12', fri), '2026-10-12');
+  assert.equal(occurrenceDateForDueLabel('Tomorrow', fri), '2026-09-26');
+}
+
 console.log('due-label tests passed');

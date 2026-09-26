@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import Icon from '@/components/orbit/design/Icon';
 import { domainIconName } from '@/components/orbit/design/icon-map';
@@ -38,28 +39,30 @@ export function IuiChips({
             })()
           : null;
         return (
-          <View key={chip.id}>
-            <Pressable
-              onPress={() => onSelect?.(chip.id)}
+          <Pressable
+            key={chip.id}
+            onPress={() => onSelect?.(chip.id)}
+            accessibilityRole="button"
+            accessibilityLabel={chip.label}
+            accessibilityState={{ selected }}
+            style={[
+              styles.chip,
+              {
+                borderColor: chip.kind === 'created' || selected ? `${accent}99` : glassBorder(0.1),
+                backgroundColor:
+                  chip.kind === 'created' ? accent : selected ? `${accent}22` : 'transparent',
+              },
+            ]}>
+            {icon ? <Icon name={icon} size={22} /> : null}
+            {showEmoji && chip.emoji && !icon ? <Moji emoji={chip.emoji} size={17} /> : null}
+            <Text
               style={[
-                styles.chip,
-                {
-                  borderColor: chip.kind === 'created' || selected ? `${accent}99` : glassBorder(0.1),
-                  backgroundColor:
-                    chip.kind === 'created' ? accent : selected ? `${accent}22` : 'transparent',
-                },
+                styles.label,
+                { color: chip.kind === 'created' ? '#FFFFFF' : c.text },
               ]}>
-              {icon ? <Icon name={icon} size={22} /> : null}
-              {showEmoji && chip.emoji && !icon ? <Text style={styles.emoji}>{chip.emoji}</Text> : null}
-              <Text
-                style={[
-                  styles.label,
-                  { color: chip.kind === 'created' ? '#FFFFFF' : c.text },
-                ]}>
-                {chip.label}
-              </Text>
-            </Pressable>
-          </View>
+              {chip.label}
+            </Text>
+          </Pressable>
         );
       })}
     </View>
@@ -74,9 +77,10 @@ const styles = StyleSheet.create({
     gap: 6,
     borderWidth: 1,
     borderRadius: 999,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 14,
+    minHeight: 44,
+    justifyContent: 'center',
   },
-  emoji: { fontSize: 16 },
   label: { fontSize: 15, fontWeight: '500' },
 });

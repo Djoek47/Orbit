@@ -182,6 +182,9 @@ const ONBOARDING_EXIT_HOLD_STEPS: ReadonlySet<Step> = new Set([
   'ready',
 ]);
 
+
+/** Points from the left edge where a rightward swipe means Back (matches iOS). */
+const EDGE_SWIPE_ZONE = 24;
 export default function WelcomeOnboardingScreen() {
   const insets = useSafeAreaInsets();
   const {
@@ -476,16 +479,20 @@ export default function WelcomeOnboardingScreen() {
   const canGoBackRef = useRef(canGoBack);
   canGoBackRef.current = canGoBack;
 
+  // Back is the iOS edge swipe: start at the left edge, move right. Anywhere else a
+  // sideways drag belongs to the content — the "Who speaks" carousel, chip rows — and
+  // must never send the person back a step.
   const swipeBack = useMemo(
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_evt, gesture) =>
           canGoBackRef.current &&
-          Math.abs(gesture.dx) > 18 &&
+          gesture.x0 <= EDGE_SWIPE_ZONE &&
+          gesture.dx > 18 &&
           Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
+        onPanResponderTerminationRequest: () => true,
         onPanResponderRelease: (_evt, gesture) => {
-          // Slide left (finger moves left) → previous step
-          if (canGoBackRef.current && gesture.dx < -72 && Math.abs(gesture.vx) > 0.05) {
+          if (canGoBackRef.current && gesture.x0 <= EDGE_SWIPE_ZONE && gesture.dx > 72) {
             goBackRef.current();
           }
         },

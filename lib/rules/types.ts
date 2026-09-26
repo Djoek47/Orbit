@@ -95,9 +95,17 @@ export type RuleConstants = {
 
 export type Chapter = {
   key: ChapterKey;
+  /** WO14 — same as key; digest/chapter screens read chapters from JSON. */
+  id?: ChapterKey;
   order: number;
   adminLabel: string;
   sidekickLabel: string;
+  /** Admin title alias (defaults to adminLabel). */
+  title?: string;
+  /** Five-word digest description. */
+  description?: string;
+  /** Material icon name for digest rows. */
+  icon?: string;
   accent?: string;
   sidekickColor?: string;
 };
@@ -115,6 +123,8 @@ export type SidekickCopy = {
 export type HouseRule = {
   id: string;
   chapter: ChapterKey;
+  /** WO14 — same as chapter; screens must not hardcode grouping. */
+  chapterId?: ChapterKey;
   order: number;
   condition: ConditionKey;
   visual: VisualKey;

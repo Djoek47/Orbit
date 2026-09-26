@@ -18,8 +18,22 @@ export function libraryDefinitionId(libraryTaskId: string, assignee: string): st
   return `lib:${libraryTaskId}:${assignee}`;
 }
 
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
 export function occurrenceDateForDueLabel(due: string, now = new Date()): string {
   const d = new Date(now);
+  const label = due.trim().toLowerCase();
+  // An exact date passes straight through.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(label)) return label;
+  // "Friday" / "next Friday" / "Fri": the coming one — same reading as the calendar parser.
+  const weekday = WEEKDAYS.findIndex(
+    (day) => label === day || label === `next ${day}` || label === day.slice(0, 3)
+  );
+  if (weekday >= 0) {
+    const ahead = (weekday - now.getDay() + 7) % 7; // said on that very day → today
+    d.setDate(now.getDate() + ahead);
+    return formatLocalDate(d);
+  }
   if (/^tomorrow$/i.test(due)) d.setDate(now.getDate() + 1);
   else if (/this week/i.test(due)) {
     const toSat = (6 - now.getDay() + 7) % 7;

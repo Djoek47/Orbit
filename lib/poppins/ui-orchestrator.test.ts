@@ -377,7 +377,7 @@ void poppinsUiOrchestrator.confirm().then(() => {
   poppinsUiOrchestrator.setCommitHandler(null);
   poppinsUiOrchestrator.clear();
 
-  // A1 — compound playlist: merge must preserve the queued tail beat
+  // A1 / WO11 — compound playlist: consecutive tasks group; merge must not wipe the group
   poppinsUiOrchestrator.drive(
     [
       { type: 'create_task_draft', title: 'Dishes', assignee: 'Drako', due: 'Today' },
@@ -385,26 +385,80 @@ void poppinsUiOrchestrator.confirm().then(() => {
     ],
     { replace: true }
   );
-  assert.equal(poppinsUiOrchestrator.getState().playlist.length >= 2, true, 'starts with 2+ beats');
-  const mayaBefore = poppinsUiOrchestrator
-    .getState()
-    .playlist.find((beat) => beat.payload.assignee === 'Maya' && /trash/i.test(beat.payload.title ?? ''));
-  assert.ok(mayaBefore, 'Maya trash beat queued');
+  const grouped = poppinsUiOrchestrator.getState().playlist.find((beat) => beat.scene === 'task_compose');
+  assert.ok(grouped, 'task compose beat present');
+  assert.ok(
+    grouped?.payload.items?.some((item) => item.assignee === 'Maya' && /trash/i.test(item.label)),
+    'Maya trash row queued in group'
+  );
+  const lenBefore = poppinsUiOrchestrator.getState().playlist.length;
   poppinsUiOrchestrator.drive(
     [{ type: 'create_task_draft', title: 'Dishes', assignee: 'Drako', due: 'Today' }],
     { replace: false }
   );
   assert.equal(
-    poppinsUiOrchestrator.getState().playlist.length >= 2,
+    poppinsUiOrchestrator.getState().playlist.length >= lenBefore,
     true,
-    'merge preserves playlist length'
+    'append preserves playlist length'
   );
   const mayaAfter = poppinsUiOrchestrator
     .getState()
-    .playlist.find((beat) => beat.payload.assignee === 'Maya' && /trash/i.test(beat.payload.title ?? ''));
-  assert.ok(mayaAfter, 'Maya trash beat survives merge');
-  assert.equal(mayaAfter?.payload.title, mayaBefore?.payload.title);
+    .playlist.some(
+      (beat) =>
+        beat.payload.items?.some((item) => item.assignee === 'Maya' && /trash/i.test(item.label)) ||
+        (beat.payload.assignee === 'Maya' && /trash/i.test(beat.payload.title ?? ''))
+    );
+  assert.ok(mayaAfter, 'Maya trash survives append');
   poppinsUiOrchestrator.clear();
+
+  const place = mapUiActionsToPlaylist([
+    { type: 'save_place', name: 'School', address: '12 Oak St', kind: 'school' },
+  ]);
+  assert.equal(place[0]?.scene, 'place_save');
+  assert.equal(place[0]?.commit, 'hold');
+  assert.equal(place[0]?.payload.write, 'upsert_place');
+  assert.equal(place[0]?.payload.placeName, 'School');
+
+  const allowance = mapUiActionsToPlaylist([
+    { type: 'grant_allowance', memberName: 'Maya', amountLabel: '$5' },
+  ]);
+  assert.equal(allowance[0]?.scene, 'allowance_act');
+  assert.equal(allowance[0]?.commit, 'confirm');
+  assert.equal(allowance[0]?.payload.write, 'grant_allowance');
+
+  const ranks = mapUiActionsToPlaylist([{ type: 'ranks_peek', rows: [] }]);
+  assert.equal(ranks[0]?.scene, 'ranks_peek');
+  assert.equal(ranks[0]?.commit, 'none');
+
+  const memory = mapUiActionsToPlaylist([
+    { type: 'remember_house_fact', kind: 'like', subject: 'Maya', text: 'Maya likes jam' },
+  ]);
+  assert.equal(memory[0]?.scene, 'memory_note');
+  assert.equal(memory[0]?.payload.memoryText, 'Maya likes jam');
+
+  poppinsUiOrchestrator.drive(
+    [{ type: 'grant_allowance', memberName: 'Maya', amountLabel: '$5' }],
+    { kid: true }
+  );
+  assert.equal(poppinsUiOrchestrator.getState().live, false, 'kids cannot stage allowance');
+  poppinsUiOrchestrator.clear();
+
+  const placeIntent = parseHouseholdIntent('save the place as School at 12 Oak');
+  assert.equal(placeIntent[0]?.type, 'save_place');
+  const ranksIntent = parseHouseholdIntent("who's ahead");
+  assert.equal(ranksIntent[0]?.type, 'ranks_peek');
+  const allowanceIntent = parseHouseholdIntent('grant Maya $5');
+  assert.equal(allowanceIntent[0]?.type, 'grant_allowance');
+
+  const granted = executePoppinsTool(
+    'grant_allowance',
+    { memberName: 'Maya', amount: 5 },
+    household,
+    metrics
+  );
+  const grantActions = granted.ui_actions as Array<Record<string, unknown>>;
+  assert.equal(grantActions[0]?.type, 'grant_allowance');
+  assert.ok(!granted.pending_confirmations, 'allowance stages on IUI, not modal pending');
 
   console.log('iui orchestrator tests passed');
 }).catch((error) => {

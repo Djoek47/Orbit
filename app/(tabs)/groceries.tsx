@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { EmptyState } from '@/components/orbit/empty-state';
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -319,7 +320,7 @@ export default function GroceriesScreen() {
                   onPress={() => void pickProduct(p)}
                   onLongPress={() => toggleGroceryFavorite(p.id)}
                   style={styles.suggestRow}>
-                  <Text style={{ fontSize: 18 }}>{p.icon}</Text>
+                  <Moji emoji={p.icon} size={20} />
                   <Text style={{ flex: 1, color: c.text, fontWeight: '600' }}>{p.name}</Text>
                   <Text style={{ color: accentTheme.primary, fontWeight: '700', fontSize: 12 }}>
                     Add

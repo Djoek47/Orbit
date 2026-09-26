@@ -1,6 +1,8 @@
 /**
- * Tour overlay — always on top (FullWindowOverlay / Modal), safe placement,
- * Exit pill + watchdog. Work Order 9.3 §3.1–3.4, §3.7.
+ * Tour overlay — safe placement, Exit pill + watchdog.
+ * Info steps render inline so Home (etc.) can scroll under the coach card.
+ * Action steps on iOS use FullWindowOverlay to float above assign/create modals.
+ * Work Order 9.3 §3.1–3.4, §3.7.
  */
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -41,9 +43,16 @@ type Props = {
   stepIndex: number;
   stepsInChapter: number;
   isAction: boolean;
+  /** Only true for tap-the-target steps — blocks outside the spotlight. */
+  lockCutout?: boolean;
   isLast: boolean;
   centered?: boolean;
   primaryLabel?: string;
+  /** WO12 §D3 — coach walkthrough chrome. */
+  adHoc?: boolean;
+  canDoItForYou?: boolean;
+  onDoItForMe?: () => void;
+  closeLabel?: string;
   cardRef?: React.RefObject<View | null>;
   onNext: () => void;
   onBack?: () => void;
@@ -65,9 +74,14 @@ function TourOverlayBody({
   stepIndex,
   stepsInChapter,
   isAction,
+  lockCutout = false,
   isLast,
   centered,
   primaryLabel,
+  adHoc,
+  canDoItForYou,
+  onDoItForMe,
+  closeLabel,
   cardRef,
   onNext,
   onBack,
@@ -191,18 +205,18 @@ function TourOverlayBody({
     ],
   }));
 
-  // Dim is paint-only. Action steps add a frame of blockers around the cutout.
-  // Info steps leave the dim open so the screen under the card can still scroll.
+  // Dim is paint-only by default. Only lockCutout (true action taps) blocks
+  // outside the spotlight — event steps like Poppins Speak stay interactive.
   const accentRing = accent;
   const exitBg = accent;
   const exitLabel = c.ink;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View style={[StyleSheet.absoluteFill, styles.root]} pointerEvents="box-none">
       {/* Dim + cutout as four rectangles (no SVG mask — reliable on iOS / Reanimated). */}
       <View
         style={[StyleSheet.absoluteFill, styles.dimLayer]}
-        pointerEvents={isAction ? 'box-none' : 'none'}>
+        pointerEvents={lockCutout ? 'box-none' : 'none'}>
         {cutout ? (
           <>
             <Animated.View
@@ -276,7 +290,7 @@ function TourOverlayBody({
           />
         )}
 
-        {isAction && cutout ? (
+        {lockCutout && cutout ? (
           <>
             <View
               pointerEvents="auto"
@@ -346,6 +360,9 @@ function TourOverlayBody({
           isAction={isAction}
           isLast={isLast}
           primaryLabel={primaryLabel}
+          adHoc={adHoc}
+          canDoItForYou={canDoItForYou}
+          onDoItForMe={onDoItForMe}
           cardRef={cardRef}
           onNext={onNext}
           onBack={onBack}
@@ -375,7 +392,7 @@ function TourOverlayBody({
           onPress={onClose}
           hitSlop={16}
           accessibilityRole="button"
-          accessibilityLabel="Exit tour"
+          accessibilityLabel={closeLabel ?? 'Exit tour'}
           style={({ pressed }) => [
             styles.exitPill,
             {
@@ -385,7 +402,7 @@ function TourOverlayBody({
             },
           ]}>
           <Text style={[typography.footnote, styles.exitLabel, { color: exitLabel }]}>
-            Exit tour
+            {closeLabel ?? 'Exit tour'}
           </Text>
         </Pressable>
       </View>
@@ -394,7 +411,10 @@ function TourOverlayBody({
 }
 
 export function TourOverlay(props: Props) {
-  if (Platform.OS === 'ios') {
+  // Info steps stay inline so the screen under the coach card can scroll.
+  // FullWindowOverlay (iOS) sits in its own window and eats pan gestures —
+  // only true action steps (lockCutout) float above assign / create modals.
+  if (Platform.OS === 'ios' && props.lockCutout) {
     return (
       <FullWindowOverlay>
         <TourOverlayBody {...props} />
@@ -402,12 +422,14 @@ export function TourOverlay(props: Props) {
     );
   }
 
-  // Inline on every step. A Modal sits in its own window and blocks scrolling
-  // the screen under the coach card (and ate cutout taps on action steps).
   return <TourOverlayBody {...props} />;
 }
 
 const styles = StyleSheet.create({
+  root: {
+    elevation: 80,
+    zIndex: 80,
+  },
   dimLayer: {
     elevation: 1,
     zIndex: 1,

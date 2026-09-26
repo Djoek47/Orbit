@@ -34,10 +34,11 @@ function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export function nextDateForWeekday(name: string): string {
+/** The coming weekday — said on that very day it means today, same as parseWhen. */
+export function nextDateForWeekday(name: string, now = new Date()): string {
   const target = WEEKDAYS.indexOf(name as (typeof WEEKDAYS)[number]);
-  const d = new Date();
-  const diff = (target + 7 - d.getDay()) % 7 || 7;
+  const d = new Date(now);
+  const diff = (target + 7 - d.getDay()) % 7;
   d.setDate(d.getDate() + diff);
   return formatLocalDate(d);
 }
@@ -98,6 +99,12 @@ export function interpretStageSpeech(
 
   if (/\b(wait|hold on|pause|freeze)\b/.test(lower)) return { kind: 'freeze' };
 
+  // "No, Mia" / "actually tomorrow" is a correction, not a veto — when the rest steers.
+  if (ctx.live && /^(?:no|nope|actually|sorry|oops)[,.!\s]+\S/.test(lower)) {
+    const inner = interpretStageSpeech(text.replace(/^(?:no|nope|actually|sorry|oops)[,.!\s]+/i, ''), ctx);
+    if (inner.kind === 'revise' || inner.kind === 'splice') return inner;
+  }
+
   if (
     /^(no|nope|veto)\b/.test(lower) ||
     /\b(cancel|never mind|nevermind|stop that|don't|do not)\b/.test(lower)
@@ -113,11 +120,24 @@ export function interpretStageSpeech(
     return { kind: 'confirm' };
   }
 
+  // WO11 §2.6 — mid-chain "and bananas" / "plus milk" / "also walk the dog" appends, never
+  // resets. The sentence is parsed as said first ("walk the dog for Mia" is a task); only a
+  // bare item with no verb of its own ("bananas") is read as "add bananas". Rewriting every
+  // "and" to "add" titled tasks "Add Walk the Dog".
+  const splice = (rest: string): Array<Record<string, unknown>> => {
+    const intentOpts = { memberNames: ctx.memberNames, selfName: ctx.selfName };
+    const asSaid = rest.trim() ? parseHouseholdIntent(rest, intentOpts) : [];
+    if (asSaid.length) return asSaid;
+    return rest.trim() ? parseHouseholdIntent(`add ${rest.trim()}`, intentOpts) : [];
+  };
+
   if (/\balso\b/.test(lower) && ctx.live) {
-    const extra = parseHouseholdIntent(text.replace(/\balso\b/i, 'add'), {
-      memberNames: ctx.memberNames,
-      selfName: ctx.selfName,
-    });
+    const extra = splice(text.replace(/\balso\b[,\s]*/i, ' ').trim());
+    if (extra.length) return { kind: 'splice', actions: extra };
+  }
+
+  if (ctx.live && /^(and|plus|as well as)\b/.test(lower)) {
+    const extra = splice(text.replace(/^(and|plus|as well as)\b[,\s]*/i, ''));
     if (extra.length) return { kind: 'splice', actions: extra };
   }
 

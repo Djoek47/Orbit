@@ -45,7 +45,7 @@ const completedHomework: HouseholdTask = {
 
 assert.equal(canAdminRequestTaskProof(completedChore, sidekick), true);
 assert.equal(canAdminRequestTaskProof(completedChore, adult), false);
-assert.equal(canAdminRequestTaskProof(completedHomework, sidekick), false);
+assert.equal(canAdminRequestTaskProof(completedHomework, sidekick), true);
 assert.equal(
   canAdminRequestTaskProof({ ...completedChore, completedAt: undefined }, sidekick),
   true

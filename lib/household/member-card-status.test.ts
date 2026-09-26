@@ -27,14 +27,14 @@ function member(partial: Partial<HouseholdMember> & Pick<HouseholdMember, 'id' |
 {
   const device = member({
     id: 'd1',
-    name: 'Family iPad',
+    name: 'Shared device',
     role: 'shared-device',
     status: 'active',
     sharedWithMemberIds: ['c1'],
   });
   const child = member({ id: 'c1', name: 'Maya', role: 'child', status: 'active', lastSeenAt: new Date().toISOString() });
   const status = memberCardStatus(child, [device, child]);
-  assert.match(status.line, /On Family iPad/);
+  assert.match(status.line, /On Shared device/);
   assert.equal(status.actionLabel, null);
 }
 

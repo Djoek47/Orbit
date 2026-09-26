@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, RefreshControl, StyleSheet, View, type ScrollView } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { GettingStartedCard } from '@/components/orbit/tour/getting-started-card';
@@ -321,7 +322,7 @@ export default function HomeScreen() {
                   styles.deviceSwitchChip,
                   { backgroundColor: `${accentTheme.primary}22`, borderColor: `${accentTheme.primary}66` },
                 ]}>
-                <Text style={styles.deviceSwitchEmoji}>{sharedDevice.avatar || '📱'}</Text>
+                {sharedDevice.avatar ? <Text style={styles.deviceSwitchEmoji}>{sharedDevice.avatar}</Text> : <Moji name="phone" size={16} />}
                 <Text style={[typography.caption1, { color: accentTheme.primary }]}>
                   Switch who&apos;s on · {firstName}
                 </Text>

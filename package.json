@@ -56,14 +56,19 @@
     "test:revision-d-phase4": "npx --yes tsx lib/rules/revision-d-phase4.test.ts",
     "test:revision-d-phase5": "npx --yes tsx lib/poppins/revision-d-phase5.test.ts",
     "test:house-rules": "npx --yes tsx lib/rules/house-rules.test.ts",
+    "test:chapters": "npx --yes tsx lib/rules/chapters.test.ts",
+    "test:grocery-merge": "npx --yes tsx lib/household/migrate-grocery-permission.test.ts",
     "test:revision-e": "npx --yes tsx lib/rewards/revision-e.test.ts",
+    "test:moji": "npx --yes tsx components/orbit/moji/moji.test.ts",
+    "test:day-strip": "npx --yes tsx lib/calendar/day-strip.test.ts",
     "test:grocery-classify": "npx --yes tsx lib/grocery/classify.test.ts",
     "test:grocery-catalog": "npx --yes tsx lib/grocery/catalog.test.ts",
     "test:shopping": "npx --yes tsx lib/grocery/shopping-palette.test.ts",
     "test:revision-f": "npx --yes tsx lib/tasks/revision-f.test.ts",
     "test:revision-f-features": "npx --yes tsx lib/revision-f-features.test.ts",
     "test:poppins-craft": "npx --yes tsx lib/ai/poppins-craft.test.ts",
-    "test:iui": "npx --yes tsx lib/poppins/catalog-match.test.ts && npx --yes tsx lib/poppins/ui-orchestrator.test.ts && npx --yes tsx lib/poppins/iui-compose.test.ts && npx --yes tsx lib/poppins/iui-voice-error.test.ts && npx --yes tsx lib/poppins/two-mode-iui.test.ts && npx --yes tsx lib/poppins/poppins-os.test.ts && npx --yes tsx lib/poppins/realtime-error.test.ts && npx --yes tsx lib/voice/realtime-content.test.ts && npx --yes tsx lib/voice/webrtc-teardown.test.ts && npx --yes tsx lib/voice/live-household.test.ts && npx --yes tsx lib/onboarding/welcome-onboarding.test.ts && npx --yes tsx lib/household/profile-codes.test.ts && npx --yes tsx lib/poppins/clause-segment.test.ts && npx --yes tsx lib/poppins/validate-act.test.ts && npx --yes tsx lib/poppins/effect-outbox.test.ts && npx --yes tsx lib/voice/speak-transport.test.ts && npx --yes tsx lib/tour/tour-steps.test.ts && npx --yes tsx lib/tour/tour-pause.test.ts && npx --yes tsx lib/tour/tour-hydrate.test.ts && npx --yes tsx lib/tour/tour-crash-recovery.test.ts && npx --yes tsx lib/poppins/pass3-undo-modes.test.ts && npx --yes tsx lib/household/shared-device-switch.test.ts && npx --yes tsx lib/ai/act-events.test.ts && npx --yes tsx lib/poppins/poppins-prefs.test.ts && npx --yes tsx lib/voice/quiet-transcript.test.ts && npx --yes tsx lib/poppins/prefs-store.test.ts",
+    "test:iui": "npx --yes tsx lib/poppins/catalog-match.test.ts && npx --yes tsx lib/poppins/ui-orchestrator.test.ts && npx --yes tsx lib/poppins/iui-compose.test.ts && npx --yes tsx lib/poppins/iui-voice-error.test.ts && npx --yes tsx lib/poppins/two-mode-iui.test.ts && npx --yes tsx lib/poppins/poppins-os.test.ts && npx --yes tsx lib/poppins/realtime-error.test.ts && npx --yes tsx lib/voice/realtime-content.test.ts && npx --yes tsx lib/voice/webrtc-teardown.test.ts && npx --yes tsx lib/voice/live-household.test.ts && npx --yes tsx lib/onboarding/welcome-onboarding.test.ts && npx --yes tsx lib/household/profile-codes.test.ts && npx --yes tsx lib/poppins/clause-segment.test.ts && npx --yes tsx lib/poppins/validate-act.test.ts && npx --yes tsx lib/poppins/effect-outbox.test.ts && npx --yes tsx lib/voice/speak-transport.test.ts && npx --yes tsx lib/tour/tour-steps.test.ts && npx --yes tsx lib/tour/tour-pause.test.ts && npx --yes tsx lib/tour/tour-hydrate.test.ts && npx --yes tsx lib/tour/tour-crash-recovery.test.ts && npx --yes tsx lib/poppins/pass3-undo-modes.test.ts && npx --yes tsx lib/household/shared-device-switch.test.ts && npx --yes tsx lib/ai/act-events.test.ts && npx --yes tsx lib/poppins/poppins-prefs.test.ts && npx --yes tsx lib/voice/quiet-transcript.test.ts && npx --yes tsx lib/poppins/prefs-store.test.ts && npx --yes tsx lib/poppins/slot-order.test.ts && npx --yes tsx lib/poppins/how-to.test.ts && npx --yes tsx lib/poppins/multi-act.test.ts && npx --yes tsx lib/poppins/turn-undo.test.ts && npx --yes tsx lib/poppins/chain-queue.test.ts && npx --yes tsx lib/poppins/iui-timings.test.ts && npx --yes tsx lib/poppins/context-precedence.test.ts && npx --yes tsx lib/poppins/filler-item-names.test.ts && npx --yes tsx lib/poppins/local-act-confirm.test.ts && npx --yes tsx lib/poppins/stage-contrast.test.ts && npx --yes tsx lib/poppins/orb-levels.test.ts && npx --yes tsx lib/poppins/orb-live-smoke.test.ts && npx --yes tsx lib/voice/base-transport.test.ts && npx --yes tsx lib/voice/quiet-failures.test.ts && npx --yes tsx lib/poppins/tier-switch.test.ts && npx --yes tsx lib/poppins/base-offline.test.ts && npx --yes tsx lib/poppins/narrow-undo.test.ts && npx --yes tsx lib/poppins/event-leave-by.test.ts && npx --yes tsx lib/poppins/iui-tiers.test.ts && npx --yes tsx lib/poppins/poppins-rebuild.test.ts && npx --yes tsx lib/poppins/when-parse.test.ts && npx --yes tsx lib/poppins/event-parse.test.ts && npx --yes tsx lib/poppins/trip-parse.test.ts && npx --yes tsx lib/voice/utterance-endpointer.test.ts && npx --yes tsx lib/voice/base-listener.test.ts && npx --yes tsx lib/poppins/base-pass.test.ts && npx --yes tsx lib/poppins/homework-parse.test.ts && npx --yes tsx lib/tasks/due-label.test.ts && npx --yes tsx lib/tasks/proof-eligibility.test.ts && npx --yes tsx lib/tasks/homework-stats.test.ts && npx --yes tsx lib/tasks/homework-proof.test.ts && npx --yes tsx lib/tasks/completion-stats.test.ts",
+    "poppins:replay": "npx --yes tsx scripts/poppins-tier-replay.ts",
     "test:iui-continuity": "npx --yes tsx lib/poppins/iui-continuity.test.ts",
     "test:opening-policy": "npx --yes tsx --test lib/poppins/opening-policy.test.ts",
     "test:house-memory": "npx --yes tsx --test lib/poppins/house-memory.test.ts",
@@ -88,7 +93,8 @@
     "test:webrtc-speaker": "npx --yes tsx lib/voice/webrtc-speaker-plugin.test.ts",
     "test:transcript-merge": "npx --yes tsx lib/voice/transcript-merge.test.ts",
     "smoke:poppins": "bash ./scripts/smoke-poppins-openai.sh",
-    "test:cancel-task": "npx --yes tsx lib/tasks/cancel-task.test.ts"
+    "test:cancel-task": "npx --yes tsx lib/tasks/cancel-task.test.ts",
+    "test:activity-log": "npx --yes tsx lib/activity/activity-log.test.ts"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",
@@ -109,6 +115,7 @@
     "expo-constants": "~57.0.19",
     "expo-crypto": "~57.0.3",
     "expo-device": "~57.0.2",
+    "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",
     "expo-iap": "^5.2.4",
@@ -123,6 +130,7 @@
     "expo-router": "~57.0.22",
     "expo-secure-store": "~57.0.4",
     "expo-speech": "~57.0.3",
+    "expo-speech-recognition": "~57.1.0",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.3",
@@ -141,8 +149,7 @@
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
     "react-native-webrtc": "^124.0.8",
-    "react-native-worklets": "0.10.1",
-    "torch-image-playground": "^0.2.0"
+    "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
     "@expo/ngrok": "^4.1.3",
@@ -160,8 +167,7 @@
     "doctor": {
       "reactNativeDirectoryCheck": {
         "exclude": [
-          "react-native-webrtc",
-          "torch-image-playground"
+          "react-native-webrtc"
         ],
         "listUnknownPackages": false
       }

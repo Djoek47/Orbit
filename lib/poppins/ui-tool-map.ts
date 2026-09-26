@@ -22,8 +22,12 @@ import {
   extractItemName,
   matchGroceryCatalog,
   resolvePoppinsChoreTitle,
+  toChoreDisplayTitle,
 } from '@/lib/poppins/catalog-match';
 import { classifyGroceryItem } from '@/lib/grocery/classify';
+import { groupConsecutiveActs } from '@/lib/poppins/group-acts';
+import type { IuiGroupItem } from '@/lib/poppins/ui-scenes';
+import { applySlotOrder } from '@/lib/poppins/slot-order';
 
 function beat(
   scene: IuiScene,
@@ -60,13 +64,55 @@ function isGroceryMetaDraft(
 }
 
 function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
-  const groceryName = String(action.name ?? action.title ?? '').trim();
+  const rawItems = Array.isArray(action.items) ? action.items : null;
   const storeHint = String(action.storeHint ?? '').trim();
+  const askLine =
+    typeof action.ask === 'string'
+      ? action.ask
+      : typeof action.thinkingLine === 'string'
+        ? action.thinkingLine
+        : undefined;
+
+  const items: IuiGroupItem[] | undefined = rawItems
+    ? rawItems.map((row, index) => {
+        const r = asRecord(row);
+        const label = String(r.label ?? r.name ?? r.title ?? '').trim();
+        const classified = label ? classifyGroceryItem(label) : null;
+        return {
+          id: String(r.id ?? `g-${index}`),
+          label,
+          aisle:
+            classified && classified.confidence !== 'fallback'
+              ? classified.categoryName
+              : undefined,
+          status: 'pending' as const,
+        };
+      })
+    : undefined;
+
+  const groceryName =
+    items?.[0]?.label ||
+    String(action.name ?? action.title ?? '').trim();
+  const narrowChips = Array.isArray(action.chips)
+    ? (action.chips as Array<Record<string, unknown>>)
+        .slice(0, 2)
+        .map((chip, i) => ({
+          id: String(chip.id ?? `narrow-${i}`),
+          label: String(chip.label ?? chip.name ?? '').trim(),
+          kind: 'library' as const,
+        }))
+        .filter((chip) => chip.label)
+    : undefined;
+  const isNarrow = Boolean(action.provisional === true && narrowChips?.length === 2 && !groceryName);
   const classified = groceryName ? classifyGroceryItem(groceryName) : null;
   const aisle =
     classified && classified.confidence !== 'fallback'
       ? classified.categoryName
       : undefined;
+  const count = items?.filter((item) => !item.dropped && item.label).length ?? (groceryName ? 1 : 0);
+  // Missing required slot → hold + composeReady:false (waits), never commit:'none' (WO16 §2.2).
+  const missingName = !groceryName && !isNarrow && !items?.length;
+
   return [
     beat(
       'grocery_add',
@@ -76,24 +122,63 @@ function groceryBeatsFromAction(action: Record<string, unknown>): IuiBeat[] {
         title: groceryName || undefined,
         shoppingLane: action.lane === 'clothing' ? 'clothing' : 'grocery',
         thinkingLine:
-          action.lane === 'clothing' ? 'Shopping list' : storeHint || 'Grocery list',
+          askLine ||
+          (isNarrow
+            ? 'Which one?'
+            : missingName
+              ? 'What should I add?'
+              : action.lane === 'clothing'
+                ? 'Shopping list'
+                : storeHint || 'Grocery list'),
         location: storeHint || undefined,
         sourceUtterance:
           typeof action.sourceUtterance === 'string' ? action.sourceUtterance : undefined,
-        // Groceries are household-wide — never copy assignee onto the beat.
+        items,
+        progressLabel: count > 1 ? `1 of ${count}` : undefined,
+        composeReady: groceryName || isNarrow ? (isNarrow ? false : undefined) : false,
+        provisional: isNarrow || (groceryName ? undefined : true),
+        narrow: isNarrow || undefined,
+        chips: isNarrow ? narrowChips : undefined,
       },
       'hold',
       'add_grocery'
     ),
-    beat(
-      'result_mark',
-      {
-        markKind: 'added',
-        title: groceryName || undefined,
-        groceryName: groceryName || undefined,
-      },
-      'none'
-    ),
+    ...(groceryName && !items
+      ? [
+          beat(
+            'result_mark',
+            {
+              markKind: 'added' as const,
+              title: groceryName || undefined,
+              groceryName: groceryName || undefined,
+            },
+            'none'
+          ),
+        ]
+      : groceryName && items
+        ? [
+            beat(
+              'result_mark',
+              {
+                markKind: 'added' as const,
+                title: count > 1 ? `${count} items` : groceryName,
+                groceryName: groceryName || undefined,
+              },
+              'none'
+            ),
+          ]
+        : isNarrow
+          ? [
+              // Empty title so sanitizeGroceryPlaylist does not treat "Added" as an orphan key.
+              beat(
+                'result_mark',
+                {
+                  markKind: 'added' as const,
+                },
+                'none'
+              ),
+            ]
+          : []),
   ];
 }
 
@@ -105,24 +190,55 @@ function isHomeworkDraft(action: Record<string, unknown>, prefill: Record<string
 }
 
 function taskDraftBeats(action: Record<string, unknown>, prefill: Record<string, unknown>): IuiBeat[] {
-  const rawTitle = String(action.title ?? prefill.title ?? '');
-  const resolved = resolvePoppinsChoreTitle(rawTitle);
-  const title = resolved.title || rawTitle;
-  const libraryTaskId = action.libraryTaskId
+  const rawItems = Array.isArray(action.items) ? action.items : null;
+  const items: IuiGroupItem[] | undefined = rawItems
+    ? rawItems.map((row, index) => {
+        const r = asRecord(row);
+        return {
+          id: String(r.id ?? `t-${index}`),
+          label: String(r.label ?? r.title ?? '').trim(),
+          assignee: r.assignee ? String(r.assignee) : undefined,
+          due: r.due ? String(r.due) : undefined,
+          libraryTaskId: r.libraryTaskId ? String(r.libraryTaskId) : undefined,
+          category: r.category ? String(r.category) : undefined,
+          status: 'pending' as const,
+        };
+      })
+    : undefined;
+
+  const rawTitle = String(action.title ?? prefill.title ?? items?.[0]?.label ?? '');
+  const homeworkParsed = action.homeworkParsed === true || prefill.homeworkParsed === true;
+  // Parsed homework keeps its spoken title verbatim — no catalog pass.
+  const resolved = homeworkParsed ? { title: rawTitle, category: 'homework_education' } as ReturnType<typeof resolvePoppinsChoreTitle> : resolvePoppinsChoreTitle(rawTitle);
+  // The title arriving here is usually already resolved upstream. Re-resolving a display
+  // title is lossy ("Clean Dishes" → "Clean": the second pass strips "Dishes" as a domain
+  // word). Take the resolver's title only when it found a catalog task.
+  const title = homeworkParsed
+    ? rawTitle.trim()
+    : resolved.libraryTaskId && resolved.title
+      ? resolved.title
+      : rawTitle.trim()
+        ? toChoreDisplayTitle(rawTitle.trim())
+        : resolved.title || '';
+  const libraryTaskId = homeworkParsed
+    ? undefined
+    : action.libraryTaskId
     ? String(action.libraryTaskId)
     : prefill.libraryTaskId
       ? String(prefill.libraryTaskId)
       : resolved.libraryTaskId;
   const homework = isHomeworkDraft(action, prefill);
   const scene: IuiScene = homework ? 'homework_compose' : 'task_compose';
+  const activeItems = items?.filter((item) => !item.dropped) ?? [];
+  const needsFace = activeItems.some((item) => !item.assignee?.trim());
   const basePayload: IuiPayload = {
     title,
     assignee: action.assignee
       ? String(action.assignee)
       : prefill.assignee
         ? String(prefill.assignee)
-        : undefined,
-    due: action.due ? String(action.due) : prefill.due ? String(prefill.due) : undefined,
+        : items?.[0]?.assignee,
+    due: action.due ? String(action.due) : prefill.due ? String(prefill.due) : items?.[0]?.due,
     category: homework
       ? 'homework_education'
       : action.category
@@ -133,6 +249,11 @@ function taskDraftBeats(action: Record<string, unknown>, prefill: Record<string,
     libraryTaskId,
     taskQuery: action.taskQuery ? String(action.taskQuery) : undefined,
     repeat: action.repeat ? String(action.repeat) : undefined,
+    homeworkSubject:
+      typeof action.homeworkSubject === 'string' && action.homeworkSubject ? action.homeworkSubject : undefined,
+    proofRequired: typeof action.proofRequired === 'boolean' ? action.proofRequired : undefined,
+    homeworkParsed: homeworkParsed || undefined,
+    namedByPerson: action.namedByPerson === true || undefined,
     showEmoji: true,
     thinkingLine: homework ? 'Homework' : 'Assign',
     composeKind: homework ? 'homework' : undefined,
@@ -140,17 +261,43 @@ function taskDraftBeats(action: Record<string, unknown>, prefill: Record<string,
     sourceUtterance:
       typeof action.sourceUtterance === 'string'
         ? action.sourceUtterance
-        : typeof prefill.sourceUtterance === 'string'
-          ? prefill.sourceUtterance
-          : undefined,
+        : typeof action.utterance === 'string'
+          ? action.utterance
+          : typeof prefill.sourceUtterance === 'string'
+            ? prefill.sourceUtterance
+            : undefined,
+    items,
+    progressLabel: activeItems.length > 1 ? `1 of ${activeItems.length}` : undefined,
+    // Grouped tasks with every row filled skip the face grid; a missing person opens it for that row.
+    composeReady: items ? !needsFace : undefined,
   };
-  const payload = homework
-    ? withHomeworkComposeProgress(basePayload)
-    : withComposeProgress(basePayload);
+  // Mark speech-filled slots so model merge cannot overwrite them (WO12 §C3).
+  const slotSource: NonNullable<IuiPayload['slotSource']> = { ...(basePayload.slotSource ?? {}) };
+  if (basePayload.title?.trim()) slotSource.title = slotSource.title ?? 'speech';
+  if (basePayload.assignee?.trim()) slotSource.assignee = slotSource.assignee ?? 'speech';
+  if (basePayload.due?.trim()) slotSource.due = slotSource.due ?? 'speech';
+  if (basePayload.libraryTaskId?.trim()) slotSource.libraryTaskId = slotSource.libraryTaskId ?? 'speech';
+  basePayload.slotSource = slotSource;
+
+  const ordered = applySlotOrder(basePayload);
+  const payload =
+    items && items.length > 1
+      ? ordered
+      : homework
+        ? withHomeworkComposeProgress(ordered)
+        : withComposeProgress(ordered);
   const write: IuiWriteKind = homework ? 'create_homework' : 'create_task';
   return [
     beat(scene, payload, 'hold', write),
-    beat('result_mark', { markKind: 'assigned', title: payload.title || 'Task' }, 'none'),
+    beat(
+      'result_mark',
+      {
+        markKind: 'assigned',
+        title:
+          activeItems.length > 1 ? `${activeItems.length} tasks` : payload.title || 'Task',
+      },
+      'none'
+    ),
   ];
 }
 
@@ -165,8 +312,9 @@ export function flattenUiActions(
 
 export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>): IuiBeat[] {
   const playlist: IuiBeat[] = [];
+  const grouped = groupConsecutiveActs(actions);
 
-  for (const action of actions) {
+  for (const action of grouped) {
     const type = String(action.type ?? '');
     const prefill = asRecord(action.prefill);
 
@@ -190,6 +338,42 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
         playlist.push(...taskDraftBeats(action, prefill));
         continue;
       }
+      // Ranks tab → read-only peek on stage (unless they asked for the full editor).
+      if ((route.includes('/rewards') || route.includes('/ranks')) && !openEditor) {
+        playlist.push(
+          beat(
+            'ranks_peek',
+            {
+              peek: [],
+              thinkingLine: 'Who’s ahead this week.',
+            },
+            'none'
+          )
+        );
+        continue;
+      }
+      // Grant-allowance surface → stage confirm card.
+      if (route.includes('grant-allowance') || route.includes('create-allowance')) {
+        playlist.push(
+          beat(
+            'allowance_act',
+            {
+              allowanceMemberName: String(
+                action.memberName ?? prefill.memberName ?? action.assignee ?? 'someone'
+              ),
+              allowanceAmountLabel: String(
+                action.amountLabel ?? prefill.amountLabel ?? action.amount ?? 'Allowance'
+              ),
+              allowanceNote: action.note ? String(action.note) : undefined,
+              allowanceKind: 'grant',
+              confirmSummary: 'Grant allowance?',
+            },
+            'confirm',
+            'grant_allowance'
+          )
+        );
+        continue;
+      }
       playlist.push(
         beat(
           'navigate_coach',
@@ -209,19 +393,39 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
       continue;
     }
 
+    if (type === 'clear_grocery_list' || type === 'clear_grocery') {
+      playlist.push(
+        beat(
+          'confirm',
+          {
+            confirmSummary: 'Clear the grocery list?',
+            thinkingLine: 'Clearing the list',
+          },
+          'confirm',
+          'clear_grocery'
+        ),
+        beat('result_mark', { markKind: 'done', title: 'List cleared' }, 'none')
+      );
+      continue;
+    }
+
     if (type === 'complete_task') {
+      const doneTitle =
+        typeof action.title === 'string' ? action.title.trim() || undefined : undefined;
       playlist.push(
         beat(
           'task_done',
           {
-            title: typeof action.title === 'string' ? action.title.trim() || undefined : undefined,
+            title: doneTitle,
             taskId: String(action.taskId ?? ''),
             markKind: 'done',
             thinkingLine: 'Done',
           },
           'hold',
           'complete_task'
-        )
+        ),
+        // Every act gets a settle mark so its Undo has somewhere to live.
+        beat('result_mark', { markKind: 'done', title: doneTitle }, 'none')
       );
       continue;
     }
@@ -289,14 +493,28 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'create_calendar_event' || type === 'create_event') {
+      const date = String(action.date ?? prefill.date ?? '');
+      const time = String(action.time ?? prefill.time ?? '');
+      const allDay = action.allDay === true || /\ball[\s-]?day\b/i.test(String(action.sourceUtterance ?? ''));
+      const ready = Boolean(date) && (Boolean(time) || allDay);
+      const assignee = action.assignee ?? action.responsible ?? action.who ?? prefill.assignee;
       playlist.push(
         beat(
           'calendar_zoom',
           {
             title: String(action.title ?? prefill.title ?? 'Event'),
-            date: String(action.date ?? prefill.date ?? ''),
-            time: String(action.time ?? prefill.time ?? ''),
+            date,
+            time,
+            endTime: action.endTime ? String(action.endTime) : undefined,
+            allDay: allDay || undefined,
+            timeGuessed: action.timeGuessed === true || undefined,
             location: String(action.location ?? prefill.location ?? ''),
+            assignee: assignee ? String(assignee) : undefined,
+            withWho: Array.isArray(action.withWho) ? action.withWho.map(String) : undefined,
+            // The design's default: remind an hour before, unless they said otherwise.
+            remind: action.remind === false ? false : true,
+            composeReady: ready,
+            focusSlot: !date ? 'date' : !ready ? 'time' : null,
           },
           'hold',
           'create_event'
@@ -306,13 +524,59 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     }
 
     if (type === 'create_itinerary') {
-      const label = String(action.title ?? prefill.title ?? 'Stop');
+      const stopsRaw = Array.isArray(action.stops) ? action.stops : [];
+      const mappedStops =
+        stopsRaw.length > 0
+          ? stopsRaw.slice(0, 20).map((row, i) => {
+              const s = asRecord(row);
+              const label = String(s.label ?? s.title ?? `Stop ${i + 1}`).trim() || `Stop ${i + 1}`;
+              const address = s.address ? String(s.address) : undefined;
+              const placeQuery = s.placeQuery ? String(s.placeQuery) : undefined;
+              const time = s.time ? String(s.time) : undefined;
+              return {
+                id: String(s.id ?? `stop-${i + 1}`),
+                label,
+                stayMin: typeof s.stayMin === 'number' ? s.stayMin : undefined,
+                savedPlaceId: s.savedPlaceId ? String(s.savedPlaceId) : undefined,
+                note: s.note ? String(s.note) : undefined,
+                emoji:
+                  String(s.kind ?? '') === 'shop' || String(s.kind ?? '') === 'grocery'
+                    ? '🛒'
+                    : String(s.kind ?? '') === 'gym' || String(s.kind ?? '') === 'practice'
+                      ? '🏋️'
+                      : String(s.kind ?? '') === 'work'
+                        ? '💼'
+                        : String(s.kind ?? '') === 'school'
+                          ? '🏫'
+                          : '📍',
+                category: s.kind ? String(s.kind) : undefined,
+                kind: s.kind ? String(s.kind) : undefined,
+                address,
+                placeQuery,
+                time,
+                needsAddress:
+                  typeof s.needsAddress === 'boolean'
+                    ? s.needsAddress
+                    : !address && String(s.kind ?? '') !== 'shop',
+              };
+            })
+          : [
+              {
+                id: 'stop-1',
+                label: String(action.title ?? prefill.title ?? 'Stop'),
+                emoji: '📍',
+                needsAddress: true,
+              },
+            ];
       playlist.push(
         beat(
           'itinerary_stage',
           {
-            itineraryTitle: label,
-            stops: [{ id: 'stop-1', label, emoji: '🛒', category: 'Shop' }],
+            itineraryTitle: String(action.title ?? prefill.title ?? 'Trip'),
+            date: action.date ? String(action.date) : undefined,
+            time: action.start ? String(action.start) : undefined,
+            stops: mappedStops,
+            thinkingLine: `${mappedStops.length} stop${mappedStops.length === 1 ? '' : 's'}`,
           },
           'hold',
           'create_itinerary_stop'
@@ -344,12 +608,111 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
           {
             rewardName: String(action.rewardName ?? 'Reward'),
             title: String(action.rewardName ?? 'Reward'),
-            confirmSummary: `Mint ${String(action.rewardName ?? 'this reward')}?`,
+            confirmSummary: `Claim ${String(action.rewardName ?? 'this reward')}?`,
           },
           'confirm',
           'claim_reward'
         )
       );
+      continue;
+    }
+
+    if (type === 'save_place' || type === 'upsert_place' || type === 'remember_place') {
+      const placeName = String(action.name ?? action.placeName ?? action.title ?? 'Place').trim();
+      const placeKind = String(action.kind ?? action.placeKind ?? 'custom').trim() || 'custom';
+      const placeAddress = String(action.address ?? action.placeAddress ?? action.placeQuery ?? '').trim();
+      playlist.push(
+        beat(
+          'place_save',
+          {
+            placeName,
+            placeKind,
+            placeAddress,
+            title: placeName,
+            location: placeAddress || undefined,
+            thinkingLine: 'Saving a place.',
+            confirmSummary: placeAddress
+              ? `Save ${placeName} · ${placeAddress}?`
+              : `Save ${placeName}?`,
+          },
+          'hold',
+          'upsert_place'
+        )
+      );
+      continue;
+    }
+
+    if (type === 'grant_allowance' || type === 'allowance_act') {
+      const memberName = String(action.memberName ?? action.assignee ?? 'someone').trim();
+      const amountLabel = String(action.amountLabel ?? action.amount ?? '').trim() || 'Allowance';
+      playlist.push(
+        beat(
+          'allowance_act',
+          {
+            allowanceMemberId: action.memberId ? String(action.memberId) : undefined,
+            allowanceMemberName: memberName,
+            allowanceAmountLabel: amountLabel,
+            allowanceAmountXp:
+              typeof action.amountXp === 'number'
+                ? action.amountXp
+                : Number(action.amountXp) || undefined,
+            allowanceNote: action.note ? String(action.note) : undefined,
+            allowanceKind:
+              action.kind === 'hold' || action.kind === 'payout' ? action.kind : 'grant',
+            title: amountLabel,
+            confirmSummary: `Grant ${amountLabel} to ${memberName}?`,
+          },
+          'confirm',
+          'grant_allowance'
+        )
+      );
+      continue;
+    }
+
+    if (type === 'ranks_peek' || type === 'show_ranks') {
+      const rows = Array.isArray(action.rows) ? action.rows : [];
+      playlist.push(
+        beat(
+          'ranks_peek',
+          {
+            peek: rows.map((row, i) => {
+              const r = asRecord(row);
+              return {
+                id: String(r.id ?? i),
+                title: String(r.title ?? r.name ?? 'Member'),
+                detail: r.detail ? String(r.detail) : undefined,
+              };
+            }),
+            thinkingLine: 'Who’s ahead this week.',
+          },
+          'none'
+        )
+      );
+      continue;
+    }
+
+    if (type === 'remember_house_fact') {
+      const text = String(action.text ?? '').trim();
+      if (text) {
+        playlist.push(
+          beat(
+            'memory_note',
+            {
+              memoryText: text,
+              memorySubject: String(action.subject ?? 'house'),
+              memoryKind:
+                action.kind === 'like' ||
+                action.kind === 'dislike' ||
+                action.kind === 'routine' ||
+                action.kind === 'note'
+                  ? action.kind
+                  : 'note',
+              title: text,
+            },
+            'none'
+          )
+        );
+      }
       continue;
     }
 
@@ -437,5 +800,112 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
     );
   }
 
+  return sanitizeGroceryPlaylist(playlist);
+}
+
+/** B1/B3 — grocery turns never ask who; collapse duplicate grocery names. */
+function sanitizeGroceryPlaylist(playlist: IuiBeat[]): IuiBeat[] {
+  const hasGroceryWrite = playlist.some(
+    (item) =>
+      item.payload.write === 'add_grocery' ||
+      item.payload.write === 'clear_grocery' ||
+      item.scene === 'grocery_add'
+  );
+  let next = playlist;
+  if (hasGroceryWrite) {
+    next = playlist.filter((item) => item.scene !== 'member_pick');
+    next = next.map((item) => {
+      if (
+        item.payload.write !== 'add_grocery' &&
+        item.payload.write !== 'clear_grocery' &&
+        item.scene !== 'grocery_add'
+      ) {
+        return item;
+      }
+      if (!item.payload.assignee && !item.payload.spokenName) return item;
+      const { assignee: _a, spokenName: _s, ...rest } = item.payload;
+      return { ...item, payload: rest };
+    });
+  }
+
+  const seenGrocery = new Set<string>();
+  const deduped: IuiBeat[] = [];
+  for (const item of next) {
+    if (item.payload.write === 'clear_grocery') {
+      deduped.push(item);
+      continue;
+    }
+    if (item.payload.write === 'add_grocery' || item.scene === 'grocery_add') {
+      if (item.payload.items?.length) {
+        const unique: typeof item.payload.items = [];
+        for (const row of item.payload.items) {
+          const key = row.label.trim().toLowerCase();
+          if (!key || row.dropped) {
+            unique.push(row);
+            continue;
+          }
+          if (seenGrocery.has(key)) {
+            console.warn('iui.duplicate_suppressed', { write: 'add_grocery', key });
+            continue;
+          }
+          seenGrocery.add(key);
+          unique.push(row);
+        }
+        if (!unique.some((row) => !row.dropped && row.label.trim())) continue;
+        const first = unique.find((row) => !row.dropped && row.label.trim());
+        deduped.push({
+          ...item,
+          payload: {
+            ...item.payload,
+            items: unique,
+            groceryName: first?.label ?? item.payload.groceryName,
+            title: first?.label ?? item.payload.title,
+            progressLabel:
+              unique.filter((row) => !row.dropped).length > 1
+                ? `1 of ${unique.filter((row) => !row.dropped).length}`
+                : undefined,
+          },
+        });
+        continue;
+      }
+      const key = (item.payload.groceryName ?? item.payload.title ?? '').trim().toLowerCase();
+      if (key && seenGrocery.has(key)) {
+        console.warn('iui.duplicate_suppressed', { write: 'add_grocery', key });
+        continue;
+      }
+      if (key) seenGrocery.add(key);
+    }
+    if (item.scene === 'result_mark' && item.payload.markKind === 'added') {
+      const key = (item.payload.groceryName ?? item.payload.title ?? '').trim().toLowerCase();
+      // Skip orphan result_mark after a suppressed duplicate grocery_add.
+      // Empty key = Narrow companion waiting for a chip (WO16 §3.1) — keep it.
+      if (key && !seenGrocery.has(key) && !/^\d+\s+items?$/i.test(key)) continue;
+    }
+    deduped.push(item);
+  }
+  return assertPlaylistShape(deduped);
+}
+
+/** WO16 §5 — every write beat needs a commit path; every non-none commit needs a write. */
+function assertPlaylistShape(playlist: IuiBeat[]): IuiBeat[] {
+  const dev =
+    (typeof __DEV__ !== 'undefined' && __DEV__) ||
+    (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production');
+  if (!dev) return playlist;
+  for (const beat of playlist) {
+    const write = beat.payload.write ?? 'none';
+    if (beat.commit !== 'none' && write === 'none') {
+      console.warn('iui.shape: commit without write', {
+        scene: beat.scene,
+        commit: beat.commit,
+      });
+    }
+    if (write !== 'none' && beat.commit === 'none' && beat.scene !== 'result_mark') {
+      console.warn('iui.shape: write without commit path', {
+        scene: beat.scene,
+        write,
+      });
+    }
+  }
   return playlist;
 }
