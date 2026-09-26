@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
+import { needsProofOnComplete } from '@/lib/tasks/homework-proof';
 import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { ContextMenu } from '@/components/orbit/context-menu';
 import {
@@ -191,12 +192,15 @@ function TaskItem({
   homeworkCard = false,
   showRequestProof = false,
   showAddPhoto = false,
+  canFinish = true,
   onToggle,
   onDelete,
   onRequestProof,
   onAddPhoto,
 }: {
   task: HouseholdTask;
+  /** Only the person it's assigned to can finish it (Rev F §12.1) — others see its state. */
+  canFinish?: boolean;
   member?: HouseholdMember;
   accentPrimary: string;
   justCompleted: boolean;
@@ -262,7 +266,11 @@ function TaskItem({
     shareXp ?? task.awardedXp ?? resolveTaskXpFromHouseholdTask(task, rewardSettings);
   const sub = getSubjectMeta(task);
   const accent = memberAccentColor(member);
-  const homeworkOpen = homeworkCard && isHomework(task) && !done && interactive;
+  const homeworkOpen = homeworkCard && isHomework(task) && !done && interactive && canFinish;
+  const waitingOn =
+    homeworkCard && isHomework(task) && !done && interactive && !canFinish
+      ? (task.assignee ?? '').split(/[ ,]/)[0]
+      : '';
   const dueChip = homeworkCard && isHomework(task) ? homeworkDueChip(task) : null;
   const borderColor = done
     ? accent
@@ -295,7 +303,7 @@ function TaskItem({
             washAnim,
           ]}
         />
-        {interactive && !isExpiredStatus(task.status) ? (
+        {interactive && canFinish && !isExpiredStatus(task.status) ? (
         <Pressable
           onPress={onToggle}
           style={[
@@ -477,9 +485,17 @@ function TaskItem({
           ) : homeworkOpen ? (
             <Pressable
               onPress={onToggle}
+              accessibilityRole="button"
+              accessibilityLabel={`Complete ${task.title}`}
               style={[styles.completeCta, { backgroundColor: sub?.color ?? c.planPurple }]}>
-              <Text style={[styles.completeCtaText, { color: c.ink }]}>Complete</Text>
+              <Text style={[styles.completeCtaText, { color: c.ink }]}>
+                {needsProofOnComplete(task, member) ? 'Done · photo' : 'Complete'}
+              </Text>
             </Pressable>
+          ) : waitingOn ? (
+            <View style={[styles.waitingPill, { borderColor: glassBorder(0.14) }]}>
+              <Text style={[styles.waitingPillText, { color: c.textMuted }]}>{waitingOn}’s to finish</Text>
+            </View>
           ) : (
             <XPBadge
               xp={displayXp}
@@ -492,9 +508,17 @@ function TaskItem({
         ) : homeworkOpen ? (
           <Pressable
             onPress={onToggle}
+            accessibilityRole="button"
+            accessibilityLabel={`Complete ${task.title}`}
             style={[styles.completeCta, { backgroundColor: sub?.color ?? c.planPurple }]}>
-            <Text style={[styles.completeCtaText, { color: c.ink }]}>Complete</Text>
+            <Text style={[styles.completeCtaText, { color: c.ink }]}>
+              {needsProofOnComplete(task, member) ? 'Done · photo' : 'Complete'}
+            </Text>
           </Pressable>
+        ) : waitingOn ? (
+          <View style={[styles.waitingPill, { borderColor: glassBorder(0.14) }]}>
+            <Text style={[styles.waitingPillText, { color: c.textMuted }]}>{waitingOn}’s to finish</Text>
+          </View>
         ) : null}
       </Animated.View>
   );
@@ -696,6 +720,7 @@ function TaskSection({
                 needsSidekickPhotoReply(task) &&
                 taskMatchesAssignee(task, viewerName)
               }
+              canFinish={!viewerName || taskMatchesAssignee(task, viewerName)}
               onToggle={() => onToggle(task.id)}
               onDelete={() => onDelete(task.id)}
               onRequestProof={
@@ -725,6 +750,7 @@ function TaskSection({
                 needsSidekickPhotoReply(task) &&
                 taskMatchesAssignee(task, viewerName)
               }
+              canFinish={!viewerName || taskMatchesAssignee(task, viewerName)}
               onToggle={() => onToggle(task.id)}
               onDelete={() => onDelete(task.id)}
               onRequestProof={
@@ -991,6 +1017,10 @@ export default function TasksScreen() {
       return;
     }
     if (!currentMember || !taskMatchesAssignee(task, currentMember.name)) {
+      Alert.alert(
+        'Only they can finish it',
+        `${task.assignee} marks “${task.title}” done from their own profile.`
+      );
       return;
     }
 
@@ -1003,7 +1033,7 @@ export default function TasksScreen() {
         const result = await completeTask(taskId, { forAssignee: currentMember.name });
         setTimeout(() => setJustCompletedId(null), 900);
         if (result?.needsProof) {
-          router.push(`/task/${task.id}` as never);
+          router.push({ pathname: '/task/[id]', params: { id: task.id, proof: '1' } } as never);
         } else if (!result) {
           Alert.alert('Could not complete', 'Try again or open the task for details.');
         }
@@ -1015,7 +1045,7 @@ export default function TasksScreen() {
       const result = await completeTask(taskId);
       setTimeout(() => setJustCompletedId(null), 900);
       if (result?.needsProof) {
-        router.push(`/task/${task.id}` as never);
+        router.push({ pathname: '/task/[id]', params: { id: task.id, proof: '1' } } as never);
       } else if (!result) {
         Alert.alert('Could not complete', 'Try again or open the task for details.');
       }
@@ -1342,7 +1372,7 @@ export default function TasksScreen() {
           rewardSettings={rewardSettings}
           xpEnabled={rewardCapabilities.xpEnabled}
           homeworkCard={domainTab === 'homework'}
-          canRequestProof={v2Permissions.canRequestProof && domainTab !== 'homework'}
+          canRequestProof={v2Permissions.canRequestProof}
           onToggle={handleToggle}
           onDelete={handleDelete}
             viewerName={currentMember?.name}
@@ -1784,6 +1814,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
+  },
+  waitingPill: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  waitingPillText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   subjectPillRow: {
     flexDirection: 'row',

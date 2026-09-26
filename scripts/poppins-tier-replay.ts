@@ -55,7 +55,9 @@ function reset() {
   O.setSpeaking(false);
   O.setCommitHandler(async (beat) => {
     const p = beat.payload;
-    if (p.write === 'create_event') {
+    if (p.write === 'create_homework') {
+      writes.push(`create_homework:${p.title}>${p.assignee}@${p.due}#${p.homeworkSubject ?? '-'}~${p.repeat ?? 'None'}`);
+    } else if (p.write === 'create_event') {
       writes.push(`create_event:${p.title}${p.assignee ? `>${p.assignee}` : ''}@${p.date} ${p.allDay ? 'all day' : p.time}`);
     } else if (p.write === 'create_itinerary_stop') {
       writes.push(`trip:${p.itineraryTitle}:${(p.stops ?? []).map((s) => `${s.time} ${s.label}`).join('|')}`);
@@ -253,6 +255,52 @@ async function main() {
   });
 
   // ── MAX ─────────────────────────────────────────────────────────────────────────────
+  // ── Homework ────────────────────────────────────────────────────────────────────────
+  await scenario('BASE · homework — "Mia has math homework due tomorrow" keeps its own title', async () => {
+    say('Mia has math homework due tomorrow');
+    await sleep(200);
+    console.log(`  card:    ${snapshot()}`);
+    await sleep(2600);
+    assert.deepEqual(writes, ['create_homework:Math homework>Mia@Tomorrow#Math~None']);
+  });
+
+  await scenario('BASE · homework — a worksheet due Thursday, a chapter by Monday, weekday math', async () => {
+    say('give Mia her science worksheet due thursday');
+    await sleep(2800);
+    say('Noah needs to read chapter 5 by Monday');
+    await sleep(2800);
+    say('math homework for Noah every weekday due tomorrow');
+    await sleep(2800);
+    const day = (s: string) => new Date(`${w(s).date}T12:00:00`).toLocaleString('en', { weekday: 'long' });
+    assert.deepEqual(writes, [
+      `create_homework:Science worksheet>Mia@${w('thursday').date === w('today').date ? 'Today' : day('thursday')}#Science~None`,
+      `create_homework:Read chapter 5>Noah@${w('monday').date === w('today').date ? 'Today' : day('monday')}#Reading~None`,
+      'create_homework:Math homework>Noah@Tomorrow#Math~Weekdays',
+    ]);
+  });
+
+  await scenario('BASE · homework done by voice — "I finished my math homework" stages the finish', async () => {
+    say('I finished my math homework');
+    await sleep(2600);
+    assert.equal(writes.length, 1, `one finish: ${writes}`);
+    assert.match(writes[0]!, /^complete_task:/);
+  });
+
+  await scenario('MAX · homework — the model plans a library chore, the spoken title wins, one write', async () => {
+    say('Mia has math homework due tomorrow');
+    O.setSpeaking(true);
+    await sleep(500);
+    driveAiuic(
+      [{ type: 'create_task_draft', title: 'Practice math facts', category: 'homework_education', assignee: 'Mia', due: 'Tomorrow', libraryTaskId: 'hw-math-facts' }],
+      'Mia has math homework due tomorrow',
+      { memberNames: MEMBERS, source: 'model' }
+    );
+    await sleep(500);
+    O.setSpeaking(false);
+    await sleep(2600);
+    assert.deepEqual(writes, ['create_homework:Math homework>Mia@Tomorrow#Math~None']);
+  });
+
   await scenario('MAX · event — words stage it, the model plans the same event, one write', async () => {
     say('dentist for Noah next Thursday at half four');
     O.setSpeaking(true);

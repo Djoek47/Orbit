@@ -134,6 +134,11 @@ const priorities = [
 
 const repeatOptions: HouseholdTask['repeat'][] = ['None', 'Daily', 'Weekly', 'Weekdays'];
 
+/** 'None' is stored; people read it as a one-off. */
+function repeatLabel(option: HouseholdTask['repeat']): string {
+  return option === 'None' ? 'One-off' : option;
+}
+
 /** Catalog chips — ChoreMaxx Icon where a domain mark exists; label only otherwise. */
 const CATALOG_CHIP_META: Record<string, { icon?: IconName; label: string }> = {
   presets: { label: 'Presets' },
@@ -1344,7 +1349,7 @@ export default function CreateTaskScreen() {
                                         { color: c.textMuted },
                                         active && { color: accentTheme.primary },
                                       ]}>
-                                      {option === 'None' ? 'Once' : option}
+                                      {option === 'None' ? 'One-off' : option}
                                     </Text>
                                   </Pressable>
                                 );
@@ -1354,7 +1359,7 @@ export default function CreateTaskScreen() {
                         ) : (
                           <Text style={[styles.libraryMeta, { color: c.textMuted }]}>
                             {task.baseXp} XP ·{' '}
-                            {inferLibraryRepeat(task) === 'None' ? 'Once' : inferLibraryRepeat(task)}
+                            {inferLibraryRepeat(task) === 'None' ? 'One-off' : inferLibraryRepeat(task)}
                           </Text>
                         )}
                       </View>
@@ -1593,7 +1598,7 @@ export default function CreateTaskScreen() {
                     },
                   ]}>
                   <Text style={[styles.subjectText, { color: active ? accentTheme.primary : c.textMuted }]}>
-                    {option}
+                    {repeatLabel(option)}
                   </Text>
                 </Pressable>
               );

@@ -207,17 +207,22 @@ function taskDraftBeats(action: Record<string, unknown>, prefill: Record<string,
     : undefined;
 
   const rawTitle = String(action.title ?? prefill.title ?? items?.[0]?.label ?? '');
-  const resolved = resolvePoppinsChoreTitle(rawTitle);
+  const homeworkParsed = action.homeworkParsed === true || prefill.homeworkParsed === true;
+  // Parsed homework keeps its spoken title verbatim — no catalog pass.
+  const resolved = homeworkParsed ? { title: rawTitle, category: 'homework_education' } as ReturnType<typeof resolvePoppinsChoreTitle> : resolvePoppinsChoreTitle(rawTitle);
   // The title arriving here is usually already resolved upstream. Re-resolving a display
   // title is lossy ("Clean Dishes" → "Clean": the second pass strips "Dishes" as a domain
   // word). Take the resolver's title only when it found a catalog task.
-  const title =
-    resolved.libraryTaskId && resolved.title
+  const title = homeworkParsed
+    ? rawTitle.trim()
+    : resolved.libraryTaskId && resolved.title
       ? resolved.title
       : rawTitle.trim()
         ? toChoreDisplayTitle(rawTitle.trim())
         : resolved.title || '';
-  const libraryTaskId = action.libraryTaskId
+  const libraryTaskId = homeworkParsed
+    ? undefined
+    : action.libraryTaskId
     ? String(action.libraryTaskId)
     : prefill.libraryTaskId
       ? String(prefill.libraryTaskId)
@@ -244,6 +249,11 @@ function taskDraftBeats(action: Record<string, unknown>, prefill: Record<string,
     libraryTaskId,
     taskQuery: action.taskQuery ? String(action.taskQuery) : undefined,
     repeat: action.repeat ? String(action.repeat) : undefined,
+    homeworkSubject:
+      typeof action.homeworkSubject === 'string' && action.homeworkSubject ? action.homeworkSubject : undefined,
+    proofRequired: typeof action.proofRequired === 'boolean' ? action.proofRequired : undefined,
+    homeworkParsed: homeworkParsed || undefined,
+    namedByPerson: action.namedByPerson === true || undefined,
     showEmoji: true,
     thinkingLine: homework ? 'Homework' : 'Assign',
     composeKind: homework ? 'homework' : undefined,

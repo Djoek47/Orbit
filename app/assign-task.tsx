@@ -77,7 +77,7 @@ const FREQ_LABEL: Record<string, string> = {
   quarterly: 'Quarterly',
   seasonal: 'Seasonal',
   as_needed: 'As needed',
-  none: 'None',
+  none: 'One-off',
 };
 
 const PRIMARY_FREQS = ['daily', 'weekly', 'monthly'] as const;

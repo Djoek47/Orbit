@@ -5,6 +5,7 @@
  */
 
 import { formatLocalDate } from '@/lib/streaks/local-date';
+import { isHomeworkUtterance, parseHomeworkUtterance } from '@/lib/poppins/homework-parse';
 import { isEventUtterance, parseEventUtterance } from '@/lib/poppins/event-parse';
 import { parseTripUtterance, type TripPlace } from '@/lib/poppins/trip-parse';
 import { occurrenceDateForDueLabel } from '@/lib/tasks/due-label';
@@ -338,6 +339,11 @@ function parseHouseholdIntentRaw(
     return [{ type: 'clear_grocery_list' }];
   }
 
+  // Homework has its own reader: the title is what was said, with subject, repeat and photo.
+  if (isHomeworkUtterance(text)) {
+    return [homeworkDraftFromUtterance(text, memberNames, { type: 'create_task_draft' })];
+  }
+
   // A calendar sentence, before the grocery reader can mistake "piano monday" for an item.
   if (isEventUtterance(text, { memberNames, placeNames: opts?.placeNames ?? sessionPlaceNames })) {
     return [eventActionFromUtterance(text, opts)];
@@ -437,11 +443,49 @@ function groceryRewriteFromDraft(
   return null;
 }
 
+/**
+ * A homework draft from the sentence. Speech wins over whatever `base` (a model plan)
+ * proposed for title, subject and repeat; the model only fills what speech left empty.
+ * Never a library chore: that swapped "math homework" for "Practice math facts" and its
+ * weekday repeat.
+ */
+export function homeworkDraftFromUtterance(
+  text: string,
+  memberNames: string[],
+  base: Record<string, unknown>
+): Record<string, unknown> {
+  const hw = parseHomeworkUtterance(text, memberNames);
+  const baseAssignee = typeof base.assignee === 'string' && base.assignee.trim() ? base.assignee : undefined;
+  const baseDue = typeof base.due === 'string' && base.due.trim() ? base.due : undefined;
+  const next: Record<string, unknown> = {
+    ...base,
+    title: hw.title,
+    category: 'homework_education',
+    homeworkSubject: hw.subject ?? (typeof base.homeworkSubject === 'string' ? base.homeworkSubject : undefined),
+    assignee: hw.assignee ?? baseAssignee,
+    due: hw.due ?? baseDue,
+    repeat: hw.repeat,
+    homeworkParsed: true,
+    namedByPerson: true,
+    sourceUtterance: text,
+  };
+  if (hw.proof !== undefined) next.proofRequired = hw.proof;
+  delete next.libraryTaskId;
+  delete next.taskQuery;
+  return next;
+}
+
 function enrichTaskDraft(
   action: Record<string, unknown>,
   utterance: string,
   opts?: HouseholdIntentOpts
 ): Record<string, unknown> {
+  if (action.homeworkParsed === true) return action;
+  // One homework sentence: speech decides the card, whoever planned it (Base or Max).
+  const oneAct = !/\s(?:then|and also|also|plus|after that)\s|[.;!?]\s/i.test(utterance);
+  if (oneAct && isHomeworkUtterance(utterance)) {
+    return homeworkDraftFromUtterance(utterance, opts?.memberNames ?? [], action);
+  }
   // Person-assigned errands stay chores — don't rewrite "Drako, buy milk" into a grocery add.
   const namedAssignee =
     typeof action.assignee === 'string' && action.assignee.trim()

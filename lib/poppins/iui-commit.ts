@@ -45,6 +45,8 @@ export type IuiCommitWrites = {
   addMissingGrocery: (input: CreateGroceryInput) => void | Promise<GroceryItem | void | unknown>;
   clearGroceryList?: () => void | Promise<void>;
   completeTask: (taskId: string) => Promise<unknown>;
+  /** Open the photo step for a task that needs proof to finish. */
+  openProof?: (taskId: string) => void;
   updateTask: (task: HouseholdTask) => Promise<unknown>;
   claimReward: (rewardId: string) => Promise<unknown>;
   advanceItineraryStop: (itineraryId: string, stopId: string) => Promise<unknown>;
@@ -83,6 +85,46 @@ export class CommitRefusedError extends Error {
     super(message);
     this.name = 'CommitRefusedError';
   }
+}
+
+const HOMEWORK_REPEATS = new Set(['None', 'Daily', 'Weekly', 'Weekdays']);
+
+/**
+ * "I finished my math homework" — the person's own open homework in that subject; if they
+ * named no subject and have exactly one open homework, that one.
+ */
+async function findSpokenHomework(
+  p: IuiBeat['payload'],
+  tasks: HouseholdTask[],
+  selfName: string | undefined
+): Promise<HouseholdTask | undefined> {
+  const said = `${p.title ?? ''} ${p.sourceUtterance ?? ''}`;
+  const [{ subjectOf }, { isHomeworkCategory, resolveHomeworkSubject }] = await Promise.all([
+    import('@/lib/poppins/homework-parse'),
+    import('@/lib/tasks/homework-subject'),
+  ]);
+  if (!/homework|reading|worksheet|project|essay|assignment|study|chapter/i.test(said) && !subjectOf(said)) {
+    return undefined;
+  }
+  const open = tasks.filter(
+    (task) =>
+      task.status !== 'Completed' &&
+      task.status !== 'Cancelled' &&
+      isHomeworkCategory(task.category, task.title)
+  );
+  const isMine = (task: HouseholdTask) =>
+    !selfName || (task.assignee ?? '').toLowerCase().includes(selfName.toLowerCase());
+  const subject = subjectOf(said);
+  const bySubject = (list: HouseholdTask[]) =>
+    subject
+      ? list.find((task) => (resolveHomeworkSubject(task) ?? '').toLowerCase() === subject.toLowerCase())
+      : undefined;
+  const mine = open.filter(isMine);
+  const hit = bySubject(mine) ?? (mine.length === 1 ? mine[0] : undefined);
+  if (hit) return hit;
+  // Not theirs (an adult saying it): return the matching homework anyway, so the save
+  // refuses with "Only Yuhi can mark it done" instead of a vague failure.
+  return bySubject(open) ?? (open.length === 1 ? open[0] : undefined);
 }
 
 function asId(value: unknown): string | undefined {
@@ -267,12 +309,17 @@ export async function commitIuiBeat(
       });
       // A name the person gave (typed or "call it …") is kept as said — never swapped for a
       // catalog title.
-      const namedByPerson = p.namedByPerson === true;
+      const namedByPerson = p.namedByPerson === true || (isHomeworkWrite && p.homeworkParsed === true);
       if (namedByPerson) {
         resolved.title = String(p.title ?? '');
         resolved.libraryTaskId = undefined;
       }
-      const libraryId = namedByPerson ? p.libraryTaskId : p.libraryTaskId || resolved.libraryTaskId;
+      // Homework never borrows a library chore (its title, and its repeat, were not said).
+      const libraryId = isHomeworkWrite
+        ? undefined
+        : namedByPerson
+          ? p.libraryTaskId
+          : p.libraryTaskId || resolved.libraryTaskId;
       const library = libraryId
         ? allLibraryTasks().find((item) => item.id === libraryId)
         : undefined;
@@ -335,6 +382,32 @@ export async function commitIuiBeat(
           },
           createOpts
         );
+      } else if (title && isHomeworkWrite) {
+        const { resolveHomeworkSubject, formatHomeworkDescription } = await import(
+          '@/lib/tasks/homework-subject'
+        );
+        const subject =
+          p.homeworkSubject?.trim() ||
+          resolveHomeworkSubject({ title, category: 'homework_education', description: '' }) ||
+          undefined;
+        created = await createTask(
+          {
+            title,
+            category: 'homework_education',
+            description: formatHomeworkDescription(subject),
+            homeworkSubject: subject,
+            assignee,
+            due: dueLabel,
+            dueAt,
+            xp: 15,
+            repeat: HOMEWORK_REPEATS.has(String(p.repeat)) ? (p.repeat as HouseholdTask['repeat']) : 'None',
+            difficulty: 'medium',
+            weight: 1,
+            occurrenceDate,
+            proofRequired: p.proofRequired === true,
+          },
+          createOpts
+        );
       } else if (title) {
         created = await createTask(
           {
@@ -348,7 +421,7 @@ export async function commitIuiBeat(
             difficulty: 'medium',
             weight: 1,
             occurrenceDate,
-            proofRequired: isHomeworkWrite,
+            proofRequired: p.proofRequired === true,
           },
           createOpts
         );
@@ -476,11 +549,24 @@ export async function commitIuiBeat(
           p.title &&
           item.status !== 'Completed' &&
           item.title.toLowerCase().includes(p.title.toLowerCase())
-      );
+      ) ??
+      (await findSpokenHomework(p, household.tasks, currentMember?.name));
     if (prior) {
-      await completeTask(prior.id);
+      const result = (await completeTask(prior.id)) as { needsProof?: boolean } | null | undefined;
+      if (result == null) {
+        // Only the person it's assigned to can finish it (and never twice).
+        throw new CommitRefusedError(
+          currentMember && !prior.assignee?.toLowerCase().includes(currentMember.name.toLowerCase())
+            ? `Only ${prior.assignee} can mark “${prior.title}” done.`
+            : `“${prior.title}” couldn't be marked done.`
+        );
+      }
       wrote = true;
       reverse = { write, entityId: prior.id, taskSnapshot: { ...prior } };
+      if (result.needsProof) {
+        writes.openProof?.(prior.id);
+        eventNote = `${prior.title} · take a photo to finish`;
+      }
     }
   }
 

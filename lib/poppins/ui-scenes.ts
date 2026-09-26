@@ -115,6 +115,12 @@ export type IuiPayload = {
   withWho?: string[];
   /** The person renamed this card themselves — keep the name exactly, no catalog swap. */
   namedByPerson?: boolean;
+  /** Homework: the subject as said ("Math", "Reading"), saved on the task. */
+  homeworkSubject?: string;
+  /** Ask for a photo when it's marked done. */
+  proofRequired?: boolean;
+  /** Homework read by homework-parse — never swapped for a library chore. */
+  homeworkParsed?: boolean;
   /** Event: remind an hour before. */
   remind?: boolean;
   /** Event: add a travel block before it. */

@@ -145,6 +145,7 @@ export function PoppinsStage({
     upsertSavedPlace,
     grantAllowance,
     onVoiceTaskCreated,
+    openProof: (taskId: string) => router.push({ pathname: '/task/[id]', params: { id: taskId, proof: '1' } } as never),
     directMode: getSessionDirectMode(),
     undoWindowMs: getSessionUndoMs(),
   });
@@ -165,6 +166,7 @@ export function PoppinsStage({
       upsertSavedPlace,
       grantAllowance,
       onVoiceTaskCreated,
+      openProof: (taskId: string) => router.push({ pathname: '/task/[id]', params: { id: taskId, proof: '1' } } as never),
       directMode: getSessionDirectMode(),
       undoWindowMs: getSessionUndoMs(),
     };

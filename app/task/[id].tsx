@@ -144,10 +144,19 @@ export default function TaskDetailScreen() {
     task?.proofStatus !== 'submitted' &&
     task?.proofStatus !== 'approved';
 
+  // Arriving to finish with a photo (Complete on a proof chore, or "I finished my math
+  // homework" to Poppins): open the photo step straight away, once.
+  const mine = task && currentMember && isSplitTask(task) ? getShare(task, currentMember.name) : undefined;
+  const needsAttachNow =
+    Boolean(task?.proofRequired && currentMember && taskMatchesAssignee(task!, currentMember.name)) &&
+    (mine ? mine.status === 'Completed' : task?.status === 'Completed') &&
+    (mine ? mine.proofStatus : task?.proofStatus) !== 'submitted' &&
+    (mine ? mine.proofStatus : task?.proofStatus) !== 'approved';
+
   useEffect(() => {
-    if (proofIntent !== 'reply' || !canOpenProofReply) return;
-    setReplySheetOpen(true);
-  }, [canOpenProofReply, proofIntent]);
+    if (proofIntent === 'reply' && canOpenProofReply) setReplySheetOpen(true);
+    if (proofIntent === '1' && needsAttachNow) setReplySheetOpen(true);
+  }, [canOpenProofReply, needsAttachNow, proofIntent]);
 
   if (!task) {
     return (

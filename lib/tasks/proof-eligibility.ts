@@ -33,7 +33,7 @@ export function canAdminRequestTaskProof(
   now = new Date()
 ): boolean {
   if (task.status !== 'Completed') return false;
-  if (isHomeworkCategory(task.category, task.title)) return false;
+  // Homework too: a parent can ask for a photo of finished homework, same as a chore.
   if (!isSidekickRole(assigneeMember?.role)) return false;
   if (!withinProofRequestWindow(task, now)) return false;
   const verification = (task.verification ?? 'not_required') as TaskVerification;

@@ -7,6 +7,8 @@
  *   E — Poppins' naming rule matches the owner's words in both prompt copies
  *   G — every native module we depend on links: none declares a newer iOS than the app's
  *       floor (Expo autolinking silently drops those — that's how Image Playground went missing)
+ *   H — "I finished my math homework": finds the child's own math homework by subject,
+ *       opens the photo step when proof is needed, and refuses with a reason otherwise
  *   F — no dynamic import('react-native') anywhere: in a release build it enumerates every
  *       export, hits the removed PushNotificationIOS getter and kills the app (build 85)
  * Run: npx --yes tsx lib/poppins/base-pass.test.ts
@@ -118,6 +120,48 @@ async function main() {
     const src = readFileSync(join(ROOT, file), 'utf8');
     assert.match(src, /Never say "UI" on its own/, `${file}: bare "UI" is banned`);
     assert.match(src, /"Poppins", "Poppins AI" or "the voice UI"/, `${file}: the allowed names`);
+  }
+
+  // ── H ──────────────────────────────────────────────────────────────
+  {
+    const kid = { id: 'k1', name: 'Yuhi', role: 'child' };
+    const hwHouse = {
+      ...household,
+      members: [...household.members, kid],
+      tasks: [
+        { id: 'h1', title: 'Do your homework', category: 'homework_education', homeworkSubject: 'Math', assignee: 'Yuhi', status: 'Pending', due: 'Today', xp: 15, repeat: 'None' },
+        { id: 'h2', title: 'Read chapter 5', category: 'homework_education', homeworkSubject: 'Reading', assignee: 'Yuhi', status: 'Pending', due: 'Today', xp: 15, repeat: 'None' },
+      ],
+    } as unknown as HouseholdSnapshot;
+    const doneBeat = {
+      id: 'b-done',
+      scene: 'result_mark',
+      commit: 'confirm',
+      payload: { write: 'complete_task', title: 'math homework', sourceUtterance: 'I finished my math homework' },
+    } as unknown as IuiBeat;
+    const finished: string[] = [];
+    const opened: string[] = [];
+    const doneWrites = (result: unknown, member = kid) => ({
+      ...writes(async () => null),
+      household: hwHouse,
+      currentMember: member,
+      completeTask: async (id: string) => {
+        finished.push(id);
+        return result;
+      },
+      openProof: (id: string) => opened.push(id),
+    });
+    const ok = await commitIuiBeat(doneBeat, doneWrites({ needsProof: true }) as never);
+    assert.equal(ok.ok, true);
+    assert.deepEqual(finished, ['h1'], 'math homework, found by subject — not the reading one');
+    assert.deepEqual(opened, ['h1'], 'proof needed → the photo step opens');
+    assert.match((ok as { note?: string }).note ?? '', /take a photo/);
+
+    await assert.rejects(
+      () => commitIuiBeat(doneBeat, doneWrites(null, { id: 'm1', name: 'Nero', role: 'admin' } as never) as never),
+      (error: unknown) => error instanceof CommitRefusedError,
+      'an adult cannot finish a child’s homework — and is told so'
+    );
   }
 
   // ── F ──────────────────────────────────────────────────────────────
