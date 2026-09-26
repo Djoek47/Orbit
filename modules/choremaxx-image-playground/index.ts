@@ -17,7 +17,7 @@ export type PlaygroundLaunchParams = {
 
 export type PlaygroundNativeStatus = {
   linked: boolean;
-  /** iOS 18.2 or later. */
+  /** iOS 18.4 or later (style / personalization APIs). */
   osSupported: boolean;
   /** Apple Intelligence on, models ready, language and region supported. */
   available: boolean;

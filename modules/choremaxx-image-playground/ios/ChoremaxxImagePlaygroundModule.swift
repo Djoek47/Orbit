@@ -1,5 +1,6 @@
 // Adapted from torch-image-playground 0.2.0 (MIT, github.com/AswinTorch/torch-image-playground).
 // Same presentation code; renamed, plus `status()`. The podspec is what changed — see it.
+// Xcode 26 / current SDK marks style + personalization APIs @available(iOS 18.4, *).
 import ExpoModulesCore
 import UIKit
 
@@ -16,7 +17,7 @@ public class ChoremaxxImagePlaygroundModule: Module {
       var osSupported = false
       var available = false
       #if canImport(ImagePlayground)
-      if #available(iOS 18.2, *) {
+      if #available(iOS 18.4, *) {
         osSupported = true
         available = ImagePlaygroundViewController.isAvailable
       }
@@ -26,7 +27,7 @@ public class ChoremaxxImagePlaygroundModule: Module {
 
     Function("isSupported") { () -> Bool in
       #if canImport(ImagePlayground)
-      if #available(iOS 18.2, *) {
+      if #available(iOS 18.4, *) {
         return ImagePlaygroundViewController.isAvailable
       }
       #endif
@@ -35,7 +36,7 @@ public class ChoremaxxImagePlaygroundModule: Module {
 
     AsyncFunction("launchAsync") { (params: LaunchParams?) async throws -> String? in
       #if canImport(ImagePlayground)
-      guard #available(iOS 18.2, *) else {
+      guard #available(iOS 18.4, *) else {
         throw ImagePlaygroundError.unsupported
       }
 
@@ -51,7 +52,7 @@ public class ChoremaxxImagePlaygroundModule: Module {
   }
 
   #if canImport(ImagePlayground)
-  @available(iOS 18.2, *)
+  @available(iOS 18.4, *)
   private func presentImagePlayground(params: LaunchParams?) async throws -> String? {
     let sourceUIImage: UIImage?
     if let uri = params?.sourceUri?.trimmingCharacters(in: .whitespacesAndNewlines), !uri.isEmpty {
@@ -64,7 +65,7 @@ public class ChoremaxxImagePlaygroundModule: Module {
   }
 
   @MainActor
-  @available(iOS 18.2, *)
+  @available(iOS 18.4, *)
   private func presentOnMainActor(params: LaunchParams?, sourceImage: UIImage?) async throws -> String? {
     guard let topController = resolveTopViewController() else {
       throw ImagePlaygroundError.noViewController
@@ -112,21 +113,23 @@ public class ChoremaxxImagePlaygroundModule: Module {
   }
 
   @MainActor
-  @available(iOS 18.2, *)
+  @available(iOS 18.4, *)
   private func applyGenerationStyles(to vc: ImagePlaygroundViewController, params: LaunchParams?) throws {
     let allowedStrings = params?.allowedStyles
     let selectedString = params?.selectedStyle
 
     let allowedParsed: [ImagePlaygroundStyle]?
     if let s = allowedStrings, !s.isEmpty {
-      allowedParsed = try s.map { try Self.parseStyle($0) }
+      allowedParsed = try s.flatMap { try Self.parseStyles($0) }
     } else {
       allowedParsed = nil
     }
 
     let selectedParsed: ImagePlaygroundStyle?
     if let s = selectedString?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
-      selectedParsed = try Self.parseStyle(s)
+      let styles = try Self.parseStyles(s)
+      // "all" expands to every style — pick the first as the selected one.
+      selectedParsed = styles.first
     } else {
       selectedParsed = nil
     }
@@ -188,21 +191,24 @@ public class ChoremaxxImagePlaygroundModule: Module {
     return image
   }
 
-  private nonisolated static func parseStyle(_ raw: String) throws -> ImagePlaygroundStyle {
+  /// Current SDK: `ImagePlaygroundStyle.all` is `[ImagePlaygroundStyle]`, not a single style.
+  @available(iOS 18.4, *)
+  private nonisolated static func parseStyles(_ raw: String) throws -> [ImagePlaygroundStyle] {
     switch raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
     case "animation":
-      return .animation
+      return [.animation]
     case "illustration":
-      return .illustration
+      return [.illustration]
     case "sketch":
-      return .sketch
+      return [.sketch]
     case "all":
-      return .all
+      return ImagePlaygroundStyle.all
     default:
       throw ImagePlaygroundError.invalidStyle(raw)
     }
   }
 
+  @available(iOS 18.4, *)
   private nonisolated static func parsePersonalizationPolicy(_ raw: String) throws -> ImagePlaygroundPersonalizationPolicy {
     switch raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
     case "automatic":
@@ -235,7 +241,7 @@ public class ChoremaxxImagePlaygroundModule: Module {
 }
 
 #if canImport(ImagePlayground)
-@available(iOS 18.2, *)
+@available(iOS 18.4, *)
 private class ImagePlaygroundDelegate: NSObject, ImagePlaygroundViewController.Delegate {
   private let onComplete: (URL) -> Void
   private let onCancel: () -> Void
@@ -295,7 +301,7 @@ extension ImagePlaygroundError: LocalizedError {
   var errorDescription: String? {
     switch self {
     case .unsupported:
-      return "Image Playground is not available on this device. Requires iOS 18.2+ and supported hardware."
+      return "Image Playground is not available on this device. Requires iOS 18.4+ and supported hardware."
     case .noViewController:
       return "Could not find a view controller to present Image Playground."
     case .sourceImageLoadFailed:

@@ -6,7 +6,8 @@ package = JSON.parse(File.read(File.join(__dir__, '..', 'package.json')))
 # a minimum of iOS 18.2. The app targets an older iOS, so Expo autolinking skipped that pod
 # ("was not linked") and Image Playground never shipped in the build — every phone,
 # iOS 27 included, got "not available". This pod declares the app's floor and gates the
-# Image Playground APIs with `#available(iOS 18.2, *)` at runtime instead.
+# Image Playground APIs with `#available(iOS 18.4, *)` at runtime instead (current SDK
+# marks style / personalization APIs 18.4+).
 Pod::Spec.new do |s|
   s.name           = 'ChoremaxxImagePlayground'
   s.version        = package['version']

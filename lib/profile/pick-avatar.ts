@@ -124,7 +124,7 @@ export function imagePlaygroundAvailability(): PlaygroundAvailability {
     return {
       ok: false,
       reason: 'os_too_old',
-      message: 'Image Playground needs iOS 18.2 or later. Update your iPhone in Settings.',
+      message: 'Image Playground needs iOS 18.4 or later. Update your iPhone in Settings.',
     };
   }
   if (!status.available) {
