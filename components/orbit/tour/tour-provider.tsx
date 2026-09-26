@@ -136,6 +136,13 @@ export async function markJoinedAdultTour(householdId: string, memberId: string)
   }
 }
 
+const MAIN_TAB_PATHS = new Set(['/', '/tasks', '/plan', '/calendar', '/rewards', '/poppins', '/groceries']);
+
+/** Main app screens (the tabs), where the first-run welcome may appear. */
+export function isMainAppPath(pathname: string | null | undefined): boolean {
+  return MAIN_TAB_PATHS.has(pathname ?? '');
+}
+
 export function TourProvider({ children }: PropsWithChildren) {
   const majordomoName = useMajordomoName();
   const orbit = useOrbitOptional();
@@ -1088,7 +1095,13 @@ export function TourProvider({ children }: PropsWithChildren) {
           <TourErrorBoundary onCrash={handleTourCrash}>
             {tourEnabled ? (
               <TourWelcome
-                visible={welcomeOpen && Boolean(household?.id && currentMember?.id)}
+                // Only once they're in the app itself. The household exists partway through
+                // setup (invites, places…); opening there stacked two screens' words.
+                visible={
+                  welcomeOpen &&
+                  Boolean(household?.id && currentMember?.id) &&
+                  isMainAppPath(pathname)
+                }
                 title={welcomeTitle}
                 body={welcomeBody}
                 primaryLabel={def.welcomePrimary}
