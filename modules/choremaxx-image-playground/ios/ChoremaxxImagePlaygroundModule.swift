@@ -40,7 +40,8 @@ public class ChoremaxxImagePlaygroundModule: Module {
         throw ImagePlaygroundError.unsupported
       }
 
-      guard ImagePlaygroundViewController.isAvailable else {
+      let ready = await MainActor.run { ImagePlaygroundViewController.isAvailable }
+      guard ready else {
         throw ImagePlaygroundError.unsupported
       }
 
