@@ -5,10 +5,16 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { ChapterHero } from '@/components/orbit/house-rules/chapter-hero';
+import { chapterLook, chapterStat, ruleMoji, visualPalette } from '@/components/orbit/house-rules/chapter-theme';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
+import { RuleCard } from '@/components/orbit/house-rules/rule-card';
+import { Moji } from '@/components/orbit/moji/moji';
+import type { MojiName } from '@/components/orbit/moji/art';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { SettingsModalChrome } from '@/components/orbit/settings/modal-chrome';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
@@ -39,7 +45,7 @@ const SETTING_ROUTES: Partial<Record<string, string>> = {
 };
 
 export default function HouseRulesScreen() {
-  const { c, isDark, glassBorder } = useOrbitColors();
+  const { c, isDark, glass, glassBorder } = useOrbitColors();
   const accent = c.primary;
   const params = useLocalSearchParams<{ chapter?: string; voice?: string }>();
   const { household, currentMember, permissions, queueDailyDeadline, setAllowanceRequestsEnabled } =
@@ -77,10 +83,6 @@ export default function HouseRulesScreen() {
   const streakOn = true;
   const allowanceWeekly = hasAllowanceModel(household.rewardModel);
 
-  const summarySentence = `${deadlineLabel} deadline · ${modelLabel} scoring · ${
-    household.allowanceRequestsEnabled !== false ? 'requests on' : 'requests off'
-  }`;
-
   const openSetting = (settingKey?: string) => {
     if (!canEdit) return;
     if (settingKey === 'deadlines') {
@@ -96,121 +98,131 @@ export default function HouseRulesScreen() {
     router.push(route as never);
   };
 
+  const deadlineHm = view.dailyDeadline ?? doc.settings.dailyDeadline.default;
+  const statCtx = {
+    constants: doc.constants,
+    voice,
+    deadline: deadlineHm,
+    use24h: view.use24h,
+    modelLabel,
+    proofCount,
+    memberCount: household.members.length,
+  };
+  const themeForVisuals = {
+    text: c.text,
+    muted: c.textMuted,
+    card: glass(0.05),
+    border: glassBorder(0.1),
+    deep: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,28,42,0.05)',
+  };
+  const chapterLabel = (chapter: (typeof groups)[number]['chapter']) =>
+    voice === 'sidekick' ? chapter.sidekickLabel : chapter.title ?? chapter.adminLabel;
+
   if (activeGroup) {
     const chapter = activeGroup.chapter;
-    const title = voice === 'sidekick' ? chapter.sidekickLabel : chapter.title ?? chapter.adminLabel;
+    const key = chapter.id ?? chapter.key;
+    const look = chapterLook(key);
     const prev = chapterIndex > 0 ? groups[chapterIndex - 1] : null;
     const next = chapterIndex < groups.length - 1 ? groups[chapterIndex + 1] : null;
-    const fixedNote =
-      voice === 'admin'
-        ? 'Grey rules are fixed by how the app works.'
-        : undefined;
+    const visualProps = {
+      constants: doc.constants,
+      palette: visualPalette(voice, look.color, themeForVisuals),
+      voice,
+      activeRewardModel: model,
+      dailyDeadline: deadlineHm,
+      use24h: view.use24h,
+    };
 
     return (
       <SettingsModalChrome
         backLabel="House rules"
         onBack={() => router.replace('/house-rules' as never)}
-        title={title}
-        purpose={chapter.description}>
+        title={chapterLabel(chapter)}>
         <PersistentScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
-          indicatorColor={accent}>
-          {activeGroup.rules.map((rule) => {
-            const body =
-              voice === 'sidekick'
-                ? interpolateHouseRulesCopy(rule.sidekick.body, doc.constants, view)
-                : interpolateHouseRulesCopy(rule.admin.clause, doc.constants, view);
-            const fixed = !rule.editable;
+          indicatorColor={look.color}>
+          <ChapterHero color={look.color} moji={look.moji} stat={chapterStat(key, statCtx)} />
+
+          {activeGroup.rules.map((rule, index) => {
+            const copy = voice === 'sidekick' ? rule.sidekick : rule.admin;
+            const headline = interpolateHouseRulesCopy(copy.headline, doc.constants, view);
+            const body = interpolateHouseRulesCopy(
+              voice === 'sidekick' ? rule.sidekick.body : rule.admin.clause,
+              doc.constants,
+              view
+            );
+            const action =
+              canEdit && rule.editable
+                ? rule.settingKey === 'allowanceRequests'
+                  ? {
+                      kind: 'switch' as const,
+                      value: household.allowanceRequestsEnabled !== false,
+                      onChange: (v: boolean) => void setAllowanceRequestsEnabled(v),
+                    }
+                  : {
+                      kind: 'button' as const,
+                      label: rule.settingKey === 'deadlines' ? 'Time' : 'Change',
+                      onPress: () => openSetting(rule.settingKey),
+                    }
+                : undefined;
             return (
-              <View
+              <RuleCard
                 key={rule.id}
-                style={[
-                  styles.ruleCard,
-                  {
-                    backgroundColor: glassFill(isDark),
-                    borderColor: glassBorder(0.1),
-                    opacity: fixed ? 0.72 : 1,
-                  },
-                ]}>
-                <View style={styles.ruleRow}>
-                  <Text
-                    style={[
-                      styles.ruleBody,
-                      { color: fixed ? c.textMuted : c.text, flex: 1 },
-                    ]}>
-                    <RuleSentence text={body} boldLive />
-                  </Text>
-                  {canEdit && rule.editable ? (
-                    rule.settingKey === 'allowanceRequests' ? (
-                      <Switch
-                        value={household.allowanceRequestsEnabled !== false}
-                        onValueChange={(v) => void setAllowanceRequestsEnabled(v)}
-                        trackColor={{ false: glassBorder(0.14), true: accent }}
-                        accessibilityLabel={rule.admin.headline}
-                      />
-                    ) : (
-                      <Pressable
-                        onPress={() => openSetting(rule.settingKey)}
-                        style={[styles.changeBtn, { borderColor: `${accent}55` }]}
-                        accessibilityRole="button">
-                        <Text style={[styles.changeLabel, { color: accent }]}>
-                          {rule.settingKey === 'deadlines' ? 'Change the time' : 'Change'}
-                        </Text>
-                      </Pressable>
-                    )
-                  ) : null}
-                </View>
-              </View>
+                index={index}
+                color={look.color}
+                moji={ruleMoji(rule.id, key)}
+                headline={headline}
+                body={body}
+                visual={rule.visual}
+                visualProps={visualProps}
+                fixed={!rule.editable}
+                action={action}
+              />
             );
           })}
-          {fixedNote ? (
-            <Text style={[styles.fixedNote, { color: c.textSubtle }]}>{fixedNote}</Text>
-          ) : null}
+
+          <View style={styles.hintRow}>
+            <MaterialIcons name="touch-app" size={14} color={c.textSubtle} />
+            <Text style={[styles.fixedNote, { color: c.textSubtle }]}>Tap a rule for the details</Text>
+            {voice === 'admin' ? (
+              <>
+                <MaterialIcons name="lock-outline" size={13} color={c.textSubtle} />
+                <Text style={[styles.fixedNote, { color: c.textSubtle }]}>set by the app</Text>
+              </>
+            ) : null}
+          </View>
+
           <View style={styles.chapterNav}>
-            <Pressable
-              disabled={!prev}
-              onPress={() =>
-                prev &&
-                router.replace(
-                  `/house-rules?chapter=${prev.chapter.id ?? prev.chapter.key}` as never
-                )
-              }
-              style={[styles.navPill, !prev && { opacity: 0.35 }]}>
-              <MaterialIcons name="chevron-left" size={20} color={c.textMuted} />
-              <Text style={{ color: c.textMuted, fontWeight: '600' }}>
-                {prev
-                  ? voice === 'sidekick'
-                    ? prev.chapter.sidekickLabel
-                    : prev.chapter.adminLabel
-                  : 'Prev'}
-              </Text>
-            </Pressable>
-            <Pressable
-              disabled={!next}
-              onPress={() =>
-                next &&
-                router.replace(
-                  `/house-rules?chapter=${next.chapter.id ?? next.chapter.key}` as never
-                )
-              }
-              style={[styles.navPill, !next && { opacity: 0.35 }]}>
-              <Text style={{ color: c.textMuted, fontWeight: '600' }}>
-                {next
-                  ? voice === 'sidekick'
-                    ? next.chapter.sidekickLabel
-                    : next.chapter.adminLabel
-                  : 'Next'}
-              </Text>
-              <MaterialIcons name="chevron-right" size={20} color={c.textMuted} />
-            </Pressable>
+            {[prev, next].map((g, i) =>
+              g ? (
+                <Pressable
+                  key={i}
+                  onPress={() =>
+                    router.replace(`/house-rules?chapter=${g.chapter.id ?? g.chapter.key}` as never)
+                  }
+                  style={[
+                    styles.navPill,
+                    { backgroundColor: `${chapterLook(g.chapter.id ?? g.chapter.key).color}1F` },
+                    i === 1 && { marginLeft: 'auto' },
+                  ]}
+                  accessibilityRole="button">
+                  {i === 0 ? <MaterialIcons name="chevron-left" size={18} color={c.textMuted} /> : null}
+                  <Moji name={chapterLook(g.chapter.id ?? g.chapter.key).moji} size={16} />
+                  <Text style={[styles.navLabel, { color: c.text }]}>{chapterLabel(g.chapter)}</Text>
+                  {i === 1 ? <MaterialIcons name="chevron-right" size={18} color={c.textMuted} /> : null}
+                </Pressable>
+              ) : (
+                <View key={i} />
+              )
+            )}
           </View>
         </PersistentScrollView>
         <DeadlinePickerSheet
           visible={deadlineOpen}
           onClose={() => setDeadlineOpen(false)}
           doc={doc}
-          current={view.dailyDeadline ?? doc.settings.dailyDeadline.default}
+          current={deadlineHm}
           pending={household.dailyDeadlinePending}
           appliesOn={household.dailyDeadlineAppliesOn}
           use24h={view.use24h}
@@ -220,83 +232,77 @@ export default function HouseRulesScreen() {
     );
   }
 
-  // Digest
+  // Digest: three facts up top, then a colourful tile per chapter.
+  const facts: { moji: MojiName; value: string; label: string; color: string }[] = [
+    { moji: 'timer', value: deadlineLabel, label: 'deadline', color: chapterLook('deadlines').color },
+    { moji: 'gift', value: modelLabel, label: 'scoring', color: chapterLook('rewards').color },
+    allowanceWeekly
+      ? {
+          moji: 'moneyBag',
+          value: household.allowanceRequestsEnabled !== false ? 'On' : 'Off',
+          label: 'requests',
+          color: chapterLook('earning').color,
+        }
+      : { moji: 'fire', value: streakOn ? 'On' : 'Off', label: 'streaks', color: chapterLook('streaks').color },
+  ];
+
   return (
-    <SettingsModalChrome
-      backLabel="Settings"
-      title={voice === 'sidekick' ? 'The rules' : 'House rules'}
-      purpose={
-        voice === 'sidekick'
-          ? 'Everything you need to know.'
-          : undefined
-      }>
+    <SettingsModalChrome backLabel="Settings" title={voice === 'sidekick' ? 'The rules' : 'House rules'}>
       <PersistentScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         indicatorColor={accent}>
-        <View
-          style={[
-            styles.summaryCard,
-            { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
-          ]}>
-          <Text style={[styles.summaryText, { color: c.text }]}>{summarySentence}</Text>
-          <View style={styles.chipRow}>
-            {streakOn ? (
-              <View style={[styles.chip, { backgroundColor: `${accent}22` }]}>
-                <Text style={[styles.chipLabel, { color: accent }]}>Streaks on</Text>
-              </View>
-            ) : null}
-            {allowanceWeekly ? (
-              <View style={[styles.chip, { backgroundColor: `${accent}22` }]}>
-                <Text style={[styles.chipLabel, { color: accent }]}>Allowance weekly</Text>
-              </View>
-            ) : null}
-            <View style={[styles.chip, { backgroundColor: `${accent}22` }]}>
-              <Text style={[styles.chipLabel, { color: accent }]}>
-                {proofCount} need a photo
+        <View style={styles.factRow}>
+          {facts.map((fact, i) => (
+            <Animated.View
+              key={fact.label}
+              entering={FadeInDown.delay(i * 70).springify().damping(18)}
+              style={[styles.fact, { backgroundColor: `${fact.color}1C`, borderColor: `${fact.color}44` }]}>
+              <Moji name={fact.moji} size={22} />
+              <Text style={[styles.factValue, { color: c.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                {fact.value}
               </Text>
-            </View>
-          </View>
+              <Text style={[styles.factLabel, { color: fact.color }]}>{fact.label}</Text>
+            </Animated.View>
+          ))}
         </View>
 
-        <View
-          style={[
-            styles.groupCard,
-            { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
-          ]}>
+        <View style={styles.grid}>
           {groups.map(({ chapter, rules }, index) => {
             const id = chapter.id ?? chapter.key;
-            const label = voice === 'sidekick' ? chapter.sidekickLabel : chapter.title ?? chapter.adminLabel;
-            const icon = (chapter.icon ?? 'menu-book') as keyof typeof MaterialIcons.glyphMap;
+            const look = chapterLook(id);
+            const stat = chapterStat(id, statCtx);
             return (
-              <Pressable
+              <Animated.View
                 key={id}
-                onPress={() => router.push(`/house-rules?chapter=${id}` as never)}
-                style={[
-                  styles.chapterRow,
-                  index < groups.length - 1 && {
-                    borderBottomWidth: StyleSheet.hairlineWidth,
-                    borderBottomColor: glassBorder(0.08),
-                    marginLeft: 50,
-                    paddingLeft: 0,
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`${label}, ${rules.length} rules`}>
-                <View style={[styles.chapterIcon, { backgroundColor: `${accent}22` }]}>
-                  <MaterialIcons name={icon} size={18} color={accent} />
-                </View>
-                <View style={styles.chapterBody}>
-                  <Text style={[styles.chapterTitle, { color: c.text }]}>{label}</Text>
-                  {chapter.description ? (
-                    <Text style={[styles.chapterDesc, { color: c.textMuted }]} numberOfLines={1}>
-                      {chapter.description}
-                    </Text>
-                  ) : null}
-                </View>
-                <Text style={[styles.chapterCount, { color: c.textSubtle }]}>{rules.length}</Text>
-                <MaterialIcons name="chevron-right" size={18} color={c.textSubtle} />
-              </Pressable>
+                entering={FadeInDown.delay(180 + index * 60).springify().damping(18)}
+                style={styles.tileWrap}>
+                <Pressable
+                  onPress={() => router.push(`/house-rules?chapter=${id}` as never)}
+                  style={({ pressed }) => [
+                    styles.tile,
+                    {
+                      backgroundColor: `${look.color}17`,
+                      borderColor: `${look.color}40`,
+                      transform: [{ scale: pressed ? 0.97 : 1 }],
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${chapterLabel(chapter)}: ${stat.value} ${stat.caption}. ${rules.length} rules`}>
+                  <View style={styles.tileTop}>
+                    <View style={[styles.tileMoji, { backgroundColor: `${look.color}2E` }]}>
+                      <Moji name={look.moji} size={26} />
+                    </View>
+                    <Text style={[styles.tileCount, { color: look.color }]}>{rules.length}</Text>
+                  </View>
+                  <Text style={[styles.tileTitle, { color: c.text }]} numberOfLines={1}>
+                    {chapterLabel(chapter)}
+                  </Text>
+                  <Text style={[styles.tileStat, { color: c.textMuted }]} numberOfLines={1}>
+                    <Text style={{ color: look.color, fontWeight: '800' }}>{stat.value}</Text> {stat.caption}
+                  </Text>
+                </Pressable>
+              </Animated.View>
             );
           })}
         </View>
@@ -314,8 +320,9 @@ export default function HouseRulesScreen() {
               ]}
               accessibilityRole="button"
               accessibilityLabel="Read as a kid">
+              <Moji name="teddy" size={18} />
               <Text style={[styles.readKidLabel, { color: kidVoice ? '#041018' : c.text }]}>
-                Read as a kid
+                {kidVoice ? 'Reading as a kid' : 'Read as a kid'}
               </Text>
             </Pressable>
             <Pressable
@@ -338,35 +345,13 @@ export default function HouseRulesScreen() {
         visible={deadlineOpen}
         onClose={() => setDeadlineOpen(false)}
         doc={doc}
-        current={view.dailyDeadline ?? doc.settings.dailyDeadline.default}
+        current={deadlineHm}
         pending={household.dailyDeadlinePending}
         appliesOn={household.dailyDeadlineAppliesOn}
         use24h={view.use24h}
         onSelect={(time) => void queueDailyDeadline(time)}
       />
     </SettingsModalChrome>
-  );
-}
-
-/** Bold numbers / times inside a rule sentence for the chapter cards. */
-function RuleSentence({ text, boldLive }: { text: string; boldLive?: boolean }) {
-  const { c } = useOrbitColors();
-  if (!boldLive) {
-    return <>{text}</>;
-  }
-  const parts = text.split(/(\d{1,2}:\d{2}|\d+\s*(?:XP|%|days?|points?)|\b\d+\b)/gi);
-  return (
-    <>
-      {parts.map((part, i) =>
-        /\d/.test(part) ? (
-          <Text key={i} style={{ fontWeight: '700', color: c.text }}>
-            {part}
-          </Text>
-        ) : (
-          <Text key={i}>{part}</Text>
-        )
-      )}
-    </>
   );
 }
 
@@ -416,6 +401,8 @@ const styles = StyleSheet.create({
   readKidRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   readKidBtn: {
     flex: 1,
+    flexDirection: 'row',
+    gap: 8,
     alignItems: 'center',
     borderRadius: 16,
     borderWidth: 1,
@@ -457,7 +444,21 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   changeLabel: { fontSize: 13, fontWeight: '600' },
-  fixedNote: { fontSize: 12, lineHeight: 16, textAlign: 'center', marginTop: 4 },
+  fixedNote: { fontSize: 12, lineHeight: 16 },
+  hintRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 4 },
+  navLabel: { fontSize: 14, fontWeight: '700' },
+  factRow: { flexDirection: 'row', gap: 10 },
+  fact: { flex: 1, borderRadius: 18, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12, gap: 4 },
+  factValue: { fontSize: 18, fontWeight: '900', letterSpacing: -0.4 },
+  factLabel: { fontSize: 12, fontWeight: '800' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  tileWrap: { width: '48.5%' },
+  tile: { borderRadius: 20, borderWidth: 1, padding: 14, gap: 6, minHeight: 124 },
+  tileTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  tileMoji: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  tileCount: { fontSize: 13, fontWeight: '900' },
+  tileTitle: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3, marginTop: 4 },
+  tileStat: { fontSize: 12.5, fontWeight: '600' },
   chapterNav: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -466,9 +467,10 @@ const styles = StyleSheet.create({
   },
   navPill: {
     alignItems: 'center',
+    borderRadius: 999,
     flexDirection: 'row',
-    gap: 4,
+    gap: 6,
     minHeight: 44,
-    paddingHorizontal: 4,
+    paddingHorizontal: 12,
   },
 });
