@@ -10,6 +10,7 @@ import { MyPlacesPanel } from '@/components/orbit/my-places-panel';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RouteSteps, type RouteStepItem } from '@/components/orbit/route-steps';
+import { SmartTripsIntro } from '@/components/orbit/trips/smart-trips-intro';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
@@ -297,7 +298,6 @@ export function PlanTripsPanel({
   };
   const [mode, setMode] = useState<SuggestMode>('efficient');
   const [busy, setBusy] = useState(false);
-  const [highlightPreferred, setHighlightPreferred] = useState(false);
   const [askHint, setAskHint] = useState('');
   const itineraries = household.itineraries ?? [];
   const activeTrips = itineraries.filter((t) => t.status !== 'completed');
@@ -452,155 +452,137 @@ export function PlanTripsPanel({
         </TourTarget>
       ) : (
         <>
-          <LinearGradient
-            colors={['rgba(6,182,212,0.15)', 'rgba(56,189,248,0.08)', 'rgba(129,140,248,0.08)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.poppinsHero}>
-            <View style={styles.poppinsHeroGlow} />
-            <View style={styles.poppinsHeroRow}>
-              <PoppinsOrb size={56} />
-              <View style={{ flex: 1, gap: 6 }}>
-                <View style={styles.poppinsLive}>
-                  <View style={styles.liveDot} />
-                  <Text style={styles.poppinsLiveText}>POPPINS SMART ROUTING</Text>
-                </View>
-                <Text style={[styles.heroBodyLg, { color: c.textSoft }]}>
-                  I&apos;ve analysed your calendar and errands. I&apos;ve bundled{' '}
-                  <Text style={{ color: '#38BDF8', fontWeight: '700' }}>
-                    {Math.max(activeTrips.length, 1)} optimised trip
-                    {activeTrips.length === 1 ? '' : 's'}
-                  </Text>{' '}
-                  that can save you{' '}
-                  <Text style={{ color: '#34D399', fontWeight: '700' }}>
-                    {estimateTimeSavedAll(activeTrips.length ? activeTrips : itineraries.slice(0, 1))}
-                  </Text>{' '}
-                  this week.
-                </Text>
-              </View>
-            </View>
-            <View style={styles.statRow}>
-              {[
-                { val: String(activeTrips.length || '—'), label: 'Smart trips', color: '#38BDF8' },
-                {
-                  val: activeTrips.length ? estimateTimeSavedAll(activeTrips) : '—',
-                  label: 'Time saved',
-                  color: '#34D399',
-                },
-                {
-                  val: String(totalStopsBundled || '—'),
-                  label: 'Stops bundled',
-                  color: '#A78BFA',
-                },
-              ].map((s) => (
-                <View key={s.label} style={styles.stat}>
-                  <Text style={[styles.statVal, { color: s.color }]}>{s.val}</Text>
-                  <Text style={[styles.statLabel, { color: c.textSubtle }]}>{s.label}</Text>
-                </View>
-              ))}
-            </View>
-          </LinearGradient>
-
-          <View style={styles.modeRow}>
-            {(['efficient', 'spread'] as const).map((option) => {
-              const active = mode === option;
-              return (
-                <Pressable
-                  key={option}
-                  onPress={() => setMode(option)}
-                  style={[
-                    styles.modeChip,
-                    {
-                      borderColor: glassBorder(0.12),
-                      backgroundColor: glass(0.04),
-                    },
-                    active && {
-                      backgroundColor: `${accentTheme.primary}28`,
-                      borderColor: `${accentTheme.primary}66`,
-                    },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.modeLabel,
-                      { color: c.textMuted },
-                      active && { color: accentTheme.primary },
-                    ]}>
-                    {option === 'efficient' ? 'Efficient' : 'Spread'}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <TourTarget id="plan.newTrip">
-          <View style={styles.composeRow}>
-            <ComposeChip
-              icon="add"
-              label="New"
-              accent={accentTheme.primary}
-              onPress={() => router.push('/create-itinerary' as never)}
-            />
-            <ComposeChip
-              icon="auto-awesome"
-              label={`Ask ${majordomoName}`}
-              accent={accentTheme.primary}
+          {activeTrips.length === 0 ? (
+            <TourTarget id="plan.newTrip">
+            <SmartTripsIntro
+              majordomoName={majordomoName}
               busy={busy}
-              onPress={() => void runAskPoppins()}
+              onAsk={() => void runAskPoppins()}
+              onCalendar={() => void runSuggest({ date: selectedDateKey })}
+              onNew={() => router.push('/create-itinerary' as never)}
             />
-            <ComposeChip
-              icon="event"
-              label="Calendar"
-              accent={accentTheme.primary}
-              onPress={() => void runSuggest({ date: selectedDateKey })}
-            />
-            <ComposeChip
-              icon="star-outline"
-              label="Routines"
-              accent={accentTheme.primary}
-              onPress={() => {
-                setHighlightPreferred(true);
-                setTimeout(() => setHighlightPreferred(false), 1600);
-              }}
-            />
-          </View>
-          </TourTarget>
+            </TourTarget>
+          ) : (
+            <>
+              <LinearGradient
+                colors={['rgba(6,182,212,0.15)', 'rgba(56,189,248,0.08)', 'rgba(129,140,248,0.08)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.poppinsHero}>
+                <View style={styles.poppinsHeroGlow} />
+                <View style={styles.poppinsHeroRow}>
+                  <PoppinsOrb size={48} />
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <View style={styles.poppinsLive}>
+                      <View style={styles.liveDot} />
+                      <Text style={styles.poppinsLiveText}>{majordomoName.toUpperCase()} SMART ROUTING</Text>
+                    </View>
+                    <Text style={[styles.heroBodyLg, { color: c.textSoft }]}>
+                      {activeTrips.length} trip{activeTrips.length === 1 ? '' : 's'} planned ·{' '}
+                      <Text style={{ color: '#34D399', fontWeight: '700' }}>
+                        {estimateTimeSavedAll(activeTrips)} saved
+                      </Text>
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.statRow}>
+                  {[
+                    { val: String(activeTrips.length), label: 'Trips', color: '#38BDF8' },
+                    { val: estimateTimeSavedAll(activeTrips), label: 'Time saved', color: '#34D399' },
+                    { val: String(totalStopsBundled), label: 'Stops', color: '#A78BFA' },
+                  ].map((s) => (
+                    <View key={s.label} style={styles.stat}>
+                      <Text style={[styles.statVal, { color: s.color }]}>{s.val}</Text>
+                      <Text style={[styles.statLabel, { color: c.textSubtle }]}>{s.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              </LinearGradient>
+
+              <TourTarget id="plan.newTrip">
+              <View style={styles.actionBar}>
+                <ComposeChip
+                  icon="auto-awesome"
+                  label={`Ask ${majordomoName}`}
+                  accent={accentTheme.primary}
+                  busy={busy}
+                  onPress={() => void runAskPoppins()}
+                />
+                <ComposeChip
+                  icon="event"
+                  label="From calendar"
+                  accent={accentTheme.primary}
+                  onPress={() => void runSuggest({ date: selectedDateKey })}
+                />
+                <ComposeChip
+                  icon="add"
+                  label="New"
+                  accent={accentTheme.primary}
+                  onPress={() => router.push('/create-itinerary' as never)}
+                />
+              </View>
+              </TourTarget>
+
+              {/* How the stops get ordered */}
+              <View style={styles.modeRow}>
+                <Text style={[styles.modeHint, { color: c.textSubtle }]}>Order stops</Text>
+                {(['efficient', 'spread'] as const).map((option) => {
+                  const active = mode === option;
+                  return (
+                    <Pressable
+                      key={option}
+                      onPress={() => setMode(option)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={
+                        option === 'efficient' ? 'Shortest route' : 'Spread across the day'
+                      }
+                      style={[
+                        styles.modeChip,
+                        { borderColor: glassBorder(0.12), backgroundColor: glass(0.04) },
+                        active && {
+                          backgroundColor: `${accentTheme.primary}28`,
+                          borderColor: `${accentTheme.primary}66`,
+                        },
+                      ]}>
+                      <MaterialIcons
+                        name={option === 'efficient' ? 'bolt' : 'spa'}
+                        size={14}
+                        color={active ? accentTheme.primary : c.textMuted}
+                      />
+                      <Text
+                        style={[
+                          styles.modeLabel,
+                          { color: c.textMuted },
+                          active && { color: accentTheme.primary },
+                        ]}>
+                        {option === 'efficient' ? 'Shortest' : 'Relaxed'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
 
           {askHint ? (
             <Text style={[styles.emptyTripsBody, { color: c.textMuted, marginBottom: 8 }]}>{askHint}</Text>
           ) : null}
 
           <View style={{ gap: 12 }}>
-            {activeTrips.length === 0 ? (
-              <View
-                style={[
-                  styles.emptyTrips,
-                  { backgroundColor: glass(0.04), borderColor: glassBorder(0.08) },
-                ]}>
-                <Text style={[styles.emptyTripsTitle, { color: c.text }]}>No active trips yet</Text>
-                <Text style={[styles.emptyTripsBody, { color: c.textMuted }]}>
-                  Ask {majordomoName} to propose a Plan draft, or build one from your calendar.
-                </Text>
-              </View>
-            ) : (
-              activeTrips.map((trip, index) => (
-                <TripCard key={trip.id} trip={trip} index={index} onStartTrip={handleStartTrip} />
-              ))
-            )}
+            {activeTrips.map((trip, index) => (
+              <TripCard key={trip.id} trip={trip} index={index} onStartTrip={handleStartTrip} />
+            ))}
           </View>
 
+          {preferredTrips.length ? (
           <View
             style={[
               styles.completedArchive,
               { backgroundColor: glass(0.04), borderColor: glassBorder(0.07) },
-              highlightPreferred && styles.preferredHighlight,
-            ]}
-            collapsable={false}>
-            <Text style={[styles.completedTitle, { color: c.textMuted }]}>Preferred trips</Text>
-            {preferredTrips.length === 0 ? (
-              <Text style={[styles.completedEmpty, { color: c.textSubtle }]}>
-                Save a trip as preferred to reuse it.
-              </Text>
-            ) : (
+            ]}>
+            <Text style={[styles.completedTitle, { color: c.textMuted }]}>Routines</Text>
+            {(
               preferredTrips.map((t, i) => (
                 <Pressable
                   key={`fav-${t.id}`}
@@ -625,18 +607,16 @@ export function PlanTripsPanel({
               ))
             )}
           </View>
+          ) : null}
 
+          {completedTrips.length ? (
           <View
             style={[
               styles.completedArchive,
               { backgroundColor: glass(0.04), borderColor: glassBorder(0.07) },
             ]}>
-            <Text style={[styles.completedTitle, { color: c.textMuted }]}>Trip history</Text>
-            {completedTrips.length === 0 ? (
-              <Text style={[styles.completedEmpty, { color: c.textSubtle }]}>
-                No completed trips yet
-              </Text>
-            ) : (
+            <Text style={[styles.completedTitle, { color: c.textMuted }]}>Past trips</Text>
+            {(
               completedTrips.map((t, i) => (
                 <Pressable
                   key={t.id}
@@ -659,6 +639,7 @@ export function PlanTripsPanel({
               ))
             )}
           </View>
+          ) : null}
         </>
       )}
     </View>
@@ -769,11 +750,16 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: 9, marginTop: 2 },
   statVal: { fontSize: 16, fontWeight: '800', lineHeight: 16 },
-  modeRow: { flexDirection: 'row', gap: 8 },
+  actionBar: { flexDirection: 'row', gap: 8 },
+  modeHint: { fontSize: 12, fontWeight: '700', marginRight: 2 },
+  modeRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   modeChip: {
+    alignItems: 'center',
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 14,
+    flexDirection: 'row',
+    gap: 5,
+    paddingHorizontal: 12,
     paddingVertical: 8,
   },
   modeLabel: { fontSize: 13, fontWeight: '700' },

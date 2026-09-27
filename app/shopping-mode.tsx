@@ -25,6 +25,11 @@ import {
   shoppingRunLabel,
   type ShoppingListItem,
 } from '@/lib/grocery/shopping-palette';
+import {
+  startShoppingBanner,
+  stopShoppingBanner,
+  updateShoppingBanner,
+} from '@/lib/grocery/shopping-live-activity';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -170,6 +175,33 @@ export default function ShoppingModeScreen() {
       setBusy(false);
     }
   }, [addMissingGrocery, canAddGroceryWishlist, draft, reduceMotion]);
+
+  // The Lock Screen / Dynamic Island banner follows the run, and ends with it.
+  const nextAisle = aisles.find((aisle) => aisle.items.some((item) => !item.done))?.categoryName;
+  const bannerRun = useMemo(
+    () => ({ done: progress.done, total: progress.total, nextAisle, runLabel }),
+    [progress.done, progress.total, nextAisle, runLabel]
+  );
+  const bannerRef = useRef(bannerRun);
+  const started = useRef(false);
+
+  useEffect(() => {
+    bannerRef.current = bannerRun;
+    if (!started.current) {
+      if (bannerRun.total === 0) return;
+      started.current = true;
+      startShoppingBanner(bannerRun, palette.accent);
+      return;
+    }
+    updateShoppingBanner(bannerRun);
+  }, [bannerRun, palette.accent]);
+
+  useEffect(
+    () => () => {
+      stopShoppingBanner(bannerRef.current);
+    },
+    []
+  );
 
   const dockBottom = Math.max(insets.bottom, 12) + 8;
   const toastBottom = dockBottom + 72;

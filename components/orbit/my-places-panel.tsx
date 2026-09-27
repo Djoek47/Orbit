@@ -11,6 +11,7 @@ import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
 import type { SavedPlace, SavedPlaceKind } from '@/types/orbit';
 import { Moji } from '@/components/orbit/moji/moji';
+import { NearbySuggestionsRow } from '@/components/orbit/places/nearby-suggestions-row';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -148,6 +149,8 @@ export function MyPlacesPanel({
           </View>
         </LinearGradient>
       ) : null}
+
+      <NearbySuggestionsRow accent={accentTheme.primary} />
 
       <ScrollView
         horizontal

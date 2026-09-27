@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Moji } from '@/components/orbit/moji/moji';
@@ -9,6 +10,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { EmptyState } from '@/components/orbit/empty-state';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { GroceryCategoryGrid } from '@/components/orbit/grocery-category-grid';
+import { GroceryItemSheet } from '@/components/orbit/grocery/grocery-item-sheet';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
@@ -18,7 +20,6 @@ import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { typography } from '@/constants/orbit-theme';
 import type { CatalogProduct } from '@/lib/grocery/catalog';
 import { getCatalogProduct, iconForGroceryName } from '@/lib/grocery/catalog';
-import { listGroceryCategories } from '@/lib/grocery/classify';
 import { searchCatalog } from '@/lib/grocery/search-index';
 import {
   listBuyAgainProducts,
@@ -49,6 +50,8 @@ export default function GroceriesScreen() {
     orbitPalette,
     patchGroceryCategory,
     permissions,
+    removeGroceryItem,
+    updateGroceryDetails,
     toggleGroceryFavorite,
   } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
@@ -56,6 +59,7 @@ export default function GroceriesScreen() {
   const [busy, setBusy] = useState(false);
   const [showBrowse, setShowBrowse] = useState(false);
   const [chip, setChip] = useState<'favorites' | 'buyAgain' | 'suggest' | null>(null);
+  const [editing, setEditing] = useState<GroceryItem | null>(null);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -147,29 +151,12 @@ export default function GroceriesScreen() {
     await markGroceryPurchased(item.id);
   };
 
-  const reassignCategory = (item: GroceryItem) => {
-    const cats = listGroceryCategories().filter((cat) => cat.id !== 'clothing');
-    Alert.alert(
-      'Category',
-      'Pick the aisle for this item',
-      [
-        ...cats.map((cat) => ({
-          text: cat.name,
-          onPress: () => {
-            void (async () => {
-              const { withCategoryOverride } = await import('@/lib/grocery/classify');
-              const overrides = withCategoryOverride(
-                household.groceryCategoryOverrides,
-                item.name,
-                cat.id
-              );
-              await patchGroceryCategory(item.id, cat.id, overrides);
-            })();
-          },
-        })),
-        { text: 'Cancel', style: 'cancel' },
-      ],
-      { cancelable: true }
+  const setCategory = async (item: GroceryItem, categoryId: string) => {
+    const { withCategoryOverride } = await import('@/lib/grocery/classify');
+    const overrides = withCategoryOverride(household.groceryCategoryOverrides, item.name, categoryId);
+    await patchGroceryCategory(item.id, categoryId, overrides);
+    setEditing((current) =>
+      current && current.id === item.id ? { ...current, categoryId } : current
     );
   };
 
@@ -383,69 +370,109 @@ export default function GroceriesScreen() {
           To get · {active.length}
         </Text>
       ) : null}
-      {active.map((item) => {
+      {active.map((item, index) => {
         const needsCategorise = !item.category || item.category === 'Other';
         return (
-          <GlassCard key={item.id} style={styles.itemCard}>
-            <Pressable onPress={() => void toggleItem(item)} style={styles.row}>
-              <MaterialIcons
-                name="radio-button-unchecked"
-                size={22}
-                color={accentTheme.primary}
-              />
-              <Text style={{ fontSize: 20, width: 28, textAlign: 'center' }}>
-                {iconForGroceryName(item.name, item.categoryId)}
-              </Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.itemName, { color: c.text }]}>
-                  {item.name}
-                  {item.quantity && item.quantity !== '1' ? `  · ${item.quantity}` : ''}
-                </Text>
-                {needsCategorise ? (
-                  <Text style={{ color: c.textSubtle, fontSize: 11 }}>Tap to categorise</Text>
-                ) : null}
-              </View>
+          <Animated.View
+            key={item.id}
+            entering={FadeInDown.delay(Math.min(index, 8) * 35).springify().damping(18)}
+            layout={LinearTransition.springify().damping(20)}>
+            <View style={[styles.itemCard, { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) }]}>
               <Pressable
-                onPress={(e) => {
-                  e.stopPropagation?.();
-                  reassignCategory(item);
-                }}
-                hitSlop={8}>
-                <Text style={[styles.catTag, { color: c.textMuted }]}>
-                  {item.category || 'Other'}
-                </Text>
+                onPress={() => void toggleItem(item)}
+                hitSlop={8}
+                style={styles.tick}
+                accessibilityRole="button"
+                accessibilityLabel={`Tick off ${item.name}`}>
+                <MaterialIcons name="radio-button-unchecked" size={24} color={accentTheme.primary} />
               </Pressable>
-            </Pressable>
-          </GlassCard>
+              <Pressable
+                onPress={() => setEditing(item)}
+                style={styles.rowBody}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${item.name}`}>
+                <Moji emoji={iconForGroceryName(item.name, item.categoryId)} size={24} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.itemName, { color: c.text }]} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <View style={styles.metaRow}>
+                    <View
+                      style={[
+                        styles.catPill,
+                        {
+                          backgroundColor: needsCategorise ? `${c.warning}1F` : glass(0.06),
+                          borderColor: needsCategorise ? `${c.warning}55` : glassBorder(0.1),
+                        },
+                      ]}>
+                      <Text
+                        style={[styles.catPillText, { color: needsCategorise ? c.warning : c.textMuted }]}>
+                        {needsCategorise ? 'Pick an aisle' : item.category}
+                      </Text>
+                    </View>
+                    {item.quantity && item.quantity !== '1' ? (
+                      <Text style={[styles.qty, { color: c.textSubtle }]}>×{item.quantity}</Text>
+                    ) : null}
+                  </View>
+                </View>
+                <MaterialIcons name="more-vert" size={20} color={c.textSubtle} />
+              </Pressable>
+            </View>
+          </Animated.View>
         );
       })}
 
       {checked.length ? (
-        <Text style={[styles.sectionLabel, { color: c.textMuted, marginTop: 8 }]}>
-          Got it · {checked.length}
-        </Text>
+        <Pressable
+          onPress={() => {
+            if (!isAdmin) return;
+            void clearCheckedGroceries();
+          }}
+          style={styles.gotRow}
+          accessibilityRole="button"
+          accessibilityLabel={isAdmin ? 'Clear the checked items' : 'Checked items'}>
+          <Text style={[styles.sectionLabel, { color: c.textMuted }]}>Got it · {checked.length}</Text>
+          {isAdmin ? (
+            <Text style={[styles.clearLink, { color: accentTheme.primary }]}>Clear</Text>
+          ) : null}
+        </Pressable>
       ) : null}
       {checked.map((item) => (
-        <GlassCard key={item.id} style={[styles.itemCard, { opacity: 0.55 }]}>
-          <Pressable onPress={() => void toggleItem(item)} style={styles.row}>
-            <MaterialIcons name="check-circle" size={22} color="#34D399" />
-            <Text style={{ fontSize: 20, width: 28, textAlign: 'center' }}>
-              {iconForGroceryName(item.name, item.categoryId)}
-            </Text>
-            <View style={{ flex: 1 }}>
+        <Animated.View key={item.id} entering={FadeIn.duration(180)} layout={LinearTransition.springify().damping(20)}>
+          <View
+            style={[
+              styles.itemCard,
+              { backgroundColor: glass(0.03), borderColor: glassBorder(0.06), opacity: 0.6 },
+            ]}>
+            <Pressable
+              onPress={() => void toggleItem(item)}
+              hitSlop={8}
+              style={styles.tick}
+              accessibilityRole="button"
+              accessibilityLabel={`Put ${item.name} back on the list`}>
+              <MaterialIcons name="check-circle" size={24} color="#34D399" />
+            </Pressable>
+            <Pressable onPress={() => setEditing(item)} style={styles.rowBody}>
+              <Moji emoji={iconForGroceryName(item.name, item.categoryId)} size={24} />
               <Text
-                style={[
-                  styles.itemName,
-                  { color: c.text, textDecorationLine: 'line-through' },
-                ]}>
+                style={[styles.itemName, { color: c.textMuted, textDecorationLine: 'line-through', flex: 1 }]}
+                numberOfLines={1}>
                 {item.name}
-                {item.quantity && item.quantity !== '1' ? `  · ${item.quantity}` : ''}
               </Text>
-            </View>
-            <Text style={[styles.catTag, { color: c.textMuted }]}>{item.category || 'Other'}</Text>
-          </Pressable>
-        </GlassCard>
+            </Pressable>
+          </View>
+        </Animated.View>
       ))}
+
+      <GroceryItemSheet
+        item={editing}
+        accent={accentTheme.primary}
+        canEdit={isAdmin}
+        onClose={() => setEditing(null)}
+        onSave={(patch) => updateGroceryDetails(editing!.id, patch)}
+        onCategory={(categoryId) => setCategory(editing!, categoryId)}
+        onRemove={() => removeGroceryItem(editing!.id)}
+      />
     </PersistentScrollView>
   );
 }
@@ -479,16 +506,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  itemCard: { padding: 0 },
-  row: {
+  itemCard: {
     alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    paddingLeft: 12,
+  },
+  tick: { paddingVertical: 14, paddingRight: 10 },
+  rowBody: {
+    alignItems: 'center',
+    flex: 1,
     flexDirection: 'row',
     gap: 10,
-    paddingHorizontal: 12,
+    paddingRight: 12,
     paddingVertical: 12,
   },
-  itemName: { fontSize: 16, fontWeight: '600' },
-  catTag: { fontSize: 11, fontWeight: '600' },
+  itemName: { fontSize: 16, fontWeight: '700' },
+  metaRow: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 3 },
+  catPill: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  catPillText: { fontSize: 11, fontWeight: '700' },
+  qty: { fontSize: 12, fontWeight: '700' },
+  gotRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  clearLink: { fontSize: 13, fontWeight: '800' },
   aisleBtn: {
     alignItems: 'center',
     borderRadius: 14,

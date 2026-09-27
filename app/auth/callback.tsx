@@ -14,10 +14,12 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { radius, space, typography } from '@/constants/orbit-theme';
+import { callbackDestination } from '@/lib/auth/password-reset';
 import {
   clearPendingSignup,
   createSessionFromUrl,
   getPendingSignup,
+  paramsFromUrl,
   urlHasAuthPayload,
 } from '@/lib/auth/email-confirmation';
 import {
@@ -76,6 +78,7 @@ export default function AuthCallbackScreen() {
   const routeUrl = buildUrlFromParams(
     routeParams as Record<string, string | string[] | undefined>
   );
+  const linkTypeRef = useRef<string | undefined>(undefined);
 
   const [phase, setPhase] = useState<Phase>('working');
   const [message, setMessage] = useState('Confirming your email…');
@@ -90,6 +93,16 @@ export default function AuthCallbackScreen() {
       return;
     }
     router.replace('/confirm-email' as never);
+  };
+
+  /** A reset link means one thing: choose a new password. */
+  const goResetPassword = () => {
+    const controller = controllerRef.current;
+    if (controller.finished) return;
+    controller.markFinished();
+    setPhase('success');
+    setMessage('Choose a new password');
+    router.replace({ pathname: '/reset-password', params: { verified: '1' } } as never);
   };
 
   const finishSuccess = async () => {
@@ -202,17 +215,24 @@ export default function AuthCallbackScreen() {
       }
 
       if (!controller.shouldStartVerify(incoming)) return;
+      linkTypeRef.current = paramsFromUrl(incoming).type;
       controller.markVerifyStarted(incoming);
       setPhase('working');
       setMessage('Confirming your email…');
 
       try {
+        const isRecovery = callbackDestination(linkTypeRef.current) === 'recovery';
+        if (isRecovery) {
+          setMessage('Checking your reset link…');
+        }
+
         const existingUpFront = await withTimeout(
           authRepository.getCurrentSession(),
           4_000,
           'Confirmation timed out. Enter the code from your email instead.'
         );
-        if (shouldResumeSignedInOnConfirmLink(Boolean(existingUpFront)) && existingUpFront) {
+        // A recovery link must always end on the new-password screen, signed in or not.
+        if (!isRecovery && shouldResumeSignedInOnConfirmLink(Boolean(existingUpFront)) && existingUpFront) {
           await enterSignedInApp(existingUpFront);
           return;
         }
@@ -241,6 +261,11 @@ export default function AuthCallbackScreen() {
           setMessage(
             'Your email may already be confirmed. Continue to enter your code or sign in.'
           );
+          return;
+        }
+
+        if (isRecovery) {
+          goResetPassword();
           return;
         }
 

@@ -1,26 +1,13 @@
 import * as Location from 'expo-location';
 
+import { haversineMeters } from '@/lib/places/geo-distance';
 import { shopKindFromOsmTag } from '@/lib/places/shop-kind';
 import type { PreferredStore } from '@/types/orbit';
 
+export { haversineMeters };
+
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 const RADIUS_M = 4000;
-
-export function haversineMeters(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const R = 6371000;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
 
 export async function getLocationPermission(): Promise<Location.PermissionStatus> {
   const current = await Location.getForegroundPermissionsAsync();

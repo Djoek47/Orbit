@@ -431,6 +431,10 @@ type OrbitContextValue = {
     options?: { scope?: 'this' | 'future' }
   ) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
+  /** The 6-digit code from the reset email. */
+  verifyPasswordResetCode: (email: string, code: string) => Promise<void>;
+  /** Save the new password once the reset link or code has been accepted. */
+  setNewPassword: (password: string) => Promise<void>;
   completeTask: (
     taskId: string,
     options?: { forAssignee?: string }
@@ -480,6 +484,11 @@ type OrbitContextValue = {
   splitAllTasksBetweenTwo: (nameA?: string, nameB?: string) => Promise<void>;
   addMissingGrocery: (input: CreateGroceryInput) => Promise<import('@/types/orbit').GroceryItem | void>;
   removeGroceryItem: (itemId: string) => Promise<void>;
+  /** Rename an item or change the amount (admins / whoever may manage groceries). */
+  updateGroceryDetails: (
+    itemId: string,
+    patch: { name?: string; quantity?: string; note?: string }
+  ) => Promise<void>;
   /** Add from Canada catalog product (aisle from product.categoryId). */
   addGroceryFromProduct: (productId: string) => Promise<void>;
   toggleGroceryFavorite: (productId: string) => void;
@@ -1617,6 +1626,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const forgotPassword = async (email: string) => {
     await authRepository.forgotPassword(email);
     await trackAnalytics('auth.forgot_password', { email }, analyticsContext);
+  };
+
+  const verifyPasswordResetCode = async (email: string, code: string) => {
+    await authRepository.verifyPasswordResetCode(email, code);
+  };
+
+  const setNewPassword = async (password: string) => {
+    await authRepository.setNewPassword(password);
+    await trackAnalytics('auth.password_reset_done', {}, analyticsContext);
   };
 
   const createProfile = async (input: CreateProfileInput) => {
@@ -3768,6 +3786,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setHousehold((current) => ({
       ...current,
       groceries: current.groceries.filter((item) => item.id !== itemId),
+    }));
+  };
+
+  const updateGroceryDetails = async (
+    itemId: string,
+    patch: { name?: string; quantity?: string; note?: string }
+  ) => {
+    if (isSidekickRole(currentMember?.role)) return;
+    const currentItem = household.groceries.find((item) => item.id === itemId);
+    if (!currentItem) return;
+    const updated = await groceryRepository.updateGroceryDetails(currentItem, patch);
+    setHousehold((current) => ({
+      ...current,
+      groceries: current.groceries.map((item) => (item.id === itemId ? updated : item)),
     }));
   };
 
@@ -6619,6 +6651,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createTask,
       updateTask,
       forgotPassword,
+      verifyPasswordResetCode,
+      setNewPassword,
       completeTask,
       submitTaskProof,
       submitProofReply,
@@ -6636,6 +6670,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       splitAllTasksBetweenTwo,
       addMissingGrocery,
       removeGroceryItem,
+      updateGroceryDetails,
       addGroceryFromProduct,
       toggleGroceryFavorite,
       listGroceryBuyAgain,

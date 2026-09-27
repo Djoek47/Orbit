@@ -100,6 +100,10 @@ export default function RootLayout() {
                     options={{ headerShown: false, title: 'Reset Password' }}
                   />
                   <Stack.Screen
+                    name="reset-password"
+                    options={{ headerShown: false, title: 'New Password' }}
+                  />
+                  <Stack.Screen
                     name="create-profile"
                     options={{ headerShown: false, title: 'Create Profile' }}
                   />
