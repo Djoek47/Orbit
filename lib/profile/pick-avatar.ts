@@ -11,6 +11,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 import { ImagePlaygroundNative } from '@/modules/choremaxx-image-playground';
+import { playgroundConcepts } from '@/lib/profile/playground-concepts';
 
 export type AvatarPickErrorCode = 'permission_denied' | 'cancelled' | 'unavailable' | 'failed';
 
@@ -144,8 +145,11 @@ export async function canUseImagePlayground(): Promise<boolean> {
 }
 
 export type PlaygroundRequest = {
-  /** The member's name — Playground seeds the character from it. */
-  nameHint?: string;
+  /**
+   * Names to keep OUT of the prompt (the member's, anyone else's). Playground fails on
+   * names it reads as real people — see lib/profile/playground-concepts.
+   */
+  avoidNames?: string[];
   /** Words the person typed, e.g. "curly hair, red hoodie, holding a skateboard". */
   description?: string;
   /** Which look to open Playground on. */
@@ -153,15 +157,6 @@ export type PlaygroundRequest = {
   /** Optional photo to draw the character from. */
   sourceImageUri?: string | null;
 };
-
-/** Split a free-text description into the concept words Playground expects. */
-export function conceptsFromDescription(description?: string): string[] {
-  return (description ?? '')
-    .split(/[,\n]/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .slice(0, 6);
-}
 
 /**
  * Present Apple's Image Playground system sheet and return a lasting local file URI,
@@ -181,9 +176,7 @@ export async function createAvatarWithImagePlayground(
 
   let result: string | null | undefined;
   try {
-    const hint = options?.nameHint?.trim();
-    const words = conceptsFromDescription(options?.description);
-    const text = [...(hint ? [hint] : []), ...words, 'friendly character', 'profile picture'];
+    const { text } = playgroundConcepts(options?.description, options?.avoidNames ?? []);
 
     result = await playground.launchAsync({
       concepts: { text },

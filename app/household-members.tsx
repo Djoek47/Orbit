@@ -98,6 +98,7 @@ export default function HouseholdMembersScreen() {
       <PersonalizeLookSheet
         visible={Boolean(personalizeMember)}
         memberName={personalizeMember?.name ?? 'Member'}
+        otherNames={household.members.map((m) => m.name)}
         currentAvatar={personalizeMember?.avatar}
         onDismiss={() => setPersonalizeMemberId(null)}
         onSelect={async (avatar: string) => {

@@ -27,11 +27,14 @@ import {
   PLAYGROUND_STYLES,
   type PlaygroundStyle,
 } from '@/lib/profile/pick-avatar';
+import { playgroundConcepts } from '@/lib/profile/playground-concepts';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type PersonalizeLookSheetProps = {
   visible: boolean;
   memberName: string;
+  /** Everyone else in the house — their names are kept out of the Playground prompt too. */
+  otherNames?: string[];
   currentAvatar?: string;
   onDismiss: () => void;
   /** Persist emoji or image URI. */
@@ -46,6 +49,7 @@ type PersonalizeLookSheetProps = {
 export function PersonalizeLookSheet({
   visible,
   memberName,
+  otherNames,
   currentAvatar,
   onDismiss,
   onSelect,
@@ -58,6 +62,11 @@ export function PersonalizeLookSheet({
   const [sourcePhoto, setSourcePhoto] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Placeholders the callers pass when there's no name yet ('you', 'them') aren't names.
+  const avoidNames = [memberName, ...(otherNames ?? [])].filter(
+    (name) => !/^(you|them|member|me)$/i.test(name.trim())
+  );
+  const { removedNames } = playgroundConcepts(description, avoidNames);
 
   useEffect(() => {
     if (!visible) return;
@@ -112,7 +121,7 @@ export function PersonalizeLookSheet({
     setBusy(true);
     try {
       const uri = await createAvatarWithImagePlayground({
-        nameHint: memberName,
+        avoidNames,
         description,
         style,
         sourceImageUri: sourcePhoto,
@@ -176,7 +185,7 @@ export function PersonalizeLookSheet({
         <TextInput
           value={description}
           onChangeText={setDescription}
-          placeholder="curly hair, red hoodie, big smile"
+          placeholder="green dragon, flying, big smile"
           placeholderTextColor={c.textSubtle}
           style={[
             styles.input,
@@ -185,8 +194,15 @@ export function PersonalizeLookSheet({
           multiline
         />
         <Text style={[typography.caption1, { color: c.textSubtle, marginTop: 6 }]}>
-          A few words, separated by commas. Leave it blank and Apple will surprise you.
+          Describe them, not their name — Apple won&apos;t draw from names. A few words,
+          separated by commas, or leave it blank and Apple will surprise you.
         </Text>
+        {removedNames.length ? (
+          <Text style={[typography.caption1, { color: c.warning, marginTop: 4 }]}>
+            {removedNames.join(', ')} will be left out — Playground can&apos;t draw from a name, so
+            it uses the rest of your words.
+          </Text>
+        ) : null}
 
         <Step n={3} title="Start from a photo (optional)" color={c.textSubtle} text={c.text} />
         <Pressable
