@@ -1,4 +1,4 @@
-import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
+import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, mapDbError } from '@/repositories/repository-utils';
 import type { SmartHomeDevice, SmartHomeScene } from '@/types/orbit';
 import type { Json } from '@/types/database';
 
@@ -112,7 +112,7 @@ export const smartHomeRepository = {
         : clone(mockDeviceState);
     }
 
-    if (!householdId) {
+    if (!isPersistedHouseholdId(householdId)) {
       return [];
     }
 
@@ -134,7 +134,7 @@ export const smartHomeRepository = {
         : clone(mockSceneState);
     }
 
-    if (!householdId) {
+    if (!isPersistedHouseholdId(householdId)) {
       return [];
     }
 

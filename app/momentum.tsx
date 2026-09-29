@@ -1,15 +1,17 @@
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { GlassCard } from '@/components/orbit/glass-card';
 import { MomentumRing } from '@/components/orbit/momentum-ring';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { AppText as Text } from '@/components/orbit/app-text';
 
 export default function MomentumScreen() {
-  const { household, metrics, novaWeeklyBriefing } = useOrbit();
+  const { household, metrics, poppinsWeeklyBriefing } = useOrbit();
 
   return (
     <ScrollView
@@ -17,9 +19,9 @@ export default function MomentumScreen() {
       contentContainerStyle={orbitScreen.content}
       contentInsetAdjustmentBehavior="automatic">
       <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>{household.householdName}</Text>
-        <Text style={orbitTypography.display}>Momentum</Text>
-        <Text style={orbitTypography.body}>
+        <Text style={typography.footnote}>{household.householdName}</Text>
+        <Text style={typography.title1}>Momentum</Text>
+        <Text style={typography.body}>
           Momentum blends task completion, grocery readiness, and calendar coverage.
         </Text>
       </View>
@@ -27,10 +29,10 @@ export default function MomentumScreen() {
       <GlassCard elevated style={styles.hero}>
         <View style={styles.heroCopy}>
           <StatusPill label={metrics.momentum >= 80 ? 'Strong' : metrics.momentum >= 60 ? 'Steady' : 'Needs lift'} tone="cyan" />
-          <Text style={orbitTypography.title}>{metrics.momentum}</Text>
-          <Text style={orbitTypography.caption}>
-            Weekly change {novaWeeklyBriefing.momentumChange >= 0 ? '+' : ''}
-            {novaWeeklyBriefing.momentumChange}
+          <Text style={typography.title2}>{metrics.momentum}</Text>
+          <Text style={typography.footnote}>
+            Weekly change {poppinsWeeklyBriefing.momentumChange >= 0 ? '+' : ''}
+            {poppinsWeeklyBriefing.momentumChange}
           </Text>
         </View>
         <MomentumRing score={metrics.momentum} />
@@ -44,10 +46,10 @@ export default function MomentumScreen() {
       </View>
 
       <GlassCard style={styles.card}>
-        <Text style={orbitTypography.cardTitle}>What lifts momentum</Text>
-        <Text style={orbitTypography.caption}>• Complete open tasks ({metrics.openTasks} remaining)</Text>
-        <Text style={orbitTypography.caption}>• Restock missing groceries ({metrics.missingGroceries})</Text>
-        <Text style={orbitTypography.caption}>• Confirm coverage on upcoming events ({metrics.upcomingEvents})</Text>
+        <Text style={typography.headline}>What lifts momentum</Text>
+        <Text style={typography.footnote}>• Complete open tasks ({metrics.openTasks} remaining)</Text>
+        <Text style={typography.footnote}>• Restock missing groceries ({metrics.missingGroceries})</Text>
+        <Text style={typography.footnote}>• Confirm coverage on upcoming events ({metrics.upcomingEvents})</Text>
       </GlassCard>
 
       <OrbitButton onPress={() => router.push('/household-balance' as never)}>View load balance</OrbitButton>
@@ -62,27 +64,28 @@ export default function MomentumScreen() {
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {
+  const { c } = useOrbitColors();
   return (
     <GlassCard style={styles.gridCard}>
-      <Text style={styles.metric}>{value}</Text>
-      <Text style={orbitTypography.caption}>{label}</Text>
+      <Text style={[styles.metric, { color: c.text }]}>{value}</Text>
+      <Text style={typography.footnote}>{label}</Text>
     </GlassCard>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    gap: orbitSpacing.sm,
+    gap: space.sm,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: orbitSpacing.md,
+    gap: space.md,
   },
   gridCard: {
     flexBasis: '47%',
     flexGrow: 1,
-    gap: orbitSpacing.xs,
+    gap: space.xs,
   },
   hero: {
     alignItems: 'center',
@@ -91,11 +94,10 @@ const styles = StyleSheet.create({
   },
   heroCopy: {
     flex: 1,
-    gap: orbitSpacing.sm,
-    paddingRight: orbitSpacing.md,
+    gap: space.sm,
+    paddingRight: space.md,
   },
   metric: {
-    color: orbitColors.text,
     fontSize: 28,
     fontWeight: '800',
   },

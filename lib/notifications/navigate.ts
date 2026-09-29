@@ -1,29 +1,52 @@
 import type { NotificationItem } from '@/types/orbit';
 
-/** Resolve an in-app route from a notification's category / data payload. */
+/** Resolve an in-app route from a notification's category / data payload (B3 actions). */
 export function getNotificationRoute(item: NotificationItem): string | null {
   const data = item.data ?? {};
   const taskId = typeof data.taskId === 'string' ? data.taskId : null;
   const eventId = typeof data.eventId === 'string' ? data.eventId : null;
-  const groceryId = typeof data.groceryId === 'string' ? data.groceryId : null;
+  const itineraryId = typeof data.itineraryId === 'string' ? data.itineraryId : null;
+  const kind = typeof data.kind === 'string' ? data.kind : null;
+  const notificationId = typeof data.notificationId === 'string' ? data.notificationId : null;
 
-  if (item.category === 'tasks' && taskId) {
+  if (itineraryId) {
+    return `/itinerary/${itineraryId}`;
+  }
+  if (kind === 'itinerary_leg') {
+    return '/(tabs)/plan';
+  }
+  if (kind === 'proof_requested' || notificationId === 'N03') {
+    return taskId ? `/task/${taskId}?proof=reply` : '/(tabs)/tasks';
+  }
+  if (kind === 'proof_submitted' || kind === 'proof_approved' || notificationId === 'N19' || notificationId === 'N20') {
+    return taskId ? `/task/${taskId}` : '/(tabs)/tasks';
+  }
+  if ((item.category === 'tasks' || item.category === 'ai') && taskId) {
     return `/task/${taskId}`;
   }
   if (item.category === 'events' && eventId) {
     return `/event/${eventId}`;
   }
-  if (item.category === 'groceries') {
-    return groceryId ? '/(tabs)/groceries' : '/(tabs)/groceries';
+  if (item.category === 'groceries' || kind === 'grocery_added' || kind === 'near_shop_deal') {
+    return '/shopping-mode';
   }
-  if (item.category === 'rewards') {
+  if (kind?.includes('allowance') || notificationId === 'N24') {
+    return '/allowance-history';
+  }
+  if (item.category === 'rewards' || kind?.startsWith('reward_') || notificationId === 'N26' || notificationId === 'N27') {
     return '/(tabs)/rewards';
   }
+  if (kind === 'join_pending') {
+    return '/household-members';
+  }
+  if (kind === 'iui_act') {
+    return '/(tabs)/poppins';
+  }
   if (item.category === 'ai') {
-    return '/(tabs)/nova';
+    return '/(tabs)/poppins';
   }
   if (item.category === 'events') {
-    return '/(tabs)/calendar';
+    return '/(tabs)/plan';
   }
   if (item.category === 'tasks') {
     return '/(tabs)/tasks';

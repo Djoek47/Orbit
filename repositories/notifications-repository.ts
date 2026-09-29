@@ -1,4 +1,5 @@
-import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
+import { createLocalId, getConfiguredSupabase, isMockMode, isPersistedHouseholdId, mapDbError } from '@/repositories/repository-utils';
+import { withMemberDismissed } from '@/lib/ai/daily-insight';
 import type { NotificationItem } from '@/types/orbit';
 
 export type CreateNotificationInput = {
@@ -59,7 +60,7 @@ const mockNotifications: NotificationItem[] = [
   {
     id: 'n5',
     householdId: 'hh-rivera',
-    title: 'Nova suggestion',
+    title: 'Poppins suggestion',
     body: 'Rebalance open tasks before school pickup at 3:00 PM.',
     category: 'ai',
     priority: 'medium',
@@ -110,6 +111,9 @@ export const notificationsRepository = {
     let query = supabase.from('notifications').select('*').order('created_at', { ascending: false });
 
     if (householdId) {
+      if (!isPersistedHouseholdId(householdId)) {
+        return [];
+      }
       query = query.eq('household_id', householdId);
     }
 
@@ -148,18 +152,66 @@ export const notificationsRepository = {
     }
 
     const supabase = getConfiguredSupabase('notificationsRepository.markAllRead');
-    const { data: authData } = await supabase.auth.getUser();
+    // Household-scoped: do NOT also filter user_id — admin/shared alerts often have
+    // user_id null and were coming back as unread "ghosts" after Mark all read.
     let query = supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
 
-    if (authData.user?.id) {
-      query = query.eq('user_id', authData.user.id);
-    }
     if (householdId) {
+      if (!isPersistedHouseholdId(householdId)) return;
       query = query.eq('household_id', householdId);
+    } else {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user?.id) return;
+      query = query.eq('user_id', authData.user.id);
     }
 
     const { error } = await query;
     mapDbError('notificationsRepository.markAllRead', error);
+  },
+
+  /** Persist dismiss for every notification in a household for this member. */
+  async dismissAllForMember(
+    householdId: string,
+    memberId: string
+  ): Promise<void> {
+    if (isMockMode()) {
+      mockNotificationState = mockNotificationState.map((item) =>
+        item.householdId === householdId
+          ? {
+              ...item,
+              isRead: true,
+              data: withMemberDismissed(item.data, memberId),
+            }
+          : item
+      );
+      return;
+    }
+
+    if (!isPersistedHouseholdId(householdId)) return;
+    const supabase = getConfiguredSupabase('notificationsRepository.dismissAllForMember');
+    const { data: rows, error: loadError } = await supabase
+      .from('notifications')
+      .select('id, data')
+      .eq('household_id', householdId);
+    mapDbError('notificationsRepository.dismissAllForMember.load', loadError);
+
+    for (const row of rows ?? []) {
+      const prevData =
+        row.data && typeof row.data === 'object' && !Array.isArray(row.data)
+          ? (row.data as Record<string, unknown>)
+          : {};
+      const nextData = withMemberDismissed(prevData, memberId);
+      const { error } = await supabase
+        .from('notifications')
+        .update({
+          data: nextData as import('@/types/database').Json,
+          is_read: true,
+        })
+        .eq('id', row.id);
+      if (error) {
+        console.warn('notificationsRepository.dismissAllForMember', row.id, error.message);
+      }
+    }
   },
 
   async create(input: CreateNotificationInput): Promise<NotificationItem> {
@@ -202,6 +254,81 @@ export const notificationsRepository = {
     }
 
     return mapNotificationRow(data);
+  },
+
+  async updateCopy(
+    notificationId: string,
+    title: string,
+    body: string,
+    data?: Record<string, unknown>
+  ): Promise<NotificationItem | null> {
+    if (isMockMode()) {
+      mockNotificationState = mockNotificationState.map((item) =>
+        item.id === notificationId
+          ? { ...item, title, body, data: data ? { ...item.data, ...data } : item.data }
+          : item
+      );
+      return mockNotificationState.find((item) => item.id === notificationId) ?? null;
+    }
+
+    const supabase = getConfiguredSupabase('notificationsRepository.updateCopy');
+    const { data: row, error } = await supabase
+      .from('notifications')
+      .update({
+        title,
+        body,
+        ...(data ? { data: data as import('@/types/database').Json } : {}),
+      })
+      .eq('id', notificationId)
+      .select('*')
+      .maybeSingle();
+    mapDbError('notificationsRepository.updateCopy', error);
+    return row ? mapNotificationRow(row) : null;
+  },
+
+  /** Persist per-member dismiss so Sidekick / co-admin deletes stay deleted. */
+  async dismissForMember(
+    notificationId: string,
+    memberId: string
+  ): Promise<NotificationItem | null> {
+    if (isMockMode()) {
+      mockNotificationState = mockNotificationState.map((item) => {
+        if (item.id !== notificationId) return item;
+        return {
+          ...item,
+          isRead: true,
+          data: withMemberDismissed(item.data, memberId),
+        };
+      });
+      return mockNotificationState.find((item) => item.id === notificationId) ?? null;
+    }
+
+    const supabase = getConfiguredSupabase('notificationsRepository.dismissForMember');
+    const { data: existing, error: loadError } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('id', notificationId)
+      .maybeSingle();
+    mapDbError('notificationsRepository.dismissForMember.load', loadError);
+    if (!existing) return null;
+
+    const prevData =
+      existing.data && typeof existing.data === 'object' && !Array.isArray(existing.data)
+        ? (existing.data as Record<string, unknown>)
+        : {};
+    const nextData = withMemberDismissed(prevData, memberId);
+
+    const { data: row, error } = await supabase
+      .from('notifications')
+      .update({
+        data: nextData as import('@/types/database').Json,
+        is_read: true,
+      })
+      .eq('id', notificationId)
+      .select('*')
+      .maybeSingle();
+    mapDbError('notificationsRepository.dismissForMember', error);
+    return row ? mapNotificationRow(row) : null;
   },
 
   /** @deprecated Prefer create() — kept for older callers. */
