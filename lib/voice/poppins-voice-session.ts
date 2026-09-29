@@ -66,10 +66,14 @@ export type PoppinsPendingConfirmation = {
 
 export type PoppinsVoiceSessionCallbacks = {
   onStateChange?: (state: PoppinsVoiceVisualState) => void;
+  /**
+   * `final` is true only for the completed user transcript (and typed text). Partial deltas
+   * arrive with it false — use them for the caption, never to plan an act.
+   */
   onTranscript?: (
     role: 'user' | 'assistant',
     text: string,
-    meta?: { replace?: boolean }
+    meta?: { replace?: boolean; final?: boolean }
   ) => void;
   onPendingConfirmations?: (items: PoppinsPendingConfirmation[]) => void;
   onUiActions?: (actions: Array<Record<string, unknown>>) => void;
@@ -294,6 +298,8 @@ export class PoppinsVoiceSession {
   private pausedForTools = false;
   private openerInstructions: string | null = null;
   private heardUserBeforeOpen = false;
+  /** The greeting is being spoken right now — the person's first words cut it off. */
+  private openerSpeaking = false;
   private openerTimer: ReturnType<typeof setTimeout> | null = null;
   private listenPrompt = '';
   private seedTurns: Array<{ role: 'user' | 'assistant'; text: string }> = [];
@@ -492,7 +498,10 @@ export class PoppinsVoiceSession {
               type: 'response.create',
               response: { instructions: this.openerInstructions },
             });
-            this.beginAssistantResponse();
+            this.openerSpeaking = true;
+            // The greeting is the one reply you can talk over: the mic stays open so the
+            // person's first words cut it off (and reach the stage) instead of being dropped.
+            this.responseInFlight = true;
           }, OPENER_DELAY_MS);
         }
       };
@@ -619,7 +628,7 @@ export class PoppinsVoiceSession {
     const trimmed = text.trim();
     if (!trimmed || !this.isConnected) return false;
     this.noteUserActivity();
-    this.callbacks.onTranscript?.('user', trimmed, { replace: true });
+    this.callbacks.onTranscript?.('user', trimmed, { replace: true, final: true });
     this.setState('thinking');
     this.sendEvent({
       type: 'conversation.item.create',
@@ -681,7 +690,7 @@ export class PoppinsVoiceSession {
         type: 'response.create',
         response: {
           instructions:
-            'They used the IUI. Do not re-offer that choice. If something is still unknown, ask only for that in one short sentence. Otherwise stay quiet.',
+            'They tapped their choice on screen. Do not re-offer it. If something is still unknown, ask only for that in one short sentence. Otherwise stay quiet.',
         },
       });
       this.setState('thinking');
@@ -734,6 +743,13 @@ export class PoppinsVoiceSession {
         clearTimeout(this.openerTimer);
         this.openerTimer = null;
       }
+      // They started talking over the greeting: the stage is already acting on their words,
+      // so the greeting stops here rather than trailing behind them.
+      if (this.openerSpeaking) {
+        this.openerSpeaking = false;
+        this.sendEvent({ type: 'response.cancel' });
+        this.sendEvent({ type: 'output_audio_buffer.clear' });
+      }
       if (type === 'input_audio_buffer.committed') {
         this.noteUserActivity();
         return;
@@ -768,7 +784,7 @@ export class PoppinsVoiceSession {
         const replace = this.pendingUserReplace || !this.userTranscriptBuffer;
         this.pendingUserReplace = false;
         this.userTranscriptBuffer = next;
-        this.callbacks.onTranscript?.('user', next, { replace });
+        this.callbacks.onTranscript?.('user', next, { replace, final: true });
       }
       this.noteUserActivity();
     }
@@ -806,6 +822,7 @@ export class PoppinsVoiceSession {
     }
 
     if (type === 'response.done' || type === 'response.cancelled') {
+      this.openerSpeaking = false;
       this.clearThinkingRecovery();
       this.endAssistantResponse();
       if (this.assistantBuffer.trim()) {
@@ -1061,6 +1078,26 @@ export class PoppinsVoiceSession {
       type: 'response.create',
     });
     this.setState('thinking');
+  }
+
+  /**
+   * The stage already owns this act (the person's own words staged it). Tell the model not
+   * to execute its pending copy — without asking it to speak.
+   */
+  notifyHandledOnStage(confirmationIds: string[], summary?: string) {
+    if (!this.isConnected || !confirmationIds.length) return;
+    const what = summary?.trim() ? ` (${summary.trim()})` : '';
+    this.sendEvent({
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'user',
+        content: realtimeTextContent(
+          'user',
+          `Already handled on screen${what}: ${confirmationIds.join(', ')}. Do not execute these or ask again.`
+        ),
+      },
+    });
   }
 
   async end(reason = 'manual') {

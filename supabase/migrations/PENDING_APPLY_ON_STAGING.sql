@@ -25,6 +25,10 @@ comment on column public.household_members.join_pre_approved is
 -- 5) Token top-ups (from 20260917040000_token_grants.sql) — user applies before consumable IAP
 -- create table public.token_grants (...); see migration file.
 
+-- 6) Activity log (from 20260925090000_activity_log.sql) — append-only notification
+-- history + assistant error/report rows, admin-read RLS, triggers on notifications.
+-- Run full migration file if public.activity_log is missing.
+
 -- Verify
 select column_name from information_schema.columns
 where table_schema = 'public' and table_name = 'households' and column_name = 'join_approval_required';
@@ -34,3 +38,6 @@ where table_schema = 'public' and table_name = 'household_members' and column_na
 
 select table_name from information_schema.tables
 where table_schema = 'public' and table_name = 'token_grants';
+
+select table_name from information_schema.tables
+where table_schema = 'public' and table_name = 'activity_log';

@@ -116,7 +116,8 @@ const oldOnboarding = isUpgradeHousehold({ tasks: [] } as unknown as HouseholdSn
 assert.equal(oldOnboarding, true, 'onboarding >2 days is upgrade');
 
 // Tour must never open PoppinsVoiceSession — grep tour + poppins wiring
-const poppins = readFileSync(join(root, 'app/(tabs)/poppins.tsx'), 'utf8');
+// Speak wiring lives in the Poppins controller (the tab is layout only).
+const poppins = readFileSync(join(root, 'lib/poppins/use-poppins-controller.ts'), 'utf8');
 assert.match(poppins, /tourForcesQuietSpeak/);
 assert.match(poppins, /if \(tourForcesQuietSpeak\(\)\) return/);
 assert.equal(

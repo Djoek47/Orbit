@@ -125,7 +125,7 @@ export async function setupSharedDeviceSession(input: {
     profileMemberIds: unique,
     activeMemberId: null,
     needsProfilePick: isSidekickHost ? false : unique.length > 0,
-    deviceLabel: input.deviceLabel?.trim() || (isSidekickHost ? 'Sidekick device' : 'Family iPad'),
+    deviceLabel: input.deviceLabel?.trim() || (isSidekickHost ? 'Sidekick device' : 'Shared device'),
     sharedDeviceId: input.sharedDeviceId ?? null,
   };
   await saveDeviceSession(next);

@@ -8,6 +8,8 @@ const QUIET_HALLUCINATIONS = new Set([
   'thanks for watching',
   'you',
   'bye',
+  // WO9.1 / A3 — fabricated Whisper fallback must never reach Base mode.
+  'what should our household focus on right now',
 ]);
 
 /** Drop empty, tiny, or known silence hallucinations. */

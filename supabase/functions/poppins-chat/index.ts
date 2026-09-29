@@ -96,6 +96,9 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           model: getOpenAIPoppinsChatModel(),
+          // gpt-5.6-luna rejects function tools on /v1/chat/completions unless
+          // reasoning is off (OpenAI: invalid_request_error).
+          reasoning_effort: 'none',
           messages,
           tools: poppinsToolsAsOpenAIFunctions(),
           tool_choice: 'auto',
@@ -107,8 +110,42 @@ Deno.serve(async (req) => {
       outputTokens += Number(payload.usage?.completion_tokens ?? 0);
       const message = payload.choices?.[0]?.message;
       if (!message) {
-        answer = 'I could not answer that just now. Try again in a moment.';
-        break;
+        const err = payload?.error;
+        const errObj =
+          err && typeof err === 'object'
+            ? (err as { message?: unknown; type?: unknown; code?: unknown })
+            : null;
+        const errorCode =
+          (errObj?.code != null ? String(errObj.code) : null) ||
+          (errObj?.type != null ? String(errObj.type) : null) ||
+          (!completion.ok ? `http_${completion.status}` : 'no_choices');
+        console.error(
+          JSON.stringify({
+            event: 'poppins_chat.openai_failed',
+            httpStatus: completion.status,
+            ok: completion.ok,
+            model,
+            error: errObj
+              ? {
+                  message: errObj.message != null ? String(errObj.message) : undefined,
+                  type: errObj.type != null ? String(errObj.type) : undefined,
+                  code: errObj.code != null ? String(errObj.code) : undefined,
+                }
+              : err != null
+                ? { message: String(err) }
+                : undefined,
+            payloadKeys: payload && typeof payload === 'object' ? Object.keys(payload) : [],
+          })
+        );
+        return jsonResponse({
+          question,
+          answer: 'Poppins is offline right now. Try again in a moment.',
+          source: 'openai_error',
+          error_code: errorCode,
+          actions: [],
+          ui_actions: [],
+          usage: { inputTokens, outputTokens, model },
+        });
       }
 
       messages.push(message);

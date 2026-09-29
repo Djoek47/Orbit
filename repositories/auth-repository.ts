@@ -215,12 +215,58 @@ export const authRepository = {
   },
 
   async forgotPassword(email: string): Promise<void> {
+    const { markResetEmailSent, sendMockResetEmail } = await import('@/lib/auth/password-reset');
+
     if (isMockMode()) {
+      // No mail server in mock mode — the email lands in the in-app inbox instead.
+      sendMockResetEmail(email);
+      markResetEmailSent();
       return;
     }
 
     const supabase = getConfiguredSupabase('authRepository.forgotPassword');
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    const { getEmailConfirmRedirectUrl } = await import('@/lib/auth/email-confirmation');
+    // Without a redirect the link lands on Supabase's site, not back in the app.
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: getEmailConfirmRedirectUrl(),
+    });
+    markResetEmailSent();
+    if (error) {
+      throwMappedAuthError(error);
+    }
+  },
+
+  /** The 6-digit code from the reset email — the fallback when the link won't open. */
+  async verifyPasswordResetCode(email: string, code: string): Promise<void> {
+    const { mockCodeMatches, normalizeResetCode } = await import('@/lib/auth/password-reset');
+    const cleaned = normalizeResetCode(code);
+
+    if (isMockMode()) {
+      if (!mockCodeMatches(email, cleaned)) {
+        throwAuthIssue('generic', { message: 'That code does not match the one we sent.' });
+      }
+      return;
+    }
+
+    const supabase = getConfiguredSupabase('authRepository.verifyPasswordResetCode');
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: cleaned,
+      type: 'recovery',
+    });
+    if (error) {
+      throwMappedAuthError(error);
+    }
+  },
+
+  /** Save the new password. Needs the recovery session the link or code just created. */
+  async setNewPassword(password: string): Promise<void> {
+    if (isMockMode()) {
+      return;
+    }
+
+    const supabase = getConfiguredSupabase('authRepository.setNewPassword');
+    const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       throwMappedAuthError(error);
     }

@@ -52,10 +52,16 @@ const TIER_ADVANCED_KEYS = [
   'notificationActions',
 ] as const satisfies readonly (keyof PoppinsInteractionPrefs)[];
 
-/** Base is Quiet (1 action). Max is the same Guided defaults with Speak back on. */
-export function prefsForTier(tier: 'base' | 'max'): PoppinsInteractionPrefs {
+/** Base is Quiet (1 action). Max is the same Guided defaults with Speak back on.
+ * WO15 §1.3 — preserve advanced knobs across a tier switch; only `speakBack` flips.
+ */
+export function prefsForTier(
+  tier: 'base' | 'max',
+  current?: PoppinsInteractionPrefs
+): PoppinsInteractionPrefs {
+  const keep = current ?? DEFAULT_POPPINS_INTERACTION_PREFS;
   return {
-    ...DEFAULT_POPPINS_INTERACTION_PREFS,
+    ...keep,
     speakBack: tier === 'max',
   };
 }
@@ -65,8 +71,10 @@ export function prefsForTier(tier: 'base' | 'max'): PoppinsInteractionPrefs {
  * knob that left the preset clears the highlight.
  */
 export function poppinsTier(prefs: PoppinsInteractionPrefs): PoppinsTier {
-  const preset = prefsForTier(prefs.speakBack ? 'max' : 'base');
-  const tuned = TIER_ADVANCED_KEYS.some((key) => prefs[key] !== preset[key]);
+  // Compare advanced keys against defaults — not against a wiped tier snapshot.
+  const tuned = TIER_ADVANCED_KEYS.some(
+    (key) => prefs[key] !== DEFAULT_POPPINS_INTERACTION_PREFS[key]
+  );
   if (tuned) return 'custom';
   return prefs.speakBack ? 'max' : 'base';
 }

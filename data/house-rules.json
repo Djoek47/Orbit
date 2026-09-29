@@ -142,7 +142,11 @@
       "adminLabel": "Earning",
       "sidekickLabel": "Points",
       "accent": "ember",
-      "sidekickColor": "grape"
+      "sidekickColor": "grape",
+      "id": "earning",
+      "title": "Earning",
+      "description": "How points get earned",
+      "icon": "trending-up"
     },
     {
       "key": "deadlines",
@@ -150,7 +154,11 @@
       "adminLabel": "Deadlines",
       "sidekickLabel": "The bell",
       "accent": "olive",
-      "sidekickColor": "mango"
+      "sidekickColor": "mango",
+      "id": "deadlines",
+      "title": "Deadlines",
+      "description": "When the day ends",
+      "icon": "schedule"
     },
     {
       "key": "streaks",
@@ -158,7 +166,11 @@
       "adminLabel": "Streaks",
       "sidekickLabel": "Your streak",
       "accent": "olive",
-      "sidekickColor": "mint"
+      "sidekickColor": "mint",
+      "id": "streaks",
+      "title": "Streaks",
+      "description": "Keep showing up",
+      "icon": "local-fire-department"
     },
     {
       "key": "crowns",
@@ -166,7 +178,11 @@
       "adminLabel": "Crowns",
       "sidekickLabel": "Crowns",
       "accent": "ember",
-      "sidekickColor": "punch"
+      "sidekickColor": "punch",
+      "id": "crowns",
+      "title": "Crowns",
+      "description": "Who leads the week",
+      "icon": "emoji-events"
     },
     {
       "key": "rewards",
@@ -174,7 +190,11 @@
       "adminLabel": "Rewards",
       "sidekickLabel": "Prizes",
       "accent": "ember",
-      "sidekickColor": "ink"
+      "sidekickColor": "ink",
+      "id": "rewards",
+      "title": "Rewards",
+      "description": "What points can buy",
+      "icon": "card-giftcard"
     },
     {
       "key": "proof",
@@ -182,7 +202,11 @@
       "adminLabel": "Proof",
       "sidekickLabel": "Photos",
       "accent": "olive",
-      "sidekickColor": "ink"
+      "sidekickColor": "ink",
+      "id": "proof",
+      "title": "Proof",
+      "description": "Photo when it matters",
+      "icon": "photo-camera"
     },
     {
       "key": "household",
@@ -190,7 +214,11 @@
       "adminLabel": "Household",
       "sidekickLabel": "Who does what",
       "accent": "olive",
-      "sidekickColor": "ink"
+      "sidekickColor": "ink",
+      "id": "household",
+      "title": "Household",
+      "description": "Who is in charge",
+      "icon": "home"
     }
   ],
   "rules": [
@@ -208,7 +236,8 @@
       "sidekick": {
         "headline": "Every job is worth points",
         "body": "A quick job is worth 5. A big one is worth 30. Beat the deadline and you keep every point."
-      }
+      },
+      "chapterId": "earning"
     },
     {
       "id": "EARN-02",
@@ -224,7 +253,8 @@
       "sidekick": {
         "headline": "Finish a whole set, get a bonus",
         "body": "Clear every job in one group before the bell and you get 10 extra points. If one was late, you get 7."
-      }
+      },
+      "chapterId": "earning"
     },
     {
       "id": "EARN-03",
@@ -240,7 +270,8 @@
       "sidekick": {
         "headline": "Points arrive instantly",
         "body": "The moment you tap Complete, the points are yours. Nobody has to approve them first."
-      }
+      },
+      "chapterId": "earning"
     },
     {
       "id": "EARN-04",
@@ -256,7 +287,8 @@
       "sidekick": {
         "headline": "Only you can finish your jobs",
         "body": "Nobody can tap Complete for you, not even an admin. They can take an unfinished job off your list, but they can't do it for you."
-      }
+      },
+      "chapterId": "earning"
     },
     {
       "id": "EARN-05",
@@ -272,7 +304,8 @@
       "sidekick": {
         "headline": "Hygiene jobs work differently",
         "body": "Brushing and showering pay no points on purpose. They feed your streak instead, and the streak is the harder thing to earn."
-      }
+      },
+      "chapterId": "earning"
     },
     {
       "id": "EARN-06",
@@ -288,7 +321,8 @@
       "sidekick": {
         "headline": "An admin sets your list",
         "body": "Only an admin hands out jobs, asks for a photo, or approves allowance."
-      }
+      },
+      "chapterId": "earning"
     },
     {
       "id": "DEAD-01",
@@ -305,7 +339,8 @@
       "sidekick": {
         "headline": "The bell rings at {dailyDeadline}",
         "body": "Weekly jobs are due Sunday. Monthly jobs on the last Sunday of the month. An admin can move the bell, and you'll see the new time here."
-      }
+      },
+      "chapterId": "deadlines"
     },
     {
       "id": "DEAD-02",
@@ -321,7 +356,8 @@
       "sidekick": {
         "headline": "Poppins warns you first",
         "body": "A reminder lands 30 minutes before anything is due, so you always get a heads-up."
-      }
+      },
+      "chapterId": "deadlines"
     },
     {
       "id": "DEAD-03",
@@ -337,7 +373,8 @@
       "sidekick": {
         "headline": "Late still counts",
         "body": "You still earn points, just fewer of them — a 10 becomes a 7. Your streak stays safe, so finishing late always beats not finishing."
-      }
+      },
+      "chapterId": "deadlines"
     },
     {
       "id": "DEAD-04",
@@ -353,7 +390,8 @@
       "sidekick": {
         "headline": "At {expiryTime} the day closes",
         "body": "Whatever is left expires. Tomorrow brings a fresh list."
-      }
+      },
+      "chapterId": "deadlines"
     },
     {
       "id": "DEAD-05",
@@ -369,7 +407,8 @@
       "sidekick": {
         "headline": "Expired jobs get their own tab",
         "body": "A missed job sits there for a week so you can see what slipped, then it clears itself out."
-      }
+      },
+      "chapterId": "deadlines"
     },
     {
       "id": "DEAD-06",
@@ -385,7 +424,8 @@
       "sidekick": {
         "headline": "Weekly jobs can't hurt your streak",
         "body": "Miss one and you lose the points, but the streak keeps running."
-      }
+      },
+      "chapterId": "deadlines"
     },
     {
       "id": "DEAD-07",
@@ -402,7 +442,8 @@
       "sidekick": {
         "headline": "Jobs run on a schedule",
         "body": "Some jobs come back every day, some every week, some once a month. An admin decides which."
-      }
+      },
+      "chapterId": "deadlines"
     },
     {
       "id": "DEAD-08",
@@ -418,7 +459,8 @@
       "sidekick": {
         "headline": "Missed jobs leave after a week",
         "body": "Missed tasks stay in Expired for 7 days, then they disappear."
-      }
+      },
+      "chapterId": "deadlines"
     },
     {
       "id": "STRK-01",
@@ -434,7 +476,8 @@
       "sidekick": {
         "headline": "Daily jobs keep it alive",
         "body": "Only your everyday jobs count toward the streak."
-      }
+      },
+      "chapterId": "streaks"
     },
     {
       "id": "STRK-02",
@@ -450,7 +493,8 @@
       "sidekick": {
         "headline": "Three misses ends it",
         "body": "Three days in a row, or three days inside one week — either one breaks it."
-      }
+      },
+      "chapterId": "streaks"
     },
     {
       "id": "STRK-03",
@@ -466,7 +510,8 @@
       "sidekick": {
         "headline": "You can buy a day back",
         "body": "One missed day costs 10% of the week's points. Two costs 20%. After a third, the streak is gone for good."
-      }
+      },
+      "chapterId": "streaks"
     },
     {
       "id": "STRK-04",
@@ -483,7 +528,8 @@
       "sidekick": {
         "headline": "Recess pauses everything",
         "body": "Going away? Your streak waits for you. Leave on twelve days, come back on twelve days."
-      }
+      },
+      "chapterId": "streaks"
     },
     {
       "id": "CROWN-01",
@@ -499,7 +545,8 @@
       "sidekick": {
         "headline": "The Week's Crown",
         "body": "Most points across the week takes it. The last Sunday of the month decides the Monthly Sovereign."
-      }
+      },
+      "chapterId": "crowns"
     },
     {
       "id": "CROWN-02",
@@ -515,7 +562,8 @@
       "sidekick": {
         "headline": "Beat your own best week",
         "body": "There's nobody else to race, so you're racing you. Finish the week above your best one yet and the crown is yours."
-      }
+      },
+      "chapterId": "crowns"
     },
     {
       "id": "CROWN-03",
@@ -531,7 +579,8 @@
       "sidekick": {
         "headline": "Gold, silver, bronze",
         "body": "First is gold, second is silver, third is bronze."
-      }
+      },
+      "chapterId": "crowns"
     },
     {
       "id": "CROWN-04",
@@ -547,7 +596,8 @@
       "sidekick": {
         "headline": "A tie means you both win",
         "body": "Same points, same place. A draw never pushes anyone down."
-      }
+      },
+      "chapterId": "crowns"
     },
     {
       "id": "CROWN-05",
@@ -563,7 +613,8 @@
       "sidekick": {
         "headline": "Look back at any week",
         "body": "The sheet shows what you finished, how much was on time, and what ran late — this week and every week before it."
-      }
+      },
+      "chapterId": "crowns"
     },
     {
       "id": "CROWN-06",
@@ -579,7 +630,8 @@
       "sidekick": {
         "headline": "Your Champion's Record",
         "body": "Every crown you've won is kept there for good — and so is everyone else's."
-      }
+      },
+      "chapterId": "crowns"
     },
     {
       "id": "CROWN-07",
@@ -595,7 +647,8 @@
       "sidekick": {
         "headline": "Trophies never reset",
         "body": "Trophies count every point you've ever earned. The biggest one, Most Glorious, waits at 100,000."
-      }
+      },
+      "chapterId": "crowns"
     },
     {
       "id": "RWRD-01",
@@ -612,7 +665,8 @@
       "sidekick": {
         "headline": "How your prizes work",
         "body": "Your family picks the setup — points, allowance, real rewards, or all of it together."
-      }
+      },
+      "chapterId": "rewards"
     },
     {
       "id": "RWRD-02",
@@ -629,7 +683,8 @@
       "sidekick": {
         "headline": "Prizes come from finishing the day",
         "body": "Tasks and homework, both done. Your family decides what the prize is."
-      }
+      },
+      "chapterId": "rewards"
     },
     {
       "id": "RWRD-03",
@@ -645,7 +700,8 @@
       "sidekick": {
         "headline": "Hold to ask for a prize",
         "body": "Press and hold any prize to ask for it. If today's work is done, your request goes through. If not, you'll be asked to finish first."
-      }
+      },
+      "chapterId": "rewards"
     },
     {
       "id": "RWRD-04",
@@ -662,7 +718,8 @@
       "sidekick": {
         "headline": "Some prizes need a yes",
         "body": "Some arrive the moment you ask. Others wait for an admin, even after your day is done."
-      }
+      },
+      "chapterId": "rewards"
     },
     {
       "id": "RWRD-05",
@@ -679,7 +736,8 @@
       "sidekick": {
         "headline": "Allowance is counted here",
         "body": "ChoreMaxx keeps the tally. The money itself comes from your family."
-      }
+      },
+      "chapterId": "rewards"
     },
     {
       "id": "RWRD-06",
@@ -695,7 +753,8 @@
       "sidekick": {
         "headline": "Your family can invent prizes",
         "body": "Any prize you can think of can be added to the list."
-      }
+      },
+      "chapterId": "rewards"
     },
     {
       "id": "RWRD-07",
@@ -712,7 +771,8 @@
       "sidekick": {
         "headline": "Ask for an amount",
         "body": "Pick how much you'd like, up to what you've earned, then hold to send it. Your day has to be finished first, and an admin says yes or no."
-      }
+      },
+      "chapterId": "rewards"
     },
     {
       "id": "PROOF-01",
@@ -729,7 +789,8 @@
       "sidekick": {
         "headline": "An admin might ask for a photo",
         "body": "Only on chores you've already finished. It's a check, not a test."
-      }
+      },
+      "chapterId": "proof"
     },
     {
       "id": "PROOF-02",
@@ -746,7 +807,8 @@
       "sidekick": {
         "headline": "Homework needs a photo",
         "body": "Take one when you're done so an admin can check it off."
-      }
+      },
+      "chapterId": "proof"
     },
     {
       "id": "HOUS-01",
@@ -762,7 +824,8 @@
       "sidekick": {
         "headline": "You're a Sidekick",
         "body": "You finish your own jobs, ask for prizes, and follow your own record and crowns."
-      }
+      },
+      "chapterId": "household"
     },
     {
       "id": "HOUS-02",
@@ -779,7 +842,8 @@
       "sidekick": {
         "headline": "Your invite is yours alone",
         "body": "An admin sent you a link of your own. It works once and lasts a week."
-      }
+      },
+      "chapterId": "household"
     },
     {
       "id": "HOUS-03",
@@ -795,7 +859,8 @@
       "sidekick": {
         "headline": "Rules can change",
         "body": "If an admin changes something here, your version updates too. Worth a look if the house feels different."
-      }
+      },
+      "chapterId": "household"
     }
   ],
   "tokens": {

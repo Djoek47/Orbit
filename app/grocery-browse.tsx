@@ -6,6 +6,8 @@ import { useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { EmptyState } from '@/components/orbit/empty-state';
 import { space, typography } from '@/constants/orbit-theme';
@@ -39,9 +41,10 @@ export default function GroceryBrowseScreen() {
         <Pressable onPress={() => router.back()}>
           <Text style={[typography.subheadline, { color: c.accent }]}>‹ Groceries</Text>
         </Pressable>
-        <Text style={[typography.title3, { color: c.text }]}>
-          {browse ? `${browse.icon} ${browse.name}` : 'Browse'}
-        </Text>
+        <View style={styles.headTitle}>
+          {browse ? <Moji emoji={browse.icon} size={20} /> : null}
+          <Text style={[typography.title3, { color: c.text }]}>{browse?.name ?? 'Browse'}</Text>
+        </View>
         <View style={{ width: 72 }} />
       </View>
 
@@ -57,7 +60,7 @@ export default function GroceryBrowseScreen() {
                 styles.row,
                 { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
               ]}>
-              <Text style={styles.icon}>{item.icon}</Text>
+              <Moji emoji={item.icon} size={26} style={styles.icon} />
               <View style={{ flex: 1 }}>
                 <Text style={[typography.subheadline, { color: c.text, fontWeight: '600' }]}>
                   {item.name}
@@ -67,7 +70,7 @@ export default function GroceryBrowseScreen() {
                 ) : null}
               </View>
               <Pressable onPress={() => toggleGroceryFavorite(item.id)} hitSlop={8}>
-                <Text style={{ fontSize: 18 }}>{fav ? '★' : '☆'}</Text>
+                <MaterialIcons name={fav ? 'star' : 'star-outline'} size={20} color={fav ? c.warning : c.textSubtle} />
               </Pressable>
               {canAddGroceryWishlist ? (
                 <Pressable
@@ -111,7 +114,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
-  icon: { fontSize: 22, width: 28, textAlign: 'center' },
+  icon: { width: 28 },
+  headTitle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   add: {
     paddingHorizontal: 12,
     paddingVertical: 6,

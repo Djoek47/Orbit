@@ -119,11 +119,11 @@ if (meSteer.kind === 'revise') assert.equal(meSteer.patch.assignee, 'Alex');
 
 assert.equal(
   formatStageTapUserLine({ kind: 'category', text: 'Kitchen' }),
-  'On the IUI I chose Kitchen.'
+  'On screen I chose Kitchen.'
 );
 assert.equal(
   formatStageTapUserLine({ kind: 'confirm', text: 'assign now' }),
-  'On the IUI I chose assign now.'
+  'On screen I chose assign now.'
 );
 
 assert.equal(classifyIuiVoiceError('Invalid_request: unknown_parameter'), 'unavailable');

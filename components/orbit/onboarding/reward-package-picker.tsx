@@ -17,6 +17,7 @@ import {
   type RewardPackageId,
 } from '@/lib/rewards/reward-packages';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 
 type RewardPackagePickerProps = {
@@ -66,7 +67,7 @@ function PackageCard({
           ]}>
           <View style={styles.cardTop}>
             <View style={[styles.emojiWrap, { backgroundColor: `${accent}22` }]}>
-              <Text style={styles.emoji}>{pack.emoji}</Text>
+              <Moji emoji={pack.emoji} size={28} />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
               <View style={styles.titleRow}>
@@ -164,9 +165,6 @@ const styles = StyleSheet.create({
     height: 52,
     justifyContent: 'center',
     width: 52,
-  },
-  emoji: {
-    fontSize: 26,
   },
   titleRow: {
     alignItems: 'center',

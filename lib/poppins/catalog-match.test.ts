@@ -105,9 +105,11 @@ assert.equal(isGroceryAddIntent('add 2% milk'), true);
 {
   const out = parseCompoundHouseholdIntent("we're out of eggs and bread");
   const groceries = out.filter((a) => String(a.type) === 'add_grocery');
-  assert.equal(groceries.length, 1, `expected one grocery act, got ${JSON.stringify(out)}`);
-  assert.match(String(groceries[0]?.name ?? ''), /eggs/i);
-  assert.match(String(groceries[0]?.name ?? ''), /bread/i);
+  assert.equal(groceries.length, 2, `expected two grocery acts, got ${JSON.stringify(out)}`);
+  assert.deepEqual(
+    groceries.map((a) => String(a.name)).sort(),
+    ['Bread', 'Eggs'].sort()
+  );
 }
 
 {

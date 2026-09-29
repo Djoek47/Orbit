@@ -87,6 +87,34 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'forbidden' }, 403);
     }
 
+    // Device receipt for the admin activity log (profile-code devices have no JWT).
+    if (action === 'log_receipt') {
+      const kind = String(body.kind ?? '');
+      if (kind !== 'notification_received' && kind !== 'notification_opened') {
+        return jsonResponse({ error: 'invalid_kind' }, 400);
+      }
+      const device = typeof body.device === 'string' ? body.device.slice(0, 120) : null;
+      const detail =
+        body.detail && typeof body.detail === 'object' && !Array.isArray(body.detail)
+          ? body.detail
+          : {};
+      const { error } = await admin.from('activity_log').insert({
+        household_id: member.household_id,
+        kind,
+        notification_id: notificationId,
+        member_id: member.id,
+        title: row.title,
+        body: row.body,
+        category: row.category,
+        device,
+        detail: { ...detail, via: 'sidekick' },
+      });
+      if (error) {
+        return jsonResponse({ error: error.message }, 500);
+      }
+      return jsonResponse({ ok: true });
+    }
+
     if (action === 'mark_read') {
       const { data: updated, error } = await admin
         .from('notifications')

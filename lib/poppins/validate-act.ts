@@ -124,9 +124,13 @@ function primarySlot(scene: IuiScene, payload: IuiPayload): {
   required: boolean;
 } {
   if (scene === 'grocery_add') {
+    const fromItems = payload.items
+      ?.filter((item) => !item.dropped && item.label.trim())
+      .map((item) => item.label)
+      .join(', ');
     return {
       slot: 'groceryName',
-      value: payload.groceryName ?? payload.title,
+      value: payload.groceryName ?? payload.title ?? fromItems,
       required: true,
     };
   }
@@ -186,7 +190,18 @@ export function validateAct(payload: IuiPayload, scene: IuiScene): ActValidation
     provisional: payload.provisional === true,
     allowEmpty: !required,
   });
-  return rejected ?? { ok: true };
+  if (rejected) return rejected;
+
+  // WO16 §1.1 — Narrow grocery never commits the mangled transcript without a chip.
+  if (
+    (scene === 'grocery_add' || write === 'add_grocery') &&
+    payload.narrow === true &&
+    !payload.selectedChipId
+  ) {
+    return { ok: false, slot: 'groceryName', reason: 'unconfident' };
+  }
+
+  return { ok: true };
 }
 
 /** Clear the rejected slot so Guided can remount the picker. */

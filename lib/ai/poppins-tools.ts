@@ -44,6 +44,8 @@ export type PoppinsToolName =
   | 'complete_task'
   | 'create_calendar_event'
   | 'create_itinerary'
+  | 'resolve_place'
+  | 'list_saved_places'
   | 'advance_itinerary_stop'
   | 'claim_reward'
   | 'navigate_to'
@@ -194,7 +196,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'add_grocery',
     description:
-      'Groceries and household supplies belong to the whole household. Never ask who they are for and never pass an assignee. Use this — not create_task_draft — for anything to buy. Stage an item on the IUI grocery/shopping card. HOLD silence commits. Clothing, sneakers, Jordan drops go on the shopping lane. If it releases in the future, also call create_calendar_event for that date. Never navigate_to Groceries unless they asked to open the list themselves.',
+      'Groceries and household supplies belong to the whole household. Never ask who they are for and never pass an assignee. A grocery or shopping-list item is never assigned to a person. Never emit member_pick, list_members or an assignee for add_grocery. Use this — not create_task_draft — for anything to buy. Stage an item on screen as a grocery/shopping card. HOLD silence commits. Clothing, sneakers, Jordan drops go on the shopping lane. If it releases in the future, also call create_calendar_event for that date. Never navigate_to Groceries unless they asked to open the list themselves.',
     parameters: {
       type: 'object',
       properties: {
@@ -364,7 +366,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'create_task_draft',
     description:
-      'Assign a household task on the IUI stage. Pass a short chore name (“Wash the car”, “tend to the dishes”), never the spoken sentence (“I’ll set a task to…”). If the household already has a close open task, reuse that title. Pass libraryTaskId when it is a catalog chore. Pass assignee when they said me or a member name. Pass category kitchen_dining when they said dishes/kitchen. HOLD writes the task — never say draft. One short spoken sentence per beat; wait for tap or HOLD. Items to buy (food, supplies, clothes) are not tasks — use add_grocery.',
+      'Assign a household task on screen only when the person used an explicit task verb (add a task/chore, assign, remind someone to). Mentioning an activity (cooking, dinner, a plan) is not a task request — do not invent a task from context. Pass a short chore name (“Wash the car”, “tend to the dishes”), never the spoken sentence (“I’ll set a task to…”). If the household already has a close open task, reuse that title. Pass libraryTaskId when it is a catalog chore. Pass assignee when they said me or a member name. Pass category kitchen_dining when they said dishes/kitchen. HOLD writes the task — never say draft. One short spoken sentence per beat; wait for tap or HOLD. Items to buy (food, supplies, clothes) are not tasks — use add_grocery.',
     parameters: {
       type: 'object',
       properties: {
@@ -418,7 +420,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'complete_task',
     description:
-      'Mark a task complete by id or title. Stages the IUI Done check (green). Do not ask them to open Tasks.',
+      'Mark a task complete by id or title. Shows the Done check on screen (green). Do not ask them to open Tasks.',
     parameters: {
       type: 'object',
       properties: {
@@ -436,7 +438,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'create_calendar_event',
     description:
-      'Stage a calendar event on the IUI stage (lattice → card). HOLD silence commits. Use navigate_to /create-event only if they asked for the full editor.',
+      'Put a calendar event on screen. HOLD silence commits. Use navigate_to /create-event only if they asked for the full editor.',
     parameters: {
       type: 'object',
       properties: {
@@ -462,21 +464,66 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'create_itinerary',
     description:
-      'Stage a Plan stop on the IUI itinerary stage. HOLD silence commits. Use navigate_to /create-itinerary only if they asked for the full editor.',
+      'Stage a multi-stop Plan trip on screen (any number of ordered stops). HOLD silence commits the whole trip. Never invent addresses — call resolve_place or list_saved_places. Unresolved places still stage with a label. Use navigate_to /create-itinerary only if they asked for the full editor.',
     parameters: {
       type: 'object',
       properties: {
         title: {
           type: 'string',
           description:
-            'Short name the user said. Never invent a placeholder like "something" or "task". If they did not name it, OMIT this field — the app will ask.',
+            'Short trip name. Never invent a placeholder like "something". If unnamed, OMIT — the app will ask.',
         },
+        date: { type: 'string' },
         startsAt: { type: 'string' },
         notes: { type: 'string' },
+        stops: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 10,
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string' },
+              placeQuery: { type: 'string' },
+              address: { type: 'string' },
+              time: { type: 'string' },
+              kind: {
+                type: 'string',
+                enum: ['shop', 'school', 'work', 'gym', 'appointment', 'other', 'practice', 'pickup'],
+              },
+              notes: { type: 'string' },
+            },
+            required: ['label'],
+            additionalProperties: false,
+          },
+        },
       },
       additionalProperties: false,
     },
     risk: 'safe_serial',
+  },
+  {
+    name: 'resolve_place',
+    description:
+      'Resolve a place query to the best saved household place first, then a geocoded suggestion. Never invent an address — call this instead.',
+    parameters: {
+      type: 'object',
+      properties: { query: { type: 'string' } },
+      required: ['query'],
+      additionalProperties: false,
+    },
+    risk: 'safe_parallel',
+  },
+  {
+    name: 'list_saved_places',
+    description:
+      'List the household saved places (work, school, gym, …) so itinerary stops can reuse real addresses.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    },
+    risk: 'safe_parallel',
   },
   {
     name: 'advance_itinerary_stop',
@@ -503,7 +550,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'navigate_to',
     description:
-      'Coach-navigate ONLY when they asked to drive a human screen (Settings, billing, House Rules, or “open Assign so I can pick it myself”). Never use this for add-task, dishes, kitchen, groceries, or shopping — those are create_task_draft / add_grocery / complete_task on the IUI stage. Never say “I can open that for you” or “I’ll draft a task”.',
+      'Coach-navigate ONLY when they asked to drive a human screen (Settings, billing, House Rules, or “open Assign so I can pick it myself”). Never use this for add-task, dishes, kitchen, groceries, or shopping — those are create_task_draft / add_grocery / complete_task on screen. Never say “I can open that for you” or “I’ll draft a task”.',
     parameters: {
       type: 'object',
       properties: {
@@ -519,7 +566,7 @@ export const POPPINS_TOOL_DEFINITIONS: PoppinsToolDefinition[] = [
   {
     name: 'present_ui_scene',
     description:
-      'Advance a closed IUI beat (thinking, task_compose, calendar_zoom, itinerary_stage, grocery_add, reward_mint, list_peek, member_pick, confirm, navigate_coach, task_done, result_mark). Never invent widgets. Prefer create_task_draft / add_grocery over navigate_coach. After HOLD, the task exists — say assigned, never draft.',
+      'Advance what is on screen to a known scene (thinking, task_compose, calendar_zoom, itinerary_stage, grocery_add, reward_mint, list_peek, member_pick, confirm, navigate_coach, task_done, result_mark). Never invent widgets. Prefer create_task_draft / add_grocery over navigate_coach. After HOLD, the task exists — say assigned, never draft. A grocery or shopping-list item is never assigned to a person — never emit member_pick, list_members or an assignee for add_grocery / grocery_add.',
     parameters: {
       type: 'object',
       properties: {

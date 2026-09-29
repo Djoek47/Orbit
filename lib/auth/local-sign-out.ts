@@ -65,6 +65,18 @@ export async function signOutEverywhere(): Promise<void> {
   } catch (error) {
     console.warn('signOut.teardownVoice', error);
   }
+  // The stage is a module singleton: without this, the next person to sign in on this
+  // phone meets the last person's "All set" (or their half-built card, restored).
+  try {
+    const [{ poppinsUiOrchestrator }, { clearIuiContinuity }] = await Promise.all([
+      import('@/lib/poppins/ui-orchestrator'),
+      import('@/lib/poppins/iui-continuity'),
+    ]);
+    poppinsUiOrchestrator.clear();
+    await clearIuiContinuity();
+  } catch (error) {
+    console.warn('signOut.resetStage', error);
+  }
 
   const supabase = getSupabaseClient();
   if (supabase) {

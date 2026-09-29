@@ -8,6 +8,8 @@ import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MemberGlyph } from '@/components/orbit/member-glyph';
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { radius, space, typography } from '@/constants/orbit-theme';
@@ -135,7 +137,7 @@ export default function AssignHomeworkScreen() {
                   {photo ? (
                     <Image source={{ uri: member.avatar }} style={styles.avatarImage} />
                   ) : (
-                    <Text style={styles.avatarEmoji}>{memberDisplayEmoji(member)}</Text>
+                    <MemberGlyph member={member} size={18} />
                   )}
                 </View>
                 <Text style={[styles.personName, { color: c.text }]} numberOfLines={1}>
@@ -164,8 +166,9 @@ export default function AssignHomeworkScreen() {
                     backgroundColor: active ? `${c.planPurple}22` : glass(0.05),
                   },
                 ]}>
+                <Moji emoji={chip.emoji} size={14} />
                 <Text style={[styles.chipText, { color: active ? c.planPurple : c.text }]}>
-                  {chip.emoji} {chip.label}
+                  {chip.label}
                 </Text>
               </Pressable>
             );
@@ -328,6 +331,9 @@ const styles = StyleSheet.create({
   personName: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderCurve: 'continuous',
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,

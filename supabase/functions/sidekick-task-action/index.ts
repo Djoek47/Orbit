@@ -92,7 +92,36 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'submit_proof') {
-      const proofUri = String(body.proofUri ?? '').trim();
+      let proofUri = String(body.proofUri ?? '').trim();
+      const proofBase64 = String(body.proofBase64 ?? '').trim();
+      const proofMime = String(body.proofMime ?? 'image/jpeg').trim() || 'image/jpeg';
+      const proofExt = String(body.proofExt ?? 'jpg').trim().replace(/[^a-z0-9]/gi, '') || 'jpg';
+
+      // Prefer bytes from the Sidekick device — local file:// URIs are useless on admin devices.
+      if (proofBase64) {
+        const path = `${member.household_id}/${taskId}/${Date.now()}.${proofExt}`;
+        const binary = atob(proofBase64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+        const { error: uploadError } = await admin.storage.from('task-proofs').upload(path, bytes, {
+          contentType: proofMime,
+          upsert: true,
+        });
+        if (uploadError) {
+          return jsonResponse({ error: uploadError.message || 'proof_upload_failed' }, 500);
+        }
+
+        const { data: pub } = admin.storage.from('task-proofs').getPublicUrl(path);
+        proofUri = pub?.publicUrl ?? proofUri;
+
+        await admin.from('task_proofs').insert({
+          task_id: taskId,
+          household_id: member.household_id,
+          storage_path: path,
+        });
+      }
+
       if (!proofUri) {
         return jsonResponse({ error: 'proof_uri_required' }, 400);
       }
@@ -100,11 +129,21 @@ Deno.serve(async (req) => {
       const nextStatus =
         task.status === 'pending' || task.status === 'overdue' ? 'in_progress' : task.status;
 
+      const existingUrls = Array.isArray(task.proof_photo_urls)
+        ? (task.proof_photo_urls as string[]).filter((u) => typeof u === 'string' && u.trim())
+        : [];
+      if (task.proof_uri && !existingUrls.includes(String(task.proof_uri))) {
+        existingUrls.unshift(String(task.proof_uri));
+      }
+      if (!existingUrls.includes(proofUri)) existingUrls.push(proofUri);
+
       const { data: updated, error: updateError } = await admin
         .from('tasks')
         .update({
           proof_uri: proofUri,
+          proof_photo_urls: existingUrls,
           proof_status: 'submitted',
+          verification: 'unreviewed',
           status: nextStatus,
           updated_at: new Date().toISOString(),
         })
@@ -131,6 +170,7 @@ Deno.serve(async (req) => {
           taskId,
           memberName: member.display_name,
           task: task.title,
+          proofUri,
         },
       });
 

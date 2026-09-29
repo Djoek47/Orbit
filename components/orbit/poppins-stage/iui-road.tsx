@@ -6,6 +6,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { motion } from '@/constants/motion-tokens';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -37,7 +38,7 @@ export function IuiRoad({ stop, accent, drawRoad = true }: Props) {
         <Animated.View style={[styles.road, { backgroundColor: `${accent}88` }, road]} />
       ) : null}
       <View style={[styles.stop, { borderColor: `${accent}66`, backgroundColor: `${accent}18` }]}>
-        <Text style={styles.emoji}>{stop.emoji ?? '📍'}</Text>
+        <Moji emoji={stop.emoji ?? '📍'} size={24} />
         <Text style={[styles.label, { color: c.text }]}>{stop.label}</Text>
       </View>
     </View>
@@ -61,6 +62,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     minWidth: 200,
   },
-  emoji: { fontSize: 22 },
   label: { fontSize: 18, fontWeight: '600' },
 });

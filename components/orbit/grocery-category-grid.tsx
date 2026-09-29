@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { typography } from '@/constants/orbit-theme';
 import { listBrowseCategories, type BrowseCategory } from '@/lib/grocery/catalog';
@@ -27,7 +28,7 @@ export function GroceryCategoryGrid({ onSelect }: Props) {
               borderColor: glassBorder(0.1),
             },
           ]}>
-          <Text style={styles.icon}>{cat.icon}</Text>
+          <Moji emoji={cat.icon} size={26} />
           <Text
             style={[typography.caption1, { color: c.text, fontWeight: '600', textAlign: 'center' }]}
             numberOfLines={2}>
@@ -57,5 +58,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  icon: { fontSize: 22 },
 });

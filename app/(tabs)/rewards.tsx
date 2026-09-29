@@ -3,7 +3,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Moji } from '@/components/orbit/moji/moji';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
+import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -52,6 +54,7 @@ import {
 import { rankCrownPeriod, type ChampionsRecord } from '@/lib/scoring/crowns';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import type { XpLedgerEntry } from '@/lib/streaks/xp-ledger';
+import { registerTourUiHooks } from '@/lib/tour/tour-store';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
@@ -122,7 +125,7 @@ function SharedTabletChip({ device }: { device: HouseholdMember }) {
         styles.deviceChip,
         { backgroundColor: glass(0.06), borderColor: glassBorder(0.12) },
       ]}>
-      <Text style={{ fontSize: 11 }}>{device.avatar || '📱'}</Text>
+      {device.avatar ? <Text style={{ fontSize: 11 }}>{device.avatar}</Text> : <Moji name="phone" size={12} />}
       <Text style={[typography.caption2, { color: c.textMuted }]} numberOfLines={1}>
         {device.name}
       </Text>
@@ -264,6 +267,47 @@ export default function RewardsScreen() {
     setSurface(next);
     router.setParams({ surface: next } as never);
   };
+
+  useEffect(() => {
+    return registerTourUiHooks({
+      setRewardsSegment: (segment) => {
+        if (segment === 'allowance' && !showAllowance) return;
+        if (segment === 'rewards' && !showRewards) return;
+        if (segment === 'ranks' && !showRanks) return;
+        setSurface(segment);
+        router.setParams({ surface: segment } as never);
+      },
+    });
+  }, [showAllowance, showRanks, showRewards]);
+
+  const tour = useTourControls();
+  useEffect(() => {
+    const id = tour?.activeStepId;
+    if (!id?.startsWith('rewards.')) return;
+    if (
+      id === 'rewards.vault' ||
+      id === 'rewards.create' ||
+      id === 'rewards.approve' ||
+      id === 'rewards.howXp'
+    ) {
+      if (showRewards) {
+        setSurface('rewards');
+        router.setParams({ surface: 'rewards' } as never);
+      }
+      return;
+    }
+    if (id === 'rewards.allowanceIntro' || id === 'rewards.allowance') {
+      if (showAllowance) {
+        setSurface('allowance');
+        router.setParams({ surface: 'allowance' } as never);
+      }
+      return;
+    }
+    if (id === 'rewards.ranks' && showRanks) {
+      setSurface('ranks');
+      router.setParams({ surface: 'ranks' } as never);
+    }
+  }, [tour?.activeStepId, showAllowance, showRanks, showRewards]);
 
   const vaultMembers = useMemo(
     () =>
@@ -586,9 +630,8 @@ export default function RewardsScreen() {
           <View style={[styles.segment, { backgroundColor: glass(0.06) }]}>
         {surfaceTabs.map((tab) => {
           const active = surface === tab.id;
-          return (
+          const chip = (
             <Pressable
-              key={tab.id}
               onPress={() => selectSurface(tab.id)}
               style={[
                 styles.segmentChip,
@@ -607,6 +650,21 @@ export default function RewardsScreen() {
               </Text>
             </Pressable>
           );
+          if (tab.id === 'allowance') {
+            return (
+              <TourTarget id="rewards.allowanceTab" key={tab.id} style={{ flex: 1 }}>
+                {chip}
+              </TourTarget>
+            );
+          }
+          if (tab.id === 'ranks') {
+            return (
+              <TourTarget id="rewards.ranksTab" key={tab.id} style={{ flex: 1 }}>
+                {chip}
+              </TourTarget>
+            );
+          }
+          return <View key={tab.id} style={{ flex: 1 }}>{chip}</View>;
         })}
       </View>
           </TourTarget>
@@ -664,7 +722,7 @@ export default function RewardsScreen() {
                 },
               ]}>
               <View style={styles.pendingHead}>
-                <Text style={{ fontSize: 16 }}>🔔</Text>
+                <Moji name="bell" size={18} />
                 <Text style={[typography.headline, { color: '#F59E0B' }]}>Pending Approvals</Text>
               </View>
               {pendingRedemptions.map((redemption) => {
@@ -708,6 +766,7 @@ export default function RewardsScreen() {
             </View>
           ) : null}
 
+          <TourTarget id="rewards.vault">
           <View style={styles.vaultGrid}>
             {catalogRewards.map((reward, index) => {
               return (
@@ -752,6 +811,7 @@ export default function RewardsScreen() {
               );
             })}
           </View>
+          </TourTarget>
 
           {isAdmin ? (
             <TourTarget id="rewards.createReward">
@@ -1190,7 +1250,7 @@ export default function RewardsScreen() {
                     key={member.id}
                     entering={FadeInUp.delay(i * 80)}
                     style={styles.podiumItem}>
-                    {displayIdx === 0 ? <Text style={{ fontSize: 18 }}>👑</Text> : null}
+                    {displayIdx === 0 ? <Moji name="crown" size={20} /> : null}
                     <Avatar
                       name={member.name}
                       emoji={member.avatarEmoji}

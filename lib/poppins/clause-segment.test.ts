@@ -43,14 +43,18 @@ const members = ['Drako', 'Maya'];
   assert.equal(drafts[1]?.assignee, 'Maya');
 }
 
-// Safe and — grocery list stays one act
+// Safe and — grocery list stays one clause; WO11 expands to multiple grocery acts
 {
   const clauses = splitClauses('add milk and eggs to the list');
   assert.equal(clauses.length, 1);
   const actions = parseCompoundHouseholdIntent('add milk and eggs to the list', {
     memberNames: members,
   });
-  assert.equal(actions.filter((a) => String(a.type) === 'add_grocery').length, 1);
+  assert.equal(actions.filter((a) => String(a.type) === 'add_grocery').length, 2);
+  assert.deepEqual(
+    actions.filter((a) => String(a.type) === 'add_grocery').map((a) => String(a.name)),
+    ['Milk', 'Eggs']
+  );
 }
 
 // Mixed-kind: navigate deferred after acts

@@ -187,6 +187,34 @@ export const groceryRepository = {
     return data ? { ...mapGroceryRow(data), categoryId: updated.categoryId } : updated;
   },
 
+  /** Rename an item or change how many — the list is editable (WO17). */
+  async updateGroceryDetails(
+    item: GroceryItem,
+    patch: { name?: string; quantity?: string; note?: string }
+  ): Promise<GroceryItem> {
+    const updated: GroceryItem = {
+      ...item,
+      name: patch.name?.trim() || item.name,
+      quantity: patch.quantity?.trim() || item.quantity,
+      note: patch.note === undefined ? item.note : patch.note.trim() || undefined,
+    };
+
+    if (isMockMode()) {
+      mockGroceriesState = mockGroceriesState.map((row) => (row.id === item.id ? updated : row));
+      return updated;
+    }
+
+    const supabase = getConfiguredSupabase('groceryRepository.updateGroceryDetails');
+    const { data, error } = await supabase
+      .from('grocery_items')
+      .update({ name: updated.name, quantity: updated.quantity, note: updated.note ?? null })
+      .eq('id', item.id)
+      .select('*')
+      .single();
+    mapDbError('groceryRepository.updateGroceryDetails', error);
+    return data ? { ...mapGroceryRow(data), categoryId: item.categoryId, productId: item.productId } : updated;
+  },
+
   async removeGroceryItems(itemIds: string[], householdId?: string | null): Promise<void> {
     if (!itemIds.length) return;
 

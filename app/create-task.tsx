@@ -5,6 +5,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { memberHomeworkProofRequired } from '@/lib/tasks/homework-proof';
+import { MemberGlyph } from '@/components/orbit/member-glyph';
+import { Moji } from '@/components/orbit/moji/moji';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { StatusPill } from '@/components/orbit/status-pill';
@@ -41,7 +44,7 @@ import {
   XP_LADDER,
 } from '@/lib/rewards/reward-mode';
 import { formatAssigneeLabel } from '@/lib/tasks/split-assign';
-import { formatHomeworkDescription } from '@/lib/tasks/homework-subject';
+import { formatHomeworkDescription, homeworkSubjectMeta } from '@/lib/tasks/homework-subject';
 import { computeTaskXp, weightForDifficulty } from '@/lib/tasks/xp';
 import { allLibraryTasks, type Frequency } from '@/lib/tasks/task-library';
 import { buildLibraryAssignInput } from '@/lib/tasks/assign-from-library';
@@ -132,6 +135,11 @@ const priorities = [
 
 const repeatOptions: HouseholdTask['repeat'][] = ['None', 'Daily', 'Weekly', 'Weekdays'];
 
+/** 'None' is stored; people read it as a one-off. */
+function repeatLabel(option: HouseholdTask['repeat']): string {
+  return option === 'None' ? 'One-off' : option;
+}
+
 /** Catalog chips — ChoreMaxx Icon where a domain mark exists; label only otherwise. */
 const CATALOG_CHIP_META: Record<string, { icon?: IconName; label: string }> = {
   presets: { label: 'Presets' },
@@ -219,11 +227,11 @@ function AssignEmojiGrid({
               ]}>
               {selected ? (
                 <LinearGradient colors={gradient} style={styles.memberInner}>
-                  <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                  <MemberGlyph member={member} size={16} />
                 </LinearGradient>
               ) : (
                 <View style={[styles.memberInnerMuted, { backgroundColor: glass(0.08) }]}>
-                  <Text style={styles.memberEmoji}>{memberDisplayEmoji(member)}</Text>
+                  <MemberGlyph member={member} size={16} />
                 </View>
               )}
               {onShared ? (
@@ -500,7 +508,8 @@ export default function CreateTaskScreen() {
         const fallback = labels[kind];
         return {
           kind,
-          title: `${fallback.emoji} ${fallback.name}`,
+          emoji: fallback.emoji,
+          title: fallback.name,
           items: buckets.get(kind) ?? [],
         };
       });
@@ -1341,7 +1350,7 @@ export default function CreateTaskScreen() {
                                         { color: c.textMuted },
                                         active && { color: accentTheme.primary },
                                       ]}>
-                                      {option === 'None' ? 'Once' : option}
+                                      {option === 'None' ? 'One-off' : option}
                                     </Text>
                                   </Pressable>
                                 );
@@ -1351,7 +1360,7 @@ export default function CreateTaskScreen() {
                         ) : (
                           <Text style={[styles.libraryMeta, { color: c.textMuted }]}>
                             {task.baseXp} XP ·{' '}
-                            {inferLibraryRepeat(task) === 'None' ? 'Once' : inferLibraryRepeat(task)}
+                            {inferLibraryRepeat(task) === 'None' ? 'One-off' : inferLibraryRepeat(task)}
                           </Text>
                         )}
                       </View>
@@ -1433,13 +1442,16 @@ export default function CreateTaskScreen() {
           <View style={styles.librarySections}>
             {libraryByRoom.map((section) => (
               <View key={section.kind} style={styles.librarySection}>
-                <Text style={[styles.librarySectionTitle, { color: orbitPalette.text }]}>
-                  {section.title}
-                  <Text style={[styles.librarySectionCount, { color: orbitPalette.textSubtle }]}>
-                    {' '}
-                    · {section.items.length}
+                <View style={styles.librarySectionHead}>
+                  <Moji emoji={section.emoji} size={16} />
+                  <Text style={[styles.librarySectionTitle, { color: orbitPalette.text }]}>
+                    {section.title}
+                    <Text style={[styles.librarySectionCount, { color: orbitPalette.textSubtle }]}>
+                      {' '}
+                      · {section.items.length}
+                    </Text>
                   </Text>
-                </Text>
+                </View>
                 <View style={styles.presetGrid}>
                   {section.items.map((preset) => {
                     const hygiene = preset.tracking === 'streak' || preset.category === 'Hygiene';
@@ -1517,6 +1529,40 @@ export default function CreateTaskScreen() {
           </Pressable>
         </View>
 
+        {type === 'homework' ? (
+          // Reads back what's being set, as it's filled in — same idea as the event preview.
+          <View
+            style={[
+              styles.homeworkPreview,
+              {
+                backgroundColor: `${homeworkSubjectMeta(customSubject.trim() || subject).color}14`,
+                borderColor: `${homeworkSubjectMeta(customSubject.trim() || subject).color}40`,
+              },
+            ]}
+            accessibilityLiveRegion="polite">
+            <Moji emoji={homeworkSubjectMeta(customSubject.trim() || subject).emoji} size={30} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[typography.headline, { color: c.text }]} numberOfLines={2}>
+                {title.trim() || `${customSubject.trim() || subject} homework`}
+              </Text>
+              <Text style={[typography.footnote, { color: c.textMuted }]} numberOfLines={2}>
+                {[
+                  resolvedAssigneeNames.length ? resolvedAssigneeNames.join(' & ') : 'Pick a child',
+                  `due ${String(due).toLowerCase()}`,
+                  repeatLabel(repeat).toLowerCase(),
+                  resolvedAssigneeNames.some((name) =>
+                    memberHomeworkProofRequired(childMembers.find((m) => m.name === name))
+                  )
+                    ? 'photo when done'
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.field}>
           <Text style={[styles.label, { color: c.textMuted }]}>{type === 'homework' ? 'ASSIGNMENT' : 'TASK'}</Text>
           <TextInput
@@ -1549,7 +1595,7 @@ export default function CreateTaskScreen() {
                         borderColor: active ? `${item.color}44` : glassBorder(0.08),
                       },
                     ]}>
-                    <Text style={styles.subjectEmoji}>{item.emoji}</Text>
+                    <Moji emoji={item.emoji} size={15} />
                     <Text style={[styles.subjectText, { color: active ? item.color : c.textMuted }]}>
                       {item.label}
                     </Text>
@@ -1587,7 +1633,7 @@ export default function CreateTaskScreen() {
                     },
                   ]}>
                   <Text style={[styles.subjectText, { color: active ? accentTheme.primary : c.textMuted }]}>
-                    {option}
+                    {repeatLabel(option)}
                   </Text>
                 </Pressable>
               );
@@ -1707,7 +1753,7 @@ export default function CreateTaskScreen() {
               <StreakMarker variant="asterisk" xpWhenRewarded={hygieneXpWhenRewarded} />
             ) : (
               <>
-                <Text style={styles.xpBolt}>⚡</Text>
+                <Moji name="bolt" size={18} />
                 <Text style={[styles.xpAmount, { color: accentTheme.primary }]}>
                   +{resolveTaskXp({ baseXp: baseXp || 10, xpEligible: true }, xpCtx)}
                 </Text>
@@ -2124,9 +2170,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8
   },
-  subjectEmoji: {
-    fontSize: 14
-  },
   subjectText: {
     fontSize: 12,
     fontWeight: '600'
@@ -2272,9 +2315,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 6
-  },
-  xpBolt: {
-    fontSize: 18
   },
   xpAmount: {
     fontSize: 18,
@@ -2431,6 +2471,20 @@ const styles = StyleSheet.create({
   },
   librarySection: {
     gap: 10
+  },
+  homeworkPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 12,
+  },
+  librarySectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
   },
   librarySectionTitle: {
     fontSize: 15,

@@ -1,39 +1,65 @@
-import { Image } from 'expo-image';
+/**
+ * Maps app mark — WO14 §5.
+ * Official brand files belong in `assets/maps/` (apple-maps / google-maps / waze).
+ * Until those land, Settings tiles use a neutral letter square.
+ */
 import { StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
-const MARKS = {
-  apple: require('@/assets/brand/maps/apple-maps.png'),
-  google: require('@/assets/brand/maps/google-maps.png'),
-  waze: require('@/assets/brand/maps/waze.png'),
-} as const;
+export type MapsAppMarkId = 'apple' | 'google' | 'waze';
 
-export type MapsAppMarkId = keyof typeof MARKS;
+const LETTER: Record<MapsAppMarkId | 'auto', string> = {
+  auto: 'A',
+  apple: 'A',
+  google: 'G',
+  waze: 'W',
+};
 
-export function MapsAppMark({ app, size = 18 }: { app: MapsAppMarkId | 'auto'; size?: number }) {
-  if (app === 'auto') {
-    return (
-      <View style={[styles.auto, { width: size, height: size, borderRadius: size / 5 }]}>
-        <Text style={[styles.autoText, { fontSize: Math.max(8, size * 0.38) }]}>A</Text>
-      </View>
-    );
-  }
+export function MapsAppMark({
+  app,
+  size = 18,
+}: {
+  app: MapsAppMarkId | 'auto';
+  size?: number;
+  /** @deprecated WO14 — always neutral until assets/maps/ official files land. */
+  forceNeutral?: boolean;
+}) {
+  const { c, glassBorder, isDark } = useOrbitColors();
   return (
-    <Image
-      source={MARKS[app]}
-      style={{ width: size, height: size }}
-      contentFit="contain"
-      accessibilityLabel={app === 'apple' ? 'Apple Maps' : app === 'google' ? 'Google Maps' : 'Waze'}
-    />
+    <View
+      style={[
+        styles.neutral,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 5,
+          backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.06)',
+          borderColor: glassBorder(0.12),
+        },
+      ]}
+      accessibilityLabel={
+        app === 'auto'
+          ? 'Auto'
+          : app === 'apple'
+            ? 'Apple Maps'
+            : app === 'google'
+              ? 'Google Maps'
+              : 'Waze'
+      }>
+      <Text style={[styles.letter, { color: c.textMuted, fontSize: Math.max(9, size * 0.4) }]}>
+        {LETTER[app]}
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  auto: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  neutral: {
     alignItems: 'center',
+    borderWidth: 1,
     justifyContent: 'center',
   },
-  autoText: { fontWeight: '700', color: '#EEF2FF' },
+  letter: { fontWeight: '700' },
 });

@@ -325,12 +325,30 @@ export function executePoppinsTool(
       };
     }
     case 'list_rewards': {
+      const members = (household.members ?? [])
+        .filter(
+          (m) =>
+            m.status === 'active' &&
+            m.role !== 'guest' &&
+            (m as { role?: string }).role !== 'shared-device'
+        )
+        .slice()
+        .sort((a, b) => (b.weekXp ?? 0) - (a.weekXp ?? 0))
+        .slice(0, 5)
+        .map((m, i) => ({
+          id: m.id,
+          title: `${i + 1}. ${m.name}`,
+          detail: `${m.weekXp ?? 0} XP this week`,
+        }));
       return {
         rewards: (household.rewards ?? []).slice(0, 20).map((r) => ({
           id: r.id,
           title: r.title ?? (r as { name?: string }).name,
           cost: r.cost,
         })),
+        ui_actions: members.length
+          ? [{ type: 'ranks_peek', rows: members }]
+          : [{ type: 'ranks_peek', rows: [] }],
       };
     }
     case 'get_pending_approvals': {
@@ -601,7 +619,31 @@ export function executePoppinsTool(
     case 'reject_redemption':
     case 'approve_allowance':
     case 'reject_allowance':
-    case 'grant_allowance':
+    case 'grant_allowance': {
+      const memberName = String(args.memberName ?? args.member_name ?? '').trim();
+      const amountRaw = args.amount ?? args.amountLabel ?? args.amount_label;
+      const amountLabel =
+        typeof amountRaw === 'number'
+          ? `$${amountRaw}`
+          : String(amountRaw ?? '').trim() || 'Allowance';
+      if (!memberName) {
+        return pendingConfirm(name, args, 'grant allowance requires a member');
+      }
+      return {
+        ui_actions: [
+          {
+            type: 'grant_allowance',
+            memberName,
+            memberId: args.memberId ?? args.member_id,
+            amountLabel,
+            amountXp: typeof args.amountXp === 'number' ? args.amountXp : undefined,
+            note: args.note ? String(args.note) : undefined,
+            kind: args.kind === 'hold' || args.kind === 'payout' ? args.kind : 'grant',
+          },
+        ],
+        note: 'Staged allowance on the IUI stage — confirm required.',
+      };
+    }
     case 'remove_member':
     case 'change_member_role':
     case 'mass_reassign_tasks':

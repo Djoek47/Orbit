@@ -15,16 +15,19 @@ function WaveBar({
   index,
   active,
   color,
+  levelNorm,
 }: {
   index: number;
   active: boolean;
   color: string;
+  /** 0..1 from metering / timer fallback. */
+  levelNorm: number;
 }) {
   const height = useSharedValue(3);
   const opacity = useSharedValue(0.18);
   const center = COUNT / 2;
   const distFromCenter = Math.abs(index - center) / center;
-  const baseH = Math.max(4, (1 - distFromCenter * 0.7) * 36);
+  const baseH = Math.max(4, (1 - distFromCenter * 0.7) * 36 * (0.45 + levelNorm * 0.7));
   const delay = (index / COUNT) * 400;
   const duration = 350 + (index % 5) * 70;
 
@@ -60,12 +63,28 @@ function WaveBar({
   return <Animated.View style={[styles.bar, style]} />;
 }
 
-/** Make PoppinsScreen waveform — 38 center-weighted bars. */
-export function PoppinsWaveform({ active, color }: { active: boolean; color: string }) {
+function normalizeDb(db: number | null | undefined): number {
+  if (typeof db !== 'number' || Number.isNaN(db)) return 0.55;
+  // expo-audio metering is typically around -60..0 dB.
+  const clamped = Math.max(-60, Math.min(0, db));
+  return (clamped + 60) / 60;
+}
+
+/** Make PoppinsScreen waveform — 38 center-weighted bars. Optional level from Quiet metering. */
+export function PoppinsWaveform({
+  active,
+  color,
+  levelDb,
+}: {
+  active: boolean;
+  color: string;
+  levelDb?: number | null;
+}) {
+  const levelNorm = normalizeDb(levelDb);
   return (
     <View style={styles.row}>
       {Array.from({ length: COUNT }, (_, i) => (
-        <WaveBar key={i} index={i} active={active} color={color} />
+        <WaveBar key={i} index={i} active={active} color={color} levelNorm={levelNorm} />
       ))}
     </View>
   );
@@ -78,9 +97,11 @@ const styles = StyleSheet.create({
     gap: 1,
     height: 48,
     justifyContent: 'center',
+    paddingHorizontal: 24,
+    width: '100%',
   },
   bar: {
-    borderRadius: 999,
-    width: 2.5,
+    borderRadius: 2,
+    width: 3,
   },
 });

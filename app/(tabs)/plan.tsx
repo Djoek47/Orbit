@@ -1,13 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PlanAddSheet } from '@/components/orbit/plan/plan-add-sheet';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
+import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { RefreshIconButton } from '@/components/orbit/refresh-icon-button';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { radius } from '@/constants/orbit-theme';
@@ -37,6 +39,7 @@ import {
   visibleEventsForMember,
   visibleTasksForMember,
 } from '@/lib/calendar/plan-visibility';
+import { registerTourUiHooks } from '@/lib/tour/tour-store';
 import { homeworkSubjectMeta } from '@/lib/tasks/homework-subject';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
@@ -87,11 +90,40 @@ export default function PlanScreen() {
   const { c, glass, glassBorder } = useOrbitColors();
   const [buildingTrip, setBuildingTrip] = useState(false);
   const [subTab, setSubTab] = useState<PlanSubTab>('calendar');
+  const [tripsSection, setTripsSection] = useState<'trips' | 'places'>('trips');
   const [view, setView] = useState<CalView>('month');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [layerFilter, setLayerFilter] = useState<PlanLayerFilter>('all');
   const [planAddOpen, setPlanAddOpen] = useState(false);
+  const tour = useTourControls();
+
+  useEffect(() => {
+    return registerTourUiHooks({
+      setPlanSubTab: (tab) => setSubTab(tab),
+      setPlanTripsSection: (section) => setTripsSection(section),
+    });
+  }, []);
+
+  // Apply itinerary/places focus from the active tour step — hooks alone can race mount.
+  useEffect(() => {
+    const id = tour?.activeStepId;
+    if (!id?.startsWith('plan.')) return;
+    if (
+      id === 'plan.itineraries' ||
+      id === 'plan.smartTrips' ||
+      id === 'plan.newTrip' ||
+      id === 'plan.askBundle'
+    ) {
+      setSubTab('itinerary');
+      setTripsSection('trips');
+      return;
+    }
+    if (id === 'plan.places' || id === 'plan.saveHome' || id === 'plan.reusePlaces') {
+      setSubTab('itinerary');
+      setTripsSection('places');
+    }
+  }, [tour?.activeStepId]);
 
   const focusedCalendar = usesFocusedCalendar(currentMember?.role);
 
@@ -180,6 +212,25 @@ export default function PlanScreen() {
           ] as const
         ).map((item) => {
           const active = subTab === item.id;
+          if (item.id === 'itinerary') {
+            return (
+              <TourTarget id="plan.itinerariesTab" key={item.id} style={{ flex: 1 }}>
+                <Pressable
+                  onPress={() => setSubTab(item.id)}
+                  style={[styles.subChip, active && styles.subChipActive]}>
+                  <MaterialIcons name={item.icon} size={14} color={active ? '#A78BFA' : c.textMuted} />
+                  <Text
+                    style={[
+                      styles.subLabel,
+                      { color: c.textMuted },
+                      active && styles.subLabelActive,
+                    ]}>
+                    {item.label}
+                  </Text>
+                </Pressable>
+              </TourTarget>
+            );
+          }
           return (
             <Pressable
               key={item.id}
@@ -404,7 +455,7 @@ export default function PlanScreen() {
                 styles.emptyDay,
                 { backgroundColor: glass(0.03), borderColor: glassBorder(0.06) },
               ]}>
-              <Text style={{ fontSize: 32 }}>✨</Text>
+              <Moji name="sparkles" size={34} />
               <Text style={[styles.eyebrow, { color: c.textSubtle }]}>
                 Nothing scheduled — a free day!
               </Text>
@@ -425,15 +476,17 @@ export default function PlanScreen() {
                     <View style={[styles.eventBar, { backgroundColor: color }]} />
                     <View style={{ flex: 1 }}>
                       <View style={styles.eventBadgeRow}>
-                        <View style={[styles.typePill, { backgroundColor: `${color}22` }]}>
+                        <View style={[styles.typePill, styles.typePillRow, { backgroundColor: `${color}22` }]}>
+                          <Moji emoji={cfg.emoji} size={13} />
                           <Text style={[styles.typePillText, { color }]}>
-                            {cfg.emoji} {planItemTypeLabel(item)}
+                            {planItemTypeLabel(item)}
                           </Text>
                         </View>
                         {item.homeworkSubject ? (
-                          <View style={[styles.typePill, { backgroundColor: `${homeworkSubjectMeta(item.homeworkSubject).color}22` }]}>
+                          <View style={[styles.typePill, styles.typePillRow, { backgroundColor: `${homeworkSubjectMeta(item.homeworkSubject).color}22` }]}>
+                            <Moji emoji={homeworkSubjectMeta(item.homeworkSubject).emoji} size={13} />
                             <Text style={[styles.typePillText, { color: homeworkSubjectMeta(item.homeworkSubject).color }]}>
-                              {homeworkSubjectMeta(item.homeworkSubject).emoji} {item.homeworkSubject}
+                              {item.homeworkSubject}
                             </Text>
                           </View>
                         ) : null}
@@ -560,7 +613,11 @@ export default function PlanScreen() {
           </View>
         </>
       ) : (
-        <PlanTripsPanel selectedDateKey={selectedKey} />
+        <PlanTripsPanel
+          selectedDateKey={selectedKey}
+          section={tripsSection}
+          onSectionChange={setTripsSection}
+        />
       )}
     </ScrollView>
     <PlanAddSheet visible={planAddOpen} onDismiss={() => setPlanAddOpen(false)} />
@@ -720,6 +777,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   typePill: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  typePillRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   typePillText: { fontSize: 10, fontWeight: '700' },
   viewChip: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   viewChipActive: { backgroundColor: 'rgba(56,189,248,0.2)' },

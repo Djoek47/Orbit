@@ -57,10 +57,10 @@ export function OrbitPressable({
       disabled={inactive}
       hitSlop={hitSlop}
       onPress={handlePress}
-      style={({ pressed }) => [
+      style={(state) => [
         { minHeight: minTouchSize, minWidth: minTouchSize },
-        typeof style === 'function' ? style({ pressed }) : style,
-        pressed && !inactive && { opacity: 0.82 },
+        typeof style === 'function' ? style(state) : style,
+        state.pressed && !inactive && { opacity: 0.82 },
         inactive && { opacity: 0.5 },
       ]}>
       {children}

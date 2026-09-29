@@ -43,20 +43,89 @@ export type IuiCommitWrites = {
   createEvent: (input: CreateEventInput) => Promise<HouseholdEvent | null | unknown>;
   createItinerary: (input: CreateItineraryInput) => Promise<Itinerary | null | void>;
   addMissingGrocery: (input: CreateGroceryInput) => void | Promise<GroceryItem | void | unknown>;
+  clearGroceryList?: () => void | Promise<void>;
   completeTask: (taskId: string) => Promise<unknown>;
+  /** Open the photo step for a task that needs proof to finish. */
+  openProof?: (taskId: string) => void;
   updateTask: (task: HouseholdTask) => Promise<unknown>;
   claimReward: (rewardId: string) => Promise<unknown>;
   advanceItineraryStop: (itineraryId: string, stopId: string) => Promise<unknown>;
+  upsertSavedPlace?: (place: import('@/types/orbit').SavedPlace) => void;
+  grantAllowance?: (
+    input: Omit<import('@/types/orbit').CreateAllowanceInput, 'kind'>
+  ) => Promise<import('@/types/orbit').AllowanceGrant | null>;
   onVoiceTaskCreated?: (task: HouseholdTask) => void;
   /** Undo window ms for deferred notify (other-person acts use ≥10s). */
   undoWindowMs?: number;
   /** Direct mode: do not invent assignee/due defaults from speech silence. */
   directMode?: boolean;
+  /** WO11 — per-row progress while a group batch writes. */
+  onGroupItemStatus?: (
+    itemId: string,
+    status: 'saving' | 'done' | 'failed',
+    entityId?: string
+  ) => void;
 };
 
 export type CommitIuiResult =
-  | { ok: true; reverse?: IuiCommitReverse }
+  | {
+      ok: true;
+      reverse?: IuiCommitReverse;
+      /** Replaces the title on the result mark that follows ("Sent to a parent to approve"). */
+      note?: string;
+    }
   | { ok: false; slot: string; reason: ActRejection; ask?: string };
+
+/**
+ * The write was refused for a reason retrying won't fix (no permission). The stage shows
+ * the message as-is, without "Tap to try again".
+ */
+export class CommitRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CommitRefusedError';
+  }
+}
+
+const HOMEWORK_REPEATS = new Set(['None', 'Daily', 'Weekly', 'Weekdays']);
+
+/**
+ * "I finished my math homework" — the person's own open homework in that subject; if they
+ * named no subject and have exactly one open homework, that one.
+ */
+async function findSpokenHomework(
+  p: IuiBeat['payload'],
+  tasks: HouseholdTask[],
+  selfName: string | undefined
+): Promise<HouseholdTask | undefined> {
+  const said = `${p.title ?? ''} ${p.sourceUtterance ?? ''}`;
+  const [{ subjectOf }, { isHomeworkCategory, resolveHomeworkSubject }] = await Promise.all([
+    import('@/lib/poppins/homework-parse'),
+    import('@/lib/tasks/homework-subject'),
+  ]);
+  if (!/homework|reading|worksheet|project|essay|assignment|study|chapter/i.test(said) && !subjectOf(said)) {
+    return undefined;
+  }
+  const open = tasks.filter(
+    (task) =>
+      task.status !== 'Completed' &&
+      task.status !== 'Cancelled' &&
+      isHomeworkCategory(task.category, task.title)
+  );
+  const isMine = (task: HouseholdTask) =>
+    !selfName || (task.assignee ?? '').toLowerCase().includes(selfName.toLowerCase());
+  const subject = subjectOf(said);
+  const bySubject = (list: HouseholdTask[]) =>
+    subject
+      ? list.find((task) => (resolveHomeworkSubject(task) ?? '').toLowerCase() === subject.toLowerCase())
+      : undefined;
+  const mine = open.filter(isMine);
+  const hit = bySubject(mine) ?? (mine.length === 1 ? mine[0] : undefined);
+  if (hit) return hit;
+  // Not theirs (an adult saying it): return the matching homework anyway, so the save
+  // refuses with "Only Yuhi can mark it done" instead of a vague failure.
+  return bySubject(open) ?? (open.length === 1 ? open[0] : undefined);
+}
 
 function asId(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -106,6 +175,7 @@ export async function commitIuiBeat(
     createEvent,
     createItinerary,
     addMissingGrocery,
+    clearGroceryList,
     completeTask,
     updateTask,
     claimReward,
@@ -113,13 +183,121 @@ export async function commitIuiBeat(
     onVoiceTaskCreated,
     undoWindowMs = 5000,
     directMode = false,
+    onGroupItemStatus,
   } = writes;
   const p = beat.payload;
   const write = (p.write ?? 'none') as IuiWriteKind;
   const isHomeworkWrite = write === 'create_homework' || p.category === 'homework_education';
   let wrote = false;
   let reverse: IuiCommitReverse | undefined;
+  let eventNote: string | undefined;
   let deferredNotify: (() => Promise<void>) | undefined;
+
+  // WO11 §2.4 — batch grocery group (one HOLD; parallel writes).
+  if (write === 'add_grocery' && p.items && p.items.length > 0) {
+    const active = p.items.filter((item) => !item.dropped && item.label.trim());
+    const batch: IuiCommitReverse[] = [];
+    let anyOk = false;
+    await Promise.all(
+      active.map(async (item) => {
+        onGroupItemStatus?.(item.id, 'saving');
+        try {
+          const created = await addMissingGrocery({
+            name: item.label,
+            category: item.aisle || (p.shoppingLane === 'clothing' ? 'Clothing' : undefined),
+            categoryId: p.shoppingLane === 'clothing' ? 'clothing' : undefined,
+          });
+          const entityId = asId(created);
+          anyOk = true;
+          if (entityId) {
+            batch.push({
+              write: 'add_grocery',
+              entityId,
+              beatId: beat.id,
+              itemId: item.id,
+              label: item.label,
+            });
+            onGroupItemStatus?.(item.id, 'done', entityId);
+          } else {
+            onGroupItemStatus?.(item.id, 'done');
+          }
+        } catch (error) {
+          console.warn('IUI batch add_grocery failed', item.label, error);
+          onGroupItemStatus?.(item.id, 'failed');
+        }
+      })
+    );
+    if (!anyOk) {
+      return { ok: false, slot: 'groceryName', reason: 'missing', ask: "Couldn't save — retry" };
+    }
+    wrote = true;
+    if (batch.length) {
+      reverse = {
+        write: 'add_grocery',
+        entityId: batch[batch.length - 1]!.entityId,
+        beatId: beat.id,
+        batch,
+      };
+    }
+    await notifyActCommitted(beat.id, write, beat.payload.actMode);
+    emitTourEvent('poppins_act_committed', { beatId: beat.id, write });
+    return { ok: true, reverse };
+  }
+
+  // WO11 §2.4 — batch task group (serial — shared household state).
+  if (
+    (write === 'create_task' || write === 'create_homework') &&
+    p.items &&
+    p.items.length > 0
+  ) {
+    const active = p.items.filter((item) => !item.dropped && item.label.trim());
+    const batch: IuiCommitReverse[] = [];
+    for (const item of active) {
+      onGroupItemStatus?.(item.id, 'saving');
+      try {
+        const rowBeat: IuiBeat = {
+          ...beat,
+          payload: {
+            ...p,
+            title: item.label,
+            assignee: item.assignee ?? p.assignee,
+            due: item.due ?? p.due,
+            libraryTaskId: item.libraryTaskId ?? p.libraryTaskId,
+            category: item.category ?? p.category,
+            write,
+            items: undefined,
+          },
+        };
+        const rowResult = await commitIuiBeat(rowBeat, {
+          ...writes,
+          onGroupItemStatus: undefined,
+        });
+        if (rowResult.ok && rowResult.reverse) {
+          batch.push({ ...rowResult.reverse, itemId: item.id, label: item.label });
+          onGroupItemStatus?.(item.id, 'done', rowResult.reverse.entityId);
+        } else if (rowResult.ok) {
+          onGroupItemStatus?.(item.id, 'done');
+        } else {
+          onGroupItemStatus?.(item.id, 'failed');
+        }
+      } catch (error) {
+        console.warn('IUI batch create_task failed', item.label, error);
+        onGroupItemStatus?.(item.id, 'failed');
+      }
+    }
+    if (!batch.length) {
+      return { ok: false, slot: 'title', reason: 'missing', ask: "Couldn't save — retry" };
+    }
+    reverse = {
+      write,
+      entityId: batch[batch.length - 1]!.entityId,
+      beatId: beat.id,
+      batch,
+    };
+    // Child commits already notified; one tour ping for the group.
+    emitTourEvent('poppins_act_committed', { beatId: beat.id, write });
+    return { ok: true, reverse };
+  }
 
   if ((write === 'create_task' || write === 'create_homework') && (p.title || p.libraryTaskId)) {
     try {
@@ -129,7 +307,19 @@ export async function commitIuiBeat(
           status: task.status,
         })),
       });
-      const libraryId = p.libraryTaskId || resolved.libraryTaskId;
+      // A name the person gave (typed or "call it …") is kept as said — never swapped for a
+      // catalog title.
+      const namedByPerson = p.namedByPerson === true || (isHomeworkWrite && p.homeworkParsed === true);
+      if (namedByPerson) {
+        resolved.title = String(p.title ?? '');
+        resolved.libraryTaskId = undefined;
+      }
+      // Homework never borrows a library chore (its title, and its repeat, were not said).
+      const libraryId = isHomeworkWrite
+        ? undefined
+        : namedByPerson
+          ? p.libraryTaskId
+          : p.libraryTaskId || resolved.libraryTaskId;
       const library = libraryId
         ? allLibraryTasks().find((item) => item.id === libraryId)
         : undefined;
@@ -192,6 +382,32 @@ export async function commitIuiBeat(
           },
           createOpts
         );
+      } else if (title && isHomeworkWrite) {
+        const { resolveHomeworkSubject, formatHomeworkDescription } = await import(
+          '@/lib/tasks/homework-subject'
+        );
+        const subject =
+          p.homeworkSubject?.trim() ||
+          resolveHomeworkSubject({ title, category: 'homework_education', description: '' }) ||
+          undefined;
+        created = await createTask(
+          {
+            title,
+            category: 'homework_education',
+            description: formatHomeworkDescription(subject),
+            homeworkSubject: subject,
+            assignee,
+            due: dueLabel,
+            dueAt,
+            xp: 15,
+            repeat: HOMEWORK_REPEATS.has(String(p.repeat)) ? (p.repeat as HouseholdTask['repeat']) : 'None',
+            difficulty: 'medium',
+            weight: 1,
+            occurrenceDate,
+            proofRequired: p.proofRequired === true,
+          },
+          createOpts
+        );
       } else if (title) {
         created = await createTask(
           {
@@ -205,7 +421,7 @@ export async function commitIuiBeat(
             difficulty: 'medium',
             weight: 1,
             occurrenceDate,
-            proofRequired: isHomeworkWrite,
+            proofRequired: p.proofRequired === true,
           },
           createOpts
         );
@@ -233,26 +449,68 @@ export async function commitIuiBeat(
   }
 
   if (write === 'create_event' && p.title) {
-    const allDay = /\ball[\s-]?day\b/i.test(p.sourceUtterance ?? '');
-    if (directMode) {
-      if (!p.date?.trim() || slotFromModel(p, 'date')) {
-        return { ok: false, slot: 'date', reason: 'missing', ask: 'What day?' };
-      }
-      if (!allDay && (!p.time?.trim() || slotFromModel(p, 'time'))) {
-        return { ok: false, slot: 'time', reason: 'missing', ask: 'What time?' };
-      }
+    const allDay = p.allDay === true || /\ball[\s-]?day\b/i.test(p.sourceUtterance ?? '');
+    // Ask, don't guess: a calendar entry without a day (or a time, unless all-day) is not saved.
+    if (!p.date?.trim() || (directMode && slotFromModel(p, 'date'))) {
+      return { ok: false, slot: 'date', reason: 'missing', ask: 'What day?' };
     }
+    if (!allDay && (!p.time?.trim() || (directMode && slotFromModel(p, 'time')))) {
+      return { ok: false, slot: 'time', reason: 'missing', ask: 'What time?' };
+    }
+    const { buildStartsAtIso, formatStoredDateLabel } = await import('@/lib/calendar/event-date');
+    const { formatTime12 } = await import('@/lib/poppins/when-parse');
+    const dateKey = String(p.date);
+    const time = allDay ? '' : String(p.time);
+    const byName = (name?: string) =>
+      name ? household.members.find((m) => m.name.trim().toLowerCase() === name.trim().toLowerCase()) : undefined;
+    const responsible = byName(p.assignee) ?? currentMember ?? undefined;
+    const attendees = [
+      ...(p.withWho ?? []).map((name) => byName(name)?.id),
+      byName(p.tellWho)?.id,
+      responsible?.id,
+    ].filter((id): id is string => Boolean(id));
     const created = await createEvent({
       title: p.title,
-      date: directMode ? String(p.date) : p.date || formatLocalDate(new Date()),
-      time: directMode ? (allDay ? '' : String(p.time)) : p.time || '09:00',
+      date: formatStoredDateLabel(dateKey),
+      dateKey,
+      startsAt: buildStartsAtIso(dateKey, allDay ? '12:00' : formatTime12(time)),
+      time: allDay ? 'All day' : formatTime12(time),
       location: p.location || '',
-      responsible: p.assignee || currentMember?.name || '',
+      responsible: responsible?.name ?? p.assignee ?? '',
+      responsibleMemberId: responsible?.id ?? null,
+      attendeeMemberIds: attendees.length > 1 ? Array.from(new Set(attendees)) : undefined,
       category: 'Appointment',
+      remindMe: p.remind !== false && !allDay,
     });
+    // The store answers null when this person may not add to the family calendar. Never
+    // let that read as "All set".
+    if (!created) {
+      throw new CommitRefusedError(
+        "You can't add to the family calendar yet. Ask a parent to turn on Calendar for you."
+      );
+    }
     const entityId = asId(created);
     wrote = true;
     if (entityId) reverse = { write, entityId };
+    if ((created as { approvalStatus?: string }).approvalStatus === 'pending') {
+      eventNote = `${p.title} · sent to a parent to approve`;
+    }
+    // "Add travel": a travel block ending when the event starts.
+    if (p.addTravel && !allDay && entityId) {
+      const { addMinutesToTime } = await import('@/lib/poppins/when-parse');
+      const leave = addMinutesToTime(time, -30);
+      await createEvent({
+        title: `Travel to ${p.title}`,
+        date: formatStoredDateLabel(dateKey),
+        dateKey,
+        startsAt: buildStartsAtIso(dateKey, formatTime12(leave)),
+        time: formatTime12(leave),
+        location: p.location || '',
+        responsible: responsible?.name ?? '',
+        responsibleMemberId: responsible?.id ?? null,
+        category: 'Routine',
+      }).catch(() => undefined);
+    }
   }
 
   if (write === 'add_grocery' && p.groceryName) {
@@ -266,6 +524,23 @@ export async function commitIuiBeat(
     if (entityId) reverse = { write, entityId };
   }
 
+  if (write === 'clear_grocery') {
+    const grocerySnapshot = (household.groceries ?? []).map((item) => ({
+      name: item.name,
+      category: item.category,
+      categoryId: item.categoryId,
+      quantity: item.quantity != null ? String(item.quantity) : undefined,
+    }));
+    await clearGroceryList?.();
+    wrote = true;
+    reverse = {
+      write,
+      entityId: 'grocery-list',
+      beatId: beat.id,
+      grocerySnapshot,
+    };
+  }
+
   if (write === 'complete_task') {
     const prior =
       (p.taskId ? household.tasks.find((item) => item.id === p.taskId) : undefined) ??
@@ -274,11 +549,24 @@ export async function commitIuiBeat(
           p.title &&
           item.status !== 'Completed' &&
           item.title.toLowerCase().includes(p.title.toLowerCase())
-      );
+      ) ??
+      (await findSpokenHomework(p, household.tasks, currentMember?.name));
     if (prior) {
-      await completeTask(prior.id);
+      const result = (await completeTask(prior.id)) as { needsProof?: boolean } | null | undefined;
+      if (result == null) {
+        // Only the person it's assigned to can finish it (and never twice).
+        throw new CommitRefusedError(
+          currentMember && !prior.assignee?.toLowerCase().includes(currentMember.name.toLowerCase())
+            ? `Only ${prior.assignee} can mark “${prior.title}” done.`
+            : `“${prior.title}” couldn't be marked done.`
+        );
+      }
       wrote = true;
       reverse = { write, entityId: prior.id, taskSnapshot: { ...prior } };
+      if (result.needsProof) {
+        writes.openProof?.(prior.id);
+        eventNote = `${prior.title} · take a photo to finish`;
+      }
     }
   }
 
@@ -302,27 +590,109 @@ export async function commitIuiBeat(
     if (reward) {
       await claimReward(reward.id);
       wrote = true;
-      reverse = { write, entityId: reward.id };
+      // No reliable unclaim — omit reverse so Undo is not offered (audit IUI P1).
+    }
+  }
+
+  if (write === 'upsert_place' && (p.placeName || p.title)) {
+    const name = String(p.placeName ?? p.title ?? 'Place').trim();
+    const kindRaw = String(p.placeKind ?? 'custom').toLowerCase();
+    const allowed = new Set([
+      'home',
+      'work',
+      'school',
+      'shop',
+      'practice',
+      'family',
+      'cafe',
+      'pickup',
+      'clothing',
+      'custom',
+    ]);
+    const kind = (allowed.has(kindRaw) ? kindRaw : 'custom') as import('@/types/orbit').SavedPlaceKind;
+    const address = String(p.placeAddress ?? p.location ?? '').trim();
+    const id = `place-${Date.now().toString(36)}`;
+    const place = {
+      id,
+      name,
+      kind,
+      address: address || name,
+      placeQuery: address || name,
+    };
+    writes.upsertSavedPlace?.(place);
+    wrote = true;
+    reverse = { write, entityId: id };
+  }
+
+  if (write === 'grant_allowance' && p.allowanceMemberName && p.allowanceAmountLabel) {
+    const member =
+      household.members.find((m) => m.id === p.allowanceMemberId) ??
+      household.members.find(
+        (m) => m.name.toLowerCase() === p.allowanceMemberName!.trim().toLowerCase()
+      );
+    if (member && writes.grantAllowance) {
+      const grant = await writes.grantAllowance({
+        memberId: member.id,
+        memberName: member.name,
+        amountLabel: p.allowanceAmountLabel,
+        amountXp: p.allowanceAmountXp,
+        note: p.allowanceNote,
+      });
+      if (grant) {
+        wrote = true;
+        reverse = { write, entityId: grant.id };
+      }
     }
   }
 
   if (write === 'create_itinerary_stop') {
-    const stopLabel = p.stops?.[0]?.label ?? p.itineraryTitle ?? 'Stop';
+    const { mapStopKindToStore } = await import('@/lib/itinerary/itinerary-intent');
+    const { formatTime12 } = await import('@/lib/poppins/when-parse');
+    const stops = (p.stops ?? []).map((stop, index) => {
+      const kindRaw = String(stop.kind ?? stop.category ?? 'other');
+      const kind = mapStopKindToStore(
+        kindRaw as
+          | 'shop'
+          | 'school'
+          | 'work'
+          | 'gym'
+          | 'appointment'
+          | 'other'
+          | 'practice'
+          | 'pickup'
+          | 'home'
+      );
+      return {
+        label: stop.label,
+        kind,
+        sortOrder: index,
+        address: stop.address,
+        placeQuery: stop.placeQuery ?? stop.label,
+        // Stored the way the Plan tab shows times.
+        time: stop.time && /^\d{2}:\d{2}$/.test(stop.time) ? formatTime12(stop.time) : stop.time,
+        savedPlaceId: stop.savedPlaceId,
+        notes: stop.note && !stop.note.includes('saved place') ? stop.note : undefined,
+      };
+    });
+    const fallbackLabel = p.itineraryTitle ?? 'Trip';
     const created = await createItinerary({
-      title: p.itineraryTitle ?? stopLabel,
-      date: formatLocalDate(new Date()),
+      title: p.itineraryTitle ?? stops[0]?.label ?? fallbackLabel,
+      date: p.date ? String(p.date) : formatLocalDate(new Date()),
       suggestedByPoppins: true,
-      stops: [
-        {
-          label: stopLabel,
-          kind: 'shop',
-          sortOrder: 0,
-        },
-      ],
+      stops: stops.length
+        ? stops
+        : [
+            {
+              label: fallbackLabel,
+              kind: 'shop' as const,
+              sortOrder: 0,
+            },
+          ],
     });
     const entityId = asId(created);
     wrote = true;
-    if (entityId) reverse = { write, entityId };
+    // No deleteItinerary in store yet — omit reverse so Undo is honest (audit IUI P1).
+    void entityId;
   }
 
   if (write === 'advance_itinerary' && p.itineraryId) {
@@ -331,13 +701,7 @@ export async function commitIuiBeat(
     if (next) {
       await advanceItineraryStop(p.itineraryId, next.id);
       wrote = true;
-      reverse = {
-        write,
-        entityId: next.id,
-        itineraryId: p.itineraryId,
-        stopId: next.id,
-        stopStatus: next.status,
-      };
+      // No rewindItineraryStop in store yet — omit reverse.
     }
   }
 
@@ -348,6 +712,18 @@ export async function commitIuiBeat(
       beat.payload.actMode
     );
     emitTourEvent('poppins_act_committed', { beatId: beat.id, write });
+    emitTourEvent('poppins_spoke', { beatId: beat.id, write, phase: 'committed' });
+    return eventNote ? { ok: true, reverse, note: eventNote } : { ok: true, reverse };
+  }
+
+  // Write beat that did not land — never settle as "All set" (audit IUI P1).
+  if (write !== 'none') {
+    return {
+      ok: false,
+      slot: write,
+      reason: 'missing',
+      ask: "I couldn't do that — check the name and try again.",
+    };
   }
   return { ok: true, reverse };
 }

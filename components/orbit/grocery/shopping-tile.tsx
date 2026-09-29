@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BlurView } from 'expo-blur';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { typography } from '@/constants/orbit-theme';
 import { iconForGroceryName } from '@/lib/grocery/catalog';
@@ -55,7 +56,7 @@ export function ShoppingTile({ item, palette, onToggle }: Props) {
         ) : null}
       </View>
 
-      <Text style={styles.emoji}>{iconForGroceryName(item.name, item.categoryId)}</Text>
+      <Moji emoji={iconForGroceryName(item.name, item.categoryId)} size={26} style={styles.emoji} />
 
       <View style={styles.body}>
         <Text
@@ -108,7 +109,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
-  emoji: { fontSize: 22, width: 28, textAlign: 'center', zIndex: 1 },
+  emoji: { width: 28, zIndex: 1 },
   body: { flex: 1, minWidth: 0, zIndex: 1 },
   qty: {
     paddingHorizontal: 11,

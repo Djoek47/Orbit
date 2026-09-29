@@ -13,6 +13,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
+import { needsProofOnComplete } from '@/lib/tasks/homework-proof';
+import { HomeworkBoard } from '@/components/orbit/homework/homework-board';
+import { CompletedBreakdownCard } from '@/components/orbit/completed-breakdown-card';
+import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { ContextMenu } from '@/components/orbit/context-menu';
 import {
   TaskProofReplySheet,
@@ -29,6 +33,7 @@ import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { registerTourUiHooks } from '@/lib/tour/tour-store';
 import { StreakMarker } from '@/components/orbit/streak-marker';
+import { Moji } from '@/components/orbit/moji/moji';
 import { VOCAB } from '@/constants/vocabulary';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
@@ -170,7 +175,7 @@ function XPBadge({
         done && { backgroundColor: glass(0.1), opacity: 0.55 },
         !done && { backgroundColor: `${accent}1F` },
       ]}>
-      <Text style={styles.xpBolt}>⚡</Text>
+      <Moji name="bolt" size={11} />
       <Text style={[styles.xpBadgeText, { color: done ? c.textSubtle : accent }]}>+{xp}</Text>
     </View>
   );
@@ -189,12 +194,15 @@ function TaskItem({
   homeworkCard = false,
   showRequestProof = false,
   showAddPhoto = false,
+  canFinish = true,
   onToggle,
   onDelete,
   onRequestProof,
   onAddPhoto,
 }: {
   task: HouseholdTask;
+  /** Only the person it's assigned to can finish it (Rev F §12.1) — others see its state. */
+  canFinish?: boolean;
   member?: HouseholdMember;
   accentPrimary: string;
   justCompleted: boolean;
@@ -260,7 +268,11 @@ function TaskItem({
     shareXp ?? task.awardedXp ?? resolveTaskXpFromHouseholdTask(task, rewardSettings);
   const sub = getSubjectMeta(task);
   const accent = memberAccentColor(member);
-  const homeworkOpen = homeworkCard && isHomework(task) && !done && interactive;
+  const homeworkOpen = homeworkCard && isHomework(task) && !done && interactive && canFinish;
+  const waitingOn =
+    homeworkCard && isHomework(task) && !done && interactive && !canFinish
+      ? (task.assignee ?? '').split(/[ ,]/)[0]
+      : '';
   const dueChip = homeworkCard && isHomework(task) ? homeworkDueChip(task) : null;
   const borderColor = done
     ? accent
@@ -293,7 +305,7 @@ function TaskItem({
             washAnim,
           ]}
         />
-        {interactive && !isExpiredStatus(task.status) ? (
+        {interactive && canFinish && !homeworkOpen && !isExpiredStatus(task.status) ? (
         <Pressable
           onPress={onToggle}
           style={[
@@ -307,16 +319,26 @@ function TaskItem({
             {done ? <MaterialIcons name="check" size={12} color={c.ink} /> : null}
           </Animated.View>
         </Pressable>
-        ) : (
+        ) : isExpiredStatus(task.status) ? (
           <View style={[styles.checkbox, { borderColor: `${c.warning}66`, opacity: 0.5 }]} />
+        ) : (
+          // State only — the action is the Complete button (or it's someone else's to finish).
+          <View
+            style={[
+              styles.checkbox,
+              { borderColor, backgroundColor: done ? accent : 'transparent', opacity: done ? 1 : 0.7 },
+            ]}>
+            {done ? <MaterialIcons name="check" size={12} color={c.ink} /> : null}
+          </View>
         )}
 
         <View style={styles.taskBody}>
         <View style={styles.titleRow}>
           {isHomework(task) && sub ? (
-            <View style={[styles.subjectPill, homeworkCard && styles.subjectPillLarge, { backgroundColor: `${sub.color}18` }]}>
+            <View style={[styles.subjectPill, styles.subjectPillRow, homeworkCard && styles.subjectPillLarge, { backgroundColor: `${sub.color}18` }]}>
+              <Moji emoji={sub.emoji} size={homeworkCard ? 16 : 12} />
               <Text style={[styles.subjectPillText, homeworkCard && styles.subjectPillTextLarge, { color: sub.color }]}>
-                {sub.emoji} {sub.label}
+                {sub.label}
               </Text>
             </View>
           ) : null}
@@ -412,14 +434,14 @@ function TaskItem({
                 {task.proofStatus === 'submitted'
                   ? 'Photo sent'
                   : task.proofStatus === 'approved'
-                    ? 'Photo ✓'
+                    ? 'Photo added'
                     : 'Proof'}
               </Text>
             </View>
           ) : null}
           {member ? (
             <LinearGradient colors={avatarGradient} style={styles.assigneeDot}>
-              <Text style={styles.assigneeEmoji}>{memberDisplayEmoji(member)}</Text>
+              <MemberGlyph member={member} size={13} />
             </LinearGradient>
           ) : null}
         </View>
@@ -466,7 +488,7 @@ function TaskItem({
                 <StreakMarker variant="asterisk" xpWhenRewarded={hygieneXpWhenRewarded} />
               ) : (
                 <>
-                  <Text style={styles.celebrateBolt}>⚡</Text>
+                  <Moji name="bolt" size={17} />
                   <Text style={[styles.celebrateXp, { color: accentPrimary }]}>+{displayXp}</Text>
                 </>
               )}
@@ -474,9 +496,17 @@ function TaskItem({
           ) : homeworkOpen ? (
             <Pressable
               onPress={onToggle}
+              accessibilityRole="button"
+              accessibilityLabel={`Complete ${task.title}`}
               style={[styles.completeCta, { backgroundColor: sub?.color ?? c.planPurple }]}>
-              <Text style={[styles.completeCtaText, { color: c.ink }]}>Complete</Text>
+              <Text style={[styles.completeCtaText, { color: c.ink }]}>
+                {needsProofOnComplete(task, member) ? 'Done · photo' : 'Complete'}
+              </Text>
             </Pressable>
+          ) : waitingOn ? (
+            <View style={[styles.waitingPill, { borderColor: glassBorder(0.14) }]}>
+              <Text style={[styles.waitingPillText, { color: c.textMuted }]}>{waitingOn}’s to finish</Text>
+            </View>
           ) : (
             <XPBadge
               xp={displayXp}
@@ -489,9 +519,17 @@ function TaskItem({
         ) : homeworkOpen ? (
           <Pressable
             onPress={onToggle}
+            accessibilityRole="button"
+            accessibilityLabel={`Complete ${task.title}`}
             style={[styles.completeCta, { backgroundColor: sub?.color ?? c.planPurple }]}>
-            <Text style={[styles.completeCtaText, { color: c.ink }]}>Complete</Text>
+            <Text style={[styles.completeCtaText, { color: c.ink }]}>
+              {needsProofOnComplete(task, member) ? 'Done · photo' : 'Complete'}
+            </Text>
           </Pressable>
+        ) : waitingOn ? (
+          <View style={[styles.waitingPill, { borderColor: glassBorder(0.14) }]}>
+            <Text style={[styles.waitingPillText, { color: c.textMuted }]}>{waitingOn}’s to finish</Text>
+          </View>
         ) : null}
       </Animated.View>
   );
@@ -693,6 +731,7 @@ function TaskSection({
                 needsSidekickPhotoReply(task) &&
                 taskMatchesAssignee(task, viewerName)
               }
+              canFinish={!viewerName || taskMatchesAssignee(task, viewerName)}
               onToggle={() => onToggle(task.id)}
               onDelete={() => onDelete(task.id)}
               onRequestProof={
@@ -722,6 +761,7 @@ function TaskSection({
                 needsSidekickPhotoReply(task) &&
                 taskMatchesAssignee(task, viewerName)
               }
+              canFinish={!viewerName || taskMatchesAssignee(task, viewerName)}
               onToggle={() => onToggle(task.id)}
               onDelete={() => onDelete(task.id)}
               onRequestProof={
@@ -988,6 +1028,10 @@ export default function TasksScreen() {
       return;
     }
     if (!currentMember || !taskMatchesAssignee(task, currentMember.name)) {
+      Alert.alert(
+        'Only they can finish it',
+        `${task.assignee} marks “${task.title}” done from their own profile.`
+      );
       return;
     }
 
@@ -1000,7 +1044,7 @@ export default function TasksScreen() {
         const result = await completeTask(taskId, { forAssignee: currentMember.name });
         setTimeout(() => setJustCompletedId(null), 900);
         if (result?.needsProof) {
-          router.push(`/task/${task.id}` as never);
+          router.push({ pathname: '/task/[id]', params: { id: task.id, proof: '1' } } as never);
         } else if (!result) {
           Alert.alert('Could not complete', 'Try again or open the task for details.');
         }
@@ -1012,7 +1056,7 @@ export default function TasksScreen() {
       const result = await completeTask(taskId);
       setTimeout(() => setJustCompletedId(null), 900);
       if (result?.needsProof) {
-        router.push(`/task/${task.id}` as never);
+        router.push({ pathname: '/task/[id]', params: { id: task.id, proof: '1' } } as never);
       } else if (!result) {
         Alert.alert('Could not complete', 'Try again or open the task for details.');
       }
@@ -1071,7 +1115,7 @@ export default function TasksScreen() {
                   borderColor: `${accentTheme.primary}66`,
                 },
               ]}>
-              <Text style={{ fontSize: 16 }}>{sharedDevice.avatar || '📱'}</Text>
+              {sharedDevice.avatar ? <Text style={{ fontSize: 16 }}>{sharedDevice.avatar}</Text> : <Moji name="phone" size={16} />}
               <Text style={[styles.deviceSwitchText, { color: accentTheme.primary }]}>
                 Who&apos;s on · {currentMember?.name}
               </Text>
@@ -1154,7 +1198,13 @@ export default function TasksScreen() {
       />
       </View>
 
-      {rewardCapabilities.xpEnabled ? (
+      {statusTab === 'completed' ? (
+        <CompletedBreakdownCard
+          tasks={household.tasks}
+          members={household.members}
+          accent={accentTheme.primary}
+        />
+      ) : rewardCapabilities.xpEnabled ? (
         <LinearGradient
           colors={[`${accentTheme.primary}1F`, 'rgba(52,211,153,0.08)']}
           start={{ x: 0, y: 0 }}
@@ -1211,14 +1261,25 @@ export default function TasksScreen() {
             styles.focusChip,
             { backgroundColor: `${focusedAccent}22`, borderColor: `${focusedAccent}66` },
           ]}>
-          <Text style={{ fontSize: 14 }}>
-            {focusedMemberRecord ? memberDisplayEmoji(focusedMemberRecord) : '👤'}
-          </Text>
+          <MemberGlyph member={focusedMemberRecord} size={14} />
           <Text style={[styles.focusChipText, { color: focusedAccent }]}>
             Viewing {focusMember}
           </Text>
           <MaterialIcons name="close" size={16} color={focusedAccent} />
         </Pressable>
+      ) : null}
+
+      {domainTab === 'homework' && statusTab === 'active' ? (
+        <HomeworkBoard
+          tasks={household.tasks.filter((task) => {
+            if (!isHomework(task)) return false;
+            const whose = sharedKidMode || !isAdmin ? currentMember?.name : focusMember;
+            return !whose || taskMatchesAssignee(task, whose);
+          })}
+          members={household.members}
+          showChildren={isAdmin && !sharedKidMode && !focusMember}
+          ownerName={sharedKidMode || !isAdmin ? currentMember?.name?.split(' ')[0] : focusMember ?? undefined}
+        />
       ) : null}
 
       {empty ? (
@@ -1341,7 +1402,7 @@ export default function TasksScreen() {
           rewardSettings={rewardSettings}
           xpEnabled={rewardCapabilities.xpEnabled}
           homeworkCard={domainTab === 'homework'}
-          canRequestProof={v2Permissions.canRequestProof && domainTab !== 'homework'}
+          canRequestProof={v2Permissions.canRequestProof}
           onToggle={handleToggle}
           onDelete={handleDelete}
             viewerName={currentMember?.name}
@@ -1496,9 +1557,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 4,
-  },
-  celebrateBolt: {
-    fontSize: 16,
   },
   celebrateXp: {
     fontSize: 14,
@@ -1787,7 +1845,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  xpBolt: {
-    fontSize: 10,
+  waitingPill: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  waitingPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  subjectPillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
 });

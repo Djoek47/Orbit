@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import Icon from '@/components/orbit/design/Icon';
 import { domainIconName } from '@/components/orbit/design/icon-map';
@@ -76,7 +77,7 @@ const FREQ_LABEL: Record<string, string> = {
   quarterly: 'Quarterly',
   seasonal: 'Seasonal',
   as_needed: 'As needed',
-  none: 'None',
+  none: 'One-off',
 };
 
 const PRIMARY_FREQS = ['daily', 'weekly', 'monthly'] as const;
@@ -134,7 +135,7 @@ function PersonChip({
           {photo ? (
             <Image source={{ uri: member.avatar }} style={styles.personAvatarImage} />
           ) : (
-            <Text style={styles.personEmoji}>{memberDisplayEmoji(member)}</Text>
+            <MemberGlyph member={member} size={20} />
           )}
         </View>
       </View>
@@ -391,6 +392,21 @@ export default function AssignTaskScreen() {
         <Text style={[typography.headline, { color: c.text, fontWeight: '700' }]}>Assign</Text>
         <View style={{ width: 36 }} />
       </View>
+
+      {tourGuided ? (
+        <View
+          style={[
+            styles.tourHint,
+            {
+              backgroundColor: `${accentTheme.primary}22`,
+              borderColor: `${accentTheme.primary}55`,
+            },
+          ]}>
+          <Text style={[typography.footnote, { color: c.textSoft, fontWeight: '600' }]}>
+            Tour: a Sidekick and chore are ready. Tap Assign when you like them.
+          </Text>
+        </View>
+      ) : null}
 
       {/* Who — always choosable (route param only seeds the selection) */}
       <View style={styles.whoBlock}>
@@ -692,6 +708,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingTop: space.xs,
     paddingBottom: space.sm,
+  },
+  tourHint: {
+    borderCurve: 'continuous',
+    borderRadius: radius.control,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: space.sm,
+    marginHorizontal: space.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
   iconBtn: {
     alignItems: 'center',

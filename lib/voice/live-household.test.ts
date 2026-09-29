@@ -74,7 +74,8 @@ assert.match(stage, /commitIuiBeat/);
 const iuiCommit = source('lib/poppins/iui-commit.ts');
 assert.match(iuiCommit, /if \(created\) \{\s*wrote = true;\s*reverse = \{ write, entityId: created\.id, beatId: beat\.id \};\s*onVoiceTaskCreated\?\.\(created\);/);
 
-const poppins = source('app/(tabs)/poppins.tsx');
+// The live-session wiring lives in the controller (the tab is layout only).
+const poppins = source('lib/poppins/use-poppins-controller.ts');
 assert.match(poppins, /syncHousehold/);
 assert.match(poppins, /notifyTaskCommitted/);
 assert.match(poppins, /getHousehold: \(\) => householdRef\.current/);

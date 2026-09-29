@@ -25,7 +25,11 @@ function task(partial: Partial<HouseholdTask>): HouseholdTask {
 
 assert(isDueToday(task({ due: 'Today, 7:00 PM', status: 'Pending' })), 'open today');
 assert(isDueToday(task({ due: 'Overdue', status: 'Overdue' })), 'overdue open');
-assert(!isDueToday(task({ due: 'This week', status: 'Pending' })), 'this week not due today');
+// "This week" lands on Saturday, so it is due today only on Saturday (pin the day — this used to fail every Saturday).
+const WEDNESDAY = new Date(2026, 8, 23, 9);
+const SATURDAY = new Date(2026, 8, 26, 9);
+assert(!isDueToday(task({ due: 'This week', status: 'Pending' }), WEDNESDAY), 'this week not due today');
+assert(isDueToday(task({ due: 'This week', status: 'Pending' }), SATURDAY), 'this week is due on its last day');
 assert(!isDueToday(task({ due: 'Done today', status: 'Completed' })), 'completed excluded from isDueToday');
 
 assert(
@@ -41,7 +45,7 @@ assert(
   'old completed does not inflate today'
 );
 assert(
-  !isTodayTask(task({ due: 'This week', status: 'Pending' })),
+  !isTodayTask(task({ due: 'This week', status: 'Pending' }), WEDNESDAY),
   'upcoming pending does not count as today'
 );
 assert(isTodayTask(task({ due: 'Today', status: 'Pending' })), 'pending today counts');

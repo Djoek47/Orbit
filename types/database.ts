@@ -98,6 +98,12 @@ export type TaskRow = {
   room_id: string | null;
   repeat_rule: 'none' | 'daily' | 'weekly' | 'weekdays';
   status: 'pending' | 'in_progress' | 'completed' | 'overdue' | 'cancelled';
+  /** Set on complete; cleared on Mark not done (20260803010000). */
+  completed_at: Timestamp | null;
+  /** XP snapshot at complete time (20260803010000 / 20260923120000 backfill). */
+  awarded_xp: number | null;
+  /** Late-complete flag from scoring revision (20260805220000). */
+  completed_late: boolean;
   created_by: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -248,6 +254,31 @@ export type NotificationRow = {
   scheduled_for: Timestamp | null;
   sent_at: Timestamp | null;
   created_at: Timestamp;
+};
+
+/** Append-only audit trail (20260925090000_activity_log.sql). */
+export type ActivityLogRow = {
+  id: string;
+  household_id: string;
+  created_at: Timestamp;
+  kind:
+    | 'notification_created'
+    | 'notification_push_sent'
+    | 'notification_received'
+    | 'notification_opened'
+    | 'notification_read'
+    | 'notification_dismissed'
+    | 'notification_deleted'
+    | 'assistant_error'
+    | 'assistant_report';
+  notification_id: string | null;
+  member_id: string | null;
+  actor_user_id: string | null;
+  title: string | null;
+  body: string | null;
+  category: string | null;
+  device: string | null;
+  detail: Json;
 };
 
 export type StoreRecommendationRow = {
@@ -427,6 +458,12 @@ export type Database = {
         Pick<NotificationRow, 'household_id' | 'title' | 'body'> &
           Partial<Omit<NotificationRow, 'household_id' | 'title' | 'body'>>,
         Partial<Omit<NotificationRow, 'id'>>
+      >;
+      activity_log: TableDef<
+        ActivityLogRow,
+        Pick<ActivityLogRow, 'household_id' | 'kind'> &
+          Partial<Omit<ActivityLogRow, 'household_id' | 'kind'>>,
+        never
       >;
       store_recommendations: TableDef<
         StoreRecommendationRow,

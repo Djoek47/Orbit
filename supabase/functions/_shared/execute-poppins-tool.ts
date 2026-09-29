@@ -55,10 +55,15 @@ const IUI_SCENES = [
   'itinerary_stage',
   'grocery_add',
   'reward_mint',
+  'place_save',
+  'allowance_act',
+  'ranks_peek',
+  'memory_note',
   'list_peek',
   'member_pick',
   'confirm',
   'navigate_coach',
+  'coach_steps',
   'task_done',
   'result_mark',
 ] as const;
@@ -356,12 +361,27 @@ export function executePoppinsTool(
       };
     }
     case 'list_rewards': {
+      const rankRows = members
+        .filter((m) => {
+          const status = String(m.status ?? 'active');
+          const role = String(m.role ?? '');
+          return status === 'active' && role !== 'guest' && role !== 'shared-device';
+        })
+        .slice()
+        .sort((a, b) => Number(b.weekXp ?? b.week_xp ?? 0) - Number(a.weekXp ?? a.week_xp ?? 0))
+        .slice(0, 5)
+        .map((m, i) => ({
+          id: m.id,
+          title: `${i + 1}. ${String(m.name ?? 'Member')}`,
+          detail: `${Number(m.weekXp ?? m.week_xp ?? 0)} XP this week`,
+        }));
       return {
         rewards: rewards.slice(0, 20).map((r) => ({
           id: r.id,
           title: r.title ?? r.name,
           cost: r.cost,
         })),
+        ui_actions: [{ type: 'ranks_peek', rows: rankRows }],
       };
     }
     case 'search_house_rules': {
@@ -461,16 +481,80 @@ export function executePoppinsTool(
       };
     }
     case 'create_itinerary': {
+      const stopsRaw = Array.isArray(args.stops) ? args.stops : [];
+      const stops = stopsRaw.slice(0, 10).map((row) => {
+        const s = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+        return {
+          label: String(s.label ?? ''),
+          placeQuery: s.placeQuery ?? s.place_query,
+          address: s.address,
+          time: s.time,
+          kind: s.kind ?? 'other',
+          notes: s.notes,
+        };
+      }).filter((s) => s.label.trim());
+      const title = String(args.title ?? (stops[0]?.label || 'Trip'));
       return {
         ui_actions: [
           {
             type: 'create_itinerary',
-            title: String(args.title ?? ''),
+            title,
+            date: args.date,
             startsAt: args.startsAt ?? args.starts_at,
             notes: args.notes,
+            stops: stops.length
+              ? stops
+              : [{ label: title, kind: 'other' }],
           },
         ],
-        note: 'Staged itinerary stop on the IUI stage. HOLD silence commits.',
+        note: 'Staged multi-stop itinerary on the IUI stage. HOLD silence commits.',
+      };
+    }
+    case 'resolve_place': {
+      const query = String(args.query ?? '').trim();
+      const places = Array.isArray(household.savedPlaces)
+        ? (household.savedPlaces as Array<Record<string, unknown>>)
+        : Array.isArray(household.places)
+          ? (household.places as Array<Record<string, unknown>>)
+          : [];
+      const q = query.toLowerCase();
+      const saved = places.find((p) => {
+        const name = String(p.name ?? p.label ?? '').toLowerCase();
+        const kind = String(p.kind ?? '').toLowerCase();
+        return name === q || kind === q || name.includes(q);
+      });
+      if (saved) {
+        return {
+          place: {
+            label: String(saved.name ?? saved.label ?? query),
+            address: String(saved.address ?? ''),
+            lat: saved.lat,
+            lng: saved.lng,
+            source: 'saved',
+          },
+        };
+      }
+      return {
+        place: null,
+        query,
+        note: 'No saved place match. Client may geocode; do not invent an address.',
+      };
+    }
+    case 'list_saved_places': {
+      const places = Array.isArray(household.savedPlaces)
+        ? (household.savedPlaces as Array<Record<string, unknown>>)
+        : Array.isArray(household.places)
+          ? (household.places as Array<Record<string, unknown>>)
+          : [];
+      return {
+        places: places.slice(0, 40).map((p) => ({
+          id: p.id,
+          name: p.name ?? p.label,
+          kind: p.kind,
+          address: p.address,
+          lat: p.lat,
+          lng: p.lng,
+        })),
       };
     }
     case 'advance_itinerary_stop': {
@@ -565,7 +649,31 @@ export function executePoppinsTool(
     case 'reject_redemption':
     case 'approve_allowance':
     case 'reject_allowance':
-    case 'grant_allowance':
+    case 'grant_allowance': {
+      const memberName = String(args.memberName ?? args.member_name ?? '').trim();
+      const amountRaw = args.amount ?? args.amountLabel ?? args.amount_label;
+      const amountLabel =
+        typeof amountRaw === 'number'
+          ? `$${amountRaw}`
+          : String(amountRaw ?? '').trim() || 'Allowance';
+      if (!memberName) {
+        return pendingConfirm(name, args, 'grant allowance requires a member');
+      }
+      return {
+        ui_actions: [
+          {
+            type: 'grant_allowance',
+            memberName,
+            memberId: args.memberId ?? args.member_id,
+            amountLabel,
+            amountXp: typeof args.amountXp === 'number' ? args.amountXp : undefined,
+            note: args.note ? String(args.note) : undefined,
+            kind: args.kind === 'hold' || args.kind === 'payout' ? args.kind : 'grant',
+          },
+        ],
+        note: 'Staged allowance on the IUI stage — confirm required.',
+      };
+    }
     case 'remove_member':
     case 'change_member_role':
     case 'mass_reassign_tasks':

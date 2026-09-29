@@ -1,6 +1,7 @@
 import type { HouseholdMember } from '@/types/orbit';
 
-export const DEFAULT_SHARED_IPAD_NAME = 'Family iPad';
+/** Default display name for a new shared device profile (user-facing copy). */
+export const DEFAULT_SHARED_IPAD_NAME = 'Shared device';
 
 export function isSharedDeviceRole(role: HouseholdMember['role'] | undefined | null): boolean {
   return role === 'shared-device';

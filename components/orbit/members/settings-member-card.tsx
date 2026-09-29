@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { ActionSheetIOS, Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { radius, space, typography } from '@/constants/orbit-theme';
@@ -112,7 +113,7 @@ export function SettingsMemberCard({
           {photo ? (
             <Image source={{ uri: member.avatar }} style={styles.avatarImage} />
           ) : (
-            <Text style={styles.avatarEmoji}>{memberDisplayEmoji(member)}</Text>
+            <MemberGlyph member={member} size={18} />
           )}
         </Pressable>
 

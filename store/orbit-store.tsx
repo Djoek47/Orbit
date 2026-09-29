@@ -15,6 +15,7 @@ import {
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import type { PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { attachIntentActions } from '@/lib/poppins/ui-intent';
+import { howToUiAction, matchHowTo } from '@/lib/poppins/how-to';
 import { resolveMajordomoDisplayName, speakAs } from '@/lib/ai/majordomo-name';
 import {
   isMajordomoProfileId,
@@ -57,6 +58,7 @@ import {
   shouldSkipKindToday,
   withMemberDismissed,
 } from '@/lib/ai/daily-insight';
+import { logActivity } from '@/lib/activity/activity-log';
 import { unreadInboxCount } from '@/lib/poppins/inbox-visibility';
 import {
   filterOutDismissedIds,
@@ -429,6 +431,10 @@ type OrbitContextValue = {
     options?: { scope?: 'this' | 'future' }
   ) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
+  /** The 6-digit code from the reset email. */
+  verifyPasswordResetCode: (email: string, code: string) => Promise<void>;
+  /** Save the new password once the reset link or code has been accepted. */
+  setNewPassword: (password: string) => Promise<void>;
   completeTask: (
     taskId: string,
     options?: { forAssignee?: string }
@@ -478,6 +484,11 @@ type OrbitContextValue = {
   splitAllTasksBetweenTwo: (nameA?: string, nameB?: string) => Promise<void>;
   addMissingGrocery: (input: CreateGroceryInput) => Promise<import('@/types/orbit').GroceryItem | void>;
   removeGroceryItem: (itemId: string) => Promise<void>;
+  /** Rename an item or change the amount (admins / whoever may manage groceries). */
+  updateGroceryDetails: (
+    itemId: string,
+    patch: { name?: string; quantity?: string; note?: string }
+  ) => Promise<void>;
   /** Add from Canada catalog product (aisle from product.categoryId). */
   addGroceryFromProduct: (productId: string) => Promise<void>;
   toggleGroceryFavorite: (productId: string) => void;
@@ -1617,6 +1628,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('auth.forgot_password', { email }, analyticsContext);
   };
 
+  const verifyPasswordResetCode = async (email: string, code: string) => {
+    await authRepository.verifyPasswordResetCode(email, code);
+  };
+
+  const setNewPassword = async (password: string) => {
+    await authRepository.setNewPassword(password);
+    await trackAnalytics('auth.password_reset_done', {}, analyticsContext);
+  };
+
   const createProfile = async (input: CreateProfileInput) => {
     if (!currentUser) {
       return;
@@ -2533,6 +2553,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('task.updated', { taskId: task.id, scope }, analyticsContext);
   };
 
+  const resolveDurableProofUri = async (taskId: string, localUri: string): Promise<string> => {
+    const householdId = household.id?.trim();
+    if (!householdId) {
+      throw new Error('Household not ready — try again in a moment.');
+    }
+    const { resolveProofUriForSync } = await import('@/lib/tasks/upload-proof');
+    return resolveProofUriForSync({
+      localUri,
+      householdId,
+      taskId,
+    });
+  };
+
   const submitTaskProof = async (
     taskId: string,
     proofUri: string,
@@ -2548,11 +2581,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       (isSplitTask(currentTask) ? currentMember?.name : undefined) ||
       currentTask.assignee;
 
+    const profileAuth = await usesProfileCodeAuth();
+    let durableUri = proofUri;
+    // Sidekick edge uploads bytes itself; admin JWT path uploads from the client.
+    if (!profileAuth) {
+      durableUri = await resolveDurableProofUri(taskId, proofUri);
+    }
+
     const withProof = {
-      ...resubmitProofPhoto(currentTask, proofUri),
+      ...resubmitProofPhoto(currentTask, durableUri),
       proofNote: options?.note?.trim() || undefined,
     };
-    const profileAuth = await usesProfileCodeAuth();
     let updated: HouseholdTask;
     if (profileAuth) {
       updated = await sidekickSubmitTaskProof({
@@ -2566,7 +2605,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         ...withProof,
         shares: currentTask.shares.map((share) =>
           share.name === forAssignee
-            ? { ...share, proofUri, proofStatus: 'submitted' }
+            ? { ...share, proofUri: durableUri, proofStatus: 'submitted' }
             : share
         ),
         status: currentTask.status === 'Pending' ? 'In Progress' : currentTask.status,
@@ -2585,7 +2624,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         title: currentTask.title,
         assignee: forAssignee,
         taskId,
-        proofUri,
+        proofUri: updated.proofUri ?? durableUri,
         audienceRoles: [...PROOF_REVIEW_ROLES],
         homework: isHomeworkCategory(currentTask.category, currentTask.title),
       });
@@ -2606,15 +2645,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!currentTask) {
       throw new Error('Task not found.');
     }
+
+    const profileAuth = await usesProfileCodeAuth();
+    let durableInput = input;
+    if (input.proofUri && !profileAuth) {
+      const durableUri = await resolveDurableProofUri(taskId, input.proofUri);
+      durableInput = { ...input, proofUri: durableUri };
+    }
+
     const { submitProofReply: buildReply } = await import('@/lib/tasks/proof-actions');
-    const result = buildReply(currentTask, input);
+    const result = buildReply(currentTask, durableInput);
     if (!result.ok) {
       throw new Error(result.reason);
     }
 
     const forAssignee =
       (isSplitTask(currentTask) ? currentMember?.name : undefined) || currentTask.assignee;
-    const profileAuth = await usesProfileCodeAuth();
     let updated: HouseholdTask;
     if (profileAuth && input.proofUri) {
       updated = await sidekickSubmitTaskProof({
@@ -2669,7 +2715,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         title: currentTask.title,
         assignee: forAssignee,
         taskId,
-        proofUri: input.proofUri,
+        proofUri: updated.proofUri ?? durableInput.proofUri,
         audienceRoles: [...PROOF_REVIEW_ROLES],
         homework: isHomeworkCategory(currentTask.category, currentTask.title),
       });
@@ -2681,7 +2727,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     await trackAnalytics(
       'task.proof_submitted',
-      { taskId, forAssignee, hasNote: Boolean(input.note), hasPhoto: Boolean(input.proofUri) },
+      {
+        taskId,
+        forAssignee,
+        hasNote: Boolean(input.note),
+        hasPhoto: Boolean(input.proofUri),
+      },
       analyticsContext
     );
   };
@@ -3738,6 +3789,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }));
   };
 
+  const updateGroceryDetails = async (
+    itemId: string,
+    patch: { name?: string; quantity?: string; note?: string }
+  ) => {
+    if (isSidekickRole(currentMember?.role)) return;
+    const currentItem = household.groceries.find((item) => item.id === itemId);
+    if (!currentItem) return;
+    const updated = await groceryRepository.updateGroceryDetails(currentItem, patch);
+    setHousehold((current) => ({
+      ...current,
+      groceries: current.groceries.map((item) => (item.id === itemId ? updated : item)),
+    }));
+  };
+
   const addGroceryFromProduct = async (productId: string) => {
     const { getCatalogProduct } = await import('@/lib/grocery/catalog');
     const { categoryNameForId } = await import('@/lib/grocery/classify');
@@ -3977,6 +4042,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       userId: targetUserId,
     });
     setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
+    void logActivity({
+      householdId: household.id,
+      kind: 'notification_created',
+      notificationId: item.id,
+      memberId: pushMemberIds.length === 1 ? pushMemberIds[0] : null,
+      title: item.title,
+      body: item.body,
+      category: item.category,
+      detail: { audience_member_ids: pushMemberIds, priority: item.priority },
+    });
 
     if (dataMode === 'supabase' && pushMemberIds.length > 0) {
       dispatchMemberPush(item.id);
@@ -4170,11 +4245,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       events: [event, ...current.events.filter((item) => item.id !== event.id)],
     }));
     if (input.remindMe && approvalStatus === 'approved') {
-      await scheduleLocalReminder(
-        event.title,
-        `${event.time} · ${event.responsible}`,
-        20
-      ).catch((error) => console.warn('Local reminder skipped', error));
+      // An hour before it starts — the label promises that. Skip if that's already past.
+      const startsAt = input.startsAt ?? event.startsAt;
+      const start = startsAt ? new Date(startsAt).getTime() : NaN;
+      const seconds = Number.isFinite(start) ? Math.round((start - 60 * 60 * 1000 - Date.now()) / 1000) : NaN;
+      if (Number.isFinite(seconds) && seconds > 30) {
+        await scheduleLocalReminder(
+          `${event.title} in an hour`,
+          [event.time, event.responsible, event.location].filter(Boolean).join(' · '),
+          seconds
+        ).catch((error) => console.warn('Local reminder skipped', error));
+      }
     }
     await trackAnalytics(
       approvalStatus === 'pending' ? 'event.submitted' : 'event.created',
@@ -5030,6 +5111,42 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (summarizeActUsage(actEventsRef.current).tripped) {
       return { question, answer: POPPINS_PAUSED_COPY, source: 'meter' };
     }
+
+    // WO12 §D — local how-to: never call the chat model; record coach at weight 0.
+    const howTo = matchHowTo(question);
+    if (howTo) {
+      const member = currentMember;
+      if (member) {
+        await recordActEvent(
+          buildActEvent({
+            memberId: member.id,
+            memberName: member.name,
+            actKind: 'coach',
+            mode: 'silent',
+            outcome: 'committed',
+            utteranceChars: question.length,
+          })
+        );
+      }
+      const uiAction = howToUiAction(howTo, question);
+      setPoppinsConversation((current) => [
+        ...current,
+        { role: 'user', content: question },
+        { role: 'assistant', content: howTo.answer },
+      ]);
+      await trackAnalytics(
+        'poppins.how_to',
+        { howToId: howTo.id, questionLength: question.length },
+        analyticsContext
+      );
+      return {
+        question,
+        answer: howTo.answer,
+        source: 'how-to' as const,
+        ui_actions: [uiAction],
+      };
+    }
+
     setPoppinsAskCount((count) => count + 1);
     const profileId = resolveMajordomoProfileId({
       householdProfileId: household.majordomoProfileId,
@@ -5211,7 +5328,31 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('member.declined', { memberId }, analyticsContext);
   };
 
+  /** Local activity-log copy (DB triggers write the authoritative remote row). */
+  const logInboxActivity = (
+    kind: 'notification_read' | 'notification_dismissed',
+    notificationIds: string[]
+  ) => {
+    const householdId = household.id;
+    if (!householdId) return;
+    const memberId = currentMemberRef.current?.id ?? null;
+    for (const notificationId of notificationIds) {
+      if (notificationId === 'morning-brief') continue;
+      const item = notificationsRef.current.find((row) => row.id === notificationId);
+      void logActivity({
+        householdId,
+        kind,
+        notificationId,
+        memberId,
+        title: item?.title ?? null,
+        body: item?.body ?? null,
+        category: item?.category ?? null,
+      });
+    }
+  };
+
   const markNotificationRead = async (notificationId: string) => {
+    logInboxActivity('notification_read', [notificationId]);
     setNotifications((current) =>
       current.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item))
     );
@@ -5253,6 +5394,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    logInboxActivity('notification_dismissed', [notificationId]);
     const memberId = currentMemberRef.current?.id;
     const data = memberId
       ? withMemberDismissed(current.data, memberId)
@@ -5303,6 +5445,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       )
       .map((item) => item.id);
 
+    logInboxActivity('notification_dismissed', ids);
     const nextTombstones = new Set([...dismissedNotificationIdsRef.current, ...ids]);
     setDismissedNotificationIds(nextTombstones);
     setNotifications([]);
@@ -5346,6 +5489,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const markAllNotificationsRead = async () => {
     const ids = notificationsRef.current.map((item) => item.id);
+    logInboxActivity(
+      'notification_read',
+      notificationsRef.current.filter((item) => !item.isRead).map((item) => item.id)
+    );
     setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
     void syncAppBadge(0);
     try {
@@ -6289,7 +6436,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     );
     const session = await setupSharedDeviceSession({
       profileMemberIds: membersOnly.map((member) => member.id),
-      deviceLabel: deviceLabel?.trim() || 'Family iPad',
+      deviceLabel: deviceLabel?.trim() || 'Shared device',
       hostKind: 'shared-tablet',
     });
 
@@ -6504,6 +6651,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createTask,
       updateTask,
       forgotPassword,
+      verifyPasswordResetCode,
+      setNewPassword,
       completeTask,
       submitTaskProof,
       submitProofReply,
@@ -6521,6 +6670,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       splitAllTasksBetweenTwo,
       addMissingGrocery,
       removeGroceryItem,
+      updateGroceryDetails,
       addGroceryFromProduct,
       toggleGroceryFavorite,
       listGroceryBuyAgain,

@@ -187,11 +187,17 @@ function decodeSettings(raw: unknown): HouseRulesSettings {
 
 function decodeChapter(raw: unknown, index: number): Chapter {
   const row = asObject(raw, `chapters[${index}]`);
+  const key = assertEnum(row.key, CHAPTER_KEYS, 'chapter.key');
+  const adminLabel = asString(row.adminLabel, 'chapter.adminLabel');
   return {
-    key: assertEnum(row.key, CHAPTER_KEYS, 'chapter.key'),
+    key,
+    id: typeof row.id === 'string' ? assertEnum(row.id, CHAPTER_KEYS, 'chapter.id') : key,
     order: asNumber(row.order, 'chapter.order'),
-    adminLabel: asString(row.adminLabel, 'chapter.adminLabel'),
+    adminLabel,
     sidekickLabel: asString(row.sidekickLabel, 'chapter.sidekickLabel'),
+    title: typeof row.title === 'string' ? row.title : adminLabel,
+    description: typeof row.description === 'string' ? row.description : undefined,
+    icon: typeof row.icon === 'string' ? row.icon : undefined,
     accent: typeof row.accent === 'string' ? row.accent : undefined,
     sidekickColor: typeof row.sidekickColor === 'string' ? row.sidekickColor : undefined,
   };
@@ -206,9 +212,15 @@ function decodeRule(raw: unknown, index: number): HouseRule {
   if (editable && !settingKey) {
     throw new Error(`house-rules decode: editable rule ${String(row.id)} missing settingKey`);
   }
+  const chapter = assertEnum(
+    row.chapterId ?? row.chapter,
+    CHAPTER_KEYS,
+    'rule.chapter'
+  );
   return {
     id: asString(row.id, 'rule.id'),
-    chapter: assertEnum(row.chapter, CHAPTER_KEYS, 'rule.chapter'),
+    chapter,
+    chapterId: chapter,
     order: asNumber(row.order, 'rule.order'),
     condition: assertEnum(row.condition, CONDITION_KEYS, 'rule.condition'),
     visual: assertEnum(row.visual, VISUAL_KEYS, 'rule.visual'),

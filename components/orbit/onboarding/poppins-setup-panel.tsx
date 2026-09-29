@@ -118,7 +118,7 @@ export function PoppinsSetupPanel({ value, onChange, accent }: PoppinsSetupPanel
         name={activePersona.displayName}
         accent={resolvedAccent}
         onSelectTier={(tier) => {
-          onChange({ ...value, prefs: prefsForTier(tier) });
+          onChange({ ...value, prefs: prefsForTier(tier, prefs) });
         }}
       />
 
