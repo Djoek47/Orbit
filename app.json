@@ -99,7 +99,6 @@
           "color": "#D85A30"
         }
       ],
-      "expo-live-activity",
       [
         "expo-location",
         {
