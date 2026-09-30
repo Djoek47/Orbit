@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Moji } from '@/components/orbit/moji/moji';
@@ -9,6 +9,7 @@ import { PlanAddSheet } from '@/components/orbit/plan/plan-add-sheet';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
+import { useTourScroll } from '@/components/orbit/tour/use-tour-scroll';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { RefreshIconButton } from '@/components/orbit/refresh-icon-button';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
@@ -84,6 +85,9 @@ function locationShort(location: string): string | null {
 }
 
 export default function PlanScreen() {
+  // The tour scrolls this screen so what it points at lands centred.
+  const tourScrollRef = useRef<ScrollView>(null);
+  const tourScroll = useTourScroll('/(tabs)/plan', tourScrollRef);
   const chromePad = useTabChromePaddingTop();
   const { household, suggestPoppinsItinerary, currentMember, permissions, accentTheme, orbitPalette } = useOrbit();
   const { refreshing, onRefresh } = useHouseholdRefresh();
@@ -196,6 +200,9 @@ export default function PlanScreen() {
   return (
     <>
     <ScrollView
+      ref={tourScrollRef}
+      onScroll={tourScroll.onScroll}
+      scrollEventThrottle={16}
       style={[styles.container, { backgroundColor: orbitPalette.background }]}
       contentContainerStyle={[styles.content, { paddingTop: chromePad }]}
       contentInsetAdjustmentBehavior="never"

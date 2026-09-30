@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, TextInput, View, type ScrollView } from 'react-native';
 import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,6 +13,7 @@ import { GroceryCategoryGrid } from '@/components/orbit/grocery-category-grid';
 import { GroceryItemSheet } from '@/components/orbit/grocery/grocery-item-sheet';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { useTourScroll } from '@/components/orbit/tour/use-tour-scroll';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { RefreshIconButton } from '@/components/orbit/refresh-icon-button';
 import { SearchBar } from '@/components/orbit/search-bar';
@@ -34,6 +35,9 @@ import type { GroceryItem } from '@/types/orbit';
  * Canada-first grocery planner — shared chrome (PageEyebrow, SearchBar, GlassCard, EmptyState).
  */
 export default function GroceriesScreen() {
+  // The tour scrolls this screen so what it points at lands centred.
+  const tourScrollRef = useRef<ScrollView>(null);
+  const tourScroll = useTourScroll('/(tabs)/groceries', tourScrollRef);
   const chromePad = useTabChromePaddingTop();
   const insets = useSafeAreaInsets();
   const {
@@ -204,6 +208,9 @@ export default function GroceriesScreen() {
 
   return (
     <PersistentScrollView
+      ref={tourScrollRef}
+      onScroll={tourScroll.onScroll}
+      scrollEventThrottle={16}
       style={{ flex: 1, backgroundColor: c.background }}
       contentContainerStyle={{
         gap: 12,

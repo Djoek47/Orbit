@@ -1,8 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo, Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { AccessibilityInfo, Alert, Pressable, RefreshControl, StyleSheet, View, type ScrollView } from 'react-native';
 import Animated, {
   Easing,
   FadeInDown,
@@ -39,6 +39,7 @@ import { StreakMarker } from '@/components/orbit/streak-marker';
 import { Moji } from '@/components/orbit/moji/moji';
 import { VOCAB } from '@/constants/vocabulary';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { useTourScroll } from '@/components/orbit/tour/use-tour-scroll';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { motion } from '@/constants/motion-tokens';
 import { isTasksStatus } from '@/lib/navigation/open-tasks-tab';
@@ -799,6 +800,9 @@ function TaskSection({
 }
 
 export default function TasksScreen() {
+  // The tour scrolls this screen so what it points at lands centred.
+  const tourScrollRef = useRef<ScrollView>(null);
+  const tourScroll = useTourScroll('/(tabs)/tasks', tourScrollRef);
   const chromePad = useTabChromePaddingTop();
   const params = useLocalSearchParams<{ member?: string | string[]; status?: string | string[] }>();
   const { c, glass, glassBorder } = useOrbitColors();
@@ -1108,6 +1112,9 @@ export default function TasksScreen() {
   return (
     <>
     <PersistentScrollView
+      ref={tourScrollRef}
+      onScroll={tourScroll.onScroll}
+      scrollEventThrottle={16}
       style={orbitScreen.container}
       contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
       contentInsetAdjustmentBehavior="never"

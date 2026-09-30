@@ -15,6 +15,8 @@ export type PlaceTourCardInput = {
   insets: { top: number; bottom: number };
   /** Force center (centred steps / no spotlight). */
   forceCenter?: boolean;
+  /** Keep the card's top below this line (the Exit pill). */
+  reserveTop?: number;
 };
 
 export type PlaceTourCardResult = {
@@ -40,7 +42,7 @@ function clamp(n: number, min: number, max: number): number {
 export function placeTourCard(input: PlaceTourCardInput): PlaceTourCardResult {
   const { target, screen, insets, forceCenter } = input;
   const cardHeight = input.cardHeight > 0 ? input.cardHeight : 200;
-  const minTop = insets.top + EDGE;
+  const minTop = Math.max(insets.top + EDGE, input.reserveTop ?? 0);
   const maxTop = screen.h - insets.bottom - cardHeight - EDGE;
   const centerTop = clamp((screen.h - cardHeight) / 2, minTop, Math.max(minTop, maxTop));
 
@@ -55,7 +57,7 @@ export function placeTourCard(input: PlaceTourCardInput): PlaceTourCardResult {
   }
 
   const spaceBelow = screen.h - insets.bottom - targetBottom - GAP;
-  const spaceAbove = target.y - insets.top - GAP;
+  const spaceAbove = target.y - minTop - GAP;
   const fitsBelow = spaceBelow >= cardHeight;
   const fitsAbove = spaceAbove >= cardHeight;
 
@@ -104,6 +106,12 @@ export type ExitPillPlacement = {
 const EXIT_PILL_W = 108;
 const EXIT_PILL_H = 40;
 const EXIT_CLEARANCE = 10;
+/** The pill's distance from the screen edge (matches the overlay's margin). */
+const EXIT_MARGIN = 16;
+/** Bottom of the pill in the top band — the coach card keeps below it. */
+export function exitPillBottom(placement: ExitPillPlacement): number {
+  return placement.top + EXIT_PILL_H;
+}
 
 /**
  * Where the Exit pill can sit without covering the thing the tour is pointing at.
@@ -127,13 +135,14 @@ export function placeExitPill(input: {
   const sharesBand = target.y < pillBottom + EXIT_CLEARANCE && target.y + target.height > top - EXIT_CLEARANCE;
   if (!sharesBand) return fallback;
 
-  // Right corner is taken — is the left one free?
-  const targetLeft = target.x;
-  const rightFree = targetLeft > input.screen.w - EXIT_PILL_W - EXIT_CLEARANCE * 2;
-  if (rightFree) return fallback;
-  const leftFree = target.x + target.width < EXIT_PILL_W + EXIT_CLEARANCE * 2;
-  if (leftFree) return { side: 'right', top };
-  if (targetLeft > EXIT_PILL_W + EXIT_CLEARANCE * 2) return { side: 'left', top };
+  // Each corner is a real rectangle; a corner is free when the target doesn't overlap it.
+  // (The old check read "right is free" from the target sitting on the right — backwards, which
+  // is why the pill still sat on the Settings button.)
+  const overlaps = (left: number, right: number) =>
+    target.x < right + EXIT_CLEARANCE && target.x + target.width > left - EXIT_CLEARANCE;
+  const rightLeft = input.screen.w - EXIT_MARGIN - EXIT_PILL_W;
+  if (!overlaps(rightLeft, input.screen.w - EXIT_MARGIN)) return fallback;
+  if (!overlaps(EXIT_MARGIN, EXIT_MARGIN + EXIT_PILL_W)) return { side: 'left', top };
 
   // The target spans the width: drop below it, still inside the screen.
   const below = target.y + target.height + EXIT_CLEARANCE;

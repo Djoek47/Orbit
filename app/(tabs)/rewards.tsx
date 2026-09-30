@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Moji } from '@/components/orbit/moji/moji';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
@@ -13,6 +13,7 @@ import { Avatar } from '@/components/orbit/avatar';
 import { ChampionsRecordSheet } from '@/components/orbit/champions-record-sheet';
 import { XpLedgerView } from '@/components/orbit/xp-ledger-view';
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
+import { useTourScroll } from '@/components/orbit/tour/use-tour-scroll';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { CrownLeaderboard } from '@/components/orbit/crown-leaderboard';
 import Icon from '@/components/orbit/design/Icon';
@@ -135,6 +136,9 @@ function SharedTabletChip({ device }: { device: HouseholdMember }) {
 }
 
 export default function RewardsScreen() {
+  // The tour scrolls this screen so what it points at lands centred.
+  const tourScrollRef = useRef<ScrollView>(null);
+  const tourScroll = useTourScroll('/(tabs)/rewards', tourScrollRef);
   const chromePad = useTabChromePaddingTop();
   const params = useLocalSearchParams<{ surface?: string | string[] }>();
   const {
@@ -633,6 +637,9 @@ export default function RewardsScreen() {
   return (
     <>
     <ScrollView
+      ref={tourScrollRef}
+      onScroll={tourScroll.onScroll}
+      scrollEventThrottle={16}
       style={[orbitScreen.container, { backgroundColor: orbitPalette.background }]}
       contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
       contentInsetAdjustmentBehavior="never"

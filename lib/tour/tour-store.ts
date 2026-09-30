@@ -356,6 +356,8 @@ export function registerTourUiHooks(hooks: TourUiHooks): () => void {
 export function applyTourStepEnter(
   onEnter?:
     | 'tasks.homework'
+    | 'tasks.chores'
+    | 'plan.calendar'
     | 'forceQuietSpeak'
     | 'plan.itineraries'
     | 'plan.places'
@@ -365,6 +367,13 @@ export function applyTourStepEnter(
 ): void {
   if (onEnter === 'tasks.homework') {
     uiHooks.setTasksDomain?.('homework');
+  }
+  // The Tasks chapter used to inherit Homework from an earlier visit.
+  if (onEnter === 'tasks.chores') {
+    uiHooks.setTasksDomain?.('chores');
+  }
+  if (onEnter === 'plan.calendar') {
+    uiHooks.setPlanSubTab?.('calendar');
   }
   if (onEnter === 'forceQuietSpeak') {
     setTourForcesQuiet(true);

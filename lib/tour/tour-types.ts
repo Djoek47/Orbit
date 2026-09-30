@@ -89,6 +89,8 @@ export type TourStep = {
   /** Side effect when the step becomes active (e.g. switch domain tab). */
   onEnter?:
     | 'tasks.homework'
+    | 'tasks.chores'
+    | 'plan.calendar'
     | 'forceQuietSpeak'
     | 'plan.itineraries'
     | 'plan.places'

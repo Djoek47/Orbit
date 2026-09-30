@@ -15,11 +15,11 @@
  * task is made, nothing is saved. The scripts live in lib/tour/mock-flows (tested); this file
  * only draws them.
  *
- * ?flow=assign | homework | sidekick
+ * Played inside the tour overlay — never as a screen of its own, which is what stacked two copies
+ * of the app on top of each other.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInRight, FadeOut } from 'react-native-reanimated';
@@ -32,21 +32,19 @@ import { MockWindow } from '@/components/orbit/tour/mock-window';
 import { typography } from '@/constants/orbit-theme';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
 import {
-  isMockFlowId,
   MOCK_FLOW_TITLE,
   mockFlowProgress,
   mockFlowSteps,
+  type MockFlowId,
   type MockScreen,
 } from '@/lib/tour/mock-flows';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
-export default function MockFlowScreen() {
+export function MockFlowDemo({ flow, onClose }: { flow: MockFlowId; onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
   const { household, accentTheme } = useOrbit();
-  const params = useLocalSearchParams<{ flow?: string }>();
-  const flow = isMockFlowId(params.flow) ? params.flow : 'assign';
 
   const sidekick = household.members.find(
     (member) => isSidekickRole(member.role) && member.status !== 'inactive'
@@ -61,11 +59,9 @@ export default function MockFlowScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: c.background, paddingTop: insets.top + 8 }]}>
-      <Stack.Screen options={{ headerShown: false }} />
-
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={onClose}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Close">
@@ -124,7 +120,7 @@ export default function MockFlowScreen() {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <Pressable
-          onPress={() => (last ? router.back() : setIndex((value) => value + 1))}
+          onPress={() => (last ? onClose() : setIndex((value) => value + 1))}
           accessibilityRole="button"
           style={({ pressed }) => [
             styles.cta,
@@ -133,7 +129,7 @@ export default function MockFlowScreen() {
           <Text style={styles.ctaLabel}>{step.cta}</Text>
         </Pressable>
         {last ? null : (
-          <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button">
+          <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button">
             <Text style={[typography.footnote, { color: c.textSubtle }]}>Skip</Text>
           </Pressable>
         )}

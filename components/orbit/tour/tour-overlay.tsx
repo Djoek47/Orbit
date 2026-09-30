@@ -1,14 +1,13 @@
 /**
  * Tour overlay — safe placement, Exit pill + watchdog.
- * Info steps render inline so Home (etc.) can scroll under the coach card.
- * Action steps on iOS use FullWindowOverlay to float above assign/create modals.
+ * Always in the app's own window. Look steps hold the whole screen still; do steps leave the
+ * highlighted thing usable. The tour scrolls for you, so nothing needs to pan underneath.
  * Work Order 9.3 §3.1–3.4, §3.7.
  */
 import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   BackHandler,
-  Platform,
   Pressable,
   StyleSheet,
   useWindowDimensions,
@@ -21,11 +20,15 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FullWindowOverlay } from 'react-native-screens';
 
 import { TourCard } from '@/components/orbit/tour/tour-card';
 import { AppText as Text } from '@/components/orbit/app-text';
-import { isTourCardOnScreen, placeExitPill, placeTourCard } from '@/lib/tour/tour-layout';
+import {
+  exitPillBottom,
+  isTourCardOnScreen,
+  placeExitPill,
+  placeTourCard,
+} from '@/lib/tour/tour-layout';
 import type { TourRect } from '@/lib/tour/tour-types';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
@@ -45,6 +48,12 @@ type Props = {
   isAction: boolean;
   /** Only true for tap-the-target steps — blocks outside the spotlight. */
   lockCutout?: boolean;
+  /**
+   * The highlighted thing can be used (type a grocery, add an event). Otherwise the whole screen,
+   * target included, is blocked: tapping Base or Max on a "look at this" step started the live
+   * stage and the tour vanished.
+   */
+  interactiveTarget?: boolean;
   isLast: boolean;
   centered?: boolean;
   primaryLabel?: string;
@@ -75,6 +84,7 @@ function TourOverlayBody({
   stepsInChapter,
   isAction,
   lockCutout = false,
+  interactiveTarget = false,
   isLast,
   centered,
   primaryLabel,
@@ -153,6 +163,8 @@ function TourOverlayBody({
     screen: { w: screenW, h: screenH },
     insets: { top: insets.top, bottom: insets.bottom },
     forceCenter: Boolean(centered) || !target,
+    // The card never slides under the Exit pill.
+    reserveTop: exitPillBottom(exitPlacement) + 8,
   });
 
   useEffect(() => {
@@ -210,8 +222,6 @@ function TourOverlayBody({
     ],
   }));
 
-  // Dim is paint-only by default. Only lockCutout (true action taps) blocks
-  // outside the spotlight — event steps like Poppins Speak stay interactive.
   const accentRing = accent;
   const exitBg = accent;
   const exitLabel = c.ink;
@@ -221,7 +231,7 @@ function TourOverlayBody({
       {/* Dim + cutout as four rectangles (no SVG mask — reliable on iOS / Reanimated). */}
       <View
         style={[StyleSheet.absoluteFill, styles.dimLayer]}
-        pointerEvents={lockCutout ? 'box-none' : 'none'}>
+        pointerEvents="box-none">
         {cutout ? (
           <>
             <Animated.View
@@ -295,7 +305,14 @@ function TourOverlayBody({
           />
         )}
 
-        {lockCutout && cutout ? (
+        {!interactiveTarget || !cutout ? (
+          <Pressable
+            accessible={false}
+            onPress={() => undefined}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
+        {(lockCutout || interactiveTarget) && cutout ? (
           <>
             <View
               pointerEvents="auto"
@@ -421,17 +438,8 @@ function TourOverlayBody({
 }
 
 export function TourOverlay(props: Props) {
-  // Info steps stay inline so the screen under the coach card can scroll.
-  // FullWindowOverlay (iOS) sits in its own window and eats pan gestures —
-  // only true action steps (lockCutout) float above assign / create modals.
-  if (Platform.OS === 'ios' && props.lockCutout) {
-    return (
-      <FullWindowOverlay>
-        <TourOverlayBody {...props} />
-      </FullWindowOverlay>
-    );
-  }
-
+  // Always in the app's own window. There are no sheets to float over any more — demonstrations
+  // play in the tour's panel — and a separate window swallowed scrolls and sat over forms.
   return <TourOverlayBody {...props} />;
 }
 

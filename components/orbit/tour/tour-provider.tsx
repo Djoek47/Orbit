@@ -19,11 +19,17 @@ import {
   AccessibilityInfo,
   findNodeHandle,
   Keyboard,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TourErrorBoundary } from '@/components/orbit/tour/tour-error-boundary';
+import { TourDemoPanel } from '@/components/orbit/tour/tour-demo-panel';
 import { TourOverlay } from '@/components/orbit/tour/tour-overlay';
+import type { TourScrollHandle } from '@/components/orbit/tour/use-tour-scroll';
+import { demoForStep, type TourDemoId } from '@/lib/tour/tour-demos';
+import { planTourScroll, targetScrolls, tourScreenKey } from '@/lib/tour/tour-scroll';
 import { TourWelcome } from '@/components/orbit/tour/tour-welcome';
 import { trackAnalytics } from '@/lib/analytics';
 import {
@@ -78,7 +84,6 @@ import { hydrateTourEnabled, isTourEnabledSync } from '@/lib/tour/tour-enabled';
 import { runHydrateTourPass } from '@/lib/tour/tour-hydrate';
 import { useOrbitOptional } from '@/store/orbit-store';
 
-type ScrollFn = ((y: number) => void) | null;
 
 type TourRegistry = {
   activeTargetId: TourTargetId | null;
@@ -88,7 +93,8 @@ type TourRegistry = {
   sessionActive: boolean;
   registerTarget: (id: TourTargetId, rect: TourRect) => void;
   unregisterTarget: (id: TourTargetId) => void;
-  registerScroll: (fn: ScrollFn) => void;
+  /** Each tab registers the ScrollView the tour may move, under its own screen key. */
+  registerScroll: (screenKey: string, handle: TourScrollHandle | null) => void;
   startTour: (tourId?: TourId) => void;
   startChapter: (tourId: TourId, chapterId: string) => void;
   /** WO12 §D3 — walk-through from a how-to, reusing the same overlay. */
@@ -143,18 +149,12 @@ export function isMainAppPath(pathname: string | null | undefined): boolean {
   return MAIN_TAB_PATHS.has(pathname ?? '');
 }
 
-/**
- * The demonstrations a step's primary button can open. Each is a screen of its own that draws
- * mock windows — nothing on these routes touches the household.
- */
-const DEMO_ROUTES: Partial<Record<NonNullable<TourStep['primaryAction']>, string>> = {
-  open_proof_walkthrough: '/tour/proof-walkthrough?kind=chore',
-  open_homework_walkthrough: '/tour/proof-walkthrough?kind=homework',
-  open_mock_assign: '/tour/mock-flow?flow=assign',
-  open_mock_homework: '/tour/mock-flow?flow=homework',
-  open_mock_sidekick: '/tour/mock-flow?flow=sidekick',
-  open_poppins_demo: '/poppins-how-it-works',
-};
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** How long an animated scroll takes to settle before the card is placed. */
+const SCROLL_SETTLE_MS = 460;
+/** How long a step waits for its target after arriving on the screen. */
+const TARGET_WAIT_MS = 2600;
 
 export function TourProvider({ children }: PropsWithChildren) {
   const majordomoName = useMajordomoName();
@@ -179,6 +179,12 @@ export function TourProvider({ children }: PropsWithChildren) {
   const [hostKind, setHostKind] = useState<'sidekick' | 'shared-tablet' | null>(null);
   const [checklistForced, setChecklistForced] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  /** A demonstration playing in the tour's own panel (never a route). */
+  const [demo, setDemo] = useState<TourDemoId | null>(null);
+  /** The step has arrived, scrolled and measured — only now does the card show. */
+  const [stepReady, setStepReady] = useState(false);
+  const { height: screenH } = useWindowDimensions();
+  const safeInsets = useSafeAreaInsets();
   const [adHoc, setAdHoc] = useState<{
     steps: TourStep[];
     index: number;
@@ -189,15 +195,20 @@ export function TourProvider({ children }: PropsWithChildren) {
   } | null>(null);
 
   const targetsRef = useRef(new Map<TourTargetId, TourRect>());
-  const scrollRef = useRef<ScrollFn>(null);
+  const scrollHandles = useRef(new Map<string, TourScrollHandle>());
+  /** When each target last reported — a rect from before the step began may be another screen's. */
+  const targetSeenAt = useRef(new Map<TourTargetId, number>());
+  const stepStartedAt = useRef(0);
+  /** While the page scrolls into place the card waits, instead of chasing the target. */
+  const settlingRef = useRef(false);
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
   const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardRef = useRef<View>(null);
   const hydratedKey = useRef<string | null>(null);
   const inFlightKey = useRef<string | null>(null);
   const pointerRef = useRef<ActiveTourPointer | null>(null);
   const watchdogStreakRef = useRef(0);
-  /** Saw Assign while on tasks.form — used to seed if they back out without creating. */
-  const assignFormSeenRef = useRef(false);
   const tourStateRef = useRef<TourState | null>(null);
   const analyticsContextRef = useRef(analyticsContext);
   analyticsContextRef.current = analyticsContext;
@@ -374,31 +385,18 @@ export function TourProvider({ children }: PropsWithChildren) {
   const activeStepIdRef = useRef(activeStep?.step.id);
   activeStepIdRef.current = activeStep?.step.id;
 
-  const pointer = activeStep && (!paused || Boolean(adHoc)) ? activeStep : null;
+  // While a demonstration plays, no step is active: nothing navigates, nothing measures.
+  const pointer = activeStep && !demo && (!paused || Boolean(adHoc)) ? activeStep : null;
   pointerRef.current = pointer;
   const isAdHoc = Boolean(adHoc);
 
-  // Assign form step: never show the coach card on the sheet — the presets are the guide.
-  const overlayPointer =
-    pointer && pointer.step.id !== 'tasks.form' ? pointer : null;
-
-  // Pause when IUI live / keyboard — except during an action step (that is the action).
-  // Always pause on Assign / Create modals so the coach card never sits on the form.
+  // Pause when the Poppins stage is live or the keyboard is up — except during a step that asks
+  // for exactly that (typing a grocery, saying something).
   useEffect(() => {
-    const onAssignModal =
-      Boolean(pathname?.includes('assign-task')) ||
-      Boolean(pathname?.includes('assign-homework')) ||
-      Boolean(pathname?.includes('create-task'));
-
     const sync = () => {
-      if (onAssignModal) {
-        setPaused(true);
-        return;
-      }
       const live = poppinsUiOrchestrator.getState().live;
       // A live stage used to pause a plain "read this" step, which hid the card and left the
-      // person with no way on — the tour looked broken. A step that only wants to be read asks
-      // the stage to stand down instead of disappearing behind it.
+      // person with no way on. A step that only wants to be read asks the stage to stand down.
       if (live && !actionStepRef.current && activeStepIdRef.current?.startsWith('poppins.')) {
         poppinsUiOrchestrator.pause();
         setPaused(false);
@@ -421,42 +419,7 @@ export function TourProvider({ children }: PropsWithChildren) {
       show.remove();
       hide.remove();
     };
-  }, [pathname]);
-
-  useEffect(() => {
-    const onAssignModal =
-      Boolean(pathname?.includes('assign-task')) ||
-      Boolean(pathname?.includes('assign-homework')) ||
-      Boolean(pathname?.includes('create-task'));
-    // Never clear pause while Assign is open — even for event/action steps.
-    if (onAssignModal) {
-      setPaused(true);
-      return;
-    }
-    if (actionStep) setPaused(false);
-  }, [actionStep, pathname]);
-
-  // Reset dismiss-seed latch when leaving the form step.
-  useEffect(() => {
-    if (activeStep?.step.id !== 'tasks.form') {
-      assignFormSeenRef.current = false;
-    }
   }, [activeStep?.step.id]);
-
-  // Open Assign for the form step even when the coach card is hidden/paused.
-  useEffect(() => {
-    if (!sessionActive || !activeStep) return;
-    if (activeStep.step.id !== 'tasks.form') return;
-    const onAssign =
-      Boolean(pathname?.includes('assign-task')) ||
-      Boolean(pathname?.includes('assign-homework'));
-    if (onAssign || !navRef.isReady()) return;
-    try {
-      router.push('/assign-task' as never);
-    } catch (error) {
-      console.warn('tour.openAssign', error);
-    }
-  }, [activeStep?.step.id, pathname, sessionActive, navRef]);
 
   // Force Quiet during Poppins action step
   useEffect(() => {
@@ -480,133 +443,141 @@ export function TourProvider({ children }: PropsWithChildren) {
     }
   }, [orbit, household]);
 
-  // Navigate + wait for target — only when the navigator is ready.
+  const onStepRoute = pointer ? tourRouteMatches(pathname, pointer.step.route) : false;
+
+  // 1 · Navigation. The only place the tour moves between screens, and only when the step
+  // changes — never on a pathname change, which is what used to yank people back and stack a
+  // second copy of the app over whatever had just opened. Anything presented is closed first.
   useEffect(() => {
-    if (!pointer) {
-      setTargetRect(null);
-      return;
+    if (!pointer) return;
+    stepStartedAt.current = Date.now();
+    void trackAnalytics(
+      'tour.step_viewed',
+      { tourId: pointer.tourId, chapterId: pointer.chapter.id, stepIndex: pointer.stepIndex },
+      analyticsContextRef.current
+    );
+    if (!reduceMotion) {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     }
-    setTargetRect(null);
-
-    try {
-      void trackAnalytics(
-        'tour.step_viewed',
-        {
-          tourId: pointer.tourId,
-          chapterId: pointer.chapter.id,
-          stepIndex: pointer.stepIndex,
-        },
-        analyticsContextRef.current
-      );
-
-      if (!reduceMotion) {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
-      }
-
-      applyTourStepEnter(pointer.step.onEnter);
-
-      if (pointer.step.id === 'tasks.form') {
-        const onAssign =
-          pathname?.includes('assign-task') || pathname?.includes('assign-homework');
-        if (!onAssign && navRef.isReady()) {
-          try {
-            router.push('/assign-task' as never);
-          } catch (error) {
-            console.warn('tour.openAssign', error);
-          }
+    const route = pointer.step.route;
+    if (tourRouteMatches(pathnameRef.current, route)) return;
+    let cancelled = false;
+    void (async () => {
+      for (let i = 0; i < 30 && !navRef.isReady(); i += 1) await sleep(50);
+      if (cancelled || !navRef.isReady()) return;
+      try {
+        if (router.canDismiss()) {
+          router.dismissAll();
+          await sleep(380);
         }
+      } catch (error) {
+        console.warn('tour.dismissAll', error);
       }
-
-      if (pointer.step.id === 'tasks.hold') {
-        void ensureTourPracticeTask();
+      if (cancelled || tourRouteMatches(pathnameRef.current, route)) return;
+      try {
+        router.navigate(route as never);
+      } catch (error) {
+        console.warn('tour.navigate', error);
+        void trackAnalytics(
+          'tour.navigate_failed',
+          { route, message: error instanceof Error ? error.message : String(error) },
+          analyticsContextRef.current
+        );
       }
-
-      const route = pointer.step.route;
-      let navigated = tourRouteMatches(pathname, route);
-      const goToStep = () => {
-        if (navigated || !navRef.isReady()) return;
-        try {
-          router.navigate(route as never);
-          navigated = true;
-        } catch (error) {
-          console.warn('tour.navigate', error);
-          void trackAnalytics(
-            'tour.navigate_failed',
-            { route, message: error instanceof Error ? error.message : String(error) },
-            analyticsContextRef.current
-          );
-        }
-      };
-
-      goToStep();
-
-      if (pointer.step.centered) {
-        setTargetRect({ x: 24, y: 160, width: 280, height: 48 });
-        return;
-      }
-
-      if (pointer.step.ensureVisible && scrollRef.current) {
-        const existing = targetsRef.current.get(pointer.step.targetId);
-        if (existing) scrollRef.current(existing.y);
-      }
-
-      if (waitTimerRef.current) clearTimeout(waitTimerRef.current);
-      let deadline = Date.now() + 1800;
-      const poll = () => {
-        try {
-          const wasNavigated = navigated;
-          goToStep();
-          if (!wasNavigated && navigated) deadline = Date.now() + 1400;
-          const rect = targetsRef.current.get(pointer.step.targetId);
-          if (rect && rect.width > 0) {
-            if (pointer.step.ensureVisible && scrollRef.current) {
-              scrollRef.current(rect.y);
-            }
-            setTargetRect(rect);
-            const node = findNodeHandle(cardRef.current);
-            if (node) {
-              AccessibilityInfo.setAccessibilityFocus(node);
-            }
-            return;
-          }
-          if (Date.now() > deadline) {
-            void trackAnalytics(
-              'tour.step_skipped_missing_target',
-              {
-                tourId: pointer.tourId,
-                chapterId: pointer.chapter.id,
-                targetId: pointer.step.targetId,
-              },
-              analyticsContextRef.current
-            );
-            if (tourState) {
-              const next = advanceAfterStep(tourState, conditionCtx, { skipStep: true });
-              void persist(next);
-            } else if (adHoc) {
-              setAdHoc((prev) => {
-                if (!prev) return null;
-                const nextIndex = prev.index + 1;
-                if (nextIndex >= prev.steps.length) return null;
-                return { ...prev, index: nextIndex };
-              });
-            }
-            return;
-          }
-          waitTimerRef.current = setTimeout(poll, 80);
-        } catch (error) {
-          console.warn('tour.waitTarget', error);
-        }
-      };
-      waitTimerRef.current = setTimeout(poll, 60);
-    } catch (error) {
-      console.warn('tour.stepEffect', error);
-    }
-
+    })();
     return () => {
-      if (waitTimerRef.current) clearTimeout(waitTimerRef.current);
+      cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pointer?.step.id, pathname, paused, sessionActive]);
+  }, [pointer?.step.id]);
+
+  // 2 · Arrive. Once the step's screen is showing: switch the screen to the right section, wait
+  // for the target, scroll it to the middle of the free space, let the scroll settle, measure
+  // again — and only then show the card. Leaving the screen (a sheet opened from the target)
+  // hides the card; coming back brings it back. Nothing here navigates.
+  useEffect(() => {
+    setStepReady(false);
+    setTargetRect(null);
+    settlingRef.current = false;
+    if (!pointer || !onStepRoute) return;
+    const step = pointer.step;
+    applyTourStepEnter(step.onEnter);
+    if (step.id === 'tasks.hold') void ensureTourPracticeTask();
+    if (step.centered) {
+      setStepReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let scrolled = false;
+    const arrivedAt = Date.now();
+    const fresh = () => {
+      const rect = targetsRef.current.get(step.targetId);
+      const seen = targetSeenAt.current.get(step.targetId) ?? 0;
+      return rect && rect.width > 0 && seen >= arrivedAt ? rect : null;
+    };
+    const poll = () => {
+      if (cancelled) return;
+      // Screens mount lazily: say which section to show again until the target is there.
+      applyTourStepEnter(step.onEnter);
+      const rect = fresh();
+      if (rect) {
+        if (!scrolled && targetScrolls(step.targetId)) {
+          scrolled = true;
+          const handle = scrollHandles.current.get(tourScreenKey(step.route));
+          const next = handle
+            ? planTourScroll({
+                target: rect,
+                offset: handle.getOffset(),
+                screenH,
+                insets: { top: safeInsets.top, bottom: safeInsets.bottom },
+              })
+            : null;
+          if (handle && next != null) {
+            settlingRef.current = true;
+            handle.scrollTo(next);
+            timer = setTimeout(() => {
+              settlingRef.current = false;
+              poll();
+            }, reduceMotion ? 120 : SCROLL_SETTLE_MS);
+            return;
+          }
+        }
+        setTargetRect(rect);
+        setStepReady(true);
+        const node = findNodeHandle(cardRef.current);
+        if (node) AccessibilityInfo.setAccessibilityFocus(node);
+        return;
+      }
+      if (Date.now() - arrivedAt > TARGET_WAIT_MS) {
+        void trackAnalytics(
+          'tour.step_skipped_missing_target',
+          { tourId: pointer.tourId, chapterId: pointer.chapter.id, targetId: step.targetId },
+          analyticsContextRef.current
+        );
+        if (adHoc) {
+          setAdHoc((prev) => {
+            if (!prev) return null;
+            const nextIndex = prev.index + 1;
+            return nextIndex >= prev.steps.length ? null : { ...prev, index: nextIndex };
+          });
+        } else if (tourStateRef.current) {
+          void persist(advanceAfterStep(tourStateRef.current, conditionCtx, { skipStep: true }));
+        }
+        return;
+      }
+      timer = setTimeout(poll, 80);
+    };
+    // A beat for the section switch to render before the first measure.
+    timer = setTimeout(poll, 120);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      settlingRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointer?.step.id, onStepRoute]);
 
   // Listen for event advances from tour state so a pause cannot drop the event.
   useEffect(() => {
@@ -644,14 +615,6 @@ export function TourProvider({ children }: PropsWithChildren) {
       return;
     }
     if (!tourState) return;
-    // Special-case: assign button lives on tasks; tapping opens /assign-task.
-    if (
-      activeStep.step.targetId === 'tasks.assignButton' &&
-      (pathname?.includes('assign-task') || pathname?.includes('assign-homework'))
-    ) {
-      void persist(advanceAfterStep(tourState, conditionCtx));
-      return;
-    }
     if (
       activeStep.step.targetId === 'selectProfile.faces' &&
       !pathname?.includes('select-profile')
@@ -660,33 +623,12 @@ export function TourProvider({ children }: PropsWithChildren) {
     }
   }, [pathname, activeStep?.step.id, tourState, conditionCtx, persist, sessionActive, adHoc]);
 
-  // Left Assign without creating — seed a practice chore; task_created advances the form step.
-  useEffect(() => {
-    if (!activeStep || !sessionActive || adHoc) return;
-    if (activeStep.step.id !== 'tasks.form') return;
-    const onAssign =
-      Boolean(pathname?.includes('assign-task')) ||
-      Boolean(pathname?.includes('assign-homework')) ||
-      Boolean(pathname?.includes('create-task'));
-    if (onAssign) {
-      assignFormSeenRef.current = true;
-      return;
-    }
-    if (!assignFormSeenRef.current) return;
-    assignFormSeenRef.current = false;
-    const timer = setTimeout(() => {
-      const latest = tourStateRef.current;
-      if (!latest) return;
-      // Real Assign already moved us on via task_created.
-      if (resolveActivePointer(latest, conditionCtx)?.step.id !== 'tasks.form') return;
-      void ensureTourPracticeTask();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [pathname, activeStep?.step.id, conditionCtx, sessionActive, ensureTourPracticeTask, adHoc]);
-
   const registerTarget = useCallback((id: TourTargetId, rect: TourRect) => {
     targetsRef.current.set(id, rect);
+    targetSeenAt.current.set(id, Date.now());
     if (pointerRef.current?.step.targetId !== id) return;
+    // Mid-scroll the card waits; it is placed once the page has settled.
+    if (settlingRef.current) return;
     // This runs every frame while a step is pointing at something. Only publish a real
     // move: a fresh object each frame re-rendered the screen, and a screen that sets
     // navigation options while rendering then looped until React gave up
@@ -709,8 +651,9 @@ export function TourProvider({ children }: PropsWithChildren) {
     targetsRef.current.delete(id);
   }, []);
 
-  const registerScroll = useCallback((fn: ScrollFn) => {
-    scrollRef.current = fn;
+  const registerScroll = useCallback((screenKey: string, handle: TourScrollHandle | null) => {
+    if (handle) scrollHandles.current.set(screenKey, handle);
+    else scrollHandles.current.delete(screenKey);
   }, []);
 
   const dismissModalsThen = useCallback(async (run: () => void) => {
@@ -893,18 +836,11 @@ export function TourProvider({ children }: PropsWithChildren) {
     }
     if (!tourState) return;
     const ptr = pointerRef.current;
-    // Every demonstration plays on its own screen, drawn rather than driving the real app, so
-    // two screens can never end up stacked. The tour steps aside and picks up after.
-    const demoRoute = ptr?.step.primaryAction ? DEMO_ROUTES[ptr.step.primaryAction] : undefined;
-    if (demoRoute) {
-      const next = advanceAfterStep(tourState, conditionCtx);
-      void persist(next);
-      if (next.status === 'completed') setSessionActive(false);
-      try {
-        if (navRef.isReady()) router.push(demoRoute as never);
-      } catch (error) {
-        console.warn('tour.open_demo', ptr?.step.primaryAction, error);
-      }
+    // A demonstration plays in the tour's own panel. The tour stays on this step until the
+    // panel closes (closeDemo), so nothing navigates while it plays.
+    const demoId = demoForStep(ptr?.step);
+    if (demoId) {
+      setDemo(demoId);
       return;
     }
     if (ptr?.step.primaryAction === 'open_settings') {
@@ -931,6 +867,16 @@ export function TourProvider({ children }: PropsWithChildren) {
     }
     void persist(next);
   }, [adHoc, advanceAdHoc, tourState, conditionCtx, persist, navRef]);
+
+  /** The demo closed: carry on to the step after the one that opened it. */
+  const closeDemo = useCallback(() => {
+    setDemo(null);
+    const latest = tourStateRef.current;
+    if (!latest) return;
+    const next = advanceAfterStep(latest, conditionCtx);
+    if (next.status === 'completed') setSessionActive(false);
+    void persist(next);
+  }, [conditionCtx, persist]);
 
   const handleSkipChapter = useCallback(() => {
     if (adHoc) {
@@ -972,6 +918,7 @@ export function TourProvider({ children }: PropsWithChildren) {
   }, [adHoc, advanceAdHoc, tourState, conditionCtx, persist, ensureTourPracticeTask]);
 
   const handleClose = useCallback(() => {
+    setDemo(null);
     if (adHoc) {
       stopAdHocTour();
       return;
@@ -1135,9 +1082,8 @@ export function TourProvider({ children }: PropsWithChildren) {
 
   // flex:1 host so inline TourOverlay absoluteFill covers the navigator and
   // info-step pans reach the ScrollView underneath (no FullWindowOverlay).
-  // Assign form step uses overlayPointer so the coach card stays off the sheet.
   // Ad-hoc teaching tours stay visible even when the first-run tour is off.
-  const cardPointer = isAdHoc ? pointer : overlayPointer;
+  const cardPointer = pointer && stepReady ? pointer : null;
   return (
     <TourRegistryContext.Provider value={registry}>
       <View style={{ flex: 1 }} collapsable={false}>
@@ -1180,6 +1126,7 @@ export function TourProvider({ children }: PropsWithChildren) {
                 stepsInChapter={cardPointer.stepsInChapter}
                 isAction={isAction}
                 lockCutout={lockCutout}
+                interactiveTarget={isAction}
                 isLast={isLast}
                 centered={Boolean(cardPointer.step.centered)}
                 primaryLabel={cardPointer.step.primaryLabel}
@@ -1196,6 +1143,9 @@ export function TourProvider({ children }: PropsWithChildren) {
                 onWatchdogSkip={handleWatchdogSkip}
                 onCardReady={handleCardReady}
               />
+            ) : null}
+            {demo ? (
+              <TourDemoPanel demo={demo} reduceMotion={reduceMotion} onClose={closeDemo} />
             ) : null}
           </TourErrorBoundary>
         ) : null}

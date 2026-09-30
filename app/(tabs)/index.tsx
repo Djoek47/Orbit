@@ -75,7 +75,8 @@ export default function HomeScreen() {
   const majordomoName = useMajordomoName();
   const { c, glass } = useOrbitColors();
   const scrollRef = useRef<ScrollView>(null);
-  useTourScroll(scrollRef);
+  // The offset is already tracked for the header; the tour reads it from there.
+  useTourScroll('/(tabs)', scrollRef, { getOffset: () => scrollY.value });
 
   useEffect(() => {
     const id = setTimeout(() => {
