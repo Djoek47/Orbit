@@ -76,10 +76,20 @@ export function PlanAddSheet({ visible, onDismiss }: Props) {
     <BottomSheet
       visible={visible}
       onDismiss={onDismiss}
-      heightRatio={Math.min(0.86, 0.36 + options.length * 0.11)}
+      heightRatio={Math.min(0.7, 0.34 + options.length * 0.09)}
       accentColor={accentTheme.primary}>
       <View style={styles.sheet}>
-        <Text style={[typography.title2, styles.heading, { color: c.text }]}>Add to Plan</Text>
+        <View style={styles.headRow}>
+          <Text style={[typography.title2, styles.heading, { color: c.text }]}>Add to Plan</Text>
+          <Pressable
+            onPress={onDismiss}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            style={styles.close}>
+            <MaterialIcons name="close" size={20} color={c.textMuted} />
+          </Pressable>
+        </View>
         <Text style={[styles.lead, { color: c.textMuted }]}>
           {isSidekick && !caps.allowCalendarCreate
             ? 'Homework goes on your calendar right away.'
@@ -109,8 +119,10 @@ const styles = StyleSheet.create({
   sheet: {
     flex: 1,
     gap: space.sm,
-    paddingBottom: space.lg,
+    paddingBottom: space.xs,
   },
+  headRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  close: { padding: 4 },
   scroll: { flex: 1 },
   heading: {
     fontWeight: '700',

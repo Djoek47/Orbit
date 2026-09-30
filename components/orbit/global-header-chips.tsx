@@ -31,9 +31,17 @@ export function GlobalHeaderChips() {
     accentTheme,
     orbitPalette,
     unreadNotificationCount,
+    notifications,
   } = useOrbit();
   const drive = usePoppinsUiDrive();
   const badge = Math.min(unreadNotificationCount, 9);
+  // A permission moving is the one alert worth colouring: green when something opened up,
+  // amber when it closed. Otherwise the bell stays in the household accent.
+  const permissionTone = notifications.find(
+    (item) => !item.isRead && item.data?.kind === 'permission_changed'
+  )?.data?.tone;
+  const bellTone =
+    permissionTone === 'granted' ? '#34D399' : permissionTone === 'removed' ? '#FF9F1C' : null;
   const accent = accentTheme.primary;
   const secondary = accentTheme.secondary;
   const isDark = orbitPalette.isDark;
@@ -91,13 +99,21 @@ export function GlobalHeaderChips() {
             style={[
               styles.bell,
               {
-                borderColor: `${accent}55`,
-                backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.45)',
+                borderColor: bellTone ? `${bellTone}AA` : `${accent}55`,
+                backgroundColor: bellTone
+                  ? `${bellTone}26`
+                  : isDark
+                    ? 'rgba(255,255,255,0.12)'
+                    : 'rgba(255,255,255,0.45)',
               },
             ]}>
-            <MaterialIcons name="notifications-none" size={18} color={accent} />
+            <MaterialIcons
+              name={bellTone ? 'notifications-active' : 'notifications-none'}
+              size={18}
+              color={bellTone ?? accent}
+            />
             {badge > 0 ? (
-              <View style={styles.badge}>
+              <View style={[styles.badge, bellTone ? { backgroundColor: bellTone } : null]}>
                 <Text style={styles.badgeText}>{badge}</Text>
               </View>
             ) : null}

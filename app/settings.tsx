@@ -563,13 +563,13 @@ export default function SettingsScreen() {
                   styles.identityAvatar,
                   { backgroundColor: `${accentTheme.primary}33` },
                 ]}>
-                {isAvatarImageUri(currentMember?.avatar) ? (
-                  <Image source={{ uri: currentMember?.avatar }} style={styles.identityAvatarImage} />
-                ) : (
-                  <Text style={styles.identityAvatarText}>
-                    {currentMember ? memberDisplayEmoji(currentMember) : '·'}
-                  </Text>
-                )}
+                {/* The same glyph every other screen uses — a raw <Image> here showed an
+                    empty circle whenever the photo couldn't be read, with no fallback. */}
+                <MemberGlyph
+                  member={currentMember ?? { name: currentUser?.name ?? 'You' }}
+                  size={26}
+                  photoStyle={styles.identityAvatarImage}
+                />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.identityName, { color: c.text }]}>

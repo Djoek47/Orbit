@@ -38,6 +38,7 @@ function MorphGlyph({
   letterSpacing,
   energetic,
   generation,
+  slotMin,
 }: {
   from: string;
   to: string;
@@ -47,6 +48,8 @@ function MorphGlyph({
   letterSpacing: number;
   energetic: boolean;
   generation: number;
+  /** Narrower slots for long words, so "Allowance" doesn't read as "Al lowance". */
+  slotMin: number;
 }) {
   const progress = useSharedValue(1);
   const midGlyph = useMemo(() => scrambleChar(index * 17 + to.charCodeAt(0) + generation), [
@@ -135,18 +138,18 @@ function MorphGlyph({
     if (empty) return { width: 0, minWidth: 0, opacity: 0 };
     if (!to && from) {
       return {
-        width: interpolate(progress.value, [0, 0.55, 1], [6.2, 3, 0], 'clamp'),
+        width: interpolate(progress.value, [0, 0.55, 1], [slotMin, slotMin / 2, 0], 'clamp'),
         minWidth: 0,
         overflow: 'hidden' as const,
       };
     }
     if (!from && to) {
       return {
-        width: interpolate(progress.value, [0, 0.45, 1], [0, 4, 6.2], 'clamp'),
+        width: interpolate(progress.value, [0, 0.45, 1], [0, slotMin * 0.65, slotMin], 'clamp'),
         minWidth: 0,
       };
     }
-    return { minWidth: 6.2 };
+    return { minWidth: slotMin };
   });
 
   return (
@@ -180,8 +183,12 @@ export function MorphingTabLabel({
     setGeneration((g) => g + 1);
   }, [text, to]);
 
+  const len = Math.max(from.length, to.length, 1);
+  // A tab is about 70pt wide. Nine letters at 6.2pt each overflow and the gaps read as a
+  // space, so the slot narrows as the word grows.
+  const slotMin = len >= 9 ? 4.2 : len >= 7 ? 5.2 : 6.2;
+
   const slots = useMemo(() => {
-    const len = Math.max(from.length, to.length, 1);
     // Center-pad the shorter word so morph slots stay balanced under the icon.
     const fromPad = Math.floor((len - from.length) / 2);
     const toPad = Math.floor((len - to.length) / 2);
@@ -190,7 +197,7 @@ export function MorphingTabLabel({
       to: to[i - toPad] ?? '',
       key: `${generation}-${i}`,
     }));
-  }, [from, generation, to]);
+  }, [from, generation, len, to]);
 
   return (
     <View style={styles.row} accessibilityLabel={to}>
@@ -205,6 +212,7 @@ export function MorphingTabLabel({
           letterSpacing={letterSpacing}
           energetic={energetic}
           generation={generation}
+          slotMin={slotMin}
         />
       ))}
     </View>

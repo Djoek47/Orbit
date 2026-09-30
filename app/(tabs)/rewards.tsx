@@ -18,6 +18,7 @@ import { CrownLeaderboard } from '@/components/orbit/crown-leaderboard';
 import Icon from '@/components/orbit/design/Icon';
 import { achievementIconName, trophyIconName } from '@/components/orbit/design/icon-map';
 import { tierTone } from '@/components/orbit/design/tierTone';
+import { EmptyState } from '@/components/orbit/empty-state';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
@@ -167,7 +168,10 @@ export default function RewardsScreen() {
     !isAdmin &&
     (caps.allowSpecialRewardRequest || currentMember?.role === 'child');
   const canApprove = isAdmin || permissions.canApproveReward;
-  const showAllowance = rewardCapabilities.allowanceEnabled && caps.allowAllowance;
+  // The capability gates Sidekicks, not the grown-ups: an admin whose household runs on
+  // allowance must still see it, or the tab renders empty (which is what happened).
+  const showAllowance =
+    rewardCapabilities.allowanceEnabled && (isAdmin || caps.allowAllowance);
   const showRewards = rewardCapabilities.rewardsEnabled;
   const showRanks = rewardCapabilities.xpEnabled;
 
@@ -1158,6 +1162,16 @@ export default function RewardsScreen() {
       ) : null}
 
       {/* ── RANKINGS ── */}
+      {!showRewards && !showRanks && !showAllowance ? (
+        <View style={styles.stack}>
+          <EmptyState
+            tone="noneYet"
+            title="Nothing to show here yet"
+            caption="This household's reward model has points, rewards and allowance all switched off. Turn one on in Settings → Rewards & XP."
+          />
+        </View>
+      ) : null}
+
       {surface === 'ranks' && showRanks ? (
         <Animated.View entering={FadeInDown.duration(220)} style={styles.stack}>
           <ScrollView

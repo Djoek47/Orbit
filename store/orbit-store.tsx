@@ -4482,6 +4482,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       };
       void saveMemberCapabilitiesPrefs(current.id, memberCapabilities);
       const next: HouseholdSnapshot = { ...current, memberCapabilities };
+      announceFrom(current, next);
       if (dataMode === 'mock') {
         void persistMockHouseholdSnapshot(next);
       }
@@ -5768,10 +5769,55 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
   };
 
+  /**
+   * Tell the Sidekicks when their permissions move. Without this the toggle changes what
+   * their app will do, silently, and they find out by something not working.
+   */
+  const announceFrom = (
+    before: Pick<HouseholdSnapshot, 'memberCapabilities' | 'sidekickGroceryAdd' | 'sidekickPoppinsAi'>,
+    after: Pick<HouseholdSnapshot, 'memberCapabilities' | 'sidekickGroceryAdd' | 'sidekickPoppinsAi'>
+  ) => {
+    void (async () => {
+      const { permissionState } = await import('@/lib/household/permission-changes');
+      announcePermissionChanges(permissionState(before), permissionState(after));
+    })();
+  };
+
+  const announcePermissionChanges = (
+    before: import('@/lib/household/permission-changes').SidekickPermissionState,
+    after: import('@/lib/household/permission-changes').SidekickPermissionState
+  ) => {
+    void (async () => {
+      const { permissionChangeSummary, permissionChangeTone, permissionChanges } = await import(
+        '@/lib/household/permission-changes'
+      );
+      const changes = permissionChanges(before, after);
+      if (!changes.length) return;
+      const tone = permissionChangeTone(changes);
+      const sidekickIds = household.members
+        .filter((member) => isSidekickRole(member.role) && member.status !== 'inactive')
+        .map((member) => member.id);
+      if (!sidekickIds.length) return;
+      await pushNotification({
+        title: tone === 'granted' ? 'Something new for you' : 'A change from a grown-up',
+        body: permissionChangeSummary(changes),
+        category: 'members',
+        priority: 'low',
+        data: {
+          kind: 'permission_changed',
+          tone,
+          audienceMemberIds: sidekickIds,
+          changes: changes.map((change) => ({ key: change.key, granted: change.granted })),
+        },
+      });
+    })();
+  };
+
   const updateSidekickGroceryAdd = (enabled: boolean) => {
     if (!permissions.canManageHousehold) return;
     setHousehold((current) => {
       const next: HouseholdSnapshot = { ...current, sidekickGroceryAdd: enabled };
+      announceFrom(current, next);
       if (dataMode === 'mock') {
         void persistMockHouseholdSnapshot(next);
       }
@@ -5789,6 +5835,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!permissions.canManageHousehold) return;
     setHousehold((current) => {
       const next: HouseholdSnapshot = { ...current, sidekickPoppinsAi: enabled };
+      announceFrom(current, next);
       if (dataMode === 'mock') {
         void persistMockHouseholdSnapshot(next);
       }
