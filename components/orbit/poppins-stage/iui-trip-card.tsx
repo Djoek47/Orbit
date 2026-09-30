@@ -84,7 +84,12 @@ export function IuiTripCard({
   const fill = fillAccent ?? accent;
   const stops = payload.stops ?? [];
   const [reordering, setReordering] = useState(false);
-  const [editing, setEditing] = useState<{ kind: 'address'; stopId: string } | { kind: 'add' } | null>(null);
+  const [editing, setEditing] = useState<
+    | { kind: 'address'; stopId: string }
+    | { kind: 'rename'; stopId: string }
+    | { kind: 'add' }
+    | null
+  >(null);
   const [draft, setDraft] = useState('');
 
   const start = payload.time ?? stops[0]?.time ?? '16:00';
@@ -99,7 +104,11 @@ export function IuiTripCard({
   };
 
   const openEditor = (next: typeof editing) => {
-    setDraft('');
+    // Prefilled, because most taps are corrections rather than blanks.
+    const stop = next && next.kind !== 'add' ? stops.find((s) => s.id === next.stopId) : undefined;
+    setDraft(
+      next?.kind === 'address' ? (stop?.address ?? '') : next?.kind === 'rename' ? (stop?.label ?? '') : ''
+    );
     setEditing(next);
     if (next) poppinsUiOrchestrator.freeze();
   };
@@ -120,6 +129,13 @@ export function IuiTripCard({
         stops.map((s) => (s.id === editing.stopId ? { ...s, address: value, placeQuery: value, needsAddress: false } : s)),
         {},
         `address ${value}`
+      );
+    } else if (editing.kind === 'rename') {
+      const label = value[0]!.toUpperCase() + value.slice(1);
+      apply(
+        stops.map((s) => (s.id === editing.stopId ? { ...s, label, kind: kindOfStop(label) } : s)),
+        {},
+        `call it ${label}`
       );
     } else {
       const label = value[0]!.toUpperCase() + value.slice(1);
@@ -146,7 +162,9 @@ export function IuiTripCard({
   const editorLabel =
     editing?.kind === 'address'
       ? `Address for ${stops.find((s) => s.id === editing.stopId)?.label ?? 'this stop'}`
-      : 'Where to?';
+      : editing?.kind === 'rename'
+        ? 'Call this stop…'
+        : 'Where to?';
 
   return (
     <IuiCard
@@ -158,6 +176,7 @@ export function IuiTripCard({
       holdProgress={holdProgress}
       frozen={frozen}
       leftFooter={holding ? 'Saving the whole run…' : 'One hold saves the whole run · an address can come later'}
+      rightFooter={holding ? undefined : 'tap a stop for its address · its name to rename'}
       accessibilityLabel={`${payload.itineraryTitle ?? 'Trip'}, ${stops.length} stops`}>
       <View style={styles.titleRow}>
         <View style={{ flexShrink: 1 }}>
@@ -204,20 +223,25 @@ export function IuiTripCard({
               <Pressable
                 key={stop.id}
                 disabled={reordering}
-                onPress={() => {
-                  if (detail.tone === 'ask' || !stop.address) openEditor({ kind: 'address', stopId: stop.id });
-                }}
+                onPress={() => openEditor({ kind: 'address', stopId: stop.id })}
                 accessibilityRole="button"
-                accessibilityLabel={`${formatTime12(stop.time)}, ${stop.label}. ${detail.text}`}
+                accessibilityLabel={`${formatTime12(stop.time)}, ${stop.label}. ${detail.text}. Tap to set the address`}
                 style={[styles.stopRow, { backgroundColor: tone.bg, borderColor: tone.border }]}>
                 <View style={styles.clock}>
                   <Text style={[styles.clockText, { color: c.text }]}>{clock ?? ''}</Text>
                   {mer ? <Text style={[styles.clockMer, { color: c.text }]}>{mer}</Text> : null}
                 </View>
                 <View style={styles.stopBody}>
-                  <Text style={[styles.stopLabel, { color: c.text }]} numberOfLines={1}>
-                    {stop.label}
-                  </Text>
+                  <Pressable
+                    onPress={() => openEditor({ kind: 'rename', stopId: stop.id })}
+                    disabled={reordering}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${stop.label}. Tap to rename this stop`}>
+                    <Text style={[styles.stopLabel, { color: c.text }]} numberOfLines={1}>
+                      {stop.label}
+                    </Text>
+                  </Pressable>
                   {detail.text ? (
                     <Text style={[styles.stopDetail, { color: tone.text }]} numberOfLines={1}>
                       {detail.text}
@@ -266,7 +290,13 @@ export function IuiTripCard({
               onChangeText={setDraft}
               onSubmitEditing={submit}
               returnKeyType="done"
-              placeholder={editing.kind === 'address' ? 'e.g. 4200 Rue Beaubien' : 'e.g. the bank'}
+              placeholder={
+                editing.kind === 'address'
+                  ? 'e.g. 4200 Rue Beaubien'
+                  : editing.kind === 'rename'
+                    ? 'e.g. the dentist'
+                    : 'e.g. the bank'
+              }
               placeholderTextColor={muted}
               style={[styles.input, { color: c.text, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,28,42,0.04)' }]}
             />

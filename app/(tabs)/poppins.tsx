@@ -38,6 +38,7 @@ import { STAGE, stageFaint } from '@/constants/iui-stage';
 import { space } from '@/constants/orbit-theme';
 import { usePoppinsController } from '@/lib/poppins/use-poppins-controller';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useKeyboardState } from '@/lib/ui/use-keyboard-visible';
 import { useOrbit } from '@/store/orbit-store';
 
 type RtcViewType = ComponentType<{ streamURL: string; style?: object }>;
@@ -66,6 +67,9 @@ export default function PoppinsScreen() {
   const { orbitPalette } = useOrbit();
   const tour = useTourControls();
   const p = usePoppinsController();
+  // Typing needs the room the mic and the tier pills were taking.
+  const keyboard = useKeyboardState();
+  const typing = p.threadOpen && keyboard.visible;
 
   if (!p.poppinsAllowed) {
     return <Redirect href={'/(tabs)' as never} />;
@@ -198,10 +202,17 @@ export default function PoppinsScreen() {
             </View>
           ) : null}
 
+          {/* The orb collapses while you type — it's decoration, and the keyboard needs the room.
+              It stays mounted, so nothing restarts when the keyboard closes. */}
           <View
             key="orb"
-            style={[styles.orbSlot, live || p.threadOpen ? styles.orbSlotLive : styles.orbSlotIdle]}
-            accessible
+            style={[
+              styles.orbSlot,
+              live || p.threadOpen ? styles.orbSlotLive : styles.orbSlotIdle,
+              typing && styles.orbSlotTyping,
+            ]}
+            accessible={!typing}
+            accessibilityElementsHidden={typing}
             accessibilityRole="image"
             accessibilityLabel={p.orb.label}>
             <PoppinsOrb
@@ -250,11 +261,16 @@ export default function PoppinsScreen() {
           )}
         </View>
 
-        {p.threadOpen ? <PoppinsThreadPanel p={p} /> : null}
+        {p.threadOpen ? <PoppinsThreadPanel p={p} keyboardUp={typing} /> : null}
       </View>
 
       {/* Dock */}
-      <PoppinsDock p={p} bottomInset={insets.bottom} showTierPills={!live || tourOnPoppins} />
+      <PoppinsDock
+        p={p}
+        bottomInset={insets.bottom}
+        showTierPills={!live || tourOnPoppins}
+        folded={typing}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -332,6 +348,7 @@ const styles = StyleSheet.create({
   orbSlot: { alignItems: 'center', justifyContent: 'center', width: '100%' },
   orbSlotIdle: { flex: 1, minHeight: 196 },
   orbSlotLive: { flexGrow: 0, flexShrink: 0, paddingBottom: 10, paddingTop: 4 },
+  orbSlotTyping: { height: 0, opacity: 0, overflow: 'hidden', paddingBottom: 0, paddingTop: 0 },
   stageScroll: { flex: 1, minHeight: 0, width: '100%' },
   stageScrollContent: {
     flexGrow: 1,

@@ -8,6 +8,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
+import {
+  IuiInlineField,
+  patchGroupItemLabel,
+} from '@/components/orbit/poppins-stage/iui-inline-field';
 import { IuiRow } from '@/components/orbit/poppins-stage/iui-row';
 import { IuiTroubleRowFailed } from '@/components/orbit/poppins-stage/iui-trouble';
 import { STAGE, stageBorder, stageFaint, stageMuted } from '@/constants/iui-stage';
@@ -86,7 +90,7 @@ export function IuiGroceryCard({
             ? `One hold for all ${items.length === 3 ? 'three' : items.length}`
             : 'Quiet adds it'
         }
-        rightFooter={multi ? 'tap × to drop one' : 'speak or tap to change'}
+        rightFooter={multi ? 'tap a name to fix it · × to drop' : 'speak or tap to change'}
         accessibilityLabel="Grocery card">
         {single ? (
           <View style={styles.singleRow}>
@@ -98,9 +102,19 @@ export function IuiGroceryCard({
               <Moji name={payload.shoppingLane === 'clothing' ? 'sneaker' : 'cart'} size={26} />
             </View>
             <View style={styles.singleBody}>
-              <Text style={[styles.singleTitle, { color: c.text }]} numberOfLines={2}>
-                {items[0]?.label}
-              </Text>
+              <IuiInlineField
+                value={items[0]?.label ?? ''}
+                label={payload.shoppingLane === 'clothing' ? 'Item' : 'Grocery'}
+                style={[styles.singleTitle, { color: c.text }]}
+                numberOfLines={2}
+                disabled={holding}
+                describe={(next) => `call it ${next}`}
+                toPatch={(next) =>
+                  payload.items && payload.items.length === 1
+                    ? patchGroupItemLabel(payload.items, items[0]!.id, next)
+                    : { groceryName: next, title: next, namedByPerson: true }
+                }
+              />
               {detail ? (
                 <Text style={[styles.singleDetail, { color: muted }]} numberOfLines={2}>
                   {detail}
@@ -113,6 +127,18 @@ export function IuiGroceryCard({
             <IuiRow
               key={item.id}
               title={item.label}
+              titleNode={
+                <IuiInlineField
+                  value={item.label}
+                  label="Grocery"
+                  style={[styles.rowTitle, { color: c.text }]}
+                  numberOfLines={2}
+                  hidePencil
+                  disabled={holding || item.status === 'done' || item.status === 'saving'}
+                  describe={(next) => `call it ${next}`}
+                  toPatch={(next) => patchGroupItemLabel(payload.items, item.id, next)}
+                />
+              }
               trailing={item.aisle}
               detail={storeLine && index === 0 ? storeLine : undefined}
               status={item.status}
@@ -233,6 +259,8 @@ const styles = StyleSheet.create({
   },
   singleBody: { flex: 1, gap: 3, minWidth: 0 },
   singleTitle: { fontSize: 30, lineHeight: 34, fontWeight: '600', letterSpacing: -0.4 },
+  /** Matches IuiRow's own title, so an editable row reads the same as a plain one. */
+  rowTitle: { fontSize: 19, lineHeight: 24, fontWeight: '600', letterSpacing: -0.2 },
   singleDetail: { fontSize: 13, lineHeight: 18 },
   queue: {
     width: '100%',

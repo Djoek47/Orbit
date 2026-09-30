@@ -12,6 +12,8 @@ export type IuiRowStatus = 'pending' | 'saving' | 'done' | 'failed';
 
 type Props = {
   title: string;
+  /** Replaces the plain title — used to make a row's name tap-to-edit. */
+  titleNode?: React.ReactNode;
   detail?: string;
   trailing?: string;
   status?: IuiRowStatus;
@@ -29,6 +31,7 @@ type Props = {
 
 export function IuiRow({
   title,
+  titleNode,
   detail,
   trailing,
   status = 'pending',
@@ -78,11 +81,11 @@ export function IuiRow({
         {done ? <Text style={[styles.check, { color: STAGE.semantic.success }]}>✓</Text> : null}
       </View>
       <View style={styles.body}>
-        <Text
-          style={[styles.title, { color: dimmed ? muted : c.text }]}
-          numberOfLines={2}>
-          {title}
-        </Text>
+        {titleNode ?? (
+          <Text style={[styles.title, { color: dimmed ? muted : c.text }]} numberOfLines={2}>
+            {title}
+          </Text>
+        )}
         {detail ? (
           <Text style={[styles.detail, { color: failed ? stageDangerText(isDark) : muted }]} numberOfLines={2}>
             {detail}

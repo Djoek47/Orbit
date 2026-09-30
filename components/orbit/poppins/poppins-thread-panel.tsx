@@ -2,6 +2,10 @@
  * The typing thread. It takes the lower part of the body as a flex sibling of the stage —
  * it used to float over the stage as an absolute sheet and cover the bottom of the card.
  * Typed and spoken turns share one thread, each marked with a keyboard or mic glyph.
+ *
+ * With the keyboard up the panel takes most of the body, because the dock has folded away and
+ * the stage doesn't need to be tall to be read. The composer keeps a mic button so leaving
+ * typing for voice is one tap, never a hunt for a button the keyboard is covering.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -13,7 +17,14 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 const VISIBLE_TURNS = 16;
 
-export function PoppinsThreadPanel({ p }: { p: PoppinsController }) {
+export function PoppinsThreadPanel({
+  p,
+  keyboardUp,
+}: {
+  p: PoppinsController;
+  /** The keyboard is showing, so the panel takes the room the dock gave up. */
+  keyboardUp?: boolean;
+}) {
   const { c, isDark, glass, glassBorder } = useOrbitColors();
   const { conversation, majordomo } = p;
   void p.sourceEpoch; // re-render when a turn's input source is recorded
@@ -37,6 +48,7 @@ export function PoppinsThreadPanel({ p }: { p: PoppinsController }) {
     <View
       style={[
         styles.panel,
+        keyboardUp && styles.panelTall,
         {
           backgroundColor: isDark ? 'rgba(10,14,20,0.96)' : 'rgba(247,245,242,0.97)',
           borderColor: glassBorder(0.12),
@@ -96,6 +108,14 @@ export function PoppinsThreadPanel({ p }: { p: PoppinsController }) {
 
       <View
         style={[styles.composer, { backgroundColor: glass(0.06), borderColor: glassBorder(0.12) }]}>
+        <Pressable
+          onPress={() => p.setThreadOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close typing and go back to speaking"
+          hitSlop={6}
+          style={[styles.backToVoice, { backgroundColor: glass(0.08) }]}>
+          <MaterialIcons name="mic" size={16} color={c.textMuted} />
+        </Pressable>
         <TextInput
           value={p.draft}
           onChangeText={p.setDraft}
@@ -131,6 +151,8 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 8,
   },
+  /** With the keyboard up the thread is what matters, so it takes most of the body. */
+  panelTall: { flex: 4 },
   thread: { flex: 1 },
   threadContent: {
     flexGrow: 1,
@@ -167,6 +189,13 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, fontSize: 14, minHeight: 28, paddingVertical: 4 },
   send: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  backToVoice: {
     alignItems: 'center',
     borderRadius: 12,
     height: 32,

@@ -4,6 +4,10 @@
  *
  * The dock is a fixed region below the stage — never over it. While a card is live the
  * tier pills step aside (unless the tour is pointing at them) so the card gets the room.
+ *
+ * While you are typing, the dock folds away entirely. The mic, its label and the tier pills
+ * were taking about 150pt that the keyboard needed, which is why typed text used to end up
+ * clipped; the composer carries its own mic button back to voice, so nothing is lost.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,9 +25,11 @@ type Props = {
   p: PoppinsController;
   bottomInset: number;
   showTierPills: boolean;
+  /** Typing with the keyboard up: the dock gets out of the way. */
+  folded?: boolean;
 };
 
-export function PoppinsDock({ p, bottomInset, showTierPills }: Props) {
+export function PoppinsDock({ p, bottomInset, showTierPills, folded }: Props) {
   const { c, isDark, glass, glassBorder } = useOrbitColors();
   const { micUi, primaryConnected, connecting, voiceSettling, captureMode } = p;
   const micDisabled = voiceSettling || (!micUi.micEnabled && !micUi.offerSwitchToBase);
@@ -32,6 +38,21 @@ export function PoppinsDock({ p, bottomInset, showTierPills }: Props) {
   const baseListening = p.baseOn;
   const level = p.waveLevelDb == null ? 0 : Math.max(0, Math.min(1, (p.waveLevelDb + 60) / 60));
   const maxLive = primaryConnected && !baseListening;
+
+  if (folded) {
+    // Only what has to be said stays: an error or a notice is never swallowed by the keyboard.
+    if (!p.error && !p.statusNotice) return null;
+    return (
+      <View style={styles.folded}>
+        <Text
+          style={[styles.status, { color: p.error ? c.danger : c.textMuted, marginBottom: 0 }]}
+          selectable
+          numberOfLines={3}>
+          {p.error ?? p.statusNotice}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.dock, { paddingBottom: Math.max(bottomInset, 16) + 8 }]}>
@@ -302,5 +323,11 @@ const styles = StyleSheet.create({
   },
   pills: {
     marginTop: 10,
+  },
+  folded: {
+    flexShrink: 0,
+    paddingBottom: 6,
+    paddingHorizontal: space.lg,
+    paddingTop: 4,
   },
 });

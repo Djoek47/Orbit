@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimatedTrophyTab } from '@/components/orbit/animated-trophy-tab';
 import { MorphingTabLabel } from '@/components/orbit/morphing-tab-label';
+import { useKeyboardVisible } from '@/lib/ui/use-keyboard-visible';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
@@ -53,6 +54,9 @@ const LABEL_CYCLE_MS = 3400;
  */
 export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  // While the keyboard is up the bar drops its labels and tightens: the keyboard needs those
+  // ~26pt more than five words do, and the icons still say which tab is which.
+  const keyboardUp = useKeyboardVisible();
   const orbit = useOrbitOptional();
   const majordomoName = useMajordomoName();
   const poppinsLive = usePoppinsLive();
@@ -145,10 +149,14 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom - 4, space.xs) }]}>
+      style={[
+        styles.wrapper,
+        { paddingBottom: keyboardUp ? 2 : Math.max(insets.bottom - 4, space.xs) },
+      ]}>
       <View
         style={[
           styles.bar,
+          keyboardUp && styles.barCompact,
           isDark ? shadow.floating.dark : shadow.floating.light,
           {
             borderColor: glassBorder(isDark, isDark ? 0.12 : 0.14),
@@ -307,7 +315,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                   {isFocused ? <View style={[styles.dot, { backgroundColor: color }]} /> : null}
                 </View>
               )}
-              {isRewards ? (
+              {keyboardUp ? null : isRewards ? (
                 <View style={styles.rewardsLabelSlot}>
                   <MorphingTabLabel
                     text={label}
@@ -360,6 +368,10 @@ const styles = StyleSheet.create({
   wrapper: {
     backgroundColor: 'transparent',
     paddingHorizontal: space.sm,
+  },
+  barCompact: {
+    paddingBottom: 4,
+    paddingTop: 6,
   },
   bar: {
     alignItems: 'flex-end',
