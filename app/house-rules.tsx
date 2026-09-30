@@ -5,7 +5,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { LayoutAnimation, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -80,16 +80,23 @@ export default function HouseRulesScreen() {
     : -1;
   const activeGroup = chapterIndex >= 0 ? groups[chapterIndex] : null;
 
-  const deadlineLabel = formatHouseRulesTime(
-    view.dailyDeadline ?? doc.settings.dailyDeadline.default,
-    view.use24h
-  );
+  // What the cards show is what the picker has selected — a change queued for tomorrow still
+  // reads as the time you chose, not as the one being replaced.
+  const inForceHm = view.dailyDeadline ?? doc.settings.dailyDeadline.default;
+  const shownHm = household.dailyDeadlinePending?.trim() || inForceHm;
+  const deadlineLabel = formatHouseRulesTime(shownHm, view.use24h);
   const model = normalizeRewardModel(household.rewardModel ?? 'full');
   const modelLabel =
     doc.constants.rewardModels.find((m) => m.key === model)?.label ?? 'Everything';
   const proofCount = household.tasks.filter((t) => t.proofRequired).length;
   const streakOn = true;
   const allowanceWeekly = hasAllowanceModel(household.rewardModel);
+
+  // Choosing a time updates the card behind the sheet in the same beat, with a short ease.
+  const pickDeadline = (time: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.create(180, 'easeInEaseOut', 'opacity'));
+    void queueDailyDeadline(time);
+  };
 
   const openSetting = (settingKey?: string) => {
     if (!canEdit) return;
@@ -113,7 +120,7 @@ export default function HouseRulesScreen() {
     router.push(route as never);
   };
 
-  const deadlineHm = view.dailyDeadline ?? doc.settings.dailyDeadline.default;
+  const deadlineHm = shownHm;
   const statCtx = {
     constants: doc.constants,
     voice,
@@ -244,7 +251,7 @@ export default function HouseRulesScreen() {
           pending={household.dailyDeadlinePending}
           appliesOn={household.dailyDeadlineAppliesOn}
           use24h={view.use24h}
-          onSelect={(time) => void queueDailyDeadline(time)}
+          onSelect={pickDeadline}
         />
       </SettingsModalChrome>
     );
@@ -367,7 +374,7 @@ export default function HouseRulesScreen() {
         pending={household.dailyDeadlinePending}
         appliesOn={household.dailyDeadlineAppliesOn}
         use24h={view.use24h}
-        onSelect={(time) => void queueDailyDeadline(time)}
+        onSelect={pickDeadline}
       />
     </SettingsModalChrome>
   );

@@ -12,7 +12,7 @@
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack } from 'expo-router';
+import { Redirect, router, Stack } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInRight, FadeOut } from 'react-native-reanimated';
@@ -35,10 +35,12 @@ import {
   type DemoCard,
 } from '@/lib/poppins/how-it-works-script';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { isSidekickRole } from '@/lib/sidekick/permissions';
+import { useOrbit } from '@/store/orbit-store';
 
 const TICK_MS = 100;
 
-export default function PoppinsHowItWorksScreen() {
+function PoppinsHowItWorksScreenInner() {
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const total = useMemo(() => demoTotalMs(), []);
@@ -511,3 +513,12 @@ const styles = StyleSheet.create({
   ctaText: { fontSize: 15, fontWeight: '700' },
   footnote: { fontSize: 11.5, lineHeight: 16 },
 });
+
+/** Sidekicks never get Poppins — any way in (a link, a notification, a stale tab) lands on Home. */
+export default function PoppinsHowItWorksScreen() {
+  const { currentMember } = useOrbit();
+  if (isSidekickRole(currentMember?.role)) {
+    return <Redirect href={'/(tabs)' as never} />;
+  }
+  return <PoppinsHowItWorksScreenInner />;
+}

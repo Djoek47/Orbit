@@ -13,12 +13,11 @@ import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdSnapshot, MemberCapabilities } from '@/types/orbit';
 
 type Props = {
-  household: Pick<HouseholdSnapshot, 'memberCapabilities' | 'sidekickGroceryAdd' | 'sidekickPoppinsAi'>;
+  household: Pick<HouseholdSnapshot, 'memberCapabilities' | 'sidekickGroceryAdd'>;
   accent: string;
   busy?: boolean;
   onCapabilities: (patch: Partial<MemberCapabilities>) => void;
   onGrocery: (enabled: boolean) => void;
-  onPoppinsAi: (enabled: boolean) => void;
 };
 
 type Row = {
@@ -38,7 +37,6 @@ export function SidekickPermissionsPanel({
   busy,
   onCapabilities,
   onGrocery,
-  onPoppinsAi,
 }: Props) {
   const { c, isDark, glassBorder } = useOrbitColors();
   const caps = resolveMemberCapabilities(household);
@@ -103,21 +101,6 @@ export function SidekickPermissionsPanel({
           onChange: (v) => onCapabilities({ requireSidekickEventApproval: v }),
           dependent: true,
           disabled: !calendarOn,
-        },
-      ],
-    },
-    {
-      header: 'Poppins',
-      moji: 'poppins',
-      tone: '#8E7CFF',
-      rows: [
-        {
-          key: 'poppins',
-          moji: 'poppins',
-          label: 'Talk to Poppins',
-          sub: 'Base only',
-          value: household.sidekickPoppinsAi === true,
-          onChange: onPoppinsAi,
         },
       ],
     },

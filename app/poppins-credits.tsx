@@ -12,7 +12,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack } from 'expo-router';
+import { Redirect, router, Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -37,10 +37,11 @@ import {
 } from '@/lib/billing/topup-receipt';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { isSidekickRole } from '@/lib/sidekick/permissions';
 
 const TOPUP_TONE = '#FF9F1C';
 
-export default function PoppinsCreditsScreen() {
+function PoppinsCreditsScreenInner() {
   const insets = useSafeAreaInsets();
   const { c, glassBorder, isDark } = useOrbitColors();
   const { household, currentMember, permissions, actEvents } = useOrbit();
@@ -396,3 +397,12 @@ const styles = StyleSheet.create({
   receiptSubject: { fontSize: 16, fontWeight: '800' },
   receiptBody: { fontSize: 12.5, fontVariant: ['tabular-nums'], lineHeight: 19 },
 });
+
+/** Sidekicks never get Poppins — any way in (a link, a notification, a stale tab) lands on Home. */
+export default function PoppinsCreditsScreen() {
+  const { currentMember } = useOrbit();
+  if (isSidekickRole(currentMember?.role)) {
+    return <Redirect href={'/(tabs)' as never} />;
+  }
+  return <PoppinsCreditsScreenInner />;
+}

@@ -40,6 +40,7 @@ import { usePoppinsController } from '@/lib/poppins/use-poppins-controller';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useKeyboardState } from '@/lib/ui/use-keyboard-visible';
 import { useOrbit } from '@/store/orbit-store';
+import { isSidekickRole } from '@/lib/sidekick/permissions';
 
 type RtcViewType = ComponentType<{ streamURL: string; style?: object }>;
 
@@ -60,7 +61,7 @@ function PoppinsRemoteAudio({ streamURL }: { streamURL: string | null }) {
   return <RTCView streamURL={streamURL} style={styles.remoteAudio} />;
 }
 
-export default function PoppinsScreen() {
+function PoppinsScreenInner() {
   const chromePad = useTabChromePaddingTop();
   const insets = useSafeAreaInsets();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
@@ -359,3 +360,12 @@ const styles = StyleSheet.create({
   waveWrap: { marginTop: space.lg, width: '100%' },
   remoteAudio: { height: 0, opacity: 0, width: 0 },
 });
+
+/** Sidekicks never get Poppins — any way in (a link, a notification, a stale tab) lands on Home. */
+export default function PoppinsScreen() {
+  const { currentMember } = useOrbit();
+  if (isSidekickRole(currentMember?.role)) {
+    return <Redirect href={'/(tabs)' as never} />;
+  }
+  return <PoppinsScreenInner />;
+}

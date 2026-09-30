@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
+  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -15,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 
 import { CompleteBurst, CompleteRipple } from '@/components/orbit/tasks/complete-burst';
 import { needsProofOnComplete } from '@/lib/tasks/homework-proof';
+import { isSidekickRole } from '@/lib/sidekick/permissions';
 import { HomeworkBoard } from '@/components/orbit/homework/homework-board';
 import { CompletedBreakdownCard } from '@/components/orbit/completed-breakdown-card';
 import { MemberGlyph } from '@/components/orbit/member-glyph';
@@ -298,11 +300,18 @@ function TaskItem({
 
   const row = (
       <Animated.View
+        entering={homeworkCard && !reduceMotion ? FadeInDown.duration(280).springify().damping(18) : undefined}
         onLayout={(event) => setRowWidth(event.nativeEvent.layout.width)}
         style={[
           styles.taskItem,
           done && !justCompleted && !showRequestProof && !photoNeeded && styles.taskItemDone,
           done && !photoNeeded && { backgroundColor: glass(justCompleted ? 0.1 : 0.03) },
+          homeworkCard && isHomework(task) && !done && !photoNeeded && {
+            backgroundColor: `${sub?.color ?? c.planPurple}0F`,
+            borderColor: `${sub?.color ?? c.planPurple}30`,
+            borderWidth: 1,
+            paddingVertical: 14,
+          },
           photoNeeded && {
             backgroundColor: `${c.warning}14`,
             borderColor: `${c.warning}55`,
@@ -978,6 +987,8 @@ export default function TasksScreen() {
 
     const ordered = [...activeMembers]
       .filter((member) => !focusMember || member.name === focusMember)
+      // Homework is a Sidekick's. An admin has none, so "My tasks" there is just an empty box.
+      .filter((member) => domainTab !== 'homework' || isSidekickRole(member.role))
       .sort((a, b) => {
         if (currentMember && a.id === currentMember.id) return -1;
         if (currentMember && b.id === currentMember.id) return 1;
@@ -1005,7 +1016,15 @@ export default function TasksScreen() {
         accent: MEMBER_ACCENTS[member.name]?.color ?? accentTheme.primary,
       };
     });
-  }, [accentTheme.primary, currentMember, filtered, focusMember, household.members, showByMember]);
+  }, [
+    accentTheme.primary,
+    currentMember,
+    domainTab,
+    filtered,
+    focusMember,
+    household.members,
+    showByMember,
+  ]);
 
   const focusedMemberRecord = useMemo(
     () =>
@@ -1557,10 +1576,10 @@ const styles = StyleSheet.create({
   },
   assigneeDot: {
     alignItems: 'center',
-    borderRadius: 8,
-    height: 16,
+    borderRadius: 12,
+    height: 24,
     justifyContent: 'center',
-    width: 16,
+    width: 24,
   },
   assigneeEmoji: {
     fontSize: 9,
@@ -1661,22 +1680,27 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingTop: 0,
   },
+  // Every chip in a row is the same height and baseline, so due / weekdays / proof line up.
   metaPill: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    flexDirection: 'row',
+    height: 24,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
   },
   metaPillText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
   },
   metaRow: {
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
+    gap: 6,
+    marginTop: 8,
   },
   sectionCount: {
     fontSize: 12,
@@ -1713,8 +1737,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   subjectPillLarge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    height: 28,
+    paddingHorizontal: 12,
+    paddingVertical: 0,
   },
   subjectPillTextLarge: {
     fontSize: 12,
@@ -1726,8 +1751,6 @@ const styles = StyleSheet.create({
   },
   homeworkDuePill: {
     gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
   },
   completeCta: {
     alignItems: 'center',
@@ -1756,11 +1779,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   photoNeededPill: {
-    alignItems: 'center',
-    flexDirection: 'row',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
   },
   requestProofText: {
     fontSize: 12,

@@ -36,10 +36,9 @@ const mixed = permissionChanges(
   permissionState({ memberCapabilities: { allowAllowance: true, allowRewardRedeem: true } }),
   permissionState({
     memberCapabilities: { allowAllowance: false, allowCalendarCreate: true },
-    sidekickPoppinsAi: true,
   })
 );
-assert.equal(mixed.length, 3, 'allowance off, calendar on, Poppins on');
+assert.equal(mixed.length, 2, 'allowance off, calendar on');
 assert.equal(permissionChangeTone(mixed), 'granted');
 assert.match(permissionChangeSummary(mixed), /changed/);
 

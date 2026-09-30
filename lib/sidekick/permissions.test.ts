@@ -50,13 +50,14 @@ assert.equal(groceryAddAllowedForSidekick({ role: 'child', householdAllows: true
 pass('A7.2 grocery add follows household flag');
 
 assert.equal(poppinsAiAllowedForSidekick({ role: 'child', householdAllows: false }), false);
-assert.equal(poppinsAiAllowedForSidekick({ role: 'child', householdAllows: true }), true);
+assert.equal(poppinsAiAllowedForSidekick({ role: 'child', householdAllows: true }), false, 'no household switch can turn it on');
 assert.equal(poppinsAiAllowedForSidekick({ role: 'admin', householdAllows: false }), true);
 assert.equal(canShowPoppinsTab({ role: 'child', sidekickPoppinsAi: false }), false);
-assert.equal(canShowPoppinsTab({ role: 'child', sidekickPoppinsAi: true }), true);
+assert.equal(canShowPoppinsTab({ role: 'child', sidekickPoppinsAi: true }), false, 'the old flag is inert');
+assert.equal(canShowPoppinsTab({ role: 'sidekick', sidekickPoppinsAi: true }), false);
 assert.equal(canShowPoppinsTab({ role: 'admin', sidekickPoppinsAi: false }), true);
 assert.equal(canShowPoppinsTab({ role: 'sidekick', sidekickPoppinsAi: undefined }), false);
-pass('A7.3 Poppins AI gate defaults off for Sidekick');
+pass('A7.3 Poppins is never available to a Sidekick');
 
 {
   const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -70,7 +71,8 @@ pass('A7.3 Poppins AI gate defaults off for Sidekick');
   }
   const auth = readFileSync(join(root, 'supabase/functions/_shared/poppins-auth.ts'), 'utf8');
   assert.ok(auth.includes('requireNonSidekick'));
-  assert.ok(auth.includes('sidekick_poppins_ai'));
+  assert.ok(!auth.includes('sidekick_poppins_ai'), 'no household switch reaches the server gate');
+  assert.ok(/allowed: false/.test(auth), 'a Sidekick is always refused');
   assert.ok(auth.includes('status: 403') || auth.includes(', 403)'));
   pass(`A4.5 Poppins edge functions reject Sidekick (${POPPINS_EDGE_FUNCTIONS.length})`);
 }

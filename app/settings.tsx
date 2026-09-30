@@ -164,7 +164,6 @@ export default function SettingsScreen() {
     updateNotificationPrefs,
     updateMemberCapabilities,
     updateSidekickGroceryAdd,
-    updateSidekickPoppinsAi,
     updatePreferredMapsApp,
     actEvents,
     refreshHousehold,
@@ -633,9 +632,8 @@ export default function SettingsScreen() {
                         resolveMemberCapabilities(household).allowAllowance,
                         household.sidekickGroceryAdd === true,
                         resolveMemberCapabilities(household).allowCalendarCreate,
-                        household.sidekickPoppinsAi === true,
                       ].filter(Boolean).length
-                    } of 8 allowed`}
+                    } of 7 allowed`}
                     last
                     onPress={() => setSection('sidekick-perms')}
                   />
@@ -1038,9 +1036,6 @@ export default function SettingsScreen() {
                 updateSidekickGroceryAdd(value);
                 updateMemberCapabilities({ allowGroceryAdd: value });
               })
-            }
-            onPoppinsAi={(value) =>
-              guardSettingsToggle(() => updateSidekickPoppinsAi(value))
             }
           />
         ) : null}

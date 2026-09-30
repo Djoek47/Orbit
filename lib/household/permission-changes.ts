@@ -13,7 +13,6 @@ import { DEFAULT_MEMBER_CAPABILITIES, type MemberCapabilities } from '@/lib/memb
 /** Everything a Sidekick's permissions are made of, flattened. */
 export type SidekickPermissionState = MemberCapabilities & {
   sidekickGroceryAdd: boolean;
-  sidekickPoppinsAi: boolean;
 };
 
 export type PermissionKey = keyof SidekickPermissionState;
@@ -55,10 +54,6 @@ const COPY: Record<PermissionKey, { on: string; off: string }> = {
     on: 'You can add to the grocery list',
     off: 'Adding to the grocery list is off for now',
   },
-  sidekickPoppinsAi: {
-    on: 'You can talk to Poppins',
-    off: 'Poppins is off for now',
-  },
 };
 
 /** The two grocery switches say the same thing — only report it once. */
@@ -69,13 +64,11 @@ const SAME_AS: Partial<Record<PermissionKey, PermissionKey>> = {
 export function permissionState(input: {
   memberCapabilities?: Partial<MemberCapabilities> | null;
   sidekickGroceryAdd?: boolean | null;
-  sidekickPoppinsAi?: boolean | null;
 }): SidekickPermissionState {
   return {
     ...DEFAULT_MEMBER_CAPABILITIES,
     ...(input.memberCapabilities ?? {}),
     sidekickGroceryAdd: input.sidekickGroceryAdd === true,
-    sidekickPoppinsAi: input.sidekickPoppinsAi === true,
   };
 }
 

@@ -16,7 +16,7 @@ function isSidekickRole(role: string | null | undefined) {
   return role === 'child' || role === 'sidekick';
 }
 
-/** Revision G §4.g — Poppins is 403 for Sidekick unless admin enabled sidekick_poppins_ai. */
+/** Poppins is always 403 for Sidekicks — there is no household switch for it. */
 export function requireNonSidekick(
   role: string | null | undefined,
   options?: { allowed?: boolean }
@@ -25,18 +25,6 @@ export function requireNonSidekick(
     return jsonResponse({ error: 'Poppins is not available on this profile.' }, 403);
   }
   return null;
-}
-
-async function sidekickPoppinsAiEnabled(
-  userClient: ReturnType<typeof createClient>,
-  householdId: string
-): Promise<boolean> {
-  const { data } = await userClient
-    .from('households')
-    .select('sidekick_poppins_ai')
-    .eq('id', householdId)
-    .maybeSingle();
-  return Boolean(data?.sidekick_poppins_ai);
 }
 
 export async function requireActiveMember(
@@ -77,11 +65,8 @@ export async function requireActiveMember(
     return { error: jsonResponse({ error: 'Active household membership required' }, 403) };
   }
 
-  let allowSidekick = false;
-  if (isSidekickRole(membership.role)) {
-    allowSidekick = await sidekickPoppinsAiEnabled(userClient, householdId);
-  }
-  const sidekickBlock = requireNonSidekick(membership.role, { allowed: allowSidekick });
+  // Sidekicks never get Poppins, whatever the household row says.
+  const sidekickBlock = requireNonSidekick(membership.role, { allowed: false });
   if (sidekickBlock) {
     return { error: sidekickBlock };
   }

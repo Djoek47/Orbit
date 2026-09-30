@@ -50,13 +50,17 @@ export function groceryAddAllowedForSidekick(opts: {
   return opts.householdAllows;
 }
 
-/** Poppins AI for Sidekick — off unless an admin enables it for the household. */
+/**
+ * Sidekicks never get Poppins — no tab, no Speak, no Base, no typing. This is deliberately not a
+ * household setting: the admin decision is that AI is for the grown-ups only. The old
+ * `householdAllows` / `sidekickPoppinsAi` inputs are still accepted so existing callers compile,
+ * but they no longer change the answer.
+ */
 export function poppinsAiAllowedForSidekick(opts: {
   role: string | null | undefined;
-  householdAllows: boolean;
+  householdAllows?: boolean;
 }): boolean {
-  if (!isSidekickRole(opts.role)) return true;
-  return opts.householdAllows;
+  return !isSidekickRole(opts.role);
 }
 
 /** True when this member should see the Poppins tab / Speak entry. */
@@ -64,6 +68,5 @@ export function canShowPoppinsTab(opts: {
   role: string | null | undefined;
   sidekickPoppinsAi?: boolean;
 }): boolean {
-  if (!isSidekickRole(opts.role)) return true;
-  return opts.sidekickPoppinsAi === true;
+  return !isSidekickRole(opts.role);
 }

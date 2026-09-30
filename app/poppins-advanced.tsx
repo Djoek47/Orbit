@@ -10,7 +10,7 @@
  * there are two of them to keep in step.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { router, Stack } from 'expo-router';
+import { Redirect, router, Stack } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -32,6 +32,7 @@ import {
 } from '@/lib/poppins/poppins-prefs';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { isSidekickRole } from '@/lib/sidekick/permissions';
 
 const TONE = {
   waiting: '#4FA3FF',
@@ -39,12 +40,11 @@ const TONE = {
   sidekicks: '#7FC24A',
 } as const;
 
-export default function PoppinsAdvancedScreen() {
+function PoppinsAdvancedScreenInner() {
   const insets = useSafeAreaInsets();
   const { c, glassBorder, isDark } = useOrbitColors();
-  const { household, permissions, updateSidekickPoppinsAi } = useOrbit();
+  const { household, permissions, currentMember } = useOrbit();
   const [prefs, setPrefs] = useState<PoppinsInteractionPrefs>(DEFAULT_POPPINS_INTERACTION_PREFS);
-  const [busy, setBusy] = useState(false);
   const readOnly = !permissions.canManageHousehold;
 
   useEffect(() => {
@@ -64,7 +64,6 @@ export default function PoppinsAdvancedScreen() {
   );
 
   const tier = poppinsTier(prefs);
-  const sidekickAi = household.sidekickPoppinsAi === true;
 
   return (
     <View style={[styles.root, { backgroundColor: c.background, paddingTop: insets.top + 8 }]}>
@@ -174,37 +173,20 @@ export default function PoppinsAdvancedScreen() {
           </Card>
         </Group>
 
-        {permissions.canManageHousehold ? (
-          <Group label="Sidekicks" moji="teddy" tone={TONE.sidekicks} delay={180}>
-            <Card tone={TONE.sidekicks}>
-              <ToggleRow
-                moji="poppins"
-                tone={TONE.sidekicks}
-                label="Allow Sidekick AI"
-                sub="Kids and Sidekicks get the Poppins tab, on Base only. Off until you turn it on."
-                value={sidekickAi}
-                disabled={busy}
-                onChange={(value) => {
-                  setBusy(true);
-                  void Promise.resolve(updateSidekickPoppinsAi(value)).finally(() => setBusy(false));
-                }}
-              />
-            </Card>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push('/settings?section=sidekicks' as never)}
-              style={styles.linkRow}>
-              <Moji name="shield" size={14} />
-              <Text style={[styles.linkText, { color: TONE.sidekicks }]}>
-                Same switch as Sidekick permissions — open the rest
+        <Group label="Sidekicks" moji="teddy" tone={TONE.sidekicks} delay={180}>
+          <Card tone={TONE.sidekicks}>
+            <View style={styles.noAiRow}>
+              <Moji name="shield" size={16} />
+              <Text style={[styles.noAiText, { color: c.textSoft }]}>
+                Poppins is for grown-ups only. Sidekicks never see the Poppins tab, and the AI won’t answer them.
               </Text>
-            </Pressable>
-          </Group>
-        ) : null}
+            </View>
+          </Card>
+        </Group>
 
         {readOnly ? (
           <Text style={[styles.note, { color: c.textMuted }]}>
-            Children and Sidekicks see this page, but only an admin can change it.
+            Only an admin can change this page.
           </Text>
         ) : (
           <Pressable
@@ -351,6 +333,8 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 15, fontWeight: '600' },
   rowSub: { fontSize: 12.5, lineHeight: 17 },
   segment: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingVertical: 14 },
+  noAiRow: { alignItems: 'center', flexDirection: 'row', gap: 10 },
+  noAiText: { flex: 1, fontSize: 13, lineHeight: 18 },
   linkRow: { alignItems: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 4, paddingTop: 2 },
   linkText: { fontSize: 12.5, fontWeight: '700' },
   note: { fontSize: 12.5, lineHeight: 18, paddingHorizontal: 4 },
@@ -362,3 +346,12 @@ const styles = StyleSheet.create({
   },
   resetText: { fontSize: 13.5, fontWeight: '600' },
 });
+
+/** Sidekicks never get Poppins — any way in (a link, a notification, a stale tab) lands on Home. */
+export default function PoppinsAdvancedScreen() {
+  const { currentMember } = useOrbit();
+  if (isSidekickRole(currentMember?.role)) {
+    return <Redirect href={'/(tabs)' as never} />;
+  }
+  return <PoppinsAdvancedScreenInner />;
+}
