@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -16,11 +16,12 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { EmptyState } from '@/components/orbit/empty-state';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
-import { orbitScreen, space, typography } from '@/constants/orbit-theme';
+import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { readActivityLog, type ActivityEntry } from '@/lib/activity/activity-log';
 import {
   describeActivity,
   formatActivityTimestamp,
+  proofUriFromActivityDetail,
   summarizeNotifications,
   timelineForNotification,
 } from '@/lib/activity/activity-timeline';
@@ -76,6 +77,14 @@ export default function NotificationHistoryScreen() {
         {summary?.body ? (
           <Text style={[typography.body, { color: c.textSoft }]}>{summary.body}</Text>
         ) : null}
+        {summary?.proofUri ? (
+          <Image
+            source={{ uri: summary.proofUri }}
+            style={styles.proofHero}
+            resizeMode="cover"
+            accessibilityLabel="Proof photo for this alert"
+          />
+        ) : null}
       </View>
 
       {!isAdmin ? (
@@ -112,6 +121,14 @@ export default function NotificationHistoryScreen() {
                       {described.sublabel}
                     </Text>
                   ) : null}
+                  {proofUriFromActivityDetail(entry.detail) ? (
+                    <Image
+                      source={{ uri: proofUriFromActivityDetail(entry.detail)! }}
+                      style={styles.proofThumb}
+                      resizeMode="cover"
+                      accessibilityLabel="Proof photo"
+                    />
+                  ) : null}
                   <Text style={[styles.time, { color: c.textSubtle }]}>
                     {formatActivityTimestamp(entry.createdAt)}
                     {entry.source === 'local' ? ' · this device' : ''}
@@ -142,4 +159,18 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: 2, paddingTop: 4 },
   copyGap: { paddingBottom: 14 },
   time: { fontSize: 11 },
+  proofHero: {
+    borderCurve: 'continuous',
+    borderRadius: radius.card,
+    height: 180,
+    marginTop: space.sm,
+    width: '100%',
+  },
+  proofThumb: {
+    borderCurve: 'continuous',
+    borderRadius: 10,
+    height: 96,
+    marginTop: 6,
+    width: 128,
+  },
 });

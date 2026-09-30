@@ -292,7 +292,19 @@ async function main() {
     assert.equal(summary[0]?.title, 'Laundry overdue', 'creation snapshot wins');
     assert.equal(summary[0]?.deleted, true);
     assert.equal(summary[0]?.sent, true);
+    assert.equal(summary[0]?.proofUri, null);
     assert.equal(summary[1]?.received, true, 'opened implies received');
+
+    const withProof = summarizeNotifications([
+      entry({
+        id: 'p',
+        kind: 'notification_created',
+        createdAt: '2026-10-02T16:00:00.000Z',
+        title: 'Proof submitted',
+        detail: { proofUri: 'https://cdn.example/proof.jpg', kind: 'proof_submitted' },
+      }),
+    ]);
+    assert.equal(withProof[0]?.proofUri, 'https://cdn.example/proof.jpg');
 
     const names = {
       memberName: (id: string) => (id === 'm1' ? 'Emma' : null),

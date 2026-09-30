@@ -18,21 +18,16 @@ export type DescribedActivity = {
   tone: ActivityTone;
 };
 
-export type NotificationActivitySummary = {
-  notificationId: string;
-  title: string;
-  body: string | null;
-  category: string | null;
-  firstAt: string;
-  lastAt: string;
-  entryCount: number;
-  sent: boolean;
-  received: boolean;
-  opened: boolean;
-  read: boolean;
-  dismissed: boolean;
-  deleted: boolean;
-};
+/** Durable https proof photo URL attached to an activity row (if any). */
+export function proofUriFromActivityDetail(
+  detail: Record<string, unknown> | null | undefined
+): string | null {
+  if (!detail) return null;
+  const raw = detail.proofUri ?? detail.proof_uri;
+  if (typeof raw !== 'string') return null;
+  const uri = raw.trim();
+  return /^https?:\/\//i.test(uri) ? uri : null;
+}
 
 /** Lifecycle order used to break timestamp ties in a timeline. */
 const KIND_ORDER: Record<ActivityKind, number> = {
@@ -60,6 +55,24 @@ export function timelineForNotification(
     });
 }
 
+export type NotificationActivitySummary = {
+  notificationId: string;
+  title: string;
+  body: string | null;
+  category: string | null;
+  firstAt: string;
+  lastAt: string;
+  entryCount: number;
+  sent: boolean;
+  received: boolean;
+  opened: boolean;
+  read: boolean;
+  dismissed: boolean;
+  deleted: boolean;
+  /** First durable proof photo found on any lifecycle row for this alert. */
+  proofUri: string | null;
+};
+
 /** One row per notification that has any history, most recent activity first. */
 export function summarizeNotifications(
   entries: readonly ActivityEntry[]
@@ -86,8 +99,12 @@ export function summarizeNotifications(
         read: false,
         dismissed: false,
         deleted: false,
+        proofUri: null,
       };
       byId.set(id, row);
+    }
+    if (!row.proofUri) {
+      row.proofUri = proofUriFromActivityDetail(entry.detail);
     }
     row.entryCount += 1;
     if (Date.parse(entry.createdAt) < Date.parse(row.firstAt)) row.firstAt = entry.createdAt;

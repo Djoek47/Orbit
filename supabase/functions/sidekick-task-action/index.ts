@@ -91,39 +91,99 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'not_assignee' }, 403);
     }
 
+    if (action === 'prepare_proof_upload') {
+      const proofExt =
+        String(body.proofExt ?? 'jpg').trim().replace(/[^a-z0-9]/gi, '') || 'jpg';
+      const path = `${member.household_id}/${taskId}/${Date.now()}.${proofExt}`;
+      const { data: signed, error: signError } = await admin.storage
+        .from('task-proofs')
+        .createSignedUploadUrl(path);
+      if (signError || !signed?.signedUrl || !signed?.token) {
+        return jsonResponse(
+          { error: signError?.message || 'proof_upload_url_failed' },
+          500
+        );
+      }
+      const { data: pub } = admin.storage.from('task-proofs').getPublicUrl(path);
+      return jsonResponse({
+        path,
+        token: signed.token,
+        signedUrl: signed.signedUrl,
+        publicUrl: pub?.publicUrl ?? null,
+      });
+    }
+
     if (action === 'submit_proof') {
       let proofUri = String(body.proofUri ?? '').trim();
       const proofBase64 = String(body.proofBase64 ?? '').trim();
       const proofMime = String(body.proofMime ?? 'image/jpeg').trim() || 'image/jpeg';
       const proofExt = String(body.proofExt ?? 'jpg').trim().replace(/[^a-z0-9]/gi, '') || 'jpg';
+      let storagePath: string | null = null;
 
-      // Prefer bytes from the Sidekick device — local file:// URIs are useless on admin devices.
-      if (proofBase64) {
+      // Prefer durable https from a prior signed PUT. Otherwise accept bytes and upload.
+      const alreadyRemote = /^https?:\/\//i.test(proofUri);
+      if (!alreadyRemote && proofBase64) {
         const path = `${member.household_id}/${taskId}/${Date.now()}.${proofExt}`;
-        const binary = atob(proofBase64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        try {
+          const binary = atob(proofBase64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-        const { error: uploadError } = await admin.storage.from('task-proofs').upload(path, bytes, {
-          contentType: proofMime,
-          upsert: true,
-        });
-        if (uploadError) {
-          return jsonResponse({ error: uploadError.message || 'proof_upload_failed' }, 500);
+          const { error: uploadError } = await admin.storage.from('task-proofs').upload(path, bytes, {
+            contentType: proofMime,
+            upsert: true,
+          });
+          if (uploadError) {
+            return jsonResponse(
+              {
+                error:
+                  uploadError.message?.includes('Bucket not found') ||
+                  uploadError.message?.includes('not found')
+                    ? 'proof_bucket_missing'
+                    : uploadError.message || 'proof_upload_failed',
+              },
+              500
+            );
+          }
+
+          const { data: pub } = admin.storage.from('task-proofs').getPublicUrl(path);
+          proofUri = pub?.publicUrl ?? '';
+          storagePath = path;
+        } catch (decodeError) {
+          return jsonResponse(
+            { error: `proof_decode_failed: ${String(decodeError)}` },
+            400
+          );
         }
-
-        const { data: pub } = admin.storage.from('task-proofs').getPublicUrl(path);
-        proofUri = pub?.publicUrl ?? proofUri;
-
-        await admin.from('task_proofs').insert({
-          task_id: taskId,
-          household_id: member.household_id,
-          storage_path: path,
-        });
+      } else if (alreadyRemote) {
+        // Extract storage path when URL is our public bucket URL.
+        const marker = '/object/public/task-proofs/';
+        const idx = proofUri.indexOf(marker);
+        if (idx >= 0) storagePath = decodeURIComponent(proofUri.slice(idx + marker.length));
       }
 
-      if (!proofUri) {
-        return jsonResponse({ error: 'proof_uri_required' }, 400);
+      if (!proofUri || /^file:|^content:|^ph:|^assets-library:/i.test(proofUri)) {
+        return jsonResponse(
+          {
+            error: proofBase64
+              ? 'proof_upload_failed'
+              : 'proof_uri_required',
+          },
+          400
+        );
+      }
+
+      if (storagePath) {
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const { error: mirrorError } = await admin.from('task_proofs').insert({
+          task_id: taskId,
+          household_id: member.household_id,
+          storage_path: storagePath,
+          expires_at: expiresAt,
+        });
+        if (mirrorError) {
+          console.warn('task_proofs mirror insert failed', mirrorError.message);
+        }
       }
 
       const nextStatus =

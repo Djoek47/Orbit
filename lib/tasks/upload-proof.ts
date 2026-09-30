@@ -5,9 +5,14 @@
  */
 import { dataMode } from '@/config/data-mode';
 import { getSupabaseClient } from '@/lib/supabase/client';
-import { isLocalProofUri, isShareableProofUri } from '@/lib/tasks/proof-uri';
+import {
+  isLocalProofUri,
+  isShareableProofUri,
+  needsProofUpload,
+  proofBytesFromBase64,
+} from '@/lib/tasks/proof-uri';
 
-export { isLocalProofUri, isShareableProofUri };
+export { isLocalProofUri, isShareableProofUri, needsProofUpload, proofBytesFromBase64 };
 export const PROOF_BUCKET = 'task-proofs';
 
 function guessExt(uri: string, mime?: string): string {
@@ -105,12 +110,14 @@ export async function resolveProofUriForSync(input: {
     });
   }
 
-  // Best-effort mirror row for purge / audit.
+  // Best-effort mirror row for purge / audit (~30 day retention).
   try {
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     await supabase.from('task_proofs').insert({
       task_id: input.taskId,
       household_id: input.householdId,
       storage_path: path,
+      expires_at: expiresAt,
     } as never);
   } catch {
     /* non-fatal */
@@ -124,7 +131,13 @@ export async function proofBytesForEdge(localUri: string): Promise<{
   proofBase64: string;
   proofMime: string;
   proofExt: string;
+  byteLength: number;
 }> {
   const { bytes, mime, ext } = await readLocalBytes(localUri);
-  return { proofBase64: bytesToBase64(bytes), proofMime: mime, proofExt: ext };
+  return {
+    proofBase64: bytesToBase64(bytes),
+    proofMime: mime,
+    proofExt: ext,
+    byteLength: bytes.byteLength,
+  };
 }

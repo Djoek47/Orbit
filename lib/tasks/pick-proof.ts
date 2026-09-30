@@ -29,7 +29,8 @@ export async function pickProofPhoto(source: ProofPickSource): Promise<string | 
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.8,
+      // Keep payloads small enough for edge upload (signed PUT / base64 fallback).
+      quality: 0.55,
     });
     if (result.canceled || !result.assets?.[0]?.uri) return null;
     return result.assets[0].uri;
@@ -44,7 +45,7 @@ export async function pickProofPhoto(source: ProofPickSource): Promise<string | 
     mediaTypes: ['images'],
     allowsEditing: true,
     aspect: [4, 3],
-    quality: 0.8,
+    quality: 0.55,
   });
   if (result.canceled || !result.assets?.[0]?.uri) return null;
   return result.assets[0].uri;
