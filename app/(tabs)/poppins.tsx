@@ -13,8 +13,8 @@
  * with faces) grew past the body and drew under the dock, which sat on top of it and ate
  * every tap. It now scrolls inside the body and can never reach the dock.
  */
-import { Redirect, router } from 'expo-router';
-import type { ComponentType } from 'react';
+import { Redirect, router, useFocusEffect } from 'expo-router';
+import { useCallback, type ComponentType } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -38,7 +38,7 @@ import { STAGE, stageFaint } from '@/constants/iui-stage';
 import { space } from '@/constants/orbit-theme';
 import { usePoppinsController } from '@/lib/poppins/use-poppins-controller';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { useKeyboardState } from '@/lib/ui/use-keyboard-visible';
+import { setPoppinsTypingMode } from '@/lib/ui/typing-mode';
 import { useOrbit } from '@/store/orbit-store';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
 
@@ -68,9 +68,16 @@ function PoppinsScreenInner() {
   const { orbitPalette } = useOrbit();
   const tour = useTourControls();
   const p = usePoppinsController();
-  // Typing needs the room the mic and the tier pills were taking.
-  const keyboard = useKeyboardState();
-  const typing = p.threadOpen && keyboard.visible;
+  // Typing mode is the chat being open — not just the keyboard being up. With the keyboard down
+  // the old layout came straight back (mic, pills, full tab bar) and the thread was a sliver.
+  // It gets its own layout: thread tall, orb and dock folded, tab bar down to its icons.
+  const typing = p.threadOpen;
+  useFocusEffect(
+    useCallback(() => {
+      setPoppinsTypingMode(typing);
+      return () => setPoppinsTypingMode(false);
+    }, [typing])
+  );
 
   if (!p.poppinsAllowed) {
     return <Redirect href={'/(tabs)' as never} />;

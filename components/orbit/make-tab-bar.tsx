@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedTrophyTab } from '@/components/orbit/animated-trophy-tab';
 import { MorphingTabLabel } from '@/components/orbit/morphing-tab-label';
 import { useKeyboardVisible } from '@/lib/ui/use-keyboard-visible';
+import { usePoppinsTypingMode } from '@/lib/ui/typing-mode';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
@@ -56,7 +57,9 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   const insets = useSafeAreaInsets();
   // While the keyboard is up the bar drops its labels and tightens: the keyboard needs those
   // ~26pt more than five words do, and the icons still say which tab is which.
-  const keyboardUp = useKeyboardVisible();
+  // Tight while the keyboard is up, and for the whole of Poppins' typing mode.
+  const poppinsTyping = usePoppinsTypingMode();
+  const keyboardUp = useKeyboardVisible() || poppinsTyping;
   const orbit = useOrbitOptional();
   const majordomoName = useMajordomoName();
   const poppinsLive = usePoppinsLive();

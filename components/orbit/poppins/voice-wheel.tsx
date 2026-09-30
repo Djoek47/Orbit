@@ -9,6 +9,7 @@
  * screen and the list of voices can never disagree.
  */
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   PanResponder,
@@ -106,6 +107,9 @@ function wheelResponder(hooks: WheelHooks) {
       });
     },
     onPanResponderTerminate: () => hooks.setDragging(null),
+    // A sideways drag round the wheel is the wheel's — don't hand it to the scroll view.
+    onPanResponderTerminationRequest: () => false,
+    onShouldBlockNativeResponder: () => true,
   });
 }
 
@@ -129,6 +133,15 @@ export function VoiceWheel({ voiceId, disabled, onSelect, onPreview, previewBusy
   const liveColor = colorAtPosition(position);
 
   const segments = useMemo(() => wheelSegments(72), []);
+
+  // Sweeping the wheel left to right is the same motion as iOS's swipe back / pull to dismiss,
+  // so people left the page while choosing a voice. While the wheel is on screen, the page
+  // doesn't close by gesture — the back button still does.
+  const navigation = useNavigation();
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: false });
+    return () => navigation.setOptions({ gestureEnabled: true });
+  }, [navigation]);
   const pulse = useSharedValue(0);
   const lift = useSharedValue(0);
 

@@ -27,8 +27,11 @@ assert.match(hook, /show\.remove\(\)/, 'listeners are torn down');
 assert.match(hook, /hide\.remove\(\)/);
 
 // The tab knows when typing is actually competing with the keyboard.
-assert.match(tab, /useKeyboardState/);
-assert.match(tab, /const typing = p\.threadOpen && keyboard\.visible/, 'typing means thread open AND keyboard up');
+// Typing mode is the chat being open — with the keyboard down too (it used to snap back).
+assert.match(tab, /const typing = p\.threadOpen;/, 'typing means the chat is open');
+assert.doesNotMatch(tab, /threadOpen && keyboard\.visible/, 'not only while the keyboard is up');
+assert.match(tab, /setPoppinsTypingMode\(typing\)/, 'the tab bar is told');
+assert.match(tabBar, /usePoppinsTypingMode\(\)/, 'and tightens for the whole mode');
 
 // The dock folds, the thread grows, the orb collapses.
 assert.match(tab, /folded=\{typing\}/, 'the dock is told to fold');

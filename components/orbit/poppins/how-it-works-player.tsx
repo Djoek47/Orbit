@@ -15,6 +15,7 @@
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Speech from 'expo-speech';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInRight, FadeOut } from 'react-native-reanimated';
@@ -31,6 +32,7 @@ import {
   DEMO_BEATS,
   DEMO_CHAPTERS,
   DEMO_SPEAKERS,
+  demoOffsets,
   demoProgress,
   demoTotalMs,
   formatDemoClock,
@@ -56,11 +58,19 @@ export function HowItWorksPlayer({
   const [elapsed, setElapsed] = useState(0);
   const [playing, setPlaying] = useState(true);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** The two voices, spoken on the phone itself — free, offline, nothing sent anywhere. */
+  const [sound, setSound] = useState(true);
+  const speakingRef = useRef(false);
+  const offsets = useMemo(() => demoOffsets(), []);
 
   useEffect(() => {
     if (!playing) return;
     timer.current = setInterval(() => {
       setElapsed((ms) => {
+        // While a line is still being said, hold at the end of its beat instead of talking
+        // over the next one.
+        const beatEnd = offsets[beatAt(ms) + 1] ?? total;
+        if (speakingRef.current && ms + TICK_MS >= beatEnd) return Math.max(ms, beatEnd - 1);
         const next = ms + TICK_MS;
         if (next >= total) {
           setPlaying(false);
@@ -73,10 +83,31 @@ export function HowItWorksPlayer({
       if (timer.current) clearInterval(timer.current);
       timer.current = null;
     };
-  }, [playing, total]);
+  }, [playing, total, offsets]);
 
   const index = beatAt(elapsed);
   const beat = DEMO_BEATS[index]!;
+
+  // Say each line as its beat starts. Rose a little higher, Indigo a little lower.
+  useEffect(() => {
+    Speech.stop();
+    speakingRef.current = false;
+    if (!sound || !playing || !beat.speaker || !beat.line.trim()) return;
+    speakingRef.current = true;
+    const done = () => {
+      speakingRef.current = false;
+    };
+    Speech.speak(beat.line, {
+      pitch: beat.speaker === 'rose' ? 1.15 : 0.9,
+      rate: 1.0,
+      onDone: done,
+      onStopped: done,
+      onError: done,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beat.id, sound, playing]);
+
+  useEffect(() => () => void Speech.stop(), []);
   const chapter = DEMO_CHAPTERS.find((item) => item.id === chapterOf(index))!;
   const finished = elapsed >= total;
   const progress = demoProgress(elapsed);
@@ -97,7 +128,14 @@ export function HowItWorksPlayer({
           <MaterialIcons name={closeIcon} size={closeIcon === 'close' ? 24 : 28} color={c.text} />
         </Pressable>
         <Text style={[typography.headline, { color: c.text }]}>How it works</Text>
-        <View style={{ width: 28 }} />
+        <Pressable
+          onPress={() => setSound((on) => !on)}
+          hitSlop={10}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: sound }}
+          accessibilityLabel="Voices">
+          <MaterialIcons name={sound ? 'volume-up' : 'volume-off'} size={24} color={c.textMuted} />
+        </Pressable>
       </View>
 
       <ScrollView
