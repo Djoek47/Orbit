@@ -11,23 +11,24 @@ const mid = shoppingBannerState({
   remaining: ['Milk', 'Cheese'],
 });
 assert.equal(mid.title, 'Friday run');
-assert.equal(mid.subtitle, '3 of 9 · Dairy & Eggs\n☐ Milk\n☐ Cheese');
+assert.equal(mid.subtitle, '3 of 9 · Dairy & Eggs\nMilk\nCheese');
 assert.equal(mid.progressBar?.progress, 3 / 9);
 
 // The list is a checklist, capped, with the rest counted.
-assert.deepEqual(shoppingBannerList(['Milk', 'Eggs']), ['☐ Milk', '☐ Eggs']);
+assert.deepEqual(shoppingBannerList(['Milk', 'Eggs']), ['Milk', 'Eggs']);
 assert.deepEqual(shoppingBannerList(['a', 'b', 'c', 'd', 'e', 'f']), [
-  '☐ a',
-  '☐ b',
-  '☐ c',
-  '☐ d',
-  '+2 more',
+  'a',
+  'b',
+  'c',
+  'd',
+  'e',
+  '+1 more',
 ]);
-assert.deepEqual(shoppingBannerList([' Milk ', '', '  ']), ['☐ Milk']);
+assert.deepEqual(shoppingBannerList([' Milk ', '', '  ']), ['Milk']);
 // Ticked-off items are simply not passed in, so the banner drops them like the list does.
 assert.equal(
   shoppingBannerState({ done: 4, total: 9, nextAisle: 'Pantry', remaining: ['Rice'] }).subtitle,
-  '4 of 9 · Pantry\n☐ Rice'
+  '4 of 9 · Pantry\nRice'
 );
 
 // Finished.

@@ -23,6 +23,8 @@ export type { ShoppingRunState };
 
 type ActivityState = {
   title: string;
+  imageName?: string;
+  dynamicIslandImageName?: string;
   subtitle?: string;
   progressBar?: { progress?: number; date?: number };
 };
@@ -74,6 +76,12 @@ export function shoppingBannerAvailable(): boolean {
 
 let currentId: string | null = null;
 
+/** The logo in the Dynamic Island (from assets/liveActivity). */
+const withMark = (run: ShoppingRunState) => ({
+  ...shoppingBannerState(run),
+  dynamicIslandImageName: 'choremaxx_mark',
+});
+
 /** Put the run on the Lock Screen. Safe to call when one is already showing. */
 export function startShoppingBanner(run: ShoppingRunState, accent: string): string | null {
   const mod = liveActivity();
@@ -83,10 +91,11 @@ export function startShoppingBanner(run: ShoppingRunState, accent: string): stri
     return currentId;
   }
   try {
-    const id = mod.startActivity(shoppingBannerState(run), {
-      backgroundColor: '#12161F',
-      titleColor: '#F5F7FA',
-      subtitleColor: '#A9B4C4',
+    const id = mod.startActivity(withMark(run), {
+      // ChoreMaxx's warm dark; the Lock Screen view (plugins/live-activity) draws the rest.
+      backgroundColor: '#17110E',
+      titleColor: '#F7F2EC',
+      subtitleColor: '#C9B8AA',
       progressViewTint: accent,
       progressViewLabelColor: '#F5F7FA',
       deepLinkUrl: '/shopping-mode',
@@ -103,7 +112,7 @@ export function updateShoppingBanner(run: ShoppingRunState): void {
   const mod = liveActivity();
   if (!mod || !currentId) return;
   try {
-    mod.updateActivity(currentId, shoppingBannerState(run));
+    mod.updateActivity(currentId, withMark(run));
   } catch (error) {
     console.warn('updateShoppingBanner', error);
   }
@@ -115,7 +124,7 @@ export function stopShoppingBanner(run?: ShoppingRunState): void {
   const final = run ?? { done: 0, total: 0 };
   try {
     mod.stopActivity(currentId, {
-      ...shoppingBannerState(final),
+      ...withMark(final),
       subtitle: shoppingBannerFinalSubtitle(final),
     });
   } catch (error) {

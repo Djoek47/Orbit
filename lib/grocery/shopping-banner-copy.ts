@@ -33,13 +33,15 @@ export type ShoppingBannerState = {
 };
 
 /** How many item lines fit on the Lock Screen before it gets cramped. */
-export const BANNER_LIST_MAX = 4;
+export const BANNER_LIST_MAX = 5;
 
 /** The checklist lines, capped, with "+N more" when there are others. */
 export function shoppingBannerList(remaining: string[], max = BANNER_LIST_MAX): string[] {
   const clean = remaining.map((name) => name.trim()).filter(Boolean);
-  if (clean.length <= max) return clean.map((name) => `☐ ${name}`);
-  const shown = clean.slice(0, max).map((name) => `☐ ${name}`);
+  // No box character: the Lock Screen view draws its own tick circle beside each line, and the
+  // item's emoji leads the name (the caller passes "🧀 Swiss Cheese").
+  if (clean.length <= max) return clean;
+  const shown = clean.slice(0, max);
   return [...shown, `+${clean.length - max} more`];
 }
 

@@ -31,6 +31,9 @@ import {
   stopShoppingBanner,
   updateShoppingBanner,
 } from '@/lib/grocery/shopping-live-activity';
+import { iconForGroceryName } from '@/lib/grocery/catalog';
+import { loadShoppingBannerEnabled, saveShoppingBannerEnabled } from '@/lib/grocery/shopping-banner-pref';
+import { ShoppingAmbient } from '@/components/orbit/grocery/shopping-ambient';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -181,8 +184,14 @@ export default function ShoppingModeScreen() {
   // put when you leave the app so it's there at the store. It ends when the run does, or
   // when you tap End run.
   const nextAisle = aisles.find((aisle) => aisle.items.some((item) => !item.done))?.categoryName;
+  // Each line leads with the item's emoji, the same one the list shows.
   const remaining = useMemo(
-    () => aisles.flatMap((aisle) => aisle.items.filter((item) => !item.done).map((item) => item.name)),
+    () =>
+      aisles.flatMap((aisle) =>
+        aisle.items
+          .filter((item) => !item.done)
+          .map((item) => `${iconForGroceryName(item.name, item.categoryId)} ${item.name}`)
+      ),
     [aisles]
   );
   const bannerRun = useMemo(
@@ -190,16 +199,33 @@ export default function ShoppingModeScreen() {
     [progress.done, progress.total, nextAisle, runLabel, remaining]
   );
   const started = useRef(false);
+  // The Lock Screen switch. Off means no banner at all for this run and the next.
+  const [bannerEnabled, setBannerEnabled] = useState(true);
+  useEffect(() => {
+    void loadShoppingBannerEnabled().then(setBannerEnabled);
+  }, []);
+  const toggleBanner = useCallback(() => {
+    setBannerEnabled((on) => {
+      const next = !on;
+      void saveShoppingBannerEnabled(next);
+      if (!next && started.current) {
+        stopShoppingBanner();
+        started.current = false;
+      }
+      void Haptics.selectionAsync();
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
-    if (bannerRun.total === 0) return;
+    if (bannerRun.total === 0 || !bannerEnabled) return;
     if (!started.current) {
       started.current = true;
       startShoppingBanner(bannerRun, palette.accent);
       return;
     }
     updateShoppingBanner(bannerRun);
-  }, [bannerRun, palette.accent]);
+  }, [bannerRun, palette.accent, bannerEnabled]);
 
   // Everything picked up: the banner has done its job.
   useEffect(() => {
@@ -222,31 +248,7 @@ export default function ShoppingModeScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.root, { backgroundColor: palette.canvas, paddingTop: insets.top }]}>
-        {/* Ambient washes so amber glass has something to catch */}
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <View
-            style={[
-              styles.wash,
-              {
-                top: -40,
-                left: -60,
-                backgroundColor: palette.ambientA,
-              },
-            ]}
-          />
-          <View
-            style={[
-              styles.wash,
-              {
-                bottom: 80,
-                right: -40,
-                backgroundColor: palette.ambientB,
-                width: 220,
-                height: 220,
-              },
-            ]}
-          />
-        </View>
+        <ShoppingAmbient palette={palette} reduceMotion={reduceMotion} />
 
         <ShoppingRunHeader
           palette={palette}
@@ -257,7 +259,12 @@ export default function ShoppingModeScreen() {
           ratio={progress.ratio}
           onBack={() => router.back()}
           onEndRun={endRun}
-          bannerOn={shoppingBannerAvailable() && progress.total > 0}
+          bannerOn={bannerEnabled && shoppingBannerAvailable() && progress.total > 0}
+          lockScreen={
+            shoppingBannerAvailable()
+              ? { on: bannerEnabled, onToggle: toggleBanner }
+              : undefined
+          }
         />
 
         <ScrollView
@@ -322,13 +329,6 @@ export default function ShoppingModeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  wash: {
-    position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    opacity: 0.55,
-  },
   list: { flex: 1 },
   listContent: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 160 },
   empty: { paddingTop: 56, paddingHorizontal: 26, alignItems: 'center' },

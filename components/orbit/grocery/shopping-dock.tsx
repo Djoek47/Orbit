@@ -2,6 +2,13 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BlurView } from 'expo-blur';
 import { useEffect, useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { AppText as Text, AppTextInput } from '@/components/orbit/app-text';
 import { typography } from '@/constants/orbit-theme';
@@ -17,6 +24,16 @@ type Props = {
   onAdd: () => void;
 };
 
+/** The closed dock: just the round orange button. */
+const BUTTON = 56;
+
+/**
+ * Add an item — a round + that grows into the field.
+ *
+ * Closed, it's only the button in the corner, so it doesn't cover the list. Tap it and the field
+ * opens out to the left from the button and the keyboard comes up. The keyboard's blue ✓ adds
+ * what's typed and stays open for the next one; with nothing typed, ✓ (or the ×) folds it back.
+ */
 export function ShoppingDock({
   palette,
   value,
@@ -28,6 +45,11 @@ export function ShoppingDock({
 }: Props) {
   // The dock floats, so it has to ride the keyboard itself.
   const [keyboard, setKeyboard] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [trackW, setTrackW] = useState(0);
+  const grow = useSharedValue(0);
+  const empty = !value.trim();
+
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
@@ -41,13 +63,47 @@ export function ShoppingDock({
     };
   }, []);
 
+  useEffect(() => {
+    grow.set(
+      open
+        ? withSpring(1, { damping: 18, stiffness: 180 })
+        : withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) })
+    );
+  }, [grow, open]);
+
+  const openDock = () => {
+    setOpen(true);
+  };
+  const closeDock = () => {
+    Keyboard.dismiss();
+    setOpen(false);
+  };
+  const submit = () => {
+    if (empty) {
+      closeDock();
+      return;
+    }
+    onAdd();
+  };
+
+  const dockStyle = useAnimatedStyle(() => {
+    const full = trackW > 0 ? trackW : BUTTON;
+    return { width: BUTTON + (full - BUTTON) * grow.get() };
+  });
+  const fieldStyle = useAnimatedStyle(() => ({ opacity: grow.get() }));
+  const iconStyle = useAnimatedStyle(() => ({
+    // + turns into × while the field is open and empty — the way to fold it back.
+    transform: [{ rotate: `${open && empty ? 45 * grow.get() : 0}deg` }],
+  }));
+
   const lift = keyboard > 0 ? keyboard - bottomInset + 10 : 0;
 
   return (
     <View
       style={[styles.wrap, { bottom: Math.max(bottomInset, 12) + 8 + Math.max(0, lift) }]}
-      pointerEvents="box-none">
-      {guessLabel ? (
+      pointerEvents="box-none"
+      onLayout={(event) => setTrackW(event.nativeEvent.layout.width)}>
+      {guessLabel && open ? (
         <View
           style={[
             styles.guess,
@@ -60,35 +116,48 @@ export function ShoppingDock({
         </View>
       ) : null}
 
-      <View style={[styles.dock, { borderColor: palette.glassEdge }]}>
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 30 : 50}
-          tint={palette.isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.dockBg }]} />
-        <AppTextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder="Add an item"
-          placeholderTextColor={palette.inkFaint}
-          returnKeyType="done"
-          blurOnSubmit={false}
-          onSubmitEditing={onAdd}
-          editable={!busy}
-          style={[styles.input, { color: palette.ink }]}
-        />
+      <Animated.View
+        style={[styles.dock, { borderColor: open ? palette.glassEdge : 'transparent' }, dockStyle]}>
+        {open ? (
+          <>
+            <BlurView
+              intensity={Platform.OS === 'ios' ? 30 : 50}
+              tint={palette.isDark ? 'dark' : 'light'}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.dockBg }]} />
+          </>
+        ) : null}
+        <Animated.View style={[styles.field, fieldStyle]} pointerEvents={open ? 'auto' : 'none'}>
+          {open ? (
+          <AppTextInput
+            autoFocus
+            value={value}
+            onChangeText={onChangeText}
+            placeholder="Add an item"
+            placeholderTextColor={palette.inkFaint}
+            returnKeyType="done"
+            blurOnSubmit={false}
+            onSubmitEditing={submit}
+            onBlur={() => {
+              if (!value.trim()) setOpen(false);
+            }}
+            editable={!busy}
+            style={[styles.input, { color: palette.ink }]}
+          />
+          ) : null}
+        </Animated.View>
         <Pressable
-          onPress={onAdd}
-          disabled={busy || !value.trim()}
-          accessibilityLabel="Add"
-          style={[
-            styles.addBtn,
-            { backgroundColor: palette.primary, opacity: value.trim() ? 1 : 0.5 },
-          ]}>
-          <MaterialIcons name="add" size={22} color={palette.isDark ? palette.canvas : '#fff'} />
+          onPress={open ? submit : openDock}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={!open ? 'Add an item' : empty ? 'Close' : 'Add'}
+          style={[styles.addBtn, { backgroundColor: palette.primary }]}>
+          <Animated.View style={iconStyle}>
+            <MaterialIcons name="add" size={24} color={palette.isDark ? palette.canvas : '#fff'} />
+          </Animated.View>
         </Pressable>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -114,16 +183,15 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   dock: {
+    alignSelf: 'flex-end',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingLeft: 20,
-    paddingRight: 9,
-    paddingVertical: 9,
-    borderRadius: 30,
+    height: BUTTON,
+    borderRadius: BUTTON / 2,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
+  field: { flex: 1, minWidth: 0, paddingLeft: 20, paddingRight: 8 },
   input: {
     flex: 1,
     minWidth: 0,
@@ -132,9 +200,9 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   addBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: BUTTON,
+    height: BUTTON,
+    borderRadius: BUTTON / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
