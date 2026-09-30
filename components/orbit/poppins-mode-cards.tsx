@@ -34,15 +34,15 @@ const MODES: {
   {
     tier: 'base',
     title: 'Base',
-    line: 'Lighter. About 1 action each.',
-    detail: 'Quiet replies on screen. Best for everyday use.',
+    line: `Lighter — about ${TOKEN_WEIGHT_QUIET} token per action.`,
+    detail: 'Writes its answers on screen. Best for everyday use.',
     icon: 'water-drop',
   },
   {
     tier: 'max',
     title: 'Max',
-    line: `Speaks back. About ${TOKEN_WEIGHT_SPEAK_BACK} actions each.`,
-    detail: 'Live voice. Richer, and it spends the month faster.',
+    line: `Talks with you — about ${TOKEN_WEIGHT_SPEAK_BACK} tokens per action.`,
+    detail: 'A real conversation out loud. Richer, and it spends the month faster.',
     icon: 'graphic-eq',
   },
 ];
@@ -132,10 +132,12 @@ function ModePills({
                   typography.footnote,
                   { color: selected ? accent : c.textMuted, fontWeight: '700' },
                 ]}>
-                {mode.tier === 'base' ? 'Base' : 'Max'}
+                {mode.title}
               </Text>
               <Text style={[typography.caption2, { color: selected ? c.textSoft : c.textSubtle }]}>
-                {mode.tier === 'base' ? `${TOKEN_WEIGHT_QUIET}` : `~${TOKEN_WEIGHT_SPEAK_BACK}`}
+                {mode.tier === 'base'
+                  ? `${TOKEN_WEIGHT_QUIET} token`
+                  : `~${TOKEN_WEIGHT_SPEAK_BACK} tokens`}
               </Text>
             </Pressable>
           );

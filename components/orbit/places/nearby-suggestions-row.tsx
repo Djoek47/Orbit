@@ -19,7 +19,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
 import { typography } from '@/constants/orbit-theme';
-import { getCurrentCoords } from '@/lib/places/nearby-stores';
+import { coordsForAddress, getCurrentCoords } from '@/lib/places/nearby-stores';
 import {
   findNearbySuggestions,
   pickSuggestions,
@@ -36,26 +36,38 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
   const [all, setAll] = useState<NearbySuggestion[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
 
   const homeLat = home?.lat;
   const homeLng = home?.lng;
+  const homeAddress = home?.address?.trim();
 
   const load = useCallback(async () => {
     setBusy(true);
+    setFailed(false);
     try {
-      const origin =
-        homeLat != null && homeLng != null
-          ? { lat: homeLat, lng: homeLng }
-          : await getCurrentCoords({ requestIfNeeded: false });
+      // Home first; then this phone; then Home's address, which is all we have when the
+      // pin was typed rather than dropped.
+      let origin =
+        homeLat != null && homeLng != null ? { lat: homeLat, lng: homeLng } : null;
+      if (!origin) origin = await getCurrentCoords({ requestIfNeeded: false });
+      if (!origin && homeAddress) origin = await coordsForAddress(homeAddress);
       if (!origin) {
         setAll([]);
+        setFailed(true);
         return;
       }
-      setAll(await findNearbySuggestions(origin));
+      const found = await findNearbySuggestions(origin);
+      setAll(found);
+      setFailed(found.length === 0);
+    } catch (error) {
+      console.warn('nearby suggestions', error);
+      setAll([]);
+      setFailed(true);
     } finally {
       setBusy(false);
     }
-  }, [homeLat, homeLng]);
+  }, [homeAddress, homeLat, homeLng]);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,7 +81,8 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
   }, [load]);
 
   const shown = pickSuggestions(all ?? [], places.map((p) => p.name));
-  if (!busy && shown.length === 0) return null;
+  // Only disappear when there is genuinely nothing to say: no results and no way to retry.
+  if (!busy && shown.length === 0 && !failed) return null;
 
   const save = async (suggestion: NearbySuggestion) => {
     setSaving(suggestion.id);
@@ -100,7 +113,20 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
         </Pressable>
       </View>
 
-      {busy && !shown.length ? (
+      {!busy && !shown.length && failed ? (
+        <Pressable
+          onPress={() => void load()}
+          style={[styles.retry, { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) }]}
+          accessibilityRole="button"
+          accessibilityLabel="Look for places near home again">
+          <MaterialIcons name="refresh" size={16} color={c.textMuted} />
+          <Text style={[typography.footnote, { color: c.textMuted, flex: 1 }]}>
+            {home
+              ? "Couldn't find places near home just now. Tap to try again."
+              : 'Allow location, or add Home, to see places nearby.'}
+          </Text>
+        </Pressable>
+      ) : busy && !shown.length ? (
         <View style={styles.loading}>
           <ActivityIndicator size="small" color={c.textMuted} />
           <Text style={[typography.footnote, { color: c.textMuted }]}>Looking around…</Text>
@@ -152,6 +178,15 @@ const styles = StyleSheet.create({
   wrap: { gap: 8 },
   head: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   loading: { alignItems: 'center', flexDirection: 'row', gap: 8, paddingVertical: 10 },
+  retry: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
   row: { gap: 10, paddingVertical: 2, paddingRight: 4 },
   card: {
     alignItems: 'flex-start',

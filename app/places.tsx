@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Moji } from '@/components/orbit/moji/moji';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PlaceMap } from '@/components/orbit/place-map';
+import { NearbySuggestionsRow } from '@/components/orbit/places/nearby-suggestions-row';
 import { MapsAppMark } from '@/components/orbit/maps-app-mark';
 import { SettingsModalChrome } from '@/components/orbit/settings/modal-chrome';
 import { radius, space } from '@/constants/orbit-theme';
@@ -449,6 +450,9 @@ export default function PlacesScreen() {
                 onPress={() => openSlot('work', work)}
               />
             </View>
+
+            {/* The same "near home" shortcut the Plan tab offers. */}
+            <NearbySuggestionsRow accent={accentTheme.primary} />
 
             {places.length === 0 ? (
               <View

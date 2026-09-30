@@ -137,22 +137,49 @@ export function pickSuggestions(
   return picked;
 }
 
-/** Ask Overpass. Returns [] on any failure — suggestions are a bonus, never a blocker. */
+/** Overpass is a free service and can hang. Never leave the row spinning. */
+const REQUEST_TIMEOUT_MS = 12_000;
+/** Mirrors, tried in turn — one instance being down is the usual failure. */
+const OVERPASS_MIRRORS = [
+  OVERPASS_URL,
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter',
+];
+
+async function askOverpass(url: string, query: string): Promise<OverpassElement[]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: `data=${encodeURIComponent(query)}`,
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`Overpass ${response.status}`);
+    const json = (await response.json()) as { elements?: OverpassElement[] };
+    return json.elements ?? [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Ask Overpass, trying each mirror in turn. Always settles: on failure it returns [], so
+ * the caller can say "nothing nearby" instead of spinning for ever.
+ */
 export async function findNearbySuggestions(origin: {
   lat: number;
   lng: number;
 }): Promise<NearbySuggestion[]> {
-  try {
-    const response = await fetch(OVERPASS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-      body: `data=${encodeURIComponent(nearbyQuery(origin.lat, origin.lng))}`,
-    });
-    if (!response.ok) throw new Error(`Overpass ${response.status}`);
-    const json = (await response.json()) as { elements?: OverpassElement[] };
-    return suggestionsFromElements(json.elements ?? [], origin);
-  } catch (error) {
-    console.warn('findNearbySuggestions', error);
-    return [];
+  const query = nearbyQuery(origin.lat, origin.lng);
+  for (const url of OVERPASS_MIRRORS) {
+    try {
+      const elements = await askOverpass(url, query);
+      if (elements.length) return suggestionsFromElements(elements, origin);
+    } catch (error) {
+      console.warn('findNearbySuggestions', url, error);
+    }
   }
+  return [];
 }

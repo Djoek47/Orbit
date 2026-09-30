@@ -14,6 +14,25 @@ export async function getLocationPermission(): Promise<Location.PermissionStatus
   return current.status;
 }
 
+/**
+ * Coordinates for a typed address. Home is often saved from a search with no pin, and the
+ * nearby lookup needs a point to search around.
+ */
+export async function coordsForAddress(
+  address: string
+): Promise<{ lat: number; lng: number } | null> {
+  const query = address.trim();
+  if (!query) return null;
+  try {
+    const [hit] = await Location.geocodeAsync(query);
+    if (!hit) return null;
+    return { lat: hit.latitude, lng: hit.longitude };
+  } catch (error) {
+    console.warn('coordsForAddress', error);
+    return null;
+  }
+}
+
 export async function getCurrentCoords(options?: {
   requestIfNeeded?: boolean;
 }): Promise<{ lat: number; lng: number } | null> {
