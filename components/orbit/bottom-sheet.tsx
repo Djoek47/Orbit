@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   Dimensions,
   Keyboard,
-  KeyboardAvoidingView,
   PanResponder,
   Platform,
   Pressable,
@@ -24,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { motion } from '@/constants/motion-tokens';
 import { radius, space } from '@/constants/orbit-theme';
+import { useKeyboardState } from '@/lib/ui/use-keyboard-visible';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type BottomSheetProps = {
@@ -36,21 +36,23 @@ type BottomSheetProps = {
   /** Theme / character accent wash on glass (hex). */
   accentColor?: string;
   /**
-   * When true, sheet content scrolls and lifts above the keyboard
-   * so CTAs stay reachable on Ask-for-photo / proof reply forms.
+   * When true, sheet content scrolls so CTAs stay reachable on Ask-for-photo /
+   * proof reply forms while the sheet rides above the keyboard.
    */
   scrollable?: boolean;
-  /** Extra keyboard offset for nested chrome. */
+  /** Kept for call-site compatibility; keyboard lift replaces KAV offset. */
   keyboardOffset?: number;
 };
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+/** Air kept above a sheet that has been lifted over the keyboard. */
+const KEYBOARD_TOP_GAP = 12;
 const DISMISS_THRESHOLD_RATIO = 0.4;
 
 /**
  * Partial-height, drag-dismissible sheet — glass chrome, flat content.
  * Backdrop is real blur + dim so tab-bar glass does not stack.
- * Pass scrollable for forms that must stay reachable above the keyboard.
+ * With the keyboard up the sheet rides on top of it and is capped to the room above.
  */
 export function BottomSheet({
   visible,
@@ -60,53 +62,36 @@ export function BottomSheet({
   style,
   accentColor,
   scrollable = false,
-  keyboardOffset = 0,
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
   const orbit = useOrbitOptional();
   const isDark = orbit?.orbitPalette.isDark ?? true;
   const accent = accentColor ?? orbit?.accentTheme.primary ?? '#38BDF8';
-  const baseHeight = SCREEN_HEIGHT * heightRatio;
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboard = useKeyboardState();
+  const sheetHeight = SCREEN_HEIGHT * heightRatio;
+  // With the keyboard up the sheet rides on top of it (its bottom edge is the keyboard's top)
+  // and never grows taller than the room above it, so nothing is hidden or scrolled past.
+  const lifted = keyboard.visible ? keyboard.height : 0;
+  const restingHeight = sheetHeight + insets.bottom;
+  const liftedHeight = Math.min(
+    restingHeight,
+    SCREEN_HEIGHT - lifted - insets.top - KEYBOARD_TOP_GAP
+  );
+  const activeHeight = lifted > 0 ? liftedHeight : restingHeight;
 
-  const translateY = useSharedValue(baseHeight);
+  const translateY = useSharedValue(sheetHeight);
   const backdropOpacity = useSharedValue(0);
   const dragOffset = useRef(0);
-
-  useEffect(() => {
-    if (!visible) {
-      setKeyboardHeight(0);
-      return;
-    }
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvent, (event) => {
-      setKeyboardHeight(event.endCoordinates.height);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [visible]);
-
-  // Grow toward the top when the keyboard is open so content + CTAs remain visible.
-  const sheetHeight = Math.min(
-    SCREEN_HEIGHT - insets.top - 12,
-    Math.max(baseHeight, keyboardHeight > 0 ? SCREEN_HEIGHT * 0.92 : baseHeight)
-  );
 
   useEffect(() => {
     if (visible) {
       translateY.value = withSpring(0, motion.smooth);
       backdropOpacity.value = withTiming(1, { duration: 200 });
     } else {
-      translateY.value = withSpring(sheetHeight, motion.smooth);
+      translateY.value = withSpring(activeHeight, motion.smooth);
       backdropOpacity.value = withTiming(0, { duration: 200 });
     }
-  }, [visible, sheetHeight, translateY, backdropOpacity]);
+  }, [visible, activeHeight, translateY, backdropOpacity]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -118,7 +103,7 @@ export function BottomSheet({
         translateY.value = next;
       },
       onPanResponderRelease: (_evt, gesture) => {
-        if (gesture.dy > sheetHeight * DISMISS_THRESHOLD_RATIO || gesture.vy > 1.2) {
+        if (gesture.dy > activeHeight * DISMISS_THRESHOLD_RATIO || gesture.vy > 1.2) {
           Keyboard.dismiss();
           onDismiss();
         } else {
@@ -137,8 +122,6 @@ export function BottomSheet({
   }));
 
   if (!visible) return null;
-
-  const bottomPad = Math.max(insets.bottom, 12) + (Platform.OS === 'android' ? keyboardHeight : 0);
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -164,77 +147,65 @@ export function BottomSheet({
           accessibilityLabel="Dismiss"
         />
       </Animated.View>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={keyboardOffset}
-        style={styles.kav}
-        pointerEvents="box-none">
-        <Animated.View
-          style={[
-            styles.sheet,
-            {
-              height: sheetHeight,
-              paddingBottom: bottomPad,
-              marginBottom: Platform.OS === 'ios' ? 0 : undefined,
-            },
-            sheetStyle,
-            style,
-          ]}>
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <BlurView
-              intensity={Platform.OS === 'ios' ? 72 : 90}
-              tint={resolveBlurTint(isDark)}
-              experimentalBlurMethod={androidBlurMethod}
-              style={StyleSheet.absoluteFill}
-            />
-            <LinearGradient
-              colors={[
-                `${accent}${isDark ? '66' : '55'}`,
-                `${accent}00`,
-                isDark ? 'rgba(7,13,28,0.55)' : 'rgba(255,255,255,0.35)',
-              ]}
-              locations={[0, 0.45, 1]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-          </View>
-          <View {...panResponder.panHandlers} style={styles.handleHit}>
-            <View style={styles.handle} />
-          </View>
-          {scrollable ? (
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.scrollContent}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="interactive"
-              showsVerticalScrollIndicator={false}
-              bounces>
-              {children}
-            </ScrollView>
-          ) : (
-            <View style={styles.content}>{children}</View>
-          )}
-        </Animated.View>
-      </KeyboardAvoidingView>
+      <Animated.View
+        style={[
+          styles.sheet,
+          lifted > 0
+            ? { bottom: lifted, height: liftedHeight, paddingBottom: 0 }
+            : { height: restingHeight, paddingBottom: insets.bottom },
+          sheetStyle,
+          style,
+        ]}>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <BlurView
+            intensity={Platform.OS === 'ios' ? 72 : 90}
+            tint={resolveBlurTint(isDark)}
+            experimentalBlurMethod={androidBlurMethod}
+            style={StyleSheet.absoluteFill}
+          />
+          <LinearGradient
+            colors={[
+              `${accent}${isDark ? '66' : '55'}`,
+              `${accent}00`,
+              isDark ? 'rgba(7,13,28,0.55)' : 'rgba(255,255,255,0.35)',
+            ]}
+            locations={[0, 0.45, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
+        <View {...panResponder.panHandlers} style={styles.handleHit}>
+          <View style={styles.handle} />
+        </View>
+        {scrollable ? (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            showsVerticalScrollIndicator={false}
+            bounces>
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={styles.content}>{children}</View>
+        )}
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  kav: {
-    bottom: 0,
-    justifyContent: 'flex-end',
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
   sheet: {
     borderTopLeftRadius: radius.cardLarge,
     borderTopRightRadius: radius.cardLarge,
     borderCurve: 'continuous',
+    bottom: 0,
+    left: 0,
     overflow: 'hidden',
+    position: 'absolute',
+    right: 0,
     width: '100%',
   },
   handleHit: {

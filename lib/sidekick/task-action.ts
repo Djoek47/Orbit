@@ -94,6 +94,20 @@ export async function sidekickCompleteTask(input: {
   return mapSidekickTaskRow(payload.task, input.task);
 }
 
+/** supabase-js hides the server's reason behind "non-2xx status code"; dig it out of the response. */
+export async function edgeErrorMessage(error: unknown, fallback: string): Promise<string> {
+  const context = (error as { context?: unknown } | null)?.context;
+  if (context && typeof (context as Response).json === 'function') {
+    try {
+      const body = (await (context as Response).clone().json()) as { error?: unknown };
+      if (typeof body?.error === 'string' && body.error) return body.error;
+    } catch {
+      // body wasn't JSON — fall through
+    }
+  }
+  return (error as { message?: string } | null)?.message || fallback;
+}
+
 export async function sidekickSubmitTaskProof(input: {
   code: string;
   taskId: string;
@@ -128,7 +142,7 @@ export async function sidekickSubmitTaskProof(input: {
   });
 
   if (error) {
-    throw new Error(error.message || 'sidekickSubmitTaskProof failed');
+    throw new Error(await edgeErrorMessage(error, 'sidekickSubmitTaskProof failed'));
   }
 
   const payload = data as { error?: string; task?: Record<string, unknown> };
