@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
 
     let householdId: string | undefined;
     let majordomoProfileId: string | undefined;
+    let voiceId: string | undefined;
     let householdContext: Record<string, unknown> | undefined;
     let pageContext: string | undefined;
     let capabilityProfile: string | undefined;
@@ -48,6 +49,7 @@ Deno.serve(async (req) => {
           const parsed = JSON.parse(ctxRaw) as Record<string, unknown>;
           householdId = parsed.householdId as string | undefined;
           majordomoProfileId = parsed.majordomoProfileId as string | undefined;
+          voiceId = parsed.voiceId as string | undefined;
           householdContext = parsed.householdContext as Record<string, unknown> | undefined;
           pageContext = parsed.pageContext as string | undefined;
           capabilityProfile = parsed.capabilityProfile as string | undefined;
@@ -66,6 +68,7 @@ Deno.serve(async (req) => {
       majordomoProfileId =
         (body.majordomoProfileId as string | undefined) ??
         (body.householdContext?.majordomoProfileId as string | undefined);
+      voiceId = body.voiceId as string | undefined;
       householdContext = body.householdContext as Record<string, unknown> | undefined;
       pageContext = body.pageContext as string | undefined;
       capabilityProfile = body.capabilityProfile as string | undefined;
@@ -104,8 +107,9 @@ Deno.serve(async (req) => {
       ? ` Household context: ${JSON.stringify(householdContext).slice(0, 5000)}`
       : '';
 
-    const { session, profile, model } = buildPoppinsRealtimeSessionConfig({
+    const { session, profile, model, voice } = buildPoppinsRealtimeSessionConfig({
       profileId,
+      voiceId,
       memberRole: auth.membership?.role ?? 'adult',
       deskHint,
       householdHint,
@@ -170,7 +174,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-store',
         'X-Poppins-Realtime-Model': model,
-        'X-Poppins-Voice': profile.voice,
+        'X-Poppins-Voice': voice,
         'X-Poppins-Majordomo': profile.id,
         ...(sessionId ? { 'X-Poppins-Session-Id': sessionId } : {}),
       },

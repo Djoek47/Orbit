@@ -2,6 +2,7 @@ import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
 import { toolResultToMonitorAction } from '@/lib/ai/execute-poppins-tool';
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import { resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
+import { getSessionVoiceId } from '@/lib/poppins/session-act-mode';
 import { POPPINS_TOOL_DEFINITIONS, type PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import {
@@ -75,6 +76,7 @@ async function mintRealtimeSession(
     body: JSON.stringify({
       householdId: household.id,
       majordomoProfileId,
+      voiceId: getSessionVoiceId() || undefined,
       householdContext: buildPoppinsHouseholdPayload(household, metrics, [], {
         memberProfileId,
       }),

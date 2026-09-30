@@ -12,6 +12,7 @@ import {
   buildMajordomoSystemPrompt,
   getMajordomoProfile,
   poppinsToolsAsRealtimeTools,
+  resolveRequestedVoice,
 } from './poppins-tools.ts';
 
 const IDLE_RAILS = `
@@ -33,6 +34,8 @@ export type BuildRealtimeSessionInput = {
   capabilityProfile?: string;
   softPromptMs?: number;
   idleHangupMs?: number;
+  /** Voice colour chosen on the wheel. Wins over the profile's own voice. */
+  voiceId?: string | null;
 };
 
 export function buildPoppinsRealtimeInstructions(input: BuildRealtimeSessionInput): string {
@@ -55,6 +58,7 @@ export function buildPoppinsRealtimeInstructions(input: BuildRealtimeSessionInpu
 
 export function buildPoppinsRealtimeSessionConfig(input: BuildRealtimeSessionInput) {
   const profile = getMajordomoProfile(input.profileId ?? 'poppins');
+  const voice = resolveRequestedVoice(input.voiceId) ?? profile.voice;
   const model = getOpenAIRealtimeModel();
   const instructions = buildPoppinsRealtimeInstructions(input);
   // Patient profiles: slightly less eager VAD / interrupt.
@@ -89,7 +93,7 @@ export function buildPoppinsRealtimeSessionConfig(input: BuildRealtimeSessionInp
         },
       },
       output: {
-        voice: profile.voice,
+        voice,
       },
     },
   };
@@ -98,7 +102,7 @@ export function buildPoppinsRealtimeSessionConfig(input: BuildRealtimeSessionInp
     session.reasoning = { effort: reasoningEffort };
   }
 
-  return { session, profile, model, instructions };
+  return { session, profile, model, instructions, voice };
 }
 
 /** Soft premium / trial gate for live duplex voice. */

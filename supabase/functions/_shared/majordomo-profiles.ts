@@ -15,6 +15,27 @@ export type MajordomoVoiceId =
   | 'shimmer'
   | 'alloy';
 
+/** Every voice the wheel can produce (lib/ai/poppins-voices). Anything else is ignored. */
+export const MAJORDOMO_VOICE_IDS: readonly MajordomoVoiceId[] = [
+  'coral',
+  'marin',
+  'cedar',
+  'ash',
+  'ballad',
+  'sage',
+  'verse',
+  'echo',
+  'shimmer',
+  'alloy',
+];
+
+/** The household's chosen voice colour, or null when the client sent something unknown. */
+export function resolveRequestedVoice(value: unknown): MajordomoVoiceId | null {
+  return typeof value === 'string' && MAJORDOMO_VOICE_IDS.includes(value as MajordomoVoiceId)
+    ? (value as MajordomoVoiceId)
+    : null;
+}
+
 export type MajordomoProfileId =
   | 'poppins'
   | 'steward'

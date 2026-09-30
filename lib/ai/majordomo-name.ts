@@ -1,21 +1,29 @@
-import { getMajordomoProfile, resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
+/**
+ * The assistant's name.
+ *
+ * There used to be characters — Steward, Intelligence, Wit — each with its own name, and copy
+ * was written with "Poppins" in it and then swapped. There is one assistant now and it is
+ * called Poppins, everywhere, for every household. What a household picked before survives
+ * only as a voice (lib/ai/poppins-voices bridges it), never as a name.
+ *
+ * `resolveMajordomoDisplayName` and `speakAs` are kept so the call sites don't all have to
+ * change at once; both now hand back the same name.
+ */
 
-/** Product default. User-facing copy is written with this name, then swapped. */
+/** The only name the assistant has. */
 export const MAJORDOMO_COPY_NAME = 'Poppins';
 
-export function resolveMajordomoDisplayName(options: {
+export function resolveMajordomoDisplayName(_options?: {
   householdProfileId?: string | null;
   memberProfileId?: string | null;
 }): string {
-  return getMajordomoProfile(resolveMajordomoProfileId(options)).displayName;
+  return MAJORDOMO_COPY_NAME;
 }
 
 /**
- * Replace the default character name in a sentence.
- * "Open Poppins" with Steward becomes "Open Steward".
+ * Was: swap the default name for this household's character. Now a pass-through, because the
+ * name never changes. Left in place so copy written as "Open Poppins" keeps working.
  */
-export function speakAs(name: string, copy: string): string {
-  const speaker = name.trim() || MAJORDOMO_COPY_NAME;
-  if (speaker === MAJORDOMO_COPY_NAME) return copy;
-  return copy.split(MAJORDOMO_COPY_NAME).join(speaker);
+export function speakAs(_name: string, copy: string): string {
+  return copy;
 }

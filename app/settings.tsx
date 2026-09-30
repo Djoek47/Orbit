@@ -3,7 +3,7 @@ import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, Image, Linking, Modal, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Alert, AppState, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -20,9 +20,7 @@ import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { ProfileInviteSheet } from '@/components/orbit/profile-invite-sheet';
 import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
-import { MajordomoProfileSheet } from '@/components/orbit/majordomo-profile-sheet';
-import { PoppinsAdvancedSheet } from '@/components/orbit/poppins-advanced-sheet';
-import { PoppinsModeCards } from '@/components/orbit/poppins-mode-cards';
+import { PoppinsSettingsPanel } from '@/components/orbit/poppins/poppins-settings-panel';
 import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { speakAs } from '@/lib/ai/majordomo-name';
 import {
@@ -42,11 +40,9 @@ import { VOCAB } from '@/constants/vocabulary';
 import {
   DEFAULT_POPPINS_INTERACTION_PREFS,
   loadPoppinsInteractionPrefs,
-  prefsForTier,
   savePoppinsInteractionPrefs,
   type PoppinsInteractionPrefs,
 } from '@/lib/poppins/poppins-prefs';
-import { TOKEN_WEIGHT_SPEAK_BACK } from '@/constants/poppins-ai-rates';
 import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { memberUsesProfileInvite } from '@/lib/household/member-invite-routing';
@@ -102,18 +98,14 @@ import { SidekickPermissionsPanel } from '@/components/orbit/settings/sidekick-p
 import { applyGroceryPermissionMerge } from '@/lib/household/migrate-grocery-permission';
 import { useMembersLiveRefresh } from '@/lib/refresh/use-members-live-refresh';
 import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
-import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
+import { SettingsGroup, SettingsNavRow } from '@/components/orbit/settings/grouped';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { chaptersForTour } from '@/lib/tour/tour-steps';
 import { resolveTourId } from '@/lib/tour/tour-conditions';
 import { isTourEnabledSync } from '@/lib/tour/tour-enabled';
 import {
-  POPPINS_PAUSED_COPY,
-  TOKENS_PER_DAY,
-  TOKENS_PER_MONTH,
   meterCaption,
-  meterNearCap,
 } from '@/lib/ai/credits';
 import { personalActTokens, summarizeActUsage } from '@/lib/ai/act-events';
 
@@ -170,8 +162,6 @@ export default function SettingsScreen() {
     updatePalette,
     updateMemberAvatar,
     updateNotificationPrefs,
-    updateMajordomoProfile,
-    updateMemberMajordomoProfile,
     updateMemberCapabilities,
     updateSidekickGroceryAdd,
     updateSidekickPoppinsAi,
@@ -290,15 +280,12 @@ export default function SettingsScreen() {
   >(null);
   const [householdSwitchOpen, setHouseholdSwitchOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
-  const [majordomoOpen, setMajordomoOpen] = useState(false);
-  const [poppinsAdvancedOpen, setPoppinsAdvancedOpen] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
   const [settingsToggleBusy, setSettingsToggleBusy] = useState(false);
   const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [poppinsPrefs, setPoppinsPrefs] = useState<PoppinsInteractionPrefs>(
     DEFAULT_POPPINS_INTERACTION_PREFS
   );
-  const [howActionsOpen, setHowActionsOpen] = useState(false);
   const [lastAppError, setLastAppError] = useState<LastAppError | null>(null);
   const poppinsPrefsReadOnly = !permissions.canManageHousehold;
 
@@ -1124,111 +1111,25 @@ export default function SettingsScreen() {
         ) : null}
 
         {section === 'poppins' ? (
-          <>
-            <PoppinsModeCards
-              prefs={poppinsPrefs}
-              accent={accentTheme.primary}
-              disabled={poppinsPrefsReadOnly}
-              onSelectTier={(tier) => {
-                if (poppinsPrefsReadOnly) return;
-                void updatePoppinsPrefs(prefsForTier(tier, poppinsPrefs));
-              }}
-            />
-            {poppinsPrefsReadOnly ? (
-              <Text style={[styles.caption, { color: orbitPalette.textMuted, marginTop: 8 }]}>
-                {speakAs(majordomo.displayName, 'Only an admin can change how Poppins acts for this household.')}
-              </Text>
-            ) : null}
-            <SettingsGroup>
-              <SettingsNavRow
-                icon="tune"
-                iconColor={c.textMuted}
-                label="Advanced"
-                subtitle="Confirm time, undo, thinking, written replies, notifications."
-                last
-                onPress={() => setPoppinsAdvancedOpen(true)}
-              />
-            </SettingsGroup>
-            <SettingsGroup>
-              <SettingsNavRow
-                icon="info-outline"
-                iconColor={c.textMuted}
-                label="How actions work"
-                last
-                onPress={() => setHowActionsOpen(true)}
-              />
-            </SettingsGroup>
-            {permissions.canManageHousehold ? (
-              <SettingsGroup footer={speakAs(majordomo.displayName, 'Sidekicks stay off Poppins until you turn this on.')}>
-                <SettingsToggleRow
-                  label="Allow Sidekick AI"
-                  subtitle={speakAs(majordomo.displayName, 'Shows the Poppins tab for children / Sidekicks so they can Speak.')}
-                  value={household.sidekickPoppinsAi === true}
-                  disabled={settingsToggleBusy}
-                  last
-                  onValueChange={(value) => {
-                    guardSettingsToggle(() => updateSidekickPoppinsAi(value));
-                  }}
-                />
-              </SettingsGroup>
-            ) : null}
-            <SettingsGroup footer="Voice and personality for this household.">
-              <SettingsNavRow
-                icon="record-voice-over"
-                iconColor={majordomo.accent}
-                label="Voice"
-                value={`${majordomo.displayName}`}
-                last
-                onPress={() => setMajordomoOpen(true)}
-              />
-            </SettingsGroup>
-            <SectionCard title={aiSummary.tripped ? 'Speak paused' : 'This month'}>
-              <Text
-                style={[
-                  styles.nameText,
-                  {
-                    color: meterNearCap(aiSummary) || aiSummary.tripped ? accentTheme.primary : c.text,
-                  },
-                ]}>
-                {permissions.canManageHousehold
-                  ? `${aiSummary.tokensUsedThisPeriod} of ${TOKENS_PER_MONTH}`
-                  : `${personalActTokens(aiSummary, currentMember?.id)} of ${TOKENS_PER_DAY} today`}
-              </Text>
-              <Text style={[styles.caption, { color: c.textMuted }]}>
-                {aiSummary.tripped
-                  ? POPPINS_PAUSED_COPY
-                  : permissions.canManageHousehold
-                    ? `${aiSummary.tokensUsedToday} today · resets ${new Date(aiSummary.periodResetsAt).toLocaleDateString()}${
-                        aiSummary.topUpBalance ? ` · ${aiSummary.topUpBalance} top-up` : ''
-                      }`
-                    : 'Your daily actions. Household totals are admin-only.'}
-              </Text>
-              {(permissions.canManageHousehold
-                ? aiSummary.byMember
-                : aiSummary.byMember.filter((row) => row.memberId === currentMember?.id)
-              ).map((row) => (
-                <View key={row.memberId} style={styles.rowBetween}>
-                  <Text style={[styles.memberName, { color: c.text }]}>{row.name}</Text>
-                  <Text style={[styles.caption, { color: c.textMuted }]}>
-                    {row.tokens} actions
-                    {row.events ? ` · ${row.events}` : ''}
-                  </Text>
-                </View>
-              ))}
-              {permissions.canManageHousehold ? (
-                <Pressable
-                  onPress={() =>
-                    router.push({ pathname: '/premium', params: { source: 'settings' } } as never)
-                  }
-                  hitSlop={8}
-                  style={{ marginTop: 10 }}>
-                  <Text style={[styles.caption, { color: accentTheme.primary, fontWeight: '600' }]}>
-                    Buy more actions
-                  </Text>
-                </Pressable>
-              ) : null}
-            </SectionCard>
-          </>
+          <PoppinsSettingsPanel
+            prefs={poppinsPrefs}
+            legacyProfileId={household.majordomoProfileId ?? currentMember?.majordomoProfileId}
+            readOnly={poppinsPrefsReadOnly}
+            isAdmin={permissions.canManageHousehold}
+            usage={{
+              used: permissions.canManageHousehold
+                ? aiSummary.tokensUsedThisPeriod
+                : personalActTokens(aiSummary, currentMember?.id),
+              remaining: aiSummary.tokensRemaining,
+              topUp: aiSummary.topUpBalance,
+              resetsAt: aiSummary.periodResetsAt,
+              paused: aiSummary.tripped,
+            }}
+            onPrefs={(next) => {
+              if (poppinsPrefsReadOnly) return;
+              void updatePoppinsPrefs(next);
+            }}
+          />
         ) : null}
 
         {section === 'premium' ? (
@@ -1421,75 +1322,6 @@ export default function SettingsScreen() {
       onSelect={async (avatar) => {
         if (!personalizeMember) return;
         await updateMemberAvatar(personalizeMember.id, avatar);
-      }}
-    />
-    <Modal
-      visible={howActionsOpen}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setHowActionsOpen(false)}>
-      <Pressable
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
-        onPress={() => setHowActionsOpen(false)}>
-        <Pressable
-          onPress={(e) => e.stopPropagation()}
-          style={{
-            backgroundColor: isDark ? '#1A1A1E' : '#FFFFFF',
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            padding: 24,
-            paddingBottom: Math.max(insets.bottom, 24),
-            gap: 12,
-          }}>
-          <Text style={[styles.nameText, { color: c.text }]}>How actions work</Text>
-          <Text style={[styles.caption, { color: c.textMuted, lineHeight: 20 }]}>
-            {speakAs(
-              majordomo.displayName,
-              'Every time Poppins saves something for you — a task, a grocery, an event — it uses an action.'
-            )}
-          </Text>
-          <Text style={[styles.caption, { color: c.textMuted, lineHeight: 20 }]}>
-            {speakAs(majordomo.displayName, 'Quiet Poppins uses 1 action.')} Speak back uses about{' '}
-            {TOKEN_WEIGHT_SPEAK_BACK}, because talking back costs more to run.
-          </Text>
-          <Text style={[styles.caption, { color: c.textMuted, lineHeight: 20 }]}>
-            {speakAs(majordomo.displayName, 'The less Poppins talks, the more actions you have.')}
-          </Text>
-          <Text style={[styles.caption, { color: c.textMuted, lineHeight: 20 }]}>
-            You have {TOKENS_PER_MONTH} actions a month, and they reset on{' '}
-            {new Date(aiSummary.periodResetsAt).toLocaleDateString()}. Typing works the same as
-            speaking.
-          </Text>
-          <Pressable
-            onPress={() => setHowActionsOpen(false)}
-            style={{
-              marginTop: 8,
-              alignSelf: 'flex-end',
-              paddingVertical: 10,
-              paddingHorizontal: 16,
-            }}>
-            <Text style={{ color: accentTheme.primary, fontWeight: '600' }}>Close</Text>
-          </Pressable>
-        </Pressable>
-      </Pressable>
-    </Modal>
-    <MajordomoProfileSheet
-      visible={majordomoOpen}
-      onDismiss={() => setMajordomoOpen(false)}
-      householdProfileId={household.majordomoProfileId}
-      memberProfileId={currentMember?.majordomoProfileId}
-      memberName={currentMember?.name}
-      canManageHousehold={permissions.canManageHousehold}
-      onSelectHousehold={(id) => updateMajordomoProfile(id)}
-      onSelectPersonal={(id) => updateMemberMajordomoProfile(id)}
-    />
-    <PoppinsAdvancedSheet
-      visible={poppinsAdvancedOpen}
-      prefs={poppinsPrefs}
-      disabled={poppinsPrefsReadOnly}
-      onDismiss={() => setPoppinsAdvancedOpen(false)}
-      onChange={(next) => {
-        void updatePoppinsPrefs(next);
       }}
     />
     <DeadlinePickerSheet

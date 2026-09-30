@@ -13,6 +13,8 @@ let sessionShowThinking = true;
 let sessionWrittenReplies = true;
 let sessionNotificationActions = true;
 let sessionSelfName = '';
+/** The voice colour this household chose. Read when a spoken session is minted. */
+let sessionVoiceId = '';
 
 export function setSessionSelfName(name: string | null | undefined) {
   sessionSelfName = name?.trim() ?? '';
@@ -20,6 +22,14 @@ export function setSessionSelfName(name: string | null | undefined) {
 
 export function getSessionSelfName(): string {
   return sessionSelfName;
+}
+
+export function setSessionVoiceId(voiceId: string | null | undefined) {
+  sessionVoiceId = voiceId?.trim() ?? '';
+}
+
+export function getSessionVoiceId(): string {
+  return sessionVoiceId;
 }
 
 export function setSessionActMode(mode: SessionActMode) {

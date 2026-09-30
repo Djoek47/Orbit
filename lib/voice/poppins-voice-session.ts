@@ -13,6 +13,7 @@
 import { AppState, type AppStateStatus, Platform } from 'react-native';
 
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
+import { getSessionVoiceId } from '@/lib/poppins/session-act-mode';
 import { resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
 import { orderPoppinsToolCalls, type PoppinsToolName } from '@/lib/ai/poppins-tools';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -526,6 +527,9 @@ export class PoppinsVoiceSession {
       const sessionPayload = {
         householdId: household.id,
         majordomoProfileId,
+        // The voice colour this household chose on the wheel; the edge prefers it over
+        // whatever voice a legacy character carried.
+        voiceId: getSessionVoiceId() || undefined,
         householdContext: buildPoppinsHouseholdPayload(household, metrics, [], {
           memberProfileId,
           memoryHint: this.memoryHint,

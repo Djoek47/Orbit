@@ -11,7 +11,11 @@ import {
 } from '@/lib/ai/poppins-mode';
 import type { PoppinsActMode } from '@/lib/ai/credits';
 import { TOKEN_WEIGHT_QUIET, TOKEN_WEIGHT_SPEAK_BACK } from '@/constants/poppins-ai-rates';
-import { setSessionActMode, setSessionInteractionPrefs } from '@/lib/poppins/session-act-mode';
+import {
+  setSessionActMode,
+  setSessionInteractionPrefs,
+  setSessionVoiceId,
+} from '@/lib/poppins/session-act-mode';
 
 export type PoppinsConfirmTime = 'quick' | 'normal' | 'relaxed';
 export type PoppinsUndoWindowSec = 5 | 10 | 15;
@@ -19,6 +23,12 @@ export type PoppinsUndoWindowSec = 5 | 10 | 15;
 export type PoppinsInteractionPrefs = {
   /** Speak back on → spoken Realtime; off → Quiet (silent). */
   speakBack: boolean;
+  /**
+   * How Poppins sounds, chosen as a colour on the wheel (lib/ai/poppins-voices).
+   * Undefined on households that never chose, and on ones still carrying a legacy
+   * character — `resolvePoppinsVoice` bridges both.
+   */
+  voiceId?: string;
   /** Act immediately → Direct control (skip HOLD when slots filled). */
   actImmediately: boolean;
   confirmTime: PoppinsConfirmTime;
@@ -103,6 +113,7 @@ export function modeFromSpeakBack(speakBack: boolean): PoppinsActMode {
 
 export function applyPoppinsPrefsToSession(prefs: PoppinsInteractionPrefs): void {
   setSessionActMode(modeFromSpeakBack(prefs.speakBack));
+  setSessionVoiceId(prefs.voiceId);
   setSessionInteractionPrefs({
     actImmediately: prefs.actImmediately,
     undoWindowSec: prefs.undoWindowSec,

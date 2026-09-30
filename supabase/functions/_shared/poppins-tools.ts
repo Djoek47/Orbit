@@ -7,6 +7,8 @@ export {
   resolveMajordomoProfileId,
   DEFAULT_MAJORDOMO_PROFILE_ID,
   MAJORDOMO_PROFILES,
+  MAJORDOMO_VOICE_IDS,
+  resolveRequestedVoice,
 } from './majordomo-profiles.ts';
 
 export type PoppinsToolName =

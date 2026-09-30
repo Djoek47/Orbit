@@ -11,6 +11,7 @@ import {
   buildMajordomoSystemPrompt,
   getMajordomoProfile,
   poppinsToolsAsRealtimeTools,
+  resolveRequestedVoice,
 } from '../_shared/poppins-tools.ts';
 import { recordAiUsageEvent } from '../_shared/ai-usage.ts';
 
@@ -28,6 +29,8 @@ Deno.serve(async (req) => {
       (body.householdContext?.majordomoProfileId as string | undefined) ??
       'poppins';
     const profile = getMajordomoProfile(profileId);
+    // The voice colour chosen on the wheel wins over whatever voice a legacy character had.
+    const voice = resolveRequestedVoice(body.voiceId) ?? profile.voice;
     const deskHint = body.householdContext?.desk
       ? ` Desk brief: ${JSON.stringify(body.householdContext.desk).slice(0, 2000)}.`
       : '';
@@ -68,7 +71,7 @@ Deno.serve(async (req) => {
           tools: poppinsToolsAsRealtimeTools(),
           tool_choice: 'auto',
           audio: {
-            output: { voice: profile.voice },
+            output: { voice },
           },
           reasoning: { effort: 'low' },
         },
@@ -129,7 +132,7 @@ Deno.serve(async (req) => {
       clientSecret,
       model,
       expiresAt,
-      voice: profile.voice,
+      voice,
       majordomoProfileId: profile.id,
       displayName: profile.displayName,
     });

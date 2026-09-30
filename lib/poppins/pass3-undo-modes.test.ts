@@ -78,24 +78,43 @@ async function main() {
     assert.match(commit, /reverse:/);
     assert.match(commit, /entityId/);
 
+    // Settings → Poppins is one panel now: no character sheet, no Advanced bottom sheet.
     const settings = readFileSync(join(root, 'app/settings.tsx'), 'utf8');
-    assert.match(settings, /PoppinsModeCards/);
-    assert.match(settings, /PoppinsAdvancedSheet/);
-    const cards = readFileSync(join(root, 'components/orbit/poppins-mode-cards.tsx'), 'utf8');
-    assert.match(cards, /title: 'Base'/);
-    assert.match(cards, /title: 'Max'/);
-    const advanced = readFileSync(join(root, 'components/orbit/poppins-advanced-sheet.tsx'), 'utf8');
+    assert.match(settings, /PoppinsSettingsPanel/);
+    assert.ok(!/MajordomoProfileSheet/.test(settings), 'the character sheet is gone');
+    assert.ok(!/PoppinsAdvancedSheet/.test(settings), 'Advanced is a screen, not a sheet');
+
+    const panelFile = readFileSync(
+      join(root, 'components/orbit/poppins/poppins-settings-panel.tsx'),
+      'utf8'
+    );
+    assert.match(panelFile, /PoppinsTierCards/);
+    assert.match(panelFile, /VoiceWheel/);
+    assert.match(panelFile, /poppins-advanced/);
+    assert.match(panelFile, /poppins-credits/);
+    assert.match(panelFile, /poppins-how-it-works/);
+
+    const tiers = readFileSync(join(root, 'components/orbit/poppins/tier-cards.tsx'), 'utf8');
+    assert.match(tiers, /Poppins Base/);
+    assert.match(tiers, /Poppins Max/);
+    assert.match(tiers, /Writes it down/);
+    assert.match(tiers, /Talks with you/);
+
+    const advanced = readFileSync(join(root, 'app/poppins-advanced.tsx'), 'utf8');
     assert.match(advanced, /Act immediately/);
     assert.match(advanced, /Show thinking/);
+    assert.match(advanced, /Allow Sidekick AI/);
+    assert.match(advanced, /ScrollView/, 'a screen that scrolls, not a sheet that overshoots');
 
     const welcome = readFileSync(join(root, 'app/welcome.tsx'), 'utf8');
     assert.match(welcome, /poppins-voice/);
-    assert.match(welcome, /Set up \{getMajordomoProfile/);
+    assert.match(welcome, /Set up Poppins/);
     assert.match(welcome, /PoppinsSetupPanel/);
 
     const panel = readFileSync(join(root, 'components/orbit/onboarding/poppins-setup-panel.tsx'), 'utf8');
-    assert.match(panel, /PoppinsModeCards/);
-    assert.match(panel, /Advanced/);
+    assert.match(panel, /PoppinsTierCards/);
+    assert.match(panel, /VoiceWheel/);
+    assert.ok(!/MAJORDOMO_PROFILES/.test(panel), 'onboarding no longer offers characters');
   }
 
   console.log('PASS pass3 undo + modes');
