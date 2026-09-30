@@ -143,6 +143,19 @@ export function isMainAppPath(pathname: string | null | undefined): boolean {
   return MAIN_TAB_PATHS.has(pathname ?? '');
 }
 
+/**
+ * The demonstrations a step's primary button can open. Each is a screen of its own that draws
+ * mock windows — nothing on these routes touches the household.
+ */
+const DEMO_ROUTES: Partial<Record<NonNullable<TourStep['primaryAction']>, string>> = {
+  open_proof_walkthrough: '/tour/proof-walkthrough?kind=chore',
+  open_homework_walkthrough: '/tour/proof-walkthrough?kind=homework',
+  open_mock_assign: '/tour/mock-flow?flow=assign',
+  open_mock_homework: '/tour/mock-flow?flow=homework',
+  open_mock_sidekick: '/tour/mock-flow?flow=sidekick',
+  open_poppins_demo: '/poppins-how-it-works',
+};
+
 export function TourProvider({ children }: PropsWithChildren) {
   const majordomoName = useMajordomoName();
   const orbit = useOrbitOptional();
@@ -358,6 +371,8 @@ export function TourProvider({ children }: PropsWithChildren) {
   const actionStep = isTourActionStep(activeStep?.step);
   const actionStepRef = useRef(actionStep);
   actionStepRef.current = actionStep;
+  const activeStepIdRef = useRef(activeStep?.step.id);
+  activeStepIdRef.current = activeStep?.step.id;
 
   const pointer = activeStep && (!paused || Boolean(adHoc)) ? activeStep : null;
   pointerRef.current = pointer;
@@ -381,6 +396,14 @@ export function TourProvider({ children }: PropsWithChildren) {
         return;
       }
       const live = poppinsUiOrchestrator.getState().live;
+      // A live stage used to pause a plain "read this" step, which hid the card and left the
+      // person with no way on — the tour looked broken. A step that only wants to be read asks
+      // the stage to stand down instead of disappearing behind it.
+      if (live && !actionStepRef.current && activeStepIdRef.current?.startsWith('poppins.')) {
+        poppinsUiOrchestrator.pause();
+        setPaused(false);
+        return;
+      }
       setPaused(
         shouldPauseTour({
           actionStep: actionStepRef.current,
@@ -870,21 +893,17 @@ export function TourProvider({ children }: PropsWithChildren) {
     }
     if (!tourState) return;
     const ptr = pointerRef.current;
-    // The proof playlet runs on its own screen; the tour steps aside and picks up after.
-    if (
-      ptr?.step.primaryAction === 'open_proof_walkthrough' ||
-      ptr?.step.primaryAction === 'open_homework_walkthrough'
-    ) {
-      const kind = ptr.step.primaryAction === 'open_homework_walkthrough' ? 'homework' : 'chore';
+    // Every demonstration plays on its own screen, drawn rather than driving the real app, so
+    // two screens can never end up stacked. The tour steps aside and picks up after.
+    const demoRoute = ptr?.step.primaryAction ? DEMO_ROUTES[ptr.step.primaryAction] : undefined;
+    if (demoRoute) {
       const next = advanceAfterStep(tourState, conditionCtx);
       void persist(next);
       if (next.status === 'completed') setSessionActive(false);
       try {
-        if (navRef.isReady()) {
-          router.push(`/tour/proof-walkthrough?kind=${kind}` as never);
-        }
+        if (navRef.isReady()) router.push(demoRoute as never);
       } catch (error) {
-        console.warn('tour.open_proof_walkthrough', error);
+        console.warn('tour.open_demo', ptr?.step.primaryAction, error);
       }
       return;
     }

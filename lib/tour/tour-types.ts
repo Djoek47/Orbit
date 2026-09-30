@@ -98,7 +98,18 @@ export type TourStep = {
   /** Override primary button label (default Next / Done). */
   primaryLabel?: string;
   /** Special primary action instead of advancing. */
-  primaryAction?: 'open_settings' | 'open_proof_walkthrough' | 'open_homework_walkthrough';
+  /**
+   * What the primary button does instead of just advancing. The `open_*` demos all play on
+   * their own screen, drawn rather than driving the real app, and the tour picks up after.
+   */
+  primaryAction?:
+    | 'open_settings'
+    | 'open_proof_walkthrough'
+    | 'open_homework_walkthrough'
+    | 'open_mock_assign'
+    | 'open_mock_homework'
+    | 'open_mock_sidekick'
+    | 'open_poppins_demo';
 };
 
 export type TourChapter = {

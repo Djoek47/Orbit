@@ -90,3 +90,53 @@ export function isTourCardOnScreen(input: {
   const maxBottom = input.screen.h - input.insets.bottom - EDGE;
   return input.top >= minTop - 1 && input.top + input.cardHeight <= maxBottom + 1;
 }
+
+// ── Exit pill ─────────────────────────────────────────────────────────────────
+
+export type ExitPillPlacement = {
+  /** Which side of the screen the pill sits on. */
+  side: 'left' | 'right';
+  /** Distance from the top of the screen. */
+  top: number;
+};
+
+/** Roughly how much room the pill needs. */
+const EXIT_PILL_W = 108;
+const EXIT_PILL_H = 40;
+const EXIT_CLEARANCE = 10;
+
+/**
+ * Where the Exit pill can sit without covering the thing the tour is pointing at.
+ *
+ * It used to sit top-right always, which is exactly where the Settings button is — so the step
+ * that says "Settings lives here" hid it behind the way out. Now the pill moves: to the other
+ * corner when the target is up there, and below the target when it spans the width.
+ */
+export function placeExitPill(input: {
+  target: TourRect | null;
+  screen: { w: number; h: number };
+  insets: { top: number };
+}): ExitPillPlacement {
+  const top = input.insets.top + 8;
+  const fallback: ExitPillPlacement = { side: 'right', top };
+  const { target } = input;
+  if (!target) return fallback;
+
+  // Does the target share the pill's band of the screen at all?
+  const pillBottom = top + EXIT_PILL_H;
+  const sharesBand = target.y < pillBottom + EXIT_CLEARANCE && target.y + target.height > top - EXIT_CLEARANCE;
+  if (!sharesBand) return fallback;
+
+  // Right corner is taken — is the left one free?
+  const targetLeft = target.x;
+  const rightFree = targetLeft > input.screen.w - EXIT_PILL_W - EXIT_CLEARANCE * 2;
+  if (rightFree) return fallback;
+  const leftFree = target.x + target.width < EXIT_PILL_W + EXIT_CLEARANCE * 2;
+  if (leftFree) return { side: 'right', top };
+  if (targetLeft > EXIT_PILL_W + EXIT_CLEARANCE * 2) return { side: 'left', top };
+
+  // The target spans the width: drop below it, still inside the screen.
+  const below = target.y + target.height + EXIT_CLEARANCE;
+  const maxTop = Math.max(top, input.screen.h - EXIT_PILL_H - EXIT_CLEARANCE);
+  return { side: 'right', top: Math.min(below, maxTop) };
+}

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { isTourCardOnScreen, placeTourCard } from '@/lib/tour/tour-layout';
+import { isTourCardOnScreen, placeExitPill, placeTourCard } from '@/lib/tour/tour-layout';
 
 const SCREENS = [
   { w: 375, h: 667, insets: { top: 20, bottom: 0 } },
@@ -123,3 +123,58 @@ describe('placeTourCard', () => {
     );
   });
 });
+
+// ── Exit pill never covers what the tour is pointing at ───────────────────────
+{
+  const screen = { w: 390, h: 844 };
+  const insets = { top: 47 };
+  const home = placeExitPill({ target: null, screen, insets });
+  assert.equal(home.side, 'right', 'with nothing highlighted it sits where it always did');
+  assert.equal(home.top, 55);
+
+  // A target well down the page leaves the corner alone.
+  const lowTarget = placeExitPill({
+    target: { x: 16, y: 400, width: 358, height: 80 },
+    screen,
+    insets,
+  });
+  assert.deepEqual(lowTarget, { side: 'right', top: 55 });
+
+  // The Settings button: top-right, small. The pill flips to the left.
+  const settings = placeExitPill({
+    target: { x: 250, y: 44, width: 96, height: 34 },
+    screen,
+    insets,
+  });
+  assert.equal(settings.side, 'left', 'the way out never hides behind the button it points at');
+  assert.equal(settings.top, 55);
+
+  // Something top-LEFT (a greeting, a back chevron) leaves the right corner free.
+  const topLeft = placeExitPill({
+    target: { x: 12, y: 44, width: 70, height: 34 },
+    screen,
+    insets,
+  });
+  assert.equal(topLeft.side, 'right');
+
+  // A full-width header: no corner is free, so the pill drops below it.
+  const banner = placeExitPill({
+    target: { x: 0, y: 40, width: 390, height: 70 },
+    screen,
+    insets,
+  });
+  assert.equal(banner.side, 'right');
+  assert.ok(banner.top >= 110 + 10 - 1, `dropped below the banner, got ${banner.top}`);
+  assert.ok(banner.top + 40 <= screen.h, 'and still on screen');
+
+  // A target that fills the screen can't push the pill off the bottom.
+  const huge = placeExitPill({
+    target: { x: 0, y: 0, width: 390, height: 844 },
+    screen,
+    insets,
+  });
+  assert.ok(huge.top + 40 <= screen.h, 'clamped inside the screen');
+  assert.ok(huge.top >= 55, 'never above the safe area');
+}
+
+console.log('tour-layout: exit pill ok');

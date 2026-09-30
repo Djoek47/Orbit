@@ -25,7 +25,7 @@ import { FullWindowOverlay } from 'react-native-screens';
 
 import { TourCard } from '@/components/orbit/tour/tour-card';
 import { AppText as Text } from '@/components/orbit/app-text';
-import { isTourCardOnScreen, placeTourCard } from '@/lib/tour/tour-layout';
+import { isTourCardOnScreen, placeExitPill, placeTourCard } from '@/lib/tour/tour-layout';
 import type { TourRect } from '@/lib/tour/tour-types';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
@@ -98,6 +98,11 @@ function TourOverlayBody({
   const { width: screenW, height: screenH } = useWindowDimensions();
   const [reduceMotion, setReduceMotion] = useState(false);
   const [cardHeight, setCardHeight] = useState(0);
+  const exitPlacement = placeExitPill({
+    target,
+    screen: { w: screenW, h: screenH },
+    insets: { top: insets.top },
+  });
   const [cardVisible, setCardVisible] = useState(false);
   const watchdogFired = useRef(false);
   const stepKey = `${chapterName}:${title}:${stepIndex}`;
@@ -384,10 +389,14 @@ function TourOverlayBody({
         ) : null}
       </Animated.View>
 
-      {/* Exit last + highest zIndex so the card never steals its taps. */}
+      {/* Exit last + highest zIndex so the card never steals its taps. It also moves out of the
+          way of whatever is highlighted — it used to sit on top of the Settings button. */}
       <View
         pointerEvents="box-none"
-        style={[styles.exitBar, { top: insets.top + 8 }]}>
+        style={[
+          styles.exitBar,
+          { top: exitPlacement.top, alignItems: exitPlacement.side === 'left' ? 'flex-start' : 'flex-end' },
+        ]}>
         <Pressable
           onPress={onClose}
           hitSlop={16}
@@ -395,6 +404,7 @@ function TourOverlayBody({
           accessibilityLabel={closeLabel ?? 'Exit tour'}
           style={({ pressed }) => [
             styles.exitPill,
+            exitPlacement.side === 'left' ? styles.exitPillLeft : null,
             {
               backgroundColor: exitBg,
               borderColor: exitBg,
@@ -449,9 +459,9 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 40,
   },
+  exitPillLeft: { marginLeft: 16, marginRight: 0 },
   exitPill: {
     alignItems: 'center',
-    alignSelf: 'flex-end',
     borderCurve: 'continuous',
     borderRadius: radius.full,
     borderWidth: StyleSheet.hairlineWidth,

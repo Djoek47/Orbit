@@ -41,32 +41,22 @@ assert.equal(
 let state = startTourState('admin');
 state = { ...state, chapterId: 'tasks', stepIndex: 1 }; // tasks.assign
 assert.equal(resolveActivePointer(state, ctx)?.step.id, 'tasks.assign');
-assert.equal(resolveActivePointer(state, ctx)?.step.advance.kind, 'action');
+assert.equal(resolveActivePointer(state, ctx)?.step.advance.kind, 'next');
 
-// Opening Assign must advance even if the overlay pointer is paused/hidden.
-const afterAssignOpen = advanceAfterStep(state, ctx);
-assert.equal(resolveActivePointer(afterAssignOpen, ctx)?.step.id, 'tasks.form');
-assert.equal(resolveActivePointer(afterAssignOpen, ctx)?.step.advance.kind, 'event');
+// Assign is shown on a mock window now: the step after it is the demo, not a real form.
+const afterAssign = advanceAfterStep(state, ctx);
+const demo = resolveActivePointer(afterAssign, ctx);
+assert.equal(demo?.step.id, 'tasks.assignDemo');
+assert.equal(demo?.step.primaryAction, 'open_mock_assign');
+assert.equal(resolveActivePointer(advanceAfterStep(afterAssign, ctx), ctx)?.step.id, 'tasks.hold');
 
-state = afterAssignOpen;
-const unsubForm = bindTourStepAdvance({
-  state,
-  ctx,
-  onAdvance: (next) => {
-    state = next;
-  },
-});
-emitTourEvent('task_created');
-assert.equal(resolveActivePointer(state, ctx)?.step.id, 'tasks.hold');
-unsubForm();
-
-// Poppins try step (mode card sits at index 1 after the itinerary tour pass)
-state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 2 };
+// Poppins try step (after tab, mode, demo and silence)
+state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 4 };
 assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.try');
 
 const backOne = retreatBeforeStep(state, ctx);
 assert.equal(backOne.chapterId, 'poppins');
-assert.equal(backOne.stepIndex, 1);
+assert.equal(backOne.stepIndex, 3);
 assert.equal(tourCanRetreat(state, ctx), true);
 const first = startTourState('admin');
 assert.equal(tourCanRetreat(first, ctx), false);
@@ -90,7 +80,7 @@ assert.equal(tourRouteMatches('/tasks', '/(tabs)/tasks'), true);
 assert.equal(tourRouteMatches('/(tabs)', '/(tabs)/tasks'), false);
 
 let paused = true;
-state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 2 };
+state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 4 };
 const unsub = bindTourStepAdvance({
   state,
   ctx,
@@ -99,12 +89,11 @@ const unsub = bindTourStepAdvance({
   },
 });
 
+// try is a plain next step now: a spoken turn must not skip past it.
 emitTourEvent('poppins_spoke');
-assert.notEqual(resolveActivePointer(state, ctx)?.step.id, 'poppins.try');
-paused = false;
-assert.equal(paused, false);
-assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.silence');
-assert.equal(resolveActivePointer(state, ctx)?.step.centered, true);
+assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.try');
+state = advanceAfterStep(state, ctx);
+assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.meter');
 unsub();
 
 console.log('tour-pause.test.ts ok');
